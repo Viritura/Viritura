@@ -1,0 +1,163 @@
+/* Slider — hairline groove + accent-tinted fill, slim vertical thumb.
+   Unipolar (default): fill paints from the left edge to the current
+   value. Bipolar (data-bipolar, set when `center` prop is provided):
+   fill paints outward from the `--center` detent so flat reads as
+   empty and ± departures fill toward their direction.
+
+   The fill region is driven by `--fill-start` / `--fill-end` (computed
+   in TS) so the gradient track works for both modes from a single
+   declaration. */
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  vertical-align: middle;
+  --fill: 0%;
+  --fill-start: 0%;
+  --fill-end: 0%;
+  --center: 0%;
+  --accent-color: rgba(var(--accent-rgb, 33, 94, 78), 0.85);
+  --track-bg: rgba(20, 20, 28, 0.08);
+  --tick-color: rgba(20, 20, 28, 0.28);
+}
+
+[data-theme="dark"] .slider,
+[data-theme="midnight"] .slider,
+[data-on-dark] .slider {
+  --track-bg: rgba(255, 255, 255, 0.1);
+  --tick-color: rgba(255, 255, 255, 0.35);
+}
+
+/* WebKit track — gradient paints the fill band between
+   --fill-start and --fill-end. */
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill, 999px);
+  background: linear-gradient(
+    to right,
+    var(--track-bg) 0%,
+    var(--track-bg) var(--fill-start),
+    var(--accent-color) var(--fill-start),
+    var(--accent-color) var(--fill-end),
+    var(--track-bg) var(--fill-end),
+    var(--track-bg) 100%
+  );
+}
+
+/* Bipolar center detent — 1px tick at center sits behind the fill so
+   it only shows when the fill recedes past center. */
+.slider[data-bipolar]::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(
+        to right,
+        transparent calc(var(--center) - 0.5px),
+        var(--tick-color) calc(var(--center) - 0.5px),
+        var(--tick-color) calc(var(--center) + 0.5px),
+        transparent calc(var(--center) + 0.5px)
+      )
+      no-repeat,
+    linear-gradient(
+      to right,
+      var(--track-bg) 0%,
+      var(--track-bg) var(--fill-start),
+      var(--accent-color) var(--fill-start),
+      var(--accent-color) var(--fill-end),
+      var(--track-bg) var(--fill-end),
+      var(--track-bg) 100%
+    );
+  background-size:
+    100% 8px,
+    100% 4px;
+  background-position:
+    0 -2px,
+    0 0;
+}
+
+/* WebKit thumb — slim vertical cap. */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 4px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 2px;
+  background: var(--accent-color);
+  border: none;
+  box-shadow: 0 1px 2px rgba(20, 20, 28, 0.25);
+  cursor: grab;
+  /* Hover scale + focus halo fade in. Width/height are excluded so the
+     thumb's hit target snaps under drag rather than easing. */
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.slider:hover::-webkit-slider-thumb {
+  transform: scaleY(1.15);
+}
+
+.slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  /* Snap to neutral while dragging so the cap reads as locked under the
+     pointer rather than chasing it. */
+  transform: none;
+}
+
+.slider:focus-visible {
+  outline: none;
+}
+
+.slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 1px 2px rgba(20, 20, 28, 0.25),
+    0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.3);
+}
+
+/* Firefox track + thumb. Firefox's ::-moz-range-progress only paints
+   from the left edge, so unipolar controls render correctly there but
+   bipolar fall back to a full accent track — acceptable degradation
+   since callers typically pair the slider with a numeric readout. */
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--track-bg);
+}
+
+.slider::-moz-range-progress {
+  height: 4px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--accent-color);
+}
+
+.slider::-moz-range-thumb {
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent-color);
+  border: none;
+  box-shadow: 0 1px 2px rgba(20, 20, 28, 0.25);
+  cursor: grab;
+  transition:
+    transform var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.slider:hover::-moz-range-thumb {
+  transform: scaleY(1.15);
+}
+
+.slider:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: none;
+}
+
+.slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 1px 2px rgba(20, 20, 28, 0.25),
+    0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.3);
+}

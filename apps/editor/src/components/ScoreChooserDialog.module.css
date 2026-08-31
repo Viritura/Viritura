@@ -1,0 +1,87 @@
+/* ScoreChooserDialog — list all .mnx files found in a picked folder. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 50vh;
+}
+
+.intro {
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: var(--space-1);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  box-shadow: var(--inset-soft);
+  min-height: 200px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.item:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.itemSelected {
+  composes: item;
+  background: var(--surface-hover);
+  box-shadow: var(--elevation-0);
+}
+
+.itemIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.itemName {
+  font-size: var(--type-body-size);
+  font-weight: var(--type-control-weight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemPath {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,136 @@
+/* ScoreSwitcher — visible workspace context, not an ordinary toolbar action. */
+
+.root {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  max-width: 300px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.28);
+  color: var(--text);
+  font-size: var(--type-small-size);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+[data-theme="dark"] .trigger,
+[data-theme="midnight"] .trigger {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.trigger:hover {
+  background: var(--surface-hover);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+}
+
+.trigger[data-state="open"] {
+  background: var(--surface-raised);
+  box-shadow: var(--inset-strong);
+}
+
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover {
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-2);
+  padding: 6px;
+  z-index: 60;
+}
+
+.searchWrap {
+  padding: 2px 2px 6px;
+}
+
+.list {
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+
+.group + .group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border, rgba(20, 20, 28, 0.08));
+}
+
+.groupLabel {
+  padding: 4px 8px 2px;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.check {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 10px 8px;
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+}
+
+.coachmark {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 59;
+  display: grid;
+  gap: 4px;
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.25);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-2);
+  color: var(--text);
+  font-size: var(--type-small-size);
+  line-height: 1.35;
+}
+
+.coachmark span {
+  color: var(--text-muted);
+}
+
+.coachmarkDismiss {
+  justify-self: end;
+  padding: 3px 7px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+  font: inherit;
+  font-weight: var(--type-control-weight);
+  cursor: pointer;
+}
+
+.coachmarkDismiss:hover {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+}
+
+.coachmarkDismiss:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

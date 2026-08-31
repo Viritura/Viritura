@@ -1,0 +1,93 @@
+/* Menu — dropdown menu system. Translucent floating-surface vocab. */
+
+/* Dropdown panel */
+.dropdown {
+  min-width: 220px;
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 28px rgba(20, 20, 28, 0.14);
+  padding: var(--space-1) 0;
+  z-index: 1000;
+  color: var(--text);
+  /* Portaled to <body>, which a modal Radix Dialog sets to
+   * `pointer-events: none`. Re-enable so the menu stays clickable when opened
+   * from inside a modal dialog. */
+  pointer-events: auto;
+}
+
+[data-theme="dark"] .dropdown,
+[data-theme="midnight"] .dropdown {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 30, 40, 0.85);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* Menu item */
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-3);
+  border: none;
+  background: transparent;
+  font-size: var(--type-small-size);
+  line-height: 22px;
+  text-align: left;
+  white-space: nowrap;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.menuItem:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.12);
+}
+
+.menuItem:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.shortcut {
+  margin-left: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}
+
+.submenuArrow {
+  margin-left: var(--space-4);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+}
+
+.separator {
+  height: 1px;
+  background: rgba(20, 20, 28, 0.08);
+  margin: var(--space-1) 0;
+}
+
+[data-theme="dark"] .separator,
+[data-theme="midnight"] .separator {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Submenu panel — same vocab as dropdown */
+.submenu {
+  min-width: 180px;
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 28px rgba(20, 20, 28, 0.14);
+  padding: var(--space-1) 0;
+  z-index: 1001;
+  color: var(--text);
+}
+
+[data-theme="dark"] .submenu,
+[data-theme="midnight"] .submenu {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 30, 40, 0.85);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}

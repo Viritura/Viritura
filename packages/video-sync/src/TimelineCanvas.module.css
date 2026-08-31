@@ -1,0 +1,25 @@
+/* TimelineCanvas — fills its container; the canvas backing store is sized in JS
+   to match the device pixel ratio, so CSS only controls the box. */
+
+.host {
+  --picture-waveform: #4f73a6;
+  --picture-region: #8061a8;
+
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+:global([data-theme="dark"]) .host {
+  --picture-waveform: #82a8dc;
+  --picture-region: #b89bd8;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none;
+}

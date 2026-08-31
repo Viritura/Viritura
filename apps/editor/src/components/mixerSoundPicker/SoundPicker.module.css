@@ -1,0 +1,5 @@
+.button {
+  min-height: 18px;
+  padding-block: 0;
+  font-size: var(--type-eyebrow-size);
+}

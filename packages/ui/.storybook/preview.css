@@ -1,0 +1,158 @@
+/*
+  Storybook-only preview chrome.
+
+  Paints the workspace "Editorial Cool" mesh gradient as the iframe
+  background so translucent surfaces (GlassCard, glass Select trigger,
+  PanelHeader, etc.) render against the same backdrop they live on in
+  the app. Mirrors `.workspace-bg` in
+  apps/editor/src/styles/workspaceChrome.css.
+
+  Imported from preview.ts AFTER reset.css so the cascade beats the
+  reset's `body { background: var(--bg) }`. Stories that need a flat
+  reference background can opt out via
+  `parameters: { backgroundOverride: "white" | "black" }`; the
+  preview-level decorator toggles `data-bg` on the iframe body.
+*/
+
+html,
+body,
+#storybook-root {
+  min-height: 100vh;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(33, 94, 78, 0.38), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(244, 200, 120, 0.32), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(95, 170, 220, 0.32), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(178, 140, 220, 0.3), transparent 55%),
+    linear-gradient(180deg, #e8ecef 0%, #dde2e7 100%);
+  background-attachment: fixed;
+}
+
+body[data-theme="dark"],
+body[data-theme="midnight"] {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(80, 120, 220, 0.5), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(170, 90, 180, 0.45), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(78, 200, 170, 0.4), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(220, 90, 110, 0.35), transparent 55%),
+    linear-gradient(180deg, #1c1c24 0%, #16161e 100%);
+  background-attachment: fixed;
+}
+
+body[data-bg="white"] {
+  background: #ffffff;
+}
+body[data-bg="black"] {
+  background: #0c0c10;
+}
+
+/*
+  Default glass frame for atomic-component stories.
+
+  Per the Material Tiers spec, atomic components (Button, Input, Select,
+  Chip, Tabs, ToggleGroup, Checkbox, Radio, Slider, FormField inputs,
+  ListRow, ActionTile, Menu items, etc.) live INSIDE a Tier-1 glass
+  surface in the real app — palettes, inspector panels, transport bar.
+  Showing them on the raw workspace gradient misrepresents the design:
+  they're not floating chrome, they're contents of a glass panel.
+
+  Stories opt INTO the canvas via `parameters: { surface: "canvas" }`
+  when they are the surface themselves (GlassCard, PanelHeader, Section,
+  Sphere, Logo, BrandLogo, StatusBar, Dialog). The decorator in
+  preview.ts toggles `data-surface` on the body so this rule applies.
+
+  Recipe mirrors `.panel` in
+  apps/editor/src/styles/workspaceChrome.css (Tier 1 glass panel).
+*/
+.sbGlassFrame {
+  display: inline-block;
+  max-width: calc(100vw - 4rem);
+  margin: 2rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 12px 32px rgba(20, 20, 28, 0.12);
+  /* min-width lets the contents read as panel-hosted contents rather
+     than as a tiny pill that's hugging a single chip — most palettes
+     in the editor are ≥ 240px wide. */
+  min-width: 240px;
+}
+
+body[data-theme="dark"] .sbGlassFrame,
+body[data-theme="midnight"] .sbGlassFrame {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(36, 36, 50, 0.82) 0%, rgba(22, 22, 34, 0.74) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/*
+  Chrome frame for components that live on Tier-2 chrome (menu bar,
+  activity bar, status bar, editing toolbar). Opaque `var(--surface)`,
+  no backdrop blur, no lit rim — chrome is edge-pinned and never has a
+  free top edge to catch overhead light. Pinned to the top of the
+  iframe so the component reads as part of a real chrome bar instead
+  of a floating chip.
+
+  Per the editor audit: DropdownButton, LongPressButton, Separator
+  live in `Toolbar.tsx` / menu bar (chrome). IconButton has chrome
+  usages too but its glass usages are equally common, so it stays on
+  the default glass surface and individual chrome-flavor stories can
+  override.
+*/
+.sbChromeFrame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  min-height: 2.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+
+body[data-theme="dark"] .sbChromeFrame,
+body[data-theme="midnight"] .sbChromeFrame {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/*
+  Modal-content frame for components that live INSIDE a Tier-4 dialog
+  (ActionTile, Radio, FormField step flows). Opaque `var(--surface-raised)`
+  with the same elevation-3 shadow + lit rim Dialog itself paints, so
+  the component reads as part of a real dialog body instead of floating
+  on the canvas. Dialog itself opts into `surface: "canvas"` because it
+  provides its own overlay + raised surface; this wrapper is for the
+  contents that the audit shows are only ever rendered inside dialogs.
+*/
+.sbModalFrame {
+  display: inline-block;
+  max-width: calc(100vw - 4rem);
+  margin: 2rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 16px 40px rgba(20, 20, 28, 0.18);
+  min-width: 320px;
+}
+
+body[data-theme="dark"] .sbModalFrame,
+body[data-theme="midnight"] .sbModalFrame {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 16px 40px rgba(0, 0, 0, 0.55);
+}

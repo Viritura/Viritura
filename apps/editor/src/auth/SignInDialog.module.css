@@ -1,0 +1,30 @@
+.body {
+  padding: 0;
+  overflow: visible;
+}
+
+.fieldAction,
+.accountLink {
+  color: var(--accent);
+  font-weight: var(--type-heading-weight);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footerPrompt {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  white-space: nowrap;
+}
+
+@media (max-width: 440px) {
+  .footerPrompt {
+    width: 100%;
+    margin-right: 0;
+  }
+}

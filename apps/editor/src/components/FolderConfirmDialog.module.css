@@ -1,0 +1,77 @@
+/* FolderConfirmDialog — choose how to open a folder without an existing git repo. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.intro {
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: var(--space-2);
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--elevation-0);
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--surface-hover);
+  box-shadow: var(--elevation-hover);
+  outline: none;
+}
+
+.optionRecommended {
+  composes: option;
+  color: var(--accent);
+  font-weight: var(--type-heading-weight);
+}
+
+.optionIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: currentColor;
+}
+
+.optionTextStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.optionTitle {
+  font-size: var(--type-body-size);
+  line-height: 1.2;
+}
+
+.optionHint {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  font-weight: var(--type-body-weight);
+  line-height: 1.35;
+}

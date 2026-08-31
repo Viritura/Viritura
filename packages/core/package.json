@@ -1,0 +1,34 @@
+{
+  "name": "@viritura/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./raw": {
+      "types": "./src/raw/index.ts",
+      "import": "./src/raw/index.ts"
+    },
+    "./raw-viritura": {
+      "types": "./src/raw/viritura.ts",
+      "import": "./src/raw/viritura.ts"
+    },
+    "./raw/mnx-schema.json": "./src/raw/mnx-schema.json"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "immer": "^11.1.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

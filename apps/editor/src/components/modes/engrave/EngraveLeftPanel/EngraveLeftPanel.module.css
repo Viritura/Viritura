@@ -1,0 +1,47 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.layouts {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.intro {
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: 1.45;
+}
+
+.selection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.selectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selectionHeader strong {
+  color: var(--text);
+  font-size: var(--type-control-size);
+}
+
+.selectionHeader span {
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.summary {
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}

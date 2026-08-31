@@ -1,0 +1,132 @@
+{
+  "mnx": {
+    "support": {
+      "useBeams": true
+    },
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "beams": [
+            {
+              "_c": "Note that ev2 (the grace note) isn't included in the beam.",
+              "events": [
+                "019e62f6-ceba-7625-93ee-51ffdbf9cc0b",
+                "019e62f6-ceba-7478-9bb5-dfe7eb1f135b",
+                "019e62f6-ceba-7af9-bc12-d6fc2ea67743",
+                "019e62f6-ceba-7164-bc92-b7ec744ac516"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-ceba-7625-93ee-51ffdbf9cc0b",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceba-73cf-803a-812a4a28a7ff",
+                  "type": "grace",
+                  "content": [
+                    {
+                      "duration": {
+                        "base": "eighth"
+                      },
+                      "notes": [
+                        {
+                          "pitch": {
+                            "octave": 4,
+                            "step": "B"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceba-7478-9bb5-dfe7eb1f135b",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceba-7af9-bc12-d6fc2ea67743",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceba-7164-bc92-b7ec744ac516",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "rest": {}
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

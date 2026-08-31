@@ -1,0 +1,221 @@
+.compact {
+  font-size: 0.95rem !important;
+  letter-spacing: -0.02em !important;
+  transform: none !important;
+}
+
+.grotesk,
+.scoreline,
+.ligature,
+.folio,
+.folioText,
+.folioHybrid,
+.editorial {
+  --favicon-ink: #edf5f1;
+}
+
+.grotesk {
+  color: #11372d;
+  background: #f1f4ef;
+}
+
+.groteskStage {
+  background: linear-gradient(90deg, transparent 0 74%, rgba(33, 94, 78, 0.12) 74% 74.15%, transparent 74.15%), #f1f4ef;
+}
+
+.groteskWordmark {
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3.8rem, 8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.055em;
+}
+
+.groteskMark {
+  color: #f1f4ef;
+  background: #215e4e;
+  border-radius: 0.18em;
+  font-family: "Anybody Viritura", sans-serif;
+  font-weight: 700;
+}
+
+.scoreline {
+  color: #163b32;
+  background: #f7f5ed;
+}
+
+.scorelineStage {
+  background: linear-gradient(transparent 49.5%, #215e4e 49.5% 50.5%, transparent 50.5%), #f7f5ed;
+}
+
+.scorelineWordmark {
+  position: relative;
+  padding: 0 0.12em;
+  background: #f7f5ed;
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3.8rem, 8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+
+.scorelineMark {
+  color: #215e4e;
+  background: #f7f5ed;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-family: "Anybody Viritura", sans-serif;
+  font-weight: 700;
+}
+
+.ligature {
+  color: #e8f4ef;
+  background: #245f50;
+}
+
+.ligatureStage {
+  background: radial-gradient(circle at 28% 62%, rgba(157, 228, 202, 0.18), transparent 30%), #245f50;
+}
+
+.ligatureWordmark {
+  font-family: "Bodoni Moda Viritura", serif;
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-style: italic;
+  font-weight: 600;
+  line-height: 0.86;
+  letter-spacing: -0.085em;
+  text-decoration: underline;
+  text-decoration-color: #82d5b6;
+  text-decoration-thickness: 0.04em;
+  text-underline-offset: 0.08em;
+}
+
+.ligatureMark {
+  border: 2px solid #82d5b6;
+  border-radius: 50% 50% 12% 50%;
+  font-family: "Bodoni Moda Viritura", serif;
+  font-style: italic;
+}
+
+.folio {
+  color: #15372f;
+  background: #f0eee4;
+}
+
+.folioStage {
+  background: linear-gradient(90deg, transparent 11%, rgba(33, 94, 78, 0.22) 11% 11.1%, transparent 11.1%), #f0eee4;
+}
+
+.folioWordmark {
+  font-family: "Libertinus Viritura", "Bodoni Moda Viritura", serif;
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-weight: 400;
+  line-height: 0.88;
+  letter-spacing: -0.025em;
+  font-variant: small-caps;
+}
+
+.folioMark {
+  color: #215e4e;
+  border-top: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  font-family: "Libertinus Viritura", serif;
+  font-weight: 400;
+}
+
+.folioText {
+  color: #15372f;
+  background: #e5eee7;
+}
+
+.folioTextStage {
+  background:
+    linear-gradient(rgba(21, 55, 47, 0.08) 1px, transparent 1px) 0 0 / 100% 2.75rem,
+    #e5eee7;
+}
+
+.folioTextWordmark {
+  font-family: "Libertinus Viritura", serif;
+  font-size: clamp(3.7rem, 7.5vw, 5.8rem);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+}
+
+.folioTextMark {
+  color: #e5eee7;
+  background: #215e4e;
+  border-radius: 0.12em;
+  font-family: "Libertinus Viritura", serif;
+  font-weight: 700;
+}
+
+.folioHybrid {
+  color: #15372f;
+  background: #f3f0e8;
+}
+
+.folioHybridStage {
+  background: linear-gradient(90deg, transparent 0 68%, rgba(33, 94, 78, 0.16) 68% 68.15%, transparent 68.15%), #f3f0e8;
+}
+
+.folioHybridWordmark {
+  font-family: "Libertinus Viritura", serif;
+  font-size: clamp(3.8rem, 7.8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.018em;
+}
+
+.folioHybridInitial {
+  display: inline-block;
+  margin-right: 0.015em;
+  color: #215e4e;
+  font-family: "Bodoni Moda Viritura", serif;
+  font-size: 1.08em;
+  font-weight: 600;
+  transform: translateY(0.01em);
+}
+
+.folioHybridMark {
+  color: #215e4e;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: "Bodoni Moda Viritura", serif;
+  font-weight: 700;
+}
+
+.editorial {
+  color: #15372f;
+  background: #f3f0e8;
+}
+
+.editorialStage {
+  background: linear-gradient(90deg, transparent 0 67%, rgba(33, 94, 78, 0.16) 67% 67.15%, transparent 67.15%), #f3f0e8;
+}
+
+.editorialWordmark {
+  font-family: "Bodoni Moda Viritura", serif;
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-weight: 600;
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+}
+
+.editorialMark {
+  color: #215e4e;
+  border-bottom: 0.1em solid currentColor;
+  font-family: "Bodoni Moda Viritura", serif;
+}
+
+@media (max-width: 600px) {
+  .groteskWordmark,
+  .scorelineWordmark,
+  .ligatureWordmark,
+  .folioWordmark,
+  .folioTextWordmark,
+  .folioHybridWordmark,
+  .editorialWordmark {
+    font-size: clamp(3rem, 15vw, 4.5rem);
+  }
+}

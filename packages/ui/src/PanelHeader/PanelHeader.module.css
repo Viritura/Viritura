@@ -1,0 +1,158 @@
+/* PanelHeader — see PanelHeader.tsx for the design rationale. */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  flex-shrink: 0;
+  background: transparent;
+  /* Hairline divider matching the rest of the editor. */
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+[data-theme="dark"] .header,
+[data-theme="midnight"] .header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 22px;
+}
+
+.titleGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0; /* lets the title ellipsis kick in inside flex */
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  /* Stronger than --text-muted so the icon stays readable on glass. */
+  color: #3a3a44;
+}
+[data-theme="dark"] .icon,
+[data-theme="midnight"] .icon {
+  color: #c0c0c8;
+}
+
+.title {
+  font-size: var(--type-small-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+  letter-spacing: var(--type-title-tracking);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-small-lh);
+  /* Darker than --text-muted so the copy stays legible when the
+     panel sits over the glass material background. */
+  color: #3a3a44;
+  padding-left: 0;
+}
+[data-theme="dark"] .subtitle,
+[data-theme="midnight"] .subtitle {
+  color: #c0c0c8;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* ── Action button capsule ───────────────────────────────────── */
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  font-family: inherit;
+  color: #3a3a44;
+  background: transparent;
+  border: 1px solid rgba(20, 20, 28, 0.18);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+[data-theme="dark"] .actionButton,
+[data-theme="midnight"] .actionButton {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #c0c0c8;
+}
+.actionButton:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.35);
+  color: var(--text);
+}
+.actionButton:active:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.18);
+}
+.actionButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Toggle-style active state — used when the button is part of a group
+   (Snippets / Full File, Side / Inline, etc.). */
+.actionButtonActive {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+  color: var(--text);
+}
+[data-theme="dark"] .actionButtonActive,
+[data-theme="midnight"] .actionButtonActive {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.22);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  color: var(--text);
+}
+
+/* ── Close icon button ───────────────────────────────────────── */
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: #3a3a44;
+  cursor: pointer;
+  /* Icon glyph (×) — off the chrome scale by design. */
+  font-size: 0.9rem;
+  line-height: 1;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+.closeButton:hover {
+  background: rgba(20, 20, 28, 0.06);
+  color: var(--text);
+}
+[data-theme="dark"] .closeButton,
+[data-theme="midnight"] .closeButton {
+  color: #c0c0c8;
+}
+[data-theme="dark"] .closeButton:hover,
+[data-theme="midnight"] .closeButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}

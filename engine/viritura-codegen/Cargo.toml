@@ -1,0 +1,26 @@
+[package]
+name = "viritura-codegen"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone codegen tool: MNX JSON Schema → Rust `raw` types for viritura-engine."
+publish = false
+
+# This crate is a developer tool, not part of the engine's runtime tree. It's
+# invoked deliberately via `cargo run -p viritura-codegen` (or `pnpm gen:raw:rust`)
+# and writes its output into viritura-engine/src/raw.rs. The generated file is
+# committed, mirroring the TypeScript `gen:raw` workflow.
+
+[[bin]]
+name = "viritura-codegen"
+path = "src/main.rs"
+
+[dependencies]
+typify = "0.4"
+schemars = "0.8"
+serde_json = "1"
+prettyplease = "0.2"
+syn = { version = "2", features = ["full", "parsing"] }
+anyhow = "1"
+
+[lints]
+workspace = true

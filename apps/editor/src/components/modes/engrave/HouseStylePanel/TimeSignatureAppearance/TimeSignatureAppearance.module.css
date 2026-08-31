@@ -1,0 +1,129 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.previewHint {
+  margin: 0;
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.presetDescription {
+  margin: calc(-1 * var(--space-2)) 0 0;
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.presetButton {
+  height: 124px;
+}
+
+.presetCardContent {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+}
+
+.presetSpecimen {
+  display: block;
+  width: 100%;
+  height: 84px;
+  overflow: visible;
+}
+
+.presetLabel {
+  min-height: 2.4em;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.advanced {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-hairline);
+}
+
+.advancedFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.numeralGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.numeralButton {
+  height: 104px;
+}
+
+.numeralCardContent {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+  height: 100%;
+}
+
+.numeralSpecimen {
+  display: block;
+  width: 100%;
+  height: 62px;
+  overflow: visible;
+}
+
+.numeralLabel {
+  min-height: 2.4em;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.scaleControl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scaleInput {
+  width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.scaleSuffix {
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+}
+
+.scaleHint {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.35;
+  color: var(--text-muted);
+}

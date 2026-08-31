@@ -1,0 +1,114 @@
+/* MenuBar – Radix Menubar + dropdown menus */
+
+.menuBar {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.appMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  border-radius: var(--radius-md);
+  flex: 0 0 auto;
+}
+
+.appMark img {
+  width: 16px;
+  height: 16px;
+  display: block;
+  pointer-events: none;
+}
+
+/* Menu trigger button */
+.trigger {
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  background: transparent;
+  font-size: var(--type-small-size);
+  line-height: 22px;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  color: var(--text);
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.trigger:hover,
+.trigger[data-state="open"] {
+  background: var(--menu-hover);
+}
+
+/* Dropdown panel */
+.dropdown {
+  min-width: 220px;
+  background: var(--surface-raised);
+  border: none;
+  border-radius: 10px;
+  box-shadow: var(--elevation-2);
+  padding: var(--space-1) 0;
+  z-index: 1000;
+}
+
+/* Menu item */
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-3);
+  border: none;
+  background: transparent;
+  font-size: var(--type-small-size);
+  line-height: 22px;
+  text-align: left;
+  white-space: nowrap;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.menuItem[data-highlighted] {
+  background: var(--menu-hover);
+  outline: none;
+}
+
+.menuItem[data-disabled] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.shortcut {
+  margin-left: var(--space-6);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}
+
+.submenuArrow {
+  margin-left: var(--space-4);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+}
+
+.separator {
+  height: 1px;
+  background: var(--separator-h);
+  margin: var(--space-1) 0;
+}
+
+/* Submenu panel */
+.submenu {
+  min-width: 180px;
+  background: var(--surface-raised);
+  border: none;
+  border-radius: 10px;
+  box-shadow: var(--elevation-2);
+  padding: var(--space-1) 0;
+  z-index: 1001;
+}

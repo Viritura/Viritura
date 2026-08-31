@@ -1,0 +1,199 @@
+/* Radio / RadioGroup — glass surface + accent fill when checked.
+   Compact = small dot + inline label (form choice rows).
+   Card    = full-bleed tile with optional icon, title, description, trailing dot. */
+
+/* ── Group layout ── */
+
+.group {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.groupStack {
+  flex-direction: column;
+}
+
+.groupInline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ── Hidden native input (kept focusable, screen-reader visible) ── */
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+/* ── Shared base ── */
+
+.radio {
+  cursor: pointer;
+  user-select: none;
+  color: var(--text);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.radio.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Compact variant ── */
+
+.compact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+}
+
+.compact .dot {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 20, 28, 0.18);
+  background: rgba(255, 255, 255, 0.6);
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.compact:hover .dot {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+}
+
+.input:focus-visible + .dot {
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.25);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.6);
+}
+
+.compact.checked .dot {
+  border-color: rgb(var(--accent-rgb, 33, 94, 78));
+  background: radial-gradient(circle at center, #fff 0 3px, transparent 3.5px), rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.compact .label {
+  color: inherit;
+}
+
+[data-theme="dark"] .compact .dot,
+[data-theme="midnight"] .compact .dot {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ── Card variant ── */
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.card:hover:not(.disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.06);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.3);
+}
+
+.card .input:focus-visible ~ .cardDot {
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.25);
+}
+
+.card.checked {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+}
+
+.cardIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card.checked .cardIcon {
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.cardTextStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: var(--type-body-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+  line-height: var(--type-small-lh);
+}
+
+.cardDescription {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  font-weight: var(--type-body-weight);
+  line-height: var(--type-small-lh);
+}
+
+.cardDot {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1px solid rgba(20, 20, 28, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.card.checked .cardDot {
+  border-color: rgb(var(--accent-rgb, 33, 94, 78));
+  background: radial-gradient(circle at center, #fff 0 3px, transparent 3.5px), rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+[data-theme="dark"] .card,
+[data-theme="midnight"] .card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .card.checked,
+[data-theme="midnight"] .card.checked {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.16);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+}

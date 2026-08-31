@@ -1,0 +1,129 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Design Language/Elevation" />
+
+# Elevation & Shadow
+
+Viritura uses a single light source convention: **overhead, slightly
+front**. Shadows cast downward with no diagonal bias. Raised objects
+catch a lit rim on their top edge.
+
+## The token scale
+
+Four base elevations + one hover state + two recessed/inset levels +
+specialized chrome shadows.
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginTop: 24 }}>
+  {[
+    { token: "--elevation-0", label: "Subtle lift", use: "Pills, small chips" },
+    { token: "--elevation-1", label: "Cards", use: "Buttons, glass panels" },
+    { token: "--elevation-2", label: "Popovers", use: "Floating menus, tooltips" },
+    { token: "--elevation-3", label: "Modals", use: "Dialogs, alerts" },
+    { token: "--elevation-hover", label: "Hover lift", use: "Button/card hover state" },
+  ].map(({ token, label, use }) => (
+    <div key={token} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          width: 160,
+          height: 90,
+          borderRadius: 12,
+          background: "var(--surface-raised)",
+          boxShadow: `var(${token})`,
+          border: "1px solid var(--border)",
+        }}
+      />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text)" }}>{token}</div>
+        <div style={{ fontSize: 13, color: "var(--text)", marginTop: 4, fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{use}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+## Recessed surfaces
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, marginTop: 24 }}>
+  {[
+    { token: "--inset-soft", use: "Disabled buttons, ghost inputs" },
+    { token: "--inset-strong", use: "Active inputs, sunken wells" },
+  ].map(({ token, use }) => (
+    <div key={token} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          width: 160,
+          height: 90,
+          borderRadius: 12,
+          background: "var(--surface-sunken)",
+          boxShadow: `var(${token})`,
+        }}
+      />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text)" }}>{token}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{use}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+## Shadow anatomy
+
+Each elevation is a stack of three drop-shadow layers plus a lit rim:
+
+```css
+--elevation-1:
+  0 1px 1px rgba(20, 20, 28, 0.08), /* 1. contact shadow — sharp, just below */ 0 2px 4px rgba(20, 20, 28, 0.1),
+  /* 2. cast shadow — mid-distance */ 0 6px 12px rgba(20, 20, 28, 0.06),
+  /* 3. ambient shadow — soft, distant */ inset 0 1px 0 rgba(255, 255, 255, 0.9),
+  /* 4. lit rim — overhead light */ inset 0 0 0 1px rgba(20, 20, 28, 0.04); /* 5. hairline edge */
+```
+
+**Why three layers?** Real shadows decay in three distinct bands as the
+object lifts off the surface. Single-stop shadows look flat; three-stop
+shadows feel physical.
+
+**Why the lit rim?** The light source is overhead. A raised object's top
+edge catches a thin highlight. Without it, raised surfaces feel inert.
+
+## The lit-rim rule
+
+Only **floating, edge-detached** objects get the lit rim:
+
+| Surface            | Lit?                                                             |
+| ------------------ | ---------------------------------------------------------------- |
+| Dialog (Tier 4)    | ✅ Yes — central, fully detached, the canonical "raised object"  |
+| Popover (Tier 3)   | ✅ Subtle — small floating card                                  |
+| Button / card      | ✅ Yes — `--elevation-1` or `--elevation-hover`                  |
+| Menu bar / toolbar | ❌ No — pinned to window edge, no top edge to catch light        |
+| Status bar         | ❌ No — pinned to bottom                                         |
+| Glass panel        | ❌ No — material reads as glass via the gradient fill, not a rim |
+
+See [Material Tiers](?path=/docs/design-language-material-tiers--docs)
+for the full rationale.
+
+## Specialized chrome shadows
+
+For edge-pinned chrome that needs a separator from adjacent surfaces:
+
+```css
+--shadow-toolbar: 0 2px 6px rgba(20, 20, 28, 0.12);
+--shadow-status: inset 0 1px 3px rgba(20, 20, 28, 0.12);
+--shadow-panel-l: 2px 0 8px rgba(20, 20, 28, 0.08); /* left side rail */
+--shadow-panel-r: -2px 0 8px rgba(20, 20, 28, 0.08); /* right side rail */
+--shadow-tab: 0 -1px 2px rgba(20, 20, 28, 0.06), 0 -2px 4px rgba(20, 20, 28, 0.08);
+```
+
+These don't lift the surface — they create a parting line between
+chrome and the workspace beneath.
+
+## Focus rings
+
+Focus is communicated via the accent. Three variants for different surfaces:
+
+```css
+--focus-ring: 0 0 0 3px rgba(var(--accent-rgb), 0.35); /* default */
+--focus-ring-tight: 0 0 0 2px rgba(var(--accent-rgb), 0.45); /* dense layouts */
+--focus-ring-inset: inset 0 0 0 1.5px rgb(var(--accent-rgb)); /* button pressed */
+```
+
+Always pair with `outline: none` and only show on `:focus-visible`.

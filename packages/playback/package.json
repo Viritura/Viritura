@@ -1,0 +1,32 @@
+{
+  "name": "@viritura/playback",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@viritura/audio": "workspace:*",
+    "@viritura/core": "workspace:*",
+    "@viritura/midi": "workspace:*",
+    "@viritura/renderer": "workspace:*",
+    "@viritura/sound-profiles": "workspace:*",
+    "@viritura/ui": "workspace:*",
+    "lucide-react": "^0.577.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.7",
+    "spessasynth_lib": "^4.3.1",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

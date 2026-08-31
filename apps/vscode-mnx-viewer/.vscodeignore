@@ -1,0 +1,9 @@
+src/**
+webview/**
+scripts/**
+.turbo/**
+**/*.test.*
+**/*.map
+tsconfig.json
+vite.config.*
+vitest.config.*

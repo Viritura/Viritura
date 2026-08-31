@@ -1,0 +1,44 @@
+# Shared Traefik reverse proxy for parallel Git-worktree development.
+#
+# ONE instance binds loopback port 80 for the whole machine. Every worktree
+# stack (see ../worktree/docker-compose.yml) joins the external
+# `viritura-dev-proxy` network and advertises its services with Traefik labels,
+# so no worktree ever binds a host app port and any number of worktrees can run
+# at once. Bring it up once with `infra/dev/worktree.ps1 proxy` (the worktree
+# wrapper starts it automatically on the first `up`).
+name: viritura-dev-proxy
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: viritura-dev-traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.network=viritura-dev-proxy
+      - --entryPoints.web.address=:80
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --log.level=INFO
+    ports:
+      # Worktree apps are local development surfaces and may contain test
+      # credentials. Never expose them to the LAN.
+      - "127.0.0.1:80:80"
+      # Dashboard is bound to loopback only — never exposed off-box.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # Read-only Docker socket so Traefik can watch container labels. On Docker
+      # Desktop for Windows this path is proxied to the host engine.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - viritura-dev-proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-dashboard.rule=Host(`traefik.localhost`)
+      - traefik.http.routers.traefik-dashboard.entryPoints=web
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+
+networks:
+  viritura-dev-proxy:
+    name: viritura-dev-proxy

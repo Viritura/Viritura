@@ -1,0 +1,163 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "_x": {
+                        "mnxdocs": {
+                          "highlight": [
+                            "ties"
+                          ]
+                        }
+                      },
+                      "pitch": {
+                        "step": "E",
+                        "octave": 5
+                      },
+                      "ties": [
+                        {
+                          "target": "019e62f6-e638-78d0-afed-d73c6b3d55ea"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 5
+                      },
+                      "id": "019e62f6-e638-78d0-afed-d73c6b3d55ea"
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "_x": {
+                        "mnxdocs": {
+                          "highlight": [
+                            "ties"
+                          ]
+                        }
+                      },
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5
+                      },
+                      "ties": [
+                        {
+                          "target": "019e62f6-e638-7871-9729-7d17bc219fac"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "_x": {
+                        "mnxdocs": {
+                          "highlight": [
+                            "ties"
+                          ]
+                        }
+                      },
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5
+                      },
+                      "id": "019e62f6-e638-7871-9729-7d17bc219fac",
+                      "ties": [
+                        {
+                          "target": "019e62f6-e638-7bbf-98f7-0f6f214055d2"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5
+                      },
+                      "id": "019e62f6-e638-7bbf-98f7-0f6f214055d2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

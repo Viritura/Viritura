@@ -1,0 +1,24 @@
+# Standalone diagnostic crate — intentionally its own workspace so it never
+# builds as part of the desktop app or the engine. Purpose: isolate VST3 effect
+# hosting (specifically "reverb produces silence") from the mixer, cpal, and
+# transport, by rendering a known input through an effect entirely offline.
+[package]
+name = "vst-reverb-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "vst-reverb-probe"
+path = "main.rs"
+
+[dependencies]
+# Match the desktop app's exact host dependency so the repro is faithful.
+vst3-host = { version = "=0.7.0", default-features = false, features = ["cpal-backend"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+# Only used by --open-editor: pump the native editor window's message loop and
+# detect when the user closes it (mirrors the desktop app's edit-and-listen).
+winapi = { version = "0.3", features = ["winuser", "windef", "minwindef", "processthreadsapi"] }
+
+[workspace]

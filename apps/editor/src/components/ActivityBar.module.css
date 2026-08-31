@@ -1,0 +1,53 @@
+/* ActivityBar – vertical sidebar tabs */
+
+.bar {
+  width: 48px;
+  /* Background + edge treatment come from .app-chrome--side
+     (see workspaceChrome.css). Keep this class for layout only. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--space-1);
+  flex-shrink: 0;
+}
+
+.bottomActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-bottom: var(--space-2);
+}
+
+.item {
+  width: 44px;
+  height: 44px;
+  margin: 2px;
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-0);
+  padding: 0;
+  transition:
+    box-shadow var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.item:hover:not([data-active="true"]) {
+  background: var(--surface-hover);
+  box-shadow: var(--elevation-hover);
+  color: var(--text-bright);
+}
+
+.item[data-active="true"] {
+  background: var(--surface-raised);
+  box-shadow: var(--inset-strong);
+  color: var(--accent);
+}

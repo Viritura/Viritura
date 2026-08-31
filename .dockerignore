@@ -1,0 +1,95 @@
+# Docker build context is the repository root (see server/Dockerfile). The image
+# builds apps/server-ui from the pnpm workspace, then publishes the API, so
+# the context retains only that app, its @viritura/ui dependency, the API source,
+# and root workspace manifests.
+
+# VCS / editor / CI tooling
+.git
+.github
+.vscode
+
+# Local settings and secrets must never enter frontend or API build images.
+.env
+**/.env
+.env.local
+**/.env.local
+.env.*.local
+**/.env.*.local
+.secrets
+**/.secrets
+*.private-key.pem
+
+# Node dependencies and JS build outputs
+**/node_modules
+.pnpm-store
+**/.turbo
+**/dist
+**/build
+**/out
+**/storybook-static
+
+# Repository trees not needed to build server-ui or the API
+engine
+assets
+deploy
+docs
+apps/*/**
+!apps/*/package.json
+scripts
+packages/*/**
+!packages/*/package.json
+tools
+examples/*/**
+!examples/*/package.json
+**/target
+*.wasm
+!apps/server-ui/**
+!apps/server-ui/dist/**
+!packages/ui/**
+
+# Development dependency image inputs (explicit to avoid ignored-parent rules).
+!apps/desktop/package.json
+!apps/editor/package.json
+!apps/server-ui/package.json
+!apps/vscode-mnx-viewer/package.json
+!apps/website/package.json
+!examples/score-viewer-react-minimal/package.json
+!packages/audio/package.json
+!packages/core/package.json
+!packages/crdt/package.json
+!packages/format/package.json
+!packages/instrument-profiles/package.json
+!packages/midi/package.json
+!packages/musicxml/package.json
+!packages/piano-roll/package.json
+!packages/playback/package.json
+!packages/renderer/package.json
+!packages/score-engine/package.json
+!packages/score-viewer-react/package.json
+!packages/sound-profiles/package.json
+!packages/ui/package.json
+!packages/video-sync/package.json
+
+# Keep broad source allowlists above from re-including generated trees.
+apps/server-ui/node_modules
+apps/server-ui/dist
+packages/ui/node_modules
+packages/ui/dist
+packages/ui/storybook-static
+
+# .NET build artifacts and local state
+**/bin
+**/obj
+**/TestResults
+**/*.sln
+server/**/*.db
+server/**/*.db-shm
+server/**/*.db-wal
+**/appsettings.Local.json
+
+# Test projects are not part of the runtime image
+server/Viritura.Api.Tests
+server/Viritura.GitHub.Tests
+
+# Misc
+**/*.log

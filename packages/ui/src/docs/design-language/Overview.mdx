@@ -1,0 +1,102 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Design Language/Overview" />
+
+# Design Language
+
+Viritura's visual identity is **glass + viridian over a tinted workspace
+mesh**. Translucent panels float on a colored gradient; viridian
+(`#215e4e` light / `#83c8b3` dark) is the accent. Overhead lighting is
+implied — raised objects catch light at the top edge.
+
+## The three ideas
+
+### 1. The workspace is the world
+
+The background is a **mesh of soft radial gradients** (Editorial Cool —
+slate + bone + viridian in light; deeper jewel tones in dark). It's the
+substrate everything else sits on. It's never flat grey.
+
+### 2. Glass reveals the world
+
+Panels, palettes, and the transport bar are **translucent surfaces with
+backdrop blur**. They reveal the colored workspace beneath, which gives
+the UI a sense of place. Glass is for _ambient_ surfaces that the user
+lives in continuously.
+
+### 3. Solid demands attention
+
+Chrome (menu bar, activity bar, status bar) is **opaque and edge-pinned**
+— it frames the app, doesn't float in it. Modals are **opaque and lit** —
+they're objects placed above the scene, not part of it.
+
+### 4. Paper is for things you pick up
+
+Discrete physical objects — palette tiles, library cards, score pages —
+render as **paper**: a cream surface with subtle fiber, a bounce-tinted
+cast shadow, and the same overhead lit rim as the glass system. Paper
+sits _on top of_ glass; glass is the room, paper is the objects in it.
+See the [Material Tiers › Paper](?path=/docs/design-language-material-tiers--docs#paper--the-object-material)
+section for the full recipe.
+
+### 5. Sphere is for things placed in space
+
+Volumetric tokens — instruments on the PlayView sound stage, future
+waypoints or graph nodes — render as **sphere**: a glossy 3D ball lit
+from the top-left with a _separate_ ground-projected shadow puddle so
+that lifting the sphere reads as the object rising, not the light
+walking. See the [Material Tiers › Sphere](?path=/docs/design-language-material-tiers--docs#sphere--the-volumetric-material)
+section for the full recipe.
+
+## Material tiers
+
+Five tiers, ordered by visual prominence:
+
+| Tier | Role      | Examples                                        | Material                                                     |
+| ---- | --------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| 0    | Workspace | Canvas, gradient background                     | Solid radial mesh                                            |
+| 1    | Glass     | Side panels, palette, transport                 | Translucent fill + `backdrop-filter: blur`                   |
+| 2    | Chrome    | Menu, activity, status bars                     | Opaque `var(--surface)`, no blur, no lift                    |
+| 3    | Floating  | Tooltips, popovers, dropdowns                   | Translucent fill + `--elevation-2`, no live blur             |
+| 4    | Modal     | Dialogs, alerts                                 | Opaque `var(--surface-raised)` + lit + `--elevation-3`       |
+| —    | Paper     | Palette tiles, library cards, score pages       | Cream + fiber + bounce-tinted shadow + lit rim (`--paper-*`) |
+| —    | Sphere    | Instrument dots, future waypoints / graph nodes | Glossy volumetric ball + separate ground shadow (`<Sphere>`) |
+
+See [Material Tiers](?path=/docs/design-language-material-tiers--docs) for
+the full rationale and rules.
+
+## The accent
+
+Viridian, used sparingly. It signals:
+
+- **Selection** (selected note, selected score, current mode)
+- **Confirmation** (primary action button, "create", "open")
+- **Focus** (ring around focused inputs)
+- **Brand** (Viritura wordmark, splash)
+- **Success** (saved, confirmed, completed — always paired with a ✓ icon and text)
+
+Never used for danger or warning — those have their own tokens
+(`--error`, `--warning`). There is no separate success token: viridian
+_is_ the success color, because a successful save is a brand moment.
+Status is communicated by icon + text; color only reinforces.
+
+## Coexistence with the canvas
+
+The score canvas itself is **monochrome ink on near-white paper**. The
+workspace mesh and UI chrome bracket the canvas; the canvas itself
+remains a quiet, neutral page. This contrast is intentional — your eye
+goes to the music, not the app.
+
+In **midnight theme**, the canvas is inverted in CSS (`filter: invert()`)
+so ink reads white on near-black paper, while the chrome stays in its
+dark-theme palette.
+
+---
+
+## What to read next
+
+- **[Material Tiers →](?path=/docs/design-language-material-tiers--docs)**
+- **[Color →](?path=/docs/design-language-color--docs)**
+- **[Elevation →](?path=/docs/design-language-elevation--docs)**
+- **[Radii & Spacing →](?path=/docs/design-language-radii-spacing--docs)**
+- **[Typography →](?path=/docs/design-language-typography--docs)**

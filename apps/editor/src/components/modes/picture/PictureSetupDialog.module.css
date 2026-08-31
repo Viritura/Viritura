@@ -1,0 +1,84 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.section + .section {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.fileSummary {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.fileName {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--type-small-size);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fileStatus {
+  flex: none;
+  color: var(--text-muted);
+  font-weight: var(--type-eyebrow-weight);
+  font-size: var(--type-eyebrow-size);
+  text-transform: var(--type-eyebrow-transform);
+  letter-spacing: var(--type-eyebrow-tracking);
+}
+
+.fileActions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  background: var(--surface-sunken);
+  box-shadow: var(--inset-soft);
+  color: var(--text);
+  font-size: var(--type-small-size);
+}
+
+.fileButton:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.fileButton:focus-within {
+  box-shadow: var(--focus-ring-tight);
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.error {
+  margin: 0;
+  color: var(--error);
+  font-size: var(--type-small-size);
+}

@@ -1,0 +1,260 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "id": "019e62f6-e636-7681-a694-9e3ba0293c7c"
+      },
+      {
+        "id": "019e62f6-e636-78d5-9148-dae8ec64b770"
+      },
+      {
+        "id": "019e62f6-e636-7e06-8909-fbebd84814ff"
+      },
+      {
+        "id": "019e62f6-e636-76eb-8745-5a99afe05567"
+      },
+      {
+        "id": "019e62f6-e636-7103-a035-b5cc85169fb3"
+      },
+      {
+        "id": "019e62f6-e636-72aa-b438-dace1c884073"
+      },
+      {
+        "id": "019e62f6-e636-74f3-8173-885bd373e205"
+      }
+    ]
+  },
+  "layouts": [
+    {
+      "id": "019e62f6-e636-7418-b913-91372ec0b852",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "unified",
+          "content": [
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "sources": [
+                    {
+                      "labelref": "shortName",
+                      "part": "019e62f6-e636-77ea-a112-cc2dfefc6c73",
+                      "stem": "up"
+                    },
+                    {
+                      "labelref": "shortName",
+                      "part": "019e62f6-e636-7f62-b1c5-15029d557697",
+                      "stem": "down"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "labelref": "shortName",
+                  "sources": [
+                    {
+                      "part": "019e62f6-e636-7cc7-a243-1c90a936f256"
+                    }
+                  ]
+                }
+              ],
+              "label": "Flutes",
+              "symbol": "brace"
+            },
+            {
+              "type": "staff",
+              "label": "Oboes",
+              "sources": [
+                {
+                  "labelref": "shortName",
+                  "part": "019e62f6-e636-79a6-a7cb-861f6f427c0e",
+                  "stem": "up"
+                },
+                {
+                  "labelref": "shortName",
+                  "part": "019e62f6-e636-785c-939a-760ea152613c",
+                  "stem": "down"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        },
+        {
+          "type": "group",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e636-71f7-af3e-e8b05d92a709",
+                  "staff": 1
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e636-71f7-af3e-e8b05d92a709",
+                  "staff": 2
+                }
+              ]
+            }
+          ],
+          "label": "Piano",
+          "symbol": "brace"
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-e636-7c65-a4a3-e5d974feb44b",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "unified",
+          "content": [
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "labelref": "shortName",
+                  "sources": [
+                    {
+                      "part": "019e62f6-e636-77ea-a112-cc2dfefc6c73"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "labelref": "shortName",
+                  "sources": [
+                    {
+                      "part": "019e62f6-e636-7f62-b1c5-15029d557697"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "labelref": "shortName",
+                  "sources": [
+                    {
+                      "part": "019e62f6-e636-7cc7-a243-1c90a936f256"
+                    }
+                  ]
+                }
+              ],
+              "label": "Fl.",
+              "symbol": "brace"
+            },
+            {
+              "type": "staff",
+              "label": "Ob.",
+              "sources": [
+                {
+                  "labelref": "shortName",
+                  "part": "019e62f6-e636-79a6-a7cb-861f6f427c0e",
+                  "stem": "up"
+                },
+                {
+                  "labelref": "shortName",
+                  "part": "019e62f6-e636-785c-939a-760ea152613c",
+                  "stem": "down"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        },
+        {
+          "type": "group",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e636-71f7-af3e-e8b05d92a709",
+                  "staff": 1
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e636-71f7-af3e-e8b05d92a709",
+                  "staff": 2
+                }
+              ]
+            }
+          ],
+          "label": "Piano",
+          "symbol": "brace"
+        }
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "019e62f6-e636-77ea-a112-cc2dfefc6c73",
+      "measures": [],
+      "name": "Flute 1",
+      "shortName": "1"
+    },
+    {
+      "id": "019e62f6-e636-7f62-b1c5-15029d557697",
+      "measures": [],
+      "name": "Flute 2",
+      "shortName": "2"
+    },
+    {
+      "id": "019e62f6-e636-7cc7-a243-1c90a936f256",
+      "measures": [],
+      "name": "Flute 3",
+      "shortName": "3"
+    },
+    {
+      "id": "019e62f6-e636-79a6-a7cb-861f6f427c0e",
+      "measures": [],
+      "name": "Oboe 1",
+      "shortName": "1"
+    },
+    {
+      "id": "019e62f6-e636-785c-939a-760ea152613c",
+      "measures": [],
+      "name": "Oboe 2",
+      "shortName": "2"
+    },
+    {
+      "id": "019e62f6-e636-71f7-af3e-e8b05d92a709",
+      "measures": [],
+      "name": "Piano",
+      "staves": 2
+    }
+  ],
+  "scores": [
+    {
+      "name": "Full score",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-e636-7418-b913-91372ec0b852",
+              "measure": "019e62f6-e636-7681-a694-9e3ba0293c7c"
+            },
+            {
+              "layout": "019e62f6-e636-7c65-a4a3-e5d974feb44b",
+              "measure": "019e62f6-e636-76eb-8745-5a99afe05567"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

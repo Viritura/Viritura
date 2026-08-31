@@ -1,0 +1,83 @@
+.mnx-hub {
+  --mnx-hub-measure: 1180px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.mnx-hub > * {
+  width: min(var(--mnx-hub-measure), calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.mnx-hub__intro {
+  min-height: 380px;
+  padding-block: 72px;
+}
+
+.mnx-hub__intro-copy {
+  max-width: 680px;
+}
+
+.mnx-hub__intro-copy h1 {
+  margin-block: 8px 20px;
+}
+
+.mnx-hub__projects,
+.mnx-hub__relationship,
+.mnx-hub__vscode {
+  padding-block: 56px;
+}
+
+.mnx-hub__project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.mnx-hub__relationship,
+.mnx-hub__vscode {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 48px;
+  border-top: 1px solid var(--border);
+}
+
+.mnx-hub__relationship > div:first-child,
+.mnx-hub__vscode > div:first-child {
+  max-width: 720px;
+}
+
+.mnx-hub__relationship h2,
+.mnx-hub__vscode h2 {
+  margin-bottom: 12px;
+}
+
+.mnx-hub__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .mnx-hub > * {
+    width: min(100% - 32px, var(--mnx-hub-measure));
+  }
+
+  .mnx-hub__intro {
+    min-height: auto;
+    padding-block: 48px;
+  }
+
+  .mnx-hub__project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mnx-hub__relationship,
+  .mnx-hub__vscode {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 24px;
+  }
+}

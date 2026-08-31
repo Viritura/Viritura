@@ -1,0 +1,43 @@
+/* Radix Tooltip — translucent surface to match floating menus. */
+
+.content {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-small-lh);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(20, 20, 28, 0.12);
+  z-index: 1200;
+  max-width: 260px;
+  user-select: none;
+  animation: fadeIn var(--motion-fast) var(--ease-enter);
+}
+
+[data-theme="dark"] .content,
+[data-theme="midnight"] .content {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 30, 40, 0.85);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.arrow {
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .arrow,
+[data-theme="midnight"] .arrow {
+  fill: rgba(30, 30, 40, 0.85);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

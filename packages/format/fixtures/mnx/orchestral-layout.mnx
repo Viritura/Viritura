@@ -1,0 +1,365 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": []
+  },
+  "layouts": [
+    {
+      "id": "019e62f6-d70d-7d4b-a3a8-8cc491dc363f",
+      "content": [
+        {
+          "type": "group",
+          "content": [
+            {
+              "type": "group",
+              "barlineStyle": "unified",
+              "content": [
+                {
+                  "type": "staff",
+                  "label": "2.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7572-bd25-b89ee2ee4778"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "label": "4.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-757f-95e6-68d7c1e80e1b"
+                    }
+                  ]
+                }
+              ],
+              "label": "Horns in F.",
+              "symbol": "brace"
+            }
+          ],
+          "symbol": "bracket"
+        },
+        {
+          "type": "group",
+          "barlineStyle": "unified",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
+                  "staff": 1
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
+                  "staff": 2
+                }
+              ]
+            }
+          ],
+          "label": "1. Harfe.",
+          "symbol": "brace"
+        },
+        {
+          "type": "group",
+          "barlineStyle": "unified",
+          "content": [
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "label": "1. Violine.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7766-b117-71fb81dd0843"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "label": "2. Violine.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7eea-8d22-d4a6b9966e81"
+                    }
+                  ]
+                }
+              ],
+              "symbol": "brace"
+            },
+            {
+              "type": "staff",
+              "label": "Viola.",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "label": "Violincell.",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "label": "Kontrabass",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7317-8dda-7739a2b6dfcd"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-d70d-7ad8-afba-c82bc4f1a966",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "label": "1.2.3. Klar. in A",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7126-b1fa-816621ec5a3c",
+                  "stem": "up"
+                },
+                {
+                  "part": "019e62f6-d70d-7847-af6f-4398062d1ddc",
+                  "stem": "up"
+                },
+                {
+                  "part": "019e62f6-d70d-7b0a-8fb1-6f44d86f1a37",
+                  "stem": "down"
+                }
+              ]
+            }
+          ],
+          "symbol": "brace"
+        },
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "label": "2. Hr in F.",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7572-bd25-b89ee2ee4778"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        },
+        {
+          "type": "group",
+          "barlineStyle": "instrument",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
+                  "staff": 1
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
+                  "staff": 2
+                }
+              ]
+            }
+          ],
+          "label": "1. Harfe.",
+          "symbol": "brace"
+        },
+        {
+          "type": "group",
+          "barlineStyle": "unified",
+          "content": [
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "label": "1. Vl.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7766-b117-71fb81dd0843"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "label": "2. Vl.",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7eea-8d22-d4a6b9966e81"
+                    }
+                  ]
+                }
+              ],
+              "symbol": "brace"
+            },
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54",
+                      "voice": "Pizzicato"
+                    }
+                  ]
+                }
+              ],
+              "label": "Vla. (get.)",
+              "symbol": "brace"
+            },
+            {
+              "type": "group",
+              "content": [
+                {
+                  "type": "staff",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486"
+                    }
+                  ]
+                },
+                {
+                  "type": "staff",
+                  "sources": [
+                    {
+                      "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486",
+                      "voice": "Pizzicato"
+                    }
+                  ]
+                }
+              ],
+              "label": "Vlc. (get.)",
+              "symbol": "brace"
+            },
+            {
+              "type": "staff",
+              "label": "Kontrabass",
+              "sources": [
+                {
+                  "part": "019e62f6-d70d-7317-8dda-7739a2b6dfcd"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "019e62f6-d70d-7126-b1fa-816621ec5a3c",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7847-af6f-4398062d1ddc",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7b0a-8fb1-6f44d86f1a37",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7e1e-a61e-4835d03a2a39",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7572-bd25-b89ee2ee4778",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7ff0-88fe-87fce8e96339",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-757f-95e6-68d7c1e80e1b",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
+      "measures": [],
+      "staves": 2
+    },
+    {
+      "id": "019e62f6-d70d-7766-b117-71fb81dd0843",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7eea-8d22-d4a6b9966e81",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7ccb-8e5a-a7d233856486",
+      "measures": []
+    },
+    {
+      "id": "019e62f6-d70d-7317-8dda-7739a2b6dfcd",
+      "measures": []
+    }
+  ],
+  "scores": [
+    {
+      "name": "fullScore",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-d70d-7d4b-a3a8-8cc491dc363f",
+              "measure": "m1"
+            },
+            {
+              "layout": "019e62f6-d70d-7ad8-afba-c82bc4f1a966",
+              "measure": "m7"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

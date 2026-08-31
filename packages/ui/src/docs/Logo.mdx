@@ -1,0 +1,87 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { VirituraLogo, VirituraMark, VirituraWordmark } from "../BrandLogo";
+
+<Meta title="Brand/Logo" />
+
+# Logo
+
+Viritura's production identity combines the **Folio Display** wordmark
+with the **Contained Versal Keyline** mark.
+
+The wordmark is outlined from Libertinus Serif small caps, so it renders
+consistently without requiring an installed font. The mark centers that
+same V with a deliberate optical inset inside a deep-viridian square and
+contains the field with a fine warm-paper keyline.
+
+---
+
+## Mark
+
+<div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginTop: 20, color: "var(--accent)" }}>
+  <VirituraMark size={16} />
+  <VirituraMark size={32} />
+  <VirituraMark size={64} />
+  <VirituraMark size={96} />
+</div>
+
+The favicon and desktop icon use this exact mark:
+
+<div
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 96,
+    height: 96,
+    marginTop: 20,
+    borderRadius: 0,
+    background: "transparent",
+  }}
+>
+  <VirituraMark size={64} />
+</div>
+
+---
+
+## Wordmark
+
+<div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 20 }}>
+  <div style={{ padding: 24, borderRadius: 8, background: "var(--surface)", color: "var(--accent)" }}>
+    <VirituraWordmark width={240} />
+  </div>
+  <div style={{ padding: 24, borderRadius: 8, background: "#1a1f2c", color: "#83c8b3" }}>
+    <VirituraWordmark width={240} />
+  </div>
+</div>
+
+---
+
+## Lockup
+
+<div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 20 }}>
+  <div style={{ padding: 24, borderRadius: 8, background: "var(--surface)", color: "var(--accent)" }}>
+    <VirituraLogo markSize={40} wordmarkWidth={190} />
+  </div>
+  <div style={{ padding: 24, borderRadius: 8, background: "#1a1f2c", color: "#83c8b3" }}>
+    <VirituraLogo markSize={40} wordmarkWidth={190} />
+  </div>
+</div>
+
+---
+
+## Usage
+
+Use the lockup where there is room for the name: start center, splash,
+marketing pages, and Storybook brand surfaces.
+
+Use the mark alone where space is constrained: favicon, app icon, compact
+launcher surfaces, and any future mobile home-screen icon.
+
+The mark and wordmark are exported from `@viritura/ui` as
+`VirituraMark`, `VirituraWordmark`, and `VirituraLogo`.
+
+The wordmark inherits `currentColor`. The mark keeps its production
+colors through `--viritura-brand` (`#215e4e`) and
+`--viritura-brand-ink` (`#e7f3ee`); the border uses
+`--viritura-brand-keyline` (`#dceee7`). These fall back to the shared
+`--brand*` tokens so the crop remains consistent on every surface.

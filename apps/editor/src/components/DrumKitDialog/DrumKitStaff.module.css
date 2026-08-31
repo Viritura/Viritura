@@ -1,0 +1,39 @@
+.wrap {
+  position: relative;
+  width: 100%;
+  /* Height is set inline once the engine reports the music's content bounds
+     (DrumKitStaff crops to them). Until then, a modest min-height holds space
+     for the loading state. overflow-y:hidden crops the page margin we skip;
+     overflow-x:auto lets a wide kit (more notes than fit) scroll sideways. */
+  min-height: 72px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-2);
+  background: var(--surface-input-soft);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+}
+
+/* Read-only preview (KitMappingPreview): the music is scaled to fit via a CSS
+   transform, whose un-scaled layout box would otherwise trip overflow-x:auto's
+   scrollbar (clipping the bottom). Clip both axes — fit means no scrolling. */
+.previewWrap {
+  composes: wrap;
+  overflow: hidden;
+}
+
+.score {
+  position: relative;
+  background: transparent;
+}
+
+.loading {
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.overlay {
+  cursor: copy;
+  touch-action: none;
+}

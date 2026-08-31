@@ -1,0 +1,115 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-e635-7b3b-b321-b4732ccab0c9",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "id": "019e62f6-e635-7154-aefc-c80f6d57acda",
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    },
+                    {
+                      "id": "019e62f6-e635-7ea9-abdd-2bb66a6e017d",
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    },
+                    {
+                      "id": "019e62f6-e635-773c-ba21-be4e6f9c3335",
+                      "pitch": {
+                        "octave": 5,
+                        "step": "G"
+                      }
+                    }
+                  ],
+                  "slurs": [
+                    {
+                      "endNote": "019e62f6-e635-7778-be2b-e620bfdfa5d6",
+                      "side": "down",
+                      "startNote": "019e62f6-e635-7154-aefc-c80f6d57acda",
+                      "target": "019e62f6-e635-7d5e-982e-d105d59d6389"
+                    },
+                    {
+                      "endNote": "019e62f6-e635-7b9a-8d4e-4f5b06f9bcbc",
+                      "side": "up",
+                      "startNote": "019e62f6-e635-7ea9-abdd-2bb66a6e017d",
+                      "target": "019e62f6-e635-7d5e-982e-d105d59d6389"
+                    },
+                    {
+                      "endNote": "019e62f6-e635-7a41-bc51-e64a56cc151a",
+                      "side": "up",
+                      "startNote": "019e62f6-e635-773c-ba21-be4e6f9c3335",
+                      "target": "019e62f6-e635-7d5e-982e-d105d59d6389"
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-e635-7d5e-982e-d105d59d6389",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "id": "019e62f6-e635-7778-be2b-e620bfdfa5d6",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "B"
+                      }
+                    },
+                    {
+                      "id": "019e62f6-e635-7b9a-8d4e-4f5b06f9bcbc",
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    },
+                    {
+                      "id": "019e62f6-e635-7a41-bc51-e64a56cc151a",
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

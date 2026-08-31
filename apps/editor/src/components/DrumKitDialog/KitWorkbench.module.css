@@ -1,0 +1,54 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  /* Fill the dialog body so the two columns can scroll independently rather
+     than pushing the whole dialog body taller (which sent the Sound browser
+     below the fold). Every item in this column chain needs min-height:0 so it
+     can shrink below its content's intrinsic height. */
+  flex: 1;
+  min-height: 0;
+}
+
+.staff {
+  min-width: 0;
+  flex: none;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.padCol {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.inspectorCol {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border-hairline);
+  padding-left: var(--space-4);
+}
+
+/* On narrower viewports the two columns stack. */
+@media (max-width: 720px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+
+  .inspectorCol {
+    border-left: none;
+    border-top: 1px solid var(--border-hairline);
+    padding-left: 0;
+    padding-top: var(--space-3);
+  }
+}

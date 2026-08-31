@@ -1,0 +1,1 @@
+export { ScoreSwitcher } from "./ScoreSwitcher";

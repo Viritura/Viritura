@@ -1,0 +1,85 @@
+/* Checkbox — glass surface + viridian fill when checked.
+   Native input visually hidden; box rendered as styled span. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--type-small-size);
+  color: var(--text);
+  line-height: var(--type-small-lh);
+}
+
+.root[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+.box {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(20, 20, 28, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.6);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+  /* The wrapping label owns pointer activation. Decorative descendants must
+     not intercept automation or pointer hit-testing aimed at the checkbox. */
+  pointer-events: none;
+}
+
+.root:hover .box {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+}
+
+.input:focus-visible + .box {
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.25);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.6);
+}
+
+.input:checked + .box {
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+  border-color: rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.check {
+  width: 12px;
+  height: 12px;
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.input:checked + .box .check {
+  opacity: 1;
+}
+
+.label {
+  color: inherit;
+}
+
+[data-theme="dark"] .box,
+[data-theme="midnight"] .box {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}

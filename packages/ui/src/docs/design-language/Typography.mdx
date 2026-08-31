@@ -1,0 +1,254 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { Text } from "../../Text/Text";
+
+<Meta title="Design Language/Typography" />
+
+# Typography
+
+Viritura uses the **system font stack** for UI chrome, **Bravura** (SMuFL)
+for music glyphs on the canvas, and a system monospace stack for code.
+There is no custom UI typeface.
+
+A typography token is a **named purpose** combining `size + weight +
+line-height + default color tier + tracking`. Each token has one job.
+Off-scale values are the wrong value, not a missing token — same
+discipline as the spacing scale and the motion scale.
+
+## UI font stack
+
+```css
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+```
+
+Resolves to:
+
+- **macOS**: SF Pro
+- **Windows 11**: Segoe UI Variable
+- **Linux**: Whatever the user has (typically Cantarell, Ubuntu, or Inter)
+
+System fonts make the editor feel native on every platform, match the
+user's accessibility settings (font-rendering, line-height preferences),
+and ship zero font bytes.
+
+## The scale
+
+**Nine tokens.** Body is `1rem` — the browser-default root size — and
+everything else scales from there. Specimens below are rendered via the
+live `<Text variant="…">` component (which consumes the `--type-*`
+tokens), so what you see is what call sites will get.
+
+<div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+  {[
+    {
+      variant: "display",
+      token: "--type-display",
+      spec: "1.5rem · 24px · 600 · lh 1.2 · tracking −0.005em",
+      use: "StartCenter hero, splash, app-shell page title. Rare on purpose — one per top-level surface.",
+    },
+    {
+      variant: "title",
+      token: "--type-title",
+      spec: "1.25rem · 20px · 600 · lh 1.2 · tracking −0.003em",
+      use: "Dialog title, modal heading, large panel title.",
+    },
+    {
+      variant: "heading",
+      token: "--type-heading",
+      spec: "1.125rem · 18px · 600 · lh 1.3",
+      use: "Panel header, inspector section, card title.",
+    },
+    {
+      variant: "body",
+      token: "--type-body",
+      spec: "1rem · 16px · 400 · lh 1.5",
+      use: "Dialog body, paragraph, general copy. Body is the root — everything else is relative to this.",
+    },
+    {
+      variant: "control",
+      token: "--type-control",
+      spec: "1rem · 16px · 500 · lh 1",
+      use: "Button label, control label, menu item. Same size as body; weight + line-height encode the role.",
+    },
+    {
+      variant: "small",
+      token: "--type-small",
+      spec: "0.875rem · 14px · 400 · lh 1.4",
+      use: "Inspector row, list row, status bar, hint, helper text, placeholder. Default color is --text for rows; opt into tone=muted for hints/captions.",
+    },
+    {
+      variant: "eyebrow",
+      token: "--type-eyebrow",
+      spec: "0.75rem · 12px · 600 · lh 1 · tracking +0.04em · UPPERCASE",
+      use: "Section divider, badge text, all-caps category label.",
+      sample: "SECTION LABEL",
+    },
+    {
+      variant: "monoInline",
+      token: "--type-mono-inline",
+      spec: "1rem · 16px · 400 mono · lh 1.5",
+      use: "Inline <code>, paths, identifiers.",
+      sample: "renderScore(mnx)",
+    },
+    {
+      variant: "monoBlock",
+      token: "--type-mono-block",
+      spec: "0.875rem · 14px · 400 mono · lh 1.5",
+      use: "Fenced code blocks, MNX dumps, JSON.",
+      sample: "renderScore(mnx)",
+    },
+  ].map(({ variant, token, spec, use, sample }) => (
+    <div
+      key={token}
+      style={{
+        padding: "12px 16px",
+        borderRadius: 8,
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        display: "grid",
+        gridTemplateColumns: "minmax(260px, 1fr) minmax(0, 1.4fr)",
+        alignItems: "baseline",
+        gap: 16,
+      }}
+    >
+      <Text variant={variant} as="span">
+        {sample ?? "The quick brown fox jumps"}
+      </Text>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }}>
+        <div>
+          <strong style={{ color: "var(--text)" }}>{variant}</strong>
+          {" — "}
+          <code style={{ fontSize: 11 }}>{token}</code>
+        </div>
+        <div style={{ marginTop: 2 }}>
+          <code style={{ fontSize: 11 }}>{spec}</code>
+        </div>
+        <div style={{ marginTop: 4 }}>{use}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+## Why these nine
+
+**Body = 1rem.** That's the whole point of `rem`. The browser's default
+size (16px, or whatever the user has chosen for accessibility) is the
+root, Body is the root, and every other tier is a clean fraction or
+multiple of it. No `html { font-size: ... }` override; nothing to
+explain to a future maintainer.
+
+**The pixel ladder at root = 16px**: `12 / 14 / 16 / 18 / 20 / 24`. Six
+sizes, four of them base-2 friendly (12, 16, 24 are powers-of-two
+multiples of 4; 14 and 18 split the gaps). This is exactly the spacing
+scale's vocabulary applied to type.
+
+**Body and Control share a size** (`1rem`) because they sit next to each
+other in dialogs all the time. The role-difference is encoded in weight
+(`400` body vs `500` control) and line-height (`1.5` body vs `1`
+control). Adding a separate size for buttons would make every dialog
+read as a different magnitude of text.
+
+**Small absorbs the old Dense and Caption tiers.** The previous scale
+had two near-twins (`0.78rem` row text and `0.72rem` hint text) that
+were really one role (small text) split by color. Now there's one Small
+token; hints and captions opt into `--text-muted` as a tone override,
+not a separate size.
+
+**Display is rare on purpose.** It only shows up on entrance surfaces
+(StartCenter, splash, app-shell page title). Reaching for `--type-display`
+inside a dialog or panel is a bug, not a missing tier. Rarity is the
+feature — it's what makes "you've arrived at the top of this view" read
+as a magnitude shift.
+
+**Weight ladder is three rungs**: `400 / 500 / 600`. The previous
+codebase had nine distinct weights (up to `820`) in chrome. Anything
+`700+` belongs on the canvas (lyrics, work titles, tempo marks) or on
+the marketing site (hero copy), and lives in those scales, not in
+chrome.
+
+**Line-height is encoded in the token**, not at the call site, so a
+heading that wraps to two lines doesn't accidentally render at body
+line-height. Body is the loose `1.5`; Headings tighten to `1.2`–`1.3`;
+Control collapses to `1` because padding is what sizes a button.
+
+**Tracking only on Display, Title, and Eyebrow.** Display and Title get
+a hair of negative tracking (`-0.003em`/`-0.005em`) so the larger sizes
+don't read loose. Eyebrow gets `+0.04em` because all-caps needs the air.
+Body and below get `0` — the system fonts are already tuned for it.
+
+## Using the tokens
+
+### React (preferred)
+
+Use the `<Text>` primitive from `@viritura/ui`. It applies the right
+default element per variant (`display → h1`, `body → p`, `monoInline →
+code`, etc.) and accepts a `tone` override for color shifts.
+
+```tsx
+import { Text } from "@viritura/ui";
+
+<Text variant="title">Page Setup</Text>
+<Text variant="body">Choose a paper size for the score.</Text>
+<Text variant="small" tone="muted">Custom sizes will use the closest preset.</Text>
+<Text variant="eyebrow">Layout</Text>
+```
+
+### CSS
+
+Each token exposes its parts as `--type-<name>-<property>` custom
+properties. Spell out the ones you need:
+
+```css
+.dialogTitle {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-lh);
+  letter-spacing: var(--type-title-tracking);
+  color: var(--type-title-color);
+}
+```
+
+Or import the matching utility class from `Text.module.css` and apply
+it directly — the React component uses the same classes under the hood.
+
+### Selected and active text
+
+Selection is a **state**, not a new typography role. Keep the role's size
+and line-height stable, then communicate selection with color, an indicator,
+or surface treatment. If weight changes too, move by at most one rung and
+never exceed `600` in UI chrome.
+
+For compact navigation and list rows, use `500` at rest and `600` when
+selected. Do not jump to `700` or `800`: at 12–14px those weights close
+counters, degrade word shape, and can cause distracting width changes.
+
+## Color × token defaults
+
+| Token            | Default color tier | When to override                                                   |
+| ---------------- | ------------------ | ------------------------------------------------------------------ |
+| `--type-display` | `--text-bright`    | Rare; `--accent` only for branded hero copy.                       |
+| `--type-title`   | `--text-bright`    | Don't.                                                             |
+| `--type-heading` | `--text-bright`    | `--text` when the heading is decorative (inspector group label).   |
+| `--type-body`    | `--text`           | `--text-muted` for secondary paragraphs.                           |
+| `--type-control` | `--text`           | `--text-bright` for primary action; `--text-muted` for disabled.   |
+| `--type-small`   | `--text`           | `--text-muted` for hints, helper text, placeholder, inactive rows. |
+| `--type-eyebrow` | `--text-muted`     | `--accent` for "live" / "new" badges.                              |
+| `--type-mono-*`  | `--text`           | `--text-muted` for path crumbs.                                    |
+
+## Music glyphs
+
+Score content uses **Bravura** (SMuFL) — never the UI font stack. Glyphs
+are positioned by the Rust layout engine via the `DrawGlyph` render
+command with `font: "Bravura"`. See
+`engine/viritura-engine/src/render/smufl.rs` for the codepoint registry.
+
+The canvas is the one place where weights above `600` are legitimate:
+lyrics with `weight=bold`, work titles, large-type tempo marks. Those
+are score content, not chrome.
+
+## Marketing site
+
+`apps/website` is its own surface (large hero copy, marketing
+typography conventions) and gets its own `--hm-type-*` scale that
+mirrors this one and adds a `--hm-type-hero` token (`4rem / 820`) for
+the splash. It does **not** import these tokens, by design — the two
+surfaces drift independently.

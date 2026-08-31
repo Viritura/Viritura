@@ -1,0 +1,562 @@
+@font-face {
+  font-family: "Anybody Viritura";
+  src: url("/fonts/Anybody-700.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bodoni Moda Viritura";
+  src: url("/fonts/BodoniModa-600.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libertinus Viritura";
+  src: url("/fonts/LibertinusSerif-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Libertinus Viritura";
+  src: url("/fonts/LibertinusSerif-Bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+.studio {
+  --studio-ink: #161917;
+  --studio-paper: #e9e8e2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--studio-ink);
+  background: var(--studio-paper);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.introduction {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 0.45fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  align-items: end;
+  min-height: min(46rem, 88vh);
+  padding: clamp(3rem, 7vw, 7rem);
+  background:
+    linear-gradient(115deg, transparent 0 62%, rgba(33, 94, 78, 0.12) 62% 62.2%, transparent 62.2%), var(--studio-paper);
+}
+
+.introCopy {
+  max-width: 66rem;
+}
+
+.introCopy h1 {
+  max-width: 12ch;
+  margin: 0;
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3.5rem, 8.2vw, 6rem);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.introCopy p {
+  max-width: 61ch;
+  margin: clamp(2rem, 4vw, 3rem) 0 0;
+  color: #424944;
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+  line-height: 1.55;
+}
+
+.criteria {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 1.25rem;
+  border-top: 2px solid var(--studio-ink);
+  color: #444a46;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.criteria strong {
+  margin-bottom: 0.4rem;
+  color: var(--studio-ink);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.proposalNav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  background: rgba(22, 25, 23, 0.94);
+  color: #fff;
+  scrollbar-width: none;
+}
+
+.proposalNav::-webkit-scrollbar {
+  display: none;
+}
+
+.proposalNav a {
+  flex: 1 0 auto;
+  padding: 0.95rem clamp(1rem, 2vw, 2rem);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.proposalNav a:hover,
+.proposalNav a:focus-visible {
+  background: #215e4e;
+  outline: 0;
+}
+
+.proposal {
+  min-height: 100vh;
+  scroll-margin-top: 3rem;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: clamp(31rem, 70vh, 48rem);
+  padding: clamp(3rem, 8vw, 8rem);
+  overflow: hidden;
+}
+
+.primaryLockup {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(1.1rem, 2.5vw, 2.5rem);
+  min-width: 0;
+}
+
+.wordmark {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.genericWordmark {
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3.8rem, 8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+}
+
+.mark {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: clamp(4.2rem, 8vw, 7rem);
+  aspect-ratio: 1;
+  font-size: clamp(2rem, 4.5vw, 4rem);
+  line-height: 1;
+}
+
+.genericMark {
+  border: 2px solid currentColor;
+  font-family: "Anybody Viritura", sans-serif;
+  font-weight: 700;
+}
+
+.smallMark {
+  width: 2rem;
+  font-size: 1.05rem;
+}
+
+.scaleProof {
+  position: absolute;
+  right: clamp(1.5rem, 4vw, 4rem);
+  bottom: clamp(1.5rem, 4vw, 4rem);
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.scaleProof > .mark:first-child {
+  width: 2.8rem;
+  font-size: 1.4rem;
+}
+
+.faviconFrame {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  color: inherit;
+  background: currentColor;
+  border-radius: 0.45rem;
+}
+
+.faviconFrame .mark {
+  color: var(--favicon-ink, #fff);
+}
+
+.proposalNotes {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.7fr) minmax(20rem, 1fr) minmax(25rem, 1.3fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  padding: clamp(2.5rem, 5vw, 5rem) clamp(2rem, 7vw, 7rem);
+}
+
+.proposalTitle h2 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+.proposalTitle span {
+  display: block;
+  margin-top: 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.thesis {
+  max-width: 40ch;
+  margin: 0;
+  font-size: clamp(1.15rem, 2vw, 1.65rem);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.proposalNotes dl {
+  display: grid;
+  gap: 1.4rem;
+  margin: 0;
+}
+
+.proposalNotes dl > div {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid currentColor;
+}
+
+.proposalNotes dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.proposalNotes dd {
+  max-width: 50ch;
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.applicationStrip {
+  display: grid;
+  grid-template-columns: minmax(13rem, 1fr) auto minmax(13rem, 1fr);
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid currentColor;
+  font-size: 0.74rem;
+}
+
+.appIdentity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.documentName {
+  opacity: 0.68;
+}
+
+.windowControls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+.windowControls span {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+/* Legato */
+
+.legato {
+  --favicon-ink: #d5eee3;
+  color: #153d32;
+  background: #d5eee3;
+}
+
+.legato .stage {
+  background: radial-gradient(circle at 50% 50%, rgba(33, 94, 78, 0.16), transparent 42%), #d5eee3;
+}
+
+.legatoWordmark {
+  position: relative;
+  font-family: "Bodoni Moda Viritura", "Libertinus Serif", serif;
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-weight: 600;
+  line-height: 0.82;
+  letter-spacing: -0.04em;
+}
+
+.legatoWordmark > span {
+  font-style: italic;
+}
+
+.legatoWordmark::after {
+  position: absolute;
+  right: -0.03em;
+  bottom: -0.15em;
+  left: 48%;
+  height: 0.035em;
+  content: "";
+  background: currentColor;
+  transform: skewX(-24deg);
+  transform-origin: right;
+}
+
+.legatoMark {
+  border: 1px solid currentColor;
+  border-radius: 50% 50% 50% 8%;
+  font-family: "Bodoni Moda Viritura", "Libertinus Serif", serif;
+  font-style: italic;
+  font-weight: 600;
+  transform: rotate(-6deg);
+}
+
+.legato .compact {
+  font-size: 1.15rem;
+}
+
+/* Makerplate */
+
+.imprint {
+  --favicon-ink: #dff3eb;
+  color: #dff3eb;
+  background: #143c32;
+}
+
+.imprint .stage {
+  background:
+    linear-gradient(115deg, transparent 0 64%, rgba(153, 215, 190, 0.09) 64% 64.2%, transparent 64.2%),
+    linear-gradient(160deg, #225e4d, #123a30);
+}
+
+.imprint .stage::after {
+  position: absolute;
+  inset: clamp(2rem, 6vw, 6rem);
+  content: "";
+  border: 1px solid rgba(188, 232, 214, 0.28);
+  border-radius: 0.35rem;
+  box-shadow:
+    inset 0 1px 0 rgba(222, 246, 236, 0.16),
+    0 1.5rem 3rem rgba(4, 27, 21, 0.28);
+  pointer-events: none;
+}
+
+.imprint .primaryLockup {
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(2rem, 6vw, 5rem);
+  border: 1px solid rgba(202, 238, 223, 0.48);
+  border-radius: 0.35rem;
+  background: rgba(9, 48, 38, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(225, 247, 238, 0.18),
+    inset 0 -1px 0 rgba(3, 28, 21, 0.4),
+    0 0.75rem 1.5rem rgba(3, 26, 20, 0.2);
+}
+
+.imprintWordmark {
+  color: #dff3eb;
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3.8rem, 8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2),
+    0 -1px 0 rgba(1, 25, 18, 0.75);
+}
+
+.imprintMark {
+  color: #143c32;
+  background: #a9dbc7;
+  border: 1px solid #dff3eb;
+  border-radius: 0.2em;
+  font-family: "Anybody Viritura", sans-serif;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.imprint .compact {
+  font-size: 1.05rem;
+}
+
+.recommendation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.6fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  align-items: end;
+  padding: clamp(4rem, 9vw, 9rem) clamp(2rem, 7vw, 7rem);
+  color: #f0f4f2;
+  background: #17372f;
+}
+
+.recommendation h2 {
+  max-width: 10ch;
+  margin: 0 0 1.5rem;
+  font-family: "Anybody Viritura", sans-serif;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.recommendation p {
+  max-width: 62ch;
+  margin: 0;
+  color: #c9d8d2;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.recommendation strong {
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .introduction,
+  .proposalNotes,
+  .recommendation {
+    grid-template-columns: 1fr;
+  }
+
+  .introduction {
+    align-content: center;
+    min-height: auto;
+  }
+
+  .criteria {
+    max-width: 28rem;
+  }
+
+  .proposalNotes {
+    gap: 2rem;
+  }
+
+  .proposalNotes dl {
+    max-width: 42rem;
+  }
+
+  .primaryLockup {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .introduction {
+    padding: 4rem 1.5rem;
+  }
+
+  .introCopy h1 {
+    font-size: clamp(3.25rem, 16vw, 5rem);
+  }
+
+  .stage {
+    min-height: 31rem;
+    padding: 3rem 1.25rem 6rem;
+  }
+
+  .primaryLockup {
+    gap: 1rem;
+  }
+
+  .wordmark {
+    white-space: normal;
+  }
+
+  .legatoWordmark,
+  .imprintWordmark {
+    font-size: clamp(3.25rem, 17vw, 5rem);
+  }
+
+  .imprint .primaryLockup {
+    padding: 1.5rem;
+  }
+
+  .scaleProof {
+    right: 1.25rem;
+    bottom: 1.25rem;
+  }
+
+  .proposalNotes {
+    padding: 3rem 1.5rem;
+  }
+
+  .proposalNotes dl > div {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .applicationStrip {
+    grid-template-columns: 1fr auto;
+  }
+
+  .documentName {
+    display: none;
+  }
+
+  .recommendation {
+    padding: 5rem 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .proposalNav a {
+    transition:
+      color 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  .introCopy h1 {
+    animation: settle 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes settle {
+  from {
+    filter: blur(5px);
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    filter: blur(0);
+    clip-path: inset(0);
+  }
+}

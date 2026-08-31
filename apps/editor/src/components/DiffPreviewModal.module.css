@@ -1,0 +1,80 @@
+.header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.headerTitle {
+  margin: 0;
+  font-weight: var(--type-heading-weight);
+  font-size: var(--type-body-size);
+}
+
+.headerActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.rejectButton {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--error);
+  font-size: var(--type-small-size);
+  font-weight: var(--type-heading-weight);
+  cursor: pointer;
+}
+
+.rejectButton:hover {
+  background: var(--surface-hover);
+}
+
+.acceptButton {
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--type-small-size);
+  font-weight: var(--type-heading-weight);
+  cursor: pointer;
+}
+
+.acceptButton:hover {
+  opacity: 0.9;
+}
+
+.labelRow {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+}
+
+.labelCurrent {
+  width: 50%;
+  padding: var(--space-1) var(--space-4);
+  color: var(--error);
+  border-right: 1px solid var(--border);
+}
+
+.labelProposed {
+  width: 50%;
+  padding: var(--space-1) var(--space-4);
+  color: var(--accent);
+}
+
+.stats {
+  padding: var(--space-1) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  display: flex;
+  gap: var(--space-5);
+}

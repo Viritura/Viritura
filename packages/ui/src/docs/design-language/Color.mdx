@@ -1,0 +1,170 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { CircleAlert, TriangleAlert, CircleCheck } from "lucide-react";
+
+<Meta title="Design Language/Color" />
+
+# Color
+
+Tokens are defined in `packages/ui/src/tokens.css` and themed via the
+`[data-theme]` attribute on `<html>`.
+
+## Themes
+
+| Theme      | Mode                                                       | Canvas                                          |
+| ---------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `light`    | Default                                                    | Near-white paper                                |
+| `dark`     | Inverted UI                                                | Near-black canvas, dark chrome                  |
+| `midnight` | Dark chrome + inverted canvas (via CSS `filter: invert()`) | Light paper drawn, inverted to dark for display |
+
+## Surfaces
+
+The opaque tier (chrome, modals, primary fills).
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 16 }}>
+  {[
+    { token: "--bg", role: "Workspace fallback" },
+    { token: "--surface", role: "Chrome (menu, status)" },
+    { token: "--surface-raised", role: "Modal cards, raised buttons" },
+    { token: "--surface-sunken", role: "Inputs, recessed wells" },
+    { token: "--surface-hover", role: "Hover state on surface" },
+    { token: "--menu-hover", role: "Menu item hover row" },
+  ].map(({ token, role }) => (
+    <div
+      key={token}
+      style={{ borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden", background: "var(--surface)" }}
+    >
+      <div style={{ height: 56, background: `var(${token})`, borderBottom: "1px solid var(--border)" }} />
+      <div style={{ padding: "8px 10px", fontSize: 12 }}>
+        <div style={{ fontFamily: "monospace", color: "var(--text)" }}>{token}</div>
+        <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{role}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+## Text
+
+Three tiers, all WCAG-AA on translucent glass.
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 16 }}>
+  {[
+    { token: "--text-bright", role: "Headings, primary labels" },
+    { token: "--text", role: "Body text" },
+    { token: "--text-muted", role: "Secondary, hints, placeholders" },
+  ].map(({ token, role }) => (
+    <div
+      key={token}
+      style={{ padding: "12px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}
+    >
+      <div style={{ color: `var(${token})`, fontSize: 18, fontWeight: 600 }}>The quick brown fox</div>
+      <div style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>{token}</div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{role}</div>
+    </div>
+  ))}
+</div>
+
+## Accent — viridian
+
+The single brand color. Used for selection, primary action, and focus.
+
+<div style={{ marginTop: 16, padding: 20, borderRadius: 12, background: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+  <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ width: 80, height: 80, borderRadius: 12, background: "rgb(var(--accent-rgb))", boxShadow: "var(--elevation-2)" }} />
+    <div>
+      <div style={{ fontFamily: "monospace", color: "var(--text)" }}>--accent / --accent-rgb</div>
+      <div style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 4 }}>
+        Brand / Light: <code>#215e4e</code> (33, 94, 78)<br />
+        Dark/Midnight tint: <code>#83c8b3</code> (131, 200, 179)
+      </div>
+    </div>
+  </div>
+
+  <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+    {[1.0, 0.7, 0.45, 0.25, 0.12, 0.06].map(a => (
+      <div key={a} style={{ flex: "1 1 80px", height: 48, borderRadius: 6, background: `rgba(var(--accent-rgb), ${a})`, display: "flex", alignItems: "center", justifyContent: "center", color: a > 0.4 ? "#fff" : "var(--text)", fontFamily: "monospace", fontSize: 12 }}>
+        α {a}
+      </div>
+    ))}
+  </div>
+</div>
+
+### When to reach for the accent
+
+| Use it for                            | Don't use it for                              |
+| ------------------------------------- | --------------------------------------------- |
+| Primary action button                 | Secondary actions                             |
+| Selected note / score                 | Hover state (use `--surface-hover`)           |
+| Focus ring on inputs                  | Body text                                     |
+| Brand wordmark                        | Danger / warning (use `--error`, `--warning`) |
+| "Current mode" indicator              | Borders                                       |
+| **Success / saved / confirmed** state | — (no separate success token, see below)      |
+
+## Status
+
+Viritura ships **only two status colors**, because only two states
+demand the urgency that color provides: errors and warnings. Success is
+the absence of failure and uses the brand accent — viridian is the
+color of _thriving_, and a successful save is a brand moment.
+
+**Color is never the signal.** Every status message pairs a color with
+an icon and a text label (per [WCAG 1.4.1 "Use of
+Color"](https://www.w3.org/WAI/WCAG21/Understanding/use-of-color.html)).
+Color reinforces; the icon and the words carry the meaning.
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 16 }}>
+  {[
+    { token: "--error", label: "Error / destructive", Icon: CircleAlert },
+    { token: "--warning", label: "Warning / caution", Icon: TriangleAlert },
+    { token: "--accent", label: "Success / saved (brand)", Icon: CircleCheck },
+  ].map(({ token, label, Icon }) => (
+    <div
+      key={token}
+      style={{ borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden", background: "var(--surface)" }}
+    >
+      <div
+        style={{
+          height: 48,
+          background: `var(${token})`,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Icon size={22} strokeWidth={2.25} />
+      </div>
+      <div style={{ padding: "8px 10px", fontSize: 12 }}>
+        <div style={{ fontFamily: "monospace", color: "var(--text)" }}>{token}</div>
+        <div style={{ color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
+## Diff overlays
+
+Tinted backgrounds for the Review-mode diff view. **These are alpha
+overlays on the brand and error palette, not separate colors** — added
+and modified both tint with viridian (different α to distinguish them);
+removed tints with red. The diff tree pairs each row with a `+`, `✎`, or
+`−` glyph, so the shared hue between added and modified is reinforcement,
+not the signal.
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
+  {[
+    { token: "--diff-added-bg", label: "Added", derivation: "rgba(accent, .12)" },
+    { token: "--diff-modified-bg", label: "Modified", derivation: "rgba(accent, .06)" },
+    { token: "--diff-removed-bg", label: "Removed", derivation: "rgba(error, .10)" },
+  ].map(({ token, label, derivation }) => (
+    <div
+      key={token}
+      style={{ padding: 12, borderRadius: 8, background: `var(${token})`, border: "1px solid var(--border)" }}
+    >
+      <div style={{ fontFamily: "monospace", fontSize: 12, color: "var(--text)" }}>{token}</div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
+      <div style={{ fontFamily: "monospace", fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+        {derivation}
+      </div>
+    </div>
+  ))}
+</div>

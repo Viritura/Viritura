@@ -1,0 +1,221 @@
+{
+  "mnx": {
+    "version": 1,
+    "support": {
+      "useAccidentalDisplay": true
+    }
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {},
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "_c": "F#4 with parenthesized courtesy accidental",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 4,
+                        "alter": 1
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "parentheses"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "_c": "Bb4 with bracketed accidental",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "B",
+                        "octave": 4,
+                        "alter": -1
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "brackets"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "_c": "C#5 with force (first occurrence)",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5,
+                        "alter": 1
+                      },
+                      "accidentalDisplay": {
+                        "show": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "_c": "C#5 repeated with force — accidental shown again despite dedup",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 5,
+                        "alter": 1
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "force": true
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "_c": "Natural with parenthesized courtesy accidental",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 4
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "force": true,
+                        "enclosure": {
+                          "symbol": "parentheses"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "_c": "Eb5 with parenthesized accidental",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 5,
+                        "alter": -1
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "parentheses"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "_c": "Double sharp with brackets",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "G",
+                        "octave": 4,
+                        "alter": 2
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "brackets"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "_c": "Double flat with parentheses",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "A",
+                        "octave": 4,
+                        "alter": -2
+                      },
+                      "accidentalDisplay": {
+                        "show": true,
+                        "enclosure": {
+                          "symbol": "parentheses"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

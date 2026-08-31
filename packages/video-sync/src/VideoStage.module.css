@@ -1,0 +1,57 @@
+/* VideoStage — floating picture surface.
+
+   Positioned bottom-right over the workspace so it behaves like the PiP window
+   it stands in for, and resizable so a composer can trade screen area between
+   picture and score. */
+
+.stage {
+  position: fixed;
+  right: var(--space-4, 16px);
+  bottom: calc(var(--space-4, 16px) + 44px);
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 320px;
+  min-width: 180px;
+  max-width: 60vw;
+  overflow: hidden;
+  resize: both;
+  border: 1px solid var(--border, #d0cdc6);
+  border-radius: 10px;
+  background: #000;
+  box-shadow: var(--elevation-2, 0 8px 24px rgb(0 0 0 / 24%));
+}
+
+/* The element must stay in the document while Picture-in-Picture is active, so
+   the card is collapsed rather than unmounted. */
+.stageHidden {
+  position: fixed;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
+.credit {
+  padding: 2px var(--space-2, 8px) 4px;
+  overflow: hidden;
+  color: rgb(255 255 255 / 72%);
+  font-size: var(--type-eyebrow-size, 10px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+.credit:hover {
+  color: #fff;
+  text-decoration: underline;
+}

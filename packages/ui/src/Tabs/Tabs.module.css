@@ -1,0 +1,125 @@
+/* Tabs — clean underline style that sits inside a glass panel.
+ * Inactive tabs are pure text on transparent; the active tab gets
+ * a subtle accent-colored underline + brighter text. Matches the
+ * floating-glass workspace chrome (no opaque neumorphic chips).
+ */
+
+.tabBar {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.tabButton {
+  flex: 1 0 auto;
+  min-width: max-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  position: relative;
+  padding: var(--space-2) var(--space-1) var(--space-3);
+  border: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--type-eyebrow-size);
+  font-family: system-ui, sans-serif;
+  font-weight: var(--type-control-weight);
+  letter-spacing: 0;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
+}
+
+/* Active-tab underline — drawn as an absolutely-positioned pill so it
+ * never affects layout when toggling tabs. */
+.tabButton::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+  opacity: 0;
+  transform: scaleX(0.6);
+  transform-origin: center;
+  transition:
+    opacity var(--motion-base) var(--ease-enter),
+    transform var(--motion-base) var(--ease-enter);
+}
+
+.tabButton:hover:not([aria-selected="true"]) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .tabButton:hover:not([aria-selected="true"]),
+[data-theme="midnight"] .tabButton:hover:not([aria-selected="true"]) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Tab labels live in the panel header (no surrounding body copy to
+   anchor against), so the muted recipe used elsewhere reads as
+   washed-out here. Lift inactive tab text to --text-muted in dark
+   themes so the inactive↔active step is brightness + accent, not
+   legibility + accent. */
+[data-theme="dark"] .tabButton:not([aria-selected="true"]),
+[data-theme="midnight"] .tabButton:not([aria-selected="true"]) {
+  color: var(--text-muted);
+}
+
+.tabButton[aria-selected="true"] {
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+  background: transparent;
+}
+
+.tabButton[aria-selected="true"]::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Small bold text gets darkened by subpixel AA, so the accent mint
+   reads visibly duller on the active tab label than the same colour
+   does on the larger PUBLISH pill. Push the dark/midnight active
+   colour to a brighter mint so perceived weight matches. */
+[data-theme="dark"] .tabButton[aria-selected="true"],
+[data-theme="midnight"] .tabButton[aria-selected="true"] {
+  color: #a8ead8;
+  font-weight: var(--type-heading-weight);
+}
+[data-theme="dark"] .tabButton[aria-selected="true"]::after,
+[data-theme="midnight"] .tabButton[aria-selected="true"]::after {
+  background: #a8ead8;
+}
+
+.tabButton:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb, 33, 94, 78));
+  outline-offset: -2px;
+}
+
+.tabIcon {
+  font-size: var(--type-small-size);
+  display: flex;
+  align-items: center;
+}
+
+.tabLabel {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  white-space: nowrap;
+}
+
+.tabContent {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

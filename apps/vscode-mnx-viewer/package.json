@@ -1,0 +1,95 @@
+{
+  "name": "mnx-viewer",
+  "displayName": "Viritura MNX Viewer",
+  "publisher": "Viritura",
+  "description": "Preview .mnx files in VS Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "mnx",
+        "aliases": [
+          "MNX",
+          "mnx"
+        ],
+        "extensions": [
+          ".mnx"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "mnxViewer.openPreview",
+        "title": "MNX: Open Preview"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "viritura.mnxViewer",
+        "displayName": "MNX Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.mnx"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mnxViewer.openPreview",
+          "when": "resourceLangId == mnx",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "mnxViewer.openPreview",
+          "when": "resourceExtname == .mnx",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "corepack pnpm build:extension && corepack pnpm build:webview",
+    "build:extension": "tsc -p .",
+    "build:webview": "vite build",
+    "watch": "tsc -watch -p .",
+    "test": "vitest run src/__tests__",
+    "prepare:assets": "tsx scripts/prepare-assets.ts",
+    "package": "corepack pnpm --dir ../.. build:vsix",
+    "package:prebuilt": "vsce package --allow-missing-repository"
+  },
+  "keywords": [
+    "mnx",
+    "music",
+    "preview",
+    "vscode"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/node": "^25.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/vscode": "^1.120.0",
+    "@viritura/score-viewer-react": "workspace:*",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vscode/vsce": "^3.9.1",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

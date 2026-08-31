@@ -1,0 +1,380 @@
+/* Button — modern translucent/pill vocab matching PanelActionButton & toolbar surfaces.
+   Replaces the previous neumorphic raised/inset shadow language. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(20, 20, 28, 0.12);
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-control-lh);
+  color: #3a3a44;
+  user-select: none;
+  overflow: hidden;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+[data-theme="dark"] .button,
+[data-theme="midnight"] .button,
+[data-on-dark] .button {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.button:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.35);
+  color: var(--text);
+}
+
+.button:active:not(:disabled):not([aria-pressed="true"]) {
+  transform: translateY(1px);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-tight);
+}
+
+.button[aria-pressed="true"] {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+  color: var(--text);
+}
+
+[data-theme="dark"] .button[aria-pressed="true"],
+[data-theme="midnight"] .button[aria-pressed="true"],
+[data-on-dark] .button[aria-pressed="true"] {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.22);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Size variants ── */
+
+.xs {
+  /* xs only makes sense paired with shape="icon" (mixer M/S capsules).
+     On a pill the dimensions still apply but the radius softens.
+     Font-size and weight snap to the eyebrow token: this is the
+     all-caps mini-label tier (badges, M/S capsules). */
+  min-width: 18px;
+  height: 18px;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+}
+
+.sm {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  font-size: var(--type-eyebrow-size);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.lg {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  font-size: var(--type-body-size);
+  padding: 0 var(--space-3);
+}
+
+/* ── Shape: icon ──
+   Fixed square aspect, no horizontal padding. Replaces the old standalone
+   IconButton chrome. Default sizing matches IconButton's `lg` (44px). */
+
+.iconShape {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  margin: 2px;
+}
+
+.iconShape.xs {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-pill);
+}
+
+.iconShape.sm {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
+.iconShape.lg {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+/* ── Visual variants ── */
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ghost:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  border-color: transparent;
+}
+
+.ghost[aria-pressed="true"] {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
+  border-color: transparent;
+  color: var(--text);
+}
+
+/* Primary — solid accent fill for emphasis CTAs outside dialogs
+   (banner action buttons, "Open folder…", "Sign in", etc.). */
+.button.primary {
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+  border-color: rgb(var(--accent-rgb, 33, 94, 78));
+  color: #fff;
+}
+
+.primary:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.88);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.88);
+  color: #fff;
+}
+
+.primary[aria-pressed="true"] {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.78);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.78);
+  color: #fff;
+}
+
+[data-theme="dark"] .primary,
+[data-theme="midnight"] .primary {
+  color: #12352d;
+}
+
+[data-theme="dark"] .primary:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="midnight"] .primary:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="dark"] .primary[aria-pressed="true"],
+[data-theme="midnight"] .primary[aria-pressed="true"] {
+  color: #12352d;
+}
+
+/* CTA — compact, text-led emphasis for first-run and empty-state activation.
+   Unlike primary, it owns its typography and spacing so routine confirmations
+   retain the established control treatment. */
+.button.cta {
+  height: 2.25rem;
+  min-width: 0;
+  padding-inline: var(--space-3);
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+  box-shadow: 0 1px 2px rgba(20, 20, 28, 0.14);
+  color: #fff;
+  font-size: var(--type-small-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: -0.01em;
+}
+
+.cta:hover:not(:disabled):not([aria-pressed="true"]) {
+  border-color: transparent;
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.9);
+  box-shadow: 0 2px 5px rgba(20, 20, 28, 0.18);
+  color: #fff;
+}
+
+.cta:active:not(:disabled):not([aria-pressed="true"]),
+.cta[aria-pressed="true"] {
+  border-color: transparent;
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.8);
+  box-shadow: none;
+  color: #fff;
+}
+
+[data-theme="dark"] .cta,
+[data-theme="midnight"] .cta,
+[data-theme="dark"] .cta:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="midnight"] .cta:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="dark"] .cta[aria-pressed="true"],
+[data-theme="midnight"] .cta[aria-pressed="true"] {
+  color: #12352d;
+}
+
+/* Link — text-only, no chrome. For inline actions like "Skip",
+   "Don't show again", footer text-links. */
+.link {
+  background: transparent;
+  border-color: transparent;
+  padding: 0 var(--space-1);
+  min-width: 0;
+  color: var(--text-muted, #6c6c78);
+  text-decoration: none;
+}
+
+.link:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link[aria-pressed="true"] {
+  background: transparent;
+  border-color: transparent;
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.link-row {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  justify-content: flex-start;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: var(--text-muted, #6c6c78);
+}
+
+.link-row > span {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-row:hover:not(:disabled) {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.link-row[aria-pressed="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.utility-row {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  justify-content: flex-start;
+  padding: 0 var(--space-2);
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted, #6c6c78);
+}
+
+.utility-row:hover:not(:disabled) {
+  border-color: transparent;
+  background: rgba(20, 20, 28, 0.05);
+  color: var(--text);
+}
+
+[data-theme="dark"] .utility-row:hover:not(:disabled),
+[data-theme="midnight"] .utility-row:hover:not(:disabled),
+[data-on-dark] .utility-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.utility-row[aria-pressed="true"] {
+  border-color: transparent;
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  color: var(--text);
+}
+
+/* Danger — transparent base with red-tinted border/text on hover.
+   For destructive actions like "Remove" / "Delete" in expanded rows. */
+.danger {
+  background: transparent;
+  border-color: var(--border, rgba(20, 20, 28, 0.12));
+  color: var(--text-muted);
+}
+
+.danger:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: rgba(220, 60, 60, 0.08);
+  border-color: rgba(220, 60, 60, 0.3);
+  color: rgb(180, 50, 50);
+}
+
+.danger[aria-pressed="true"] {
+  background: rgba(220, 60, 60, 0.14);
+  border-color: rgba(220, 60, 60, 0.45);
+  color: rgb(180, 50, 50);
+}
+
+[data-theme="dark"] .danger:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="midnight"] .danger:hover:not(:disabled):not([aria-pressed="true"]) {
+  color: rgb(240, 120, 120);
+}
+
+[data-theme="dark"] .danger[aria-pressed="true"],
+[data-theme="midnight"] .danger[aria-pressed="true"] {
+  background: rgba(240, 120, 120, 0.18);
+  border-color: rgba(240, 120, 120, 0.5);
+  color: rgb(240, 120, 120);
+}
+
+/* ── Width modifier ── */
+
+.fullWidth {
+  width: 100%;
+}
+
+/* Expand a row control through the conventional --space-2 inner gutter while
+   preserving the content's optical alignment with adjacent controls. */
+.bleedInline {
+  width: calc(100% + var(--space-4));
+  margin-inline: calc(-1 * var(--space-2));
+  padding-inline: var(--space-2);
+}
+
+/* ── Font override for music glyphs ──
+   Bravura sizes here are GLYPH (icon) dimensions, not chrome text —
+   intentionally off the --type-* scale. Each value pairs with the
+   corresponding button size variant to render at a balanced size
+   inside the button's chrome. */
+
+.bravura {
+  font-family: Bravura, serif;
+  font-size: 1.2rem;
+}
+
+.xs.bravura {
+  font-size: 0.7rem;
+}
+
+.sm.bravura {
+  font-size: 0.95rem;
+}
+
+.lg.bravura {
+  font-size: 1.5rem;
+}

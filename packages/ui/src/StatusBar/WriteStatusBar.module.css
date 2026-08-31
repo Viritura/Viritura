@@ -1,0 +1,12 @@
+/* WriteStatusBar — composition-level styles only. The dark "command pill"
+   shell, slot layout, StatusSelect, and StatusZoomControls live in the
+   sibling StatusBar files. The only Write-specific element is the
+   transient beat-count warning. */
+
+.warning {
+  color: var(--warning);
+  font-weight: var(--type-heading-weight);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}

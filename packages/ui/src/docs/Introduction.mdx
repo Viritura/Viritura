@@ -1,0 +1,81 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction" />
+
+# Viritura UI
+
+The component library and design language for the Viritura music notation editor.
+
+This is **one of three Storybooks** in the Viritura repo:
+
+| Storybook                     | Port | Audience                                            | What's inside                                                  |
+| ----------------------------- | ---- | --------------------------------------------------- | -------------------------------------------------------------- |
+| **`@viritura/ui`** (this one) | 6005 | Design system reviewers, anyone styling a component | Design Language docs + every UI primitive                      |
+| **`@viritura/editor` MNX**    | 6006 | Engraving QA, score reviewers                       | MNX spec conformance battery + Viritura vendor extensions      |
+| **`@viritura/editor` App**    | 6007 | Editor flow QA, integration                         | Composed app surfaces (StartCenter, modes, dialogs, transport) |
+
+Run them with `pnpm --filter @viritura/ui storybook`, `pnpm --filter @viritura/editor storybook:mnx`, and `pnpm --filter @viritura/editor storybook` respectively.
+
+---
+
+## What's here
+
+### Brand
+
+The story behind the name and what Viritura stands for.
+
+- **[Brand →](?path=/docs/brand--docs)**
+
+### Design Language
+
+The visual identity: glass + viridian over a tinted workspace mesh.
+Start with [Overview](?path=/docs/design-language-overview--docs) for the
+philosophy, then drill into [Material Tiers](?path=/docs/design-language-material-tiers--docs)
+for the rules that govern every surface.
+
+- **[Overview →](?path=/docs/design-language-overview--docs)**
+- **[Material Tiers →](?path=/docs/design-language-material-tiers--docs)**
+- **[Color →](?path=/docs/design-language-color--docs)**
+- **[Elevation →](?path=/docs/design-language-elevation--docs)**
+- **[Radii & Spacing →](?path=/docs/design-language-radii-spacing--docs)**
+- **[Typography →](?path=/docs/design-language-typography--docs)**
+
+### UI Components
+
+Every primitive exported from `@viritura/ui`: buttons, dialogs, form
+controls, menus, panels, and composition primitives. Each component has
+its own story page with knobs (Controls) and the docs panel showing
+usage code.
+
+---
+
+## When to add a story here
+
+> **Add a story when:**
+>
+> - You create a new primitive in `packages/ui/src/<Name>/`
+> - You fix a primitive bug that wasn't covered by an existing case
+> - You add a new variant to an existing primitive
+>
+> **Don't add a story here for:**
+>
+> - App-level surfaces — those go in the **App** storybook
+> - Engraving features — those go in the **MNX** storybook
+> - Vendor extensions — those go in the **MNX** storybook under Viritura Extensions
+
+## Coding conventions
+
+- TypeScript strict mode, no `any`, prefer `interface` over `type`
+- CSS modules for component styling, never inline styles
+- Always reference design tokens — never hardcode `border-radius: 8px` or `rgba(47,125,106)`
+- No native `alert()` / `confirm()` / `prompt()` — they block the thread, ignore
+  the theme, are unusable on touch, and the browser can suppress them mid-flow.
+  Use `PromptDialog` for text entry, `Dialog` + `DialogActions` for confirmation,
+  and `toast` (sonner) for one-way notices. Enforced by `no-restricted-globals`
+  and `no-restricted-properties` in `eslint.config.js`.
+- See the [Design Language → Overview](?path=/docs/design-language-overview--docs) for the token vocabulary
+
+---
+
+> **Pre-alpha.** Visual breakage is expected and welcomed during this phase —
+> see anything strange? File it, don't paper over it.

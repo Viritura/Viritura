@@ -1,0 +1,33 @@
+services:
+  api:
+    image: viritura-api:latest
+    container_name: viritura-api
+    restart: unless-stopped
+    init: true
+    user: "1654:1654"
+    read_only: true
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:5001:8080"
+    env_file:
+      - /etc/viritura/api.env
+    environment:
+      # nginx reaches the loopback-published container through Docker's bridge.
+      ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
+    volumes:
+      - /opt/viritura-api/data:/var/lib/viritura/data
+      - /opt/viritura-api/data-protection-keys:/var/lib/viritura/data-protection-keys
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

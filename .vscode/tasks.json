@@ -1,0 +1,180 @@
+{
+  // Viritura VS Code tasks.
+  //
+  // The "Viritura: Dev (pick services)" task uses a multi-select picker
+  // input so you can launch any combination of dev services (website,
+  // editor, API hot reload, WASM watch, and all three storybooks) in one
+  // prefixed terminal. Selections are remembered in .viritura-dev-state.json.
+  //
+  // For ad-hoc picking: F1 → "Tasks: Run Task" → "Viritura: Dev"
+  // For F5 launch:    pick "Viritura: Dev (pick services)" in Run & Debug
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Viritura: Dev (pick services)",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["tsx", "scripts/dev.ts"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [],
+      "isBackground": true
+    },
+    {
+      "label": "Viritura: API (hot reload)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["watch", "--project", "server/Viritura.Api", "run", "--launch-profile", "Viritura.Api"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": [],
+      "isBackground": true
+    },
+    {
+      "label": "Viritura: Worktree Core (Docker/Traefik)",
+      "detail": "Start this worktree's editor + API with isolated data and routed .localhost URLs.",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/infra/dev/worktree.ps1", "up"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Viritura: Worktree Backend (Docker/Traefik)",
+      "detail": "Start this worktree's hot-reload API and server UI build watcher.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "up",
+        "backend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Viritura: Worktree Storybooks (Docker/Traefik)",
+      "detail": "Start all three Storybooks for this worktree.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "up",
+        "storybook"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Viritura: Worktree Full Stack (Docker/Traefik)",
+      "detail": "Start editor, website, API, server UI watcher, and all Storybooks for this worktree.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "up",
+        "full"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Viritura: Worktree Status (Docker/Traefik)",
+      "detail": "Show this worktree's dev containers and their .localhost URLs.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "status"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Viritura: Worktree Down (Docker/Traefik)",
+      "detail": "Stop this worktree's dev stack (keeps node_modules volumes for fast restarts).",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "down"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

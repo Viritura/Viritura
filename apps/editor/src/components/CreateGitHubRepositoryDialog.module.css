@@ -1,0 +1,63 @@
+.repoOwnerRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 8px;
+  /* Opaque sunken well — this dialog is Tier-4 (opaque modal), so the
+     pill uses the canonical opaque input-well recipe rather than the
+     translucent --surface-input (which is for glass contexts). */
+  background: var(--surface-sunken);
+  box-shadow: var(--inset-soft);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}
+
+.installHint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.11);
+  color: var(--text);
+  font-size: var(--type-eyebrow-size);
+  text-decoration: none;
+}
+
+.installHint span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkboxStack {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.createdLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-2);
+  border-radius: 8px;
+  background: rgba(38, 142, 92, 0.12);
+  color: var(--text);
+  font-size: var(--type-eyebrow-size);
+  text-decoration: none;
+}
+
+.createdLink span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

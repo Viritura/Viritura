@@ -1,0 +1,90 @@
+/* ActionTile — clickable tile with icon + title + optional hint.
+   Used in Start Center, folder-confirm, ensemble templates. */
+
+.tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.tile:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.35);
+}
+
+.tile:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recommended,
+.active {
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+  font-weight: var(--type-heading-weight);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.4);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+  color: currentColor;
+}
+
+.hint {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  font-weight: var(--type-small-weight);
+  line-height: var(--type-small-lh);
+}
+
+[data-theme="dark"] .tile,
+[data-theme="midnight"] .tile {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .recommended,
+[data-theme="midnight"] .recommended,
+[data-theme="dark"] .active,
+[data-theme="midnight"] .active {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.16);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.5);
+}

@@ -1,0 +1,410 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        },
+        "key": {
+          "fifths": 0
+        }
+      },
+      {},
+      {},
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "D",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "_x": {
+            "viritura": {
+              "chordSymbols": [
+                {
+                  "position": {
+                    "fraction": [
+                      0,
+                      1
+                    ]
+                  },
+                  "root": {
+                    "step": "C"
+                  },
+                  "quality": "major"
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      1,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "D"
+                  },
+                  "quality": "minor"
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      2,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "G"
+                  },
+                  "quality": "dominant",
+                  "extension": 7
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      3,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "C"
+                  },
+                  "quality": "major",
+                  "extension": 7
+                }
+              ]
+            }
+          }
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "A",
+                        "octave": 3
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "B",
+                        "octave": 3,
+                        "alter": -1
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "_x": {
+            "viritura": {
+              "chordSymbols": [
+                {
+                  "position": {
+                    "fraction": [
+                      0,
+                      1
+                    ]
+                  },
+                  "root": {
+                    "step": "A"
+                  },
+                  "quality": "minor",
+                  "extension": 7
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      1,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "B",
+                    "alter": -1
+                  },
+                  "quality": "major",
+                  "extension": 7
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      2,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "F"
+                  },
+                  "quality": "major"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 4,
+                        "alter": 1
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "D",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "_x": {
+            "viritura": {
+              "chordSymbols": [
+                {
+                  "position": {
+                    "fraction": [
+                      0,
+                      1
+                    ]
+                  },
+                  "root": {
+                    "step": "F",
+                    "alter": 1
+                  },
+                  "quality": "diminished"
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      1,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "D"
+                  },
+                  "quality": "suspended4"
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      2,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "C"
+                  },
+                  "quality": "major",
+                  "bass": {
+                    "step": "E"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "_x": {
+            "viritura": {
+              "chordSymbols": [
+                {
+                  "position": {
+                    "fraction": [
+                      0,
+                      1
+                    ]
+                  },
+                  "root": {
+                    "step": "E"
+                  },
+                  "quality": "augmented"
+                },
+                {
+                  "position": {
+                    "fraction": [
+                      2,
+                      4
+                    ]
+                  },
+                  "root": {
+                    "step": "C"
+                  },
+                  "quality": "major",
+                  "extension": 9,
+                  "textOverride": "Cadd9"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

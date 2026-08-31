@@ -1,0 +1,1 @@
+export { normalizeTritschInstrumentIdentities } from "./normalizeTritschInstrumentIdentities";

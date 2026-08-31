@@ -1,0 +1,26 @@
+{
+  "name": "@viritura/format",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "gen:raw": "tsx scripts/generate-raw-types.ts",
+    "gen:raw:check": "tsx scripts/check-generated-types.ts mnx",
+    "gen:raw-viritura": "tsx scripts/generate-viritura-types.ts",
+    "gen:raw-viritura:check": "tsx scripts/check-generated-types.ts viritura"
+  },
+  "dependencies": {
+    "@viritura/core": "workspace:*",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  }
+}

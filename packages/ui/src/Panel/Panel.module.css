@@ -1,0 +1,242 @@
+/* Panel — the single glass-card primitive used by every workspace activity
+   for its docked side panels. Extracted from the editor's
+   workspaceChrome.css so any storybook / app can render a panel without
+   pulling editor CSS in.
+
+   Anatomy (top to bottom):
+     ┌─────────────────────────────────────┐
+     │ panel__header  (optional)           │
+     ├─────────────────────────────────────┤
+     │ panel__body  (flex column, fills)   │
+     │   panel__body--scroll (opt-in)      │
+     ├─────────────────────────────────────┤
+     │ panel__footer  (optional)           │
+     └─────────────────────────────────────┘
+   Plus an optional edge-resize handle (.panel__resize) anchored to
+   side="left" or side="right".
+
+   Visual reference: was `.workspace-panel` in
+   apps/editor/src/styles/workspaceChrome.css. */
+
+/* Positioning root — no overflow clip so the edge resize handle can sit
+   fully outside the visible card without being chopped in half by the
+   card's border-radius clip.
+
+   We deliberately do NOT set `height: 100%` here. Real consumers always
+   inject positioning (either via WorkspaceShell's `shellStyle` — which
+   sets `position: absolute; top: 0; height: calc(100% - 28px)` — or via
+   an inline `style` with `position: absolute; top: N; bottom: N`). If we
+   set `height: 100%` here, absolute positioning's top+bottom shorthand
+   gets over-constrained: the browser honors `top` + `height`, ignores
+   `bottom`, and the panel extends below its container with no rounded
+   bottom corner. Symptom seen pre-fix: Engrave/Play/Review panels lost
+   their bottom margin after migrating to <Panel>. */
+.panel {
+  position: relative;
+  z-index: 1;
+}
+
+/* Glass card — the visible chrome. Owns border-radius, background blur,
+   shadows, and overflow:hidden (so header/footer borders meet the
+   rounded corners cleanly). */
+.chrome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  /* Translucent glass — refracts the workspace mesh underneath. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  /* Three-layer shadow — contact + medium + ambient — for honest depth.
+     The crisp inner top stroke is the lit rim catching overhead light. */
+  box-shadow:
+    0 1px 1px rgba(20, 20, 28, 0.04),
+    0 8px 24px rgba(20, 20, 28, 0.08),
+    0 24px 64px rgba(20, 20, 28, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  /* Force the chrome onto its own compositor layer.
+     Without this, Chromium occasionally fails to invalidate the
+     backdrop-filter region when an adjacent element animates
+     (activity-bar icon hover transitions box-shadow + background),
+     leaving a stale vertical stripe of un-refracted mesh-gradient
+     paint along the panel's left edge. Inconsistently reproducible
+     because it depends on which compositor layers get dirtied first.
+     `isolation: isolate` + `will-change: backdrop-filter` together
+     guarantee a dedicated layer so neighbouring paints can't bleed
+     into the backdrop-filtered region. */
+  isolation: isolate;
+  will-change: backdrop-filter;
+}
+
+:global([data-theme="dark"]) .chrome,
+:global([data-theme="midnight"]) .chrome {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(36, 36, 50, 0.82) 0%, rgba(22, 22, 34, 0.74) 100%);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Header / body / footer slots ──────────────────────────── */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  flex-shrink: 0;
+  background: transparent;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+:global([data-theme="dark"]) .header,
+:global([data-theme="midnight"]) .header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 22px;
+}
+
+.titleGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: #3a3a44;
+}
+:global([data-theme="dark"]) .icon,
+:global([data-theme="midnight"]) .icon {
+  color: #c0c0c8;
+}
+
+.title {
+  font-size: var(--type-small-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+  letter-spacing: var(--type-title-tracking);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-small-lh);
+  color: #3a3a44;
+}
+:global([data-theme="dark"]) .subtitle,
+:global([data-theme="midnight"]) .subtitle {
+  color: #c0c0c8;
+}
+
+.headerActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: #3a3a44;
+  cursor: pointer;
+  /* Icon glyph (×) — off the chrome scale by design. */
+  font-size: 0.9rem;
+  line-height: 1;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+.closeButton:hover {
+  background: rgba(20, 20, 28, 0.06);
+  color: var(--text);
+}
+:global([data-theme="dark"]) .closeButton,
+:global([data-theme="midnight"]) .closeButton {
+  color: #c0c0c8;
+}
+:global([data-theme="dark"]) .closeButton:hover,
+:global([data-theme="midnight"]) .closeButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bodyScroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Scrollbar lives _inside_ the panel's right inset: reserve an 8px
+     gutter via `scrollbar-gutter: stable`, then trim the right padding
+     to (12 − 8) = 4px so the scrollbar fills the gutter and content
+     ends up with a stable 12px right inset whether the scrollbar is
+     visible or not (no layout shift, no double-padding feel).
+     Scrollbar appearance (viridian overlay thumb, no arrows) is
+    handled globally in @viritura/ui/reset.css. */
+  padding: 0 var(--space-1) var(--space-3) var(--space-3);
+  scrollbar-gutter: stable;
+}
+
+.footer {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  line-height: var(--type-body-lh);
+  border-top: 1px solid rgba(20, 20, 28, 0.06);
+  flex-shrink: 0;
+}
+:global([data-theme="dark"]) .footer,
+:global([data-theme="midnight"]) .footer {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Edge resize handle ────────────────────────────────────────
+   Sibling of .chrome (not inside it), so the card's overflow:hidden
+   doesn't clip the outboard half. The handle straddles the visible
+   edge — 2px inside (just enough to feel "on the edge") and 10px out
+   into the inter-panel gap. The inboard inset is intentionally small
+   to keep clear of the scrollbar that may live just inside the card. */
+.resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  z-index: 3;
+  touch-action: none;
+}
+.resize[data-side="right"] {
+  right: -10px;
+}
+.resize[data-side="left"] {
+  left: -10px;
+}

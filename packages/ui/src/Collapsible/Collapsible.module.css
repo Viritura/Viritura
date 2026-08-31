@@ -1,0 +1,123 @@
+.container {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  transition: background var(--motion-fast) var(--ease-standard);
+  text-align: left;
+}
+
+.trigger:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform var(--motion-fast) var(--ease-standard);
+  display: flex;
+  align-items: center;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.icon {
+  margin-right: var(--space-1);
+  display: flex;
+  align-items: center;
+}
+
+.title {
+  flex: 1;
+}
+
+.shortcut {
+  /* Plain monospace key-hint, matching the menu shortcut
+     pattern. No pill / background fill — the pill style failed WCAG AA
+     on the cool-grey palette panel because the low-alpha bg over the
+     translucent glass washed out the muted text. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  color: var(--text-muted);
+  margin-left: auto;
+  letter-spacing: 0;
+}
+
+.content {
+  /* Padding lives on .contentInner so the height keyframe can
+     interpolate cleanly from 0 → measured-height without padding
+     bleeding through during the closed frame. */
+  overflow: hidden;
+}
+
+.contentInner {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+/* Radix exposes --radix-collapsible-content-height on the content
+   element during state transitions, enabling height keyframes without
+   measuring in JS. The enter curve decelerates so the panel "settles"
+   into place; the exit curve accelerates so it gets out of the way. */
+.content[data-state="open"] {
+  animation: collapsibleSlideDown var(--motion-base) var(--ease-enter);
+}
+
+.content[data-state="closed"] {
+  animation: collapsibleSlideUp var(--motion-base) var(--ease-exit);
+}
+
+@keyframes collapsibleSlideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsibleSlideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron,
+  .content[data-state="open"],
+  .content[data-state="closed"] {
+    animation: none;
+    transition: none;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}

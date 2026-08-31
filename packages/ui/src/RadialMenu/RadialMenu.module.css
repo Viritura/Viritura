@@ -1,0 +1,304 @@
+/* ═══════════════════════════════════════════
+   Radial Menu — Pizza-style Pie Picker
+
+   NOTE: font-size values in this file are intentionally OFF the
+   global --type-* scale. Labels live inside SVG wedge arcs whose
+   geometry constrains text width far below any chrome-text tier
+   (10–11 px labels inside 60-degree wedges, 7 px page-arrow hints
+   under 32 px arrow buttons). Bravura glyph sizes are icon
+   dimensions, not text. Treat this file as a self-contained surface
+   that uses its own typography ladder tuned to the pie geometry.
+   ═══════════════════════════════════════════ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.container {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: auto;
+  animation: pieIn var(--motion-fast) var(--ease-enter);
+}
+
+@keyframes pieIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pie {
+  display: block;
+  overflow: visible;
+  /* Warm paper cast — same tonality as --paper-shadow but pie-scale.
+     Two layers: tight contact + soft depth. drop-shadow can't
+     stack like box-shadow so we chain two filters. */
+  filter: drop-shadow(0 1px 2px rgba(80, 60, 30, 0.18)) drop-shadow(0 8px 22px rgba(120, 90, 40, 0.22));
+}
+
+/* ── Wedge (slice) ── */
+
+.wedge {
+  cursor: pointer;
+}
+
+.wedgePath {
+  /* Paper snippet — cream substrate (via SVG pattern with the same
+     fiber-noise data URI as --paper-bg). No stroke: the donut is
+     painted continuously and the outer/inner warm rim + lit edge are
+     drawn once over the whole donut by the overlay group in the TSX,
+     not per-wedge. Adjacent wedges touch seamlessly. */
+  fill: url(#paperFill);
+  transition: fill var(--motion-fast) var(--ease-standard);
+}
+
+.wedgeHover {
+  /* No stroke change — hover is conveyed via a warmer fill bump.
+     Slightly more contrasty than the previous #fdfaf2 so the feedback
+     is still legible without the rim that used to help. */
+  fill: url(#paperFillHover);
+}
+
+.wedgeIcon {
+  font-size: 22px;
+  font-family: "Bravura", system-ui, sans-serif;
+  fill: var(--text, #333);
+  pointer-events: none;
+  user-select: none;
+}
+
+.wedgeIconForeign {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text, #333);
+}
+
+/* Combined icon + label stack inside a single foreignObject */
+.wedgeIconStack {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--text, #333);
+}
+
+.wedgeIconInner {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wedgeLabelInner {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text, #333);
+}
+
+.wedgeLabel {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text, #333);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Page nav arrows (outside pie) ── */
+
+.pageIndicator {
+  position: fixed;
+  z-index: 10000;
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--paper-bg);
+  box-shadow: var(--paper-shadow);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.pageArrow {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--paper-bg);
+  background-blend-mode: var(--paper-bg-blend);
+  box-shadow: var(--paper-shadow);
+  cursor: pointer;
+  padding: var(--space-1) 0 0;
+  transition: box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.pageArrow:hover {
+  box-shadow: var(--paper-shadow-hover);
+  transform: translateY(-0.5px);
+}
+
+.pageArrow:active {
+  transform: translateY(0);
+  box-shadow: var(--paper-shadow);
+}
+
+.pageArrowIcon {
+  font-size: 14px;
+  line-height: 1;
+  /* Text color (not accent) \u2014 the green sage reads as a UI button on
+     glass, but on the paper substrate it looks pasted-on. Plain ink
+     matches the wedge labels and feels like part of the paper. */
+  color: var(--text);
+}
+
+.pageArrowHint {
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-muted, #999);
+}
+
+/* ── Search bar (below pie) ── */
+
+.searchBar {
+  position: fixed;
+  z-index: 9999;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.searchInput {
+  /* Paper index card you can write on. Border is the warm paper rim;
+     focus replaces it with the accent rim like other paper surfaces. */
+  width: 160px;
+  height: 28px;
+  border: 1px solid rgba(120, 100, 60, 0.28);
+  border-radius: 14px;
+  background: var(--paper-bg);
+  background-blend-mode: var(--paper-bg-blend);
+  box-shadow: var(--paper-shadow);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  padding: 0 var(--space-2);
+  caret-color: rgb(var(--accent-rgb, 33, 94, 78));
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.searchInputWide {
+  width: 220px;
+}
+
+.searchInput:focus {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.7);
+  box-shadow:
+    var(--paper-shadow-hover),
+    0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.18);
+}
+
+.searchInput::placeholder {
+  color: var(--text-placeholder, #999);
+  font-size: 11px;
+  opacity: 1;
+}
+
+/* ── Expression builder (center hub) ── */
+
+.expressionPillWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.expressionPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  border-radius: var(--radius-xl);
+  background: var(--paper-bg);
+  background-blend-mode: var(--paper-bg-blend);
+  box-shadow: var(--paper-shadow-hover);
+  font-family: "Bravura", system-ui, sans-serif;
+  font-size: 24px;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Dark theme overrides ──
+   Wedge fills go dark warm-grey (matches --paper-bg base for dark).
+   Rim alpha shifts to warm-white so it still reads as a paper edge
+   against the deep base. */
+
+[data-theme="dark"] .wedgePath,
+[data-theme="midnight"] .wedgePath {
+  fill: url(#paperFillDark);
+}
+
+[data-theme="dark"] .wedgeHover,
+[data-theme="midnight"] .wedgeHover {
+  fill: url(#paperFillHoverDark);
+}
+
+[data-theme="dark"] .pie,
+[data-theme="midnight"] .pie {
+  /* Darker, more contrasty cast for dark workspace */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)) drop-shadow(0 8px 22px rgba(0, 0, 0, 0.45));
+}
+
+[data-theme="dark"] .searchInput,
+[data-theme="midnight"] .searchInput {
+  border-color: rgba(255, 235, 200, 0.18);
+}
+
+/* Lit specular edge \u2014 dimmer warm-white on dark substrate, matching
+   how the dark --paper-shadow uses inset 0 1px 0 rgba(255,235,200,0.10)
+   instead of the bright 0.9 white used on light cream. */
+[data-theme="dark"] .litEdge,
+[data-theme="midnight"] .litEdge {
+  stroke: rgba(255, 235, 200, 0.18);
+}
+
+/* Radial divider between wedges \u2014 dark theme uses the same warm-white
+   alpha as the rim circles for visual consistency. */
+[data-theme="dark"] .divider,
+[data-theme="midnight"] .divider {
+  stroke: rgba(255, 235, 200, 0.12);
+}

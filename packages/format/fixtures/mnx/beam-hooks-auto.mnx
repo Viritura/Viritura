@@ -1,0 +1,118 @@
+{
+  "mnx": {
+    "support": {
+      "useBeams": true
+    },
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "beams": [
+            {
+              "beams": [
+                {
+                  "direction": "auto",
+                  "events": [
+                    "019e62f6-ceb7-7c62-b3c5-701bb9dadf4f"
+                  ]
+                },
+                {
+                  "direction": "auto",
+                  "events": [
+                    "019e62f6-ceb7-7e2d-8c0f-0ca96f70cc2d"
+                  ]
+                }
+              ],
+              "events": [
+                "019e62f6-ceb7-7c62-b3c5-701bb9dadf4f",
+                "019e62f6-ceb7-7455-8323-0af17fc4ad40",
+                "019e62f6-ceb7-7e2d-8c0f-0ca96f70cc2d"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-ceb7-7c62-b3c5-701bb9dadf4f",
+                  "duration": {
+                    "base": "16th"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceb7-7455-8323-0af17fc4ad40",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-ceb7-7e2d-8c0f-0ca96f70cc2d",
+                  "duration": {
+                    "base": "16th"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

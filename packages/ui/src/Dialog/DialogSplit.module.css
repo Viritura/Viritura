@@ -1,0 +1,112 @@
+/* DialogSplit — aside + main, each with its own scroll region.
+   See DialogSplit.tsx for why this replaces DialogBody rather than nesting
+   inside it. */
+
+.body {
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  /* min-height: 0 lets the grid shrink inside the dialog's flex column;
+     without it the panes size to content and the dialog itself scrolls. */
+  min-height: 0;
+  flex: 1;
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2);
+  border-right: 1px solid var(--border-hairline);
+  background: rgba(20, 20, 28, 0.02);
+}
+
+.main {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.main:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+.mainHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  /* Full-bleed across the main pane's horizontal padding so the backdrop
+     covers content scrolling underneath it, not just the text column. */
+  margin: 0 calc(var(--space-5) * -1) var(--space-2);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.mainHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mainTitle {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-bright);
+}
+
+.mainDescription {
+  margin: 0;
+  font-size: var(--type-small-size);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.mainActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .aside,
+[data-theme="midnight"] .aside {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+/* Below this width a 224px rail leaves too little room for a settings row's
+   label and control, so the rail moves above the detail pane. It stays
+   vertical — a grouped list can't meaningfully lay out as a horizontal strip
+   because the group headings have nothing to sit above — and is instead
+   height-capped with its own scroll so it never eats the whole dialog. */
+@media (max-width: 720px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .aside {
+    max-height: 34vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border-hairline);
+  }
+
+  .main {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .mainHeader {
+    margin: 0 calc(var(--space-4) * -1) var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
+}

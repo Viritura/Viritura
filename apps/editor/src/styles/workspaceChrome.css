@@ -1,0 +1,398 @@
+/* ═══════════════════════════════════════════════════════════════
+   Workspace Chrome — shared visual language for ALL editor modes.
+
+   Extracted from PublishView so every view (Write, Engrave, Play,
+   Review, Publish) shares the same "floating glass panels
+   over a mesh-gradient workspace + dark command pill" chrome.
+
+   Apply classes:
+     .workspace-bg          → the strip/area that hosts the panels.
+                              Paints the mesh gradient + SVG noise.
+                              Also defines --accent-rgb / --accent-grad
+                              so descendant components can tint with
+                              the brand accent.
+
+     .workspace-panel       → any docked side panel container. Gives
+                              it translucent glass: backdrop-filter
+                              blur+saturate, rounded corners, layered
+                              shadows, accent-tinted border.
+
+     .workspace-status-pill → the bottom status bar. Inverted dark
+                              "command pill" — readable over any
+                              surface, including white paper pages.
+
+   Mesh gradient = Editorial Cool palette (slate + bone + viridian).
+   Status pill   = dark indigo-black command tool.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Workspace background (mesh gradient + grain) ─────────────── */
+
+/* Global: ScoreCanvas reads --canvas-bg from the document root, so
+   we declare it here (rather than scoped to .workspace-bg) to make sure
+   the mesh gradient shows through the canvas in every mode. */
+:root {
+  --canvas-bg: transparent;
+}
+
+.workspace-bg {
+  position: relative;
+  overflow: hidden;
+  /* Accent tokens — descendant glass tints, focus rings, selection. */
+  --accent-rgb: 33, 94, 78;
+  --accent-grad: linear-gradient(135deg, #215e4e 0%, #3f8a74 100%);
+  /* Workspace mesh — viridian leads, with warm bone, cool sky, and a
+   * lavender backstop. Saturated enough to read as a designed surface
+   * (not a flat grey panel) while still letting glass tints dominate.
+   * Single source of truth shared across every mode (Write, Engrave,
+   * Play, Review, Publish) AND the UI Storybook preview backdrop
+   * (packages/ui/.storybook/preview.ts) — keep the two in sync. */
+  background:
+    radial-gradient(circle at 12% 18%, rgba(33, 94, 78, 0.38), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(244, 200, 120, 0.32), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(95, 170, 220, 0.32), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(178, 140, 220, 0.3), transparent 55%),
+    linear-gradient(180deg, #e8ecef 0%, #dde2e7 100%);
+}
+
+[data-theme="dark"] .workspace-bg,
+[data-theme="midnight"] .workspace-bg {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(80, 120, 220, 0.5), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(170, 90, 180, 0.45), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(78, 200, 170, 0.4), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(220, 90, 110, 0.35), transparent 55%),
+    linear-gradient(180deg, #1c1c24 0%, #16161e 100%);
+}
+
+/* SVG noise overlay — breaks the gradient banding and adds that
+   "premium grain" feel without a real asset. */
+.workspace-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%20viewBox='0%200%20160%20160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='matrix'%20values='0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200.5%200'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+[data-theme="dark"] .workspace-bg::before,
+[data-theme="midnight"] .workspace-bg::before {
+  opacity: 0.3;
+  mix-blend-mode: soft-light;
+}
+
+/* ── Floating glass panel ─────────────────────────────────────── */
+
+.workspace-panel {
+  /* Layout: caller decides width / position. We provide visual.
+     Flex column so child header/body/footer (whether the new
+     workspace-panel__* slots or a caller's own equivalent like
+     PublishView's .panelHeader/.panelBody/.panelFooter) can use
+     `flex: 1; min-height: 0; overflow: auto` to size + scroll. */
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Visual reference: PublishView .panel. Keep these in sync. */
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  /* Translucent glass — refracts the mesh underneath. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  /* Three-layer shadow — contact + medium + ambient — for honest depth.
+     The crisp inner top stroke is the lit rim catching overhead light. */
+  box-shadow:
+    0 1px 1px rgba(20, 20, 28, 0.04),
+    0 8px 24px rgba(20, 20, 28, 0.08),
+    0 24px 64px rgba(20, 20, 28, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  /* Above the noise overlay. */
+  z-index: 1;
+}
+
+[data-theme="dark"] .workspace-panel,
+[data-theme="midnight"] .workspace-panel {
+  border-color: rgba(255, 255, 255, 0.1);
+  /* Higher alpha than before (was 0.55 / 0.35). When the panel sits
+     over the light cream music surface, low alpha let too much white
+     bleed through, dropping the effective contrast of every muted
+     label (tab text, chevrons, shortcut hints) below WCAG AA. The
+     glass still refracts the mesh underneath thanks to the 40px
+     backdrop-blur — it just lands closer to its native colour. */
+  background: linear-gradient(180deg, rgba(36, 36, 50, 0.82) 0%, rgba(22, 22, 34, 0.74) 100%);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Variant: the central canvas surface — same glass but with stronger
+   inset so the canvas reads as a "page" sitting in the workspace.
+   Caller adds this in addition to .workspace-panel. */
+.workspace-panel--canvas {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(248, 248, 252, 0.55) 100%);
+}
+
+/* Form-control polish inside any workspace panel: native checkboxes
+   pick up the viridian accent so they don't read as default browser
+   chrome inside the glass surface. */
+.workspace-panel input[type="checkbox"],
+.workspace-panel input[type="radio"] {
+  accent-color: rgb(var(--accent-rgb, 33, 94, 78));
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Parts panel rows — viridian-on-hover for staff/group entries.
+   Inline-styled buttons can't express :hover, so we attach via class. */
+.workspace-panel .parts-row:hover {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+}
+.workspace-panel .parts-score-header:hover {
+  color: var(--text);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.06);
+}
+
+/* ── Slot system: header / body / footer ──────────────────────
+   Opt-in via <WorkspacePanel header={…} footer={…} scrollBody>.
+   Visual reference is PublishView's .panelHeader/.panelBody/.panelFooter;
+   these classes replace those so every activity gets identical chrome. */
+
+.workspace-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.workspace-panel__header-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-panel__header-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.workspace-panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-panel__body--scroll {
+  overflow-y: auto;
+  /* `overlay` (Chromium) makes the scrollbar float over the content
+     instead of consuming horizontal space, so the right margin stays
+     constant whether or not the panel is scrollable. Firefox falls
+     back to `auto` automatically — the next declaration wins where
+     supported. */
+  overflow-y: overlay;
+  overflow-x: hidden;
+  padding: 0 12px 12px;
+}
+
+/* ── Scrollbar styling: see @viritura/ui/reset.css ────────────
+   We deliberately do NOT redeclare scrollbar styling here. The
+   global `*::-webkit-scrollbar-*` rules in reset.css apply the
+   viridian overlay thumb (hidden until container-hover) to EVERY
+   scroll container — including `.viritura-scroll` and
+   `.workspace-panel__body--scroll` callers. Adding the standard
+   `scrollbar-width` / `scrollbar-color` properties here would
+   trigger Chromium-on-Windows' legacy classic scrollbar (with
+   up/down arrow buttons) AND disable the global webkit rules.
+   The classes are kept in markup as semantic hooks only.
+   ────────────────────────────────────────────────────────────── */
+
+.workspace-panel__footer {
+  padding: 12px 20px 18px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  border-top: 1px solid rgba(20, 20, 28, 0.06);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .workspace-panel__footer,
+[data-theme="midnight"] .workspace-panel__footer {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Resize handle (col-resize edge catcher) ──────────────────
+   Opt-in via <WorkspacePanel resize={…}>. data-side controls which
+   edge it sits on; protrudes 6px outside the panel so the hit zone
+   covers the rounded corner area. */
+.workspace-panel__resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  z-index: 3;
+  touch-action: none;
+}
+.workspace-panel__resize[data-side="right"] {
+  right: -6px;
+}
+.workspace-panel__resize[data-side="left"] {
+  left: -6px;
+}
+
+/* ── Dark command-pill status bar ─────────────────────────────── */
+
+.workspace-status-pill {
+  /* Inverted "command pill" — brings its own contrast so it works
+     equally well over the gradient or directly on top of a page.
+     Its near-opaque fill avoids a redundant backdrop compositor layer. */
+  background: rgba(28, 30, 42, 0.92);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Peek-on-hover status zone ────────────────────────────────── */
+
+/* Pinned to the bottom of the workspace. Fully hidden at rest — the
+   parent toggles .workspace-status-zone--visible when the cursor
+   approaches the bottom edge (matches PublishView's reveal pattern).
+   No translucent "peek" state: at rest the bar is invisible so the
+   bottom strip of the workspace is fully reclaimed for the score. */
+.workspace-status-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.workspace-status-zone > * {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity var(--motion-base) var(--ease-enter),
+    transform var(--motion-base) var(--ease-enter);
+}
+
+.workspace-status-zone--visible > *,
+.workspace-status-zone:focus-within > * {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   App chrome — top menu bar + left activity bar.
+
+   Shares the same glass + layered shadow recipe as `.workspace-panel`
+   so chrome and floating panels read as one consistent elevation
+   tier. The L's inner corner is notched with a concave 22px
+   quarter-disc so the workspace panel's matching 22px convex corner
+   nestles into it.
+
+   The 48px offset in `.app-chrome--top`'s mask MUST stay in sync
+   with the activity-bar width in ActivityBar.module.css (`.bar { width: 48px }`).
+   ═══════════════════════════════════════════════════════════════ */
+
+.app-chrome {
+  position: relative;
+  z-index: 100;
+  /* Solid opaque chrome.
+     We previously used `backdrop-filter: blur(40px) saturate(180%)` here
+     to match `.workspace-panel`'s glass recipe, but git-bisected commit
+     f162d097 (May 2026) confirmed that adjacent backdrop-filter surfaces
+     (chrome + panel + per-button glass) trigger a Chromium-on-Windows
+     tile-compositor bug: hovering an IconButton inside the chrome runs a
+     paint transition that corrupts the panel's backdrop-filter tile,
+     leaving a faint stale vertical stripe of un-refracted mesh on the
+     panel's left edge. No layer-promotion hint (`isolation: isolate`,
+     `will-change`, `transform: translateZ(0)`) fully eliminated the
+     stripe. The robust fix is to drop the chrome's backdrop-filter
+     entirely — the chrome doesn't need to refract the mesh underneath,
+     it just needs to be a clean opaque surface separating chrome from
+     workspace. The pale `#eef0f3` (light) / `#25252e` (dark) tones
+     match the fillet `::after` pseudo so the L-corner reads as one
+     continuous surface. */
+  background: #eef0f3;
+  box-shadow:
+    0 1px 1px rgba(20, 20, 28, 0.04),
+    0 8px 24px rgba(20, 20, 28, 0.08),
+    0 24px 64px rgba(20, 20, 28, 0.1);
+}
+
+[data-theme="dark"] .app-chrome,
+[data-theme="midnight"] .app-chrome {
+  background: #25252e;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+/* Concave fillet at the L's inner corner.
+   The chrome bulges 22px into the workspace at the corner via a
+   pseudo-element on the activity bar. The pseudo is 22×22, anchored
+   at viewport (activityWidth, headerHeight), with the WORKSPACE-FACING
+   corner (bottom-right) carved into a quarter-circle by a radial-gradient
+   mask. Result: the chrome's inner-L edge follows a smooth concave arc
+   that mirrors the workspace panel's convex 22px corner.
+
+   No mask is applied to the chrome itself — masking the chrome carved
+   a CONVEX bulge into workspace (wrong direction). Adding chrome via
+   a pseudo carves a CONCAVE fillet (correct). */
+.app-chrome--side {
+  /* Make the bulge pseudo positionable relative to this element. */
+  overflow: visible;
+}
+
+.app-chrome--side::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  /* `backdrop-filter` is dropped on this pseudo because combining mask
+     with backdrop-filter (and being nested inside a backdrop-filter
+     element) leaves the pseudo showing raw mesh while the chrome
+     around it shows blurred+saturated mesh — visible color mismatch.
+     Instead we use a flat opaque tint tuned to the chrome's apparent
+     color over the Editorial Cool mesh. */
+  background: #eef0f3;
+  /* Carve a quarter-disc out of the bottom-right (workspace-facing)
+     corner — leaves a concave arc on the workspace side. */
+  -webkit-mask: radial-gradient(circle 22px at 100% 100%, transparent 21.5px, #000 22.5px);
+  mask: radial-gradient(circle 22px at 100% 100%, transparent 21.5px, #000 22.5px);
+}
+
+[data-theme="dark"] .app-chrome--side::after,
+[data-theme="midnight"] .app-chrome--side::after {
+  background: #25252e;
+}

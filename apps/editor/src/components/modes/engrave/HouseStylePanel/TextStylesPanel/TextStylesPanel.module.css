@@ -1,0 +1,282 @@
+/* Text Styles panel — a specimen list of every engraving text role, each row
+   previewing itself, expanding in place to its formatting controls. */
+
+.intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+}
+
+.introText {
+  margin: 0;
+  font-size: var(--type-small-size);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Row ─────────────────────────────────────────────────────────────── */
+
+.row {
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-2);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.rowHeader:hover {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.06);
+}
+
+.rowHeader:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.row[data-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* The specimen sits on a light page chip in every theme. The colour being
+   edited is ink on paper — midnight's invert(1) on the canvas is a viewing
+   filter, not a change to the stored value — so showing black ink on a dark
+   UI surface would misrepresent it, and on dark themes make it invisible.
+   Line-height is pinned so a large role doesn't shove the summary out of the
+   row, and the box is clipped rather than growing the list unevenly. */
+.preview {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: #fdfdfa;
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 28, 0.12);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary {
+  font-size: var(--type-eyebrow-size);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+}
+
+.modifiedBadge {
+  flex-shrink: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.rowBody {
+  padding: 0 var(--space-2) var(--space-3) calc(var(--space-2) + 14px + var(--space-3));
+}
+
+/* ── Editor ──────────────────────────────────────────────────────────── */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-lg);
+  background: rgba(20, 20, 28, 0.02);
+}
+
+[data-theme="dark"] .editor,
+[data-theme="midnight"] .editor {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.controlGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.colorRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.fieldLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+  color: var(--text-muted);
+}
+
+/* A dot marks the fields this role overrides, so an expanded row shows at a
+   glance which values are the score's own and which are inherited. */
+.field[data-changed="true"] .fieldLabel::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.fieldHint {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.75;
+}
+
+.familySelect {
+  min-width: 9rem;
+}
+
+.sizeInput {
+  width: 5.5rem;
+}
+
+.toggleRow {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* ── Colour ──────────────────────────────────────────────────────────── */
+
+.colorControl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.swatchRow {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* Swatches are Buttons so they inherit focus and disabled behaviour, but the
+   colour *is* the content — so the primitive's own padding and fill are
+   stripped back to a plain chip. */
+.swatch {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px rgba(20, 20, 28, 0.18);
+  transition: box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.swatch:hover {
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 20, 28, 0.18),
+    0 0 0 2px rgba(var(--accent-rgb, 33, 94, 78), 0.35);
+}
+
+.swatch[aria-pressed="true"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 20, 28, 0.18),
+    0 0 0 2px rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.swatch:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 20, 28, 0.18),
+    var(--focus-ring);
+}
+
+[data-theme="dark"] .swatch,
+[data-theme="midnight"] .swatch {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.hexInput {
+  width: 7.5rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.hexInvalid {
+  border-color: var(--error);
+}
+
+@media (max-width: 620px) {
+  .controlGrid {
+    gap: var(--space-3);
+  }
+
+  .rowBody {
+    padding-left: var(--space-2);
+  }
+}

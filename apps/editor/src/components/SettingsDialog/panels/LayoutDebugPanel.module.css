@@ -1,0 +1,39 @@
+/* The categories sub-section is scoped to the spacing overlay above it, so it
+   sits inside the same panel rather than reading as a peer setting. */
+
+.categorySection {
+  padding-top: var(--space-3);
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.categoryLabel {
+  padding: 0;
+}
+
+.categoryActions {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.categoryGrid[data-disabled="true"] {
+  opacity: 0.62;
+}
+
+@media (max-width: 560px) {
+  .categoryGrid {
+    grid-template-columns: 1fr;
+  }
+}

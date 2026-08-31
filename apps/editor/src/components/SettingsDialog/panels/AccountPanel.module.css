@@ -1,0 +1,11 @@
+.panel {
+  width: min(100%, 640px);
+  padding: var(--space-1) 0 var(--space-5);
+}
+
+.status {
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}

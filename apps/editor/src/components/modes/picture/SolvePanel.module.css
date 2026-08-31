@@ -1,0 +1,106 @@
+/* SolvePanel — planning the music between two hits. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+}
+
+.sectionLabel {
+  padding: 0 0 var(--space-1, 4px);
+}
+
+.fitDetails {
+  margin: 0 calc(-1 * var(--space-2));
+  border-top: 1px solid var(--border);
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: 1.5;
+}
+
+.span {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  font-family: ui-monospace, monospace;
+}
+
+.segments {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.segment {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.count {
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.times {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.readout {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: var(--space-2, 8px);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.bpm {
+  color: var(--text);
+  font-size: 1rem;
+  font-family: ui-monospace, monospace;
+}
+
+.error {
+  margin-left: auto;
+  font-size: var(--type-small-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.good {
+  color: var(--success, #4ac26b);
+}
+
+.fair {
+  color: var(--warning, #d9a441);
+}
+
+.poor {
+  color: var(--danger, #ff5f56);
+}
+
+.structure {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: center;
+  color: var(--text);
+  font-size: var(--type-small-size);
+}
+
+.warning {
+  margin: 0;
+  color: var(--warning, #d9a441);
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.45;
+}

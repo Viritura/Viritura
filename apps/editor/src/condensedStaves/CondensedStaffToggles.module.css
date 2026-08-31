@@ -1,0 +1,45 @@
+/* CondensedStaffToggles — floating expand/collapse handles pinned to the
+   left edge of the canvas viewport, vertically centred on each condensed
+   staff. Deliberately quiet until hovered: these sit over the engraving,
+   so they must not compete with the notation for attention. */
+
+.handle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: var(--surface-raised, #fff);
+  box-shadow: var(--elevation-0);
+  color: var(--text-muted);
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.55;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.handle:hover {
+  opacity: 1;
+  color: var(--accent);
+  box-shadow: var(--elevation-1);
+}
+
+.handle:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Expanded is a temporary state the user should be able to spot at a
+   glance, so the handle stays fully opaque and accented while it lasts. */
+.handle[data-expanded="true"] {
+  opacity: 1;
+  color: var(--accent);
+}

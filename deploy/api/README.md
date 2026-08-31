@@ -1,0 +1,42 @@
+# Production API container
+
+The API runs as one container behind the host nginx instance. Its port is
+published only on `127.0.0.1:5001`. SQLite, SQLite backups, and ASP.NET Data
+Protection keys remain on the host under `/opt/viritura-api`.
+
+This is the authoritative production API deployment. Configuration is loaded
+from `/etc/viritura/api.env`, which must be owned by root with mode `0600`. The
+deployment wrapper validates the file before building or restarting the API.
+Use `api.env.example` as the key inventory, never as a real dotenv file.
+
+Forwarded headers are accepted only from configured proxy addresses or CIDR
+ranges. The active Compose template trusts Docker bridge addresses in
+`172.16.0.0/12`; Kestrel remains published only on host loopback. If Docker is
+configured with a narrower fixed subnet, replace that range with the exact
+subnet. Never configure an unrestricted forwarded-header trust mode.
+
+Railway remains an unconfigured future migration option. See
+[../../docs/setup/production-secrets.md](../../docs/setup/production-secrets.md)
+for the proposed provider-managed setup.
+
+Routine deployment uses the dedicated `viritura-deploy` account and the local
+key `~/.ssh/viritura_deploy_ed25519`. The account is not a member of `sudo` or
+`docker`; it may run only the root-owned `viritura-api-manage` wrapper through
+passwordless sudo. Upload the full repository worktree to `~/upload` (the image
+builds `apps/server-ui` from the pnpm workspace, so the Docker build context
+is the repo root — `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and
+`apps/server-ui` and `packages/ui` must be present alongside `server/`), then invoke
+`sudo /usr/local/sbin/viritura-api-manage deploy`. The immutable Compose and
+Dockerfile templates remain root-owned under `/opt/viritura-api/config`, so a
+release cannot replace them. The Dockerfile template mirrors
+[`../../server/Dockerfile`](../../server/Dockerfile).
+
+Backups run from root's daily cron at 11:10 UTC. Retention matches Moomie:
+seven daily backups, one weekly backup through day 35, and one monthly backup
+through one year. The allowlisted wrapper also provides `status`, `logs`, and
+`backup` actions; it does not grant general Docker, nginx, secret, or shell
+access.
+
+Restore only while the API container is stopped. Preserve the failed/current
+database before replacing it with a validated backup, then restart the service
+and verify `/health`.

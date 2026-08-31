@@ -1,0 +1,149 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import { MotionTempoDemo, MotionEasingDemo, MotionCollapsibleDemo } from "./MotionSamples";
+
+<Meta title="Design Language/Motion" />
+
+# Motion
+
+Motion in Viritura is **functional, not decorative**. Every animation
+must answer one of three questions:
+
+1. **Where did that come from / where did it go?** (spatial continuity)
+2. **What changed?** (state transitions)
+3. **What is the system doing right now?** (progress / activity)
+
+If an animation doesn't answer one of these, delete it. A pro music
+tool earns trust by feeling instant and predictable — flourishes that
+make the user wait are a liability.
+
+---
+
+## Rhythm-derived durations
+
+Three durations, one tempo (♩ = 150, Allegro), each subdivision a
+clean 2× of the next. Every animation in the app is therefore one of
+three rhythmic values — 16th, 8th, or quarter — at the same
+underlying pulse.
+
+At ♩ = 150:
+
+```
+16th    = 100ms
+8th     = 200ms
+quarter = 400ms
+```
+
+<MotionTempoDemo />
+
+| Rhythm token          | Note    | Duration | Semantic alias  | Use for                                                               |
+| --------------------- | ------- | -------- | --------------- | --------------------------------------------------------------------- |
+| `--motion-semiquaver` | 16th    | 100ms    | `--motion-fast` | Hover, focus, press, color/border tints, caret rotate (~75% of sites) |
+| `--motion-quaver`     | 8th     | 200ms    | `--motion-base` | Popovers appear, dialogs fade in, cards lift, panels slide (~25%)     |
+| `--motion-crotchet`   | quarter | 400ms    | `--motion-slow` | Full view re-composition, hero crossfade — used sparingly             |
+
+The 2× step between tiers is wide enough that adjacent durations read
+as _different magnitudes_, not different shades of the same speed.
+Three tiers cover every observed need in the codebase; the press-
+feedback `transform: scale(0.97)` on `:active` should carry **no**
+transition (instant haptic, see Rules below).
+
+### Blink test
+
+Close your eyes during the animation — you should be able to tell
+which tier you're in:
+
+- _Semiquaver_ — "the thing under my finger reacted."
+- _Quaver_ — "something nearby opened, closed, or moved."
+- _Crotchet_ — "the whole surface changed."
+
+If two animations don't pass the blink test against each other,
+they're at the wrong tiers.
+
+### Which to use
+
+- **Prefer the semantic alias** (`--motion-fast`, `--motion-base`,
+  `--motion-slow`). The alias layer means we can re-tune cadence
+  later without touching every call site.
+- **Reach for the rhythmic name directly** only when the music
+  vocabulary is the right read at the call site — e.g. a
+  tempo-aware playback indicator that wants to pulse on the 8th note.
+
+### Why not add a fourth?
+
+We had one (Andante at 300ms) and it had one user. The 2× ratio is
+load-bearing: anything closer than that to an existing tier feels
+like noise. If a fifth duration genuinely needs to exist, it's an
+8th-at-a-different-tempo, not a fourth subdivision — and at that
+point the design problem is probably "this surface shouldn't be
+animating, it should be navigated to."
+
+---
+
+## Easing tokens
+
+Three curves cover every case. Don't introduce custom cubic-béziers
+without a documented reason.
+
+<MotionEasingDemo />
+
+| Token             | Curve                          | Use for                                       |
+| ----------------- | ------------------------------ | --------------------------------------------- |
+| `--ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | Two-way state changes (hover, toggle, rotate) |
+| `--ease-enter`    | `cubic-bezier(0, 0, 0.2, 1)`   | Content arriving (decelerate into place)      |
+| `--ease-exit`     | `cubic-bezier(0.4, 0, 1, 1)`   | Content leaving (accelerate out of the way)   |
+
+The enter/exit pair is Material's "decelerate"/"accelerate" — content
+entering should settle gently into its final position, while content
+leaving should get out of the user's way quickly. This asymmetry is
+what makes a collapsible feel responsive rather than sluggish.
+
+---
+
+## Live example: Collapsible
+
+The `<Collapsible>` component uses `--motion-base` (Quaver, 200ms)
+with the enter/exit pair, animating `height` via Radix's
+`--radix-collapsible-content-height` CSS variable. The chevron rotate
+uses `--motion-fast` (Semiquaver, 100ms) — a tighter feedback pulse
+for something the user is touching directly.
+
+<MotionCollapsibleDemo />
+
+---
+
+## Reduced motion
+
+Every motion-using component **must** respect `prefers-reduced-motion`:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .myAnimatedThing {
+    animation: none;
+    transition: none;
+  }
+}
+```
+
+This is not optional. Vestibular sensitivity is real, and a music
+editor users may spend hours inside must not trigger it.
+
+---
+
+## Rules
+
+1. **Never animate `width`, `height`, `top`, or `left` on a hot path.**
+   They trigger layout. Use `transform` and `opacity`. The Collapsible
+   `height` animation is an exception because it's one-shot on user
+   intent, not a 60fps interaction.
+2. **Never use spring/bounce easing in UI chrome.** Springs read as
+   playful; this is a pro tool. Reserve any overshoot curves for
+   onboarding or empty-state illustrations (if at all).
+3. **"Instant" means no transition.** Focus rings, selection highlights,
+   and direct-manipulation feedback (`transform: scale(0.97)` on
+   `:active`) should appear immediately — adding any duration reads as
+   lag, not polish. Press feedback in particular is haptic, not motion.
+4. **Always reference tokens.** No literal `0.15s ease-out` in new CSS.
+   If you think you need a duration outside the three-tier scale,
+   you almost certainly don't — re-read "Why not add a fourth?" above.
+5. **No animated entrance for content already on screen.** Re-rendering
+   a list shouldn't fade every row in — that's just noise.

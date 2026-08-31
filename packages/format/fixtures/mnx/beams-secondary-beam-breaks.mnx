@@ -1,0 +1,380 @@
+{
+  "mnx": {
+    "support": {
+      "useBeams": true
+    },
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "beams": [
+            {
+              "beams": [
+                {
+                  "beams": [
+                    {
+                      "events": [
+                        "019e62f6-cebb-730b-bece-25c27077c70c",
+                        "019e62f6-cebb-7d1f-8f47-81a9876ff39a",
+                        "019e62f6-cebb-7cc1-95f2-b6f3e4808a89",
+                        "019e62f6-cebb-7d91-9038-fbf74424ead2"
+                      ]
+                    }
+                  ],
+                  "events": [
+                    "019e62f6-cebb-730b-bece-25c27077c70c",
+                    "019e62f6-cebb-7d1f-8f47-81a9876ff39a",
+                    "019e62f6-cebb-7cc1-95f2-b6f3e4808a89",
+                    "019e62f6-cebb-7d91-9038-fbf74424ead2"
+                  ]
+                },
+                {
+                  "beams": [
+                    {
+                      "events": [
+                        "019e62f6-cebb-778a-922e-34d7979d0d0f",
+                        "019e62f6-cebb-7669-b2ef-fe6ca6b70b38",
+                        "019e62f6-cebb-79a7-be17-3f4ba238a2f6",
+                        "019e62f6-cebb-7bc7-9af3-5022568f1828"
+                      ]
+                    }
+                  ],
+                  "events": [
+                    "019e62f6-cebb-778a-922e-34d7979d0d0f",
+                    "019e62f6-cebb-7669-b2ef-fe6ca6b70b38",
+                    "019e62f6-cebb-79a7-be17-3f4ba238a2f6",
+                    "019e62f6-cebb-7bc7-9af3-5022568f1828"
+                  ]
+                }
+              ],
+              "events": [
+                "019e62f6-cebb-730b-bece-25c27077c70c",
+                "019e62f6-cebb-7d1f-8f47-81a9876ff39a",
+                "019e62f6-cebb-7cc1-95f2-b6f3e4808a89",
+                "019e62f6-cebb-7d91-9038-fbf74424ead2",
+                "019e62f6-cebb-778a-922e-34d7979d0d0f",
+                "019e62f6-cebb-7669-b2ef-fe6ca6b70b38",
+                "019e62f6-cebb-79a7-be17-3f4ba238a2f6",
+                "019e62f6-cebb-7bc7-9af3-5022568f1828"
+              ]
+            },
+            {
+              "beams": [
+                {
+                  "beams": [
+                    {
+                      "events": [
+                        "019e62f6-cebb-77aa-afb2-9caabad9be51",
+                        "019e62f6-cebb-7cb3-be7c-eed7871cadf7"
+                      ]
+                    },
+                    {
+                      "events": [
+                        "019e62f6-cebb-7cf3-a775-bc13cc0ed8dd",
+                        "019e62f6-cebb-7e4f-a044-80173e193793"
+                      ]
+                    }
+                  ],
+                  "events": [
+                    "019e62f6-cebb-77aa-afb2-9caabad9be51",
+                    "019e62f6-cebb-7cb3-be7c-eed7871cadf7",
+                    "019e62f6-cebb-7cf3-a775-bc13cc0ed8dd",
+                    "019e62f6-cebb-7e4f-a044-80173e193793"
+                  ]
+                },
+                {
+                  "beams": [
+                    {
+                      "events": [
+                        "019e62f6-cebb-7bcc-8c92-f7f818c0215a",
+                        "019e62f6-cebb-7f3d-9039-15f931eaf143"
+                      ]
+                    },
+                    {
+                      "events": [
+                        "019e62f6-cebb-7866-8f0b-192157a3ef0a",
+                        "019e62f6-cebb-7fd4-9784-d9679ed91967"
+                      ]
+                    }
+                  ],
+                  "events": [
+                    "019e62f6-cebb-7bcc-8c92-f7f818c0215a",
+                    "019e62f6-cebb-7f3d-9039-15f931eaf143",
+                    "019e62f6-cebb-7866-8f0b-192157a3ef0a",
+                    "019e62f6-cebb-7fd4-9784-d9679ed91967"
+                  ]
+                }
+              ],
+              "events": [
+                "019e62f6-cebb-77aa-afb2-9caabad9be51",
+                "019e62f6-cebb-7cb3-be7c-eed7871cadf7",
+                "019e62f6-cebb-7cf3-a775-bc13cc0ed8dd",
+                "019e62f6-cebb-7e4f-a044-80173e193793",
+                "019e62f6-cebb-7bcc-8c92-f7f818c0215a",
+                "019e62f6-cebb-7f3d-9039-15f931eaf143",
+                "019e62f6-cebb-7866-8f0b-192157a3ef0a",
+                "019e62f6-cebb-7fd4-9784-d9679ed91967"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-cebb-730b-bece-25c27077c70c",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7d1f-8f47-81a9876ff39a",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7cc1-95f2-b6f3e4808a89",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7d91-9038-fbf74424ead2",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-778a-922e-34d7979d0d0f",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7669-b2ef-fe6ca6b70b38",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-79a7-be17-3f4ba238a2f6",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7bc7-9af3-5022568f1828",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-77aa-afb2-9caabad9be51",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7cb3-be7c-eed7871cadf7",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7cf3-a775-bc13cc0ed8dd",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7e4f-a044-80173e193793",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7bcc-8c92-f7f818c0215a",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7f3d-9039-15f931eaf143",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7866-8f0b-192157a3ef0a",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-cebb-7fd4-9784-d9679ed91967",
+                  "duration": {
+                    "base": "32nd"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "rest": {}
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

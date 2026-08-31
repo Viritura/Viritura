@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════
+  Viritura Editor – Global Styles
+
+   Tokens and reset are provided by @viritura/ui.
+   This file contains editor-specific overrides only.
+   ═══════════════════════════════════════════ */
+@import "@viritura/ui/tokens.css";
+@import "@viritura/ui/reset.css";
+@import "./styles/workspaceChrome.css";
+
+/* ── Editor-specific overrides ── */
+
+/* ── Resize handle hover indicator ── */
+[role="separator"][aria-orientation="vertical"]:hover {
+  background: var(--accent) !important;
+  opacity: 0.4;
+}
+
+/* MenuBar: hover styles for menu items and submenus */
+[role="menuitem"]:not(:disabled):hover {
+  background: var(--menu-hover);
+}
+
+/* ── Spinner animation for loading indicators ── */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

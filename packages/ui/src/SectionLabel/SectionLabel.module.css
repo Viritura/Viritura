@@ -1,0 +1,48 @@
+/* SectionLabel — see SectionLabel.tsx for the design rationale. */
+
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+  color: #6a6a74;
+}
+
+[data-theme="dark"] .label,
+[data-theme="midnight"] .label {
+  color: #c8c8d0;
+}
+
+.text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.16);
+  border: 1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.32);
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-2);
+  letter-spacing: 0;
+  text-transform: none;
+  flex-shrink: 0;
+}

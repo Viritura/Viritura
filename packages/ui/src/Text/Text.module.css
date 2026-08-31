@@ -1,0 +1,107 @@
+/* ═══════════════════════════════════════════
+   Text — typography token utility classes
+
+   One class per --type-* token. Use these on plain CSS elements,
+   inside MDX docs, or anywhere the React <Text> component isn't
+   convenient. The React component uses the same classes under
+   the hood.
+
+   Color is the DEFAULT for each tier. Override with
+   `color: var(--text-muted)` etc. at the call site for tone shifts
+   (hint vs row, disabled vs active).
+
+   See Design Language / Typography in Storybook for the live
+   specimen and the "why" behind each token.
+   ═══════════════════════════════════════════ */
+
+.display {
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-tracking);
+  color: var(--type-display-color);
+}
+
+.title {
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-lh);
+  letter-spacing: var(--type-title-tracking);
+  color: var(--type-title-color);
+}
+
+.heading {
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  letter-spacing: var(--type-heading-tracking);
+  color: var(--type-heading-color);
+}
+
+.body {
+  font-size: var(--type-body-size);
+  font-weight: var(--type-body-weight);
+  line-height: var(--type-body-lh);
+  letter-spacing: var(--type-body-tracking);
+  color: var(--type-body-color);
+}
+
+.control {
+  font-size: var(--type-control-size);
+  font-weight: var(--type-control-weight);
+  line-height: var(--type-control-lh);
+  letter-spacing: var(--type-control-tracking);
+  color: var(--type-control-color);
+}
+
+.small {
+  font-size: var(--type-small-size);
+  font-weight: var(--type-small-weight);
+  line-height: var(--type-small-lh);
+  letter-spacing: var(--type-small-tracking);
+  color: var(--type-small-color);
+}
+
+.eyebrow {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  line-height: var(--type-eyebrow-lh);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+  color: var(--type-eyebrow-color);
+}
+
+.monoInline {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-inline-size);
+  font-weight: var(--type-mono-inline-weight);
+  line-height: var(--type-mono-inline-lh);
+  color: var(--type-mono-inline-color);
+}
+
+.monoBlock {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-block-size);
+  font-weight: var(--type-mono-block-weight);
+  line-height: var(--type-mono-block-lh);
+  color: var(--type-mono-block-color);
+}
+
+/* Tone overrides — apply to any of the above via `<Text variant=… tone=muted>`
+   or `class="small muted"`. Pure color shifts; the typography geometry
+   stays whatever the variant decided. */
+.toneBright {
+  color: var(--text-bright);
+}
+.toneDefault {
+  color: var(--text);
+}
+.toneMuted {
+  color: var(--text-muted);
+}
+.toneAccent {
+  color: var(--accent);
+}
+.toneError {
+  color: var(--error);
+}

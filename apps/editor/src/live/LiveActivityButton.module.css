@@ -1,0 +1,57 @@
+.trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.trigger:hover,
+.trigger[data-state="open"] {
+  background: var(--surface-hover);
+  color: var(--text-bright);
+}
+
+.trigger[data-active="true"] {
+  color: var(--accent);
+}
+
+.statusDot {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent, #215e4e);
+  box-shadow:
+    0 0 0 2px var(--surface-raised, #1e1e1e),
+    0 0 0 4px color-mix(in srgb, var(--accent, #215e4e) 30%, transparent);
+}
+
+.popover {
+  padding: var(--space-3);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-2);
+  color: var(--text);
+  z-index: 1200;
+  max-width: min(360px, calc(100vw - 24px));
+}
+
+.arrow {
+  fill: var(--surface-raised);
+}

@@ -1,0 +1,300 @@
+/* Settings list */
+.profileList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.profileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid rgba(20, 20, 28, 0.1);
+  border-radius: var(--radius-2, 8px);
+  background: var(--surface-dim);
+}
+
+[data-theme="dark"] .profileRow,
+[data-theme="midnight"] .profileRow {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.profileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profileName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+}
+
+.profileMeta {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+}
+
+.profileActions {
+  display: inline-flex;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.listActions {
+  display: flex;
+  padding-top: var(--space-1);
+}
+
+.explainer {
+  padding: var(--space-2);
+  border-radius: var(--radius-2, 8px);
+  background: var(--surface-dim);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+/* ── Profile editor (in-pane, not a dialog) ─────────────────────────────
+   Replaces the settings pane's contents while a profile is open. */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.editorName {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--type-heading-weight);
+}
+
+/* Instruments left, the selected instrument's bindings right — the percussion
+   editor's shape. The inspector is fixed-width so switching between a short
+   and a long instrument name doesn't resize the list beside it. */
+.editorColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.slotColumn {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.inspectorColumn {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .editorColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inspectorColumn {
+    position: static;
+  }
+}
+
+/* ── Slot inspector ─────────────────────────────────────────────────── */
+
+.inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: rgba(20, 20, 28, 0.02);
+}
+
+[data-theme="dark"] .inspector,
+[data-theme="midnight"] .inspector {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.inspectorEmpty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  border: 1px dashed var(--border-hairline);
+  border-radius: var(--radius-md);
+  text-wrap: pretty;
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inspectorName {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--type-control-weight);
+}
+
+.inspectorStatus {
+  display: flex;
+}
+
+.sectionGroup {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.sectionLabel {
+  padding: 0;
+}
+
+.sectionGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.slotRows {
+  display: grid;
+  gap: 1px;
+}
+
+.emptySection {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+}
+
+/* ── Binding rows ────────────────────────────────────────────────────
+   Stacked rather than a label/value/button row: the inspector column is
+   ~20rem, where a plugin path and a button side by side would leave the path
+   ellipsised down to nothing. */
+.configureRow {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.configureLabel {
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+}
+
+.configureValue {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text);
+  /* Paths are long and read from the end — the meaningful part is the file
+     name, so keep the tail reachable via the tooltip-less title-free ellipsis
+     at the start of the string. */
+  direction: rtl;
+  text-align: left;
+}
+
+.configureValueUnset {
+  direction: ltr;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.addMenu {
+  position: relative;
+}
+
+/* Scan-folder settings */
+.scanFolders {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-height: 30vh;
+}
+
+/* Source picker dialog */
+.pickerBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.pickerList {
+  display: grid;
+  gap: 2px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.pickerActions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(20, 20, 28, 0.1);
+}
+
+[data-theme="dark"] .pickerActions,
+[data-theme="midnight"] .pickerActions {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.folderGroup {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.folderGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.folderRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid rgba(20, 20, 28, 0.1);
+  border-radius: var(--radius-2, 8px);
+}
+
+[data-theme="dark"] .folderRow,
+[data-theme="midnight"] .folderRow {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.folderPath {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--type-eyebrow-size);
+  color: var(--text);
+}

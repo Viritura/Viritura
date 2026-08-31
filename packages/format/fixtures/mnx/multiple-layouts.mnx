@@ -1,0 +1,743 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "id": "019e62f6-d70c-7afe-b449-6adcf37191cf",
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {
+        "id": "019e62f6-d70c-7905-82f9-c7abcdcfbb0d"
+      }
+    ]
+  },
+  "layouts": [
+    {
+      "id": "019e62f6-d70c-74af-a3d9-5972b1086554",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-7f77-90af-9bb79d0b910e"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-772f-af49-de16edd1c79f"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-78b1-bacd-25501dd50505"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-7b40-8721-83d7e98e4a1f"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-d70c-7b0d-9c8b-542c9b5dba54",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "label": "SA",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-7f77-90af-9bb79d0b910e",
+                  "stem": "up"
+                },
+                {
+                  "part": "019e62f6-d70c-772f-af49-de16edd1c79f",
+                  "stem": "down"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "label": "TB",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-78b1-bacd-25501dd50505",
+                  "stem": "up"
+                },
+                {
+                  "part": "019e62f6-d70c-7b40-8721-83d7e98e4a1f",
+                  "stem": "down"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-d70c-7da6-ae83-6ceabf2eb6a9",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "label": "SA",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-7f77-90af-9bb79d0b910e"
+                },
+                {
+                  "part": "019e62f6-d70c-772f-af49-de16edd1c79f"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "label": "TB",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-78b1-bacd-25501dd50505"
+                },
+                {
+                  "part": "019e62f6-d70c-7b40-8721-83d7e98e4a1f"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-d70c-7d46-b966-68047070b96f",
+      "content": [
+        {
+          "type": "group",
+          "barlineStyle": "individual",
+          "content": [
+            {
+              "type": "staff",
+              "label": "SA",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-7f77-90af-9bb79d0b910e"
+                },
+                {
+                  "part": "019e62f6-d70c-772f-af49-de16edd1c79f"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "label": "TB",
+              "sources": [
+                {
+                  "part": "019e62f6-d70c-78b1-bacd-25501dd50505",
+                  "stem": "up"
+                },
+                {
+                  "part": "019e62f6-d70c-7b40-8721-83d7e98e4a1f",
+                  "stem": "down"
+                }
+              ]
+            }
+          ],
+          "symbol": "bracket"
+        }
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "019e62f6-d70c-7f77-90af-9bb79d0b910e",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 5,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "name": "Soprano",
+      "shortName": "S"
+    },
+    {
+      "id": "019e62f6-d70c-772f-af49-de16edd1c79f",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "name": "Alto",
+      "shortName": "A"
+    },
+    {
+      "id": "019e62f6-d70c-78b1-bacd-25501dd50505",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "octave": -1,
+                "showOctave": true,
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "B"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "B"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "name": "Tenor",
+      "shortName": "T"
+    },
+    {
+      "id": "019e62f6-d70c-7b40-8721-83d7e98e4a1f",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "B"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "name": "Bass",
+      "shortName": "B"
+    }
+  ],
+  "scores": [
+    {
+      "name": "FourStaff",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-d70c-74af-a3d9-5972b1086554",
+              "measure": "019e62f6-d70c-7afe-b449-6adcf37191cf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TwoStaffSplit",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-d70c-7b0d-9c8b-542c9b5dba54",
+              "measure": "019e62f6-d70c-7afe-b449-6adcf37191cf"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "TwoStaffChord",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-d70c-7da6-ae83-6ceabf2eb6a9",
+              "layoutChanges": [
+                {
+                  "layout": "019e62f6-d70c-7d46-b966-68047070b96f",
+                  "location": {
+                    "measure": "019e62f6-d70c-7905-82f9-c7abcdcfbb0d",
+                    "position": {
+                      "fraction": [
+                        0,
+                        1
+                      ]
+                    }
+                  }
+                }
+              ],
+              "measure": "019e62f6-d70c-7afe-b449-6adcf37191cf"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

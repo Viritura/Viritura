@@ -1,0 +1,384 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.trigger:hover,
+.trigger[data-state="open"] {
+  background: var(--surface-hover);
+}
+
+.trigger[data-state-kind="error"] {
+  border-color: rgba(180, 55, 55, 0.38);
+}
+
+.spin {
+  /* 0.8s spinner cycle is intentional: not a UI motion, a recurring
+     loading animation. Outside the 3-tier motion token range. */
+  animation: accountButtonSpin 0.8s linear infinite;
+}
+
+@keyframes accountButtonSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.18);
+  color: var(--accent, #215e4e);
+  font-weight: var(--type-heading-weight);
+  text-transform: uppercase;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.popover {
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-2);
+  color: var(--text);
+  z-index: 1200;
+}
+
+.compactActions {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border);
+}
+
+.arrow {
+  fill: var(--surface-raised);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-1) var(--space-2);
+}
+
+.identityText {
+  min-width: 0;
+  flex: 1;
+}
+
+.identityName {
+  font-weight: var(--type-heading-weight);
+  font-size: var(--type-small-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identityEmail {
+  margin-top: 1px;
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+  border-radius: 6px;
+  font-size: var(--type-eyebrow-size);
+  background: rgba(180, 55, 55, 0.1);
+  color: var(--text);
+}
+
+.providers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) 0 var(--space-1);
+}
+
+.providersLabel {
+  padding: 0 var(--space-1) var(--space-1);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.provider {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+  border-radius: 8px;
+}
+
+.provider:hover {
+  background: var(--menu-hover);
+}
+
+.providerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  /* Translucent input surface — the AccountButton popover is Tier-3
+     glass, so the icon recess uses the glass-context input token, not
+     an opaque sunken fill. */
+  background: var(--surface-input);
+  color: var(--text);
+  flex: 0 0 auto;
+}
+
+.providerBody {
+  min-width: 0;
+  flex: 1;
+}
+
+.providerName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+}
+
+.providerStatus {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.providerStatus[data-state="connected"] {
+  color: var(--accent, #215e4e);
+}
+
+.providerMeta {
+  margin-top: 1px;
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.providerHintMuted {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+}
+
+.linkAction,
+.linkActionPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  color: var(--accent, #215e4e);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.linkAction:hover,
+.linkActionPrimary:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.linkActionPrimary {
+  font-weight: var(--type-heading-weight);
+}
+
+.linkAction:disabled,
+.linkActionPrimary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/**
+ * Disclosure toggle that hides destructive provider actions (Unlink) until the
+ * user opts in. Intentionally muted so it doesn't compete with the primary
+ * sign-out action in the popover footer.
+ */
+.advancedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted, #888);
+  cursor: pointer;
+}
+
+.advancedToggle:hover {
+  color: var(--text-muted, #666);
+  text-decoration: underline;
+}
+
+.advancedChevron {
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.advancedToggle[data-open="true"] .advancedChevron {
+  transform: rotate(180deg);
+}
+
+.advancedPanel {
+  flex-basis: 100%;
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px dashed var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.linkActionDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  color: var(--danger, #c0392b);
+  cursor: pointer;
+}
+
+.linkActionDanger:hover {
+  text-decoration: underline;
+}
+
+.linkActionDanger:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
+}
+
+/**
+ * Inline two-step unlink confirmation. Lives entirely inside the popover so
+ * it doesn't have to fight z-index stacking with the host StartCenter Dialog.
+ */
+.confirmRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.confirmPrompt {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted, #666);
+  line-height: 1.4;
+}
+
+.confirmActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.divider {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.signOut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.signOut:hover {
+  background: var(--menu-hover);
+}
+
+.signOutEverywhere {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted, rgba(0, 0, 0, 0.6));
+  font: inherit;
+  font-size: var(--type-eyebrow-size);
+  text-align: left;
+  cursor: pointer;
+}
+
+.signOutEverywhere:hover {
+  color: var(--text);
+  background: var(--menu-hover);
+}
+
+.signOutEverywhereConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: 8px;
+  background: var(--menu-hover);
+}

@@ -1,0 +1,19 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tabBar {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  background: transparent;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+[data-theme="dark"] .tabBar,
+[data-theme="midnight"] .tabBar {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}

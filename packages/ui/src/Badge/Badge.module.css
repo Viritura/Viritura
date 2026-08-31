@@ -1,0 +1,68 @@
+/* Badge — capsule pill on glass surfaces. Replaces the previous
+   inset neumorphic shadow with a tinted hairline border. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: rgba(20, 20, 28, 0.06);
+  border: 1px solid rgba(20, 20, 28, 0.1);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  color: var(--text);
+  white-space: nowrap;
+  user-select: none;
+  /* Smooth the recolor when the variant class swaps (e.g. count badge
+     toggling muted -> accent on activity). Layout properties stay
+     instant so size changes still snap. */
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+[data-theme="dark"] .badge,
+[data-theme="midnight"] .badge {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Color variants ── */
+
+.accent {
+  color: var(--text);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.4);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--error);
+  background: rgba(220, 80, 90, 0.12);
+  border-color: rgba(220, 80, 90, 0.35);
+}
+
+.warning {
+  color: var(--warning);
+  background: rgba(220, 160, 70, 0.14);
+  border-color: rgba(220, 160, 70, 0.38);
+}
+
+.success {
+  color: var(--accent);
+  background: rgba(80, 170, 130, 0.14);
+  border-color: rgba(80, 170, 130, 0.38);
+}
+
+/* ── Style variants ── */
+
+.mono {
+  font-family: monospace;
+  font-weight: var(--type-control-weight);
+  letter-spacing: 0;
+}

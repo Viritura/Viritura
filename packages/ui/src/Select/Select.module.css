@@ -1,0 +1,142 @@
+/* Radix Select — glass chrome to match PublishView panels */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+  border: 1px solid rgba(20, 20, 28, 0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  font-size: var(--type-small-size);
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: inset 0 1px 2px rgba(20, 20, 28, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.trigger:hover:not([data-disabled]) {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(20, 20, 28, 0.16);
+}
+
+/* Larger variant for dialog/form contexts where Select sits alongside
+   FormInput[large]. Same horizontal padding, larger type, lg radius
+   to match concentric-with-dialog. */
+.triggerLg {
+  font-size: var(--type-body-size);
+  border-radius: var(--radius-lg);
+}
+
+[data-theme="dark"] .trigger,
+[data-theme="midnight"] .trigger {
+  border-color: var(--border-input);
+  background: var(--surface-input);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .trigger:hover:not([data-disabled]),
+[data-theme="midnight"] .trigger:hover:not([data-disabled]) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.2);
+}
+
+.trigger[data-disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.triggerInner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.triggerIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.content {
+  min-width: var(--radix-select-trigger-width);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 10px 24px rgba(20, 20, 28, 0.14),
+    0 2px 6px rgba(20, 20, 28, 0.08);
+  padding: var(--space-1);
+  z-index: 1100;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .content,
+[data-theme="midnight"] .content {
+  background: rgba(40, 42, 56, 0.96);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.viewport {
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-5) var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--type-small-size);
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+.itemIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-right: -2px;
+}
+
+.item[data-highlighted] {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
+  color: var(--text-bright);
+  outline: none;
+}
+
+.item[data-disabled] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.indicator {
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+  flex-shrink: 0;
+}

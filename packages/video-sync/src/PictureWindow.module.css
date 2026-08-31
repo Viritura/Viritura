@@ -1,0 +1,77 @@
+/* PictureWindow — pop-out host, in both its forms. */
+
+.pipRoot {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
+
+.floating {
+  display: flex;
+  position: fixed;
+  z-index: 1200;
+  top: 0;
+  left: 0;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+  overflow: hidden;
+}
+
+.titlebar {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-2, 8px);
+  align-items: center;
+  height: 26px;
+  padding: 0 6px 0 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+}
+
+.title {
+  flex: 1;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.close {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--surface-hover, rgb(255 255 255 / 8%));
+  color: var(--text);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  background: #000;
+}
+
+.resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}

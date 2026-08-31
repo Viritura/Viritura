@@ -1,0 +1,28 @@
+.headerMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  margin-right: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  font-weight: var(--type-control-weight);
+}
+
+/* The search field is pinned while the category list scrolls under it —
+   filtering is useless if you have to scroll back up to reach the box. */
+.search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.noResults {
+  margin: 0;
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--type-small-size);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}

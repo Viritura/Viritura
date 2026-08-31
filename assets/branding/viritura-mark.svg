@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Viritura mark">
+  <rect width="64" height="64" fill="#215e4e"/>
+  <rect x=".75" y=".75" width="62.5" height="62.5" fill="none" stroke="#dceee7" stroke-width="1.5"/>
+  <path d="M448 614C522 609 522 582 501 528L343 127H339L179 534C156 594 162 607 230 614C236 620 236 641 230 647C190 646 145 645 109 645C73 645 38 646 5 646C-1 640 0 619 6 613C61 608 69 591 96 522L293 10C299-6 306-13 316-13C327-13 334-4 340 10L547 520C566 567 582 606 645 613C651 619 651 640 645 646C615 645 580 644 557 644C534 644 489 645 448 645C442 639 442 618 448 612Z" fill="#e7f3ee" transform="translate(9 54) scale(.07 -.07)"/>
+</svg>

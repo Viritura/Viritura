@@ -1,0 +1,106 @@
+/* MarkerPanel — picture markers and their controls. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+  min-height: 0;
+}
+
+.sectionLabel {
+  padding: 0 0 var(--space-1, 4px);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2, 8px);
+}
+
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: 1.5;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.time {
+  flex-shrink: 0;
+  min-width: 60px;
+  font-size: var(--type-eyebrow-size);
+  font-family: ui-monospace, monospace;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowActions {
+  position: absolute;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  opacity: 0;
+  padding-left: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.row:hover .rowActions,
+.row:focus-within .rowActions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (any-hover: none), (any-pointer: coarse) {
+  .rowActions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.iconButton {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--surface-hover, rgb(255 255 255 / 8%));
+  color: var(--text);
+}
+
+.iconButton[aria-pressed="true"] {
+  color: var(--accent);
+}

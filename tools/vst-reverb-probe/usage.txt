@@ -1,0 +1,53 @@
+vst-reverb-probe — offline VST3 effect probe
+
+USAGE:
+  vst-reverb-probe --plugin <PATH.vst3> --out <OUT.wav> [OPTIONS]
+
+REQUIRED:
+  --plugin <PATH>        Path to the VST3 effect (a .vst3 bundle/dir)
+  --out <PATH>           WAV file to write the processed output to
+
+INPUT (default: unit impulse):
+  --input <FILE.wav>     Replay a WAV as the effect input (no resampling)
+  --noise                0.5 s white-noise burst, then silence
+
+OPTIONS:
+  --state <FILE>         Load plugin state bytes (a saved patch/preset)
+  --duration <SECS>      Render length in seconds (default 4.0)
+  --sr <HZ>              Sample rate (default 48000)
+  --block <FRAMES>       Block size (default 512)
+
+WARM-UP (for effects that stream content asynchronously, e.g. convolution):
+  --warmup <SECS>        Sleep this long after activation, before rendering
+  --prime-blocks N       Process N silent blocks before the measured render
+  --prime-sleep-ms MS    Sleep MS between prime blocks (real wall-clock time so
+                         a background streaming thread can make progress)
+
+EDITOR (Windows) — some effects (EastWest Spaces) only load content on editor open:
+  --open-editor          Open the plugin's native GUI, feed continuous noise
+                         while pumping its message loop, until you close it
+  --hide-editor          With --open-editor: hide the window immediately
+                         (SW_HIDE) but keep the editor attached and active
+  --close-after <SECS>   With --open-editor: run non-interactively — close the
+                         editor at this time and keep processing until --duration,
+                         reporting whether the wet path survives the close
+
+BISECT TOGGLES (defaults mirror the Viritura desktop reverb path):
+  --host-in-channels N   Host builder input_channels (default 2; app uses 0)
+  --feed-channels N      Input channels allocated + filled (default 2)
+  --no-bus-arrange       Skip set_bus_arrangements(STEREO, STEREO)
+  --no-set-playing       Skip set_playing(true)
+  --state-order <early|late>
+                         load_state before reconfigure (early) or after
+                         activation (late). Default: late.
+  --isolation            Build the host with process isolation on
+
+EXAMPLES:
+  # Baseline: impulse response of a known-good reverb
+  vst-reverb-probe --plugin ValhallaRoom.vst3 --out valhalla.wav
+
+  # The suspect, faithful to the app's current sequence
+  vst-reverb-probe --plugin "EW Spaces II.vst3" --state ew.bin --out ew.wav
+
+  # Test the input_channels(0) host hypothesis
+  vst-reverb-probe --plugin "EW Spaces II.vst3" --host-in-channels 0 --out ew0.wav

@@ -1,0 +1,213 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {},
+      {
+        "barline": {
+          "type": "final"
+        }
+      }
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-d709-7fc4-900d-97bf3bdae6bf",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    }
+                  ],
+                  "_x": {
+                    "viritura": {
+                      "glissandos": [
+                        {
+                          "target": "019e62f6-d709-77fa-b8d1-2572d1795b44",
+                          "style": "straight"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "019e62f6-d709-77fa-b8d1-2572d1795b44",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "E",
+                        "octave": 5
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-d709-7992-9b8c-1c0c1642ddf0",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "G",
+                        "octave": 5
+                      }
+                    }
+                  ],
+                  "_x": {
+                    "viritura": {
+                      "glissandos": [
+                        {
+                          "target": "019e62f6-d709-7125-a28a-8ba7ede71b44",
+                          "style": "wavy"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "019e62f6-d709-7125-a28a-8ba7ede71b44",
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "C",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-d709-76eb-8ed4-099c0c69f72d",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "D",
+                        "octave": 4
+                      }
+                    }
+                  ],
+                  "_x": {
+                    "viritura": {
+                      "glissandos": [
+                        {
+                          "target": "019e62f6-d709-7d07-befa-123a8ec247fd",
+                          "style": "straight",
+                          "text": "gliss."
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "019e62f6-d709-7d07-befa-123a8ec247fd",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "B",
+                        "octave": 4
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "id": "019e62f6-d709-7ad3-907a-0ad0f0986f03",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "A",
+                        "octave": 4
+                      }
+                    }
+                  ],
+                  "_x": {
+                    "viritura": {
+                      "glissandos": [
+                        {
+                          "target": "019e62f6-d709-70ec-8944-00e52dc71d6c",
+                          "style": "wavy",
+                          "text": "gliss."
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "019e62f6-d709-70ec-8944-00e52dc71d6c",
+                  "duration": {
+                    "base": "half"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "step": "F",
+                        "octave": 5
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

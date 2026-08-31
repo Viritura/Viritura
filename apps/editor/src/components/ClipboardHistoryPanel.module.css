@@ -1,0 +1,78 @@
+/* Clips tab — shimmer animation for pending undo descriptions */
+@keyframes viritura-clips-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.clipsContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--type-eyebrow-size);
+  overflow: hidden;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sectionHistory {
+  flex-shrink: 0;
+  max-height: 45%;
+  overflow-y: auto;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.08);
+  padding-bottom: var(--space-1);
+}
+
+.sectionClips {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sectionCount {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-muted);
+  opacity: 0.6;
+  letter-spacing: 0.04em;
+}
+
+.copiedFlash {
+  /* 0.9s flash is intentional: confirmation pulse needs to linger long
+     enough to be noticed without re-triggering. Outside the 3-tier
+     motion token range. */
+  animation: viritura-clips-flash 0.9s ease-out;
+}
+
+@keyframes viritura-clips-flash {
+  0% {
+    box-shadow: 0 0 0 2px var(--accent, #4ade80);
+  }
+  100% {
+    box-shadow: var(--elevation-0);
+  }
+}

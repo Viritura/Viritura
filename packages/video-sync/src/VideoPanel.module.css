@@ -1,0 +1,144 @@
+/* VideoPanel — picture attachment and offset controls. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+  color: var(--text, #3a3832);
+  font-size: var(--type-small-size, 12px);
+}
+
+.sectionLabel {
+  padding: 0 0 var(--space-1, 4px);
+}
+
+/* ── Status ───────────────────────────────────────────────── */
+
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mediaName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.health {
+  color: var(--text-muted, #5a5850);
+  font-size: var(--type-eyebrow-size, 10px);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.warning,
+.error {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: var(--type-eyebrow-size, 10px);
+  line-height: 1.35;
+}
+
+.warning {
+  color: var(--warning, #9a6b1f);
+}
+
+.error {
+  color: var(--danger, #a4352c);
+}
+
+/* ── Actions ──────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+  align-items: center;
+}
+
+/* A styled <label> wrapping a hidden file input: the native control cannot be
+   restyled, and a scripted click on a hidden input is blocked as a non-gesture
+   in some browsers. */
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--border, #d0cdc6);
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--surface-raised, rgb(255 255 255 / 45%));
+}
+
+.fileButton:hover {
+  border-color: var(--accent, #2f6f62);
+  color: var(--accent, #2f6f62);
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Controls ─────────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.advanced {
+  margin: 0 calc(-1 * var(--space-2, 8px));
+  border-top: 1px solid var(--border, #d0cdc6);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px);
+  align-items: center;
+}
+
+.field {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fieldLabel {
+  color: var(--text, #3a3832);
+  font-weight: var(--type-control-weight);
+  font-size: var(--type-small-size, 12px);
+}
+
+.input,
+.inputInvalid {
+  width: 11ch;
+  padding: 3px 6px;
+  border: 1px solid var(--border, #d0cdc6);
+  border-radius: 6px;
+  background: var(--surface, #f2efe9);
+  color: inherit;
+  font-size: inherit;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  text-align: right;
+}
+
+.inputInvalid {
+  border-color: var(--danger, #a4352c);
+}
+
+.input:focus-visible,
+.inputInvalid:focus-visible {
+  outline: 2px solid var(--accent, #2f6f62);
+  outline-offset: 1px;
+}

@@ -1,0 +1,128 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.fieldH {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.label {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-muted);
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.labelAction {
+  min-width: 0;
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-body-weight);
+}
+
+.labelH {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-muted);
+  width: 5.5rem;
+  flex-shrink: 0;
+}
+
+.input {
+  border: 1px solid rgba(20, 20, 28, 0.14);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  font-size: var(--type-small-size);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+  font-family: inherit;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
+}
+
+[data-theme="dark"] .input,
+[data-theme="midnight"] .input {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Explicit placeholder color so browsers don't apply their default
+   ~54% opacity, which renders as illegible grey on dark glass. The
+   dedicated --text-placeholder tier is intentionally lower-contrast than
+   real text (--text) and labels (--text-muted) so hints read as hints. */
+.input::placeholder,
+.inputLg::placeholder,
+.textarea::placeholder,
+.textareaLg::placeholder {
+  color: var(--text-placeholder);
+  opacity: 1;
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.18);
+}
+
+/* Number inputs: hide browser spinner arrows by default. The native
+   controls are visually noisy at form-field density and inconsistent
+   across browsers; values change via keyboard / wheel / typing. Callers
+   that want the spinners back can pass className with the override. */
+.input[type="number"],
+.inputLg[type="number"] {
+  -moz-appearance: textfield;
+}
+.input[type="number"]::-webkit-outer-spin-button,
+.input[type="number"]::-webkit-inner-spin-button,
+.inputLg[type="number"]::-webkit-outer-spin-button,
+.inputLg[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Larger input variant for dialogs */
+.inputLg {
+  composes: input;
+  padding: var(--space-2);
+  font-size: var(--type-body-size);
+  border-radius: var(--radius-lg);
+}
+
+/* Textarea variant — same surface as input but multiline. */
+.textarea {
+  composes: input;
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.textareaLg {
+  composes: inputLg;
+  min-height: 6rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.error {
+  font-size: var(--type-eyebrow-size);
+  color: var(--error);
+}
+
+.message {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  line-height: 1.4;
+}

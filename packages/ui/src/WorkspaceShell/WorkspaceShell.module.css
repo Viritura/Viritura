@@ -1,0 +1,152 @@
+/* WorkspaceShell — the absolute-positioned dock that hosts an activity:
+   canvas underlay, floating glass panels on the left/right edges, and a
+   peek-on-hover status bar zone at the bottom. Extracted from
+   workspaceChrome.css (.workspace-bg, .workspace-status-zone). */
+
+.shell {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  /* Accent tokens consumed by Panel / status pill / tinted descendants. */
+  --accent-rgb: 33, 94, 78;
+  --accent-grad: linear-gradient(135deg, #215e4e 0%, #3f8a74 100%);
+  /* Workspace mesh — single source of truth shared with the UI
+   * storybook preview backdrop (packages/ui/.storybook/preview.ts). */
+  background:
+    radial-gradient(circle at 12% 18%, rgba(33, 94, 78, 0.38), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(244, 200, 120, 0.32), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(95, 170, 220, 0.32), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(178, 140, 220, 0.3), transparent 55%),
+    linear-gradient(180deg, #e8ecef 0%, #dde2e7 100%);
+}
+
+:global([data-theme="dark"]) .shell,
+:global([data-theme="midnight"]) .shell {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(80, 120, 220, 0.5), transparent 55%),
+    radial-gradient(circle at 88% 82%, rgba(170, 90, 180, 0.45), transparent 55%),
+    radial-gradient(circle at 70% 12%, rgba(78, 200, 170, 0.4), transparent 50%),
+    radial-gradient(circle at 22% 90%, rgba(220, 90, 110, 0.35), transparent 55%),
+    linear-gradient(180deg, #1c1c24 0%, #16161e 100%);
+}
+
+/* SVG noise overlay — breaks gradient banding, adds premium grain. */
+.shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%20viewBox='0%200%20160%20160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='matrix'%20values='0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200%200.5%200'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+}
+
+:global([data-theme="dark"]) .shell::before,
+:global([data-theme="midnight"]) .shell::before {
+  opacity: 0.3;
+  mix-blend-mode: soft-light;
+}
+
+.canvasLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Persistent recovery affordance for the fully collapsed side-panel state. */
+.panelHandle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 22px !important;
+  height: 64px !important;
+  min-width: 22px;
+  margin: 0;
+  padding: 0 !important;
+  appearance: none;
+  font: inherit;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.62) !important;
+  border-left: 0;
+  border-radius: 0 12px 12px 0;
+  background: rgba(255, 255, 255, 0.58) !important;
+  box-shadow:
+    0 4px 14px rgba(20, 20, 28, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  z-index: 8;
+  transition:
+    width var(--motion-fast) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard);
+}
+
+.panelHandle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid #215e4e;
+  border-right: 1.5px solid #215e4e;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.panelHandle:hover,
+.panelHandle:focus-visible {
+  width: 28px !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+}
+
+.panelHandle:active {
+  transform: translateY(-50%);
+}
+
+.panelHandle:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb));
+  outline-offset: 2px;
+}
+
+:global([data-theme="dark"]) .panelHandle,
+:global([data-theme="midnight"]) .panelHandle {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(36, 36, 50, 0.86) !important;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ── Peek-on-hover status zone ────────────────────────────────── */
+
+.statusZone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: var(--space-2);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.statusZone > * {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity var(--motion-base) var(--ease-enter),
+    transform var(--motion-base) var(--ease-enter);
+}
+
+.statusZoneVisible > *,
+.statusZone:focus-within > * {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}

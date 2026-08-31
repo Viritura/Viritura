@@ -1,0 +1,95 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: var(--space-2);
+}
+
+.pad,
+.padActive {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-input);
+  background: var(--surface-input);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.pad:hover {
+  background: var(--surface-hover);
+}
+
+.padActive {
+  border-color: var(--pad-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pad-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--pad-accent) 12%, var(--surface-input));
+}
+
+.padStripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--pad-accent);
+}
+
+.padStaff {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.padStaff svg {
+  height: 100%;
+  width: auto;
+}
+
+.padName {
+  font-size: var(--type-small-size);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.15;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.padPos {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.addPad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(var(--accent-rgb, 33, 94, 78), 0.5);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+  cursor: pointer;
+}
+
+.addPad:hover {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.16);
+  border-color: rgb(var(--accent-rgb, 33, 94, 78));
+}

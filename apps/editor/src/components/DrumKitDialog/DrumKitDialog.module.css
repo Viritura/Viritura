@@ -1,0 +1,75 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  /* Fill the dialog body so the workbench (and its columns) can own the
+     scroll, keeping the staff + pads pinned while the inspector scrolls.
+     `.body` is made a flex column (see `.body` below) so this resolves via
+     flex rather than a percentage height — the dialog uses max-height, not a
+     definite height, so `height: 100%` would not chain. */
+  flex: 1;
+  min-height: 0;
+}
+
+/* Make the (shared) dialog body a flex column so `.root` can fill it and the
+   inner columns scroll, instead of the whole body scrolling. */
+.body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: 1.4;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.presetBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.presetLabel {
+  font-size: var(--type-small-size);
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.presetSelect {
+  min-width: 220px;
+}
+
+.undoNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-sunken));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-hairline));
+}
+
+.undoIcon {
+  flex: none;
+  color: var(--accent);
+}
+
+.undoText {
+  flex: 1;
+  margin: 0;
+  font-size: var(--type-small-size);
+  color: var(--text);
+}

@@ -1,0 +1,20 @@
+# Clippy thresholds for the engraving engine.
+#
+# Rationale
+# ---------
+# The default `too_many_lines` threshold (100) is too aggressive for an
+# engraving codebase: layout passes routinely walk through several geometric
+# stages (collect ▶ measure ▶ resolve ▶ emit) and the natural extent of one
+# coherent pass is ~120–200 lines. Splitting below that point tends to
+# scatter local state across helpers and hurt readability instead of
+# helping it.
+#
+# Setting the threshold to 200 keeps the everyday passes comfortable
+# while still flagging the genuinely monolithic functions (300+ lines)
+# that need to be carved up into named, documented sub-passes.
+#
+# When a function legitimately exceeds 200 lines (e.g. a single dispatch
+# `match` over a wide enum with one short arm per variant, or test
+# fixtures), use a targeted `#[allow(clippy::too_many_lines)]` attribute
+# with a one-line rationale rather than raising the global threshold.
+too-many-lines-threshold = 200

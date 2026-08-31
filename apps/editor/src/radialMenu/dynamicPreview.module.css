@@ -1,0 +1,11 @@
+.mixedExpression {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1em;
+}
+
+.textToken {
+  font-family: serif;
+  font-style: italic;
+  font-size: 0.85em;
+}

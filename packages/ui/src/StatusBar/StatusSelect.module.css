@@ -1,0 +1,126 @@
+/* StatusSelect — custom dropdown for the dark "status pill" surfaces.
+   Replaces native <select> so the trigger matches the pill aesthetic
+   and the chevron stays put (native selects render a platform chevron
+   that drifts on Windows/Linux). Popover opens upward to float above
+   the status bar without being clipped by the viewport bottom. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 28px;
+  padding: 0 var(--space-2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--type-small-size);
+  font-weight: var(--type-control-weight);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.trigger:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(var(--accent-rgb, 95, 201, 173), 0.5);
+  color: #fff;
+}
+
+.trigger:focus {
+  outline: none;
+  border-color: rgba(var(--accent-rgb, 95, 201, 173), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 95, 201, 173), 0.25);
+}
+
+.label {
+  display: inline-block;
+}
+
+.chevron {
+  color: rgba(255, 255, 255, 0.65);
+  flex-shrink: 0;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.trigger[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+.popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-1);
+  border-radius: 10px;
+  background: rgba(28, 30, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  animation: popupIn var(--motion-fast) var(--ease-enter);
+}
+
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.option {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--type-small-size);
+  font-weight: var(--type-control-weight);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.optionSelected {
+  background: rgba(var(--accent-rgb, 95, 201, 173), 0.22);
+  color: #fff;
+}
+
+.optionSelected:hover {
+  background: rgba(var(--accent-rgb, 95, 201, 173), 0.3);
+}

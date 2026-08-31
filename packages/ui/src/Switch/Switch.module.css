@@ -1,0 +1,150 @@
+/* Switch — instant-apply toggle. Track fills viridian when on; the thumb
+   slides via translateX. Mirrors Checkbox's hidden-native-input approach so
+   both controls share focus/disabled behaviour.
+
+   The track deliberately has **no CSS border**. A 1px border resolves to a
+   fractional width at non-integer device pixel ratios (0.8px at dpr 1.25),
+   which makes the padding box an odd height and lands the centred thumb on a
+   half-pixel — it then snaps off-centre when painted. Drawing the outline as
+   an inset box-shadow keeps it out of layout, so the track's padding box
+   equals its border box and every inset below stays a whole number. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  user-select: none;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+  color: var(--text);
+}
+
+.root[data-disabled="true"] {
+  opacity: 0.5;
+}
+
+.root[data-disabled="true"] .track,
+.root[data-disabled="true"] .label {
+  cursor: not-allowed;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
+.track {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px var(--border-input);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.thumb {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  /* Symmetric, offsetless shadow. A downward-offset shadow reads as the
+     circle sitting low when the circle is only 10–12px across — the drop is
+     nearly a tenth of its diameter — so the thumb looks vertically
+     off-centre even when its geometry is exact. */
+  box-shadow: 0 0 2px rgba(20, 20, 28, 0.3);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+/* ── Sizes ─────────────────────────────────────────────────────────────
+   Invariant per size: the inset is equal on all four edges, and
+   travel = trackWidth − thumb − 2 × inset. Keep the track and thumb
+   dimensions the same parity so that inset stays a whole number. */
+
+.md .track {
+  width: 32px;
+  height: 18px;
+}
+
+.md .thumb {
+  width: 12px;
+  height: 12px;
+  top: 3px;
+  left: 3px;
+}
+
+.md .input:checked ~ .track .thumb {
+  transform: translateX(14px);
+}
+
+.sm .track {
+  width: 26px;
+  height: 16px;
+}
+
+.sm .thumb {
+  width: 10px;
+  height: 10px;
+  top: 3px;
+  left: 3px;
+}
+
+.sm .input:checked ~ .track .thumb {
+  transform: translateX(10px);
+}
+
+/* ── States ──────────────────────────────────────────────────────────── */
+
+.root:hover .track {
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+}
+
+.input:focus-visible ~ .track {
+  box-shadow:
+    inset 0 0 0 1px var(--focus-border),
+    var(--focus-ring);
+}
+
+.input:checked ~ .track {
+  background: rgb(var(--accent-rgb, 33, 94, 78));
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb, 33, 94, 78));
+}
+
+.input:checked:focus-visible ~ .track {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--accent-rgb, 33, 94, 78)),
+    var(--focus-ring);
+}
+
+.label {
+  cursor: pointer;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb {
+    transition: none;
+  }
+}
+
+[data-theme="dark"] .track,
+[data-theme="midnight"] .track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* On dark themes the accent is a light mint, so a white thumb has almost no
+   contrast against a filled track. Darken it to the panel background. */
+[data-theme="dark"] .input:checked ~ .track .thumb,
+[data-theme="midnight"] .input:checked ~ .track .thumb {
+  background: #1b1b21;
+  box-shadow: none;
+}

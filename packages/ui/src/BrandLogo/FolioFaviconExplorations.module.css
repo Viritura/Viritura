@@ -1,0 +1,362 @@
+@font-face {
+  font-family: "Libertinus Favicon";
+  src: url("/fonts/LibertinusSerif-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.studio {
+  min-height: 100vh;
+  color: #14372f;
+  background: #f0eee4;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.introduction {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.6fr);
+  gap: clamp(3rem, 8vw, 8rem);
+  align-items: end;
+  min-height: min(43rem, 82vh);
+  padding: clamp(3rem, 7vw, 7rem);
+  border-bottom: 1px solid rgba(20, 55, 47, 0.28);
+}
+
+.selectedDirection {
+  margin: 0 0 1.5rem;
+  color: #215e4e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.introduction h1 {
+  max-width: 11ch;
+  margin: 0;
+  font-family: "Libertinus Favicon", serif;
+  font-size: clamp(4rem, 8vw, 6rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.lede {
+  max-width: 62ch;
+  margin: 2rem 0 0;
+  color: #3f554e;
+  font-size: clamp(1rem, 1.4vw, 1.25rem);
+  line-height: 1.55;
+}
+
+.wordmark {
+  padding: 1.5rem 0;
+  border-top: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  font-family: "Libertinus Favicon", serif;
+  font-size: clamp(3rem, 6vw, 5rem);
+  line-height: 1;
+  font-variant: small-caps;
+  text-align: center;
+}
+
+.directionNav {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  overflow-x: auto;
+  color: #eef6f2;
+  background: rgba(20, 55, 47, 0.96);
+  scrollbar-width: none;
+}
+
+.directionNav::-webkit-scrollbar {
+  display: none;
+}
+
+.directionNav a {
+  flex: 1 0 auto;
+  padding: 0.95rem 1.25rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.directionNav a:hover,
+.directionNav a:focus-visible {
+  color: #14372f;
+  background: #b9dfcf;
+  outline: 0;
+}
+
+.directions {
+  display: grid;
+}
+
+.direction {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.85fr) minmax(14rem, 0.65fr) minmax(18rem, 0.75fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+  min-height: 32rem;
+  padding: clamp(3rem, 7vw, 7rem);
+  border-bottom: 1px solid rgba(20, 55, 47, 0.24);
+  scroll-margin-top: 3rem;
+}
+
+.direction:nth-child(even) {
+  background: #e5eee7;
+}
+
+.selected {
+  box-shadow: inset 0 0 0 3px #215e4e;
+}
+
+.directionIdentity {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 1rem;
+}
+
+.index {
+  padding-top: 0.45rem;
+  color: #215e4e;
+  font-family: "Libertinus Favicon", serif;
+  font-size: 0.9rem;
+}
+
+.direction h2 {
+  margin: 0;
+  font-family: "Libertinus Favicon", serif;
+  font-size: clamp(2.2rem, 4vw, 3.8rem);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.selectionBadge {
+  display: inline-block;
+  margin-top: 0.8rem;
+  padding: 0.35rem 0.55rem;
+  color: #e7f3ee;
+  background: #215e4e;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.directionIdentity p {
+  max-width: 38ch;
+  margin: 1rem 0 0;
+  color: #415850;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.heroIcon {
+  display: grid;
+  place-items: center;
+}
+
+.proofs {
+  display: grid;
+  gap: 2rem;
+}
+
+.sizeRun {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  min-height: 4rem;
+}
+
+.favicon {
+  --favicon-size: 64px;
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--favicon-size);
+  height: var(--favicon-size);
+  overflow: hidden;
+  color: #215e4e;
+  background: #f7f4ea;
+  font-family: "Libertinus Favicon", serif;
+  font-size: calc(var(--favicon-size) * 0.58);
+  line-height: 1;
+}
+
+.letter {
+  position: relative;
+  z-index: 1;
+}
+
+.rules::before,
+.rules::after {
+  position: absolute;
+  right: 14%;
+  left: 14%;
+  height: 1px;
+  content: "";
+  background: currentColor;
+}
+
+.rules::before {
+  top: 18%;
+}
+
+.rules::after {
+  bottom: 18%;
+}
+
+.field {
+  color: #f7f4ea;
+  background: #215e4e;
+  border-radius: 18%;
+}
+
+.seal {
+  border: max(1px, calc(var(--favicon-size) * 0.025)) solid currentColor;
+  border-radius: 50%;
+}
+
+.crop,
+.cropKeyline {
+  color: #e7f3ee;
+  background: #215e4e;
+  font-size: calc(var(--favicon-size) * 1.08);
+}
+
+.crop .letter,
+.cropKeyline .letter {
+  transform: translateY(calc(var(--favicon-size) * -0.025));
+}
+
+.cropKeyline {
+  border: max(1px, calc(var(--favicon-size) * 0.018)) solid #dceee7;
+}
+
+.bookplate {
+  border: max(1px, calc(var(--favicon-size) * 0.018)) solid currentColor;
+}
+
+.bookplate::before {
+  position: absolute;
+  inset: 11%;
+  content: "";
+  border: max(1px, calc(var(--favicon-size) * 0.012)) solid currentColor;
+}
+
+.margin {
+  justify-items: start;
+  padding-left: 27%;
+  border-left: max(2px, calc(var(--favicon-size) * 0.08)) solid #215e4e;
+}
+
+.colophon {
+  background: transparent;
+}
+
+.colophon::after {
+  position: absolute;
+  right: 19%;
+  bottom: 25%;
+  width: calc(var(--favicon-size) * 0.09);
+  height: calc(var(--favicon-size) * 0.09);
+  content: "";
+  background: #215e4e;
+  border-radius: 50%;
+}
+
+.colophon .letter {
+  transform: translateX(calc(var(--favicon-size) * -0.08));
+}
+
+.diamond {
+  overflow: visible;
+  background: transparent;
+}
+
+.diamond::before {
+  position: absolute;
+  inset: 14%;
+  content: "";
+  border: max(1px, calc(var(--favicon-size) * 0.02)) solid currentColor;
+  transform: rotate(45deg);
+}
+
+.browserTab {
+  display: grid;
+  grid-template-columns: 1rem 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  min-width: 13rem;
+  padding: 0.55rem 0.7rem;
+  color: #273d36;
+  background: #fafafa;
+  border: 1px solid #c9cdca;
+  border-radius: 0.5rem 0.5rem 0 0;
+  box-shadow: 0 0.35rem 1rem rgba(20, 55, 47, 0.08);
+  font-size: 0.76rem;
+}
+
+.tabClose {
+  color: #728079;
+  font-size: 1rem;
+}
+
+@media (max-width: 900px) {
+  .introduction,
+  .direction {
+    grid-template-columns: 1fr;
+  }
+
+  .introduction {
+    min-height: auto;
+  }
+
+  .wordmark {
+    max-width: 30rem;
+  }
+
+  .direction {
+    gap: 3rem;
+  }
+
+  .heroIcon {
+    justify-content: start;
+    padding-left: 3.5rem;
+  }
+
+  .proofs {
+    max-width: 26rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .introduction,
+  .direction {
+    padding: 4rem 1.5rem;
+  }
+
+  .introduction h1 {
+    font-size: clamp(3.5rem, 15vw, 5rem);
+  }
+
+  .directionIdentity {
+    grid-template-columns: 2rem 1fr;
+  }
+
+  .heroIcon {
+    padding-left: 3rem;
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@viritura/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Viritura desktop shell (Tauri) wrapping the web editor",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:prebuilt": "tauri build --config src-tauri/tauri.prebuilt.conf.json",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,30 @@
+# Root `pnpm build:api-image` prepares apps/server-ui/dist through Turbo before
+# invoking this file. Production deployment remains self-contained in
+# server/Dockerfile because its remote builder starts from a clean worktree.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY server/ ./
+COPY apps/server-ui/dist/ ../apps/server-ui/dist/
+RUN dotnet restore Viritura.Api/Viritura.Api.csproj \
+    && dotnet publish Viritura.Api/Viritura.Api.csproj \
+        --configuration Release \
+        --output /app/publish \
+        --no-restore \
+        /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl gosu sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=build /app/publish .
+COPY server/docker-entrypoint.sh /usr/local/bin/viritura-api-entrypoint
+RUN chmod 0755 /usr/local/bin/viritura-api-entrypoint
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    DOTNET_EnableDiagnostics=0
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/viritura-api-entrypoint"]
+CMD ["dotnet", "Viritura.Api.dll"]

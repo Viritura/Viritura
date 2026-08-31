@@ -1,0 +1,68 @@
+{
+  "name": "@viritura/score-engine",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Embeddable music notation engine: WASM-powered layout + Canvas paint + MNX timeline. Layout-independent, audio-free, ships as the rendering kernel for @viritura/score-viewer-react.",
+  "keywords": [
+    "music",
+    "notation",
+    "score",
+    "mnx",
+    "smufl",
+    "wasm",
+    "engraving",
+    "sheet-music"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/peteryangio/viritura.git",
+    "directory": "packages/score-engine"
+  },
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./errors": {
+      "types": "./src/errors.ts",
+      "import": "./src/errors.ts"
+    },
+    "./timeline": {
+      "types": "./src/timeline.ts",
+      "import": "./src/timeline.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "import": "./src/types.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "echo 'PUBLISH BLOCKED: workspace deps must be inlined or published first. See README.md.' && exit 1"
+  },
+  "dependencies": {
+    "@viritura/format": "workspace:*",
+    "@viritura/midi": "workspace:*",
+    "@viritura/renderer": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

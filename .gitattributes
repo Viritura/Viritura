@@ -1,0 +1,10 @@
+*.sf2 filter=lfs diff=lfs merge=lfs -text
+
+# Generators emit LF. Keep byte-for-byte check gates stable on Windows checkouts.
+packages/core/src/raw/raw.ts text eol=lf
+packages/core/src/raw/raw-viritura.ts text eol=lf
+engine/viritura-engine/src/raw.rs text eol=lf
+engine/viritura-engine/src/raw_viritura.rs text eol=lf
+
+# Shell scripts run on Linux; CRLF breaks shebang resolution.
+*.sh text eol=lf

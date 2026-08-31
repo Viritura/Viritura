@@ -1,0 +1,70 @@
+/* StatusBar — dark "command pill" shell shared by the editor's
+   Write/Engrave/Publish status surfaces. Pure presentation: callers
+   compose the bar via left/center/right slots.
+
+   Surface is flat chrome (single opaque fill), not glass. Panel-style
+   180deg gradients are reserved for translucent glass surfaces; the
+   StatusBar reads as a deliberate "command pill" overlay so it stays
+   crisp regardless of the wallpaper behind it. */
+
+.bar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 14px;
+  font-size: var(--type-small-size);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: rgba(255, 255, 255, 0.86);
+  background: #1c1e2a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.22),
+    0 16px 40px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  user-select: none;
+  width: max-content;
+  max-width: calc(100vw - 40px);
+
+  /* Override theme tokens locally so children that read from the cascade
+     (e.g. Button .link, hover color rules using `var(--text)`) pick up
+     dark-surface values regardless of the active app theme. Paired with
+     the `data-on-dark` attribute, which targeted primitives use as a
+     selector hook to flip their hard-coded fills/borders. */
+  --text: #f1f1f5;
+  --text-muted: rgba(255, 255, 255, 0.6);
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  white-space: nowrap;
+}

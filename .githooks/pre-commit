@@ -1,0 +1,82 @@
+#!/bin/sh
+#
+# Pre-commit hook: format + lint only the languages the staged change touches.
+#
+# Conditional by file category, so a pure-TS commit never pays for Rust/.NET
+# tooling (and vice versa):
+#
+#   • always (cheap)        prettier --check on staged files (.prettierignore aware)
+#   • staged JS/TS          eslint + repo structure guards (grab-bag, barrels)
+#   • staged engine/*.rs    Rust size/cohesion + cargo fmt + clippy
+#   • staged server/*       dotnet format --verify-no-changes
+#
+# Each language block is skipped when its toolchain isn't installed, so a
+# contributor without (say) the Rust toolchain can still commit non-Rust work.
+# Slower whole-repo gates (knip, codegen drift) stay in CI / pre-push.
+# Bypass in a pinch with:  git commit --no-verify
+#
+set -e
+
+# Staged, non-deleted files (newline-separated).
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+# Category filters.
+jsfiles=$(printf '%s\n' "$staged" | grep -E '\.(js|mjs|cjs|jsx|ts|tsx|mts|cts)$' || true)
+rsfiles=$(printf '%s\n' "$staged" | grep -E '^engine/.*\.rs$' || true)
+netfiles=$(printf '%s\n' "$staged" | grep -E '^server/.*\.(cs|csproj|sln|props|targets)$' || true)
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ── 1. Prettier — formatting check on everything it understands ──────────────
+# `xargs -s 6000` caps each invocation's command line well under cmd.exe's
+# ~8191-char limit — Git-for-Windows xargs otherwise packs a Linux-sized batch
+# and large commits fail with "The command line is too long".
+if have pnpm; then
+  printf '%s\n' "$staged" | tr '\n' '\0' \
+    | xargs -0 -r -s 6000 pnpm exec prettier --check --ignore-unknown
+else
+  echo "pre-commit: pnpm not on PATH — skipping prettier/eslint." >&2
+fi
+
+# ── 2. ESLint + repo structure guards — only when JS/TS changed ──────────────
+if [ -n "$jsfiles" ] && have pnpm; then
+  printf '%s\n' "$jsfiles" | tr '\n' '\0' \
+    | xargs -0 -r -s 6000 pnpm exec eslint --no-warn-ignored
+  pnpm exec tsx scripts/check-no-grabbag-filenames.ts
+  pnpm exec tsx scripts/check-missing-barrels.ts
+fi
+
+# ── 3. Rust — only when engine Rust sources changed ──────────────────────────
+if [ -n "$rsfiles" ]; then
+  if have pnpm; then
+    pnpm lint:rust:size
+  else
+    echo "pre-commit: pnpm not on PATH — skipping Rust source-size check." >&2
+  fi
+  if have cargo; then
+    # clippy/fmt operate on the whole workspace (cargo has no staged-file
+    # scoping); gated above so this only runs for Rust-touching commits.
+    ( cd engine && cargo fmt --all --check )
+    ( cd engine && cargo clippy --workspace --all-targets -- -D warnings )
+  else
+    echo "pre-commit: cargo not on PATH — skipping Rust fmt/clippy." >&2
+  fi
+fi
+
+# ── 4. .NET — only when server sources changed ───────────────────────────────
+if [ -n "$netfiles" ]; then
+  if have dotnet; then
+    # Full format lint (whitespace + style + analyzer fixers, per
+    # server/.editorconfig + Directory.Build.props), scoped to the STAGED
+    # files. `dotnet format` analyzes in-memory and never writes to bin/, so
+    # it coexists with a running `dotnet watch` dev server. The heavier
+    # warnings-as-errors *build* gate lives in pre-push (see .githooks/pre-push).
+    # shellcheck disable=SC2086 -- intentional word-splitting into --include args
+    dotnet format server/Viritura.sln --verify-no-changes --include $netfiles
+  else
+    echo "pre-commit: dotnet not on PATH — skipping .NET format." >&2
+  fi
+fi

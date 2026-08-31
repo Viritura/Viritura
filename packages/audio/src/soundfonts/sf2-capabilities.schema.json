@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://viritura.com/schemas/sf2-capabilities.json",
+  "title": "SoundFont Capability Manifest",
+  "description": "Declares what a single SoundFont (SF2/SF3) can play, so playback can resolve a notated percussion hit to a real sample WITHOUT relying on an assumed ambient kit. One manifest per SoundFont. Three layers: (1) raw capability — every preset and, for percussion banks, the per-key sample that actually exists; (2) semantic resolution — canonical drum identities mapped to the best (kit, key) address in THIS font, with documented fallbacks; (3) known collisions — places where the GM key map lies for this font (e.g. a crash key that lands in a timpani zone). Scores stay authored against portable GM; this manifest owns every font-specific deviation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["soundfont", "banks", "drumKits"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "soundfont": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "file"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Stable kebab-case identifier, e.g. 'shan-sgm-pro-15'. Used as the lookup key when the app selects a manifest for a loaded font."
+        },
+        "name": { "type": "string", "description": "Human-readable font name." },
+        "version": { "type": "string", "description": "Font version string, e.g. '15'." },
+        "file": { "type": "string", "description": "Filename in the audio package's canonical sounds assets." },
+        "format": { "type": "string", "enum": ["sf2", "sf3"], "default": "sf2" },
+        "standard": {
+          "type": "string",
+          "description": "Sound-set standard the bank/program layout follows, e.g. 'GM', 'GM/GS', 'XG'."
+        },
+        "approxSizeMb": { "type": "number", "description": "Approximate on-disk size in MB (informational)." },
+        "generatedFrom": {
+          "type": "string",
+          "description": "How this manifest was produced (e.g. the parser script + SF2 hash), for reproducibility."
+        }
+      }
+    },
+    "banks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["melodic", "percussion"],
+      "description": "Which bank numbers (CC0/bank-MSB) carry melodic vs. percussion presets in this font.",
+      "properties": {
+        "melodic": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0, "maximum": 16383 },
+          "description": "Bank numbers that contain pitched/melodic presets."
+        },
+        "percussion": {
+          "type": "integer",
+          "description": "Bank number reserved for drum kits. 128 in GS-style fonts."
+        }
+      }
+    },
+    "drumKits": {
+      "type": "array",
+      "description": "Every drum-kit preset in the percussion bank, with its complete per-key sample map (the raw capability layer). The presence of a key here is the ground truth used to validate a chosen address at load time.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["program", "name", "keys"],
+        "properties": {
+          "program": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "Program (patch) number within the percussion bank."
+          },
+          "name": { "type": "string", "description": "Kit name as stored in the SF2 preset header." },
+          "keyCount": {
+            "type": "integer",
+            "description": "Number of mapped keys (informational; equals keys length)."
+          },
+          "keys": {
+            "type": "object",
+            "description": "MIDI key number → the sample/zone that sounds when that key is struck on this kit.",
+            "patternProperties": {
+              "^(0|[1-9][0-9]?|1[0-1][0-9]|12[0-7])$": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["sample"],
+                "properties": {
+                  "sample": {
+                    "type": "string",
+                    "description": "Sample name backing this key (from the SF2 SHDR chunk)."
+                  },
+                  "gm": {
+                    "type": "string",
+                    "description": "GM Level-1 percussion name for this key, when the key falls in the standard GM map (informational, font-independent)."
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "melodicPresets": {
+      "type": "array",
+      "description": "Flat list of every pitched preset (the raw melodic capability). Drives instrument selection and validates a part's chosen (bank, program).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["bank", "program", "name"],
+        "properties": {
+          "bank": { "type": "integer", "minimum": 0 },
+          "program": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "percussionSemantics": {
+      "type": "object",
+      "description": "Layer 2: canonical drum IDENTITIES resolved to the best address in THIS font. A score references a semantic id (e.g. 'crashCymbal'); the resolver picks the entry whose kit matches the part's active kit, else walks `fallback`. This is where font-specific deviations from the naive GM key map live, so scores never hardcode them.",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9]*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gmKey", "resolution"],
+          "properties": {
+            "gmKey": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 127,
+              "description": "The portable GM Level-1 key for this identity — what a score writes by default and what plays on any generic GM font."
+            },
+            "description": { "type": "string" },
+            "resolution": {
+              "type": "object",
+              "description": "kit-program (as string) → the concrete address that realizes this identity in that kit.",
+              "patternProperties": {
+                "^[0-9]+$": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "sample"],
+                  "properties": {
+                    "key": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 127,
+                      "description": "MIDI key to actually send."
+                    },
+                    "sample": { "type": "string", "description": "Verified sample name at this (kit, key)." },
+                    "borrowKit": {
+                      "type": "integer",
+                      "description": "If set, send this note on a dedicated channel loaded with THIS kit program instead of the part's main kit (the `drumKit` kit-component override). Used when the part's own kit lacks the sound (e.g. Tam-tam borrowed from the Ethnic kit)."
+                    },
+                    "reason": {
+                      "type": "string",
+                      "description": "Why this address differs from the naive GM key (e.g. 'GM key 49 is a timpani zone in this kit')."
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "fallback": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Ordered list of other semantic ids to try if no `resolution` entry matches the active kit."
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "knownCollisions": {
+      "type": "array",
+      "description": "Layer 3: documented places where the GM key map is misleading for this font, so a naive lookup would play the wrong sound. Each entry pairs the wrong result with the workaround already encoded in `percussionSemantics`.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kit", "key", "expectedGm", "actualSample"],
+        "properties": {
+          "kit": { "type": "integer", "description": "Drum-kit program where the collision occurs." },
+          "key": { "type": "integer", "description": "MIDI key whose GM meaning is broken in this kit." },
+          "expectedGm": { "type": "string", "description": "What GM Level-1 says this key should be." },
+          "actualSample": { "type": "string", "description": "What this font actually plays at that key." },
+          "workaround": { "type": "string", "description": "How `percussionSemantics` avoids it." }
+        }
+      }
+    }
+  }
+}

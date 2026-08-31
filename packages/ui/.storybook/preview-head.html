@@ -1,0 +1,27 @@
+<!--
+  UI Storybook preview head — injected into every story iframe.
+
+  Loads the Bravura SMuFL music font from /fonts/Bravura.otf (served via
+  main.ts staticDirs from assets/fonts). The unicode-range
+  restricts Bravura to SMuFL's Private Use Area + Musical Symbols block,
+  so it never hijacks U+266D (♭) etc. in body text — matching the editor's
+  loadMusicFont() behavior in apps/editor/src/canvas/fontLoader.ts.
+
+  The workspace mesh gradient lives in `preview.css` (imported from
+  preview.ts after reset.css) so the cascade beats the reset's
+  `body { background: var(--bg) }`. Don't move it here — preview-head.html
+  loads before reset.css and would lose the cascade fight.
+-->
+<style>
+  @font-face {
+    font-family: "Bravura";
+    src: url("/fonts/Bravura.otf") format("opentype");
+    font-display: block;
+    unicode-range: U+E000-F8FF, U+F0000-FFFFF;
+  }
+  @font-face {
+    font-family: "Bravura Text";
+    src: url("/fonts/BravuraText.otf") format("opentype");
+    font-display: block;
+  }
+</style>

@@ -1,0 +1,280 @@
+# Per-worktree development stack. Driven by infra/dev/worktree.ps1.
+#
+# Public URLs are browser-reachable Traefik hosts. Internal URLs use Compose DNS
+# and are valid only between containers on this worktree's default network.
+name: viritura-${VIRITURA_SLUG:?set VIRITURA_SLUG (use infra/dev/worktree.ps1)}
+
+x-node-build: &node-build
+  image: viritura-dev-worktree:${VIRITURA_SLUG}
+
+x-api-build: &api-build
+  image: viritura-api-dev:${VIRITURA_SLUG}
+  build:
+    context: ../../..
+    dockerfile: infra/dev/worktree/api.Dockerfile
+
+x-wasm-image: &wasm-image
+  image: viritura-wasm-dev:rust-1.93.1-wasm-pack-0.14.0
+
+x-public-environment: &public-environment
+  VIRITURA_PUBLIC_EDITOR_URL: http://editor.${VIRITURA_SLUG}.localhost
+  VIRITURA_PUBLIC_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
+  VIRITURA_PUBLIC_API_URL: http://api.${VIRITURA_SLUG}.localhost
+  VIRITURA_INTERNAL_API_URL: http://api:8080
+
+x-node-volumes: &node-volumes
+  - ../../..:/workspace
+  - node_modules:/workspace/node_modules
+  # Hide Windows pnpm junctions behind Linux-native, image-seeded volumes.
+  - /workspace/packages/audio/node_modules
+  - /workspace/packages/core/node_modules
+  - /workspace/packages/crdt/node_modules
+  - /workspace/apps/editor/node_modules
+  - /workspace/packages/format/node_modules
+  - /workspace/packages/instrument-profiles/node_modules
+  - /workspace/packages/midi/node_modules
+  - /workspace/packages/musicxml/node_modules
+  - /workspace/packages/piano-roll/node_modules
+  - /workspace/packages/playback/node_modules
+  - /workspace/packages/renderer/node_modules
+  - /workspace/packages/score-engine/node_modules
+  - /workspace/packages/score-viewer-react/node_modules
+  - /workspace/packages/sound-profiles/node_modules
+  - /workspace/packages/ui/node_modules
+  - /workspace/packages/video-sync/node_modules
+  - /workspace/examples/score-viewer-react-minimal/node_modules
+  - /workspace/apps/desktop/node_modules
+  - /workspace/apps/server-ui/node_modules
+  - /workspace/apps/vscode-mnx-viewer/node_modules
+  - /workspace/apps/website/node_modules
+
+x-node-service: &node-service
+  <<: *node-build
+  entrypoint: ["sh", "/workspace/infra/dev/worktree/entrypoint.sh"]
+  env_file:
+    - path: ../.env.frontend.local
+      required: false
+  volumes: *node-volumes
+  restart: unless-stopped
+
+x-proxy-networks: &proxy-networks
+  - default
+  - proxy
+
+services:
+  # Build-only target used by worktree.ps1. Keeping the build definition on one
+  # service prevents concurrent frontend services from racing on the same tag.
+  node-image:
+    profiles: ["images"]
+    image: viritura-dev-worktree:${VIRITURA_SLUG}
+    build:
+      context: ../../..
+      dockerfile: infra/dev/worktree/dev.Dockerfile
+    command: ["true"]
+
+  # One-shot cache-aware builder invoked automatically by worktree.ps1 for
+  # profiles that render scores. It publishes ignored output through the source
+  # bind mount, while all Linux-native Cargo state stays in Docker volumes.
+  wasm-build:
+    <<: *wasm-image
+    profiles: ["build"]
+    build:
+      context: ../../..
+      dockerfile: infra/dev/worktree/wasm.Dockerfile
+    command: ["node", "--experimental-strip-types", "scripts/build-wasm.ts"]
+    working_dir: /workspace
+    volumes:
+      - ../../..:/workspace
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - wasm_pack_cache:/root/.cache/.wasm-pack
+      - wasm_target:/workspace/engine/target
+
+  wasm-watch:
+    <<: *wasm-image
+    profiles: ["watch"]
+    command: ["node", "--experimental-strip-types", "scripts/watch-wasm.ts"]
+    environment:
+      # Keep watch artifacts smaller and faster for browser startup while
+      # retaining Cargo's incremental development profile.
+      CARGO_PROFILE_DEV_OPT_LEVEL: "1"
+    working_dir: /workspace
+    volumes:
+      - ../../..:/workspace
+      - cargo_registry:/usr/local/cargo/registry
+      - cargo_git:/usr/local/cargo/git
+      - wasm_pack_cache:/root/.cache/.wasm-pack
+      - wasm_target:/workspace/engine/target
+
+  editor:
+    <<: *node-service
+    profiles: ["core", "editor", "ui", "full"]
+    command: ["pnpm", "--filter", "@viritura/editor", "dev"]
+    environment:
+      <<: *public-environment
+      VIRITURA_CONTAINER_HOST: editor.${VIRITURA_SLUG}.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+      VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
+    networks: *proxy-networks
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-editor.rule=Host(`editor.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port=5173
+
+  website:
+    <<: *node-service
+    profiles: ["core", "website", "ui", "full"]
+    command: ["pnpm", "--filter", "@viritura/website", "dev"]
+    environment:
+      <<: *public-environment
+      VIRITURA_CONTAINER_HOST: web.${VIRITURA_SLUG}.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+    networks: *proxy-networks
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-web.rule=Host(`web.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port=5180
+
+  server-ui:
+    <<: *node-service
+    profiles: ["core", "backend", "website", "full"]
+    command:
+      - sh
+      - -c
+      - pnpm --filter @viritura/server-ui exec tsc --noEmit &&
+        pnpm --filter @viritura/server-ui exec vite build --watch
+    environment:
+      <<: *public-environment
+
+  api:
+    <<: *api-build
+    profiles: ["core", "backend", "website", "full"]
+    depends_on:
+      - server-ui
+    env_file:
+      # worktree.ps1 resolves this outside the repository so frontend
+      # containers and Docker build contexts cannot read backend secrets.
+      - path: ${VIRITURA_API_ENV_FILE:?set by infra/dev/worktree.ps1}
+        required: false
+    environment:
+      <<: *public-environment
+      ASPNETCORE_ENVIRONMENT: Development
+      DOTNET_ENVIRONMENT: Development
+      Development__SeedTestAccount: "true"
+      ConnectionStrings__VirituraDb: Data Source=/var/lib/viritura/data/viritura.dev.db
+      Auth__RequireEmailVerification: "false"
+      Auth__WebsiteBaseUrl: http://web.${VIRITURA_SLUG}.localhost
+      ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
+      DataProtection__KeysDirectory: /var/lib/viritura/data-protection-keys
+      Viritura__GitHub__RedirectUri: http://api.${VIRITURA_SLUG}.localhost/github/auth/callback
+      Viritura__GitHub__FrontendBaseUrl: http://editor.${VIRITURA_SLUG}.localhost
+      Viritura__GitHub__AllowedFrontendOrigins__0: http://editor.${VIRITURA_SLUG}.localhost
+      Viritura__GitHub__AllowedFrontendOrigins__1: http://web.${VIRITURA_SLUG}.localhost
+    volumes:
+      - ../../..:/workspace
+      - nuget_packages:/root/.nuget/packages
+      - api_data:/var/lib/viritura
+      - /workspace/server/Viritura.Api/bin
+      - /workspace/server/Viritura.Api/obj
+      - /workspace/server/Viritura.GitHub/bin
+      - /workspace/server/Viritura.GitHub/obj
+      - /workspace/server/Viritura.Infrastructure/bin
+      - /workspace/server/Viritura.Infrastructure/obj
+    networks: *proxy-networks
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-api.rule=Host(`api.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port=8080
+
+  storybook-ui:
+    <<: *node-service
+    profiles: ["storybook", "full"]
+    command:
+      ["pnpm", "--filter", "@viritura/ui", "exec", "storybook", "dev", "-p", "6005", "--host", "0.0.0.0", "--no-open"]
+    environment:
+      <<: *public-environment
+      CI: "true"
+    networks: *proxy-networks
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule=Host(`ui.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port=6005
+
+  storybook-mnx:
+    <<: *node-service
+    profiles: ["storybook", "full"]
+    command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook:mnx", "--host", "0.0.0.0", "--no-open"]
+    environment:
+      <<: *public-environment
+      CI: "true"
+      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+    networks: *proxy-networks
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule=Host(`mnx.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port=6006
+
+  storybook-app:
+    <<: *node-service
+    profiles: ["storybook", "full"]
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@viritura/editor",
+        "exec",
+        "storybook",
+        "dev",
+        "-p",
+        "6007",
+        "--host",
+        "0.0.0.0",
+        "--no-open",
+      ]
+    environment:
+      <<: *public-environment
+      CI: "true"
+      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+    networks: *proxy-networks
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule=Host(`storybook.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port=6007
+
+volumes:
+  node_modules:
+  nuget_packages:
+  api_data:
+    external: true
+    name: viritura-dev-api-data
+  cargo_registry:
+    external: true
+    name: viritura-${VIRITURA_SLUG}-cargo-registry
+  cargo_git:
+    external: true
+    name: viritura-${VIRITURA_SLUG}-cargo-git
+  wasm_pack_cache:
+    external: true
+    name: viritura-${VIRITURA_SLUG}-wasm-pack-cache
+  wasm_target:
+    external: true
+    name: viritura-${VIRITURA_SLUG}-wasm-target
+
+networks:
+  default:
+  proxy:
+    external: true
+    name: viritura-dev-proxy

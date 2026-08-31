@@ -1,0 +1,141 @@
+{
+  // Viritura launch configurations.
+  //
+  // ── How to use ──────────────────────────────────────────────────────────
+  // The fastest path is "Viritura: Dev (pick services)" — it opens a
+  // multi-select picker so you can choose any combination of services to
+  // run in one prefixed terminal. Use that for everyday work.
+  //
+  // The individual configs below ("Viritura: Vite Editor", "Viritura:
+  // Storybook (UI)", "Viritura: API (hot reload)", etc.) are still here for when you want to launch one
+  // service in its own terminal — and the named compounds underneath are
+  // sensible presets.
+  //
+  // Add a new service: edit scripts/dev.ts (SERVICES map), then add an
+  // individual launch profile here if it should be directly selectable.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Viritura: Worktree Core (Docker/Traefik)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up",
+      "presentation": { "group": "0_worktree", "order": 1 }
+    },
+    {
+      "name": "Viritura: Worktree Full Stack (Docker/Traefik)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up full",
+      "presentation": { "group": "0_worktree", "order": 2 }
+    },
+    {
+      "name": "Viritura: Dev (pick services)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "pnpm tsx scripts/dev.ts",
+      "presentation": { "group": "0_pick", "order": 1 }
+    },
+    {
+      "name": "Viritura: Website",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm dev:website",
+      "presentation": { "group": "1_single", "order": 1 }
+    },
+    {
+      "name": "Viritura: Vite Editor",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm dev:editor",
+      "presentation": { "group": "1_single", "order": 2 }
+    },
+    {
+      "name": "Viritura: Editor (prod preview)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm preview:prod",
+      "presentation": { "group": "1_single", "order": 3 }
+    },
+    {
+      "name": "Viritura: API (hot reload)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "dotnet watch --project server/Viritura.Api run --launch-profile Viritura.Api",
+      "presentation": { "group": "1_single", "order": 4 }
+    },
+    {
+      "name": "Viritura: Storybook (UI)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm dev:storybook:ui",
+      "presentation": { "group": "1_single", "order": 5 }
+    },
+    {
+      "name": "Viritura: Storybook (MNX)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm dev:storybook:mnx",
+      "presentation": { "group": "1_single", "order": 6 }
+    },
+    {
+      "name": "Viritura: Storybook (App)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm dev:storybook",
+      "presentation": { "group": "1_single", "order": 7 }
+    },
+    {
+      "name": "Viritura: WASM Watch",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "command": "corepack pnpm wasm:watch",
+      "presentation": { "group": "1_single", "order": 8 }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Viritura: Preset · Editor + API + WASM",
+      "configurations": ["Viritura: Vite Editor", "Viritura: API (hot reload)", "Viritura: WASM Watch"],
+      "stopAll": true,
+      "presentation": { "group": "2_presets", "order": 1 }
+    },
+    {
+      "name": "Viritura: Preset · Editor + WASM + App Storybook",
+      "configurations": ["Viritura: Vite Editor", "Viritura: WASM Watch", "Viritura: Storybook (App)"],
+      "stopAll": true,
+      "presentation": { "group": "2_presets", "order": 2 }
+    },
+    {
+      "name": "Viritura: Preset · All Storybooks",
+      "configurations": ["Viritura: Storybook (UI)", "Viritura: Storybook (MNX)", "Viritura: Storybook (App)"],
+      "stopAll": true,
+      "presentation": { "group": "2_presets", "order": 3 }
+    },
+    {
+      "name": "Viritura: Preset · Everything",
+      "configurations": [
+        "Viritura: Website",
+        "Viritura: Vite Editor",
+        "Viritura: API (hot reload)",
+        "Viritura: Storybook (UI)",
+        "Viritura: Storybook (MNX)",
+        "Viritura: Storybook (App)",
+        "Viritura: WASM Watch"
+      ],
+      "stopAll": true,
+      "presentation": { "group": "2_presets", "order": 4 }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+/* StatusZoomControls — slider + % reset chip + optional calibrate
+   button. The chip + icon button use the shared Button/IconButton
+   primitives, so only the group layout lives here. */
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

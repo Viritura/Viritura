@@ -1,0 +1,38 @@
+/* PictureView — spotting and sync workspace.
+
+   The timeline is drawn flush with the workspace background rather than inside
+   a glass card. A card suits the piano roll, which shares the workspace with
+   other views; this is the activity's entire subject, and a card would frame it
+   as a widget floating on a surface. */
+
+.canvasArea {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pictureTransport {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.pictureTransport::-webkit-scrollbar {
+  display: none;
+}
+
+.panels {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  /* Four sections stacked in one column will outrun a short window, and the
+     ones at the bottom (spotting, solving) are the ones being worked in. */
+  overflow-y: auto;
+}

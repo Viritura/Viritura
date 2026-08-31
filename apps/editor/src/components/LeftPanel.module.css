@@ -1,0 +1,43 @@
+/* LeftPanel – tabbed sidebar.
+ * The parent (.workspace-panel in App.tsx) already supplies the glass
+ * card (border, background, blur, shadow). Stacking another glass layer
+ * here double-opaques the surface and the mesh gradient stops showing
+ * through. So .container is now a pure layout shell.
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.transportSection {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(20, 20, 28, 0.08);
+  padding: var(--space-1);
+  background: transparent;
+}
+
+.tabBar {
+  display: flex;
+  background: transparent;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  flex-shrink: 0;
+  gap: 2px;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+[data-theme="dark"] .tabBar,
+[data-theme="midnight"] .tabBar {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

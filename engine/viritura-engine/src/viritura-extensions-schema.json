@@ -1,0 +1,1103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://viritura.app/schemas/viritura-extensions.json",
+  "title": "Viritura MNX Vendor Extensions",
+  "description": "Schema for _x.viritura vendor dict properties used across MNX objects. These extensions add musical notation features not yet covered by the MNX specification.",
+
+  "$defs": {
+    "rhythmic-position": {
+      "type": "object",
+      "description": "A rhythmic position within a measure, expressed as a fraction of the measure duration.",
+      "required": ["fraction"],
+      "properties": {
+        "fraction": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "Fraction as [numerator, denominator]. E.g. [1, 4] = beat 2 in 4/4 time."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "measure-rhythmic-position": {
+      "type": "object",
+      "description": "A rhythmic position that may reference a different measure (for cross-barline spans).",
+      "required": ["measure", "position"],
+      "properties": {
+        "measure": {
+          "type": "string",
+          "description": "ID of the target measure."
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "rehearsal-mark": {
+      "type": "object",
+      "description": "A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle.",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The rehearsal mark label text."
+        },
+        "style": {
+          "type": "string",
+          "enum": ["boxed", "circled", "plain"],
+          "description": "Display style. Default: 'boxed'."
+        },
+        "manualOffset": {
+          "$ref": "#/$defs/sp-delta",
+          "description": "Manual [dx, dy] offset in spatia (sp); +x right, +y up."
+        },
+        "avoidCollisions": {
+          "type": "boolean",
+          "description": "Whether automatic collision avoidance may re-flow this mark. Default/unset: true."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "coda": {
+      "type": "object",
+      "description": "A coda navigation marker on a global measure.",
+      "required": ["location"],
+      "properties": {
+        "location": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Position within the measure."
+        },
+        "glyph": {
+          "type": "string",
+          "description": "Optional SMuFL glyph name override."
+        },
+        "color": {
+          "type": "string",
+          "description": "Optional rendering color (CSS hex, e.g. '#FF0000')."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "caesura": {
+      "type": "object",
+      "description": "A caesura (grand pause / railroad tracks) on an event marking.",
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["normal", "thick", "short", "curved"],
+          "description": "Caesura style variant. Default: 'normal'."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "dynamic-group-extensions": {
+      "type": "object",
+      "description": "Viritura engraving placement extensions on a standard MNX dynamic-group object.",
+      "properties": {
+        "manualOffset": {
+          "$ref": "#/$defs/sp-delta",
+          "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement."
+        },
+        "avoidCollisions": {
+          "type": "boolean",
+          "description": "Whether automatic collision avoidance may re-flow this dynamic group. Default/unset: true."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "tempo-extensions": {
+      "type": "object",
+      "description": "Viritura display and placement extensions on a standard MNX tempo object.",
+      "properties": {
+        "text": { "type": "string" },
+        "showMetronomeMark": { "type": "boolean" },
+        "showText": { "type": "boolean" },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "key-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on a standard MNX key-signature object.",
+      "properties": {
+        "atonal": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    },
+
+    "pedal-type": {
+      "type": "string",
+      "enum": ["sustain", "sostenuto", "una-corda"],
+      "description": "Piano pedal type."
+    },
+
+    "pedal-line-style": {
+      "type": "string",
+      "enum": ["text", "bracket"],
+      "description": "Pedal marking display style. 'text' shows Ped/*, 'bracket' shows a horizontal line with hooks."
+    },
+
+    "pedal": {
+      "type": "object",
+      "description": "A piano pedal marking spanning from a position to an end position.",
+      "required": ["type", "position", "end"],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/pedal-type"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Start position within the measure."
+        },
+        "end": {
+          "$ref": "#/$defs/measure-rhythmic-position",
+          "description": "End position (may reference a different measure)."
+        },
+        "style": {
+          "$ref": "#/$defs/pedal-line-style",
+          "description": "Display style. Default: 'text'."
+        },
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Staff number (1-based)."
+        },
+        "voice": {
+          "type": "string",
+          "description": "Voice name."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "chord-quality": {
+      "type": "string",
+      "enum": [
+        "major",
+        "minor",
+        "dominant",
+        "diminished",
+        "augmented",
+        "half-diminished",
+        "minor-major",
+        "power",
+        "suspended2",
+        "suspended4"
+      ],
+      "description": "Harmonic quality of a chord symbol."
+    },
+
+    "chord-root": {
+      "type": "object",
+      "description": "Root or bass note of a chord symbol.",
+      "required": ["step"],
+      "properties": {
+        "step": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D", "E", "F", "G"],
+          "description": "Note letter name."
+        },
+        "alter": {
+          "type": "integer",
+          "description": "Chromatic alteration in semitones (-1 = flat, 1 = sharp)."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "chord-symbol": {
+      "type": "object",
+      "description": "A chord symbol above the staff (e.g. 'Cmaj7', 'Dm', 'G7', 'F#dim').",
+      "required": ["position", "root", "quality"],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Rhythmic position within the measure."
+        },
+        "root": {
+          "$ref": "#/$defs/chord-root",
+          "description": "Root note of the chord."
+        },
+        "quality": {
+          "$ref": "#/$defs/chord-quality"
+        },
+        "bass": {
+          "$ref": "#/$defs/chord-root",
+          "description": "Bass note for slash chords (e.g. the 'E' in 'C/E')."
+        },
+        "extension": {
+          "type": "integer",
+          "enum": [7, 9, 11, 13],
+          "description": "Chord extension (7th, 9th, 11th, 13th)."
+        },
+        "textOverride": {
+          "type": "string",
+          "description": "Override the computed display text (e.g. 'Cadd9')."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "expression-placement": {
+      "type": "string",
+      "enum": ["below", "above"],
+      "description": "Placement of a text expression relative to the staff. Default: 'below'."
+    },
+
+    "text-expression": {
+      "type": "object",
+      "description": "A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.",
+      "required": ["text", "position"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The expression text."
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Rhythmic position within the measure."
+        },
+        "placement": {
+          "$ref": "#/$defs/expression-placement"
+        },
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Staff number (1-based)."
+        },
+        "voice": {
+          "type": "string",
+          "description": "Voice name."
+        },
+        "manualOffset": {
+          "$ref": "#/$defs/sp-delta",
+          "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement."
+        },
+        "avoidCollisions": {
+          "type": "boolean",
+          "description": "Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "trill": {
+      "type": "object",
+      "description": "A trill marking on a note. Renders the tr~ symbol above the note.",
+      "properties": {
+        "accidental": {
+          "type": "integer",
+          "enum": [-1, 0, 1],
+          "description": "Accidental on the auxiliary note: -1 = flat, 0 = natural, 1 = sharp."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ornament-type": {
+      "type": "string",
+      "enum": [
+        "turn",
+        "invertedTurn",
+        "mordent",
+        "invertedMordent",
+        "shortTrill",
+        "trillMordent",
+        "delayedTurn",
+        "schleifer"
+      ],
+      "description": "Ornament type. Each maps to a SMuFL ornament glyph."
+    },
+
+    "fingering": {
+      "type": "object",
+      "description": "A fingering annotation on a note (digits 0–5).",
+      "required": ["finger"],
+      "properties": {
+        "finger": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Finger number (0 = thumb/open, 1–5 = index through pinky)."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "glissando-style": {
+      "type": "string",
+      "enum": ["straight", "wavy"],
+      "description": "Glissando/portamento line style."
+    },
+
+    "glissando": {
+      "type": "object",
+      "description": "A glissando or portamento connecting this event to a target event.",
+      "required": ["target"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "ID of the target event."
+        },
+        "style": {
+          "$ref": "#/$defs/glissando-style",
+          "description": "Line style. Default: 'straight'."
+        },
+        "text": {
+          "type": "string",
+          "description": "Optional text label (e.g. 'gliss.', 'port.')."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "sp-delta": {
+      "type": "array",
+      "description": "A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point.",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+
+    "slur-shape": {
+      "type": "object",
+      "description": "Per-handle bezier overrides for a slur. Each field is a [dx, dy] delta in spatia (sp) applied on top of the engine-computed point, so user edits compose with automatic collision avoidance. Used by engrave-mode handle drags.",
+      "properties": {
+        "p0": { "$ref": "#/$defs/sp-delta", "description": "Start endpoint delta." },
+        "p1": { "$ref": "#/$defs/sp-delta", "description": "First control point delta." },
+        "p2": { "$ref": "#/$defs/sp-delta", "description": "Second control point delta." },
+        "p3": { "$ref": "#/$defs/sp-delta", "description": "End endpoint delta." }
+      },
+      "additionalProperties": false
+    },
+
+    "slur-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an MNX slur object.",
+      "properties": {
+        "shape": { "$ref": "#/$defs/slur-shape" }
+      },
+      "additionalProperties": false
+    },
+
+    "jump": {
+      "type": "object",
+      "description": "A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).",
+      "required": ["type", "location"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["dsalcoda", "dcalcoda"],
+          "description": "Non-standard jump type."
+        },
+        "location": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Position within the measure."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "gradual-tempo": {
+      "type": "object",
+      "description": "A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.",
+      "required": ["position", "end", "endBpm"],
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Start position within this measure."
+        },
+        "end": {
+          "$ref": "#/$defs/measure-rhythmic-position",
+          "description": "End position (may reference a later measure)."
+        },
+        "endBpm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Quarter-note BPM reached at the end of the ramp."
+        },
+        "startBpm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Optional start BPM (quarter-note). Defaults to the tempo active at `position`."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["rit", "accel"],
+          "description": "Optional classification. Cosmetic only; the BPM direction determines the audible behavior."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "measure-global-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on a global measure object.",
+      "properties": {
+        "rehearsalMark": { "$ref": "#/$defs/rehearsal-mark" },
+        "coda": { "$ref": "#/$defs/coda" },
+        "jump": { "$ref": "#/$defs/jump" },
+        "gradualTempo": { "$ref": "#/$defs/gradual-tempo" },
+        "senzaMisura": {
+          "type": "boolean",
+          "const": true,
+          "description": "Marks this measure as open meter without adding a nonstandard value to MNX time.display."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "part-measure-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on a part measure object.",
+      "properties": {
+        "pedals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pedal" },
+          "description": "Piano pedal markings."
+        },
+        "chordSymbols": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/chord-symbol" },
+          "description": "Chord symbols above the staff."
+        },
+        "expressions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text-expression" },
+          "description": "Text expressions and performance directions."
+        },
+        "condensingOverride": {
+          "type": "string",
+          "enum": ["unison", "solo1", "solo2", "amalgamate", "divisi"],
+          "description": "User-specified condensing mode override for this measure."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "event-markings-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an event-markings object.",
+      "properties": {
+        "staccatissimoWedge": {
+          "type": "object",
+          "description": "Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge).",
+          "properties": {
+            "orient": {
+              "type": "string",
+              "enum": ["above", "below", "auto"],
+              "description": "Vertical orientation relative to the staff."
+            }
+          },
+          "additionalProperties": false
+        },
+        "trill": { "$ref": "#/$defs/trill" },
+        "ornaments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ornament-type" },
+          "description": "Ornament markings (turn, mordent, etc.)."
+        },
+        "fingerings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fingering" },
+          "description": "Fingering annotations."
+        },
+        "caesura": { "$ref": "#/$defs/caesura" },
+        "arpeggio": { "$ref": "#/$defs/arpeggio" }
+      },
+      "additionalProperties": false
+    },
+
+    "arpeggio": {
+      "type": "object",
+      "description": "A rolled-chord (arpeggio) indication on a chord event: a wavy vertical line to the left of the chord. Created on MusicXML `<arpeggiate>` import and authored natively.",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": ["up", "down", "auto"],
+          "description": "Roll direction. Omitted means the renderer's default (upward) arpeggio."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "event-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an event object.",
+      "properties": {
+        "glissandos": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/glissando" },
+          "description": "Glissando/portamento lines to target events."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "notehead-shape": {
+      "type": "string",
+      "enum": ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],
+      "description": "A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override)."
+    },
+
+    "kit-component-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an MNX kit-component object.",
+      "properties": {
+        "notehead": {
+          "$ref": "#/$defs/notehead-shape",
+          "description": "Notehead shape rendered for hits on this kit component (e.g. 'x' for cymbals/hi-hat). Default: 'normal'."
+        },
+        "drumKit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127,
+          "description": "GS drum-kit program (bank 128) that this component's `sound.midiNumber` should play on, overriding the percussion part's default kit. Lets a single percussion staff borrow a sound from another kit (e.g. a Tam-tam/Big Gong from the Ethnic kit, pgm 49) that the part's main kit lacks. The audio engine routes such hits to a dedicated drum channel loaded with this program."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "note-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an MNX note object (the `_x.viritura` dict on a pitched note).",
+      "properties": {
+        "notehead": {
+          "$ref": "#/$defs/notehead-shape",
+          "description": "Notehead-shape override for this single pitched note, overriding the default notehead for the note's duration (e.g. a diamond harmonic among normal noteheads in a chord). MNX has no notehead field on note (W3C MNX issue #249); Viritura tracks it as a per-note vendor extension. Default: inherit from duration."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "stage-position": {
+      "type": "object",
+      "description": "A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive).",
+      "required": ["x", "y"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Horizontal position in meters (left negative, right positive)."
+        },
+        "y": {
+          "type": "number",
+          "description": "Depth position in meters (audience negative, backstage positive)."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "part-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an MNX part object (the `_x.viritura` dict on a part). Carries instrument identity so the editor and audio engine can resolve a part to a stable instrument without fuzzy name matching, plus its spatial-audio stage placement.",
+      "properties": {
+        "instrumentId": {
+          "type": "string",
+          "description": "Stable instrument-catalog ID (e.g. 'flute', 'bflat-clarinet')."
+        },
+        "midiProgram": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127,
+          "description": "General-MIDI program (0..127). Used directly by the audio engine."
+        },
+        "family": {
+          "type": "string",
+          "description": "Instrument family for spatial placement / catalog routing."
+        },
+        "spatial": {
+          "$ref": "#/$defs/stage-position",
+          "description": "Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "system-layout-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on a standard MNX system-layout object.",
+      "properties": {
+        "derived": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    },
+
+    "page-turn-weights": {
+      "type": "object",
+      "properties": {
+        "density": { "type": "number" },
+        "turn": { "type": "number" },
+        "sparse": { "type": "number" },
+        "titlePage": { "type": "number" },
+        "blankPage": { "type": "number" },
+        "timeMarking": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+
+    "page-turn-settings": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "preset": { "type": "string", "enum": ["relaxed", "professional"] },
+        "comfortableSecs": { "type": "number", "minimum": 0 },
+        "vsSecs": { "type": "number", "minimum": 0 },
+        "minAcceptableSecs": { "type": "number", "minimum": 0 },
+        "targetFillFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minFillFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verticalJustifyThreshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "allowPartialPages": { "type": "boolean" },
+        "allowIntentionalBlanks": { "type": "boolean" },
+        "titlePage": { "type": "string", "enum": ["auto", "always", "never"] },
+        "firstPageRecto": { "type": "boolean" },
+        "emitVsMarks": { "type": "boolean" },
+        "defaultBpm": { "type": "number", "exclusiveMinimum": 0 },
+        "weights": { "$ref": "#/$defs/page-turn-weights" }
+      },
+      "additionalProperties": false
+    },
+
+    "page-margins": {
+      "type": "object",
+      "required": ["top", "right", "bottom", "left"],
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+
+    "page-setup": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "orientation": { "type": "string", "enum": ["portrait", "landscape"] },
+        "margins": { "$ref": "#/$defs/page-margins" },
+        "spatiumMm": { "type": "number", "exclusiveMinimum": 0 },
+        "pageTurns": { "$ref": "#/$defs/page-turn-settings" }
+      },
+      "additionalProperties": false
+    },
+
+    "score-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on a standard MNX score definition.",
+      "properties": {
+        "pageSetup": { "$ref": "#/$defs/page-setup" }
+      },
+      "additionalProperties": false
+    },
+
+    "font-family": {
+      "type": "string",
+      "enum": ["serif", "sans-serif", "monospace"],
+      "description": "Generic font family for a text style. Maps to a curated typeface (serif≈Times, sans-serif≈Helvetica, monospace≈Courier)."
+    },
+
+    "text-alignment": {
+      "type": "string",
+      "enum": ["left", "center", "right"],
+      "description": "Horizontal alignment of a text style relative to its anchor."
+    },
+
+    "text-style": {
+      "type": "object",
+      "description": "A partial override of a named text style. Every field is optional: omitted fields fall back to the engine's built-in default for that role, so a document only stores what it changes.",
+      "properties": {
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in staff spaces (spatium-relative)."
+        },
+        "family": {
+          "$ref": "#/$defs/font-family"
+        },
+        "bold": {
+          "type": "boolean",
+          "description": "Render with a bold weight."
+        },
+        "italic": {
+          "type": "boolean",
+          "description": "Render with an italic/oblique slant."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Text color as a CSS hex triplet (e.g. '#000000')."
+        },
+        "align": {
+          "$ref": "#/$defs/text-alignment"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "text-styles": {
+      "type": "object",
+      "description": "Per-document text style overrides keyed by role. Each entry is a partial override merged over the engine's built-in stylesheet at layout time. Stored at `_x.viritura.textStyles` on the score root.",
+      "properties": {
+        "title": { "$ref": "#/$defs/text-style" },
+        "subtitle": { "$ref": "#/$defs/text-style" },
+        "composer": { "$ref": "#/$defs/text-style" },
+        "arranger": { "$ref": "#/$defs/text-style" },
+        "staffLabel": { "$ref": "#/$defs/text-style" },
+        "pageNumber": { "$ref": "#/$defs/text-style" },
+        "tempo": { "$ref": "#/$defs/text-style" },
+        "pedalText": { "$ref": "#/$defs/text-style" },
+        "copyright": { "$ref": "#/$defs/text-style" }
+      },
+      "additionalProperties": false
+    },
+
+    "placement-metrics": {
+      "type": "object",
+      "description": "Clearances a single dependent kind keeps as it settles into the keep-out field. All distances are in staff spaces (spatium). Each field is an optional partial override; omitted fields keep the engine default.",
+      "properties": {
+        "attachGap": {
+          "type": "number",
+          "description": "Minimum clearance from the element's own anchor edge (the old `*_min_distance` / `*_above_staff` family)."
+        },
+        "padding": {
+          "description": "CSS-like padding: the clearance the dependent keeps on each axis. A scalar sets both axes equally; an object overrides each independently. `vertical` is the gap kept above the previous dependent it stacks against (the old `*_padding` family); `horizontal` is the clearance from neighbouring ink.",
+          "oneOf": [
+            { "type": "number" },
+            {
+              "type": "object",
+              "properties": {
+                "vertical": { "type": "number" },
+                "horizontal": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "stackRank": {
+          "type": "integer",
+          "description": "Ordering within a stacked column; lower sits closer to the staff."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "placement": {
+      "type": "object",
+      "description": "Per-document placement overrides keyed by dependent kind. Each entry is a partial `placement-metrics` override merged over the engine's built-in defaults at layout time. Stored at `_x.viritura.placement` on the score root.",
+      "properties": {
+        "dynamic": { "$ref": "#/$defs/placement-metrics" },
+        "expression": { "$ref": "#/$defs/placement-metrics" },
+        "fermata": { "$ref": "#/$defs/placement-metrics" },
+        "articulation": { "$ref": "#/$defs/placement-metrics" },
+        "lyric": { "$ref": "#/$defs/placement-metrics" },
+        "ornament": { "$ref": "#/$defs/placement-metrics" },
+        "trill": { "$ref": "#/$defs/placement-metrics" },
+        "breathMark": { "$ref": "#/$defs/placement-metrics" },
+        "caesura": { "$ref": "#/$defs/placement-metrics" },
+        "tempo": { "$ref": "#/$defs/placement-metrics" },
+        "rehearsalMark": { "$ref": "#/$defs/placement-metrics" },
+        "measureNumber": { "$ref": "#/$defs/placement-metrics" },
+        "chordSymbol": { "$ref": "#/$defs/placement-metrics" },
+        "segno": { "$ref": "#/$defs/placement-metrics" },
+        "coda": { "$ref": "#/$defs/placement-metrics" },
+        "fine": { "$ref": "#/$defs/placement-metrics" },
+        "jump": { "$ref": "#/$defs/placement-metrics" }
+      },
+      "additionalProperties": false
+    },
+
+    "time-signature-legacy-style": {
+      "type": "string",
+      "enum": ["normal", "large", "narrow", "aboveStaff", "spanning", "singleNumber", "noteValue"],
+      "description": "Legacy combined preset accepted for backward compatibility. New documents serialize a time-signature-settings object."
+    },
+
+    "time-signature-render-style": {
+      "type": "string",
+      "enum": ["standard", "narrow", "outsideStaff", "singleNumber", "noteValue"],
+      "description": "The glyph treatment only. `outsideStaff` uses the music font's tall, tightly condensed digits designed to be enlarged outside a staff. Position, distribution, and size are configured independently."
+    },
+
+    "time-signature-distribution": {
+      "type": "string",
+      "enum": ["perStaff", "perGroup"],
+      "description": "Whether a meter is engraved once on every staff or once for each staff group."
+    },
+
+    "time-signature-grand-staff": {
+      "type": "string",
+      "enum": ["include", "exclude"],
+      "description": "For per-group distribution, whether a brace group (grand staff) receives one shared meter (`include`) or one meter on each constituent staff (`exclude`)."
+    },
+
+    "time-signature-position": {
+      "type": "string",
+      "enum": ["center", "top", "bottom", "above"],
+      "description": "Vertical alignment relative to the target staff or staff group. `above` is independent of distribution."
+    },
+
+    "senza-misura-display": {
+      "type": "string",
+      "enum": ["open", "hidden"],
+      "description": "Whether MNX `display: senzaMisura` engraves the open-meter glyph or remains unprinted."
+    },
+
+    "time-signature-settings-object": {
+      "type": "object",
+      "description": "Orthogonal time signature engraving settings. Every field is optional and omitted fields use the standard per-staff, centered, 1× defaults.",
+      "properties": {
+        "renderStyle": {
+          "$ref": "#/$defs/time-signature-render-style"
+        },
+        "distribution": {
+          "$ref": "#/$defs/time-signature-distribution"
+        },
+        "grandStaff": {
+          "$ref": "#/$defs/time-signature-grand-staff"
+        },
+        "position": {
+          "$ref": "#/$defs/time-signature-position"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 12,
+          "description": "Scale multiplier over the selected render style's normal optical size."
+        },
+        "senzaMisura": {
+          "$ref": "#/$defs/senza-misura-display"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "time-signature-settings": {
+      "description": "Time signature engraving settings. Legacy preset strings remain readable; new documents use the object form.",
+      "oneOf": [{ "$ref": "#/$defs/time-signature-settings-object" }, { "$ref": "#/$defs/time-signature-legacy-style" }]
+    },
+
+    "time-signature-styles": {
+      "type": "object",
+      "description": "Per-document time signature engraving settings. Stored at `_x.viritura.timeSignatures` on the score root. Scores and parts are configured independently.",
+      "properties": {
+        "score": {
+          "$ref": "#/$defs/time-signature-settings",
+          "description": "Settings used when engraving a full score."
+        },
+        "parts": {
+          "$ref": "#/$defs/time-signature-settings",
+          "description": "Settings used when engraving a single-part layout."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "score-metadata": {
+      "type": "object",
+      "description": "Score-level bibliographic metadata. Stored at `_x.viritura.metadata` on the score root. The engine consumes `title`/`subtitle`/`composer`/`arranger`/`copyright`; the remaining fields are preserved verbatim from MusicXML import (`work-title`, `movement-title`, etc.) for round-tripping.",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Display title (typically movement title, falling back to work title)."
+        },
+        "subtitle": { "type": "string", "description": "Work subtitle." },
+        "composer": { "type": "string", "description": "Composer credit." },
+        "lyricist": { "type": "string", "description": "Lyricist credit." },
+        "arranger": { "type": "string", "description": "Arranger credit." },
+        "copyright": { "type": "string", "description": "Copyright notice." },
+        "workTitle": { "type": "string", "description": "MusicXML `work-title`." },
+        "workNumber": { "type": "string", "description": "MusicXML `work-number`." },
+        "movementTitle": { "type": "string", "description": "MusicXML `movement-title`." },
+        "movementNumber": { "type": "string", "description": "MusicXML `movement-number`." }
+      },
+      "additionalProperties": false
+    },
+    "part-sound-override": {
+      "type": "object",
+      "description": "A profile-defined playable sound source selected for one stable MNX part ID.",
+      "required": ["sourceId"],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable source ID defined by the selected sound profile; not a MIDI program number."
+        },
+        "profileId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Profile this source belongs to, when the part targets a different profile than the assignment-level one. Absent means the assignment-level profileId applies."
+        },
+        "profileVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version of the per-part profileId's rules. Absent means the assignment-level profileVersion applies."
+        }
+      },
+      "additionalProperties": false
+    },
+    "sound-profile-assignment": {
+      "type": "object",
+      "description": "Score playback assignment: one sound profile plus per-part selected source overrides keyed by stable MNX part ID.",
+      "required": ["profileId", "profileVersion", "parts"],
+      "properties": {
+        "profileId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable sound-profile identifier."
+        },
+        "profileVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version of the sound-profile rules used by this assignment."
+        },
+        "parts": {
+          "type": "object",
+          "description": "Selected source overrides keyed by stable MNX part ID; array indexes are never persisted.",
+          "additionalProperties": {
+            "$ref": "#/$defs/part-sound-override"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "hit-point": {
+      "type": "object",
+      "description": "A moment in the picture that music is written against — a cut, an impact, an emotional pivot. Addressed in picture time rather than musical time because that is what it actually is: a fact about the film, fixed while the score around it changes. Solving a cue means choosing bars, meters and tempi that place a downbeat here.",
+      "required": ["id", "pictureSeconds"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier, so a hit survives edits and reordering."
+        },
+        "pictureSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Position in the picture's own timeline, in seconds from the first frame. Independent of `pictureOffsetSeconds`, so re-aligning the picture against the score does not move the hits relative to the film."
+        },
+        "label": {
+          "type": "string",
+          "description": "What happens on screen ('belly flop', 'cut to wide'). Free text from the spotting session."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "Whether the solver must land a downbeat on this hit. A locked hit constrains the spans either side of it; an unlocked one is a note-to-self that the solver may ignore. Defaults to true."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "video-media-identity": {
+      "type": "object",
+      "description": "Portable identity of an attached picture. Deliberately carries no filesystem path and no media bytes: a score must open on another machine (and round-trip through any MNX reader) without dragging a multi-hundred-megabyte video along, so a local file stays a device-local binding the user relinks.",
+      "required": ["displayName"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "File or clip name shown in the UI. Never a path."
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "`sha256:<hex>` over sampled regions of a local file plus its byte length. Lets a relink verify the user picked the same cut rather than a revision that would silently shift every sync point. Absent for demo clips, which are identified by `demoSourceId`."
+        },
+        "demoSourceId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Identifier of a clip from Viritura's built-in demo catalog. Such a clip streams from a public URL, so it needs no device-local binding and can be reattached automatically on reopen."
+        },
+        "durationSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Media duration in seconds, when known at attach time."
+        }
+      },
+      "additionalProperties": false
+    },
+    "video-sync": {
+      "type": "object",
+      "description": "Score-to-picture synchronization settings for film/TV scoring. Stored at `_x.viritura.videoSync` on the score root. MNX has no concept of picture, so the whole feature lives in one versioned vendor object rather than scattering unrelated extensions.",
+      "required": ["version", "pictureOffsetSeconds"],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Schema version of this payload."
+        },
+        "media": {
+          "$ref": "#/$defs/video-media-identity",
+          "description": "Attached picture identity. Absent when settings exist but no media is attached."
+        },
+        "pictureOffsetSeconds": {
+          "type": "number",
+          "description": "Media time (seconds) corresponding to score time zero. 120 means the score starts two minutes into the picture. Negative values place the score before the first frame."
+        },
+        "pictureAudioEnabled": {
+          "type": "boolean",
+          "description": "Whether the picture's production audio is audible. Defaults to false so attaching a video never doubles up against score playback."
+        },
+        "startTimecodeSeconds": {
+          "type": "number",
+          "description": "Display-only offset applied to the picture timecode readout, for deliveries that start at e.g. 01:00:00:00. Never affects the media time Viritura seeks to."
+        },
+        "frameRate": {
+          "type": "string",
+          "enum": ["23.976", "24", "25", "29.97", "29.97df", "30", "50", "59.94", "59.94df", "60"],
+          "description": "Frame rate of the delivery, as an identifier rather than a decimal, because NTSC rates are rational (23.976 is exactly 24000/1001) and because drop-frame is a labelling convention rather than a distinct speed. Browsers expose neither the file's true rate nor its drop-frame flag, so this is declared by the user."
+        },
+        "hitPoints": {
+          "type": "array",
+          "description": "Spotted moments in the picture, in no guaranteed order. Kept alongside the picture identity because they describe the film rather than the score, and so must survive any amount of rewriting of the music.",
+          "items": { "$ref": "#/$defs/hit-point" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "root-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/score-metadata",
+          "description": "Score-level bibliographic metadata."
+        },
+        "textStyles": {
+          "$ref": "#/$defs/text-styles",
+          "description": "Per-document text style overrides."
+        },
+        "placement": {
+          "$ref": "#/$defs/placement",
+          "description": "Per-document placement (clearance) overrides keyed by dependent kind."
+        },
+        "timeSignatures": {
+          "$ref": "#/$defs/time-signature-styles",
+          "description": "Per-document time signature engraving styles for scores and parts."
+        },
+        "soundProfile": {
+          "$ref": "#/$defs/sound-profile-assignment",
+          "description": "Per-part playback sound assignments keyed by stable MNX part ID."
+        },
+        "videoSync": {
+          "$ref": "#/$defs/video-sync",
+          "description": "Score-to-picture synchronization settings."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

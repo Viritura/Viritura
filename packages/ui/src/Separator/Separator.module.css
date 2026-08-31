@@ -1,0 +1,15 @@
+.vertical {
+  width: 2px;
+  height: 22px;
+  border-radius: 1px;
+  background: var(--separator-v);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.horizontal {
+  height: 1px;
+  background: var(--separator-h);
+  margin: var(--space-1) 0;
+  flex-shrink: 0;
+}

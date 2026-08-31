@@ -1,0 +1,40 @@
+{
+  "name": "@viritura/website",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "copy-assets": "tsx scripts/copy-assets.ts",
+    "predev": "pnpm run copy-assets",
+    "prebuild": "pnpm run copy-assets",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@tanstack/react-router": "^1.170.8",
+    "@viritura/core": "workspace:*",
+    "@viritura/format": "workspace:*",
+    "@viritura/musicxml": "workspace:*",
+    "@viritura/playback": "workspace:*",
+    "@viritura/score-viewer-react": "workspace:*",
+    "@viritura/ui": "workspace:*",
+    "ajv": "^8.17.1",
+    "marked": "^14.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@rolldown/plugin-babel": "^0.2.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "happy-dom": "^20.8.9",
+    "typescript": "^5.7.0",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

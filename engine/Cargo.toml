@@ -1,0 +1,67 @@
+[workspace]
+members = [
+    "viritura-engine",
+    "viritura-wasm",
+    "viritura-codegen",
+]
+resolver = "2"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused = { level = "warn", priority = -1 }
+rust_2018_idioms = { level = "warn", priority = -1 }
+future_incompatible = { level = "warn", priority = -1 }
+nonstandard_style = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+# Default clippy groups (industry-standard baseline).
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+# `pedantic`, `nursery`, and `cargo` groups intentionally NOT enabled yet.
+
+# Allow `too_many_arguments` (default threshold 7). The layout/engraving
+# pipeline contains many algorithmic helpers whose inputs are positions,
+# configs, and geometric context — the natural arities exceed 7 and
+# refactoring to context structs is tracked separately as a structural pass.
+too_many_arguments = "allow"
+
+# `too_many_lines` is from the pedantic group; the rest of pedantic is
+# intentionally NOT enabled. We opt in here specifically to flag the
+# remaining monolithic functions in the layout pipeline. Threshold is
+# raised to 200 in `clippy.toml` (default 100 is too aggressive for an
+# engraving engine where each layout pass has a natural extent of
+# ~120–200 lines).
+too_many_lines = "warn"
+
+[profile.dev]
+incremental = true
+debug = 1
+
+[profile.test]
+incremental = true
+debug = 1
+
+
+# Phase Q+ flame-chart profile for `pnpm wasm:profile`. Note: `wasm-pack
+# --profiling` does NOT read this section — its three flags (`--dev`,
+# `--release`, `--profiling`) are hardcoded to apply opt+debug overrides
+# at the cargo invocation. We define the profile here anyway so any
+# downstream tool that invokes `cargo build --profile profiling` directly
+# (e.g. `cargo flamegraph -p viritura-wasm --profile profiling`) gets
+# the same opt+debug shape wasm-pack would have produced.
+#
+# - `inherits = release`: keep -O3 so the trace reflects shipping behavior;
+#   otherwise hot paths are unrecognizable.
+# - `debug = true`: emit full DWARF so symbols survive demangling in
+#   Chrome DevTools. wasm-pack's `--no-opt` keeps `wasm-opt` from stripping.
+#
+# Output overwrites the normal `pnpm wasm` build in
+# `apps/editor/public/wasm/`; run `pnpm wasm` afterwards to restore
+# the slim shipping build.
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = false

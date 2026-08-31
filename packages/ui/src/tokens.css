@@ -1,0 +1,479 @@
+/* ═══════════════════════════════════════════
+  Viritura Design Tokens — Glass / Viridian
+
+   Naming convention:
+   • Colors:      --bg, --surface, --text, --accent, --border, …
+   • Elevations:  --elevation-0..3, --elevation-hover (drop shadows for raised UI)
+   • Insets:      --inset-soft, --inset-strong       (recessed surfaces)
+   • Shadows:     --shadow-toolbar, --shadow-panel-*, --shadow-tab, --shadow-status
+   • Focus:       --focus-ring, --focus-ring-tight, --focus-ring-inset, --focus-border
+   • Radii:       --radius-xs..xl, --radius-pill
+   • Spacing:     --space-0..7                       (padding/margin/gap)
+   • Separators:  --separator-v, --separator-h
+
+   Color values map to RGB via --accent-rgb (used for `rgba(var(--accent-rgb), α)`).
+   ═══════════════════════════════════════════ */
+
+/* Theme-independent scale tokens. */
+:root {
+  /* Brand identity — Folio Display + Contained Versal Keyline. */
+  --brand: #215e4e;
+  --brand-rgb: 33, 94, 78;
+  --brand-ink: #e7f3ee;
+  --brand-keyline: #dceee7;
+
+  /* Border-radius scale */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* Spacing scale — 4px grid, eight tiers. Used for `padding`, `margin`,
+     and `gap` everywhere a component spells layout in CSS. Sizing
+     (width / height / max-height) stays in raw rem/px because each
+     measurement is load-bearing for a specific component's layout
+     and doesn't generalize across the system.
+
+     Eight tiers is the smallest scale that distinguishes
+     hairline / compact / standard / comfortable / loose / hero
+     without inviting token-per-pixel inflation. Same discipline as
+     the motion tier 2× ratio — skipping 5px / 10px / 14px keeps the
+     grid clean. Values that fall between tiers are the wrong value,
+     not a missing tier. */
+  --space-0: 0; /*           0 — zero sentinel (rare; usually just write 0) */
+  --space-1: 0.25rem; /*     4px — hairline gaps, icon-text gaps in compact controls */
+  --space-2: 0.5rem; /*      8px — button gap, small chip padding, tight list-row gap */
+  --space-3: 0.75rem; /*    12px — compact band padding (toolbar, status bar) */
+  --space-4: 1rem; /*       16px — standard band padding, comfortable gap */
+  --space-5: 1.5rem; /*     24px — dialog body / card padding, section gutter */
+  --space-6: 2rem; /*       32px — large section gutter, hero spacing */
+  --space-7: 3rem; /*       48px — page-level gutter */
+
+  /* Viridian focus rings (resolve --accent-rgb per theme). */
+  --focus-ring: 0 0 0 3px rgba(var(--accent-rgb, 131, 200, 179), 0.35);
+  --focus-ring-tight: 0 0 0 2px rgba(var(--accent-rgb, 131, 200, 179), 0.45);
+  --focus-border: rgba(var(--accent-rgb, 131, 200, 179), 0.7);
+
+  /* Motion — three durations, one tempo (♩ = 150, "Allegro"), each
+     subdivision a clean 2× of the next. Three is the smallest scale
+     that distinguishes UI feedback from surface change from full
+     composition shift; the 2× ratio between tiers means they read
+     as different magnitudes, not different shades of the same speed.
+
+     At ♩ = 150:  16th = 100ms,  8th = 200ms,  quarter = 400ms. */
+  --motion-semiquaver: 100ms; /* 16th — hover, focus, press, color tints (~75% of sites) */
+  --motion-quaver: 200ms; /*     8th — popover, dialog, card lift, panel slide (~25% of sites) */
+  --motion-crotchet: 400ms; /*  quarter — full view re-composition, hero crossfade (rare) */
+
+  /* Semantic aliases — prefer these in components so the cadence can
+     be re-tuned without touching call sites. Reach for the rhythmic
+     name only when the music vocabulary is the right read locally. */
+  --motion-fast: var(--motion-semiquaver); /* UI feedback */
+  --motion-base: var(--motion-quaver); /* surface change */
+  --motion-slow: var(--motion-crotchet); /* composition shift */
+
+  /* Motion — easing curves. Standard for two-way state, enter/exit
+     pair for in/out asymmetry (Material's "decelerate"/"accelerate"). */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Typography — nine tokens, each a named purpose combining
+     size + weight + line-height + tracking + default color tier.
+     Body is `1rem` (the browser-default root size); every other tier
+     is a clean rem fraction or multiple of it. Off-scale values are
+     the wrong value, not a missing tier — same discipline as the
+     spacing and motion scales.
+
+     The pixel ladder at root = 16px:
+       12 / 14 / 16 / 18 / 20 / 24
+
+     Color tier is the DEFAULT — call sites can override
+     `color: var(--text-muted)` etc. for tone shifts (hint vs row,
+     disabled vs active) without inventing a new token.
+
+     See Design Language / Typography in Storybook for the live
+     specimen and the "why" behind each token. */
+
+  /* Display — 1.5rem / 24px / 600. StartCenter hero, splash,
+     app-shell page title. Rare on purpose. */
+  --type-display-size: 1.5rem;
+  --type-display-weight: 600;
+  --type-display-lh: 1.2;
+  --type-display-tracking: -0.005em;
+  --type-display-color: var(--text-bright);
+
+  /* Title — 1.25rem / 20px / 600. Dialog title, modal heading. */
+  --type-title-size: 1.25rem;
+  --type-title-weight: 600;
+  --type-title-lh: 1.2;
+  --type-title-tracking: -0.003em;
+  --type-title-color: var(--text-bright);
+
+  /* Heading — 1.125rem / 18px / 600. Panel header, inspector
+     section, card title. */
+  --type-heading-size: 1.125rem;
+  --type-heading-weight: 600;
+  --type-heading-lh: 1.3;
+  --type-heading-tracking: 0;
+  --type-heading-color: var(--text-bright);
+
+  /* Body — 1rem / 16px / 400. The root. Dialog body, paragraph,
+     general copy. Everything else is relative to this. */
+  --type-body-size: 1rem;
+  --type-body-weight: 400;
+  --type-body-lh: 1.5;
+  --type-body-tracking: 0;
+  --type-body-color: var(--text);
+
+  /* Control — 1rem / 16px / 500 / lh 1. Same size as body; weight
+     and line-height encode the role. Button label, menu item,
+     control label. */
+  --type-control-size: 1rem;
+  --type-control-weight: 500;
+  --type-control-lh: 1;
+  --type-control-tracking: 0;
+  --type-control-color: var(--text);
+
+  /* Small — 0.875rem / 14px / 400. Inspector row, list row, status
+     bar, hint, helper text, placeholder. Default color is --text for
+     rows; opt into --text-muted for hints/captions. Absorbs the old
+     Dense + Caption tiers. */
+  --type-small-size: 0.875rem;
+  --type-small-weight: 400;
+  --type-small-lh: 1.4;
+  --type-small-tracking: 0;
+  --type-small-color: var(--text);
+
+  /* Eyebrow — 0.75rem / 12px / 600 / UPPERCASE / tracking 0.04em.
+     Section divider, badge text, all-caps category label. */
+  --type-eyebrow-size: 0.75rem;
+  --type-eyebrow-weight: 600;
+  --type-eyebrow-lh: 1;
+  --type-eyebrow-tracking: 0.04em;
+  --type-eyebrow-transform: uppercase;
+  --type-eyebrow-color: var(--text-muted);
+
+  /* Mono inline — 1rem / 16px / 400 mono. Inline <code>, paths,
+     identifiers. Same size as body so inline code doesn't jump. */
+  --type-mono-inline-size: 1rem;
+  --type-mono-inline-weight: 400;
+  --type-mono-inline-lh: 1.5;
+  --type-mono-inline-color: var(--text);
+
+  /* Mono block — 0.875rem / 14px / 400 mono. Fenced code blocks,
+     MNX dumps, JSON. Same size as Small so a code dump in an
+     inspector row doesn't change the visual rhythm. */
+  --type-mono-block-size: 0.875rem;
+  --type-mono-block-weight: 400;
+  --type-mono-block-lh: 1.5;
+  --type-mono-block-color: var(--text);
+
+  /* Monospace family — used by mono-inline and mono-block tokens. */
+  --font-mono: "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+}
+
+/* ═══════════════════════════════════════════
+   Light theme (default)
+   ═══════════════════════════════════════════ */
+:root,
+[data-theme="light"] {
+  /* Paper-white neutral palette (cool, <6 % saturation). */
+  --bg: #ececee;
+  --surface: #efeff1;
+  --surface-raised: #f5f5f7;
+  --surface-sunken: #e1e1e4;
+  --surface-hover: #fafafc;
+  --menu-hover: #e6e6e9;
+
+  --text: #2a2a30;
+  /* Muted tier is deliberately dark — Viritura surfaces are translucent
+     glass over the tinted workspace gradient, and a mid-grey would fail
+     WCAG AA on rgba(255,255,255,0.55) fills. */
+  --text-muted: #3e3e46;
+  --text-bright: #131318;
+  /* Placeholder tier is intentionally low-contrast so empty-field hints
+     read as hints, not real content. Distinct from --text-muted, which
+     is a near-text dark used for labels/captions. */
+  --text-placeholder: #8c8c97;
+
+  --accent: #215e4e;
+  --accent-rgb: 33, 94, 78;
+  --error: #c42b2b;
+  --error-rgb: 196, 43, 43;
+  --warning: #b85a1a;
+  --border: #d4d4d8;
+  --canvas-bg: #d6d6da;
+
+  /* Elevations — overhead light, no diagonal. Three stacked drop shadows
+     (contact / cast / ambient) with a faint inner top highlight as the lit
+     rim. Lift the shadow intensity to compensate for translucent glass. */
+  --elevation-0:
+    0 1px 1px rgba(20, 20, 28, 0.07), 0 1px 3px rgba(20, 20, 28, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(20, 20, 28, 0.03);
+  --elevation-1:
+    0 1px 1px rgba(20, 20, 28, 0.08), 0 2px 4px rgba(20, 20, 28, 0.1), 0 6px 12px rgba(20, 20, 28, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(20, 20, 28, 0.04);
+  --elevation-2:
+    0 1px 2px rgba(20, 20, 28, 0.09), 0 4px 8px rgba(20, 20, 28, 0.1), 0 10px 20px rgba(20, 20, 28, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(20, 20, 28, 0.04);
+  --elevation-3:
+    0 2px 3px rgba(20, 20, 28, 0.1), 0 8px 16px rgba(20, 20, 28, 0.12), 0 16px 32px rgba(20, 20, 28, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(20, 20, 28, 0.04);
+  --elevation-hover:
+    0 2px 3px rgba(20, 20, 28, 0.1), 0 6px 12px rgba(20, 20, 28, 0.12), 0 12px 24px rgba(20, 20, 28, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(20, 20, 28, 0.04);
+
+  /* Recessed / pressed surfaces (inputs, status bar). */
+  --inset-strong:
+    inset 0 2px 4px rgba(20, 20, 28, 0.16), inset 0 1px 2px rgba(20, 20, 28, 0.1),
+    inset 0 0 0 1px rgba(20, 20, 28, 0.05);
+  --inset-soft: inset 0 1px 2px rgba(20, 20, 28, 0.12), inset 0 0 0 1px rgba(20, 20, 28, 0.04);
+
+  /* ─── Paper material (variant G from the Paper Material proposal) ───
+     Uncoated cream + visible fiber + bounce-tinted cast shadow + the
+     glass-system specular rim from --elevation-3. Opaque material that
+     sits on top of glass surfaces (palette tiles, library cards, score
+     pages). See packages/ui/src/docs/design-language/Paper.mdx.
+
+     --paper-bg       : layered background string (fiber noise + cream)
+     --paper-bg-blend : per-layer blend modes (matches background layers)
+     --paper-shadow   : cast shadow (bounce-tinted) + lit rim + edge stroke
+     --paper-shadow-hover : same recipe, slightly lifted for :hover */
+  --paper-bg:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    #fbf8ef;
+  --paper-bg-blend: multiply, normal;
+  --paper-shadow:
+    0 0.5px 1px rgba(80, 60, 30, 0.14), 0 1.5px 3px -1px rgba(120, 90, 40, 0.14),
+    0 4px 8px -3px rgba(140, 110, 50, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(120, 100, 60, 0.1);
+  --paper-shadow-hover:
+    0 0.5px 1px rgba(80, 60, 30, 0.18), 0 2.5px 5px -1px rgba(120, 90, 40, 0.18),
+    0 7px 12px -4px rgba(140, 110, 50, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(120, 100, 60, 0.12);
+
+  /* Specialized shadows. */
+  --shadow-toolbar: 0 2px 6px rgba(20, 20, 28, 0.12);
+  --shadow-status: inset 0 1px 3px rgba(20, 20, 28, 0.12);
+  --shadow-panel-l: 2px 0 8px rgba(20, 20, 28, 0.08);
+  --shadow-panel-r: -2px 0 8px rgba(20, 20, 28, 0.08);
+  --shadow-tab: 0 -1px 2px rgba(20, 20, 28, 0.06), 0 -2px 4px rgba(20, 20, 28, 0.08);
+
+  /* Inset focus ring (e.g. button pressed state). */
+  --focus-ring-inset: inset 0 0 0 1.5px #215e4e;
+
+  /* Separators. */
+  --separator-v: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(20, 20, 28, 0.12) 50%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  --separator-h: linear-gradient(90deg, transparent 8%, rgba(20, 20, 28, 0.08) 50%, transparent 92%);
+
+  /* Diff overlay tints — viridian for added/modified, red for removed.
+     Added and modified share the brand accent because both are
+     non-destructive changes; the diff tree already disambiguates them
+     with + and ✎ glyphs, so color is reinforcement, not signal. */
+  --diff-added-bg: rgba(var(--accent-rgb), 0.12);
+  --diff-modified-bg: rgba(var(--accent-rgb), 0.06);
+  --diff-removed-bg: rgba(var(--error-rgb), 0.1);
+
+  /* Form-control surfaces. Inline-styled inputs (e.g. NotationInspector)
+     consume these directly so they remain theme-aware without per-control
+     [data-theme] selectors. Matches the @viritura/ui FormField recipe.
+
+     Use these for inputs sitting on TRANSLUCENT hosts (Tier-1 glass
+     panels, Tier-3 floating popovers) — they're rgba whites that
+     refract the workspace beneath the host. For inputs sitting on
+     OPAQUE hosts (Tier-4 dialogs), use --surface-sunken +
+     box-shadow: var(--inset-soft) instead. See
+     `Design Language > Material Tiers > Wrapping controls`. */
+  --surface-input: rgba(255, 255, 255, 0.55);
+  --surface-input-soft: rgba(255, 255, 255, 0.5);
+  --border-input: rgba(20, 20, 28, 0.14);
+  --border-hairline: rgba(20, 20, 28, 0.08);
+  --border-soft: rgba(20, 20, 28, 0.1);
+}
+
+/* ═══════════════════════════════════════════
+   Dark theme
+   ═══════════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg: #26262e;
+  --surface: #2a2a32;
+  --surface-raised: #2c2c34;
+  --surface-sunken: #28282f;
+  --surface-hover: #30303a;
+  --menu-hover: #34343c;
+
+  /* Text tiers bumped for legibility on dark glass panels. Previous values
+     (#b0b0b8 / #888892) read as low-contrast grey against the translucent
+     panel backdrops. Targets >= WCAG AA on #2a2a32 + glass. */
+  --text: #e2e2e8;
+  --text-muted: #c8c8d0;
+  --text-bright: #f1f1f5;
+  /* Dimmer than --text-muted so empty-field hints read as hints. */
+  --text-placeholder: #82828e;
+
+  /* Accessible tint of the deep brand viridian for dark surfaces. */
+  --accent: #83c8b3;
+  --accent-rgb: 131, 200, 179;
+  --error: #ff6b6b;
+  --error-rgb: 255, 107, 107;
+  --warning: #ff9b7a;
+  --border: #3a3a42;
+  --canvas-bg: #16161c;
+
+  /* ─── Paper material (dark theme) ───
+     Deep warm-grey parchment. Same recipe shape as light: noise +
+     base color + bounce-tinted cast + warm rim. Rim alpha lifted
+     (~0.10) so it still reads on the dark base; cast shadow alphas
+     go much darker because we're casting onto a near-black workspace. */
+  --paper-bg:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    #2c2922;
+  --paper-bg-blend: screen, normal;
+  --paper-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.4), 0 1.5px 3px -1px rgba(20, 14, 4, 0.4), 0 4px 8px -3px rgba(30, 20, 8, 0.32),
+    inset 0 1px 0 rgba(255, 235, 200, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --paper-shadow-hover:
+    0 0.5px 1px rgba(0, 0, 0, 0.45), 0 2.5px 5px -1px rgba(20, 14, 4, 0.48), 0 7px 12px -4px rgba(30, 20, 8, 0.38),
+    inset 0 1px 0 rgba(255, 235, 200, 0.14), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+
+  /* Dark elevations — near-black shadows with subtle top highlight to read
+     the material edge. */
+  --elevation-0:
+    0 1px 1px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  --elevation-1:
+    0 1px 1px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.35), 0 6px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-2:
+    0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.4), 0 10px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-3:
+    0 2px 3px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.45), 0 16px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-hover:
+    0 2px 3px rgba(0, 0, 0, 0.4), 0 6px 12px rgba(0, 0, 0, 0.4), 0 12px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+
+  --inset-strong:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --inset-soft: inset 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+
+  --shadow-toolbar: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-status: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-panel-l: 2px 0 10px rgba(0, 0, 0, 0.3);
+  --shadow-panel-r: -3px 0 10px rgba(0, 0, 0, 0.3);
+  --shadow-tab: 2px -2px 5px rgba(0, 0, 0, 0.3), -2px -2px 5px rgba(255, 255, 255, 0.02);
+
+  --focus-ring-inset: inset 0 0 0 1.5px #83c8b3;
+
+  --separator-v: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  --separator-h: linear-gradient(90deg, transparent 8%, rgba(255, 255, 255, 0.04) 50%, transparent 92%);
+
+  /* Form-control surfaces — dark variant. Light-on-dark glass instead
+     of the white-on-light recipe so inline-styled inputs remain visible
+     inside the dark `.workspace-panel` glass. */
+  --surface-input: rgba(255, 255, 255, 0.06);
+  --surface-input-soft: rgba(255, 255, 255, 0.05);
+  --border-input: rgba(255, 255, 255, 0.14);
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════
+   Midnight theme — same chrome as dark; canvas is inverted via CSS filter.
+   --canvas-bg is the LIGHT color we want to see; invert() flips it.
+   ═══════════════════════════════════════════ */
+[data-theme="midnight"] {
+  --bg: #26262e;
+  --surface: #2a2a32;
+  --surface-raised: #2c2c34;
+  --surface-sunken: #28282f;
+  --surface-hover: #30303a;
+  --menu-hover: #34343c;
+
+  /* Same lifted text tiers as `[data-theme="dark"]` — midnight shares
+     the dark chrome surfaces, only the canvas is inverted. */
+  --text: #e2e2e8;
+  --text-muted: #c8c8d0;
+  --text-bright: #f1f1f5;
+  /* Dimmer than --text-muted so empty-field hints read as hints. */
+  --text-placeholder: #82828e;
+
+  --accent: #83c8b3;
+  --accent-rgb: 131, 200, 179;
+  --error: #ff6b6b;
+  --error-rgb: 255, 107, 107;
+  --warning: #ff9b7a;
+  --border: #3a3a42;
+  --canvas-bg: #d8d4cc;
+
+  /* Paper material — same dark recipe as `[data-theme="dark"]`.
+     Midnight inverts the canvas via CSS filter but the chrome stays
+     dark, so paper-on-chrome should look identical to dark mode. */
+  --paper-bg:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch' seed='4'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    #2c2922;
+  --paper-bg-blend: screen, normal;
+  --paper-shadow:
+    0 0.5px 1px rgba(0, 0, 0, 0.4), 0 1.5px 3px -1px rgba(20, 14, 4, 0.4), 0 4px 8px -3px rgba(30, 20, 8, 0.32),
+    inset 0 1px 0 rgba(255, 235, 200, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --paper-shadow-hover:
+    0 0.5px 1px rgba(0, 0, 0, 0.45), 0 2.5px 5px -1px rgba(20, 14, 4, 0.48), 0 7px 12px -4px rgba(30, 20, 8, 0.38),
+    inset 0 1px 0 rgba(255, 235, 200, 0.14), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+
+  --elevation-0:
+    0 1px 1px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  --elevation-1:
+    0 1px 1px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.35), 0 6px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-2:
+    0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.4), 0 10px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-3:
+    0 2px 3px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.45), 0 16px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --elevation-hover:
+    0 2px 3px rgba(0, 0, 0, 0.4), 0 6px 12px rgba(0, 0, 0, 0.4), 0 12px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+
+  --inset-strong:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --inset-soft: inset 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+
+  --shadow-toolbar: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-status: inset 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-panel-l: 2px 0 10px rgba(0, 0, 0, 0.3);
+  --shadow-panel-r: -3px 0 10px rgba(0, 0, 0, 0.3);
+  --shadow-tab: 2px -2px 5px rgba(0, 0, 0, 0.3), -2px -2px 5px rgba(255, 255, 255, 0.02);
+
+  --focus-ring-inset: inset 0 0 0 1.5px #83c8b3;
+
+  --separator-v: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  --separator-h: linear-gradient(90deg, transparent 8%, rgba(255, 255, 255, 0.04) 50%, transparent 92%);
+
+  /* Form-control surfaces — mirror dark; midnight shares the dark chrome. */
+  --surface-input: rgba(255, 255, 255, 0.06);
+  --surface-input-soft: rgba(255, 255, 255, 0.05);
+  --border-input: rgba(255, 255, 255, 0.14);
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.1);
+}

@@ -1,0 +1,76 @@
+.group {
+  display: inline-flex;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  border: 1px solid rgba(20, 20, 28, 0.12);
+  background: rgba(255, 255, 255, 0.35);
+  padding: 2px;
+  gap: 2px;
+}
+
+[data-theme="dark"] .group,
+[data-theme="midnight"] .group,
+[data-on-dark] .group {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.option {
+  border: none;
+  background: transparent;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--type-small-size);
+  font-family: inherit;
+  color: #54545c;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+  user-select: none;
+}
+
+[data-theme="dark"] .option,
+[data-theme="midnight"] .option,
+[data-on-dark] .option {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.option:hover:not(.active) {
+  color: var(--text);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
+}
+
+[data-theme="dark"] .option:hover:not(.active),
+[data-theme="midnight"] .option:hover:not(.active),
+[data-on-dark] .option:hover:not(.active) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.active {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.18);
+  color: var(--text);
+  font-weight: var(--type-heading-weight);
+}
+
+/* On dark / inverted surfaces, render the active segment as a brighter
+   "raised pill" instead of a faint accent tint — closer to the iOS /
+   macOS segmented-control convention so the selected option reads at
+   a glance against a black field. */
+[data-theme="dark"] .active,
+[data-theme="midnight"] .active,
+[data-on-dark] .active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Bravura glyph (icon) size — intentionally off the --type-* scale. */
+.bravura {
+  font-family: Bravura, serif;
+  font-size: 1.2rem;
+}

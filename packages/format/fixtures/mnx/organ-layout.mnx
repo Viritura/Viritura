@@ -1,0 +1,343 @@
+{
+  "mnx": {
+    "support": {
+      "useAccidentalDisplay": true
+    },
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "id": "019e62f6-e631-7870-bbc5-a64a26ebd25c",
+        "key": {
+          "fifths": -3
+        },
+        "time": {
+          "count": 3,
+          "unit": 4
+        }
+      }
+    ]
+  },
+  "layouts": [
+    {
+      "id": "019e62f6-e631-7ecc-bfdd-a5b6475cd8cc",
+      "content": [
+        {
+          "type": "group",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e631-7012-b211-2309e715db8c",
+                  "staff": 1
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e631-7012-b211-2309e715db8c",
+                  "staff": 2
+                }
+              ]
+            }
+          ],
+          "symbol": "brace"
+        },
+        {
+          "type": "staff",
+          "sources": [
+            {
+              "part": "019e62f6-e631-7012-b211-2309e715db8c",
+              "staff": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "019e62f6-e631-738f-8765-c5b4824dc8e3",
+      "content": [
+        {
+          "type": "group",
+          "content": [
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e631-7012-b211-2309e715db8c",
+                  "stem": "up",
+                  "voice": "Main"
+                },
+                {
+                  "part": "019e62f6-e631-7012-b211-2309e715db8c",
+                  "stem": "down",
+                  "voice": "Oberwerk"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "sources": [
+                {
+                  "part": "019e62f6-e631-7012-b211-2309e715db8c",
+                  "voice": "Hauptwerk"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "staff",
+          "sources": [
+            {
+              "part": "019e62f6-e631-7012-b211-2309e715db8c",
+              "staff": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "019e62f6-e631-7012-b211-2309e715db8c",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              },
+              "staff": 1
+            },
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              },
+              "staff": 2
+            },
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              },
+              "staff": 3
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "rest": {}
+                },
+                {
+                  "id": "019e62f6-e631-7ebc-afd2-353ce036b67d",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-e631-7151-b526-bc35a59480ba",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "accidentalDisplay": {
+                        "show": true
+                      },
+                      "pitch": {
+                        "alter": 1,
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-e631-7546-a6d4-bf1126d2d4a6",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "accidentalDisplay": {
+                        "show": true
+                      },
+                      "pitch": {
+                        "octave": 4,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1,
+              "voice": "Main"
+            },
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "rest": {}
+                },
+                {
+                  "id": "019e62f6-e631-7dee-9468-e93dc1278ec3",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 3,
+                        "step": "B"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-e631-7e3b-a839-85c0ad98a973",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "accidentalDisplay": {
+                        "show": true
+                      },
+                      "pitch": {
+                        "octave": 3,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "019e62f6-e631-7e32-b940-c3f78c58543c",
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1,
+              "voice": "Oberwerk"
+            },
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half",
+                    "dots": 1
+                  },
+                  "rest": {}
+                }
+              ],
+              "staff": 2,
+              "voice": "Hauptwerk"
+            },
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half",
+                    "dots": 1
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 3,
+                        "step": "E"
+                      },
+                      "ties": [
+                        {
+                          "target": "pedNote2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "staff": 3,
+              "voice": "Pedal"
+            }
+          ]
+        }
+      ],
+      "staves": 3
+    }
+  ],
+  "scores": [
+    {
+      "name": "defaultScore",
+      "pages": [
+        {
+          "systems": [
+            {
+              "layout": "019e62f6-e631-7ecc-bfdd-a5b6475cd8cc",
+              "layoutChanges": [
+                {
+                  "layout": "019e62f6-e631-738f-8765-c5b4824dc8e3",
+                  "location": {
+                    "measure": "019e62f6-e631-7870-bbc5-a64a26ebd25c",
+                    "position": {
+                      "fraction": [
+                        3,
+                        8
+                      ]
+                    }
+                  }
+                }
+              ],
+              "measure": "019e62f6-e631-7870-bbc5-a64a26ebd25c"
+            },
+            {
+              "layout": "019e62f6-e631-738f-8765-c5b4824dc8e3",
+              "measure": "m6"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

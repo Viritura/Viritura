@@ -1,0 +1,28 @@
+<Project>
+  <!--
+    Shared build settings + static analysis for all server projects.
+
+    Roslyn analyzers (the CAxxxx rules) and code-style enforcement (the IDExxxx
+    rules) are turned up to their full recommended set here and surfaced at
+    build time. Severities come from the default .NET ruleset plus the
+    canonical default `.editorconfig` in this folder — we deliberately do not
+    hand-tune styles; the code is kept clean against the defaults instead.
+  -->
+  <PropertyGroup>
+    <!-- Roslyn code-quality analyzers (CAxxxx). -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+
+    <!-- Promote code-style (IDExxxx) violations from IDE-only to build. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Fail the build on any analyzer/compiler warning so CI + hooks gate. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Commit exact transitive dependency graphs for reproducible production restores. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <!-- Surface generated-code analysis too, but don't gate on it. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

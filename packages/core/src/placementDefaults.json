@@ -1,0 +1,26 @@
+{
+  "articulation": { "attachGap": 0.5, "padding": { "vertical": 0.25, "horizontal": 0.5 }, "stackRank": 0 },
+  "ornament": { "attachGap": 2.0, "stackRank": 1 },
+  "trill": { "attachGap": 2.0, "stackRank": 1 },
+  "breathMark": { "attachGap": 1.5, "stackRank": 1 },
+  "caesura": { "attachGap": 0.5, "stackRank": 1 },
+  "fermata": { "attachGap": 1.0, "stackRank": 2 },
+  "dynamic": { "attachGap": 3.0, "padding": { "vertical": 0.5, "horizontal": 0.0 }, "stackRank": 3 },
+  "expression": {
+    "attachGap": 3.0,
+    "attachGapAbove": 1.0,
+    "attachGapBelow": 3.0,
+    "padding": { "vertical": 0.5, "horizontal": 0.5 },
+    "stackRank": 4
+  },
+  "chordSymbol": { "attachGap": 1.5, "stackRank": 5 },
+  "tempo": { "attachGap": 2.0, "padding": { "vertical": 1.0, "horizontal": 0.5 }, "stackRank": 6 },
+  "rehearsalMark": { "attachGap": 2.0, "padding": { "vertical": 1.0, "horizontal": 0.5 }, "stackRank": 6 },
+  "segno": { "attachGap": 2.0, "padding": { "vertical": 0.5, "horizontal": 0.5 }, "stackRank": 6 },
+  "coda": { "attachGap": 2.0, "padding": { "vertical": 0.5, "horizontal": 0.5 }, "stackRank": 6 },
+  "fine": { "attachGap": 1.0, "stackRank": 6 },
+  "jump": { "attachGap": 1.0, "stackRank": 6 },
+  "measureNumber": { "attachGap": 0.5, "stackRank": 7 },
+  "lyric": { "attachGap": 3.5, "padding": { "vertical": 2.0, "horizontal": 0.5 }, "stackRank": 8 },
+  "pedal": { "attachGap": 5.0, "stackRank": 9 }
+}

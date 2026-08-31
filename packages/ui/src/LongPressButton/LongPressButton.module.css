@@ -1,0 +1,49 @@
+/* LongPressButton — Popover surface + caret affordance on top of Button.
+   All button chrome and Bravura rendering lives in `Button` now. */
+
+.trigger {
+  position: relative;
+  /* Slight extra right padding to keep the caret affordance from
+     overlapping the glyph. */
+  padding-right: var(--space-3);
+}
+
+.caret {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 3px 0 3px;
+  border-color: currentColor transparent transparent transparent;
+  opacity: 0.5;
+  pointer-events: none;
+  /* Fade in on hover / open to match the Button's own hover affordance. */
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.trigger:hover .caret,
+.trigger[aria-pressed="true"] .caret,
+.trigger[aria-expanded="true"] .caret {
+  opacity: 0.85;
+}
+
+.popup {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: 10px;
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 24px rgba(20, 20, 28, 0.12);
+  z-index: 100;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .popup,
+[data-theme="midnight"] .popup {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(30, 30, 40, 0.75);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,10 @@
+.mark {
+  color: #000;
+  flex: 0 0 auto;
+}
+
+[data-theme="dark"] .mark,
+[data-theme="midnight"] .mark,
+[data-on-dark] .mark {
+  color: #fff;
+}

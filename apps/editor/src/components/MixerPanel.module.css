@@ -1,0 +1,393 @@
+/* ════════════════════════════════════════════════════════════
+   MixerPanel — design-language refresh
+   ════════════════════════════════════════════════════════════
+   Goals (see chat 2026-05-17):
+   - Inverted surface hierarchy: groups are flat bands, individual
+     tracks are subtle rounded glass rows (matches Parts panel).
+   - Single radius vocabulary: 10px for interior rows/controls,
+     999px for capsule toggles. Panel radius lives on .workspace-panel.
+   - Hairline accents (rgba 0.08/0.10 dark) instead of opaque bars.
+   - Viridian accent everywhere, with section colors used only as a
+     3px left stripe in the group header.
+   - Monospaced, right-aligned numeric readouts in a fixed gutter.
+   - Capsule M/S toggles, transparent at rest; viridian (M=red,
+     S=amber) only when active.
+   - Master section pinned at the bottom with the same row format. */
+
+/* ── Panel root ────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Scrollbar styling is shared via the global .viritura-scroll class
+   (see workspaceChrome.css) — apply both classes in JSX. */
+.groupList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-y: overlay;
+  overflow-x: hidden;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Group section ────────────────────────────────────────── */
+
+/* A group is a flat band: chevron + 3px accent stripe + name + bus fader + M/S.
+   No card, no border — the visual weight goes to the child track rows. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.groupHeader {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1) 0 0;
+  width: 100%;
+  color: var(--text);
+}
+
+.group[data-dimmed="true"] {
+  opacity: 0.65;
+}
+
+/* The instrument-family color stripe was removed in 2026-05-20 —
+   the small accent didn't survive in the new bar layout and was
+   crowding the fader. Kept as a no-op selector so any stale markup
+   doesn't break, but the element is no longer rendered. */
+.groupStripe {
+  display: none;
+}
+
+.groupName {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupControls {
+  display: none; /* legacy slot; controls now live inside the FaderBar grid. */
+}
+
+/* Group bus fader gets a slightly different visual weight (deeper
+   border, no track card) so it reads as a master for its group. */
+.groupFader {
+  height: 26px;
+}
+
+.groupTracks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Align child track rows with the group header's fader/toggles.
+     Header column layout is `14px chevron + 6px gap + fader + 6px gap
+     + M/S` with `padding: 0 4px 0 0`. So the fader starts at x=20
+     (14 + 6) and the right edge of M/S sits 4px from the section's
+     right edge. Match both here. */
+  padding: 0 var(--space-1) 0 var(--space-4);
+}
+
+/* ── Track row (ChannelStrip) ─────────────────────────────── */
+
+/* The visual surface lives inside the FaderBar now — the track row
+   itself is just a layout slot: a stretching fader + a narrow gutter
+   for the compact M/S capsules. `minmax(0, 1fr)` is required so the
+   column actually fills the row (with a plain `1fr` it collapses to
+   the fader's intrinsic content width). */
+.track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px var(--space-1);
+  padding: var(--space-1);
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(20, 20, 28, 0.07);
+  border-radius: var(--radius-lg);
+  min-height: 24px;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+.track[data-dimmed="true"] {
+  opacity: 0.65;
+}
+
+[data-theme="dark"] .track,
+[data-theme="midnight"] .track {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.trackName {
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Right-aligned numeric gutter — monospaced for stable column. */
+.readout {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  text-align: right;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* M / S toggle pair — flush right inside the track row. */
+.toggles {
+  display: flex;
+  gap: var(--space-1);
+  justify-self: end;
+}
+
+.channelControls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  justify-self: end;
+  padding: 0 var(--space-1);
+}
+
+.channelFader {
+  grid-column: 1 / -1;
+}
+
+/* ── FaderBar (full-row volume bar) ───────────────────── */
+
+/* The fader bar is the entire interactive surface of a row. The
+   colored `.faderFill` paints from the left edge to `--fill`%, and
+   `.faderLabel` overlays the part / group / master name as a
+   non-selectable underlay (above the fill, but pointer-transparent).
+
+   Fill uses a low-alpha viridian tint so the label stays legible at
+   normal text contrast over both the filled and unfilled regions —
+   no `mix-blend-mode` gymnastics needed.
+
+   To make the bar read as a *control* (not a labeled row), we add
+   two fader signifiers:
+     - an inner shadow on `.faderBar` so the groove looks pressed-in
+     - a 3px darker band on the right edge of `.faderFill` (the
+       "thumb cap") that marks the current value and reads as a
+       drag handle. This is the same trick Apple/Spotify use for
+       their horizontal volume sliders. */
+.faderBar {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(20, 20, 28, 0.05);
+  border: 1px solid rgba(20, 20, 28, 0.08);
+  box-shadow: inset 0 1px 1px rgba(20, 20, 28, 0.08);
+  cursor: ew-resize;
+  user-select: none;
+  outline: none;
+  --fill: 0%;
+  --accent-tint: rgba(var(--accent-rgb, 33, 94, 78), 0.22);
+  --thumb-color: rgba(var(--accent-rgb, 33, 94, 78), 0.65);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
+}
+.faderBar:hover {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.35);
+}
+.faderBar:focus-visible {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
+  box-shadow:
+    inset 0 1px 1px rgba(20, 20, 28, 0.08),
+    0 0 0 2px rgba(var(--accent-rgb, 33, 94, 78), 0.2);
+}
+[data-theme="dark"] .faderBar,
+[data-theme="midnight"] .faderBar {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25);
+  --accent-tint: rgba(var(--accent-rgb, 33, 94, 78), 0.3);
+  --thumb-color: rgba(var(--accent-rgb, 33, 94, 78), 0.8);
+}
+[data-theme="dark"] .faderBar:hover,
+[data-theme="midnight"] .faderBar:hover {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+}
+
+/* The fill itself is the tint; the `inset -3px 0` shadow paints the
+   thumb cap inside its right edge without needing an extra element.
+   At fill=0% the cap is naturally hidden (zero-width box clips it). */
+.faderFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--fill);
+  background: var(--accent-tint);
+  box-shadow: inset -3px 0 0 0 var(--thumb-color);
+  /* 60ms width transition is intentional: VU-meter smoothing. Faster than
+     --motion-fast (100ms) so audio peaks don't visibly lag. Leave literal. */
+  transition: width 60ms linear;
+  pointer-events: none;
+}
+
+.faderLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-control-weight);
+  pointer-events: none;
+  user-select: none;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  justify-content: space-between;
+}
+
+.faderName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Master fader: slightly taller, label is bold. */
+.masterFader {
+  height: 28px;
+}
+.masterLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--type-heading-weight);
+}
+
+/* ── Master FX sliders ────────────────────────────────────
+   The slim-thumb groove + bipolar fill behavior now lives on the
+   shared @viritura/ui `Slider`; Master FX rows just lay it out
+   inside the (label · slider · readout) row defined by .fxRow. */
+
+/* ── M / S capsule toggles ────────────────────────────────── */
+
+/* Mute (M) and solo (S) capsules use the @viritura/ui IconButton size="xs"
+   variant with activeColor — see MixerPanel.tsx. The previous bespoke
+   .toggle/.toggleMuted/.toggleSolo classes were removed once the primitive
+   gained an xs size + activeColor prop. */
+
+/* ── Master section (pinned footer) ────────────────────────── */
+
+.master {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(20, 20, 28, 0.08);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+[data-theme="dark"] .master,
+[data-theme="midnight"] .master {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Master track row — no special card surface (the masterFader
+   variant carries its own deeper border). */
+.masterTrack {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+/* ── Master FX block ──────────────────────────────────────── */
+
+.fxToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  width: 100%;
+  text-align: left;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.fxToggle:hover {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.06);
+  color: var(--text);
+}
+
+.fxBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) 0;
+}
+
+.fxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fxGroupHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text);
+}
+.fxGroupHeader svg {
+  color: var(--text-muted);
+}
+
+.fxRow {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.fxLabel {
+  font-size: var(--type-eyebrow-size);
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Reverb preset row uses the shared Select — span it across slider + readout. */
+.fxRowSelect {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}

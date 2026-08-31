@@ -1,0 +1,27 @@
+[package]
+name = "viritura-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Core layout and engraving engine for Viritura music notation"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ttf-parser = "0.25"
+# Used by typify-generated pattern validators in src/raw.rs. Kept here (not
+# behind a feature flag) so the generated module compiles unconditionally.
+regress = "0.10"
+# Runtime JSON Schema validation against src/mnx-schema.json (draft 2020-12).
+# Used by validator.rs to back assert_raw_score / is_raw_score.
+jsonschema = { version = "0.18", default-features = false, features = ["draft202012"] }
+uuid = { version = "1", features = ["v7", "js"] }
+
+# Phase Q+: WASM-safe time source for the layout `tick!` macro. Native uses
+# `std::time::Instant`; wasm32 uses `js_sys::Date::now()` because Instant
+# panics there ("time not implemented on this platform"). Only pulled in on
+# wasm32 to keep the native test build slim.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
+
+[lints]
+workspace = true

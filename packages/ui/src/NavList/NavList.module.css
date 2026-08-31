@@ -1,0 +1,24 @@
+/* NavList — grouped vertical rail. The rows come from ListRow; this file
+   only owns the group rhythm and the rail's own scroll behaviour. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* SectionLabel ships with dialog-body padding (12px sides). Inside a rail the
+   heading has to align with the rows' own 8px inset instead. */
+.groupLabel {
+  padding: var(--space-3) var(--space-2) var(--space-1);
+}
+
+.group:first-child > .groupLabel {
+  padding-top: var(--space-1);
+}

@@ -1,0 +1,322 @@
+/* Dialog — Tier-4 modal material.
+ *
+ * Design rationale: modals interrupt; glass-on-glass would stack two blur
+ * layers behind a dimmed overlay and read as fuzzy mush. Instead the
+ * overlay dims everything beneath and the application root gets one ordinary
+ * filter pass. Keep the full-viewport overlay free of backdrop-filter:
+ * Chromium on Windows can leave stale compositor-tile seams when pointer
+ * hover repaints the canvas and workspace surfaces below it.
+ *
+ * Tier system:
+ *   1 Glass    — side panels (translucent + blur)
+ *   2 Chrome   — menu/activity/status bar (flat, edge-pinned)
+ *   3 Floating — tooltips, popovers (small glass)
+ *   4 Modal    — dialogs (this file: opaque, lit, top-of-stack)
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 28, 0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayShow var(--motion-base) var(--ease-enter);
+}
+
+/* Preserve the modal blur without sampling through a full-screen
+ * backdrop-filter surface. Radix portals dialogs directly under body, so the
+ * app root remains a sibling and can be composited once as a stable image. */
+:global(body):has(> .overlay) > :global(#root),
+:global(body):has(> .overlay) > :global(#storybook-root) {
+  filter: blur(8px) saturate(120%);
+}
+
+/* Opaque raised card — no backdrop-filter. The --elevation-3 token
+ * supplies the three-stop drop shadow plus the lit top rim that sells
+ * "raised object" against the dimmed overlay. */
+.content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  box-shadow: var(--elevation-3);
+  padding: var(--space-5);
+  width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: var(--text);
+  animation: contentShow var(--motion-base) var(--ease-enter);
+}
+
+/* When .actions sits inside the padded default .content (not .contentWide
+   or .contentFull), stretch it edge-to-edge via negative margins so the
+   border-top spans both rounded corners and the footer reads as a true
+   footer band — without double-padding the buttons. The inner padding
+   (1.5rem horizontal) keeps the buttons aligned to the same 1.5rem inset
+   as the title/body content above. */
+/* The action/header bands extend edge-to-edge so their border lines span
+   both rounded corners and read as horizontal dividers. Padding is
+   symmetric (1rem all sides) so buttons have equal breathing room from
+   every dialog edge — asymmetric padding (e.g. 12px vertical / 24px
+   horizontal) makes buttons read as crammed against the bottom. Buttons
+   end up slightly inboard of the body's 1.5rem rhythm, which is fine: the
+   horizontal divider already breaks the alignment grid. */
+.content > .actions {
+  margin: var(--space-4) -1.5rem -1.5rem;
+  padding: var(--space-4);
+}
+
+.content > .header {
+  margin: -1.5rem -1.5rem var(--space-4);
+  padding: var(--space-4);
+}
+
+.contentCompact {
+  composes: content;
+  box-sizing: border-box;
+  width: 400px;
+  max-width: calc(100vw - 2 * var(--space-4));
+}
+
+/* `.contentWide` / `.contentFull` already have `padding: 0`, so the bands
+   shouldn't pull outward with negative margins — undo them and let
+   `.header` / `.actions` use their own padding directly. The body provides
+   the horizontal rhythm via its own padding instead. */
+.contentWide > .actions,
+.contentXWide > .actions,
+.contentFull > .actions,
+.contentWide > .header,
+.contentXWide > .header,
+.contentFull > .header {
+  margin: 0;
+}
+
+.contentWide {
+  composes: content;
+  width: 640px;
+  max-width: 90vw;
+  max-height: 80vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contentXWide {
+  composes: content;
+  width: 1040px;
+  max-width: 94vw;
+  max-height: 88vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contentFull {
+  composes: content;
+  width: 90vw;
+  height: 80vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* A split dialog is fixed-height rather than content-height.
+   Its detail pane swaps contents as the user moves between categories, and a
+   content-sized dialog would resize on every switch — the settings dialog
+   jumped ~270px between a short category and a tall one. Each pane scrolls
+   internally instead (see DialogSplit.module.css), so the frame stays put.
+
+   `composes: content` puts `.content` on every size variant, so this covers
+   wide / xwide alike. `.contentFull` is excluded because it already declares
+   its own fixed height. Keyed off the split body's own data attribute rather
+   than a caller-supplied prop: the constraint is structural, so it can't be
+   forgotten at a call site. */
+.content:has(> [data-dialog-split]):not(.contentFull) {
+  height: 88vh;
+}
+
+.title {
+  margin: 0 0 var(--space-4) 0;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  color: var(--text-bright);
+}
+
+/* Header band — subtle tint on the opaque base. Uses neutral overlays
+ * (black-on-light / white-on-dark) instead of relying on transmission.
+ *
+ * The 1px transparent top border + background-clip: padding-box reserves
+ * a 1px gap at the very top so the parent .content's inset lit rim (from
+ * --elevation-3) shows through. Without this, the header background paints
+ * over the rim and the dialog reads as flat against the dimmed overlay. */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(0, 0, 0, 0.025);
+  background-clip: padding-box;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .header,
+[data-theme="midnight"] .header {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  color: var(--text-bright);
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--type-heading-size);
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+  font-family: inherit;
+}
+
+.closeButton:hover {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--text);
+}
+
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.body {
+  padding: var(--space-4);
+  overflow: auto;
+  flex: 1;
+  font-size: var(--type-small-size);
+  line-height: var(--type-body-lh);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .actions,
+[data-theme="midnight"] .actions {
+  background: transparent;
+}
+
+/* ── Button trio: cancel (close), secondary (non-closing), primary ── */
+
+.btnBase {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: var(--type-small-size);
+  font-family: inherit;
+  font-weight: var(--type-control-weight);
+  line-height: var(--type-control-lh);
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.btnBase:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btnBase:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnCancel {
+  composes: btnBase;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btnCancel:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  color: var(--text-bright);
+}
+
+.btnSecondary {
+  composes: btnCancel;
+}
+
+.btnPrimary {
+  composes: btnBase;
+  border: 1px solid rgb(var(--accent-rgb));
+  background: rgb(var(--accent-rgb));
+  color: #fff;
+  font-weight: var(--type-heading-weight);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.92);
+  border-color: rgba(var(--accent-rgb), 0.92);
+}
+
+.btnPrimary:active:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.82);
+  box-shadow: var(--inset-soft);
+}
+
+@keyframes overlayShow {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes contentShow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

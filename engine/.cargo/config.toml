@@ -1,0 +1,9 @@
+[alias]
+lint = "clippy --workspace --all-targets -- -D warnings"
+lint-fix = "clippy --workspace --all-targets --fix --allow-dirty --allow-staged"
+
+# getrandom 0.3 requires this cfg flag to select the wasm_js backend when
+# targeting wasm32-unknown-unknown (the feature flag alone is insufficient).
+# See https://docs.rs/getrandom/0.3/#webassembly-support
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

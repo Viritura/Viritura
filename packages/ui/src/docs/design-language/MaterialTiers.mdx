@@ -1,0 +1,360 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+import {
+  Tier0Sample,
+  Tier1Sample,
+  Tier2Sample,
+  Tier3Sample,
+  Tier4Sample,
+  GlassOnGlassComparison,
+  PaperOnGlassSample,
+  PaperCardSample,
+} from "./MaterialTierSamples";
+
+<Meta title="Design Language/Material Tiers" />
+
+# Material Tiers
+
+Every surface in Viritura belongs to one of **five tiers**. The tier
+decides its material (glass vs. opaque), its shadow, and whether it
+catches simulated overhead light.
+
+## The tier table
+
+| Tier            | Role                               | Material                                                                  | Shadow                     | Lit rim?                       | Examples                                              |
+| --------------- | ---------------------------------- | ------------------------------------------------------------------------- | -------------------------- | ------------------------------ | ----------------------------------------------------- |
+| **0** Workspace | The world                          | Solid radial gradient mesh                                                | —                          | —                              | Canvas backdrop                                       |
+| **1** Glass     | Ambient surfaces the user lives in | `rgba(surface, 0.55–0.82)` + `backdrop-filter: blur(40px) saturate(180%)` | `--elevation-1`            | Subtle (via internal gradient) | Side panels, palette, transport bar, inspector, mixer |
+| **2** Chrome    | Frames the app                     | Opaque `var(--surface)`                                                   | None or `--shadow-toolbar` | No                             | Menu bar, activity bar, status bar                    |
+| **3** Floating  | Transient, small footprint         | Translucent raised surfaces, no live blur                                 | `--elevation-2`            | Very subtle                    | Tooltips, popovers, context menus, dropdowns          |
+| **4** Modal     | Demands focus, blocks input        | **Opaque `var(--surface-raised)`**                                        | `--elevation-3`            | **Yes**                        | Dialogs, alerts, prompts                              |
+
+## Live samples
+
+Each swatch below sits on a miniature workspace mesh so glass surfaces
+have something real to refract. Switch the Storybook theme (light /
+dark) to see how the tier holds up in both.
+
+### Tier 0 — Workspace
+
+<Tier0Sample />
+
+### Tier 1 — Glass
+
+<Tier1Sample />
+
+### Tier 2 — Chrome
+
+<Tier2Sample />
+
+### Tier 3 — Floating
+
+<Tier3Sample />
+
+### Tier 4 — Modal
+
+<Tier4Sample />
+
+## Why these distinctions matter
+
+### Glass-on-glass is mush
+
+Stacking two `backdrop-filter` layers (a glass panel behind a glass
+dialog) double-blurs the workspace beneath. The result reads as a fuzzy
+grey blob; neither layer's edge is legible. This is why **dialogs are
+opaque** — they sit above a dim overlay that has _already_ obscured the
+workspace, so there's nothing useful to see through to.
+
+<GlassOnGlassComparison />
+
+### Edge-pinned chrome shouldn't be lit
+
+The lit rim (the bright `inset 0 1px 0` highlight on raised surfaces)
+simulates overhead light catching a defined top edge. But menu bars,
+activity bars, and status bars are **pinned to a window edge** — they
+don't _have_ a free top edge. Lighting them would invent a seam that
+isn't there. So chrome stays flat.
+
+### Modals should be lit
+
+Conversely, modals are **centered, floating, and fully detached** from
+any edge. They're the canonical "raised object on top of everything".
+The lit rim sells the floating quality and reinforces the "object on
+top, deal with me" semantic.
+
+### Floating surfaces should stay lightweight
+
+Tooltips and popovers retain translucent fills, borders, and elevation,
+but do not create their own backdrop-filter layers. They frequently appear
+over Tier-1 panels; keeping them compositor-light avoids nested blur while
+preserving the same visual hierarchy.
+
+## Implementation map
+
+```css
+/* Tier 1 — Glass panel */
+.glassPanel {
+  background: rgba(var(--surface-rgb), 0.65);
+  backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: var(--elevation-1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Tier 2 — Chrome */
+.chromeBar {
+  background: var(--surface);
+  /* No box-shadow, no backdrop-filter. Pinned to a window edge. */
+}
+
+/* Tier 3 — Floating */
+.popover {
+  background: rgba(var(--surface-raised-rgb), 0.92);
+  box-shadow: var(--elevation-2);
+}
+
+/* Tier 4 — Modal */
+.dialog {
+  background: var(--surface-raised); /* opaque */
+  box-shadow: var(--elevation-3); /* lit rim baked in */
+  /* No backdrop-filter */
+}
+.dialogOverlay {
+  background: rgba(20, 20, 28, 0.55);
+}
+body:has(.dialogOverlay) > #root {
+  filter: blur(8px) saturate(120%);
+}
+```
+
+## Decision guide
+
+> **Does the surface trap modal focus?** → Tier 4. Opaque + lit.
+>
+> **Is the surface edge-pinned to the window frame?** → Tier 2. Flat chrome.
+>
+> **Is the surface transient (appears on demand, disappears)?** → Tier 3. Small glass.
+>
+> **Does the user live in the surface continuously?** → Tier 1. Glass panel.
+>
+> **Is it the background?** → Tier 0. Workspace.
+
+---
+
+## Wrapping controls
+
+The tier system describes _hosts_; this section describes what to put
+_inside_ them. Form inputs, list rows, info pills, and other controls
+all have to make a call: do I sit naked on the host surface, or do I
+wrap myself in additional chrome? The answer depends entirely on the
+tier of the host.
+
+### The rule
+
+| Host tier                     | Input/control treatment                                                                 | Token recipe                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Tier 1** — Glass panel      | **Naked** rows on glass. The glass itself is already differentiated from the workspace. | No wrapper. Use `<SectionLabel>` between groups; `<PanelHeader>` at the top.       |
+| **Tier 3** — Floating popover | **Naked** for short controls. Use `--surface-input` for inset wells.                    | `background: var(--surface-input)` — translucent rgba white, refracts the host.    |
+| **Tier 4** — Opaque modal     | **Recessed input well** to differentiate input from the opaque dialog body.             | `background: var(--surface-sunken); box-shadow: var(--inset-soft);` — opaque well. |
+
+### Two anti-patterns
+
+**Glass-on-glass nesting.** Never add `backdrop-filter: blur` to controls
+or cards inside a Tier-1 `<Panel>`. The host already blurs the workspace;
+a second blur layer double-blurs the same pixels and adds another compositor
+surface. `<GlassCard>` deliberately keeps only its translucent fill, border,
+and shadow so it can group content without creating nested live glass.
+
+**Wrong-context input wells.** `--surface-input` (translucent) is for
+glass hosts; `--surface-sunken` (opaque) is for opaque hosts. Crossing
+them looks broken: an opaque sunken fill inside a glass popover punches
+a flat hole through the host's refraction, and a translucent input on
+an opaque dialog reads as transparent paint with nothing underneath.
+
+### Why two tokens instead of one
+
+A single "input surface" token can't service both contexts:
+
+- On glass: the input must remain _translucent_ so the workspace mesh
+  continues to refract through it. An opaque fill kills the glass
+  metaphor.
+- On a modal: the dialog body is already opaque, so a translucent
+  input recess shows the dialog's own background bleeding through —
+  there's no workspace underneath to refract. The recess has to be an
+  honest opaque colour.
+
+Same intent ("recessed control surface"), two materials, two tokens.
+
+### Where the canonical recipes live
+
+- **`<Select>` primitive** (`packages/ui/src/Select/`) — uses
+  `var(--surface-input)`, the canonical glass-context input.
+- **`<FormField>` primitive** (`packages/ui/src/FormField/`) — bundles
+  the input + label + helper-text structure.
+- **`PageSetupDialog.module.css` `.unitInput`** — canonical Tier-4
+  opaque input well (`--surface-sunken` + `--inset-soft`).
+- **`ScoreChooserDialog.module.css` `.list`** — canonical Tier-4
+  opaque list well, same recipe at a larger scale.
+
+When in doubt, copy from those.
+
+---
+
+## Paper — the object material
+
+Paper is **orthogonal to the tier system**. The five tiers describe
+_surfaces_; paper is the material applied to _discrete physical objects_
+that sit on top of those surfaces. Where glass signals "ambient
+workspace I'm inside of", paper signals **"a thing I can pick up"**:
+palette tiles, library cards, score pages.
+
+### Recipe
+
+The paper material lives in `tokens.css` as the `--paper-*` token set
+and is exposed via the `<Paper>` primitive in `packages/ui/src/Paper/`.
+
+```css
+.paperTile {
+  background: var(--paper-bg); /* fiber noise + cream */
+  background-blend-mode: var(--paper-bg-blend);
+  box-shadow: var(--paper-shadow); /* bounce cast + lit rim + warm edge */
+  border-radius: var(--radius-lg);
+}
+.paperTile:hover {
+  box-shadow: var(--paper-shadow-hover);
+}
+```
+
+The recipe has four parts, all baked into the tokens so callers only
+touch one variable:
+
+| Layer                    | Purpose                                                                                                                                                                | Implementation                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| **Cream base**           | The paper color (`#fbf8ef` light / `#2c2922` dark).                                                                                                                    | `background-color`                                   |
+| **Fiber noise**          | Sub-perceptual micro-grain. Each fiber acts as a tiny highlight, which is how matte materials show light when the base is too pale for a single highlight to register. | Inline SVG `<feTurbulence>` data URI in `--paper-bg` |
+| **Bounce-tinted shadow** | Cast shadow inherits the paper's color (warm browns), not neutral grey. PBR / radiosity: light bouncing off cream paper tints the shadow underneath.                   | `box-shadow` drop layers                             |
+| **Glass-system lit rim** | The same `inset 0 1px 0 rgba(255,255,255,0.9)` specular top edge as `--elevation-3`. Ties paper into the same overhead light as the rest of the UI.                    | `box-shadow` inset                                   |
+
+### Why these choices
+
+**The chiaroscuro problem.** When the base color is near-white, you've
+spent your luminance headroom — you can't put a highlight on top by
+going brighter than white. Painters and PBR shaders solve this by
+shifting _what_ signals the lighting instead of _how bright_ it is.
+Paper uses three non-luminance signals: micro-grain (texture as
+highlight), bounce-tinted shadow (hue as material cue), and the
+glass-system specular rim (the one place where luminance still works
+because it's a 1px edge, not a surface).
+
+**Why bounce tint and not a colored backdrop.** Bounce tint lives
+_under_ the tile in the cast shadow, so it can't be confused for a UI
+gradient baked into the surface color. We tried adding a warm/cool
+radial gradient to the face (the "temperature shift" technique used by
+painters at larger scales) but at palette-tile size the eye reads it as
+a vignette, not as light hitting paper.
+
+### Live samples
+
+A row of paper palette tiles on a tier-1 glass panel — exactly what the
+editor's left palette renders. The third tile is `pressed` (the
+selected-tool state).
+
+<PaperOnGlassSample />
+
+The same recipe at card scale (library / score-page application). Same
+tokens, larger surface.
+
+<PaperCardSample />
+
+### When to use paper vs. glass vs. chrome
+
+| Surface                                 | Material            | Why                                  |
+| --------------------------------------- | ------------------- | ------------------------------------ |
+| Palette tile, library card, score page  | **Paper**           | A discrete object you interact with. |
+| Side panel, transport, mixer, inspector | **Glass** (Tier 1)  | An ambient surface you live inside.  |
+| Menu bar, status bar                    | **Chrome** (Tier 2) | Edge-pinned frame; doesn't float.    |
+
+Paper-on-paper stacks fine (cast shadows differentiate layers, no
+double-blur problem like glass-on-glass). Paper-on-glass is the
+canonical pairing.
+
+---
+
+## Sphere — the volumetric material
+
+`<Sphere>` is the third object material alongside paper and glass. Where
+**paper** signals "a flat thing I can pick up" and **glass** signals
+"an ambient surface I live inside", **sphere** signals **"a volumetric
+object placed in space"**.
+
+It's used by the PlayView sound stage to render each instrument as a
+glossy 3D dot, and is reusable anywhere a volumetric token belongs —
+waypoint markers on a map, route nodes in a graph, future 3D layouts.
+
+### Recipe
+
+The sphere material lives in `packages/ui/src/Sphere/`.
+
+```tsx
+import { Sphere } from "@viritura/ui";
+
+<Sphere color="var(--accent)" size={48} lift={hovered ? 0.5 : 0} />;
+```
+
+The recipe has five layers, all driven by two CSS vars
+(`--sphere-color`, `--sphere-lift`) so callers only set props:
+
+| Layer                           | Purpose                                                                                                                                           | Implementation                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Base fill**                   | The sphere's colour.                                                                                                                              | `background: var(--sphere-color)`                                     |
+| **Warm bounce rim**             | Upper-left rim catches the (implied) overhead light; same warm cast as the rest of the system.                                                    | `box-shadow: -8px -8px 8px rgba(255,240,220,0.45)` on the sphere body |
+| **Inner curvature**             | Lower-right inset shadow fakes the unlit side of the volume.                                                                                      | `inset -2px 3px 8px rgba(0,0,0,0.4)`                                  |
+| **Specular blob + Fresnel rim** | Bright wet highlight at upper-left + a thin grazing-angle spec at lower-right. The two together sell the curvature without flattening the colour. | `::after` / `::before` pseudo-elements                                |
+| **Ground shadow**               | A _separate_ radial-gradient ellipse beneath the sphere — **not** a `box-shadow` on the body.                                                     | `.ground` div                                                         |
+
+### Why a separate ground shadow
+
+A naive sphere bakes the cast shadow into the body's `box-shadow`. The
+problem appears on hover: scaling all the shadow offsets and blurs at
+once makes it feel like the **light source itself walks across the
+stage**. Real overhead light doesn't do that; only the relationship
+between object and floor changes.
+
+So in this system:
+
+- The **sphere body** owns only the lighting that's _attached_ to the
+  surface — the warm bounce rim, the inner curvature, the specular
+  blob, the Fresnel rim. These never move.
+- The **ground shadow** is its own element. When `lift` rises, the
+  sphere translates up and scales 78% → 100%, while the ground shadow
+  _widens, softens, and slides toward the light's fall direction
+  (lower-right)_.
+
+The light source stays fixed; only the air-gap between sphere and
+floor changes. That reads physically and matches the same top-left
+overhead light as paper and glass.
+
+### Lift
+
+The `lift` prop (0..1) is the entire elevation animation:
+
+| State            | Recommended `lift` |
+| ---------------- | ------------------ |
+| Resting          | `0`                |
+| Hover            | `0.5`              |
+| Drag / picked-up | `1`                |
+
+Every animated property (sphere scale, sphere `translateY`, ground
+scale, ground translate, ground blur, ground opacity) shares a single
+160 ms `ease-out` transition so the lift always feels of-one-piece.
+
+### When to use sphere vs. paper vs. glass
+
+| Object                                                    | Material           | Why                                  |
+| --------------------------------------------------------- | ------------------ | ------------------------------------ |
+| Instrument on a stage, node in a graph, waypoint on a map | **Sphere**         | A volumetric object placed in space. |
+| Palette tile, library card, score page                    | **Paper**          | A flat physical thing you pick up.   |
+| Side panel, transport, inspector                          | **Glass** (Tier 1) | An ambient surface you live inside.  |
+
+Sphere doesn't stack with glass or paper — it's a self-contained 3D
+token, not a layer in the material stack. Spheres-on-glass is the
+canonical pairing (the PlayView sound stage is exactly that: spheres
+floating above a tinted-glass workspace).

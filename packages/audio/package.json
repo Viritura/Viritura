@@ -1,0 +1,22 @@
+{
+  "name": "@viritura/audio",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "stage-sounds": "tsx scripts/stageSounds.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.3",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "spessasynth_lib": "^4.3.1"
+  }
+}

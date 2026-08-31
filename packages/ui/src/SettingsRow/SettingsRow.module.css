@@ -1,0 +1,97 @@
+/* SettingsRow — label + description on the left, control on the right.
+   Rows are separated by hairlines rather than boxes so a settings panel
+   reads as one continuous list instead of a stack of cards. */
+
+.row {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row[data-disabled="true"] {
+  opacity: 0.55;
+}
+
+.inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.labelText {
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+  font-weight: var(--type-control-weight);
+  color: var(--text);
+}
+
+/* Only the label-as-<label> variant is clickable; the <span> fallback isn't,
+   so scope the affordance to the element that actually activates a control. */
+label.labelText {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.description {
+  font-size: var(--type-eyebrow-size);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* Inline rows: the control keeps its natural width and the label absorbs
+   the slack, so a long description wraps instead of crushing a Select. */
+.inline > .control {
+  flex-shrink: 0;
+}
+
+.inline > .label {
+  flex: 1;
+}
+
+.stacked > .control {
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* Below the split-dialog breakpoint an inline row's control would collide
+   with a wrapped description, so every row stacks. */
+@media (max-width: 560px) {
+  .inline {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .inline > .control {
+    justify-content: flex-start;
+  }
+}

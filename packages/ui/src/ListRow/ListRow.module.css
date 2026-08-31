@@ -1,0 +1,84 @@
+/* ListRow — clickable row with leading / body / trailing slots. */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.row:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
+}
+
+.row:active:not(:disabled) {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.16);
+}
+
+.row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row.selected {
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.12);
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.4);
+  color: var(--text);
+}
+
+.comfortable {
+  padding: var(--space-2);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+}
+
+.compact {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--type-eyebrow-size);
+  line-height: var(--type-small-lh);
+}
+
+.indent {
+  padding-left: var(--space-5);
+}
+
+.leading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trailing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}
+
+.row:hover:not(:disabled) .trailing,
+.row.selected .trailing {
+  color: rgb(var(--accent-rgb, 33, 94, 78));
+}

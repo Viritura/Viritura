@@ -1,0 +1,33 @@
+/* Toolbar – note input toolbar */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  flex-shrink: 0;
+  user-select: none;
+  transition: box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.toolbarActive {
+  composes: toolbar;
+  box-shadow:
+    var(--shadow-toolbar),
+    inset 0 -2px 0 var(--accent);
+}
+
+.separator {
+  width: 2px;
+  height: 22px;
+  border-radius: 1px;
+  background: var(--separator-v);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}

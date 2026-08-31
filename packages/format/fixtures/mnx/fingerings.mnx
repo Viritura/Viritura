@@ -1,0 +1,257 @@
+{
+  "mnx": {
+    "version": 1
+  },
+  "global": {
+    "measures": [
+      {
+        "time": {
+          "count": 4,
+          "unit": 4
+        }
+      },
+      {},
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 1
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 2
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 3
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 4
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 5
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "quarter"
+                  },
+                  "markings": {
+                    "staccato": {},
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 3
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "A"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 1
+                          },
+                          {
+                            "finger": 5
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    },
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "whole"
+                  },
+                  "markings": {
+                    "_x": {
+                      "viritura": {
+                        "fingerings": [
+                          {
+                            "finger": 0
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "notes": [
+                    {
+                      "pitch": {
+                        "octave": 4,
+                        "step": "C"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
