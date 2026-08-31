@@ -3,7 +3,7 @@
   "displayName": "Viritura MNX Viewer",
   "publisher": "Viritura",
   "description": "Preview .mnx files in VS Code",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.120.0"
   },
