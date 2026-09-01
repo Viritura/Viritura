@@ -1480,6 +1480,46 @@ fn test_transposing_instrument_note_position() {
 }
 
 #[test]
+fn test_key_flip_respell_transposed_notes_with_flats() {
+    let json = r#"{
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "key": { "fifths": 3 }, "time": { "count": 2, "unit": 4 } }] },
+        "parts": [{
+            "name": "Baritone Saxophone",
+            "transposition": {
+                "interval": { "halfSteps": 21, "staffDistance": 12 },
+                "keyFifthsFlipAt": 6
+            },
+            "measures": [{ "sequences": [{ "content": [
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "E", "octave": 3 } }] },
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "A", "octave": 2 } }] }
+            ] }] }]
+        }],
+        "scores": [{ "name": "Transposed", "useWritten": true }]
+    }"#;
+
+    let score = crate::parse::parse_mnx(json).unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+
+    assert_eq!(resolved[0].active_key.fifths, -6);
+    assert_eq!(
+        resolved[0].transposition,
+        Some((12, 21)),
+        "key spelling must not change the instrument transposition interval"
+    );
+    assert_eq!(resolved[0].written_diatonic_adjustment, 1);
+    assert_eq!(resolved[0].display_transposition(), Some((13, 21)));
+
+    let config = LayoutConfig::default();
+    let layout = layout_measure(&resolved[0], config.sp, 0.0, &config, None, &[], 1.0);
+    let events = &layout.voice_layouts[0].events;
+    assert_eq!(events.display_pitches(0)[0].step, "D");
+    assert_eq!(events.display_pitches(0)[0].alter, Some(-1));
+    assert_eq!(events.display_pitches(1)[0].step, "G");
+    assert_eq!(events.display_pitches(1)[0].alter, Some(-1));
+}
+
+#[test]
 fn test_courtesy_clef_at_system_end() {
     // Two systems forced by narrow page width. Measure 1 = G clef, measure 5 = F clef.
     // The F clef should appear as a courtesy (2/3 size) at the end of system 1.

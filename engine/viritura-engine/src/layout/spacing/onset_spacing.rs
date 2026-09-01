@@ -95,7 +95,7 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
         common_shortest_beats,
         config,
         &measure.active_key,
-        measure.transposition,
+        measure.display_transposition(),
         Some(&clef_changes),
         &arpeggio_set,
         &beamed_ids,
@@ -196,7 +196,7 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         measures.iter().map(|measure| &measure.active_key).collect();
     let transpositions: Vec<Option<(i32, i32)>> = measures
         .iter()
-        .map(|measure| measure.transposition)
+        .map(|measure| measure.display_transposition())
         .collect();
     let arpeggio_set = build_standard_arpeggio_set(&part_measures);
     let clef_change_lists: Vec<Vec<(f64, Clef)>> = measures

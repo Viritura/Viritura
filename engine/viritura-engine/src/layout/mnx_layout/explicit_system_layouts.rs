@@ -214,13 +214,11 @@ pub(super) fn build_explicit_system_layouts(
                 last_clef = Some(clef.clone());
             }
 
-            let display_key = if active_key.atonal == Some(true) {
-                active_key.clone()
-            } else if let Some((_, half_steps)) = transposition {
-                active_key.transpose(half_steps, key_fifths_flip_at)
-            } else {
-                active_key.clone()
-            };
+            let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
+                &active_key,
+                transposition,
+                key_fifths_flip_at,
+            );
             virtual_resolved.push(ResolvedMeasure {
                 index: measure_index,
                 global,
@@ -243,6 +241,7 @@ pub(super) fn build_explicit_system_layouts(
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
                 transposition,
+                written_diatonic_adjustment: diatonic_adjustment,
                 condensing_change: is_condensing_change,
                 kit: effective_staff
                     .sources

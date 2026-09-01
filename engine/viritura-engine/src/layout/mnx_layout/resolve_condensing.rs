@@ -508,13 +508,11 @@ pub(super) fn resolve_one_measure_phase1(
     }
 
     // Transpose key signature when transposition is active.
-    let display_key = if state.active_key.atonal == Some(true) {
-        state.active_key.clone()
-    } else if let Some((_, half_steps)) = transposition {
-        state.active_key.transpose(half_steps, key_fifths_flip_at)
-    } else {
-        state.active_key.clone()
-    };
+    let (display_key, diatonic_adjustment) = crate::layout::resolve::resolve_display_key(
+        &state.active_key,
+        transposition,
+        key_fifths_flip_at,
+    );
     let rm = ResolvedMeasure {
         index: mi,
         global,
@@ -534,6 +532,7 @@ pub(super) fn resolve_one_measure_phase1(
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
         transposition,
+        written_diatonic_adjustment: diatonic_adjustment,
         condensing_change: false, // set in Phase 2 (condensing staves only)
         kit: flat_staff
             .sources

@@ -23,6 +23,20 @@ use std::collections::{HashMap, HashSet};
 
 type AccidentalState = HashMap<(String, i32), i32>;
 
+pub(crate) fn resolve_display_key(
+    active_key: &KeySignature,
+    transposition: Option<(i32, i32)>,
+    key_fifths_flip_at: Option<i32>,
+) -> (KeySignature, i32) {
+    if active_key.atonal == Some(true) {
+        (active_key.clone(), 0)
+    } else if let Some((_, half_steps)) = transposition {
+        active_key.transpose_with_diatonic_adjustment(half_steps, key_fifths_flip_at)
+    } else {
+        (active_key.clone(), 0)
+    }
+}
+
 fn display_pitch_for_accidental(note: &Note, transposition: Option<(i32, i32)>) -> Pitch {
     if note.kit_component.is_some() {
         return note.pitch.clone();
@@ -322,13 +336,10 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
 
         // When useWritten is true, transpose the key signature for this part.
         // Atonal keys should never be transposed — they display no accidentals.
-        let display_key = if active_key.atonal == Some(true) {
-            active_key.clone()
-        } else if let Some((_, half_steps)) = transposition {
-            active_key.transpose(half_steps, key_fifths_flip_at)
-        } else {
-            active_key.clone()
-        };
+        let (display_key, diatonic_adjustment) =
+            resolve_display_key(&active_key, transposition, key_fifths_flip_at);
+        let display_transposition = transposition
+            .map(|(staff_distance, half_steps)| (staff_distance + diatonic_adjustment, half_steps));
 
         let incoming_ties = incoming_tie_targets(&part.measures, i);
         if display_key != prev_display_key {
@@ -337,7 +348,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         let current_accidental_state = apply_automatic_courtesy_accidentals(
             &mut part_measure,
             &display_key,
-            transposition,
+            display_transposition,
             &incoming_ties,
             &previous_accidental_state,
         );
@@ -355,6 +366,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             prev_key: prev_display_key.clone(),
             tie_continuation_ids: incoming_ties,
             transposition,
+            written_diatonic_adjustment: diatonic_adjustment,
             condensing_change: false,
             kit: part.kit.clone(),
         });
@@ -806,6 +818,7 @@ pub(crate) fn resolve_measures_for_staff(
                 active_key: rm.active_key,
                 prev_key: rm.prev_key,
                 transposition: None,
+                written_diatonic_adjustment: 0,
                 condensing_change: rm.condensing_change,
                 kit: rm.kit.clone(),
             }

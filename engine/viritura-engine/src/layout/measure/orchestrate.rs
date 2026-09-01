@@ -639,7 +639,7 @@ pub(super) fn layout_voice_for_measure(
                 .and_then(|o| o.force_stem_up())
                 .or(seq.forced_stem_up),
             seq_staff,
-            rm.transposition,
+            rm.display_transposition(),
             rm.kit.as_ref(),
         );
 

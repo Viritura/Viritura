@@ -124,7 +124,7 @@ pub(super) fn cross_staff_fix_note_positions(
         let (part_idx, _staff_num) = visual_staves[vi];
         for ml in measure_layouts.iter_mut() {
             let measure_index = ml.resolved.index;
-            let transposition = ml.resolved.transposition;
+            let transposition = ml.resolved.display_transposition();
             for vl in &mut ml.voice_layouts {
                 for i in 0..vl.events.len() {
                     let event = vl.events.event(i);
