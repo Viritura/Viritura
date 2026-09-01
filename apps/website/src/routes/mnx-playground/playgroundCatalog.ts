@@ -46,7 +46,8 @@ export function findPlaygroundCatalogItem(id: string): PlaygroundCatalogItem {
 
 export async function loadPlaygroundCatalogItem(item: PlaygroundCatalogItem, signal?: AbortSignal): Promise<string> {
   if (item.source !== undefined) return item.source;
-  const response = await fetch(item.assetUrl!, { signal });
+  if (item.assetUrl === undefined) throw new Error(`No source is configured for ${item.title}`);
+  const response = await fetch(item.assetUrl, { signal });
   if (!response.ok) throw new Error(`Unable to load ${item.title} (${response.status})`);
   return response.text();
 }

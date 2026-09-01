@@ -234,9 +234,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     let systems = &plan.systems;
     let margin_left_first = plan.margin_left_first;
     let margin_top = plan.margin_top;
-    // One extra staff space covers glyph extents that rise just beyond the
-    // standard 5sp galley headroom (for example an 8va glyph).
-    let galley_offset_y = margin_top + sp;
+    let galley_offset_y = margin_top;
     let base_margin_r = plan.base_margin_r;
     let inter_system_gap = plan.inter_system_gap;
 

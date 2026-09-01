@@ -406,7 +406,7 @@ pub fn layout_score_cached(
     } else {
         let max_sys_h = system_heights_px.iter().copied().fold(0.0f64, f64::max);
         (0..system_count)
-            .map(|i| margin_top + sp + i as f64 * (max_sys_h + inter_system_gap))
+            .map(|i| margin_top + i as f64 * (max_sys_h + inter_system_gap))
             .collect()
     };
 

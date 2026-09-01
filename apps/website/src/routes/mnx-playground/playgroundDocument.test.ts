@@ -12,6 +12,7 @@ describe("MNX playground documents", () => {
     expect(new Set(publishedExamples.map((example) => example.filename)).size).toBe(52);
     expect(playgroundCatalog).toHaveLength(53);
     expect(playgroundCatalogGroups.flatMap((group) => group.items)).toHaveLength(53);
+    expect(playgroundCatalog.slice(1).every((example) => example.assetUrl?.startsWith("/mnx-samples/"))).toBe(true);
   });
 
   it("maps example ids to stable hashes and defaults invalid values", () => {
