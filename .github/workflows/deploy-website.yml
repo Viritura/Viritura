@@ -1,0 +1,87 @@
+name: Deploy website
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-website-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@wasm-pack
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:wasm
+      - run: pnpm --filter @viritura/website test
+      - name: Build website
+        run: pnpm --filter @viritura/website build
+        env:
+          VITE_VIRITURA_API_BASE_URL: https://api.viritura.com
+      - name: Build public MNX examples
+        run: pnpm turbo run build-storybook:mnx --filter=@viritura/editor
+        env:
+          VIRITURA_SITE: "true"
+      - name: Assemble public MNX examples
+        shell: bash
+        run: |
+          mkdir -p apps/website/dist/mnx/examples
+          cp -a apps/editor/storybook-mnx-static/. apps/website/dist/mnx/examples/
+          cp apps/website/dist/mnx/examples/iframe.html apps/website/dist/mnx/iframe.html
+          cp apps/website/dist/mnx/examples/index.json apps/website/dist/mnx/index.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website-${{ github.sha }}
+          path: apps/website/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://viritura.com
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: website-${{ github.sha }}
+          path: dist
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Upload and deploy website
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          tar -czf website.tar.gz -C dist .
+          ssh "$SSH_USER@$SSH_HOST" 'mkdir -p upload-static'
+          scp website.tar.gz "$SSH_USER@$SSH_HOST:upload-static/website.tar.gz.next"
+          ssh "$SSH_USER@$SSH_HOST" 'mv upload-static/website.tar.gz.next upload-static/website.tar.gz && sudo /usr/local/sbin/viritura-static-manage website'
+      - name: Verify website
+        run: curl --fail --retry 5 --retry-delay 2 https://viritura.com/

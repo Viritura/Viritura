@@ -170,19 +170,13 @@ formatting exclusions. Builds and test suites run in pull-request CI.
 `git push --no-verify` remains an explicit emergency bypass; it should not be
 part of the normal workflow.
 
-## Deployment commands
+## Production deployments
 
-These commands drive the **active nginx/manual SSH production pipeline**:
-
-| Command                 | Behavior                                               |
-| ----------------------- | ------------------------------------------------------ |
-| `pnpm site:deploy`      | Cached WASM build, cached site build, then SSH upload  |
-| `pnpm site:deploy:fast` | Reuse current WASM, run cached site build, then upload |
-| `pnpm site:upload`      | Upload the existing root `dist` without building       |
-
-Use `site:upload` only after the exact `dist` contents have already passed the
-required validation. The deploy script uploads a compressed archive over SSH
-and atomically swaps the remote static directory.
+Production deployments run through the manual **Deploy website**, **Deploy
+editor**, and **Deploy API** workflows in GitHub Actions. Each static workflow
+builds and validates one surface without deployment credentials, then passes
+the resulting artifact to an environment-protected deployment job. There is no
+local production upload command.
 
 See [production-deployment.md](production-deployment.md) for the complete
 topology, API deployment, configuration, verification, and rollback runbook.

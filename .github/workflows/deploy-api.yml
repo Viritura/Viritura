@@ -1,0 +1,70 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-api-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:dotnet
+      - run: pnpm test:dotnet
+      - name: Package API source
+        run: git archive --format=tar.gz --output=viritura-api-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-source-${{ github.sha }}
+          path: viritura-api-source.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://api.viritura.com
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-source-${{ github.sha }}
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Upload and deploy API
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          scp viritura-api-source.tar.gz "$SSH_USER@$SSH_HOST:viritura-api-source.tar.gz"
+          ssh "$SSH_USER@$SSH_HOST" 'rm -rf upload.next && mkdir upload.next && tar -xzf viritura-api-source.tar.gz -C upload.next && rm viritura-api-source.tar.gz && rm -rf upload && mv upload.next upload && sudo /usr/local/sbin/viritura-api-manage deploy'
+      - name: Verify API
+        run: curl --fail --retry 10 --retry-delay 3 https://api.viritura.com/health

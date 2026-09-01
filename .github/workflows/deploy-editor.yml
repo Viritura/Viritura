@@ -1,0 +1,77 @@
+name: Deploy editor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-editor-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: taiki-e/install-action@wasm-pack
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:wasm
+      - run: pnpm --filter @viritura/editor test
+      - name: Build editor
+        run: pnpm --filter @viritura/editor build
+        env:
+          VITE_VIRITURA_API_BASE_URL: https://api.viritura.com
+          VITE_VIRITURA_WEBSITE_URL: https://viritura.com
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editor-${{ github.sha }}
+          path: apps/editor/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.viritura.com
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: editor-${{ github.sha }}
+          path: dist
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Upload and deploy editor
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          tar -czf editor.tar.gz -C dist .
+          ssh "$SSH_USER@$SSH_HOST" 'mkdir -p upload-static'
+          scp editor.tar.gz "$SSH_USER@$SSH_HOST:upload-static/editor.tar.gz.next"
+          ssh "$SSH_USER@$SSH_HOST" 'mv upload-static/editor.tar.gz.next upload-static/editor.tar.gz && sudo /usr/local/sbin/viritura-static-manage editor'
+      - name: Verify editor
+        run: curl --fail --retry 5 --retry-delay 2 https://app.viritura.com/
