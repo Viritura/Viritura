@@ -33,6 +33,7 @@ import {
 } from "./siteSections";
 import { editorUrl, type SiteLinks } from "./siteLinks";
 import { readSensitiveLinkParam } from "./routes/auth/sensitiveLink";
+import { ConverterGuide } from "./routes/mnx-converter/ConverterGuide";
 import { ClientMetadata } from "./seo";
 
 const links: SiteLinks = {
@@ -113,16 +114,12 @@ const rootRoute = createRootRoute({
     );
   },
   component: function RootLayout() {
-    // SiteNav anchors only resolve on the home route.
-    // When we're on a sub-route, prefix them with "/" so clicking jumps home first.
     const pathname = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") || "/" });
-    const isHome = pathname === "/";
     const isPlayground = pathname === "/mnx/playground";
-    const homeAnchorPrefix = isHome ? "" : "/";
     return (
       <div className={`site-shell${isPlayground ? " site-shell--workspace" : ""}`}>
         <ClientMetadata />
-        <SiteNav links={links} homeAnchorPrefix={homeAnchorPrefix} />
+        <SiteNav links={links} />
         <Outlet />
         <SiteFooter links={links} />
         <Scripts />
@@ -155,7 +152,7 @@ const converterRoute = createRoute({
   path: "/mnx/mxl-converter",
   component: function ConverterRoute() {
     return (
-      <main id="top" className="route-main">
+      <main id="top" className="route-main converter-route">
         <ClientOnly
           fallback={
             <StaticToolIntro
@@ -169,6 +166,7 @@ const converterRoute = createRoute({
             <MusicXmlConverterPage />
           </Suspense>
         </ClientOnly>
+        <ConverterGuide />
       </main>
     );
   },
@@ -181,7 +179,7 @@ const mnxRoute = createRoute({
     return (
       <main id="top" className="route-main">
         <Suspense fallback={<div className="route-loading">Loading MNX hub...</div>}>
-          <MnxHubPage />
+          <MnxHubPage appUrl={links.app} />
         </Suspense>
       </main>
     );
@@ -199,7 +197,7 @@ const mnxPlaygroundRoute = createRoute({
             <StaticToolIntro
               eyebrow="MNX Playground"
               title="Edit MNX and inspect the engraving"
-              description="Explore an MNX document and its engraved output in Viritura's browser-based playground."
+              description="Edit the MNX documentation examples and inspect their engraved output in Viritura's browser-based playground."
             />
           }
         >

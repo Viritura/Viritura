@@ -1,22 +1,18 @@
-import { useEffect } from "react";
-import { ActionTile, Button, Text } from "@viritura/ui";
+import { useEffect, useState } from "react";
+import { Text } from "@viritura/ui";
 import { ScoreViewer } from "@viritura/score-viewer-react";
 import { mnxHeroSample } from "./mnxHeroSample";
+import { MnxGuide } from "./MnxGuide";
 import "./mnxHub.css";
 
 const marketplaceUrl = "https://marketplace.visualstudio.com/items?itemName=Viritura.mnx-viewer";
 const mnxDocsUrl = "https://w3c-cg.github.io/mnx/docs/";
 const githubUrl = "https://github.com/Viritura/Viritura";
+const mnxHeroSource = JSON.stringify(mnxHeroSample, null, 2);
 
-function mnxExamplesUrl(): string {
-  const { host, protocol } = window.location;
-  if (import.meta.env.DEV && host.startsWith("web.") && host.endsWith(".localhost")) {
-    return `${protocol}//${host.replace(/^web\./, "mnx.")}`;
-  }
-  return "/mnx/examples/";
-}
+export function MnxHubPage({ appUrl }: { readonly appUrl: string }) {
+  const [hasPaintedSample, setHasPaintedSample] = useState(false);
 
-export function MnxHubPage() {
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has("path")) return;
     window.location.replace(`/mnx/examples/${window.location.search}`);
@@ -37,19 +33,22 @@ export function MnxHubPage() {
             to understand, test, and adopt.
           </Text>
           <div className="mnx-hub__intro-actions">
-            <Button variant="primary" onClick={() => window.location.assign("/mnx/playground")}>
-              Open the MNX Playground
-            </Button>
-            <Button variant="default" onClick={() => window.location.assign(mnxExamplesUrl())}>
-              Browse examples
-            </Button>
+            <a className="btn btn-primary" href="/mnx/playground">
+              Open the Playground
+            </a>
+            <a className="btn btn-secondary" href="/mnx/examples">
+              Browse the full library
+            </a>
           </div>
           <p className="mnx-hub__proof">W3C community format · JSON source · Open-source engraving engine</p>
         </div>
         <div className="mnx-hub__intro-visual">
           <div className="mnx-hub__preview-bar">
-            <span>Interactive MNX sample</span>
-            <span>Zoom · Fit · Inspect</span>
+            <span className="mnx-hub__render-status" aria-live="polite">
+              <span className="mnx-hub__render-status-dot" data-active={hasPaintedSample} aria-hidden="true" />
+              {hasPaintedSample ? "Live engine output" : "Engraving in browser"}
+            </span>
+            <span className="mnx-hub__render-pipeline">MNX → Rust/WASM → Canvas</span>
           </div>
           <ScoreViewer
             mnx={mnxHeroSample}
@@ -67,7 +66,17 @@ export function MnxHubPage() {
             pageBackground="transparent"
             loadingFallback={<div className="mnx-hub__score-message">Engraving MNX...</div>}
             errorFallback={() => <div className="mnx-hub__score-message">Unable to render the sample.</div>}
+            onPaint={() => setHasPaintedSample(true)}
           />
+          <details className="mnx-hub__source">
+            <summary>
+              <span className="mnx-hub__source-show">Show code</span>
+              <span className="mnx-hub__source-hide">Hide code</span>
+            </summary>
+            <pre>
+              <code>{mnxHeroSource}</code>
+            </pre>
+          </details>
         </div>
       </header>
 
@@ -80,32 +89,40 @@ export function MnxHubPage() {
             From first look to working document.
           </Text>
           <Text as="p" variant="body" tone="muted">
-            Use a curated example, edit MNX directly, or convert an existing score. Each path ends with notation you can
-            inspect, render, and keep.
+            Edit the MNX documentation examples in the Playground, browse the broader example library, or convert an
+            existing score. Each path ends with notation you can inspect, render, and keep.
           </Text>
         </div>
         <div className="mnx-hub__project-grid">
-          <ActionTile
-            className="mnx-hub__project"
-            title="Learn from examples"
-            hint="Browse focused documents for standard MNX, documented Viritura extensions, and engraving behavior."
-            onClick={() => window.location.assign(mnxExamplesUrl())}
-          />
-          <ActionTile
-            className="mnx-hub__project"
-            variant="recommended"
-            title="Edit and render live"
-            hint="Change a document and inspect output from Viritura's Rust and WebAssembly engraving engine."
-            onClick={() => window.location.assign("/mnx/playground")}
-          />
-          <ActionTile
-            className="mnx-hub__project"
-            title="Bring a MusicXML score"
-            hint="Convert MusicXML or compressed MXL to MNX locally, review the result, and download the open document."
-            onClick={() => window.location.assign("/mnx/mxl-converter")}
-          />
+          <a className="mnx-hub__project" href="/mnx/examples">
+            <span className="mnx-hub__project-kicker">Browse</span>
+            <span className="mnx-hub__project-title">Example library</span>
+            <span className="mnx-hub__project-hint">
+              Explore the larger Storybook catalog of standard MNX, Viritura extensions, and engraving behavior.
+            </span>
+            <span className="mnx-hub__project-action">Open the library →</span>
+          </a>
+          <a className="mnx-hub__project mnx-hub__project--primary" href="/mnx/playground">
+            <span className="mnx-hub__project-kicker">Edit live</span>
+            <span className="mnx-hub__project-title">MNX Playground</span>
+            <span className="mnx-hub__project-hint">
+              Choose the featured sample or one of 52 MNX documentation examples, then change the source and inspect the
+              live engraving.
+            </span>
+            <span className="mnx-hub__project-action">Open the Playground →</span>
+          </a>
+          <a className="mnx-hub__project" href="/mnx/mxl-converter">
+            <span className="mnx-hub__project-kicker">Convert</span>
+            <span className="mnx-hub__project-title">MusicXML to MNX</span>
+            <span className="mnx-hub__project-hint">
+              Convert MusicXML or compressed MXL locally, review the result, and download the open document.
+            </span>
+            <span className="mnx-hub__project-action">Open the converter →</span>
+          </a>
         </div>
       </section>
+
+      <MnxGuide />
 
       <section className="mnx-hub__relationship" aria-labelledby="mnx-relationship-title">
         <div>
@@ -123,12 +140,12 @@ export function MnxHubPage() {
           </Text>
         </div>
         <div className="mnx-hub__links">
-          <Button variant="default" onClick={() => window.location.assign(mnxDocsUrl)}>
+          <a className="btn btn-secondary" href={mnxDocsUrl}>
             W3C MNX documentation
-          </Button>
-          <Button variant="default" onClick={() => window.location.assign(githubUrl)}>
+          </a>
+          <a className="btn btn-secondary" href={githubUrl}>
             Viritura on GitHub
-          </Button>
+          </a>
         </div>
       </section>
 
@@ -145,9 +162,25 @@ export function MnxHubPage() {
             fonts, so local previews continue to work offline.
           </Text>
         </div>
-        <Button variant="primary" onClick={() => window.location.assign(marketplaceUrl)}>
+        <a className="btn btn-primary" href={marketplaceUrl}>
           View in the Marketplace
-        </Button>
+        </a>
+      </section>
+
+      <section className="mnx-hub__editor-cta" aria-labelledby="mnx-editor-title">
+        <Text as="p" variant="eyebrow" tone="muted">
+          Work with MNX in Viritura
+        </Text>
+        <Text as="h2" id="mnx-editor-title" variant="title">
+          Open the full notation editor.
+        </Text>
+        <Text as="p" variant="body" tone="muted">
+          Create a score, open an example, or import MusicXML. Viritura keeps MNX at the center of the complete writing
+          workspace.
+        </Text>
+        <a className="btn btn-primary" href={appUrl}>
+          Open the Viritura editor
+        </a>
       </section>
     </div>
   );
