@@ -1,17 +1,24 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
-import { TooltipPrimitives } from "@viritura/ui";
-import { App } from "./App";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { RouterClient } from "@tanstack/react-router/ssr/client";
+import { AppProviders } from "./App";
+import { createWebsiteRouter } from "./router";
 import "@viritura/ui/tokens.css";
 import "./index.css";
 import "./marketing.css";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+const router = createWebsiteRouter();
+const rootElement = document.getElementById("root")!;
+const app = (
   <React.StrictMode>
-    {/* Hoisted Tooltip provider mirrors AppShell so every primitive that uses
-        `withTooltip` works without per-instance providers. */}
-    <TooltipPrimitives.Provider delayDuration={400} skipDelayDuration={100}>
-      <App />
-    </TooltipPrimitives.Provider>
-  </React.StrictMode>,
+    <AppProviders>
+      <RouterClient router={router} />
+    </AppProviders>
+  </React.StrictMode>
 );
+
+if (rootElement.hasChildNodes()) hydrateRoot(rootElement, app);
+else {
+  await router.load();
+  createRoot(rootElement).render(app);
+}

@@ -17,3 +17,12 @@
 
 /*.html
   Cache-Control: no-cache, must-revalidate
+
+/signup
+  X-Robots-Tag: noindex, nofollow
+
+/signup/*
+  X-Robots-Tag: noindex, nofollow
+
+/auth/*
+  X-Robots-Tag: noindex, nofollow

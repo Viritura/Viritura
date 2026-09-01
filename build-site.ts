@@ -8,7 +8,8 @@
  *     index.html            ← landing page
  *     assets/               ← landing page assets
  *     app/                  ← editor (Vite build)
- *     mnx/                  ← MNX hub + playground SPA fallbacks
+ *     docs/                 ← prerendered documentation pages
+ *     mnx/                  ← prerendered MNX hub + playground
  *       examples/           ← MNX-only storybook (public)
  *     mnx-converter/        ← SPA route fallback for the website bundle
  */
@@ -59,11 +60,6 @@ mkdirSync(dist, { recursive: true });
 console.log("\n── 1–2/3 Website + Editor App ──");
 run("pnpm turbo run build --filter=@viritura/website --filter=@viritura/editor");
 copyDir(resolve(root, "apps/website/dist"), dist);
-mkdirSync(resolve(dist, "mnx-converter"), { recursive: true });
-copyFileSync(resolve(dist, "index.html"), resolve(dist, "mnx-converter", "index.html"));
-mkdirSync(resolve(dist, "mnx/playground"), { recursive: true });
-copyFileSync(resolve(dist, "index.html"), resolve(dist, "mnx/index.html"));
-copyFileSync(resolve(dist, "index.html"), resolve(dist, "mnx/playground/index.html"));
 
 // Editor app is built with `VIRITURA_SITE=true` from this process environment.
 copyDir(resolve(root, "apps/editor/dist"), resolve(dist, "app"));

@@ -5,6 +5,7 @@ export interface SiteLinks {
 }
 
 function getDevelopmentEditorUrl() {
+  if (typeof window === "undefined") return "http://localhost:5173";
   if (window.location.hostname.startsWith("web.")) {
     return `${window.location.protocol}//editor.${window.location.hostname.slice(4)}`;
   }

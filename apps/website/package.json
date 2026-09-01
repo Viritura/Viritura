@@ -8,7 +8,7 @@
     "predev": "pnpm run copy-assets",
     "prebuild": "pnpm run copy-assets",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build --manifest && vite build --ssr src/entry-static.tsx --outDir dist-static && tsx scripts/prerender.ts",
     "preview": "vite preview",
     "test": "vitest run"
   },
