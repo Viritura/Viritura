@@ -875,6 +875,10 @@ main {
   overflow: hidden;
 }
 
+.site-shell--workspace > .nav {
+  height: 4.5rem;
+}
+
 .site-shell--workspace > .mnx-playground-route {
   flex: 1 1 auto;
   min-height: 0;

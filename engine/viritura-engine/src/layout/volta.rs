@@ -319,7 +319,7 @@ pub(crate) fn render_ottavas(
             let end_x = end_x_origin + (end_beat / end_total_beats) * end_content_width;
 
             // Collision avoidance: scan note positions in spanned measures
-            let ottava_y = compute_ottava_y(
+            let mut ottava_y = compute_ottava_y(
                 measure_layouts,
                 start_mi,
                 end_mi,
@@ -334,6 +334,9 @@ pub(crate) fn render_ottavas(
                 default_below_y,
                 glyph_ascent,
             );
+            if above {
+                ottava_y = ottava_y.max(glyph_ascent);
+            }
 
             // Element ID for hit-testing / selection
             let eid = element_id::ottava(ml.part_index, ml.resolved.index, oi);

@@ -55,9 +55,11 @@ export interface ScoreViewerProps {
   readonly scoreStyle?: CSSProperties;
   readonly pageClassName?: string;
   readonly pageStyle?: CSSProperties;
+  readonly pageBackground?: string;
   readonly loadingFallback?: ReactNode;
   readonly errorFallback?: (err: Error) => ReactNode;
   readonly onReady?: (info: { engine: Engine; displayList: DisplayList }) => void;
+  readonly onPaint?: (info: { engine: Engine; displayList: DisplayList }) => void;
   readonly onError?: (err: EngineLoadError | ParseError | LayoutError) => void;
   readonly children?: ReactNode;
 }
@@ -124,9 +126,11 @@ export function ScoreViewer({
   scoreStyle,
   pageClassName,
   pageStyle,
+  pageBackground,
   loadingFallback,
   errorFallback,
   onReady,
+  onPaint,
   onError,
   children,
 }: ScoreViewerProps) {
@@ -293,11 +297,13 @@ export function ScoreViewer({
           spreadFirstPage={spreadFirstPage}
           pageClassName={pageClassName}
           pageStyle={pageStyle}
+          pageBackground={pageBackground}
           className={scoreClassName}
           style={scoreBaseStyle}
           loadingFallback={loadingFallback}
           errorFallback={errorFallback}
           onReady={handleReady}
+          onPaint={onPaint}
           onError={onError}
         >
           {children}

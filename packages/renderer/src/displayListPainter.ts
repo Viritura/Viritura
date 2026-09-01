@@ -83,11 +83,13 @@ export function paintDisplayList(
   ctx: CanvasRenderingContext2D,
   displayList: DisplayList,
   glyphAtlas?: GlyphAtlas,
+  background: string | null = "#FFFFFF",
 ): void {
-  // Clear and fill white background
   ctx.clearRect(0, 0, displayList.width, displayList.height);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, displayList.width, displayList.height);
+  if (background !== null) {
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, displayList.width, displayList.height);
+  }
 
   // Execute each render command
   for (const cmd of displayList.commands) {

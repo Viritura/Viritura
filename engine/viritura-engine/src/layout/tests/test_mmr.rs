@@ -679,6 +679,81 @@ fn test_multimeasure_rests_part_b_renders() {
 }
 
 #[test]
+fn test_multimeasure_rest_part_views_render_complete_horizon_staves() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/multimeasure-rests.mnx");
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: None,
+        sp: 8.0,
+        horizon_chunk_width: Some(3000.0),
+        ..LayoutConfig::default()
+    };
+
+    for (score_index, name) in [(1, "Part A"), (2, "Part B")] {
+        let dl = layout_with_mnx_scores(&score, &config, score_index);
+        let long_staff_lines = dl
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(command, RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                    if (y1 - y2).abs() < 0.01 && (x2 - x1).abs() > 50.0)
+            })
+            .count();
+        let lowest_staff_line = dl
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                    if (y1 - y2).abs() < 0.01 && (x2 - x1).abs() > 50.0 =>
+                {
+                    Some(*y1)
+                }
+                _ => None,
+            })
+            .fold(0.0_f64, f64::max);
+        let noteheads = dl
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(command, RenderCommand::DrawGlyph { codepoint, .. }
+                    if *codepoint == smufl::NOTEHEAD_BLACK
+                        || *codepoint == smufl::NOTEHEAD_HALF
+                        || *codepoint == smufl::NOTEHEAD_WHOLE)
+            })
+            .count();
+
+        assert!(
+            long_staff_lines >= 5,
+            "{name} Horizon view should retain complete staff lines, got {long_staff_lines}"
+        );
+        assert!(
+            noteheads >= 3,
+            "{name} Horizon view should retain surrounding music, got {noteheads} noteheads"
+        );
+        assert!(
+            lowest_staff_line <= dl.height,
+            "{name} Horizon staff at y={lowest_staff_line} exceeds display height {}",
+            dl.height
+        );
+        let min_bbox_y = dl
+            .element_bboxes
+            .iter()
+            .map(|element| element.bbox.y)
+            .fold(f64::INFINITY, f64::min);
+        let max_bbox_y = dl
+            .element_bboxes
+            .iter()
+            .map(|element| element.bbox.y + element.bbox.height)
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            min_bbox_y >= 0.0 && max_bbox_y <= dl.height,
+            "{name} Horizon element bounds {min_bbox_y}..{max_bbox_y} exceed display height {}",
+            dl.height
+        );
+    }
+}
+
+#[test]
 fn test_multimeasure_rests_full_score_still_works() {
     // scores[0] = "Full score" with explicit pages/systems should still work
     let json = include_str!("../../../../../packages/format/fixtures/mnx/multimeasure-rests.mnx");

@@ -4,6 +4,7 @@ import { RouterClient } from "@tanstack/react-router/ssr/client";
 import { AppProviders } from "./App";
 import { createWebsiteRouter } from "./router";
 import "@viritura/ui/tokens.css";
+import "@viritura/ui/reset.css";
 import "./index.css";
 import "./marketing.css";
 

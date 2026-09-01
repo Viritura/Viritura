@@ -111,11 +111,9 @@ describe("syncJsonToYDoc — structural sync", () => {
   });
 
   it("produces a much smaller delta than a full reprojection for a small edit", () => {
-    // Pick a non-trivial score so the size difference is meaningful.
-    const big = [...mnxFiles]
-      .map((f) => ({ f, size: readFileSync(resolve(scoresDir, f)).length }))
-      .sort((a, b) => b.size - a.size)[0]!;
-    const original = loadScore(big.f);
+    // Use a stable non-trivial score so corpus growth cannot turn this
+    // correctness check into an unbounded stress test.
+    const original = loadScore("orchestral-layout.mnx");
 
     // Baseline: full reproject delta — wipe + rebuild the whole tree.
     const projectDoc = new Y.Doc();

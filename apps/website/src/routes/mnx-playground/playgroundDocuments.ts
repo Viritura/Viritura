@@ -35,17 +35,24 @@ function documentSource(parts: readonly Record<string, unknown>[], measures = 1)
 const trebleClef = [{ clef: { sign: "G", staffPosition: -2 } }];
 
 const samplerPitches: readonly NoteSpec[] = [
-  { step: "C", octave: 5 },
   { step: "D", octave: 5 },
   { step: "E", octave: 5 },
-  { step: "F", octave: 5, alter: 1 },
+  { step: "F", octave: 5 },
   { step: "G", octave: 5 },
   { step: "E", octave: 5 },
-  { step: "D", octave: 5 },
   { step: "C", octave: 5 },
+  { step: "D", octave: 5 },
 ];
 
-const samplerEvents = samplerPitches.map((pitch, index) => note("eighth", pitch, { id: `sampler-${index + 1}` }));
+const samplerEvents = samplerPitches.map((pitch, index) =>
+  index === samplerPitches.length - 1
+    ? {
+        id: "sampler-7",
+        duration: { base: "eighth" },
+        notes: [{ id: "sampler-7-note", pitch, ties: [{ target: "sampler-8-note" }] }],
+      }
+    : note(index === 4 ? "quarter" : "eighth", pitch, { id: `sampler-${index + 1}` }),
+);
 
 const sampler = documentSource(
   [
@@ -56,20 +63,19 @@ const sampler = documentSource(
           clefs: trebleClef,
           beams: [
             { events: ["sampler-1", "sampler-2", "sampler-3", "sampler-4"] },
-            { events: ["sampler-5", "sampler-6", "sampler-7", "sampler-8"] },
+            { events: ["sampler-6", "sampler-7"] },
           ],
-          dynamics: [{ id: "sampler-dynamic-p", position: { fraction: [0, 1] }, type: "immediate", value: "p" }],
           sequences: [{ content: samplerEvents }],
         },
         {
-          dynamics: [{ id: "sampler-dynamic-f", position: { fraction: [0, 1] }, type: "immediate", value: "f" }],
           sequences: [
             {
               content: [
-                note("quarter", { step: "C", octave: 5 }),
-                note("quarter", { step: "E", octave: 5 }),
-                note("quarter", { step: "G", octave: 5 }),
-                note("quarter", { step: "C", octave: 6 }),
+                {
+                  id: "sampler-8",
+                  duration: { base: "whole" },
+                  notes: [{ id: "sampler-8-note", pitch: { step: "D", octave: 5 } }],
+                },
               ],
             },
           ],
@@ -179,8 +185,8 @@ const caesura = documentSource([
 export const playgroundDocuments: readonly PlaygroundDocument[] = [
   {
     id: "sampler",
-    title: "Engraving sampler",
-    description: "Two measures with beams, accidentals, dynamics, and melodic spacing.",
+    title: "The Lick",
+    description: "The familiar seven-note phrase, tied across the barline in MNX.",
     source: sampler,
   },
   {

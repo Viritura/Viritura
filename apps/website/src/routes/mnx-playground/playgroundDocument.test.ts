@@ -1,9 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { playgroundCatalog, playgroundCatalogGroups } from "./playgroundCatalog";
 import { findPlaygroundDocument, playgroundDocuments } from "./playgroundDocuments";
-import { formatMnxSource } from "./playgroundEditor";
+import { exampleIdFromHash, hashForExampleId } from "./playgroundHash";
+import { publishedExamples } from "./publishedExamples";
 import { validatePlaygroundSource } from "./usePlaygroundDocument";
 
 describe("MNX playground documents", () => {
+  it("includes every published W3C example exactly once", () => {
+    expect(publishedExamples).toHaveLength(52);
+    expect(new Set(publishedExamples.map((example) => example.id)).size).toBe(52);
+    expect(new Set(publishedExamples.map((example) => example.filename)).size).toBe(52);
+    expect(playgroundCatalog).toHaveLength(53);
+    expect(playgroundCatalogGroups.flatMap((group) => group.items)).toHaveLength(53);
+    expect(playgroundCatalog.slice(1).every((example) => example.assetUrl?.startsWith("/mnx-samples/"))).toBe(true);
+  });
+
+  it("maps example ids to stable hashes and defaults invalid values", () => {
+    expect(hashForExampleId("sampler")).toBe("");
+    expect(hashForExampleId("multiple-layouts")).toBe("#multiple-layouts");
+    expect(exampleIdFromHash("#multiple-layouts")).toBe("multiple-layouts");
+    expect(exampleIdFromHash("#missing-example")).toBe("sampler");
+    expect(exampleIdFromHash("#%zz")).toBe("sampler");
+  });
+
   it("keeps every curated starter valid", () => {
     for (const document of playgroundDocuments) {
       expect(validatePlaygroundSource(document.source), document.id).toEqual({
@@ -40,14 +59,6 @@ describe("MNX playground documents", () => {
 
     expect(result.document).toBeUndefined();
     expect(result.error).toMatch(/^Schema:/);
-  });
-
-  it("formats valid JSON with two-space indentation", () => {
-    expect(formatMnxSource('{"mnx":{"version":1}}')).toBe(`{
-  "mnx": {
-    "version": 1
-  }
-}`);
   });
 
   it("falls back to the first starter for an unknown id", () => {

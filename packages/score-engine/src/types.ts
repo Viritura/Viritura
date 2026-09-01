@@ -62,6 +62,8 @@ export interface LayoutOptions {
 export interface PaintOptions {
   /** Zero-based page index to paint (default 0). */
   page?: number;
+  /** Canvas background fill. Pass null to leave the cleared canvas transparent. */
+  background?: string | null;
   /** Display zoom (default 1.0). The caller is responsible for canvas hi-DPI scaling. */
   zoom?: number;
   /** Horizontal scroll offset in score coordinates (default 0). */

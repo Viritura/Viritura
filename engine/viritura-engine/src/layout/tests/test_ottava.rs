@@ -2,9 +2,38 @@
 // 4 test(s)
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_score, layout_with_mnx_scores};
 use crate::render::*;
 use std::collections::HashSet;
+
+#[test]
+fn test_ottava_chunked_horizon_bounds_are_not_clipped() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/ottavas-8va.mnx");
+    let score = crate::parse::parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        sp: 8.0,
+        page_width: None,
+        horizon_chunk_width: Some(3000.0),
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let min_bbox_y = dl
+        .element_bboxes
+        .iter()
+        .map(|element| element.bbox.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_bbox_y = dl
+        .element_bboxes
+        .iter()
+        .map(|element| element.bbox.y + element.bbox.height)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    assert!(
+        min_bbox_y >= 0.0 && max_bbox_y <= dl.height,
+        "ottava Horizon element bounds {min_bbox_y}..{max_bbox_y} exceed display height {}",
+        dl.height
+    );
+}
 
 #[test]
 fn test_ottava_8va_render() {
