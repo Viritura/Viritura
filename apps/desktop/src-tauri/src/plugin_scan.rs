@@ -161,10 +161,8 @@ fn default_plugin_folders() -> Vec<String> {
 /// The folder holding the app's bundled Lua example scripts (`articulations`).
 ///
 /// These examples live alongside the sample scores in the editor's public
-/// assets, which Vite copies into `apps/editor/dist` on build. In a dev
-/// build we resolve that `dist/articulations` folder directly (the same place
-/// the sample scores are served from); in a packaged build the examples are
-/// bundled to `<resource_dir>/articulations`.
+/// assets. In a dev build we resolve that source folder directly; in a
+/// packaged build Tauri bundles it to `<resource_dir>/articulations`.
 fn bundled_examples_dir(app: &AppHandle) -> Option<PathBuf> {
     if cfg!(debug_assertions) {
         // `CARGO_MANIFEST_DIR` is `<repo>/apps/desktop/src-tauri`; its 4th
@@ -175,7 +173,7 @@ fn bundled_examples_dir(app: &AppHandle) -> Option<PathBuf> {
                 repo_root
                     .join("apps")
                     .join("editor")
-                    .join("dist")
+                    .join("public")
                     .join("articulations"),
             );
         }
