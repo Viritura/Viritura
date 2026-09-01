@@ -89,7 +89,6 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
             autoComplete="new-password"
             minLength={PASSWORD_MIN_LENGTH}
             pattern={PASSWORD_PATTERN}
-            // eslint-disable-next-line no-restricted-syntax -- HTML pattern mismatch message
             title={PASSWORD_TITLE}
             required
             value={newPassword}
