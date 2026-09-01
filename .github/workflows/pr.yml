@@ -138,6 +138,11 @@ jobs:
         shell: bash
         run: |
           pnpm turbo run build test --affected --filter='!@viritura/desktop' --dry=json > turbo-plan.json
+          if jq -e '.tasks | any(.package == "@viritura/editor")' turbo-plan.json >/dev/null; then
+            echo "needs_editor=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_editor=false" >> "$GITHUB_OUTPUT"
+          fi
           if jq -e '.tasks | any(.package == "@viritura/editor" or .package == "@viritura/website" or .package == "mnx-viewer")' turbo-plan.json >/dev/null; then
             echo "needs_wasm=true" >> "$GITHUB_OUTPUT"
           else
@@ -157,6 +162,10 @@ jobs:
       - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
         name: Build WASM
         run: pnpm wasm:build
+
+      - if: steps.plan.outputs.needs_editor == 'true'
+        name: Validate editor story schemas before asset staging
+        run: pnpm --filter @viritura/editor exec vitest run src/__tests__/storiesMnxValidity.test.tsx
 
       - name: Build and test affected workspaces
         run: pnpm turbo run build test --affected --filter='!@viritura/desktop'
