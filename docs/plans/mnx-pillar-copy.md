@@ -176,21 +176,38 @@ score, review conversion details and download the MNX document.
 
 ### H1
 
-Convert MusicXML to MNX in your browser.
+MusicXML to MNX
 
 ### Opening copy
 
-MusicXML is how scores move between most notation applications. MNX is the
-working format used by Viritura. This converter joins the two: open a
-`.musicxml`, `.xml` or compressed `.mxl` file, inspect the resulting score, and
-download the MNX document.
+Convert MusicXML and compressed MXL files to MNX in your browser. Your files
+stay on your device.
 
-Conversion runs in the browser. Your score does not need to be uploaded to a
-server.
+This matches the concise header in PR #13. Do not put the longer comparison
+above the drop zone. The file picker and conversion settings should remain the
+first task on the page.
+
+### Placement of the following copy
+
+Place the explanatory sections below the converter workbench, coverage panel
+and result area. The top of the page is a tool. The lower part of the page can
+answer questions about the two formats without delaying someone who arrived to
+convert a file.
 
 ---
 
-## What changes when MusicXML becomes MNX?
+## Why convert MusicXML to MNX?
+
+MusicXML is how scores move between most notation applications. MNX is the
+working format used by Viritura. The converter joins the two: bring in a
+`.musicxml`, `.xml` or compressed `.mxl` file, inspect the resulting score, and
+download an MNX document.
+
+This is a conversion between two music models, not a change from angle brackets
+to braces. The converter reads the musical structure in the MusicXML file,
+maps supported notation into MNX, and reports source details that need review.
+
+## How MusicXML and MNX differ
 
 The notation on screen may look familiar, but the two formats organize it
 differently.
@@ -200,9 +217,6 @@ notation programs. Its structure uses an ordered stream of notes and directions.
 MNX uses JSON and makes several musical relationships explicit: voices are
 sequences, notes sounding together belong to one event, and objects such as
 ties and slurs can point to their destinations.
-
-The converter does not perform a text substitution from XML to JSON. It reads
-the MusicXML score, builds a musical model, then writes that model as MNX.
 
 ### Chords
 
@@ -228,25 +242,85 @@ application can reconstruct the exported appearance. MNX can define layouts and
 score definitions separately from source parts, allowing the same music to be
 arranged in more than one form.
 
-None of these structural differences guarantees a perfect conversion. A source
-application may use notation or layout behavior that the destination does not
-understand. The converter reports known omissions and substitutions so they can
-be reviewed alongside the score.
+### Format tradeoffs
+
+MusicXML has broad support and remains the safer choice for exchanging scores
+between existing notation applications. It can also carry detailed print and
+positioning data. That flexibility comes with complexity: the same musical
+relationship may be reconstructed from several elements in an ordered stream.
+
+MNX has a more direct shape for many relationships and is intended to be usable
+as a working document, not only an export. It is also a draft with a much
+smaller software ecosystem. Converting a MusicXML file to MNX is useful when
+the destination works in MNX. It is not a general upgrade that makes MusicXML
+obsolete.
 
 ---
 
-## What the converter preserves
+## What carries into MNX
 
-Draft lead-in; the final list should be generated from or checked against the
-converter's actual coverage data rather than maintained as freehand copy.
+The converter handles the basic structure needed to keep working on a score:
+parts and staves, notes and rests, chords, multiple voices, tuplets, ties,
+slurs, lyrics, clefs, key and time signatures, tempo, repeats and common
+articulations. It also maps supported transposing instruments and multi-staff
+parts.
 
-> The converter carries supported pitches, rhythms, voices, parts, notation
-> and score-wide musical information into MNX. After conversion, use the
-> preview and diagnostics to check the result. Advanced engraving, playback
-> settings and application-specific data may need attention.
+Some source details do not have a standard MNX equivalent. With **Viritura
+extensions** enabled, the converter can retain supported details such as
+ornaments, rehearsal marks, text expressions, pedal markings, fingerings,
+glissando and slide lines, common chord symbols, coda markers and score
+metadata in `_x.viritura` data.
 
-Do not publish a hand-written feature matrix here. Link the visible coverage
-summary to implementation-backed diagnostics.
+The page already has an **Extensions and import limitations** panel backed by
+`conversionCoverage.ts`. Keep the detailed list there. It distinguishes:
+
+- details preserved with Viritura extensions;
+- details that MNX or Viritura can represent but the importer does not fully
+  map yet;
+- source details that are not preserved.
+
+This prose should explain how to read the panel, not repeat every row. The panel
+must remain the maintained statement of feature coverage.
+
+---
+
+## Choose the output you want
+
+### Viritura extensions
+
+Leave Viritura extensions on when the destination is Viritura and retaining
+supported source-specific notation matters. Turn them off to produce strict
+MNX output. When an extension-backed detail cannot be written, the converter
+reports it in the diagnostics.
+
+### Stem directions
+
+MusicXML may include explicit stem directions. Keep them to follow the source,
+or ask Viritura to recompute stems from the music. Stemless and double-stemmed
+MusicXML events are not represented by standard MNX and need review.
+
+### Tempo text
+
+MusicXML can carry both written tempo text and a numeric metronome value. The
+converter can keep the numeric value for playback without engraving the
+metronome mark when written text should lead the printed result.
+
+---
+
+## Review before you continue
+
+The preview answers one question: does the converted score look right? The
+other result tabs answer different questions.
+
+- **Validation** checks the output against the MNX JSON Schema.
+- **Diagnostics** lists details that were omitted or approximated for the
+  selected file.
+- **MNX Output** shows the generated document itself.
+
+A valid MNX document can still differ from the source. Validation checks the
+shape of the output; it does not prove that every MusicXML detail survived.
+Use the preview and diagnostics together before treating the conversion as
+finished.
 
 ---
 
@@ -270,8 +344,9 @@ copy.
 Not necessarily. MusicXML can preserve much of a score, but notation programs
 do not all interpret its layout data in the same way. Pitches, rhythms and basic
 score structure often transfer more reliably than individually positioned
-items. Review the preview and conversion diagnostics before treating the result
-as finished.
+items. The converter also reports unsupported MusicXML details and mappings
+that use Viritura extensions. Review the preview and diagnostics before treating
+the result as finished.
 
 ### Is MusicXML or MNX better for archiving a score?
 
@@ -312,3 +387,4 @@ same time.
 - [Comparing MNX and MusicXML](https://mnx.formats.music/docs/comparisons/musicxml/)
 - [MusicXML overview](https://www.musicxml.com/)
 - [Finale to Dorico migration guide](https://www.finalemusic.com/blog/from-finale-to-dorico-a-migration-guide/)
+- [`mnx-converter-coverage.md`](../spec/mnx-converter-coverage.md)
