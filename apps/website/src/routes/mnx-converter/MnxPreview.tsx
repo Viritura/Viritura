@@ -37,7 +37,7 @@ function mnxPreviewBannerStyle(hasError: boolean): CSSProperties {
     borderRadius: 8,
     background: "rgba(24, 24, 36, 0.88)",
     color: hasError ? "#f38ba8" : "#f9e2af",
-    fontSize: "var(--hm-type-micro-size)",
+    fontSize: "var(--site-type-micro-size)",
     fontFamily: "system-ui, sans-serif",
     boxShadow: "0 10px 24px rgba(0, 0, 0, 0.24)",
   };

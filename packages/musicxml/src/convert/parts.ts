@@ -16,7 +16,7 @@ import type {
 } from "../types";
 import { IdGenerator } from "./idGenerator";
 import { type ConvertFlags, type OttavaEvent, processMeasureNotes } from "./measureNotes";
-import { type SlurState } from "./notes";
+import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 
 // Parse `<transpose>` from a part's first measure.
@@ -145,6 +145,7 @@ export function buildParts(
   const mnxParts: MnxPart[] = [];
   const lyricLineIds = new Set<string>();
   const openSlurs = new Map<string, SlurState>();
+  const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
   const tieIds = new Map<string, MnxTie>();
 
@@ -178,6 +179,7 @@ export function buildParts(
 
     let divisions = 4;
     openSlurs.clear();
+    openGlissandos.clear();
     tieIds.clear();
 
     const partMeasureEls = findChildren(partEl, "measure");
@@ -235,6 +237,7 @@ export function buildParts(
         divisions,
         ids,
         openSlurs,
+        openGlissandos,
         tieIds,
         measureId,
         mi,
@@ -254,6 +257,14 @@ export function buildParts(
 
       if (result.beamGroups.length > 0) {
         mnxMeasure.beams = result.beamGroups;
+      }
+
+      if (result.nonArpeggios.length > 0) {
+        mnxMeasure.nonArpeggios = result.nonArpeggios;
+      }
+
+      if (result.chordSymbols.length > 0) {
+        mnxMeasure._x = { viritura: { chordSymbols: result.chordSymbols } };
       }
 
       // Pair octave-shift boundaries into spans. Unlike hairpins/pedals (vendor
@@ -415,7 +426,8 @@ export function buildParts(
         const vendorData: Record<string, unknown> = {};
         if (exprs) vendorData["expressions"] = exprs;
         if (pedals) vendorData["pedals"] = pedals;
-        (mnxPart.measures[mi] as unknown as Record<string, unknown>)["_x"] = { viritura: vendorData };
+        const measure = mnxPart.measures[mi]!;
+        measure._x = { viritura: { ...measure._x?.viritura, ...vendorData } };
       }
     }
 

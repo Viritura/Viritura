@@ -4,7 +4,7 @@
  *
  * We use a root layout route that mounts <SiteNav> and <SiteFooter> once, with
  * child routes rendering into <Outlet />. The home route keeps the marketing
- * sections; /mnx-converter lazy-loads as before; /signup, /signup/check-email,
+ * sections; /mnx/mxl-converter lazy-loads the converter; /signup, /signup/check-email,
  * and /auth/verify host the email sign-up + verification flow.
  */
 
@@ -152,7 +152,7 @@ const homeRoute = createRoute({
 
 const converterRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/mnx-converter",
+  path: "/mnx/mxl-converter",
   component: function ConverterRoute() {
     return (
       <main id="top" className="route-main">

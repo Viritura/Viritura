@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ActionTile, Button, Text } from "@viritura/ui";
+import { Text } from "@viritura/ui";
 import "./mnxHub.css";
 
 const marketplaceUrl = "https://marketplace.visualstudio.com/items?itemName=Viritura.mnx-viewer";
@@ -7,6 +7,7 @@ const mnxDocsUrl = "https://www.w3.org/community/music-notation/wiki/MNX";
 const githubUrl = "https://github.com/Viritura/Viritura";
 
 function mnxExamplesUrl(): string {
+  if (typeof window === "undefined") return "/mnx/examples/";
   const { host, protocol } = window.location;
   if (import.meta.env.DEV && host.startsWith("web.") && host.endsWith(".localhost")) {
     return `${protocol}//${host.replace(/^web\./, "mnx.")}`;
@@ -42,16 +43,18 @@ export function MnxHubPage() {
           Explore MNX in the browser
         </Text>
         <div className="mnx-hub__project-grid">
-          <ActionTile
-            title="MNX Examples"
-            hint="Browse standard MNX, Viritura extensions, and public engraving-behavior examples."
-            onClick={() => window.location.assign(mnxExamplesUrl())}
-          />
-          <ActionTile
-            title="MNX Playground"
-            hint="Edit a document and inspect live output from Viritura's Rust and WebAssembly engraving engine."
-            onClick={() => window.location.assign("/mnx/playground")}
-          />
+          <a className="mnx-hub__project" href={mnxExamplesUrl()}>
+            <h3>MNX Examples</h3>
+            <p>Browse standard MNX, Viritura extensions, and public engraving-behavior examples.</p>
+          </a>
+          <a className="mnx-hub__project" href="/mnx/playground">
+            <h3>MNX Playground</h3>
+            <p>Edit a document and inspect live output from Viritura&rsquo;s Rust and WebAssembly engraving engine.</p>
+          </a>
+          <a className="mnx-hub__project" href="/mnx/mxl-converter">
+            <h3>MusicXML converter</h3>
+            <p>Convert MusicXML and compressed MXL files to MNX without uploading the source score.</p>
+          </a>
         </div>
       </section>
 
@@ -67,12 +70,12 @@ export function MnxHubPage() {
           </Text>
         </div>
         <div className="mnx-hub__links">
-          <Button variant="default" onClick={() => window.location.assign(mnxDocsUrl)}>
+          <a className="btn btn-secondary" href={mnxDocsUrl}>
             W3C MNX documentation
-          </Button>
-          <Button variant="default" onClick={() => window.location.assign(githubUrl)}>
+          </a>
+          <a className="btn btn-secondary" href={githubUrl}>
             Viritura on GitHub
-          </Button>
+          </a>
         </div>
       </section>
 
@@ -86,9 +89,9 @@ export function MnxHubPage() {
             music fonts.
           </Text>
         </div>
-        <Button variant="primary" onClick={() => window.location.assign(marketplaceUrl)}>
+        <a className="btn btn-primary" href={marketplaceUrl}>
           View in the Marketplace
-        </Button>
+        </a>
       </section>
     </div>
   );

@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { UnsupportedFeaturesPanel } from "./UnsupportedFeaturesPanel";
 import {
-  ConverterNotice,
   DownloadBar,
   DropZone,
   ErrorDisplay,
@@ -42,10 +41,7 @@ export function MusicXmlConverterPage() {
     clearAll,
     downloadSingle,
     downloadAll,
-    openInViritura,
     reconvertAll,
-    notice,
-    dismissNotice,
   } = useConverterFiles();
 
   const handleDrop = useCallback(
@@ -71,35 +67,37 @@ export function MusicXmlConverterPage() {
   return (
     <div className="converter-route">
       <div className="app-container">
-        <PageHeader onChooseFiles={chooseFiles} />
+        <PageHeader />
 
-        <DropZone
-          dragOver={dragOver}
-          onClick={chooseFiles}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="file-input"
-          accept=".musicxml,.xml,.mxl"
-          multiple
-          onChange={(e) => e.target.files && handleFiles(e.target.files)}
-        />
+        <div className="converter-workbench">
+          <DropZone
+            dragOver={dragOver}
+            onClick={chooseFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="file-input"
+            accept=".musicxml,.xml,.mxl"
+            multiple
+            onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          />
 
-        <OptionsBar
-          includeVendorExt={includeVendorExt}
-          onToggleVendorExt={setIncludeVendorExt}
-          discardStems={discardStems}
-          onToggleDiscardStems={setDiscardStems}
-          hideMetronome={hideMetronome}
-          onToggleHideMetronome={setHideMetronome}
-          staleCount={staleFiles.length}
-          converting={converting}
-          onReconvertStale={() => reconvertAll(true)}
-        />
+          <OptionsBar
+            includeVendorExt={includeVendorExt}
+            onToggleVendorExt={setIncludeVendorExt}
+            discardStems={discardStems}
+            onToggleDiscardStems={setDiscardStems}
+            hideMetronome={hideMetronome}
+            onToggleHideMetronome={setHideMetronome}
+            staleCount={staleFiles.length}
+            converting={converting}
+            onReconvertStale={() => reconvertAll(true)}
+          />
+        </div>
 
         <UnsupportedFeaturesPanel />
 
@@ -131,8 +129,6 @@ export function MusicXmlConverterPage() {
 
         {selected && selected.status === "error" && <ErrorDisplay selected={selected} />}
 
-        {notice && <ConverterNotice message={notice} onDismiss={dismissNotice} />}
-
         {successCount > 0 && (
           <DownloadBar
             successCount={successCount}
@@ -140,7 +136,6 @@ export function MusicXmlConverterPage() {
             includeVendorExt={includeVendorExt}
             discardStems={discardStems}
             hideMetronome={hideMetronome}
-            onOpenInViritura={openInViritura}
             onDownloadSingle={downloadSingle}
             onDownloadAll={downloadAll}
           />

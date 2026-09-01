@@ -3,17 +3,17 @@ import type { MnxDocument } from "@viritura/musicxml";
 import Ajv2020 from "ajv/dist/2020.js";
 
 const VALIDATION_LOADING_STYLE: CSSProperties = {
-  color: "var(--hm-text-muted)",
-  background: "var(--hm-surface-2)",
-  border: "1px solid var(--hm-border)",
+  color: "var(--site-text-muted)",
+  background: "var(--site-paper-raised)",
+  border: "1px solid var(--site-keyline)",
 };
 const SCHEMA_ERROR_TEXT_STYLE: CSSProperties = {
-  fontSize: "var(--hm-type-eyebrow-size)",
-  color: "var(--hm-text-muted)",
+  fontSize: "var(--site-type-eyebrow-size)",
+  color: "var(--site-text-muted)",
   marginTop: "0.5rem",
 };
-const SCHEMA_LINK_STYLE: CSSProperties = { color: "var(--hm-accent)" };
-const MORE_ERRORS_STYLE: CSSProperties = { textAlign: "center", color: "var(--hm-text-muted)" };
+const SCHEMA_LINK_STYLE: CSSProperties = { color: "var(--site-green)" };
+const MORE_ERRORS_STYLE: CSSProperties = { textAlign: "center", color: "var(--site-text-muted)" };
 const REPORT_FOOTER_STYLE: CSSProperties = { marginTop: "1rem", textAlign: "center" };
 const INLINE_FLEX_STYLE: CSSProperties = { display: "inline-flex" };
 

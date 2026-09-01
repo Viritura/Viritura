@@ -731,9 +731,6 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.170.8
         version: 1.170.8(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@viritura/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@viritura/format':
         specifier: workspace:*
         version: link:../../packages/format

@@ -2,6 +2,7 @@ import { TYPE_MAP, CLEF_POSITIONS, DURATION_FROM_FRACTION } from "../constants";
 import { Fraction } from "../fraction";
 import { childText, findChild, findChildren } from "../xmlHelpers";
 import type { MnxClef, MnxDuration, MnxPitch, MnxPositionedClef, MnxRhythmicPosition } from "../types";
+import { normalizeMusicXmlColor } from "./colors";
 
 /**
  * MusicXML `<transpose>` interval: written + interval = sounding.
@@ -104,6 +105,8 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
   }
 
   const result: MnxPositionedClef = { clef };
+  const color = normalizeMusicXmlColor(c.getAttribute("color"));
+  if (color) result.clef.color = color;
   if (clefStaff) result.staff = parseInt(clefStaff, 10);
   if (position) result.position = position;
   return result;

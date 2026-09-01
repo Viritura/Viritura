@@ -1,4 +1,5 @@
 import { DiagnosticCollector, ptr } from "@viritura/core";
+import { isSupportedHarmony } from "./chordSymbols";
 
 /**
  * Scan the MusicXML root for constructs that this converter drops or
@@ -29,10 +30,9 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
   };
 
   // Always lossy regardless of vendor-extension toggle.
-  note("harmony", "warning", "Chord symbols dropped (no MNX representation)", "musicxml-harmony");
   note("figured-bass", "warning", "Figured bass dropped", "musicxml-figured-bass");
   note("bend", "warning", "Guitar bend dropped", "musicxml-bend");
-  note("coda", "info", "Coda mapped to MNX segno (closest spec equivalent)", "musicxml-coda");
+  note("shake", "warning", "Shake ornament dropped; no importer mapping is implemented", "musicxml-shake");
 
   // Stem variants we can't represent.
   let stemNone = 0;
@@ -62,8 +62,10 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
 
   // Conditionally lossy — only without the vendor-extension toggle.
   if (!vendorExt) {
-    note("glissando", "info", "Glissandos dropped — enable vendor extensions to preserve", "musicxml-glissando");
-    note("slide", "info", "Slides dropped — enable vendor extensions to preserve", "musicxml-slide");
+    note("harmony", "info", "Chord symbols dropped — enable Viritura extensions to preserve", "musicxml-harmony");
+    note("glissando", "info", "Glissando dropped — enable Viritura extensions to preserve", "musicxml-glissando");
+    note("slide", "info", "Slide dropped — enable Viritura extensions to preserve", "musicxml-slide");
+    note("coda", "info", "Coda dropped — enable Viritura extensions to preserve", "musicxml-coda");
     note("trill-mark", "info", "Trill marks dropped — enable vendor extensions to preserve", "musicxml-trill");
     note("mordent", "info", "Mordents dropped — enable vendor extensions to preserve", "musicxml-mordent");
     note(
@@ -75,13 +77,25 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
     note("turn", "info", "Turns dropped — enable vendor extensions to preserve", "musicxml-turn");
     note("inverted-turn", "info", "Inverted turns dropped — enable vendor extensions to preserve", "musicxml-turn");
     note("delayed-turn", "info", "Delayed turns dropped — enable vendor extensions to preserve", "musicxml-turn");
-    note("shake", "info", "Shake ornaments dropped — enable vendor extensions to preserve", "musicxml-shake");
     note("caesura", "info", "Caesuras dropped — enable vendor extensions to preserve", "musicxml-caesura");
     note("arpeggiate", "info", "Arpeggios dropped — enable vendor extensions to preserve", "musicxml-arpeggio");
-    note("non-arpeggiate", "info", "Non-arpeggios dropped — enable vendor extensions to preserve", "musicxml-arpeggio");
     note("rehearsal", "info", "Rehearsal marks dropped — enable vendor extensions to preserve", "musicxml-rehearsal");
     note("words", "info", "Text expressions dropped — enable vendor extensions to preserve", "musicxml-words");
     note("pedal", "info", "Pedal markings dropped — enable vendor extensions to preserve", "musicxml-pedal");
     note("fingering", "info", "Fingerings dropped — enable vendor extensions to preserve", "musicxml-fingering");
+  } else {
+    const harmonies = root.getElementsByTagName("harmony");
+    let unsupportedHarmonyCount = 0;
+    for (let i = 0; i < harmonies.length; i++) {
+      if (harmonies[i] && !isSupportedHarmony(harmonies[i]!)) unsupportedHarmonyCount++;
+    }
+    if (unsupportedHarmonyCount > 0) {
+      dx.emit({
+        pointer: ptr("harmony"),
+        message: `Unsupported MusicXML chord kind dropped (${unsupportedHarmonyCount} occurrences)`,
+        severity: "warning",
+        code: "musicxml-harmony-kind",
+      });
+    }
   }
 }

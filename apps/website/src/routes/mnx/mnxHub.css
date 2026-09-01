@@ -1,11 +1,10 @@
 .mnx-hub {
-  --mnx-hub-measure: 1180px;
-  background: var(--bg);
-  color: var(--text);
+  color: var(--site-text);
+  background: transparent;
 }
 
 .mnx-hub > * {
-  width: min(var(--mnx-hub-measure), calc(100% - 48px));
+  width: min(var(--site-content-wide), calc(100% - 48px));
   margin-inline: auto;
 }
 
@@ -20,6 +19,30 @@
 
 .mnx-hub__intro-copy h1 {
   margin-block: 8px 20px;
+  color: var(--site-ink);
+  font-family: var(--site-font-display);
+  font-size: clamp(3.75rem, 6vw, 5rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 0.96;
+}
+
+.mnx-hub h2,
+.mnx-hub h3 {
+  color: var(--site-ink);
+  font-family: var(--site-font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.mnx-hub h2 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.mnx-hub__intro-copy > p:last-child,
+.mnx-hub section p {
+  color: var(--site-text-muted);
+  line-height: 1.65;
 }
 
 .mnx-hub__projects,
@@ -35,13 +58,40 @@
   margin-top: 24px;
 }
 
+.mnx-hub__project {
+  min-height: 150px;
+  padding: var(--site-space-5);
+  border: 1px solid var(--site-keyline);
+  border-radius: var(--site-radius-panel);
+  background: var(--site-paper-raised);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-standard);
+}
+
+.mnx-hub__project:hover {
+  transform: translateY(-2px);
+  border-color: var(--site-keyline-active);
+  box-shadow: var(--site-shadow-surface);
+}
+
+.mnx-hub__project h3 {
+  margin-bottom: var(--site-space-2);
+  font-size: 1.45rem;
+}
+
+.mnx-hub__project p {
+  max-width: 46ch;
+}
+
 .mnx-hub__relationship,
 .mnx-hub__vscode {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 48px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--site-keyline);
 }
 
 .mnx-hub__relationship > div:first-child,
@@ -62,7 +112,7 @@
 
 @media (max-width: 760px) {
   .mnx-hub > * {
-    width: min(100% - 32px, var(--mnx-hub-measure));
+    width: min(100% - 32px, var(--site-content-wide));
   }
 
   .mnx-hub__intro {
