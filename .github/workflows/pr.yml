@@ -84,6 +84,13 @@ jobs:
               apps/server-ui/*|packages/ui/*)
                 dotnet=true
                 ;;
+              packages/format/fixtures/mnx/*|packages/format/schemas/*|packages/core/src/placementDefaults.json|packages/core/src/textStyleDefaults.json|assets/fonts/*)
+                engine=true
+                engine_consumers=true
+                ;;
+              packages/audio/assets/sounds/*)
+                desktop=true
+                ;;
               scripts/build-wasm.ts|scripts/test-rust.ts|scripts/check-rust-source-size.ts|scripts/sync-mnx-schema.ts)
                 engine=true
                 engine_consumers=true
