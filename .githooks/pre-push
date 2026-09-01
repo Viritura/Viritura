@@ -4,14 +4,7 @@
 #   1. Run the complete repository lint gate. Pre-commit checks only staged
 #      files; this catches whole-tree dead exports, generated-code drift, and
 #      files created or changed outside the staged-file categories.
-#   2. Gate the .NET server on the warnings-as-errors *build* (the analyzer +
-#      compile gate that's too heavy/slow for every commit). Built in the
-#      Release configuration on purpose: a running `dotnet watch` dev server
-#      holds locks on bin/Debug, so building Release writes to bin/Release and
-#      never fights it. Formatting/style lint already ran in pre-commit.
-#      Skipped when the .NET SDK isn't on PATH so a frontend-only contributor
-#      can still push.
-#   3. Run the Git LFS pre-push passthrough.
+#   2. Run the Git LFS pre-push passthrough.
 #
 # Bypass in a pinch with:  git push --no-verify
 
@@ -25,15 +18,6 @@ pnpm lint </dev/null || {
   exit 1
 }
 
-# 2. .NET warnings-as-errors build (Release; coexists with a Debug dev server).
-if command -v dotnet >/dev/null 2>&1 && command -v pnpm >/dev/null 2>&1; then
-  # </dev/null so the tools never consume the ref list git feeds on stdin.
-  pnpm build:dotnet:check </dev/null || {
-    printf >&2 "\n%s\n\n" "pre-push: 'pnpm build:dotnet:check' failed (warnings-as-errors build). Fix the warnings, or bypass with 'git push --no-verify'."
-    exit 1
-  }
-fi
-
-# 3. Git LFS passthrough.
+# 2. Git LFS passthrough.
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs pre-push "$@"

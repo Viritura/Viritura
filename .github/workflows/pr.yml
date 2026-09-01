@@ -1,0 +1,302 @@
+name: PR
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    outputs:
+      pnpm: ${{ steps.classify.outputs.pnpm }}
+      root_tests: ${{ steps.classify.outputs.root_tests }}
+      engine: ${{ steps.classify.outputs.engine }}
+      engine_consumers: ${{ steps.classify.outputs.engine_consumers }}
+      dotnet: ${{ steps.classify.outputs.dotnet }}
+      desktop: ${{ steps.classify.outputs.desktop }}
+      vst_probe: ${{ steps.classify.outputs.vst_probe }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - id: classify
+        name: Select validation surfaces
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          pnpm=false
+          root_tests=false
+          engine=false
+          engine_consumers=false
+          dotnet=false
+          desktop=false
+          vst_probe=false
+
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json|eslint.config.js|knip.ts)
+                pnpm=true
+                root_tests=true
+                engine=true
+                engine_consumers=true
+                dotnet=true
+                desktop=true
+                vst_probe=true
+                ;;
+              apps/editor/*|apps/website/*|apps/server-ui/*|apps/vscode-mnx-viewer/*|packages/*|examples/*|assets/*|build-site.ts)
+                pnpm=true
+                ;;
+              scripts/*)
+                pnpm=true
+                root_tests=true
+                ;;
+              engine/*)
+                engine=true
+                engine_consumers=true
+                pnpm=true
+                ;;
+              server/*)
+                dotnet=true
+                ;;
+              apps/desktop/src-tauri/*)
+                desktop=true
+                ;;
+              apps/desktop/*)
+                pnpm=true
+                desktop=true
+                ;;
+              tools/vst-reverb-probe/*)
+                vst_probe=true
+                ;;
+            esac
+
+            case "$path" in
+              apps/server-ui/*|packages/ui/*)
+                dotnet=true
+                ;;
+              packages/format/fixtures/mnx/*|packages/format/schemas/*|packages/core/src/placementDefaults.json|packages/core/src/textStyleDefaults.json|assets/fonts/*)
+                engine=true
+                engine_consumers=true
+                ;;
+              packages/audio/assets/sounds/*)
+                desktop=true
+                ;;
+              scripts/build-wasm.ts|scripts/test-rust.ts|scripts/check-rust-source-size.ts|scripts/sync-mnx-schema.ts)
+                engine=true
+                engine_consumers=true
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          {
+            echo "pnpm=$pnpm"
+            echo "root_tests=$root_tests"
+            echo "engine=$engine"
+            echo "engine_consumers=$engine_consumers"
+            echo "dotnet=$dotnet"
+            echo "desktop=$desktop"
+            echo "vst_probe=$vst_probe"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  pnpm:
+    name: pnpm build and test
+    needs: changes
+    if: needs.changes.outputs.pnpm == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+      TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - id: plan
+        name: Plan affected tasks
+        shell: bash
+        run: |
+          pnpm turbo run build test --affected --filter='!@viritura/desktop' --dry=json > turbo-plan.json
+          if jq -e '.tasks | any(.package == "@viritura/editor" or .package == "@viritura/website" or .package == "mnx-viewer")' turbo-plan.json >/dev/null; then
+            echo "needs_wasm=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_wasm=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
+        name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
+
+      - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
+        name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+
+      - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
+        name: Build WASM
+        run: pnpm wasm:build
+
+      - name: Build and test affected workspaces
+        run: pnpm turbo run build test --affected --filter='!@viritura/desktop'
+
+      - if: needs.changes.outputs.engine_consumers == 'true'
+        name: Build and test browser consumers after engine changes
+        run: pnpm turbo run build test --filter=@viritura/editor --filter=@viritura/website --filter=mnx-viewer
+
+      - if: needs.changes.outputs.root_tests == 'true'
+        name: Run repository script tests
+        run: pnpm tsx --test scripts/check-application-boundaries.test.ts
+
+  engine:
+    name: Rust engine and WASM
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.93.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Rust
+        run: pnpm lint:rust
+
+      - name: Build Rust workspace
+        run: pnpm build:rust
+
+      - name: Test engine
+        run: pnpm test:rust
+
+      - name: Test WASM bindings
+        run: pnpm test:rust:wasm
+
+  dotnet:
+    name: .NET build and test
+    needs: changes
+    if: needs.changes.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: server/**/packages.lock.json
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm lint:dotnet
+
+      - name: Build
+        run: pnpm build:dotnet
+
+      - name: Test
+        run: pnpm test:dotnet
+
+  desktop:
+    name: Desktop tests
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
+
+      - name: Test desktop
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+
+  vst-probe:
+    name: VST probe tests
+    needs: changes
+    if: needs.changes.outputs.vst_probe == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
+
+      - name: Test VST probe
+        run: cargo test --manifest-path tools/vst-reverb-probe/Cargo.toml --locked
+
+  required:
+    name: Required
+    if: always()
+    needs:
+      - changes
+      - pnpm
+      - engine
+      - dotnet
+      - desktop
+      - vst-probe
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check selected jobs
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        shell: bash
+        run: |
+          for result in $RESULTS; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "A required PR validation job ended with: $result" >&2
+              exit 1
+            fi
+          done

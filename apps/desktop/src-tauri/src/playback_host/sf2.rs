@@ -124,21 +124,37 @@ impl Sf2Voice {
 
 #[cfg(test)]
 mod tests {
+    use std::path::{Path, PathBuf};
+
     use super::*;
 
-    /// The bundled GM font, relative to this crate. Present in a normal checkout;
-    /// the render test skips itself when it's absent (e.g. a minimal CI checkout).
-    const FONT_PATH: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2"
-    );
+    fn bundled_soundfont_path() -> PathBuf {
+        let config: serde_json::Value = serde_json::from_str(include_str!("../../tauri.conf.json"))
+            .expect("parse Tauri config");
+        let resources = config["bundle"]["resources"]
+            .as_object()
+            .expect("Tauri bundle resources must be an object");
+        let soundfonts = resources
+            .keys()
+            .filter(|source| {
+                Path::new(source)
+                    .extension()
+                    .is_some_and(|extension| extension == "sf2")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            soundfonts.len(),
+            1,
+            "expected exactly one bundled SF2 resource"
+        );
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(soundfonts[0])
+    }
 
     #[test]
     fn renders_a_note_to_non_silent_audio() {
-        if !std::path::Path::new(FONT_PATH).exists() {
-            return;
-        }
-        let font = load_soundfont(FONT_PATH).expect("load soundfont");
+        let font_path = bundled_soundfont_path();
+        let font = load_soundfont(font_path.to_str().expect("soundfont path must be UTF-8"))
+            .expect("load soundfont");
         let mut voice = Sf2Voice::new(&font, 0, false).expect("build voice");
         voice.note_on(60, 100);
 
@@ -156,10 +172,9 @@ mod tests {
 
     #[test]
     fn silent_until_a_note_is_struck() {
-        if !std::path::Path::new(FONT_PATH).exists() {
-            return;
-        }
-        let font = load_soundfont(FONT_PATH).expect("load soundfont");
+        let font_path = bundled_soundfont_path();
+        let font = load_soundfont(font_path.to_str().expect("soundfont path must be UTF-8"))
+            .expect("load soundfont");
         let mut voice = Sf2Voice::new(&font, 0, false).expect("build voice");
 
         let mut outputs = vec![vec![0.0f32; BLOCK_SIZE], vec![0.0f32; BLOCK_SIZE]];
