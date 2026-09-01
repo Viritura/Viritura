@@ -11,7 +11,7 @@ Prerequisites:
 - pnpm 9 through Corepack;
 - the Rust toolchain pinned by `engine/rust-toolchain.toml`;
 - `wasm-pack` and the `wasm32-unknown-unknown` target; and
-- the .NET 10 SDK for API work and the pre-push server build.
+- the .NET 10 SDK for API work.
 
 From the repository root:
 
@@ -162,13 +162,13 @@ The versioned hooks divide validation by cost:
 
 - **pre-commit** checks staged formatting and runs language-specific lint for
   the staged file categories;
-- **pre-push** runs complete `pnpm lint`, the .NET warnings-as-errors Release
-  build when the SDK is available, and Git LFS pre-push.
+- **pre-push** runs complete `pnpm lint` and Git LFS pre-push.
 
 The pre-push lint covers whole-tree checks that staged-file validation cannot:
 Knip export analysis, generated schema drift, repository structure, and local
-formatting exclusions. `git push --no-verify` remains an explicit emergency
-bypass; it should not be part of the normal workflow.
+formatting exclusions. Builds and test suites run in pull-request CI.
+`git push --no-verify` remains an explicit emergency bypass; it should not be
+part of the normal workflow.
 
 ## Deployment commands
 
