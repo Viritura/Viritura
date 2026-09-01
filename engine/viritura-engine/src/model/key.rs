@@ -104,29 +104,50 @@ impl KeySignature {
     /// Maps half_steps to circle-of-fifths offset, applying keyFifthsFlipAt if needed.
     /// Enharmonic spelling follows the configured fifths flip threshold.
     pub fn transpose(&self, half_steps: i32, key_fifths_flip_at: Option<i32>) -> KeySignature {
+        self.transpose_with_diatonic_adjustment(half_steps, key_fifths_flip_at)
+            .0
+    }
+
+    /// Transpose the key and return the corresponding written-note staff adjustment.
+    ///
+    /// Standard engraving practice: when a transposed key is respelled across
+    /// the enharmonic boundary, its written notes follow the same spelling.
+    /// Moving from the sharp side to the flat side raises the written letter by
+    /// one step (C-sharp becomes D-flat); the reverse lowers it by one step.
+    pub fn transpose_with_diatonic_adjustment(
+        &self,
+        half_steps: i32,
+        key_fifths_flip_at: Option<i32>,
+    ) -> (KeySignature, i32) {
         // Map chromatic half steps to fifths offset:
         // Each semitone up = +7 fifths mod 12, but we use a lookup for clarity.
         // Going up N semitones in circle of fifths: (N * 7) mod 12, adjusted to [-6..6].
         let fifths_delta = ((half_steps * 7) % 12 + 18) % 12 - 6;
         let mut new_fifths = self.fifths + fifths_delta;
+        let mut diatonic_adjustment = 0;
 
         // Apply keyFifthsFlipAt: enharmonic respelling when fifths exceeds threshold
         if let Some(flip) = key_fifths_flip_at {
             if flip >= 0 && new_fifths >= flip {
                 new_fifths -= 12;
+                diatonic_adjustment = 1;
             } else if flip < 0 && new_fifths <= flip {
                 new_fifths += 12;
+                diatonic_adjustment = -1;
             }
         }
 
         // Clamp to reasonable range
         new_fifths = new_fifths.clamp(-7, 7);
 
-        KeySignature {
-            fifths: new_fifths,
-            color: self.color.clone(),
-            atonal: self.atonal,
-        }
+        (
+            KeySignature {
+                fifths: new_fifths,
+                color: self.color.clone(),
+                atonal: self.atonal,
+            },
+            diatonic_adjustment,
+        )
     }
 }
 
@@ -216,6 +237,17 @@ mod tests {
         };
         let transposed = b_major.transpose(2, Some(7));
         assert_eq!(transposed.fifths, -5);
+    }
+
+    #[test]
+    fn test_key_transpose_flip_reports_written_note_adjustment() {
+        // A major for baritone sax reaches 6 sharps, then flips to 6 flats.
+        // Written note letters move up one staff step: C-sharp/F-sharp become
+        // D-flat/G-flat while preserving their sounding pitches.
+        let a_major = key(3);
+        let (transposed, adjustment) = a_major.transpose_with_diatonic_adjustment(21, Some(6));
+        assert_eq!(transposed.fifths, -6);
+        assert_eq!(adjustment, 1);
     }
 
     #[test]

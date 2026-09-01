@@ -322,13 +322,15 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
 
         // When useWritten is true, transpose the key signature for this part.
         // Atonal keys should never be transposed — they display no accidentals.
-        let display_key = if active_key.atonal == Some(true) {
-            active_key.clone()
+        let (display_key, diatonic_adjustment) = if active_key.atonal == Some(true) {
+            (active_key.clone(), 0)
         } else if let Some((_, half_steps)) = transposition {
-            active_key.transpose(half_steps, key_fifths_flip_at)
+            active_key.transpose_with_diatonic_adjustment(half_steps, key_fifths_flip_at)
         } else {
-            active_key.clone()
+            (active_key.clone(), 0)
         };
+        let display_transposition = transposition
+            .map(|(staff_distance, half_steps)| (staff_distance + diatonic_adjustment, half_steps));
 
         let incoming_ties = incoming_tie_targets(&part.measures, i);
         if display_key != prev_display_key {
@@ -337,7 +339,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         let current_accidental_state = apply_automatic_courtesy_accidentals(
             &mut part_measure,
             &display_key,
-            transposition,
+            display_transposition,
             &incoming_ties,
             &previous_accidental_state,
         );
@@ -354,7 +356,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             active_key: display_key.clone(),
             prev_key: prev_display_key.clone(),
             tie_continuation_ids: incoming_ties,
-            transposition,
+            transposition: display_transposition,
             condensing_change: false,
             kit: part.kit.clone(),
         });

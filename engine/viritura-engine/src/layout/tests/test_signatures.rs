@@ -1480,6 +1480,54 @@ fn test_transposing_instrument_note_position() {
 }
 
 #[test]
+fn test_key_flip_respell_transposed_notes_with_flats() {
+    let json = r#"{
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "key": { "fifths": 3 }, "time": { "count": 2, "unit": 4 } }] },
+        "parts": [{
+            "name": "Baritone Saxophone",
+            "transposition": {
+                "interval": { "halfSteps": 21, "staffDistance": 12 },
+                "keyFifthsFlipAt": 6
+            },
+            "measures": [{ "sequences": [{ "content": [
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "E", "octave": 3 } }] },
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "A", "octave": 2 } }] }
+            ] }] }]
+        }],
+        "scores": [{ "name": "Transposed", "useWritten": true }]
+    }"#;
+
+    let score = crate::parse::parse_mnx(json).unwrap();
+    let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+
+    assert_eq!(resolved[0].active_key.fifths, -6);
+    assert_eq!(
+        resolved[0].transposition,
+        Some((13, 21)),
+        "a sharp-to-flat key flip must raise written note letters by one step"
+    );
+
+    let c_sharp_as_d_flat = Pitch {
+        step: "E".into(),
+        octave: 3,
+        alter: None,
+    }
+    .transpose(13, 21, 0);
+    assert_eq!(c_sharp_as_d_flat.step, "D");
+    assert_eq!(c_sharp_as_d_flat.alter, Some(-1));
+
+    let f_sharp_as_g_flat = Pitch {
+        step: "A".into(),
+        octave: 2,
+        alter: None,
+    }
+    .transpose(13, 21, 0);
+    assert_eq!(f_sharp_as_g_flat.step, "G");
+    assert_eq!(f_sharp_as_g_flat.alter, Some(-1));
+}
+
+#[test]
 fn test_courtesy_clef_at_system_end() {
     // Two systems forced by narrow page width. Measure 1 = G clef, measure 5 = F clef.
     // The F clef should appear as a courtesy (2/3 size) at the end of system 1.
