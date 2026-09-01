@@ -16,7 +16,6 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-router": "^1.170.8",
-    "@viritura/core": "workspace:*",
     "@viritura/format": "workspace:*",
     "@viritura/musicxml": "workspace:*",
     "@viritura/playback": "workspace:*",
