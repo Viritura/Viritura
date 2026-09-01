@@ -105,7 +105,11 @@ pub(super) fn paginate_explicit_pages(
     let total_height = if config.page_width.is_some() {
         pages.last().map_or(0.0, |page| page.y_offset + page.height)
     } else {
-        margin_top * 2.0
+        // The explicit Horizon renderer applies a fixed galley translation
+        // after rendering. Reserve that top band, one extra sp for glyph/stem
+        // extents, and a complete lower margin in the structural canvas.
+        margin_top * 4.0
+            + 2.0 * sp
             + system_heights.iter().sum::<f64>()
             + system_count.saturating_sub(1) as f64 * inter_system_gap
     };

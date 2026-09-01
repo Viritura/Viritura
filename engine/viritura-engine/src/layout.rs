@@ -406,7 +406,7 @@ pub fn layout_score_cached(
     } else {
         let max_sys_h = system_heights_px.iter().copied().fold(0.0f64, f64::max);
         (0..system_count)
-            .map(|i| margin_top + i as f64 * (max_sys_h + inter_system_gap))
+            .map(|i| margin_top + sp + i as f64 * (max_sys_h + inter_system_gap))
             .collect()
     };
 
@@ -425,6 +425,7 @@ pub fn layout_score_cached(
     } else {
         let max_sys_h = system_heights_px.iter().copied().fold(0.0f64, f64::max);
         margin_top * 2.0
+            + sp
             + system_count as f64 * max_sys_h
             + if system_count > 1 {
                 (system_count - 1) as f64 * inter_system_gap

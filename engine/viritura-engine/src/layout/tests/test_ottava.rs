@@ -2,9 +2,38 @@
 // 4 test(s)
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_score, layout_with_mnx_scores};
 use crate::render::*;
 use std::collections::HashSet;
+
+#[test]
+fn test_ottava_chunked_horizon_bounds_are_not_clipped() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/ottavas-8va.mnx");
+    let score = crate::parse::parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        sp: 8.0,
+        page_width: None,
+        horizon_chunk_width: Some(3000.0),
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let min_bbox_y = dl
+        .element_bboxes
+        .iter()
+        .map(|element| element.bbox.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_bbox_y = dl
+        .element_bboxes
+        .iter()
+        .map(|element| element.bbox.y + element.bbox.height)
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    assert!(
+        min_bbox_y >= 0.0 && max_bbox_y <= dl.height,
+        "ottava Horizon element bounds {min_bbox_y}..{max_bbox_y} exceed display height {}",
+        dl.height
+    );
+}
 
 #[test]
 fn test_ottava_8va_render() {
@@ -21,7 +50,7 @@ fn test_ottava_8va_render() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = config.margin_top * sp;
+    let staff_y = (config.margin_top + 1.0) * sp;
 
     // Should have a DrawGlyph with the 8va SMuFL codepoint above the staff
     let glyph_cmds: Vec<_> = dl.commands.iter().filter(|cmd| {
@@ -102,7 +131,7 @@ fn test_ottava_explicit_orient_below() {
     score.parts[0].measures[0].ottavas.as_mut().unwrap()[0].orient = Some(Orientation::Below);
 
     let config = LayoutConfig::default();
-    let staff_bottom = (config.margin_top + 4.0) * config.sp;
+    let staff_bottom = (config.margin_top + 5.0) * config.sp;
     let dl = layout_score(&score, 0, &config);
     let glyph_y = dl.commands.iter().find_map(|command| match command {
         RenderCommand::DrawGlyph {
@@ -134,7 +163,7 @@ fn test_ottava_8va_display_transposition() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = config.margin_top * sp;
+    let staff_y = (config.margin_top + 1.0) * sp;
 
     // Treble clef: G4 is reference, line_from_bottom=1
     // C6 diatonic=42, clef_ref=32, pos_from_clef_line=10, pos_from_top=(4-1)*2-10=6-10=-4
@@ -199,7 +228,7 @@ fn test_ottava_collision_avoidance() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = config.margin_top * sp;
+    let staff_y = (config.margin_top + 1.0) * sp;
 
     // Find the ottava glyph
     let ottava_glyph: Vec<_> = dl

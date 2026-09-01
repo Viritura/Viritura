@@ -14,6 +14,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   type CSSProperties,
@@ -67,6 +68,8 @@ export interface ScoreViewProps {
   pagesPerRow?: number;
   /** Callback when the engine + layout are ready. */
   onReady?: (info: { engine: Engine; displayList: DisplayList }) => void;
+  /** Callback after the current display list has been painted to every page canvas. */
+  onPaint?: (info: { engine: Engine; displayList: DisplayList }) => void;
   /** Callback when an error occurs. */
   onError?: (err: EngineLoadError | ParseError | LayoutError) => void;
   /** Class for the root score surface. */
@@ -237,6 +240,7 @@ export function ScoreView({
   spreadFirstPage = "single",
   pagesPerRow = 1,
   onReady,
+  onPaint,
   onError,
   className,
   style,
@@ -271,6 +275,9 @@ export function ScoreView({
   const engineOptions = useMemo(() => ({ assetBaseUrl }), [assetBaseUrl]);
   const { engine, displayList, error, loading } = useScoreEngine(mnx, layoutOpts, engineOptions);
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const notifyPaint = useEffectEvent(() => {
+    if (engine && displayList) onPaint?.({ engine, displayList });
+  });
 
   const pageLayouts = useMemo(
     () => (displayList ? getPageLayouts(displayList, pageWidth > 0) : []),
@@ -318,8 +325,13 @@ export function ScoreView({
         canvasContext.fillStyle = pageBackground;
         canvasContext.fillRect(0, 0, canvas.width / devicePixelRatio, canvas.height / devicePixelRatio);
       }
-      engine.paint(canvasContext, displayList, { page: pageIndex, zoom });
+      engine.paint(canvasContext, displayList, {
+        page: pageIndex,
+        zoom,
+        background: pageBackground === "transparent" ? null : pageBackground,
+      });
     });
+    notifyPaint();
   }, [engine, displayList, pageBackground, pageWidth, zoom]);
 
   const setCanvasRef = useCallback(

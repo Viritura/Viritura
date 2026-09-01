@@ -1,365 +1,2789 @@
 {
   "mnx": {
-    "version": 1
+    "version": 7
   },
   "global": {
-    "measures": []
+    "measures": [
+      {
+        "id": "019fd344-09fd-7bd1-a46d-73eac9b9aae6",
+        "number": 1,
+        "key": {
+          "fifths": -3
+        },
+        "tempos": [
+          {
+            "bpm": 108,
+            "value": {
+              "base": "half"
+            },
+            "location": {
+              "fraction": [
+                0,
+                1
+              ]
+            },
+            "_x": {
+              "viritura": {
+                "text": "Allegro con brio"
+              }
+            }
+          }
+        ],
+        "time": {
+          "count": 2,
+          "unit": 4
+        }
+      },
+      {
+        "id": "019fd344-09fe-78ba-9a34-e5d37bebc75c",
+        "number": 2
+      },
+      {
+        "id": "019fd344-09fe-7e88-83f2-25b2857109d9",
+        "number": 3
+      },
+      {
+        "id": "019fd344-09fe-76bc-aced-59fa8053b8e6",
+        "number": 4
+      }
+    ]
   },
+  "parts": [
+    {
+      "id": "P1-1",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a04-7703-9f34-2c9bade5f82c",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a05-748e-8607-634b720c2c28",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a05-7bc0-8ec6-e3aca313dd14",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a05-7c30-9db4-a49cc3dde07a",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Flute",
+      "shortName": "Fl.1",
+      "_x": {
+        "viritura": {
+          "instrumentId": "flute",
+          "midiProgram": 73,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P1-2",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a13-7583-94df-1d0f7a586103",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a13-741a-8dfa-c09eacc3b619",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a13-7243-8c44-2a0e29ec87ce",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a13-790a-bcae-3d7d99cb94a8",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Flute",
+      "shortName": "Fl.2",
+      "_x": {
+        "viritura": {
+          "instrumentId": "flute",
+          "midiProgram": 73,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P2-1",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a1e-7fd9-a4c7-76cfa4513c57",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a1e-7760-a992-9d80c69e7401",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a1e-7245-9da3-f929262c0512",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a1e-77d9-b17c-adc0a4f5747d",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Oboe",
+      "shortName": "Ob.1",
+      "_x": {
+        "viritura": {
+          "instrumentId": "oboe",
+          "midiProgram": 68,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P2-2",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a28-7f46-b371-4724ff1d8a57",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a28-7385-ba49-26fe2f39ed00",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a28-747f-9888-0c99b6428cf1",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a29-7ec7-8b37-79be412a4205",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Oboe",
+      "shortName": "Ob.2",
+      "_x": {
+        "viritura": {
+          "instrumentId": "oboe",
+          "midiProgram": 68,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P3-1",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a30-7392-8e51-d98e9b22e2ce",
+                "019fd344-0a30-7d44-a203-08d3bbbaa6d8",
+                "019fd344-0a30-7a59-9b5a-cf006efb66ee"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0a30-71a5-9219-c5754b89efcb",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7429-87d7-604ee6879a0c",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7392-8e51-d98e9b22e2ce",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7ec9-9682-f1ce8a9ef283",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7d44-a203-08d3bbbaa6d8",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7ea8-9942-b47cac1f6ce0",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7a59-9b5a-cf006efb66ee",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-72a6-903d-b5f1306f014a",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a30-7481-a98e-e8bad98a3c59",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7511-a7af-1ad61ddaccd0",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a30-7fb0-9c1a-b45f9b94ae49",
+                "019fd344-0a30-7054-ab93-0a0a0a7b2063",
+                "019fd344-0a30-7e9a-84dc-cd3f8194985a"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7353-a869-1c94fb90d3fd",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7fb0-9c1a-b45f9b94ae49",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-718c-ba19-253d1c6982cb",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7054-ab93-0a0a0a7b2063",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7c21-974d-6ba990e5130e",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a30-7e9a-84dc-cd3f8194985a",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7d82-a887-1caf8243d04a",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a30-7375-9f29-04adbdc6580e",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd4-7476-bd8e-c39e168a81aa",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Clarinet in B♭",
+      "shortName": "Cl.1",
+      "transposition": {
+        "interval": {
+          "halfSteps": 2,
+          "staffDistance": 1
+        }
+      },
+      "_x": {
+        "viritura": {
+          "instrumentId": "bflat-clarinet",
+          "midiProgram": 71,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P3-2",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a3f-7328-8f15-375206ac98a7",
+                "019fd344-0a3f-7cf1-816f-a68546cd82f2",
+                "019fd344-0a3f-7b67-ae89-4fb0b4bac23e"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0a3f-7e6f-8ea5-a05ddfafa8b3",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7ccf-ad2d-4d0452d287bc",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7328-8f15-375206ac98a7",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-74f2-bcc2-fad7d5bf8583",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7cf1-816f-a68546cd82f2",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-70b5-9a42-2229bce6a602",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7b67-ae89-4fb0b4bac23e",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-70ed-8e04-136b2de15fd3",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a3f-7b9d-b214-8b7ca9c1baf4",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-75b6-a14d-0863bcd8be5f",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a3f-7b21-bbd4-dbe4d661904b",
+                "019fd344-0a3f-787f-8e16-bc4bd9560a66",
+                "019fd344-0a3f-765e-8433-83db306c16de"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7398-8a67-0d83db86e650",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-7b21-bbd4-dbe4d661904b",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-710f-b477-e25ef5a02f0a",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-787f-8e16-bc4bd9560a66",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-7896-b86c-35dbd5b2ec16",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a3f-765e-8433-83db306c16de",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-7bbd-8ecb-2c408f3c67a8",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a3f-727b-9d91-5164b73ac850",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bd5-7ea8-9305-21acb8dc2d4d",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Clarinet in B♭",
+      "shortName": "Cl.2",
+      "transposition": {
+        "interval": {
+          "halfSteps": 2,
+          "staffDistance": 1
+        }
+      },
+      "_x": {
+        "viritura": {
+          "instrumentId": "bflat-clarinet",
+          "midiProgram": 71,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P4-1",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a4c-7d30-9929-72ba13bbd4bc",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a4c-7fee-b399-3ff6c758146d",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a4c-70c0-84f5-d66e9ed0f12e",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a4c-7cbc-88a1-fa79b7817d5d",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Bassoon",
+      "shortName": "Bsn.1",
+      "_x": {
+        "viritura": {
+          "instrumentId": "bassoon",
+          "midiProgram": 70,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P4-2",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a55-77a7-9796-8593d4a9b221",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a55-7362-8ff2-a96ab0003a22",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a55-7c7b-bcef-21439f9c444a",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a55-7d0c-a1f9-f8db88492675",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Bassoon",
+      "shortName": "Bsn.2",
+      "_x": {
+        "viritura": {
+          "instrumentId": "bassoon",
+          "midiProgram": 70,
+          "family": "woodwinds"
+        }
+      }
+    },
+    {
+      "id": "P5-1",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a61-7cf2-bcb9-8fe13cef7106",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a61-7db5-b820-3c80ff3bd200",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a61-7d7b-8c8e-62b16421bafc",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a61-7c8a-bc3e-64e02d939a5e",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Horn in E♭",
+      "shortName": "Hn.1",
+      "transposition": {
+        "interval": {
+          "halfSteps": 9,
+          "staffDistance": 5
+        }
+      }
+    },
+    {
+      "id": "P5-2",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a68-7956-917d-d75313768bcd",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a68-7e23-88b6-2ae60fd45ae9",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a68-7f27-bd2e-dd41168f041e",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a68-74ab-a69c-1b56e923cc74",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Horn in E♭",
+      "shortName": "Hn.2",
+      "transposition": {
+        "interval": {
+          "halfSteps": 9,
+          "staffDistance": 5
+        }
+      }
+    },
+    {
+      "id": "P6-1",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a71-7d70-97cc-29424c4a610b",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a71-77f1-9c7b-bab7f61b37bf",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a71-7fa9-89d4-d302ec7012b4",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a71-7d22-8a79-4224c2355b35",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Trumpet in C",
+      "shortName": "Tpt.1",
+      "_x": {
+        "viritura": {
+          "instrumentId": "c-trumpet",
+          "midiProgram": 56,
+          "family": "brass"
+        }
+      }
+    },
+    {
+      "id": "P6-2",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a77-7fd5-9cd0-91807a661518",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a77-793f-ba3a-213346fd338e",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a77-7239-bd7b-06c4edfecf90",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a77-764f-9627-8a486fd38a05",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Trumpet in C",
+      "shortName": "Tpt.2",
+      "_x": {
+        "viritura": {
+          "instrumentId": "c-trumpet",
+          "midiProgram": 56,
+          "family": "brass"
+        }
+      }
+    },
+    {
+      "id": "P7",
+      "measures": [
+        {
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a7c-74b5-85a1-4a8a0e497cc2",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a7c-71d8-8f52-010db9624c5e",
+                  "fermata": {},
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a7c-7146-a7df-85dd2852c758",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a7c-72f5-aabf-9205886a788c",
+                  "rest": {}
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Timpani in C and G",
+      "shortName": "Ti"
+    },
+    {
+      "id": "P8",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a82-79a3-bed2-7967d16b8e73",
+                "019fd344-0a82-78d3-8e6e-6fb7c7213e4a",
+                "019fd344-0a82-7d0b-b92e-a65e1a1d0738"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0a82-7847-8603-3cfe2a411bb3",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-7e67-87ae-8998566534ca",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-79a3-bed2-7967d16b8e73",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-7205-9bf1-f7c4ad4a593d",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-78d3-8e6e-6fb7c7213e4a",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-7b12-8beb-d3308365bbd3",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-7d0b-b92e-a65e1a1d0738",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-79a1-9655-345db7dfd1a3",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a82-796a-9537-eedac7021b56",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-7b2a-912c-75f3746d19e5",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a82-7c90-859f-9ca4d24cc388",
+                "019fd344-0a82-7190-96ba-08a05cb8fac9",
+                "019fd344-0a82-7ae1-8ece-53739ceb1251"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-77bf-9432-8fe6cf2fe6f3",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-7c90-859f-9ca4d24cc388",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-78ba-9495-6e338aa3312d",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-7190-96ba-08a05cb8fac9",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-7c88-a2c4-59853db542ee",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a82-7ae1-8ece-53739ceb1251",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-7b0f-b612-e3c63dd7dcc0",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a82-7648-b92f-61915cac7736",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be3-704d-991a-a3cb2ab91ded",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Violin I",
+      "shortName": "Vln. I",
+      "_x": {
+        "viritura": {
+          "instrumentId": "violin"
+        }
+      }
+    },
+    {
+      "id": "P9",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a8f-77d6-b258-5b727946793c",
+                "019fd344-0a8f-7e20-b4e2-7f838ac98467",
+                "019fd344-0a8f-7fb8-8e3f-d40cae841958"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "G",
+                "staffPosition": -2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0a8f-7ee5-a5c4-839119017689",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-72de-b21e-d6ad760bda33",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-77d6-b258-5b727946793c",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7380-8f18-7166fdd9394f",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-7e20-b4e2-7f838ac98467",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7961-b11e-119139c27ee0",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-7fb8-8e3f-d40cae841958",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7440-8c2d-bae3075b5a14",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a8f-77e8-b8e4-5f9980e7cb78",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-71b4-b16c-d96a14d8f200",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 4,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a8f-706b-8167-d0261332f3b8",
+                "019fd344-0a8f-7206-9925-c05a086688dd",
+                "019fd344-0a8f-7318-817d-cd59b2b077d6"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-76c8-a8f2-4450c80624cf",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-706b-8167-d0261332f3b8",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7747-bb8a-446d0742ebea",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-7206-9925-c05a086688dd",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-715b-bd09-46be11dc2d79",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a8f-7318-817d-cd59b2b077d6",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7d7f-87be-c4629cb3fb8b",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a8f-7618-9bf0-37d9179e4d5e",
+                  "notes": [
+                    {
+                      "id": "019fd344-0be6-7c2a-aa21-5cb2d3dcf022",
+                      "pitch": {
+                        "octave": 4,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Violin II",
+      "shortName": "Vln. II",
+      "_x": {
+        "viritura": {
+          "instrumentId": "violin"
+        }
+      }
+    },
+    {
+      "id": "P10",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a98-72de-91f2-38a7e43e4420",
+                "019fd344-0a98-71c4-9345-6e120ae0d16b",
+                "019fd344-0a98-7609-b634-2e77ad1dc751"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "C",
+                "staffPosition": 0
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0a98-7a81-8154-13d6919b6d5e",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-7820-92fe-508d2537569e",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-72de-91f2-38a7e43e4420",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-77f4-849e-7ca35874d009",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-71c4-9345-6e120ae0d16b",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7772-86fe-79b567fa4a9d",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-7609-b634-2e77ad1dc751",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7fe4-8c9b-a834bc52240a",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a98-7c1d-b258-35b404209923",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7ced-8eaa-dcf6772bce30",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 3,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0a98-7640-a29d-0a152b78b698",
+                "019fd344-0a98-7038-b8d4-fab844674578",
+                "019fd344-0a98-7b55-a528-c722bb663fe0"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-78d2-8ba9-4e1acebf5e9b",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-7640-a29d-0a152b78b698",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7e41-b0d0-55582070dccf",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-7038-b8d4-fab844674578",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-73af-a122-8e2b6a7192c8",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0a98-7b55-a528-c722bb663fe0",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7055-8c06-9b50e5858f19",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0a98-7d6c-ba1b-ec13723b70a8",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bea-7021-a097-4fa14eeccee1",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Viola.",
+      "shortName": "Va",
+      "_x": {
+        "viritura": {
+          "instrumentId": "viola"
+        }
+      }
+    },
+    {
+      "id": "P11",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0aa5-702d-9a44-ac07548206af",
+                "019fd344-0aa5-7254-8e6b-75b80e725ab1",
+                "019fd344-0aa5-7c09-8b55-5acf11a51b97"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0aa5-777b-b2ac-da6012fb7d9d",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7190-b6e9-502f5527adcf",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-702d-9a44-ac07548206af",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-703b-8f5a-bb4dc264513d",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7254-8e6b-75b80e725ab1",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-79a8-95e6-89cff0140e12",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7c09-8b55-5acf11a51b97",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-71c1-ad43-6b5af3774087",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0aa5-7528-b757-1a74214b943b",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-731d-ab04-bb6566762ac2",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 2,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0aa5-7afb-b6eb-77b2f4ec1441",
+                "019fd344-0aa5-7f6e-b7ac-9abdaec43e57",
+                "019fd344-0aa5-7133-a180-9d50120d113e"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7bb4-9368-10db0516cd99",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7afb-b6eb-77b2f4ec1441",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-7491-93cf-dd52061a11c0",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7f6e-b7ac-9abdaec43e57",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-7148-939c-599758688123",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0aa5-7133-a180-9d50120d113e",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-7aaa-9b86-0f3bcb4d94c8",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0aa5-7d2c-a9ff-55d1c72b403a",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bec-74e3-a9d6-3c86c4339edf",
+                      "pitch": {
+                        "octave": 2,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Violoncello.",
+      "shortName": "Vc",
+      "_x": {
+        "viritura": {
+          "instrumentId": "cello"
+        }
+      }
+    },
+    {
+      "id": "P12",
+      "measures": [
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0ab2-7bb9-96cb-2062ecb9af01",
+                "019fd344-0ab2-75d0-9606-65173031974c",
+                "019fd344-0ab2-74e5-bd85-d188ef929f40"
+              ]
+            }
+          ],
+          "clefs": [
+            {
+              "clef": {
+                "sign": "F",
+                "staffPosition": 2
+              }
+            }
+          ],
+          "dynamics": [
+            {
+              "id": "019fd344-0ab2-7307-90d2-1acac3663eeb",
+              "position": {
+                "fraction": [
+                  1,
+                  8
+                ]
+              },
+              "type": "immediate",
+              "value": "ff"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7f79-bdd5-07ec616b21c4",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7bb9-96cb-2062ecb9af01",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-78db-947d-f5b133e6b2c9",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-75d0-9606-65173031974c",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7c4e-9b10-f090bbc82a14",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-74e5-bd85-d188ef929f40",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7507-9886-062a896b86d1",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "G"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0ab2-7641-9920-74b9e8d97997",
+                  "fermata": {},
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7073-8099-108dcd43b138",
+                      "pitch": {
+                        "alter": -1,
+                        "octave": 3,
+                        "step": "E"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "beams": [
+            {
+              "events": [
+                "019fd344-0ab2-7ae6-8f24-31dd4f47c483",
+                "019fd344-0ab2-7fcf-869e-f43e3987e4bd",
+                "019fd344-0ab2-7962-976d-4d4e51a86abf"
+              ]
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7392-8760-146218ad0d8e",
+                  "rest": {}
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7ae6-8f24-31dd4f47c483",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7f00-9584-8ac4512bbf67",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7fcf-869e-f43e3987e4bd",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-78f9-98fd-9cf4bf7f0117",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "duration": {
+                    "base": "eighth"
+                  },
+                  "id": "019fd344-0ab2-7962-976d-4d4e51a86abf",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7a82-9273-26db8848c6c0",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "F"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        },
+        {
+          "sequences": [
+            {
+              "content": [
+                {
+                  "duration": {
+                    "base": "half"
+                  },
+                  "id": "019fd344-0ab2-7ec6-b408-ac565f7cd4e6",
+                  "notes": [
+                    {
+                      "id": "019fd344-0bee-7a7c-b0e9-4aa76846e346",
+                      "pitch": {
+                        "octave": 3,
+                        "step": "D"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "staff": 1
+            }
+          ]
+        }
+      ],
+      "name": "Contrabass",
+      "shortName": "Cb",
+      "_x": {
+        "viritura": {
+          "instrumentId": "double-bass"
+        }
+      }
+    }
+  ],
   "layouts": [
     {
-      "id": "019e62f6-d70d-7d4b-a3a8-8cc491dc363f",
+      "id": "full-score",
       "content": [
         {
           "type": "group",
+          "barlineStyle": "unified",
           "content": [
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P1-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P1-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P2-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P2-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P3-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P3-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P4-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P4-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P5-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P5-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P6-1"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P6-2"
+                }
+              ]
+            },
+            {
+              "type": "staff",
+              "labelref": "name",
+              "sources": [
+                {
+                  "part": "P7"
+                }
+              ]
+            },
             {
               "type": "group",
               "barlineStyle": "unified",
               "content": [
                 {
                   "type": "staff",
-                  "label": "2.",
+                  "labelref": "name",
                   "sources": [
                     {
-                      "part": "019e62f6-d70d-7572-bd25-b89ee2ee4778"
+                      "part": "P8"
                     }
                   ]
                 },
                 {
                   "type": "staff",
-                  "label": "4.",
+                  "labelref": "name",
                   "sources": [
                     {
-                      "part": "019e62f6-d70d-757f-95e6-68d7c1e80e1b"
+                      "part": "P9"
                     }
                   ]
                 }
               ],
-              "label": "Horns in F.",
-              "symbol": "brace"
-            }
-          ],
-          "symbol": "bracket"
-        },
-        {
-          "type": "group",
-          "barlineStyle": "unified",
-          "content": [
+              "symbol": "bracket"
+            },
             {
               "type": "staff",
+              "labelref": "name",
               "sources": [
                 {
-                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
-                  "staff": 1
+                  "part": "P10"
                 }
               ]
             },
             {
-              "type": "staff",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
-                  "staff": 2
-                }
-              ]
-            }
-          ],
-          "label": "1. Harfe.",
-          "symbol": "brace"
-        },
-        {
-          "type": "group",
-          "barlineStyle": "unified",
-          "content": [
-            {
               "type": "group",
+              "barlineStyle": "unified",
               "content": [
                 {
                   "type": "staff",
-                  "label": "1. Violine.",
+                  "labelref": "name",
                   "sources": [
                     {
-                      "part": "019e62f6-d70d-7766-b117-71fb81dd0843"
+                      "part": "P11"
                     }
                   ]
                 },
                 {
                   "type": "staff",
-                  "label": "2. Violine.",
+                  "labelref": "name",
                   "sources": [
                     {
-                      "part": "019e62f6-d70d-7eea-8d22-d4a6b9966e81"
+                      "part": "P12"
                     }
                   ]
                 }
               ],
-              "symbol": "brace"
-            },
-            {
-              "type": "staff",
-              "label": "Viola.",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54"
-                }
-              ]
-            },
-            {
-              "type": "staff",
-              "label": "Violincell.",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486"
-                }
-              ]
-            },
-            {
-              "type": "staff",
-              "label": "Kontrabass",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7317-8dda-7739a2b6dfcd"
-                }
-              ]
+              "symbol": "bracket"
             }
           ],
           "symbol": "bracket"
         }
       ]
-    },
-    {
-      "id": "019e62f6-d70d-7ad8-afba-c82bc4f1a966",
-      "content": [
-        {
-          "type": "group",
-          "barlineStyle": "individual",
-          "content": [
-            {
-              "type": "staff",
-              "label": "1.2.3. Klar. in A",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7126-b1fa-816621ec5a3c",
-                  "stem": "up"
-                },
-                {
-                  "part": "019e62f6-d70d-7847-af6f-4398062d1ddc",
-                  "stem": "up"
-                },
-                {
-                  "part": "019e62f6-d70d-7b0a-8fb1-6f44d86f1a37",
-                  "stem": "down"
-                }
-              ]
-            }
-          ],
-          "symbol": "brace"
-        },
-        {
-          "type": "group",
-          "barlineStyle": "individual",
-          "content": [
-            {
-              "type": "staff",
-              "label": "2. Hr in F.",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7572-bd25-b89ee2ee4778"
-                }
-              ]
-            }
-          ],
-          "symbol": "bracket"
-        },
-        {
-          "type": "group",
-          "barlineStyle": "instrument",
-          "content": [
-            {
-              "type": "staff",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
-                  "staff": 1
-                }
-              ]
-            },
-            {
-              "type": "staff",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
-                  "staff": 2
-                }
-              ]
-            }
-          ],
-          "label": "1. Harfe.",
-          "symbol": "brace"
-        },
-        {
-          "type": "group",
-          "barlineStyle": "unified",
-          "content": [
-            {
-              "type": "group",
-              "content": [
-                {
-                  "type": "staff",
-                  "label": "1. Vl.",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7766-b117-71fb81dd0843"
-                    }
-                  ]
-                },
-                {
-                  "type": "staff",
-                  "label": "2. Vl.",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7eea-8d22-d4a6b9966e81"
-                    }
-                  ]
-                }
-              ],
-              "symbol": "brace"
-            },
-            {
-              "type": "group",
-              "content": [
-                {
-                  "type": "staff",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54"
-                    }
-                  ]
-                },
-                {
-                  "type": "staff",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54",
-                      "voice": "Pizzicato"
-                    }
-                  ]
-                }
-              ],
-              "label": "Vla. (get.)",
-              "symbol": "brace"
-            },
-            {
-              "type": "group",
-              "content": [
-                {
-                  "type": "staff",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486"
-                    }
-                  ]
-                },
-                {
-                  "type": "staff",
-                  "sources": [
-                    {
-                      "part": "019e62f6-d70d-7ccb-8e5a-a7d233856486",
-                      "voice": "Pizzicato"
-                    }
-                  ]
-                }
-              ],
-              "label": "Vlc. (get.)",
-              "symbol": "brace"
-            },
-            {
-              "type": "staff",
-              "label": "Kontrabass",
-              "sources": [
-                {
-                  "part": "019e62f6-d70d-7317-8dda-7739a2b6dfcd"
-                }
-              ]
-            }
-          ],
-          "symbol": "bracket"
-        }
-      ]
-    }
-  ],
-  "parts": [
-    {
-      "id": "019e62f6-d70d-7126-b1fa-816621ec5a3c",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7847-af6f-4398062d1ddc",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7b0a-8fb1-6f44d86f1a37",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7e1e-a61e-4835d03a2a39",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7572-bd25-b89ee2ee4778",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7ff0-88fe-87fce8e96339",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-757f-95e6-68d7c1e80e1b",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-71e7-9ccc-33d11298a31b",
-      "measures": [],
-      "staves": 2
-    },
-    {
-      "id": "019e62f6-d70d-7766-b117-71fb81dd0843",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7eea-8d22-d4a6b9966e81",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7e7a-b90d-ac38a5f33f54",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7ccb-8e5a-a7d233856486",
-      "measures": []
-    },
-    {
-      "id": "019e62f6-d70d-7317-8dda-7739a2b6dfcd",
-      "measures": []
     }
   ],
   "scores": [
     {
-      "name": "fullScore",
-      "pages": [
-        {
-          "systems": [
-            {
-              "layout": "019e62f6-d70d-7d4b-a3a8-8cc491dc363f",
-              "measure": "m1"
-            },
-            {
-              "layout": "019e62f6-d70d-7ad8-afba-c82bc4f1a966",
-              "measure": "m7"
-            }
-          ]
-        }
-      ]
+      "name": "Full score",
+      "layout": "full-score"
     }
-  ]
+  ],
+  "_x": {
+    "viritura": {
+      "metadata": {
+        "title": "Symphony No. 5 - Opus 67",
+        "composer": "Ludwig van Beethoven"
+      },
+      "timeSignatures": {
+        "score": {
+          "senzaMisura": "hidden"
+        },
+        "parts": {
+          "senzaMisura": "hidden"
+        }
+      }
+    }
+  }
 }

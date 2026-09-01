@@ -1,0 +1,41 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "time": { "count": 4, "unit": 4 } },
+      {},
+      {},
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "id": "P1",
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "sequences": [
+            {
+              "content": [
+                { "duration": { "base": "half" }, "notes": [{ "pitch": { "step": "C", "octave": 5 } }] },
+                { "duration": { "base": "half" }, "notes": [{ "pitch": { "step": "G", "octave": 4 } }] }
+              ]
+            }
+          ]
+        },
+        {
+          "measureRepeat": { "number": 1, "counter": { "count": 2, "orient": "above" } },
+          "sequences": [{ "content": [] }]
+        },
+        {
+          "measureRepeat": { "number": 1, "counter": { "count": 3, "orient": "above" } },
+          "sequences": [{ "content": [] }]
+        },
+        {
+          "measureRepeat": { "number": 1, "counter": { "count": 4, "orient": "above" } },
+          "sequences": [{ "content": [] }]
+        }
+      ]
+    }
+  ]
+}

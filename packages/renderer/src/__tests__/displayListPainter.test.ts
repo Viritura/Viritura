@@ -54,6 +54,19 @@ describe("paintDisplayList", () => {
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
   });
 
+  it("should leave the cleared canvas transparent when background is null", () => {
+    const displayList: DisplayList = {
+      commands: [],
+      width: 800,
+      height: 600,
+    };
+
+    paintDisplayList(ctx, displayList, undefined, null);
+
+    expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 800, 600);
+    expect(ctx.fillRect).not.toHaveBeenCalled();
+  });
+
   it("should handle DrawGlyph command with correct font and codepoint", () => {
     // SMuFL codepoint for treble clef: U+E050
     const glyphCmd: DrawGlyph = {

@@ -1,20 +1,29 @@
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Editor, { type OnValidate } from "@monaco-editor/react";
-import { StatusBar, Tabs, Text } from "@viritura/ui";
+import { Tabs } from "@viritura/ui";
 import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
-import { pagePresets, staffSizes, type PagePresetId, type PlaygroundViewMode } from "./playgroundLayout";
-import { PlaygroundStatusControls } from "./PlaygroundStatusControls";
-import {
-  configurePlaygroundEditor,
-  downloadMnxSource,
-  formatMnxSource,
-  PLAYGROUND_MODEL_PATH,
-} from "./playgroundEditor";
-import { findPlaygroundDocument, playgroundDocuments } from "./playgroundDocuments";
+import { PlaygroundExampleBrowser } from "./PlaygroundExampleBrowser";
+import { PlaygroundScoreSelect } from "./PlaygroundScoreSelect";
+import { configurePlaygroundEditor, PLAYGROUND_MODEL_PATH } from "./playgroundEditor";
+import { playgroundDocuments } from "./playgroundDocuments";
+import { findPlaygroundCatalogItem, loadPlaygroundCatalogItem } from "./playgroundCatalog";
+import { exampleIdFromHash, hashForExampleId } from "./playgroundHash";
 import { usePlaygroundDocument } from "./usePlaygroundDocument";
 import "./mnxPlayground.css";
 
-type MobilePane = "editor" | "preview";
+type MobilePane = "examples" | "editor" | "preview";
+
+function useHashChange(onHashChange: () => void): void {
+  const handleHashChange = useEffectEvent(onHashChange);
+  useEffect(() => {
+    const timeout = window.setTimeout(handleHashChange, 0);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
+}
 
 function scoreOptions(document: object): readonly ScoreViewerScoreOption[] {
   const scores = (document as { readonly scores?: readonly unknown[] }).scores;
@@ -24,73 +33,97 @@ function scoreOptions(document: object): readonly ScoreViewerScoreOption[] {
     const label = [record.name, record.label, record.title, record.id].find(
       (value): value is string => typeof value === "string" && value.trim().length > 0,
     );
-    return { index, label: label?.trim() ?? `Score ${index + 1}` };
+    const displayLabel = label?.trim().replace(/([a-z])([A-Z])/g, "$1 $2");
+    return { index, label: displayLabel ?? `Score ${index + 1}` };
   });
 }
 
 export function MnxPlaygroundPage() {
   const [exampleId, setExampleId] = useState(playgroundDocuments[0]!.id);
   const [mobilePane, setMobilePane] = useState<MobilePane>("editor");
-  const [viewMode, setViewMode] = useState<PlaygroundViewMode>("horizon");
-  const [pagePresetId, setPagePresetId] = useState<PagePresetId>("a4");
-  const [staffSizeId, setStaffSizeId] = useState("medium");
   const [scoreIndex, setScoreIndex] = useState(0);
   const [markerCount, setMarkerCount] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const selectedExample = findPlaygroundDocument(exampleId);
-  const playground = usePlaygroundDocument(selectedExample.source);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [previewLoadingLabel, setPreviewLoadingLabel] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
+  const pendingScoreIndexRef = useRef<number | null>(null);
+  const previousDocumentRef = useRef<object | null>(null);
+  const playground = usePlaygroundDocument(playgroundDocuments[0]!.source);
   const availableScores = scoreOptions(playground.renderedDocument);
-  const pagePreset = pagePresets[pagePresetId];
-  const pageMargin = pagePreset.margin;
-  const pageMargins = { top: pageMargin, right: pageMargin, bottom: pageMargin, left: pageMargin };
-  const pageWidth = viewMode === "horizon" ? 0 : pagePreset.width;
-  const pageHeight = viewMode === "horizon" ? 0 : pagePreset.height;
-  const viewerMode = viewMode === "horizon" ? "horizontal" : "page";
-  const spatium = staffSizes[staffSizeId] ?? staffSizes.medium;
 
-  const chooseExample = (id: string) => {
-    const example = findPlaygroundDocument(id);
-    setExampleId(example.id);
-    setScoreIndex(0);
-    playground.setSource(example.source);
+  const replaceExampleHash = (id: string) => {
+    const url = new URL(window.location.href);
+    url.hash = hashForExampleId(id);
+    window.history.replaceState(window.history.state, "", url);
   };
 
-  const handleFormat = () => {
+  const chooseExample = async (id: string, updateHash = true) => {
+    const request = ++loadRequestRef.current;
+    const example = findPlaygroundCatalogItem(id);
+    if (updateHash) replaceExampleHash(example.id);
+    setExampleId(example.id);
+    setScoreIndex(0);
+    setLoadError(null);
+    pendingScoreIndexRef.current = null;
+    previousDocumentRef.current = playground.renderedDocument;
+    setPreviewLoadingLabel(`Loading ${example.title}...`);
     try {
-      playground.setSource(formatMnxSource(playground.source));
-    } catch {
-      // Monaco and the accessible status surface already report the syntax error.
+      const source = await loadPlaygroundCatalogItem(example);
+      if (request !== loadRequestRef.current) return;
+      playground.setSource(source);
+      setMobilePane("editor");
+    } catch (error) {
+      if (request !== loadRequestRef.current) return;
+      setLoadError(error instanceof Error ? error.message : `Unable to load ${example.title}`);
+      previousDocumentRef.current = null;
+      setPreviewLoadingLabel(null);
     }
   };
 
-  const handleUpload = async (file: File | undefined) => {
-    if (!file) return;
-    playground.setSource(await file.text());
-    setExampleId(playgroundDocuments[0]!.id);
-    setScoreIndex(0);
-  };
+  useHashChange(() => {
+    const id = exampleIdFromHash(window.location.hash);
+    if (window.location.hash !== hashForExampleId(id)) replaceExampleHash(id);
+    if (id !== exampleId) void chooseExample(id, false);
+  });
 
   const handleValidate: OnValidate = (markers) => setMarkerCount(markers.length);
+  const chooseScore = (nextScoreIndex: number) => {
+    if (nextScoreIndex === scoreIndex) return;
+    pendingScoreIndexRef.current = nextScoreIndex;
+    previousDocumentRef.current = null;
+    setPreviewLoadingLabel("Engraving layout...");
+    window.setTimeout(() => setScoreIndex(nextScoreIndex), 16);
+  };
+  const handleScorePaint = () => {
+    if (pendingScoreIndexRef.current !== null && pendingScoreIndexRef.current !== scoreIndex) return;
+    if (previousDocumentRef.current !== null && previousDocumentRef.current === playground.renderedDocument) return;
+    pendingScoreIndexRef.current = null;
+    previousDocumentRef.current = null;
+    setPreviewLoadingLabel(null);
+  };
 
   return (
     <div className="mnx-playground">
-      <div className="mnx-playground__heading">
-        <div>
-          <Text as="p" variant="eyebrow" tone="muted">
-            MNX Playground
-          </Text>
-          <Text as="h1" variant="title">
-            Edit MNX and inspect the engraving
-          </Text>
-        </div>
-        <Text as="p" variant="body" tone="muted">
-          {selectedExample.description}
-        </Text>
-      </div>
+      <span className="visually-hidden" aria-live="polite">
+        {playground.hasError ? "Error: " : ""}
+        {playground.status}
+        {markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : ""}
+      </span>
+      {loadError || playground.hasError || markerCount > 0 ? (
+        <span
+          className="mnx-playground__status-message"
+          aria-live="polite"
+          data-error={Boolean(loadError || playground.hasError)}
+        >
+          {loadError ?? `${playground.hasError ? "Error: " : ""}${playground.status}`}
+          {markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : ""}
+        </span>
+      ) : null}
 
       <div className="mnx-playground__mobile-tabs">
         <Tabs
           tabs={[
+            { id: "examples", label: "Examples" },
             { id: "editor", label: "Editor" },
             { id: "preview", label: "Preview" },
           ]}
@@ -98,6 +131,11 @@ export function MnxPlaygroundPage() {
           onTabChange={(id) => setMobilePane(id as MobilePane)}
         >
           <div className="mnx-playground__workspace">
+            <PlaygroundExampleBrowser
+              value={exampleId}
+              onChange={(id) => void chooseExample(id)}
+              mobileActive={mobilePane === "examples"}
+            />
             <section
               className="mnx-playground__pane mnx-playground__editor"
               data-mobile-active={mobilePane === "editor"}
@@ -127,33 +165,70 @@ export function MnxPlaygroundPage() {
               className="mnx-playground__pane mnx-playground__preview"
               data-mobile-active={mobilePane === "preview"}
               aria-label="Live score preview"
+              aria-busy={previewLoadingLabel !== null}
             >
+              {availableScores.length > 1 ? (
+                <div
+                  className="mnx-playground__preview-controls"
+                  role="toolbar"
+                  aria-label="MNX score and part controls"
+                >
+                  <PlaygroundScoreSelect
+                    scoreIndex={scoreIndex}
+                    onScoreIndexChange={chooseScore}
+                    scoreOptions={availableScores}
+                  />
+                </div>
+              ) : null}
+              {previewLoadingLabel ? (
+                <div className="mnx-playground__layout-loading" role="status" aria-live="polite">
+                  <span className="mnx-playground__layout-loading-message">
+                    <span className="mnx-playground__layout-spinner" aria-hidden="true" />
+                    <span>{previewLoadingLabel}</span>
+                  </span>
+                </div>
+              ) : null}
               <ScoreViewer
                 mnx={playground.renderedDocument}
                 scoreIndex={scoreIndex}
                 onScoreIndexChange={setScoreIndex}
                 scoreOptions={availableScores}
-                pageWidth={pageWidth}
-                pageHeight={pageHeight}
-                pageMargins={pageMargins}
-                spatium={spatium}
-                viewMode={viewerMode}
-                controls={{ score: false, viewMode: false, zoom: true, fit: true }}
+                pageWidth={0}
+                pageHeight={0}
+                spatium={8}
+                viewMode="horizontal"
+                controls={false}
                 defaultFitMode="width"
-                controlSurface="floating-status"
-                onError={playground.rejectCandidate}
+                minZoom={0.05}
+                maxZoom={1}
+                className="mnx-playground__score-viewer"
+                viewportClassName="mnx-playground__score-viewport"
+                scoreClassName="mnx-score-surface"
+                pageBackground="transparent"
+                onPaint={handleScorePaint}
+                onError={(error) => {
+                  pendingScoreIndexRef.current = null;
+                  previousDocumentRef.current = null;
+                  setPreviewLoadingLabel(null);
+                  playground.rejectCandidate(error);
+                }}
               />
               {playground.candidateDocument ? (
                 <div className="mnx-playground__candidate" aria-hidden="true">
                   <ScoreViewer
                     mnx={playground.candidateDocument}
                     scoreIndex={scoreIndex}
-                    pageWidth={pageWidth}
-                    pageHeight={pageHeight}
-                    pageMargins={pageMargins}
-                    spatium={spatium}
-                    viewMode={viewerMode}
+                    pageWidth={0}
+                    pageHeight={0}
+                    spatium={8}
+                    viewMode="horizontal"
                     controls={false}
+                    minZoom={0.05}
+                    maxZoom={1}
+                    className="mnx-playground__score-viewer"
+                    viewportClassName="mnx-playground__score-viewport"
+                    scoreClassName="mnx-score-surface"
+                    pageBackground="transparent"
                     onReady={playground.acceptCandidate}
                     onError={playground.rejectCandidate}
                   />
@@ -162,49 +237,6 @@ export function MnxPlaygroundPage() {
             </section>
           </div>
         </Tabs>
-      </div>
-
-      <div className="mnx-playground__status-wrap">
-        <StatusBar
-          ariaLabel="MNX playground status and actions"
-          left={
-            <span className="mnx-playground__status-message" aria-live="polite" data-error={playground.hasError}>
-              {playground.hasError ? "Error: " : ""}
-              {playground.status}
-              {markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : ""}
-            </span>
-          }
-          right={
-            <PlaygroundStatusControls
-              exampleId={exampleId}
-              onExampleChange={chooseExample}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              pagePresetId={pagePresetId}
-              onPagePresetChange={setPagePresetId}
-              staffSizeId={staffSizeId}
-              onStaffSizeChange={setStaffSizeId}
-              scoreIndex={scoreIndex}
-              onScoreIndexChange={setScoreIndex}
-              scoreOptions={availableScores}
-              onFormat={handleFormat}
-              onReset={() => playground.setSource(selectedExample.source)}
-              onUpload={() => fileInputRef.current?.click()}
-              onDownload={() => downloadMnxSource(playground.source, `${exampleId}.mnx`)}
-            />
-          }
-        />
-        <input
-          ref={fileInputRef}
-          className="mnx-playground__file-input"
-          type="file"
-          accept=".mnx,application/json,application/mnx+json"
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            event.currentTarget.value = "";
-            void handleUpload(file);
-          }}
-        />
       </div>
     </div>
   );

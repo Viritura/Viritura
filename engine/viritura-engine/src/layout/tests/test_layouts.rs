@@ -15,44 +15,30 @@ fn test_tier5_system_layouts_parse() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/system-layouts.mnx");
     let score = parse_mnx(json).unwrap();
 
-    // Should have 2 layouts
     assert_eq!(
-        score.layouts.len(),
-        2,
-        "system-layouts.mnx should have 2 layouts"
+        score.global.measures.len(),
+        4,
+        "excerpt should contain bars 1-4"
     );
-    // Layout/measure ids are opaque UUIDs post-migration; capture them so the
-    // system references below can be checked for referential integrity.
-    let layout0 = score.layouts[0].id.clone();
-    let layout1 = score.layouts[1].id.clone();
-    assert_ne!(layout0, layout1);
-
-    // Should have 1 score with 1 page
+    assert_eq!(score.layouts.len(), 1);
+    assert_eq!(score.layouts[0].id, "condensed-score");
+    assert_eq!(
+        score.parts.len(),
+        18,
+        "condensed score should retain all source parts"
+    );
+    assert!(
+        score.parts.iter().all(|part| part.measures.len() == 4),
+        "every source part should contain exactly four bars"
+    );
     assert_eq!(score.scores.len(), 1);
-    assert_eq!(score.scores[0].pages.len(), 1);
-
-    // Should have 2 systems
-    let systems = &score.scores[0].pages[0].systems;
-    assert_eq!(systems.len(), 2, "Should have 2 systems");
-    assert_eq!(systems[0].layout.as_deref(), Some(layout0.as_str()));
-    assert_eq!(
-        systems[0].measure,
-        score.global.measures[0].id.clone().unwrap()
+    assert_eq!(score.scores[0].name.as_deref(), Some("Condensed"));
+    assert_eq!(score.scores[0].layout.as_deref(), Some("condensed-score"));
+    assert_eq!(score.scores[0].use_written, Some(true));
+    assert!(
+        score.scores[0].pages.is_empty(),
+        "excerpt should use automatic flow"
     );
-    assert_eq!(systems[1].layout.as_deref(), Some(layout1.as_str()));
-    assert_eq!(
-        systems[1].measure,
-        score.global.measures[3].id.clone().unwrap()
-    );
-
-    // Should have 6 parts
-    assert_eq!(score.parts.len(), 6);
-    assert!(score.parts[0].id.is_some());
-    assert!(score.parts[5].id.is_some());
-    assert_eq!(score.parts[5].staves, 2);
-
-    // Should have 7 global measures
-    assert_eq!(score.global.measures.len(), 7);
 }
 
 #[test]
@@ -71,32 +57,46 @@ fn test_tier5_system_layouts_render() {
     assert!(dl.width > 0.0, "Width should be positive");
     assert!(dl.height > 0.0, "Height should be positive");
 
-    // Should have staff lines (5 per staff, 2 systems, multiple staves)
-    let staff_lines: Vec<_> = dl
-        .commands
-        .iter()
-        .filter(
-            |cmd| matches!(cmd, RenderCommand::DrawLine { y1, y2, .. } if (y1 - y2).abs() < 0.01),
-        )
-        .collect();
-    assert!(
-        staff_lines.len() >= 10,
-        "Should have at least 10 horizontal staff lines, got {}",
-        staff_lines.len()
-    );
-
-    // Should have brace glyphs (for Flutes group and Piano group)
-    let brace_glyphs: Vec<_> = dl
+    let staff_lines = dl
         .commands
         .iter()
         .filter(|cmd| {
-            matches!(
-                cmd,
-                RenderCommand::DrawStretchedGlyph { codepoint, .. } if is_brace_glyph(*codepoint)
-            )
+            matches!(cmd, RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                if (y1 - y2).abs() < 0.01 && (x2 - x1).abs() > 50.0)
         })
-        .collect();
-    assert!(!brace_glyphs.is_empty(), "Should have brace glyphs");
+        .count();
+    assert!(
+        staff_lines >= 60,
+        "12 condensed staves should render at least 60 staff lines, got {staff_lines}"
+    );
+
+    let noteheads = dl
+        .commands
+        .iter()
+        .filter(|cmd| {
+            matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. }
+            if *codepoint == smufl::NOTEHEAD_BLACK
+                || *codepoint == smufl::NOTEHEAD_HALF
+                || *codepoint == smufl::NOTEHEAD_WHOLE)
+        })
+        .count();
+    assert!(
+        noteheads > 0,
+        "condensed Beethoven excerpt should render noteheads"
+    );
+
+    let bracket_lines = dl
+        .commands
+        .iter()
+        .filter(|cmd| {
+            matches!(cmd, RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+            if (x1 - x2).abs() < 0.01 && (y2 - y1).abs() > 20.0)
+        })
+        .count();
+    assert!(
+        bracket_lines > 0,
+        "condensed score should render group brackets"
+    );
 }
 
 #[test]
@@ -187,35 +187,69 @@ fn test_tier5_multiple_layouts_render_two_staff_split() {
 }
 
 #[test]
+fn test_multiple_layouts_chunked_horizon_bounds_are_not_clipped() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/multiple-layouts.mnx");
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        sp: 8.0,
+        page_width: None,
+        horizon_chunk_width: Some(3000.0),
+        ..LayoutConfig::default()
+    };
+
+    for (score_index, name) in [
+        (0, "Four Staff"),
+        (1, "Two Staff Split"),
+        (2, "Two Staff Chord"),
+    ] {
+        let dl = layout_with_mnx_scores(&score, &config, score_index);
+        let min_bbox_y = dl
+            .element_bboxes
+            .iter()
+            .map(|element| element.bbox.y)
+            .fold(f64::INFINITY, f64::min);
+        let max_bbox_y = dl
+            .element_bboxes
+            .iter()
+            .map(|element| element.bbox.y + element.bbox.height)
+            .fold(f64::NEG_INFINITY, f64::max);
+
+        assert!(
+            min_bbox_y >= 0.0 && max_bbox_y <= dl.height,
+            "{name} Horizon element bounds {min_bbox_y}..{max_bbox_y} exceed display height {}",
+            dl.height
+        );
+    }
+}
+
+#[test]
 fn test_tier5_orchestral_layout_parse() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/orchestral-layout.mnx");
     let score = parse_mnx(json).unwrap();
 
-    // Should have 2 layouts
     assert_eq!(
-        score.layouts.len(),
-        2,
-        "orchestral-layout.mnx should have 2 layouts"
+        score.global.measures.len(),
+        4,
+        "excerpt should contain bars 1-4"
     );
-    // Layout ids are opaque UUIDs post-migration; assert both are distinct.
-    let layout_ids: std::collections::HashSet<&str> =
-        score.layouts.iter().map(|l| l.id.as_str()).collect();
-    assert_eq!(layout_ids.len(), 2, "Both layout ids should be distinct");
-
-    // Should have many parts
+    assert_eq!(score.layouts.len(), 1);
+    assert_eq!(score.layouts[0].id, "full-score");
+    assert_eq!(
+        score.parts.len(),
+        18,
+        "Beethoven full score should retain all 18 parts"
+    );
     assert!(
-        score.parts.len() >= 10,
-        "Should have at least 10 parts, got {}",
-        score.parts.len()
+        score.parts.iter().all(|part| part.measures.len() == 4),
+        "every orchestral part should contain exactly four bars"
     );
-
-    // Harp is the part with 2 staves (part ids are opaque UUIDs post-migration).
-    let two_staff = score.parts.iter().find(|p| p.staves == 2);
-    assert!(two_staff.is_some(), "Should have a 2-staff part (Harp)");
-
-    // Should have 1 score definition with 2 systems
     assert_eq!(score.scores.len(), 1);
-    assert_eq!(score.scores[0].pages[0].systems.len(), 2);
+    assert_eq!(score.scores[0].name.as_deref(), Some("Full score"));
+    assert_eq!(score.scores[0].layout.as_deref(), Some("full-score"));
+    assert!(
+        score.scores[0].pages.is_empty(),
+        "excerpt should use automatic flow"
+    );
 }
 
 #[test]
@@ -229,26 +263,35 @@ fn test_tier5_orchestral_layout_render() {
 
     let dl = layout_with_mnx_scores(&score, &config, 0);
 
-    // Should produce commands (even with empty measures, staves and brackets render)
+    // The excerpt should render orchestral staves, grouping, and actual music.
     assert!(!dl.commands.is_empty(), "Should produce render commands");
     assert!(dl.width > 0.0);
     assert!(dl.height > 0.0);
 
-    // Should have braces (Horns, Harfe, Violins/Violas groups)
-    let brace_glyphs: Vec<_> = dl
+    let staff_lines = dl
         .commands
         .iter()
         .filter(|cmd| {
-            matches!(
-                cmd,
-                RenderCommand::DrawStretchedGlyph { codepoint, .. } if is_brace_glyph(*codepoint)
-            )
+            matches!(cmd, RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                if (y1 - y2).abs() < 0.01 && (x2 - x1).abs() > 50.0)
         })
-        .collect();
+        .count();
     assert!(
-        !brace_glyphs.is_empty(),
-        "Should have brace glyphs for orchestral groups"
+        staff_lines >= 90,
+        "18 orchestral staves should render at least 90 staff lines, got {staff_lines}"
     );
+
+    let noteheads = dl
+        .commands
+        .iter()
+        .filter(|cmd| {
+            matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. }
+            if *codepoint == smufl::NOTEHEAD_BLACK
+                || *codepoint == smufl::NOTEHEAD_HALF
+                || *codepoint == smufl::NOTEHEAD_WHOLE)
+        })
+        .count();
+    assert!(noteheads > 0, "Beethoven excerpt should render noteheads");
 
     // Should have bracket lines
     let bracket_lines: Vec<_> = dl

@@ -234,6 +234,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     let systems = &plan.systems;
     let margin_left_first = plan.margin_left_first;
     let margin_top = plan.margin_top;
+    // One extra staff space covers glyph extents that rise just beyond the
+    // standard 5sp galley headroom (for example an 8va glyph).
+    let galley_offset_y = margin_top + sp;
     let base_margin_r = plan.base_margin_r;
     let inter_system_gap = plan.inter_system_gap;
 
@@ -404,10 +407,13 @@ pub(super) fn layout_auto_flow_mnx_score(
         let global_intra = go.offsets.last().copied().unwrap_or(first_staff_y) - first_staff_y;
         let global_above = above_staff_extras.iter().copied().fold(0.0f64, f64::max);
         let global_below = below_staff_extras.iter().copied().fold(0.0f64, f64::max);
-        margin_top * 2.0 + staff_height + global_intra + global_below + global_above
+        // Preserve a full lower margin after applying the fixed galley offset.
+        margin_top * 4.0 + sp + staff_height + global_intra + global_below + global_above
     } else {
         let max_sys_h = system_heights_px.iter().copied().fold(0.0f64, f64::max);
-        margin_top * 2.0
+        // Preserve a full lower margin after applying the fixed galley offset.
+        margin_top * 4.0
+            + sp
             + system_count as f64 * max_sys_h
             + if system_count > 1 {
                 (system_count - 1) as f64 * inter_system_gap
@@ -874,7 +880,7 @@ pub(super) fn layout_auto_flow_mnx_score(
             // at assembly so the result matches the full-frame galley. Paged
             // layouts position systems absolutely → 0.
             galley_offset_y: if config.page_width.is_none() {
-                margin_top
+                galley_offset_y
             } else {
                 0.0
             },
@@ -959,7 +965,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     // full `dl` is discarded, so running the O(commands) fit over it is wasted
     // work — the client applies the constant `galley_offset_y` at assembly.
     if config.page_width.is_none() && !patch_valid {
-        fit_unpaged_bounds(&mut dl, margin_top, base_margin_r);
+        fit_unpaged_bounds(&mut dl, galley_offset_y, base_margin_r);
     }
 
     // Re-store the assembled measures (keyed by their stable per-(measure,staff)

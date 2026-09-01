@@ -176,11 +176,11 @@ export class Engine {
         // its commands are in absolute (multi-page) coordinates.
         ctx.save();
         ctx.translate(0, -pageDl.layout.yOffset);
-        paintDisplayList(ctx, wrapped, this.glyphAtlas);
+        paintDisplayList(ctx, wrapped, this.glyphAtlas, opts.background);
         ctx.restore();
       }
     } else {
-      paintDisplayList(ctx, displayList, this.glyphAtlas);
+      paintDisplayList(ctx, displayList, this.glyphAtlas, opts.background);
     }
     ctx.restore();
   }

@@ -985,7 +985,7 @@ pub fn layout_with_mnx_scores_cached(
     // Galley/horizon view: translate stores so above-staff protrusion fits inside
     // the white workspace, then trim width/height to tightly wrap actual content.
     if config.page_width.is_none() {
-        fit_unpaged_bounds(&mut dl, margin_top, base_margin_r_sp * sp);
+        fit_unpaged_bounds(&mut dl, margin_top + sp, base_margin_r_sp * sp);
     }
 
     dl

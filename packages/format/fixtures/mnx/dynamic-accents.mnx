@@ -1,0 +1,61 @@
+{
+  "mnx": { "version": 1 },
+  "global": {
+    "measures": [
+      { "time": { "count": 4, "unit": 4 } },
+      {}
+    ]
+  },
+  "parts": [
+    {
+      "id": "P1",
+      "measures": [
+        {
+          "clefs": [{ "clef": { "sign": "G", "staffPosition": -2 } }],
+          "dynamics": [
+            { "type": "accent", "position": { "fraction": [0, 1] }, "value": "f" },
+            { "type": "accent", "accentPrefix": "r", "position": { "fraction": [1, 4] }, "value": "f" },
+            { "type": "accent", "accentPrefix": "", "position": { "fraction": [1, 2] }, "value": "f" },
+            { "type": "accent", "accentSuffix": "", "position": { "fraction": [3, 4] }, "value": "f" }
+          ],
+          "sequences": [
+            {
+              "content": [
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "C", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "D", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "E", "octave": 4 } }] },
+                { "duration": { "base": "quarter" }, "notes": [{ "pitch": { "step": "F", "octave": 4 } }] }
+              ]
+            }
+          ]
+        },
+        {
+          "dynamics": [
+            {
+              "type": "accent",
+              "accentPrefix": "",
+              "accentSuffix": "",
+              "position": { "fraction": [0, 1] },
+              "residualValue": "p",
+              "value": "f"
+            },
+            {
+              "type": "accent",
+              "position": { "fraction": [1, 2] },
+              "residualValue": "p",
+              "value": "f"
+            }
+          ],
+          "sequences": [
+            {
+              "content": [
+                { "duration": { "base": "half" }, "notes": [{ "pitch": { "step": "G", "octave": 4 } }] },
+                { "duration": { "base": "half" }, "notes": [{ "pitch": { "step": "E", "octave": 4 } }] }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

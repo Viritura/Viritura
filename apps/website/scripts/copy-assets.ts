@@ -1,13 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { publishedExampleFilenames } from "../src/routes/mnx-playground/publishedExamples";
 
 const websiteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(websiteRoot, "../..");
 const sharedFonts = resolve(repoRoot, "assets/fonts");
 const sharedBranding = resolve(repoRoot, "assets/branding");
 const mnxSchema = resolve(repoRoot, "packages/format/schemas/mnx-schema.json");
+const mnxFixtures = resolve(repoRoot, "packages/format/fixtures/mnx");
 const wasmOutput = resolve(repoRoot, "engine/viritura-wasm/pkg-browser");
 const websitePublic = resolve(websiteRoot, "public");
 
@@ -23,6 +25,8 @@ const fontFiles = [
 
 mkdirSync(resolve(websitePublic, "wasm"), { recursive: true });
 mkdirSync(resolve(websitePublic, "fonts"), { recursive: true });
+rmSync(resolve(websitePublic, "mnx-samples"), { recursive: true, force: true });
+mkdirSync(resolve(websitePublic, "mnx-samples"), { recursive: true });
 const pnpmCli = process.env.npm_execpath;
 if (!pnpmCli) throw new Error("Sound asset staging must run from a pnpm command");
 execFileSync(
@@ -41,3 +45,6 @@ for (const file of ["favicon.svg", "viritura-logo.svg", "viritura-mark.svg"]) {
   copyFileSync(resolve(sharedBranding, file), resolve(websitePublic, file));
 }
 copyFileSync(mnxSchema, resolve(websitePublic, "mnx-schema.json"));
+for (const filename of publishedExampleFilenames) {
+  copyFileSync(resolve(mnxFixtures, filename), resolve(websitePublic, "mnx-samples", filename));
+}
