@@ -29,10 +29,9 @@ MNX, explained through working scores.
 
 ### Introduction
 
-MNX is an emerging format for representing music notation as structured JSON.
-It describes the music itself — notes, rhythms, parts and the relationships
-between them — so software can do more than reproduce a fixed picture of a
-page.
+MNX is an emerging format for representing music notation as structured data.
+It describes notes, rhythms, parts and the relationships between them, so
+software can work with the music rather than a fixed picture of a page.
 
 The format is being developed in the open by the W3C Music Notation Community
 Group, which also maintains MusicXML. MNX is still a draft. For the formal
@@ -40,8 +39,8 @@ definition and the latest decisions, the [official MNX
 specification](https://mnx.formats.music/docs/) is the source of truth.
 
 Viritura uses MNX as its native document format. The examples and tools here
-come from that implementation: you can read the JSON, change it, and see how the
-same document becomes engraved music.
+come from that implementation. You can read an MNX document, change it, and see
+how it becomes engraved music.
 
 Primary actions:
 
@@ -54,79 +53,40 @@ Primary actions:
 
 A notation file has to carry more than the marks visible on a page. It needs to
 say that a note is a C, that it lasts a quarter note, that it belongs to a
-particular voice, and that a slur continues to a later event. Once those facts
-are represented directly, software can lay the music out again for a different
-page, extract an instrumental part, follow playback, compare revisions, or
-inspect the score without guessing from pixels.
+particular voice, and that a slur continues to a later event. MNX gives notation
+software a common way to record those facts.
 
-MNX defines JSON objects for those facts. A simple event might contain a
-duration and one or more pitched notes. Measures collect events into sequences;
-source parts collect the measures played by an instrument or voice. Information
-shared by the whole document, such as time signatures, repeats and tempo, has
-its own global timeline.
-
-That separation matters. The music does not have to be tied to one permanent
-arrangement of staves on one page.
+MNX documents are written as JSON. Musical content is organized into source
+parts and measures, while score-wide information such as time signatures,
+repeats and tempo has its own global timeline. The format can also describe how
+the source music is arranged into staves for a particular score or
+instrumental part.
 
 Suggested link after this section: **See a small MNX document**
 
 ---
 
-## One document, more than one score
-
-An orchestral work is rarely needed in only one form. A conductor may want a
-full score or a condensed score. Each player needs an instrumental part. A
-rehearsal score may show only a few sections. The underlying notes should not
-have to be copied into a new file for every one of those uses.
-
-MNX can keep the source music separate from the way it is arranged for display.
-A layout maps source parts onto staves and staff groups. An MNX score definition
-selects a layout and can describe systems and pages. More than one score
-definition can refer to the same music.
-
-In practical terms: the soprano line can be stored once, then shown on its own
-staff in one layout and combined with the alto line in another. Fix a wrong note
-in the source part and both views receive the correction.
-
-Suggested interactive example: **Four-part choir shown in four-staff and
-two-staff layouts**
-
-Suggested action: **Open the multiple-layouts example**
-
----
-
-## Why JSON?
-
-JSON is ordinary working material for web applications. It can be parsed in a
-browser, represented directly by objects in most programming languages, checked
-with a JSON Schema, and reviewed with familiar source-control tools.
-
-The choice of JSON is useful, but it is not the main point of MNX. Changing
-angle brackets to braces would not solve notation interchange by itself. The
-more important work is the model: deciding what a musical object means, where
-it belongs, and how another application should interpret it.
-
-Suggested action: **Edit MNX in the browser**
-
----
-
 ## MNX and MusicXML
 
-MusicXML is the established interchange format for notation software. It is
-widely supported and remains the practical choice when moving a score between
-most applications today.
+MusicXML and MNX overlap, but they were designed for different jobs.
 
-MNX starts from the experience gained through MusicXML and asks a somewhat
-different question: what would an open notation format look like if an
-application worked in it directly? Its draft model uses explicit sequences for
-voices, groups chord notes into events, and can separate source music from
-multiple layouts and score definitions.
+MusicXML is the established interchange format for notation software. Its job
+is to carry a score from one application to another. Broad support is its main
+advantage: Finale, Dorico, Sibelius, MuseScore and many other programs can read
+or write it. When moving an existing score between applications, MusicXML is
+usually the practical choice.
 
-This is not a reason to stop using MusicXML. It is the reason a MusicXML-to-MNX
-converter is useful: one format is the common route out of existing notation
-software; the other can become the working document for an MNX-based tool.
+MNX is intended for interchange and for use as an application's working
+format. It represents relationships such as voices, chords and tuplets more
+directly, and it can keep source music separate from a particular score layout.
+The tradeoff is maturity and reach. MusicXML works with a large existing
+software ecosystem; MNX is still a draft with limited support.
 
-Suggested action: **Convert MusicXML to MNX**
+The two formats therefore have different roles in Viritura. MusicXML is an
+import format for bringing scores out of existing notation software. MNX is the
+document Viritura works in after import.
+
+Suggested action: **Compare the formats and convert MusicXML to MNX**
 
 ---
 
@@ -180,8 +140,12 @@ as an application's working format.
 
 ### Is an MNX file XML?
 
-No. An MNX document is JSON. The name reflects its relationship to the music
-notation work that produced MusicXML, not its serialization syntax.
+No. An MNX document is JSON.
+
+### What does MNX stand for?
+
+MNX is the name of the format. The official documentation does not expand it
+into a longer phrase. The X does not mean that MNX is an XML format.
 
 ### What can open an MNX file?
 
@@ -189,25 +153,10 @@ MNX support is still young. Viritura can open and edit MNX in the browser, and
 the Viritura MNX Viewer can preview `.mnx` files in VS Code. For other software,
 check that application's current import and export documentation.
 
-### Can MNX contain a full score and instrumental parts?
-
-An MNX document can contain source parts, layouts and multiple MNX score
-definitions. A score definition can render the full ensemble, a section score,
-or an instrumental part without requiring a second copy of the underlying
-music.
-
-### Does MNX preserve page layout?
-
-MNX can describe layouts, systems and pages, but it is not limited to replaying
-one fixed page. The same source music can be given another layout for a part,
-screen size or working view. Because the format is still a draft, consult the
-official specification before depending on a particular layout feature.
-
 ### Where can I read the specification?
 
-Read the [official MNX draft](https://mnx.formats.music/docs/) and its [object
-reference](https://mnx.formats.music/docs/mnx-reference/objects/). Viritura's
-pages provide working examples, not a parallel specification.
+Read the [official MNX draft](https://mnx.formats.music/docs/). Viritura's pages
+provide working examples, not a parallel specification.
 
 ---
 
@@ -247,10 +196,10 @@ The notation on screen may look familiar, but the two formats organize it
 differently.
 
 MusicXML represents a score as XML and is designed first for exchange between
-notation programs. Its structure often follows the ordered stream needed to
-reconstruct a printed score. MNX uses JSON and makes several musical
-relationships explicit: voices are sequences, notes sounding together belong
-to one event, and objects such as ties and slurs point to their destinations.
+notation programs. Its structure uses an ordered stream of notes and directions.
+MNX uses JSON and makes several musical relationships explicit: voices are
+sequences, notes sounding together belong to one event, and objects such as
+ties and slurs can point to their destinations.
 
 The converter does not perform a text substitution from XML to JSON. It reads
 the MusicXML score, builds a musical model, then writes that model as MNX.
@@ -346,7 +295,7 @@ same time.
 - Say "draft," not "standard," when the distinction matters.
 - Do not maintain a list of every application that supports MNX.
 - Do not copy the MNX object reference into prose.
-- Use complete, runnable documents in examples; isolated fragments are easy to
+- Use complete, runnable documents in examples. Isolated fragments are easy to
   misunderstand.
 - Keep `MNX source part`, `MNX score definition`, `layout`, `full score` and
   `instrumental part` distinct.
