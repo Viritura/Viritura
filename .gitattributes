@@ -8,3 +8,4 @@ engine/viritura-engine/src/raw_viritura.rs text eol=lf
 
 # Shell scripts run on Linux; CRLF breaks shebang resolution.
 *.sh text eol=lf
+*.sudoers text eol=lf

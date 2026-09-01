@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:a4556ed033fa96f984bb7a8d348851cb2d36b1281dd2420070045f664fbb5f94
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl gosu sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN install -o root -g root -m 0755 docker-entrypoint.sh /usr/local/bin/viritura-api-entrypoint \
+    && rm docker-entrypoint.sh
+
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    DOTNET_EnableDiagnostics=0
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/viritura-api-entrypoint"]
+CMD ["dotnet", "Viritura.Api.dll"]

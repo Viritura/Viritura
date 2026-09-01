@@ -300,8 +300,9 @@ See [docs/setup/github-dev.md](docs/setup/github-dev.md) for the full setup, inc
 
 **Production:** [viritura.com](https://viritura.com) (marketing) · [app.viritura.com](https://app.viritura.com) (editor)
 
-Production currently uses nginx with manual SSH static deployment and a
-host-managed API container. See
+Deploy application changes through the manual **Deploy website**, **Deploy
+editor**, and **Deploy API** workflows in GitHub Actions. Host configuration is
+managed separately and cannot be changed by those workflows. See
 [`docs/setup/production-deployment.md`](docs/setup/production-deployment.md).
 
 ## License
