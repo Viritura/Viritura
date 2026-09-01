@@ -23,7 +23,7 @@ jobs:
       desktop: ${{ steps.classify.outputs.desktop }}
       vst_probe: ${{ steps.classify.outputs.vst_probe }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -110,15 +110,15 @@ jobs:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
       TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -138,15 +138,10 @@ jobs:
           fi
 
       - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.93.1
-          targets: wasm32-unknown-unknown
-
-      - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: engine
+        name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
 
       - if: steps.plan.outputs.needs_wasm == 'true' || needs.changes.outputs.engine_consumers == 'true'
         name: Install wasm-pack
@@ -173,25 +168,21 @@ jobs:
     if: needs.changes.outputs.engine == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.93.1
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: engine
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.93.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -214,18 +205,18 @@ jobs:
     if: needs.changes.outputs.dotnet == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
           cache: true
@@ -249,17 +240,16 @@ jobs:
     if: needs.changes.outputs.desktop == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.93.1
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
 
       - name: Test desktop
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 
   vst-probe:
@@ -268,15 +258,12 @@ jobs:
     if: needs.changes.outputs.vst_probe == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.93.1
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: tools/vst-reverb-probe
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal
+          rustup default 1.93.1
 
       - name: Test VST probe
         run: cargo test --manifest-path tools/vst-reverb-probe/Cargo.toml --locked
