@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parse, type DefaultTreeAdapterTypes } from "parse5";
 import { applyRouteMetadata, type SeoRoute } from "../src/seo";
 
 interface StaticRenderer {
@@ -29,6 +31,53 @@ function removeClientScripts(html: string): string {
     .replace(/\s*<script(?:\s[^>]*)?>[\s\S]*?<\/script>/g, "");
 }
 
+async function externalizeInlineScripts(html: string): Promise<string> {
+  const scripts = new Map<string, string>();
+  const replacements: Array<{ start: number; end: number; html: string }> = [];
+  const pending: DefaultTreeAdapterTypes.Node[] = [parse(html, { sourceCodeLocationInfo: true })];
+
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    if ("childNodes" in node) pending.push(...node.childNodes);
+    if (!("tagName" in node) || node.tagName !== "script") continue;
+
+    const location = node.sourceCodeLocation;
+    if (!location?.startTag || !location.endTag) continue;
+    if (node.attrs.some((attribute) => attribute.name === "src")) continue;
+
+    const type = node.attrs.find((attribute) => attribute.name === "type")?.value.toLowerCase();
+    if (type && type !== "module" && type !== "text/javascript" && type !== "application/javascript") continue;
+
+    const body = html.slice(location.startTag.endOffset, location.endTag.startOffset);
+    if (!body.trim()) continue;
+
+    const digest = createHash("sha256").update(body).digest("hex");
+    const assetPath = `assets/inline-${digest}.js`;
+    const startTag = html.slice(location.startTag.startOffset, location.startTag.endOffset);
+    const closingDelimiterLength = startTag.endsWith("/>") ? 2 : 1;
+    scripts.set(assetPath, body);
+    replacements.push({
+      start: location.startTag.startOffset,
+      end: location.endTag.endOffset,
+      html: `${startTag.slice(0, -closingDelimiterLength)} src="/${assetPath}"></script>`,
+    });
+  }
+
+  let output = html;
+  for (const replacement of replacements.sort((left, right) => right.start - left.start)) {
+    output = output.slice(0, replacement.start) + replacement.html + output.slice(replacement.end);
+  }
+
+  await Promise.all(
+    [...scripts].map(async ([assetPath, body]) => {
+      const destination = resolve(outputRoot, assetPath);
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, body);
+    }),
+  );
+  return output;
+}
+
 for (const route of renderer.staticRoutes) {
   const { html: appHtml, injectedHtml } = await renderer.renderRoute(route.renderPath ?? route.path);
   if (!/<h1(?:\s|>)/.test(appHtml)) throw new Error(`${route.path} did not prerender an h1.`);
@@ -41,7 +90,10 @@ for (const route of renderer.staticRoutes) {
   const destination = outputFile(route);
   await mkdir(dirname(destination), { recursive: true });
   const outputHtml = applyRouteMetadata(withContent, route);
-  await writeFile(destination, route.outputPath ? removeClientScripts(outputHtml) : outputHtml);
+  await writeFile(
+    destination,
+    route.outputPath ? removeClientScripts(outputHtml) : await externalizeInlineScripts(outputHtml),
+  );
 }
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>

@@ -777,6 +777,9 @@ importers:
       happy-dom:
         specifier: ^20.8.9
         version: 20.9.0
+      parse5:
+        specifier: 8.0.1
+        version: 8.0.1
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
