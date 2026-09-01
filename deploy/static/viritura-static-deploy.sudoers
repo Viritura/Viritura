@@ -1,0 +1,2 @@
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-static-manage website
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-static-manage editor

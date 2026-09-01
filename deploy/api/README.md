@@ -39,7 +39,8 @@ through an authenticated host-administration session:
 sudo bash deploy/api/install-host-config.sh /path/to/reviewed/repository
 ```
 
-This operator-only command is not called by any deployment workflow.
+This operator-only command installs the reviewed runtime files, API wrapper,
+and API-specific sudoers fragment. It is not called by any deployment workflow.
 
 Backups run from root's daily cron at 11:10 UTC. Retention matches Moomie:
 seven daily backups, one weekly backup through day 35, and one monthly backup

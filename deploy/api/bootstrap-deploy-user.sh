@@ -35,15 +35,6 @@ install -d -o 1654 -g 1654 -m 0700 "$root/data" "$root/data-protection-keys"
 install -d -o root -g root -m 0700 /etc/viritura
 bash "$bundle/deploy/api/install-host-config.sh" "$bundle"
 
-cat >/etc/sudoers.d/viritura-deploy <<'EOF'
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage deploy
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage status
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage logs
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage backup
-EOF
-chmod 0440 /etc/sudoers.d/viritura-deploy
-visudo --check --file /etc/sudoers.d/viritura-deploy
-
 cat >/etc/cron.d/viritura-api-backup <<'EOF'
 10 11 * * * root /usr/local/sbin/viritura-api-manage backup >>/var/log/viritura-api-backup.log 2>&1
 EOF

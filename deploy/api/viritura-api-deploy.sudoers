@@ -1,0 +1,4 @@
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage deploy
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage status
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage logs
+viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage backup

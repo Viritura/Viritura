@@ -105,6 +105,13 @@ nginx, Dockerfiles, Compose policy, container entrypoints, deployment wrappers,
 sudoers, backup jobs, or runtime secrets require an authenticated
 host-administration session and independent review.
 
+API and static deployment permissions live in separate
+`/etc/sudoers.d/viritura-api-deploy` and
+`/etc/sudoers.d/viritura-static-deploy` fragments so either provisioning path
+can be rerun without changing the other surface. When migrating a host that has
+the legacy combined `/etc/sudoers.d/viritura-deploy` fragment, install and
+validate both replacement fragments before removing the legacy file.
+
 Stage a reviewed repository checkout or configuration bundle on the host. For
 API runtime and deployment-wrapper changes, run on the host:
 
@@ -112,12 +119,10 @@ API runtime and deployment-wrapper changes, run on the host:
 sudo bash deploy/api/install-host-config.sh /path/to/reviewed/repository
 ```
 
-For static deployment-wrapper changes, install the reviewed file directly:
+For static deployment-wrapper and permission changes, run on the host:
 
 ```bash
-sudo install -o root -g root -m 0755 \
-   deploy/static/manage.sh \
-   /usr/local/sbin/viritura-static-manage
+sudo bash deploy/static/install-host-config.sh /path/to/reviewed/repository
 ```
 
 For nginx changes, install the reviewed vhost or shared snippet, validate the

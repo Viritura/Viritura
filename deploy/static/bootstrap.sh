@@ -7,7 +7,7 @@ readonly user=viritura-deploy
 readonly root=/var/www/viritura
 readonly legacy_root=/var/www/peter/viritura
 
-[[ -f "$bundle/deploy/static/manage.sh" ]] || { echo "Static deployment bundle is incomplete." >&2; exit 1; }
+[[ -f "$bundle/deploy/static/install-host-config.sh" ]] || { echo "Static deployment bundle is incomplete." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-viritura.com.conf" ]] || { echo "Website nginx configuration is missing." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-app.viritura.com.conf" ]] || { echo "Editor nginx configuration is missing." >&2; exit 1; }
 id "$user" >/dev/null 2>&1 || { echo "Deployment user $user does not exist." >&2; exit 1; }
@@ -19,7 +19,8 @@ install -d -o root -g root -m 0755 \
   "$root/editor/releases"
 
 if [[ ! -L "$root/website/current" ]]; then
-  readonly website_release="$root/website/releases/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)"
+  website_release="$root/website/releases/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)"
+  readonly website_release
   install -d -o root -g root -m 0755 "$website_release"
   rsync --archive --delete --exclude app "$legacy_root/" "$website_release/"
   ln -s "$website_release" "$root/website/current"
@@ -27,26 +28,17 @@ fi
 
 if [[ ! -L "$root/editor/current" ]]; then
   [[ -f "$legacy_root/app/index.html" ]] || { echo "Current editor build is missing." >&2; exit 1; }
-  readonly editor_release="$root/editor/releases/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)"
+  editor_release="$root/editor/releases/bootstrap-$(date -u +%Y%m%dT%H%M%SZ)"
+  readonly editor_release
   install -d -o root -g root -m 0755 "$editor_release"
   rsync --archive --delete "$legacy_root/app/" "$editor_release/"
   ln -s "$editor_release" "$root/editor/current"
 fi
 
-install -o root -g root -m 0755 "$bundle/deploy/static/manage.sh" /usr/local/sbin/viritura-static-manage
+bash "$bundle/deploy/static/install-host-config.sh" "$bundle"
 
-cat >/etc/sudoers.d/viritura-deploy <<'EOF'
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage deploy
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage status
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage logs
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-api-manage backup
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-static-manage website
-viritura-deploy ALL=(root) NOPASSWD: /usr/local/sbin/viritura-static-manage editor
-EOF
-chmod 0440 /etc/sudoers.d/viritura-deploy
-visudo --check --file /etc/sudoers.d/viritura-deploy
-
-readonly nginx_backup="/etc/nginx/viritura-static-backup-$(date -u +%Y%m%dT%H%M%SZ)"
+nginx_backup="/etc/nginx/viritura-static-backup-$(date -u +%Y%m%dT%H%M%SZ)"
+readonly nginx_backup
 install -d -o root -g root -m 0700 "$nginx_backup"
 cp -a /etc/nginx/sites-available/viritura.com "$nginx_backup/"
 cp -a /etc/nginx/sites-available/app.viritura.com "$nginx_backup/"
