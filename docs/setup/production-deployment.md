@@ -87,6 +87,13 @@ on the server; only its restricted public key is installed in the deployment
 account. `SSH_KNOWN_HOSTS` contains the independently verified host key rather
 than a value collected during a workflow run.
 
+The Environment's deployment branch policy allows only the exact `main` branch,
+with administrator bypass disabled. Each workflow also checks
+`github.ref == 'refs/heads/main'` on both its build and secret-bearing deploy
+jobs. Keep both layers: the workflow guard fails closed before doing work, while
+the Environment policy prevents a modified non-`main` workflow from receiving
+production secrets.
+
 ## Production configuration
 
 Runtime configuration lives in `/etc/viritura/api.env`, owned by root with mode
