@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { flushSync } from "react-dom";
 import type { SiteLinks } from "./siteLinks";
 import { VirituraLogo } from "./siteShared";
 
@@ -34,21 +36,72 @@ const inputHighlights = [
 
 interface SiteNavProps {
   links: SiteLinks;
-  homeAnchorPrefix: string;
 }
 
-export function SiteNav({ links, homeAnchorPrefix }: SiteNavProps) {
+const mnxViewerUrl = "https://marketplace.visualstudio.com/items?itemName=Viritura.mnx-viewer";
+
+export function SiteNav({ links }: SiteNavProps) {
+  const [mnxMenuOpen, setMnxMenuOpen] = useState(false);
+  const mnxMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!mnxMenuRef.current?.contains(event.target as Node)) setMnxMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, []);
+
+  const closeWhenFocusLeaves = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) setMnxMenuOpen(false);
+  };
+  const closeOnEscape = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    flushSync(() => setMnxMenuOpen(false));
+    mnxMenuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  };
+
   return (
     <nav className="nav">
       <a href="/" className="nav-logo" aria-label="Viritura home">
         <VirituraLogo />
       </a>
       <div className="nav-links" aria-label="Site navigation">
-        <a href={`${homeAnchorPrefix}#for-your-work`}>Features</a>
-        <a href={`${homeAnchorPrefix}#parts`}>Condensing</a>
-        <a href={`${homeAnchorPrefix}#review`}>Review</a>
-        <a href={`${homeAnchorPrefix}#open-format`}>Open format</a>
-        <span className="nav-link-divider" aria-hidden="true" />
+        <div
+          ref={mnxMenuRef}
+          className="nav-menu"
+          onMouseEnter={() => setMnxMenuOpen(true)}
+          onMouseLeave={() => setMnxMenuOpen(false)}
+          onFocus={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setMnxMenuOpen(true);
+          }}
+          onBlur={closeWhenFocusLeaves}
+          onKeyDown={closeOnEscape}
+        >
+          <span className="nav-menu-trigger">
+            <a href="/mnx" onClick={() => setMnxMenuOpen(false)}>
+              MNX
+            </a>
+            <button
+              type="button"
+              aria-label="Show MNX links"
+              aria-expanded={mnxMenuOpen}
+              aria-controls="mnx-nav-menu"
+              onClick={() => setMnxMenuOpen((open) => !open)}
+            >
+              <span className="nav-menu-chevron" aria-hidden="true" />
+            </button>
+          </span>
+          <div id="mnx-nav-menu" className="nav-submenu" hidden={!mnxMenuOpen}>
+            <a href="/mnx/playground">Playground</a>
+            <a href="/mnx/examples">Example library</a>
+            <a href="/mnx/mxl-converter">MusicXML converter</a>
+            <a href={mnxViewerUrl} target="_blank" rel="noopener noreferrer">
+              VS Code extension
+            </a>
+          </div>
+        </div>
         <a href={links.docs}>Docs</a>
         <a href={links.app} className="btn btn-primary btn-nav">
           Open editor
@@ -134,7 +187,7 @@ export function InputSection({ links }: { links: SiteLinks }) {
           <strong>Connect your tools to the score.</strong>
           <span>
             Connect an MCP-compatible client to inspect music, analyze harmony, and propose changes. Every proposal
-            returns for visual review—never a silent direct write.
+            returns for visual review, never a silent direct write.
           </span>
         </div>
         <a href={links.app} className="btn btn-primary">

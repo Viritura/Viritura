@@ -9,9 +9,13 @@ interface PlaygroundExampleBrowserProps {
 
 export function PlaygroundExampleBrowser({ value, onChange, mobileActive }: PlaygroundExampleBrowserProps) {
   return (
-    <aside className="mnx-playground__browser" data-mobile-active={mobileActive} aria-label="MNX examples">
+    <aside
+      className="mnx-playground__browser"
+      data-mobile-active={mobileActive}
+      aria-label="MNX documentation examples"
+    >
       <div className="mnx-playground__browser-heading">
-        <span>Examples</span>
+        <span>MNX docs examples</span>
         <a href="https://mnx.formats.music/docs/mnx-reference/examples/" target="_blank" rel="noreferrer">
           W3C reference
         </a>
@@ -20,7 +24,7 @@ export function PlaygroundExampleBrowser({ value, onChange, mobileActive }: Play
         groups={playgroundCatalogGroups}
         value={value}
         onChange={onChange}
-        ariaLabel="MNX example documents"
+        ariaLabel="MNX documentation example documents"
         className="mnx-playground__example-list"
       />
     </aside>

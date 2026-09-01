@@ -21,9 +21,9 @@ const publicRoutes: readonly SeoRoute[] = [
   },
   {
     path: "/mnx",
-    title: "MNX Music Notation Tools and Examples | Viritura",
+    title: "MNX Music Notation Format: Guide, Examples and Tools | Viritura",
     description:
-      "Explore MNX examples, browser-based tools, documentation, and open engraving workflows from Viritura.",
+      "Learn what the MNX music notation format is, how MNX differs from MusicXML, and how to inspect and edit MNX in your browser.",
     canonicalPath: "/mnx",
     indexable: true,
   },
@@ -31,14 +31,15 @@ const publicRoutes: readonly SeoRoute[] = [
     path: "/mnx/playground",
     title: "Online MNX Editor and Engraving Playground | Viritura",
     description:
-      "Edit MNX in the browser and inspect live output from Viritura's Rust and WebAssembly engraving engine.",
+      "Edit 52 MNX documentation examples in the browser and inspect live output from Viritura's Rust and WebAssembly engraving engine.",
     canonicalPath: "/mnx/playground",
     indexable: true,
   },
   {
     path: "/mnx/mxl-converter",
-    title: "Convert MusicXML to MNX Online | Viritura",
-    description: "Convert MusicXML files to open MNX documents in your browser, inspect the result, and download it.",
+    title: "MusicXML to MNX Converter: Convert MXL Online | Viritura",
+    description:
+      "Convert MusicXML and compressed MXL files to MNX in your browser. Preview the score, review conversion details, and download the MNX document.",
     canonicalPath: "/mnx/mxl-converter",
     indexable: true,
   },
