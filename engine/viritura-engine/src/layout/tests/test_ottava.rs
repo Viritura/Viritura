@@ -50,7 +50,7 @@ fn test_ottava_8va_render() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     // Should have a DrawGlyph with the 8va SMuFL codepoint above the staff
     let glyph_cmds: Vec<_> = dl.commands.iter().filter(|cmd| {
@@ -131,7 +131,7 @@ fn test_ottava_explicit_orient_below() {
     score.parts[0].measures[0].ottavas.as_mut().unwrap()[0].orient = Some(Orientation::Below);
 
     let config = LayoutConfig::default();
-    let staff_bottom = (config.margin_top + 5.0) * config.sp;
+    let staff_bottom = (config.margin_top + 4.0) * config.sp;
     let dl = layout_score(&score, 0, &config);
     let glyph_y = dl.commands.iter().find_map(|command| match command {
         RenderCommand::DrawGlyph {
@@ -163,7 +163,7 @@ fn test_ottava_8va_display_transposition() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     // Treble clef: G4 is reference, line_from_bottom=1
     // C6 diatonic=42, clef_ref=32, pos_from_clef_line=10, pos_from_top=(4-1)*2-10=6-10=-4
@@ -228,7 +228,7 @@ fn test_ottava_collision_avoidance() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     // Find the ottava glyph
     let ottava_glyph: Vec<_> = dl

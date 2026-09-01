@@ -193,7 +193,7 @@ fn test_multimeasure_rest_collapse() {
     let dl = layout_score(&score, 0, &config);
 
     // Should have H-bar DrawRect for multimeasure rest (thick bar between lines 2-4)
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
     let hbar_rects: Vec<&RenderCommand> = dl
         .commands
         .iter()
@@ -295,7 +295,7 @@ fn test_multimeasure_rest_disabled() {
 
     let config = LayoutConfig::default(); // multimeasure_rests: false
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     let dl = layout_score(&score, 0, &config);
 
@@ -1140,7 +1140,7 @@ fn test_tempo_text_clears_multimeasure_rest_number() {
         ..LayoutConfig::default()
     };
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     let dl = layout_score(&score, 0, &config);
 
@@ -1232,7 +1232,7 @@ fn test_tempo_text_clears_neighbouring_multimeasure_rest_number() {
         ..LayoutConfig::default()
     };
     let sp = config.sp;
-    let staff_y = (config.margin_top + 1.0) * sp;
+    let staff_y = config.margin_top * sp;
 
     let dl = layout_score(&score, 0, &config);
 

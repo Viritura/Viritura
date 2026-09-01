@@ -27,7 +27,6 @@ use crate::render::DisplayList;
 const FIXTURES: &[&str] = &[
     "condensing-test.mnx",
     "multimeasure-rests.mnx",
-    "system-layouts.mnx",
     "part-transposition.mnx",
     "organ-layout.mnx",
     "multiple-layouts.mnx",

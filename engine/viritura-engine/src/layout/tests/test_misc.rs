@@ -756,7 +756,7 @@ fn test_layout_based_brace_font_size_uses_correct_formula() {
     // must use the same formula as layout_grand_staff_score:
     //   font_size = 4.0 * brace_height / BRACE_GLYPH_HEIGHT
     // Previously this path used brace_height / 4.0, making braces ~4x too small.
-    let json = include_str!("../../../../../packages/format/fixtures/mnx/system-layouts.mnx");
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/organ-layout.mnx");
     let score = parse_mnx(json).unwrap();
     let config = LayoutConfig {
         page_width: Some(800.0),
