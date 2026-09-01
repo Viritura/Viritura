@@ -39,6 +39,7 @@ export default defineConfig({
     outDir: "dist",
     target: "es2022",
     sourcemap: false,
+    cssCodeSplit: false,
   },
   optimizeDeps: {
     esbuildOptions: { target: "es2022" },

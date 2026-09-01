@@ -67,7 +67,7 @@ const config: KnipConfig = {
       project: ["src/**/*.{ts,tsx}"],
     },
     "apps/website": {
-      entry: ["src/main.tsx"],
+      entry: ["src/main.tsx", "src/entry-static.tsx"],
       project: ["scripts/**/*.ts", "src/**/*.{ts,tsx}"],
     },
     "packages/score-viewer-react": {

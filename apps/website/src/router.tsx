@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- client hydration and static generation share this route tree's typed router factory */
 /**
  * TanStack Router setup (code-based, no codegen).
  *
@@ -8,7 +9,16 @@
  */
 
 import { lazy, Suspense } from "react";
-import { Outlet, RouterProvider, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
+import {
+  ClientOnly,
+  Outlet,
+  Scripts,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  useRouterState,
+  type RouterHistory,
+} from "@tanstack/react-router";
 import { HeroSection } from "./HeroSection";
 import {
   CollaborationValueStrip,
@@ -23,6 +33,7 @@ import {
 } from "./siteSections";
 import { editorUrl, type SiteLinks } from "./siteLinks";
 import { readSensitiveLinkParam } from "./routes/auth/sensitiveLink";
+import { ClientMetadata } from "./seo";
 
 const links: SiteLinks = {
   app: editorUrl,
@@ -71,19 +82,50 @@ const ConfirmEmailChangePage = lazy(() =>
   import("./routes/auth/ConfirmEmailChangePage").then((module) => ({ default: module.ConfirmEmailChangePage })),
 );
 
+function StaticToolIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return (
+    <section className="route-loading">
+      <p>{eyebrow}</p>
+      <h1>{title}</h1>
+      <p>{description}</p>
+    </section>
+  );
+}
+
+function StaticAccountIntro({ title }: { title: string }) {
+  return (
+    <section className="route-loading">
+      <h1>{title}</h1>
+    </section>
+  );
+}
+
 const rootRoute = createRootRoute({
+  notFoundComponent: function NotFoundRoute() {
+    return (
+      <main id="top" className="route-main">
+        <div className="route-loading">
+          <h1>Page not found</h1>
+          <p>The page you requested does not exist.</p>
+          <a href="/">Return to Viritura</a>
+        </div>
+      </main>
+    );
+  },
   component: function RootLayout() {
     // SiteNav anchors only resolve on the home route.
     // When we're on a sub-route, prefix them with "/" so clicking jumps home first.
-    const pathname = window.location.pathname.replace(/\/$/, "") || "/";
+    const pathname = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") || "/" });
     const isHome = pathname === "/";
     const isPlayground = pathname === "/mnx/playground";
     const homeAnchorPrefix = isHome ? "" : "/";
     return (
       <div className={`site-shell${isPlayground ? " site-shell--workspace" : ""}`}>
+        <ClientMetadata />
         <SiteNav links={links} homeAnchorPrefix={homeAnchorPrefix} />
         <Outlet />
         <SiteFooter links={links} />
+        <Scripts />
       </div>
     );
   },
@@ -114,9 +156,19 @@ const converterRoute = createRoute({
   component: function ConverterRoute() {
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading converter...</div>}>
-          <MusicXmlConverterPage />
-        </Suspense>
+        <ClientOnly
+          fallback={
+            <StaticToolIntro
+              eyebrow="MusicXML to MNX"
+              title="Convert MusicXML to MNX in your browser"
+              description="Create an open MNX document from MusicXML, inspect the conversion, and download the result."
+            />
+          }
+        >
+          <Suspense fallback={<div className="route-loading">Loading converter...</div>}>
+            <MusicXmlConverterPage />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -142,9 +194,19 @@ const mnxPlaygroundRoute = createRoute({
   component: function MnxPlaygroundRoute() {
     return (
       <main id="top" className="route-main mnx-playground-route">
-        <Suspense fallback={<div className="route-loading">Loading MNX playground...</div>}>
-          <MnxPlaygroundPage />
-        </Suspense>
+        <ClientOnly
+          fallback={
+            <StaticToolIntro
+              eyebrow="MNX Playground"
+              title="Edit MNX and inspect the engraving"
+              description="Explore an MNX document and its engraved output in Viritura's browser-based playground."
+            />
+          }
+        >
+          <Suspense fallback={<div className="route-loading">Loading MNX playground...</div>}>
+            <MnxPlaygroundPage />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -185,9 +247,11 @@ const signUpRoute = createRoute({
   component: function SignUpRoute() {
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <SignUpPage appUrl={links.app} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Create an account" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <SignUpPage appUrl={links.app} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -203,9 +267,11 @@ const checkEmailRoute = createRoute({
     const { email } = checkEmailRoute.useSearch();
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <CheckEmailPage email={email} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Check your email" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <CheckEmailPage email={email} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -222,9 +288,11 @@ const verifyEmailRoute = createRoute({
     const { uid, token } = verifyEmailRoute.useSearch();
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <VerifyEmailPage uid={uid} token={token} appUrl={links.app} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Verify your email" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <VerifyEmailPage uid={uid} token={token} appUrl={links.app} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -236,9 +304,11 @@ const forgotPasswordRoute = createRoute({
   component: function ForgotPasswordRoute() {
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <ForgotPasswordPage />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Reset your password" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <ForgotPasswordPage />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -255,9 +325,11 @@ const resetPasswordRoute = createRoute({
     const { uid, token } = resetPasswordRoute.useSearch();
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <ResetPasswordPage uid={uid} token={token} appUrl={links.app} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Choose a new password" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <ResetPasswordPage uid={uid} token={token} appUrl={links.app} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -274,9 +346,11 @@ const twoFactorRecoveryRoute = createRoute({
     const { uid, token } = twoFactorRecoveryRoute.useSearch();
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <TwoFactorRecoveryPage uid={uid} token={token} appUrl={links.app} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Recover two-factor authentication" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <TwoFactorRecoveryPage uid={uid} token={token} appUrl={links.app} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -294,9 +368,11 @@ const confirmEmailChangeRoute = createRoute({
     const { uid, email, token } = confirmEmailChangeRoute.useSearch();
     return (
       <main id="top" className="route-main">
-        <Suspense fallback={<div className="route-loading">Loading…</div>}>
-          <ConfirmEmailChangePage uid={uid} newEmail={email} token={token} appUrl={links.app} />
-        </Suspense>
+        <ClientOnly fallback={<StaticAccountIntro title="Confirm your email change" />}>
+          <Suspense fallback={<div className="route-loading">Loading…</div>}>
+            <ConfirmEmailChangePage uid={uid} newEmail={email} token={token} appUrl={links.app} />
+          </Suspense>
+        </ClientOnly>
       </main>
     );
   },
@@ -318,14 +394,14 @@ const routeTree = rootRoute.addChildren([
   confirmEmailChangeRoute,
 ]);
 
-const router = createRouter({ routeTree });
+export function createWebsiteRouter(history?: RouterHistory) {
+  return createRouter({ routeTree, history });
+}
+
+type WebsiteRouter = ReturnType<typeof createWebsiteRouter>;
 
 declare module "@tanstack/react-router" {
   interface Register {
-    router: typeof router;
+    router: WebsiteRouter;
   }
-}
-
-export function AppRouter() {
-  return <RouterProvider router={router} />;
 }
