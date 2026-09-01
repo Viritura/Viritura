@@ -36,10 +36,10 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
-    path: "/mnx-converter",
+    path: "/mnx/mxl-converter",
     title: "Convert MusicXML to MNX Online | Viritura",
     description: "Convert MusicXML files to open MNX documents in your browser, inspect the result, and download it.",
-    canonicalPath: "/mnx-converter",
+    canonicalPath: "/mnx/mxl-converter",
     indexable: true,
   },
   {

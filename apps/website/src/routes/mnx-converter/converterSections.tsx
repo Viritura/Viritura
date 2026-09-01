@@ -7,7 +7,7 @@ import { MonacoMnxViewer } from "./MonacoMnxViewer";
 import { MnxPreview } from "./MnxPreview";
 import { ValidationPanel } from "./ValidationPanel";
 import { ImportDiagnosticsPanel } from "./ImportDiagnosticsPanel";
-import { type ConvertedFile, type TabId, formatSize, links } from "./converterTypes";
+import { type ConvertedFile, type TabId, formatSize } from "./converterTypes";
 
 const MARGIN_LEFT_AUTO_STYLE: CSSProperties = { marginLeft: "auto" };
 const FLEX_COL_FULL_STYLE: CSSProperties = { display: "flex", flexDirection: "column", height: "100%" };
@@ -16,42 +16,12 @@ function progressBarStyle(successCount: number, errorCount: number, total: numbe
   return { width: `${((successCount + errorCount) / total) * 100}%` };
 }
 
-interface PageHeaderProps {
-  readonly onChooseFiles: () => void;
-}
-
-export function PageHeader({ onChooseFiles }: PageHeaderProps) {
+export function PageHeader() {
   return (
     <div className="page-header">
       <div className="page-header-copy">
-        <span className="eyebrow">Import workbench</span>
-        <h1>Bring existing scores into Viritura.</h1>
-        <p>
-          Drop MusicXML or compressed MXL files, inspect what carried across, preview the score, then open the converted
-          file in the editor.
-        </p>
-        <div className="header-actions">
-          <button className="btn btn-primary" onClick={onChooseFiles}>
-            Choose files
-          </button>
-          <a href={links.app} className="btn btn-secondary">
-            Open Editor
-          </a>
-        </div>
-      </div>
-      <div className="import-summary" aria-label="Conversion workflow">
-        <div>
-          <strong>1</strong>
-          <span>Upload MusicXML</span>
-        </div>
-        <div>
-          <strong>2</strong>
-          <span>Preview and validate</span>
-        </div>
-        <div>
-          <strong>3</strong>
-          <span>Continue in Viritura</span>
-        </div>
+        <h1>MusicXML to MNX</h1>
+        <p>Convert MusicXML and compressed MXL files to MNX in your browser. Your files stay on your device.</p>
       </div>
     </div>
   );
@@ -74,9 +44,12 @@ export function DropZone({ dragOver, onClick, onDrop, onDragOver, onDragLeave }:
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
     >
-      <div className="drop-zone-icon">MusicXML</div>
-      <h3>Drop scores here</h3>
-      <p>Batch convert files, then review each result before opening it in Viritura.</p>
+      <span className="drop-zone-kicker">Source files</span>
+      <div className="drop-zone-icon" aria-hidden="true">
+        XML <span>→</span> MNX
+      </div>
+      <h2>Drop scores here</h2>
+      <p>Choose one score or convert a batch. Nothing is uploaded.</p>
       <div className="drop-zone-formats">
         <span className="format-badge">.musicxml</span>
         <span className="format-badge">.xml</span>
@@ -110,37 +83,50 @@ export function OptionsBar({
   onReconvertStale,
 }: OptionsBarProps) {
   return (
-    <div className="converter-options">
-      <label className="toggle-label">
-        <input type="checkbox" checked={includeVendorExt} onChange={(e) => onToggleVendorExt(e.target.checked)} />
-        <span className="toggle-switch" />
-        <span>Include Viritura vendor extensions</span>
-      </label>
-      <span className="toggle-hint">
-        {includeVendorExt
-          ? "Preserve supported Viritura-only notation details in the converted file."
-          : "Create strict MNX output and report details that could not be preserved."}
-      </span>
-      <label className="toggle-label">
-        <input type="checkbox" checked={discardStems} onChange={(e) => onToggleDiscardStems(e.target.checked)} />
-        <span className="toggle-switch" />
-        <span>Discard explicit stem directions</span>
-      </label>
-      <span className="toggle-hint">
-        {discardStems
-          ? "Ignore per-note stem directions so Viritura computes them from voice and pitch."
-          : "Keep per-note stem directions exactly as authored in the source file."}
-      </span>
-      <label className="toggle-label">
-        <input type="checkbox" checked={hideMetronome} onChange={(e) => onToggleHideMetronome(e.target.checked)} />
-        <span className="toggle-switch" />
-        <span>Hide metronome mark when tempo text is present</span>
-      </label>
-      <span className="toggle-hint">
-        {hideMetronome
-          ? "Engrave the written tempo text alone and keep the bpm for playback — the convention for text-only repertoire."
-          : "Show the numeric metronome mark exactly as authored in the source file."}
-      </span>
+    <section className="converter-options" aria-labelledby="conversion-settings-title">
+      <div className="converter-options-header">
+        <span className="converter-section-kicker">Output</span>
+        <h2 id="conversion-settings-title">Conversion settings</h2>
+        <p>Choose how source-specific notation should carry into the MNX document.</p>
+      </div>
+      <div className="converter-options-list">
+        <label className="toggle-label">
+          <span className="toggle-copy">
+            <strong>Viritura extensions</strong>
+            <span>
+              {includeVendorExt
+                ? "Preserve supported Viritura-only notation details."
+                : "Create strict MNX and report details that cannot be preserved."}
+            </span>
+          </span>
+          <input type="checkbox" checked={includeVendorExt} onChange={(e) => onToggleVendorExt(e.target.checked)} />
+          <span className={`toggle-switch ${includeVendorExt ? "is-on" : ""}`} />
+        </label>
+        <label className="toggle-label">
+          <span className="toggle-copy">
+            <strong>Recompute stem directions</strong>
+            <span>
+              {discardStems
+                ? "Let Viritura compute stems from voice and pitch."
+                : "Keep explicit stem directions from the source."}
+            </span>
+          </span>
+          <input type="checkbox" checked={discardStems} onChange={(e) => onToggleDiscardStems(e.target.checked)} />
+          <span className={`toggle-switch ${discardStems ? "is-on" : ""}`} />
+        </label>
+        <label className="toggle-label">
+          <span className="toggle-copy">
+            <strong>Prefer written tempo text</strong>
+            <span>
+              {hideMetronome
+                ? "Keep bpm for playback without engraving the metronome mark."
+                : "Show the numeric metronome mark from the source."}
+            </span>
+          </span>
+          <input type="checkbox" checked={hideMetronome} onChange={(e) => onToggleHideMetronome(e.target.checked)} />
+          <span className={`toggle-switch ${hideMetronome ? "is-on" : ""}`} />
+        </label>
+      </div>
       {staleCount > 0 && (
         <Tooltip content={`${staleCount} file(s) were converted with the previous setting. Click to re-run.`}>
           <button
@@ -153,22 +139,20 @@ export function OptionsBar({
           </button>
         </Tooltip>
       )}
-    </div>
+    </section>
   );
 }
 
 function fileStatusIcon(status: ConvertedFile["status"]): React.ReactNode {
   if (status === "converting") return <span className="spinner" />;
-  if (status === "success") return "✅";
-  if (status === "error") return "❌";
-  return "📄";
+  return <span className={`file-status-mark ${status}`} aria-hidden="true" />;
 }
 
-function fileStatusBadge(status: ConvertedFile["status"]): React.ReactNode {
-  if (status === "success") return <span className="status-badge success">Converted</span>;
-  if (status === "error") return <span className="status-badge error">Failed</span>;
-  if (status === "converting") return <span className="status-badge pending">Converting...</span>;
-  return <span className="status-badge pending">Pending</span>;
+function fileStatusText(status: ConvertedFile["status"]): React.ReactNode {
+  if (status === "success") return <span className="file-status-text success">Ready</span>;
+  if (status === "error") return <span className="file-status-text error">Failed</span>;
+  if (status === "converting") return <span className="file-status-text pending">Converting...</span>;
+  return <span className="file-status-text pending">Pending</span>;
 }
 
 interface FileListRowProps {
@@ -192,7 +176,7 @@ function FileListRow({ file, index, active, onSelect, onRemove }: FileListRowPro
         </div>
       </div>
       <div className="file-item-status">
-        {fileStatusBadge(file.status)}
+        {fileStatusText(file.status)}
         <Tooltip content="Remove">
           <button
             className="remove-btn"
@@ -235,12 +219,11 @@ export function FileListSection({
       <div className="file-list-header">
         <h3>
           {files.length} file{files.length !== 1 ? "s" : ""}
-          {successCount > 0 && <span className="file-count-success">{successCount} converted</span>}
           {errorCount > 0 && <span className="file-count-error">{errorCount} failed</span>}
         </h3>
         <div className="file-list-actions">
-          <button className="btn btn-sm btn-danger" onClick={onClearAll}>
-            Clear All
+          <button type="button" className="file-list-clear" onClick={onClearAll}>
+            Clear files
           </button>
         </div>
       </div>
@@ -333,33 +316,10 @@ export function ErrorDisplay({ selected }: ErrorDisplayProps) {
   return (
     <div className="result-panel">
       <div className="validation-panel">
-        <div className="validation-summary invalid">❌ Conversion failed for {selected.name}</div>
+        <div className="validation-summary invalid">Conversion failed for {selected.name}</div>
         <div className="validation-error">
           <div className="validation-error-message">{selected.error}</div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface ConverterNoticeProps {
-  readonly message: string;
-  readonly onDismiss: () => void;
-}
-
-/**
- * A one-off in-page notice, used where the converter has to explain a fallback
- * it already performed. Replaces a native `alert()`: this stays on screen next
- * to the thing it describes instead of blocking the page.
- */
-export function ConverterNotice({ message, onDismiss }: ConverterNoticeProps) {
-  return (
-    <div className="result-panel">
-      <div className="validation-panel">
-        <div className="validation-summary">{message}</div>
-        <button type="button" className="btn btn-secondary" onClick={onDismiss}>
-          Dismiss
-        </button>
       </div>
     </div>
   );
@@ -371,7 +331,6 @@ interface DownloadBarProps {
   readonly includeVendorExt: boolean;
   readonly discardStems: boolean;
   readonly hideMetronome: boolean;
-  readonly onOpenInViritura: (f: ConvertedFile) => void;
   readonly onDownloadSingle: (f: ConvertedFile) => void;
   readonly onDownloadAll: () => void;
 }
@@ -382,7 +341,6 @@ export function DownloadBar({
   includeVendorExt,
   discardStems,
   hideMetronome,
-  onOpenInViritura,
   onDownloadSingle,
   onDownloadAll,
 }: DownloadBarProps) {
@@ -399,14 +357,7 @@ export function DownloadBar({
       </div>
       <div className="download-actions">
         {selected?.result && (
-          <Tooltip content="Open the converted score in the Viritura editor for full preview, playback, and editing.">
-            <button className="btn btn-sm btn-primary" onClick={() => onOpenInViritura(selected)}>
-              Open in Viritura →
-            </button>
-          </Tooltip>
-        )}
-        {selected?.result && (
-          <button className="btn btn-sm btn-secondary" onClick={() => onDownloadSingle(selected)}>
+          <button className="btn btn-sm btn-primary" onClick={() => onDownloadSingle(selected)}>
             Download .mnx
           </button>
         )}

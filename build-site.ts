@@ -9,9 +9,9 @@
  *     assets/               ← landing page assets
  *     app/                  ← editor (Vite build)
  *     docs/                 ← prerendered documentation pages
- *     mnx/                  ← prerendered MNX hub + playground
+ *     mnx/                  ← prerendered MNX hub + tooling
+ *       mxl-converter/      ← MusicXML→MNX converter
  *       examples/           ← MNX-only storybook (public)
- *     mnx-converter/        ← SPA route fallback for the website bundle
  */
 
 import { execSync } from "node:child_process";
@@ -82,6 +82,6 @@ console.log(`
   app.viritura.com → Editor (served from dist/app)
   /mnx            → MNX hub
   /mnx/playground → MNX playground
+  /mnx/mxl-converter → MusicXML→MNX converter
   /mnx/examples   → MNX Storybook (public)
-  /mnx-converter  → MusicXML→MNX Converter
 `);

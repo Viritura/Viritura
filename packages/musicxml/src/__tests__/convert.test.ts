@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { DiagnosticCollector } from "../index";
 import { convertMusicXmlToMnx } from "../convert";
 
 // ─── Helper: wrap a single-part MusicXML score ──────────────────────
@@ -725,6 +726,68 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
     expect(event.markings._x.viritura["arpeggio"]).toEqual({ direction: "down" });
   });
 
+  it("converts non-arpeggiate to a standard MNX span on the chord event", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+        <notations><non-arpeggiate/></notations>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const event = measure.sequences![0]!.content[0]! as { id?: string };
+
+    expect(measure.nonArpeggios).toEqual([
+      { position: { fraction: [0, 1] }, span: { start: event.id, end: event.id } },
+    ]);
+  });
+
+  it("converts paired MusicXML glissandos to the Viritura extension", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <notations><glissando type="start" number="1" line-type="wavy">gliss.</glissando></notations>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <notations><glissando type="stop" number="1"/></notations>
+      </note>
+    `);
+
+    const content = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
+      .content;
+    const start = content[0]! as { _x?: { viritura: { glissandos?: unknown[] } } };
+    const end = content[1]! as { id?: string };
+
+    expect(start._x?.viritura.glissandos).toEqual([{ target: end.id, style: "wavy", text: "gliss." }]);
+  });
+
+  it("reports glissando loss when Viritura extensions are disabled", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <notations><glissando type="start" number="1"/></notations>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <notations><glissando type="stop" number="1"/></notations>
+      </note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    convertMusicXmlToMnx(xml, { diagnostics });
+
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-glissando");
+  });
+
   it("converts single tremolo as native MNX", () => {
     const xml = wrapScore(`
       <note>
@@ -1063,6 +1126,35 @@ describe("convertMusicXmlToMnx — navigation", () => {
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
     `);
     expect(convertMusicXmlToMnx(xml).global.measures[0]!.segno).toBeDefined();
+  });
+
+  it("converts coda to a Viritura extension without creating a segno", () => {
+    const xml = wrapScore(`
+      <direction><direction-type><coda smufl="codaSquare" color="#CC0000"/></direction-type></direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+
+    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).global.measures[0]!;
+
+    expect(measure._x?.viritura.coda).toEqual({
+      location: { fraction: [0, 1] },
+      glyph: "codaSquare",
+      color: "#cc0000",
+    });
+    expect(measure.segno).toBeUndefined();
+  });
+
+  it("reports coda loss when Viritura extensions are disabled", () => {
+    const xml = wrapScore(`
+      <direction><direction-type><coda/></direction-type></direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    const result = convertMusicXmlToMnx(xml, { diagnostics });
+
+    expect(result.global.measures[0]!._x?.viritura.coda).toBeUndefined();
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-coda");
   });
 
   it("converts fine", () => {
@@ -1766,6 +1858,126 @@ describe("convertMusicXmlToMnx — metadata", () => {
       }
     )._x;
     expect(ext.viritura.metadata.composer).toBe("J.S. Bach");
+  });
+});
+
+describe("convertMusicXmlToMnx — chord symbols", () => {
+  it("converts a positioned major-seventh slash chord", () => {
+    const xml = wrapScore(
+      `
+      <harmony>
+        <root><root-step>F</root-step><root-alter>1</root-alter></root>
+        <kind>major-seventh</kind>
+        <bass><bass-step>A</bass-step><bass-alter>1</bass-alter></bass>
+        <offset>2</offset>
+      </harmony>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><type>whole</type></note>
+    `,
+      { divisions: 2 },
+    );
+
+    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
+
+    expect(measure._x?.viritura.chordSymbols).toEqual([
+      {
+        position: { fraction: [1, 4] },
+        root: { step: "F", alter: 1 },
+        quality: "major",
+        extension: 7,
+        bass: { step: "A", alter: 1 },
+      },
+    ]);
+  });
+
+  it("reports MusicXML chord kinds outside the Viritura quality model", () => {
+    const xml = wrapScore(`
+      <harmony><root><root-step>C</root-step></root><kind>Neapolitan</kind></harmony>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-kind");
+  });
+});
+
+describe("convertMusicXmlToMnx — color", () => {
+  it("preserves color on keys, clefs, segnos, and grace groups", () => {
+    const xml = wrapScore(`
+      <direction><direction-type><segno color="#3333AA"/></direction-type></direction>
+      <note color="#AA6600">
+        <grace slash="yes"/>
+        <pitch><step>D</step><octave>5</octave></pitch><type>eighth</type>
+      </note>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>
+    `)
+      .replace("<key>", '<key color="#228844">')
+      .replace("<clef>", '<clef color="#AA2222">');
+
+    const result = convertMusicXmlToMnx(xml);
+    const grace = result.parts[0]!.measures[0]!.sequences![0]!.content[0] as { color?: string };
+
+    expect(result.global.measures[0]!.key?.color).toBe("#228844");
+    expect(result.global.measures[0]!.segno?.color).toBe("#3333aa");
+    expect(result.parts[0]!.measures[0]!.clefs?.[0]?.clef.color).toBe("#aa2222");
+    expect(grace.color).toBe("#aa6600");
+  });
+
+  it("preserves color on volta endings", () => {
+    const xml = wrapScore(`
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+      <barline location="right"><ending number="1" type="start" color="#2244AA"/></barline>
+    `);
+
+    expect(convertMusicXmlToMnx(xml).global.measures[0]!.ending?.color).toBe("#2244aa");
+  });
+});
+
+describe("convertMusicXmlToMnx — lossy diagnostics", () => {
+  it("reports features with no implemented conversion target", () => {
+    const xml = wrapScore(`
+      <harmony><root><root-step>C</root-step></root><kind>major</kind></harmony>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+        <notations>
+          <ornaments><shake/></ornaments>
+          <glissando type="start" number="1"/>
+          <slide type="start" number="1"/>
+          <non-arpeggiate type="top"/>
+        </notations>
+      </note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toEqual(["musicxml-shake"]);
+  });
+
+  it("only recommends extensions for details they actually preserve", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+        <notations>
+          <ornaments><trill-mark/><shake/></ornaments>
+          <articulations><caesura/></articulations>
+        </notations>
+      </note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    convertMusicXmlToMnx(xml, { diagnostics });
+
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toEqual([
+      "musicxml-shake",
+      "musicxml-trill",
+      "musicxml-caesura",
+    ]);
   });
 });
 

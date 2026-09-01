@@ -25,7 +25,7 @@ export function MonacoMnxViewer({ data }: MonacoMnxViewerProps) {
         options={{
           readOnly: true,
           minimap: { enabled: false },
-          // Monaco requires a numeric font size; not part of the --hm-type-* chrome scale.
+          // Monaco requires a numeric font size; not part of the --site-type-* chrome scale.
           fontSize: 12,
           lineNumbers: "on",
           wordWrap: "on",
