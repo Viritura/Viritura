@@ -32,10 +32,10 @@ function removeClientScripts(html: string): string {
 
 async function externalizeInlineScripts(html: string): Promise<string> {
   const scripts = new Map<string, string>();
-  const output = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/g, (tag, attributes: string, body: string) => {
-    if (/\bsrc\s*=/.test(attributes) || !body.trim()) return tag;
+  const output = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, (tag, attributes: string, body: string) => {
+    if (/\bsrc\s*=/i.test(attributes) || !body.trim()) return tag;
 
-    const type = attributes.match(/\btype\s*=\s*["']?([^\s"'>]+)/)?.[1]?.toLowerCase();
+    const type = attributes.match(/\btype\s*=\s*["']?([^\s"'>]+)/i)?.[1]?.toLowerCase();
     if (type && type !== "module" && type !== "text/javascript" && type !== "application/javascript") return tag;
 
     const digest = createHash("sha256").update(body).digest("hex");
