@@ -27,6 +27,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@astrojs/check": "0.9.10",
     "@astrojs/react": "6.0.5",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/react": "^19.0.0",
