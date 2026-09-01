@@ -1,0 +1,14 @@
+{
+	"pid": 13753,
+	"port": 5181,
+	"url": "http://127.0.0.1:5181",
+	"urls": {
+		"local": [
+			"http://127.0.0.1:5181/"
+		],
+		"network": [],
+		"networkInterfaceNames": []
+	},
+	"background": false,
+	"startedAt": "2026-09-01T23:43:02.404Z"
+}
