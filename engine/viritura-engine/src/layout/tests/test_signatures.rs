@@ -1504,27 +1504,19 @@ fn test_key_flip_respell_transposed_notes_with_flats() {
     assert_eq!(resolved[0].active_key.fifths, -6);
     assert_eq!(
         resolved[0].transposition,
-        Some((13, 21)),
-        "a sharp-to-flat key flip must raise written note letters by one step"
+        Some((12, 21)),
+        "key spelling must not change the instrument transposition interval"
     );
+    assert_eq!(resolved[0].written_diatonic_adjustment, 1);
+    assert_eq!(resolved[0].display_transposition(), Some((13, 21)));
 
-    let c_sharp_as_d_flat = Pitch {
-        step: "E".into(),
-        octave: 3,
-        alter: None,
-    }
-    .transpose(13, 21, 0);
-    assert_eq!(c_sharp_as_d_flat.step, "D");
-    assert_eq!(c_sharp_as_d_flat.alter, Some(-1));
-
-    let f_sharp_as_g_flat = Pitch {
-        step: "A".into(),
-        octave: 2,
-        alter: None,
-    }
-    .transpose(13, 21, 0);
-    assert_eq!(f_sharp_as_g_flat.step, "G");
-    assert_eq!(f_sharp_as_g_flat.alter, Some(-1));
+    let config = LayoutConfig::default();
+    let layout = layout_measure(&resolved[0], config.sp, 0.0, &config, None, &[], 1.0);
+    let events = &layout.voice_layouts[0].events;
+    assert_eq!(events.display_pitches(0)[0].step, "D");
+    assert_eq!(events.display_pitches(0)[0].alter, Some(-1));
+    assert_eq!(events.display_pitches(1)[0].step, "G");
+    assert_eq!(events.display_pitches(1)[0].alter, Some(-1));
 }
 
 #[test]

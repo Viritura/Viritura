@@ -251,6 +251,16 @@ mod tests {
     }
 
     #[test]
+    fn test_key_transpose_flat_to_sharp_flip_reports_inverse_adjustment() {
+        // E-flat major transposed up a minor third reaches six flats, then
+        // flips to six sharps. Written note letters move down one staff step.
+        let eb_major = key(-3);
+        let (transposed, adjustment) = eb_major.transpose_with_diatonic_adjustment(3, Some(-6));
+        assert_eq!(transposed.fifths, 6);
+        assert_eq!(adjustment, -1);
+    }
+
+    #[test]
     fn test_key_transpose_clamp() {
         // Extreme case that would exceed 7 → clamped
         let key = KeySignature {

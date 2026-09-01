@@ -224,10 +224,25 @@ pub struct ResolvedMeasure {
     /// Only set when useWritten is true and the part has a transposition.
     /// Convention (MNX): sounding + interval = written.
     pub transposition: Option<(i32, i32)>,
+    /// Per-key diatonic adjustment used when the written key is flipped to its
+    /// enharmonic equivalent. This changes note names without changing pitch.
+    pub written_diatonic_adjustment: i32,
     /// Whether a condensing mode change occurs at this measure (condensed staves only).
     /// When true, a dashed condensing change marker should be rendered at the barline.
     pub condensing_change: bool,
     /// Kit components for percussion parts (cloned from Part.kit during resolve).
     /// Used by layout to look up staffPosition + notehead shape for kit-notes.
     pub kit: Option<HashMap<String, KitComponent>>,
+}
+
+impl ResolvedMeasure {
+    /// Rendering interval after applying the active key's enharmonic spelling.
+    pub(crate) fn display_transposition(&self) -> Option<(i32, i32)> {
+        self.transposition.map(|(staff_distance, half_steps)| {
+            (
+                staff_distance + self.written_diatonic_adjustment,
+                half_steps,
+            )
+        })
+    }
 }
