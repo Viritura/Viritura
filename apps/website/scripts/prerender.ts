@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parse, type DefaultTreeAdapterTypes } from "parse5";
 import { applyRouteMetadata, type SeoRoute } from "../src/seo";
 
 interface StaticRenderer {
@@ -32,17 +33,40 @@ function removeClientScripts(html: string): string {
 
 async function externalizeInlineScripts(html: string): Promise<string> {
   const scripts = new Map<string, string>();
-  const output = html.replace(/<script([^>]*)>([\s\S]*?)<\/script\s*>/gi, (tag, attributes: string, body: string) => {
-    if (/\bsrc\s*=/i.test(attributes) || !body.trim()) return tag;
+  const replacements: Array<{ start: number; end: number; html: string }> = [];
+  const pending: DefaultTreeAdapterTypes.Node[] = [parse(html, { sourceCodeLocationInfo: true })];
 
-    const type = attributes.match(/\btype\s*=\s*["']?([^\s"'>]+)/i)?.[1]?.toLowerCase();
-    if (type && type !== "module" && type !== "text/javascript" && type !== "application/javascript") return tag;
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    if ("childNodes" in node) pending.push(...node.childNodes);
+    if (!("tagName" in node) || node.tagName !== "script") continue;
+
+    const location = node.sourceCodeLocation;
+    if (!location?.startTag || !location.endTag) continue;
+    if (node.attrs.some((attribute) => attribute.name === "src")) continue;
+
+    const type = node.attrs.find((attribute) => attribute.name === "type")?.value.toLowerCase();
+    if (type && type !== "module" && type !== "text/javascript" && type !== "application/javascript") continue;
+
+    const body = html.slice(location.startTag.endOffset, location.endTag.startOffset);
+    if (!body.trim()) continue;
 
     const digest = createHash("sha256").update(body).digest("hex");
     const assetPath = `assets/inline-${digest}.js`;
+    const startTag = html.slice(location.startTag.startOffset, location.startTag.endOffset);
+    const closingDelimiterLength = startTag.endsWith("/>") ? 2 : 1;
     scripts.set(assetPath, body);
-    return `<script${attributes} src="/${assetPath}"></script>`;
-  });
+    replacements.push({
+      start: location.startTag.startOffset,
+      end: location.endTag.endOffset,
+      html: `${startTag.slice(0, -closingDelimiterLength)} src="/${assetPath}"></script>`,
+    });
+  }
+
+  let output = html;
+  for (const replacement of replacements.sort((left, right) => right.start - left.start)) {
+    output = output.slice(0, replacement.start) + replacement.html + output.slice(replacement.end);
+  }
 
   await Promise.all(
     [...scripts].map(async ([assetPath, body]) => {
