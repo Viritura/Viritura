@@ -10,6 +10,25 @@ with it.
 
 ## `/mnx`
 
+### Implementation baseline after PR #14
+
+PR #14 already gives this page a working shape. Keep these pieces:
+
+- the rendered MNX sample in the hero;
+- the primary links to the playground and examples;
+- the three paths for examples, live editing and MusicXML conversion;
+- the boundary between standard MNX and `_x.viritura` extensions;
+- the separate VS Code viewer section.
+
+The copy below adds the missing explanation of what MNX is and how it relates
+to MusicXML. It should sit after the three tool paths and before the extension
+boundary. There is no need to replace the interactive hero or repeat the tool
+cards farther down the page.
+
+PR #14 currently links its converter tile to `/mnx-converter`. PR #13 moves the
+converter to `/mnx/mxl-converter`. When these branches are combined, keep the
+nested route from PR #13 and update the hub tile to match it.
+
 ### Page title
 
 MNX Music Notation Format: Guide, Examples and Tools | Viritura
@@ -21,11 +40,11 @@ and how to inspect and edit MNX in your browser.
 
 ### Eyebrow
 
-Open music notation
+Open music notation, made tangible
 
 ### H1
 
-MNX, explained through working scores.
+MNX, rendered in the open.
 
 ### Introduction
 
@@ -38,9 +57,9 @@ Group, which also maintains MusicXML. MNX is still a draft. For the formal
 definition and the latest decisions, the [official MNX
 specification](https://mnx.formats.music/docs/) is the source of truth.
 
-Viritura uses MNX as its native document format. The examples and tools here
-come from that implementation. You can read an MNX document, change it, and see
-how it becomes engraved music.
+Viritura uses MNX as its native document format. The sample above and the tools
+on this page come from that implementation. You can read an MNX document,
+change it, and see how it becomes engraved music.
 
 Primary actions:
 
@@ -62,7 +81,11 @@ repeats and tempo has its own global timeline. The format can also describe how
 the source music is arranged into staves for a particular score or
 instrumental part.
 
-Suggested link after this section: **See a small MNX document**
+Suggested links after this section:
+
+- **Open Hello world in the playground** at `/mnx/playground#hello-world`
+- **Read the official MNX introduction** at
+  `https://mnx.formats.music/docs/`
 
 ---
 
@@ -87,38 +110,6 @@ import format for bringing scores out of existing notation software. MNX is the
 document Viritura works in after import.
 
 Suggested action: **Compare the formats and convert MusicXML to MNX**
-
----
-
-## See the format at work
-
-### Playground
-
-Open an MNX document beside its engraved result. Change a pitch, duration,
-layout or marking and render it again without uploading the file.
-
-Action: **Open the MNX playground**
-
-### Examples
-
-Browse complete documents covering ordinary notation, layout behavior and
-Viritura extensions. Each example pairs source data with a rendered score.
-
-Action: **Browse MNX examples**
-
-### MusicXML conversion
-
-Bring in `.musicxml`, `.xml` or compressed `.mxl` files. Review what was
-preserved, inspect conversion diagnostics, and download the resulting MNX.
-
-Action: **Open the MusicXML converter**
-
-### VS Code viewer
-
-Open an `.mnx` file locally and preview it without leaving the editor. The
-viewer includes the engraving engine and music fonts it needs to work offline.
-
-Action: **Get the MNX Viewer for VS Code**
 
 ---
 
@@ -153,10 +144,39 @@ MNX support is still young. Viritura can open and edit MNX in the browser, and
 the Viritura MNX Viewer can preview `.mnx` files in VS Code. For other software,
 check that application's current import and export documentation.
 
+### Where can I find MNX examples?
+
+The Viritura playground includes a grouped catalog of complete MNX documents.
+Choose an example to open its JSON beside the rendered score. Examples with
+more than one MNX score definition also let you switch between the available
+scores and instrumental parts.
+
+Individual examples have direct links. For example:
+
+- `/mnx/playground#multiple-voices`
+- `/mnx/playground#multiple-layouts`
+- `/mnx/playground#orchestral-layout`
+- `/mnx/playground#multimeasure-rests`
+
 ### Where can I read the specification?
 
 Read the [official MNX draft](https://mnx.formats.music/docs/). Viritura's pages
 provide working examples, not a parallel specification.
+
+### Notes for the existing PR #14 sections
+
+The **Start with the format** section should remain the primary tool directory.
+Its example tile can continue to open the broad published examples collection;
+the playground tile opens a curated catalog in a source, editor and preview
+workspace. PR #14 gives each playground example a stable hash link, so the
+pillar can link to a specific working document instead of only linking to the
+top of the tool.
+
+Keep **A clear boundary** after the explanatory copy. It answers a different
+question: how Viritura handles notation that is not part of standard MNX.
+
+Keep the VS Code viewer as its own final section. It is a distinct local
+workflow, not a fourth introductory card.
 
 ---
 
@@ -388,3 +408,10 @@ same time.
 - [MusicXML overview](https://www.musicxml.com/)
 - [Finale to Dorico migration guide](https://www.finalemusic.com/blog/from-finale-to-dorico-a-migration-guide/)
 - [`mnx-converter-coverage.md`](../spec/mnx-converter-coverage.md)
+
+## Delivery order
+
+This copy assumes PR #14 has landed. Rebase the content branch onto `main` after
+that merge so the final implementation edits the expanded hub and playground,
+not their older versions. It also assumes the nested converter route from PR
+#13 is retained when route conflicts are resolved.
