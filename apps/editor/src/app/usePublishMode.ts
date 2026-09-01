@@ -23,6 +23,7 @@ import { buildLayoutEntries, type LayoutEntry } from "../components/modes/publis
 import { runPublishExport, type BundleMode } from "../components/modes/publishView/runPublishExport";
 import { isDirectoryPickerSupported, type FsDirectoryHandle } from "../publish/batchRender";
 import { useStoredWidth } from "../hooks/useStoredWidth";
+import { usePanelState } from "@viritura/ui";
 import { openDialog } from "../store/dialogStore";
 
 interface UsePublishModeArgs {
@@ -60,6 +61,8 @@ export interface PublishMode {
   onFocusIndex: (i: number) => void;
   leftWidth: number;
   setLeftWidth: (w: number) => void;
+  leftCollapsed: boolean;
+  setLeftCollapsed: (collapsed: boolean) => void;
 
   // ── Right panel (export) ────────────────────────────────────
   scoreLoaded: boolean;
@@ -203,7 +206,12 @@ export function usePublishMode({
   }, [score, orderedSelected, bundleMode, filenamePattern, embedMnx, exportFolder]);
 
   // ─── Layout widths persisted per-activity ─────────────────────
-  const [leftWidth, setLeftWidth] = useStoredWidth("viritura.publish.leftW", 290, 240, 480);
+  const {
+    width: leftWidth,
+    setWidth: setLeftWidth,
+    collapsed: leftCollapsed,
+    setCollapsed: setLeftCollapsed,
+  } = usePanelState({ storageKey: "viritura.publish.leftW", defaultWidth: 290, min: 240, max: 480 });
   const [rightWidth, setRightWidth] = useStoredWidth("viritura.publish.rightW", 360, 300, 600);
 
   const onExport = useCallback(() => void handleExport(), [handleExport]);
@@ -222,6 +230,8 @@ export function usePublishMode({
     onFocusIndex: setSelectedScoreIndex,
     leftWidth,
     setLeftWidth,
+    leftCollapsed,
+    setLeftCollapsed,
 
     scoreLoaded: !!score,
     orderedSelectedCount: orderedSelected.length,

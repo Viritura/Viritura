@@ -604,6 +604,7 @@ function AppInner({
   const mode: WorkspaceMode = isSetup
     ? buildSetupMode({
         canvasRef,
+        onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
         leftFloat,
         selectedScoreIndex,
         selectedPartIds,
@@ -639,6 +640,7 @@ function AppInner({
     : isEngrave
       ? buildEngraveMode({
           engrave: engraveBag,
+          onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
           leftFloat,
           rightFloat,
           canvasRef,

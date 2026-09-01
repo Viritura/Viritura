@@ -22,8 +22,17 @@
  * Visual reference: was `WorkspacePanel` in
  * apps/editor/src/components/WorkspacePanel.tsx.
  */
-import { useCallback, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import styles from "./Panel.module.css";
+
+const COLLAPSE_DRAG_THRESHOLD = 32;
 
 export type PanelSide = "left" | "right";
 
@@ -38,6 +47,8 @@ export interface PanelProps {
   min?: number;
   /** Maximum width when resizing. Defaults to 500. */
   max?: number;
+  /** Collapses the panel when its resize handle is dragged below the minimum width. */
+  onCollapse?: () => void;
 
   /** Header title text. Triggers header render when set. */
   title?: ReactNode;
@@ -80,6 +91,7 @@ export function Panel({
   onResize,
   min = 200,
   max = 500,
+  onCollapse,
   title,
   subtitle,
   icon,
@@ -94,9 +106,10 @@ export function Panel({
   shellStyle,
   children,
 }: PanelProps) {
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
   const hasHeader = title !== undefined || onClose !== undefined;
   const bodyClass = scrollBody ? `${styles.body} ${styles.bodyScroll} viritura-scroll` : styles.body;
-  const rootStyle: CSSProperties = { width, zIndex, ...shellStyle, ...style };
+  const rootStyle: CSSProperties = { width: dragWidth ?? width, zIndex, ...shellStyle, ...style };
   // Resize handle sits on the inboard edge — opposite of the docked side.
   const handleSide: PanelSide = side === "left" ? "right" : "left";
   return (
@@ -127,7 +140,15 @@ export function Panel({
         {footer !== undefined && <div className={styles.footer}>{footer}</div>}
       </div>
       {onResize !== undefined && (
-        <ResizeHandle side={handleSide} startWidth={width} onDrag={onResize} min={min} max={max} />
+        <ResizeHandle
+          side={handleSide}
+          startWidth={width}
+          onDrag={onResize}
+          onDragPreview={setDragWidth}
+          onCollapse={onCollapse}
+          min={min}
+          max={max}
+        />
       )}
     </div>
   );
@@ -137,18 +158,20 @@ interface ResizeHandleProps {
   side: PanelSide;
   startWidth: number;
   onDrag: (w: number) => void;
+  onDragPreview: (w: number | null) => void;
+  onCollapse?: () => void;
   min: number;
   max: number;
 }
 
-function ResizeHandle({ side, startWidth, onDrag, min, max }: ResizeHandleProps) {
-  const dragRef = useRef<{ startX: number; startW: number } | null>(null);
+function ResizeHandle({ side, startWidth, onDrag, onDragPreview, onCollapse, min, max }: ResizeHandleProps) {
+  const dragRef = useRef<{ startX: number; startW: number; rawWidth: number } | null>(null);
 
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
-      dragRef.current = { startX: e.clientX, startW: startWidth };
+      dragRef.current = { startX: e.clientX, startW: startWidth, rawWidth: startWidth };
     },
     [startWidth],
   );
@@ -161,19 +184,45 @@ function ResizeHandle({ side, startWidth, onDrag, min, max }: ResizeHandleProps)
       // "right" handle = right edge of a left-anchored panel; drag right grows.
       // "left"  handle = left  edge of a right-anchored panel; drag left  grows.
       const next = side === "right" ? s.startW + dx : s.startW - dx;
-      onDrag(Math.max(min, Math.min(max, next)));
+      s.rawWidth = next;
+      if (onCollapse && next <= min - COLLAPSE_DRAG_THRESHOLD) {
+        dragRef.current = null;
+        onDragPreview(null);
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        onCollapse();
+        return;
+      }
+      onDragPreview(Math.max(min - COLLAPSE_DRAG_THRESHOLD, Math.min(max, next)));
+      if (next >= min) onDrag(Math.min(max, next));
     },
-    [side, onDrag, min, max],
+    [side, onDrag, onDragPreview, onCollapse, min, max],
   );
 
-  const onPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      const drag = dragRef.current;
+      dragRef.current = null;
+      onDragPreview(null);
+      if (drag && drag.rawWidth < min) {
+        onDrag(min);
+      }
+    },
+    [min, onDrag, onDragPreview],
+  );
+
+  const onPointerCancel = useCallback(() => {
     dragRef.current = null;
-  }, []);
+    onDragPreview(null);
+  }, [onDragPreview]);
 
   return (
     <div
@@ -182,7 +231,7 @@ function ResizeHandle({ side, startWidth, onDrag, min, max }: ResizeHandleProps)
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      onPointerCancel={onPointerCancel}
     />
   );
 }

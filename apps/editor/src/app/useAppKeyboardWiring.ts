@@ -2,6 +2,7 @@ import { useCallback, type RefObject, type MutableRefObject } from "react";
 import type { Barline, Clef } from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { useEditorKeyboard } from "../keyboard/useEditorKeyboard";
+import { requestPanelToggle } from "../keyboard/panelToggle";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
@@ -90,8 +91,6 @@ export function togglePanels(
 export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
   const {
     canvasRef,
-    leftPanelRef,
-    rightPanelRef,
     mousePositionRef,
     store,
     selection,
@@ -120,8 +119,6 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
     onOpenPublish,
     onNewScore,
   } = deps;
-
-  const onTogglePanels = useCallback(() => togglePanels(leftPanelRef, rightPanelRef), [leftPanelRef, rightPanelRef]);
 
   const onSetTempo = useCallback(() => {
     const { score } = store.getState();
@@ -276,7 +273,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
       const next = CLEFS[(curClefIdx + 1) % CLEFS.length]!;
       handleSetClef(next);
     },
-    onTogglePanels,
+    onTogglePanels: requestPanelToggle,
     onOpenRadialMenu: (category: RadialMenuCategory) => {
       setRadialMenu({ category, position: { ...mousePositionRef.current }, selection });
     },

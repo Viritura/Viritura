@@ -14,6 +14,7 @@ interface LeftLayoutsPanelProps {
   side?: "left";
   width: number;
   onResize: (w: number) => void;
+  onCollapse: () => void;
   onToggleIndex: (i: number) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
@@ -29,6 +30,7 @@ export function LeftLayoutsPanel({
   exporting,
   width,
   onResize,
+  onCollapse,
   onToggleIndex,
   onSelectAll,
   onClearSelection,
@@ -42,6 +44,7 @@ export function LeftLayoutsPanel({
       onResize={onResize}
       min={240}
       max={480}
+      onCollapse={onCollapse}
       shellStyle={shellStyle}
       title="Layouts"
       subtitle="Pick which layouts to include in the export."

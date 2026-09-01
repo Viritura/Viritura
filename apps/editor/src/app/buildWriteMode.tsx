@@ -61,7 +61,15 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
   const panels: ReactNode[] = [];
   if (!leftFloat.collapsed) {
     panels.push(
-      <Panel key="write-left" side="left" width={leftFloat.width} onResize={leftFloat.setWidth} min={200} max={500}>
+      <Panel
+        key="write-left"
+        side="left"
+        width={leftFloat.width}
+        onResize={leftFloat.setWidth}
+        min={200}
+        max={500}
+        onCollapse={() => leftFloat.setCollapsed(true)}
+      >
         <LeftPanel preferredInspectorSection={selection.kind === "single" ? inspectorFocus : null} />
       </Panel>,
     );
@@ -82,6 +90,8 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
   }
   return {
     kind: "write",
+    leftPanelCollapsed: leftFloat.collapsed,
+    onExpandLeftPanel: () => leftFloat.setCollapsed(false),
     onTogglePanels: args.onTogglePanels,
     canvasProps: {
       interactionMode: "write",

@@ -36,8 +36,12 @@ export interface WorkspaceMode {
   readonly toolbar?: ReactNode;
   /** Bottom status bar content. */
   readonly statusBar: ReactNode;
-  /** Reopens side panels after the user collapses them. */
-  readonly onTogglePanels?: () => void;
+  /** Whether the activity's primary left panel is hidden. */
+  readonly leftPanelCollapsed: boolean;
+  /** Reopens the activity's primary left panel. */
+  readonly onExpandLeftPanel: () => void;
+  /** Toggles the activity's panels from the global keyboard command. */
+  readonly onTogglePanels: () => void;
   /** Content rendered as a sibling of `WorkspaceShell` (dialogs, auto-collapse). */
   readonly siblings?: ReactNode;
 }
