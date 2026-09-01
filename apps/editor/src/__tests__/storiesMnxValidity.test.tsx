@@ -34,8 +34,7 @@ vi.mock("../stories/storyFixtures/ScorePreview", () => ({
 }));
 
 // ── Schema setup ─────────────────────────────────────────────────────────────
-const repoRoot = resolve(__dirname, "../../");
-const schemaPath = resolve(repoRoot, "public/mnx-schema.json");
+const schemaPath = resolve(__dirname, "../../../../packages/format/schemas/mnx-schema.json");
 
 let validate: ReturnType<Ajv2020["compile"]>;
 
