@@ -53,26 +53,30 @@ dialog, so shortcut changes also require redeploying the editor bundle.
 
 ## Deploy the API
 
-To validate the same repository-root image locally before deployment, run
-`pnpm build:api-image`. The root command restores/builds
-`apps/server-ui/dist` through Turbo, then `server/Dockerfile.prebuilt` consumes
-that declared output in a clean ASP.NET publish stage. Production deployment
-continues to use the self-contained `server/Dockerfile`, whose Node stage builds
-the same output because the restricted remote builder starts from a clean
-worktree rather than a prepared host artifact.
+`pnpm build:api-image` remains the local source-build image check. Production
+uses a narrower boundary: GitHub Actions builds the server UI, runs the .NET
+tests, and uploads only the output of `dotnet publish`. The host packages those
+binaries with a separately installed, root-owned runtime Dockerfile and
+entrypoint.
 
 Open the repository's **Actions** tab, choose **Deploy API**, select `main`, and
 run the workflow. The API deployment is documented beside its host
 configuration in [`deploy/api/README.md`](../../deploy/api/README.md). The
 workflow:
 
-1. validates the .NET solution and packages the selected commit;
-2. uploads the source artifact to the restricted deploy account;
+1. validates the .NET solution and produces the API publish directory;
+2. uploads only that compiled publish artifact to the restricted deploy
+   account;
 3. invokes the allowlisted `viritura-api-manage deploy` action;
 4. verifies `https://api.viritura.com/health`.
 
 The deploy account has no general Docker, nginx, secret-file, or root-shell
-access.
+access. The root-owned API wrapper validates the archive before extraction and
+injects the separately installed entrypoint into the image build context.
+Workflow artifacts cannot replace the root-owned Dockerfile, entrypoint,
+Compose definition, nginx configuration, or runtime environment file.
+Changes to those files require a separate authenticated operator run of
+`deploy/api/install-host-config.sh`; no GitHub deployment workflow invokes it.
 
 ## GitHub deployment credentials
 

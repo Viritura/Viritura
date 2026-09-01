@@ -31,12 +31,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:dotnet
       - run: pnpm test:dotnet
-      - name: Package API source
-        run: git archive --format=tar.gz --output=viritura-api-source.tar.gz HEAD
+      - name: Publish API
+        run: |
+          dotnet publish server/Viritura.Api/Viritura.Api.csproj \
+            --configuration Release \
+            --output api-publish \
+            --no-restore \
+            /p:UseAppHost=false
+          rm -f api-publish/appsettings.Development.json api-publish/appsettings.example.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: api-source-${{ github.sha }}
-          path: viritura-api-source.tar.gz
+          name: api-publish-${{ github.sha }}
+          path: api-publish
           if-no-files-found: error
           retention-days: 7
 
@@ -49,7 +55,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: api-source-${{ github.sha }}
+          name: api-publish-${{ github.sha }}
+          path: publish
       - name: Configure SSH
         shell: bash
         env:
@@ -66,7 +73,8 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          scp viritura-api-source.tar.gz "$SSH_USER@$SSH_HOST:viritura-api-source.tar.gz"
-          ssh "$SSH_USER@$SSH_HOST" 'rm -rf upload.next && mkdir upload.next && tar -xzf viritura-api-source.tar.gz -C upload.next && rm viritura-api-source.tar.gz && rm -rf upload && mv upload.next upload && sudo /usr/local/sbin/viritura-api-manage deploy'
+          tar -czf api-publish.tar.gz -C publish .
+          scp api-publish.tar.gz "$SSH_USER@$SSH_HOST:api-publish.tar.gz.next"
+          ssh "$SSH_USER@$SSH_HOST" 'mv api-publish.tar.gz.next api-publish.tar.gz && sudo /usr/local/sbin/viritura-api-manage deploy'
       - name: Verify API
         run: curl --fail --retry 10 --retry-delay 3 https://api.viritura.com/health

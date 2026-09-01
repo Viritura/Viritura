@@ -4,12 +4,11 @@ set -euo pipefail
 # Installed root-owned as /usr/local/sbin/viritura-api-manage. This is the
 # deploy account's only passwordless sudo entry; never execute release scripts.
 readonly root=/opt/viritura-api
-readonly upload=/home/viritura-deploy/upload
+readonly uploaded_archive=/home/viritura-deploy/api-publish.tar.gz
+readonly archive="$root/api-publish.incoming.tar.gz"
 readonly compose="$root/config/compose.yaml"
 readonly dockerfile="$root/config/Dockerfile"
-# The image builds apps/server-ui from the pnpm workspace before it
-# publishes the API, so the Docker build context is the whole repository, not
-# just the server/ subtree.
+readonly entrypoint="$root/config/docker-entrypoint.sh"
 readonly source="$root/source"
 readonly lock=/run/lock/viritura-api-deploy.lock
 readonly runtime_config=/etc/viritura/api.env
@@ -74,26 +73,54 @@ validate_config() {
   }
 }
 
+validate_archive() {
+  local entry
+  local listing
+
+  (( $(stat -c '%s' "$archive") <= 536870912 )) || {
+    echo "API publish archive exceeds the 512 MiB safety limit." >&2
+    return 1
+  }
+
+  while IFS= read -r entry; do
+    case "$entry" in
+      /* | ../* | */../* | */..) echo "Unsafe archive path: $entry" >&2; return 1 ;;
+    esac
+  done < <(tar -tzf "$archive")
+
+  while IFS= read -r listing; do
+    case "${listing:0:1}" in
+      - | d) ;;
+      *) echo "API archives may contain only regular files and directories." >&2; return 1 ;;
+    esac
+  done < <(tar -tvzf "$archive")
+}
+
 case "${1:-}" in
   deploy)
-    [[ -d "$upload/server/Viritura.Api" ]] || {
-      echo "Missing release content under $upload/server." >&2
-      exit 1
-    }
-    [[ -f "$upload/package.json" && -f "$upload/pnpm-lock.yaml" && -f "$upload/pnpm-workspace.yaml" ]] || {
-      echo "Missing pnpm workspace files required to build apps/server-ui." >&2
-      exit 1
-    }
+    [[ -s "$uploaded_archive" ]] || { echo "Missing API publish archive." >&2; exit 1; }
+    rm -f "$archive"
+    mv "$uploaded_archive" "$archive"
+    chown root:root "$archive"
+    chmod 0400 "$archive"
+    validate_archive
     validate_config "$runtime_config"
-    install -d -o root -g root -m 0755 "$source"
-    rsync --archive --delete --safe-links \
-      --exclude .git --exclude node_modules --exclude bin --exclude obj \
-      --exclude dist --exclude target \
-      --exclude '*.db' --exclude '*.db-shm' --exclude '*.db-wal' \
-      "$upload/" "$source/"
-    chown -R root:root "$source"
-    find "$source" -type d -exec chmod 0755 {} +
-    find "$source" -type f -exec chmod 0644 {} +
+    rm -rf "$source.next"
+    install -d -o root -g root -m 0755 "$source.next"
+    tar -xzf "$archive" --no-same-owner --no-same-permissions -C "$source.next"
+    [[ -f "$source.next/Viritura.Api.dll" \
+      && -f "$source.next/Viritura.Api.deps.json" \
+      && -f "$source.next/Viritura.Api.runtimeconfig.json" ]] || {
+      echo "API publish archive is incomplete." >&2
+      exit 1
+    }
+    install -o root -g root -m 0755 "$entrypoint" "$source.next/docker-entrypoint.sh"
+    chown -R root:root "$source.next"
+    find "$source.next" -type d -exec chmod 0755 {} +
+    find "$source.next" -type f ! -name docker-entrypoint.sh -exec chmod 0644 {} +
+    rm -rf "$source"
+    mv "$source.next" "$source"
+    rm -f "$archive"
     docker build --file "$dockerfile" --tag viritura-api:latest "$source"
     docker compose --project-name viritura-api --file "$compose" up --detach --remove-orphans --wait
     ;;

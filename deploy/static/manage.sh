@@ -18,11 +18,16 @@ case "$surface" in
     ;;
 esac
 
-readonly archive="$upload/$surface.tar.gz"
+readonly uploaded_archive="$upload/$surface.tar.gz"
 readonly surface_root="$root/$surface"
 readonly releases="$surface_root/releases"
+readonly archive="$surface_root/incoming.tar.gz"
 
-[[ -s "$archive" ]] || { echo "Missing deployment archive: $archive" >&2; exit 1; }
+[[ -s "$uploaded_archive" ]] || { echo "Missing deployment archive: $uploaded_archive" >&2; exit 1; }
+rm -f "$archive"
+mv "$uploaded_archive" "$archive"
+chown root:root "$archive"
+chmod 0400 "$archive"
 (( $(stat -c '%s' "$archive") <= 1073741824 )) || {
   echo "Deployment archive exceeds the 1 GiB safety limit." >&2
   exit 1
