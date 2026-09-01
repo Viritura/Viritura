@@ -1,10 +1,2 @@
 export { ClientMetadata } from "./clientMetadata";
-export {
-  SITE_ORIGIN,
-  canonicalUrl,
-  findSeoRoute,
-  notFoundRoute,
-  sitemapRoutes,
-  staticRoutes,
-  type SeoRoute,
-} from "./routeCatalog";
+export { SITE_ORIGIN, sitemapRoutes, staticRoutes } from "./routeCatalog";

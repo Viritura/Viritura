@@ -398,7 +398,7 @@ export function createWebsiteRouter(history?: RouterHistory) {
   return createRouter({ routeTree, history });
 }
 
-export type WebsiteRouter = ReturnType<typeof createWebsiteRouter>;
+type WebsiteRouter = ReturnType<typeof createWebsiteRouter>;
 
 declare module "@tanstack/react-router" {
   interface Register {

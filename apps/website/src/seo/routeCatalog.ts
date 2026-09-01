@@ -178,7 +178,7 @@ const accountRoutes: readonly SeoRoute[] = [
   indexable: false,
 }));
 
-export const notFoundRoute: SeoRoute = {
+const notFoundRoute: SeoRoute = {
   path: "/404",
   title: "Page Not Found | Viritura",
   description: "The requested Viritura page could not be found.",
