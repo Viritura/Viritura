@@ -55,7 +55,6 @@ async function convertOneFile(file: File, opts: ConvertOptions): Promise<MnxDocu
   return convertMusicXmlToMnx(text, opts);
 }
 
-// eslint-disable-next-line max-lines-per-function -- single cohesive orchestration surface (file state + conversion + staleness + download); no sub-concept seam splits cleanly without container/presenter ceremony
 export function useConverterFiles() {
   const [files, setFiles] = useState<ConvertedFile[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
