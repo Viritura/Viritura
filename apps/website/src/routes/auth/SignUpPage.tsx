@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import {
   AuthApiError,
   getAuthCapabilities,
@@ -24,7 +23,6 @@ interface SignUpPageProps {
 }
 
 export function SignUpPage({ appUrl }: SignUpPageProps) {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -61,10 +59,8 @@ export function SignUpPage({ appUrl }: SignUpPageProps) {
       // cannot reveal whether the address is new, unconfirmed, local, or OAuth-linked.
       if (!("id" in result)) {
         const pending = result as RegisterPendingVerificationResponse;
-        await navigate({
-          to: "/signup/check-email",
-          search: { email: pending.email },
-        });
+        const search = new URLSearchParams({ email: pending.email });
+        window.location.href = `/signup/check-email?${search}`;
         return;
       }
       // Verification disabled (e.g. test envs) — user is signed in already; go to the editor.
@@ -137,7 +133,7 @@ export function SignUpPage({ appUrl }: SignUpPageProps) {
       </p>
       <p className="auth-footer-link">
         Prefer GitHub{capabilities?.googleLoginEnabled ? " or Google" : ""}?{" "}
-        <Link to="/">Use the sign-in dialog in the editor</Link>
+        <a href="/">Use the sign-in dialog in the editor</a>
       </p>
     </section>
   );

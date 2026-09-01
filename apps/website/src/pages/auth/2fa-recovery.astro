@@ -1,0 +1,24 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { TwoFactorRecoveryPage } from "../../routes/auth/TwoFactorRecoveryPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { editorUrl } from "../../siteLinks";
+
+const route = findSeoRoute("/auth/2fa-recovery");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <TwoFactorRecoveryPage appUrl={editorUrl} client:only="react">
+      <section slot="fallback" class="route-loading">
+        <h1>Recover two-factor authentication</h1>
+      </section>
+    </TwoFactorRecoveryPage>
+  </main>
+</SiteLayout>
+

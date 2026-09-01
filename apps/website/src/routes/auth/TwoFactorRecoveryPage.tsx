@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, disableTwoFactorByRecoveryToken } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -20,19 +19,22 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * and pair a fresh authenticator.
  */
 interface TwoFactorRecoveryPageProps {
-  readonly uid: string;
-  readonly token: string;
+  readonly uid?: string;
+  readonly token?: string;
   readonly appUrl: string;
 }
 
 export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryPageProps) {
+  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedToken =
+    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(clearSensitiveLinkUrl, []);
 
-  const missingParams = !uid || !token;
+  const missingParams = !resolvedUid || !resolvedToken;
 
   const onConfirm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,7 +42,7 @@ export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryP
     setSubmitting(true);
     setError(null);
     try {
-      await disableTwoFactorByRecoveryToken(uid, token);
+      await disableTwoFactorByRecoveryToken(resolvedUid, resolvedToken);
       setDone(true);
       setTimeout(() => {
         window.location.href = appUrl;
@@ -61,7 +63,7 @@ export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryP
           two-factor prompt.
         </p>
         <p className="auth-footer-link">
-          <Link to="/">Back to home</Link>
+          <a href="/">Back to home</a>
         </p>
       </section>
     );

@@ -1,0 +1,22 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { findSeoRoute } from "../seo/routeCatalog";
+
+const route = findSeoRoute("/404");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <div class="route-loading">
+      <h1>Page not found</h1>
+      <p>The page you requested does not exist.</p>
+      <a href="/">Return to Viritura</a>
+    </div>
+  </main>
+</SiteLayout>
+

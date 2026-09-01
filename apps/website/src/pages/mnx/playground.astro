@@ -1,0 +1,26 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { MnxPlaygroundPage } from "../../routes/mnx-playground";
+import { findSeoRoute } from "../../seo/routeCatalog";
+
+const route = findSeoRoute("/mnx/playground");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+  workspace
+>
+  <main id="top" class="route-main mnx-playground-route">
+    <MnxPlaygroundPage client:only="react">
+      <section slot="fallback" class="route-loading">
+        <p>MNX Playground</p>
+        <h1>Edit MNX and inspect the engraving</h1>
+        <p>Edit MNX documentation examples and inspect engraved output in your browser.</p>
+      </section>
+    </MnxPlaygroundPage>
+  </main>
+</SiteLayout>
+

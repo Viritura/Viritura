@@ -1,0 +1,40 @@
+---
+import "@viritura/ui/tokens.css";
+import "@viritura/ui/reset.css";
+import "../index.css";
+import "../marketing.css";
+import { SiteFooter, SiteNav } from "../siteSections";
+import { editorUrl, type SiteLinks } from "../siteLinks";
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath: string;
+  indexable: boolean;
+  workspace?: boolean;
+}
+
+const { title, description, canonicalPath, indexable, workspace = false } = Astro.props;
+const links: SiteLinks = {
+  app: editorUrl,
+  docs: "/docs",
+  github: "https://github.com/Viritura/Viritura",
+};
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={indexable ? "index, follow" : "noindex, nofollow"} />
+    <link rel="canonical" href={new URL(canonicalPath, "https://viritura.com").href} />
+  </head>
+  <body class={`site-shell${workspace ? " site-shell--workspace" : ""}`}>
+    <SiteNav links={links} client:load />
+    <slot />
+    <SiteFooter links={links} />
+  </body>
+</html>

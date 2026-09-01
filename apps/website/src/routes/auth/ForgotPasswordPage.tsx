@@ -1,5 +1,4 @@
 import { type FormEvent, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, forgotPassword } from "../../api/auth";
 
 /**
@@ -68,7 +67,7 @@ export function ForgotPasswordPage() {
         </button>
       </form>
       <p className="auth-footer-link">
-        Remembered it? <Link to="/signup">Back to sign up</Link>
+        Remembered it? <a href="/signup">Back to sign up</a>
       </p>
     </section>
   );

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, resendVerification, verifyEmail } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -10,15 +9,18 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * dev) and will be scoped to the parent domain in prod.
  */
 interface VerifyEmailPageProps {
-  readonly uid: string;
-  readonly token: string;
+  readonly uid?: string;
+  readonly token?: string;
   readonly appUrl: string;
 }
 
 type VerifyStatus = "verifying" | "success" | "failed" | "invalid";
 
 export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
-  const [status, setStatus] = useState<VerifyStatus>(uid && token ? "verifying" : "invalid");
+  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedToken =
+    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
+  const [status, setStatus] = useState<VerifyStatus>(resolvedUid && resolvedToken ? "verifying" : "invalid");
   const [error, setError] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
@@ -27,7 +29,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
   const attempted = useRef(false);
 
   useEffect(() => {
-    if (!uid || !token || attempted.current) return;
+    if (!resolvedUid || !resolvedToken || attempted.current) return;
     attempted.current = true;
     clearSensitiveLinkUrl();
     // No `cancelled` flag here: the `attempted` ref already prevents the Strict-Mode
@@ -36,7 +38,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
     // down before the response arrives.
     (async () => {
       try {
-        await verifyEmail(uid, token);
+        await verifyEmail(resolvedUid, resolvedToken);
         setStatus("success");
         // Brief delay so the user sees the success state before we navigate away.
         setTimeout(() => {
@@ -47,7 +49,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
         setError(err instanceof AuthApiError ? err.message : "Verification failed.");
       }
     })();
-  }, [uid, token, appUrl]);
+  }, [resolvedUid, resolvedToken, appUrl]);
 
   const onResend = async () => {
     if (!resendEmail || resendStatus === "sending") return;
@@ -69,7 +71,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
           The link is missing required parameters. Sign up again or request a fresh verification email below.
         </p>
         <p className="auth-footer-link">
-          <Link to="/signup">Back to sign up</Link>
+          <a href="/signup">Back to sign up</a>
         </p>
       </section>
     );

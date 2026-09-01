@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, confirmEmailChange } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -17,27 +16,31 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * Strict-Mode double-mount with a ref so the single-use token isn't burned twice.
  */
 interface ConfirmEmailChangePageProps {
-  readonly uid: string;
-  readonly newEmail: string;
-  readonly token: string;
+  readonly uid?: string;
+  readonly newEmail?: string;
+  readonly token?: string;
   readonly appUrl: string;
 }
 
 type Status = "confirming" | "success" | "failed" | "invalid";
 
 export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: ConfirmEmailChangePageProps) {
-  const [status, setStatus] = useState<Status>(uid && newEmail && token ? "confirming" : "invalid");
+  const search = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+  const resolvedUid = uid ?? search?.get("uid") ?? "";
+  const resolvedEmail = newEmail ?? search?.get("email") ?? "";
+  const resolvedToken = token ?? search?.get("token") ?? "";
+  const [status, setStatus] = useState<Status>(resolvedUid && resolvedEmail && resolvedToken ? "confirming" : "invalid");
   const [error, setError] = useState<string | null>(null);
   // Effects fire twice in Strict Mode; guard so we don't burn the single-use token on re-mount.
   const attempted = useRef(false);
 
   useEffect(() => {
-    if (!uid || !newEmail || !token || attempted.current) return;
+    if (!resolvedUid || !resolvedEmail || !resolvedToken || attempted.current) return;
     attempted.current = true;
     clearSensitiveLinkUrl();
     (async () => {
       try {
-        await confirmEmailChange(uid, newEmail, token);
+        await confirmEmailChange(resolvedUid, resolvedEmail, resolvedToken);
         setStatus("success");
         setTimeout(() => {
           window.location.href = appUrl;
@@ -47,7 +50,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
         setError(err instanceof AuthApiError ? err.message : "This confirmation link is invalid or has expired.");
       }
     })();
-  }, [uid, newEmail, token, appUrl]);
+  }, [resolvedUid, resolvedEmail, resolvedToken, appUrl]);
 
   if (status === "invalid") {
     return (
@@ -58,7 +61,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
           <strong>Account → Email</strong>.
         </p>
         <p className="auth-footer-link">
-          <Link to="/">Back to home</Link>
+          <a href="/">Back to home</a>
         </p>
       </section>
     );
@@ -78,7 +81,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
       <section className="auth-card">
         <h1>Email updated.</h1>
         <p className="auth-success">
-          Your Viritura account email is now <strong>{newEmail}</strong>. Redirecting you to the editor…
+          Your Viritura account email is now <strong>{resolvedEmail}</strong>. Redirecting you to the editor…
         </p>
         <p className="auth-footer-link">
           Not redirected? <a href={appUrl}>Open the editor</a>
@@ -96,7 +99,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
         from <strong>Account → Email</strong>.
       </p>
       <p className="auth-footer-link">
-        <Link to="/">Back to home</Link>
+        <a href="/">Back to home</a>
       </p>
     </section>
   );

@@ -1,0 +1,24 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ConfirmEmailChangePage } from "../../routes/auth/ConfirmEmailChangePage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { editorUrl } from "../../siteLinks";
+
+const route = findSeoRoute("/auth/confirm-email-change");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <ConfirmEmailChangePage appUrl={editorUrl} client:only="react">
+      <section slot="fallback" class="route-loading">
+        <h1>Confirm your email change</h1>
+      </section>
+    </ConfirmEmailChangePage>
+  </main>
+</SiteLayout>
+

@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, resetPassword } from "../../api/auth";
 import { PASSWORD_MIN_LENGTH, PASSWORD_PATTERN, PASSWORD_TITLE } from "../../api/passwordPolicy";
 import { PasswordHints } from "./PasswordHints";
@@ -11,12 +10,15 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * (cookies are shared across localhost ports in dev and *.viritura.com in prod).
  */
 interface ResetPasswordPageProps {
-  readonly uid: string;
-  readonly token: string;
+  readonly uid?: string;
+  readonly token?: string;
   readonly appUrl: string;
 }
 
 export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps) {
+  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedToken =
+    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +27,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
 
   useEffect(clearSensitiveLinkUrl, []);
 
-  const missingParams = !uid || !token;
+  const missingParams = !resolvedUid || !resolvedToken;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,7 +39,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
     setSubmitting(true);
     setError(null);
     try {
-      await resetPassword(uid, token, newPassword);
+      await resetPassword(resolvedUid, resolvedToken, newPassword);
       setDone(true);
       setTimeout(() => {
         window.location.href = appUrl;
@@ -55,7 +57,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
         <h1>Invalid reset link</h1>
         <p className="auth-sub">The link is missing required parameters. Request a fresh reset email below.</p>
         <p className="auth-footer-link">
-          <Link to="/auth/forgot-password">Send a new reset link</Link>
+          <a href="/auth/forgot-password">Send a new reset link</a>
         </p>
       </section>
     );
@@ -112,7 +114,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
         </button>
       </form>
       <p className="auth-footer-link">
-        Link expired? <Link to="/auth/forgot-password">Request a new one</Link>
+        Link expired? <a href="/auth/forgot-password">Request a new one</a>
       </p>
     </section>
   );

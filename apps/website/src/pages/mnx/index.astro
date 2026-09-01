@@ -1,0 +1,19 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { MnxHubPage } from "../../routes/mnx/MnxHubPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { editorUrl } from "../../siteLinks";
+
+const route = findSeoRoute("/mnx");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <MnxHubPage appUrl={editorUrl} client:load />
+  </main>
+</SiteLayout>

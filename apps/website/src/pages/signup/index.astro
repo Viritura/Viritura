@@ -1,0 +1,20 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { SignUpPage } from "../../routes/auth/SignUpPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { editorUrl } from "../../siteLinks";
+
+const route = findSeoRoute("/signup");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <SignUpPage appUrl={editorUrl} client:load />
+  </main>
+</SiteLayout>
+

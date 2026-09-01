@@ -1,0 +1,24 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { VerifyEmailPage } from "../../routes/auth/VerifyEmailPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { editorUrl } from "../../siteLinks";
+
+const route = findSeoRoute("/auth/verify");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <VerifyEmailPage appUrl={editorUrl} client:only="react">
+      <section slot="fallback" class="route-loading">
+        <h1>Verify your email</h1>
+      </section>
+    </VerifyEmailPage>
+  </main>
+</SiteLayout>
+
