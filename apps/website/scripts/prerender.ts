@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -29,6 +30,30 @@ function removeClientScripts(html: string): string {
     .replace(/\s*<script(?:\s[^>]*)?>[\s\S]*?<\/script>/g, "");
 }
 
+async function externalizeInlineScripts(html: string): Promise<string> {
+  const scripts = new Map<string, string>();
+  const output = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/g, (tag, attributes: string, body: string) => {
+    if (/\bsrc\s*=/.test(attributes) || !body.trim()) return tag;
+
+    const type = attributes.match(/\btype\s*=\s*["']?([^\s"'>]+)/)?.[1]?.toLowerCase();
+    if (type && type !== "module" && type !== "text/javascript" && type !== "application/javascript") return tag;
+
+    const digest = createHash("sha256").update(body).digest("hex");
+    const assetPath = `assets/inline-${digest}.js`;
+    scripts.set(assetPath, body);
+    return `<script${attributes} src="/${assetPath}"></script>`;
+  });
+
+  await Promise.all(
+    [...scripts].map(async ([assetPath, body]) => {
+      const destination = resolve(outputRoot, assetPath);
+      await mkdir(dirname(destination), { recursive: true });
+      await writeFile(destination, body);
+    }),
+  );
+  return output;
+}
+
 for (const route of renderer.staticRoutes) {
   const { html: appHtml, injectedHtml } = await renderer.renderRoute(route.renderPath ?? route.path);
   if (!/<h1(?:\s|>)/.test(appHtml)) throw new Error(`${route.path} did not prerender an h1.`);
@@ -41,7 +66,10 @@ for (const route of renderer.staticRoutes) {
   const destination = outputFile(route);
   await mkdir(dirname(destination), { recursive: true });
   const outputHtml = applyRouteMetadata(withContent, route);
-  await writeFile(destination, route.outputPath ? removeClientScripts(outputHtml) : outputHtml);
+  await writeFile(
+    destination,
+    route.outputPath ? removeClientScripts(outputHtml) : await externalizeInlineScripts(outputHtml),
+  );
 }
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
