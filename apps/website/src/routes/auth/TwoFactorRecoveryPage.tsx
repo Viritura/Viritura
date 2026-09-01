@@ -25,9 +25,10 @@ interface TwoFactorRecoveryPageProps {
 }
 
 export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryPageProps) {
-  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedUid =
+    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
   const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
+    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);

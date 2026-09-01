@@ -13,4 +13,3 @@ ${sitemapRoutes.map((route) => `  <url><loc>${new URL(route.canonicalPath, SITE_
     headers: { "Content-Type": "application/xml; charset=utf-8" },
   });
 }
-

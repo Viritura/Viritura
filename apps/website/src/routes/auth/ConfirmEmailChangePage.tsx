@@ -29,7 +29,9 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
   const resolvedUid = uid ?? search?.get("uid") ?? "";
   const resolvedEmail = newEmail ?? search?.get("email") ?? "";
   const resolvedToken = token ?? search?.get("token") ?? "";
-  const [status, setStatus] = useState<Status>(resolvedUid && resolvedEmail && resolvedToken ? "confirming" : "invalid");
+  const [status, setStatus] = useState<Status>(
+    resolvedUid && resolvedEmail && resolvedToken ? "confirming" : "invalid",
+  );
   const [error, setError] = useState<string | null>(null);
   // Effects fire twice in Strict Mode; guard so we don't burn the single-use token on re-mount.
   const attempted = useRef(false);

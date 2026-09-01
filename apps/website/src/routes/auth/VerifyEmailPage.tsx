@@ -17,9 +17,10 @@ interface VerifyEmailPageProps {
 type VerifyStatus = "verifying" | "success" | "failed" | "invalid";
 
 export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
-  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedUid =
+    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
   const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
+    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
   const [status, setStatus] = useState<VerifyStatus>(resolvedUid && resolvedToken ? "verifying" : "invalid");
   const [error, setError] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");

@@ -15,7 +15,7 @@ interface CheckEmailPageProps {
 
 export function CheckEmailPage({ email }: CheckEmailPageProps) {
   const resolvedEmail =
-    email ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("email") ?? "");
+    email ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("email") ?? ""));
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 

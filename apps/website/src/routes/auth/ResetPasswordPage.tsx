@@ -16,9 +16,10 @@ interface ResetPasswordPageProps {
 }
 
 export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps) {
-  const resolvedUid = uid ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("uid") ?? "");
+  const resolvedUid =
+    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
   const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("token") ?? "");
+    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);

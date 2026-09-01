@@ -166,9 +166,7 @@ function DocsNotFound({ slug }: { slug: string }) {
         There&rsquo;s no documentation page at <code>/docs/{slug}</code>.
       </p>
       <p>
-        <a href={`/docs/${fallback.slug}`}>
-          Go to {fallback.title} →
-        </a>
+        <a href={`/docs/${fallback.slug}`}>Go to {fallback.title} →</a>
       </p>
     </div>
   );
