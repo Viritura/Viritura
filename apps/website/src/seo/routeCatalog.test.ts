@@ -8,6 +8,12 @@ describe("SEO route catalog", () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
+  it("keeps the MusicXML converter under the MNX tooling namespace", () => {
+    const paths = staticRoutes.map((route) => route.path);
+    expect(paths).toContain("/mnx/mxl-converter");
+    expect(paths).not.toContain("/mnx-converter");
+  });
+
   it("keeps every documentation page in the sitemap", () => {
     const sitemapPaths = new Set(sitemapRoutes.map((route) => route.path));
     for (const page of DOC_PAGES) expect(sitemapPaths.has(`/docs/${page.slug}`), page.slug).toBe(true);

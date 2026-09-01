@@ -38,7 +38,7 @@ packages/piano-roll/        # Piano-roll view
 packages/instrument-profiles/ # Instrument profile model + registry
 packages/sound-profiles/    # Sound profile model
 packages/ui/                # UI primitives (own Storybook)
-apps/website/               # Marketing site + /mnx-converter route
+apps/website/               # Marketing site + /mnx tooling routes
 apps/server-ui/             # Server-rendered admin/consent UI
 server/Viritura.Api/        # ASP.NET Core: auth, MCP relay, signalling, snapshots
 server/Viritura.GitHub/     # GitHub App / OAuth / git proxy

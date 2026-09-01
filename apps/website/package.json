@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check-design-tokens": "tsx scripts/check-design-tokens.ts",
     "copy-assets": "tsx scripts/copy-assets.ts",
-    "predev": "pnpm run copy-assets",
-    "prebuild": "pnpm run copy-assets",
+    "predev": "pnpm run check-design-tokens && pnpm run copy-assets",
+    "prebuild": "pnpm run check-design-tokens && pnpm run copy-assets",
     "dev": "vite",
     "build": "tsc && vite build --manifest && vite build --ssr src/entry-static.tsx --outDir dist-static && tsx scripts/prerender.ts",
     "preview": "vite preview",
@@ -15,7 +16,6 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-router": "^1.170.8",
-    "@viritura/core": "workspace:*",
     "@viritura/format": "workspace:*",
     "@viritura/musicxml": "workspace:*",
     "@viritura/playback": "workspace:*",

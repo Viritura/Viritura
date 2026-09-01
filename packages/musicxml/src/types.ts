@@ -1,6 +1,6 @@
-// ─── MNX document output types (rolling schema revision 19) ──────────
+// ─── MNX document output types (schema version 34) ──────────────────
 
-import type { DynamicGroup } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number };
@@ -33,21 +33,28 @@ export interface MnxGlobalMeasure {
   id?: string;
   number?: number;
   time?: { count: number; unit: number; display?: string };
-  key?: { fifths: number };
+  key?: { fifths: number; color?: string };
   barline?: { type: string };
   repeatStart?: Record<string, unknown>;
   repeatEnd?: { times?: number };
   ending?: MnxEnding;
   tempos?: MnxTempo[];
-  segno?: { location: MnxRhythmicPosition };
+  segno?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
   fine?: { location: MnxRhythmicPosition };
   jump?: { type: string; location: MnxRhythmicPosition };
+  _x?: {
+    viritura: {
+      coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
+      [key: string]: unknown;
+    };
+  };
 }
 
 export interface MnxEnding {
   duration: number;
   numbers?: number[];
   open?: boolean;
+  color?: string;
 }
 
 export interface MnxTempo {
@@ -102,6 +109,13 @@ export interface MnxPartMeasure {
   sequences?: MnxSequence[];
   beams?: MnxBeam[];
   ottavas?: MnxOttava[];
+  nonArpeggios?: MnxNonArpeggio[];
+  _x?: { viritura: { chordSymbols?: ChordSymbol[]; [key: string]: unknown } };
+}
+
+export interface MnxNonArpeggio {
+  position: MnxRhythmicPosition;
+  span: { start: string; end: string };
 }
 
 export interface MnxPositionedClef {
@@ -115,6 +129,7 @@ export interface MnxClef {
   staffPosition: number;
   octave?: number;
   glyph?: string;
+  color?: string;
 }
 
 export type MnxDynamic = DynamicGroup;
@@ -162,6 +177,13 @@ export interface MnxEvent {
   lyrics?: MnxEventLyrics;
   staff?: number;
   stemDirection?: string;
+  _x?: { viritura: { glissandos?: MnxGlissando[]; [key: string]: unknown } };
+}
+
+export interface MnxGlissando {
+  target: string;
+  style?: "straight" | "wavy";
+  text?: string;
 }
 
 export interface MnxRest {
@@ -173,6 +195,7 @@ export interface MnxGraceEvent {
   content: MnxEvent[];
   graceType?: string; // makeTime, stealFollowing, stealPrevious
   slash?: boolean;
+  color?: string;
 }
 
 export interface MnxTuplet {

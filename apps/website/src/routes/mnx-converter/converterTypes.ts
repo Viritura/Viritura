@@ -1,9 +1,4 @@
 import type { MnxDocument, MnxDiagnostic } from "@viritura/musicxml";
-import { editorUrl } from "../../siteLinks";
-
-export const links = {
-  app: editorUrl,
-};
 
 export interface ConvertedFile {
   /** Original source file ref (kept so toggle changes can re-run conversion). */

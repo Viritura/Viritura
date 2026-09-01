@@ -101,8 +101,8 @@ export function MnxHubPage() {
           <ActionTile
             className="mnx-hub__project"
             title="Bring a MusicXML score"
-            hint="Convert MusicXML to MNX in the browser, review the result, and download the open document."
-            onClick={() => window.location.assign("/mnx-converter")}
+            hint="Convert MusicXML or compressed MXL to MNX locally, review the result, and download the open document."
+            onClick={() => window.location.assign("/mnx/mxl-converter")}
           />
         </div>
       </section>

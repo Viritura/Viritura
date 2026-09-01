@@ -1,7 +1,7 @@
 # MNX / MusicXML Converter Coverage
 
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
-converter cover the MNX 1.x feature set, including remaining import and
+converter cover MNX schema version 34, including remaining import and
 editor-integration gaps.
 
 > **Package layout note.** The MusicXML converter lives in
@@ -37,6 +37,8 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 
 - Notes (pitch, octave, alter), rests, chords, grace notes, dotted notes, accidental display
 - Multiple voices, ties (with IDs and `side`; `<tied placement>` → `tie.side`; `<tied type="let-ring">` → `tie.lv`), articulations (full SMuFL-aware mapping table)
+- Fermatas, bow directions, and single-note and multi-note tremolos
+- Non-arpeggiate chord brackets
 - Time / key signatures, clefs, transposing instruments (`_x.viritura.transpose`)
 - Dynamics, barlines (final, double, repeat, dotted, dashed, tick, short), repeat markers
 - Tuplets (`<time-modification>` + `<tuplet>`; `<tuplet show-number/show-type>` → `showNumber/showValue`; nested tuplets)
@@ -45,28 +47,29 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Tempo (`<metronome>` and `<sound tempo>` with mid-measure `location.fraction` positioning)
 - Volta endings (multi-number support, duration post-processing for start→stop range, `discontinue` → `open: true`)
 - Navigation: segno (with SMuFL `glyph`), fine, jumps (`dacapo` / `dalsegno`)
+- MusicXML colors on keys, clefs, volta endings, grace groups, and segnos
 - Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping)
 - `<stem>up\|down</stem>` → `event.stemDirection`
 - Score metadata (`<work>`, `<movement-title/number>`, `<identification>` creators, `<credit>` title/subtitle)
 
 **Features attached as `_x.viritura` vendor extensions** (no MNX-native equivalent yet):
 
-- Fermatas, ornaments (trill, mordent, inverted-mordent, turn, inverted-turn, delayed-turn, shake, wavy-line)
-- Single-note tremolo (multi-note tremolo still open — see below)
-- Rehearsal marks, text `<words>` directions, pedal markings, wedges (cresc./dim. hairpins)
-- Two-note tremolo `outer`, lyric syllabic types
+- Trills, mordents, turn variants, caesuras, event-level arpeggios, and fingerings
+- Rehearsal marks, text `<words>` directions, and pedal markings
+- Score metadata (title, creators, work, and movement details)
+- Glissando/slide spans, common chord symbols, and coda markers
 
 **Diagnostics:**
 
 - `ConvertOptions.diagnostics?: DiagnosticCollector` on the entrypoint.
-- Post-conversion scan emits one entry per dropped/approximated construct (chord symbols, figured bass, bend, coda, stem `none` / `double`, ornaments/wedges when vendor extensions are off, etc.).
+- Post-conversion scan emits one entry per dropped construct (figured bass, bend, stem `none` / `double`, unsupported chord kinds, and extension-backed features when extensions are off).
 - Generic `DiagnosticCollector` lives in [`packages/core/src/diagnostics.ts`](../../packages/core/src/diagnostics.ts) so `format` and `musicxml` share the type without a new dep edge.
 
 **Test coverage:** ~62 tests in [`packages/musicxml/src/__tests__/convert.test.ts`](../../packages/musicxml/src/__tests__/convert.test.ts) covering every feature area above via inline-generated XML fixtures.
 
 ### Public converter UI (`apps/website/src/routes/mnx-converter/`)
 
-Lazy-loaded route at `/mnx-converter` on the website. Components:
+Lazy-loaded and prerendered route at `/mnx/mxl-converter` on the website. Components:
 
 - `MusicXmlConverterPage.tsx` — page shell
 - `useConverterFiles.ts` — per-file state machine (idle → converting → success/error), single + bulk download
@@ -74,10 +77,12 @@ Lazy-loaded route at `/mnx-converter` on the website. Components:
 - `MonacoMnxViewer.tsx` + `MnxPreview.tsx` — Monaco JSON viewer
 - `ValidationPanel.tsx` — schema validation against MNX 1.x JSON Schema (validator passed via `ParseMnxOptions.validate`)
 - `ImportDiagnosticsPanel.tsx` — DiagnosticCollector output bucketed by severity with badge counts
-- `UnsupportedFeaturesPanel.tsx` — calls out features dropped by the converter
+- `UnsupportedFeaturesPanel.tsx` — distinguishes standard MNX, optional Viritura-extension, and lossy mappings
 - `preloadWasmEngine.ts` — warms the WASM engine for the renderer preview
 
-Build / deploy: `build-site.ts` copies `dist/index.html` to `dist/mnx-converter/index.html` for SPA fallback; `deploy/nginx-viritura.com.conf` has the matching SPA fallback location.
+Build / deploy: the website prerender catalog writes
+`dist/mnx/mxl-converter/index.html`; the former `/mnx-converter` URL is not
+generated and returns 404 in `deploy/nginx-viritura.com.conf`.
 
 ### Already-verified-working MNX features (no further work needed)
 
@@ -122,15 +127,17 @@ Build / deploy: `build-site.ts` copies `dist/index.html` to `dist/mnx-converter/
 - **Risk:** Real fields will start producing spurious `unknown-field` diagnostics the next time MNX adds a property.
 - **Path forward:** Codegen the whitelists from `mnx-schema.json`'s `$defs` (one Set per `$def` whose `unevaluatedProperties: false` shape lists `properties`).
 
-### Multi-note tremolo (buzz-roll)
-
-- **Today:** Single-note tremolo is shipped.
-- **Gap:** Multi-note tremolo (tremolo between two pitches, rapid alternation) is not yet parsed. Need to handle `<tremolo type="start|stop">` with `number ≥ 1` between two notes and emit the corresponding MNX or `_x.viritura` representation.
-
 ### Real-world fixture tests
 
 - **Today:** Test coverage uses synthetic XML strings built inline.
 - **Gap:** Useful next step is a `__tests__/fixtures/` folder with representative `.musicxml` exports from several widely used notation applications. Snapshot the converter's JSON + diagnostics for each. This is the most reliable way to catch exporter-specific quirks.
+
+### Remaining harmony and style detail
+
+- **Today:** Common chord qualities, extensions, alterations, slash bass, and rhythmic positions import as Viritura chord-symbol extensions.
+- **Remaining:** MusicXML degree alterations, fretboard frames, and kinds outside Viritura's chord-quality model emit a diagnostic instead of being approximated.
+- **Today:** Colors import where the current engine renders a matching MNX or Viritura field: keys, clefs, volta endings, grace groups, segnos, and codas.
+- **Remaining:** Per-element font attributes and colors on unsupported notation objects are not imported.
 
 ---
 

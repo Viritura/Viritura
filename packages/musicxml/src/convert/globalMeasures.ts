@@ -2,6 +2,7 @@ import { BARLINE_STYLE_MAP, BEAT_UNIT_MAP } from "../constants";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren } from "../xmlHelpers";
 import type { MnxGlobalMeasure, MnxRhythmicPosition, MnxTempo } from "../types";
+import { normalizeMusicXmlColor } from "./colors";
 import { IdGenerator } from "./idGenerator";
 import { makePosition } from "./pitchDuration";
 
@@ -64,6 +65,8 @@ export function buildGlobalMeasures(
           if (!transpose) {
             if (fifths !== currentKey) {
               gm.key = { fifths };
+              const color = normalizeMusicXmlColor(keyEl.getAttribute("color"));
+              if (color) gm.key.color = color;
               currentKey = fifths;
             }
           }
@@ -154,16 +157,23 @@ export function buildGlobalMeasures(
               // MusicXML <segno smufl="segnoSerpent1"/> → MNX `segno.glyph`.
               const smuflName = segnoEl.getAttribute("smufl");
               if (smuflName) seg.glyph = smuflName;
+              const color = normalizeMusicXmlColor(segnoEl.getAttribute("color"));
+              if (color) (seg as { color?: string }).color = color;
               gm.segno = seg;
             }
           }
-          // Coda (store as vendor extension since MNX uses jumps)
-          if (findChild(dt, "coda")) {
-            // MNX doesn't have a separate coda object; it uses segno + jumps
-            // We map coda to segno as a reasonable approximation
-            if (!gm.segno) {
-              gm.segno = { location: makePosition(currentPos) };
-            }
+          // Coda is a Viritura extension because MNX has no native coda marker.
+          const codaEl = findChild(dt, "coda");
+          if (codaEl && vendorExt) {
+            const coda: { location: MnxRhythmicPosition; glyph?: string; color?: string } = {
+              location: makePosition(currentPos),
+            };
+            const smuflName = codaEl.getAttribute("smufl");
+            if (smuflName) coda.glyph = smuflName;
+            const color = normalizeMusicXmlColor(codaEl.getAttribute("color"));
+            if (color) coda.color = color;
+            if (!gm._x) gm._x = { viritura: {} };
+            gm._x.viritura.coda = coda;
           }
         }
 
@@ -268,6 +278,8 @@ export function buildGlobalMeasures(
             duration: 1, // will be updated by ending stop
             numbers: numbers.length > 0 ? numbers : [1],
           };
+          const color = normalizeMusicXmlColor(endingEl.getAttribute("color"));
+          if (color) gm.ending.color = color;
         }
       }
     }

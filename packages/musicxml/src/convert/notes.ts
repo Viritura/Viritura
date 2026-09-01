@@ -1,6 +1,6 @@
 import { ACCIDENTAL_MAP, ARTICULATION_MAP } from "../constants";
 import { childElements, childText, findChild, findChildren, notationChild, notationChildren } from "../xmlHelpers";
-import type { MnxEventMarkings, MnxNote, MnxSlur, MnxTie } from "../types";
+import type { MnxEvent, MnxEventMarkings, MnxGlissando, MnxNote, MnxSlur, MnxTie } from "../types";
 import { IdGenerator } from "./idGenerator";
 import { convertPitch, type TransposeInterval } from "./pitchDuration";
 
@@ -9,6 +9,41 @@ export interface SlurState {
   startNoteId?: string;
   number: string;
   targetId: string;
+}
+
+export interface GlissandoState {
+  startEvent: MnxEvent;
+  glissando: Omit<MnxGlissando, "target">;
+}
+
+export function processGlissandoBoundaries(
+  noteEl: Element,
+  event: MnxEvent,
+  openGlissandos: Map<string, GlissandoState>,
+  vendorExt: boolean,
+): void {
+  for (const tag of ["glissando", "slide"] as const) {
+    for (const element of notationChildren(noteEl, tag)) {
+      const key = `${tag}:${element.getAttribute("number") ?? "1"}`;
+      const boundary = element.getAttribute("type") ?? "start";
+      if (boundary === "start") {
+        const glissando: Omit<MnxGlissando, "target"> = {};
+        const lineType = element.getAttribute("line-type");
+        if (lineType === "straight" || lineType === "wavy") glissando.style = lineType;
+        const text = element.textContent?.trim();
+        if (text) glissando.text = text;
+        openGlissandos.set(key, { startEvent: event, glissando });
+      } else if (boundary === "stop") {
+        const state = openGlissandos.get(key);
+        if (!state) continue;
+        openGlissandos.delete(key);
+        if (!vendorExt) continue;
+        if (!state.startEvent._x) state.startEvent._x = { viritura: {} };
+        const glissandos = state.startEvent._x.viritura.glissandos ?? [];
+        state.startEvent._x.viritura.glissandos = [...glissandos, { ...state.glissando, target: event.id! }];
+      }
+    }
+  }
 }
 
 // Maps a MusicXML <accidental-mark> token (used to qualify an ornament's

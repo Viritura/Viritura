@@ -1,5 +1,5 @@
 import { TYPE_MAP } from "../constants";
-import { createDynamicGroup } from "@viritura/core";
+import { createDynamicGroup, type ChordSymbol } from "@viritura/core";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren, notationChildren } from "../xmlHelpers";
 import type {
@@ -9,6 +9,7 @@ import type {
   MnxEvent,
   MnxGraceEvent,
   MnxMultiNoteTremolo,
+  MnxNonArpeggio,
   MnxPositionedClef,
   MnxRhythmicPosition,
   MnxSequenceContent,
@@ -17,13 +18,17 @@ import type {
   MnxTuplet,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
+import { extractChordSymbol } from "./chordSymbols";
+import { normalizeMusicXmlColor } from "./colors";
 import {
   buildNote,
   extractFermata,
   extractLyrics,
   extractMarkings,
   extractSlurs,
+  processGlissandoBoundaries,
   resolveSlurStopId,
+  type GlissandoState,
   type SlurState,
 } from "./notes";
 import { clefFromElement, computeNoteDuration, makePosition, type TransposeInterval } from "./pitchDuration";
@@ -80,6 +85,8 @@ export interface MeasureResult {
   expressions: { text: string; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
   hairpinEvents: HairpinEvent[];
   pedalEvents: PedalEvent[];
+  nonArpeggios: MnxNonArpeggio[];
+  chordSymbols: ChordSymbol[];
 }
 
 interface TupletAccumulator {
@@ -268,6 +275,7 @@ export function processMeasureNotes(
   divisions: number,
   ids: IdGenerator,
   openSlurs: Map<string, SlurState>,
+  openGlissandos: Map<string, GlissandoState>,
   tieIds: Map<string, MnxTie>,
   measureId: string,
   _globalMeasureIndex: number,
@@ -286,6 +294,8 @@ export function processMeasureNotes(
   const expressions: MeasureResult["expressions"] = [];
   const hairpinEvents: MeasureResult["hairpinEvents"] = [];
   const pedalEvents: MeasureResult["pedalEvents"] = [];
+  const nonArpeggios: MnxNonArpeggio[] = [];
+  const chordSymbols: ChordSymbol[] = [];
 
   const cumulative = new Map<string, Fraction>();
   let currentPos = Fraction.ZERO;
@@ -371,6 +381,7 @@ export function processMeasureNotes(
         if (lastEvent?.notes) {
           const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
           lastEvent.notes.push(noteObj);
+          processGlissandoBoundaries(el, lastEvent, openGlissandos, vendorExt);
         }
         i++;
         continue;
@@ -380,10 +391,12 @@ export function processMeasureNotes(
         // Collect consecutive grace notes
         const graceNotes: MnxEvent[] = [];
         let hasSlash = false;
+        let graceColor: string | undefined;
         while (i < children.length && children[i]!.tagName === "note" && findChild(children[i]!, "grace") !== null) {
           const gel = children[i]!;
           const graceEl = findChild(gel, "grace");
           if (graceEl?.getAttribute("slash") === "yes") hasSlash = true;
+          if (graceColor === undefined) graceColor = normalizeMusicXmlColor(gel.getAttribute("color"));
 
           // A grace note carrying <chord/> is an additional voice member of the
           // preceding grace event, not a new event. Fold its pitch into the
@@ -392,6 +405,7 @@ export function processMeasureNotes(
             const lastGrace = graceNotes[graceNotes.length - 1];
             if (lastGrace?.notes) {
               lastGrace.notes.push(buildNote(gel, voiceNum, tieIds, ids, transpose));
+              processGlissandoBoundaries(gel, lastGrace, openGlissandos, vendorExt);
             }
             i++;
             continue;
@@ -428,6 +442,7 @@ export function processMeasureNotes(
           const graceNoteId = graceEvent.notes?.[0]?.id ?? graceEvent.notes?.[0]?.ties?.[0]?.target;
           const graceSlurs = extractSlurs(gel, graceId, graceNoteId, openSlurs, ids, pendingSlurEndIds);
           if (graceSlurs) graceEvent.slurs = graceSlurs;
+          processGlissandoBoundaries(gel, graceEvent, openGlissandos, vendorExt);
 
           graceNotes.push(graceEvent);
           i++;
@@ -435,6 +450,7 @@ export function processMeasureNotes(
         if (graceNotes.length > 0) {
           const grace: MnxGraceEvent = { type: "grace", content: graceNotes };
           if (hasSlash) grace.slash = true;
+          if (graceColor) grace.color = graceColor;
 
           const tupletAcc = activeTuplets.get(voiceNum);
           if (tupletAcc) {
@@ -536,6 +552,13 @@ export function processMeasureNotes(
 
       const event: MnxEvent = { duration: durObj, id: eventId };
 
+      if (notationChildren(el, "non-arpeggiate").length > 0) {
+        nonArpeggios.push({
+          position: makePosition(currentPos),
+          span: { start: eventId, end: eventId },
+        });
+      }
+
       if (isRest) {
         event.rest = {};
       } else {
@@ -577,6 +600,7 @@ export function processMeasureNotes(
       const noteId = event.notes?.[0]?.id ?? event.notes?.[0]?.ties?.[0]?.target;
       const slurs = extractSlurs(el, eventId, noteId, openSlurs, ids, pendingSlurEndIds);
       if (slurs) event.slurs = slurs;
+      processGlissandoBoundaries(el, event, openGlissandos, vendorExt);
 
       // Lyrics
       const lyricLines = extractLyrics(el);
@@ -677,6 +701,13 @@ export function processMeasureNotes(
         }
         cumulative.set(voiceNum, getCumulative(voiceNum).add(adv));
         currentPos = currentPos.add(adv);
+      }
+    } else if (el.tagName === "harmony") {
+      if (vendorExt) {
+        const offsetText = childText(el, "offset");
+        const offset = offsetText === null ? Fraction.ZERO : new Fraction(parseInt(offsetText, 10), divisions * 4);
+        const chord = extractChordSymbol(el, makePosition(currentPos.add(offset)));
+        if (chord) chordSymbols.push(chord);
       }
     } else if (el.tagName === "backup") {
       const durEl = findChild(el, "duration");
@@ -877,5 +908,7 @@ export function processMeasureNotes(
     expressions: dedupedExpressions,
     hairpinEvents,
     pedalEvents,
+    nonArpeggios,
+    chordSymbols,
   };
 }

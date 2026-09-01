@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { convertMusicXmlToMnx, convertMxlToMnx, DiagnosticCollector } from "@viritura/musicxml";
 import type { MnxDocument, ConvertOptions } from "@viritura/musicxml";
-import { buildHandoffUrl } from "@viritura/core";
 import { parseMnx } from "@viritura/format";
 import { preloadWasmEngine } from "./preloadWasmEngine";
-import { type ConvertedFile, links } from "./converterTypes";
+import { type ConvertedFile } from "./converterTypes";
 
 export function usePreloadOnInteraction(): void {
   useEffect(() => {
@@ -56,7 +55,6 @@ async function convertOneFile(file: File, opts: ConvertOptions): Promise<MnxDocu
   return convertMusicXmlToMnx(text, opts);
 }
 
-// eslint-disable-next-line max-lines-per-function -- single cohesive orchestration surface (file state + conversion + staleness + download/handoff); no sub-concept seam splits cleanly without container/presenter ceremony
 export function useConverterFiles() {
   const [files, setFiles] = useState<ConvertedFile[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -64,10 +62,6 @@ export function useConverterFiles() {
   const [includeVendorExt, setIncludeVendorExt] = useState(false);
   const [discardStems, setDiscardStems] = useState(false);
   const [hideMetronome, setHideMetronome] = useState(false);
-  /** One-off message shown in the page (e.g. a handoff that had to fall back
-   *  to a download). Cleared on the next successful handoff. */
-  const [notice, setNotice] = useState<string | null>(null);
-
   const processFile = useCallback(
     async (file: File): Promise<ConvertedFile> => {
       const dx = new DiagnosticCollector();
@@ -183,40 +177,6 @@ export function useConverterFiles() {
     }
   }, []);
 
-  /** Encode the converted MNX into a URL fragment and navigate to the editor.
-   *  Fragments are not sent to servers, work cross-origin, and survive any
-   *  cross-SPA boundary without needing same-origin storage. The editor
-   *  reads `#h=...` on boot and bootstraps a standalone score.
-   *  We can't carry the FSA file handle across SPAs, so the user will be
-   *  re-prompted for a save location the first time they hit Ctrl+S. */
-  const openInViritura = useCallback(
-    (file: ConvertedFile) => {
-      if (!file.result) return;
-      const url = buildHandoffUrl(links.app, {
-        v: 1,
-        ts: new Date().toISOString(),
-        fileName: file.name.replace(/\.(musicxml|xml|mxl)$/i, ".mnx"),
-        sourceName: file.name,
-        json: JSON.stringify(file.result),
-      });
-      if (!url) {
-        // The handoff travels in the URL, so an oversized score can't go that
-        // way. Say so in the page and fall back to a download — a native alert
-        // would block the thread and can be suppressed by the browser, which
-        // would leave the download looking unexplained.
-        setNotice(
-          `“${file.name}” is too large to open directly in the editor. ` +
-            `It has been downloaded instead — open it from the editor's File menu.`,
-        );
-        downloadSingle(file);
-        return;
-      }
-      setNotice(null);
-      window.location.href = url;
-    },
-    [downloadSingle],
-  );
-
   const downloadAll = useCallback(() => {
     const successful = files.filter((f) => f.status === "success");
     for (const file of successful) downloadSingle(file);
@@ -298,9 +258,6 @@ export function useConverterFiles() {
     clearAll,
     downloadSingle,
     downloadAll,
-    openInViritura,
     reconvertAll,
-    notice,
-    dismissNotice: () => setNotice(null),
   };
 }
