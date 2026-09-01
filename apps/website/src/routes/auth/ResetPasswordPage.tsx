@@ -10,16 +10,12 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * (cookies are shared across localhost ports in dev and *.viritura.com in prod).
  */
 interface ResetPasswordPageProps {
-  readonly uid?: string;
-  readonly token?: string;
+  readonly uid: string;
+  readonly token: string;
   readonly appUrl: string;
 }
 
 export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps) {
-  const resolvedUid =
-    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
-  const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -28,7 +24,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
 
   useEffect(clearSensitiveLinkUrl, []);
 
-  const missingParams = !resolvedUid || !resolvedToken;
+  const missingParams = !uid || !token;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,7 +36,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
     setSubmitting(true);
     setError(null);
     try {
-      await resetPassword(resolvedUid, resolvedToken, newPassword);
+      await resetPassword(uid, token, newPassword);
       setDone(true);
       setTimeout(() => {
         window.location.href = appUrl;

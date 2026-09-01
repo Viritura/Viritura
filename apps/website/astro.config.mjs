@@ -1,8 +1,10 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
+import sitemap from "@astrojs/sitemap";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
 import { rmSync } from "node:fs";
 import { resolve } from "node:path";
+import { SITE_ORIGIN, sitemapRoutes } from "./src/seo/routeCatalog.ts";
 
 function externalizeLargeSoundfont() {
   return {
@@ -15,9 +17,18 @@ function externalizeLargeSoundfont() {
 }
 
 const containerHost = process.env.VIRITURA_CONTAINER_HOST;
+const allowedSitemapUrls = new Set(
+  sitemapRoutes.map((route) => new URL(route.canonicalPath, SITE_ORIGIN).href.replace(/\/$/, "")),
+);
 
 export default defineConfig({
-  integrations: [react()],
+  site: SITE_ORIGIN,
+  integrations: [
+    react(),
+    sitemap({
+      filter: (page) => allowedSitemapUrls.has(page.replace(/\/$/, "")),
+    }),
+  ],
   vite: {
     plugins: [externalizeLargeSoundfont()],
     oxc: { target: "es2022" },

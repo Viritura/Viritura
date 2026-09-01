@@ -1,10 +1,12 @@
 ---
 import SiteLayout from "../../layouts/SiteLayout.astro";
+import { readSensitiveSearchParams } from "./authSearchParams";
 import { ConfirmEmailChangePage } from "../../routes/auth/ConfirmEmailChangePage";
 import { findSeoRoute } from "../../seo/routeCatalog";
 import { editorUrl } from "../../siteLinks";
 
 const route = findSeoRoute("/auth/confirm-email-change");
+const { uid, email, token } = readSensitiveSearchParams(Astro.url.searchParams);
 ---
 
 <SiteLayout
@@ -14,11 +16,10 @@ const route = findSeoRoute("/auth/confirm-email-change");
   indexable={route.indexable}
 >
   <main id="top" class="route-main">
-    <ConfirmEmailChangePage appUrl={editorUrl} client:only="react">
+    <ConfirmEmailChangePage uid={uid} newEmail={email} token={token} appUrl={editorUrl} client:only="react">
       <section slot="fallback" class="route-loading">
         <h1>Confirm your email change</h1>
       </section>
     </ConfirmEmailChangePage>
   </main>
 </SiteLayout>
-

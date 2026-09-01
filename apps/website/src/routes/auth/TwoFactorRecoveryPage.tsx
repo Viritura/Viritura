@@ -19,23 +19,19 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * and pair a fresh authenticator.
  */
 interface TwoFactorRecoveryPageProps {
-  readonly uid?: string;
-  readonly token?: string;
+  readonly uid: string;
+  readonly token: string;
   readonly appUrl: string;
 }
 
 export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryPageProps) {
-  const resolvedUid =
-    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
-  const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(clearSensitiveLinkUrl, []);
 
-  const missingParams = !resolvedUid || !resolvedToken;
+  const missingParams = !uid || !token;
 
   const onConfirm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +39,7 @@ export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryP
     setSubmitting(true);
     setError(null);
     try {
-      await disableTwoFactorByRecoveryToken(resolvedUid, resolvedToken);
+      await disableTwoFactorByRecoveryToken(uid, token);
       setDone(true);
       setTimeout(() => {
         window.location.href = appUrl;

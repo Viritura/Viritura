@@ -9,19 +9,15 @@ import { clearSensitiveLinkUrl } from "./sensitiveLink";
  * dev) and will be scoped to the parent domain in prod.
  */
 interface VerifyEmailPageProps {
-  readonly uid?: string;
-  readonly token?: string;
+  readonly uid: string;
+  readonly token: string;
   readonly appUrl: string;
 }
 
 type VerifyStatus = "verifying" | "success" | "failed" | "invalid";
 
 export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
-  const resolvedUid =
-    uid ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("uid") ?? ""));
-  const resolvedToken =
-    token ?? (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("token") ?? ""));
-  const [status, setStatus] = useState<VerifyStatus>(resolvedUid && resolvedToken ? "verifying" : "invalid");
+  const [status, setStatus] = useState<VerifyStatus>(uid && token ? "verifying" : "invalid");
   const [error, setError] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState("");
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent">("idle");
@@ -30,7 +26,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
   const attempted = useRef(false);
 
   useEffect(() => {
-    if (!resolvedUid || !resolvedToken || attempted.current) return;
+    if (!uid || !token || attempted.current) return;
     attempted.current = true;
     clearSensitiveLinkUrl();
     // No `cancelled` flag here: the `attempted` ref already prevents the Strict-Mode
@@ -39,7 +35,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
     // down before the response arrives.
     (async () => {
       try {
-        await verifyEmail(resolvedUid, resolvedToken);
+        await verifyEmail(uid, token);
         setStatus("success");
         // Brief delay so the user sees the success state before we navigate away.
         setTimeout(() => {
@@ -50,7 +46,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
         setError(err instanceof AuthApiError ? err.message : "Verification failed.");
       }
     })();
-  }, [resolvedUid, resolvedToken, appUrl]);
+  }, [uid, token, appUrl]);
 
   const onResend = async () => {
     if (!resendEmail || resendStatus === "sending") return;
