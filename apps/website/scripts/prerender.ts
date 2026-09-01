@@ -1,16 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-interface SeoRoute {
-  path: string;
-  renderPath?: string;
-  title: string;
-  description: string;
-  canonicalPath: string;
-  indexable: boolean;
-  outputPath?: string;
-}
+import { applyRouteMetadata, type SeoRoute } from "../src/seo";
 
 interface StaticRenderer {
   renderRoute(url: string): Promise<{ html: string; injectedHtml: string }>;
@@ -25,25 +16,6 @@ const staticBundleUrl = pathToFileURL(resolve(staticBundleRoot, "entry-static.js
 const renderer = (await import(staticBundleUrl)) as StaticRenderer;
 const templatePath = resolve(outputRoot, "index.html");
 const template = await readFile(templatePath, "utf8");
-
-function escapeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-}
-
-function applyMetadata(html: string, route: SeoRoute): string {
-  const canonical = new URL(route.canonicalPath, "https://viritura.com").href;
-  const robots = route.indexable ? "index, follow" : "noindex, nofollow";
-  return html
-    .replace(/<title>.*?<\/title>/s, `<title>${escapeHtml(route.title)}</title>`)
-    .replace(
-      /<meta\s+name="description"\s+content="[^"]*"\s*\/>/s,
-      `<meta name="description" content="${escapeHtml(route.description)}" />`,
-    )
-    .replace(
-      "</head>",
-      `    <meta name="robots" content="${robots}" />\n    <link rel="canonical" href="${canonical}" />\n  </head>`,
-    );
-}
 
 function outputFile(route: SeoRoute): string {
   if (route.outputPath) return resolve(outputRoot, route.outputPath);
@@ -68,7 +40,7 @@ for (const route of renderer.staticRoutes) {
 
   const destination = outputFile(route);
   await mkdir(dirname(destination), { recursive: true });
-  const outputHtml = applyMetadata(withContent, route);
+  const outputHtml = applyRouteMetadata(withContent, route);
   await writeFile(destination, route.outputPath ? removeClientScripts(outputHtml) : outputHtml);
 }
 

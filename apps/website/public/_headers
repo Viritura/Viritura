@@ -18,11 +18,32 @@
 /*.html
   Cache-Control: no-cache, must-revalidate
 
+/
+  Cache-Control: no-cache, must-revalidate
+
+/docs
+  Cache-Control: no-cache, must-revalidate
+
+/docs/*
+  Cache-Control: no-cache, must-revalidate
+
+/mnx
+  Cache-Control: no-cache, must-revalidate
+
+/mnx/playground
+  Cache-Control: no-cache, must-revalidate
+
+/mnx-converter
+  Cache-Control: no-cache, must-revalidate
+
 /signup
+  Cache-Control: no-cache, must-revalidate
   X-Robots-Tag: noindex, nofollow
 
 /signup/*
+  Cache-Control: no-cache, must-revalidate
   X-Robots-Tag: noindex, nofollow
 
 /auth/*
+  Cache-Control: no-cache, must-revalidate
   X-Robots-Tag: noindex, nofollow
