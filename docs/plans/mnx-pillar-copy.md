@@ -383,7 +383,12 @@ same time.
 
 ---
 
-## Editorial guardrails
+## Internal notes, not website copy
+
+Everything below this heading is for implementation and editorial review. Do
+not render it on either public page.
+
+### Editorial guardrails
 
 - Link to the official MNX specification for normative definitions and current
   status.
@@ -399,17 +404,16 @@ same time.
 - Tie conversion claims to tested converter behavior and diagnostics.
 - Avoid claims about archival permanence. Recommend layered archives instead.
 
-## Source notes
+### Source notes
 
 - [MNX 1.0 draft specification](https://mnx.formats.music/docs/)
 - [MNX object reference](https://mnx.formats.music/docs/mnx-reference/objects/)
 - [MNX multiple-layouts example](https://mnx.formats.music/docs/mnx-reference/examples/multiple-layouts/)
 - [Comparing MNX and MusicXML](https://mnx.formats.music/docs/comparisons/musicxml/)
 - [MusicXML overview](https://www.musicxml.com/)
-- [Finale to Dorico migration guide](https://www.finalemusic.com/blog/from-finale-to-dorico-a-migration-guide/)
 - [`mnx-converter-coverage.md`](../spec/mnx-converter-coverage.md)
 
-## Delivery order
+### Delivery order
 
 This copy assumes PR #14 has landed. Rebase the content branch onto `main` after
 that merge so the final implementation edits the expanded hub and playground,
