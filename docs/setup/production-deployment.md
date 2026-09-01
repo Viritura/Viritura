@@ -19,6 +19,10 @@ backups, Data Protection keys, and a root-owned environment file.
 
 Cloudflare Pages, Cloudflare R2, and Railway are not configured. Their documents
 describe a possible future migration, not the active production system.
+When that infrastructure is configured, keep these same three manual GitHub
+Actions workflows as the deployment interface and update their implementation
+to target the new providers. A hosting migration must not reintroduce local
+production deployment commands.
 
 ## Deploy the website or editor
 
@@ -94,7 +98,47 @@ jobs. Keep both layers: the workflow guard fails closed before doing work, while
 the Environment policy prevents a modified non-`main` workflow from receiving
 production secrets.
 
-## Production configuration
+## Host configuration changes
+
+Application deployment workflows never install host configuration. Changes to
+nginx, Dockerfiles, Compose policy, container entrypoints, deployment wrappers,
+sudoers, backup jobs, or runtime secrets require an authenticated
+host-administration session and independent review.
+
+Stage a reviewed repository checkout or configuration bundle on the host. For
+API runtime and deployment-wrapper changes, run on the host:
+
+```bash
+sudo bash deploy/api/install-host-config.sh /path/to/reviewed/repository
+```
+
+For static deployment-wrapper changes, install the reviewed file directly:
+
+```bash
+sudo install -o root -g root -m 0755 \
+   deploy/static/manage.sh \
+   /usr/local/sbin/viritura-static-manage
+```
+
+For nginx changes, install the reviewed vhost or shared snippet, validate the
+complete configuration, and reload only after validation succeeds:
+
+```bash
+sudo install -o root -g root -m 0644 \
+   deploy/nginx-viritura.com.conf \
+   /etc/nginx/sites-available/viritura.com
+sudo install -o root -g root -m 0644 \
+   deploy/nginx-app.viritura.com.conf \
+   /etc/nginx/sites-available/app.viritura.com
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Install API nginx and shared-snippet changes through the same review,
+validation, and reload sequence. Do not use an application deployment workflow
+to distribute or activate configuration changes.
+
+## Production runtime configuration
 
 Runtime configuration lives in `/etc/viritura/api.env`, owned by root with mode
 `0600`. Persistent API data lives under `/opt/viritura-api`.

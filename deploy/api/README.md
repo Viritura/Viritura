@@ -19,18 +19,21 @@ Railway remains an unconfigured future migration option. See
 [../../docs/setup/production-secrets.md](../../docs/setup/production-secrets.md)
 for the proposed provider-managed setup.
 
-Routine deployment uses the dedicated `viritura-deploy` account and the local
-key `~/.ssh/viritura_deploy_ed25519`. The account is not a member of `sudo` or
-`docker`; it may run only the root-owned `viritura-api-manage` wrapper through
-passwordless sudo. The manual **Deploy API** GitHub Actions workflow uploads
-only the tested `dotnet publish` output, then invokes
+Routine application deployment uses the CI-only key stored in the protected
+GitHub `production` Environment. The dedicated `viritura-deploy` account has no
+general sudo or Docker access; it may run only the root-owned
+`viritura-api-manage` wrapper through passwordless sudo. The manual **Deploy
+API** GitHub Actions workflow uploads only the tested `dotnet publish` output,
+then invokes
 `sudo /usr/local/sbin/viritura-api-manage deploy`.
 
 The wrapper takes root ownership of the archive before validating or extracting
 it. The runtime Dockerfile, entrypoint, Compose definition, nginx
 configuration, and environment file remain root-owned deployment
-configuration; a release artifact cannot replace them. Install changes to
-those files separately through an authenticated host-administration session:
+configuration; a release artifact cannot replace them. A host administrator
+may use the local maintenance key for diagnostics, but not as an alternate
+application deployment path. Install reviewed configuration changes separately
+through an authenticated host-administration session:
 
 ```bash
 sudo bash deploy/api/install-host-config.sh /path/to/reviewed/repository
