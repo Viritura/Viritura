@@ -23,6 +23,7 @@ type FloatingPanel = ReturnType<typeof useFloatingPanel>;
 
 export interface BuildEngraveModeArgs {
   engrave: EngraveMode;
+  onTogglePanels: () => void;
   leftFloat: FloatingPanel;
   rightFloat: FloatingPanel;
   canvasRef: RefObject<ScoreCanvasHandle | null>;
@@ -57,6 +58,7 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
         onResize={args.leftFloat.setWidth}
         min={280}
         max={480}
+        onCollapse={() => args.leftFloat.setCollapsed(true)}
       >
         <EngraveLeftPanel
           score={engrave.score}
@@ -107,6 +109,9 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
       onEngraveTextExpressionOffsetEdit: engrave.onTextExpressionOffsetEdit,
     },
     panels,
+    leftPanelCollapsed: args.leftFloat.collapsed,
+    onExpandLeftPanel: () => args.leftFloat.setCollapsed(false),
+    onTogglePanels: args.onTogglePanels,
     toolbar: (
       <>
         <div style={engraveToolbarStyle}>

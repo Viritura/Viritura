@@ -18,7 +18,7 @@ const APP_ROOT_STYLE: CSSProperties = {
 };
 
 type AppBannersProps = ComponentProps<typeof AppBanners>;
-type AppWorkspaceProps = ComponentProps<typeof AppWorkspace>;
+type AppWorkspaceProps = Omit<ComponentProps<typeof AppWorkspace>, "keyboardActive">;
 type AppOverlaysProps = ComponentProps<typeof AppOverlays>;
 
 export interface AppInnerViewProps {
@@ -63,7 +63,7 @@ export function AppInnerView({
       {isActiveView && mode.toolbar && <ToolbarPortal>{mode.toolbar}</ToolbarPortal>}
 
       <AppBanners {...banners} />
-      <AppWorkspace {...workspace} />
+      <AppWorkspace {...workspace} keyboardActive={isActiveView ?? true} />
       <AppOverlays {...overlays} />
     </div>
   );

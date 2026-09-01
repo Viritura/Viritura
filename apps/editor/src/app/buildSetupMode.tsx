@@ -30,6 +30,7 @@ const SetupPanelAny = SetupPanel as ComponentType<SetupPanelProps>;
 
 export interface BuildSetupModeArgs {
   canvasRef: RefObject<ScoreCanvasHandle | null>;
+  onTogglePanels: () => void;
   leftFloat: FloatingPanel;
   selectedScoreIndex: number;
   selectedPartIds: string[];
@@ -71,7 +72,15 @@ export function buildSetupMode(args: BuildSetupModeArgs): WorkspaceMode {
   const panels: ReactNode[] = [];
   if (!leftFloat.collapsed) {
     panels.push(
-      <Panel key="setup-left" side="left" width={leftFloat.width} onResize={leftFloat.setWidth} min={240} max={560}>
+      <Panel
+        key="setup-left"
+        side="left"
+        width={leftFloat.width}
+        onResize={leftFloat.setWidth}
+        min={240}
+        max={560}
+        onCollapse={() => leftFloat.setCollapsed(true)}
+      >
         <SetupPanelAny
           scoreDefinitions={args.resolvedScoreDefs}
           selectedScoreIndex={args.selectedScoreIndex}
@@ -111,6 +120,9 @@ export function buildSetupMode(args: BuildSetupModeArgs): WorkspaceMode {
       onToggleCondensedStaff: args.handleExpandCondensingStave,
     },
     panels,
+    leftPanelCollapsed: leftFloat.collapsed,
+    onExpandLeftPanel: () => leftFloat.setCollapsed(false),
+    onTogglePanels: args.onTogglePanels,
     // Setup has no note input, so its toolbar carries only the score
     // switcher — which doubles as the "you are previewing X" indicator.
     toolbar: (

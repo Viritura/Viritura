@@ -45,6 +45,8 @@ import styles from "./WorkspaceShell.module.css";
 const INSET = 14;
 /** Gap between stacked panels on the same side. */
 const GAP = 12;
+/** Width of the recovery handle at hover plus a small content gap. */
+const PANEL_HANDLE_INSET = 32;
 /** Height of the peek-on-hover status zone (see WorkspaceShell.module.css).
  *  Reported as a bottom inset while pinned so the canvas scroll cap never
  *  parks content underneath it. */
@@ -93,6 +95,7 @@ export function WorkspaceShell({
   const { positioned, insets: panelInsets } = layoutPanels(panels);
   const insets: WorkspaceInsets = {
     ...panelInsets,
+    left: showPanelHandle ? Math.max(panelInsets.left, PANEL_HANDLE_INSET) : panelInsets.left,
     bottom: statusBar !== undefined && statusVisible ? STATUS_ZONE_HEIGHT : panelInsets.bottom,
   };
 

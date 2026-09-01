@@ -15,11 +15,10 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 
 const MAIN_AREA_BARE_STYLE: CSSProperties = { position: "absolute", inset: 0, zIndex: 0 };
-const LEFT_PANEL_STYLE: CSSProperties = { position: "absolute", top: 14, bottom: 14, left: 14 };
-const RIGHT_PANEL_STYLE: CSSProperties = { position: "absolute", top: 14, bottom: 14, right: 14 };
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { Panel, Tabs, type TabDef } from "@viritura/ui";
+import { Panel, Tabs, WorkspaceShell, type TabDef } from "@viritura/ui";
 import { useStoredWidth } from "../hooks/useStoredWidth";
+import { usePanelToggleRequest } from "../keyboard/panelToggle";
 
 // ═══════════════════════════════════════════
 // Types
@@ -36,6 +35,7 @@ interface LeftPanelConfig {
   minSize?: number;
   /** Maximum panel width. @default 500 */
   maxSize?: number;
+  onCollapse?: () => void;
 }
 
 interface RightPanelConfig {
@@ -177,6 +177,7 @@ function MainContentArea({
   rightCollapsed,
   leftW,
   rightW,
+  leftRecoveryInset,
   children,
 }: {
   dockedLeft: boolean;
@@ -186,10 +187,11 @@ function MainContentArea({
   rightCollapsed: boolean;
   leftW: number;
   rightW: number;
+  leftRecoveryInset: number;
   children: ViewLayoutProps["children"];
 }) {
   if (dockedLeft && leftPanel) {
-    const left = (!leftCollapsed ? leftW : 0) + 24;
+    const left = leftCollapsed ? leftRecoveryInset : leftW + 24;
     const right = rightPanel && !rightCollapsed ? rightW + 24 : 14;
     // The docked main area is itself a panel card (not a canvas underlay)
     // — use Panel with explicit positioning + content children. We have
@@ -211,28 +213,33 @@ function MainContentArea({
       </Panel>
     );
   }
-  const left = leftPanel && !leftCollapsed ? leftW + 24 : 12;
+  const left = leftPanel ? (leftCollapsed ? leftRecoveryInset : leftW + 24) : 12;
   const right = rightPanel && !rightCollapsed ? rightW + 24 : 12;
   return <div style={MAIN_AREA_BARE_STYLE}>{renderMainChildren(children, { left, right })}</div>;
 }
 
 function LeftPanelArea({
   leftPanel,
-  leftW,
-  setLeftW,
+  side,
+  width,
+  onResize,
+  shellStyle,
 }: {
   leftPanel: LeftPanelConfig;
-  leftW: number;
-  setLeftW: (w: number) => void;
+  side: "left";
+  width: number;
+  onResize: (w: number) => void;
+  shellStyle?: CSSProperties;
 }) {
   return (
     <Panel
-      side="left"
-      width={leftW}
-      onResize={setLeftW}
+      side={side}
+      width={width}
+      onResize={onResize}
       min={leftPanel.minSize ?? 200}
       max={leftPanel.maxSize ?? 500}
-      style={LEFT_PANEL_STYLE}
+      onCollapse={leftPanel.onCollapse}
+      shellStyle={shellStyle}
     >
       {leftPanel.tabs && leftPanel.activeTab ? (
         <Tabs tabs={leftPanel.tabs} activeTab={leftPanel.activeTab} onTabChange={leftPanel.onTabChange}>
@@ -247,21 +254,25 @@ function LeftPanelArea({
 
 function RightPanelArea({
   rightPanel,
-  rightW,
-  setRightW,
+  side,
+  width,
+  onResize,
+  shellStyle,
 }: {
   rightPanel: RightPanelConfig;
-  rightW: number;
-  setRightW: (w: number) => void;
+  side: "right";
+  width: number;
+  onResize: (w: number) => void;
+  shellStyle?: CSSProperties;
 }) {
   return (
     <Panel
-      side="right"
-      width={rightW}
-      onResize={setRightW}
+      side={side}
+      width={width}
+      onResize={onResize}
       min={rightPanel.minSize ?? 220}
       max={rightPanel.maxSize ?? 520}
-      style={RIGHT_PANEL_STYLE}
+      shellStyle={shellStyle}
     >
       {rightPanel.content}
     </Panel>
@@ -288,40 +299,54 @@ export function ViewLayout({
     rightPanel?.minSize ?? 220,
     rightPanel?.maxSize ?? 520,
   );
-  const [leftCollapsed] = useStoredCollapsed(`viritura.${layoutId}.leftW:collapsed`);
+  const [leftCollapsed, setLeftCollapsed] = useStoredCollapsed(`viritura.${layoutId}.leftW:collapsed`);
   const [rightCollapsed, setRightCollapsed] = useStoredCollapsed(`viritura.${layoutId}.rightW:collapsed`);
 
   useBridgedCollapsed(rightPanel?.panelRef, rightCollapsed, setRightCollapsed, rightPanel?.collapsed);
+  usePanelToggleRequest(true, () => {
+    const anyExpanded = Boolean((leftPanel && !leftCollapsed) || (rightPanel && !rightCollapsed));
+    if (anyExpanded) {
+      if (leftPanel) setLeftCollapsed(true);
+      if (rightPanel) setRightCollapsed(true);
+      return;
+    }
+    if (leftPanel) setLeftCollapsed(false);
+    else if (rightPanel) setRightCollapsed(false);
+  });
 
   const statusVisible = useStatusVisible(Boolean(statusBar));
+  const collapsibleLeftPanel = leftPanel ? { ...leftPanel, onCollapse: () => setLeftCollapsed(true) } : undefined;
 
   return (
     <div style={containerStyle}>
-      <div className="workspace-bg" style={panelAreaStyle}>
-        <MainContentArea
-          dockedLeft={dockedLeft}
-          leftPanel={leftPanel}
-          rightPanel={rightPanel}
-          leftCollapsed={leftCollapsed}
-          rightCollapsed={rightCollapsed}
-          leftW={leftW}
-          rightW={rightW}
-        >
-          {children}
-        </MainContentArea>
-
-        {leftPanel && !leftCollapsed && <LeftPanelArea leftPanel={leftPanel} leftW={leftW} setLeftW={setLeftW} />}
+      <WorkspaceShell
+        statusBar={statusBar}
+        statusVisible={statusVisible}
+        showPanelHandle={Boolean(leftPanel && leftCollapsed)}
+        onTogglePanels={() => setLeftCollapsed(false)}
+        canvas={(shellInsets) => (
+          <MainContentArea
+            dockedLeft={dockedLeft}
+            leftPanel={leftPanel}
+            rightPanel={rightPanel}
+            leftCollapsed={leftCollapsed}
+            rightCollapsed={rightCollapsed}
+            leftW={leftW}
+            rightW={rightW}
+            leftRecoveryInset={shellInsets.left}
+          >
+            {children}
+          </MainContentArea>
+        )}
+      >
+        {collapsibleLeftPanel && !leftCollapsed && (
+          <LeftPanelArea leftPanel={collapsibleLeftPanel} side="left" width={leftW} onResize={setLeftW} />
+        )}
 
         {rightPanel && !rightCollapsed && (
-          <RightPanelArea rightPanel={rightPanel} rightW={rightW} setRightW={setRightW} />
+          <RightPanelArea rightPanel={rightPanel} side="right" width={rightW} onResize={setRightW} />
         )}
-
-        {statusBar && (
-          <div className={`workspace-status-zone${statusVisible ? " workspace-status-zone--visible" : ""}`}>
-            {statusBar}
-          </div>
-        )}
-      </div>
+      </WorkspaceShell>
     </div>
   );
 }
@@ -335,13 +360,6 @@ const containerStyle: CSSProperties = {
   flexDirection: "column",
   height: "100%",
   overflow: "hidden",
-};
-
-const panelAreaStyle: CSSProperties = {
-  flex: 1,
-  position: "relative",
-  overflow: "hidden",
-  minHeight: 0,
 };
 
 // Canvas occupies the remaining viewport — see render block above for the

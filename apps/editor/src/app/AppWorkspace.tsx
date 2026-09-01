@@ -11,6 +11,7 @@ import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { ScoreCanvas, type ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { WorkspaceCanvas } from "./WorkspaceCanvas";
 import { useCalibrationRerender } from "../zoomScale";
+import { usePanelToggleRequest } from "../keyboard/panelToggle";
 import type { WorkspaceMode } from "./workspaceMode";
 
 interface AppWorkspaceProps {
@@ -23,6 +24,7 @@ interface AppWorkspaceProps {
   handleLayoutsChange: (layouts: string[]) => void;
   handlePrintOverflowChange: ComponentProps<typeof ScoreCanvas>["onPrintOverflowChange"];
   statusVisible: boolean;
+  keyboardActive: boolean;
   /** The active workspace mode — supplies canvas props, panels, status bar, siblings. */
   mode: WorkspaceMode;
 }
@@ -37,12 +39,14 @@ export function AppWorkspace(props: AppWorkspaceProps): React.ReactElement {
     handleLayoutsChange,
     handlePrintOverflowChange,
     statusVisible,
+    keyboardActive,
     mode,
   } = props;
 
   // Re-render when the user re-calibrates physical zoom, so the formatted
   // zoom percentage in the status bar refreshes.
   useCalibrationRerender();
+  usePanelToggleRequest(keyboardActive, mode.onTogglePanels);
 
   // Sibling-aware insets are computed inside WorkspaceShell — the canvas render
   // prop receives them via its argument so safeArea stays in sync as panels
@@ -65,8 +69,8 @@ export function AppWorkspace(props: AppWorkspaceProps): React.ReactElement {
           />
         )}
         statusBar={mode.statusBar}
-        showPanelHandle={mode.panels.length === 0 && mode.onTogglePanels !== undefined}
-        onTogglePanels={mode.onTogglePanels}
+        showPanelHandle={mode.leftPanelCollapsed}
+        onTogglePanels={mode.onExpandLeftPanel}
       >
         {mode.panels}
       </WorkspaceShell>

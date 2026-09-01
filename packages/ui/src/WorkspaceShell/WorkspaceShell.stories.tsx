@@ -93,25 +93,31 @@ export const TwoPanels: Story = {
   render: () => {
     const [leftW, setLeftW] = useState(280);
     const [rightW, setRightW] = useState(320);
+    const [leftOpen, setLeftOpen] = useState(true);
     return (
       <div style={SHELL_FRAME_STYLE}>
         <WorkspaceShell
           canvas={(insets) => <CanvasPlaceholder insets={insets} />}
           statusVisible
           statusBar={<div style={STATUS_PILL_STYLE}>workspace status pill</div>}
+          showPanelHandle={!leftOpen}
+          onTogglePanels={() => setLeftOpen(true)}
         >
-          <Panel
-            side="left"
-            width={leftW}
-            onResize={setLeftW}
-            min={220}
-            max={500}
-            title="Parts"
-            subtitle="String Quartet in D · 24 measures"
-            scrollBody
-          >
-            <PartsPanelBody />
-          </Panel>
+          {leftOpen && (
+            <Panel
+              side="left"
+              width={leftW}
+              onResize={setLeftW}
+              min={220}
+              max={500}
+              onCollapse={() => setLeftOpen(false)}
+              title="Parts"
+              subtitle="String Quartet in D · 24 measures"
+              scrollBody
+            >
+              <PartsPanelBody />
+            </Panel>
+          )}
           <Panel
             side="right"
             width={rightW}

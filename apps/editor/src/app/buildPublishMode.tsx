@@ -27,21 +27,27 @@ export interface BuildPublishModeArgs {
 export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
   const { publish, canvasRef, currentZoom, previewViewMode, setViewMode } = args;
 
-  const panels: ReactNode[] = [
-    <LeftLayoutsPanel
-      key="publish-left"
-      side="left"
-      layouts={publish.layouts}
-      selectedIndices={publish.selectedIndices}
-      focusedIndex={publish.focusedIndex}
-      exporting={publish.exporting}
-      width={publish.leftWidth}
-      onResize={publish.setLeftWidth}
-      onToggleIndex={publish.onToggleIndex}
-      onSelectAll={publish.onSelectAll}
-      onClearSelection={publish.onClearSelection}
-      onFocusIndex={publish.onFocusIndex}
-    />,
+  const panels: ReactNode[] = [];
+  if (!publish.leftCollapsed) {
+    panels.push(
+      <LeftLayoutsPanel
+        key="publish-left"
+        side="left"
+        layouts={publish.layouts}
+        selectedIndices={publish.selectedIndices}
+        focusedIndex={publish.focusedIndex}
+        exporting={publish.exporting}
+        width={publish.leftWidth}
+        onResize={publish.setLeftWidth}
+        onCollapse={() => publish.setLeftCollapsed(true)}
+        onToggleIndex={publish.onToggleIndex}
+        onSelectAll={publish.onSelectAll}
+        onClearSelection={publish.onClearSelection}
+        onFocusIndex={publish.onFocusIndex}
+      />,
+    );
+  }
+  panels.push(
     <RightExportPanel
       key="publish-right"
       side="right"
@@ -64,7 +70,7 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
       statusMessage={publish.statusMessage}
       onExport={publish.onExport}
     />,
-  ];
+  );
 
   return {
     kind: "publish",
@@ -73,6 +79,9 @@ export function buildPublishMode(args: BuildPublishModeArgs): WorkspaceMode {
       selectedPartIds: undefined,
     },
     panels,
+    leftPanelCollapsed: publish.leftCollapsed,
+    onExpandLeftPanel: () => publish.setLeftCollapsed(false),
+    onTogglePanels: () => publish.setLeftCollapsed(!publish.leftCollapsed),
     statusBar: (
       <PreviewStatusBar
         zoom={currentZoom}
