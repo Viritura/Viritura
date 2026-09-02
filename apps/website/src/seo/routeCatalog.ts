@@ -52,11 +52,11 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
-    path: "/docs/getting-started",
+    path: "/docs",
     title: "Getting Started | Viritura Documentation",
     description:
       "Set up Viritura and learn the essential workflows for creating, editing, reviewing, and sharing music.",
-    canonicalPath: "/docs/getting-started",
+    canonicalPath: "/docs",
     indexable: true,
   },
   {

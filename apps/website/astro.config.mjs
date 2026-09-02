@@ -40,10 +40,7 @@ const allowedSitemapUrls = new Set(
 // meaningful `lastmod`. Other routes span multiple components/data sources,
 // so we leave their `lastmod` unset rather than pick one arbitrary file.
 const docLastModByUrl = new Map(
-  DOC_PAGE_META.map((page) => [
-    new URL(`/docs/${page.slug}`, SITE_ORIGIN).href.replace(/\/$/, ""),
-    gitLastModified(page.file),
-  ]),
+  DOC_PAGE_META.map((page) => [new URL(page.path, SITE_ORIGIN).href.replace(/\/$/, ""), gitLastModified(page.file)]),
 );
 
 export default defineConfig({
@@ -52,9 +49,6 @@ export default defineConfig({
     port: 5180,
     host: containerHost ? true : undefined,
     open: !containerHost,
-  },
-  redirects: {
-    "/docs": "/docs/getting-started",
   },
   security: {
     csp: {

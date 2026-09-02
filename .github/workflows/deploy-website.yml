@@ -102,5 +102,5 @@ jobs:
           grep -q 'http-equiv="content-security-policy"' <<<"$playground"
           sitemap="$(curl --fail --silent --show-error https://viritura.com/sitemap-0.xml)"
           grep -q '<loc>https://viritura.com/mnx/examples/</loc>' <<<"$sitemap"
-          docs_url="$(curl --fail --silent --show-error --location --output /dev/null --write-out '%{url_effective}' https://viritura.com/docs)"
-          [[ "$docs_url" == "https://viritura.com/docs/getting-started" ]]
+          docs_status="$(curl --fail --silent --show-error --output /dev/null --write-out '%{http_code}' https://viritura.com/docs)"
+          [[ "$docs_status" == "200" ]]
