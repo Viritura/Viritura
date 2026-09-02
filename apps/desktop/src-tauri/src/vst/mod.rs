@@ -44,6 +44,7 @@ pub struct VstIdentity {
 pub enum HostError {
     #[error("VST3 host error: {0}")]
     Backend(String),
+    #[cfg(windows)]
     #[error("the plugin does not expose a VST3 editor")]
     MissingEditor,
     #[error("state capture requires the Windows desktop build")]

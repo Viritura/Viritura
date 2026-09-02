@@ -12,12 +12,17 @@
 //! safe (the mixer mutex serialises the brief attach/detach against the audio
 //! callback).
 
+#[cfg(target_os = "windows")]
 use std::ffi::c_void;
+#[cfg(target_os = "windows")]
 use std::ptr;
 
 use vst3_host::WindowHandle;
+#[cfg(target_os = "windows")]
 use winapi::shared::windef::{HWND, RECT};
+#[cfg(target_os = "windows")]
 use winapi::um::libloaderapi::GetModuleHandleW;
+#[cfg(target_os = "windows")]
 use winapi::um::winuser::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, IsWindow,
     LoadCursorW, PeekMessageW, RegisterClassExW, SetForegroundWindow, ShowWindow, TranslateMessage,
@@ -26,10 +31,12 @@ use winapi::um::winuser::{
 };
 
 /// A top-level window that parents a plugin editor, pumped from the host thread.
+#[cfg(target_os = "windows")]
 pub(super) struct ReverbEditorWindow {
     hwnd: HWND,
 }
 
+#[cfg(target_os = "windows")]
 impl ReverbEditorWindow {
     /// Create a top-level window sized to `(width, height)` (the plugin's
     /// preferred editor size). The window uses the default window procedure, so
@@ -119,4 +126,30 @@ impl ReverbEditorWindow {
             }
         }
     }
+}
+
+/// Linux and macOS can host plugin audio, but the modeless FX editor currently
+/// relies on a Win32 parent window and message pump.
+#[cfg(not(target_os = "windows"))]
+pub(super) struct ReverbEditorWindow;
+
+#[cfg(not(target_os = "windows"))]
+impl ReverbEditorWindow {
+    pub(super) fn create(_width: i32, _height: i32, _title: &str) -> Result<Self, String> {
+        Err("VST effect editor windows are currently supported only on Windows".to_owned())
+    }
+
+    pub(super) fn handle(&self) -> WindowHandle {
+        unreachable!("ReverbEditorWindow::create always fails on non-Windows platforms")
+    }
+
+    pub(super) fn show(&self) {}
+
+    pub(super) fn is_alive(&self) -> bool {
+        false
+    }
+
+    pub(super) fn pump(&self) {}
+
+    pub(super) fn destroy(&self) {}
 }

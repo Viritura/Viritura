@@ -9,6 +9,7 @@ Prerequisites:
 
 - Node.js 22 or newer;
 - pnpm 9 through Corepack;
+- Git LFS for the bundled SoundFont;
 - the Rust toolchain pinned by `engine/rust-toolchain.toml`;
 - `wasm-pack` and the `wasm32-unknown-unknown` target; and
 - the .NET 10 SDK for API work.
@@ -17,6 +18,7 @@ From the repository root:
 
 ```bash
 corepack enable
+git lfs pull
 corepack pnpm install
 cargo install wasm-pack
 cargo install cargo-watch
@@ -73,6 +75,31 @@ CI profile is tracked separately from the non-browser gate.
 suite exits instead of competing for Cargo artifacts or process-global test
 state. Use this command for full and focused engine tests rather than creating
 an alternate `CARGO_TARGET_DIR`.
+
+### Rust dependency-audit exceptions
+
+`pnpm audit:rust` runs `cargo audit` against each Rust lockfile
+(`engine/Cargo.lock`, `apps/desktop/src-tauri/Cargo.lock`, and
+`tools/vst-reverb-probe/Cargo.lock`). A small number of advisories are ignored
+via explicit `--ignore` flags. Each exception is temporary and must be removed
+as soon as a compatible upstream fix is available.
+
+| Advisory          | Lockfile                            | Platforms | Rationale / review condition                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------- | ----------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RUSTSEC-2026-0192 | `engine/Cargo.lock`                 | all       | Pre-existing engine exception.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| RUSTSEC-2024-0429 | `apps/desktop/src-tauri/Cargo.lock` | Linux/BSD | `glib 0.18.5` unsound `VariantStrIter` iterators, reached only through `tauri 2.11.5 → gtk 0.18.2 → glib 0.18.5` (and `tauri-plugin-dialog`). The fix is `glib >= 0.20`, which requires GTK4/WebKitGTK-6; Tauri 2.x is locked to the GTK3 stack, so no compatible upgrade exists. Windows/macOS do not pull `gtk`/`glib`. Remove once the desktop shell adopts a Tauri release on the GTK4 stack. See [Viritura#3](https://github.com/Viritura/Viritura/issues/3). |
+
+The Rust security API check also denies direct use of
+`glib::Variant::array_iter_str`, the only public constructor for the affected
+iterator. This prevents Viritura from making the advisory reachable while #3
+tracks the upstream GTK4 migration. The source-level check does not inspect
+dependency internals, so the lockfile audit remains necessary to detect changes
+in the Tauri graph.
+
+The remaining desktop warnings (unmaintained GTK3-family crates `atk`/`gdk`/`gtk`
+and their sys/macro crates, `proc-macro-error`, and the `unic-*` crates) are
+informational and are not ignored: `cargo audit` reports them without failing,
+and they clear with the same GTK4 migration.
 
 The editor and website bundle with **Vite 8** (Oxc transform + Rolldown
 optimizer). The React Compiler runs through Babel via `@rolldown/plugin-babel`
