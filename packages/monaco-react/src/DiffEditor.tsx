@@ -2,8 +2,10 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { editor } from "monaco-editor";
 import "monaco-editor/min/vs/editor/editor.main.css";
 import { monaco } from "./monacoApi";
-import "./monacoEnvironment";
+import { configureMonacoEnvironment } from "./monacoEnvironment";
 import type { DiffEditorProps } from "./types";
+
+configureMonacoEnvironment();
 
 const ROOT_STYLE = { width: "100%", height: "100%" } as const;
 
