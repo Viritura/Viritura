@@ -12,6 +12,7 @@ import {
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { editorUrl, type SiteLinks } from "../siteLinks";
 import { findSeoRoute } from "../seo/routeCatalog";
+import { softwareApplicationJsonLd } from "../seo/structuredData";
 
 const links: SiteLinks = {
   app: editorUrl,
@@ -19,6 +20,7 @@ const links: SiteLinks = {
   github: "https://github.com/Viritura/Viritura",
 };
 const route = findSeoRoute("/");
+const jsonLd = softwareApplicationJsonLd();
 ---
 
 <SiteLayout
@@ -27,6 +29,7 @@ const route = findSeoRoute("/");
   canonicalPath={route.canonicalPath}
   indexable={route.indexable}
 >
+  <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <main id="top" class="marketing-home">
     <HeroSection links={links} />
     <CollaborationValueStrip />

@@ -164,6 +164,8 @@ export function InputSection({ links }: { links: SiteLinks }) {
             className="input-image"
             src="/fast-workflow-preview.png"
             alt="A radial command wheel over a score, with clef and instrument options close to the selected music."
+            width={792}
+            height={527}
             loading="lazy"
             decoding="async"
           />
@@ -224,6 +226,8 @@ export function PartsSection({ links }: { links: SiteLinks }) {
             className="condensing-image"
             src="/condensing-preview.png"
             alt="A condensed horn staff above expanded Horn 1 and Horn 2 parts in the score editor."
+            width={982}
+            height={473}
             loading="lazy"
             decoding="async"
           />
@@ -253,6 +257,8 @@ export function CollaborationSection() {
         <img
           src="/diff-viewer-preview.png"
           alt="Two versions of a score compared visually with notation changes highlighted."
+          width={602}
+          height={282}
           loading="lazy"
           decoding="async"
         />

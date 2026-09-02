@@ -3,6 +3,7 @@ import SiteLayout from "../../layouts/SiteLayout.astro";
 import { DOC_PAGES, findDocPage } from "../../routes/docs/docsManifest";
 import { DocsPage } from "../../routes/docs/DocsPage";
 import { findSeoRoute } from "../../seo/routeCatalog";
+import { breadcrumbJsonLd, techArticleJsonLd } from "../../seo/structuredData";
 
 export function getStaticPaths() {
   return DOC_PAGES.map((page) => ({ params: { slug: page.slug } }));
@@ -11,6 +12,14 @@ export function getStaticPaths() {
 const slug = Astro.params.slug ?? "getting-started";
 const docPage = findDocPage(slug);
 const route = findSeoRoute(`/docs/${slug}`);
+const jsonLd = [
+  techArticleJsonLd(route),
+  breadcrumbJsonLd([
+    { name: "Viritura", path: "/" },
+    { name: "Documentation", path: "/docs" },
+    { name: docPage?.title ?? route.title, path: `/docs/${slug}` },
+  ]),
+];
 ---
 
 <SiteLayout
@@ -19,6 +28,7 @@ const route = findSeoRoute(`/docs/${slug}`);
   canonicalPath={route.canonicalPath}
   indexable={route.indexable}
 >
+  {jsonLd.map((entry) => <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(entry)} />)}
   <main id="top" class="route-main docs-route">
     <DocsPage slug={docPage?.slug ?? slug} client:load />
   </main>
