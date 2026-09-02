@@ -4,30 +4,9 @@ import "monaco-editor/min/vs/editor/editor.main.css";
 import { monaco } from "./monacoApi";
 import "./monacoEnvironment";
 import type { EditorProps } from "./types";
+import { acquireModel, type InitialEditorConfig } from "./model";
 
 const ROOT_STYLE = { width: "100%", height: "100%" } as const;
-
-interface InitialEditorConfig {
-  value: string;
-  language?: string;
-  path?: string;
-}
-
-function getModel(config: InitialEditorConfig): { model: editor.ITextModel; owned: boolean } {
-  if (config.path) {
-    const uri = monaco.Uri.parse(config.path);
-    const existing = monaco.editor.getModel(uri);
-    if (existing) return { model: existing, owned: false };
-    return {
-      model: monaco.editor.createModel(config.value, config.language, uri),
-      owned: true,
-    };
-  }
-  return {
-    model: monaco.editor.createModel(config.value, config.language),
-    owned: true,
-  };
-}
 
 export function Editor(props: EditorProps) {
   const {
@@ -56,14 +35,16 @@ export function Editor(props: EditorProps) {
   const callOnChange = useEffectEvent((nextValue: string, event: editor.IModelContentChangedEvent) =>
     onChange?.(nextValue, event),
   );
-  const callOnValidate = useEffectEvent((markers: editor.IMarker[]) => onValidate?.(markers));
+  const callOnValidate = useEffectEvent((markers: editor.IMarker[], validatedValue: string) =>
+    onValidate?.(markers, validatedValue),
+  );
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     callBeforeMount();
-    const { model, owned } = getModel(initialConfig);
+    const { model, owned } = acquireModel(monaco, initialConfig);
     const editor = monaco.editor.create(container, { model });
     editorRef.current = editor;
     const contentSubscription = editor.onDidChangeModelContent((event) => {
@@ -71,7 +52,7 @@ export function Editor(props: EditorProps) {
     });
     const markerSubscription = monaco.editor.onDidChangeMarkers((resources) => {
       if (resources.some((resource) => resource.toString() === model.uri.toString())) {
-        callOnValidate(monaco.editor.getModelMarkers({ resource: model.uri }));
+        callOnValidate(monaco.editor.getModelMarkers({ resource: model.uri }), model.getValue());
       }
     });
     callOnMount(editor);

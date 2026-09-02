@@ -4,7 +4,7 @@ export type MonacoApi = Pick<typeof Monaco, "editor" | "json" | "languages" | "M
 export type BeforeMount = (monaco: MonacoApi) => void;
 export type OnMount = (editor: Monaco.editor.IStandaloneCodeEditor, monaco: MonacoApi) => void;
 export type DiffOnMount = (editor: Monaco.editor.IStandaloneDiffEditor, monaco: MonacoApi) => void;
-export type OnValidate = (markers: Monaco.editor.IMarker[]) => void;
+export type OnValidate = (markers: Monaco.editor.IMarker[], value: string) => void;
 
 export interface EditorProps {
   value?: string;

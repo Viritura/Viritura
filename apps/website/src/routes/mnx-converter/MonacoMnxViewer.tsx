@@ -11,17 +11,22 @@ interface MonacoMnxViewerProps {
 
 export function MonacoMnxViewer({ data }: MonacoMnxViewerProps) {
   const json = useMemo(() => JSON.stringify(data, null, 2), [data]);
-  const [markerCount, setMarkerCount] = useState(0);
+  const [validation, setValidation] = useState<{ readonly source: string; readonly markerCount: number } | null>(null);
+  const markerCount = validation?.source === json ? validation.markerCount : null;
 
   const handleBeforeMount: BeforeMount = (monaco) => {
     configureMnxDiagnostics(monaco);
   };
-  const handleValidate: OnValidate = (markers) => setMarkerCount(markers.length);
+  const handleValidate: OnValidate = (markers, source) => setValidation({ source, markerCount: markers.length });
 
   return (
     <div style={EDITOR_WRAPPER_STYLE}>
-      <div className={`validation-summary ${markerCount === 0 ? "valid" : "invalid"}`}>
-        {markerCount === 0 ? "Valid MNX document" : `${markerCount} validation error${markerCount === 1 ? "" : "s"}`}
+      <div className={`validation-summary ${markerCount === null ? "" : markerCount === 0 ? "valid" : "invalid"}`}>
+        {markerCount === null
+          ? "Checking MNX document..."
+          : markerCount === 0
+            ? "Valid MNX document"
+            : `${markerCount} validation error${markerCount === 1 ? "" : "s"}`}
       </div>
       <div style={EDITOR_HOST_STYLE}>
         <Editor
