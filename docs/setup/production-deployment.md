@@ -186,7 +186,7 @@ nginx.
 
 After a static deployment:
 
-1. confirm `https://viritura.com/docs` redirects to `/docs/getting-started`;
+1. confirm `https://viritura.com/docs` serves the Getting Started page;
 2. open `https://app.viritura.com`, press `F1`, and confirm Help opens;
 3. verify the Help dialog's **Read the full documentation** link;
 4. switch the homepage feature tabs and confirm their content changes;

@@ -28,7 +28,7 @@ export function techArticleJsonLd(route: SeoRoute): JsonLd {
     isPartOf: {
       "@type": "WebSite",
       name: "Viritura Documentation",
-      url: new URL("/docs/getting-started", SITE_ORIGIN).href,
+      url: new URL("/docs", SITE_ORIGIN).href,
     },
   };
 }

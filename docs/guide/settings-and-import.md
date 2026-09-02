@@ -46,4 +46,4 @@ These settings can make the score canvas visually noisy and may affect performan
 Leave them off for ordinary writing, playback, and publication work.
 
 For opening projects and standalone files, see
-[Getting Started](/docs/getting-started#open-or-create-work).
+[Getting Started](/docs#open-or-create-work).

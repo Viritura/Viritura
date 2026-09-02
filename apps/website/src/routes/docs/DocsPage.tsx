@@ -75,7 +75,7 @@ function DocsPager({ previousPage, nextPage }: { previousPage?: DocPage; nextPag
   return (
     <nav className="docs-pager" aria-label="Documentation pages">
       {previousPage ? (
-        <a className="docs-pager-link" href={`/docs/${previousPage.slug}`}>
+        <a className="docs-pager-link" href={previousPage.path}>
           <span>Previous</span>
           {previousPage.title}
         </a>
@@ -83,7 +83,7 @@ function DocsPager({ previousPage, nextPage }: { previousPage?: DocPage; nextPag
         <span />
       )}
       {nextPage && (
-        <a className="docs-pager-link docs-pager-link--next" href={`/docs/${nextPage.slug}`}>
+        <a className="docs-pager-link docs-pager-link--next" href={nextPage.path}>
           <span>Next</span>
           {nextPage.title}
         </a>
@@ -120,7 +120,7 @@ function DocsNavGroups({ activeSlug }: { activeSlug: string }) {
         {DOC_PAGES.filter((page) => page.group === group).map((page) => (
           <li key={page.slug}>
             <a
-              href={`/docs/${page.slug}`}
+              href={page.path}
               className="docs-sidebar-link"
               aria-current={page.slug === activeSlug ? "page" : undefined}
               onClick={closeMobileIndex}
@@ -166,7 +166,7 @@ function DocsNotFound({ slug }: { slug: string }) {
         There&rsquo;s no documentation page at <code>/docs/{slug}</code>.
       </p>
       <p>
-        <a href={`/docs/${fallback.slug}`}>Go to {fallback.title} →</a>
+        <a href={fallback.path}>Go to {fallback.title} →</a>
       </p>
     </div>
   );

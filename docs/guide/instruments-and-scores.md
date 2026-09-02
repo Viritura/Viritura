@@ -56,7 +56,7 @@ In Setup, **Instruments** edits the document's MNX source parts and
 **Layouts** edits the output views that reference them. Project metadata and
 opening music are document-level settings.
 
-See [Getting Started](/docs/getting-started#setup-mode) for the Setup workspace
+See [Getting Started](/docs#setup-mode) for the Setup workspace
 orientation.
 
 ## Add an instrument
