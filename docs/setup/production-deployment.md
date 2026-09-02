@@ -130,6 +130,11 @@ complete configuration, and reload only after validation succeeds:
 
 ```bash
 sudo install -o root -g root -m 0644 \
+   deploy/nginx-snippets/viritura-security-headers.conf \
+   deploy/nginx-snippets/viritura-editor-content-security-policy.conf \
+   deploy/nginx-snippets/viritura-website-content-security-policy.conf \
+   /etc/nginx/snippets/
+sudo install -o root -g root -m 0644 \
    deploy/nginx-viritura.com.conf \
    /etc/nginx/sites-available/viritura.com
 sudo install -o root -g root -m 0644 \
@@ -166,8 +171,12 @@ The checked-in vhosts are:
 - [`deploy/nginx-app.viritura.com.conf`](../../deploy/nginx-app.viritura.com.conf);
 - [`deploy/nginx-api.viritura.com.conf`](../../deploy/nginx-api.viritura.com.conf).
 
-Shared security headers live in
+Shared non-CSP security headers live in
 [`deploy/nginx-snippets/viritura-security-headers.conf`](../../deploy/nginx-snippets/viritura-security-headers.conf).
+The website and editor include separate content-policy snippets from the same
+directory. Astro pages and the public MNX Storybook generate their script/style
+policies from final build output; the website HTTP policy therefore contains
+only `frame-ancestors`, which cannot be enforced from a CSP meta element.
 The one-time [`deploy/static/bootstrap.sh`](../../deploy/static/bootstrap.sh)
 installation validates and installs the website and editor configurations,
 then reloads nginx. Later static deployments do not have permission to modify
@@ -177,11 +186,13 @@ nginx.
 
 After a static deployment:
 
-1. open `https://viritura.com/docs` and confirm the expected guide appears;
+1. confirm `https://viritura.com/docs` redirects to `/docs/getting-started`;
 2. open `https://app.viritura.com`, press `F1`, and confirm Help opens;
 3. verify the Help dialog's **Read the full documentation** link;
-4. check response headers and the fingerprinted JS asset names;
-5. smoke-test opening a sample score and rendering notation.
+4. switch the homepage feature tabs and confirm their content changes;
+5. confirm the MNX Playground and MusicXML converter controls appear;
+6. check response headers and the fingerprinted JS asset names;
+7. smoke-test opening a sample score and rendering notation.
 
 After an API deployment:
 

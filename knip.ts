@@ -41,6 +41,8 @@ const config: KnipConfig = {
         "buildAssets.ts",
         "src/stories/**/*.stories.@(ts|tsx)",
         ".storybook/*.@(ts|tsx)",
+        ".storybook-mnx/*.@(ts|tsx)",
+        "scripts/*.ts",
         // Standalone Node profiling script, run manually via `tsx` (see
         // docs/setup/wasm-flame-chart.md). Not imported anywhere by design.
         "src/__tests__/profile-rhapsody.ts",
@@ -50,7 +52,7 @@ const config: KnipConfig = {
         // the API declared while the UI that will call it is still in flight.
         "src/instrumentProfiles/index.ts",
       ],
-      project: ["buildAssets.ts", "src/**/*.{ts,tsx,mdx}"],
+      project: ["buildAssets.ts", ".storybook-mnx/**/*.ts", "scripts/**/*.ts", "src/**/*.{ts,tsx,mdx}"],
     },
     "packages/ui": {
       entry: ["src/**/*.stories.@(ts|tsx)", "src/**/*.mdx", ".storybook/*.@(ts|tsx)"],

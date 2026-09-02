@@ -14,6 +14,15 @@ describe("SEO route catalog", () => {
     expect(paths).not.toContain("/mnx-converter");
   });
 
+  it("includes the public MNX example library in the sitemap", () => {
+    expect(sitemapRoutes.some((route) => route.path === "/mnx/examples")).toBe(true);
+  });
+
+  it("does not publish the /docs redirect as a duplicate content route", () => {
+    expect(staticRoutes.some((route) => route.path === "/docs")).toBe(false);
+    expect(sitemapRoutes.some((route) => route.path === "/docs")).toBe(false);
+  });
+
   it("keeps every documentation page in the sitemap", () => {
     const sitemapPaths = new Set(sitemapRoutes.map((route) => route.path));
     for (const page of DOC_PAGES) expect(sitemapPaths.has(`/docs/${page.slug}`), page.slug).toBe(true);

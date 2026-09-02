@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          fetch-depth: 0
           lfs: true
           persist-credentials: false
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -90,4 +91,16 @@ jobs:
           scp website.tar.gz "$SSH_USER@$SSH_HOST:upload-static/website.tar.gz.next"
           ssh "$SSH_USER@$SSH_HOST" 'mv upload-static/website.tar.gz.next upload-static/website.tar.gz && sudo /usr/local/sbin/viritura-static-manage website'
       - name: Verify website
-        run: curl --fail --retry 5 --retry-delay 2 https://viritura.com/
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 --head https://viritura.com/)"
+          content_policy="$(printf '%s\n' "$headers" | tr -d '\r' | grep -i '^content-security-policy:' || true)"
+          [[ "$content_policy" == *"frame-ancestors 'self'"* ]]
+          [[ "$content_policy" != *"script-src"* ]]
+          playground="$(curl --fail --silent --show-error https://viritura.com/mnx/playground)"
+          grep -q 'http-equiv="content-security-policy"' <<<"$playground"
+          sitemap="$(curl --fail --silent --show-error https://viritura.com/sitemap-0.xml)"
+          grep -q '<loc>https://viritura.com/mnx/examples/</loc>' <<<"$sitemap"
+          docs_headers="$(curl --fail --silent --show-error --head https://viritura.com/docs | tr -d '\r')"
+          grep -qi '^location: /docs/getting-started$' <<<"$docs_headers"
