@@ -39,12 +39,7 @@ export function CheckEmailPage({ email }: CheckEmailPageProps) {
       </p>
       {status === "sent" ? <p className="auth-success">Resent. Check your inbox again in a moment.</p> : null}
       {status === "error" && error ? <p className="auth-error">{error}</p> : null}
-      <button
-        type="button"
-        className="auth-resend"
-        onClick={onResend}
-        disabled={!email || status === "sending"}
-      >
+      <button type="button" className="auth-resend" onClick={onResend} disabled={!email || status === "sending"}>
         {status === "sending" ? "Sending…" : "Resend confirmation email"}
       </button>
       {IS_DEV ? (

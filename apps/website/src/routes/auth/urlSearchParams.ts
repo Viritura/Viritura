@@ -1,6 +1,4 @@
-const SENSITIVE_SEARCH_KEYS = ["uid", "email", "token"] as const;
-
-type SensitiveSearchKey = (typeof SENSITIVE_SEARCH_KEYS)[number];
+type SensitiveSearchKey = "uid" | "email" | "token";
 
 function readParam(searchParams: URLSearchParams, key: SensitiveSearchKey): string {
   return searchParams.get(key) ?? "";
