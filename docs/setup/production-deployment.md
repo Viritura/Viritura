@@ -131,6 +131,7 @@ complete configuration, and reload only after validation succeeds:
 ```bash
 sudo install -o root -g root -m 0644 \
    deploy/nginx-snippets/viritura-security-headers.conf \
+   deploy/nginx-snippets/viritura-api-content-security-policy.conf \
    deploy/nginx-snippets/viritura-editor-content-security-policy.conf \
    deploy/nginx-snippets/viritura-website-content-security-policy.conf \
    /etc/nginx/snippets/
