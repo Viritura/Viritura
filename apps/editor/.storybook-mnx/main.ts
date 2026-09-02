@@ -8,6 +8,11 @@ syncSounds();
 syncMnxSchema();
 syncMnxFixtures();
 
+const isPublicSite = process.env.VIRITURA_SITE === "true";
+const publicTitle = "MNX Examples and Engraving Library | Viritura";
+const publicDescription =
+  "Browse rendered MNX notation examples covering the open specification, Viritura extensions, and engraving behavior.";
+
 const config: StorybookConfig = {
   stories: [
     // MNX storybook: spec conformance, Viritura vendor extensions, and engraving behavior.
@@ -23,9 +28,24 @@ const config: StorybookConfig = {
     options: {},
   },
   staticDirs: ["../public"],
+  managerHead: isPublicSite
+    ? (head) => `${head}
+<meta name="description" content="${publicDescription}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://viritura.com/mnx/examples/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Viritura">
+<meta property="og:title" content="${publicTitle}">
+<meta property="og:description" content="${publicDescription}">
+<meta property="og:url" content="https://viritura.com/mnx/examples/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${publicTitle}">
+<meta name="twitter:description" content="${publicDescription}">`
+    : undefined,
+  previewHead: isPublicSite ? (head) => `${head}\n<meta name="robots" content="noindex, nofollow">` : undefined,
   viteFinal: async (config) => {
     // When building for the unified site, serve under /mnx/examples/.
-    if (process.env.VIRITURA_SITE === "true") {
+    if (isPublicSite) {
       config.base = "/mnx/examples/";
     }
     config.optimizeDeps = config.optimizeDeps || {};

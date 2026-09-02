@@ -9,9 +9,7 @@
  * everything needed to render the diff UI.
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { BeforeMount } from "@monaco-editor/react";
-// @ts-expect-error — monaco-editor types are loaded at runtime by @monaco-editor/react
-import type { editor } from "monaco-editor";
+import type { BeforeMount, editor } from "@viritura/monaco-react";
 import { initWasm, isWasmReady, loadMusicFont, GlyphAtlas, PerfTracker, type DisplayList } from "@viritura/renderer";
 import { useSyncedViewport } from "./useSyncedViewport";
 import { semanticDiff, collectLeaves } from "../diff/semanticDiff";

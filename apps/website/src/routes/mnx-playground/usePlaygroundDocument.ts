@@ -1,5 +1,4 @@
 import { startTransition, useEffect, useState } from "react";
-import { validateRawScore } from "@viritura/format";
 
 export interface SourceValidation {
   readonly document?: object;
@@ -14,12 +13,9 @@ export function validatePlaygroundSource(source: string): SourceValidation {
     return { error: error instanceof Error ? `JSON: ${error.message}` : "Invalid JSON" };
   }
 
-  const validation = validateRawScore(parsed);
-  if (!validation.ok) {
-    const first = validation.errors[0];
-    return { error: `Schema: ${first?.pointer ?? "(root)"} ${first?.message ?? "Invalid MNX document"}` };
-  }
-  return { document: parsed as object };
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+    ? { document: parsed as object }
+    : { error: "JSON: MNX source must be an object" };
 }
 
 export function usePlaygroundDocument(initialSource: string, debounceMs = 220) {

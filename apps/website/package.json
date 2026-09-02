@@ -14,14 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-router": "^1.170.8",
     "@viritura/format": "workspace:*",
+    "@viritura/monaco-react": "workspace:*",
     "@viritura/musicxml": "workspace:*",
     "@viritura/playback": "workspace:*",
     "@viritura/score-viewer-react": "workspace:*",
     "@viritura/ui": "workspace:*",
-    "ajv": "^8.17.1",
     "marked": "^14.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

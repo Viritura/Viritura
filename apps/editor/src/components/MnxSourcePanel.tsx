@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { PanelHeader } from "@viritura/ui";
-import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { Editor, type BeforeMount } from "@viritura/monaco-react";
 import { useDocument, useDocumentActions } from "../store/DocumentContext";
-import { parseMnx } from "@viritura/format";
+import { parseMnxWithDiagnostics } from "@viritura/format";
 import { configureMnxJsonDiagnostics, loadMnxSchema } from "../lib/monacoMnxSchema";
 
 const MNX_SOURCE_PANEL_ROOT_STYLE: CSSProperties = {
@@ -92,7 +92,7 @@ export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
       debounceRef.current = setTimeout(() => {
         try {
           const parsed = JSON.parse(text);
-          const score = parseMnx(parsed);
+          const score = parseMnxWithDiagnostics(parsed).score;
           suppressSyncRef.current = true;
           updateScore(score);
           setError(null);

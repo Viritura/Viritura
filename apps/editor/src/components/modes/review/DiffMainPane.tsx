@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { DiffEditor } from "@monaco-editor/react";
+import { DiffEditor } from "@viritura/monaco-react";
 import { SnippetEditor } from "../../DiffTreeView";
 import type { UseDiffEngineResult } from "../../../hooks/useDiffEngine";
 import { splitterStyle, canvasPlaceholderStyle, canvasLabelStyle } from "./styles";

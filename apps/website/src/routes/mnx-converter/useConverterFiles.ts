@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { convertMusicXmlToMnx, convertMxlToMnx, DiagnosticCollector } from "@viritura/musicxml";
 import type { MnxDocument, ConvertOptions } from "@viritura/musicxml";
-import { parseMnx } from "@viritura/format";
+import { parseMnxWithDiagnostics } from "@viritura/format";
 import { preloadWasmEngine } from "./preloadWasmEngine";
 import { type ConvertedFile } from "./converterTypes";
 
@@ -191,7 +191,7 @@ export function useConverterFiles() {
   const parsedScore = useMemo(() => {
     if (!selected?.result) return null;
     try {
-      return parseMnx(selected.result as unknown as object);
+      return parseMnxWithDiagnostics(selected.result as unknown as object).score;
     } catch {
       return null;
     }

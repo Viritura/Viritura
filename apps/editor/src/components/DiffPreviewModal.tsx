@@ -1,9 +1,7 @@
 import { useCallback, useRef, type CSSProperties } from "react";
 import { Dialog, DialogTitle, DialogCancelButton, DialogPrimaryButton } from "@viritura/ui";
 import { X, Check } from "lucide-react";
-import { DiffEditor } from "@monaco-editor/react";
-// @ts-expect-error — monaco-editor types are loaded at runtime by @monaco-editor/react
-import type { editor } from "monaco-editor";
+import { DiffEditor, type editor } from "@viritura/monaco-react";
 import diffStyles from "./DiffPreviewModal.module.css";
 
 const ICON_INLINE_STYLE: CSSProperties = { verticalAlign: "middle" };

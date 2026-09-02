@@ -1,4 +1,4 @@
-import type { BeforeMount } from "@monaco-editor/react";
+import type { BeforeMount } from "@viritura/monaco-react";
 import { configureMnxDiagnostics } from "../../mnx-schema";
 
 export const PLAYGROUND_MODEL_PATH = "file:///playground.mnx";

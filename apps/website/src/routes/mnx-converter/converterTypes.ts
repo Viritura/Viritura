@@ -20,7 +20,7 @@ export interface ConvertedFile {
   hideMetronomeUsed: boolean;
 }
 
-export type TabId = "preview" | "validation" | "diagnostics" | "mnx";
+export type TabId = "preview" | "diagnostics" | "mnx";
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

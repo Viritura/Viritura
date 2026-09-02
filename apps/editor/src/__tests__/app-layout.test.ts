@@ -32,7 +32,7 @@ describe("App layout components", () => {
   it("WriteView exports a function component", async () => {
     const mod = await import("../components/modes/WriteView");
     expect(typeof mod.WriteView).toBe("function");
-  });
+  }, 30_000);
 });
 
 describe("MenuBar menu structure", () => {

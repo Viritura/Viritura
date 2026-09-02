@@ -44,11 +44,11 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
-    path: "/docs",
-    title: "Getting Started | Viritura Documentation",
+    path: "/mnx/examples",
+    title: "MNX Examples and Engraving Library | Viritura",
     description:
-      "Set up Viritura and learn the essential workflows for creating, editing, reviewing, and sharing music.",
-    canonicalPath: "/docs/getting-started",
+      "Browse rendered MNX notation examples covering the open specification, Viritura extensions, and engraving behavior.",
+    canonicalPath: "/mnx/examples/",
     indexable: true,
   },
   {
@@ -189,9 +189,7 @@ const notFoundRoute: SeoRoute = {
 };
 
 export const staticRoutes: readonly SeoRoute[] = [...publicRoutes, ...accountRoutes, notFoundRoute];
-export const sitemapRoutes: readonly SeoRoute[] = publicRoutes.filter(
-  (route) => route.indexable && route.path !== "/docs",
-);
+export const sitemapRoutes: readonly SeoRoute[] = publicRoutes.filter((route) => route.indexable);
 
 export function findSeoRoute(pathname: string): SeoRoute {
   const normalizedPath = pathname.replace(/\/$/, "") || "/";

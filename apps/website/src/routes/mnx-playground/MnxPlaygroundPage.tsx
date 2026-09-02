@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import Editor, { type OnValidate } from "@monaco-editor/react";
+import { Editor, type OnValidate } from "@viritura/monaco-react";
 import { Tabs } from "@viritura/ui";
 import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
 import { PlaygroundExampleBrowser } from "./PlaygroundExampleBrowser";
@@ -38,17 +38,63 @@ function scoreOptions(document: object): readonly ScoreViewerScoreOption[] {
   });
 }
 
+function validationLabel(markerCount: number | null): string {
+  if (markerCount === null) return "Checking MNX...";
+  return markerCount === 0 ? "Valid MNX" : `${markerCount} validation error${markerCount === 1 ? "" : "s"}`;
+}
+
+function EditorValidity({ markerCount }: { readonly markerCount: number | null }) {
+  return (
+    <div className="mnx-playground__editor-header">
+      <span>MNX Source</span>
+      <span
+        className="mnx-playground__validity"
+        data-state={markerCount === null ? "checking" : markerCount === 0 ? "valid" : "invalid"}
+      >
+        {validationLabel(markerCount)}
+      </span>
+    </div>
+  );
+}
+
+interface StatusMessagesProps {
+  readonly hasError: boolean;
+  readonly loadError: string | null;
+  readonly markerCount: number | null;
+  readonly status: string;
+}
+
+function StatusMessages({ hasError, loadError, markerCount, status }: StatusMessagesProps) {
+  const diagnostics =
+    markerCount !== null && markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : "";
+  return (
+    <>
+      <span
+        className="visually-hidden"
+        aria-live="polite"
+      >{`${hasError ? "Error: " : ""}${status}${diagnostics}`}</span>
+      {loadError || hasError || diagnostics ? (
+        <span className="mnx-playground__status-message" aria-live="polite" data-error={Boolean(loadError || hasError)}>
+          {loadError ?? `${hasError ? "Error: " : ""}${status}`}
+          {diagnostics}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function MnxPlaygroundPage() {
   const [exampleId, setExampleId] = useState(playgroundDocuments[0]!.id);
   const [mobilePane, setMobilePane] = useState<MobilePane>("editor");
   const [scoreIndex, setScoreIndex] = useState(0);
-  const [markerCount, setMarkerCount] = useState(0);
+  const [validation, setValidation] = useState<{ readonly source: string; readonly markerCount: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [previewLoadingLabel, setPreviewLoadingLabel] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
   const pendingScoreIndexRef = useRef<number | null>(null);
   const previousDocumentRef = useRef<object | null>(null);
   const playground = usePlaygroundDocument(playgroundDocuments[0]!.source);
+  const markerCount = validation?.source === playground.source ? validation.markerCount : null;
   const availableScores = scoreOptions(playground.renderedDocument);
 
   const replaceExampleHash = (id: string) => {
@@ -86,7 +132,7 @@ export function MnxPlaygroundPage() {
     if (id !== exampleId) void chooseExample(id, false);
   });
 
-  const handleValidate: OnValidate = (markers) => setMarkerCount(markers.length);
+  const handleValidate: OnValidate = (markers, source) => setValidation({ source, markerCount: markers.length });
   const chooseScore = (nextScoreIndex: number) => {
     if (nextScoreIndex === scoreIndex) return;
     pendingScoreIndexRef.current = nextScoreIndex;
@@ -104,21 +150,12 @@ export function MnxPlaygroundPage() {
 
   return (
     <div className="mnx-playground">
-      <span className="visually-hidden" aria-live="polite">
-        {playground.hasError ? "Error: " : ""}
-        {playground.status}
-        {markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : ""}
-      </span>
-      {loadError || playground.hasError || markerCount > 0 ? (
-        <span
-          className="mnx-playground__status-message"
-          aria-live="polite"
-          data-error={Boolean(loadError || playground.hasError)}
-        >
-          {loadError ?? `${playground.hasError ? "Error: " : ""}${playground.status}`}
-          {markerCount > 0 ? ` (${markerCount} editor diagnostic${markerCount === 1 ? "" : "s"})` : ""}
-        </span>
-      ) : null}
+      <StatusMessages
+        hasError={playground.hasError}
+        loadError={loadError}
+        markerCount={markerCount}
+        status={playground.status}
+      />
 
       <div className="mnx-playground__mobile-tabs">
         <Tabs
@@ -141,24 +178,27 @@ export function MnxPlaygroundPage() {
               data-mobile-active={mobilePane === "editor"}
               aria-label="MNX JSON editor"
             >
-              <Editor
-                path={PLAYGROUND_MODEL_PATH}
-                language="json"
-                value={playground.source}
-                beforeMount={configurePlaygroundEditor}
-                onChange={(value) => playground.setSource(value ?? "")}
-                onValidate={handleValidate}
-                theme="vs"
-                options={{
-                  automaticLayout: true,
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  tabSize: 2,
-                  insertSpaces: true,
-                  scrollBeyondLastLine: false,
-                  wordWrap: "on",
-                }}
-              />
+              <EditorValidity markerCount={markerCount} />
+              <div className="mnx-playground__editor-host">
+                <Editor
+                  path={PLAYGROUND_MODEL_PATH}
+                  language="json"
+                  value={playground.source}
+                  beforeMount={configurePlaygroundEditor}
+                  onChange={(value) => playground.setSource(value ?? "")}
+                  onValidate={handleValidate}
+                  theme="vs"
+                  options={{
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    tabSize: 2,
+                    insertSpaces: true,
+                    scrollBeyondLastLine: false,
+                    wordWrap: "on",
+                  }}
+                />
+              </div>
             </section>
 
             <section

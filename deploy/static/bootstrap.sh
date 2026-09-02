@@ -10,6 +10,9 @@ readonly legacy_root=/var/www/peter/viritura
 [[ -f "$bundle/deploy/static/install-host-config.sh" ]] || { echo "Static deployment bundle is incomplete." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-viritura.com.conf" ]] || { echo "Website nginx configuration is missing." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-app.viritura.com.conf" ]] || { echo "Editor nginx configuration is missing." >&2; exit 1; }
+for snippet in viritura-security-headers viritura-editor-content-security-policy viritura-website-content-security-policy; do
+  [[ -f "$bundle/deploy/nginx-snippets/$snippet.conf" ]] || { echo "Nginx snippet $snippet.conf is missing." >&2; exit 1; }
+done
 id "$user" >/dev/null 2>&1 || { echo "Deployment user $user does not exist." >&2; exit 1; }
 [[ -d "$legacy_root" ]] || { echo "Current static root $legacy_root does not exist." >&2; exit 1; }
 
@@ -42,6 +45,8 @@ readonly nginx_backup
 install -d -o root -g root -m 0700 "$nginx_backup"
 cp -a /etc/nginx/sites-available/viritura.com "$nginx_backup/"
 cp -a /etc/nginx/sites-available/app.viritura.com "$nginx_backup/"
+install -d -o root -g root -m 0755 /etc/nginx/snippets
+install -o root -g root -m 0644 "$bundle"/deploy/nginx-snippets/*.conf /etc/nginx/snippets/
 install -o root -g root -m 0644 "$bundle/deploy/nginx-viritura.com.conf" /etc/nginx/sites-available/viritura.com
 install -o root -g root -m 0644 "$bundle/deploy/nginx-app.viritura.com.conf" /etc/nginx/sites-available/app.viritura.com
 

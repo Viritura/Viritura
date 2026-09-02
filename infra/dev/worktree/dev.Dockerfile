@@ -37,6 +37,7 @@ COPY packages/crdt/package.json ./packages/crdt/package.json
 COPY packages/format/package.json ./packages/format/package.json
 COPY packages/instrument-profiles/package.json ./packages/instrument-profiles/package.json
 COPY packages/midi/package.json ./packages/midi/package.json
+COPY packages/monaco-react/package.json ./packages/monaco-react/package.json
 COPY packages/musicxml/package.json ./packages/musicxml/package.json
 COPY packages/piano-roll/package.json ./packages/piano-roll/package.json
 COPY packages/playback/package.json ./packages/playback/package.json

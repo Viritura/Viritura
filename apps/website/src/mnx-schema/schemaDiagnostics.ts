@@ -1,4 +1,4 @@
-import type { BeforeMount } from "@monaco-editor/react";
+import type { BeforeMount } from "@viritura/monaco-react";
 
 type Monaco = Parameters<BeforeMount>[0];
 
@@ -15,7 +15,7 @@ function loadMnxSchema(): Promise<Record<string, unknown> | null> {
 }
 
 function setDiagnostics(monaco: Monaco, schema: Record<string, unknown> | null): void {
-  monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+  monaco.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: false,
     trailingCommas: "error",
