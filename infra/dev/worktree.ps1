@@ -88,10 +88,10 @@ function Ensure-DockerEngine {
   & docker info *> $null
   if ($LASTEXITCODE -eq 0) { return }
 
-  $desktopCandidates = @(
+  $desktopCandidates = @(@(
     (Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'),
     (Join-Path ${env:ProgramFiles(x86)} 'Docker\Docker\Docker Desktop.exe')
-  ) | Where-Object { $_ -and (Test-Path $_) }
+  ) | Where-Object { $_ -and (Test-Path $_) })
 
   if (-not $desktopCandidates) {
     throw 'Docker Desktop is not running, and its executable was not found. Start Docker Desktop and retry.'

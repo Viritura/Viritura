@@ -20,6 +20,7 @@ const engine = resolve(root, "engine");
 const wasmCrate = resolve(engine, "viritura-wasm");
 const output = resolve(wasmCrate, "pkg-browser");
 const editorStaging = resolve(root, "apps/editor/public/wasm");
+const websiteStaging = resolve(root, "apps/website/public/wasm");
 const cacheFile = resolve(output, ".build-cache.json");
 const force = process.argv.includes("--force");
 const development = process.argv.includes("--dev");
@@ -61,6 +62,19 @@ function stageEditorAssets(): void {
   copyFileSync(resolve(output, "viritura_wasm.js"), resolve(editorStaging, `viritura_wasm.${assetHash}.js`));
   copyFileSync(resolve(output, "viritura_wasm_bg.wasm"), resolve(editorStaging, `viritura_wasm_bg.${assetHash}.wasm`));
   writeFileSync(resolve(editorStaging, "asset-version.json"), `${JSON.stringify({ assetHash })}\n`);
+}
+
+function stageWebsiteAssets(): void {
+  rmSync(websiteStaging, { recursive: true, force: true });
+  mkdirSync(websiteStaging, { recursive: true });
+  for (const file of expectedOutputs.filter((file) => file !== "package.json")) {
+    copyFileSync(resolve(output, file), resolve(websiteStaging, file));
+  }
+}
+
+function stageAppAssets(): void {
+  stageEditorAssets();
+  stageWebsiteAssets();
 }
 
 function collectDirectory(absolute: string): string[] {
@@ -109,7 +123,7 @@ if (existsSync(cacheFile)) {
 
 const outputsExist = expectedOutputs.every((file) => existsSync(resolve(output, file)));
 if (!force && cachedHash === inputHash && outputsExist) {
-  stageEditorAssets();
+  stageAppAssets();
   console.log(`WASM cache hit (${inputHash.slice(0, 12)}); skipping wasm-pack.`);
   process.exit(0);
 }
@@ -128,5 +142,5 @@ const build = spawnSync("wasm-pack", buildArgs, {
 if (build.status !== 0) process.exit(build.status ?? 1);
 
 writeFileSync(cacheFile, `${JSON.stringify({ inputHash }, null, 2)}\n`);
-stageEditorAssets();
+stageAppAssets();
 console.log(`WASM cache updated (${inputHash.slice(0, 12)}).`);

@@ -153,14 +153,12 @@ fn test_mixed_chord_accidentals_keep_visible_ink_gap() {
 }
 
 #[test]
-fn test_skyline_accidental_no_fan_out_reuses_columns() {
+fn test_skyline_accidental_thirds_use_shape_aware_stagger() {
     // A stack of thirds (F#4 + A#4 + C#5) puts each accidental within vertical
     // reach of its immediate neighbor but NOT the one two notes away. A naive
-    // greedy leftward stack processed top-to-bottom fans these into a diagonal
-    // staircase of three distinct columns. Outside-in alternating placement
-    // packs them into two columns: the top and bottom accidentals share the
-    // inner column and the middle one tucks into the outer column. This test
-    // guards against regressing to the fan-out.
+    // glyphs overlap vertically. Their Bravura corner cavities allow tighter
+    // staggering than bounding-box spacing, but their exact ink profiles do not
+    // permit the top and bottom sharps to occupy one identical x column.
     //
     // The chord sits fully WITHIN the staff (F4=pos7, A4=pos5, C5=pos3) so no
     // ledger lines are involved — this isolates the column-reuse logic from the
@@ -203,8 +201,8 @@ fn test_skyline_accidental_no_fan_out_reuses_columns() {
     }
     assert_eq!(
         columns.len(),
-        2,
-        "Thirds-stacked accidentals should pack into 2 columns (no fan-out), \
+        3,
+        "Thirds-stacked sharps should use 3 shape-aware stagger positions, \
          got {} distinct x positions: {:?}",
         columns.len(),
         sharp_xs

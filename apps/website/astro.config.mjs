@@ -50,10 +50,8 @@ export default defineConfig({
   site: SITE_ORIGIN,
   server: {
     port: 5180,
-    strictPort: true,
-    open: !containerHost,
     host: containerHost ? true : undefined,
-    allowedHosts: containerHost ? [".localhost"] : undefined,
+    open: !containerHost,
   },
   redirects: {
     "/docs": "/docs/getting-started",
@@ -107,6 +105,8 @@ export default defineConfig({
       esbuildOptions: { target: "es2022" },
     },
     server: {
+      strictPort: true,
+      allowedHosts: containerHost ? [".localhost"] : undefined,
       hmr: containerHost ? { host: containerHost, clientPort: 80, protocol: "ws" } : undefined,
       watch: containerWatchOptions(containerHost),
     },
