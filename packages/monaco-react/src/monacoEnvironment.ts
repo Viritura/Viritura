@@ -7,7 +7,9 @@ interface MonacoEnvironment {
 
 type MonacoGlobal = typeof globalThis & { MonacoEnvironment?: MonacoEnvironment };
 
-if (typeof Worker !== "undefined") {
+export function configureMonacoEnvironment(): void {
+  if (typeof Worker === "undefined") return;
+
   (globalThis as MonacoGlobal).MonacoEnvironment = {
     getWorker(_moduleId, label) {
       return label === "json" ? new JsonWorker() : new EditorWorker();
