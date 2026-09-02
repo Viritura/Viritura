@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
-import { readFileSync, statSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, statSync, rmSync } from "node:fs";
 import path, { normalize, resolve, sep } from "node:path";
 import type { Plugin } from "vite";
 import { syncMnxFixtures, syncMnxSchema, syncSharedAssets, syncSounds } from "./buildAssets.ts";
@@ -98,8 +98,15 @@ function externalizeLargeSoundfont() {
 // var's presence flips on proxy-aware settings; when unset (normal host runs)
 // every server option below stays exactly as it was.
 const containerHost = process.env.VIRITURA_CONTAINER_HOST;
+const wasmAssetVersionPath = resolve(__dirname, "public/wasm/asset-version.json");
+const wasmAssetHash = existsSync(wasmAssetVersionPath)
+  ? (JSON.parse(readFileSync(wasmAssetVersionPath, "utf8")) as { assetHash: string }).assetHash
+  : "";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  define: {
+    __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(command === "build" ? wasmAssetHash : ""),
+  },
   plugins: [
     serveContainerPublicFiles(),
     // Vite 8's plugin-react handles JSX + Fast Refresh via Oxc; the React
@@ -168,4 +175,4 @@ export default defineConfig({
     include: ["spessasynth_core", "spessasynth_lib"],
     esbuildOptions: { target: "es2022" },
   },
-});
+}));
