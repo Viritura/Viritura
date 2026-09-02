@@ -1,4 +1,4 @@
-import type { Monaco } from "@monaco-editor/react";
+import type { Monaco } from "@viritura/monaco-react";
 
 const MNX_SCHEMA_URI = "https://w3c.github.io/mnx/docs/mnx-schema.json";
 const FILE_MATCH = ["*"];
@@ -10,7 +10,7 @@ export function configureMnxJsonDiagnostics(monaco: Monaco, schema?: Record<stri
     ? [{ uri: MNX_SCHEMA_URI, fileMatch: FILE_MATCH, schema }]
     : [{ uri: MNX_SCHEMA_URI, fileMatch: FILE_MATCH }];
 
-  monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+  monaco.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: false,
     trailingCommas: "error",

@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import Editor, { type OnValidate } from "@monaco-editor/react";
+import { Editor, type OnValidate } from "@viritura/monaco-react";
 import { Tabs } from "@viritura/ui";
 import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
 import { PlaygroundExampleBrowser } from "./PlaygroundExampleBrowser";

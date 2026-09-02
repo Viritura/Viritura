@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
-import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { Editor, type BeforeMount } from "@viritura/monaco-react";
 import { configureMnxDiagnostics } from "../../mnx-schema";
 
 const EDITOR_WRAPPER_STYLE: CSSProperties = { height: 600 };

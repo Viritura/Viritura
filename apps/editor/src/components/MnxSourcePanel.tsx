@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { PanelHeader } from "@viritura/ui";
-import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { Editor, type BeforeMount } from "@viritura/monaco-react";
 import { useDocument, useDocumentActions } from "../store/DocumentContext";
 import { parseMnx } from "@viritura/format";
 import { configureMnxJsonDiagnostics, loadMnxSchema } from "../lib/monacoMnxSchema";

@@ -48,6 +48,13 @@ const docLastModByUrl = new Map(
 
 export default defineConfig({
   site: SITE_ORIGIN,
+  server: {
+    port: 5180,
+    strictPort: true,
+    open: !containerHost,
+    host: containerHost ? true : undefined,
+    allowedHosts: containerHost ? [".localhost"] : undefined,
+  },
   redirects: {
     "/docs": "/docs/getting-started",
   },
@@ -57,7 +64,7 @@ export default defineConfig({
         "default-src 'self'",
         "worker-src 'self' blob:",
         "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
-        "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+        "font-src 'self' data: https://fonts.gstatic.com",
         "media-src 'self' blob: https://assets.viritura.com",
         "connect-src 'self' https://api.viritura.com wss://api.viritura.com https://api.github.com https://assets.viritura.com",
         "base-uri 'self'",
@@ -66,13 +73,12 @@ export default defineConfig({
         "upgrade-insecure-requests",
       ],
       scriptDirective: {
-        resources: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'", "https://cdn.jsdelivr.net"],
+        resources: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
       },
       styleDirective: {
         resources: [
           { resource: "'self'", kind: "element" },
           { resource: "https://fonts.googleapis.com", kind: "element" },
-          { resource: "https://cdn.jsdelivr.net", kind: "element" },
           { resource: "'unsafe-inline'", kind: "attribute" },
         ],
       },
@@ -101,11 +107,6 @@ export default defineConfig({
       esbuildOptions: { target: "es2022" },
     },
     server: {
-      port: 5180,
-      strictPort: true,
-      open: !containerHost,
-      host: containerHost ? true : undefined,
-      allowedHosts: containerHost ? [".localhost"] : undefined,
       hmr: containerHost ? { host: containerHost, clientPort: 80, protocol: "ws" } : undefined,
       watch: containerWatchOptions(containerHost),
     },

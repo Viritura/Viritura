@@ -128,6 +128,12 @@ sudo bash deploy/static/install-host-config.sh /path/to/reviewed/repository
 For nginx changes, install the reviewed vhost or shared snippet, validate the
 complete configuration, and reload only after validation succeeds:
 
+When a release removes a resource origin from CSP, deploy the replacement
+artifact before tightening the corresponding policy. In particular, deploy the
+editor bundle that self-hosts Monaco before installing an editor policy without
+`cdn.jsdelivr.net`; the previous editor bundle still loads Monaco from that
+origin.
+
 ```bash
 sudo install -o root -g root -m 0644 \
    deploy/nginx-snippets/viritura-security-headers.conf \

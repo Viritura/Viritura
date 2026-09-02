@@ -33,6 +33,7 @@ x-node-volumes: &node-volumes
   - /workspace/packages/format/node_modules
   - /workspace/packages/instrument-profiles/node_modules
   - /workspace/packages/midi/node_modules
+  - /workspace/packages/monaco-react/node_modules
   - /workspace/packages/musicxml/node_modules
   - /workspace/packages/piano-roll/node_modules
   - /workspace/packages/playback/node_modules

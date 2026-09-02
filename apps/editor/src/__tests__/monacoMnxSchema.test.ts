@@ -5,10 +5,8 @@ describe("configureMnxJsonDiagnostics", () => {
     const { configureMnxJsonDiagnostics } = await import("../lib/monacoMnxSchema");
     const setDiagnosticsOptions = vi.fn();
     const monaco = {
-      languages: {
-        json: {
-          jsonDefaults: { setDiagnosticsOptions },
-        },
+      json: {
+        jsonDefaults: { setDiagnosticsOptions },
       },
     };
 

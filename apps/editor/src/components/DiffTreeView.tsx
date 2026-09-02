@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Pencil, Plus, Minus, Circle, ChevronDown, ChevronRight } from "lucide-react";
-import { DiffEditor, Editor } from "@monaco-editor/react";
+import { DiffEditor, Editor } from "@viritura/monaco-react";
 import type { DiffNode, DiffType } from "../diff/semanticDiff";
 
 // ─── Style constants ─────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { DiffPreviewModal } from "../components/DiffPreviewModal";
 
 // Mock Monaco DiffEditor - it requires a browser DOM
-vi.mock("@monaco-editor/react", () => ({
+vi.mock("@viritura/monaco-react", () => ({
   DiffEditor: ({ original, modified }: { original: string; modified: string }) => (
     <div data-testid="mock-diff-editor" data-original={original} data-modified={modified} />
   ),

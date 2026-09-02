@@ -14,7 +14,7 @@ import { ScoreCanvas, type ScoreCanvasHandle } from "../../components/ScoreCanva
 import { DocumentProvider, useDocumentActions, useDocument } from "../../store/DocumentContext";
 import { ErrorBoundary } from "@viritura/ui";
 import { parseMnx } from "@viritura/format";
-import Editor, { type BeforeMount, type OnMount, type Monaco } from "@monaco-editor/react";
+import { Editor, type BeforeMount, type OnMount, type Monaco } from "@viritura/monaco-react";
 import { configureMnxJsonDiagnostics, loadMnxSchema } from "../../lib/monacoMnxSchema";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
 

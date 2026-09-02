@@ -90,11 +90,11 @@ export function applyContentSecurityPolicy(html: string, title?: string): string
   const scriptHashes = inlineScriptHashes(document, html);
   const policy = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net ${scriptHashes.join(" ")}`,
+    `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' ${scriptHashes.join(" ")}`,
     "worker-src 'self' blob:",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob:",
-    "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+    "font-src 'self' data: https://fonts.gstatic.com",
     "media-src 'self' blob: https://assets.viritura.com",
     "connect-src 'self' https://api.viritura.com https://assets.viritura.com",
     "base-uri 'self'",
