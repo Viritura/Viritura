@@ -31,7 +31,7 @@ const jsonLd = softwareApplicationJsonLd();
 >
   <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <main id="top" class="marketing-home">
-    <HeroSection links={links} />
+    <HeroSection links={links} client:load />
     <CollaborationValueStrip />
     <WorkflowSection />
     <InputSection links={links} />
