@@ -2,9 +2,11 @@ import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import { containerWatchOptions } from "../../infra/dev/viteWatch.ts";
+import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { SITE_ORIGIN, sitemapRoutes } from "./src/seo/routeCatalog.ts";
+import { DOC_PAGE_META } from "./src/routes/docs/docPageMeta.ts";
 
 function externalizeLargeSoundfont() {
   return {
@@ -16,9 +18,32 @@ function externalizeLargeSoundfont() {
   };
 }
 
+/** Last commit timestamp for a repo-relative file, or `undefined` if git history isn't available. */
+function gitLastModified(repoRelativePath) {
+  try {
+    const repoRoot = resolve(import.meta.dirname, "../..");
+    const iso = execFileSync("git", ["log", "-1", "--format=%cI", "--", repoRelativePath], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    }).trim();
+    return iso || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const containerHost = process.env.VIRITURA_CONTAINER_HOST;
 const allowedSitemapUrls = new Set(
   sitemapRoutes.map((route) => new URL(route.canonicalPath, SITE_ORIGIN).href.replace(/\/$/, "")),
+);
+// Doc pages are single-source markdown files, so their last commit date is a
+// meaningful `lastmod`. Other routes span multiple components/data sources,
+// so we leave their `lastmod` unset rather than pick one arbitrary file.
+const docLastModByUrl = new Map(
+  DOC_PAGE_META.map((page) => [
+    new URL(`/docs/${page.slug}`, SITE_ORIGIN).href.replace(/\/$/, ""),
+    gitLastModified(page.file),
+  ]),
 );
 
 export default defineConfig({
@@ -27,6 +52,10 @@ export default defineConfig({
     react(),
     sitemap({
       filter: (page) => allowedSitemapUrls.has(page.replace(/\/$/, "")),
+      serialize(item) {
+        const lastmod = docLastModByUrl.get(item.url.replace(/\/$/, ""));
+        return lastmod ? { ...item, lastmod } : item;
+      },
     }),
   ],
   vite: {

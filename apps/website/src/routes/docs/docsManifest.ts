@@ -5,7 +5,8 @@
  * bundled at build time, then rendered by {@link ./DocsPage}. Markdown is the
  * single source of truth: the same files render on GitHub, drive this site, and
  * (for keyboard-shortcuts.md) feed the in-app Help dialog. To add a page, drop a
- * markdown file under `docs/guide/` and add a row here.
+ * markdown file under `docs/guide/`, add a row to {@link ./docPageMeta}, and add
+ * the matching `?raw` import below.
  */
 
 import gettingStarted from "../../../../../docs/guide/getting-started.md?raw";
@@ -22,59 +23,36 @@ import viewingAndReview from "../../../../../docs/guide/viewing-and-review.md?ra
 import publishingAndExport from "../../../../../docs/guide/publishing-and-export.md?raw";
 import settingsAndImport from "../../../../../docs/guide/settings-and-import.md?raw";
 import keyboardShortcuts from "../../../../../docs/spec/keyboard-shortcuts.md?raw";
+import { DOC_PAGE_META, type DocPageMeta } from "./docPageMeta";
 
-export interface DocPage {
-  /** URL slug: `/docs/<slug>`. */
-  slug: string;
-  /** Sidebar + page title. */
-  title: string;
-  /** Sidebar group heading. */
-  group: string;
+/** Raw markdown source, keyed by slug (mirrors {@link DOC_PAGE_META} order). */
+const rawBySlug: Readonly<Record<string, string>> = {
+  "getting-started": gettingStarted,
+  "instruments-and-scores": instrumentsAndScores,
+  "percussion-maps": percussionMaps,
+  "note-entry": noteEntry,
+  "notation-and-editing": notationAndEditing,
+  "engraving-and-layout": engravingAndLayout,
+  "playback-and-piano-roll": playbackAndPianoRoll,
+  "scoring-to-picture": scoringToPicture,
+  collaboration,
+  mcp,
+  "viewing-and-review": viewingAndReview,
+  "publishing-and-export": publishingAndExport,
+  "settings-and-import": settingsAndImport,
+  "keyboard-shortcuts": keyboardShortcuts,
+};
+
+export interface DocPage extends DocPageMeta {
   /** Raw markdown source. */
   raw: string;
 }
 
-export const DOC_PAGES: readonly DocPage[] = [
-  { slug: "getting-started", title: "Getting Started", group: "Start", raw: gettingStarted },
-  {
-    slug: "instruments-and-scores",
-    title: "Scores, Parts & Layouts",
-    group: "Create",
-    raw: instrumentsAndScores,
-  },
-  { slug: "percussion-maps", title: "Percussion Maps", group: "Create", raw: percussionMaps },
-  { slug: "note-entry", title: "Note Entry", group: "Create", raw: noteEntry },
-  { slug: "notation-and-editing", title: "Notation & Editing", group: "Create", raw: notationAndEditing },
-  {
-    slug: "engraving-and-layout",
-    title: "Engraving & Layout",
-    group: "Shape & Hear",
-    raw: engravingAndLayout,
-  },
-  {
-    slug: "playback-and-piano-roll",
-    title: "Playback, Mixer & Piano Roll",
-    group: "Shape & Hear",
-    raw: playbackAndPianoRoll,
-  },
-  {
-    slug: "scoring-to-picture",
-    title: "Scoring to Picture",
-    group: "Shape & Hear",
-    raw: scoringToPicture,
-  },
-  { slug: "collaboration", title: "Collaboration", group: "Share & Finish", raw: collaboration },
-  { slug: "mcp", title: "MCP", group: "Share & Finish", raw: mcp },
-  { slug: "viewing-and-review", title: "Viewing & Review", group: "Share & Finish", raw: viewingAndReview },
-  {
-    slug: "publishing-and-export",
-    title: "Publishing & Export",
-    group: "Share & Finish",
-    raw: publishingAndExport,
-  },
-  { slug: "settings-and-import", title: "Settings & Import", group: "Reference", raw: settingsAndImport },
-  { slug: "keyboard-shortcuts", title: "Keyboard & Mouse", group: "Reference", raw: keyboardShortcuts },
-];
+export const DOC_PAGES: readonly DocPage[] = DOC_PAGE_META.map((meta) => {
+  const raw = rawBySlug[meta.slug];
+  if (raw === undefined) throw new Error(`Missing markdown import for doc page "${meta.slug}".`);
+  return { ...meta, raw };
+});
 
 /** Ordered, de-duplicated group names in first-seen order. */
 export const DOC_GROUPS: readonly string[] = DOC_PAGES.reduce<string[]>((groups, page) => {

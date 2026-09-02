@@ -14,6 +14,8 @@ interface HeroSlide {
   toolbar: string;
   pill: string;
   cta: string;
+  width: number;
+  height: number;
 }
 
 const heroSlides: HeroSlide[] = [
@@ -28,6 +30,8 @@ const heroSlides: HeroSlide[] = [
     toolbar: "Visual score diff",
     pill: "Visual diff",
     cta: "Review together",
+    width: 602,
+    height: 282,
   },
   {
     id: "input",
@@ -40,6 +44,8 @@ const heroSlides: HeroSlide[] = [
     toolbar: "Fast note entry",
     pill: "Fast input",
     cta: "See the writing flow",
+    width: 792,
+    height: 527,
   },
   {
     id: "parts",
@@ -52,6 +58,8 @@ const heroSlides: HeroSlide[] = [
     toolbar: "Condensing workflow",
     pill: "Condensing",
     cta: "See score and parts",
+    width: 982,
+    height: 473,
   },
 ];
 
@@ -107,6 +115,10 @@ export function HeroSection({ links }: { links: SiteLinks }) {
           className={`hero-slide-image ${activeSlide.imageClass}`}
           src={activeSlide.image}
           alt={activeSlide.alt}
+          width={activeSlide.width}
+          height={activeSlide.height}
+          fetchPriority="high"
+          decoding="async"
         />
         <div
           key={`${activeSlide.id}-caption`}

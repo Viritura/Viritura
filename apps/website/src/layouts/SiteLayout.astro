@@ -15,6 +15,7 @@ interface Props {
 }
 
 const { title, description, canonicalPath, indexable, workspace = false } = Astro.props;
+const canonical = new URL(canonicalPath, "https://viritura.com").href;
 const links: SiteLinks = {
   app: editorUrl,
   docs: "/docs",
@@ -30,7 +31,17 @@ const links: SiteLinks = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="robots" content={indexable ? "index, follow" : "noindex, nofollow"} />
-    <link rel="canonical" href={new URL(canonicalPath, "https://viritura.com").href} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Viritura" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <link rel="preconnect" href={editorUrl} />
+    <slot name="head" />
   </head>
   <body class={`site-shell${workspace ? " site-shell--workspace" : ""}`}>
     <SiteNav links={links} client:load />
