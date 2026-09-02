@@ -52,6 +52,15 @@ function stageEditorAssets(): void {
   for (const file of expectedOutputs) {
     copyFileSync(resolve(output, file), resolve(editorStaging, file));
   }
+
+  const assetHash = createHash("sha256")
+    .update(readFileSync(resolve(output, "viritura_wasm.js")))
+    .update(readFileSync(resolve(output, "viritura_wasm_bg.wasm")))
+    .digest("hex")
+    .slice(0, 16);
+  copyFileSync(resolve(output, "viritura_wasm.js"), resolve(editorStaging, `viritura_wasm.${assetHash}.js`));
+  copyFileSync(resolve(output, "viritura_wasm_bg.wasm"), resolve(editorStaging, `viritura_wasm_bg.${assetHash}.wasm`));
+  writeFileSync(resolve(editorStaging, "asset-version.json"), `${JSON.stringify({ assetHash })}\n`);
 }
 
 function collectDirectory(absolute: string): string[] {

@@ -11,6 +11,8 @@ import { decodeBinaryDisplayList } from "./binaryDisplayList";
 export * from "./wasmTypes";
 import type { BoundingBox, DisplayList, ScoreInfo, SlurPreview, SlurPreviewInput } from "./wasmTypes";
 
+declare const __VIRITURA_WASM_ASSET_HASH__: string | undefined;
+
 // Module-level state
 let wasmModule: {
   compute_layout: (
@@ -85,9 +87,15 @@ export async function initWasm(): Promise<void> {
   const attempt = (async () => {
     try {
       const basePath = resolveBasePath();
+      const assetHash =
+        import.meta.env?.PROD &&
+        typeof __VIRITURA_WASM_ASSET_HASH__ === "string" &&
+        __VIRITURA_WASM_ASSET_HASH__.length > 0
+          ? `.${__VIRITURA_WASM_ASSET_HASH__}`
+          : "";
 
       // Step 1: Fetch the WASM binary
-      const wasmResponse = await fetch(`${basePath}wasm/viritura_wasm_bg.wasm`);
+      const wasmResponse = await fetch(`${basePath}wasm/viritura_wasm_bg${assetHash}.wasm`);
       if (!wasmResponse.ok) {
         throw new Error(`Failed to fetch WASM binary: ${wasmResponse.status}`);
       }
@@ -95,7 +103,7 @@ export async function initWasm(): Promise<void> {
 
       // Step 2: Import the same-origin generated glue directly. Avoiding a
       // blob: module lets production enforce `script-src 'self'`.
-      const glue = await import(/* @vite-ignore */ `${basePath}wasm/viritura_wasm.js`);
+      const glue = await import(/* @vite-ignore */ `${basePath}wasm/viritura_wasm${assetHash}.js`);
 
       // Step 3: Initialize with the binary bytes (avoids a second WASM fetch).
       const wasmModule_ = new WebAssembly.Module(wasmBytes);
