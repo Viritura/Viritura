@@ -1,11 +1,10 @@
 import type React from "react";
 import type { CSSProperties } from "react";
-import type { parseMnx } from "@viritura/format";
+import type { parseMnxWithDiagnostics } from "@viritura/format";
 import { PlaybackProvider, TransportBar } from "@viritura/playback";
 import { Tooltip } from "@viritura/ui";
 import { MonacoMnxViewer } from "./MonacoMnxViewer";
 import { MnxPreview } from "./MnxPreview";
-import { ValidationPanel } from "./ValidationPanel";
 import { ImportDiagnosticsPanel } from "./ImportDiagnosticsPanel";
 import { type ConvertedFile, type TabId, formatSize } from "./converterTypes";
 
@@ -262,12 +261,6 @@ export function ResultTabs({ activeTab, setActiveTab, diagnosticsCount }: Result
         Score Preview
       </button>
       <button
-        className={`result-tab ${activeTab === "validation" ? "active" : ""}`}
-        onClick={() => setActiveTab("validation")}
-      >
-        Validation
-      </button>
-      <button
         className={`result-tab ${activeTab === "diagnostics" ? "active" : ""}`}
         onClick={() => setActiveTab("diagnostics")}
       >
@@ -284,7 +277,7 @@ export function ResultTabs({ activeTab, setActiveTab, diagnosticsCount }: Result
 interface ResultContentProps {
   readonly activeTab: TabId;
   readonly selected: ConvertedFile;
-  readonly parsedScore: ReturnType<typeof parseMnx> | null;
+  readonly parsedScore: ReturnType<typeof parseMnxWithDiagnostics>["score"] | null;
 }
 
 export function ResultContent({ activeTab, selected, parsedScore }: ResultContentProps) {
@@ -303,7 +296,6 @@ export function ResultContent({ activeTab, selected, parsedScore }: ResultConten
       </PlaybackProvider>
     );
   }
-  if (activeTab === "validation") return <ValidationPanel document={selected.result} />;
   if (activeTab === "diagnostics") return <ImportDiagnosticsPanel diagnostics={selected.diagnostics} />;
   return <MonacoMnxViewer data={selected.result} />;
 }

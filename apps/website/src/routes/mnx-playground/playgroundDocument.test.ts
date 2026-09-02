@@ -54,11 +54,10 @@ describe("MNX playground documents", () => {
     expect(result.error).toMatch(/^JSON:/);
   });
 
-  it("reports schema errors without returning a render candidate", () => {
+  it("leaves schema diagnostics to Monaco", () => {
     const result = validatePlaygroundSource(JSON.stringify({ mnx: { version: 1 } }));
 
-    expect(result.document).toBeUndefined();
-    expect(result.error).toMatch(/^Schema:/);
+    expect(result).toEqual({ document: { mnx: { version: 1 } } });
   });
 
   it("falls back to the first starter for an unknown id", () => {

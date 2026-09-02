@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState, useCallback, type CSSProperties, 
 import { ScoreCanvas, type ScoreCanvasHandle } from "../../components/ScoreCanvas";
 import { DocumentProvider, useDocumentActions, useDocument } from "../../store/DocumentContext";
 import { ErrorBoundary } from "@viritura/ui";
-import { parseMnx } from "@viritura/format";
+import { parseMnxWithDiagnostics } from "@viritura/format";
 import { Editor, type BeforeMount, type OnMount, type Monaco } from "@viritura/monaco-react";
 import { configureMnxJsonDiagnostics, loadMnxSchema } from "../../lib/monacoMnxSchema";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
@@ -112,7 +112,7 @@ function ScorePreviewInner({
     if (!json) return;
     try {
       const raw = JSON.parse(json);
-      const score = parseMnx(raw);
+      const score = parseMnxWithDiagnostics(raw).score;
       loadScore(score);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled-sync effect — external source seeds local state when it changes
       setError(null);

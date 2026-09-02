@@ -38,6 +38,21 @@ function scoreOptions(document: object): readonly ScoreViewerScoreOption[] {
   });
 }
 
+function validationLabel(markerCount: number): string {
+  return markerCount === 0 ? "Valid MNX" : `${markerCount} validation error${markerCount === 1 ? "" : "s"}`;
+}
+
+function EditorValidity({ markerCount }: { readonly markerCount: number }) {
+  return (
+    <div className="mnx-playground__editor-header">
+      <span>MNX Source</span>
+      <span className="mnx-playground__validity" data-valid={markerCount === 0}>
+        {validationLabel(markerCount)}
+      </span>
+    </div>
+  );
+}
+
 export function MnxPlaygroundPage() {
   const [exampleId, setExampleId] = useState(playgroundDocuments[0]!.id);
   const [mobilePane, setMobilePane] = useState<MobilePane>("editor");
@@ -141,24 +156,27 @@ export function MnxPlaygroundPage() {
               data-mobile-active={mobilePane === "editor"}
               aria-label="MNX JSON editor"
             >
-              <Editor
-                path={PLAYGROUND_MODEL_PATH}
-                language="json"
-                value={playground.source}
-                beforeMount={configurePlaygroundEditor}
-                onChange={(value) => playground.setSource(value ?? "")}
-                onValidate={handleValidate}
-                theme="vs"
-                options={{
-                  automaticLayout: true,
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  tabSize: 2,
-                  insertSpaces: true,
-                  scrollBeyondLastLine: false,
-                  wordWrap: "on",
-                }}
-              />
+              <EditorValidity markerCount={markerCount} />
+              <div className="mnx-playground__editor-host">
+                <Editor
+                  path={PLAYGROUND_MODEL_PATH}
+                  language="json"
+                  value={playground.source}
+                  beforeMount={configurePlaygroundEditor}
+                  onChange={(value) => playground.setSource(value ?? "")}
+                  onValidate={handleValidate}
+                  theme="vs"
+                  options={{
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    tabSize: 2,
+                    insertSpaces: true,
+                    scrollBeyondLastLine: false,
+                    wordWrap: "on",
+                  }}
+                />
+              </div>
             </section>
 
             <section

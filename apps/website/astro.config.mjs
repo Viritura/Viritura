@@ -73,7 +73,7 @@ export default defineConfig({
         "upgrade-insecure-requests",
       ],
       scriptDirective: {
-        resources: ["'self'", "'unsafe-eval'", "'wasm-unsafe-eval'"],
+        resources: ["'self'", "'wasm-unsafe-eval'"],
       },
       styleDirective: {
         resources: [

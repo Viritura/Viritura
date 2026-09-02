@@ -101,9 +101,8 @@ export function ConverterGuide() {
       <section aria-labelledby="conversion-review-title">
         <h2 id="conversion-review-title">Review before you continue</h2>
         <p>
-          Preview shows whether the converted score looks right. Validation checks the output against the MNX JSON
-          Schema. Diagnostics list details omitted or approximated for the selected file. MNX Output shows the generated
-          document itself.
+          Preview shows whether the converted score looks right. Diagnostics list details omitted or approximated for
+          the selected file. MNX Output shows the generated document itself with live MNX Schema validation.
         </p>
         <p>
           A valid MNX document can still differ from the source. Use the preview and diagnostics together before

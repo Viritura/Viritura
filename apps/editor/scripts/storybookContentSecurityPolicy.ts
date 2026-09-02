@@ -90,7 +90,7 @@ export function applyContentSecurityPolicy(html: string, title?: string): string
   const scriptHashes = inlineScriptHashes(document, html);
   const policy = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' ${scriptHashes.join(" ")}`,
+    `script-src 'self' 'wasm-unsafe-eval' ${scriptHashes.join(" ")}`,
     "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob:",
