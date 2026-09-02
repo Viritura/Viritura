@@ -1,0 +1,41 @@
+---
+import { HeroSection } from "../HeroSection";
+import {
+  CollaborationSection,
+  CollaborationValueStrip,
+  FinalCtaSection,
+  InputSection,
+  OpenApproachSection,
+  PartsSection,
+  WorkflowSection,
+} from "../siteSections";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { editorUrl, type SiteLinks } from "../siteLinks";
+import { findSeoRoute } from "../seo/routeCatalog";
+
+const links: SiteLinks = {
+  app: editorUrl,
+  docs: "/docs",
+  github: "https://github.com/Viritura/Viritura",
+};
+const route = findSeoRoute("/");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="marketing-home">
+    <HeroSection links={links} />
+    <CollaborationValueStrip />
+    <WorkflowSection />
+    <InputSection links={links} />
+    <PartsSection links={links} />
+    <CollaborationSection />
+    <OpenApproachSection />
+    <FinalCtaSection links={links} />
+  </main>
+</SiteLayout>
+

@@ -1,0 +1,24 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { readSensitiveSearchParams } from "../../routes/auth/urlSearchParams";
+import { CheckEmailPage } from "../../routes/auth/CheckEmailPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+
+const route = findSeoRoute("/signup/check-email");
+const { email } = readSensitiveSearchParams(Astro.url.searchParams);
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <CheckEmailPage email={email} client:only="react">
+      <section slot="fallback" class="route-loading">
+        <h1>Check your email</h1>
+      </section>
+    </CheckEmailPage>
+  </main>
+</SiteLayout>

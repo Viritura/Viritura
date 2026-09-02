@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "@tanstack/react-router";
 import { DOC_GROUPS, DOC_PAGES, findDocPage, type DocPage } from "./docsManifest";
 import { getModifierKeyLabels, renderDoc, type TocEntry } from "./renderDoc";
 import { useActiveTocHeading } from "./tocScrollSpy";
@@ -76,18 +75,18 @@ function DocsPager({ previousPage, nextPage }: { previousPage?: DocPage; nextPag
   return (
     <nav className="docs-pager" aria-label="Documentation pages">
       {previousPage ? (
-        <Link className="docs-pager-link" to="/docs/$slug" params={{ slug: previousPage.slug }}>
+        <a className="docs-pager-link" href={`/docs/${previousPage.slug}`}>
           <span>Previous</span>
           {previousPage.title}
-        </Link>
+        </a>
       ) : (
         <span />
       )}
       {nextPage && (
-        <Link className="docs-pager-link docs-pager-link--next" to="/docs/$slug" params={{ slug: nextPage.slug }}>
+        <a className="docs-pager-link docs-pager-link--next" href={`/docs/${nextPage.slug}`}>
           <span>Next</span>
           {nextPage.title}
-        </Link>
+        </a>
       )}
     </nav>
   );
@@ -120,15 +119,14 @@ function DocsNavGroups({ activeSlug }: { activeSlug: string }) {
       <ul className="docs-sidebar-list">
         {DOC_PAGES.filter((page) => page.group === group).map((page) => (
           <li key={page.slug}>
-            <Link
-              to="/docs/$slug"
-              params={{ slug: page.slug }}
+            <a
+              href={`/docs/${page.slug}`}
               className="docs-sidebar-link"
               aria-current={page.slug === activeSlug ? "page" : undefined}
               onClick={closeMobileIndex}
             >
               {page.title}
-            </Link>
+            </a>
           </li>
         ))}
       </ul>
@@ -168,9 +166,7 @@ function DocsNotFound({ slug }: { slug: string }) {
         There&rsquo;s no documentation page at <code>/docs/{slug}</code>.
       </p>
       <p>
-        <Link to="/docs/$slug" params={{ slug: fallback.slug }}>
-          Go to {fallback.title} →
-        </Link>
+        <a href={`/docs/${fallback.slug}`}>Go to {fallback.title} →</a>
       </p>
     </div>
   );

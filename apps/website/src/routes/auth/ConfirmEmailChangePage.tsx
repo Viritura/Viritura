@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, confirmEmailChange } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -58,7 +57,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
           <strong>Account → Email</strong>.
         </p>
         <p className="auth-footer-link">
-          <Link to="/">Back to home</Link>
+          <a href="/">Back to home</a>
         </p>
       </section>
     );
@@ -96,7 +95,7 @@ export function ConfirmEmailChangePage({ uid, newEmail, token, appUrl }: Confirm
         from <strong>Account → Email</strong>.
       </p>
       <p className="auth-footer-link">
-        <Link to="/">Back to home</Link>
+        <a href="/">Back to home</a>
       </p>
     </section>
   );

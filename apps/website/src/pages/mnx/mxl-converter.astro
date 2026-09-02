@@ -1,0 +1,27 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { ConverterGuide } from "../../routes/mnx-converter/ConverterGuide";
+import { MusicXmlConverterPage } from "../../routes/mnx-converter/MusicXmlConverterPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+
+const route = findSeoRoute("/mnx/mxl-converter");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main converter-route">
+    <MusicXmlConverterPage client:only="react">
+      <section slot="fallback" class="route-loading">
+        <p>MusicXML to MNX</p>
+        <h1>Convert MusicXML to MNX in your browser</h1>
+        <p>Create an open MNX document from MusicXML, inspect conversion details, and download the result.</p>
+      </section>
+    </MusicXmlConverterPage>
+    <ConverterGuide />
+  </main>
+</SiteLayout>
+

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, resendVerification, verifyEmail } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -69,7 +68,7 @@ export function VerifyEmailPage({ uid, token, appUrl }: VerifyEmailPageProps) {
           The link is missing required parameters. Sign up again or request a fresh verification email below.
         </p>
         <p className="auth-footer-link">
-          <Link to="/signup">Back to sign up</Link>
+          <a href="/signup">Back to sign up</a>
         </p>
       </section>
     );

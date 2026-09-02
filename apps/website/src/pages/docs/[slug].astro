@@ -1,0 +1,26 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { DOC_PAGES, findDocPage } from "../../routes/docs/docsManifest";
+import { DocsPage } from "../../routes/docs/DocsPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+
+export function getStaticPaths() {
+  return DOC_PAGES.map((page) => ({ params: { slug: page.slug } }));
+}
+
+const slug = Astro.params.slug ?? "getting-started";
+const docPage = findDocPage(slug);
+const route = findSeoRoute(`/docs/${slug}`);
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main docs-route">
+    <DocsPage slug={docPage?.slug ?? slug} client:load />
+  </main>
+</SiteLayout>
+

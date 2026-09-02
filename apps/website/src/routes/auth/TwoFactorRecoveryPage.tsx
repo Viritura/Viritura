@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, disableTwoFactorByRecoveryToken } from "../../api/auth";
 import { clearSensitiveLinkUrl } from "./sensitiveLink";
 
@@ -61,7 +60,7 @@ export function TwoFactorRecoveryPage({ uid, token, appUrl }: TwoFactorRecoveryP
           two-factor prompt.
         </p>
         <p className="auth-footer-link">
-          <Link to="/">Back to home</Link>
+          <a href="/">Back to home</a>
         </p>
       </section>
     );

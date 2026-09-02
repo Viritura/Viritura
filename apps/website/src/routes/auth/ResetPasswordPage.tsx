@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { AuthApiError, resetPassword } from "../../api/auth";
 import { PASSWORD_MIN_LENGTH, PASSWORD_PATTERN, PASSWORD_TITLE } from "../../api/passwordPolicy";
 import { PasswordHints } from "./PasswordHints";
@@ -55,7 +54,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
         <h1>Invalid reset link</h1>
         <p className="auth-sub">The link is missing required parameters. Request a fresh reset email below.</p>
         <p className="auth-footer-link">
-          <Link to="/auth/forgot-password">Send a new reset link</Link>
+          <a href="/auth/forgot-password">Send a new reset link</a>
         </p>
       </section>
     );
@@ -86,7 +85,6 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
             autoComplete="new-password"
             minLength={PASSWORD_MIN_LENGTH}
             pattern={PASSWORD_PATTERN}
-            // eslint-disable-next-line no-restricted-syntax -- HTML pattern mismatch message
             title={PASSWORD_TITLE}
             required
             value={newPassword}
@@ -112,7 +110,7 @@ export function ResetPasswordPage({ uid, token, appUrl }: ResetPasswordPageProps
         </button>
       </form>
       <p className="auth-footer-link">
-        Link expired? <Link to="/auth/forgot-password">Request a new one</Link>
+        Link expired? <a href="/auth/forgot-password">Request a new one</a>
       </p>
     </section>
   );
