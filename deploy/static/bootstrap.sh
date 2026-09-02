@@ -10,7 +10,7 @@ readonly legacy_root=/var/www/peter/viritura
 [[ -f "$bundle/deploy/static/install-host-config.sh" ]] || { echo "Static deployment bundle is incomplete." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-viritura.com.conf" ]] || { echo "Website nginx configuration is missing." >&2; exit 1; }
 [[ -f "$bundle/deploy/nginx-app.viritura.com.conf" ]] || { echo "Editor nginx configuration is missing." >&2; exit 1; }
-for snippet in viritura-security-headers viritura-api-content-security-policy viritura-editor-content-security-policy viritura-website-content-security-policy; do
+for snippet in viritura-security-headers viritura-editor-content-security-policy viritura-website-content-security-policy; do
   [[ -f "$bundle/deploy/nginx-snippets/$snippet.conf" ]] || { echo "Nginx snippet $snippet.conf is missing." >&2; exit 1; }
 done
 id "$user" >/dev/null 2>&1 || { echo "Deployment user $user does not exist." >&2; exit 1; }
