@@ -88,9 +88,7 @@ export async function initWasm(): Promise<void> {
     try {
       const basePath = resolveBasePath();
       const assetHash =
-        import.meta.env?.PROD &&
-        typeof __VIRITURA_WASM_ASSET_HASH__ === "string" &&
-        __VIRITURA_WASM_ASSET_HASH__.length > 0
+        typeof __VIRITURA_WASM_ASSET_HASH__ === "string" && __VIRITURA_WASM_ASSET_HASH__.length > 0
           ? `.${__VIRITURA_WASM_ASSET_HASH__}`
           : "";
 

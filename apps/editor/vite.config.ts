@@ -103,9 +103,9 @@ const wasmAssetHash = existsSync(wasmAssetVersionPath)
   ? (JSON.parse(readFileSync(wasmAssetVersionPath, "utf8")) as { assetHash: string }).assetHash
   : "";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   define: {
-    __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(wasmAssetHash),
+    __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(command === "build" ? wasmAssetHash : ""),
   },
   plugins: [
     serveContainerPublicFiles(),
@@ -175,4 +175,4 @@ export default defineConfig({
     include: ["spessasynth_core", "spessasynth_lib"],
     esbuildOptions: { target: "es2022" },
   },
-});
+}));
