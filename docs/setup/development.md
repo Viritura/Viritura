@@ -89,11 +89,12 @@ as soon as a compatible upstream fix is available.
 | RUSTSEC-2026-0192 | `engine/Cargo.lock`                 | all       | Pre-existing engine exception.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | RUSTSEC-2024-0429 | `apps/desktop/src-tauri/Cargo.lock` | Linux/BSD | `glib 0.18.5` unsound `VariantStrIter` iterators, reached only through `tauri 2.11.5 → gtk 0.18.2 → glib 0.18.5` (and `tauri-plugin-dialog`). The fix is `glib >= 0.20`, which requires GTK4/WebKitGTK-6; Tauri 2.x is locked to the GTK3 stack, so no compatible upgrade exists. Windows/macOS do not pull `gtk`/`glib`. Remove once the desktop shell adopts a Tauri release on the GTK4 stack. See [Viritura#3](https://github.com/Viritura/Viritura/issues/3). |
 
-The desktop Clippy configuration also denies direct use of
+The Rust security API check also denies direct use of
 `glib::Variant::array_iter_str`, the only public constructor for the affected
 iterator. This prevents Viritura from making the advisory reachable while #3
-tracks the upstream GTK4 migration. It does not inspect dependency internals, so
-the lockfile audit remains necessary to detect changes in the Tauri graph.
+tracks the upstream GTK4 migration. The source-level check does not inspect
+dependency internals, so the lockfile audit remains necessary to detect changes
+in the Tauri graph.
 
 The remaining desktop warnings (unmaintained GTK3-family crates `atk`/`gdk`/`gtk`
 and their sys/macro crates, `proc-macro-error`, and the `unic-*` crates) are

@@ -39,7 +39,7 @@
     "lint:eslint": "eslint .",
     "lint:dead": "knip",
     "lint:dead:files": "knip --include files",
-    "lint:rust": "pnpm lint:rust:size && cd engine && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo clippy --manifest-path ../apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cd .. && pnpm gen:raw:rust:check",
+    "lint:rust": "pnpm lint:rust:size && tsx scripts/check-rust-security-apis.ts && cd engine && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cd .. && pnpm gen:raw:rust:check",
     "lint:rust:size": "tsx scripts/check-rust-source-size.ts",
     "lint:rust:fix": "cd engine && cargo fmt --all && cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged",
     "lint:dotnet": "dotnet format server/Viritura.sln --verify-no-changes",
