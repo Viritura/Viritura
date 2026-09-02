@@ -349,10 +349,12 @@ fn clear_sibling_obstacles(
     barrier: f64,
     total_width: f64,
     band: (f64, f64),
+    alter: i32,
     acc_note_gap: f64,
+    acc_stack_gap: f64,
     sp: f64,
     noteheads: &[(f64, f64, f64)],
-    accidentals: &[(f64, f64, f64, f64)],
+    accidentals: &[(f64, f64, f64, f64, Option<i32>)],
 ) -> f64 {
     let (v_top_px, v_bottom_px) = band;
     let mut acc_right = barrier;
@@ -360,22 +362,32 @@ fn clear_sibling_obstacles(
     let total = noteheads.len() + accidentals.len();
     loop {
         let mut min_block: Option<f64> = None;
-        let mut consider = |top: f64, bottom: f64, sleft: f64, sright: f64| {
+        let mut consider = |top: f64, bottom: f64, sleft: f64, sright: f64, gap: f64| {
             // Vertical overlap with the accidental's footprint.
             if bottom <= v_top_px || top >= v_bottom_px {
                 return;
             }
             // Horizontal overlap with the accidental's current rect.
             if sright > group_x + 0.01 && sleft < acc_right - 0.01 {
-                let cand = sleft - acc_note_gap;
+                let cand = sleft - gap;
                 min_block = Some(min_block.map_or(cand, |b: f64| b.min(cand)));
             }
         };
         for &(scy, sleft, sright) in noteheads {
-            consider(scy - 0.5 * sp, scy + 0.5 * sp, sleft, sright);
+            consider(scy - 0.5 * sp, scy + 0.5 * sp, sleft, sright, acc_note_gap);
         }
-        for &(top, bottom, sleft, sright) in accidentals {
-            consider(top, bottom, sleft, sright);
+        for &(top, bottom, sleft, sright, sibling_alter) in accidentals {
+            let gap = sibling_alter.map_or(acc_stack_gap, |sibling_alter| {
+                super::spacing::accidental_bbox_gap(
+                    alter,
+                    (v_top_px, v_bottom_px),
+                    sibling_alter,
+                    (top, bottom),
+                    acc_stack_gap,
+                    sp,
+                )
+            });
+            consider(top, bottom, sleft, sright, gap);
         }
         match min_block {
             Some(b) if b < acc_right - 0.01 => {
@@ -425,7 +437,7 @@ fn render_accidentals_stacked(
     // this event's accidental column from colliding with another event's
     // accidental stack at the same onset (simultaneous chords). Empty when none
     // nearby.
-    sibling_accidentals: &[(f64, f64, f64, f64)],
+    sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
 ) {
     let note_positions = events.note_positions(ei);
     let note_x_offsets = events.note_x_offsets(ei);
@@ -435,7 +447,7 @@ fn render_accidentals_stacked(
     // collision at typical zoom; standard engraving practice leaves a clear
     // quarter-space-ish gap so the accidental never touches the notehead.
     let acc_note_gap = 0.20 * sp;
-    let acc_stack_gap = 0.10 * sp;
+    let acc_stack_gap = 0.20 * sp;
     // Sharps and naturals are thin and may tuck slightly INTO a ledger line;
     // 0.10sp preserves optical separation without wasting a full column.
     // Flats and double-flats keep the full notehead gap.
@@ -627,7 +639,9 @@ fn render_accidentals_stacked(
                 barrier,
                 total_width,
                 (v_top_px, v_bottom_px),
+                alter,
                 acc_note_gap,
+                acc_stack_gap,
                 sp,
                 sibling_noteheads,
                 sibling_accidentals,
@@ -730,8 +744,8 @@ pub(crate) fn render_event(
     sibling_noteheads: &[(f64, f64, f64)],
     // Already-placed accidentals of OTHER events on the same visual staff that
     // this event's accidental column must clear: `(top, bottom, x_left,
-    // x_right)` in absolute pixels. Empty when none are near.
-    sibling_accidentals: &[(f64, f64, f64, f64)],
+    // x_right, alteration)` in absolute pixels. Empty when none are near.
+    sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
     measure_beats: f64,
 ) {
     // Lever 2: read this event's columns directly from the arena (no

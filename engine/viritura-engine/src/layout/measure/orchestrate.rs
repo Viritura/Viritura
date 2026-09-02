@@ -19,8 +19,8 @@ use std::collections::{HashMap, HashSet};
 /// Padding around a mid-measure change clef. The spacing pass combines these
 /// with the actual 2/3-size glyph width and raises the existing inter-onset gap
 /// only when its rhythmic spring is too narrow.
-pub(crate) const MID_CLEF_LEFT_PAD_SP: f64 = 0.5;
-pub(crate) const MID_CLEF_RIGHT_PAD_SP: f64 = 0.4;
+pub(crate) const MID_CLEF_LEFT_PAD_SP: f64 = 0.75;
+pub(crate) const MID_CLEF_RIGHT_PAD_SP: f64 = 0.75;
 
 pub(crate) fn mid_clef_column_width_sp(clef: &Clef) -> f64 {
     MID_CLEF_LEFT_PAD_SP

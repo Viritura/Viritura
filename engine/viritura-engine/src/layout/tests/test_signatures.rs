@@ -3,7 +3,7 @@
 
 use crate::layout::config::LayoutConfig;
 use crate::layout::measure::*;
-use crate::layout::render_signatures::render_key_signature;
+use crate::layout::render_signatures::{key_signature_layout, render_key_signature};
 use crate::layout::resolve::*;
 use crate::layout::{layout_full_score, layout_score};
 use crate::model::*;
@@ -25,6 +25,39 @@ fn test_key_signature_advance_is_relative_to_origin() {
         render_key_signature(&mut at_offset, 120.0, 80.0, 12.0, &key, &ClefSign::G, None);
 
     assert!((zero_advance - offset_advance).abs() < 1.0e-9);
+}
+
+#[test]
+fn key_signature_accidentals_land_on_standard_line_and_space_centers() {
+    let cases = [
+        (
+            ClefSign::G,
+            [0.0, 3.0, -1.0, 2.0, 5.0, 1.0, 4.0],
+            [4.0, 1.0, 5.0, 2.0, 6.0, 3.0, 7.0],
+        ),
+        (
+            ClefSign::F,
+            [2.0, 5.0, 1.0, 4.0, 7.0, 3.0, 6.0],
+            [6.0, 3.0, 7.0, 4.0, 8.0, 5.0, 2.0],
+        ),
+        (
+            ClefSign::C,
+            [1.0, 4.0, 0.0, 3.0, 6.0, 2.0, 5.0],
+            [5.0, 2.0, 6.0, 3.0, 7.0, 4.0, 8.0],
+        ),
+    ];
+
+    for (clef_sign, expected_sharps, expected_flats) in cases {
+        for (fifths, expected) in [(7, expected_sharps), (-7, expected_flats)] {
+            let key = KeySignature {
+                fifths,
+                ..Default::default()
+            };
+            let layout = key_signature_layout(0.0, 0.0, 2.0, &key, &clef_sign, None);
+            let positions: Vec<_> = layout.glyphs.iter().map(|glyph| glyph.y).collect();
+            assert_eq!(positions, expected);
+        }
+    }
 }
 
 #[test]
@@ -990,10 +1023,14 @@ fn test_mid_measure_tenor_and_bass_clefs_use_ink_clearances() {
         layout_score(&parse_mnx(&json).unwrap(), 0, &LayoutConfig::default())
     };
 
-    for (sign, staff_position, codepoint, name) in [
-        ("C", 2, smufl::C_CLEF, "tenor"),
-        ("F", 2, smufl::F_CLEF, "bass"),
+    for (sign, staff_position, codepoint, expected_ink_width, name) in [
+        ("C", 2, smufl::C_CLEF, 2.796, "tenor"),
+        ("F", 2, smufl::F_CLEF, 2.756, "bass"),
     ] {
+        assert!(
+            (smufl::glyph_bbox(codepoint).2 - expected_ink_width).abs() < f64::EPSILON,
+            "{name} clef ink width must match Bravura's glyphBBoxes metadata"
+        );
         let dl = layout(sign, staff_position);
         let sp = LayoutConfig::default().sp;
         let change_size = 4.0 * sp * 2.0 / 3.0;
@@ -1045,16 +1082,16 @@ fn test_mid_measure_tenor_and_bass_clefs_use_ink_clearances() {
         let right_gap = following_left - (clef.x + clef.width);
 
         assert!(
-            left_gap >= 0.5 * sp - 0.01,
+            left_gap >= 0.75 * sp - 0.01,
             "{name} change-clef left ink gap {left_gap:.3}px must clear the \
-             preceding flag by 0.5sp"
+             preceding flag by 0.75sp"
         );
         assert!(
-            right_gap >= 0.4 * sp - 0.01,
-            "{name} change-clef right ink gap {right_gap:.3}px must preserve 0.4sp"
+            right_gap >= 0.75 * sp - 0.01,
+            "{name} change-clef right ink gap {right_gap:.3}px must preserve 0.75sp"
         );
         assert!(
-            right_gap <= 0.5 * sp + 0.01,
+            right_gap <= 0.85 * sp + 0.01,
             "{name} change-clef right ink gap {right_gap:.3}px must not include \
              an extra glyph slot"
         );

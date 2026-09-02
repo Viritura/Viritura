@@ -873,8 +873,9 @@ pub(crate) fn render_system_contents(
     // Shared cross-measure accidental obstacle accumulator, threaded across all
     // staves of a system so two simultaneous chords on one staff (rendered by
     // separate per-staff/voice `render_system_contents` calls) clear each
-    // other's accidentals. `(visual_staff, top, bottom, x_left, x_right)` px.
-    acc_obstacles: &mut Vec<(u32, f64, f64, f64, f64)>,
+    // other's accidentals. The optional alteration identifies accidental ink;
+    // `None` entries are noteheads.
+    acc_obstacles: &mut Vec<AccidentalObstacle>,
     // Optional precomputed tie-accidental suppression map. When `None` the map
     // is built from THIS call's `measure_layouts` (correct for a single-system
     // render). Stitched-horizon callers pass `Some(global_map)` built over the

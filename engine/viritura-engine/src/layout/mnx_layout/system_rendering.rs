@@ -413,7 +413,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
             config,
         );
 
-        let mut accidental_obstacles: Vec<(u32, f64, f64, f64, f64)> = Vec::new();
+        let mut accidental_obstacles: Vec<AccidentalObstacle> = Vec::new();
         let mut fresh_staff_layers = Vec::with_capacity(all_staff_layouts.len());
         let prior_layers = prior_staff_source
             .as_ref()
@@ -481,7 +481,8 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     ) {
                         let destination_start = display_list_store_marker(&seg);
                         if run_dx != 0.0 || run_dy != 0.0 {
-                            run_segment.translate(run_dx, run_dy);
+                            run_segment.translate(-run_layer.rendered_x0, -run_layer.rendered_y);
+                            run_segment.translate(current_x0, staff_y_offsets[run_start]);
                         }
                         seg.append(run_segment);
                         for layer_idx in run_start..run_end {
@@ -494,14 +495,16 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                             let translated_obstacles: Vec<_> = layer
                                 .accidental_obstacles
                                 .iter()
-                                .map(|&(visual_staff, top, bottom, left, right)| {
-                                    (
-                                        visual_staff,
-                                        top + run_dy,
-                                        bottom + run_dy,
-                                        left + run_dx,
-                                        right + run_dx,
-                                    )
+                                .map(|obstacle| AccidentalObstacle {
+                                    visual_staff: obstacle.visual_staff,
+                                    top: (obstacle.top - layer.rendered_y)
+                                        + staff_y_offsets[layer_idx],
+                                    bottom: (obstacle.bottom - layer.rendered_y)
+                                        + staff_y_offsets[layer_idx],
+                                    left: (obstacle.left - layer.rendered_x0) + current_x0,
+                                    right: (obstacle.right - layer.rendered_x0) + current_x0,
+                                    is_accidental: obstacle.is_accidental,
+                                    alter: obstacle.alter,
                                 })
                                 .collect();
                             accidental_obstacles.extend(translated_obstacles.iter().copied());

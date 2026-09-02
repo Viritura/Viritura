@@ -48,6 +48,11 @@ const docLastModByUrl = new Map(
 
 export default defineConfig({
   site: SITE_ORIGIN,
+  server: {
+    port: 5180,
+    host: containerHost ? true : undefined,
+    open: !containerHost,
+  },
   integrations: [
     react(),
     sitemap({
@@ -70,10 +75,7 @@ export default defineConfig({
       esbuildOptions: { target: "es2022" },
     },
     server: {
-      port: 5180,
       strictPort: true,
-      open: !containerHost,
-      host: containerHost ? true : undefined,
       allowedHosts: containerHost ? [".localhost"] : undefined,
       hmr: containerHost ? { host: containerHost, clientPort: 80, protocol: "ws" } : undefined,
       watch: containerWatchOptions(containerHost),

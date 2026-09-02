@@ -4,7 +4,7 @@
 use super::test_helpers::*;
 use crate::layout::config::LayoutConfig;
 use crate::layout::resolve::resolve_measures;
-use crate::layout::spacing::build_log_spacing_for_resolved_measure;
+use crate::layout::spacing::{accidental_bbox_gap, build_log_spacing_for_resolved_measure};
 use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
@@ -603,27 +603,26 @@ fn test_cut_out_kerning_sharps_interlock() {
 
 #[test]
 fn test_cut_out_data_matches_bravura() {
-    // Verify the hardcoded cut-out values match what Bravura metadata provides.
-    // Flat: cutOutNE=[0.252, 0.656], cutOutSE=[0.504, -0.476]
+    // Bravura stores cut-outs as coordinates; the engine exposes dimensions
+    // measured inward from each corresponding glyph-bounding-box corner.
     let flat_cuts = smufl::accidental_cut_outs(-1);
-    assert_eq!(flat_cuts.ne, Some((0.252, 0.656)));
-    assert_eq!(flat_cuts.se, Some((0.504, 0.476)));
+    assert_eq!(flat_cuts.ne, Some((0.652, 1.100)));
+    assert_eq!(flat_cuts.se, Some((0.400, 0.224)));
     assert!(flat_cuts.nw.is_none());
     assert!(flat_cuts.sw.is_none());
 
-    // Natural: cutOutNE=[0.192, 0.776], cutOutSW=[0.476, -0.828]
     let nat_cuts = smufl::accidental_cut_outs(0);
-    assert_eq!(nat_cuts.ne, Some((0.192, 0.776)));
-    assert_eq!(nat_cuts.sw, Some((0.476, 0.828)));
+    assert_eq!(nat_cuts.ne, Some((0.480, 0.588)));
+    assert_eq!(nat_cuts.sw, Some((0.476, 0.512)));
     assert!(nat_cuts.nw.is_none());
     assert!(nat_cuts.se.is_none());
 
     // Sharp: all four corners
     let sharp_cuts = smufl::accidental_cut_outs(1);
-    assert_eq!(sharp_cuts.ne, Some((0.84, 0.896)));
-    assert_eq!(sharp_cuts.nw, Some((0.144, 0.568)));
-    assert_eq!(sharp_cuts.se, Some((0.84, 0.596)));
-    assert_eq!(sharp_cuts.sw, Some((0.144, 0.896)));
+    assert_eq!(sharp_cuts.ne, Some((0.156, 0.504)));
+    assert_eq!(sharp_cuts.nw, Some((0.144, 0.832)));
+    assert_eq!(sharp_cuts.se, Some((0.156, 0.796)));
+    assert_eq!(sharp_cuts.sw, Some((0.144, 0.496)));
 
     // Double sharp: no cut-outs
     let dbl_sharp_cuts = smufl::accidental_cut_outs(2);
@@ -634,8 +633,8 @@ fn test_cut_out_data_matches_bravura() {
 
     // Double flat: NE and SE only
     let dbl_flat_cuts = smufl::accidental_cut_outs(-2);
-    assert_eq!(dbl_flat_cuts.ne, Some((0.988, 0.644)));
-    assert_eq!(dbl_flat_cuts.se, Some((1.336, 0.396)));
+    assert_eq!(dbl_flat_cuts.ne, Some((0.656, 1.104)));
+    assert_eq!(dbl_flat_cuts.se, Some((0.308, 0.304)));
     assert!(dbl_flat_cuts.nw.is_none());
     assert!(dbl_flat_cuts.sw.is_none());
 }
@@ -1506,5 +1505,97 @@ fn test_natural_after_flag_reserves_shared_onset_space() {
     assert!(
         aligned_gap >= required_gap - 0.01,
         "other staff received only {aligned_gap:.3}px; shared ink reservation needs {required_gap:.3}px"
+    );
+}
+
+#[test]
+fn organ_layout_simultaneous_natural_and_sharp_keep_column_gap() {
+    let score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/organ-layout.mnx"
+    ))
+    .unwrap();
+    let config = LayoutConfig {
+        page_width: Some(800.0),
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 1);
+
+    let accidental_bbox = |event_id: &str, codepoint: u32| {
+        dl.commands
+            .iter()
+            .enumerate()
+            .find_map(|(index, command)| {
+                let id = dl
+                    .element_ids
+                    .get(index)
+                    .and_then(|element_id| element_id.as_deref())?;
+                (id.contains(event_id)
+                    && matches!(
+                        command,
+                        RenderCommand::DrawGlyph {
+                            codepoint: actual,
+                            ..
+                        } if *actual == codepoint
+                    ))
+                .then(|| command.bbox())
+                .flatten()
+            })
+            .unwrap_or_else(|| panic!("missing accidental {codepoint:#X} for {event_id}"))
+    };
+
+    let sharp = accidental_bbox(
+        "019e62f6-e631-7151-b526-bc35a59480ba",
+        smufl::ACCIDENTAL_SHARP,
+    );
+    let natural = accidental_bbox(
+        "019e62f6-e631-7e3b-a839-85c0ad98a973",
+        smufl::ACCIDENTAL_NATURAL,
+    );
+    assert!(
+        natural.y < sharp.y + sharp.height && sharp.y < natural.y + natural.height,
+        "fixture accidentals must overlap vertically to exercise separate columns"
+    );
+    let bbox_gap = sharp.x - (natural.x + natural.width);
+    let required_bbox_gap = accidental_bbox_gap(
+        0,
+        (natural.y, natural.y + natural.height),
+        1,
+        (sharp.y, sharp.y + sharp.height),
+        0.2 * config.sp,
+        config.sp,
+    );
+    assert!(
+        bbox_gap >= required_bbox_gap - 0.01,
+        "interlocking natural/sharp cavities must preserve 0.2sp ink clearance"
+    );
+    assert!(
+        bbox_gap < 0.0,
+        "complementary natural/sharp cavities should overlap their bounding boxes"
+    );
+
+    let previous_note = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            let id = dl
+                .element_ids
+                .get(index)
+                .and_then(|element_id| element_id.as_deref())?;
+            (id.contains("019e62f6-e631-7ebc-afd2-353ce036b67d")
+                && matches!(
+                    command,
+                    RenderCommand::DrawGlyph {
+                        codepoint: smufl::NOTEHEAD_BLACK,
+                        ..
+                    }
+                ))
+            .then(|| command.bbox())
+            .flatten()
+        })
+        .expect("previous upper-voice notehead");
+    assert!(
+        natural.x >= previous_note.x + previous_note.width + 0.5 * config.sp - 0.01,
+        "combined accidental stack must stay after the previous note column"
     );
 }

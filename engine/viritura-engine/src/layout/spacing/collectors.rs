@@ -135,7 +135,7 @@ fn stacked_accidental_extent_sp(accs: &[(f64, i32, f64)]) -> f64 {
     if accs.is_empty() {
         return 0.0;
     }
-    let acc_stack_gap = 0.10;
+    let acc_stack_gap = 0.20;
 
     // Pitch-sorted indices (ascending staff position = highest pitch first),
     // then visited outside-in so an inner accidental can tuck back into the
