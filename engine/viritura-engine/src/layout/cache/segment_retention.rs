@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::super::types::AccidentalObstacle;
 use crate::render::{DisplayList, PageLayout, PageTurnWarning};
 
 /// A fully-rendered system segment retained across layout passes.
@@ -28,7 +29,7 @@ pub(crate) struct RetainedStaffContentLayer {
     pub start: DisplayListStoreMarker,
     pub end: DisplayListStoreMarker,
     /// Accidental obstacles appended while this staff rendered.
-    pub accidental_obstacles: Vec<(u32, f64, f64, f64, f64)>,
+    pub accidental_obstacles: Vec<AccidentalObstacle>,
 }
 
 /// Per-system slur/tie collection output captured at the rendered origin.

@@ -41,6 +41,17 @@ pub(crate) struct MidClefChange {
     pub(crate) x: f64,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct AccidentalObstacle {
+    pub(crate) visual_staff: u32,
+    pub(crate) top: f64,
+    pub(crate) bottom: f64,
+    pub(crate) left: f64,
+    pub(crate) right: f64,
+    pub(crate) is_accidental: bool,
+    pub(crate) alter: Option<i32>,
+}
+
 /// An ottava range resolved to absolute measure indices and beat positions.
 /// Used to apply display pitch transposition for notes under ottava markings.
 pub(crate) struct ResolvedOttavaRange {

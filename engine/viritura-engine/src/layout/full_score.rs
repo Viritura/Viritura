@@ -567,7 +567,7 @@ fn render_one_staff_for_system(
         .collect();
 
     // Shared across this system's measure/voice layouts (see render_measure).
-    let mut acc_obstacles: Vec<(u32, f64, f64, f64, f64)> = Vec::new();
+    let mut acc_obstacles: Vec<AccidentalObstacle> = Vec::new();
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         let prev_has_repeat_end = if i > 0 {

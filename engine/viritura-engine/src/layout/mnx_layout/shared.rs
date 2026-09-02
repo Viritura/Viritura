@@ -810,7 +810,7 @@ pub(super) fn render_system_staves_and_contents(
 
     // Render contents for each staff. The accumulator remains shared across
     // calls, preserving the established voice/staff accidental ordering.
-    let mut acc_obstacles: Vec<(u32, f64, f64, f64, f64)> = Vec::new();
+    let mut acc_obstacles: Vec<AccidentalObstacle> = Vec::new();
     for staff_idx in 0..all_staff_layouts.len() {
         render_system_staff_content(
             dl,
@@ -903,7 +903,7 @@ pub(super) fn render_system_staff_content(
     clef_change_measures: &std::collections::HashSet<usize>,
     tie_maps_per_staff: Option<&[HashMap<String, bool>]>,
     staff_idx: usize,
-    acc_obstacles: &mut Vec<(u32, f64, f64, f64, f64)>,
+    acc_obstacles: &mut Vec<AccidentalObstacle>,
 ) {
     let Some(measure_layouts) = all_staff_layouts.get(staff_idx) else {
         return;

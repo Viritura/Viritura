@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 const ACCIDENTAL_NOTE_GAP_SP: f64 = 0.20;
 const ACCIDENTAL_APPROACH_GAP_SP: f64 = 0.50;
-const ACCIDENTAL_STACK_GAP_SP: f64 = 0.10;
+const ACCIDENTAL_STACK_GAP_SP: f64 = 0.20;
 const RHYTHMIC_INK_GAP_SP: f64 = 0.20;
 const BEAM_HOOK_LENGTH_SP: f64 = 0.875;
 
@@ -22,10 +22,54 @@ struct InkRect {
     bottom: f64,
 }
 
+#[derive(Clone, Copy)]
+struct AccidentalInkRect {
+    rect: InkRect,
+    alter: Option<i32>,
+}
+
 impl InkRect {
     fn overlaps_vertically(self, other: Self) -> bool {
         self.top < other.bottom && other.top < self.bottom
     }
+}
+
+pub(crate) fn accidental_bbox_gap(
+    left_alter: i32,
+    left: (f64, f64),
+    right_alter: i32,
+    right: (f64, f64),
+    min_ink_gap: f64,
+    scale: f64,
+) -> f64 {
+    let overlap_top = left.0.max(right.0);
+    let overlap_bottom = left.1.min(right.1);
+    if overlap_top >= overlap_bottom {
+        return min_ink_gap;
+    }
+
+    let left_cuts = smufl::accidental_cut_outs(left_alter);
+    let right_cuts = smufl::accidental_cut_outs(right_alter);
+    let cavities = if left.0 >= right.0 {
+        left_cuts
+            .ne
+            .zip(right_cuts.sw)
+            .filter(|((_, left_h), (_, right_h))| {
+                overlap_bottom <= left.0 + left_h * scale
+                    && overlap_top >= right.1 - right_h * scale
+            })
+    } else {
+        left_cuts
+            .se
+            .zip(right_cuts.nw)
+            .filter(|((_, left_h), (_, right_h))| {
+                overlap_top >= left.1 - left_h * scale
+                    && overlap_bottom <= right.0 + right_h * scale
+            })
+    };
+    cavities.map_or(min_ink_gap, |((left_w, _), (right_w, _))| {
+        min_ink_gap - (left_w + right_w) * scale
+    })
 }
 
 struct TimedEvent<'a> {
@@ -39,6 +83,7 @@ struct TimedEvent<'a> {
 
 struct VisibleAccidental {
     position: f64,
+    alter: i32,
     codepoint: u32,
     enclosure: Option<AccidentalEnclosureSymbol>,
 }
@@ -326,6 +371,7 @@ fn visible_accidentals(
         };
         accidentals.push(VisibleAccidental {
             position: event.positions.get(index).copied().unwrap_or(0.0),
+            alter,
             codepoint,
             enclosure: display
                 .and_then(|accidental| accidental.enclosure.as_ref())
@@ -339,7 +385,7 @@ fn accidental_ink(
     visible: &[VisibleAccidental],
     event: &TimedEvent<'_>,
     config: &LayoutConfig,
-) -> Vec<InkRect> {
+) -> Vec<AccidentalInkRect> {
     let mut order: Vec<usize> = (0..visible.len()).collect();
     order.sort_by(|&left, &right| visible[left].position.total_cmp(&visible[right].position));
     let mut outside_in = Vec::with_capacity(order.len());
@@ -358,7 +404,7 @@ fn accidental_ink(
 
     let notehead = smufl::notehead_glyph(&event.event.duration.base);
     let notehead_width = smufl::glyph_bbox(notehead).2;
-    let mut placed: Vec<InkRect> = Vec::with_capacity(visible.len());
+    let mut placed: Vec<AccidentalInkRect> = Vec::with_capacity(visible.len());
     for index in outside_in {
         let accidental = &visible[index];
         let (_, glyph_y, glyph_width, glyph_height) = smufl::glyph_bbox(accidental.codepoint);
@@ -400,8 +446,23 @@ fn accidental_ink(
             right = right.min(ledger_barrier);
         }
         for prior in &placed {
-            if top < prior.bottom && prior.top < bottom {
-                right = right.min(prior.left - ACCIDENTAL_STACK_GAP_SP);
+            if top < prior.rect.bottom && prior.rect.top < bottom {
+                let gap = accidental
+                    .enclosure
+                    .is_none()
+                    .then_some(accidental.alter)
+                    .zip(prior.alter)
+                    .map_or(ACCIDENTAL_STACK_GAP_SP, |(alter, prior_alter)| {
+                        accidental_bbox_gap(
+                            alter,
+                            (top, bottom),
+                            prior_alter,
+                            (prior.rect.top, prior.rect.bottom),
+                            ACCIDENTAL_STACK_GAP_SP,
+                            1.0,
+                        )
+                    });
+                right = right.min(prior.rect.left - gap);
             }
         }
 
@@ -413,11 +474,14 @@ fn accidental_ink(
             ink_top = ink_top.min(accidental.position * 0.5 + enclosure_y);
             ink_bottom = ink_bottom.max(accidental.position * 0.5 + enclosure_y + enclosure_height);
         }
-        placed.push(InkRect {
-            left: group_left,
-            right,
-            top: ink_top,
-            bottom: ink_bottom,
+        placed.push(AccidentalInkRect {
+            rect: InkRect {
+                left: group_left,
+                right,
+                top: ink_top,
+                bottom: ink_bottom,
+            },
+            alter: accidental.enclosure.is_none().then_some(accidental.alter),
         });
     }
     placed
@@ -454,7 +518,43 @@ fn ledger_crosses(position: f64, top: f64, bottom: f64) -> bool {
 /// flag or beam can widen the gap, but every staff keeps the same onset x.
 pub(super) struct InkSnapshot {
     pub(super) accidental_gap_floors: HashMap<BeatKey, f64>,
+    pub(super) accidental_extents: HashMap<BeatKey, f64>,
     pub(super) right_extents: HashMap<BeatKey, f64>,
+}
+
+fn place_against_prior_accidentals(
+    mut accidental: AccidentalInkRect,
+    prior: &[AccidentalInkRect],
+) -> AccidentalInkRect {
+    loop {
+        let barrier = prior
+            .iter()
+            .filter(|placed| accidental.rect.overlaps_vertically(placed.rect))
+            .map(|placed| {
+                let gap = accidental.alter.zip(placed.alter).map_or(
+                    ACCIDENTAL_STACK_GAP_SP,
+                    |(alter, placed_alter)| {
+                        accidental_bbox_gap(
+                            alter,
+                            (accidental.rect.top, accidental.rect.bottom),
+                            placed_alter,
+                            (placed.rect.top, placed.rect.bottom),
+                            ACCIDENTAL_STACK_GAP_SP,
+                            1.0,
+                        )
+                    },
+                );
+                placed.rect.left - gap
+            })
+            .filter(|barrier| *barrier < accidental.rect.right)
+            .min_by(f64::total_cmp);
+        let Some(barrier) = barrier else {
+            return accidental;
+        };
+        let shift = accidental.rect.right - barrier;
+        accidental.rect.left -= shift;
+        accidental.rect.right -= shift;
+    }
 }
 
 pub(super) fn ink_snapshot(
@@ -468,6 +568,7 @@ pub(super) fn ink_snapshot(
     config: &LayoutConfig,
 ) -> InkSnapshot {
     let mut floors = HashMap::new();
+    let mut accidental_extents = HashMap::new();
     let mut right_extents = HashMap::new();
     for (staff_index, sources) in staff_events.iter().enumerate() {
         let events: Vec<_> = sources
@@ -483,7 +584,7 @@ pub(super) fn ink_snapshot(
             .collect();
 
         let mut obstacles: HashMap<BeatKey, Vec<InkRect>> = HashMap::new();
-        let mut accidentals: HashMap<BeatKey, Vec<InkRect>> = HashMap::new();
+        let mut accidentals: HashMap<BeatKey, Vec<AccidentalInkRect>> = HashMap::new();
         let mut rest_onsets = HashSet::new();
         for source in sources {
             if source.event.is_rest() {
@@ -513,19 +614,38 @@ pub(super) fn ink_snapshot(
                 suppressed_note_ids.get(staff_index),
             );
             if !visible.is_empty() {
-                accidentals
-                    .entry(event.beat_key)
-                    .or_default()
-                    .extend(accidental_ink(&visible, event, config));
+                let placed = accidentals.entry(event.beat_key).or_default();
+                for rect in accidental_ink(&visible, event, config) {
+                    placed.push(place_against_prior_accidentals(rect, placed));
+                }
             }
         }
         for key in all_onsets {
+            if let Some(left) = accidentals
+                .get(key)
+                .into_iter()
+                .flatten()
+                .map(|accidental| accidental.rect.left)
+                .min_by(f64::total_cmp)
+            {
+                let extent = (-left - ACCIDENTAL_NOTE_GAP_SP).max(0.0);
+                accidental_extents
+                    .entry(*key)
+                    .and_modify(|current: &mut f64| *current = current.max(extent))
+                    .or_insert(extent);
+            }
             let right = obstacles
                 .get(key)
                 .into_iter()
                 .flatten()
-                .chain(accidentals.get(key).into_iter().flatten())
                 .map(|rect| rect.right)
+                .chain(
+                    accidentals
+                        .get(key)
+                        .into_iter()
+                        .flatten()
+                        .map(|accidental| accidental.rect.right),
+                )
                 .fold(f64::NEG_INFINITY, f64::max);
             if right.is_finite() {
                 right_extents
@@ -566,10 +686,11 @@ pub(super) fn ink_snapshot(
             };
             let mut required = 0.0_f64;
             for &obstacle in previous_ink {
-                for &accidental in next_accidentals {
-                    if obstacle.overlaps_vertically(accidental) {
-                        required = required
-                            .max(obstacle.right - accidental.left + ACCIDENTAL_APPROACH_GAP_SP);
+                for accidental in next_accidentals {
+                    if obstacle.overlaps_vertically(accidental.rect) {
+                        required = required.max(
+                            obstacle.right - accidental.rect.left + ACCIDENTAL_APPROACH_GAP_SP,
+                        );
                     }
                 }
             }
@@ -583,6 +704,7 @@ pub(super) fn ink_snapshot(
     }
     InkSnapshot {
         accidental_gap_floors: floors,
+        accidental_extents,
         right_extents,
     }
 }

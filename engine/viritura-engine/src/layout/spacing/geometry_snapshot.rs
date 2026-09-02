@@ -114,6 +114,9 @@ pub(super) fn build_spacing_snapshot<'a>(
         config,
     );
     snapshot.accidental_ink_floors = ink.accidental_gap_floors;
+    for (key, extent) in ink.accidental_extents {
+        max_entry(&mut snapshot.accidental_extents, key, extent);
+    }
     for (key, right) in ink.right_extents {
         max_entry(&mut snapshot.right_ink_extents, key, right);
     }

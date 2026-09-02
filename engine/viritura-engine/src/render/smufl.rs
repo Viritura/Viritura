@@ -1305,16 +1305,11 @@ pub mod smufl {
     /// Returns (above, below) where above = half-spaces extending upward,
     /// below = half-spaces extending downward. From Bravura bounding boxes.
     pub fn accidental_vertical_extent(alter: i32) -> (f64, f64) {
-        match alter {
-            -3 => (3.5, 1.4), // triple flat: three flat lobes (from Bravura bBoxNE/SW)
-            -2 => (3.0, 1.0), // double flat: tall upper lobe
-            -1 => (3.0, 1.0), // flat: tall upper lobe, short below
-            0 => (2.4, 2.4),  // natural: nearly symmetric
-            1 => (2.8, 2.8),  // sharp: symmetric, tall
-            2 => (0.6, 0.6),  // double sharp: compact
-            3 => (2.8, 2.8),  // triple sharp: three sharp signs (from Bravura bBoxNE/SW)
-            _ => (2.8, 2.8),  // fallback
-        }
+        let Some(codepoint) = accidental_glyph(alter) else {
+            return (2.8, 2.8);
+        };
+        let (_x, top, _width, height) = glyph_bbox(codepoint);
+        ((-top * 2.0).max(0.0), ((top + height) * 2.0).max(0.0))
     }
 
     /// Bounding box cut-outs for accidentals in staff spaces (from Bravura glyphsWithAnchors).
@@ -1329,27 +1324,27 @@ pub mod smufl {
         match alter {
             // Flat: cut-outs on right side (NE = upper stem area, SE = lower right)
             -1 => AccidentalCutOuts {
-                ne: Some((0.252, 0.656)), // cutOutNE [x, y] from Bravura
-                se: Some((0.504, 0.476)), // cutOutSE [x, abs(y)]
+                ne: Some((0.652, 1.100)),
+                se: Some((0.400, 0.224)),
                 ..Default::default()
             },
             // Natural: NE (upper right) and SW (lower left)
             0 => AccidentalCutOuts {
-                ne: Some((0.192, 0.776)),
-                sw: Some((0.476, 0.828)),
+                ne: Some((0.480, 0.588)),
+                sw: Some((0.476, 0.512)),
                 ..Default::default()
             },
             // Sharp: all four corners
             1 => AccidentalCutOuts {
-                ne: Some((0.84, 0.896)),
-                nw: Some((0.144, 0.568)),
-                se: Some((0.84, 0.596)),
-                sw: Some((0.144, 0.896)),
+                ne: Some((0.156, 0.504)),
+                nw: Some((0.144, 0.832)),
+                se: Some((0.156, 0.796)),
+                sw: Some((0.144, 0.496)),
             },
             // Double flat: NE and SE (right side only, like flat)
             -2 => AccidentalCutOuts {
-                ne: Some((0.988, 0.644)),
-                se: Some((1.336, 0.396)),
+                ne: Some((0.656, 1.104)),
+                se: Some((0.308, 0.304)),
                 ..Default::default()
             },
             // Double sharp: no cut-outs (compact symmetric glyph)
@@ -1606,14 +1601,14 @@ pub mod smufl {
             REPEAT_4_BARS => (0.0, -1.116, 4.928, 2.116),
 
             // Clefs
-            G_CLEF => (0.0, -4.0, 2.68, 6.68),
+            G_CLEF => (0.0, -4.392, 2.684, 7.024),
             G_CLEF_8VB => (0.0, -4.0, 2.68, 7.68),
             G_CLEF_8VA => (0.0, -5.0, 2.68, 7.68),
             G_CLEF_15MB => (0.0, -4.0, 2.68, 7.68),
             G_CLEF_15MA => (0.0, -5.0, 2.68, 7.68),
-            C_CLEF => (0.0, -2.0, 2.38, 4.0),
+            C_CLEF => (0.0, -2.024, 2.796, 4.048),
             C_CLEF_8VB => (0.0, -2.0, 2.38, 5.0),
-            F_CLEF => (0.0, -1.0, 2.36, 2.52),
+            F_CLEF => (-0.02, -1.048, 2.756, 3.588),
             F_CLEF_8VB => (0.0, -1.0, 2.74, 3.52),
             F_CLEF_8VA => (0.0, -2.0, 2.74, 3.52),
             F_CLEF_15MB => (0.0, -1.0, 2.74, 3.52),
@@ -1632,7 +1627,7 @@ pub mod smufl {
             TIME_SIG_NARROW_CUT => (0.0, -1.44, 1.004, 2.88),
 
             // Accidentals
-            ACCIDENTAL_FLAT => (0.0, -1.76, 0.904, 2.26),
+            ACCIDENTAL_FLAT => (0.0, -1.756, 0.904, 2.456),
             ACCIDENTAL_NATURAL => (0.0, -1.35, 0.672, 2.7),
             ACCIDENTAL_SHARP => (0.0, -1.4, 0.996, 2.8),
             ACCIDENTAL_DOUBLE_FLAT => (0.0, -1.76, 1.644, 2.26),

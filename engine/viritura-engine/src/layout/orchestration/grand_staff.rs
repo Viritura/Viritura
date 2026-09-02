@@ -254,7 +254,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
     // depend on accidental placement, so seeding them before any voice renders
     // makes accidental-vs-notehead clearance bidirectional (the first-rendered
     // voice clears the later voice's noteheads too, not just vice versa).
-    let mut acc_obstacles: Vec<(u32, f64, f64, f64, f64)> = Vec::new();
+    let mut acc_obstacles: Vec<AccidentalObstacle> = Vec::new();
     for (si, layouts) in all_sys_layouts.iter().enumerate() {
         let sy = staff_y_offsets[si];
         for ml in layouts {

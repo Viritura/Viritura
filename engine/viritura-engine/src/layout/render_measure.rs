@@ -533,7 +533,7 @@ pub(crate) fn collect_measure_notehead_obstacles(
     staff_y_offsets: Option<&[f64]>,
     sp: f64,
     config: &LayoutConfig,
-    out: &mut Vec<(u32, f64, f64, f64, f64)>,
+    out: &mut Vec<AccidentalObstacle>,
 ) {
     let nh_offset_unit = config.notehead_rx * 2.0 * sp;
     for vl in ml.voice_layouts.iter() {
@@ -562,7 +562,15 @@ pub(crate) fn collect_measure_notehead_obstacles(
                 let off = offsets.get(k).copied().unwrap_or(0.0);
                 let xl = ex + off * nh_offset_unit;
                 let cy = sy + posk * sp * 0.5;
-                out.push((vstaff, cy - 0.5 * sp, cy + 0.5 * sp, xl, xl + gw));
+                out.push(AccidentalObstacle {
+                    visual_staff: vstaff,
+                    top: cy - 0.5 * sp,
+                    bottom: cy + 0.5 * sp,
+                    left: xl,
+                    right: xl + gw,
+                    is_accidental: false,
+                    alter: None,
+                });
             }
         }
     }
@@ -593,8 +601,8 @@ pub(crate) fn render_measure(
     // voices), each rendered by its own `render_measure` call; threading this
     // through the system's measure loop lets a later chord's accidental column
     // clear an earlier one's already-placed accidentals. Each entry is
-    // `(visual_staff, top, bottom, x_left, x_right)` in absolute pixels.
-    acc_obstacles: &mut Vec<(u32, f64, f64, f64, f64)>,
+    // `(visual_staff, top, bottom, x_left, x_right, accidental_alter)` in absolute pixels.
+    acc_obstacles: &mut Vec<AccidentalObstacle>,
 ) {
     // A mid-system clef change pushes the barline right by this gap; anything
     // that aligns to the barline (the rehearsal mark) must shift with it.
@@ -824,17 +832,27 @@ pub(crate) fn render_measure(
             // other voice's glyph. The vertical-band test inside
             // `clear_sibling_obstacles` (absolute y) is the real guard — a
             // glyph on another staff sits well outside the accidental's band.
-            let sibling_accidentals: Vec<(f64, f64, f64, f64)> = if acc_obstacles.is_empty() {
-                Vec::new()
-            } else {
-                let win_lo = ev_x - 8.0 * sp;
-                let win_hi = ev_x + 2.0 * sp;
-                acc_obstacles
-                    .iter()
-                    .filter(|(_vstaff, _, _, xl, xr)| *xr > win_lo && *xl < win_hi)
-                    .map(|(_, top, bottom, xl, xr)| (*top, *bottom, *xl, *xr))
-                    .collect()
-            };
+            let sibling_accidentals: Vec<(f64, f64, f64, f64, Option<i32>)> =
+                if acc_obstacles.is_empty() {
+                    Vec::new()
+                } else {
+                    let win_lo = ev_x - 8.0 * sp;
+                    let win_hi = ev_x + 2.0 * sp;
+                    acc_obstacles
+                        .iter()
+                        .filter(|obstacle| obstacle.right > win_lo && obstacle.left < win_hi)
+                        .filter(|obstacle| obstacle.is_accidental)
+                        .map(|obstacle| {
+                            (
+                                obstacle.top,
+                                obstacle.bottom,
+                                obstacle.left,
+                                obstacle.right,
+                                obstacle.alter,
+                            )
+                        })
+                        .collect()
+                };
             render_event(
                 dl,
                 events,
@@ -872,26 +890,39 @@ pub(crate) fn render_measure(
                     x, y, codepoint, ..
                 } = &dl.commands[ci]
                 {
-                    if (0xE260..=0xE26F).contains(codepoint) {
-                        let alter = match codepoint {
-                            0xE260 => -1,
-                            0xE262 => 1,
-                            0xE263 => -2,
-                            0xE264 => 2,
-                            _ => 0,
+                    if (0xE260..=0xE26D).contains(codepoint) {
+                        let alter = match *codepoint {
+                            0xE260 => Some(-1),
+                            0xE261 => Some(0),
+                            0xE262 => Some(1),
+                            0xE263 => Some(-2),
+                            0xE264 => Some(2),
+                            0xE265 => Some(3),
+                            0xE266 => Some(-3),
+                            _ => None,
                         };
-                        let w = smufl::accidental_width(alter) * sp;
-                        let (above, below) = smufl::accidental_vertical_extent(alter);
-                        acc_obstacles.push((
-                            cur_vstaff,
-                            y - above * 0.5 * sp,
-                            y + below * 0.5 * sp,
-                            *x,
-                            *x + w,
-                        ));
+                        let (bbox_x, bbox_y, bbox_width, bbox_height) =
+                            smufl::glyph_bbox(*codepoint);
+                        acc_obstacles.push(AccidentalObstacle {
+                            visual_staff: cur_vstaff,
+                            top: y + bbox_y * sp,
+                            bottom: y + (bbox_y + bbox_height) * sp,
+                            left: x + bbox_x * sp,
+                            right: x + (bbox_x + bbox_width) * sp,
+                            is_accidental: true,
+                            alter,
+                        });
                     } else if (0xE0A0..=0xE0A4).contains(codepoint) {
                         let w = smufl::notehead_width(*codepoint) * sp;
-                        acc_obstacles.push((cur_vstaff, y - 0.5 * sp, y + 0.5 * sp, *x, *x + w));
+                        acc_obstacles.push(AccidentalObstacle {
+                            visual_staff: cur_vstaff,
+                            top: y - 0.5 * sp,
+                            bottom: y + 0.5 * sp,
+                            left: *x,
+                            right: *x + w,
+                            is_accidental: false,
+                            alter: None,
+                        });
                     }
                 }
             }

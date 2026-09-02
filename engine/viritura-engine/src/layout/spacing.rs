@@ -22,6 +22,7 @@ mod geometry_snapshot;
 mod onset_spacing;
 mod timing;
 
+pub(crate) use accidental_ink::accidental_bbox_gap;
 pub(crate) use collectors::*;
 pub(crate) use duration_profile::*;
 pub(crate) use onset_spacing::*;
