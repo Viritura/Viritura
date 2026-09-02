@@ -16,12 +16,13 @@ afterEach(() => {
 
 describe("configureMonacoEnvironment", () => {
   it("installs the worker factory when workers are available", () => {
-    globalThis.Worker = class {} as typeof Worker;
+    globalThis.Worker = class {} as unknown as typeof Worker;
     monacoGlobal.MonacoEnvironment = undefined;
 
     configureMonacoEnvironment();
 
-    expect(monacoGlobal.MonacoEnvironment?.getWorker).toBeTypeOf("function");
+    const environment = monacoGlobal.MonacoEnvironment as MonacoGlobal["MonacoEnvironment"];
+    expect(environment?.getWorker).toBeTypeOf("function");
   });
 
   it("leaves the environment unchanged during server rendering", () => {
