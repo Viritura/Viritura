@@ -111,6 +111,15 @@ function numAttr(el: string, name: string): number {
   return parseFloat(attr(el, name)) || 0;
 }
 
+export function decodeXmlText(text: string): string {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 // ─── Main export function ──────────────────────────────────────────
 
 export async function exportPdf(displayList: DisplayList, options: PdfExportOptions): Promise<Uint8Array> {
@@ -407,13 +416,7 @@ function drawSvgText(
 ): void {
   if (!textContent) return;
 
-  // Unescape XML entities
-  const text = textContent
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'");
+  const text = decodeXmlText(textContent);
 
   const xMm = numAttr(attrs, "x");
   const yMm = numAttr(attrs, "y");
