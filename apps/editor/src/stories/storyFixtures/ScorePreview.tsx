@@ -14,8 +14,7 @@ import { ScoreCanvas, type ScoreCanvasHandle } from "../../components/ScoreCanva
 import { DocumentProvider, useDocumentActions, useDocument } from "../../store/DocumentContext";
 import { ErrorBoundary } from "@viritura/ui";
 import { parseMnxWithDiagnostics } from "@viritura/format";
-import { Editor, type BeforeMount, type OnMount, type Monaco } from "@viritura/monaco-react";
-import { configureMnxJsonDiagnostics, loadMnxSchema } from "../../lib/monacoMnxSchema";
+import { MnxEditor } from "@viritura/monaco-react";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
 
 const ERROR_BANNER_STYLE: CSSProperties = {
@@ -34,16 +33,6 @@ const ERROR_BANNER_STYLE: CSSProperties = {
 const SOLO_WRAP_STYLE: CSSProperties = { display: "flex", flexDirection: "column", height: "100vh" };
 const SPLIT_ROOT_STYLE: CSSProperties = { display: "flex", height: "100vh", width: "100%" };
 const SPLITTER_STYLE: CSSProperties = { width: 1, background: "#333", flexShrink: 0, cursor: "col-resize" };
-const EDITOR_HEADER_STYLE: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  padding: "4px 12px",
-  borderBottom: "1px solid #333",
-  fontSize: "var(--type-eyebrow-size)",
-  color: "#888",
-  flexShrink: 0,
-};
 function canvasPaneRootStyle(height: number | undefined): CSSProperties {
   return { flex: 1, minHeight: height, overflow: "hidden", position: "relative" };
 }
@@ -53,10 +42,6 @@ function splitLeftStyle(editorRatio: number): CSSProperties {
 function splitRightStyle(editorRatio: number): CSSProperties {
   return { flex: editorRatio, display: "flex", flexDirection: "column", background: "#1e1e1e", overflow: "hidden" };
 }
-function editorStatusStyle(error: string | null | undefined, schemaErrors: number): CSSProperties {
-  return { marginLeft: "auto", color: error ? "#f44" : schemaErrors > 0 ? "#cca700" : "#4ec9b0" };
-}
-
 export interface ScorePreviewProps {
   /** MNX JSON string to render */
   mnxJson: string;
@@ -101,10 +86,6 @@ function ScorePreviewInner({
   const [error, setError] = useState<string | null>(null);
   const [liveMnx, setLiveMnx] = useState(mnxJson);
   const [editorValue, setEditorValue] = useState(() => formatJson(mnxJson));
-  const [schemaErrors, setSchemaErrors] = useState(0);
-  const mnxSchemaRef = useRef<Record<string, unknown> | null>(null);
-  const [monacoInst, setMonacoInst] = useState<Parameters<BeforeMount>[0] | null>(null);
-  const [editorInst, setEditorInst] = useState<Parameters<OnMount>[0] | null>(null);
 
   // Load score from props or live edits
   useEffect(() => {
@@ -120,44 +101,6 @@ function ScorePreviewInner({
       setError((err as Error).message);
     }
   }, [liveMnx, mnxJson, loadScore]);
-
-  // Load MNX JSON Schema for Monaco validation
-  useEffect(() => {
-    loadMnxSchema().then((schema) => {
-      mnxSchemaRef.current = schema;
-      if (monacoInst) {
-        configureMnxJsonDiagnostics(monacoInst, schema);
-      }
-    });
-  }, [monacoInst]);
-
-  // Listen for Monaco marker changes to track schema validation errors.
-  // NOTE: deps must be the Monaco/editor *instances* (state), not refs —
-  // ref.current changes don't trigger effects, so a refs-only version of
-  // this effect would silently never subscribe and the "Valid MNX" badge
-  // would stay green even when the schema flagged problems.
-  useEffect(() => {
-    if (!monacoInst || !editorInst) return;
-    const updateMarkerCount = () => {
-      const model = editorInst.getModel();
-      if (!model) return;
-      const markers = monacoInst.editor.getModelMarkers({ resource: model.uri });
-      setSchemaErrors(
-        markers.filter((m: { severity: number }) => m.severity >= monacoInst.MarkerSeverity.Error).length,
-      );
-    };
-    // Seed once in case markers are already present from initial validation.
-    updateMarkerCount();
-    const disposable = monacoInst.editor.onDidChangeMarkers((uris: readonly ReturnType<Monaco["Uri"]["parse"]>[]) => {
-      const model = editorInst.getModel();
-      if (!model) return;
-      const modelUri = model.uri.toString();
-      if (uris.some((u: { toString(): string }) => u.toString() === modelUri)) {
-        updateMarkerCount();
-      }
-    });
-    return () => disposable.dispose();
-  }, [monacoInst, editorInst]);
 
   // Reset live MNX when story props change
   useEffect(() => {
@@ -249,27 +192,11 @@ function ScorePreviewInner({
       <div style={splitLeftStyle(editorRatio)}>{canvasPane}</div>
       <div style={SPLITTER_STYLE} />
       <div style={splitRightStyle(editorRatio)}>
-        <div style={EDITOR_HEADER_STYLE}>
-          <span>MNX Source</span>
-          <span style={editorStatusStyle(error, schemaErrors)}>
-            {error
-              ? "⚠ Invalid JSON"
-              : schemaErrors > 0
-                ? `⚠ ${schemaErrors} schema error${schemaErrors > 1 ? "s" : ""}`
-                : "✓ Valid MNX"}
-          </span>
-        </div>
-        <Editor
-          defaultLanguage="json"
+        <MnxEditor
+          modelPath="file:///storybook.mnx"
+          schemaUrl={`${import.meta.env.BASE_URL}mnx-schema.json`}
           value={editorValue}
           onChange={handleEditorChange}
-          beforeMount={(monaco) => {
-            setMonacoInst(monaco);
-            configureMnxJsonDiagnostics(monaco, mnxSchemaRef.current);
-          }}
-          onMount={(editor) => {
-            setEditorInst(editor);
-          }}
           theme="vs-dark"
           options={{
             minimap: { enabled: false },

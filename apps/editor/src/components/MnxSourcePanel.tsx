@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { PanelHeader } from "@viritura/ui";
-import { Editor, type BeforeMount } from "@viritura/monaco-react";
+import { MnxEditor } from "@viritura/monaco-react";
 import { useDocument, useDocumentActions } from "../store/DocumentContext";
 import { parseMnxWithDiagnostics } from "@viritura/format";
-import { configureMnxJsonDiagnostics, loadMnxSchema } from "../lib/monacoMnxSchema";
+import { useThemeStore } from "../store/themeStore";
 
 const MNX_SOURCE_PANEL_ROOT_STYLE: CSSProperties = {
   display: "flex",
@@ -40,22 +40,11 @@ interface MnxSourcePanelProps {
 export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
   const { mnxJson } = useDocument();
   const { updateScore } = useDocumentActions();
+  const theme = useThemeStore((state) => state.theme);
   const [localText, setLocalText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const mnxSchemaRef = useRef<Record<string, unknown> | null>(null);
-  const monacoRef = useRef<Parameters<BeforeMount>[0] | null>(null);
   const suppressSyncRef = useRef(false);
-
-  // Load MNX JSON Schema for Monaco validation
-  useEffect(() => {
-    loadMnxSchema().then((schema) => {
-      mnxSchemaRef.current = schema;
-      if (monacoRef.current) {
-        configureMnxJsonDiagnostics(monacoRef.current, schema);
-      }
-    });
-  }, []);
 
   // Sync from DocumentContext → local text (when score changes externally)
   useEffect(() => {
@@ -76,12 +65,6 @@ export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
       setLocalText(mnxJson);
     }
   }, [mnxJson]);
-
-  // Configure Monaco JSON language service with MNX schema
-  const handleBeforeMount: BeforeMount = (monaco) => {
-    monacoRef.current = monaco;
-    configureMnxJsonDiagnostics(monaco, mnxSchemaRef.current);
-  };
 
   // Debounced push to DocumentContext
   const handleChange = useCallback(
@@ -110,20 +93,18 @@ export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
 
   return (
     <div style={MNX_SOURCE_PANEL_ROOT_STYLE}>
-      {/* Header */}
-      <PanelHeader title="MNX Source" onClose={onClose} closeIcon={<X size={14} />} />
-
-      {/* Error bar */}
-      {error && <div style={MNX_SOURCE_ERROR_STYLE}>{error}</div>}
-
       {/* Monaco editor */}
       <div style={MNX_SOURCE_EDITOR_STYLE}>
-        <Editor
-          defaultLanguage="json"
+        <MnxEditor
+          modelPath="file:///app-source.mnx"
+          schemaUrl={`${import.meta.env.BASE_URL}mnx-schema.json`}
           value={localText}
           onChange={handleChange}
-          beforeMount={handleBeforeMount}
-          theme="vs-light"
+          renderHeader={(status) => (
+            <PanelHeader title="MNX Source" actions={status} onClose={onClose} closeIcon={<X size={14} />} />
+          )}
+          banner={error ? <div style={MNX_SOURCE_ERROR_STYLE}>{error}</div> : undefined}
+          theme={theme === "light" ? "vs-light" : "vs-dark"}
           options={{
             minimap: { enabled: false },
             // Monaco option requires a numeric font size.

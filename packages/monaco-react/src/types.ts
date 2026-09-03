@@ -1,6 +1,16 @@
 import type * as Monaco from "monaco-editor";
 
-export type MonacoApi = Pick<typeof Monaco, "editor" | "json" | "languages" | "MarkerSeverity" | "Uri">;
+interface JsonValidationWorker {
+  doValidation(uri: string): Promise<readonly { readonly severity: number }[]>;
+}
+
+type JsonApi = Omit<typeof Monaco.json, "getWorker"> & {
+  getWorker(): Promise<(uri: Monaco.Uri) => Promise<JsonValidationWorker>>;
+};
+
+export type MonacoApi = Pick<typeof Monaco, "editor" | "languages" | "MarkerSeverity" | "Uri"> & {
+  json: JsonApi;
+};
 export type BeforeMount = (monaco: MonacoApi) => void;
 export type OnMount = (editor: Monaco.editor.IStandaloneCodeEditor, monaco: MonacoApi) => void;
 export type DiffOnMount = (editor: Monaco.editor.IStandaloneDiffEditor, monaco: MonacoApi) => void;

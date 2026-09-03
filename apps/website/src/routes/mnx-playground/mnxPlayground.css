@@ -72,35 +72,10 @@
 }
 
 .mnx-playground__editor {
+  grid-column: 3;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
-}
-
-.mnx-playground__editor-header {
-  display: flex;
-  flex: 0 0 34px;
-  align-items: center;
-  gap: 12px;
-  padding: 0 10px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-raised);
-  font-size: var(--type-small-size);
-  font-weight: 650;
-}
-
-.mnx-playground__validity {
-  margin-left: auto;
-  color: var(--error);
-}
-
-.mnx-playground__validity[data-state="checking"] {
-  color: var(--text-muted);
-}
-
-.mnx-playground__validity[data-state="valid"] {
-  color: var(--success, #287a62);
+  border-left: 1px solid var(--border);
 }
 
 .mnx-playground__editor-host {
@@ -111,6 +86,11 @@
 .mnx-playground__score-viewer,
 .mnx-playground__score-viewport {
   background: #f7f5ee !important;
+}
+
+.mnx-playground__preview {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .mnx-playground__score-viewport {
@@ -268,7 +248,7 @@
   }
 
   .mnx-playground__editor {
-    border-right: 0;
+    border-left: 0;
   }
 
   .mnx-playground__selectors,

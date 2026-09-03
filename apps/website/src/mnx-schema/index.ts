@@ -1,1 +1,0 @@
-export { configureMnxDiagnostics } from "./schemaDiagnostics";

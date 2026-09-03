@@ -1,10 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Editor, type OnValidate } from "@viritura/monaco-react";
+import { MnxEditor, type OnValidate } from "@viritura/monaco-react";
 import { Tabs } from "@viritura/ui";
 import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
 import { PlaygroundExampleBrowser } from "./PlaygroundExampleBrowser";
 import { PlaygroundScoreSelect } from "./PlaygroundScoreSelect";
-import { configurePlaygroundEditor, PLAYGROUND_MODEL_PATH } from "./playgroundEditor";
 import { playgroundDocuments } from "./playgroundDocuments";
 import { findPlaygroundCatalogItem, loadPlaygroundCatalogItem } from "./playgroundCatalog";
 import { exampleIdFromHash, hashForExampleId } from "./playgroundHash";
@@ -38,25 +37,6 @@ function scoreOptions(document: object): readonly ScoreViewerScoreOption[] {
   });
 }
 
-function validationLabel(markerCount: number | null): string {
-  if (markerCount === null) return "Checking MNX...";
-  return markerCount === 0 ? "Valid MNX" : `${markerCount} validation error${markerCount === 1 ? "" : "s"}`;
-}
-
-function EditorValidity({ markerCount }: { readonly markerCount: number | null }) {
-  return (
-    <div className="mnx-playground__editor-header">
-      <span>MNX Source</span>
-      <span
-        className="mnx-playground__validity"
-        data-state={markerCount === null ? "checking" : markerCount === 0 ? "valid" : "invalid"}
-      >
-        {validationLabel(markerCount)}
-      </span>
-    </div>
-  );
-}
-
 interface StatusMessagesProps {
   readonly hasError: boolean;
   readonly loadError: string | null;
@@ -73,10 +53,9 @@ function StatusMessages({ hasError, loadError, markerCount, status }: StatusMess
         className="visually-hidden"
         aria-live="polite"
       >{`${hasError ? "Error: " : ""}${status}${diagnostics}`}</span>
-      {loadError || hasError || diagnostics ? (
-        <span className="mnx-playground__status-message" aria-live="polite" data-error={Boolean(loadError || hasError)}>
-          {loadError ?? `${hasError ? "Error: " : ""}${status}`}
-          {diagnostics}
+      {loadError ? (
+        <span className="mnx-playground__status-message" aria-live="polite" data-error="true">
+          {loadError}
         </span>
       ) : null}
     </>
@@ -178,16 +157,13 @@ export function MnxPlaygroundPage() {
               data-mobile-active={mobilePane === "editor"}
               aria-label="MNX JSON editor"
             >
-              <EditorValidity markerCount={markerCount} />
               <div className="mnx-playground__editor-host">
-                <Editor
-                  path={PLAYGROUND_MODEL_PATH}
-                  language="json"
+                <MnxEditor
+                  modelPath="file:///playground.mnx"
                   value={playground.source}
-                  beforeMount={configurePlaygroundEditor}
                   onChange={(value) => playground.setSource(value ?? "")}
                   onValidate={handleValidate}
-                  theme="vs"
+                  theme="vs-dark"
                   options={{
                     automaticLayout: true,
                     minimap: { enabled: false },
