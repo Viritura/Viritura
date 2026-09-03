@@ -40,6 +40,9 @@ export default defineConfig({
     target: "es2022",
     sourcemap: false,
     cssCodeSplit: false,
+    // Vite 8's default CSS minifier drops paired `backdrop-filter`
+    // declarations. esbuild preserves the prefixed-first fallback pairs.
+    cssMinify: "esbuild",
   },
   optimizeDeps: {
     esbuildOptions: { target: "es2022" },

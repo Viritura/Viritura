@@ -125,8 +125,8 @@
   align-items: center;
   justify-content: center;
   background: rgba(247, 245, 238, 0.42);
-  backdrop-filter: blur(5px) saturate(75%);
   -webkit-backdrop-filter: blur(5px) saturate(75%);
+  backdrop-filter: blur(5px) saturate(75%);
 }
 
 .mnx-playground__layout-loading-message {
