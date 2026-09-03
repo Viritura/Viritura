@@ -77,32 +77,6 @@
   border-right: 1px solid var(--border);
 }
 
-.mnx-playground__editor-header {
-  display: flex;
-  flex: 0 0 34px;
-  align-items: center;
-  gap: 12px;
-  padding: 0 10px;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-raised);
-  font-size: var(--type-small-size);
-  font-weight: 650;
-}
-
-.mnx-playground__validity {
-  margin-left: auto;
-  color: var(--error);
-}
-
-.mnx-playground__validity[data-state="checking"] {
-  color: var(--text-muted);
-}
-
-.mnx-playground__validity[data-state="valid"] {
-  color: var(--success, #287a62);
-}
-
 .mnx-playground__editor-host {
   flex: 1 1 auto;
   min-height: 0;
