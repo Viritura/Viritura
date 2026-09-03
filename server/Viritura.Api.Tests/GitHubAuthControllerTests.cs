@@ -2,11 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Viritura.Api.Contracts.Auth;
+using Viritura.Api.Controllers;
 using Viritura.GitHub;
 using Viritura.Infrastructure;
 
@@ -268,6 +271,61 @@ public sealed class GitHubAuthControllerTests : IClassFixture<WebApplicationFact
         Assert.Contains("must use HTTPS", ex.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void AccountCreationFailureLog_OmitsIdentityDescriptionsAndEmail()
+    {
+        var logger = new CapturingLogger<GitHubAuthController>();
+        var email = "sensitive.create@example.com";
+        var result = SensitiveIdentityFailure(email);
+
+        GitHubAuthController.LogAccountCreationFailure(logger, "101", result);
+
+        AssertSafeIdentityErrorLog(logger, email, "ProviderKey", "101");
+    }
+
+    [Fact]
+    public void EmailBackfillFailureLog_OmitsIdentityDescriptionsAndEmail()
+    {
+        var logger = new CapturingLogger<GitHubAuthController>();
+        var email = "sensitive.backfill@example.com";
+        var result = SensitiveIdentityFailure(email);
+
+        GitHubAuthController.LogEmailBackfillFailure(logger, "user-101", result);
+
+        AssertSafeIdentityErrorLog(logger, email, "UserId", "user-101");
+    }
+
+    private static IdentityResult SensitiveIdentityFailure(string email) =>
+        IdentityResult.Failed(
+            new IdentityError
+            {
+                Code = "DuplicateEmail",
+                Description = $"Email '{email}' is already taken."
+            },
+            new IdentityError
+            {
+                Code = "InvalidEmail",
+                Description = $"Email '{email}' is invalid."
+            });
+
+    private static void AssertSafeIdentityErrorLog(
+        CapturingLogger<GitHubAuthController> logger,
+        string email,
+        string contextKey,
+        string contextValue)
+    {
+        Assert.DoesNotContain(email, logger.RenderedMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("already taken", logger.RenderedMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("is invalid", logger.RenderedMessage, StringComparison.Ordinal);
+        Assert.Equal("DuplicateEmail; InvalidEmail", logger.Properties["ErrorCodes"]);
+        Assert.Equal(contextValue, logger.Properties[contextKey]);
+
+        var structuredLog = string.Join(
+            "|",
+            logger.Properties.Select(property => $"{property.Key}={property.Value}"));
+        Assert.DoesNotContain(email, structuredLog, StringComparison.Ordinal);
+    }
+
     private WebApplicationFactory<Program> CreateProductionFactory() =>
         _factory.WithWebHostBuilder(builder =>
         {
@@ -335,5 +393,33 @@ public sealed class GitHubAuthControllerTests : IClassFixture<WebApplicationFact
 
         public Task<bool> RevokeOAuthGrantAsync(string accessToken, CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public string RenderedMessage { get; private set; } = string.Empty;
+
+        public Dictionary<string, object?> Properties { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            RenderedMessage = formatter(state, exception);
+            if (state is IEnumerable<KeyValuePair<string, object?>> properties)
+            {
+                foreach (var property in properties)
+                {
+                    Properties[property.Key] = property.Value;
+                }
+            }
+        }
     }
 }

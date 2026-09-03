@@ -353,10 +353,7 @@ public sealed class GitHubAuthController(
         var create = await userManager.CreateAsync(user);
         if (!create.Succeeded)
         {
-            logger.LogError(
-                "GitHub OAuth: CreateAsync failed for github-{ProviderKey}: {Errors}",
-                providerKey,
-                string.Join("; ", create.Errors.Select(e => $"{e.Code}: {e.Description}")));
+            LogAccountCreationFailure(logger, providerKey, create);
             return default;
         }
 
@@ -423,15 +420,30 @@ public sealed class GitHubAuthController(
         var set = await userManager.SetEmailAsync(user, email);
         if (!set.Succeeded)
         {
-            logger.LogError(
-                "GitHub OAuth: email backfill SetEmailAsync failed for user {UserId}: {Errors}",
-                user.Id,
-                string.Join("; ", set.Errors.Select(e => $"{e.Code}: {e.Description}")));
+            LogEmailBackfillFailure(logger, user.Id, set);
             return;
         }
         user.EmailConfirmed = true;
         await userManager.UpdateAsync(user);
     }
+
+    internal static void LogAccountCreationFailure(
+        ILogger<GitHubAuthController> logger,
+        string providerKey,
+        IdentityResult result) =>
+        logger.LogError(
+            "GitHub OAuth: CreateAsync failed for github-{ProviderKey}: {ErrorCodes}",
+            providerKey,
+            string.Join("; ", result.Errors.Select(error => error.Code)));
+
+    internal static void LogEmailBackfillFailure(
+        ILogger<GitHubAuthController> logger,
+        string userId,
+        IdentityResult result) =>
+        logger.LogError(
+            "GitHub OAuth: email backfill SetEmailAsync failed for user {UserId}: {ErrorCodes}",
+            userId,
+            string.Join("; ", result.Errors.Select(error => error.Code)));
 
     /// <summary>
     /// Helper for the security-event notifications fired after credential-surface mutations
