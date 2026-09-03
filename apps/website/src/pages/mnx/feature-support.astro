@@ -1,0 +1,18 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { MnxFeatureSupportPage } from "../../routes/mnx-feature-support";
+import { findSeoRoute } from "../../seo/routeCatalog";
+
+const route = findSeoRoute("/mnx/feature-support");
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  <main id="top" class="route-main">
+    <MnxFeatureSupportPage client:load />
+  </main>
+</SiteLayout>
