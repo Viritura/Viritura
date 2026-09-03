@@ -69,7 +69,6 @@
    button so it matches on every platform and stays keyboard-labelled. */
 .input::-webkit-search-cancel-button,
 .input::-webkit-search-decoration {
-  -webkit-appearance: none;
   appearance: none;
 }
 

@@ -71,5 +71,4 @@ export const inspectorInputStyle: CSSProperties = {
   color: "var(--text)",
   outline: "none",
   appearance: "none",
-  WebkitAppearance: "none",
 };

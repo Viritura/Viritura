@@ -129,11 +129,6 @@ export default defineConfig(({ command }) => ({
     outDir: "dist",
     target: "es2022",
     sourcemap: false,
-    // Vite 8's default CSS minifier removes the standards-based
-    // `backdrop-filter` declaration and leaves only `-webkit-backdrop-filter`.
-    // Edge then computes no filter, so production loses the glass blur that
-    // the unminified development stylesheet has. esbuild preserves both.
-    cssMinify: "esbuild",
   },
   server: {
     port: 5173,

@@ -26,7 +26,6 @@
     border-color var(--motion-fast) var(--ease-standard),
     color var(--motion-fast) var(--ease-standard);
   appearance: none;
-  -webkit-appearance: none;
 }
 
 .trigger:hover {

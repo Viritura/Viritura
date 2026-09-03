@@ -14,7 +14,6 @@ const glassPanel = {
   border: "1px solid rgba(20,20,28,0.08)",
   background: "rgba(255,255,255,0.35)",
   backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
 } as const;
 
 const paletteButton = {

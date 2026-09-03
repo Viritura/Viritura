@@ -20,7 +20,6 @@
   background: color-mix(in srgb, var(--surface-raised) 90%, transparent);
   box-shadow: var(--elevation-3);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
 }
 
 .content {

@@ -209,7 +209,6 @@ function buildControlStyle(isFloating: boolean, style: CSSProperties | undefined
     boxShadow: isFloating ? "0 12px 32px rgba(0, 0, 0, 0.28)" : "none",
     color: "rgba(255, 255, 255, 0.94)",
     backdropFilter: "blur(14px)",
-    WebkitBackdropFilter: "blur(14px)",
     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     fontSize: 12,
     userSelect: "none",
