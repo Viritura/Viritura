@@ -102,7 +102,6 @@
   /* Translucent glass — refracts the mesh underneath. */
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.35) 100%);
   backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
   /* Three-layer shadow — contact + medium + ambient — for honest depth.
      The crisp inner top stroke is the lit rim catching overhead light. */
   box-shadow:
@@ -388,7 +387,6 @@
   background: #eef0f3;
   /* Carve a quarter-disc out of the bottom-right (workspace-facing)
      corner — leaves a concave arc on the workspace side. */
-  -webkit-mask: radial-gradient(circle 22px at 100% 100%, transparent 21.5px, #000 22.5px);
   mask: radial-gradient(circle 22px at 100% 100%, transparent 21.5px, #000 22.5px);
 }
 

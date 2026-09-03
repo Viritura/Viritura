@@ -202,7 +202,6 @@ const COLLAPSIBLE_WRAP_STYLE: CSSProperties = {
   border: "1px solid rgba(20,20,28,0.08)",
   background: "rgba(255,255,255,0.55)",
   backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
   marginTop: 16,
   marginBottom: 24,
 };

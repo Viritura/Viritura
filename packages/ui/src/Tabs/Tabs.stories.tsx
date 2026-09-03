@@ -18,7 +18,6 @@ const GLASS_PANEL_STYLE: CSSProperties = {
   border: "1px solid rgba(20,20,28,0.08)",
   background: "rgba(255,255,255,0.35)",
   backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
 };
 
 const CHROME_PANEL_STYLE: CSSProperties = {

@@ -124,7 +124,6 @@
   background: rgba(255, 255, 255, 0.82);
   box-shadow: none;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 .converter-route .drop-zone:hover,

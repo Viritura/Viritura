@@ -83,13 +83,13 @@
    that want the spinners back can pass className with the override. */
 .input[type="number"],
 .inputLg[type="number"] {
-  -moz-appearance: textfield;
+  appearance: textfield;
 }
 .input[type="number"]::-webkit-outer-spin-button,
 .input[type="number"]::-webkit-inner-spin-button,
 .inputLg[type="number"]::-webkit-outer-spin-button,
 .inputLg[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+  appearance: none;
   margin: 0;
 }
 

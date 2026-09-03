@@ -87,7 +87,6 @@ const TIER1_CARD_STYLE: CSSProperties = {
   padding: "16px 18px",
   background: "color-mix(in srgb, var(--surface, #ffffff) 65%, transparent)",
   backdropFilter: "blur(40px) saturate(180%)",
-  WebkitBackdropFilter: "blur(40px) saturate(180%)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-md, 10px)",
   boxShadow: "var(--elevation-1, 0 1px 2px rgba(0,0,0,0.08))",
@@ -259,7 +258,6 @@ const COMPARE_BG_GLASS_STYLE: CSSProperties = {
   inset: 24,
   background: "color-mix(in srgb, var(--surface, #ffffff) 65%, transparent)",
   backdropFilter: "blur(40px) saturate(180%)",
-  WebkitBackdropFilter: "blur(40px) saturate(180%)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-md, 10px)",
 };
@@ -268,7 +266,6 @@ const COMPARE_FG_GLASS_STYLE: CSSProperties = {
   padding: 14,
   background: "color-mix(in srgb, var(--surface, #ffffff) 55%, transparent)",
   backdropFilter: "blur(40px) saturate(180%)",
-  WebkitBackdropFilter: "blur(40px) saturate(180%)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-md, 10px)",
   fontSize: 12,
@@ -279,7 +276,6 @@ const COMPARE_DIM_STYLE: CSSProperties = {
   inset: 0,
   background: "rgba(20,20,28,0.55)",
   backdropFilter: "blur(8px) saturate(120%)",
-  WebkitBackdropFilter: "blur(8px) saturate(120%)",
 };
 const COMPARE_OPAQUE_STYLE: CSSProperties = {
   position: "relative",
@@ -328,7 +324,6 @@ const PAPER_ON_GLASS_PANEL_STYLE: CSSProperties = {
   padding: 12,
   background: "color-mix(in srgb, var(--surface, #ffffff) 65%, transparent)",
   backdropFilter: "blur(40px) saturate(180%)",
-  WebkitBackdropFilter: "blur(40px) saturate(180%)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-md, 10px)",
   boxShadow: "var(--elevation-1, 0 1px 2px rgba(0,0,0,0.08))",

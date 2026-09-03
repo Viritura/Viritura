@@ -194,7 +194,6 @@
    we draw our own glass tile with an SVG check on :checked. */
 .checkbox {
   appearance: none;
-  -webkit-appearance: none;
   width: 18px;
   height: 18px;
   /* Square corners deliberately differentiate this from the radio
@@ -249,7 +248,6 @@
    but a circle, with a filled dot on :checked. */
 .radioInput {
   appearance: none;
-  -webkit-appearance: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -312,7 +310,6 @@
   /* Gradient text — slate → viridian to match the workspace palette
      and accent. Sets the right panel apart as the "command center." */
   background: linear-gradient(135deg, #2a2a30 0%, #215e4e 100%);
-  -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
@@ -320,7 +317,6 @@
 [data-theme="dark"] .exportHeading,
 [data-theme="midnight"] .exportHeading {
   background: linear-gradient(135deg, #ffffff 0%, #3f8a74 100%);
-  -webkit-background-clip: text;
   background-clip: text;
 }
 

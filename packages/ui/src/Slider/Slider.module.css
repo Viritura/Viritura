@@ -9,7 +9,6 @@
    declaration. */
 
 .slider {
-  -webkit-appearance: none;
   appearance: none;
   width: 100%;
   height: 18px;
@@ -80,7 +79,7 @@
 
 /* WebKit thumb — slim vertical cap. */
 .slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
+  appearance: none;
   appearance: none;
   width: 4px;
   height: 16px;
