@@ -7,29 +7,22 @@ describe("music notation feature-support data", () => {
   const audit = parseCoverageMarkdown(coverageMarkdown);
 
   it("parses every notationref row and validates declared totals", () => {
-    expect(audit.rows).toHaveLength(852);
-    expect(new Set(audit.rows.map((row) => row.id)).size).toBe(852);
-    expect(audit.groups).toHaveLength(11);
-    expect(audit.summaries.virituraMnx).toEqual({
-      supported: 429,
-      partial: 86,
-      unsupported: 337,
-      notApplicable: 0,
-      unknown: 0,
-    });
-    expect(audit.summaries.virituraMxl).toEqual({
-      supported: 272,
-      partial: 92,
-      unsupported: 438,
-      notApplicable: 50,
-      unknown: 0,
-    });
-    expect(audit.rows.filter((row) => row.partialReasons.virituraMnx)).toHaveLength(86);
-    expect(audit.rows.filter((row) => row.partialReasons.virituraMxl)).toHaveLength(92);
+    expect(audit.rows.length).toBeGreaterThan(0);
+    expect(new Set(audit.rows.map((row) => row.id)).size).toBe(audit.rows.length);
+    expect(audit.groups.length).toBeGreaterThan(0);
+    expect(audit.rows.filter((row) => row.partialReasons.virituraMnx)).toHaveLength(
+      audit.summaries.virituraMnx.partial + audit.summaries.virituraMnx.unknown,
+    );
+    expect(audit.rows.filter((row) => row.partialReasons.virituraMxl)).toHaveLength(
+      audit.summaries.virituraMxl.partial + audit.summaries.virituraMxl.unknown,
+    );
     expect(audit.rows.find((row) => row.id === "note-ottava-22ma")?.partialReasons.virituraMxl?.kind).toBe(
       "Approximation",
     );
     expect(audit.rows.find((row) => row.id === "note-sounded-pitch")?.partialReasons).toEqual({});
+    expect(audit.rows.find((row) => row.id === "event-pedal-sustain-up")?.concept).toBe("Sustain pedal up (*)");
+    expect(audit.snapshot).toContain("Viritura source:");
+    expect(audit.snapshot).not.toContain("This source-first audit");
   });
 
   it("filters by surface status and free text across groups", () => {
@@ -64,6 +57,6 @@ describe("music notation feature-support data", () => {
       .split("\n")
       .filter((line) => !line.includes("`tab-display-note-spacing`"))
       .join("\n");
-    expect(() => parseCoverageMarkdown(truncated)).toThrow(/Expected 852 notationref rows/);
+    expect(() => parseCoverageMarkdown(truncated)).toThrow(/Coverage summary .* does not match its \d+ detail rows/);
   });
 });

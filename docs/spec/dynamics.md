@@ -351,7 +351,7 @@ they are standard MNX objects, not vendor extensions.
 
 ## References
 
-- [mnx-coverage.md](mnx-coverage.md) — spec coverage matrix
+- [music-notationref-coverage.md](music-notationref-coverage.md) — source-validated feature coverage matrix
 - [viritura-extensions.md](viritura-extensions.md) — `_x.viritura` reference
 - [file-format.md](file-format.md) — on-disk format strategy
 - [id-system.md](id-system.md) — UUID-v7 identity rules

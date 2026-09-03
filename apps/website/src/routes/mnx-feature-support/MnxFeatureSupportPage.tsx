@@ -249,8 +249,8 @@ export function MnxFeatureSupportPage() {
             Music notation feature support
           </Text>
           <Text as="p" variant="body" tone="muted">
-            Explore all 852 concepts in the W3C Music Notation Reference and compare what the formats can represent with
-            what Viritura actually engraves and imports.
+            Explore all {coverageAudit.rows.length} concepts in the W3C Music Notation Reference and compare what the
+            formats can represent with what Viritura actually engraves and imports.
           </Text>
         </div>
         <aside>

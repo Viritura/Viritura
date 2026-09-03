@@ -175,4 +175,4 @@ generated and returns 404 in `deploy/nginx-viritura.com.conf`.
 
 - MNX spec: `../mnx-spec/`
 - Vendor extensions index: [`docs/spec/viritura-extensions.md`](./viritura-extensions.md)
-- Broader MNX coverage gaps: [`docs/spec/mnx-coverage.md`](./mnx-coverage.md)
+- Broader notation coverage gaps: [`docs/spec/music-notationref-coverage.md`](./music-notationref-coverage.md)

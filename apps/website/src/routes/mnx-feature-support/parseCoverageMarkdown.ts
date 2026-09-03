@@ -8,21 +8,6 @@ import type {
 } from "./coverageModel";
 import { summarizeStatuses } from "./coverageModel";
 
-const EXPECTED_ROW_COUNT = 852;
-const EXPECTED_GROUPS = [
-  "Notes",
-  "Rhythms",
-  "Rests",
-  "Measures",
-  "Voices and layers",
-  "Structure",
-  "Instruments",
-  "Metadata",
-  "Lyrics",
-  "Chord symbols",
-  "Tablature",
-] as const;
-
 function decodeMarkdownText(value: string): string {
   return value
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
@@ -32,6 +17,7 @@ function decodeMarkdownText(value: string): string {
     .replace(/&amp;/g, "&")
     .replace(/\\"/g, '"')
     .replace(/\\\|/g, "|")
+    .replace(/\\([\\`*_[\]{}()#+\-.!])/g, "$1")
     .trim();
 }
 
@@ -150,11 +136,21 @@ function parseRows(lines: readonly string[]): readonly CoverageRow[] {
       },
     });
   }
+  if (rows.length === 0) throw new Error("Coverage audit contains no notationref rows.");
   return rows;
 }
 
 function parseSnapshot(lines: readonly string[]): string {
-  const snapshotLines = lines.slice(0, 8).filter((line) => line.startsWith("> "));
+  const snapshotLines: string[] = [];
+  let inSnapshot = false;
+  for (const line of lines) {
+    if (line.startsWith("> ")) {
+      inSnapshot = true;
+      snapshotLines.push(line);
+    } else if (inSnapshot) {
+      break;
+    }
+  }
   if (snapshotLines.length === 0) throw new Error("Coverage audit snapshot metadata is missing.");
   return decodeMarkdownText(snapshotLines.map((line) => line.slice(2)).join(" "));
 }
@@ -175,14 +171,8 @@ function parseDeclaredSummaries(lines: readonly string[]): Readonly<Record<strin
 }
 
 function validateAudit(audit: CoverageAudit, declared: Readonly<Record<string, readonly number[]>>): void {
-  if (audit.rows.length !== EXPECTED_ROW_COUNT) {
-    throw new Error(`Expected ${EXPECTED_ROW_COUNT} notationref rows, found ${audit.rows.length}.`);
-  }
   const uniqueIds = new Set(audit.rows.map((row) => row.id));
   if (uniqueIds.size !== audit.rows.length) throw new Error("Coverage audit contains duplicate notationref IDs.");
-  if (audit.groups.join("|") !== EXPECTED_GROUPS.join("|")) {
-    throw new Error(`Unexpected coverage groups: ${audit.groups.join(", ")}.`);
-  }
   const expected: Readonly<Record<string, CoverageSummary>> = {
     "Upstream MNX": audit.summaries.mnx,
     "Upstream MusicXML": audit.summaries.musicXml,
@@ -192,7 +182,7 @@ function validateAudit(audit: CoverageAudit, declared: Readonly<Record<string, r
   for (const [label, summary] of Object.entries(expected)) {
     const values = declared[label];
     if (!values || values.join("|") !== summaryValues(summary).join("|")) {
-      throw new Error(`Coverage summary "${label}" does not match its 852 detail rows.`);
+      throw new Error(`Coverage summary "${label}" does not match its ${audit.rows.length} detail rows.`);
     }
   }
   for (const row of audit.rows) {

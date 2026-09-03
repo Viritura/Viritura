@@ -61,18 +61,18 @@ docs/                            # Architecture & planning docs
 
 The full documentation index lives at [`docs/README.md`](docs/README.md). Highlights:
 
-| Doc                                                           | Description                                             |
-| ------------------------------------------------------------- | ------------------------------------------------------- |
-| [Project Overview](docs/overview/project-overview.md)         | Vision, goals, target users                             |
-| [Architecture](docs/overview/architecture.md)                 | System architecture, data flow                          |
-| [Data Model Pipeline](docs/spec/data-model-pipeline.md)       | Score data model: schema → wire → in-memory → transport |
-| [Collaboration](docs/spec/collaboration-system.md)            | CRDT design, conflict resolution                        |
-| [File Format](docs/spec/file-format.md)                       | Single `.mnx` file with `_x.viritura` extensions        |
-| [Performance](docs/plans/performance-architecture.md)         | Memory model, layout pipeline, benchmarks               |
-| [Condensing & Doubling](docs/spec/condensing-and-doubling.md) | Multi-source staves: doubling and score condensing      |
-| [MNX Coverage](docs/spec/mnx-coverage.md)                     | MNX spec coverage audit                                 |
-| [Viritura Extensions](docs/spec/viritura-extensions.md)       | `_x.viritura` vendor extension reference                |
-| [MCP Integration](docs/spec/mcp-integration.md)               | MCP relay, model tools, mandatory proposal review       |
+| Doc                                                                          | Description                                                 |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| [Project Overview](docs/overview/project-overview.md)                        | Vision, goals, target users                                 |
+| [Architecture](docs/overview/architecture.md)                                | System architecture, data flow                              |
+| [Data Model Pipeline](docs/spec/data-model-pipeline.md)                      | Score data model: schema → wire → in-memory → transport     |
+| [Collaboration](docs/spec/collaboration-system.md)                           | CRDT design, conflict resolution                            |
+| [File Format](docs/spec/file-format.md)                                      | Single `.mnx` file with `_x.viritura` extensions            |
+| [Performance](docs/plans/performance-architecture.md)                        | Memory model, layout pipeline, benchmarks                   |
+| [Condensing & Doubling](docs/spec/condensing-and-doubling.md)                | Multi-source staves: doubling and score condensing          |
+| [Music Notation Reference Coverage](docs/spec/music-notationref-coverage.md) | Source-validated MNX, MusicXML, engraving, and import audit |
+| [Viritura Extensions](docs/spec/viritura-extensions.md)                      | `_x.viritura` vendor extension reference                    |
+| [MCP Integration](docs/spec/mcp-integration.md)                              | MCP relay, model tools, mandatory proposal review           |
 
 ## Getting Started
 

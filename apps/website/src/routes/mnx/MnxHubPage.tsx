@@ -123,7 +123,7 @@ export function MnxHubPage({ appUrl }: { readonly appUrl: string }) {
             <span className="mnx-hub__project-kicker">Compare</span>
             <span className="mnx-hub__project-title">Feature support</span>
             <span className="mnx-hub__project-hint">
-              Explore 852 notation concepts across MNX, MusicXML, Viritura engraving, and MXL import.
+              Explore the notation taxonomy across MNX, MusicXML, Viritura engraving, and MXL import.
             </span>
             <span className="mnx-hub__project-action">Explore the coverage matrix →</span>
           </a>

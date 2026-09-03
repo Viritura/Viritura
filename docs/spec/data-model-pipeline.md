@@ -614,7 +614,7 @@ pnpm --filter @viritura/format gen:raw-viritura:check
 ## Related docs
 
 - [viritura-extensions.md](viritura-extensions.md) — vendor-extension field reference
-- [mnx-coverage.md](mnx-coverage.md) — MNX spec coverage matrix
+- [music-notationref-coverage.md](music-notationref-coverage.md) — source-validated feature coverage matrix
 - [file-format.md](file-format.md) — on-disk `.mnx` + `.viritura` strategy
 - [collaboration-system.md](collaboration-system.md) — CRDT / Y.Doc design
 - [performance-architecture.md](../plans/performance-architecture.md) — display-list and render pipeline

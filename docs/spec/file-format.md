@@ -108,9 +108,11 @@ Key advantages over MusicXML:
 
 ## 2. MNX coverage
 
-For an up-to-date inventory of every MNX object Viritura reads and writes,
-see [mnx-coverage.md](./mnx-coverage.md). For the catalogue of vendor
-extensions we add on top of MNX, see [viritura-extensions.md](./viritura-extensions.md).
+For source-validated feature support across MNX, MusicXML, Viritura engraving,
+and Viritura import, see
+[music-notationref-coverage.md](./music-notationref-coverage.md). For the
+catalogue of vendor extensions we add on top of MNX, see
+[viritura-extensions.md](./viritura-extensions.md).
 
 What MNX intentionally does **not** cover, and how we handle it:
 

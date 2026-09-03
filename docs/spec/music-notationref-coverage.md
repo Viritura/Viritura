@@ -1,8 +1,12 @@
 # Music Notation Reference coverage audit
 
-> Snapshot: W3C [`music-notationref`](https://github.com/w3c-cg/music-notationref)
-> commit [`7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
-> (2026-08-24), audited 2026-09-02.
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"0a8c7602d624942668e1ac2b5c6a1aa2214be0d1","musicXmlCommit":"d5b9b6a0e44322dfefeab52977cbc06f2392f5e0","virituraCommit":"e4b3103f192fb71f176b7c051e0d47823fa59dcc","upstreamSyncedAt":"2026-09-03","virituraAuditedAt":"2026-09-02"} -->
+
+> Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
+> · MNX matrix: [`mnx@0a8c760`](https://github.com/w3c-cg/mnx/commit/0a8c7602d624942668e1ac2b5c6a1aa2214be0d1)
+> · MusicXML matrix: [`musicxml@d5b9b6a`](https://github.com/w3c-cg/musicxml/commit/d5b9b6a0e44322dfefeab52977cbc06f2392f5e0)
+> · Viritura source: [`e4b3103`](https://github.com/Viritura/Viritura/commit/e4b3103f192fb71f176b7c051e0d47823fa59dcc)
+> · Upstream synced 2026-09-03; Viritura audited 2026-09-02.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
 Reference to the current Viritura MNX ingest/model/engraving pipeline and the
@@ -36,11 +40,28 @@ or round-trip support unless a row note says so.
   the remaining feature boundary without pinning the audit to source paths.
 - A conservative `N` is used where only a generic text escape hatch exists
   without the row's semantic or graphical behavior.
-- Upstream inputs: [`concepts.json`](https://github.com/w3c-cg/music-notationref/blob/7aca090091a3f25f5ee726ba1f124612f3d39677/concepts.json),
-  [`MNX notationref.json`](https://mnx.formats.music/docs/notationref.json), and
-  [`MusicXML notationref.json`](https://github.com/w3c-cg/musicxml/blob/d5b9b6a0e44322dfefeab52977cbc06f2392f5e0/notationref.json).
+- Upstream inputs:
+  [`music-notationref/concepts.json`](https://github.com/w3c-cg/music-notationref/blob/main/concepts.json),
+  [`mnx/docs/notationref.json`](https://github.com/w3c-cg/mnx/blob/main/docs/notationref.json),
+  and
+  [`musicxml/notationref.json`](https://github.com/w3c-cg/musicxml/blob/gh-pages/notationref.json).
+
+## Updating this audit
+
+- `pnpm notationref:preview` reports upstream taxonomy and status drift without
+  writing.
+- `pnpm notationref:update` synchronizes W3C-owned names, grouping, statuses,
+  revisions, and totals while preserving Viritura-owned assessments.
+- `pnpm notationref:test` validates deterministic merge and regeneration
+  behavior.
+- The repository skill
+  [`.github/skills/update-notationref-audit/SKILL.md`](../../.github/skills/update-notationref-audit/SKILL.md)
+  defines the source-audit workflow for affected Viritura rows and records the
+  audited Viritura revision.
 
 ## Summary
+
+<!-- notationref-audit-summary:start -->
 
 | Matrix                         |   S |   P |   N |  NA |   ? |
 | ------------------------------ | --: | --: | --: | --: | --: |
@@ -51,32 +72,34 @@ or round-trip support unless a row note says so.
 
 ### Viritura coverage by taxonomy group
 
-| Group             | Rows | MNX pipeline S/P/N | MXL import S/P/N/NA |
-| ----------------- | ---: | -----------------: | ------------------: |
-| Notes             |  344 |         186/29/129 |       102/56/152/34 |
-| Rhythms           |   46 |             37/5/4 |           30/2/13/1 |
-| Rests             |   30 |             23/2/5 |            21/0/8/1 |
-| Measures          |  104 |            65/3/36 |           52/0/46/6 |
-| Voices and layers |    6 |              4/0/2 |             2/0/2/2 |
-| Structure         |  117 |           61/20/36 |          24/24/67/2 |
-| Instruments       |    8 |              5/1/2 |             4/0/3/1 |
-| Metadata          |   12 |              6/0/6 |             0/5/7/0 |
-| Lyrics            |   30 |            15/3/12 |           12/2/15/1 |
-| Chord symbols     |   84 |           27/23/34 |           25/0/58/1 |
-| Tablature         |   71 |             0/0/71 |            0/3/67/1 |
+| Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
+| ----------------- | ---: | -------------------: | --------------------: |
+| Notes             |  344 |         186/29/129/0 |       102/56/152/34/0 |
+| Rhythms           |   46 |             37/5/4/0 |           30/2/13/1/0 |
+| Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
+| Measures          |  104 |            65/3/36/0 |           52/0/46/6/0 |
+| Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
+| Structure         |  117 |           61/20/36/0 |          24/24/67/2/0 |
+| Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
+| Metadata          |   12 |              6/0/6/0 |             0/5/7/0/0 |
+| Lyrics            |   30 |            15/3/12/0 |           12/2/15/1/0 |
+| Chord symbols     |   84 |           27/23/34/0 |           25/0/58/1/0 |
+| Tablature         |   71 |             0/0/71/0 |            0/3/67/1/0 |
 
-The taxonomy has **852 visible item rows**. All three upstream format files
-also contain `rest-1024th`, but `concepts.json` omits that item, so the site
-never renders it. The MNX file additionally assigns invalid level `0` to
-`struct-staff-hide-specific`; this audit shows `?` in the MNX column.
+<!-- notationref-audit-summary:end -->
 
 ### Highest-confidence findings
 
+- Upstream data currently contains a `rest-1024th` format entry that is absent
+  from the visible taxonomy, and MNX assigns the invalid level `0` to
+  `struct-staff-hide-specific`. The updater reports these anomalies without
+  treating them as Viritura coverage.
 - Viritura's strongest MNX-pipeline coverage is conventional pitched notation,
   rhythms/rests, common signatures/barlines, voices, repeats, and explicit
   system/page layout. Advanced tablature remains entirely unsupported.
-- Viritura's MusicXML/MXL importer supports 272 rows outright and another 92 partially.
-  Many partial rows require `includeVendorExtensions`, which is off by default.
+- Viritura's MusicXML/MXL importer supports core notation outright and additional
+  concepts partially. Many partial rows require `includeVendorExtensions`,
+  which is off by default.
 - The importer rounds MusicXML decimal pitch alterations to integers, so
   microtonal pitches are corrupted rather than merely losing their display glyph.
 - MusicXML 22ma/22mb octave shifts fall through to 8va/8vb, and unrecognized
@@ -798,38 +821,38 @@ never renders it. The MNX file additionally assigns invalid level `0` to
 
 ### Lyrics
 
-| Subgroup                    | Concept                                                        | ID                              | MNX | MusicXML | Viritura MNX | Viritura MXL | Viritura partial gap                                                                                                                     |
-| --------------------------- | -------------------------------------------------------------- | ------------------------------- | :-: | :------: | :----------: | :----------: | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Lyric encoding              | Lyric syllable text                                            | `lyric-text`                    |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Lyric encoding              | Syllabic type (single, begin, middle, end)                     | `lyric-word-part`               |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Lyric encoding              | Verse / line number                                            | `lyric-verse-number`            |  N  |    S     |      S       |      S       | -                                                                                                                                        |
-| Lyric encoding              | Multiple verses stacked vertically                             | `lyric-multiple-verses`         |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Lyric encoding              | Lyric line name or label (e.g., "Verse 1", "Chorus")           | `lyric-name`                    |  N  |    S     |      S       |      P       | Viritura MXL [Approximation]: `name` attribute used only as a fallback key (line-${name}); not exposed as a distinct display label field |
-| Syllable-to-note alignment  | Single syllable on single note                                 | `lyric-single-syllable`         |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Syllable-to-note alignment  | Melisma (one syllable sustained across multiple notes)         | `lyric-melisma`                 |  N  |    S     |      P       |      S       | Viritura MNX [Semantic gap]: text can span events, but extender lines are not rendered                                                   |
-| Syllable-to-note alignment  | Elision / synalepha (two syllables merged on one note, ‿)      | `lyric-elision`                 |  N  |    S     |      S       |      S       | -                                                                                                                                        |
-| Syllable-to-note alignment  | Lyric attached to rest (spoken text, recitative)               | `lyric-on-rest`                 |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Syllable-to-note alignment  | Lyric on chord (single syllable for multi-note event)          | `lyric-on-chord`                |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Syllable-to-note alignment  | Multiple syllables on one note (parlando, rapid text)          | `lyric-multi-syllable-per-note` |  S  |    S     |      N       |      P       | Viritura MXL [Subset]: achieved only by reusing the multi-verse-number mechanism, not a dedicated same-verse multi-syllable encoding     |
-| Hyphens                     | Hyphen between syllables of a word                             | `lyric-hyphen`                  |  S  |    S     |      S       |      S       | -                                                                                                                                        |
-| Hyphens                     | Multiple hyphens for wide note spacing                         | `lyric-hyphen-multiple`         |  N  |    P     |      P       |      NA      | Viritura MNX [Semantic gap]: one continuation hyphen is rendered                                                                         |
-| Extender lines              | Melisma extender line (underscore through held syllable)       | `lyric-extender`                |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Extender lines              | Extender line endpoint (ends at last note of melisma)          | `lyric-extender-endpoint`       |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Extender lines              | Extender line continuation across system break                 | `lyric-extender-system-break`   |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Extender lines              | Word extension line (after final syllable held through notes)  | `lyric-word-extension`          |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Verse and section structure | Verse label displayed before first syllable ("1.", "V2", etc.) | `lyric-verse-label`             |  N  |    P     |      N       |      S       | -                                                                                                                                        |
-| Lyric placement and display | Lyrics below staff (default)                                   | `lyric-placement-below`         |  N  |    S     |      S       |      S       | -                                                                                                                                        |
-| Lyric placement and display | Lyrics above staff                                             | `lyric-placement-above`         |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Lyric placement and display | Lyrics between staves                                          | `lyric-placement-between`       |  N  |    P     |      N       |      N       | -                                                                                                                                        |
-| Lyric placement and display | Vertical spacing between verse lines                           | `lyric-line-spacing`            |  N  |    S     |      S       |      N       | -                                                                                                                                        |
-| Lyric placement and display | Syllable alignment to note (left-aligned, centered)            | `lyric-alignment`               |  N  |    S     |      S       |      N       | -                                                                                                                                        |
-| Lyric placement and display | Font / style per lyric line (e.g., italic for translations)    | `lyric-font-style`              |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Lyric placement and display | Per-syllable formatting (bold, italic, size, color)            | `lyric-syllable-formatting`     |  N  |    S     |      N       |      N       | -                                                                                                                                        |
-| Language and special text   | Language attribute on lyric line                               | `lyric-language`                |  S  |    S     |      S       |      N       | -                                                                                                                                        |
-| Language and special text   | Right-to-left lyric text (Arabic, Hebrew)                      | `lyric-rtl`                     |  N  |    S     |      P       |      N       | Viritura MNX [Semantic gap]: Unicode text is preserved, but no explicit RTL layout policy exists                                         |
-| Language and special text   | IPA (International Phonetic Alphabet) transcription line       | `lyric-ipa`                     |  N  |    S     |      S       |      N       | -                                                                                                                                        |
-| Language and special text   | Spoken text / stage direction within lyric lines               | `lyric-spoken`                  |  N  |    P     |      N       |      N       | -                                                                                                                                        |
-| Language and special text   | Humming / vocalization without text                            | `lyric-humming`                 |  N  |    S     |      N       |      N       | -                                                                                                                                        |
+| Subgroup                    | Concept                                                        | ID                              | MNX | MusicXML | Viritura MNX | Viritura MXL | Viritura partial gap                                                                                                                   |
+| --------------------------- | -------------------------------------------------------------- | ------------------------------- | :-: | :------: | :----------: | :----------: | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Lyric encoding              | Lyric syllable text                                            | `lyric-text`                    |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Lyric encoding              | Syllabic type (single, begin, middle, end)                     | `lyric-word-part`               |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Lyric encoding              | Verse / line number                                            | `lyric-verse-number`            |  N  |    S     |      S       |      S       | -                                                                                                                                      |
+| Lyric encoding              | Multiple verses stacked vertically                             | `lyric-multiple-verses`         |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Lyric encoding              | Lyric line name or label (e.g., "Verse 1", "Chorus")           | `lyric-name`                    |  N  |    S     |      S       |      P       | Viritura MXL [Approximation]: name attribute used only as a fallback key (line-${name}); not exposed as a distinct display label field |
+| Syllable-to-note alignment  | Single syllable on single note                                 | `lyric-single-syllable`         |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Syllable-to-note alignment  | Melisma (one syllable sustained across multiple notes)         | `lyric-melisma`                 |  N  |    S     |      P       |      S       | Viritura MNX [Semantic gap]: text can span events, but extender lines are not rendered                                                 |
+| Syllable-to-note alignment  | Elision / synalepha (two syllables merged on one note, ‿)      | `lyric-elision`                 |  N  |    S     |      S       |      S       | -                                                                                                                                      |
+| Syllable-to-note alignment  | Lyric attached to rest (spoken text, recitative)               | `lyric-on-rest`                 |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Syllable-to-note alignment  | Lyric on chord (single syllable for multi-note event)          | `lyric-on-chord`                |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Syllable-to-note alignment  | Multiple syllables on one note (parlando, rapid text)          | `lyric-multi-syllable-per-note` |  S  |    S     |      N       |      P       | Viritura MXL [Subset]: achieved only by reusing the multi-verse-number mechanism, not a dedicated same-verse multi-syllable encoding   |
+| Hyphens                     | Hyphen between syllables of a word                             | `lyric-hyphen`                  |  S  |    S     |      S       |      S       | -                                                                                                                                      |
+| Hyphens                     | Multiple hyphens for wide note spacing                         | `lyric-hyphen-multiple`         |  N  |    P     |      P       |      NA      | Viritura MNX [Semantic gap]: one continuation hyphen is rendered                                                                       |
+| Extender lines              | Melisma extender line (underscore through held syllable)       | `lyric-extender`                |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Extender lines              | Extender line endpoint (ends at last note of melisma)          | `lyric-extender-endpoint`       |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Extender lines              | Extender line continuation across system break                 | `lyric-extender-system-break`   |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Extender lines              | Word extension line (after final syllable held through notes)  | `lyric-word-extension`          |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Verse and section structure | Verse label displayed before first syllable ("1.", "V2", etc.) | `lyric-verse-label`             |  N  |    P     |      N       |      S       | -                                                                                                                                      |
+| Lyric placement and display | Lyrics below staff (default)                                   | `lyric-placement-below`         |  N  |    S     |      S       |      S       | -                                                                                                                                      |
+| Lyric placement and display | Lyrics above staff                                             | `lyric-placement-above`         |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Lyric placement and display | Lyrics between staves                                          | `lyric-placement-between`       |  N  |    P     |      N       |      N       | -                                                                                                                                      |
+| Lyric placement and display | Vertical spacing between verse lines                           | `lyric-line-spacing`            |  N  |    S     |      S       |      N       | -                                                                                                                                      |
+| Lyric placement and display | Syllable alignment to note (left-aligned, centered)            | `lyric-alignment`               |  N  |    S     |      S       |      N       | -                                                                                                                                      |
+| Lyric placement and display | Font / style per lyric line (e.g., italic for translations)    | `lyric-font-style`              |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Lyric placement and display | Per-syllable formatting (bold, italic, size, color)            | `lyric-syllable-formatting`     |  N  |    S     |      N       |      N       | -                                                                                                                                      |
+| Language and special text   | Language attribute on lyric line                               | `lyric-language`                |  S  |    S     |      S       |      N       | -                                                                                                                                      |
+| Language and special text   | Right-to-left lyric text (Arabic, Hebrew)                      | `lyric-rtl`                     |  N  |    S     |      P       |      N       | Viritura MNX [Semantic gap]: Unicode text is preserved, but no explicit RTL layout policy exists                                       |
+| Language and special text   | IPA (International Phonetic Alphabet) transcription line       | `lyric-ipa`                     |  N  |    S     |      S       |      N       | -                                                                                                                                      |
+| Language and special text   | Spoken text / stage direction within lyric lines               | `lyric-spoken`                  |  N  |    P     |      N       |      N       | -                                                                                                                                      |
+| Language and special text   | Humming / vocalization without text                            | `lyric-humming`                 |  N  |    S     |      N       |      N       | -                                                                                                                                      |
 
 ### Chord symbols
 
