@@ -11,9 +11,6 @@ const HEADER_STYLE: CSSProperties = {
   alignItems: "center",
   gap: 12,
   padding: "0 10px",
-  color: "var(--text-muted, #666)",
-  borderBottom: "1px solid var(--border, #d7d7d7)",
-  background: "var(--surface-raised, #f7f7f7)",
   fontSize: "var(--type-small-size, 12px)",
   fontWeight: 650,
 };
@@ -64,15 +61,15 @@ function statusLabel(state: ValidationState): string {
   }
 }
 
-function statusColor(state: ValidationState): string {
+function statusColor(state: ValidationState, dark: boolean): string {
   switch (state.kind) {
     case "checking":
-      return "var(--text-muted, #666)";
+      return dark ? "#969696" : "#616161";
     case "valid":
-      return "var(--success, #287a62)";
+      return dark ? "#4ec9b0" : "#16825d";
     case "invalid":
     case "unavailable":
-      return "var(--error, #b42318)";
+      return dark ? "#f48771" : "#c42b1c";
   }
 }
 
@@ -87,6 +84,7 @@ export function MnxEditor({
   className,
   style,
   options,
+  theme = "vs-dark",
   value,
   defaultValue,
   onChange,
@@ -107,9 +105,16 @@ export function MnxEditor({
     (validation.kind === "valid" || validation.kind === "invalid") && validation.source !== source
       ? { kind: "checking" as const }
       : validation;
+  const dark = theme.toLowerCase().includes("dark");
   const mergedOptions = useMemo(() => ({ ...BASE_OPTIONS, ...options }), [options]);
   const rootStyle = { ...ROOT_STYLE, ...style };
-  const validationStatusStyle = { ...STATUS_STYLE, color: statusColor(visibleValidation) };
+  const headerStyle = {
+    ...HEADER_STYLE,
+    color: dark ? "#cccccc" : "#333333",
+    borderBottom: `1px solid ${dark ? "#3c3c3c" : "#d4d4d4"}`,
+    background: dark ? "#252526" : "#f3f3f3",
+  };
+  const validationStatusStyle = { ...STATUS_STYLE, color: statusColor(visibleValidation, dark) };
 
   useEffect(() => {
     let active = true;
@@ -181,7 +186,7 @@ export function MnxEditor({
       {renderHeader ? (
         renderHeader(status)
       ) : (
-        <div style={HEADER_STYLE}>
+        <div style={headerStyle}>
           <span>{title}</span>
           {status}
           {headerActions}
@@ -196,6 +201,7 @@ export function MnxEditor({
           language="json"
           value={value}
           defaultValue={defaultValue}
+          theme={theme}
           beforeMount={(monaco) => {
             monacoRef.current = monaco;
             if (schema) configureMnxDiagnostics(monaco, schema);

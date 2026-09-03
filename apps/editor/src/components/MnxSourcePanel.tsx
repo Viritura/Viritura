@@ -4,6 +4,7 @@ import { PanelHeader } from "@viritura/ui";
 import { MnxEditor } from "@viritura/monaco-react";
 import { useDocument, useDocumentActions } from "../store/DocumentContext";
 import { parseMnxWithDiagnostics } from "@viritura/format";
+import { useThemeStore } from "../store/themeStore";
 
 const MNX_SOURCE_PANEL_ROOT_STYLE: CSSProperties = {
   display: "flex",
@@ -39,6 +40,7 @@ interface MnxSourcePanelProps {
 export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
   const { mnxJson } = useDocument();
   const { updateScore } = useDocumentActions();
+  const theme = useThemeStore((state) => state.theme);
   const [localText, setLocalText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -102,7 +104,7 @@ export function MnxSourcePanel({ onClose }: MnxSourcePanelProps) {
             <PanelHeader title="MNX Source" actions={status} onClose={onClose} closeIcon={<X size={14} />} />
           )}
           banner={error ? <div style={MNX_SOURCE_ERROR_STYLE}>{error}</div> : undefined}
-          theme="vs-light"
+          theme={theme === "light" ? "vs-light" : "vs-dark"}
           options={{
             minimap: { enabled: false },
             // Monaco option requires a numeric font size.

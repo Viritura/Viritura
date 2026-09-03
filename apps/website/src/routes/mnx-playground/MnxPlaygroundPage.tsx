@@ -164,7 +164,7 @@ export function MnxPlaygroundPage() {
                   value={playground.source}
                   onChange={(value) => playground.setSource(value ?? "")}
                   onValidate={handleValidate}
-                  theme="vs"
+                  theme="vs-dark"
                   options={{
                     automaticLayout: true,
                     minimap: { enabled: false },
