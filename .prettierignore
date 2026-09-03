@@ -14,6 +14,7 @@ tsconfig.tsbuildinfo
 **/tsconfig.tsbuildinfo
 
 # Generated artifacts
+**/.astro/
 apps/editor/public/wasm/
 packages/*/dist/
 apps/*/dist/

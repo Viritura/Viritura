@@ -96,6 +96,7 @@ export function SiteNav({ links }: SiteNavProps) {
           <div id="mnx-nav-menu" className="nav-submenu" hidden={!mnxMenuOpen}>
             <a href="/mnx/playground">Playground</a>
             <a href="/mnx/examples">Example library</a>
+            <a href="/mnx/feature-support">Feature support</a>
             <a href="/mnx/mxl-converter">MusicXML converter</a>
             <a href={mnxViewerUrl} target="_blank" rel="noopener noreferrer">
               VS Code extension

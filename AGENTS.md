@@ -50,7 +50,7 @@ docs/                       # Architecture documents
 
 - Documentation index: [`docs/README.md`](docs/README.md)
 - Architecture overview: `docs/overview/project-overview.md` → `docs/overview/architecture.md`
-- MNX coverage: `docs/spec/mnx-coverage.md`
+- Music Notation Reference coverage: `docs/spec/music-notationref-coverage.md`
 - Viritura vendor extensions: `docs/spec/viritura-extensions.md` (schema: `packages/format/schemas/viritura-extensions.json`)
 - MNX spec examples: `packages/format/fixtures/mnx/*.mnx` (71 upstream official examples + 15 locally-authored fixtures; all pass MNX schema validation)
 - SMuFL glyphs: `engine/viritura-engine/src/render/smufl.rs`

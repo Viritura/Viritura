@@ -34,7 +34,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "validate": "pnpm lint && pnpm lint:rust && pnpm lint:dotnet && pnpm build:dotnet:check && pnpm test && pnpm test:rust && pnpm test:rust:wasm && pnpm test:desktop && pnpm test:vst-probe && pnpm test:dotnet && pnpm audit:deps && pnpm wasm:build && pnpm build:site",
-    "lint": "pnpm mnx:schema:check && tsx scripts/check-application-boundaries.ts && tsx --test scripts/check-application-boundaries.test.ts && tsx scripts/check-no-grabbag-filenames.ts && tsx scripts/check-missing-barrels.ts && tsx scripts/check-ui-public-styles.ts && pnpm lint:rust:size && prettier --check . && eslint . && knip --no-config-hints && pnpm --filter @viritura/format gen:raw:check && pnpm --filter @viritura/format gen:raw-viritura:check",
+    "lint": "pnpm mnx:schema:check && tsx scripts/check-application-boundaries.ts && tsx --test scripts/check-application-boundaries.test.ts && pnpm notationref:test && tsx scripts/check-no-grabbag-filenames.ts && tsx scripts/check-missing-barrels.ts && tsx scripts/check-ui-public-styles.ts && pnpm lint:rust:size && prettier --check . && eslint . && knip --no-config-hints && pnpm --filter @viritura/format gen:raw:check && pnpm --filter @viritura/format gen:raw-viritura:check",
     "lint:fix": "prettier --write . && eslint . --fix",
     "lint:eslint": "eslint .",
     "lint:dead": "knip",
@@ -60,6 +60,9 @@
     "gen:raw:rust:check": "pnpm gen:raw:rust && git diff --exit-code -- engine/viritura-engine/src/raw.rs engine/viritura-engine/src/raw_viritura.rs engine/viritura-engine/src/mnx-schema.json engine/viritura-engine/src/viritura-extensions-schema.json",
     "mnx:schema:check": "tsx scripts/check-mnx-schema-source.ts",
     "mnx:schema:sync": "tsx scripts/sync-mnx-schema.ts && pnpm --filter @viritura/format gen:raw && pnpm gen:raw:rust",
+    "notationref:preview": "tsx scripts/notationref-audit/index.ts",
+    "notationref:update": "tsx scripts/notationref-audit/index.ts --write",
+    "notationref:test": "tsx --test scripts/notationref-audit/update.test.ts",
     "hooks:install": "tsx scripts/setup-git-hooks.ts",
     "prepare": "tsx scripts/setup-git-hooks.ts"
   },

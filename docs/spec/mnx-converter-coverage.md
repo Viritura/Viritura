@@ -1,5 +1,8 @@
 # MNX / MusicXML Converter Coverage
 
+For the source-validated, row-by-row comparison against the W3C Music Notation
+Reference, see [music-notationref-coverage.md](./music-notationref-coverage.md).
+
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
 converter cover MNX schema version 34, including remaining import and
 editor-integration gaps.
@@ -48,7 +51,7 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Volta endings (multi-number support, duration post-processing for start→stop range, `discontinue` → `open: true`)
 - Navigation: segno (with SMuFL `glyph`), fine, jumps (`dacapo` / `dalsegno`)
 - MusicXML colors on keys, clefs, volta endings, grace groups, and segnos
-- Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping)
+- Beam grouping (per voice / level), ottava lines, multi-staff parts (grand staff with brace grouping), and cross-staff note/event assignments
 - `<stem>up\|down</stem>` → `event.stemDirection`
 - Score metadata (`<work>`, `<movement-title/number>`, `<identification>` creators, `<credit>` title/subtitle)
 
@@ -65,7 +68,7 @@ concern: `convertMusicXmlToMnx.ts` (entrypoint), `diagnostics.ts`,
 - Post-conversion scan emits one entry per dropped construct (figured bass, bend, stem `none` / `double`, unsupported chord kinds, and extension-backed features when extensions are off).
 - Generic `DiagnosticCollector` lives in [`packages/core/src/diagnostics.ts`](../../packages/core/src/diagnostics.ts) so `format` and `musicxml` share the type without a new dep edge.
 
-**Test coverage:** ~62 tests in [`packages/musicxml/src/__tests__/convert.test.ts`](../../packages/musicxml/src/__tests__/convert.test.ts) covering every feature area above via inline-generated XML fixtures.
+**Test coverage:** 148 package tests across [`packages/musicxml/src/__tests__/`](../../packages/musicxml/src/__tests__/) covering the feature areas above with focused synthetic XML fixtures.
 
 ### Public converter UI (`apps/website/src/routes/mnx-converter/`)
 
@@ -112,7 +115,7 @@ generated and returns 404 in `deploy/nginx-viritura.com.conf`.
 
 ### Stem direction `none` (stemless) and `double`
 
-- **Today:** MusicXML converter reads `<stem>up|down</stem>`. `<stem>none</stem>` and `<stem>double</stem>` are dropped silently with a diagnostic.
+- **Today:** MusicXML converter reads `<stem>up|down</stem>`. `<stem>none</stem>` and `<stem>double</stem>` are dropped with warning diagnostics.
 - **MNX gap:** MNX defines only `up | down`. Needs an `_x.viritura` extension (or an upstream MNX issue).
 - **Path forward:** Add `_x.viritura.stem = "none" | "double"` on the event during MusicXML import; teach the engine to suppress / mirror the stem on render.
 
@@ -161,7 +164,6 @@ generated and returns 404 in `deploy/nginx-viritura.com.conf`.
 | ---- | ------------------------------------ | ----------------------------------------------------------- |
 | 2.7  | Ottava grace/voice targets           | Out of scope for v1; spec ambiguous.                        |
 | 2.10 | Written-pitch enharmonic delta       | Transposition layer not yet present.                        |
-| 2.12 | Cross-staff `event.staff`            | Engine cross-staff incomplete; revisit with §2.3.           |
 | 2.14 | Cross-jump grace runs                | Niche; depends on §2.11 `tie.cross-jump`.                   |
 | 2.20 | Global-measure (end-barline) fermata | Superseded by event-level fermata model.                    |
 | 2.21 | Breath-marks legacy behavior         | Bug-for-bug compatibility; not desirable.                   |
@@ -173,4 +175,4 @@ generated and returns 404 in `deploy/nginx-viritura.com.conf`.
 
 - MNX spec: `../mnx-spec/`
 - Vendor extensions index: [`docs/spec/viritura-extensions.md`](./viritura-extensions.md)
-- Broader MNX coverage gaps: [`docs/spec/mnx-coverage.md`](./mnx-coverage.md)
+- Broader notation coverage gaps: [`docs/spec/music-notationref-coverage.md`](./music-notationref-coverage.md)

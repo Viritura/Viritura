@@ -19,6 +19,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/build/**",
       "**/.turbo/**",
+      "**/.astro/**",
       "**/.venv*/**",
       "**/coverage/**",
       "**/storybook-static/**",

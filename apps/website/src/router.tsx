@@ -54,6 +54,10 @@ const MnxPlaygroundPage = lazy(() =>
   import("./routes/mnx-playground").then((module) => ({ default: module.MnxPlaygroundPage })),
 );
 
+const MnxFeatureSupportPage = lazy(() =>
+  import("./routes/mnx-feature-support").then((module) => ({ default: module.MnxFeatureSupportPage })),
+);
+
 const DocsPage = lazy(() => import("./routes/docs/DocsPage").then((module) => ({ default: module.DocsPage })));
 const DOCS_DEFAULT_SLUG = "getting-started";
 
@@ -205,6 +209,20 @@ const mnxPlaygroundRoute = createRoute({
             <MnxPlaygroundPage />
           </Suspense>
         </ClientOnly>
+      </main>
+    );
+  },
+});
+
+const mnxFeatureSupportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/mnx/feature-support",
+  component: function MnxFeatureSupportRoute() {
+    return (
+      <main id="top" className="route-main">
+        <Suspense fallback={<div className="route-loading">Loading feature support...</div>}>
+          <MnxFeatureSupportPage />
+        </Suspense>
       </main>
     );
   },
@@ -380,6 +398,7 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   mnxRoute,
   mnxPlaygroundRoute,
+  mnxFeatureSupportRoute,
   converterRoute,
   docsIndexRoute,
   docsPageRoute,

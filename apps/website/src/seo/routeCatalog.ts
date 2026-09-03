@@ -44,6 +44,14 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
+    path: "/mnx/feature-support",
+    title: "MNX and MusicXML Feature Support | Viritura",
+    description:
+      "Explore the music notation taxonomy and compare MNX, MusicXML, Viritura engraving, and Viritura MusicXML/MXL importer support.",
+    canonicalPath: "/mnx/feature-support",
+    indexable: true,
+  },
+  {
     path: "/mnx/examples",
     title: "MNX Examples and Engraving Library | Viritura",
     description:

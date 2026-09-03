@@ -18,6 +18,10 @@ describe("SEO route catalog", () => {
     expect(sitemapRoutes.some((route) => route.path === "/mnx/examples")).toBe(true);
   });
 
+  it("includes the music notation feature-support explorer in the sitemap", () => {
+    expect(sitemapRoutes.some((route) => route.path === "/mnx/feature-support")).toBe(true);
+  });
+
   it("publishes Getting Started as the documentation home page", () => {
     expect(staticRoutes.some((route) => route.path === "/docs")).toBe(true);
     expect(sitemapRoutes.some((route) => route.path === "/docs")).toBe(true);
