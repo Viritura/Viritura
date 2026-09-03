@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { coverageAudit } from "./coverageData";
-import { DEFAULT_COVERAGE_FILTERS, filterCoverageRows, type CoverageFilters, type CoverageRow } from "./coverageModel";
-
-export interface GroupedCoverageRows {
-  group: string;
-  rows: readonly CoverageRow[];
-}
+import { DEFAULT_COVERAGE_FILTERS, filterCoverageRows, type CoverageFilters } from "./coverageModel";
 
 const COVERAGE_HASH_EVENT = "viritura:coverage-hash";
 
