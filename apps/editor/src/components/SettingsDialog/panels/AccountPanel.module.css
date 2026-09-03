@@ -1,5 +1,5 @@
 .panel {
-  width: min(100%, 640px);
+  width: 100%;
   padding: var(--space-1) 0 var(--space-5);
 }
 

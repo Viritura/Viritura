@@ -30,6 +30,7 @@ interface SignInDialogProps {
   readonly open: boolean;
   readonly account: VirituraAccountState;
   readonly onClose: () => void;
+  readonly onSignedIn?: () => void;
 }
 
 // Sign-up lives on the marketing site so the verification flow (link click ->
@@ -257,7 +258,7 @@ function CredentialError({
  * legitimate user who happens to be unconfirmed sees it; an enumerator
  * gains no extra signal because the link is shown unconditionally on error.
  */
-export function SignInDialog({ open, account, onClose }: SignInDialogProps) {
+export function SignInDialog({ open, account, onClose, onSignedIn }: SignInDialogProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -307,17 +308,20 @@ export function SignInDialog({ open, account, onClose }: SignInDialogProps) {
           setStep("totp");
           return; // stay open for the second factor
         }
+        onSignedIn?.();
         onClose();
         return;
       }
       if (step === "totp") {
         await account.signInTwoFactor({ code: twoFactorCode.trim(), rememberClient });
         clearPendingTwoFactorChallenge();
+        onSignedIn?.();
         onClose();
         return;
       }
       await account.signInRecovery({ code: twoFactorCode.trim() });
       clearPendingTwoFactorChallenge();
+      onSignedIn?.();
       onClose();
     } catch (err) {
       if (err instanceof AuthApiError) {

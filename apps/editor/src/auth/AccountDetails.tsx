@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { AlertCircle, ChevronDown, ExternalLink, KeyRound, LogOut } from "lucide-react";
+import { AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { FormField, FormInput } from "@viritura/ui";
+import { Button, FormField, FormInput } from "@viritura/ui";
 import { beginGitHubLogin } from "../github/api";
 import type { GitHubAccountState } from "../github/useGitHubAccount";
 import {
@@ -21,8 +21,8 @@ import { RecentAuthPanel } from "./RecentAuthPanel";
 import { DeleteAccountRow, DisplayNameRow, EmailRow } from "./accountManagementRows";
 import { GitHubAdvancedUnlink, GoogleAdvancedUnlink } from "./accountUnlinkPanels";
 import { useAuthCapabilities } from "./useAuthCapabilities";
+import { AccountSettingsRow } from "./AccountSettingsRow";
 import styles from "./AccountButton.module.css";
-import { GitHubMark } from "../brand/GitHubMark";
 
 export interface AccountDetailsProps {
   readonly account: VirituraAccountState;
@@ -31,18 +31,20 @@ export interface AccountDetailsProps {
 }
 
 /**
- * Body of the signed-in account popover/disclosure. Shared between the
- * activity-bar `AccountButton` and the StartCenter signed-in panel so the
- * sign-out + provider-management surface stays consistent across the app.
+ * Signed-in account settings surface.
  *
  * Renders: persona header (avatar + name + email), optional error notice,
- * per-provider rows (GitHub + Google), and a sign-out button.
+ * configured provider rows, security controls, and sign-out actions.
  */
 export function AccountDetails({ account, github, user }: AccountDetailsProps) {
   const displayLabel = user.displayName?.trim() || user.email;
   const avatarUrl = pickAvatarUrl(user, github);
   const initials = getInitials(user);
   const capabilities = useAuthCapabilities(true);
+  const hasGitHubLogin = user.externalLogins.some((login) => login.provider === "GitHub");
+  const hasGoogleLogin = user.externalLogins.some((login) => login.provider === "Google");
+  const showGitHub = capabilities?.gitHubLoginEnabled === true || hasGitHubLogin;
+  const showGoogle = capabilities?.googleLoginEnabled === true || hasGoogleLogin;
 
   return (
     <>
@@ -61,11 +63,13 @@ export function AccountDetails({ account, github, user }: AccountDetailsProps) {
         </div>
       )}
 
-      <section className={styles.providers} aria-label="Connected accounts">
-        <div className={styles.providersLabel}>Connected accounts</div>
-        <GitHubRow github={github} user={user} />
-        <GoogleRow user={user} account={account} configured={capabilities?.googleLoginEnabled === true} />
-      </section>
+      {(showGitHub || showGoogle) && (
+        <section className={styles.providers} aria-label="Connected accounts">
+          <div className={styles.providersLabel}>Connected accounts</div>
+          {showGitHub && <GitHubRow github={github} user={user} />}
+          {showGoogle && <GoogleRow user={user} account={account} />}
+        </section>
+      )}
 
       <section className={styles.providers} aria-label="Sign-in security">
         <div className={styles.providersLabel}>Sign-in security</div>
@@ -77,40 +81,48 @@ export function AccountDetails({ account, github, user }: AccountDetailsProps) {
         <div className={styles.providersLabel}>Account</div>
         <DisplayNameRow account={account} user={user} />
         <EmailRow user={user} />
-        <DeleteAccountRow account={account} user={user} />
       </section>
 
-      <div className={styles.divider} role="separator" />
+      <section className={styles.providers} aria-label="Sessions">
+        <div className={styles.providersLabel}>Sessions</div>
+        <AccountSettingsRow
+          label="Current session"
+          description="Sign out on this browser."
+          action={
+            <Button
+              onClick={() => {
+                void account
+                  .signOut()
+                  .then(() => toast.success("Signed out"))
+                  .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Sign-out failed"));
+              }}
+            >
+              Sign out
+            </Button>
+          }
+        />
+        <SignOutEverywhereRow account={account} />
+      </section>
 
-      {/* eslint-disable-next-line no-restricted-syntax -- bespoke icon+label popover footer action with custom hover treatment; @viritura/ui Button doesn't model this row pattern. */}
-      <button
-        type="button"
-        className={styles.signOut}
-        onClick={() => {
-          void account
-            .signOut()
-            .then(() => toast.success("Signed out"))
-            .catch((err: unknown) => toast.error(err instanceof Error ? err.message : "Sign-out failed"));
-        }}
-      >
-        <LogOut size={15} aria-hidden="true" />
-        <span>Sign out</span>
-      </button>
-      <SignOutEverywhereLink account={account} />
+      <section className={styles.providers} aria-label="Danger zone">
+        <div className={styles.providersLabel}>Danger zone</div>
+        <DeleteAccountRow account={account} user={user} />
+      </section>
     </>
   );
 }
 
-function SignOutEverywhereLink({ account }: { readonly account: VirituraAccountState }) {
+function SignOutEverywhereRow({ account }: { readonly account: VirituraAccountState }) {
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
 
   if (!confirming) {
     return (
-      /* eslint-disable-next-line no-restricted-syntax -- secondary text-link under the primary sign-out button. */
-      <button type="button" className={styles.signOutEverywhere} onClick={() => setConfirming(true)}>
-        Sign out of all devices
-      </button>
+      <AccountSettingsRow
+        label="Other sessions"
+        description="Sign out browsers and devices when their session is next checked, within 30 minutes."
+        action={<Button onClick={() => setConfirming(true)}>Sign out everywhere…</Button>}
+      />
     );
   }
 
@@ -124,63 +136,40 @@ function SignOutEverywhereLink({ account }: { readonly account: VirituraAccountS
   };
 
   return (
-    <div className={styles.signOutEverywhereConfirm}>
-      <span className={styles.confirmPrompt}>
-        Other sessions get kicked the next time their cookie is re-checked (usually within 30 minutes).
-      </span>
-      <div className={styles.confirmActions}>
-        {/* eslint-disable-next-line no-restricted-syntax -- inline cancel matches the unlink disclosure pattern. */}
-        <button type="button" className={styles.linkAction} disabled={working} onClick={() => setConfirming(false)}>
-          <span>Cancel</span>
-        </button>
-        {/* eslint-disable-next-line no-restricted-syntax -- destructive inline confirm matches the unlink disclosure pattern. */}
-        <button type="button" className={styles.linkActionDanger} disabled={working} onClick={handle}>
-          <span>{working ? "Signing out…" : "Sign out everywhere"}</span>
-        </button>
-      </div>
-    </div>
+    <AccountSettingsRow
+      label="Other sessions"
+      description="This will invalidate every other signed-in browser and device."
+      action={
+        <Button size="sm" variant="ghost" disabled={working} onClick={() => setConfirming(false)}>
+          Cancel
+        </Button>
+      }
+      details={
+        <div className={styles.confirmActions}>
+          <Button size="sm" variant="danger" disabled={working} onClick={handle}>
+            {working ? "Signing out…" : "Confirm sign out everywhere"}
+          </Button>
+        </div>
+      }
+    />
   );
 }
 
 interface ProviderRowProps {
-  readonly icon: ReactNode;
   readonly providerName: string;
-  readonly accountLabel: string;
-  readonly statusText: string;
-  readonly connected: boolean;
-  readonly children: ReactNode;
+  readonly description: string;
+  readonly action: ReactNode;
+  readonly details?: ReactNode;
 }
 
-function ProviderRow({ icon, providerName, accountLabel, statusText, connected, children }: ProviderRowProps) {
-  return (
-    <div className={styles.provider} data-connected={connected ? "true" : "false"}>
-      <div className={styles.providerIcon} aria-hidden="true">
-        {icon}
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>{providerName}</span>
-          <span className={styles.providerStatus} data-state={connected ? "connected" : "disconnected"}>
-            {statusText}
-          </span>
-        </div>
-        {connected && <div className={styles.providerMeta}>{accountLabel}</div>}
-        <div className={styles.providerActions}>{children}</div>
-      </div>
-    </div>
-  );
+function ProviderRow({ providerName, description, action, details }: ProviderRowProps) {
+  return <AccountSettingsRow label={providerName} description={description} action={action} details={details} />;
 }
 
-function getGitHubStatusText(opts: {
-  configured: boolean;
-  loading: boolean;
-  connected: boolean;
-  canCreateRepositories: boolean;
-}): string {
-  if (!opts.configured) return "Not configured";
-  if (opts.loading) return "Checking…";
-  if (!opts.connected) return "Not connected";
-  return opts.canCreateRepositories ? "Installed" : "Connected";
+function getGitHubConnectionDescription(connected: boolean, viewerLogin: string | null): string {
+  if (!connected) return "Not connected.";
+  if (viewerLogin) return `Connected as @${viewerLogin}`;
+  return "Connected to this account.";
 }
 
 function GitHubRow({ github, user }: { readonly github: GitHubAccountState; readonly user: VirituraUser }) {
@@ -193,38 +182,19 @@ function GitHubRow({ github, user }: { readonly github: GitHubAccountState; read
   const loading = github.status === "loading";
   const viewerLogin = github.session?.viewer?.login ?? null;
   const [reauthOpen, setReauthOpen] = useState(false);
-
-  const statusText = getGitHubStatusText({
-    configured,
-    loading,
-    connected,
-    canCreateRepositories: installation?.canCreateRepositories === true,
-  });
+  const [manageOpen, setManageOpen] = useState(false);
 
   return (
     <ProviderRow
-      icon={<GitHubMark size={16} />}
       providerName="GitHub"
-      accountLabel={viewerLogin ? `@${viewerLogin}` : "Linked"}
-      statusText={statusText}
-      connected={connected}
-    >
-      {connected ? (
-        <>
-          {installUrl && (
-            <a className={styles.linkAction} href={installUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={12} aria-hidden="true" />
-              <span>{installation?.installed ? "Manage app" : "Install app"}</span>
-            </a>
-          )}
-          <GitHubAdvancedUnlink github={github} viewerLogin={viewerLogin} user={user} />
-        </>
-      ) : (
-        <>
-          {/* eslint-disable-next-line no-restricted-syntax -- inline provider-link CTA. */}
-          <button
-            type="button"
-            className={styles.linkActionPrimary}
+      description={getGitHubConnectionDescription(connected, viewerLogin)}
+      action={
+        connected ? (
+          <Button onClick={() => setManageOpen((open) => !open)} aria-expanded={manageOpen}>
+            Manage…
+          </Button>
+        ) : (
+          <Button
             disabled={!configured || loading}
             onClick={() => {
               void getRecentAuthStatus("LinkLogin").then((satisfied) => {
@@ -233,57 +203,52 @@ function GitHubRow({ github, user }: { readonly github: GitHubAccountState; read
               });
             }}
           >
-            <span>{configured ? "Connect GitHub" : "Unavailable"}</span>
-          </button>
-          {reauthOpen && (
-            <RecentAuthPanel
-              user={user}
-              action="LinkLogin"
-              onCancel={() => setReauthOpen(false)}
-              onVerified={() => beginGitHubLogin(undefined, "activity")}
-            />
-          )}
-        </>
-      )}
-    </ProviderRow>
+            {loading ? "Checking…" : configured ? "Connect" : "Unavailable"}
+          </Button>
+        )
+      }
+      details={
+        connected && manageOpen ? (
+          <div className={styles.accountManagementActions}>
+            {installUrl && (
+              <a className={styles.linkAction} href={installUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={12} aria-hidden="true" />
+                <span>{installation?.installed ? "Manage app" : "Install app"}</span>
+              </a>
+            )}
+            <GitHubAdvancedUnlink github={github} viewerLogin={viewerLogin} user={user} />
+          </div>
+        ) : reauthOpen ? (
+          <RecentAuthPanel
+            user={user}
+            action="LinkLogin"
+            onCancel={() => setReauthOpen(false)}
+            onVerified={() => beginGitHubLogin(undefined, "activity")}
+          />
+        ) : undefined
+      }
+    />
   );
 }
 
-function GoogleRow({
-  user,
-  account,
-  configured,
-}: {
-  readonly user: VirituraUser;
-  readonly account: VirituraAccountState;
-  readonly configured: boolean;
-}) {
+function GoogleRow({ user, account }: { readonly user: VirituraUser; readonly account: VirituraAccountState }) {
   const link = user.externalLogins.find((l) => l.provider === "Google");
   const connected = Boolean(link);
   const startUrl = `${getVirituraAuthBaseUrl()}/auth/external/google/start?returnTo=${encodeURIComponent(getCurrentLocation())}`;
   const [reauthOpen, setReauthOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   return (
     <ProviderRow
-      icon={<GoogleIcon />}
       providerName="Google"
-      accountLabel={link?.displayName ?? "Linked"}
-      statusText={!configured ? "Not configured" : connected ? "Connected" : "Not connected"}
-      connected={connected}
-    >
-      {connected && link ? (
-        <GoogleAdvancedUnlink
-          account={account}
-          providerKey={link.providerKey}
-          displayName={link.displayName}
-          user={user}
-        />
-      ) : configured ? (
-        <>
-          {/* eslint-disable-next-line no-restricted-syntax -- inline provider-link CTA. */}
-          <button
-            type="button"
-            className={styles.linkActionPrimary}
+      description={connected ? (link?.displayName ?? "Connected to this account.") : "Not connected."}
+      action={
+        connected ? (
+          <Button onClick={() => setManageOpen((open) => !open)} aria-expanded={manageOpen}>
+            Manage…
+          </Button>
+        ) : (
+          <Button
             onClick={() => {
               void getRecentAuthStatus("LinkLogin").then((satisfied) => {
                 if (satisfied) window.location.assign(startUrl);
@@ -291,23 +256,28 @@ function GoogleRow({
               });
             }}
           >
-            <span>Connect Google</span>
-          </button>
-          {reauthOpen && (
-            <RecentAuthPanel
-              user={user}
-              action="LinkLogin"
-              onCancel={() => setReauthOpen(false)}
-              onVerified={() => window.location.assign(startUrl)}
-            />
-          )}
-        </>
-      ) : (
-        <span className={styles.linkActionPrimary} aria-disabled="true">
-          Unavailable
-        </span>
-      )}
-    </ProviderRow>
+            Connect
+          </Button>
+        )
+      }
+      details={
+        connected && link && manageOpen ? (
+          <GoogleAdvancedUnlink
+            account={account}
+            providerKey={link.providerKey}
+            displayName={link.displayName}
+            user={user}
+          />
+        ) : reauthOpen ? (
+          <RecentAuthPanel
+            user={user}
+            action="LinkLogin"
+            onCancel={() => setReauthOpen(false)}
+            onVerified={() => window.location.assign(startUrl)}
+          />
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -328,24 +298,7 @@ function PasswordRow({ account, user }: { readonly account: VirituraAccountState
   const hasPassword = user.hasPassword;
   const canRemove = hasPassword && user.externalLogins.length > 0;
 
-  return (
-    <div className={styles.provider} data-connected={hasPassword ? "true" : "false"}>
-      <div className={styles.providerIcon} aria-hidden="true">
-        <KeyRound size={16} />
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>Password</span>
-          <span className={styles.providerStatus} data-state={hasPassword ? "connected" : "disconnected"}>
-            {hasPassword ? "Set" : "Not set"}
-          </span>
-        </div>
-        <div className={styles.providerActions}>
-          <PasswordAdvanced account={account} user={user} hasPassword={hasPassword} canRemove={canRemove} />
-        </div>
-      </div>
-    </div>
-  );
+  return <PasswordAdvanced account={account} user={user} hasPassword={hasPassword} canRemove={canRemove} />;
 }
 
 type PasswordMode = "menu" | "change" | "set-auth" | "set" | "remove";
@@ -364,80 +317,81 @@ function PasswordAdvanced({
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<PasswordMode>("menu");
 
-  const toggleLabel = hasPassword ? "Manage password" : "Advanced";
+  const toggleLabel = hasPassword ? "Manage password" : "Set password";
 
   return (
-    <>
-      {/* eslint-disable-next-line no-restricted-syntax -- muted disclosure toggle; matches GitHubAdvancedUnlink's text-link affordance. */}
-      <button
-        type="button"
-        className={styles.advancedToggle}
-        data-open={open ? "true" : "false"}
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((prev) => !prev);
-          setMode("menu");
-        }}
-      >
-        <span>{toggleLabel}</span>
-        <ChevronDown size={11} aria-hidden="true" className={styles.advancedChevron} />
-      </button>
-      {open && (
-        <div className={styles.advancedPanel}>
-          {mode === "menu" && (
-            <PasswordMenu
-              hasPassword={hasPassword}
-              canRemove={canRemove}
-              onChoose={(next) => {
-                if (next !== "set") {
-                  setMode(next);
-                  return;
-                }
-                void getRecentAuthStatus("SetPassword").then((satisfied) => setMode(satisfied ? "set" : "set-auth"));
-              }}
-            />
-          )}
-          {mode === "set-auth" && (
-            <RecentAuthPanel
-              user={user}
-              action="SetPassword"
-              onCancel={() => setMode("menu")}
-              onVerified={() => setMode("set")}
-            />
-          )}
-          {mode === "change" && (
-            <ChangePasswordForm
-              onCancel={() => setMode("menu")}
-              onDone={() => {
-                setMode("menu");
-                setOpen(false);
-                void account.refresh();
-              }}
-            />
-          )}
-          {mode === "set" && (
-            <SetPasswordForm
-              onCancel={() => setMode("menu")}
-              onDone={() => {
-                setMode("menu");
-                setOpen(false);
-                void account.refresh();
-              }}
-            />
-          )}
-          {mode === "remove" && (
-            <RemovePasswordForm
-              onCancel={() => setMode("menu")}
-              onDone={() => {
-                setMode("menu");
-                setOpen(false);
-                void account.refresh();
-              }}
-            />
-          )}
-        </div>
-      )}
-    </>
+    <AccountSettingsRow
+      label="Password"
+      description={hasPassword ? "A password is configured for this account." : "No password is configured."}
+      action={
+        <Button
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((prev) => !prev);
+            setMode("menu");
+          }}
+        >
+          {toggleLabel}…
+        </Button>
+      }
+      details={
+        open ? (
+          <>
+            {mode === "menu" && (
+              <PasswordMenu
+                hasPassword={hasPassword}
+                canRemove={canRemove}
+                onChoose={(next) => {
+                  if (next !== "set") {
+                    setMode(next);
+                    return;
+                  }
+                  void getRecentAuthStatus("SetPassword").then((satisfied) => setMode(satisfied ? "set" : "set-auth"));
+                }}
+              />
+            )}
+            {mode === "set-auth" && (
+              <RecentAuthPanel
+                user={user}
+                action="SetPassword"
+                onCancel={() => setMode("menu")}
+                onVerified={() => setMode("set")}
+              />
+            )}
+            {mode === "change" && (
+              <ChangePasswordForm
+                onCancel={() => setMode("menu")}
+                onDone={() => {
+                  setMode("menu");
+                  setOpen(false);
+                  void account.refresh();
+                }}
+              />
+            )}
+            {mode === "set" && (
+              <SetPasswordForm
+                onCancel={() => setMode("menu")}
+                onDone={() => {
+                  setMode("menu");
+                  setOpen(false);
+                  void account.refresh();
+                }}
+              />
+            )}
+            {mode === "remove" && (
+              <RemovePasswordForm
+                onCancel={() => setMode("menu")}
+                onDone={() => {
+                  setMode("menu");
+                  setOpen(false);
+                  void account.refresh();
+                }}
+              />
+            )}
+          </>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -649,30 +603,6 @@ export function AvatarBubble({
         <span>{initials}</span>
       )}
     </span>
-  );
-}
-
-function GoogleIcon() {
-  // Inline brand glyph (4-color G) — Google's brand guidelines allow this rendering for sign-in UI.
-  return (
-    <svg viewBox="0 0 18 18" width="16" height="16" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.908c1.702-1.568 2.684-3.874 2.684-6.615Z"
-      />
-      <path
-        fill="#34A853"
-        d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.583-5.036-3.71H.957v2.332A8.997 8.997 0 0 0 9 18Z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M3.964 10.708A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.708V4.96H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.04l3.007-2.332Z"
-      />
-      <path
-        fill="#EA4335"
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.892 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"
-      />
-    </svg>
   );
 }
 

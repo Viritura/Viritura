@@ -137,6 +137,36 @@
 
 /* ── Visual variants ── */
 
+.defaultVariant {
+  padding-inline: var(--space-3);
+  border-color: rgba(20, 20, 28, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(20, 20, 28, 0.1);
+  color: var(--text);
+  font-weight: var(--type-control-weight);
+}
+
+.defaultVariant:hover:not(:disabled):not([aria-pressed="true"]) {
+  border-color: rgba(20, 20, 28, 0.24);
+  background: rgba(20, 20, 28, 0.08);
+  box-shadow: 0 2px 4px rgba(20, 20, 28, 0.12);
+}
+
+[data-theme="dark"] .defaultVariant,
+[data-theme="midnight"] .defaultVariant,
+[data-on-dark] .defaultVariant {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+[data-theme="dark"] .defaultVariant:hover:not(:disabled):not([aria-pressed="true"]),
+[data-theme="midnight"] .defaultVariant:hover:not(:disabled):not([aria-pressed="true"]),
+[data-on-dark] .defaultVariant:hover:not(:disabled):not([aria-pressed="true"]) {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .ghost {
   background: transparent;
   border-color: transparent;

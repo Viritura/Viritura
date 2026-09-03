@@ -43,6 +43,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddVirituraInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddVirituraGitHub(builder.Configuration);
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+{
+    options.ValidationInterval = TimeSpan.FromMinutes(30);
+});
 
 builder.Services.AddOpenIddict()
     .AddCore(options =>
@@ -124,6 +128,7 @@ var authBuilder = builder.Services
         options.SlidingExpiration = true;
         options.LoginPath = PathString.Empty;
         options.AccessDeniedPath = PathString.Empty;
+        options.Events.OnValidatePrincipal = SecurityStampValidator.ValidatePrincipalAsync;
         options.Events.OnRedirectToLogin = context =>
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;

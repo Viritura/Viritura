@@ -98,7 +98,7 @@ function buttonClassName({
   return [
     styles.button,
     size !== "md" ? styles[size!] : "",
-    variant !== "default" ? styles[variant!] : "",
+    variant === "default" ? styles.defaultVariant : styles[variant!],
     shape === "icon" ? styles.iconShape : "",
     fullWidth ? styles.fullWidth : "",
     bleedInline ? styles.bleedInline : "",

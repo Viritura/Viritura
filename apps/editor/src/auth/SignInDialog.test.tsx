@@ -46,6 +46,7 @@ function makeAccount(signIn: VirituraAccountState["signIn"]): VirituraAccountSta
 describe("SignInDialog", () => {
   afterEach(() => {
     authMocks.capabilities = { ...authMocks.capabilities, gitHubLoginEnabled: false };
+    window.history.pushState(null, "", "/");
   });
 
   it("uses the official GitHub mark when GitHub login is configured", () => {
@@ -94,5 +95,23 @@ describe("SignInDialog", () => {
 
     await user.type(screen.getByLabelText("Password"), "x");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("opens directly to the OAuth two-factor step and reports completion", async () => {
+    window.history.pushState(null, "", "/?two_factor_required=1");
+    const account = makeAccount(vi.fn());
+    const onClose = vi.fn();
+    const onSignedIn = vi.fn();
+    const user = userEvent.setup();
+    render(<SignInDialog open account={account} onClose={onClose} onSignedIn={onSignedIn} />);
+
+    expect(screen.getByText("Two-factor authentication")).toBeTruthy();
+    await user.type(screen.getByLabelText("Authenticator code"), "123456");
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+
+    expect(account.signInTwoFactor).toHaveBeenCalledWith({ code: "123456", rememberClient: false });
+    expect(onSignedIn).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(window.location.search).toBe("");
   });
 });

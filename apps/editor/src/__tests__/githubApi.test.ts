@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  beginGitHubLogin,
   consumeGitHubOAuthReturnIntent,
   createGitHubRepository,
   getGitHubGitProxyUrl,
   getGitHubLoginUrl,
+  getGitHubOAuthPopupReturnUrl,
   getGitHubSession,
+  isGitHubOAuthPopupReturn,
   markGitHubOAuthReturnIntent,
 } from "../github/api";
 
@@ -13,6 +16,7 @@ const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promis
 afterEach(() => {
   vi.unstubAllGlobals();
   sessionStorage.clear();
+  window.history.pushState(null, "", "/");
   fetchMock.mockReset();
 });
 
@@ -26,6 +30,42 @@ describe("GitHub API client", () => {
     expect(decodeURIComponent(url.split("returnTo=")[1] ?? "")).toBe(
       "http://localhost:3000/score?panel=github#measure-4",
     );
+  });
+
+  it("builds a focused popup return URL without copying editor route state", () => {
+    window.history.pushState(null, "", "/score?panel=github#measure-4");
+
+    const returnUrl = getGitHubOAuthPopupReturnUrl();
+    window.history.pushState(null, "", new URL(returnUrl).pathname + new URL(returnUrl).search);
+
+    expect(returnUrl).toBe("http://localhost:3000/score?oauth_popup=github");
+    expect(isGitHubOAuthPopupReturn()).toBe(true);
+  });
+
+  it("opens GitHub OAuth in an isolated popup", () => {
+    window.history.pushState(null, "", "/score?panel=github#measure-4");
+    const assign = vi.fn();
+    const focus = vi.fn();
+    const popup = {
+      opener: window,
+      location: { assign },
+      focus,
+    } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(popup);
+
+    beginGitHubLogin("https://localhost:5001", "start-center");
+
+    expect(open).toHaveBeenCalledWith(
+      "",
+      expect.stringMatching(/^viritura-github-oauth-/),
+      expect.stringContaining("popup=yes"),
+    );
+    expect(popup.opener).toBeNull();
+    expect(focus).toHaveBeenCalledOnce();
+    const loginUrl = new URL(String(assign.mock.calls[0]?.[0]));
+    expect(loginUrl.origin).toBe("https://localhost:5001");
+    expect(loginUrl.pathname).toBe("/github/auth/start");
+    expect(loginUrl.searchParams.get("returnTo")).toBe("http://localhost:3000/score?oauth_popup=github");
   });
 
   it("loads session state with credentials", async () => {

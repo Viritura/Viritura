@@ -55,6 +55,7 @@ function probeText(): string {
 }
 
 beforeEach(() => {
+  window.history.pushState(null, "", "/");
   authenticated = false;
   clock += 10_000;
   vi.spyOn(Date, "now").mockImplementation(() => clock);
@@ -71,6 +72,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  window.history.pushState(null, "", "/");
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -120,5 +122,14 @@ describe("AccountProvider under StrictMode", () => {
 
     await waitFor(() => expect(probeText()).toContain(`ready|${USER.email}`));
     expect(requestCount("/auth/me")).toBe(2);
+  });
+
+  it("renders only the focused two-factor flow in an OAuth return popup", async () => {
+    window.history.pushState(null, "", "/?oauth_popup=github&two_factor_required=1");
+
+    renderProvider();
+
+    expect(await screen.findByText("Two-factor authentication")).toBeTruthy();
+    expect(screen.queryByTestId("probe")).toBeNull();
   });
 });

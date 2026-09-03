@@ -1,8 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import { ChevronDown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import { FormField, FormInput } from "@viritura/ui";
+import { Button, FormField, FormInput } from "@viritura/ui";
 import {
   AuthApiError,
   disableTwoFactor,
@@ -16,6 +15,7 @@ import {
   type VirituraUser,
 } from "./api";
 import { RecentAuthPanel } from "./RecentAuthPanel";
+import { AccountSettingsRow } from "./AccountSettingsRow";
 import styles from "./AccountButton.module.css";
 
 /**
@@ -39,9 +39,8 @@ export function TwoFactorRow({ user }: { readonly user: VirituraUser }) {
       });
   };
 
-  // Load status eagerly so the row's "Set up 2FA" vs "Manage 2FA" label and the Enabled/Disabled
-  // badge are correct on first render. The popover only mounts when the account button is opened,
-  // so this still costs nothing for users who never open the account menu.
+  // Load status eagerly so the row's action and recovery-code summary are correct
+  // on first render. This still costs nothing until the account menu is opened.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- canonical fetch-on-mount: loadStatus() clears statusError (already null on first mount, so no cascading render) then resolves into setStatus from the network roundtrip.
     loadStatus();
@@ -60,70 +59,55 @@ export function TwoFactorRow({ user }: { readonly user: VirituraUser }) {
   };
 
   const enabled = status?.enabled === true;
-  const statusText = status === null ? (statusError ? "Unavailable" : "…") : enabled ? "Enabled" : "Disabled";
 
   return (
-    <div className={styles.provider} data-connected={enabled ? "true" : "false"}>
-      <div className={styles.providerIcon} aria-hidden="true">
-        <ShieldCheck size={16} />
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>Two-factor authentication</span>
-          <span className={styles.providerStatus} data-state={enabled ? "connected" : "disconnected"}>
-            {statusText}
-          </span>
-        </div>
-        {enabled && status && (
-          <div className={styles.providerMeta}>
-            {status.remainingRecoveryCodes} recovery code{status.remainingRecoveryCodes === 1 ? "" : "s"} remaining
-          </div>
-        )}
-        <div className={styles.providerActions}>
-          {/* eslint-disable-next-line no-restricted-syntax -- muted disclosure toggle; matches PasswordAdvanced and GitHubAdvancedUnlink. */}
-          <button
-            type="button"
-            className={styles.advancedToggle}
-            data-open={open ? "true" : "false"}
-            aria-expanded={open}
-            onClick={handleToggle}
-          >
-            <span>{enabled ? "Manage 2FA" : "Set up 2FA"}</span>
-            <ChevronDown size={11} aria-hidden="true" className={styles.advancedChevron} />
-          </button>
-          {open && (
-            <div className={styles.advancedPanel}>
-              {statusError && <span className={styles.confirmPrompt}>{statusError}</span>}
-              {mode === "menu" && status && (
-                <TwoFactorMenu
-                  enabled={enabled}
-                  onChoose={(next) => {
-                    if (next !== "setup") {
-                      setMode(next);
-                      return;
-                    }
-                    void getRecentAuthStatus("ManageTwoFactor").then((satisfied) =>
-                      setMode(satisfied ? "setup" : "reauth"),
-                    );
-                  }}
-                />
-              )}
-              {mode === "reauth" && (
-                <RecentAuthPanel
-                  user={user}
-                  action="ManageTwoFactor"
-                  onCancel={() => setMode("menu")}
-                  onVerified={() => setMode("setup")}
-                />
-              )}
-              {mode === "setup" && <TwoFactorSetupFlow onCancel={() => setMode("menu")} onDone={onDone} />}
-              {mode === "disable" && <TwoFactorDisableForm onCancel={() => setMode("menu")} onDone={onDone} />}
-              {mode === "regenerate" && <TwoFactorRegenerateFlow onCancel={() => setMode("menu")} onDone={onDone} />}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <AccountSettingsRow
+      label="Two-factor authentication"
+      description={
+        enabled && status
+          ? `${status.remainingRecoveryCodes} recovery code${status.remainingRecoveryCodes === 1 ? "" : "s"} remaining.`
+          : statusError
+            ? "Status unavailable."
+            : "Protect this account with an authenticator app."
+      }
+      action={
+        <Button aria-expanded={open} onClick={handleToggle} disabled={status === null && !statusError}>
+          {enabled ? "Manage…" : "Set up…"}
+        </Button>
+      }
+      details={
+        open ? (
+          <>
+            {statusError && <span className={styles.confirmPrompt}>{statusError}</span>}
+            {mode === "menu" && status && (
+              <TwoFactorMenu
+                enabled={enabled}
+                onChoose={(next) => {
+                  if (next !== "setup") {
+                    setMode(next);
+                    return;
+                  }
+                  void getRecentAuthStatus("ManageTwoFactor").then((satisfied) =>
+                    setMode(satisfied ? "setup" : "reauth"),
+                  );
+                }}
+              />
+            )}
+            {mode === "reauth" && (
+              <RecentAuthPanel
+                user={user}
+                action="ManageTwoFactor"
+                onCancel={() => setMode("menu")}
+                onVerified={() => setMode("setup")}
+              />
+            )}
+            {mode === "setup" && <TwoFactorSetupFlow onCancel={() => setMode("menu")} onDone={onDone} />}
+            {mode === "disable" && <TwoFactorDisableForm onCancel={() => setMode("menu")} onDone={onDone} />}
+            {mode === "regenerate" && <TwoFactorRegenerateFlow onCancel={() => setMode("menu")} onDone={onDone} />}
+          </>
+        ) : undefined
+      }
+    />
   );
 }
 

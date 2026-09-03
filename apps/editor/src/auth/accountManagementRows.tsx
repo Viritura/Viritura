@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { ChevronDown, Mail, Trash2, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
-import { FormField, FormInput } from "@viritura/ui";
+import { Button, FormField, FormInput } from "@viritura/ui";
 import { deleteVirituraAccount, getRecentAuthStatus, requestVirituraEmailChange, updateVirituraProfile } from "./api";
 import type { VirituraUser } from "./api";
 import type { VirituraAccountState } from "./useVirituraAccount";
@@ -9,6 +8,7 @@ import { isPlaceholderEmail } from "./accountIdentity";
 import { PASSWORD_FORM_STYLE, unpackAuthError } from "./accountFormShared";
 import { PasswordFormActions } from "./PasswordFormActions";
 import { RecentAuthPanel } from "./RecentAuthPanel";
+import { AccountSettingsRow } from "./AccountSettingsRow";
 import styles from "./AccountButton.module.css";
 
 // -- Email change ----------------------------------------------------------------
@@ -57,88 +57,72 @@ export function EmailRow({ user }: { readonly user: VirituraUser }) {
   };
 
   return (
-    <div className={styles.provider} data-connected="true">
-      <div className={styles.providerIcon} aria-hidden="true">
-        <Mail size={16} />
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>Email</span>
-          <span className={styles.providerStatus} data-state="connected">
-            {isPlaceholderEmail(user.email) ? "Not set" : "Set"}
-          </span>
-        </div>
-        {!isPlaceholderEmail(user.email) && <div className={styles.providerMeta}>{user.email}</div>}
-        <div className={styles.providerActions}>
-          {/* eslint-disable-next-line no-restricted-syntax -- muted disclosure toggle; matches GitHubAdvancedUnlink. */}
-          <button
-            type="button"
-            className={styles.advancedToggle}
-            data-open={open ? "true" : "false"}
-            aria-expanded={open}
-            onClick={() => {
-              setOpen((prev) => !prev);
-              setErrors({});
-              if (!requiresPassword && !open) {
-                void getRecentAuthStatus("ChangeEmail").then(setRecentVerified);
-              }
-            }}
-          >
-            <span>Change email</span>
-            <ChevronDown size={11} aria-hidden="true" className={styles.advancedChevron} />
-          </button>
-          {open && (
-            <div className={styles.advancedPanel}>
-              {!recentVerified ? (
-                <RecentAuthPanel
-                  user={user}
-                  action="ChangeEmail"
-                  onCancel={() => setOpen(false)}
-                  onVerified={() => setRecentVerified(true)}
+    <AccountSettingsRow
+      label="Email"
+      description={isPlaceholderEmail(user.email) ? "No email address is configured." : user.email}
+      action={
+        <Button
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((prev) => !prev);
+            setErrors({});
+            if (!requiresPassword && !open) {
+              void getRecentAuthStatus("ChangeEmail").then(setRecentVerified);
+            }
+          }}
+        >
+          {isPlaceholderEmail(user.email) ? "Add…" : "Change…"}
+        </Button>
+      }
+      details={
+        open ? (
+          !recentVerified ? (
+            <RecentAuthPanel
+              user={user}
+              action="ChangeEmail"
+              onCancel={() => setOpen(false)}
+              onVerified={() => setRecentVerified(true)}
+            />
+          ) : (
+            <form onSubmit={submit} style={PASSWORD_FORM_STYLE}>
+              <FormField label="New email address" error={errors.email}>
+                <FormInput
+                  type="email"
+                  autoComplete="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                  disabled={submitting}
                 />
-              ) : (
-                <form onSubmit={submit} style={PASSWORD_FORM_STYLE}>
-                  <FormField label="New email address" error={errors.email}>
-                    <FormInput
-                      type="email"
-                      autoComplete="email"
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                      required
-                      disabled={submitting}
-                    />
-                  </FormField>
-                  {requiresPassword && (
-                    <FormField label="Confirm current password" error={errors.password}>
-                      <FormInput
-                        type="password"
-                        autoComplete="current-password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        required
-                        disabled={submitting}
-                      />
-                    </FormField>
-                  )}
-                  <span className={styles.confirmPrompt}>
-                    We’ll email a confirmation link to the new address. Your account email won’t change until you click
-                    it.
-                  </span>
-                  <PasswordFormActions
-                    onCancel={() => {
-                      setOpen(false);
-                      setErrors({});
-                    }}
-                    submitting={submitting}
-                    submitLabel="Send confirmation"
+              </FormField>
+              {requiresPassword && (
+                <FormField label="Confirm current password" error={errors.password}>
+                  <FormInput
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    disabled={submitting}
                   />
-                </form>
+                </FormField>
               )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+              <span className={styles.confirmPrompt}>
+                We’ll email a confirmation link to the new address. Your account email won’t change until you click it.
+              </span>
+              <PasswordFormActions
+                onCancel={() => {
+                  setOpen(false);
+                  setErrors({});
+                }}
+                submitting={submitting}
+                submitLabel="Send confirmation"
+              />
+            </form>
+          )
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -196,89 +180,70 @@ export function DeleteAccountRow({
   };
 
   return (
-    <div className={styles.provider} data-connected="false">
-      <div className={styles.providerIcon} aria-hidden="true">
-        <Trash2 size={16} />
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>Delete account</span>
-          <span className={styles.providerStatus} data-state="disconnected">
-            Danger zone
-          </span>
-        </div>
-        <div className={styles.providerActions}>
-          {/* eslint-disable-next-line no-restricted-syntax -- muted disclosure toggle. */}
-          <button
-            type="button"
-            className={styles.advancedToggle}
-            data-open={open ? "true" : "false"}
-            aria-expanded={open}
-            onClick={() => {
-              setOpen((prev) => !prev);
-              setConfirming(false);
-              setError(undefined);
-              if (!requiresPassword && !open) {
-                void getRecentAuthStatus("DeleteAccount").then(setRecentVerified);
-              }
-            }}
-          >
-            <span>Advanced</span>
-            <ChevronDown size={11} aria-hidden="true" className={styles.advancedChevron} />
-          </button>
-          {open && (
-            <div className={styles.advancedPanel}>
-              {confirming ? (
-                !recentVerified ? (
-                  <RecentAuthPanel
-                    user={user}
-                    action="DeleteAccount"
-                    onCancel={reset}
-                    onVerified={() => setRecentVerified(true)}
-                  />
-                ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleDelete();
-                    }}
-                    style={PASSWORD_FORM_STYLE}
-                  >
-                    <span className={styles.confirmPrompt}>
-                      This is permanent. All Viritura data tied to your account is removed and can’t be restored.
-                      {requiresPassword && " Confirm your current password to continue."}
-                    </span>
-                    {requiresPassword && (
-                      <FormField label="Confirm current password" error={error}>
-                        <FormInput
-                          type="password"
-                          autoComplete="current-password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          required
-                          disabled={submitting}
-                        />
-                      </FormField>
-                    )}
-                    <PasswordFormActions
-                      onCancel={reset}
-                      submitting={submitting}
-                      submitLabel="Delete my account"
-                      danger
+    <AccountSettingsRow
+      label="Delete account"
+      description="Permanently delete your account and its stored account data."
+      action={
+        <Button
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((prev) => !prev);
+            setConfirming(false);
+            setError(undefined);
+            if (!requiresPassword && !open) {
+              void getRecentAuthStatus("DeleteAccount").then(setRecentVerified);
+            }
+          }}
+        >
+          Delete account…
+        </Button>
+      }
+      details={
+        open ? (
+          confirming ? (
+            !recentVerified ? (
+              <RecentAuthPanel
+                user={user}
+                action="DeleteAccount"
+                onCancel={reset}
+                onVerified={() => setRecentVerified(true)}
+              />
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleDelete();
+                }}
+                style={PASSWORD_FORM_STYLE}
+              >
+                <span className={styles.confirmPrompt}>
+                  This is permanent. All Viritura data tied to your account is removed and can’t be restored.
+                  {requiresPassword && " Confirm your current password to continue."}
+                </span>
+                {requiresPassword && (
+                  <FormField label="Confirm current password" error={error}>
+                    <FormInput
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                      disabled={submitting}
                     />
-                  </form>
-                )
-              ) : (
-                /* eslint-disable-next-line no-restricted-syntax -- destructive text-link inside disclosure. */
-                <button type="button" className={styles.linkActionDanger} onClick={() => setConfirming(true)}>
-                  <span>Delete this account permanently</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+                  </FormField>
+                )}
+                <PasswordFormActions onCancel={reset} submitting={submitting} submitLabel="Delete my account" danger />
+              </form>
+            )
+          ) : (
+            /* eslint-disable-next-line no-restricted-syntax -- destructive text-link inside disclosure. */
+            <button type="button" className={styles.linkActionDanger} onClick={() => setConfirming(true)}>
+              <span>Delete this account permanently</span>
+            </button>
+          )
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -326,58 +291,43 @@ export function DisplayNameRow({
   const current = user.displayName?.trim() ?? "";
 
   return (
-    <div className={styles.provider} data-connected={current ? "true" : "false"}>
-      <div className={styles.providerIcon} aria-hidden="true">
-        <UserIcon size={16} />
-      </div>
-      <div className={styles.providerBody}>
-        <div className={styles.providerName}>
-          <span>Display name</span>
-          <span className={styles.providerStatus} data-state={current ? "connected" : "disconnected"}>
-            {current ? "Set" : "Not set"}
-          </span>
-        </div>
-        {current && <div className={styles.providerMeta}>{current}</div>}
-        <div className={styles.providerActions}>
-          {/* eslint-disable-next-line no-restricted-syntax -- muted disclosure toggle; matches EmailRow. */}
-          <button
-            type="button"
-            className={styles.advancedToggle}
-            data-open={open ? "true" : "false"}
-            aria-expanded={open}
-            onClick={() => {
-              setOpen((prev) => !prev);
-              setError(undefined);
-              setDisplayName(user.displayName ?? "");
-            }}
-          >
-            <span>{current ? "Change" : "Set"}</span>
-            <ChevronDown size={11} aria-hidden="true" className={styles.advancedChevron} />
-          </button>
-          {open && (
-            <div className={styles.advancedPanel}>
-              <form onSubmit={submit} style={PASSWORD_FORM_STYLE}>
-                <FormField label="Display name" error={error}>
-                  <FormInput
-                    type="text"
-                    autoComplete="name"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    disabled={submitting}
-                    maxLength={64}
-                    placeholder="How others see you"
-                  />
-                </FormField>
-                <PasswordFormActions
-                  submitLabel={submitting ? "Saving…" : "Save"}
-                  submitting={submitting}
-                  onCancel={() => setOpen(false)}
-                />
-              </form>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <AccountSettingsRow
+      label="Display name"
+      description={current || "No display name is configured."}
+      action={
+        <Button
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((prev) => !prev);
+            setError(undefined);
+            setDisplayName(user.displayName ?? "");
+          }}
+        >
+          {current ? "Change…" : "Set…"}
+        </Button>
+      }
+      details={
+        open ? (
+          <form onSubmit={submit} style={PASSWORD_FORM_STYLE}>
+            <FormField label="Display name" error={error}>
+              <FormInput
+                type="text"
+                autoComplete="name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                disabled={submitting}
+                maxLength={64}
+                placeholder="How others see you"
+              />
+            </FormField>
+            <PasswordFormActions
+              submitLabel={submitting ? "Saving…" : "Save"}
+              submitting={submitting}
+              onCancel={() => setOpen(false)}
+            />
+          </form>
+        ) : undefined
+      }
+    />
   );
 }
