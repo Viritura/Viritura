@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Editor } from "../Editor";
 import type { EditorProps, MonacoApi, OnMount, OnValidate } from "../types";
 import { configureMnxDiagnostics, loadMnxSchema } from "./diagnostics";
@@ -135,7 +135,7 @@ export function MnxEditor({
     };
   }, [schemaUrl]);
 
-  const validateModel = async (monaco: MonacoApi): Promise<void> => {
+  const validateModel = useEffectEvent(async (monaco: MonacoApi): Promise<void> => {
     const editor = editorRef.current;
     const model = editor?.getModel();
     if (!schema || !model) return;
@@ -157,7 +157,11 @@ export function MnxEditor({
       const message = error instanceof Error ? error.message : "The MNX validation worker failed";
       setValidation({ kind: "unavailable", message });
     }
-  };
+  });
+
+  useEffect(() => {
+    if (monacoRef.current) void validateModel(monacoRef.current);
+  }, [schema, source]);
 
   const handleMarkerValidation: OnValidate = (markers, validatedSource) => {
     onValidate?.(markers, validatedSource);
@@ -208,12 +212,10 @@ export function MnxEditor({
           }}
           onChange={(nextValue, event) => {
             onChange?.(nextValue, event);
-            if (monacoRef.current) void validateModel(monacoRef.current);
           }}
           onMount={(editor, monaco) => {
             editorRef.current = editor;
             onMount?.(editor, monaco);
-            void validateModel(monaco);
           }}
           onValidate={handleMarkerValidation}
           options={mergedOptions}
