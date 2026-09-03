@@ -64,6 +64,57 @@ test("flattens nested notationref groups into stable row paths", () => {
   ]);
 });
 
+test("escapes backslashes and table delimiters from upstream taxonomy text", () => {
+  const specialSnapshot: UpstreamSnapshot = {
+    ...snapshot,
+    concepts: [
+      {
+        type: "group",
+        name: "Notes",
+        items: [
+          {
+            type: "subgroup",
+            name: "Path \\ syntax",
+            items: [{ type: "item", id: "pitch", name: "Pitch \\ marker | alternate" }],
+          },
+        ],
+      },
+    ],
+    mnx: matrix("MNX", { pitch: { level: 1 } }),
+    musicXml: matrix("MusicXML", { pitch: { level: 1 } }),
+  };
+  const markdown = `# Music Notation Reference coverage audit
+
+<!-- notationref-audit-meta {"taxonomyCommit":"${"a".repeat(40)}","mnxCommit":"${"b".repeat(40)}","musicXmlCommit":"${"c".repeat(40)}","virituraCommit":"${"d".repeat(40)}","upstreamSyncedAt":"2026-01-01","virituraAuditedAt":"2026-01-01"} -->
+> snapshot
+
+This source-first audit is a fixture.
+
+## Status legend and method
+
+Fixture method.
+
+## Summary
+
+old summary
+
+### Highest-confidence findings
+
+- Keep this prose.
+
+## Complete row audit
+
+### Notes
+
+| Subgroup | Concept | ID | MNX | MusicXML | Viritura MNX | Viritura MXL | Viritura partial gap |
+| --- | --- | --- | :---: | :---: | :---: | :---: | --- |
+| Pitch | Pitch | \`pitch\` | S | S | S | P | Viritura MXL [Subset]: Preserves semitone pitches |
+`;
+  const result = updateAuditMarkdown(markdown, specialSnapshot, { today: "2026-09-03" });
+  assert.match(result.markdown, /Path \\\\ syntax/);
+  assert.match(result.markdown, /Pitch \\\\ marker \\\| alternate/);
+});
+
 test("updates upstream-owned fields while preserving Viritura assessments", () => {
   const result = mergeAuditRows(currentRows, snapshot);
   assert.deepEqual(result.report, {

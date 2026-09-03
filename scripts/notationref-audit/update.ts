@@ -111,7 +111,12 @@ function decode(value: string): string {
 }
 
 function escapeCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r?\n/g, " ");
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, " ");
 }
 
 function parseStatus(value: string, id: string): SupportStatus {
