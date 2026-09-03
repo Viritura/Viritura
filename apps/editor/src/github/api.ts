@@ -68,6 +68,10 @@ class GitHubApiError extends Error {
 }
 
 const GITHUB_OAUTH_RETURN_INTENT_KEY = "viritura.github.oauthReturn";
+const GITHUB_OAUTH_POPUP_PARAM = "oauth_popup";
+const GITHUB_OAUTH_POPUP_VALUE = "github";
+const GITHUB_OAUTH_COMPLETION_CHANNEL = "viritura.github.oauthComplete";
+const GITHUB_OAUTH_COMPLETION_MESSAGE = "complete";
 
 export type GitHubLoginSource = "activity" | "start-center";
 
@@ -81,17 +85,70 @@ export function getGitHubGitProxyUrl(apiBaseUrl = getVirituraApiBaseUrl()): stri
   return `${apiBaseUrl}/github/git`;
 }
 
-export function getGitHubLoginUrl(apiBaseUrl = getVirituraApiBaseUrl()): string {
+export function getGitHubLoginUrl(apiBaseUrl = getVirituraApiBaseUrl(), returnTo = currentLocation()): string {
+  return `${apiBaseUrl}/github/auth/start?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+export function getGitHubOAuthPopupReturnUrl(): string {
+  if (typeof window === "undefined") return "/";
+  const returnUrl = new URL(window.location.pathname, window.location.origin);
+  returnUrl.searchParams.set(GITHUB_OAUTH_POPUP_PARAM, GITHUB_OAUTH_POPUP_VALUE);
+  return returnUrl.toString();
+}
+
+export function isGitHubOAuthPopupReturn(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get(GITHUB_OAUTH_POPUP_PARAM) === GITHUB_OAUTH_POPUP_VALUE;
+}
+
+export function notifyGitHubOAuthCompletion(): void {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel(GITHUB_OAUTH_COMPLETION_CHANNEL);
+  channel.postMessage(GITHUB_OAUTH_COMPLETION_MESSAGE);
+  channel.close();
+}
+
+export function subscribeToGitHubOAuthCompletion(onComplete: () => void): () => void {
+  if (typeof BroadcastChannel === "undefined") return () => undefined;
+  const channel = new BroadcastChannel(GITHUB_OAUTH_COMPLETION_CHANNEL);
+  const handleMessage = (event: MessageEvent<unknown>): void => {
+    if (event.data === GITHUB_OAUTH_COMPLETION_MESSAGE) onComplete();
+  };
+  channel.addEventListener("message", handleMessage);
+  return () => {
+    channel.removeEventListener("message", handleMessage);
+    channel.close();
+  };
+}
+
+function currentLocation(): string {
   const returnTo =
     typeof window === "undefined"
       ? "/"
       : `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
-  return `${apiBaseUrl}/github/auth/start?returnTo=${encodeURIComponent(returnTo)}`;
+  return returnTo;
 }
 
 export function beginGitHubLogin(apiBaseUrl = getVirituraApiBaseUrl(), source: GitHubLoginSource = "activity"): void {
-  markGitHubOAuthReturnIntent(source);
-  window.location.assign(getGitHubLoginUrl(apiBaseUrl));
+  const width = 620;
+  const height = 760;
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+  const popup = window.open(
+    "",
+    `viritura-github-oauth-${Date.now()}`,
+    `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
+  );
+
+  if (!popup) {
+    markGitHubOAuthReturnIntent(source);
+    window.location.assign(getGitHubLoginUrl(apiBaseUrl));
+    return;
+  }
+
+  popup.opener = null;
+  popup.location.assign(getGitHubLoginUrl(apiBaseUrl, getGitHubOAuthPopupReturnUrl()));
+  popup.focus();
 }
 
 export function markGitHubOAuthReturnIntent(source: GitHubLoginSource): void {

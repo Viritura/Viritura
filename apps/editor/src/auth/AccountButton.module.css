@@ -128,7 +128,7 @@
 .providers {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0;
   padding: var(--space-1) 0 var(--space-1);
 }
 
@@ -141,77 +141,11 @@
   color: var(--text-muted);
 }
 
-.provider {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-1);
-  border-radius: 8px;
-}
-
-.provider:hover {
-  background: var(--menu-hover);
-}
-
-.providerIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  /* Translucent input surface — the AccountButton popover is Tier-3
-     glass, so the icon recess uses the glass-context input token, not
-     an opaque sunken fill. */
-  background: var(--surface-input);
-  color: var(--text);
-  flex: 0 0 auto;
-}
-
-.providerBody {
-  min-width: 0;
-  flex: 1;
-}
-
-.providerName {
+.accountManagementActions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--type-eyebrow-size);
-  font-weight: var(--type-heading-weight);
-}
-
-.providerStatus {
-  font-size: var(--type-eyebrow-size);
-  font-weight: var(--type-heading-weight);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.providerStatus[data-state="connected"] {
-  color: var(--accent, #215e4e);
-}
-
-.providerMeta {
-  margin-top: 1px;
-  font-size: var(--type-eyebrow-size);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.providerActions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
   flex-wrap: wrap;
-}
-
-.providerHintMuted {
-  font-size: var(--type-eyebrow-size);
-  color: var(--text-muted);
 }
 
 .linkAction,
@@ -325,60 +259,4 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.divider {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: var(--border-subtle, rgba(0, 0, 0, 0.08));
-}
-
-.signOut {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  height: 32px;
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--type-eyebrow-size);
-  text-align: left;
-  cursor: pointer;
-}
-
-.signOut:hover {
-  background: var(--menu-hover);
-}
-
-.signOutEverywhere {
-  display: block;
-  width: 100%;
-  margin-top: 2px;
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted, rgba(0, 0, 0, 0.6));
-  font: inherit;
-  font-size: var(--type-eyebrow-size);
-  text-align: left;
-  cursor: pointer;
-}
-
-.signOutEverywhere:hover {
-  color: var(--text);
-  background: var(--menu-hover);
-}
-
-.signOutEverywhereConfirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  border-radius: 8px;
-  background: var(--menu-hover);
 }

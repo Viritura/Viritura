@@ -690,6 +690,59 @@ public sealed class AccountControllerTests : IClassFixture<WebApplicationFactory
         Assert.NotNull(me);
         Assert.False(me!.Authenticated);
     }
+
+    [Fact]
+    public async Task LogoutEverywhere_InvalidatesAnotherClientsCookie()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<SecurityStampValidatorOptions>(options =>
+                {
+                    options.ValidationInterval = TimeSpan.Zero;
+                });
+            });
+        });
+        using var firstClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost"),
+            HandleCookies = true
+        });
+        using var secondClient = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("https://localhost"),
+            HandleCookies = true
+        });
+        var email = $"sessions.{Guid.NewGuid():N}@viritura.test";
+        const string password = "GoodPassw0rd!";
+        var register = await firstClient.PostAsJsonAsync("/auth/register", new RegisterRequest
+        {
+            Email = email,
+            Password = password
+        });
+        register.EnsureSuccessStatusCode();
+        var login = await secondClient.PostAsJsonAsync("/auth/login", new LoginRequest
+        {
+            Email = email,
+            Password = password,
+            RememberMe = true
+        });
+        login.EnsureSuccessStatusCode();
+        Assert.True((await secondClient.GetFromJsonAsync<MeResponse>("/auth/me"))!.Authenticated);
+
+        var csrf = await firstClient.GetFromJsonAsync<CsrfResponse>("/auth/csrf");
+        using var logout = new HttpRequestMessage(HttpMethod.Post, "/auth/logout-everywhere");
+        logout.Headers.Add(csrf!.HeaderName, csrf.Token);
+        var logoutResponse = await firstClient.SendAsync(logout);
+
+        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+        var secondClientMe = await secondClient.GetFromJsonAsync<MeResponse>("/auth/me");
+        Assert.NotNull(secondClientMe);
+        Assert.False(secondClientMe!.Authenticated);
+    }
 }
 
 internal static class HttpRequestMessageTestExtensions

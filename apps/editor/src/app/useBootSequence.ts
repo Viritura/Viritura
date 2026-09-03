@@ -9,6 +9,7 @@ import { setRecentScores, setStartCenterOpen } from "../store/onboardingStore";
 import { bootStandalone } from "../store/projectStore";
 import { parseLiveRoomIdFromUrl } from "../live/liveUrl";
 import type { DocumentStore } from "../store/documentStore";
+import { hasPendingTwoFactorChallenge } from "../auth/api";
 import { FOLDER_PROJECT_UNAVAILABLE_MESSAGE, isFolderProjectSupported } from "./projectFolder";
 
 export interface BootSequenceDeps {
@@ -68,6 +69,10 @@ export function useBootSequence(deps: BootSequenceDeps): void {
       }
 
       const oauthReturnIntent = consumeGitHubOAuthReturnIntent();
+      if (hasPendingTwoFactorChallenge()) {
+        loadDefaultScore();
+        return;
+      }
       if (oauthReturnIntent?.source === "activity") {
         loadDefaultScore();
         return;

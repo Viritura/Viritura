@@ -1,0 +1,15 @@
+.root {
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.root:last-child {
+  border-bottom: none;
+}
+
+.root .row {
+  border-bottom: none;
+}
+
+.details {
+  padding: 0 0 var(--space-3);
+}

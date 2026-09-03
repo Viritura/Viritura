@@ -47,6 +47,8 @@ import {
   getGitHubAppMetadata,
   getGitHubSession,
   getVirituraApiBaseUrl,
+  isGitHubOAuthPopupReturn,
+  subscribeToGitHubOAuthCompletion,
   unlinkGitHub,
   type CreateGitHubRepositoryRequest,
   type CreatedGitHubRepository,
@@ -54,6 +56,7 @@ import {
   type GitHubLoginSource,
   type GitHubSessionResponse,
 } from "../github/api";
+import { GitHubOAuthPopup } from "./GitHubOAuthPopup";
 
 // ── Public types (re-exported by the shim hook modules) ──────────────────
 
@@ -145,6 +148,14 @@ function useVirituraAccountStateMachine(): VirituraAccountState {
       document.removeEventListener("visibilitychange", onFocus);
     };
   }, []);
+
+  useEffect(
+    () =>
+      subscribeToGitHubOAuthCompletion(() => {
+        void refreshRef.current();
+      }),
+    [],
+  );
 
   const signIn = useCallback(async (payload: LoginPayload): Promise<LoginResult> => {
     const result = await loginVirituraAccount(payload);
@@ -333,7 +344,9 @@ export function AccountProvider({ children }: AccountProviderProps) {
   const github = useGitHubAccountStateMachine(viritura.status === "loading" ? null : viritura.user !== null);
   return (
     <VirituraAccountContext.Provider value={viritura}>
-      <GitHubAccountContext.Provider value={github}>{children}</GitHubAccountContext.Provider>
+      <GitHubAccountContext.Provider value={github}>
+        {isGitHubOAuthPopupReturn() ? <GitHubOAuthPopup account={viritura} /> : children}
+      </GitHubAccountContext.Provider>
     </VirituraAccountContext.Provider>
   );
 }
