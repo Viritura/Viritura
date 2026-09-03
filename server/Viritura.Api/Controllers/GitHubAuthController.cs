@@ -354,9 +354,8 @@ public sealed class GitHubAuthController(
         if (!create.Succeeded)
         {
             logger.LogError(
-                "GitHub OAuth: CreateAsync failed for github-{ProviderKey} (email={Email}): {Errors}",
+                "GitHub OAuth: CreateAsync failed for github-{ProviderKey}: {Errors}",
                 providerKey,
-                email ?? "<none>",
                 string.Join("; ", create.Errors.Select(e => $"{e.Code}: {e.Description}")));
             return default;
         }
