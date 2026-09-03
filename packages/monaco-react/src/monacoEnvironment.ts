@@ -16,3 +16,5 @@ export function configureMonacoEnvironment(): void {
     },
   };
 }
+
+configureMonacoEnvironment();
