@@ -53,10 +53,9 @@ function StatusMessages({ hasError, loadError, markerCount, status }: StatusMess
         className="visually-hidden"
         aria-live="polite"
       >{`${hasError ? "Error: " : ""}${status}${diagnostics}`}</span>
-      {loadError || hasError || diagnostics ? (
-        <span className="mnx-playground__status-message" aria-live="polite" data-error={Boolean(loadError || hasError)}>
-          {loadError ?? `${hasError ? "Error: " : ""}${status}`}
-          {diagnostics}
+      {loadError ? (
+        <span className="mnx-playground__status-message" aria-live="polite" data-error="true">
+          {loadError}
         </span>
       ) : null}
     </>
