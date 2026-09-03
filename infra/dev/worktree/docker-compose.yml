@@ -229,20 +229,7 @@ services:
   storybook-app:
     <<: *node-service
     profiles: ["storybook", "full"]
-    command:
-      [
-        "pnpm",
-        "--filter",
-        "@viritura/editor",
-        "exec",
-        "storybook",
-        "dev",
-        "-p",
-        "6007",
-        "--host",
-        "0.0.0.0",
-        "--no-open",
-      ]
+    command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook", "--host", "0.0.0.0", "--no-open"]
     environment:
       <<: *public-environment
       CI: "true"
