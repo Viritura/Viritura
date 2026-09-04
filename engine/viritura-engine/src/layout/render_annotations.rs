@@ -34,7 +34,8 @@ pub(crate) use curve_clearance::{
 };
 pub(crate) use curve_clearance::{highest_tie_edge_over_span, lowest_tie_edge_over_span};
 pub(crate) use dynamics::{
-    dynamic_optical_midline_y, dynamic_places_above, dynamic_voice_index, render_dynamics,
+    dynamic_optical_midline_y, dynamic_places_above, dynamic_voice_index, grand_staff_between_y,
+    render_dynamics,
 };
 pub(crate) use expressions::render_text_expressions;
 pub(crate) use jump_markers::render_jump_markers;

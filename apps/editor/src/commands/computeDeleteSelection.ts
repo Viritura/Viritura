@@ -20,6 +20,11 @@ import {
 } from "../score/ElementPath";
 import type { GraceLocation } from "../score/ElementPath";
 import { deleteKeySignatureByElementId } from "./signatureCommands";
+import {
+  deleteMeasureRepeatByElementId,
+  deleteMeasureRepeatsForSelection,
+  measureRepeatElementIdsForSelection,
+} from "./measureRepeatCommands";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -119,6 +124,12 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */
 function deleteStandaloneElement(score: Score, elementId: string): DeleteSelectionResult | null {
+  if (elementId.endsWith("/measurerepeat")) {
+    const withoutRepeat = deleteMeasureRepeatByElementId(score, elementId);
+    return withoutRepeat
+      ? { kind: "single", score: withoutRepeat, nextSelection: { kind: "clear" } }
+      : { kind: "noop" };
+  }
   // An accidental deletes to a respelling of its note, not to a rest, so it
   // has to be caught before the event path replaces the whole event.
   //
@@ -214,6 +225,8 @@ function findAdjacentElementId(
 }
 
 function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSelectionResult {
+  const repeatResult = deleteRepeatOnlySelection(score, selection);
+  if (repeatResult) return repeatResult;
   // Markings selected explicitly (ctrl-click) delete on their own; only the
   // rest of the selection is event-level. Without this split they resolve to
   // their events and blank the notes they belong to.
@@ -293,6 +306,15 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
     }
   }
   return { kind: "multi", score: deleteSelectedGraceNotes(newScore, graceIds), nextSelection: { kind: "clear" } };
+}
+
+function deleteRepeatOnlySelection(score: Score, selection: MultiOrRangeSel): DeleteSelectionResult | null {
+  const repeatIds = measureRepeatElementIdsForSelection(score, selection);
+  const isRepeatOnlySelection =
+    selection.kind === "range" ? repeatIds.length > 0 : repeatIds.length === selection.elementIds.length;
+  if (!isRepeatOnlySelection) return null;
+  const withoutRepeats = deleteMeasureRepeatsForSelection(score, selection);
+  return withoutRepeats ? { kind: "multi", score: withoutRepeats, nextSelection: { kind: "clear" } } : { kind: "noop" };
 }
 
 /** Remove explicit grace-note selections after ordinary events, re-resolving IDs as containers shift. */

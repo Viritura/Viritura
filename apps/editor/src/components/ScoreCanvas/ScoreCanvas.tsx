@@ -69,6 +69,7 @@ import { type DerivedGhostRail } from "./engraveAdornments";
 import { setLayoutPerfDebug } from "./layoutHelpers";
 import { addNoteAtClick } from "./noteInputClickHandler";
 import { paintScoreFrame } from "./paintScoreFrame";
+import { selectionVoiceIndex } from "./selectionVoice";
 import { buildDragSnapPoints as buildDragSnapPointsImpl } from "./dragSnapPoints";
 import { commitSpannerDragImpl } from "./commitSpannerDrag";
 import { runFastLayoutAndPaint } from "./fastLayout";
@@ -897,7 +898,13 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
      */
     const buildDragSnapPoints = useCallback(
       (partIndex: number, fine: boolean) =>
-        buildDragSnapPointsImpl(docScoreRef.current, spatialIndexRef.current, partIndex, fine),
+        buildDragSnapPointsImpl(
+          docScoreRef.current,
+          spatialIndexRef.current,
+          displayListRef.current?.measureBounds,
+          partIndex,
+          fine,
+        ),
       [],
     );
     // Repaint on viewport or content changes
@@ -929,6 +936,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const canvas = canvasRef.current;
         const dl = displayListRef.current;
         if (!canvas || !dl) return;
+        const firstSelectedId = selectedIds?.values().next().value;
         performance.mark("viritura:paint-callback-ready");
         paintScoreFrame({
           canvas,
@@ -938,6 +946,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           viewport,
           prevZoomRef,
           selectedIds,
+          selectionVoiceIndex: selectionVoiceIndex(docScoreRef.current, firstSelectedId),
           selection,
           viewMode,
           printPreview,

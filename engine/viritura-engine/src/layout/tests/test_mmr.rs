@@ -18,6 +18,58 @@ fn hbar_count(dl: &DisplayList, sp: f64) -> usize {
 }
 
 #[test]
+fn test_part_layout_does_not_collapse_measure_repeats_into_mmr() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m0", "time": {"count": 4, "unit": 4}},
+            {"id": "m1"},
+            {"id": "m2"},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "harp", "name": "Harp", "measures": [
+            {"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+            ]}]},
+            {"measureRepeat": {"number": 1}, "sequences": [{"content": []}]},
+            {"measureRepeat": {"number": 1}, "sequences": [{"content": []}]},
+            {"measureRepeat": {"number": 1}, "sequences": [{"content": []}]}
+        ]}],
+        "layouts": [{"id": "harp-part", "content": [
+            {"type": "staff", "sources": [{"part": "harp"}]}
+        ]}],
+        "scores": [{"name": "Harp", "layout": "harp-part"}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let display = layout_with_mnx_scores(&score, &config, 0);
+    let repeat_count = display
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. }
+                    if *codepoint == smufl::REPEAT_1_BAR
+            )
+        })
+        .count();
+
+    assert_eq!(
+        repeat_count, 3,
+        "each repeated bar must remain visible in the part"
+    );
+    assert_eq!(
+        hbar_count(&display, config.sp),
+        0,
+        "measure-repeat bars must not be collapsed into a multimeasure rest"
+    );
+}
+
+#[test]
 fn test_written_pitch_opening_time_signature_precedes_multimeasure_rest() {
     let json = r#"{
         "mnx": {"version": 1},

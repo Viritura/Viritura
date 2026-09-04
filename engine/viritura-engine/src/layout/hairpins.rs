@@ -238,6 +238,8 @@ pub(crate) fn render_hairpins(
                     dl,
                 ),
             };
+            let grand_staff_center =
+                super::render_annotations::grand_staff_between_y(staff_y, sp, staff_y_offsets, hp);
             let span_lo = hp_start_x.min(hp_end_x);
             let span_hi = hp_start_x.max(hp_end_x);
             let curve_clearance = 1.0 * sp;
@@ -294,7 +296,9 @@ pub(crate) fn render_hairpins(
                     dynamic_midline_by_id(measure_layouts, id, staff_y, sp, config, &below_slurs)
                 })
             });
-            let resolved_y = if let Some(continued_y) = continued_y {
+            let resolved_y = if let Some(center_y) = grand_staff_center {
+                center_y
+            } else if let Some(continued_y) = continued_y {
                 if avoid {
                     curve_limit.map_or(continued_y, |limit| {
                         if is_above {

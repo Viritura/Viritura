@@ -93,13 +93,14 @@ pub(crate) fn render_measure_repeat(
     staff_y: f64,
     sp: f64,
     _config: &LayoutConfig,
+    render_numbers: bool,
 ) {
     let Some(repeat) = ml.resolved.part.measure_repeat.as_ref() else {
         return;
     };
 
     let codepoint = repeat_glyph(repeat.number);
-    let (bbox_x, _, bbox_w, _) = smufl::glyph_bbox(codepoint);
+    let (bbox_x, bbox_y, bbox_w, bbox_h) = smufl::glyph_bbox(codepoint);
 
     let center_x = (ml.x + span_right) / 2.0;
     // MNX staff positions count half-spaces up from the middle line; screen y
@@ -123,31 +124,41 @@ pub(crate) fn render_measure_repeat(
     // Time-signature digit ink extends 1sp below its origin. An origin 2sp
     // above the top line therefore leaves exactly 1sp of clear air.
     let above_baseline = staff_y - 2.0 * sp;
-    if shows_number(repeat) {
+    if render_numbers && shows_number(repeat) {
         draw_span_number(dl, &repeat.number.to_string(), center_x, above_baseline, sp);
     }
 
-    if let Some(counter) = repeat.counter.as_ref() {
-        let below = counter.orient == Some(MultiStaffOrientation::Below);
-        let counter_y = if below {
-            staff_y + 4.0 * sp + 2.0 * sp
-        } else if shows_number(repeat) {
-            // The span numeral's ink top is 1sp above its origin. Place the
-            // regular-text counter's ink bottom another 1sp above that.
-            above_baseline - 2.0 * sp
-        } else {
-            // TextBaseline::Bottom makes y the counter's ink bottom.
-            staff_y - sp
-        };
-        draw_counter(dl, counter.count.to_string(), center_x, counter_y, sp);
+    if render_numbers {
+        if let Some(counter) = repeat.counter.as_ref() {
+            let below = counter.orient == Some(MultiStaffOrientation::Below);
+            let counter_y = if below {
+                staff_y + 4.0 * sp + 2.0 * sp
+            } else if shows_number(repeat) {
+                // The span numeral's ink top is 1sp above its origin. Place the
+                // regular-text counter's ink bottom another 1sp above that.
+                above_baseline - 2.0 * sp
+            } else {
+                // TextBaseline::Bottom makes y the counter's ink bottom.
+                staff_y - sp
+            };
+            draw_counter(dl, counter.count.to_string(), center_x, counter_y, sp);
+        }
     }
 
+    let repeat_id = element_id::measure_repeat(ml.part_index, ml.resolved.index);
     for ci in cmd_idx..dl.commands.len() {
-        dl.tag_command(
-            ci,
-            element_id::measure_repeat(ml.part_index, ml.resolved.index),
-        );
+        dl.tag_command(ci, repeat_id.clone());
     }
+    let hit_padding = 0.5 * sp;
+    dl.push_element_bbox_with_shape(ElementBBox {
+        element_id: repeat_id,
+        bbox: BoundingBox::new(
+            center_x - bbox_w * sp * 0.5 - hit_padding,
+            baseline_y + bbox_y * sp - hit_padding,
+            bbox_w * sp + 2.0 * hit_padding,
+            bbox_h * sp + 2.0 * hit_padding,
+        ),
+    });
 }
 
 /// Right edge of the measure range a simile sign covers, clamped to the

@@ -39,6 +39,11 @@ import {
 import type { KeyboardHandlerContext } from "./types";
 import { deleteKeySignatureByElementId } from "../commands/signatureCommands";
 import {
+  deleteMeasureRepeatByElementId,
+  deleteMeasureRepeatsForSelection,
+  measureRepeatElementIdsForSelection,
+} from "../commands/measureRepeatCommands";
+import {
   planCondensedEventWriteback,
   expandCondensedSpannerIds,
   expandCondensedSubElementIds,
@@ -165,6 +170,7 @@ function deleteCondensedWholeEvent(
 }
 
 function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreIndex: number): Score | null | undefined {
+  if (elementId.endsWith("/measurerepeat")) return deleteMeasureRepeatByElementId(score, elementId);
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);
   if (isAccidentalId(elementId)) return deleteCondensedAccidental(score, elementId, selectedScoreIndex);
   if (isArticulationId(elementId)) return deleteCondensedArticulation(score, elementId, selectedScoreIndex);
@@ -341,6 +347,18 @@ function deleteRangeSelection(
   const currentScore = ctx.getScore();
   if (!currentScore) return;
   if (!sel.startElementId || !sel.endElementId) return;
+  const rangeSelection = {
+    kind: "range" as const,
+    startElementId: sel.startElementId,
+    endElementId: sel.endElementId,
+  };
+  if (!ctrlHeld) {
+    const repeatIds = measureRepeatElementIdsForSelection(currentScore, rangeSelection);
+    if (repeatIds.length > 0) {
+      applyDeletion(e, ctx, deleteMeasureRepeatsForSelection(currentScore, rangeSelection));
+      return;
+    }
+  }
   const range = resolveSelectionMeasureRange(sel.startElementId, sel.endElementId, currentScore);
   if (!range) return;
 
@@ -395,6 +413,13 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   const currentScore = ctx.getScore();
   if (!currentScore) return;
   const selection = ctx.getSelection();
+  if (
+    selection.kind === "multi" &&
+    measureRepeatElementIdsForSelection(currentScore, selection).length === selection.elementIds.length
+  ) {
+    applyDeletion(e, ctx, deleteMeasureRepeatsForSelection(currentScore, selection));
+    return;
+  }
 
   // Markings selected explicitly (ctrl-click) delete on their own; only the
   // rest of the selection is event-level. Without this split they resolve to

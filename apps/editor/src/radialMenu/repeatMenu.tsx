@@ -6,6 +6,14 @@ import React from "react";
 import type { RadialMenuItem } from "@viritura/ui";
 import { SMUFL } from "../components/palette/smuflGlyphs";
 import { BarlineGlyph } from "../components/palette/GlyphRenderers";
+import { MEASURE_REPEAT_PALETTE_ITEMS } from "../components/palette/paletteItems";
+
+const MEASURE_REPEAT_ITEMS: RadialMenuItem[] = MEASURE_REPEAT_PALETTE_ITEMS.map((item) => ({
+  id: item.id,
+  icon: item.label,
+  label: item.title,
+  searchKeys: ["bar repeat", "simile", `${item.number} bar`],
+}));
 
 export const REPEAT_ITEMS: RadialMenuItem[] = [
   {
@@ -26,6 +34,7 @@ export const REPEAT_ITEMS: RadialMenuItem[] = [
     label: "Repeat Both",
     searchKeys: ["double", "end start"],
   },
+  ...MEASURE_REPEAT_ITEMS,
   { id: "segno", icon: SMUFL.segno, label: "Segno", searchKeys: ["sign", "dal"] },
   { id: "coda", icon: SMUFL.coda, label: "Coda", searchKeys: ["tail"] },
   { id: "fine", label: "Fine", searchKeys: ["end"] },
@@ -38,6 +47,7 @@ export type RepeatSelection =
   | { kind: "repeat-start" }
   | { kind: "repeat-end" }
   | { kind: "repeat-both" }
+  | { kind: "measure-repeat"; number: 1 | 2 | 4 }
   | { kind: "segno" }
   | { kind: "coda" }
   | { kind: "fine" }
@@ -51,6 +61,12 @@ export function resolveRepeat(id: string): RepeatSelection | null {
       return { kind: "repeat-end" };
     case "repeat-both":
       return { kind: "repeat-both" };
+    case "measure-repeat-1":
+      return { kind: "measure-repeat", number: 1 };
+    case "measure-repeat-2":
+      return { kind: "measure-repeat", number: 2 };
+    case "measure-repeat-4":
+      return { kind: "measure-repeat", number: 4 };
     case "segno":
       return { kind: "segno" };
     case "coda":

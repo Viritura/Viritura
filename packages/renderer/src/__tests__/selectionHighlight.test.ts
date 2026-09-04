@@ -149,6 +149,16 @@ describe("paintSelectionOverlay — ink highlight", () => {
     expect(ctx.fill).toHaveBeenCalled();
   });
 
+  it("uses an explicit staff-local voice index for grand-staff selections", () => {
+    const id = "p0/m0/s1/lower-staff-note";
+    const index = new SpatialIndex([{ id, x: 20, y: 20, width: 10, height: 10 }]);
+    const ctx = makeCtx();
+
+    paintSelectionOverlay(ctx, index, new Set([id]), undefined, undefined, 0);
+
+    expect(ctx.fillStyle).toBe("#4285F440");
+  });
+
   it("highlights a tie without presenting drag handles", () => {
     const ctx = makeCtx();
     const dl = makeDisplayList();

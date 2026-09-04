@@ -289,6 +289,7 @@ pub(crate) fn render_dynamics(
     sp: f64,
     config: &LayoutConfig,
     artic_boxes: &[ArticBox],
+    staff_y_offsets: Option<&[f64]>,
 ) -> Vec<PlacedDynamic> {
     let dynamics = match &ml.resolved.part.dynamics {
         Some(d) if !d.is_empty() => d,
@@ -413,7 +414,10 @@ pub(crate) fn render_dynamics(
         // manual [dx, dy] offset (+x right, +y up) is applied on top either way.
         let avoid = dyn_mark.avoid_collisions.unwrap_or(true);
         let [off_x_sp, off_y_sp] = dyn_mark.manual_offset.unwrap_or([0.0, 0.0]);
-        let dynamics_y = if !avoid {
+        let between_y = grand_staff_between_y(staff_y, sp, staff_y_offsets, dyn_mark);
+        let dynamics_y = if let Some(center_y) = between_y {
+            center_y - dynamic_ink_center_from_baseline(&codepoints) * sp - off_y_sp * sp
+        } else if !avoid {
             (if is_above {
                 max_dynamics_y_above
             } else {
@@ -586,4 +590,51 @@ pub(crate) fn render_dynamics(
     }
 
     placed_dynamics
+}
+
+fn dynamic_ink_center_from_baseline(codepoints: &[u32]) -> f64 {
+    let top = codepoints
+        .iter()
+        .map(|codepoint| smufl::glyph_bbox(*codepoint).1)
+        .fold(f64::INFINITY, f64::min);
+    let bottom = codepoints
+        .iter()
+        .map(|codepoint| {
+            let (_, y, _, height) = smufl::glyph_bbox(*codepoint);
+            y + height
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+    (top + bottom) * 0.5
+}
+
+pub(crate) fn grand_staff_between_y(
+    staff_y: f64,
+    sp: f64,
+    staff_y_offsets: Option<&[f64]>,
+    dynamic: &DynamicGroup,
+) -> Option<f64> {
+    if matches!(
+        dynamic.orient,
+        Some(MultiStaffOrientation::Above | MultiStaffOrientation::Below)
+    ) {
+        return None;
+    }
+    grand_staff_gap_center(staff_y, sp, staff_y_offsets)
+}
+
+pub(crate) fn grand_staff_gap_center(
+    staff_y: f64,
+    sp: f64,
+    staff_y_offsets: Option<&[f64]>,
+) -> Option<f64> {
+    let offsets = staff_y_offsets.filter(|offsets| offsets.len() > 1)?;
+    let index = offsets
+        .iter()
+        .position(|offset| (*offset - staff_y).abs() < 0.01)?;
+    if let Some(next) = offsets.get(index + 1) {
+        return Some((staff_y + 4.0 * sp + next) * 0.5);
+    }
+    offsets
+        .get(index.checked_sub(1)?)
+        .map(|previous| (previous + 4.0 * sp + staff_y) * 0.5)
 }

@@ -6,6 +6,7 @@ import {
   type ClipboardFragment,
   type ClipboardTrack,
   type CapturedDynamic,
+  type CapturedMeasureRepeat,
 } from "./ClipboardFragment";
 
 /**
@@ -28,6 +29,7 @@ export function serializeFragment(
   clef?: Clef,
   transposition?: Transposition,
   dynamics?: CapturedDynamic[],
+  measureRepeats?: CapturedMeasureRepeat[],
 ): string {
   const fragment: ClipboardFragment = {
     type: VIRITURA_FRAGMENT_TYPE,
@@ -38,6 +40,7 @@ export function serializeFragment(
     ...(clef ? { clef } : {}),
     ...(transposition ? { transposition } : {}),
     ...(dynamics && dynamics.length > 0 ? { dynamics: structuredClone(dynamics) } : {}),
+    ...(measureRepeats && measureRepeats.length > 0 ? { measureRepeats: structuredClone(measureRepeats) } : {}),
     ...(tracks
       ? {
           tracks: tracks.map((t) => ({

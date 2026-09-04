@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Button, ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
-import type { Note } from "@viritura/core";
+import type { MeasureRepeat, MeasureRepeatDisplayNumber, MultiStaffOrientation, Note } from "@viritura/core";
 import { sectionStyle, legendStyle, labelStyle, mergeFocusedSectionStyle } from "./types";
 import type { InspectorSection } from "./notationInspectorMeta";
 
@@ -23,6 +23,17 @@ const BARLINE_TYPE_OPTIONS = BARLINE_TYPES.map((t) => ({
   value: t,
   label: t.charAt(0).toUpperCase() + t.slice(1),
 }));
+
+const DISPLAY_NUMBER_OPTIONS: { value: MeasureRepeatDisplayNumber; label: string; tooltip: string }[] = [
+  { value: "auto", label: "Auto", tooltip: "Auto" },
+  { value: "yes", label: "Show", tooltip: "Show" },
+  { value: "no", label: "Hide", tooltip: "Hide" },
+];
+
+const COUNTER_ORIENT_OPTIONS: { value: MultiStaffOrientation; label: string; tooltip: string }[] = [
+  { value: "above", label: "Above", tooltip: "Above" },
+  { value: "below", label: "Below", tooltip: "Below" },
+];
 
 type TrillAccidentalValue = "none" | "flat" | "natural" | "sharp";
 const TRILL_ACCIDENTAL_OPTIONS: { value: TrillAccidentalValue; label: string }[] = [
@@ -103,6 +114,73 @@ export function BarlineSection({
             <span style={REPEAT_COUNT_HINT_STYLE}>{repeatEndTimes === 2 ? "(default)" : `×${repeatEndTimes}`}</span>
           </div>
         </label>
+      )}
+    </fieldset>
+  );
+}
+
+export interface MeasureRepeatSectionProps {
+  repeat: MeasureRepeat;
+  focusedSection: InspectorSection | null;
+  onDisplayNumberChange: (value: MeasureRepeatDisplayNumber) => void;
+  onCounterEnabledChange: (enabled: boolean) => void;
+  onCounterCountChange: (count: number) => void;
+  onCounterOrientChange: (orient: MultiStaffOrientation) => void;
+}
+
+export function MeasureRepeatSection({
+  repeat,
+  focusedSection,
+  onDisplayNumberChange,
+  onCounterEnabledChange,
+  onCounterCountChange,
+  onCounterOrientChange,
+}: MeasureRepeatSectionProps) {
+  return (
+    <fieldset style={mergeFocusedSectionStyle("measure", focusedSection)}>
+      <legend style={legendStyle}>Measure Repeat</legend>
+      <label style={labelStyle}>
+        Span
+        <span>
+          {repeat.number} bar{repeat.number === 1 ? "" : "s"}
+        </span>
+      </label>
+      <label style={labelStyle}>
+        Span Number
+        <ButtonGroup<MeasureRepeatDisplayNumber>
+          options={DISPLAY_NUMBER_OPTIONS}
+          value={repeat.displayNumber ?? "auto"}
+          onChange={onDisplayNumberChange}
+          ariaLabel="Span number display"
+        />
+      </label>
+      <Checkbox
+        label="Show iteration counter"
+        checked={repeat.counter !== undefined}
+        onChange={(event) => onCounterEnabledChange(event.target.checked)}
+      />
+      {repeat.counter && (
+        <>
+          <label style={labelStyle}>
+            Counter
+            <FormInput
+              type="number"
+              min={1}
+              value={repeat.counter.count}
+              onChange={(event) => onCounterCountChange(Number.parseInt(event.target.value, 10))}
+              style={REPEAT_COUNT_INPUT_STYLE}
+            />
+          </label>
+          <label style={labelStyle}>
+            Counter Position
+            <ButtonGroup<MultiStaffOrientation>
+              options={COUNTER_ORIENT_OPTIONS}
+              value={repeat.counter.orient === "below" ? "below" : "above"}
+              onChange={onCounterOrientChange}
+              ariaLabel="Counter position"
+            />
+          </label>
+        </>
       )}
     </fieldset>
   );

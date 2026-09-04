@@ -1,6 +1,7 @@
 import type { Score } from "@viritura/core";
 import type { SpatialIndex } from "@viritura/renderer";
 import { resolveRangeElementIds } from "../../store/selectionUtils";
+import { measureRepeatElementIdsForSelection } from "../../commands/measureRepeatCommands";
 import type { Selection } from "../../store/selectionStore";
 
 /**
@@ -61,6 +62,8 @@ function addRangeSelectionIds(
   ids: Set<string>,
 ): void {
   if (score) {
+    const repeatIds = measureRepeatElementIdsForSelection(score, selection);
+    for (const id of repeatIds) ids.add(id);
     const rangeIds = resolveRangeElementIds(selection.startElementId, selection.endElementId, score);
     for (const id of rangeIds) ids.add(id);
   }

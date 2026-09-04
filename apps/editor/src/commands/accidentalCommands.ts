@@ -13,7 +13,7 @@
  * restore, so only the display directive goes.
  */
 
-import type { Note, Score, SequenceContent } from "@viritura/core";
+import type { AccidentalType, Note, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { FLAT_ORDER, SHARP_ORDER } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "./noteCommandsDurations";
 import type { EventLocation } from "../score/ElementPath";
@@ -21,6 +21,42 @@ import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
 
 /** Matches the trailing `/acc{noteIndex}` segment the engine tags accidentals with. */
 const ACCIDENTAL_SUFFIX = /\/acc(\d+)$/;
+
+export function accidentalAlteration(accidental: AccidentalType): number {
+  switch (accidental) {
+    case "triple-flat":
+      return -3;
+    case "double-flat":
+      return -2;
+    case "flat":
+      return -1;
+    case "natural":
+      return 0;
+    case "sharp":
+      return 1;
+    case "double-sharp":
+      return 2;
+    case "triple-sharp":
+      return 3;
+  }
+}
+
+/** Set an accidental on one selected chord note, or every note for an event selection. */
+export function setAccidentalOnEvent(
+  event: NoteEvent,
+  noteIndex: number | undefined,
+  accidental: AccidentalType,
+): boolean {
+  const notes = event.notes;
+  if (!notes?.length) return false;
+  const targets = noteIndex === undefined ? notes : notes[noteIndex] ? [notes[noteIndex]!] : [];
+  if (targets.length === 0) return false;
+  const alter = accidentalAlteration(accidental);
+  for (const note of targets) {
+    note.pitch = { ...note.pitch, alter: alter === 0 ? undefined : alter };
+  }
+  return true;
+}
 
 /** True when `elementId` names an accidental rather than any other element. */
 export function isAccidentalId(elementId: string): boolean {

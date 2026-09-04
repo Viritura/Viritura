@@ -505,6 +505,118 @@ describe("addDynamic — multi-staff", () => {
     expect(result!.parts[1]!.measures[0]!.dynamics![0]!.value).toBe("f");
   });
 
+  it("places a dynamic on an empty selected repeated bar", () => {
+    const score = makeSimpleScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0] = {
+      measureRepeat: { number: 1 },
+      sequences: [
+        { staff: 1, content: [] },
+        { staff: 2, content: [] },
+      ],
+    };
+
+    const result = addDynamic(
+      score,
+      {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 5,
+        endStaffIndex: 5,
+        startLocalStaffIndex: 1,
+        endLocalStaffIndex: 1,
+        startMeasure: 0,
+        endMeasure: 0,
+      },
+      "p",
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.parts[0]!.measures[0]!.dynamics![0]).toMatchObject({
+      value: "p",
+      staff: 2,
+      position: { fraction: [0, 1] },
+    });
+  });
+
+  it.each([
+    {
+      label: "measure-repeat sign",
+      selection: {
+        kind: "single",
+        elementId: "p0/m0/measurerepeat",
+        elementType: "measure-repeat",
+        measureAnchor: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
+      } as const,
+    },
+    {
+      label: "empty repeated bar",
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startLocalStaffIndex: 0,
+        endLocalStaffIndex: 0,
+        startMeasure: 0,
+        endMeasure: 0,
+      } as const,
+    },
+  ])("places a hairpin from a selected $label", ({ selection }) => {
+    const score = makeSimpleScore();
+    score.parts[0]!.measures[0] = {
+      measureRepeat: { number: 1 },
+      sequences: [{ content: [] }],
+    };
+
+    const result = addDynamicExpression(
+      score,
+      selection,
+      [{ type: "dynamic", value: "p" }, { type: "crescendo" }, { type: "dynamic", value: "f" }],
+      0,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.parts[0]!.measures[0]!.dynamics).toHaveLength(3);
+    expect(result!.parts[0]!.measures[0]!.dynamics![1]).toMatchObject({
+      type: "gradual",
+      position: { fraction: [0, 1] },
+      end: { position: { fraction: [1, 1] } },
+      wedgeType: "increasing",
+    });
+  });
+
+  it("places a dynamic on the selected staff of a measure-repeat sign", () => {
+    const score = makeSimpleScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 1 };
+    score.parts[0]!.measures[0]!.sequences = [
+      { staff: 1, content: [] },
+      { staff: 2, content: [] },
+    ];
+
+    const result = addDynamic(
+      score,
+      {
+        kind: "single",
+        elementId: "p0/m0/measurerepeat",
+        elementType: "measure-repeat",
+        measureAnchor: { partIndex: 0, staffIndex: 1, localStaffIndex: 1, measureIndex: 0 },
+      },
+      "mf",
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.parts[0]!.measures[0]!.measureRepeat).toEqual({ number: 1 });
+    expect(result!.parts[0]!.measures[0]!.dynamics![0]).toMatchObject({
+      value: "mf",
+      staff: 2,
+      position: { fraction: [0, 1] },
+    });
+  });
+
   it.each([
     ["p", { type: "immediate", value: "p" }],
     ["fp", { type: "accent", accentPrefix: "", value: "f", residualValue: "p", accentSuffix: "" }],

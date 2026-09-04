@@ -1,4 +1,4 @@
-import type { SequenceContent } from "@viritura/core";
+import type { MeasureRepeat, SequenceContent } from "@viritura/core";
 import type { TimeSignature, KeySignature, Clef, Transposition, DynamicGroup } from "@viritura/core";
 
 /** Internal marker to identify Viritura clipboard data in plain text */
@@ -16,6 +16,12 @@ export interface CapturedDynamic {
   /** End-measure offset for a gradual group, relative to the selection start. */
   endMeasureOffset?: number;
   dynamic: DynamicGroup;
+}
+
+export interface CapturedMeasureRepeat {
+  partOffset: number;
+  measureOffset: number;
+  repeat: MeasureRepeat;
 }
 
 /**
@@ -84,6 +90,8 @@ export interface ClipboardFragment {
    * inside the captured beat range. See `CapturedDynamic`.
    */
   dynamics?: CapturedDynamic[];
+  /** Measure-repeat structures captured relative to the fragment's first part and measure. */
+  measureRepeats?: CapturedMeasureRepeat[];
   /** Multi-track content for cross-staff copy/paste (v2+). If present, takes precedence over `content`. */
   tracks?: ClipboardTrack[];
 }

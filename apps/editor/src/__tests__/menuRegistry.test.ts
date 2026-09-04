@@ -37,6 +37,11 @@ describe("getMenuItems", () => {
     expect(ids).toContain("breath-comma");
     expect(ids).toContain("fermata-normal");
   });
+
+  it("includes one-, two-, and four-bar repeats in the repeat menu", () => {
+    const ids = getMenuItems("repeat").map((item) => item.id);
+    expect(ids).toEqual(expect.arrayContaining(["measure-repeat-1", "measure-repeat-2", "measure-repeat-4"]));
+  });
 });
 
 describe("getMenuTitle", () => {

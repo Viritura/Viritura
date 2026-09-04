@@ -607,10 +607,30 @@ pub(crate) fn render_measure(
     // A mid-system clef change pushes the barline right by this gap; anything
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
+    let grand_staff = staff_y_offsets.filter(|offsets| offsets.len() > 1);
+    let is_top_staff = grand_staff.is_none_or(|offsets| (staff_y - offsets[0]).abs() < 0.01);
+    let is_bottom_staff = grand_staff.is_none_or(|offsets| {
+        offsets
+            .last()
+            .is_some_and(|bottom| (staff_y - bottom).abs() < 0.01)
+    });
+    let grand_staff_center = grand_staff.map(|offsets| {
+        (offsets[0] + offsets.last().copied().unwrap_or(offsets[0]) + 4.0 * sp) * 0.5
+    });
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {
-        render_multimeasure_rest(dl, ml, staff_y, sp, config, count, prev_has_repeat_end);
+        render_multimeasure_rest(
+            dl,
+            ml,
+            staff_y,
+            sp,
+            config,
+            count,
+            prev_has_repeat_end,
+            is_top_staff,
+            grand_staff_center,
+        );
         // Above-staff system objects still belong on a multimeasure rest (a
         // tempo or rehearsal mark at the start of a long rest must show). The
         // tempo renderer hops above the big count number to avoid collision —
@@ -637,7 +657,7 @@ pub(crate) fn render_measure(
                 leading_clef_gap,
             );
         }
-        render_measure_numbers(dl, ml, staff_y, sp, config);
+        render_measure_numbers(dl, ml, staff_y, sp, config, is_bottom_staff);
         return;
     }
 
@@ -657,7 +677,15 @@ pub(crate) fn render_measure(
 
     // The simile sign replaces the bar's notated content; MNX still permits
     // both, so it is drawn alongside whatever the sequences hold.
-    render_measure_repeat(dl, ml, measure_repeat_right, staff_y, sp, config);
+    render_measure_repeat(
+        dl,
+        ml,
+        measure_repeat_right,
+        staff_y,
+        sp,
+        config,
+        is_top_staff,
+    );
 
     // Events from all voices(including grace notes)
     // Track the accidental in effect at each (step, octave) within this
@@ -1018,7 +1046,7 @@ pub(crate) fn render_measure(
     // Tuplet brackets are obstacles too: a below-staff dynamic must clear a
     // below-staff bracket (and vice versa) rather than collide with it.
     artic_boxes.extend(tuplet_bracket_boxes);
-    let dynamic_boxes = render_dynamics(dl, ml, staff_y, sp, config, &artic_boxes);
+    let dynamic_boxes = render_dynamics(dl, ml, staff_y, sp, config, &artic_boxes, staff_y_offsets);
 
     // Render text expressions below staff (below dynamics)
     let expr_cmd_start = dl.commands.len();
@@ -1038,6 +1066,7 @@ pub(crate) fn render_measure(
         config,
         &expr_above_glyph_boxes,
         &dynamic_boxes,
+        staff_y_offsets,
     );
     let expr_cmd_end = dl.commands.len();
 
@@ -1123,7 +1152,7 @@ pub(crate) fn render_measure(
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
     // Render measure numbers above staff when explicitly set
-    render_measure_numbers(dl, ml, staff_y, sp, config);
+    render_measure_numbers(dl, ml, staff_y, sp, config, is_bottom_staff);
 
     // Render breath marks above staff
     render_breath_marks(dl, ml, staff_y, sp, config);

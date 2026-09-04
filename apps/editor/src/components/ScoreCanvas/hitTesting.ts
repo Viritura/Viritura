@@ -1,4 +1,4 @@
-import type { MeasureBounds } from "@viritura/renderer";
+import type { MeasureBounds, SpatialIndex } from "@viritura/renderer";
 import type { MeasureSelectionPoint } from "../../store/selectionStore";
 import type { BarlineHit } from "./ScoreCanvas";
 
@@ -51,6 +51,38 @@ export function pointerToMeasure(
     };
   }
   return hit;
+}
+
+/** Whether the pointer is inside a measure's actual five-line staff body. */
+export function pointerInsideMeasureStaff(
+  scoreX: number,
+  scoreY: number,
+  measureBounds: readonly MeasureBounds[] | undefined,
+): boolean {
+  return (
+    measureBounds?.some(
+      (measure) =>
+        scoreX >= measure.x &&
+        scoreX <= measure.x + measure.width &&
+        scoreY >= measure.y &&
+        scoreY <= measure.y + measure.height,
+    ) ?? false
+  );
+}
+
+/**
+ * Find a nearby selectable element without making blank staff space difficult
+ * to use. Ink inside a bar gets a half-spatium tolerance; displaced annotations
+ * outside the staff retain the broader two-spatium tolerance.
+ */
+export function findNearbyElement(
+  spatialIndex: SpatialIndex,
+  scoreX: number,
+  scoreY: number,
+  measureBounds: readonly MeasureBounds[] | undefined,
+): string | null {
+  const tolerance = pointerInsideMeasureStaff(scoreX, scoreY, measureBounds) ? 6 : 24;
+  return spatialIndex.findNearest(scoreX, scoreY, tolerance);
 }
 
 /**

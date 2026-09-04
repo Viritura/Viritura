@@ -32,6 +32,7 @@ import {
   applyBreathFermata,
 } from "../radialMenu/radialMenuActions";
 import { resolveInsertMeasureIndex } from "../commands/signatureCommands";
+import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
 import {
   applyArticulationToSelection,
   applyTremoloToSelection,
@@ -351,6 +352,12 @@ function dispatchRepeat(id: string, deps: DispatchDeps): void {
         deps.updateScore(next);
       } else warnSelectionRequired();
       break;
+    case "measure-repeat": {
+      const result = toggleMeasureRepeatForSelection(deps.score, deps.selection, resolved.number);
+      if (result.error) toast.warning(result.error);
+      else applyUpdate(deps, result.score);
+      break;
+    }
     case "segno":
     case "coda":
     case "fine":

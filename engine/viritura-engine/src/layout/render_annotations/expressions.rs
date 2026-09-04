@@ -22,6 +22,7 @@ pub(crate) fn render_text_expressions(
     config: &LayoutConfig,
     above_glyph_boxes: &[AboveGlyphBox],
     dynamic_boxes: &[PlacedDynamic],
+    staff_y_offsets: Option<&[f64]>,
 ) {
     let expressions = match &ml.resolved.part.expressions {
         Some(e) if !e.is_empty() => e,
@@ -139,8 +140,16 @@ pub(crate) fn render_text_expressions(
         // resolver are both skipped, so the text sits exactly where placed even
         // if that overlaps notes or other directions. Default/unset = auto.
         let avoid = expr.avoid_collisions.unwrap_or(true);
+        let between_center = expr
+            .placement
+            .is_none()
+            .then(|| super::dynamics::grand_staff_gap_center(staff_y, sp, staff_y_offsets))
+            .flatten();
 
-        let base_y = if let Some(dynamic) = inline_dynamic {
+        let base_y = if let Some(center_y) = between_center {
+            center_y
+                + text_styles::lowercase_center_offset_from_baseline(FontFamily::Serif, font_size)
+        } else if let Some(dynamic) = inline_dynamic {
             dynamic.baseline_y
         } else if !avoid {
             if is_above {

@@ -12,7 +12,7 @@ import type {
 import { generateId, isRest, measureBeats } from "@viritura/core";
 import { serializeFragment } from "../clipboard/serialize";
 import { deserializeFragment, assignFreshIds } from "../clipboard/deserialize";
-import type { ClipboardTrack, CapturedDynamic } from "../clipboard/ClipboardFragment";
+import type { CapturedMeasureRepeat, ClipboardTrack, CapturedDynamic } from "../clipboard/ClipboardFragment";
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
@@ -37,6 +37,7 @@ export interface ClipboardSelection {
   tracks?: ClipboardTrack[];
   /** Dynamics in the primary track's spanned measures, filtered to selection */
   dynamics?: CapturedDynamic[];
+  measureRepeats?: CapturedMeasureRepeat[];
   /** Location info for paste/cut */
   partIndex: number;
   measureIndex: number;
@@ -60,7 +61,7 @@ interface ClipboardCutLocation {
  * Serializes the selection as a Viritura MNX fragment JSON string.
  */
 export async function copyToClipboard(selection: ClipboardSelection): Promise<boolean> {
-  if (selection.events.length === 0) return false;
+  if (selection.events.length === 0 && !selection.measureRepeats?.length && !selection.dynamics?.length) return false;
 
   const json = serializeFragment(
     selection.events,
@@ -70,6 +71,7 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
     selection.clef,
     selection.transposition,
     selection.dynamics,
+    selection.measureRepeats,
   );
 
   try {
@@ -141,6 +143,7 @@ export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResul
     sourceTimeSignature: fragment.timeSignature,
     sourceKeySignature: fragment.keySignature,
     dynamics: fragment.dynamics,
+    measureRepeats: fragment.measureRepeats,
     tracks: fragment.tracks?.map((track) => ({
       ...track,
       content: assignFreshIds(track.content),
@@ -160,6 +163,7 @@ export interface PasteResult {
   dynamics?: CapturedDynamic[];
   /** Multi-track content for cross-staff paste */
   tracks?: ClipboardTrack[];
+  measureRepeats?: CapturedMeasureRepeat[];
 }
 
 /**
@@ -201,6 +205,7 @@ export function applyPaste(
       pasteStartBeat += sequenceContentBeats(primarySeqForBeat.content[i]!);
     }
   }
+  applyCapturedMeasureRepeats(newScore, paste.measureRepeats, partIndex, measureIndex);
 
   // Multi-track paste: apply each track at its relative part offset
   if (paste.tracks && paste.tracks.length > 0) {
@@ -251,6 +256,19 @@ export function applyPaste(
     applyCapturedDynamics(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
   }
   return newScore;
+}
+
+function applyCapturedMeasureRepeats(
+  score: Score,
+  capturedRepeats: CapturedMeasureRepeat[] | undefined,
+  partIndex: number,
+  measureIndex: number,
+): void {
+  if (!capturedRepeats) return;
+  for (const captured of capturedRepeats) {
+    const targetMeasure = score.parts[partIndex + captured.partOffset]?.measures[measureIndex + captured.measureOffset];
+    if (targetMeasure) targetMeasure.measureRepeat = structuredClone(captured.repeat);
+  }
 }
 
 /**

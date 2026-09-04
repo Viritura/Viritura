@@ -26,6 +26,7 @@ export interface RepaintCanvasArgs {
   glyphAtlas?: GlyphAtlas | null;
   spatialIndex?: SpatialIndex | null;
   selectedIds?: ReadonlySet<string>;
+  selectionVoiceIndex?: number;
   dragPreview?: {
     bbox: { x: number; y: number; width: number; height: number };
     handle: "start" | "end";
@@ -86,6 +87,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
     glyphAtlas,
     spatialIndex,
     selectedIds,
+    selectionVoiceIndex,
     dragPreview,
     viewMode = "page",
     measureSelection,
@@ -228,7 +230,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
             measureSelection.endPart,
           );
         } else if (spatialIndex && selectedIds && selectedIds.size > 0) {
-          paintSelectionOverlay(ctx, spatialIndex, selectedIds, displayList);
+          paintSelectionOverlay(ctx, spatialIndex, selectedIds, displayList, undefined, selectionVoiceIndex);
         }
         if (dragPreview) {
           paintSpannerDragPreview(ctx, dragPreview.bbox, dragPreview.handle, dragPreview.dragX, dragPreview.snapPoints);
@@ -267,7 +269,7 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
       measureSelection.endPart,
     );
   } else if (spatialIndex && selectedIds && selectedIds.size > 0) {
-    paintSelectionOverlay(ctx, spatialIndex, selectedIds, displayList);
+    paintSelectionOverlay(ctx, spatialIndex, selectedIds, displayList, undefined, selectionVoiceIndex);
   }
 
   // Paint spanner drag preview

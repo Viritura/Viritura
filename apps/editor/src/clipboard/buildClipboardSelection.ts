@@ -4,7 +4,7 @@
 import type { Score, TimeSignature, KeySignature, SequenceContent } from "@viritura/core";
 import { measureBeats } from "@viritura/core";
 import type { ClipboardSelection } from "../commands/clipboardCommands";
-import type { ClipboardTrack, CapturedDynamic } from "./ClipboardFragment";
+import type { CapturedMeasureRepeat, ClipboardTrack, CapturedDynamic } from "./ClipboardFragment";
 import type { ClipboardSourceRef } from "../store/clipboardHistoryStore";
 import type { SelectionState } from "../store/selectionStore";
 import {
@@ -20,6 +20,7 @@ import { resolveCondensedSelectionEvents } from "../score/condensedWriteback";
 import { expandCondensedDynamicLocations } from "../commands/deleteCommands";
 import { sequenceContentBeats, decomposeDuration, generateEventId } from "../commands/noteCommands";
 import { buildNavigationIndex } from "../navigation/NavigationIndex";
+import { measureRepeatElementIdsForSelection } from "../commands/measureRepeatCommands";
 
 /** Walk backwards from measureIndex to find the most recent clef on partIndex. */
 function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
@@ -103,11 +104,53 @@ export function buildClipboardSelection(
   selectedScoreIndex?: number,
 ): ClipboardSelection | null {
   if (!score) return null;
+  const repeatSelection = buildMeasureRepeatClipboardSelection(score, selection);
+  if (repeatSelection) return repeatSelection;
   if (selection.kind === "single") return buildSingleClipboardSelection(score, selection, selectedScoreIndex);
   if (selection.kind === "range") return buildRangeClipboardSelection(score, selection, selectedScoreIndex);
   if (selection.kind === "multi") return buildMultiClipboardSelection(score, selection, selectedScoreIndex);
   if (selection.kind === "measure") return buildMeasureClipboardSelection(score, selection);
   return null;
+}
+
+function buildMeasureRepeatClipboardSelection(score: Score, selection: SelectionState): ClipboardSelection | null {
+  const elementIds = measureRepeatElementIdsForSelection(score, selection);
+  if (elementIds.length === 0) return null;
+  const locations = elementIds.flatMap((elementId) => {
+    const match = elementId.match(/^p(\d+)\/m(\d+)\/measurerepeat$/);
+    return match ? [{ partIndex: Number.parseInt(match[1]!, 10), measureIndex: Number.parseInt(match[2]!, 10) }] : [];
+  });
+  if (locations.length === 0) return null;
+  const startPart = Math.min(...locations.map((location) => location.partIndex));
+  const startMeasure = Math.min(...locations.map((location) => location.measureIndex));
+  const endMeasure = Math.max(...locations.map((location) => location.measureIndex));
+  const measureRepeats: CapturedMeasureRepeat[] = locations.flatMap((location) => {
+    const repeat = score.parts[location.partIndex]?.measures[location.measureIndex]?.measureRepeat;
+    return repeat
+      ? [
+          {
+            partOffset: location.partIndex - startPart,
+            measureOffset: location.measureIndex - startMeasure,
+            repeat: structuredClone(repeat),
+          },
+        ]
+      : [];
+  });
+  const dynamics = collectDynamics(score, startPart, startMeasure, endMeasure, 0, Infinity);
+  const { time, key } = resolveActiveTimeKey(score, startMeasure);
+  return {
+    events: [],
+    timeSignature: time,
+    keySignature: key,
+    clef: getActiveClef(score, startPart, startMeasure),
+    transposition: score.parts[startPart]?.transposition,
+    dynamics: dynamics.length > 0 ? dynamics : undefined,
+    measureRepeats,
+    partIndex: startPart,
+    measureIndex: startMeasure,
+    sequenceIndex: 0,
+    eventIndex: 0,
+  };
 }
 
 function resolveActiveTimeKey(score: Score, measureIndex: number): { time: TimeSignature; key: KeySignature } {
