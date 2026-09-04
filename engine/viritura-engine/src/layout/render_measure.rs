@@ -21,127 +21,18 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
+mod clef_changes;
 mod measure_repeats;
 mod multimeasure_rests;
 mod shared_lanes;
 
+pub(crate) use clef_changes::*;
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
 pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
 pub(super) const MIDDLE_LINE_POS: f64 = 4.0;
-
-/// Horizontal footprint (in spaces) of the 2/3-size change clef engraved in the
-/// leading gap BEFORE a mid-system start-of-measure barline. The per-staff
-/// barline (`render_measure_prefix`) and the inter-staff barline connectors
-/// (`render_inter_staff_barlines`) both shift right by this amount on a
-/// clef-change measure, so they MUST read the same constant or the barline
-/// splits visually at the connector. Sized for the widest change clef (the G
-/// clef, ~1.79sp at 2/3 size) plus padding on both sides and clearance for a
-/// wide (double) barline's left stroke.
-pub(crate) const CLEF_CHANGE_LEADING_GAP_SP: f64 = 3.2;
-
-/// Padding (in spaces) between a mid-system change clef's right edge and the
-/// LEFT ink edge of the barline it precedes.
-pub(crate) const CLEF_TO_BARLINE_PAD_SP: f64 = 0.7;
-
-/// Leading gap reserved in a clef-change measure's prefix for the change clef
-/// drawn BEFORE the barline. The barline (and anything that aligns to it, such
-/// as a rehearsal mark) sits at `ml.x + leading_clef_gap`, NOT at `ml.x`. A
-/// mid-system clef change pushes the barline right by this gap; the opening
-/// measure of the score (index 0) and the first measure on a system never carry
-/// a leading change clef, so they return 0.
-pub(crate) fn measure_leading_clef_gap(
-    ml: &MeasureLayout,
-    sp: f64,
-    clef_change_measures: &HashSet<usize>,
-) -> f64 {
-    if ml.resolved.index != 0
-        && !ml.is_first_on_system
-        && clef_change_measures.contains(&ml.resolved.index)
-    {
-        CLEF_CHANGE_LEADING_GAP_SP * sp
-    } else {
-        0.0
-    }
-}
-
-/// Exported measure geometry starts at the visible left barline. A change clef
-/// engraved before that barline occupies layout width but is not part of the
-/// selectable bar span, so remove the same leading gap from x, width, and prefix.
-pub(crate) fn measure_bounds_geometry(
-    ml: &MeasureLayout,
-    leading_clef_gap: f64,
-) -> (f64, f64, f64) {
-    (
-        ml.x + leading_clef_gap,
-        (ml.width - leading_clef_gap).max(0.0),
-        (ml.prefix_width - leading_clef_gap).max(0.0),
-    )
-}
-
-/// Measure indices that carry a mid-score start-of-measure clef change
-/// (`position == None`) in any of the SHOWN staves, read from the already-
-/// resolved per-staff measures. Standard engraving practice engraves such a
-/// change BEFORE the preceding barline, and the gap that opens for it shifts the
-/// shared barline — so it must be applied on every shown staff that shares that
-/// barline. Scoped to the staves actually present (`all_resolved`), NOT the
-/// whole score: an individual-part view must not reserve a gap for a clef change
-/// that belongs to a different part. Measure 0 is excluded (the opening clef is
-/// the staff's primary clef, not a change).
-pub(crate) fn clef_change_measure_set_resolved<R: AsRef<[ResolvedMeasure]>>(
-    all_resolved: &[R],
-) -> HashSet<usize> {
-    let mut set = HashSet::new();
-    for staff in all_resolved {
-        for rm in staff.as_ref() {
-            if rm.index == 0 {
-                continue;
-            }
-            let changes = rm
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|c| c.position.is_none()));
-            if changes {
-                set.insert(rm.index);
-            }
-        }
-    }
-    set
-}
-
-/// Build the clef-change measure set from already-laid-out measure layouts,
-/// scoped to EXACTLY the staves present. The leading-clef gap shifts the shared
-/// barline, so the set must include only the staves that actually share that
-/// barline in this view: in an individual-part view (a single instrument's
-/// staves), a clef change that belongs to a DIFFERENT part must not reserve a
-/// gap here — otherwise the bassoon's barline shifts for a violin clef change it
-/// never carries. Measure 0 is excluded (the opening clef is the staff's primary
-/// clef, not a change).
-pub(crate) fn clef_change_measure_set_from_layouts(
-    all_staff_layouts: &[Vec<MeasureLayout>],
-) -> HashSet<usize> {
-    let mut set = HashSet::new();
-    for layouts in all_staff_layouts {
-        for ml in layouts {
-            if ml.resolved.index == 0 {
-                continue;
-            }
-            let changes = ml
-                .resolved
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|c| c.position.is_none()));
-            if changes {
-                set.insert(ml.resolved.index);
-            }
-        }
-    }
-    set
-}
 
 /// Compute the effective staff_y for a cross-staff event.
 /// If the event has a `staff` override that differs from its parent sequence's
