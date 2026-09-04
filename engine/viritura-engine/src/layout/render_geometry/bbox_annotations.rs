@@ -4,7 +4,7 @@ use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::render_annotations::{
     below_staff_number_top_y, highest_point_in_range, measure_number_to_display,
-    rehearsal_mark_x_extent, tempo_metronome_runs,
+    measure_number_value, rehearsal_mark_x_extent, tempo_metronome_runs,
 };
 use super::super::render_barlines::{render_barline, BarlineKind};
 use super::super::render_measure::MIDDLE_LINE_POS;
@@ -70,6 +70,9 @@ pub(super) fn bbox_measure_numbers(
     sp: f64,
     measure_idx: usize,
     config: &LayoutConfig,
+    render_measure_number_here: bool,
+    render_mmr_count_here: bool,
+    mmr_count_y_override: Option<f64>,
 ) {
     // Mirror `render_measure_numbers`. A collapsed multimeasure rest renders a
     // `{start}–{end}` range label instead of a single number (a separate render
@@ -77,11 +80,18 @@ pub(super) fn bbox_measure_numbers(
     // below-staff number with no selection/measure-extent box, an inconsistency
     // with regular bar numbers.
     if let Some(count) = ml.multimeasure_rest_count {
-        bbox_multimeasure_number_range(bboxes, ml, staff_y, sp, count);
-        bbox_multimeasure_count_number(bboxes, ml, staff_y, sp);
+        if render_measure_number_here {
+            bbox_multimeasure_number_range(bboxes, ml, staff_y, sp, count);
+        }
+        if render_mmr_count_here {
+            bbox_multimeasure_count_number(bboxes, ml, staff_y, sp, mmr_count_y_override);
+        }
         return;
     }
-    let number = match measure_number_to_display(ml) {
+    if !render_measure_number_here {
+        return;
+    }
+    let number = match measure_number_value(ml) {
         Some(n) => n,
         None => return,
     };
@@ -112,10 +122,6 @@ fn bbox_multimeasure_number_range(
     sp: f64,
     count: u32,
 ) {
-    // Only on the topmost staff, matching the renderer's house style.
-    if !ml.is_first_staff {
-        return;
-    }
     let start = match ml.resolved.global.number {
         Some(0) => return,
         Some(n) => n,
@@ -151,14 +157,8 @@ fn bbox_multimeasure_count_number(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
+    count_y_override: Option<f64>,
 ) {
-    // One box per MMR, on the topmost staff (matching the range-label gate) —
-    // the id carries only the measure index, so emitting per-staff would create
-    // duplicate ids, and system objects (tempo/rehearsal) that need it as an
-    // obstacle live on the top staff anyway.
-    if !ml.is_first_staff {
-        return;
-    }
     let Some((left, right, top_y)) =
         super::super::render_measure::multimeasure_rest_number_extent(ml, staff_y, sp)
     else {
@@ -167,7 +167,26 @@ fn bbox_multimeasure_count_number(
     // The count renders as SMuFL time-signature digits whose Bravura bbox spans
     // -1.0..+1.0 in glyph units (= sp) about the baseline, i.e. 2.0sp tall, with
     // `top_y` already at the glyph cap.
-    let bbox = BoundingBox::new(left, top_y, right - left, 2.0 * sp);
+    let display_str = ml.multimeasure_rest_label.as_deref().unwrap_or_default();
+    let all_digits = display_str.is_empty()
+        || display_str
+            .chars()
+            .all(|character| character.is_ascii_digit());
+    let (bbox_y, bbox_height) = if all_digits {
+        (
+            count_y_override.map_or(top_y, |center| center - sp),
+            2.0 * sp,
+        )
+    } else if let Some(center) = count_y_override {
+        let cap_height = crate::layout::text_styles::cap_height_from_baseline(
+            crate::layout::text_styles::FontFamily::Serif,
+            2.0 * sp,
+        );
+        (center - cap_height * 0.5, cap_height)
+    } else {
+        (staff_y - 1.5 * sp - 2.0 * sp, 2.0 * sp)
+    };
+    let bbox = BoundingBox::new(left, bbox_y, right - left, bbox_height);
     bboxes.push(ElementBBox {
         element_id: element_id::multimeasure_count(ml.resolved.index),
         bbox,

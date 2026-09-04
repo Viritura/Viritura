@@ -23,9 +23,11 @@ use std::collections::{HashMap, HashSet};
 
 mod measure_repeats;
 mod multimeasure_rests;
+mod shared_lanes;
 
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
+pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
 pub(super) const MIDDLE_LINE_POS: f64 = 4.0;
@@ -590,6 +592,8 @@ pub(crate) fn render_measure(
     explicit_beamed_ids: &HashSet<String>,
     lyric_line_order: Option<&[String]>,
     staff_y_offsets: Option<&[f64]>,
+    shared_lane_staff_y_offsets: Option<&[f64]>,
+    render_ordinary_measure_number: bool,
     use_beams: bool,
     use_accidental_display: bool,
     slur_map: Option<&super::slurs::SlurParticipationMap>,
@@ -607,16 +611,12 @@ pub(crate) fn render_measure(
     // A mid-system clef change pushes the barline right by this gap; anything
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
-    let grand_staff = staff_y_offsets.filter(|offsets| offsets.len() > 1);
-    let is_top_staff = grand_staff.is_none_or(|offsets| (staff_y - offsets[0]).abs() < 0.01);
-    let is_bottom_staff = grand_staff.is_none_or(|offsets| {
-        offsets
-            .last()
-            .is_some_and(|bottom| (staff_y - bottom).abs() < 0.01)
-    });
-    let grand_staff_center = grand_staff.map(|offsets| {
-        (offsets[0] + offsets.last().copied().unwrap_or(offsets[0]) + 4.0 * sp) * 0.5
-    });
+    let shared_lane = shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
+    let render_mmr_range_here = if shared_lane.center_y.is_some() {
+        shared_lane.is_bottom
+    } else {
+        render_ordinary_measure_number
+    };
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {
@@ -628,8 +628,8 @@ pub(crate) fn render_measure(
             config,
             count,
             prev_has_repeat_end,
-            is_top_staff,
-            grand_staff_center,
+            shared_lane.is_top,
+            shared_lane.center_y,
         );
         // Above-staff system objects still belong on a multimeasure rest (a
         // tempo or rehearsal mark at the start of a long rest must show). The
@@ -657,7 +657,7 @@ pub(crate) fn render_measure(
                 leading_clef_gap,
             );
         }
-        render_measure_numbers(dl, ml, staff_y, sp, config, is_bottom_staff);
+        render_measure_numbers(dl, ml, staff_y, sp, config, render_mmr_range_here);
         return;
     }
 
@@ -684,7 +684,7 @@ pub(crate) fn render_measure(
         staff_y,
         sp,
         config,
-        is_top_staff,
+        shared_lane.is_top,
     );
 
     // Events from all voices(including grace notes)
@@ -719,7 +719,7 @@ pub(crate) fn render_measure(
                     ev.event(ej).staff,
                     ev.sequence_staff(ej),
                     staff_y,
-                    staff_y_offsets,
+                    shared_lane_staff_y_offsets,
                 );
                 let vstaff = ev.event(ej).staff.unwrap_or(ev.sequence_staff(ej));
                 let ex = ev.x(ej);
@@ -1066,7 +1066,7 @@ pub(crate) fn render_measure(
         config,
         &expr_above_glyph_boxes,
         &dynamic_boxes,
-        staff_y_offsets,
+        shared_lane_staff_y_offsets,
     );
     let expr_cmd_end = dl.commands.len();
 
@@ -1152,7 +1152,7 @@ pub(crate) fn render_measure(
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
     // Render measure numbers above staff when explicitly set
-    render_measure_numbers(dl, ml, staff_y, sp, config, is_bottom_staff);
+    render_measure_numbers(dl, ml, staff_y, sp, config, render_ordinary_measure_number);
 
     // Render breath marks above staff
     render_breath_marks(dl, ml, staff_y, sp, config);

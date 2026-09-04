@@ -345,15 +345,27 @@ pub(crate) fn render_multimeasure_rest(
             }
         }
     } else if render_count {
+        let font_size = 2.0 * sp;
+        let (text_y, baseline) =
+            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
+                (
+                    center_y
+                        + crate::layout::text_styles::cap_center_offset_from_baseline(
+                            crate::layout::text_styles::FontFamily::Serif,
+                            font_size,
+                        ),
+                    TextBaseline::Alphabetic,
+                )
+            });
         dl.push(RenderCommand::DrawText {
             x: center_x,
-            y: count_y,
+            y: text_y,
             text: display_str,
             font: "serif bold".into(),
-            size: 2.0 * sp,
+            size: font_size,
             color: "#000000".into(),
             align: TextAlign::Center,
-            baseline: TextBaseline::Bottom,
+            baseline,
         });
     }
 }

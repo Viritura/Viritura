@@ -387,6 +387,42 @@ fn test_grand_staff_part_uses_one_centered_instrument_label() {
 }
 
 #[test]
+fn test_same_part_brace_preserves_distinct_staff_labels() {
+    let json = r#"{
+      "mnx": { "version": 1 },
+      "global": { "measures": [{ "id": "m1", "time": { "count": 4, "unit": 4 } }] },
+      "parts": [{ "id": "organ", "name": "Organ", "staves": 2,
+        "measures": [{ "sequences": [
+          { "staff": 1, "content": [] },
+          { "staff": 2, "content": [] }
+        ] }]
+      }],
+      "layouts": [{ "id": "score", "content": [
+        { "type": "group", "symbol": "brace", "content": [
+          { "type": "staff", "label": "Manual I", "sources": [{ "part": "organ", "staff": 1 }] },
+          { "type": "staff", "label": "Manual II", "sources": [{ "part": "organ", "staff": 2 }] }
+        ] }
+      ] }],
+      "scores": [{ "name": "Score", "layout": "score",
+        "pages": [{ "systems": [{ "measure": "m1" }] }]
+      }]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let labels: Vec<&str> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, .. } if text.starts_with("Manual") => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(labels, ["Manual I", "Manual II"]);
+}
+
+#[test]
 fn test_tier5_organ_layout_parse() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/organ-layout.mnx");
     let score = parse_mnx(json).unwrap();

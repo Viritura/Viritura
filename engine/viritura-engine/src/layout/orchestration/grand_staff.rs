@@ -270,6 +270,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
     }
     for (si, layouts) in all_sys_layouts.iter().enumerate() {
         let staff_y = staff_y_offsets[si];
+        let shared_lane = render_measure::shared_staff_lane(staff_y, sp, Some(staff_y_offsets));
         let x_end = layouts.last().map_or(margin_left, |ml| ml.x + ml.width);
         let staff_shape_start = dl.element_shapes.len();
         let staff_cmd_start = dl.commands.len();
@@ -324,6 +325,8 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 &explicit_beamed_ids,
                 lyric_line_order,
                 Some(staff_y_offsets),
+                Some(staff_y_offsets),
+                shared_lane.is_bottom,
                 use_beams,
                 use_accidental_display,
                 Some(&slur_map),
@@ -341,6 +344,9 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 Some(&slur_map),
                 &global_beamed_ids,
                 render_measure::measure_leading_clef_gap(ml, sp, &clef_change_measures),
+                shared_lane.is_bottom,
+                shared_lane.is_top,
+                shared_lane.center_y,
             );
             dl.extend_element_bboxes_with_shapes(bboxes);
 

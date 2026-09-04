@@ -914,7 +914,7 @@ fn test_grand_staff_in_full_score() {
     // A score with a piano (2 staves) + violin (1 staff)
     let json = r#"{
         "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "global": {"measures": [{"number": 10, "time": {"count": 4, "unit": 4}}]},
         "parts": [
             {
                 "name": "Piano",
@@ -934,7 +934,9 @@ fn test_grand_staff_in_full_score() {
                 "name": "Violin",
                 "measures": [{
                     "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-                    "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]}]}]
+                    "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]}]}],
+                    "dynamics": [{"id": "violin-p", "type": "immediate", "value": "p",
+                        "position": {"fraction": [0, 1]}}]
                 }]
             }
         ]
@@ -962,6 +964,41 @@ fn test_grand_staff_in_full_score() {
         matches!(c, RenderCommand::DrawStretchedGlyph { codepoint, .. } if is_brace_glyph(*codepoint))
     }).collect();
     assert_eq!(braces.len(), 1, "Expected 1 brace for Piano");
+    let violin_staff_y = dl
+        .measure_bounds
+        .iter()
+        .find(|bounds| bounds.part_index == 1)
+        .map(|bounds| bounds.y)
+        .expect("violin staff bounds");
+    let violin_dynamic_y = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            let is_violin_dynamic = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/dynviolin-p"));
+            match command {
+                RenderCommand::DrawGlyph { y, .. } if is_violin_dynamic => Some(*y),
+                _ => None,
+            }
+        })
+        .expect("violin dynamic");
+    assert!(
+        violin_dynamic_y > violin_staff_y + 4.0 * config.sp,
+        "a single-staff part in a full score must keep its dynamic below its own staff"
+    );
+    let system_bar_numbers = dl
+        .commands
+        .iter()
+        .filter(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "10"))
+        .count();
+    assert_eq!(
+        system_bar_numbers, 1,
+        "ordinary system bar numbers must render once across the full score"
+    );
 }
 
 #[test]
@@ -1251,7 +1288,11 @@ fn test_grand_staff_mmr_count_and_range_use_shared_vertical_lanes() {
             _ => None,
         })
         .collect();
-    assert_eq!(count_ys.len(), 1, "grand staff must render one MMR count");
+    assert_eq!(
+        count_ys.len(),
+        1,
+        "grand staff must render one MMR count, found {count_ys:?} for staves {staff_ys:?}"
+    );
     assert!(
         (count_ys[0] - group_center).abs() < 0.01,
         "MMR count should be vertically centered between staves"
@@ -1267,6 +1308,29 @@ fn test_grand_staff_mmr_count_and_range_use_shared_vertical_lanes() {
     assert!(
         range_y > staff_ys[1] + 4.0 * config.sp,
         "MMR range label should sit below the bottom staff"
+    );
+    let count_boxes: Vec<_> = dl
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id.ends_with("/mmrcount"))
+        .collect();
+    assert_eq!(
+        count_boxes.len(),
+        1,
+        "MMR count must publish one shared bbox"
+    );
+    assert!(
+        (count_boxes[0].bbox.y + count_boxes[0].bbox.height * 0.5 - group_center).abs() < 0.01,
+        "MMR count bbox should follow the centered count"
+    );
+    let range_box = dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id.ends_with("/mnum"))
+        .expect("MMR range bbox");
+    assert!(
+        range_box.bbox.y > staff_ys[1] + 4.0 * config.sp,
+        "MMR range bbox should follow the bottom-staff label"
     );
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import type { PasteResult } from "../commands/clipboardCommands";
+import { applyCut, cutToClipboard, type PasteResult } from "../commands/clipboardCommands";
 import type { SelectionState } from "../store/selectionStore";
 import { computePasteResult } from "./computePasteResult";
 import { buildClipboardSelection } from "./buildClipboardSelection";
@@ -174,5 +174,130 @@ describe("computePasteResult grand-staff destinations", () => {
       staff: 2,
     });
     expect(result!.newScore.parts[1]!.measures[1]!.dynamics![0]!.id).not.toBe("source-mf");
+  });
+
+  it("preserves dynamics for every part in a multi-part repeat selection", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{}, {}] },
+      parts: ["Harp 1", "Harp 2", "Harp 3", "Harp 4"].map((name, partIndex) => ({
+        name,
+        measures: [
+          { sequences: [{ content: [] }] },
+          {
+            sequences: [{ content: [] }],
+            ...(partIndex < 2
+              ? {
+                  measureRepeat: { number: 1 },
+                  dynamics: [
+                    {
+                      id: `dynamic-${partIndex}`,
+                      type: "immediate" as const,
+                      value: partIndex === 0 ? "p" : "f",
+                      position: { fraction: [0, 1] as [number, number] },
+                    },
+                  ],
+                }
+              : {}),
+          },
+        ],
+      })),
+    };
+    const copied = buildClipboardSelection(score, {
+      kind: "range",
+      startElementId: "p0/m1/measurerepeat",
+      endElementId: "p1/m1/measurerepeat",
+    })!;
+    const fragment = deserializeFragment(
+      serializeFragment(
+        copied.events,
+        copied.timeSignature,
+        copied.keySignature,
+        copied.tracks,
+        copied.clef,
+        copied.transposition,
+        copied.dynamics,
+        copied.measureRepeats,
+      ),
+    )!;
+
+    const result = computePasteResult(
+      score,
+      {
+        kind: "measure",
+        startPartIndex: 2,
+        endPartIndex: 2,
+        startStaffIndex: 2,
+        endStaffIndex: 2,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+      pasteResultFromFragment(fragment),
+    )!;
+
+    expect(result.newScore.parts[2]!.measures[1]!.dynamics![0]!.value).toBe("p");
+    expect(result.newScore.parts[3]!.measures[1]!.dynamics![0]!.value).toBe("f");
+  });
+
+  it("cuts repeat-only structural selections from their source measures", async () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{}, {}] },
+      parts: [
+        {
+          name: "Harp",
+          measures: [
+            { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+            { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+          ],
+        },
+      ],
+    };
+    const copied = buildClipboardSelection(score, {
+      kind: "range",
+      startElementId: "p0/m0/measurerepeat",
+      endElementId: "p0/m1/measurerepeat",
+    })!;
+    const cut = await cutToClipboard(copied);
+
+    expect(cut).not.toBeNull();
+    const result = applyCut(score, cut!);
+    expect(result.parts[0]!.measures.every((measure) => measure.measureRepeat === undefined)).toBe(true);
+  });
+
+  it("keeps notes and repeats together in a mixed multi-selection", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{}, {}] },
+      parts: [
+        {
+          name: "Harp",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      type: "event",
+                      id: "note",
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+            { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+          ],
+        },
+      ],
+    };
+    const copied = buildClipboardSelection(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/note", "p0/m1/measurerepeat"],
+    });
+
+    expect(copied?.events).toHaveLength(1);
+    expect(copied?.measureRepeats).toHaveLength(1);
   });
 });

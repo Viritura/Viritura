@@ -7,6 +7,7 @@ import {
   applyCut,
   type ClipboardSelection,
 } from "../commands/clipboardCommands";
+import { FRAGMENT_VERSION } from "../clipboard/ClipboardFragment";
 import { addClipboardEntry, useClipboardHistoryStore, type ClipboardSourceRef } from "../store/clipboardHistoryStore";
 import {
   buildClipboardSelection,
@@ -66,7 +67,7 @@ export function useClipboardActions({
       addClipboardEntry(
         {
           type: "viritura/fragment" as const,
-          version: 2,
+          version: FRAGMENT_VERSION,
           timeSignature: sel.timeSignature,
           keySignature: sel.keySignature,
           content: sel.events,
@@ -90,7 +91,7 @@ export function useClipboardActions({
       addClipboardEntry(
         {
           type: "viritura/fragment",
-          version: 2,
+          version: FRAGMENT_VERSION,
           timeSignature: sel.timeSignature,
           keySignature: sel.keySignature,
           content: sel.events,

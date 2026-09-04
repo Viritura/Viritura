@@ -40,7 +40,8 @@ pub(crate) use dynamics::{
 pub(crate) use expressions::render_text_expressions;
 pub(crate) use jump_markers::render_jump_markers;
 pub(crate) use measure_numbers::{
-    below_staff_number_top_y, measure_number_to_display, render_measure_numbers, start_clef,
+    below_staff_number_top_y, measure_number_to_display, measure_number_value,
+    render_measure_numbers, start_clef,
 };
 #[allow(unused_imports)]
 // Public annotation barrel; tempo consumes the rehearsal API through its sibling module.

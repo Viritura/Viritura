@@ -5,7 +5,7 @@ use super::super::text_styles::{self, FontFamily};
 use super::super::types::*;
 use super::dynamics::PlacedDynamic;
 use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyphBox};
-use crate::model::ExpressionPlacement;
+use crate::model::{ExpressionPlacement, MultiStaffOrientation};
 use crate::render::*;
 
 /// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
@@ -145,8 +145,26 @@ pub(crate) fn render_text_expressions(
             .is_none()
             .then(|| super::dynamics::grand_staff_gap_center(staff_y, sp, staff_y_offsets))
             .flatten();
+        let inline_dynamic_is_explicit = inline_dynamic.is_some()
+            && ml.resolved.part.dynamics.as_ref().is_some_and(|dynamics| {
+                dynamics.iter().any(|dynamic| {
+                    !dynamic.is_gradual()
+                        && (dynamic.position.beats() - beat).abs() < 0.01
+                        && (matches!(
+                            dynamic.orient,
+                            Some(MultiStaffOrientation::Above | MultiStaffOrientation::Below)
+                        ) || dynamic
+                            .manual_offset
+                            .is_some_and(|offset| offset != [0.0, 0.0])
+                            || dynamic.avoid_collisions == Some(false))
+                })
+            });
 
-        let base_y = if let Some(center_y) = between_center {
+        let base_y = if inline_dynamic_is_explicit {
+            inline_dynamic
+                .expect("explicit inline dynamic exists")
+                .baseline_y
+        } else if let Some(center_y) = between_center {
             center_y
                 + text_styles::lowercase_center_offset_from_baseline(FontFamily::Serif, font_size)
         } else if let Some(dynamic) = inline_dynamic {

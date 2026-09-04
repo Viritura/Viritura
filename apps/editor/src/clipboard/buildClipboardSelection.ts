@@ -105,12 +105,43 @@ export function buildClipboardSelection(
 ): ClipboardSelection | null {
   if (!score) return null;
   const repeatSelection = buildMeasureRepeatClipboardSelection(score, selection);
-  if (repeatSelection) return repeatSelection;
-  if (selection.kind === "single") return buildSingleClipboardSelection(score, selection, selectedScoreIndex);
-  if (selection.kind === "range") return buildRangeClipboardSelection(score, selection, selectedScoreIndex);
-  if (selection.kind === "multi") return buildMultiClipboardSelection(score, selection, selectedScoreIndex);
-  if (selection.kind === "measure") return buildMeasureClipboardSelection(score, selection);
-  return null;
+  const regularSelection =
+    selection.kind === "single"
+      ? buildSingleClipboardSelection(score, selection, selectedScoreIndex)
+      : selection.kind === "range"
+        ? buildRangeClipboardSelection(score, selection, selectedScoreIndex)
+        : selection.kind === "multi"
+          ? buildMultiClipboardSelection(score, selection, selectedScoreIndex)
+          : selection.kind === "measure"
+            ? buildMeasureClipboardSelection(score, selection)
+            : null;
+  if (!repeatSelection) return regularSelection;
+  if (!regularSelection) return repeatSelection;
+  return mergeStructuralClipboardSelection(regularSelection, repeatSelection);
+}
+
+function mergeStructuralClipboardSelection(
+  regular: ClipboardSelection,
+  structural: ClipboardSelection,
+): ClipboardSelection {
+  const partDelta = structural.partIndex - regular.partIndex;
+  const measureDelta = structural.measureIndex - regular.measureIndex;
+  const structuralDynamics = (structural.dynamics ?? []).map((dynamic) => ({
+    ...dynamic,
+    partOffset: (dynamic.partOffset ?? 0) + partDelta,
+    measureOffset: dynamic.measureOffset + measureDelta,
+    ...(dynamic.endMeasureOffset === undefined ? {} : { endMeasureOffset: dynamic.endMeasureOffset + measureDelta }),
+  }));
+  return {
+    ...regular,
+    measureRepeats: structural.measureRepeats?.map((repeat) => ({
+      ...repeat,
+      partOffset: repeat.partOffset + partDelta,
+      measureOffset: repeat.measureOffset + measureDelta,
+    })),
+    dynamics: [...(regular.dynamics ?? []), ...structuralDynamics],
+    cutMeasureRepeats: structural.cutMeasureRepeats,
+  };
 }
 
 function buildMeasureRepeatClipboardSelection(score: Score, selection: SelectionState): ClipboardSelection | null {
@@ -136,7 +167,13 @@ function buildMeasureRepeatClipboardSelection(score: Score, selection: Selection
         ]
       : [];
   });
-  const dynamics = collectDynamics(score, startPart, startMeasure, endMeasure, 0, Infinity);
+  const selectedParts = [...new Set(locations.map((location) => location.partIndex))];
+  const dynamics = selectedParts.flatMap((partIndex) =>
+    collectDynamics(score, partIndex, startMeasure, endMeasure, 0, Infinity).map((dynamic) => ({
+      ...dynamic,
+      partOffset: partIndex - startPart,
+    })),
+  );
   const { time, key } = resolveActiveTimeKey(score, startMeasure);
   return {
     events: [],
@@ -146,6 +183,7 @@ function buildMeasureRepeatClipboardSelection(score: Score, selection: Selection
     transposition: score.parts[startPart]?.transposition,
     dynamics: dynamics.length > 0 ? dynamics : undefined,
     measureRepeats,
+    cutMeasureRepeats: locations,
     partIndex: startPart,
     measureIndex: startMeasure,
     sequenceIndex: 0,

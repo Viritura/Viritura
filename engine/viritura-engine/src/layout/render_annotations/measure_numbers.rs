@@ -127,7 +127,7 @@ pub(crate) fn measure_number_to_display(ml: &MeasureLayout) -> Option<i32> {
     measure_number_value(ml)
 }
 
-fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
+pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
     if !ml.is_first_on_system {
         return None;
     }

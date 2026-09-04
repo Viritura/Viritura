@@ -46,6 +46,7 @@ export interface ClipboardSelection {
   /** Exact source-model events to replace when cutting multi-track/range content. */
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
+  cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
 }
 
 interface ClipboardCutLocation {
@@ -107,6 +108,7 @@ export async function cutToClipboard(selection: ClipboardSelection): Promise<Cut
     replacements,
     cutLocations: selection.cutLocations,
     cutAnnotationLocations: selection.cutAnnotationLocations,
+    cutMeasureRepeats: selection.cutMeasureRepeats,
   };
 }
 
@@ -119,6 +121,7 @@ export interface CutResult {
   replacements: SequenceContent[];
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
+  cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
 }
 
 /**
@@ -253,9 +256,28 @@ export function applyPaste(
   pasteTrackIntoScore(newScore, partIndex, measureIndex, sequenceIndex, eventIndex, paste.content);
 
   if (paste.dynamics && paste.dynamics.length > 0) {
-    applyCapturedDynamics(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
+    applyCapturedDynamicsByPart(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
   }
   return newScore;
+}
+
+function applyCapturedDynamicsByPart(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  pasteStartBeat: number,
+  captured: CapturedDynamic[],
+): void {
+  const offsets = new Set(captured.map((dynamic) => dynamic.partOffset ?? 0));
+  for (const partOffset of offsets) {
+    applyCapturedDynamics(
+      score,
+      partIndex + partOffset,
+      measureIndex,
+      pasteStartBeat,
+      captured.filter((dynamic) => (dynamic.partOffset ?? 0) === partOffset),
+    );
+  }
 }
 
 function applyCapturedMeasureRepeats(
@@ -604,8 +626,9 @@ function mergeRests(seq: { content: SequenceContent[] }): void {
  * Returns a new Score (immutable update).
  */
 export function applyCut(score: Score, cut: CutResult): Score {
+  const scoreWithoutRepeats = removeCutMeasureRepeats(score, cut.cutMeasureRepeats);
   if (cut.cutLocations && cut.cutLocations.length > 0) {
-    const newScore = structuredClone(score);
+    const newScore = structuredClone(scoreWithoutRepeats);
     const ordered = [...cut.cutLocations].sort(
       (left, right) =>
         right.partIndex - left.partIndex ||
@@ -632,14 +655,15 @@ export function applyCut(score: Score, cut: CutResult): Score {
     return deleteCutAnnotations(newScore, cut);
   }
 
-  const part = score.parts[cut.partIndex];
-  if (!part) return score;
+  if (cut.replacements.length === 0) return deleteCutAnnotations(scoreWithoutRepeats, cut);
+  const part = scoreWithoutRepeats.parts[cut.partIndex];
+  if (!part) return scoreWithoutRepeats;
   const measure = part.measures[cut.measureIndex];
-  if (!measure) return score;
+  if (!measure) return scoreWithoutRepeats;
   const sequence = measure.sequences[cut.sequenceIndex];
-  if (!sequence) return score;
+  if (!sequence) return scoreWithoutRepeats;
 
-  const newScore = structuredClone(score);
+  const newScore = structuredClone(scoreWithoutRepeats);
   const targetSeq = newScore.parts[cut.partIndex]!.measures[cut.measureIndex]!.sequences[cut.sequenceIndex]!;
 
   // Replace each cut event with its rest replacement
@@ -651,6 +675,19 @@ export function applyCut(score: Score, cut: CutResult): Score {
   }
 
   return deleteCutAnnotations(newScore, cut);
+}
+
+function removeCutMeasureRepeats(
+  score: Score,
+  locations: Array<{ partIndex: number; measureIndex: number }> | undefined,
+): Score {
+  if (!locations?.length) return score;
+  const next = structuredClone(score);
+  for (const location of locations) {
+    const measure = next.parts[location.partIndex]?.measures[location.measureIndex];
+    if (measure) delete measure.measureRepeat;
+  }
+  return next;
 }
 
 function deleteCutAnnotations(score: Score, cut: CutResult): Score {

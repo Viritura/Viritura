@@ -279,6 +279,9 @@ pub(crate) fn compute_measure_bboxes(
     // hitbox lands at the un-shifted `ml.x` while the glyph is drawn further
     // right. 0 for measures with no leading clef change.
     leading_clef_gap: f64,
+    render_measure_number_here: bool,
+    render_mmr_count_here: bool,
+    mmr_count_y_override: Option<f64>,
 ) -> Vec<ElementBBox> {
     let mut bboxes = Vec::new();
     let measure_idx = ml.resolved.index;
@@ -502,7 +505,17 @@ pub(crate) fn compute_measure_bboxes(
     // Text expressions (stacked + inline) publish their boxes at emit time in
     // `render_dynamics` / `emit_stacked_expressions`, from the shifted draw
     // position, so they are intentionally NOT recomputed here.
-    bbox_measure_numbers(&mut bboxes, ml, staff_y, sp, measure_idx, config);
+    bbox_measure_numbers(
+        &mut bboxes,
+        ml,
+        staff_y,
+        sp,
+        measure_idx,
+        config,
+        render_measure_number_here,
+        render_mmr_count_here,
+        mmr_count_y_override,
+    );
 
     bboxes
 }

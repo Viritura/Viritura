@@ -1101,6 +1101,12 @@ fn test_hairpin_visually_continues_dynamic_after_empty_measure() {
             _ => None,
         })
         .expect("anchor dynamic should be drawn");
+    let dynamic_midline = dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id.ends_with("/dynanchor"))
+        .map(|bbox| bbox.bbox.y + bbox.bbox.height * 0.5)
+        .expect("anchor dynamic bbox");
     let hairpin_y = dl
         .commands
         .iter()
@@ -1119,9 +1125,13 @@ fn test_hairpin_visually_continues_dynamic_after_empty_measure() {
         .expect("linked hairpin should be drawn");
 
     assert!(
-        (hairpin_y - (dynamic_baseline - 0.5 * config.sp)).abs() < 0.01,
+        (hairpin_y - dynamic_midline).abs() < 0.01,
         "linked hairpin ({hairpin_y:.1}) should share the anchor dynamic midline ({:.1})",
-        dynamic_baseline - 0.5 * config.sp
+        dynamic_midline
+    );
+    assert!(
+        dynamic_midline < dynamic_baseline,
+        "dynamic ink center should remain above its baseline"
     );
 }
 

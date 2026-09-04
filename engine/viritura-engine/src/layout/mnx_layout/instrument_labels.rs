@@ -109,6 +109,7 @@ pub(super) fn render_staff_labels(
             group.label.is_none()
                 && group.first_staff < group.last_staff
                 && staves_share_single_part(flat_staves, group)
+                && staves_share_label(flat_staves, group, is_first_system)
         });
         if containing_brace.is_some_and(|group| group.label.is_some())
             || shared_part_brace.is_some_and(|group| index != group.first_staff)
@@ -191,6 +192,20 @@ pub(super) fn render_staff_labels(
             dl.recolor_range(recolor_start, EXPANSION_COLOR);
         }
     }
+}
+
+fn staves_share_label(
+    flat_staves: &[FlatStaff],
+    group: &GroupRange,
+    is_first_system: bool,
+) -> bool {
+    let mut labels = flat_staves[group.first_staff..=group.last_staff]
+        .iter()
+        .filter_map(|staff| label_text(staff, is_first_system));
+    let Some(first) = labels.next() else {
+        return true;
+    };
+    labels.all(|label| label == first)
 }
 
 fn label_text(flat_staff: &FlatStaff, is_first_system: bool) -> Option<&str> {
