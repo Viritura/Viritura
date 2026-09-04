@@ -1001,6 +1001,12 @@ fn test_measure_repeat_one_bar_renders_slash_without_count() {
         !glyphs.contains(&smufl::time_sig_digit(1)),
         "a one-bar simile should not print a count above the staff"
     );
+    assert!(
+        dl.element_bboxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/measurerepeat")),
+        "measure-repeat sign should publish a selectable bounding box"
+    );
 }
 
 /// A multi-bar simile uses the wider precomposed glyph and prints its span.

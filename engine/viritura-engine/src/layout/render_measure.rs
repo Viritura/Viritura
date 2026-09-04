@@ -21,125 +21,18 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
+mod clef_changes;
 mod measure_repeats;
 mod multimeasure_rests;
+mod shared_lanes;
 
+pub(crate) use clef_changes::*;
 pub(crate) use measure_repeats::*;
 pub(crate) use multimeasure_rests::*;
+pub(crate) use shared_lanes::*;
 
 /// Middle staff line position in half-spaces from the top line.
 pub(super) const MIDDLE_LINE_POS: f64 = 4.0;
-
-/// Horizontal footprint (in spaces) of the 2/3-size change clef engraved in the
-/// leading gap BEFORE a mid-system start-of-measure barline. The per-staff
-/// barline (`render_measure_prefix`) and the inter-staff barline connectors
-/// (`render_inter_staff_barlines`) both shift right by this amount on a
-/// clef-change measure, so they MUST read the same constant or the barline
-/// splits visually at the connector. Sized for the widest change clef (the G
-/// clef, ~1.79sp at 2/3 size) plus padding on both sides and clearance for a
-/// wide (double) barline's left stroke.
-pub(crate) const CLEF_CHANGE_LEADING_GAP_SP: f64 = 3.2;
-
-/// Padding (in spaces) between a mid-system change clef's right edge and the
-/// LEFT ink edge of the barline it precedes.
-pub(crate) const CLEF_TO_BARLINE_PAD_SP: f64 = 0.7;
-
-/// Leading gap reserved in a clef-change measure's prefix for the change clef
-/// drawn BEFORE the barline. The barline (and anything that aligns to it, such
-/// as a rehearsal mark) sits at `ml.x + leading_clef_gap`, NOT at `ml.x`. A
-/// mid-system clef change pushes the barline right by this gap; the opening
-/// measure of the score (index 0) and the first measure on a system never carry
-/// a leading change clef, so they return 0.
-pub(crate) fn measure_leading_clef_gap(
-    ml: &MeasureLayout,
-    sp: f64,
-    clef_change_measures: &HashSet<usize>,
-) -> f64 {
-    if ml.resolved.index != 0
-        && !ml.is_first_on_system
-        && clef_change_measures.contains(&ml.resolved.index)
-    {
-        CLEF_CHANGE_LEADING_GAP_SP * sp
-    } else {
-        0.0
-    }
-}
-
-/// Exported measure geometry starts at the visible left barline. A change clef
-/// engraved before that barline occupies layout width but is not part of the
-/// selectable bar span, so remove the same leading gap from x, width, and prefix.
-pub(crate) fn measure_bounds_geometry(
-    ml: &MeasureLayout,
-    leading_clef_gap: f64,
-) -> (f64, f64, f64) {
-    (
-        ml.x + leading_clef_gap,
-        (ml.width - leading_clef_gap).max(0.0),
-        (ml.prefix_width - leading_clef_gap).max(0.0),
-    )
-}
-
-/// Measure indices that carry a mid-score start-of-measure clef change
-/// (`position == None`) in any of the SHOWN staves, read from the already-
-/// resolved per-staff measures. Standard engraving practice engraves such a
-/// change BEFORE the preceding barline, and the gap that opens for it shifts the
-/// shared barline — so it must be applied on every shown staff that shares that
-/// barline. Scoped to the staves actually present (`all_resolved`), NOT the
-/// whole score: an individual-part view must not reserve a gap for a clef change
-/// that belongs to a different part. Measure 0 is excluded (the opening clef is
-/// the staff's primary clef, not a change).
-pub(crate) fn clef_change_measure_set_resolved<R: AsRef<[ResolvedMeasure]>>(
-    all_resolved: &[R],
-) -> HashSet<usize> {
-    let mut set = HashSet::new();
-    for staff in all_resolved {
-        for rm in staff.as_ref() {
-            if rm.index == 0 {
-                continue;
-            }
-            let changes = rm
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|c| c.position.is_none()));
-            if changes {
-                set.insert(rm.index);
-            }
-        }
-    }
-    set
-}
-
-/// Build the clef-change measure set from already-laid-out measure layouts,
-/// scoped to EXACTLY the staves present. The leading-clef gap shifts the shared
-/// barline, so the set must include only the staves that actually share that
-/// barline in this view: in an individual-part view (a single instrument's
-/// staves), a clef change that belongs to a DIFFERENT part must not reserve a
-/// gap here — otherwise the bassoon's barline shifts for a violin clef change it
-/// never carries. Measure 0 is excluded (the opening clef is the staff's primary
-/// clef, not a change).
-pub(crate) fn clef_change_measure_set_from_layouts(
-    all_staff_layouts: &[Vec<MeasureLayout>],
-) -> HashSet<usize> {
-    let mut set = HashSet::new();
-    for layouts in all_staff_layouts {
-        for ml in layouts {
-            if ml.resolved.index == 0 {
-                continue;
-            }
-            let changes = ml
-                .resolved
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|c| c.position.is_none()));
-            if changes {
-                set.insert(ml.resolved.index);
-            }
-        }
-    }
-    set
-}
 
 /// Compute the effective staff_y for a cross-staff event.
 /// If the event has a `staff` override that differs from its parent sequence's
@@ -590,6 +483,8 @@ pub(crate) fn render_measure(
     explicit_beamed_ids: &HashSet<String>,
     lyric_line_order: Option<&[String]>,
     staff_y_offsets: Option<&[f64]>,
+    shared_lane_staff_y_offsets: Option<&[f64]>,
+    render_ordinary_measure_number: bool,
     use_beams: bool,
     use_accidental_display: bool,
     slur_map: Option<&super::slurs::SlurParticipationMap>,
@@ -607,10 +502,26 @@ pub(crate) fn render_measure(
     // A mid-system clef change pushes the barline right by this gap; anything
     // that aligns to the barline (the rehearsal mark) must shift with it.
     let leading_clef_gap = measure_leading_clef_gap(ml, sp, clef_change_measures);
+    let shared_lane = shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
+    let render_mmr_range_here = if shared_lane.center_y.is_some() {
+        shared_lane.is_bottom
+    } else {
+        render_ordinary_measure_number
+    };
 
     // Handle multimeasure rest rendering
     if let Some(count) = ml.multimeasure_rest_count {
-        render_multimeasure_rest(dl, ml, staff_y, sp, config, count, prev_has_repeat_end);
+        render_multimeasure_rest(
+            dl,
+            ml,
+            staff_y,
+            sp,
+            config,
+            count,
+            prev_has_repeat_end,
+            shared_lane.is_top,
+            shared_lane.center_y,
+        );
         // Above-staff system objects still belong on a multimeasure rest (a
         // tempo or rehearsal mark at the start of a long rest must show). The
         // tempo renderer hops above the big count number to avoid collision —
@@ -637,7 +548,7 @@ pub(crate) fn render_measure(
                 leading_clef_gap,
             );
         }
-        render_measure_numbers(dl, ml, staff_y, sp, config);
+        render_measure_numbers(dl, ml, staff_y, sp, config, render_mmr_range_here);
         return;
     }
 
@@ -657,7 +568,15 @@ pub(crate) fn render_measure(
 
     // The simile sign replaces the bar's notated content; MNX still permits
     // both, so it is drawn alongside whatever the sequences hold.
-    render_measure_repeat(dl, ml, measure_repeat_right, staff_y, sp, config);
+    render_measure_repeat(
+        dl,
+        ml,
+        measure_repeat_right,
+        staff_y,
+        sp,
+        config,
+        shared_lane.is_top,
+    );
 
     // Events from all voices(including grace notes)
     // Track the accidental in effect at each (step, octave) within this
@@ -691,7 +610,7 @@ pub(crate) fn render_measure(
                     ev.event(ej).staff,
                     ev.sequence_staff(ej),
                     staff_y,
-                    staff_y_offsets,
+                    shared_lane_staff_y_offsets,
                 );
                 let vstaff = ev.event(ej).staff.unwrap_or(ev.sequence_staff(ej));
                 let ex = ev.x(ej);
@@ -1018,7 +937,7 @@ pub(crate) fn render_measure(
     // Tuplet brackets are obstacles too: a below-staff dynamic must clear a
     // below-staff bracket (and vice versa) rather than collide with it.
     artic_boxes.extend(tuplet_bracket_boxes);
-    let dynamic_boxes = render_dynamics(dl, ml, staff_y, sp, config, &artic_boxes);
+    let dynamic_boxes = render_dynamics(dl, ml, staff_y, sp, config, &artic_boxes, staff_y_offsets);
 
     // Render text expressions below staff (below dynamics)
     let expr_cmd_start = dl.commands.len();
@@ -1038,6 +957,7 @@ pub(crate) fn render_measure(
         config,
         &expr_above_glyph_boxes,
         &dynamic_boxes,
+        shared_lane_staff_y_offsets,
     );
     let expr_cmd_end = dl.commands.len();
 
@@ -1123,7 +1043,7 @@ pub(crate) fn render_measure(
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
     // Render measure numbers above staff when explicitly set
-    render_measure_numbers(dl, ml, staff_y, sp, config);
+    render_measure_numbers(dl, ml, staff_y, sp, config, render_ordinary_measure_number);
 
     // Render breath marks above staff
     render_breath_marks(dl, ml, staff_y, sp, config);

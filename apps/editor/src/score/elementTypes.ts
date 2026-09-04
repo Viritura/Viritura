@@ -37,6 +37,7 @@ export type SelectableElementType =
   | "time-signature"
   | "chord-symbol"
   | "measure-number"
+  | "measure-repeat"
   | "beam"
   | "tuplet"
   | "grace-note"
@@ -78,6 +79,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
   ["time", "time-signature"],
   ["chord", "chord-symbol"],
   ["mnum", "measure-number"],
+  ["measurerepeat", "measure-repeat"],
   ["beam", "beam"],
   ["tuplet", "tuplet"],
   ["grace", "grace-note"],
@@ -148,6 +150,7 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
   "expression",
   "chord-symbol",
   "measure-number",
+  "measure-repeat",
   "barline",
   "clef",
   "key-signature",

@@ -15,13 +15,17 @@ pub(crate) fn render_measure_numbers(
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
+    render_here: bool,
 ) {
+    if !render_here {
+        return;
+    }
     if let Some(count) = ml.multimeasure_rest_count {
         render_multimeasure_number_range(dl, ml, staff_y, sp, count);
         return;
     }
 
-    let number = match measure_number_to_display(ml) {
+    let number = match measure_number_value(ml) {
         Some(n) => n,
         None => return,
     };
@@ -88,9 +92,6 @@ fn render_multimeasure_number_range(
     sp: f64,
     count: u32,
 ) {
-    if !ml.is_first_staff {
-        return;
-    }
     let start = match ml.resolved.global.number {
         Some(0) => return,
         Some(n) => n,
@@ -120,7 +121,14 @@ fn render_multimeasure_number_range(
 
 /// The measure number to print, following the system-start house style.
 pub(crate) fn measure_number_to_display(ml: &MeasureLayout) -> Option<i32> {
-    if !ml.is_first_staff || !ml.is_first_on_system {
+    if !ml.is_first_staff {
+        return None;
+    }
+    measure_number_value(ml)
+}
+
+pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
+    if !ml.is_first_on_system {
         return None;
     }
     let number = match ml.resolved.global.number {

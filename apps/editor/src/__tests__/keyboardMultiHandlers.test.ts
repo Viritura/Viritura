@@ -79,6 +79,54 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
 describe("keyboard edit handlers — multi-aware", () => {
+  it("deletes a selected measure-repeat sign", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 2 };
+    const { ctx, latest } = makeCtx(score, {
+      kind: "single",
+      elementId: "p0/m0/measurerepeat",
+    });
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(latest().parts[0]!.measures[0]!.measureRepeat).toBeUndefined();
+    expect(contentAt(latest(), 0).notes).toBeDefined();
+  });
+
+  it("deletes Ctrl-clicked measure-repeat signs as a multi-selection", () => {
+    const score = makeScore();
+    score.global.measures.push({});
+    score.parts[0]!.measures.push({ sequences: [{ content: [] }], measureRepeat: { number: 1 } });
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 1 };
+    const { ctx, latest } = makeCtx(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/measurerepeat", "p0/m1/measurerepeat"],
+    });
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(latest().parts[0]!.measures.every((measure) => measure.measureRepeat === undefined)).toBe(true);
+  });
+
+  it("deletes all measure repeats in a Shift-click range", () => {
+    const score = makeScore();
+    score.global.measures.push({}, {});
+    score.parts[0]!.measures.push(
+      { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+      { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+    );
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 1 };
+    const { ctx, latest } = makeCtx(score, {
+      kind: "range",
+      startElementId: "p0/m0/measurerepeat",
+      endElementId: "p0/m2/measurerepeat",
+    });
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(latest().parts[0]!.measures.every((measure) => measure.measureRepeat === undefined)).toBe(true);
+  });
+
   it("resets explicit 5/4 rests to a bar rest when deleting one", () => {
     const score = makeScore();
     score.global.measures[0]!.time = { count: 5, unit: 4 };

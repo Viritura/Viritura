@@ -914,7 +914,7 @@ fn test_grand_staff_in_full_score() {
     // A score with a piano (2 staves) + violin (1 staff)
     let json = r#"{
         "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "global": {"measures": [{"number": 10, "time": {"count": 4, "unit": 4}}]},
         "parts": [
             {
                 "name": "Piano",
@@ -934,7 +934,9 @@ fn test_grand_staff_in_full_score() {
                 "name": "Violin",
                 "measures": [{
                     "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
-                    "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]}]}]
+                    "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "A", "octave": 4}}]}]}],
+                    "dynamics": [{"id": "violin-p", "type": "immediate", "value": "p",
+                        "position": {"fraction": [0, 1]}}]
                 }]
             }
         ]
@@ -962,6 +964,41 @@ fn test_grand_staff_in_full_score() {
         matches!(c, RenderCommand::DrawStretchedGlyph { codepoint, .. } if is_brace_glyph(*codepoint))
     }).collect();
     assert_eq!(braces.len(), 1, "Expected 1 brace for Piano");
+    let violin_staff_y = dl
+        .measure_bounds
+        .iter()
+        .find(|bounds| bounds.part_index == 1)
+        .map(|bounds| bounds.y)
+        .expect("violin staff bounds");
+    let violin_dynamic_y = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            let is_violin_dynamic = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/dynviolin-p"));
+            match command {
+                RenderCommand::DrawGlyph { y, .. } if is_violin_dynamic => Some(*y),
+                _ => None,
+            }
+        })
+        .expect("violin dynamic");
+    assert!(
+        violin_dynamic_y > violin_staff_y + 4.0 * config.sp,
+        "a single-staff part in a full score must keep its dynamic below its own staff"
+    );
+    let system_bar_numbers = dl
+        .commands
+        .iter()
+        .filter(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "10"))
+        .count();
+    assert_eq!(
+        system_bar_numbers, 1,
+        "ordinary system bar numbers must render once across the full score"
+    );
 }
 
 #[test]
@@ -1191,6 +1228,284 @@ fn test_grand_staff_brace_does_not_overlap_staves() {
             margin_left
         );
     }
+}
+
+#[test]
+fn test_grand_staff_mmr_count_and_range_use_shared_vertical_lanes() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m1", "time": {"count": 4, "unit": 4}},
+            {"id": "m2"},
+            {"id": "m3"}
+        ]},
+        "parts": [{"id": "harp", "name": "Harp", "staves": 2, "measures": [
+            {"sequences": [
+                {"staff": 1, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}},
+                {"staff": 2, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}
+            ]},
+            {"sequences": [
+                {"staff": 1, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}},
+                {"staff": 2, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}
+            ]},
+            {"sequences": [
+                {"staff": 1, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}},
+                {"staff": 2, "content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}
+            ]}
+        ]}],
+        "layouts": [{"id": "harp-part", "content": [
+            {"type": "group", "symbol": "brace", "content": [
+                {"type": "staff", "sources": [{"part": "harp", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "harp", "staff": 2}]}
+            ]}
+        ]}],
+        "scores": [{"name": "Harp", "layout": "harp-part"}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let mut staff_ys: Vec<f64> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bounds| bounds.index == 0)
+        .map(|bounds| bounds.y)
+        .collect();
+    staff_ys.sort_by(f64::total_cmp);
+    staff_ys.dedup_by(|left, right| (*left - *right).abs() < 0.01);
+    let group_center = (staff_ys[0] + staff_ys[1] + 4.0 * config.sp) * 0.5;
+    let count_ys: Vec<f64> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, y, .. }
+                if *codepoint == smufl::time_sig_digit(3) =>
+            {
+                Some(*y)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        count_ys.len(),
+        1,
+        "grand staff must render one MMR count, found {count_ys:?} for staves {staff_ys:?}"
+    );
+    assert!(
+        (count_ys[0] - group_center).abs() < 0.01,
+        "MMR count should be vertically centered between staves"
+    );
+    let range_y = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "1\u{2013}3" => Some(*y),
+            _ => None,
+        })
+        .expect("MMR range label");
+    assert!(
+        range_y > staff_ys[1] + 4.0 * config.sp,
+        "MMR range label should sit below the bottom staff"
+    );
+    let count_boxes: Vec<_> = dl
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id.ends_with("/mmrcount"))
+        .collect();
+    assert_eq!(
+        count_boxes.len(),
+        1,
+        "MMR count must publish one shared bbox"
+    );
+    assert!(
+        (count_boxes[0].bbox.y + count_boxes[0].bbox.height * 0.5 - group_center).abs() < 0.01,
+        "MMR count bbox should follow the centered count"
+    );
+    let range_box = dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id.ends_with("/mnum"))
+        .expect("MMR range bbox");
+    assert!(
+        range_box.bbox.y > staff_ys[1] + 4.0 * config.sp,
+        "MMR range bbox should follow the bottom-staff label"
+    );
+}
+
+#[test]
+fn test_grand_staff_repeat_numbers_and_dynamics_use_distinct_shared_lanes() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m1", "number": 10, "time": {"count": 4, "unit": 4}},
+            {"id": "m2"}
+        ]},
+        "parts": [{"name": "Harp", "staves": 2, "measures": [
+            {"sequences": [
+                {"staff": 1, "content": [{"id": "top", "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                {"staff": 2, "content": [{"id": "bottom", "duration": {"base": "whole"},
+                    "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+            ]},
+            {
+                "measureRepeat": {"number": 1, "displayNumber": "yes", "counter": {"count": 2}},
+                "sequences": [{"staff": 1, "content": []}, {"staff": 2, "content": []}],
+                "dynamics": [
+                    {"id": "repeat-p", "type": "immediate", "value": "p", "staff": 2,
+                     "position": {"fraction": [0, 1]}},
+                    {"id": "repeat-cresc", "type": "gradual", "staff": 2,
+                     "position": {"fraction": [0, 1]},
+                     "end": {"measure": "m2", "position": {"fraction": [1, 1]}},
+                     "wedgeType": "increasing", "visuallyContinues": "repeat-p"}
+                ],
+                "expressions": [
+                    {"text": "cresc.", "position": {"fraction": [1, 2]}}
+                ]
+            }
+        ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let mut staff_ys: Vec<f64> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bounds| bounds.index == 1)
+        .map(|bounds| bounds.y)
+        .collect();
+    staff_ys.sort_by(f64::total_cmp);
+    staff_ys.dedup_by(|left, right| (*left - *right).abs() < 0.01);
+    let group_center = (staff_ys[0] + staff_ys[1] + 4.0 * config.sp) * 0.5;
+
+    let counter_ys: Vec<f64> = dl
+        .commands
+        .iter()
+        .enumerate()
+        .filter_map(|(index, command)| {
+            let is_repeat = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/measurerepeat"));
+            match command {
+                RenderCommand::DrawText { text, y, .. } if is_repeat && text == "2" => Some(*y),
+                _ => None,
+            }
+        })
+        .collect();
+    assert_eq!(
+        counter_ys.len(),
+        1,
+        "repeat counter should render only once"
+    );
+    assert!(
+        counter_ys[0] < staff_ys[0],
+        "repeat counter should remain above the top staff"
+    );
+    let span_number_ys: Vec<f64> = dl
+        .commands
+        .iter()
+        .enumerate()
+        .filter_map(|(index, command)| {
+            let is_repeat = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/measurerepeat"));
+            match command {
+                RenderCommand::DrawGlyph { codepoint, y, .. }
+                    if is_repeat && *codepoint == smufl::time_sig_digit(1) =>
+                {
+                    Some(*y)
+                }
+                _ => None,
+            }
+        })
+        .collect();
+    assert_eq!(
+        span_number_ys.len(),
+        1,
+        "repeat span numeral should render only once"
+    );
+    assert!(
+        span_number_ys[0] < staff_ys[0],
+        "repeat span numeral should remain above the top staff"
+    );
+    let bar_number_y = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "10" => Some(*y),
+            _ => None,
+        })
+        .expect("system bar number");
+    assert!(
+        bar_number_y > staff_ys[1] + 4.0 * config.sp,
+        "bar number should sit below the bottom staff"
+    );
+
+    let dynamic_baseline = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            let is_dynamic = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/dynrepeat-p"));
+            match command {
+                RenderCommand::DrawGlyph { y, .. } if is_dynamic => Some(*y),
+                _ => None,
+            }
+        })
+        .expect("repeat dynamic");
+    let (_, dynamic_y, _, dynamic_height) = smufl::glyph_bbox(smufl::DYNAMIC_PIANO);
+    let dynamic_ink_center = dynamic_baseline + (dynamic_y + dynamic_height * 0.5) * config.sp;
+    assert!(
+        (dynamic_ink_center - group_center).abs() < 0.01,
+        "dynamic should be optically centered between staves"
+    );
+    let expression_baseline = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "cresc." => Some(*y),
+            _ => None,
+        })
+        .expect("repeat expression");
+    let expression_center = expression_baseline
+        - crate::layout::text_styles::lowercase_center_offset_from_baseline(
+            crate::layout::text_styles::FontFamily::Serif,
+            2.0 * config.sp,
+        );
+    assert!(
+        (expression_center - group_center).abs() < 0.01,
+        "expression text should be optically centered between staves"
+    );
+
+    let hairpin_center = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find_map(|(index, command)| {
+            let is_hairpin = dl
+                .element_ids
+                .get(index)
+                .and_then(Option::as_deref)
+                .is_some_and(|id| id.ends_with("/hairpinrepeat-cresc"));
+            match command {
+                RenderCommand::DrawLine { y1, .. } if is_hairpin => Some(*y1),
+                _ => None,
+            }
+        })
+        .expect("repeat hairpin");
+    assert!(
+        (hairpin_center - group_center).abs() < 0.01,
+        "hairpin should be centered between staves"
+    );
 }
 
 #[test]

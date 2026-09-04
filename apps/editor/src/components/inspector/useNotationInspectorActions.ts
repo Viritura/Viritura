@@ -5,6 +5,9 @@ import {
   setRepeatEnd,
   type Barline as BarlineModel,
   type DynamicGroup,
+  type MeasureRepeat,
+  type MeasureRepeatDisplayNumber,
+  type MultiStaffOrientation,
   type NoteValueBase,
   type RehearsalMark,
   type Score,
@@ -34,6 +37,58 @@ interface SelectionArgs {
   target: NotationSelectionTarget | null;
   updateScore: (s: Score) => void;
   commitPatches?: (patches: readonly ScorePatch[]) => void;
+}
+
+export interface MeasureRepeatHandlers {
+  isMeasureRepeatSelected: boolean;
+  selectedMeasureRepeat: MeasureRepeat | null;
+  handleDisplayNumberChange: (value: MeasureRepeatDisplayNumber) => void;
+  handleCounterEnabledChange: (enabled: boolean) => void;
+  handleCounterCountChange: (count: number) => void;
+  handleCounterOrientChange: (orient: MultiStaffOrientation) => void;
+}
+
+export function useMeasureRepeatHandlers({ score, target, updateScore }: SelectionArgs): MeasureRepeatHandlers {
+  const isMeasureRepeatSelected = target?.elementType === "measurerepeat";
+  const selectedMeasureRepeat = useMemo<MeasureRepeat | null>(() => {
+    if (!isMeasureRepeatSelected || !score || !target) return null;
+    return score.parts[target.partIndex]?.measures[target.measureIndex]?.measureRepeat ?? null;
+  }, [isMeasureRepeatSelected, score, target]);
+
+  const mutateMeasureRepeat = useCallback(
+    (mutate: (repeat: MeasureRepeat) => void) => {
+      if (!isMeasureRepeatSelected || !score || !target) return;
+      const nextScore = produce(score, (draft) => {
+        const repeat = draft.parts[target.partIndex]?.measures[target.measureIndex]?.measureRepeat;
+        if (repeat) mutate(repeat);
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [isMeasureRepeatSelected, score, target, updateScore],
+  );
+
+  return {
+    isMeasureRepeatSelected,
+    selectedMeasureRepeat,
+    handleDisplayNumberChange: (value) =>
+      mutateMeasureRepeat((repeat) => {
+        repeat.displayNumber = value === "auto" ? undefined : value;
+      }),
+    handleCounterEnabledChange: (enabled) =>
+      mutateMeasureRepeat((repeat) => {
+        repeat.counter = enabled ? (repeat.counter ?? { count: 2 }) : undefined;
+      }),
+    handleCounterCountChange: (count) => {
+      if (!Number.isFinite(count) || count < 1) return;
+      mutateMeasureRepeat((repeat) => {
+        repeat.counter = { ...(repeat.counter ?? {}), count: Math.floor(count) };
+      });
+    },
+    handleCounterOrientChange: (orient) =>
+      mutateMeasureRepeat((repeat) => {
+        repeat.counter = { ...(repeat.counter ?? { count: 2 }), orient };
+      }),
+  };
 }
 
 export interface TempoHandlers {

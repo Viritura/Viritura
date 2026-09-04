@@ -8,6 +8,7 @@ import { TempoSection } from "./inspector/TempoSection";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
 import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspector/BarlineSections";
+import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
@@ -67,7 +68,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isTuplet,
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
-  const isTrillSelected = selectedElementType === "trill";
 
   // Tempo selection data
   const {
@@ -84,7 +84,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleTempoAvoidCollisionsChange,
   } = useTempoHandlers({ score, target, updateScore });
 
-  // Barline selection data
   const isBarlineSelected = selectedElementType === "barline";
   const {
     currentBarlineType,
@@ -96,7 +95,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
   } = useBarlineHandlers({ score, target, updateScore }, isBarlineSelected);
-
   const measureDisabled = !target;
 
   const {
@@ -184,6 +182,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
+        <MeasureRepeatInspector
+          score={score}
+          target={target}
+          focusedSection={focusedSection}
+          updateScore={updateScore}
+        />
+
         {selectedTie && (
           <TieSection
             tie={selectedTie}
@@ -212,7 +217,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {isTrillSelected && selectedTrill && (
+        {selectedElementType === "trill" && selectedTrill && (
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 

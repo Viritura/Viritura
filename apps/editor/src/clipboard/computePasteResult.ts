@@ -87,10 +87,14 @@ function resolvePasteAnchor(
     const mMatch = segments[1]?.match(/^m(\d+)$/);
     const sMatch = segments[2]?.match(/^s(\d+)$/);
     if (!pMatch || !mMatch) return null;
+    const partIndex = parseInt(pMatch[1]!, 10);
+    const measureIndex = parseInt(mMatch[1]!, 10);
     return {
-      partIndex: parseInt(pMatch[1]!, 10),
-      measureIndex: parseInt(mMatch[1]!, 10),
-      sequenceIndex: sMatch ? parseInt(sMatch[1]!, 10) : 0,
+      partIndex,
+      measureIndex,
+      sequenceIndex: sMatch
+        ? parseInt(sMatch[1]!, 10)
+        : sequenceIndexForStaff(score, partIndex, measureIndex, selection.measureAnchor?.localStaffIndex),
       eventIndex: 0,
     };
   }
@@ -98,9 +102,28 @@ function resolvePasteAnchor(
     return {
       partIndex: selection.startPartIndex,
       measureIndex: selection.startMeasure,
-      sequenceIndex: 0,
+      sequenceIndex: sequenceIndexForStaff(
+        score,
+        selection.startPartIndex,
+        selection.startMeasure,
+        selection.startLocalStaffIndex,
+      ),
       eventIndex: 0,
     };
+  }
+
+  function sequenceIndexForStaff(
+    score: Score,
+    partIndex: number,
+    measureIndex: number,
+    localStaffIndex: number | undefined,
+  ): number {
+    if (localStaffIndex === undefined) return 0;
+    const sequences = score.parts[partIndex]?.measures[measureIndex]?.sequences;
+    if (!sequences) return 0;
+    const staffNumber = localStaffIndex + 1;
+    const sequenceIndex = sequences.findIndex((sequence) => (sequence.staff ?? 1) === staffNumber);
+    return sequenceIndex >= 0 ? sequenceIndex : 0;
   }
   return null;
 }

@@ -913,6 +913,17 @@ pub(super) fn render_system_staff_content(
         .get(staff_idx)
         .and_then(|fs| fs.sources.first())
         .map_or(staff_idx, |s| s.part_index);
+    let shared_lane_staff_y_offsets: Vec<f64> = flat_staves
+        .iter()
+        .enumerate()
+        .filter(|(_, staff)| {
+            staff
+                .sources
+                .first()
+                .is_some_and(|source| source.part_index == staff_part_idx)
+        })
+        .map(|(index, _)| staff_y_offsets[index])
+        .collect();
     let is_expansion = flat_staves.get(staff_idx).is_some_and(|fs| fs.expansion);
     let recolor_start = dl.commands.len();
     let next_sys_clef = next_sys_clef_per_staff.get(staff_idx).copied().flatten();
@@ -928,6 +939,7 @@ pub(super) fn render_system_staff_content(
         sys_idx == system_count - 1,
         staff_part_idx,
         Some(staff_y_offsets),
+        Some(&shared_lane_staff_y_offsets),
         next_sys_clef,
         Some(staff_idx),
         logical_system_index,

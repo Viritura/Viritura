@@ -74,7 +74,7 @@ pub(super) fn label_gutter_extent(
     number_offset + max_line_width
 }
 
-/// Render per-staff instrument labels in the left margin of a system.
+/// Render instrument labels in the left margin of a system.
 ///
 /// `style` is the resolved [`TextRole::StaffLabel`](crate::layout::text_styles::TextRole)
 /// style. Its `align` is deliberately not applied: these labels are
@@ -102,28 +102,49 @@ pub(super) fn render_staff_labels(
         if index >= staff_y_offsets.len() {
             continue;
         }
-        let in_labeled_brace = group_ranges.iter().any(|group| {
-            index >= group.first_staff
-                && index <= group.last_staff
-                && group.label.is_some()
-                && group.symbol == "brace"
+        let containing_brace = group_ranges.iter().find(|group| {
+            index >= group.first_staff && index <= group.last_staff && group.symbol == "brace"
         });
-        if in_labeled_brace {
+        let shared_part_brace = containing_brace.filter(|group| {
+            group.label.is_none()
+                && group.first_staff < group.last_staff
+                && staves_share_single_part(flat_staves, group)
+                && staves_share_label(flat_staves, group, is_first_system)
+        });
+        if containing_brace.is_some_and(|group| group.label.is_some())
+            || shared_part_brace.is_some_and(|group| index != group.first_staff)
+        {
             continue;
         }
-        let label_text = if is_first_system {
-            flat_staff.label.as_deref()
+
+        let (label_staff, label_y, expansion) = if let Some(group) = shared_part_brace {
+            let group_staves = &flat_staves[group.first_staff..=group.last_staff];
+            let Some(label_staff) = group_staves
+                .iter()
+                .find(|staff| label_text(staff, is_first_system).is_some())
+            else {
+                continue;
+            };
+            let group_top = staff_y_offsets[group.first_staff];
+            let group_bottom = staff_y_offsets[group.last_staff] + staff_height;
+            (
+                label_staff,
+                (group_top + group_bottom) * 0.5,
+                group_staves.iter().any(|staff| staff.expansion),
+            )
         } else {
-            flat_staff
-                .short_label
-                .as_deref()
-                .or(flat_staff.label.as_deref())
+            (
+                flat_staff,
+                staff_y_offsets[index] + staff_height * 0.5,
+                flat_staff.expansion,
+            )
         };
-        let Some(text) = label_text else { continue };
+        let Some(text) = label_text(label_staff, is_first_system) else {
+            continue;
+        };
 
         let recolor_start = dl.commands.len();
-        let label_y = staff_y_offsets[index] + staff_height * 0.5;
-        let condensed_numbers = &flat_staff.condensed_numbers;
+        let condensed_numbers = &label_staff.condensed_numbers;
         let has_number_column =
             !condensed_numbers.is_empty() && split_label_transposition(text).1.is_none();
         let lines = build_label_lines(text, condensed_numbers);
@@ -167,10 +188,55 @@ pub(super) fn render_staff_labels(
             }
         }
 
-        if flat_staff.expansion {
+        if expansion {
             dl.recolor_range(recolor_start, EXPANSION_COLOR);
         }
     }
+}
+
+fn staves_share_label(
+    flat_staves: &[FlatStaff],
+    group: &GroupRange,
+    is_first_system: bool,
+) -> bool {
+    let mut labels = flat_staves[group.first_staff..=group.last_staff]
+        .iter()
+        .filter_map(|staff| label_text(staff, is_first_system));
+    let Some(first) = labels.next() else {
+        return true;
+    };
+    labels.all(|label| label == first)
+}
+
+fn label_text(flat_staff: &FlatStaff, is_first_system: bool) -> Option<&str> {
+    if is_first_system {
+        flat_staff.label.as_deref()
+    } else {
+        flat_staff
+            .short_label
+            .as_deref()
+            .or(flat_staff.label.as_deref())
+    }
+}
+
+fn staves_share_single_part(flat_staves: &[FlatStaff], group: &GroupRange) -> bool {
+    let Some(first_source) = flat_staves
+        .get(group.first_staff)
+        .and_then(|staff| staff.sources.first())
+    else {
+        return false;
+    };
+    flat_staves
+        .get(group.first_staff..=group.last_staff)
+        .is_some_and(|staves| {
+            staves.iter().all(|staff| {
+                !staff.sources.is_empty()
+                    && staff
+                        .sources
+                        .iter()
+                        .all(|source| source.part_index == first_source.part_index)
+            })
+        })
 }
 
 /// Emit one label line. Right-aligned by construction — see

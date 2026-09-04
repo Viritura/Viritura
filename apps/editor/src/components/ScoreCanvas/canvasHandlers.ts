@@ -12,7 +12,7 @@ import type { PageSetup, SlurShape, Score } from "@viritura/core";
 import type { ContextMenuState } from "@viritura/ui";
 
 import { screenToLayout, visualToEngineCoords } from "./viewportGeometry";
-import { pointerToBarline, pointerToMeasure } from "./hitTesting";
+import { findNearbyElement, pointerToBarline, pointerToMeasure } from "./hitTesting";
 import {
   ENGRAVE_EYE_SIZE,
   findMarkerHit,
@@ -179,10 +179,12 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   // user actually clicked the curve.
   const curveHit = hitTestSlurCurve(ctx.displayListRef.current?.slurGeometries, scoreX, scoreY);
   const exactHit = curveHit ?? si.hitTest(scoreX, scoreY);
-  // Dynamics can sit well outside the staff after collision avoidance, so keep
-  // the nearest-hit tolerance large enough to reach their ink when the precise
-  // bbox is slightly narrower than the rendered glyph.
-  const hitId = exactHit ?? si.findNearest(scoreX, scoreY, 24);
+  const measureBounds = ctx.displayListRef.current?.measureBounds;
+  const measureAnchor = pointerToMeasure(scoreX, scoreY, measureBounds);
+  // Keep direct clicks near ink forgiving without letting rests or barlines
+  // magnetically consume broad areas of otherwise selectable bar space.
+  const nearestHit = findNearbyElement(si, scoreX, scoreY, measureBounds);
+  const hitId = exactHit ?? nearestHit;
 
   if (hitId) {
     const isSpannerSegment = hitId.startsWith("slur/") || hitId.startsWith("tie/");
@@ -195,7 +197,6 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
     if (e.shiftKey) ctx.extendSelection(eventId);
     else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(eventId);
     else {
-      const measureAnchor = pointerToMeasure(scoreX, scoreY, ctx.displayListRef.current?.measureBounds);
       if (measureAnchor) ctx.selectElement(eventId, measureAnchor);
       else ctx.selectElement(eventId);
     }

@@ -138,6 +138,7 @@ export interface PaintScoreFrameArgs {
   /** Read+mutated: previous zoom; we update it inside this call. */
   prevZoomRef: { current: number };
   selectedIds: Set<string> | null;
+  selectionVoiceIndex?: number;
   selection: SelectionState;
   viewMode: ViewMode;
   printPreview: boolean;
@@ -268,6 +269,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       glyphAtlas,
       spatialIndex,
       selectedIds: baseSelectedIds ?? undefined,
+      selectionVoiceIndex: args.selectionVoiceIndex,
       dragPreview: null,
       viewMode,
       measureSelection:
@@ -393,7 +395,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
             selection.endStaffIndex,
           );
         } else {
-          paintSelectionOverlay(ctx, spatialIndex, selectedIds, dl, displayListVersion);
+          paintSelectionOverlay(ctx, spatialIndex, selectedIds, dl, displayListVersion, args.selectionVoiceIndex);
         }
       }
 

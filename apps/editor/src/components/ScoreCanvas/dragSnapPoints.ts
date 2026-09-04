@@ -1,4 +1,4 @@
-import type { SpatialIndex } from "@viritura/renderer";
+import type { MeasureBounds, SpatialIndex } from "@viritura/renderer";
 import type { Score } from "@viritura/core";
 import { eventSuffix } from "../../score/ElementPath";
 
@@ -27,28 +27,37 @@ const BASE_BEATS: Record<string, number> = {
  * Build snap points for the spanner drag ruler.
  * @param score - source score (from docScoreRef)
  * @param si - spatial index for x-position lookups
+ * @param measureBounds - engine beat anchors, including empty/rest-only bars
  * @param partIndex - which part's events to scan
- * @param fine - true for 16th-note grid, false for 8th-note grid
+ * @param fine - true for 16th-note grid, false for note onsets plus quarter-note grid
  */
 export function buildDragSnapPoints(
   score: Score | null,
   si: SpatialIndex | null,
+  measureBounds: readonly MeasureBounds[] | undefined,
   partIndex: number,
   fine: boolean,
 ): DragSnapPoint[] {
-  if (!score || !si) return [];
+  if (!score) return [];
 
   const points: DragSnapPoint[] = [];
   let activeTime = { count: 4, unit: 4 };
   for (let m = 0; m < score.global.measures.length; m++) {
     const gm = score.global.measures[m];
     if (gm?.time) activeTime = gm.time;
-    const beatsInMeasure = activeTime.count * (4 / activeTime.unit);
-
     const partMeasure = score.parts[partIndex]?.measures[m];
     if (!partMeasure) continue;
-
-    const eventPairs = collectEventPairs(partMeasure, si, partIndex, m);
+    const bounds = measureBounds?.find(
+      (candidate) =>
+        candidate.partIndex === partIndex && candidate.index === m && !candidate.ghostStaff && !candidate.isExpansion,
+    );
+    const beatsInMeasure = bounds?.totalBeats ?? activeTime.count * (4 / activeTime.unit);
+    const eventPairs =
+      bounds && bounds.beatAnchors.length >= 2
+        ? bounds.beatAnchors.map(([beat, x]) => ({ beat, x }))
+        : si
+          ? collectEventPairs(partMeasure, si, partIndex, m)
+          : [];
     if (eventPairs.length === 0) continue;
 
     // Sort and dedupe by beat

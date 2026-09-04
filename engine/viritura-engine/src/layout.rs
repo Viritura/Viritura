@@ -9,6 +9,7 @@
 
 mod arena;
 mod beams;
+mod beat_anchors;
 pub mod cache;
 mod condensing;
 pub mod config;
@@ -62,6 +63,7 @@ pub use slur_preview::{
 use crate::model::*;
 use crate::render::*;
 use beams::*;
+use beat_anchors::build_beat_anchors;
 use cache::measure_content_hash;
 use glissando::*;
 use hairpins::*;
@@ -81,47 +83,6 @@ use ties::*;
 use types::*;
 use volta::*;
 
-/// Build beat→X anchor pairs from a measure's voice layouts.
-/// Uses the first voice (voice 0) to extract event positions and their beat offsets.
-///
-/// For full-measure rests (all events are rests and there's only one, centered),
-/// use evenly-spaced anchors across the content area instead of the centered
-/// rest position. For mixed content, include all events (notes AND rests)
-/// since in-measure rests use the same proportional spacing as notes.
-pub(crate) fn build_beat_anchors(ml: &MeasureLayout) -> (f64, Vec<(f64, f64)>) {
-    let total_beats = layout_total_beats(&ml.resolved);
-    let content_left = ml.x + ml.prefix_width;
-    let content_right = ml.x + ml.width;
-
-    // Use voice 0 events to build anchors (primary voice determines note positions)
-    if let Some(vl) = ml.voice_layouts.first() {
-        let event_count = vl.events.len();
-        // Only treat as "rest-only" when ALL events are rests — this means
-        // it's a full-measure rest or a measure with only rests, where the
-        // rest glyph is centered and doesn't represent a beat position.
-        let all_rests = (0..event_count).all(|i| vl.events.event(i).is_rest());
-
-        if all_rests || event_count == 0 {
-            let anchors = vec![(0.0, content_left), (total_beats, content_right)];
-            return (total_beats, anchors);
-        }
-
-        // Mixed or all-note content: include ALL events (notes and rests)
-        // as anchors since they all use proportional spacing from the engine.
-        // Use the stored beat_position which correctly accounts for tuplet scaling.
-        let mut anchors: Vec<(f64, f64)> = Vec::new();
-        for i in 0..event_count {
-            anchors.push((vl.events.beat_position(i), vl.events.x(i)));
-        }
-        // Add end anchor at measure right edge
-        anchors.push((total_beats, content_right));
-
-        (total_beats, anchors)
-    } else {
-        let anchors = vec![(0.0, content_left), (total_beats, content_right)];
-        (total_beats, anchors)
-    }
-}
 use pedals::*;
 use render_barlines::*;
 use render_geometry::*;
@@ -856,6 +817,7 @@ pub(crate) fn render_system_contents(
     is_last_system: bool,
     part_idx: usize,
     staff_y_offsets: Option<&[f64]>,
+    shared_lane_staff_y_offsets: Option<&[f64]>,
     next_system_clef: Option<&Clef>,
     staff_idx: Option<usize>,
     system_index: usize,
@@ -910,13 +872,10 @@ pub(crate) fn render_system_contents(
             &local_tie_accidentals
         }
     };
-    let mmr_number_extents: Vec<render_annotations::AboveGlyphBox> = measure_layouts
-        .iter()
-        .filter_map(|ml| render_measure::multimeasure_rest_number_extent(ml, staff_y, sp))
-        .chain(measure_layouts.iter().filter_map(|ml| {
-            time_signatures::above_staff_extent(ml, staff_y, sp, config.time_signature_settings)
-        }))
-        .collect();
+    let mmr_number_extents =
+        render_measure::above_measure_obstacles(measure_layouts, staff_y, sp, config);
+    let shared_lane = render_measure::shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
+    let render_ordinary_measure_number = staff_idx.is_none_or(|index| index == 0);
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         let prev_has_repeat_end = if i > 0 {
@@ -947,6 +906,8 @@ pub(crate) fn render_system_contents(
             &explicit_beamed_ids,
             lyric_line_order,
             staff_y_offsets,
+            shared_lane_staff_y_offsets,
+            render_ordinary_measure_number,
             use_beams,
             use_accidental_display,
             Some(&slur_map),
@@ -965,6 +926,13 @@ pub(crate) fn render_system_contents(
             Some(&slur_map),
             &global_beamed_ids,
             render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures),
+            if ml.multimeasure_rest_count.is_some() && shared_lane.center_y.is_some() {
+                shared_lane.is_bottom
+            } else {
+                render_ordinary_measure_number
+            },
+            shared_lane.is_top,
+            shared_lane.center_y,
         );
         dl.extend_element_bboxes_with_shapes(bboxes);
 
@@ -1036,7 +1004,7 @@ pub(crate) fn render_system_contents(
         part_idx,
         staff_cmd_start,
         slur_geom_start,
-        None,
+        shared_lane_staff_y_offsets,
     );
     render_pedals(dl, measure_layouts, staff_y, sp, config, part_idx);
 

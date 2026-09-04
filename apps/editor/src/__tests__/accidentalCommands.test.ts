@@ -8,6 +8,7 @@ import {
   prevailingAlteration,
   prevailingAlterationAtPosition,
   removeAccidental,
+  setAccidentalOnEvent,
 } from "../commands/accidentalCommands";
 import { computeDeleteSelection } from "../commands/computeDeleteSelection";
 import { resolveEventLocation } from "../score/ElementPath";
@@ -32,6 +33,24 @@ function event(id: string, notes: Note[]): NoteEvent {
 }
 
 const ACC0 = "p0/m0/s0/e1/acc0";
+
+describe("setAccidentalOnEvent", () => {
+  it("changes only the selected note in a chord", () => {
+    const chord = event("chord", [note("C", 4), note("E", 4), note("G", 4)]);
+
+    expect(setAccidentalOnEvent(chord, 1, "sharp")).toBe(true);
+
+    expect(chord.notes!.map((chordNote) => chordNote.pitch.alter)).toEqual([undefined, 1, undefined]);
+  });
+
+  it("changes every chord note when the whole event is selected", () => {
+    const chord = event("chord", [note("C", 4), note("E", 4), note("G", 4)]);
+
+    expect(setAccidentalOnEvent(chord, undefined, "flat")).toBe(true);
+
+    expect(chord.notes!.map((chordNote) => chordNote.pitch.alter)).toEqual([-1, -1, -1]);
+  });
+});
 
 describe("isAccidentalId", () => {
   it("recognises the engine's accidental ids and nothing else", () => {

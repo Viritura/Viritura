@@ -238,6 +238,8 @@ pub(crate) fn render_hairpins(
                     dl,
                 ),
             };
+            let grand_staff_center =
+                super::render_annotations::grand_staff_between_y(staff_y, sp, staff_y_offsets, hp);
             let span_lo = hp_start_x.min(hp_end_x);
             let span_hi = hp_start_x.max(hp_end_x);
             let curve_clearance = 1.0 * sp;
@@ -291,10 +293,46 @@ pub(crate) fn render_hairpins(
             // the two read as one unit.
             let continued_y = hp.visually_continues.as_ref().and_then(|id| {
                 placed_group_y.get(id).copied().or_else(|| {
-                    dynamic_midline_by_id(measure_layouts, id, staff_y, sp, config, &below_slurs)
+                    dynamic_midline_by_id(
+                        dl,
+                        measure_layouts,
+                        id,
+                        staff_y,
+                        sp,
+                        config,
+                        &below_slurs,
+                    )
                 })
             });
-            let resolved_y = if let Some(continued_y) = continued_y {
+            let continued_is_explicit = hp.visually_continues.as_ref().is_some_and(|id| {
+                measure_layouts.iter().any(|layout| {
+                    layout
+                        .resolved
+                        .part
+                        .dynamics
+                        .as_ref()
+                        .is_some_and(|dynamics| {
+                            dynamics.iter().any(|dynamic| {
+                                dynamic.id == *id
+                                    && (matches!(
+                                        dynamic.orient,
+                                        Some(
+                                            MultiStaffOrientation::Above
+                                                | MultiStaffOrientation::Below
+                                        )
+                                    ) || dynamic
+                                        .manual_offset
+                                        .is_some_and(|offset| offset != [0.0, 0.0])
+                                        || dynamic.avoid_collisions == Some(false))
+                            })
+                        })
+                })
+            });
+            let resolved_y = if continued_is_explicit {
+                continued_y.unwrap_or(automatic_y)
+            } else if let Some(center_y) = grand_staff_center {
+                center_y
+            } else if let Some(continued_y) = continued_y {
                 if avoid {
                     curve_limit.map_or(continued_y, |limit| {
                         if is_above {
@@ -428,6 +466,7 @@ fn dynamic_ink_x_bounds(
 /// across this staff's measures. Used to resolve an explicit
 /// `visuallyContinues` link from a wedge to the dynamic letters it continues.
 fn dynamic_midline_by_id(
+    dl: &DisplayList,
     measure_layouts: &[MeasureLayout],
     group_id: &str,
     staff_y: f64,
@@ -445,6 +484,19 @@ fn dynamic_midline_by_id(
         else {
             continue;
         };
+        let dynamic_id = element_id::dynamic(
+            dyn_mark.source_part_index.unwrap_or(ml.part_index),
+            ml.resolved.index,
+            &dyn_mark.id,
+        );
+        if let Some(bbox) = dl
+            .element_bboxes
+            .iter()
+            .find(|bbox| bbox.element_id == dynamic_id)
+            .map(|bbox| &bbox.bbox)
+        {
+            return Some(bbox.y + bbox.height * 0.5);
+        }
         let value = dyn_mark.display_value();
         let glyph_w = smufl::dynamics_glyph_width(&value) * sp;
         let optical_center = smufl::dynamics_optical_center(&value) * sp;

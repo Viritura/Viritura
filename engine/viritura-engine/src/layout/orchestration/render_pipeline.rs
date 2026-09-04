@@ -59,6 +59,7 @@ pub(in crate::layout) fn render_systems_pass2(
             sys_idx == system_count - 1,
             part_index,
             None,
+            None,
             next_sys_clef,
             None,
             sys_idx,

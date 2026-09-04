@@ -18,9 +18,10 @@ fn detect_all_staff_mmr_groups(
     };
     let measure_is_empty = |index: usize| {
         all_staff_resolved.iter().all(|staff| {
-            staff
-                .get(index)
-                .is_some_and(super::super::resolve::is_full_measure_rest)
+            staff.get(index).is_some_and(|measure| {
+                !measure.measure_repeat_covered
+                    && super::super::resolve::is_full_measure_rest(measure)
+            })
         })
     };
     let mut groups = Vec::new();

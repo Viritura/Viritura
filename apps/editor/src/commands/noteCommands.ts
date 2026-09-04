@@ -819,7 +819,14 @@ export function addRest(score: Score, params: AddRestParams): Score {
  * Delete a note event (replace with rest of same duration).
  */
 function collapseRestOnlySequence(sequence: Sequence): void {
-  if (!sequence.content.every((item) => item.type === "event" && isRest(item))) return;
+  const containsOnlyRests = sequence.content.every((item) => {
+    if (item.type === "event") return isRest(item);
+    if (item.type === "tuplet" || item.type === "tremolo") {
+      return item.content.every((event) => event.type === "event" && isRest(event));
+    }
+    return false;
+  });
+  if (!containsOnlyRests) return;
   sequence.content = [];
   sequence.fullMeasure = { visualDuration: { base: "whole" } };
 }
@@ -853,6 +860,7 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
       if (!event) throw new Error(`Event ${eventIndex} not found`);
       if (!isRest(event)) restored[eventIndex] = createRest(event.duration);
       sequence.content.splice(tupletIndex, 1, ...restored);
+      collapseRestOnlySequence(sequence);
       return score;
     }
     contentArray = container.content;
@@ -864,7 +872,7 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
   if (!event) throw new Error(`Event ${eventIndex} not found`);
 
   if (isRest(event)) {
-    if (tupletIndex === undefined) collapseRestOnlySequence(sequence);
+    collapseRestOnlySequence(sequence);
     return score;
   }
 
@@ -872,12 +880,12 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
   const rest = createRest(event.duration);
   contentArray[eventIndex] = rest;
 
-  // Merge adjacent rests only in the top-level sequence (not inside tuplets)
+  // Merge adjacent rests only in the top-level sequence (not inside tuplets).
   if (tupletIndex === undefined) {
     const ts = getEffectiveTimeSignature(score, measureIndex);
     mergeAdjacentRests(sequence, undefined, ts);
-    collapseRestOnlySequence(sequence);
   }
+  collapseRestOnlySequence(sequence);
 
   return score;
 }

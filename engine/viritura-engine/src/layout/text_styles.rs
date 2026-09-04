@@ -341,6 +341,19 @@ pub fn cap_center_offset_from_baseline(family: FontFamily, size: f64) -> f64 {
     cap_height_from_baseline(family, size) * 0.5
 }
 
+/// Distance from the alphabetic baseline up to the optical center of lowercase
+/// expression text. Performance directions are predominantly lowercase italic,
+/// so centering their x-height band aligns their visual mass with dynamics and
+/// hairpin spines more accurately than centering the full em or cap-height box.
+pub fn lowercase_center_offset_from_baseline(family: FontFamily, size: f64) -> f64 {
+    let x_height_em = match family {
+        FontFamily::Serif => 0.45,
+        FontFamily::SansSerif => 0.52,
+        FontFamily::Monospace => 0.43,
+    };
+    size * x_height_em * 0.5
+}
+
 /// Distance from the alphabetic baseline **up to the cap-height line** (the top
 /// of the capitals), in the same units as `size`.
 ///

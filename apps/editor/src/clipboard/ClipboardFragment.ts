@@ -1,21 +1,29 @@
-import type { SequenceContent } from "@viritura/core";
+import type { MeasureRepeat, SequenceContent } from "@viritura/core";
 import type { TimeSignature, KeySignature, Clef, Transposition, DynamicGroup } from "@viritura/core";
 
 /** Internal marker to identify Viritura clipboard data in plain text */
 export const VIRITURA_FRAGMENT_TYPE = "viritura/fragment" as const;
 
 /** Current fragment format version */
-export const FRAGMENT_VERSION = 2;
+export const FRAGMENT_VERSION = 3;
 
 /**
  * A measure-level decoration captured at copy time. `measureOffset` is the
  * offset from the selection's first measure (0 = first measure of the copy).
  */
 export interface CapturedDynamic {
+  /** Relative source part for structural multi-part clipboard fragments. */
+  partOffset?: number;
   measureOffset: number;
   /** End-measure offset for a gradual group, relative to the selection start. */
   endMeasureOffset?: number;
   dynamic: DynamicGroup;
+}
+
+export interface CapturedMeasureRepeat {
+  partOffset: number;
+  measureOffset: number;
+  repeat: MeasureRepeat;
 }
 
 /**
@@ -54,6 +62,7 @@ export interface ClipboardTrack {
  * Serialized as JSON and stored on the system clipboard.
  *
  * Version 2 adds multi-track support for cross-staff copy/paste.
+ * Version 3 adds structural measure repeats and part-relative dynamics.
  * Version 1 fragments (flat `content` array) are still supported on read.
  */
 export interface ClipboardFragment {
@@ -84,6 +93,8 @@ export interface ClipboardFragment {
    * inside the captured beat range. See `CapturedDynamic`.
    */
   dynamics?: CapturedDynamic[];
+  /** Measure-repeat structures captured relative to the fragment's first part and measure. */
+  measureRepeats?: CapturedMeasureRepeat[];
   /** Multi-track content for cross-staff copy/paste (v2+). If present, takes precedence over `content`. */
   tracks?: ClipboardTrack[];
 }

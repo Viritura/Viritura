@@ -63,10 +63,12 @@ function summarizeFragment(fragment: ClipboardFragment): string {
   const restCount = fragment.content.filter((ev) => ev.type === "event" && ev.rest).length;
 
   const trackCount = fragment.tracks?.length ?? 0;
+  const repeatCount = fragment.measureRepeats?.length ?? 0;
   const parts: string[] = [];
   if (noteCount > 0) parts.push(`${noteCount} note${noteCount !== 1 ? "s" : ""}`);
   if (restCount > 0) parts.push(`${restCount} rest${restCount !== 1 ? "s" : ""}`);
   if (trackCount > 1) parts.push(`${trackCount} staves`);
+  if (repeatCount > 0) parts.push(`${repeatCount} measure repeat${repeatCount === 1 ? "" : "s"}`);
   return parts.join(", ") || "empty";
 }
 

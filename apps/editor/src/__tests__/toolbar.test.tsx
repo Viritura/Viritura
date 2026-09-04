@@ -40,7 +40,7 @@ function HarnessBridge({ onReady }: { onReady: (h: ToolbarHarness) => void }) {
   return null;
 }
 
-function _renderToolbarWithHarness(): { container: HTMLDivElement; harness: ToolbarHarness } {
+function renderToolbarWithHarness(): { container: HTMLDivElement; harness: ToolbarHarness } {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -66,7 +66,14 @@ function _renderToolbarWithHarness(): { container: HTMLDivElement; harness: Tool
   });
 
   if (!harness) throw new Error("Harness not initialized");
-  return { container, harness };
+  return {
+    container,
+    harness: {
+      loadScore: (score) => harness!.loadScore(score),
+      selectElement: (elementId) => harness!.selectElement(elementId),
+      getScore: () => harness!.getScore(),
+    },
+  };
 }
 
 function getByTestId(container: HTMLElement, testId: string): HTMLElement {
@@ -197,6 +204,50 @@ describe("Toolbar", () => {
     click(flat);
     expect(flat.getAttribute("aria-pressed")).toBe("true");
     expect(sharp.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("applies a toolbar accidental only to the selected chord notehead", () => {
+    const { container, harness } = renderToolbarWithHarness();
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Harp",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      type: "event",
+                      id: "chord",
+                      duration: { base: "whole" },
+                      notes: [
+                        { id: "c", pitch: { step: "C", octave: 4 } },
+                        { id: "e", pitch: { step: "E", octave: 4 } },
+                        { id: "g", pitch: { step: "G", octave: 4 } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    act(() => {
+      harness.loadScore(score);
+      harness.selectElement("p0/m0/s0/chord/n1");
+    });
+
+    click(getByTestId(container, "toolbar-accidental-flat"));
+
+    const chord = harness.getScore()!.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(chord.type).toBe("event");
+    if (chord.type !== "event") return;
+    expect(chord.notes!.map((note) => note.pitch.alter)).toEqual([undefined, -1, undefined]);
   });
 
   it("has correct aria roles for button groups", () => {

@@ -54,6 +54,7 @@ const ANNOTATION_PREFIXES = [
   "caesura",
   "chord",
   "mnum",
+  "measurerepeat",
 ] as const;
 
 /** Classify an element ID into a rendering category for the selection overlay. */
@@ -99,12 +100,13 @@ export function paintSelectionOverlay(
   selectedIds: ReadonlySet<string>,
   displayList?: DisplayList,
   displayListVersion?: number,
+  voiceIndex?: number,
 ): void {
   if (selectedIds.size === 0) return;
 
   ctx.save();
   const firstId = selectedIds.values().next().value;
-  const voiceIdx = firstId ? getVoiceFromId(firstId) : 0;
+  const voiceIdx = voiceIndex ?? (firstId ? getVoiceFromId(firstId) : 0);
   const color = VOICE_COLORS[voiceIdx] ?? VOICE_COLORS[0]!;
 
   for (const id of expandGlobalKeySelections(selectedIds, spatialIndex)) {

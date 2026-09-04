@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { MeasureBounds } from "@viritura/renderer";
+import { SpatialIndex, type MeasureBounds } from "@viritura/renderer";
 
-import { partLocalStaffIndex, pointerToMeasure } from "../hitTesting";
+import { findNearbyElement, partLocalStaffIndex, pointerInsideMeasureStaff, pointerToMeasure } from "../hitTesting";
 
 function measure(staffIndex: number, y: number, partIndex = staffIndex): MeasureBounds {
   return {
@@ -34,6 +34,37 @@ describe("pointerToMeasure", () => {
     const bounds = [measure(2, 100, 1), measure(5, 180, 1)];
 
     expect(pointerToMeasure(180, 176, bounds)).toMatchObject({ staffIndex: 5, localStaffIndex: 1 });
+  });
+});
+
+describe("pointerInsideMeasureStaff", () => {
+  it("includes blank space within the bar's staff body", () => {
+    expect(pointerInsideMeasureStaff(180, 124, [measure(0, 100)])).toBe(true);
+  });
+
+  it("excludes padded space above and below the staff", () => {
+    const bounds = [measure(0, 100)];
+    expect(pointerInsideMeasureStaff(180, 80, bounds)).toBe(false);
+    expect(pointerInsideMeasureStaff(180, 170, bounds)).toBe(false);
+  });
+
+  it("excludes points beyond the measure's barlines", () => {
+    const bounds = [measure(0, 100)];
+    expect(pointerInsideMeasureStaff(80, 124, bounds)).toBe(false);
+    expect(pointerInsideMeasureStaff(320, 124, bounds)).toBe(false);
+  });
+});
+
+describe("findNearbyElement", () => {
+  const bounds = [measure(0, 100)];
+  const index = new SpatialIndex([{ id: "p0/m2/s0/rest", x: 170, y: 118, width: 12, height: 12 }]);
+
+  it("selects rest ink just outside its precise bounding box", () => {
+    expect(findNearbyElement(index, 186, 124, bounds)).toBe("p0/m2/s0/rest");
+  });
+
+  it("leaves nearby blank staff space available for bar selection", () => {
+    expect(findNearbyElement(index, 192, 124, bounds)).toBeNull();
   });
 });
 

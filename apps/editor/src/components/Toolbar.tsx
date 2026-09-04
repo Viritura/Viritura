@@ -5,8 +5,14 @@ import { useNoteInput, type DotCount, type GraceType, type Voice } from "../stor
 import type { NoteValueBase, AccidentalType, Duration } from "@viritura/core";
 import { useSelectionStore } from "../store/selectionStore";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
-import { resolveEventLocation, getContentArrayForLocation, type EventLocation } from "../score/ElementPath";
+import {
+  resolveEventFromSubElement,
+  resolveEventLocation,
+  getContentArrayForLocation,
+  type EventLocation,
+} from "../score/ElementPath";
 import { changeDuration } from "../commands/noteCommands";
+import { setAccidentalOnEvent } from "../commands/accidentalCommands";
 import type { Score, NoteEvent } from "@viritura/core";
 import { Separator } from "@viritura/ui";
 import styles from "./Toolbar.module.css";
@@ -201,7 +207,7 @@ export function Toolbar(_props: ToolbarProps = {}) {
       const sel = useSelectionStore.getState().selection;
       const score = store.getState().score;
       if (!score || sel.kind !== "single" || state.active) return false;
-      const loc = resolveEventLocation(sel.elementId, score);
+      const loc = resolveEventFromSubElement(sel.elementId, score) ?? resolveEventLocation(sel.elementId, score);
       if (!loc) return false;
       const newScore = produce(score, (draft) => {
         const content = getContentArrayForLocation(draft, loc);
@@ -245,29 +251,7 @@ export function Toolbar(_props: ToolbarProps = {}) {
 
   const handleAccidental = useCallback(
     (accidental: AccidentalType) => () => {
-      editSelectedNote((score, ev) => {
-        if (ev.notes && ev.notes.length > 0) {
-          const alter =
-            accidental === "sharp"
-              ? 1
-              : accidental === "flat"
-                ? -1
-                : accidental === "natural"
-                  ? 0
-                  : accidental === "double-sharp"
-                    ? 2
-                    : accidental === "double-flat"
-                      ? -2
-                      : undefined;
-          if (alter !== undefined) {
-            for (const note of ev.notes) {
-              note.pitch = { ...note.pitch, alter: alter === 0 ? undefined : alter };
-            }
-            return score;
-          }
-        }
-        return null;
-      });
+      editSelectedNote((score, ev, loc) => (setAccidentalOnEvent(ev, loc.noteIndex, accidental) ? score : null));
       setAccidental(accidental);
     },
     [setAccidental, editSelectedNote],

@@ -126,6 +126,51 @@ interface DynamicBoundary {
   position: RhythmicPosition;
 }
 
+function measureRepeatElementLocation(elementId: string): { partIndex: number; measureIndex: number } | null {
+  const match = elementId.match(/^p(\d+)\/m(\d+)\/measurerepeat$/);
+  return match
+    ? {
+        partIndex: Number.parseInt(match[1]!, 10),
+        measureIndex: Number.parseInt(match[2]!, 10),
+      }
+    : null;
+}
+
+function resolveMeasureRepeatTargets(score: Score, selection: Selection): DynamicTarget[] | null {
+  if (selection.kind === "single") {
+    const location = measureRepeatElementLocation(selection.elementId);
+    if (!location) return null;
+    const part = score.parts[location.partIndex];
+    const staff =
+      (part?.staves ?? 1) > 1 && selection.measureAnchor?.localStaffIndex !== undefined
+        ? selection.measureAnchor.localStaffIndex + 1
+        : undefined;
+    return [
+      {
+        partIndex: location.partIndex,
+        ...(staff === undefined ? {} : { staff }),
+        startMeasureIndex: location.measureIndex,
+        startPosition: { fraction: [0, 1] },
+      },
+    ];
+  }
+  if (selection.kind !== "range") return null;
+  const start = measureRepeatElementLocation(selection.startElementId);
+  const end = measureRepeatElementLocation(selection.endElementId);
+  if (!start || !end) return null;
+  const startMeasureIndex = Math.min(start.measureIndex, end.measureIndex);
+  const endMeasureIndex = Math.max(start.measureIndex, end.measureIndex);
+  const startPart = Math.min(start.partIndex, end.partIndex);
+  const endPart = Math.max(start.partIndex, end.partIndex);
+  return Array.from({ length: endPart - startPart + 1 }, (_, offset) => ({
+    partIndex: startPart + offset,
+    startMeasureIndex,
+    startPosition: { fraction: [0, 1] },
+    endMeasureIndex,
+    endPosition: measureDurationPosition(score, endMeasureIndex),
+  }));
+}
+
 function resolveMultiTargets(score: Score, selection: Extract<Selection, { kind: "multi" }>): DynamicTarget[] {
   const byPart = new Map<number, NonNullable<ReturnType<typeof resolveEventLocation>>[]>();
   for (const elementId of selection.elementIds) {
@@ -231,6 +276,8 @@ function expressionBoundaries(score: Score, target: DynamicTarget, segmentCount:
  */
 function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
   if (selection.kind === "none") return [];
+  const repeatTargets = resolveMeasureRepeatTargets(score, selection);
+  if (repeatTargets) return repeatTargets;
 
   if (selection.kind === "single") {
     const loc = resolveEventLocation(selection.elementId, score);
@@ -306,10 +353,10 @@ function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
     // places the marking on every selected part at once.
     for (let p = startPart; p <= endPart; p++) {
       const part = score.parts[p];
+      const startStaff = selection.startLocalStaffIndex ?? selection.startStaffIndex;
+      const endStaff = selection.endLocalStaffIndex ?? selection.endStaffIndex;
       const selectedStaff =
-        startPart === endPart && (part?.staves ?? 1) > 1
-          ? Math.min(selection.startStaffIndex, selection.endStaffIndex) + 1
-          : undefined;
+        startPart === endPart && (part?.staves ?? 1) > 1 ? Math.min(startStaff, endStaff) + 1 : undefined;
       targets.push({
         partIndex: p,
         ...(selectedStaff === undefined ? {} : { staff: selectedStaff }),
@@ -329,6 +376,7 @@ function resolveDynamicTargets(score: Score, selection: Selection, selectedScore
   const targets = resolveTargets(score, selection);
   if (selectedScoreIndex === undefined) return targets;
   const sourceEvents = resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
+  if (sourceEvents.length === 0) return targets;
   const sourceParts = new Set(sourceEvents.map((location) => location.partIndex));
   const expanded = targets.flatMap((target) => [...sourceParts].map((partIndex) => ({ ...target, partIndex })));
   return [...new Map(expanded.map((target) => [`${target.partIndex}/${target.staff ?? ""}`, target])).values()];
@@ -339,6 +387,9 @@ function resolveImmediateDynamicTargets(
   selection: Selection,
   selectedScoreIndex?: number,
 ): DynamicTarget[] {
+  const repeatTargets = resolveMeasureRepeatTargets(score, selection);
+  if (repeatTargets) return repeatTargets;
+  if (selection.kind === "measure") return resolveTargets(score, selection);
   const events =
     selectedScoreIndex === undefined
       ? resolveSelectionEvents(selection, score)

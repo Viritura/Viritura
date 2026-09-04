@@ -98,6 +98,43 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
     expect(content.every((event) => event.type === "event" && event.rest !== undefined)).toBe(true);
   });
 
+  it("collapses a fully deleted bar containing a tuplet to a full-measure rest", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        outer: { duration: { base: "eighth" }, multiple: 2 },
+        inner: { duration: { base: "eighth" }, multiple: 3 },
+        content: [
+          { ...note("triplet-a"), duration: { base: "eighth" } },
+          { ...note("triplet-b", "D"), duration: { base: "eighth" } },
+          { ...note("triplet-c", "E"), duration: { base: "eighth" } },
+        ],
+      },
+      note("beat-two", "F"),
+      note("beat-three", "G"),
+      note("beat-four", "A"),
+    ];
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: [
+        "p0/m0/s0/triplet-a",
+        "p0/m0/s0/triplet-b",
+        "p0/m0/s0/triplet-c",
+        "p0/m0/s0/beat-two",
+        "p0/m0/s0/beat-three",
+        "p0/m0/s0/beat-four",
+      ],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const sequence = result.score.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+  });
+
   it("returns noop for an empty selection", () => {
     expect(computeDeleteSelection(makeScore(), { kind: "none" }).kind).toBe("noop");
   });
@@ -114,6 +151,43 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
     expect(result.score.global.measures[0]!.key).toBeUndefined();
     expect(result.score.parts[0]!.measures[0]!.sequences[0]!.content).toEqual(pitches);
     expect(result.nextSelection).toEqual({ kind: "clear" });
+  });
+
+  it("deletes a selected measure-repeat sign without changing the measure content", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 1 };
+    const content = score.parts[0]!.measures[0]!.sequences[0]!.content;
+
+    const result = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: "p0/m0/measurerepeat",
+    });
+
+    expect(result.kind).toBe("single");
+    if (result.kind !== "single") return;
+    expect(result.score.parts[0]!.measures[0]!.measureRepeat).toBeUndefined();
+    expect(result.score.parts[0]!.measures[0]!.sequences[0]!.content).toEqual(content);
+    expect(result.nextSelection).toEqual({ kind: "clear" });
+  });
+
+  it("deletes every measure repeat in a Shift-click range", () => {
+    const score = makeScore();
+    score.global.measures.push({}, {});
+    score.parts[0]!.measures.push(
+      { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+      { sequences: [{ content: [] }], measureRepeat: { number: 1 } },
+    );
+    score.parts[0]!.measures[0]!.measureRepeat = { number: 1 };
+
+    const result = computeDeleteSelection(score, {
+      kind: "range",
+      startElementId: "p0/m0/measurerepeat",
+      endElementId: "p0/m2/measurerepeat",
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    expect(result.score.parts[0]!.measures.every((measure) => measure.measureRepeat === undefined)).toBe(true);
   });
 
   it("deletes a selected global coda marker", () => {

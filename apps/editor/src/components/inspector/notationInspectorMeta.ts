@@ -42,6 +42,7 @@ const SECTION_BY_TYPE: Partial<Record<SelectableElementType, InspectorSection>> 
   "key-signature": "measure",
   "time-signature": "measure",
   "measure-number": "measure",
+  "measure-repeat": "measure",
   beam: "layout",
   tuplet: "layout",
   "grace-note": "layout",

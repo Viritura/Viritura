@@ -309,6 +309,120 @@ fn test_tier5_orchestral_layout_render() {
 }
 
 #[test]
+fn test_grand_staff_part_uses_one_centered_instrument_label() {
+    let json = r#"{
+      "mnx": { "version": 1 },
+      "global": { "measures": [
+        { "id": "m1", "time": { "count": 4, "unit": 4 } }
+      ] },
+      "parts": [
+        { "id": "harp", "name": "Harp", "shortName": "Hp.", "staves": 2,
+          "measures": [{ "sequences": [] }]
+        }
+      ],
+      "layouts": [
+        { "id": "full-score", "content": [
+          { "type": "group", "symbol": "brace", "content": [
+            { "type": "staff", "sources": [
+              { "part": "harp", "staff": 1, "labelref": "name" }
+            ] },
+            { "type": "staff", "sources": [
+              { "part": "harp", "staff": 2, "labelref": "name" }
+            ] }
+          ] }
+        ] }
+      ],
+      "scores": [
+        { "name": "Full score", "layout": "full-score",
+          "pages": [{ "systems": [{ "measure": "m1" }] }]
+        }
+      ]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(800.0),
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let labels: Vec<f64> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "Harp" => Some(*y),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        labels.len(),
+        1,
+        "a grand staff instrument name must be rendered only once"
+    );
+
+    let mut staff_line_ys: Vec<f64> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { y1, y2, .. } if (y1 - y2).abs() < 0.01 => Some(*y1),
+            _ => None,
+        })
+        .collect();
+    staff_line_ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    staff_line_ys.dedup_by(|a, b| (*a - *b).abs() < 0.5);
+    let group_center = (staff_line_ys.first().unwrap() + staff_line_ys.last().unwrap()) * 0.5;
+    let style = config
+        .text_styles
+        .resolve(crate::layout::text_styles::TextRole::StaffLabel);
+    let expected_baseline = group_center
+        + crate::layout::text_styles::cap_center_offset_from_baseline(
+            style.family,
+            style.size_px(config.sp),
+        );
+    assert!(
+        (labels[0] - expected_baseline).abs() < 0.01,
+        "grand staff label baseline {} should be centered at {}",
+        labels[0],
+        expected_baseline
+    );
+}
+
+#[test]
+fn test_same_part_brace_preserves_distinct_staff_labels() {
+    let json = r#"{
+      "mnx": { "version": 1 },
+      "global": { "measures": [{ "id": "m1", "time": { "count": 4, "unit": 4 } }] },
+      "parts": [{ "id": "organ", "name": "Organ", "staves": 2,
+        "measures": [{ "sequences": [
+          { "staff": 1, "content": [] },
+          { "staff": 2, "content": [] }
+        ] }]
+      }],
+      "layouts": [{ "id": "score", "content": [
+        { "type": "group", "symbol": "brace", "content": [
+          { "type": "staff", "label": "Manual I", "sources": [{ "part": "organ", "staff": 1 }] },
+          { "type": "staff", "label": "Manual II", "sources": [{ "part": "organ", "staff": 2 }] }
+        ] }
+      ] }],
+      "scores": [{ "name": "Score", "layout": "score",
+        "pages": [{ "systems": [{ "measure": "m1" }] }]
+      }]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    let labels: Vec<&str> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, .. } if text.starts_with("Manual") => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(labels, ["Manual I", "Manual II"]);
+}
+
+#[test]
 fn test_tier5_organ_layout_parse() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/organ-layout.mnx");
     let score = parse_mnx(json).unwrap();

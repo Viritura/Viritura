@@ -12,7 +12,7 @@ import type {
 import { generateId, isRest, measureBeats } from "@viritura/core";
 import { serializeFragment } from "../clipboard/serialize";
 import { deserializeFragment, assignFreshIds } from "../clipboard/deserialize";
-import type { ClipboardTrack, CapturedDynamic } from "../clipboard/ClipboardFragment";
+import type { CapturedMeasureRepeat, ClipboardTrack, CapturedDynamic } from "../clipboard/ClipboardFragment";
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
@@ -37,6 +37,7 @@ export interface ClipboardSelection {
   tracks?: ClipboardTrack[];
   /** Dynamics in the primary track's spanned measures, filtered to selection */
   dynamics?: CapturedDynamic[];
+  measureRepeats?: CapturedMeasureRepeat[];
   /** Location info for paste/cut */
   partIndex: number;
   measureIndex: number;
@@ -45,6 +46,7 @@ export interface ClipboardSelection {
   /** Exact source-model events to replace when cutting multi-track/range content. */
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
+  cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
 }
 
 interface ClipboardCutLocation {
@@ -60,7 +62,7 @@ interface ClipboardCutLocation {
  * Serializes the selection as a Viritura MNX fragment JSON string.
  */
 export async function copyToClipboard(selection: ClipboardSelection): Promise<boolean> {
-  if (selection.events.length === 0) return false;
+  if (selection.events.length === 0 && !selection.measureRepeats?.length && !selection.dynamics?.length) return false;
 
   const json = serializeFragment(
     selection.events,
@@ -70,6 +72,7 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
     selection.clef,
     selection.transposition,
     selection.dynamics,
+    selection.measureRepeats,
   );
 
   try {
@@ -105,6 +108,7 @@ export async function cutToClipboard(selection: ClipboardSelection): Promise<Cut
     replacements,
     cutLocations: selection.cutLocations,
     cutAnnotationLocations: selection.cutAnnotationLocations,
+    cutMeasureRepeats: selection.cutMeasureRepeats,
   };
 }
 
@@ -117,6 +121,7 @@ export interface CutResult {
   replacements: SequenceContent[];
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
+  cutMeasureRepeats?: Array<{ partIndex: number; measureIndex: number }>;
 }
 
 /**
@@ -141,6 +146,7 @@ export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResul
     sourceTimeSignature: fragment.timeSignature,
     sourceKeySignature: fragment.keySignature,
     dynamics: fragment.dynamics,
+    measureRepeats: fragment.measureRepeats,
     tracks: fragment.tracks?.map((track) => ({
       ...track,
       content: assignFreshIds(track.content),
@@ -160,6 +166,7 @@ export interface PasteResult {
   dynamics?: CapturedDynamic[];
   /** Multi-track content for cross-staff paste */
   tracks?: ClipboardTrack[];
+  measureRepeats?: CapturedMeasureRepeat[];
 }
 
 /**
@@ -201,6 +208,7 @@ export function applyPaste(
       pasteStartBeat += sequenceContentBeats(primarySeqForBeat.content[i]!);
     }
   }
+  applyCapturedMeasureRepeats(newScore, paste.measureRepeats, partIndex, measureIndex);
 
   // Multi-track paste: apply each track at its relative part offset
   if (paste.tracks && paste.tracks.length > 0) {
@@ -248,9 +256,41 @@ export function applyPaste(
   pasteTrackIntoScore(newScore, partIndex, measureIndex, sequenceIndex, eventIndex, paste.content);
 
   if (paste.dynamics && paste.dynamics.length > 0) {
-    applyCapturedDynamics(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
+    applyCapturedDynamicsByPart(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
   }
   return newScore;
+}
+
+function applyCapturedDynamicsByPart(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  pasteStartBeat: number,
+  captured: CapturedDynamic[],
+): void {
+  const offsets = new Set(captured.map((dynamic) => dynamic.partOffset ?? 0));
+  for (const partOffset of offsets) {
+    applyCapturedDynamics(
+      score,
+      partIndex + partOffset,
+      measureIndex,
+      pasteStartBeat,
+      captured.filter((dynamic) => (dynamic.partOffset ?? 0) === partOffset),
+    );
+  }
+}
+
+function applyCapturedMeasureRepeats(
+  score: Score,
+  capturedRepeats: CapturedMeasureRepeat[] | undefined,
+  partIndex: number,
+  measureIndex: number,
+): void {
+  if (!capturedRepeats) return;
+  for (const captured of capturedRepeats) {
+    const targetMeasure = score.parts[partIndex + captured.partOffset]?.measures[measureIndex + captured.measureOffset];
+    if (targetMeasure) targetMeasure.measureRepeat = structuredClone(captured.repeat);
+  }
 }
 
 /**
@@ -586,8 +626,9 @@ function mergeRests(seq: { content: SequenceContent[] }): void {
  * Returns a new Score (immutable update).
  */
 export function applyCut(score: Score, cut: CutResult): Score {
+  const scoreWithoutRepeats = removeCutMeasureRepeats(score, cut.cutMeasureRepeats);
   if (cut.cutLocations && cut.cutLocations.length > 0) {
-    const newScore = structuredClone(score);
+    const newScore = structuredClone(scoreWithoutRepeats);
     const ordered = [...cut.cutLocations].sort(
       (left, right) =>
         right.partIndex - left.partIndex ||
@@ -614,14 +655,15 @@ export function applyCut(score: Score, cut: CutResult): Score {
     return deleteCutAnnotations(newScore, cut);
   }
 
-  const part = score.parts[cut.partIndex];
-  if (!part) return score;
+  if (cut.replacements.length === 0) return deleteCutAnnotations(scoreWithoutRepeats, cut);
+  const part = scoreWithoutRepeats.parts[cut.partIndex];
+  if (!part) return scoreWithoutRepeats;
   const measure = part.measures[cut.measureIndex];
-  if (!measure) return score;
+  if (!measure) return scoreWithoutRepeats;
   const sequence = measure.sequences[cut.sequenceIndex];
-  if (!sequence) return score;
+  if (!sequence) return scoreWithoutRepeats;
 
-  const newScore = structuredClone(score);
+  const newScore = structuredClone(scoreWithoutRepeats);
   const targetSeq = newScore.parts[cut.partIndex]!.measures[cut.measureIndex]!.sequences[cut.sequenceIndex]!;
 
   // Replace each cut event with its rest replacement
@@ -633,6 +675,19 @@ export function applyCut(score: Score, cut: CutResult): Score {
   }
 
   return deleteCutAnnotations(newScore, cut);
+}
+
+function removeCutMeasureRepeats(
+  score: Score,
+  locations: Array<{ partIndex: number; measureIndex: number }> | undefined,
+): Score {
+  if (!locations?.length) return score;
+  const next = structuredClone(score);
+  for (const location of locations) {
+    const measure = next.parts[location.partIndex]?.measures[location.measureIndex];
+    if (measure) delete measure.measureRepeat;
+  }
+  return next;
 }
 
 function deleteCutAnnotations(score: Score, cut: CutResult): Score {

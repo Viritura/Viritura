@@ -31,6 +31,7 @@ function buildScore(): Score {
         name: "Piano",
         measures: [
           {
+            measureRepeat: { number: 2 },
             sequences: [
               {
                 content: [
@@ -163,6 +164,23 @@ describe("NotationInspector", () => {
 
     fireEvent.click(parentheses);
     await waitFor(() => expect(parentheses.checked).toBe(true));
+  });
+
+  it("edits a selected measure repeat's number display and counter", async () => {
+    render(withProviders(<Harness elementId="p0/m0/measurerepeat" />));
+
+    expect(await screen.findByText("Measure Repeat")).toBeTruthy();
+    const auto = screen.getByRole("radio", { name: "Auto" });
+    const hide = screen.getByRole("radio", { name: "Hide" });
+    expect(auto.getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(hide);
+    await waitFor(() => expect(hide.getAttribute("aria-checked")).toBe("true"));
+
+    const counter = screen.getByRole("checkbox", { name: "Show iteration counter" }) as HTMLInputElement;
+    fireEvent.click(counter);
+    await waitFor(() => expect(counter.checked).toBe(true));
+    expect(screen.getByRole("spinbutton", { name: "Counter" })).toBeTruthy();
   });
 
   it("keeps tempo text responsive while deferring the expensive score update", () => {

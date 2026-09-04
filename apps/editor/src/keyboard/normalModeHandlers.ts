@@ -43,32 +43,12 @@ import type { KeyboardHandlerContext } from "./types";
 import { resolveActiveClefForStaff, staffPositionForPitch } from "./noteInputShared";
 import { OPTIMISTIC_NOTE_INPUT_EVENT, type OptimisticNoteInputDetail } from "../components/inputCursorHelpers";
 import { planSlurSinglePatch, planSlurSpanPatches } from "./spannerPatchPlans";
+import { accidentalAlteration } from "../commands/accidentalCommands";
 export { handleFlip } from "./flipSelection";
 
-/** Convert AccidentalType to numeric alter value. */
-function accidentalToAlter(acc: AccidentalType): number {
-  switch (acc) {
-    case "triple-flat":
-      return -3;
-    case "double-flat":
-      return -2;
-    case "flat":
-      return -1;
-    case "natural":
-      return 0;
-    case "sharp":
-      return 1;
-    case "double-sharp":
-      return 2;
-    case "triple-sharp":
-      return 3;
-  }
-}
-
-/** Apply an accidental to all notes in the selected event(s) (direct set). */
 /** Apply an accidental to all notes in the selected event(s) (direct set). */
 export function applyAccidentalToSelection(accidental: AccidentalType, ctx: KeyboardHandlerContext): boolean {
-  const alter = accidentalToAlter(accidental);
+  const alter = accidentalAlteration(accidental);
   return mutateSelectedNoteAlters(ctx, () => alter);
 }
 

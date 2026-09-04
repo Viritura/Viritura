@@ -533,6 +533,13 @@ fn render_one_staff_for_system(
     global_tie_notes: &mut Vec<GlobalTieNote>,
 ) {
     let staff_y = staff_y_offsets[vi];
+    let current_part_index = visual_staves[vi].0;
+    let part_staff_y_offsets: Vec<f64> = visual_staves
+        .iter()
+        .enumerate()
+        .filter(|(_, (part_index, _))| *part_index == current_part_index)
+        .map(|(index, _)| staff_y_offsets[index])
+        .collect();
     let x_end = measure_layouts
         .last()
         .map_or(margin_left, |ml| ml.x + ml.width);
@@ -598,6 +605,8 @@ fn render_one_staff_for_system(
             &explicit_beamed_ids,
             lyric_line_order,
             Some(staff_y_offsets),
+            Some(&part_staff_y_offsets),
+            vi == 0,
             use_beams,
             use_accidental_display,
             Some(&slur_map),
@@ -687,7 +696,7 @@ fn render_one_staff_for_system(
         actual_part_index,
         staff_cmd_start,
         slur_geom_start,
-        None,
+        Some(&part_staff_y_offsets),
     );
     render_pedals(dl, measure_layouts, staff_y, sp, config, actual_part_index);
 

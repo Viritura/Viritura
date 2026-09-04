@@ -162,6 +162,8 @@ pub(crate) fn render_multimeasure_rest(
     config: &LayoutConfig,
     count: u32,
     prev_has_repeat_end: bool,
+    render_count: bool,
+    count_y_override: Option<f64>,
 ) {
     let staff_height = 4.0 * sp;
     let is_first = ml.resolved.index == 0;
@@ -318,14 +320,14 @@ pub(crate) fn render_multimeasure_rest(
 
     let center_x = (bar_left + bar_right) / 2.0;
     let number_size = 4.0 * sp;
-    let count_y = staff_y - 1.5 * sp;
+    let count_y = count_y_override.unwrap_or(staff_y - 1.5 * sp);
     let display_str = ml
         .multimeasure_rest_label
         .clone()
         .unwrap_or_else(|| count.to_string());
     let all_digits = display_str.chars().all(|c| c.is_ascii_digit());
 
-    if all_digits && !display_str.is_empty() {
+    if render_count && all_digits && !display_str.is_empty() {
         let total_width = multimeasure_rest_number_width(&display_str, sp);
         let mut x = center_x - total_width / 2.0;
         for ch in display_str.chars() {
@@ -342,16 +344,28 @@ pub(crate) fn render_multimeasure_rest(
                 x += smufl::time_sig_digit_advance(digit) * sp;
             }
         }
-    } else {
+    } else if render_count {
+        let font_size = 2.0 * sp;
+        let (text_y, baseline) =
+            count_y_override.map_or((count_y, TextBaseline::Bottom), |center_y| {
+                (
+                    center_y
+                        + crate::layout::text_styles::cap_center_offset_from_baseline(
+                            crate::layout::text_styles::FontFamily::Serif,
+                            font_size,
+                        ),
+                    TextBaseline::Alphabetic,
+                )
+            });
         dl.push(RenderCommand::DrawText {
             x: center_x,
-            y: count_y,
+            y: text_y,
             text: display_str,
             font: "serif bold".into(),
-            size: 2.0 * sp,
+            size: font_size,
             color: "#000000".into(),
             align: TextAlign::Center,
-            baseline: TextBaseline::Bottom,
+            baseline,
         });
     }
 }
