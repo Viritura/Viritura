@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
 import {
   resolveNotationSelectionTarget,
+  setFermataProperties,
   setMeasureNumber,
   setPrimaryNoteAlter,
 } from "../commands/notationInspectorCommands";
+import type { FermataDuration, FermataSymbol, Orientation } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
+import { createHistoryStore } from "../store/historyStore";
 
 function buildScore(): Score {
   return JSON.parse(
@@ -88,5 +92,109 @@ describe("notationInspectorCommands", () => {
     )!;
     const invalid = setPrimaryNoteAlter(score, target, "5");
     expect(invalid.ok).toBe(false);
+  });
+
+  it.each([
+    "normal",
+    "angled",
+    "square",
+    "doubleAngled",
+    "doubleSquare",
+    "doubleDot",
+    "halfCurve",
+    "curlew",
+  ] satisfies FermataSymbol[])("edits a selected fermata to the %s symbol", (symbol) => {
+    const score = buildScore();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("expected note event");
+    event.fermata = {};
+    const target = resolveNotationSelectionTarget(
+      { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+      score,
+    )!;
+
+    const result = setFermataProperties(score, target, { symbol });
+
+    const edited = result.score!.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(edited.type === "event" ? edited.fermata?.symbol : undefined).toBe(symbol);
+    expect(event.fermata).toEqual({});
+  });
+
+  it.each([
+    "auto",
+    "none",
+    "veryShort",
+    "short",
+    "normal",
+    "long",
+    "veryLong",
+  ] satisfies FermataDuration[])("edits and reopens a selected fermata with %s duration", (duration) => {
+    const score = buildScore();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("expected note event");
+    event.fermata = {};
+    const target = resolveNotationSelectionTarget(
+      { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+      score,
+    )!;
+
+    const result = setFermataProperties(score, target, { duration });
+    const reopened = parseMnx(serializeMnx(result.score!));
+    const reopenedEvent = reopened.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+
+    expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.duration : undefined).toBe(duration);
+  });
+
+  it.each(["auto", "above", "below"] satisfies Orientation[])(
+    "edits and reopens a selected fermata with %s orientation",
+    (orient) => {
+      const score = buildScore();
+      const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("expected note event");
+      event.fermata = {};
+      const target = resolveNotationSelectionTarget(
+        { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+        score,
+      )!;
+
+      const result = setFermataProperties(score, target, { orient });
+      const reopened = parseMnx(serializeMnx(result.score!));
+      const reopenedEvent = reopened.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+
+      expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.orient : undefined).toBe(orient);
+    },
+  );
+
+  it("preserves a fermata edit through serialization, undo, redo, and reopen", () => {
+    const score = buildScore();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("expected note event");
+    event.fermata = { symbol: "normal" };
+    const target = resolveNotationSelectionTarget(
+      { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+      score,
+    )!;
+    const edited = setFermataProperties(score, target, {
+      symbol: "doubleSquare",
+      duration: "veryLong",
+      orient: "below",
+    }).score!;
+    const initialJson = JSON.stringify(serializeMnx(score));
+    const editedJson = JSON.stringify(serializeMnx(edited));
+    const history = createHistoryStore(initialJson, { current: undefined });
+    history.getState().pushState(editedJson, "Edit fermata");
+
+    expect(history.getState().undo()).toBe(initialJson);
+    const reopenedInitial = parseMnx(JSON.parse(initialJson));
+    const initialEvent = reopenedInitial.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(initialEvent.type === "event" ? initialEvent.fermata : undefined).toEqual({ symbol: "normal" });
+
+    const reopenedEdited = parseMnx(JSON.parse(history.getState().redo()!));
+    const editedEvent = reopenedEdited.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(editedEvent.type === "event" ? editedEvent.fermata : undefined).toEqual({
+      symbol: "doubleSquare",
+      duration: "veryLong",
+      orient: "below",
+    });
   });
 });

@@ -11,6 +11,7 @@ import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspec
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
+import { FermataSection } from "./inspector/FermataSection";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -62,14 +63,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selectedNote,
     selectedTie,
     selectedSlur,
-    selectedTrill,
+    selectedTrill, selectedFermata,
     selectedSequence,
     selectedContent,
     isTuplet,
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
 
-  // Tempo selection data
   const {
     isTempoSelected,
     selectedTempo,
@@ -84,7 +84,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleTempoAvoidCollisionsChange,
   } = useTempoHandlers({ score, target, updateScore });
 
-  const isBarlineSelected = selectedElementType === "barline";
   const {
     currentBarlineType,
     hasRepeatStart,
@@ -94,8 +93,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleToggleRepeatStart,
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
-  } = useBarlineHandlers({ score, target, updateScore }, isBarlineSelected);
-  const measureDisabled = !target;
+  } = useBarlineHandlers({ score, target, updateScore }, selectedElementType === "barline");
 
   const {
     handleAccidentalDisplayShow,
@@ -105,6 +103,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
+  const fermataSectionProps = { fermata: selectedFermata, score, target, selected: selectedElementType === "fermata", updateScore };
 
   // ── Color handlers ──
 
@@ -168,7 +167,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         <DirectionTextSections score={score} target={target} updateScore={updateScore} />
 
-        {isBarlineSelected && (
+        {selectedElementType === "barline" && (
           <BarlineSection
             focusedSection={focusedSection}
             currentBarlineType={currentBarlineType}
@@ -221,6 +220,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 
+        <FermataSection {...fermataSectionProps} />
+
         {(isTuplet || isEvent) && (
           <LayoutSection
             score={score}
@@ -232,7 +233,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             selectedContent={selectedContent}
             isTuplet={isTuplet}
             isEvent={isEvent}
-            disabled={measureDisabled}
+            disabled={false}
           />
         )}
 
@@ -251,7 +252,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         {target && (
           <ColorSection
-            disabled={measureDisabled}
+            disabled={false}
             colorTarget={colorTarget}
             colorInput={colorInput}
             colorError={colorError}

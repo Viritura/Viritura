@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useEffect, type ReactNode } from "react";
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { NotationInspector } from "../components/NotationInspector";
@@ -41,6 +42,7 @@ function buildScore(): Score {
                     duration: { base: "quarter" },
                     notes: [{ id: "n1", pitch: { step: "C", octave: 4 }, ties: [{ target: "n2" }] }],
                     slurs: [{ target: "ev2", lineType: "solid" }],
+                    fermata: { symbol: "normal" },
                     markings: {
                       breath: { symbol: "comma" },
                       tremolo: { marks: 2 },
@@ -304,6 +306,26 @@ describe("NotationInspector", () => {
     await waitFor(() => {
       expect((screen.getByTestId("notation-layout-stem") as HTMLSelectElement).value).toBe("up");
     });
+  });
+
+  it("edits the symbol, duration, and orientation of a selected fermata", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/fermata" />));
+
+    const symbol = await screen.findByTestId("notation-fermata-symbol");
+    await user.click(symbol);
+    await user.click(await screen.findByRole("option", { name: "Curlew" }));
+    await waitFor(() => expect(symbol.textContent).toContain("Curlew"));
+
+    const duration = screen.getByTestId("notation-fermata-duration");
+    await user.click(duration);
+    await user.click(await screen.findByRole("option", { name: "Very long" }));
+    await waitFor(() => expect(duration.textContent).toContain("Very long"));
+
+    const orientation = screen.getByTestId("notation-fermata-orientation");
+    await user.click(orientation);
+    await user.click(await screen.findByRole("option", { name: "Below" }));
+    await waitFor(() => expect(orientation.textContent).toContain("Below"));
   });
 
   it("opens the panel and shows the slur section for a grace-note slur", async () => {
