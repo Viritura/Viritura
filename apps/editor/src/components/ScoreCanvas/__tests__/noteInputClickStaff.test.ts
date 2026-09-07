@@ -70,10 +70,16 @@ function makeClickInfo(): NoteInputClickInfo {
   } as unknown as NoteInputClickInfo;
 }
 
-function runClick(score: Score, noteInputState = makeNoteInputState(), setAccidental = vi.fn()): Score {
+function runClick(
+  score: Score,
+  noteInputState = makeNoteInputState(),
+  setAccidental = vi.fn(),
+  info = makeClickInfo(),
+  setLastPitch = vi.fn(),
+): Score {
   let captured: Score = score;
   addNoteAtClick({
-    info: makeClickInfo(),
+    info,
     score,
     noteInputState,
     spatialIndex: null,
@@ -83,7 +89,7 @@ function runClick(score: Score, noteInputState = makeNoteInputState(), setAccide
       captured = s;
     },
     setCursor: vi.fn(),
-    setLastPitch: vi.fn(),
+    setLastPitch,
     setAccidental,
     setSlurStart: vi.fn(),
     clearSlurStart: vi.fn(),
@@ -178,5 +184,21 @@ describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
     runClick(makeTwoPartScore(), { ...makeNoteInputState(), currentAccidental: "sharp" }, setAccidental);
 
     expect(setAccidental).toHaveBeenCalledWith(null);
+  });
+
+  it("updates octave memory after Shift+Click chord entry", () => {
+    const score = makeTwoPartScore();
+    score.parts[1]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "event",
+        duration: { base: "whole" },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+    ];
+    const setLastPitch = vi.fn();
+    runClick(score, makeNoteInputState(), vi.fn(), { ...makeClickInfo(), shiftKey: true }, setLastPitch);
+
+    expect(setLastPitch).toHaveBeenCalledOnce();
+    expect(setLastPitch).toHaveBeenCalledWith({ step: "F", octave: 5 });
   });
 });

@@ -233,6 +233,14 @@ function findHighestPitchAtLoc(
   return highest;
 }
 
+function stackPitchAboveReference(pitch: Pitch, writtenPitch: Pitch, reference: Pitch): void {
+  const originalSoundingOctave = pitch.octave;
+  const stackedOctave = aboveOctave(pitch.step, reference);
+  const octaveDelta = stackedOctave - originalSoundingOctave;
+  pitch.octave = stackedOctave;
+  writtenPitch.octave = Math.max(0, Math.min(9, writtenPitch.octave + octaveDelta)) as Pitch["octave"];
+}
+
 /** Returns true if chord entry was handled (caller should return). */
 function tryChordEntry(
   ctx: KeyboardHandlerContext,
@@ -254,8 +262,7 @@ function tryChordEntry(
   if (loc && cs) {
     const highestExisting = findHighestPitchAtLoc(currentScore, cs.sourcePartIndices, loc);
     if (highestExisting) {
-      pitch.octave = aboveOctave(pitch.step, highestExisting);
-      writtenPitch.octave = pitch.octave;
+      stackPitchAboveReference(pitch, writtenPitch, highestExisting);
     }
     const resultScore = redistributeChordAcrossSources(currentScore, {
       sourcePartIndices: cs.sourcePartIndices,
@@ -281,7 +288,7 @@ function tryChordEntry(
             ? n
             : hi,
         );
-        pitch.octave = aboveOctave(pitch.step, highest.pitch);
+        stackPitchAboveReference(pitch, writtenPitch, highest.pitch);
       }
       addPitchToChord(draft, {
         pitch,

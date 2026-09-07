@@ -401,7 +401,10 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         return;
       }
       updateScore(newScore);
-      if (insertedChordPitch) clearExplicitAccidental();
+      if (insertedChordPitch) {
+        setLastPitch(writtenPitch);
+        clearExplicitAccidental();
+      }
       setCursor(
         advanceCursorByNotatedDuration(
           newScore,
@@ -618,7 +621,10 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       return;
     }
     updateScore(newScore);
-    if (insertedChordPitch) clearExplicitAccidental();
+    if (insertedChordPitch) {
+      setLastPitch(writtenPitch);
+      clearExplicitAccidental();
+    }
     setCursor(
       advanceCursorByNotatedDuration(
         newScore,

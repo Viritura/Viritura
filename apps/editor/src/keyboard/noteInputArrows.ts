@@ -4,10 +4,15 @@
  * transposition into separate units.
  */
 
-import type { Score, Pitch, Octave } from "@viritura/core";
+import type { Score, Pitch } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import type { CursorPosition } from "./types";
-import { transposePitchChromatic, transposePitchDiatonic, resolveKeyAtMeasure } from "../commands/transposeCommands";
+import {
+  transposePitchChromatic,
+  transposePitchDiatonic,
+  resolveKeyAtMeasure,
+  resolveWrittenPitchFromSounding,
+} from "../commands/transposeCommands";
 import { durationToBeats, findLastNoteEvent, sequenceContentBeats } from "../commands/noteCommands";
 import { defaultPitchForClef } from "../input/octaveLogic";
 import { produce } from "../score/scoreClone";
@@ -134,20 +139,14 @@ function updateOctaveMemoryFromEvent(
   const firstNote = ev.notes[0];
   if (!firstNote) return;
 
-  const partTransposition = currentScore.parts[partIndex]?.transposition;
-  const globalUseWritten = currentScore.scores?.[0]?.useWritten ?? false;
-  const prefersWritten = partTransposition?.prefersWrittenPitches ?? false;
-  if ((globalUseWritten || prefersWritten) && partTransposition) {
-    const { staffDistance, halfSteps } = partTransposition.interval;
-    if (Math.abs(staffDistance) === 7 && Math.abs(halfSteps) === 12) {
-      ctx.setLastPitch({
-        ...firstNote.pitch,
-        octave: (firstNote.pitch.octave + Math.sign(staffDistance)) as Octave,
-      });
-      return;
-    }
-  }
-  ctx.setLastPitch(firstNote.pitch);
+  ctx.setLastPitch(
+    resolveWrittenPitchFromSounding(
+      firstNote.pitch,
+      currentScore,
+      partIndex,
+      resolveKeyAtMeasure(currentScore, loc.measureIndex),
+    ),
+  );
 }
 
 /** Apply transposition (octave / diatonic / chromatic) to the located event. */

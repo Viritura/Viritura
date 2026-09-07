@@ -217,4 +217,40 @@ describe("note-input arrow transposition", () => {
       alter: transposed.notes![0]!.pitch.alter ?? 0,
     }).toMatchObject(expected);
   });
+
+  it("stores written octave memory after transposing a Bb clarinet note", () => {
+    let score = scoreWithTempo();
+    score.scores = [{ name: "Written", useWritten: true }];
+    score.parts[0]!.transposition = {
+      interval: { halfSteps: 2, staffDistance: 1 },
+    };
+    score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch = {
+      step: "B",
+      octave: 3,
+      alter: -1,
+    };
+    const setLastPitch = vi.fn();
+    const ctx = {
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setLastPitch,
+    } as unknown as KeyboardHandlerContext;
+
+    applyArrowTranspose(
+      keyboardEvent("ArrowUp", { ctrlKey: true, altKey: true }),
+      ctx,
+      score,
+      { partIndex: 0, staffIndex: 0, measureIndex: 0, beatPosition: 0 },
+      0,
+      { measureIndex: 0, eventIndex: 0 },
+    );
+
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch).toEqual({
+      step: "B",
+      octave: 4,
+      alter: -1,
+    });
+    expect(setLastPitch).toHaveBeenLastCalledWith({ step: "C", octave: 5 });
+  });
 });
