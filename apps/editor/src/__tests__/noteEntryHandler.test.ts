@@ -159,4 +159,56 @@ describe("handleNoteEntry", () => {
     expect(inserted).toMatchObject({ step: "F", octave: 4 });
     expect(inserted.alter).toBeUndefined();
   });
+
+  it("keeps octave memory synchronized with notes stacked by chord lock", () => {
+    let score = makeScore();
+    const input = {
+      active: true,
+      currentVoice: 1 as const,
+      currentDuration: "quarter" as const,
+      dotCount: 0 as const,
+      currentAccidental: null,
+      isRest: false,
+      currentGraceType: null,
+      lastPitch: null as import("@viritura/core").Pitch | null,
+      cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 0, staffIndex: 0 },
+      slurActive: false,
+      slurStartEventId: null,
+      chordLock: false,
+      condensingRouting: null,
+    };
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => input,
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setCursor: (cursor: typeof input.cursorPosition) => {
+        input.cursorPosition = cursor;
+      },
+      setLastPitch: (pitch: import("@viritura/core").Pitch) => {
+        input.lastPitch = pitch;
+      },
+      setAccidental: vi.fn(),
+      previewPitch: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleNoteEntry("C", false, context);
+    input.chordLock = true;
+    handleNoteEntry("B", true, context);
+    handleNoteEntry("A", true, context);
+    handleNoteEntry("G", true, context);
+
+    const chord = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(chord.notes?.map((note) => `${note.pitch.step}${note.pitch.octave}`)).toEqual(["C5", "B5", "A6", "G7"]);
+    expect(input.lastPitch).toMatchObject({ step: "G", octave: 7 });
+
+    input.chordLock = false;
+    handleNoteEntry("F", false, context);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[1]!.notes?.[0]?.pitch).toMatchObject({
+      step: "F",
+      octave: 7,
+    });
+  });
 });

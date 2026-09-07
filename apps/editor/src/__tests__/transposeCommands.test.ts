@@ -8,6 +8,7 @@ import {
   transposeNotes,
   planTransposeNotes,
   resolveEntryPitch,
+  resolveWrittenPitchFromSounding,
 } from "../commands/transposeCommands";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import type { Selection } from "../store/selectionStore";
@@ -404,6 +405,7 @@ describe("resolveEntryPitch", () => {
     const { written, sounding } = resolveEntryPitch({ step: "C", octave: 5 }, score, 0, 0);
     expect(written).toEqual({ step: "C", octave: 5 });
     expect(sounding).toEqual({ step: "B", octave: 4, alter: -1 });
+    expect(resolveWrittenPitchFromSounding(sounding, score, 0, 0)).toEqual(written);
   });
 
   it("transposing part NOT in written mode: written === sounding (no conversion)", () => {

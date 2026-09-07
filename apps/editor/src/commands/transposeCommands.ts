@@ -200,6 +200,36 @@ export function resolveEntryPitch(written: Pitch, score: Score, partIndex: numbe
   return { written: writtenPitch, sounding };
 }
 
+/** Recover the displayed/written pitch used by preview and octave memory from
+ * the concert pitch stored in MNX. */
+export function resolveWrittenPitchFromSounding(
+  sounding: Pitch,
+  score: Score,
+  partIndex: number,
+  keyFifths: number,
+): Pitch {
+  const soundingPitch: Pitch = { ...sounding };
+  const globalUseWritten = score.scores?.[0]?.useWritten ?? false;
+  const partTransposition = score.parts[partIndex]?.transposition;
+  const prefersWritten = partTransposition?.prefersWrittenPitches ?? false;
+  if (!(globalUseWritten || prefersWritten) || !partTransposition) return soundingPitch;
+
+  const { staffDistance, halfSteps } = partTransposition.interval;
+  if (Math.abs(staffDistance) === 7 && Math.abs(halfSteps) === 12) {
+    return {
+      ...soundingPitch,
+      octave: Math.max(0, Math.min(9, soundingPitch.octave + Math.sign(staffDistance))) as Octave,
+    };
+  }
+
+  const written = transposePitchDiatonic(soundingPitch, staffDistance, keyFifths);
+  const diatonicHalfSteps = pitchToMidi(written) - pitchToMidi(soundingPitch);
+  if (Math.abs(diatonicHalfSteps - halfSteps) > 0.5) {
+    written.alter = (written.alter ?? 0) + (halfSteps - diatonicHalfSteps);
+  }
+  return written;
+}
+
 // ═══════════════════════════════════════════
 // Transpose parameters
 // ═══════════════════════════════════════════
