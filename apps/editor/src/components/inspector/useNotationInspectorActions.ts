@@ -31,6 +31,7 @@ import {
 import { setTrillAccidental, planSetTrillAccidental } from "../../commands/articulationCommands";
 import { setEventNotehead, getEventNotehead } from "../../commands/drumKitCommands";
 import type { NoteheadShape } from "@viritura/core";
+import { setRestStaffPositionInScore } from "../../score/ScoreMutations";
 
 interface SelectionArgs {
   score: Score | null;
@@ -46,6 +47,57 @@ export interface MeasureRepeatHandlers {
   handleCounterEnabledChange: (enabled: boolean) => void;
   handleCounterCountChange: (count: number) => void;
   handleCounterOrientChange: (orient: MultiStaffOrientation) => void;
+}
+
+export function useRestPositionHandlers({ score, target, updateScore }: SelectionArgs) {
+  const setPosition = useCallback(
+    (staffPosition: number | null) => {
+      if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
+      const nextScore = setRestStaffPositionInScore(
+        score,
+        {
+          partIndex: target.partIndex,
+          measureIndex: target.measureIndex,
+          sequenceIndex: target.sequenceIndex,
+          eventIndex: target.eventIndex,
+          tupletIndex: target.tupletIndex,
+          graceContainerIndex: target.graceContainerIndex,
+        },
+        staffPosition,
+      );
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [score, target, updateScore],
+  );
+
+  return {
+    setRestPositionMode: (mode: "auto" | "explicit") => setPosition(mode === "auto" ? null : 0),
+    setRestPosition: (staffPosition: number) => {
+      if (Number.isInteger(staffPosition)) setPosition(staffPosition);
+    },
+    moveRest: (amount: number) => {
+      const current = target && score ? selectedRestPosition(score, target) : undefined;
+      setPosition((current ?? 0) + amount);
+    },
+    resetRestPosition: () => setPosition(null),
+  };
+}
+
+function selectedRestPosition(score: Score, target: NotationSelectionTarget): number | undefined {
+  if (target.sequenceIndex === undefined || target.eventIndex === undefined) return undefined;
+  const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
+  if (!sequence) return undefined;
+  const container =
+    target.graceContainerIndex !== undefined
+      ? sequence.content[target.graceContainerIndex]
+      : target.tupletIndex !== undefined
+        ? sequence.content[target.tupletIndex]
+        : undefined;
+  const event =
+    container?.type === "grace" || container?.type === "tuplet" || container?.type === "tremolo"
+      ? container.content[target.eventIndex]
+      : sequence.content[target.eventIndex];
+  return event?.type === "event" ? event.rest?.staffPosition : undefined;
 }
 
 export function useMeasureRepeatHandlers({ score, target, updateScore }: SelectionArgs): MeasureRepeatHandlers {

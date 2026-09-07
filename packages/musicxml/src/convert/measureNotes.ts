@@ -5,6 +5,7 @@ import { childElements, childText, findChild, findChildren, notationChildren } f
 import type {
   MnxBeam,
   MnxDuration,
+  MnxClef,
   MnxDynamic,
   MnxEvent,
   MnxGraceEvent,
@@ -31,7 +32,13 @@ import {
   type GlissandoState,
   type SlurState,
 } from "./notes";
-import { clefFromElement, computeNoteDuration, makePosition, type TransposeInterval } from "./pitchDuration";
+import {
+  clefFromElement,
+  computeNoteDuration,
+  displayPitchToStaffPosition,
+  makePosition,
+  type TransposeInterval,
+} from "./pitchDuration";
 
 /** Per-note conversion flags resolved from `ConvertOptions`. Distinct from
  *  `vendorExt` (which gates `_x.viritura` output) — these toggle how authored
@@ -283,6 +290,7 @@ export function processMeasureNotes(
   vendorExt: boolean,
   transpose?: TransposeInterval,
   flags: ConvertFlags = {},
+  activeClefs: Map<number, MnxClef> = new Map(),
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
@@ -560,7 +568,18 @@ export function processMeasureNotes(
       }
 
       if (isRest) {
-        event.rest = {};
+        const restEl = findChild(el, "rest")!;
+        const displayStep = childText(restEl, "display-step");
+        const displayOctave = Number.parseInt(childText(restEl, "display-octave") ?? "", 10);
+        const staffPosition =
+          displayStep === null
+            ? undefined
+            : displayPitchToStaffPosition(
+                displayStep,
+                displayOctave,
+                activeClefs.get(staffNum) ?? { sign: "G", staffPosition: -2 },
+              );
+        event.rest = staffPosition === undefined ? {} : { staffPosition };
       } else {
         const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
         event.notes = [noteObj];
@@ -864,7 +883,9 @@ export function processMeasureNotes(
       // rhythmic offset for each change.
       for (const clefEl of findChildren(el, "clef")) {
         const position = currentPos.n === 0 ? undefined : makePosition(currentPos);
-        clefs.push(clefFromElement(clefEl, position));
+        const positionedClef = clefFromElement(clefEl, position);
+        clefs.push(positionedClef);
+        activeClefs.set(positionedClef.staff ?? 1, positionedClef.clef);
       }
     }
 

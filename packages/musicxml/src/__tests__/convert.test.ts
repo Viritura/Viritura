@@ -122,6 +122,51 @@ describe("convertMusicXmlToMnx — basics", () => {
     expect((content[0]! as { duration: { base: string } }).duration).toEqual({ base: "half" });
   });
 
+  it("imports a rest display position relative to the active clef", () => {
+    const xml = wrapScore(`
+      <note>
+        <rest><display-step>D</display-step><display-octave>4</display-octave></rest>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml);
+    const event = result.parts[0]!.measures[0]!.sequences![0]!.content[0] as {
+      rest: { staffPosition?: number };
+    };
+    expect(event.rest).toEqual({ staffPosition: -5 });
+  });
+
+  it("uses an inherited staff clef for rest display positions", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><rest/><duration>4</duration><type>whole</type></note>
+    </measure>
+    <measure number="2">
+      <note>
+        <rest><display-step>B</display-step><display-octave>2</display-octave></rest>
+        <duration>4</duration><type>whole</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const result = convertMusicXmlToMnx(xml);
+    const event = result.parts[0]!.measures[1]!.sequences![0]!.content[0] as {
+      rest: { staffPosition?: number };
+    };
+    expect(event.rest).toEqual({ staffPosition: -2 });
+  });
+
   it("handles ties across notes", () => {
     const xml = wrapScore(`
       <note>
