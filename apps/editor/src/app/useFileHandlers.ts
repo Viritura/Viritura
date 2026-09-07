@@ -99,7 +99,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     onNewScore,
   });
 
-  const fileSave = useFileSaveActions({ store, fileHandle, setFileHandle });
+  const fileSave = useFileSaveActions({ store, fileHandle, setFileHandle, openedFile, resetHistory });
 
   return { ...defaultLoader, ...folder, ...fileMenu, ...fileSave };
 }

@@ -1,0 +1,18 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.intro {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: 1.45;
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

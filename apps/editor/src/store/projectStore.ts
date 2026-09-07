@@ -131,7 +131,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       if (synth.empty) {
         return null;
       }
-      await adapter.writeScore(currentJson);
       const sha = await adapter.commit(synth.subject);
       await get().refresh();
       return sha;
