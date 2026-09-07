@@ -135,7 +135,7 @@ export interface MnxClef {
 export type MnxDynamic = DynamicGroup;
 
 export interface MnxOttava {
-  value: number; // 1, -1, 2, -2
+  value: number; // 1, -1, 2, -2, 3, -3
   position: MnxRhythmicPosition;
   end: { measure: string; position: MnxRhythmicPosition };
   staff?: number;

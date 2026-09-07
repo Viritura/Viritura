@@ -68,7 +68,7 @@ interface PedalEvent {
  *  silently dropped any `stop` that landed in a different measure. */
 export interface OttavaEvent {
   action: "start" | "stop";
-  /** Present on `start`: 1, -1, 2, -2. */
+  /** Present on `start`: 1, -1, 2, -2, 3, or -3. */
   value?: number;
   position: MnxRhythmicPosition;
   staff?: number;
@@ -752,6 +752,7 @@ export function processMeasureNotes(
             let ottavaValue: number;
             if (size === 8) ottavaValue = shiftType === "down" ? 1 : -1;
             else if (size === 15) ottavaValue = shiftType === "down" ? 2 : -2;
+            else if (size === 22) ottavaValue = shiftType === "down" ? 3 : -3;
             else ottavaValue = shiftType === "down" ? 1 : -1;
 
             ottavaEvents.push({
