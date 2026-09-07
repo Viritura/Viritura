@@ -41,22 +41,33 @@ interface ProjectNameState {
   resolve: (name: string | null) => void;
 }
 
+export type ExternalChangeChoice = "reload" | "overwrite";
+
+interface ExternalChangeState {
+  fileName: string;
+  resolve: (choice: ExternalChangeChoice | null) => void;
+}
+
 interface ModalFlowStore {
   scoreChooser: ScoreChooserState | null;
   folderConfirm: FolderConfirmState | null;
   projectName: ProjectNameState | null;
+  externalChange: ExternalChangeState | null;
   _setScoreChooser: (next: ScoreChooserState | null) => void;
   _setFolderConfirm: (next: FolderConfirmState | null) => void;
   _setProjectName: (next: ProjectNameState | null) => void;
+  _setExternalChange: (next: ExternalChangeState | null) => void;
 }
 
 export const useModalFlowStore = create<ModalFlowStore>((set) => ({
   scoreChooser: null,
   folderConfirm: null,
   projectName: null,
+  externalChange: null,
   _setScoreChooser: (next) => set({ scoreChooser: next }),
   _setFolderConfirm: (next) => set({ folderConfirm: next }),
   _setProjectName: (next) => set({ projectName: next }),
+  _setExternalChange: (next) => set({ externalChange: next }),
 }));
 
 /**
@@ -91,5 +102,11 @@ export function openFolderConfirm(folderName: string, scoreCount: number): Promi
 export function openProjectNamePrompt(initialValue = "Untitled Project"): Promise<string | null> {
   return new Promise((resolve) => {
     useModalFlowStore.getState()._setProjectName({ initialValue, resolve });
+  });
+}
+
+export function openExternalChangeConfirm(fileName: string): Promise<ExternalChangeChoice | null> {
+  return new Promise((resolve) => {
+    useModalFlowStore.getState()._setExternalChange({ fileName, resolve });
   });
 }

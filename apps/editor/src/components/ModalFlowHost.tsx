@@ -10,6 +10,7 @@
 
 import { ScoreChooserDialog } from "./ScoreChooserDialog";
 import { FolderConfirmDialog } from "./FolderConfirmDialog";
+import { ExternalChangeDialog } from "./ExternalChangeDialog";
 import { PromptDialog } from "@viritura/ui";
 import { toast } from "sonner";
 import { getProjectFolderNameError } from "../app/projectFolder";
@@ -19,9 +20,11 @@ export function ModalFlowHost(): React.JSX.Element {
   const scoreChooser = useModalFlowStore((s) => s.scoreChooser);
   const folderConfirm = useModalFlowStore((s) => s.folderConfirm);
   const projectName = useModalFlowStore((s) => s.projectName);
+  const externalChange = useModalFlowStore((s) => s.externalChange);
   const setScoreChooser = useModalFlowStore((s) => s._setScoreChooser);
   const setFolderConfirm = useModalFlowStore((s) => s._setFolderConfirm);
   const setProjectName = useModalFlowStore((s) => s._setProjectName);
+  const setExternalChange = useModalFlowStore((s) => s._setExternalChange);
 
   return (
     <>
@@ -52,6 +55,20 @@ export function ModalFlowHost(): React.JSX.Element {
           onCancel={() => {
             folderConfirm.resolve(null);
             setFolderConfirm(null);
+          }}
+        />
+      )}
+      {externalChange && (
+        <ExternalChangeDialog
+          open
+          fileName={externalChange.fileName}
+          onChoose={(choice) => {
+            externalChange.resolve(choice);
+            setExternalChange(null);
+          }}
+          onCancel={() => {
+            externalChange.resolve(null);
+            setExternalChange(null);
           }}
         />
       )}
