@@ -69,7 +69,9 @@ export async function runFastLayoutAndPaint(
   if (shouldCommit && !shouldCommit()) return;
 
   const previousDisplayList = displayListRef.current;
+  const previousSpatialIndex = spatialIndexRef.current;
   displayListRef.current = displayList;
+  spatialIndexRef.current = null;
   perfTracker.wasmLayoutMs = t1 - t0;
 
   displayListVersionRef.current += 1;
@@ -95,6 +97,7 @@ export async function runFastLayoutAndPaint(
   scheduleSpatialIndexRebuild({
     displayList,
     previousDisplayList,
+    previousSpatialIndex,
     patchInfo,
     rafRef,
     spatialDebounceRef,
@@ -115,6 +118,7 @@ export async function runFastLayoutAndPaint(
 function scheduleSpatialIndexRebuild(args: {
   displayList: DisplayList;
   previousDisplayList: DisplayList | null;
+  previousSpatialIndex: SpatialIndex | null;
   patchInfo?: PatchInfo;
   rafRef: { current: number };
   spatialDebounceRef: { current: ReturnType<typeof setTimeout> | undefined };
@@ -128,6 +132,7 @@ function scheduleSpatialIndexRebuild(args: {
   const {
     displayList,
     previousDisplayList,
+    previousSpatialIndex,
     patchInfo,
     rafRef,
     spatialDebounceRef,
@@ -144,7 +149,7 @@ function scheduleSpatialIndexRebuild(args: {
     performance.mark("viritura:spatial-start");
     const s0 = performance.now();
     spatialIndexRef.current = updateEnrichedSpatialIndexForPatch(
-      spatialIndexRef.current,
+      previousSpatialIndex,
       previousDisplayList,
       displayList,
       scoreSnapshot,

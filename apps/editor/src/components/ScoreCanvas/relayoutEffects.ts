@@ -182,6 +182,7 @@ export async function runSecondaryRelayout(args: SecondaryRelayoutArgs): Promise
     return;
   }
   displayListRef.current = displayList;
+  spatialIndexRef.current = null;
   if (setContentSize) {
     setContentSize(contentSizeForMode(displayList, viewMode));
   }
@@ -194,12 +195,14 @@ export async function runSecondaryRelayout(args: SecondaryRelayoutArgs): Promise
     // paint would block the view switch for large scores (it walks the whole
     // display list). Deferring keeps the switch responsive.
     paintNowRef.current(forceDirectPaint ?? false);
-    if (setContentSize) {
-      const scoreSnapshot = docScoreRef.current;
-      requestAnimationFrame(() => {
-        spatialIndexRef.current = buildEnrichedSpatialIndex(displayList, scoreSnapshot);
-      });
-    }
+    const scoreSnapshot = docScoreRef.current;
+    requestAnimationFrame(() => {
+      if (displayListRef.current !== displayList) return;
+      const spatialIndex = buildEnrichedSpatialIndex(displayList, scoreSnapshot);
+      if (displayListRef.current !== displayList) return;
+      spatialIndexRef.current = spatialIndex;
+      paintNowRef.current(true);
+    });
   });
 }
 
