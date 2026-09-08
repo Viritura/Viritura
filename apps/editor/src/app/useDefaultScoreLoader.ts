@@ -9,7 +9,7 @@ import type { Score } from "@viritura/core";
 import { openPercussionReviewForParts } from "../store/drumKitTargetStore";
 import { DEFAULT_SCORE_SAMPLE, type ScoreSample } from "../scoreSamples";
 
-export function formatOpenedFileError(filename: string, error: unknown): string {
+function formatOpenedFileError(filename: string, error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
   const technicalDetails = stack && stack !== detail ? `${detail}\n\nStack trace:\n${stack}` : detail;
