@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Score, NoteEvent, Note, Tie, Slur, Sequence, SequenceContent } from "@viritura/core";
+import type { Score, NoteEvent, Note, Tie, Slur, Sequence, SequenceContent, Fermata } from "@viritura/core";
 import type { SelectionState } from "../../store/selectionStore";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import { extractNoteIndex } from "../../score/ElementPath";
@@ -11,6 +11,7 @@ export interface NotationInspectorSelection {
   selectedTie: Tie | null;
   selectedSlur: Slur | null;
   selectedTrill: NonNullable<NoteEvent["markings"]>["trill"] | null;
+  selectedFermata: Fermata | null;
   selectedSequence: Sequence | null;
   selectedContent: SequenceContent | null;
   isTuplet: boolean;
@@ -60,6 +61,10 @@ function resolveSelectedContent(
   return sequence.content[target.eventIndex] ?? null;
 }
 
+function resolveSelectedFermata(event: NoteEvent | null): Fermata | null {
+  return event?.fermata ?? null;
+}
+
 function buildSelection(
   selection: SelectionState,
   score: Score | null,
@@ -72,6 +77,7 @@ function buildSelection(
   const selectedTie: Tie | null = selectedNote?.ties?.[target?.tieIndex ?? 0] ?? null;
   const selectedSlur: Slur | null = eventNode ? (eventNode.slurs?.[target?.slurIndex ?? 0] ?? null) : null;
   const selectedTrill = eventNode ? (eventNode.markings?.trill ?? null) : null;
+  const selectedFermata = resolveSelectedFermata(eventNode);
   const selectedSequence = resolveSelectedSequence(score, target);
   const selectedContent = resolveSelectedContent(selectedSequence, target);
 
@@ -82,6 +88,7 @@ function buildSelection(
     selectedTie,
     selectedSlur,
     selectedTrill,
+    selectedFermata,
     selectedSequence,
     selectedContent,
     isTuplet: selectedContent?.type === "tuplet",

@@ -54,6 +54,34 @@ fn count_stems(dl: &DisplayList, config: &LayoutConfig) -> usize {
         .count()
 }
 
+fn count_fermatas(dl: &DisplayList) -> usize {
+    dl.commands
+        .iter()
+        .filter(|cmd| {
+            matches!(
+                cmd,
+                RenderCommand::DrawGlyph { codepoint, .. } if (0xE4C0..=0xE4CD).contains(codepoint)
+            )
+        })
+        .count()
+}
+
+fn count_measure_fermatas(dl: &DisplayList, measure_index: usize) -> usize {
+    let measure_token = format!("/m{measure_index}/");
+    dl.commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter(|(command, element_id)| {
+            matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. } if (0xE4C0..=0xE4CD).contains(codepoint)
+            ) && element_id
+                .as_deref()
+                .is_some_and(|id| id.contains(&measure_token) && id.ends_with("/ferm"))
+        })
+        .count()
+}
+
 fn find_text_labels(dl: &DisplayList) -> Vec<String> {
     dl.commands
         .iter()
@@ -156,6 +184,45 @@ fn test_condensed_auto_has_noteheads() {
         nh >= 14,
         "Auto condensing should have at least 14 noteheads, got {}",
         nh
+    );
+}
+
+#[test]
+fn test_condensed_amalgamate_shares_fermatas() {
+    let mut value: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../packages/format/fixtures/mnx/condensing-test.mnx"
+    ))
+    .unwrap();
+    for part in value["parts"].as_array_mut().expect("parts") {
+        for event in part["measures"][2]["sequences"][0]["content"]
+            .as_array_mut()
+            .expect("events")
+        {
+            event["fermata"] = serde_json::json!({"symbol": "square"});
+        }
+    }
+    let score = parse_mnx(&serde_json::to_string(&value).unwrap()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &default_config(), 3);
+
+    assert_eq!(
+        count_fermatas(&dl),
+        4,
+        "each amalgamated onset should render one shared fermata"
+    );
+}
+
+#[test]
+fn test_beethoven_condensed_opening_shares_rest_fermatas() {
+    let json = include_str!(
+        "../../../../../packages/format/fixtures/mnx/beethoven-symphony-5-movement-1.mnx"
+    );
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_with_mnx_scores(&score, &default_config(), 0);
+
+    assert_eq!(
+        count_measure_fermatas(&dl, 1),
+        12,
+        "each condensed staff should render one shared opening fermata"
     );
 }
 

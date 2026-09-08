@@ -67,6 +67,29 @@ function WithScore({ children }: { readonly children: ReactNode }) {
 }
 
 describe("PalettePanel", () => {
+  it("offers the same standard and Henze fermata variants as the radial menu", async () => {
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    for (const name of [
+      "Fermata (normal)",
+      "Fermata (very short)",
+      "Fermata (short)",
+      "Fermata (long)",
+      "Fermata (very long)",
+      "Fermata (long, Henze)",
+    ]) {
+      expect(await screen.findByRole("button", { name })).toBeTruthy();
+    }
+  });
+
   it("applies a custom time signature to a selected measure", async () => {
     useSelectionStore.setState({
       selection: {

@@ -1,4 +1,4 @@
-import { walkSequenceEvents, type Score } from "@viritura/core";
+import { isRest, walkSequenceEvents, type Score } from "@viritura/core";
 import { produce } from "immer";
 import type { SelectionState } from "../../store/selectionStore";
 import {
@@ -73,10 +73,14 @@ export function planCondensedEventWriteback(
     return { visualEvent: location, sourceEvents: [location], strategy: "direct" };
   }
   const mode = detectCondensingMode(score, staff, location.measureIndex);
+  const isSharedRest = staff.sourcePartIndices.every((partIndex) => {
+    const event = getEventAtLocation(score, { ...location, partIndex });
+    return event?.type === "event" && isRest(event);
+  });
   if (mode === "amalgamate" && options.granularity === "note") {
     return { visualEvent: location, sourceEvents: [location], strategy: "direct" };
   }
-  if (mode !== "unison" && mode !== "amalgamate") {
+  if (mode !== "unison" && mode !== "amalgamate" && !isSharedRest) {
     return { visualEvent: location, sourceEvents: [location], strategy: "direct" };
   }
 

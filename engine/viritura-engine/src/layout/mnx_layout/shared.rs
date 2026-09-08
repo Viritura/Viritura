@@ -429,7 +429,7 @@ pub(super) fn build_virtual_part_measure(
     // Determine which sources to include and whether to chord-merge or use stem overrides
     let use_chord_merge = matches!(
         &condensing_mode,
-        Some(MergeMode::Unison) | Some(MergeMode::Amalgamate)
+        Some(MergeMode::Unison) | Some(MergeMode::Amalgamate) | Some(MergeMode::AllRest)
     );
 
     // For condensing divisi: auto-assign stem directions (first up, second down)
@@ -618,7 +618,7 @@ pub(super) fn build_virtual_part_measure(
         all_sequences
     };
 
-    // In chord merge mode (or Unison/Amalgamate condensing), combine into single chords
+    // Shared unison, amalgamated, and all-rest events render as one visual voice.
     let sequences = if use_chord_merge {
         merge_sequences_as_chords(&all_sequences, measure_index)
     } else {

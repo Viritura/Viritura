@@ -1,4 +1,4 @@
-import type { Score, NoteEvent, SequenceContent, TupletBracket, TupletDisplaySetting } from "@viritura/core";
+import type { Fermata, Score, NoteEvent, SequenceContent, TupletBracket, TupletDisplaySetting } from "@viritura/core";
 import type { NoteValueBase, Octave, StemDirection, Step } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
@@ -7,6 +7,7 @@ import { setSlurProperties, setTieProperties } from "./noteCommands";
 
 import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
 import { produce } from "../score/scoreClone";
+import { resolveCondensedEventTargets } from "../score/condensedWriteback";
 
 export interface NotationSelectionTarget {
   elementId: string;
@@ -436,6 +437,37 @@ export function setPrimarySlurProperties(
   }
 }
 
+export function setFermataProperties(
+  score: Score,
+  target: NotationSelectionTarget,
+  patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>,
+  selectedScoreIndex?: number,
+): EditResult {
+  const event = getSelectedEvent(score, target);
+  if (!event?.fermata) return { ok: false, error: "Selection is not a fermata." };
+
+  const targets =
+    selectedScoreIndex === undefined ||
+    target.sequenceIndex === undefined ||
+    target.eventIndex === undefined ||
+    target.graceContainerIndex !== undefined
+      ? [target]
+      : resolveCondensedEventTargets(score, selectedScoreIndex, {
+          partIndex: target.partIndex,
+          measureIndex: target.measureIndex,
+          sequenceIndex: target.sequenceIndex,
+          eventIndex: target.eventIndex,
+          tupletIndex: target.tupletIndex,
+        });
+  const nextScore = produce(score, (draft) => {
+    for (const sourceTarget of targets) {
+      const sourceEvent = getSelectedEvent(draft, { ...target, ...sourceTarget });
+      if (sourceEvent) sourceEvent.fermata = { ...sourceEvent.fermata, ...patch };
+    }
+  });
+  return { ok: true, score: nextScore };
+}
+
 function getSelectedEvent(score: Score, target: NotationSelectionTarget): NoteEvent | null {
   if (target.sequenceIndex === undefined || target.eventIndex === undefined) {
     return null;
@@ -443,9 +475,13 @@ function getSelectedEvent(score: Score, target: NotationSelectionTarget): NoteEv
   const seq = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
   if (!seq) return null;
   let event;
-  if (target.tupletIndex !== undefined) {
+  if (target.graceContainerIndex !== undefined) {
+    const grace = seq.content[target.graceContainerIndex];
+    if (!grace || grace.type !== "grace") return null;
+    event = grace.content[target.eventIndex];
+  } else if (target.tupletIndex !== undefined) {
     const t = seq.content[target.tupletIndex];
-    if (!t || t.type !== "tuplet") return null;
+    if (!t || (t.type !== "tuplet" && t.type !== "tremolo")) return null;
     event = t.content[target.eventIndex];
   } else {
     event = seq.content[target.eventIndex];
