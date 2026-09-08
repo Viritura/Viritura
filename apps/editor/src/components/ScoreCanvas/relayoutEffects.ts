@@ -23,8 +23,6 @@ interface FastLayoutCallbackArgs {
   displayListRef: { current: DisplayList | null };
   displayListVersionRef: { current: number };
   spatialIndexRef: { current: SpatialIndex | null };
-  rafRef: { current: number };
-  spatialDebounceRef: { current: ReturnType<typeof setTimeout> | undefined };
   docScoreRef: { current: Score | null };
   paintNowRef: { current: (forceDirect?: boolean) => void };
   lastFastPaintedJsonRef: { current: string };
@@ -32,14 +30,6 @@ interface FastLayoutCallbackArgs {
    *  mnxJson useEffect doesn't double-apply the same edit while the worker
    *  layout is still in flight. */
   pendingFastJsonRef: { current: string };
-  /** Current interaction mode. In "engrave", spatial-index rebuilds run
-   *  immediately (not debounced) so a just-dragged element is re-grabbable
-   *  on the very next pointer-down. */
-  interactionModeRef: { current: "write" | "engrave" };
-  /** Whether a selection is currently active. When true, spatial-index
-   *  rebuilds run immediately so the selection overlay tracks the new
-   *  geometry instead of lagging one edit behind (e.g. on transpose). */
-  selectionActiveRef: { current: boolean };
 }
 
 /**
@@ -58,14 +48,10 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
     displayListRef,
     displayListVersionRef,
     spatialIndexRef,
-    rafRef,
-    spatialDebounceRef,
     docScoreRef,
     paintNowRef,
     lastFastPaintedJsonRef,
     pendingFastJsonRef,
-    interactionModeRef,
-    selectionActiveRef,
   } = args;
 
   useEffect(() => {
@@ -100,12 +86,9 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
             displayListRef,
             displayListVersionRef,
             spatialIndexRef,
-            rafRef,
-            spatialDebounceRef,
             docScoreRef,
             paintNowRef,
             perfTracker: perf,
-            immediateSpatialIndex: interactionModeRef.current === "engrave" || selectionActiveRef.current,
           });
           lastFastPaintedJsonRef.current = json;
         } catch (err) {
@@ -181,28 +164,20 @@ export async function runSecondaryRelayout(args: SecondaryRelayoutArgs): Promise
   if (args.isStale?.()) {
     return;
   }
+  const spatialIndex = buildEnrichedSpatialIndex(displayList, docScoreRef.current);
+  if (args.isStale?.()) {
+    return;
+  }
   displayListRef.current = displayList;
-  spatialIndexRef.current = null;
+  spatialIndexRef.current = spatialIndex;
   if (setContentSize) {
     setContentSize(contentSizeForMode(displayList, viewMode));
   }
   displayListVersionRef.current += 1;
   setDisplayListVersion((v) => v + 1);
   requestAnimationFrame(() => {
-    // Paint first for instant visual feedback, then rebuild the spatial index
-    // on a *subsequent* frame. The index is only needed for mouse interaction
-    // (click/hover), not rendering, so building it synchronously before the
-    // paint would block the view switch for large scores (it walks the whole
-    // display list). Deferring keeps the switch responsive.
+    if (displayListRef.current !== displayList) return;
     paintNowRef.current(forceDirectPaint ?? false);
-    const scoreSnapshot = docScoreRef.current;
-    requestAnimationFrame(() => {
-      if (displayListRef.current !== displayList) return;
-      const spatialIndex = buildEnrichedSpatialIndex(displayList, scoreSnapshot);
-      if (displayListRef.current !== displayList) return;
-      spatialIndexRef.current = spatialIndex;
-      paintNowRef.current(true);
-    });
   });
 }
 

@@ -227,6 +227,37 @@ export function PalettePanel() {
     // group: if any covered note is untied, add ties to all; otherwise remove.
     const events = resolveCondensedSelectionEvents(score, sel, selectedScoreIndex);
     if (events.length === 0) return;
+    if (new URLSearchParams(window.location.search).get("hitbox") === "1") {
+      console.log(
+        "[Viritura tie debug] Palette action JSON\n" +
+          JSON.stringify(
+            {
+              selectedScoreIndex,
+              selection: sel,
+              events: events.map((location) => {
+                const sequence =
+                  score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
+                const event = getEventAtLocation(score, location);
+                return {
+                  location,
+                  sequence: sequence ? { staff: sequence.staff, voice: sequence.voice, orient: sequence.orient } : null,
+                  event:
+                    event?.type === "event"
+                      ? {
+                          id: event.id,
+                          stemDirection: event.stemDirection,
+                          orient: event.orient,
+                          notes: event.notes?.map((note) => ({ pitch: note.pitch, ties: note.ties })),
+                        }
+                      : null,
+                };
+              }),
+            },
+            null,
+            2,
+          ),
+      );
+    }
     const newScore = produce(score, (draft) => {
       const tieables: EventLocation[] = [];
       let anyUntied = false;

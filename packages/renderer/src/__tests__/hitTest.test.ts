@@ -701,6 +701,10 @@ describe("getElementType", () => {
     expect(getElementType("p0/m0/ottava0")).toBe("ottava");
   });
 
+  it("classifies arpeggio signs", () => {
+    expect(getElementType("p0/m0/s0/chord/arp")).toBe("arpeggio");
+  });
+
   it("classifies volta IDs", () => {
     expect(getElementType("p0/m0/volta0")).toBe("volta");
   });

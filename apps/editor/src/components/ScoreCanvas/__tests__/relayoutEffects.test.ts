@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PerfTracker, type DisplayList, type ScoreInfo, type SpatialIndex } from "@viritura/renderer";
+import { PerfTracker, SpatialIndex, type DisplayList, type ScoreInfo } from "@viritura/renderer";
 
 import { runFastLayoutAndPaint } from "../fastLayout";
 import { runSecondaryRelayout } from "../relayoutEffects";
@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe("runFastLayoutAndPaint", () => {
-  it("clears stale targets before painting a deferred index rebuild", async () => {
+  it("commits current hit targets with the newly painted display list", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     const nextDisplayList = displayList("next", 240);
@@ -56,40 +56,36 @@ describe("runFastLayoutAndPaint", () => {
       displayListRef: { current: displayList("previous", 80) },
       displayListVersionRef: { current: 0 },
       spatialIndexRef,
-      rafRef: { current: 0 },
-      spatialDebounceRef: { current: undefined },
       docScoreRef: { current: null },
       paintNowRef: { current: paintNow },
       perfTracker: new PerfTracker(),
-    });
-
-    expect(spatialIndexRef.current).toBeNull();
-    expect(paintNow).toHaveBeenCalledWith(true);
-  });
-
-  it("replaces stale targets synchronously for an immediate index rebuild", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    const nextDisplayList = displayList("next", 240);
-    const spatialIndexRef = { current: {} as SpatialIndex | null };
-    const paintNow = vi.fn();
-
-    await runFastLayoutAndPaint({
-      json: "{}",
-      computeDisplayList: vi.fn().mockResolvedValue(nextDisplayList),
-      displayListRef: { current: displayList("previous", 80) },
-      displayListVersionRef: { current: 0 },
-      spatialIndexRef,
-      rafRef: { current: 0 },
-      spatialDebounceRef: { current: undefined },
-      docScoreRef: { current: null },
-      paintNowRef: { current: paintNow },
-      perfTracker: new PerfTracker(),
-      immediateSpatialIndex: true,
     });
 
     expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
-    expect(paintNow).toHaveBeenCalledTimes(2);
+    expect(spatialIndexRef.current?.hitTest(85, 105)).toBeNull();
+    expect(paintNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces stale targets without an intermediate empty index", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const nextDisplayList = displayList("next", 240);
+    const spatialIndexRef = { current: {} as SpatialIndex | null };
+    const paintNow = vi.fn();
+
+    await runFastLayoutAndPaint({
+      json: "{}",
+      computeDisplayList: vi.fn().mockResolvedValue(nextDisplayList),
+      displayListRef: { current: displayList("previous", 80) },
+      displayListVersionRef: { current: 0 },
+      spatialIndexRef,
+      docScoreRef: { current: null },
+      paintNowRef: { current: paintNow },
+      perfTracker: new PerfTracker(),
+    });
+
+    expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
+    expect(paintNow).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -118,15 +114,12 @@ describe("runSecondaryRelayout", () => {
     });
 
     expect(displayListRef.current).toBe(nextDisplayList);
-    expect(spatialIndexRef.current).toBeNull();
+    expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
 
     runNextFrame(callbacks);
     expect(paintNow).toHaveBeenCalledTimes(1);
-    expect(spatialIndexRef.current).toBeNull();
-
-    runNextFrame(callbacks);
     expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
-    expect(paintNow).toHaveBeenCalledTimes(2);
+    expect(paintNow).toHaveBeenCalledTimes(1);
   });
 
   it("does not install an index rebuilt for a superseded display list", async () => {
@@ -153,11 +146,12 @@ describe("runSecondaryRelayout", () => {
       precomputedDisplayList: olderDisplayList,
     });
 
-    runNextFrame(callbacks);
+    const newerSpatialIndex = SpatialIndex.fromDisplayList(newerDisplayList);
     displayListRef.current = newerDisplayList;
+    spatialIndexRef.current = newerSpatialIndex;
     runNextFrame(callbacks);
 
-    expect(spatialIndexRef.current).toBeNull();
-    expect(paintNow).toHaveBeenCalledTimes(1);
+    expect(spatialIndexRef.current).toBe(newerSpatialIndex);
+    expect(paintNow).not.toHaveBeenCalled();
   });
 });

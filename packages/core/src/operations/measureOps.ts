@@ -434,38 +434,39 @@ export function setClef(
 
   if (clef === null) {
     delete newMeasure.clefs;
+  } else if (!options?.position && options?.staff === undefined) {
+    newMeasure.clefs = [{ clef }];
   } else {
-    if (!options?.position) {
-      newMeasure.clefs = [{ clef }];
-    } else {
-      const targetFraction = reduceFraction(options.position.fraction[0], options.position.fraction[1]);
-      const positioned: PositionedClef = {
-        clef,
-        position: { fraction: targetFraction },
-        ...(options.staff === undefined ? {} : { staff: options.staff }),
-      };
+    const targetFraction = options?.position
+      ? reduceFraction(options.position.fraction[0], options.position.fraction[1])
+      : ([0, 1] as [number, number]);
+    const positioned: PositionedClef = {
+      clef,
+      ...(options?.position ? { position: { fraction: targetFraction } } : {}),
+      ...(options?.staff === undefined ? {} : { staff: options.staff }),
+    };
 
-      const existing = oldMeasure.clefs ?? [];
-      const filtered = existing.filter((entry) => {
-        const sameStaff = (entry.staff ?? null) === (positioned.staff ?? null);
-        if (!sameStaff) {
-          return true;
-        }
-        const entryFraction = positionedClefFraction(entry);
-        return fractionCompare(entryFraction, targetFraction) !== 0;
-      });
+    const existing = oldMeasure.clefs ?? [];
+    const filtered = existing.filter((entry) => {
+      if (fractionCompare(positionedClefFraction(entry), targetFraction) !== 0) {
+        return true;
+      }
+      if (positioned.staff === undefined) {
+        return entry.staff !== undefined;
+      }
+      return entry.staff !== positioned.staff && entry.staff !== undefined;
+    });
 
-      const merged = [...filtered, positioned];
-      merged.sort((a, b) => {
-        const byPosition = fractionCompare(positionedClefFraction(a), positionedClefFraction(b));
-        if (byPosition !== 0) {
-          return byPosition;
-        }
-        return (a.staff ?? 0) - (b.staff ?? 0);
-      });
+    const merged = [...filtered, positioned];
+    merged.sort((a, b) => {
+      const byPosition = fractionCompare(positionedClefFraction(a), positionedClefFraction(b));
+      if (byPosition !== 0) {
+        return byPosition;
+      }
+      return (a.staff ?? 0) - (b.staff ?? 0);
+    });
 
-      newMeasure.clefs = merged;
-    }
+    newMeasure.clefs = merged;
   }
 
   const newPart: Part = {

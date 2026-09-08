@@ -1,7 +1,37 @@
 import type { Score, SequenceContent } from "@viritura/core";
 import { resolveEventLocation, eventId as buildEventId, eventSuffix as buildEventSuffix } from "../score/ElementPath";
 import type { SelectionState } from "../store/selectionStore";
+import type { CursorPosition } from "../store/noteInputStore";
 import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
+import { sequenceContentBeats } from "../commands/noteCommands";
+import { advanceCursor } from "../commands/cursorCommands";
+
+interface PasteCursor extends CursorPosition {
+  voice: number;
+}
+
+function sequenceIndexForCursor(score: Score, cursor: PasteCursor): number {
+  const sequences = score.parts[cursor.partIndex]?.measures[cursor.measureIndex]?.sequences;
+  if (!sequences) return cursor.voice;
+  if (!sequences.some((sequence) => sequence.staff != null)) return cursor.voice;
+  const staffNumber = (cursor.staffIndex ?? 0) + 1;
+  const staffSequences = sequences
+    .map((sequence, index) => ({ sequence, index }))
+    .filter(({ sequence }) => sequence.staff === staffNumber);
+  if (staffSequences[cursor.voice]) return staffSequences[cursor.voice]!.index;
+  if (staffSequences.length > 0) return sequences.length + (cursor.voice - staffSequences.length);
+  return cursor.voice;
+}
+
+function eventIndexAtBeat(content: readonly SequenceContent[], targetBeat: number): number {
+  let beat = 0;
+  for (let index = 0; index < content.length; index++) {
+    const endBeat = beat + sequenceContentBeats(content[index]!);
+    if (targetBeat < endBeat - 1e-9) return index;
+    beat = endBeat;
+  }
+  return content.length;
+}
 
 /**
  * Scan the target sequence for the IDs that paste content brought in, so the
@@ -71,7 +101,20 @@ export function findPastedSelection(
 function resolvePasteAnchor(
   score: Score,
   selection: SelectionState,
+  cursor?: PasteCursor,
 ): { partIndex: number; measureIndex: number; sequenceIndex: number; eventIndex: number } | null {
+  if (cursor) {
+    const sequenceIndex = sequenceIndexForCursor(score, cursor);
+    const content = score.parts[cursor.partIndex]?.measures[cursor.measureIndex]?.sequences[sequenceIndex]?.content;
+    if (content) {
+      return {
+        partIndex: cursor.partIndex,
+        measureIndex: cursor.measureIndex,
+        sequenceIndex,
+        eventIndex: eventIndexAtBeat(content, cursor.beatPosition),
+      };
+    }
+  }
   if (selection.kind === "single") {
     const loc = resolveEventLocation(selection.elementId, score);
     if (loc) {
@@ -79,7 +122,9 @@ function resolvePasteAnchor(
         partIndex: loc.partIndex,
         measureIndex: loc.measureIndex,
         sequenceIndex: loc.sequenceIndex,
-        eventIndex: loc.eventIndex,
+        // Clipboard tuplets are indivisible rhythmic units. An inner event's
+        // index is relative to the tuplet content, not the top-level sequence.
+        eventIndex: loc.tupletIndex ?? loc.eventIndex,
       };
     }
     const segments = selection.elementId.split("/");
@@ -137,8 +182,13 @@ export function computePasteResult(
   score: Score,
   selection: SelectionState,
   paste: PasteResult,
-): { newScore: Score; range: { start: string; end: string } | null } | null {
-  const anchor = resolvePasteAnchor(score, selection);
+  cursor?: PasteCursor,
+): {
+  newScore: Score;
+  range: { start: string; end: string } | null;
+  cursorAfterPaste?: CursorPosition;
+} | null {
+  const anchor = resolvePasteAnchor(score, selection, cursor);
   if (!anchor) return null;
   const newScore = applyPaste(
     score,
@@ -155,5 +205,7 @@ export function computePasteResult(
     anchor.measureIndex,
     anchor.sequenceIndex,
   );
-  return { newScore, range };
+  const pastedBeats = paste.content.reduce((beats, item) => beats + sequenceContentBeats(item), 0);
+  const cursorAfterPaste = cursor && pastedBeats > 0 ? advanceCursor(newScore, cursor, pastedBeats) : undefined;
+  return { newScore, range, cursorAfterPaste };
 }

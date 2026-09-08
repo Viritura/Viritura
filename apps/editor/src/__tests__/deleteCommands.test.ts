@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import type { Score, NoteEvent } from "@viritura/core";
 import type { Step, Octave } from "@viritura/core";
-import { deleteAnnotation, deleteAnnotations, expandCondensedDynamicLocations } from "../commands/deleteCommands";
+import {
+  deleteAnnotation,
+  deleteAnnotations,
+  deleteArpeggioByElementId,
+  expandCondensedDynamicLocations,
+} from "../commands/deleteCommands";
 import { resolveEventLocation, resolveAnnotationLocation } from "../score/ElementPath";
 
 // ═══════════════════════════════════════════
@@ -241,6 +246,37 @@ describe("resolveAnnotationLocation", () => {
 // ═══════════════════════════════════════════
 
 describe("deleteAnnotation", () => {
+  it("deletes a selected arpeggio without deleting its chord", () => {
+    const score = makeScore([
+      {
+        type: "event",
+        id: "chord",
+        duration: { base: "whole" },
+        notes: [
+          { id: "low", pitch: { step: "C", octave: 4 } },
+          { id: "high", pitch: { step: "G", octave: 4 } },
+        ],
+      },
+    ]);
+    score.parts[0]!.measures[0]!.arpeggios = [
+      {
+        position: { fraction: [0, 1] },
+        span: { start: "low", end: "high" },
+        direction: "up",
+        arrow: true,
+      },
+    ];
+
+    const result = deleteArpeggioByElementId(score, "p0/m0/s0/chord/arp");
+
+    expect(result?.parts[0]!.measures[0]!.arpeggios).toBeUndefined();
+    expect(result?.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      type: "event",
+      id: "chord",
+      notes: [{ id: "low" }, { id: "high" }],
+    });
+  });
+
   /** Score with various annotations. */
   function makeAnnotatedScore(): Score {
     return {

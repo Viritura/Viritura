@@ -20,6 +20,7 @@ import type { useHistoryStoreInstance } from "../store/historyStore";
 import type { useSelection } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
 import { useViewStateStore } from "../store/viewStateStore";
+import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
 
 type SelectionState = ReturnType<typeof useSelection>;
 
@@ -118,12 +119,22 @@ export function useClipboardActions({
         return latest ? pasteResultFromFragment(latest.fragment) : null;
       })();
     if (!paste) return;
-    const result = computePasteResult(score, selection, paste);
-    if (!result) return;
-    updateScore(result.newScore);
-    if (result.range) {
-      if (result.range.start === result.range.end) selectElement(result.range.start);
-      else selectRange(result.range.start, result.range.end);
+    const noteInput = useNoteInputStore.getState();
+    const pasteCursor =
+      noteInput.active && noteInput.cursorPosition
+        ? { ...noteInput.cursorPosition, voice: noteInput.currentVoice - 1 }
+        : undefined;
+    try {
+      const result = computePasteResult(score, selection, paste, pasteCursor);
+      if (!result) return;
+      updateScore(result.newScore);
+      if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
+      if (result.range) {
+        if (result.range.start === result.range.end) selectElement(result.range.start);
+        else selectRange(result.range.start, result.range.end);
+      }
+    } catch (error) {
+      console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor });
     }
   }, [store, selection, updateScore, selectRange, selectElement]);
 

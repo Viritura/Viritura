@@ -591,6 +591,22 @@ describe("setClef", () => {
     expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ clef: { sign: "F", staffPosition: 2 } }]);
   });
 
+  it("sets a measure-start clef only on the targeted grand staff", () => {
+    const score = twoMeasureScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[1]!.clefs = [
+      { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+      { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+    ];
+
+    const result = setClef(score, 1, 0, { sign: "C", staffPosition: 0 }, { staff: 1 });
+
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([
+      { clef: { sign: "C", staffPosition: 0 }, staff: 1 },
+      { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+    ]);
+  });
+
   it("removes clefs when null is passed", () => {
     const score = twoMeasureScore();
     const withClef = setClef(score, 1, 0, { sign: "G", staffPosition: -2 });

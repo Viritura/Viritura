@@ -162,6 +162,133 @@ mod slur_dirty_range_tests {
     }
 }
 
+#[cfg(test)]
+mod arpeggio_patch_tests {
+    use super::*;
+    use viritura_engine::render::{smufl::smufl, RenderCommand};
+
+    fn has_arpeggio_glyph(display_list: &DisplayList) -> bool {
+        display_list.commands.iter().any(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. }
+                    if matches!(
+                        *codepoint,
+                        smufl::WIGGLE_ARPEGGIATO_UP
+                            | smufl::WIGGLE_ARPEGGIATO_DOWN
+                            | smufl::WIGGLE_ARPEGGIATO_UP_ARROW
+                            | smufl::WIGGLE_ARPEGGIATO_DOWN_ARROW
+                    )
+            )
+        })
+    }
+
+    #[test]
+    fn part_measure_patch_renders_new_arpeggio_immediately() {
+        let json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"id": "P1", "name": "Piano", "measures": [{
+                "sequences": [{"content": [{
+                    "id": "chord", "duration": {"base": "whole"},
+                    "notes": [
+                        {"id": "low", "pitch": {"step": "C", "octave": 4}},
+                        {"id": "high", "pitch": {"step": "G", "octave": 5}}
+                    ]
+                }]}]
+            }]}],
+            "layouts": [{"id": "full", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+            "scores": [{"name": "Full Score", "layout": "full"}]
+        }"#;
+        let patch = r#"{
+            "partMeasures": {"0": {"0": {
+                "arpeggios": [{
+                    "position": {"fraction": [0, 1]},
+                    "span": {"start": "low", "end": "high"},
+                    "direction": "down", "arrow": true
+                }],
+                "sequences": [{"content": [{
+                    "id": "chord", "duration": {"base": "whole"},
+                    "notes": [
+                        {"id": "low", "pitch": {"step": "C", "octave": 4}},
+                        {"id": "high", "pitch": {"step": "G", "octave": 5}}
+                    ]
+                }]}]
+            }}}
+        }"#;
+        let patched_json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"id": "P1", "name": "Piano", "measures": [{
+                "arpeggios": [{
+                    "position": {"fraction": [0, 1]},
+                    "span": {"start": "low", "end": "high"},
+                    "direction": "down", "arrow": true
+                }],
+                "sequences": [{"content": [{
+                    "id": "chord", "duration": {"base": "whole"},
+                    "notes": [
+                        {"id": "low", "pitch": {"step": "C", "octave": 4}},
+                        {"id": "high", "pitch": {"step": "G", "octave": 5}}
+                    ]
+                }]}]
+            }]}],
+            "layouts": [{"id": "full", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+            "scores": [{"name": "Full Score", "layout": "full"}]
+        }"#;
+
+        let parsed = parse_mnx(patched_json).expect("parse full arpeggio fixture");
+        let measure = &parsed.parts[0].measures[0];
+        assert_eq!(measure.arpeggios.as_ref().map(Vec::len), Some(1));
+        let event = match &measure.sequences[0].content[0] {
+            SequenceContent::Event(event) => event,
+            _ => panic!("fixture chord must be an event"),
+        };
+        assert_eq!(
+            event
+                .notes
+                .as_ref()
+                .and_then(|notes| notes[0].id.as_deref()),
+            Some("low")
+        );
+        assert_eq!(
+            event
+                .notes
+                .as_ref()
+                .and_then(|notes| notes[1].id.as_deref()),
+            Some("high")
+        );
+        let direct = layout_score(&parsed, 0, &LayoutConfig::default());
+        assert!(
+            has_arpeggio_glyph(&direct),
+            "direct part layout must render an arpeggio"
+        );
+
+        let mut control_engine = LayoutEngine::default();
+        let full = control_engine
+            .compute_full_score_layout_cached_dl(patched_json, 10.0, 800.0, None, Some(0))
+            .expect("full arpeggio layout");
+        assert!(
+            has_arpeggio_glyph(&full),
+            "the full layout fixture must render an arpeggio"
+        );
+
+        let mut engine = LayoutEngine::default();
+        let initial = engine
+            .compute_full_score_layout_cached_dl(json, 10.0, 800.0, None, Some(0))
+            .expect("initial cached layout");
+        assert!(!has_arpeggio_glyph(&initial));
+
+        let patched = engine
+            .apply_patch_and_layout_display_list(patch, 10.0, 800.0, None, Some(0))
+            .expect("arpeggio patch layout");
+        assert!(
+            has_arpeggio_glyph(&patched),
+            "the first incremental frame must include the new arpeggio"
+        );
+    }
+}
+
 /// Global flag controlling whether layout passes emit `LayoutDebugInfo`
 /// on the resulting `DisplayList`. Toggled from JS via `set_emit_layout_debug`.
 /// Defaults to false so production builds skip the work.

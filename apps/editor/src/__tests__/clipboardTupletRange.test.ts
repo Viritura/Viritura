@@ -8,7 +8,7 @@ import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import type { SelectionState } from "../store/selectionStore";
 
-function note(id: string, step: "C" | "D" | "E" | "F"): NoteEvent {
+function note(id: string, step: "C" | "D" | "E" | "F" | "G"): NoteEvent {
   return {
     type: "event",
     id,
@@ -68,6 +68,25 @@ function range(start: string, end: string): SelectionState {
 }
 
 describe("clipboard ranges containing tuplets", () => {
+  it("does not merge adjacent tuplets into a rest when pasting after them", () => {
+    const score = makeScore();
+    score.global.measures[0]!.time = { count: 6, unit: 4 };
+    const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
+    sequence.content.splice(2, 0, triplet());
+    const paste: PasteResult = {
+      content: [note("pasted", "G")],
+      sourceTimeSignature: { count: 6, unit: 4 },
+      sourceKeySignature: { fifths: 0 },
+    };
+
+    const pasted = applyPaste(score, paste, 0, 0, 0, 4);
+    const content = pasted.parts[0]!.measures[0]!.sequences[0]!.content;
+
+    expect(content[1]?.type).toBe("tuplet");
+    expect(content[2]?.type).toBe("tuplet");
+    expect(content.filter((item) => item.type === "tuplet")).toHaveLength(2);
+  });
+
   it("captures the tuplet container once instead of flattening inner events", () => {
     const copied = buildClipboardSelection(makeScore(), range("triplet-1", "after"));
 

@@ -337,6 +337,8 @@ pub(super) fn build_virtual_part_measure(
     let mut ottavas: Option<Vec<Ottava>> = None;
     let mut measure_repeat: Option<MeasureRepeat> = None;
     let mut chord_symbols: Option<Vec<ChordSymbol>> = None;
+    let mut arpeggios: Option<Vec<MnxArpeggio>> = None;
+    let mut non_arpeggios: Option<Vec<NonArpeggio>> = None;
     let mut beams = Vec::new();
 
     // --- Condensing merge mode analysis ---
@@ -562,6 +564,16 @@ pub(super) fn build_virtual_part_measure(
                     .get_or_insert_with(Vec::new)
                     .extend(o.iter().filter(|x| legacy_staff_matches(x.staff)).cloned());
             }
+            if let Some(ref source_arpeggios) = pm.arpeggios {
+                arpeggios
+                    .get_or_insert_with(Vec::new)
+                    .extend(source_arpeggios.iter().cloned());
+            }
+            if let Some(ref source_non_arpeggios) = pm.non_arpeggios {
+                non_arpeggios
+                    .get_or_insert_with(Vec::new)
+                    .extend(source_non_arpeggios.iter().cloned());
+            }
         }
 
         // Condensed staves share one simile sign; the first source that carries
@@ -629,8 +641,8 @@ pub(super) fn build_virtual_part_measure(
         PartMeasure {
             clefs,
             sequences,
-            arpeggios: None,
-            non_arpeggios: None,
+            arpeggios,
+            non_arpeggios,
             beams: (!beams.is_empty()).then_some(beams),
             dynamics,
             ottavas,
