@@ -1,7 +1,10 @@
-import type { Fermata, FermataDuration, FermataSymbol, Orientation, Score } from "@viritura/core";
+import { useMemo } from "react";
+import type { Fermata, FermataDuration, FermataSymbol, Orientation } from "@viritura/core";
 import { Select } from "@viritura/ui";
-import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
-import { setFermataProperties } from "../../commands/notationInspectorCommands";
+import { resolveNotationSelectionTarget, setFermataProperties } from "../../commands/notationInspectorCommands";
+import { useDocument, useDocumentActions } from "../../store/DocumentContext";
+import { useSelection, useSelectedElementType } from "../../store/selectionStore";
+import { useNotationInspectorSelection } from "./useNotationInspectorSelection";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
 
 const SYMBOL_OPTIONS = [
@@ -31,16 +34,14 @@ const ORIENTATION_OPTIONS = [
   { value: "below", label: "Below" },
 ] as const;
 
-export interface FermataSectionProps {
-  fermata: Fermata | null;
-  score: Score | null;
-  target: NotationSelectionTarget | null;
-  selected: boolean;
-  updateScore: (score: Score) => void;
-}
-
-export function FermataSection({ fermata, score, target, selected, updateScore }: FermataSectionProps) {
-  if (!selected || !fermata || !score || !target) return null;
+export function FermataSection() {
+  const selection = useSelection();
+  const selectedElementType = useSelectedElementType();
+  const { score } = useDocument();
+  const { updateScore } = useDocumentActions();
+  const target = useMemo(() => (score ? resolveNotationSelectionTarget(selection, score) : null), [score, selection]);
+  const { selectedFermata: fermata } = useNotationInspectorSelection(selection, score, target);
+  if (selectedElementType !== "fermata" || !fermata || !score || !target) return null;
 
   const updateFermata = (patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>) => {
     const result = setFermataProperties(score, target, patch);

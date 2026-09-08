@@ -63,7 +63,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selectedNote,
     selectedTie,
     selectedSlur,
-    selectedTrill, selectedFermata,
+    selectedTrill,
     selectedSequence,
     selectedContent,
     isTuplet,
@@ -103,7 +103,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
-  const fermataSectionProps = { fermata: selectedFermata, score, target, selected: selectedElementType === "fermata", updateScore };
 
   // ── Color handlers ──
 
@@ -220,7 +219,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 
-        <FermataSection {...fermataSectionProps} />
+        <FermataSection />
 
         {(isTuplet || isEvent) && (
           <LayoutSection

@@ -120,30 +120,25 @@ describe("notationInspectorCommands", () => {
     expect(event.fermata).toEqual({});
   });
 
-  it.each([
-    "auto",
-    "none",
-    "veryShort",
-    "short",
-    "normal",
-    "long",
-    "veryLong",
-  ] satisfies FermataDuration[])("edits and reopens a selected fermata with %s duration", (duration) => {
-    const score = buildScore();
-    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
-    if (event.type !== "event") throw new Error("expected note event");
-    event.fermata = {};
-    const target = resolveNotationSelectionTarget(
-      { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
-      score,
-    )!;
+  it.each(["auto", "none", "veryShort", "short", "normal", "long", "veryLong"] satisfies FermataDuration[])(
+    "edits and reopens a selected fermata with %s duration",
+    (duration) => {
+      const score = buildScore();
+      const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("expected note event");
+      event.fermata = {};
+      const target = resolveNotationSelectionTarget(
+        { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+        score,
+      )!;
 
-    const result = setFermataProperties(score, target, { duration });
-    const reopened = parseMnx(serializeMnx(result.score!));
-    const reopenedEvent = reopened.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      const result = setFermataProperties(score, target, { duration });
+      const reopened = parseMnx(serializeMnx(result.score!));
+      const reopenedEvent = reopened.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
 
-    expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.duration : undefined).toBe(duration);
-  });
+      expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.duration : undefined).toBe(duration);
+    },
+  );
 
   it.each(["auto", "above", "below"] satisfies Orientation[])(
     "edits and reopens a selected fermata with %s orientation",
