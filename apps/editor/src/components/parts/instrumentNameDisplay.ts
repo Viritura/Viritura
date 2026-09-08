@@ -9,10 +9,6 @@ import type {
 } from "@viritura/core";
 
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
-export interface InstrumentNameDisplayValues {
-  firstSystem: InstrumentNameDisplayValue;
-  subsequentSystems: InstrumentNameDisplayValue;
-}
 
 function staffLabelRef(staff: LayoutStaff): StaffLabelRef | undefined {
   return staff.labelref ?? staff.sources.find((source) => source.labelref)?.labelref;
@@ -40,7 +36,10 @@ function uniformLayoutPolicy(content: readonly LayoutContent[]): InstrumentNameD
 export function instrumentNameDisplayFor(
   content: readonly LayoutContent[],
   score: ScoreDefinition,
-): InstrumentNameDisplayValues {
+): {
+  firstSystem: InstrumentNameDisplayValue;
+  subsequentSystems: InstrumentNameDisplayValue;
+} {
   if (score.instrumentNameDisplay) return score.instrumentNameDisplay;
   const policy = uniformLayoutPolicy(content);
   if (policy === "full") return { firstSystem: "full", subsequentSystems: "short" };

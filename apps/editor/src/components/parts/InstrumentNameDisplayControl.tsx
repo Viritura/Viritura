@@ -4,7 +4,6 @@ import {
   instrumentNameDisplayFor,
   type InstrumentNameDisplayPolicy,
   type InstrumentNameDisplaySettings,
-  type InstrumentNameDisplayValues,
 } from "./instrumentNameDisplay";
 import type { LayoutContent, ScoreDefinition } from "@viritura/core";
 
@@ -41,7 +40,7 @@ export interface InstrumentNameDisplayControlProps {
 }
 
 function nextSettings(
-  values: InstrumentNameDisplayValues,
+  values: ReturnType<typeof instrumentNameDisplayFor>,
   key: keyof InstrumentNameDisplaySettings,
   policy: InstrumentNameDisplayPolicy,
 ): InstrumentNameDisplaySettings {
