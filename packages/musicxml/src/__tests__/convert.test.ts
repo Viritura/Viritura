@@ -167,6 +167,31 @@ describe("convertMusicXmlToMnx — basics", () => {
     expect(event.rest).toEqual({ staffPosition: -2 });
   });
 
+  it("does not apply a later mid-measure clef to an earlier rest in another voice", () => {
+    const xml = wrapScore(
+      `
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration><type>quarter</type><voice>1</voice>
+      </note>
+      <attributes><clef><sign>F</sign><line>4</line></clef></attributes>
+      <note><rest/><duration>1</duration><type>quarter</type><voice>1</voice></note>
+      <backup><duration>2</duration></backup>
+      <note>
+        <rest><display-step>D</display-step><display-octave>4</display-octave></rest>
+        <duration>2</duration><type>half</type><voice>2</voice>
+      </note>
+    `,
+      { time: "<beats>2</beats><beat-type>4</beat-type>" },
+    );
+
+    const result = convertMusicXmlToMnx(xml);
+    const event = result.parts[0]!.measures[0]!.sequences![1]!.content[0] as {
+      rest: { staffPosition?: number };
+    };
+    expect(event.rest).toEqual({ staffPosition: -5 });
+  });
+
   it("handles ties across notes", () => {
     const xml = wrapScore(`
       <note>

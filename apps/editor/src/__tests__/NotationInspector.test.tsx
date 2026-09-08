@@ -328,13 +328,14 @@ describe("NotationInspector", () => {
     expect(position.value).toBe("0");
 
     fireEvent.click(screen.getByRole("button", { name: "Move up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move up" }));
     await waitFor(() =>
-      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("1"),
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("2"),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Move down" }));
     await waitFor(() =>
-      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("0"),
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("1"),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
   setBarline,
   setRepeatStart,
@@ -50,9 +50,14 @@ export interface MeasureRepeatHandlers {
 }
 
 export function useRestPositionHandlers({ score, target, updateScore }: SelectionArgs) {
+  const currentPosition = target && score ? selectedRestPosition(score, target) : undefined;
+  const positionRef = useRef(currentPosition);
+  positionRef.current = currentPosition;
+
   const setPosition = useCallback(
     (staffPosition: number | null) => {
       if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
+      positionRef.current = staffPosition ?? undefined;
       const nextScore = setRestStaffPositionInScore(
         score,
         {
@@ -76,8 +81,7 @@ export function useRestPositionHandlers({ score, target, updateScore }: Selectio
       if (Number.isInteger(staffPosition)) setPosition(staffPosition);
     },
     moveRest: (amount: number) => {
-      const current = target && score ? selectedRestPosition(score, target) : undefined;
-      setPosition((current ?? 0) + amount);
+      setPosition((positionRef.current ?? 0) + amount);
     },
     resetRestPosition: () => setPosition(null),
   };

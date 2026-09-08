@@ -307,6 +307,24 @@ export function processMeasureNotes(
 
   const cumulative = new Map<string, Fraction>();
   let currentPos = Fraction.ZERO;
+  const clefTimelines = new Map<number, { position: Fraction; clef: MnxClef }[]>();
+  for (const [staff, clef] of activeClefs) {
+    clefTimelines.set(staff, [{ position: Fraction.ZERO, clef }]);
+  }
+
+  const clefAt = (staff: number, position: Fraction): MnxClef => {
+    const entries = clefTimelines.get(staff) ?? [];
+    let active = entries[0]?.clef;
+    let activePosition = entries[0]?.position;
+    for (const entry of entries) {
+      if (position.subtract(entry.position).isNegative()) continue;
+      if (!activePosition || !entry.position.subtract(activePosition).isNegative()) {
+        active = entry.clef;
+        activePosition = entry.position;
+      }
+    }
+    return active ?? { sign: "G", staffPosition: -2 };
+  };
 
   // Furthest written-content position per voice. A `<forward>` that merely
   // repositions the cursor over already-written notes (the backup+forward
@@ -574,11 +592,7 @@ export function processMeasureNotes(
         const staffPosition =
           displayStep === null
             ? undefined
-            : displayPitchToStaffPosition(
-                displayStep,
-                displayOctave,
-                activeClefs.get(staffNum) ?? { sign: "G", staffPosition: -2 },
-              );
+            : displayPitchToStaffPosition(displayStep, displayOctave, clefAt(staffNum, currentPos));
         event.rest = staffPosition === undefined ? {} : { staffPosition };
       } else {
         const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
@@ -885,7 +899,10 @@ export function processMeasureNotes(
         const position = currentPos.n === 0 ? undefined : makePosition(currentPos);
         const positionedClef = clefFromElement(clefEl, position);
         clefs.push(positionedClef);
-        activeClefs.set(positionedClef.staff ?? 1, positionedClef.clef);
+        const staff = positionedClef.staff ?? 1;
+        const timeline = clefTimelines.get(staff) ?? [];
+        timeline.push({ position: currentPos, clef: positionedClef.clef });
+        clefTimelines.set(staff, timeline);
       }
     }
 
@@ -897,6 +914,14 @@ export function processMeasureNotes(
     if (tupletAcc.events.length > 0) {
       getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
     }
+  }
+
+  for (const [staff, timeline] of clefTimelines) {
+    const finalPosition = timeline.reduce(
+      (latest, entry) => (entry.position.subtract(latest).isNegative() ? latest : entry.position),
+      Fraction.ZERO,
+    );
+    activeClefs.set(staff, clefAt(staff, finalPosition));
   }
 
   // Divisi parts emit one `<direction>` per voice/layer, so an identical
