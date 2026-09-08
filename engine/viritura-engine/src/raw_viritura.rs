@@ -1688,6 +1688,129 @@ impl<'de> ::serde::Deserialize<'de> for HitPointId {
             })
     }
 }
+///Independent instrument-name display policies for the first and subsequent systems of one score.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Independent instrument-name display policies for the first and subsequent systems of one score.",
+///  "type": "object",
+///  "required": [
+///    "firstSystem",
+///    "subsequentSystems"
+///  ],
+///  "properties": {
+///    "firstSystem": {
+///      "$ref": "#/$defs/instrument-name-display-policy"
+///    },
+///    "subsequentSystems": {
+///      "$ref": "#/$defs/instrument-name-display-policy"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentNameDisplay {
+    #[serde(rename = "firstSystem")]
+    pub first_system: InstrumentNameDisplayPolicy,
+    #[serde(rename = "subsequentSystems")]
+    pub subsequent_systems: InstrumentNameDisplayPolicy,
+}
+impl ::std::convert::From<&InstrumentNameDisplay> for InstrumentNameDisplay {
+    fn from(value: &InstrumentNameDisplay) -> Self {
+        value.clone()
+    }
+}
+///`InstrumentNameDisplayPolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "full",
+///    "short",
+///    "hidden"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum InstrumentNameDisplayPolicy {
+    #[serde(rename = "full")]
+    Full,
+    #[serde(rename = "short")]
+    Short,
+    #[serde(rename = "hidden")]
+    Hidden,
+}
+impl ::std::convert::From<&Self> for InstrumentNameDisplayPolicy {
+    fn from(value: &InstrumentNameDisplayPolicy) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for InstrumentNameDisplayPolicy {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Full => f.write_str("full"),
+            Self::Short => f.write_str("short"),
+            Self::Hidden => f.write_str("hidden"),
+        }
+    }
+}
+impl ::std::str::FromStr for InstrumentNameDisplayPolicy {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "full" => Ok(Self::Full),
+            "short" => Ok(Self::Short),
+            "hidden" => Ok(Self::Hidden),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for InstrumentNameDisplayPolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for InstrumentNameDisplayPolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for InstrumentNameDisplayPolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).
 ///
 /// <details><summary>JSON schema</summary>
@@ -4130,6 +4253,9 @@ impl ::std::default::Default for RootExtensions {
 ///  "description": "Viritura extensions on a standard MNX score definition.",
 ///  "type": "object",
 ///  "properties": {
+///    "instrumentNameDisplay": {
+///      "$ref": "#/$defs/instrument-name-display"
+///    },
 ///    "pageSetup": {
 ///      "$ref": "#/$defs/page-setup"
 ///    }
@@ -4141,6 +4267,12 @@ impl ::std::default::Default for RootExtensions {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ScoreExtensions {
+    #[serde(
+        rename = "instrumentNameDisplay",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_name_display: ::std::option::Option<InstrumentNameDisplay>,
     #[serde(
         rename = "pageSetup",
         default,
@@ -4156,6 +4288,7 @@ impl ::std::convert::From<&ScoreExtensions> for ScoreExtensions {
 impl ::std::default::Default for ScoreExtensions {
     fn default() -> Self {
         Self {
+            instrument_name_display: Default::default(),
             page_setup: Default::default(),
         }
     }
@@ -6507,6 +6640,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "hit-point": {
 ///      "$ref": "#/$defs/hit-point"
 ///    },
+///    "instrument-name-display": {
+///      "$ref": "#/$defs/instrument-name-display"
+///    },
+///    "instrument-name-display-policy": {
+///      "$ref": "#/$defs/instrument-name-display-policy"
+///    },
 ///    "jump": {
 ///      "$ref": "#/$defs/jump"
 ///    },
@@ -6735,6 +6874,20 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub hit_point: ::std::option::Option<HitPoint>,
+    #[serde(
+        rename = "instrument-name-display",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_name_display: ::std::option::Option<InstrumentNameDisplay>,
+    #[serde(
+        rename = "instrument-name-display-policy",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_name_display_policy: ::std::option::Option<
+        InstrumentNameDisplayPolicy,
+    >,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub jump: ::std::option::Option<Jump>,
     #[serde(
@@ -7034,6 +7187,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             glissando_style: Default::default(),
             gradual_tempo: Default::default(),
             hit_point: Default::default(),
+            instrument_name_display: Default::default(),
+            instrument_name_display_policy: Default::default(),
             jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),

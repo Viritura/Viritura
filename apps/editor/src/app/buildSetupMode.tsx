@@ -42,7 +42,7 @@ export interface BuildSetupModeArgs {
   handleConcertPitchToggle: (written: boolean) => void;
   resolvedScoreDefs: ScoreDefinition[];
   handleSelectScore: (index: number) => void;
-  handleLayoutChange: (layouts: LayoutDefinition[]) => void;
+  handleLayoutChange: (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => void;
   handleAddInstrument: SetupPanelProps["onAddInstrument"];
   handleAddEnsemble: SetupPanelProps["onAddEnsemble"];
   handleRemoveInstrument: SetupPanelProps["onRemoveInstrument"];

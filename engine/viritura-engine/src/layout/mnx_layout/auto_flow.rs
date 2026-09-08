@@ -66,6 +66,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     skip_measures: &HashSet<usize>,
     mmr_label_map: &HashMap<usize, String>,
     use_written: bool,
+    instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
@@ -200,7 +201,14 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Phase E: label-aware baseline casting. Auto-paginated single parts then
     // evaluate alternate real boundaries over the retained natural-width
     // horizon while keeping this baseline system count fixed.
-    let mut plan = plan_system_breaks(config, flat_staves, &budget, &mmr, cache.as_deref_mut());
+    let mut plan = plan_system_breaks(
+        config,
+        flat_staves,
+        &budget,
+        &mmr,
+        instrument_name_display,
+        cache.as_deref_mut(),
+    );
     let title_height_px = title_block_height(score.metadata(), config);
     let natural_part_plan = globally_plan_part_systems(
         score,
@@ -471,6 +479,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         lyric_line_order,
         flat_staves,
         group_ranges,
+        instrument_name_display,
     );
 
     // Stitched-horizon only: build a GLOBAL per-staff tie-accidental suppression
@@ -678,6 +687,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         dl: &mut dl,
         score,
         config,
+        instrument_name_display,
         flat_staves,
         group_ranges,
         systems,

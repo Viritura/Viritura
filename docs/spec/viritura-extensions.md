@@ -14,6 +14,7 @@ Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using 
 | MNX Object                                   | JSON Path                                   | Extensions                                                            |
 | -------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                               | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
+| score definition                             | `scores[]._x.viritura`                      | pageSetup, instrumentNameDisplay                                      |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`             | rehearsalMark, coda, jump variants not in MNX                         |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`            | pedals, chordSymbols, expressions, condensingOverride                 |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura` | manualOffset, avoidCollisions                                         |
@@ -23,6 +24,34 @@ Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using 
 | [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                 | notehead                                                              |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
+
+---
+
+## Score Definition Extensions
+
+`_x.viritura` on an entry in `scores[]`. Schema def: `score-extensions`.
+
+### `instrumentNameDisplay`
+
+Controls instrument names independently on the first and subsequent systems.
+Both `firstSystem` and `subsequentSystems` accept `full`, `short`, or `hidden`.
+The extension is omitted when standard MNX layout references can represent the
+same policy directly: full-then-short, short-only, or hidden.
+
+```json
+{
+  "name": "Full Score",
+  "layout": "full-score",
+  "_x": {
+    "viritura": {
+      "instrumentNameDisplay": {
+        "firstSystem": "hidden",
+        "subsequentSystems": "short"
+      }
+    }
+  }
+}
+```
 
 ---
 

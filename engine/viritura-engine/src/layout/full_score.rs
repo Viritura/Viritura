@@ -747,6 +747,10 @@ pub(super) struct FlatStaff {
     pub(crate) label: Option<String>,
     /// Abbreviated label for subsequent systems.
     pub(crate) short_label: Option<String>,
+    /// Resolved full part name, retained for score-level policy overrides.
+    pub(crate) resolved_full_label: Option<String>,
+    /// Resolved abbreviated part name, retained for score-level policy overrides.
+    pub(crate) resolved_short_label: Option<String>,
     /// Whether this is an expansion staff (rendered dimmed).
     pub(crate) expansion: bool,
     /// For condensed staves: per-source numbers to display stacked vertically.

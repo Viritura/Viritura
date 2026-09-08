@@ -697,7 +697,24 @@
       "type": "object",
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
-        "pageSetup": { "$ref": "#/$defs/page-setup" }
+        "pageSetup": { "$ref": "#/$defs/page-setup" },
+        "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" }
+      },
+      "additionalProperties": false
+    },
+
+    "instrument-name-display-policy": {
+      "type": "string",
+      "enum": ["full", "short", "hidden"]
+    },
+
+    "instrument-name-display": {
+      "type": "object",
+      "description": "Independent instrument-name display policies for the first and subsequent systems of one score.",
+      "required": ["firstSystem", "subsequentSystems"],
+      "properties": {
+        "firstSystem": { "$ref": "#/$defs/instrument-name-display-policy" },
+        "subsequentSystems": { "$ref": "#/$defs/instrument-name-display-policy" }
       },
       "additionalProperties": false
     },

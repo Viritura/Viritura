@@ -364,6 +364,14 @@ export interface components {
         /** @description Viritura extensions on a standard MNX score definition. */
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
+            instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
+        };
+        /** @enum {string} */
+        "instrument-name-display-policy": "full" | "short" | "hidden";
+        /** @description Independent instrument-name display policies for the first and subsequent systems of one score. */
+        "instrument-name-display": {
+            firstSystem: components["schemas"]["instrument-name-display-policy"];
+            subsequentSystems: components["schemas"]["instrument-name-display-policy"];
         };
         /**
          * @description Generic font family for a text style. Maps to a curated typeface (serif≈Times, sans-serif≈Helvetica, monospace≈Courier).
@@ -635,6 +643,8 @@ export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
+export type InstrumentNameDisplayPolicy = components["schemas"]["instrument-name-display-policy"];
+export type InstrumentNameDisplay = components["schemas"]["instrument-name-display"];
 export type FontFamily = components["schemas"]["font-family"];
 export type TextAlignment = components["schemas"]["text-alignment"];
 export type TextStyle = components["schemas"]["text-style"];

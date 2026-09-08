@@ -53,6 +53,54 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(parseMnx(serialized)).toEqual(parsed);
   });
 
+  it("preserves full, abbreviated, and hidden instrument-label policies", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [
+        { id: "fl", name: "Flute", shortName: "Fl.", measures: [] },
+        { id: "ob", name: "Oboe", shortName: "Ob.", measures: [] },
+        { id: "cl", name: "Clarinet", shortName: "Cl.", measures: [] },
+      ],
+      layouts: [
+        {
+          id: "score",
+          content: [
+            { type: "staff", labelref: "name", sources: [{ part: "fl" }] },
+            { type: "staff", labelref: "shortName", sources: [{ part: "ob" }] },
+            { type: "staff", sources: [{ part: "cl" }] },
+          ],
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+  });
+
+  it("preserves independent first and subsequent system label policies", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [],
+      layouts: [],
+      scores: [
+        {
+          name: "Full Score",
+          _x: {
+            viritura: {
+              instrumentNameDisplay: {
+                firstSystem: "hidden",
+                subsequentSystems: "full",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
+  });
+
   it("preserves an explicit empty beam list that suppresses auto-beaming", () => {
     const source = {
       mnx: { version: 1 },
