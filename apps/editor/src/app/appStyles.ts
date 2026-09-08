@@ -23,6 +23,32 @@ export const errorBannerStyle: React.CSSProperties = {
   color: "var(--warning)",
   fontSize: "0.85rem",
   flexShrink: 0,
+  overflowWrap: "anywhere",
+};
+
+export const errorDetailsStyle: React.CSSProperties = {
+  marginTop: "0.35rem",
+};
+
+export const errorDetailsSummaryStyle: React.CSSProperties = {
+  color: "var(--text)",
+  cursor: "pointer",
+  userSelect: "none",
+};
+
+export const errorDetailsContentStyle: React.CSSProperties = {
+  maxHeight: "60vh",
+  overflow: "auto",
+  margin: "0.5rem 0 0",
+  padding: "0.5rem",
+  background: "var(--surface-sunken)",
+  color: "var(--text)",
+  fontFamily: "var(--font-mono, monospace)",
+  fontSize: "0.75rem",
+  lineHeight: 1.4,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  userSelect: "text",
 };
 
 export const printWarningBannerStyle: React.CSSProperties = {
