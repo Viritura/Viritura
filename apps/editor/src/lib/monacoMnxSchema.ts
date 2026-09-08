@@ -1,6 +1,6 @@
 import type { Monaco } from "@viritura/monaco-react";
 
-const MNX_SCHEMA_URI = "https://w3c.github.io/mnx/docs/mnx-schema.json";
+const MNX_SCHEMA_URI = "https://mnx.formats.music/docs/mnx-schema.json";
 const FILE_MATCH = ["*"];
 
 let schemaPromise: Promise<Record<string, unknown> | null> | null = null;

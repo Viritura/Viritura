@@ -1461,7 +1461,7 @@ pub mod smufl {
 
     /// Get the (above, below) fermata glyph pair for a given symbol.
     ///
-    /// Mapping per MNX spec (https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/fermata-symbol/):
+    /// Mapping per MNX spec (https://mnx.formats.music/docs/mnx-reference/objects/fermata-symbol/):
     /// - `normal`       → fermataAbove (E4C0)              / fermataBelow (E4C1)
     /// - `angled`       → fermataShortAbove (E4C4)         / fermataShortBelow (E4C5)
     /// - `square`       → fermataLongAbove (E4C6)          / fermataLongBelow (E4C7)
@@ -2124,7 +2124,7 @@ mod tests {
     fn test_fermata_glyph_all_symbols() {
         use crate::model::FermataSymbol;
         // Mapping per MNX spec:
-        // https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/fermata-symbol/
+        // https://mnx.formats.music/docs/mnx-reference/objects/fermata-symbol/
         let cases = [
             (
                 FermataSymbol::Angled,

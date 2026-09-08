@@ -16,7 +16,8 @@ use crate::model::measure::{
     GlobalMeasure as ModelGlobalMeasure, GlobalMeasureExtensions, IdPair as ModelIdPair,
     MeasureRepeat as ModelMeasureRepeat, MeasureRepeatCounter as ModelMeasureRepeatCounter,
     MnxArpeggio as ModelMnxArpeggio, NonArpeggio as ModelNonArpeggio,
-    PartMeasure as ModelPartMeasure, VendorExtensions as ModelVendorExtensions,
+    PartMeasure as ModelPartMeasure, PositionedStaffConfig as ModelPositionedStaffConfig,
+    StaffConfig as ModelStaffConfig, VendorExtensions as ModelVendorExtensions,
 };
 use crate::promote::barline::promote_barline;
 use crate::promote::beam::promote_beam;
@@ -66,6 +67,16 @@ fn promote_non_arpeggio(r: raw::NonArpeggio) -> ModelNonArpeggio {
         },
         span: promote_id_pair(r.span),
         id: r.id.map(String::from),
+    }
+}
+
+fn promote_positioned_staff_config(r: raw::PositionedStaffConfig) -> ModelPositionedStaffConfig {
+    ModelPositionedStaffConfig {
+        config: ModelStaffConfig {
+            lines: r.config.lines.map(|value| value.0 as u32),
+        },
+        position: r.position.map(promote_rhythmic_position),
+        staff: r.staff.map(|staff| u32::try_from(staff.0).unwrap_or(1)),
     }
 }
 
@@ -188,6 +199,12 @@ pub(crate) fn promote_part_measure(
             .collect(),
     );
     let measure_repeat = r.measure_repeat.map(promote_measure_repeat);
+    let staff_configs = vec_or_none(
+        r.staff_configs
+            .into_iter()
+            .map(promote_positioned_staff_config)
+            .collect(),
+    );
 
     let vendor = extract_part_measure_vendor_with_fallback(r.x.as_ref(), Some(original_json));
 
@@ -200,6 +217,7 @@ pub(crate) fn promote_part_measure(
         dynamics,
         ottavas,
         measure_repeat,
+        staff_configs,
         pedals: vendor.pedals,
         chord_symbols: vendor.chord_symbols,
         expressions: vendor.expressions,

@@ -14,7 +14,7 @@ export default meta;
  * - `direction: "up"` → up-bow (V), SMuFL stringsUpBow (U+E612)
  * - `direction: "down"` → down-bow (∏), SMuFL stringsDownBow (U+E610)
  *
- * Ref: https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/bow-direction/
+ * Ref: https://mnx.formats.music/docs/mnx-reference/objects/bow-direction/
  */
 export const Basic: StoryObj = {
   render: () => {

@@ -6,7 +6,7 @@ import { MnxGuide } from "./MnxGuide";
 import "./mnxHub.css";
 
 const marketplaceUrl = "https://marketplace.visualstudio.com/items?itemName=Viritura.mnx-viewer";
-const mnxDocsUrl = "https://w3c-cg.github.io/mnx/docs/";
+const mnxDocsUrl = "https://mnx.formats.music/docs/";
 const githubUrl = "https://github.com/Viritura/Viritura";
 const mnxHeroSource = JSON.stringify(mnxHeroSample, null, 2);
 

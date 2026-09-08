@@ -29,6 +29,8 @@ import type {
   NonArpeggio as RawNonArpeggio,
   MeasureRepeat as RawMeasureRepeat,
   PositionedClef as RawPositionedClef,
+  PositionedStaffConfig as RawPositionedStaffConfig,
+  StaffConfig as RawStaffConfig,
   IdPair as RawIdPair,
 } from "@viritura/core/raw";
 import type {
@@ -133,6 +135,8 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
   };
   const clefs = parseClefs(raw.clefs);
   if (clefs !== undefined) pm.clefs = clefs;
+  const staffConfigs = parseStaffConfigs(raw.staffConfigs);
+  if (staffConfigs !== undefined) pm.staffConfigs = staffConfigs;
   if (raw.beams) {
     pm.beams = raw.beams.map(parseBeam);
   }
@@ -261,4 +265,18 @@ function parsePositionedClef(raw: RawPositionedClef): PositionedClef {
   }
 
   return result;
+}
+
+function parseStaffConfigs(arr: RawPositionedStaffConfig[] | undefined): PartMeasure["staffConfigs"] | undefined {
+  if (!arr || arr.length === 0) return undefined;
+  return arr.map(parsePositionedStaffConfig);
+}
+
+function parsePositionedStaffConfig(raw: RawPositionedStaffConfig): NonNullable<PartMeasure["staffConfigs"]>[number] {
+  const config: RawStaffConfig = {};
+  if (raw.config.lines !== undefined) config.lines = raw.config.lines;
+  const positioned: NonNullable<PartMeasure["staffConfigs"]>[number] = { config };
+  if (raw.position) positioned.position = parseRhythmicPosition(raw.position);
+  if (raw.staff !== undefined) positioned.staff = raw.staff;
+  return positioned;
 }

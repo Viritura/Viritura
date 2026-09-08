@@ -840,6 +840,39 @@ fn test_parse_fractional_tempo() {
 }
 
 #[test]
+fn test_parse_part_measure_staff_configs() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": { "measures": [ {} ] },
+        "parts": [
+            {
+                "measures": [
+                    {
+                        "staffConfigs": [
+                            { "config": { "lines": 1 } },
+                            { "staff": 2, "position": { "fraction": [1,4] }, "config": { "lines": 0 } }
+                        ],
+                        "sequences": [{"content":[{"duration":{"base":"whole"},"rest":{}}]}]
+                    }
+                ]
+            }
+        ]
+    }"#;
+
+    let score = parse_mnx(json).expect("staffConfigs should parse");
+    let configs = score.parts[0].measures[0]
+        .staff_configs
+        .as_ref()
+        .expect("staff configs expected");
+    assert_eq!(configs.len(), 2);
+    assert_eq!(configs[0].config.lines, Some(1));
+    assert_eq!(configs[0].staff, None);
+    assert_eq!(configs[1].config.lines, Some(0));
+    assert_eq!(configs[1].staff, Some(2));
+    assert_eq!(configs[1].position.as_ref().unwrap().fraction, (1, 4));
+}
+
+#[test]
 fn test_parse_hairpins_mnx_file() {
     use crate::model::direction::{DynamicGroupType, WedgeType};
 

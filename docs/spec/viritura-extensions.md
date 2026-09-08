@@ -1,6 +1,6 @@
 # Viritura MNX Vendor Extensions Reference
 
-Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using the standard `_x` vendor extension mechanism defined in MNX's [global attributes](https://w3c.github.io/mnx/docs/mnx-reference/objects/global-attrs/). All Viritura extensions live under the `"viritura"` vendor key.
+Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using the standard `_x` vendor extension mechanism defined in MNX's [global attributes](https://mnx.formats.music/docs/mnx-reference/objects/global-attrs/). All Viritura extensions live under the `"viritura"` vendor key.
 
 > **Why `_x`?** MNX objects set `unevaluatedProperties: false`, which means adding custom top-level properties fails schema validation. The `_x` vendor dict is the only spec-sanctioned way to extend MNX objects.
 

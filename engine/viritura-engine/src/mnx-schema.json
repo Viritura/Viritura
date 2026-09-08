@@ -1337,6 +1337,12 @@
             "$ref": "#/$defs/sequence"
           },
           "type": "array"
+        },
+        "staffConfigs": {
+          "items": {
+            "$ref": "#/$defs/positioned-staff-config"
+          },
+          "type": "array"
         }
       },
       "required": ["sequences"],
@@ -1419,6 +1425,27 @@
         }
       },
       "required": ["clef"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "positioned-staff-config": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/staff-config"
+        },
+        "position": {
+          "$ref": "#/$defs/rhythmic-position"
+        },
+        "staff": {
+          "$ref": "#/$defs/staff-number"
+        }
+      },
+      "required": ["config"],
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1805,6 +1832,20 @@
         }
       },
       "required": ["sources", "type"],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "staff-config": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "lines": {
+          "$ref": "#/$defs/integer-unsigned"
+        }
+      },
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2228,7 +2269,7 @@
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/34",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

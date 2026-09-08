@@ -297,6 +297,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             dynamics: None,
             ottavas: None,
             measure_repeat: None,
+            staff_configs: None,
             pedals: None,
             chord_symbols: None,
             expressions: None,
@@ -707,6 +708,14 @@ fn split_part_measure_by_staff_count(
         // A simile sign is engraved on every staff of the part, like a
         // whole-measure rest.
         measure_repeat: pm.measure_repeat.clone(),
+        staff_configs: pm.staff_configs.as_ref().and_then(|configs| {
+            let filtered: Vec<_> = configs
+                .iter()
+                .filter(|config| config.staff.unwrap_or(1) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         pedals: if staff_num == 1 {
             pm.pedals.clone()
         } else {

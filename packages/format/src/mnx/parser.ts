@@ -603,6 +603,7 @@ const KEYS = {
   partMeasure: new Set([
     "sequences",
     "clefs",
+    "staffConfigs",
     "arpeggios",
     "nonArpeggios",
     "beams",
@@ -611,6 +612,8 @@ const KEYS = {
     "measureRepeat",
     "_x",
   ]),
+  positionedStaffConfig: new Set(["config", "position", "staff"]),
+  staffConfig: new Set(["lines"]),
   measureRepeat: new Set(["number", "counter", "displayNumber", "staffPosition", "_c", "_x"]),
   measureRepeatCounter: new Set(["count", "orient", "_c", "_x"]),
   arpeggio: new Set(["id", "position", "span", "direction", "arrow", "_c", "_x"]),
@@ -799,6 +802,17 @@ function scanPartMeasure(pm: Obj, p: string, dx: DiagnosticCollector): void {
     const counter = measureRepeat["counter"] as Obj | undefined;
     if (counter && typeof counter === "object") {
       emitUnknown(counter, KEYS.measureRepeatCounter, p + ptr("measureRepeat") + ptr("counter"), dx);
+    }
+    const staffConfigs = pm["staffConfigs"];
+    if (Array.isArray(staffConfigs)) {
+      staffConfigs.forEach((staffConfig, i) => {
+        if (!staffConfig || typeof staffConfig !== "object") return;
+        emitUnknown(staffConfig as Obj, KEYS.positionedStaffConfig, p + ptr("staffConfigs", i), dx);
+        const config = (staffConfig as Obj)["config"] as Obj | undefined;
+        if (config && typeof config === "object") {
+          emitUnknown(config, KEYS.staffConfig, p + ptr("staffConfigs", i) + ptr("config"), dx);
+        }
+      });
     }
   }
 }

@@ -2,7 +2,7 @@
 
 **Web-native, collaborative music notation software.**
 
-Viritura is a modern music notation editor built on performant web technologies that allows composers to collaborate in real-time instead of exchanging binary files. Scores are stored in [MNX](https://w3c.github.io/mnx/docs/) (an open W3C JSON standard), making them Git-diffable and portable.
+Viritura is a modern music notation editor built on performant web technologies that allows composers to collaborate in real-time instead of exchanging binary files. Scores are stored in [MNX](https://mnx.formats.music/docs/) (an open W3C JSON standard), making them Git-diffable and portable.
 
 ## Architecture
 

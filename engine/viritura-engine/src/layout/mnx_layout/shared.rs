@@ -647,6 +647,7 @@ pub(super) fn build_virtual_part_measure(
             dynamics,
             ottavas,
             measure_repeat,
+            staff_configs: None,
             pedals,
             chord_symbols,
             expressions,

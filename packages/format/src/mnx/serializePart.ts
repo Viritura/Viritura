@@ -93,6 +93,9 @@ export function serializePartMeasure(pm: PartMeasure, helpers: PartSerializerHel
     mObj["nonArpeggios"] = pm.nonArpeggios.map(serializeNonArpeggio);
   }
   if (pm.clefs && pm.clefs.length > 0) mObj["clefs"] = pm.clefs.map(serializePositionedClef);
+  if (pm.staffConfigs && pm.staffConfigs.length > 0) {
+    mObj["staffConfigs"] = pm.staffConfigs.map(serializePositionedStaffConfig);
+  }
   if (pm.dynamics && pm.dynamics.length > 0) mObj["dynamics"] = pm.dynamics.map(serializeDynamicGroup);
   if (pm.ottavas && pm.ottavas.length > 0) mObj["ottavas"] = pm.ottavas.map(serializeOttava);
   if (pm.measureRepeat) mObj["measureRepeat"] = serializeMeasureRepeat(pm.measureRepeat);
@@ -132,6 +135,15 @@ function serializePositionedClef(pc: PositionedClef): Obj {
   if (pc.position) clefEntry["position"] = pc.position;
   if (pc.staff !== undefined) clefEntry["staff"] = pc.staff;
   return clefEntry;
+}
+
+function serializePositionedStaffConfig(sc: NonNullable<PartMeasure["staffConfigs"]>[number]): Obj {
+  const config: Obj = {};
+  if (sc.config.lines !== undefined) config["lines"] = sc.config.lines;
+  const out: Obj = { config };
+  if (sc.position) out["position"] = sc.position;
+  if (sc.staff !== undefined) out["staff"] = sc.staff;
+  return out;
 }
 
 export function serializeDynamicGroup(d: DynamicGroup): Obj {

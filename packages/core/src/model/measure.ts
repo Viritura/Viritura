@@ -9,6 +9,8 @@ import type {
   DynamicPrefix as RawDynamicPrefix,
   DynamicSuffix as RawDynamicSuffix,
   Ending as RawEnding,
+  PositionedStaffConfig as RawPositionedStaffConfig,
+  StaffConfig as RawStaffConfig,
   MultiStaffOrientation as RawMultiStaffOrientation,
   RelativeDynamicValue as RawRelativeDynamicValue,
   WedgeType as RawWedgeType,
@@ -390,10 +392,25 @@ export interface PartMeasure {
   expressions?: TextExpression[];
   /** Simile marking: repeat the previous N measures (MNX `measureRepeat`). */
   measureRepeat?: MeasureRepeat;
+  /** Staff-line configuration changes (MNX `staffConfigs[]`). */
+  staffConfigs?: PositionedStaffConfig[];
   /** User-specified condensing override for this measure (Viritura extension).
    *  Values: "unison", "solo1", "solo2", "amalgamate", "divisi" */
   condensingOverride?: string;
 }
+
+/** Staff configuration payload (MNX `staff-config`). */
+export type StaffConfig = RawStaffConfig;
+
+/** Staff configuration positioned within a part measure (MNX `positioned-staff-config`). */
+export type PositionedStaffConfig = Narrow<
+  RawPositionedStaffConfig,
+  {
+    config: StaffConfig;
+    position?: RhythmicPosition;
+    staff?: number;
+  }
+>;
 
 /**
  * A counter printed with a measure-repeat sign so players can track which

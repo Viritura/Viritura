@@ -900,6 +900,26 @@ describe("convertMusicXmlToMnx — tempo", () => {
     expect(result.global.measures[0]!.tempos![0]!.value).toEqual({ base: "quarter" });
   });
 
+  it("preserves a fractional metronome per-minute value", () => {
+    const xml = wrapScore(`
+      <direction>
+        <direction-type>
+          <metronome>
+            <beat-unit>quarter</beat-unit>
+            <per-minute>116.5</per-minute>
+          </metronome>
+        </direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.global.measures[0]!.tempos![0]!.bpm).toBe(116.5);
+  });
+
   it("converts tempo from sound element", () => {
     const xml = wrapScore(`
       <direction>

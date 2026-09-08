@@ -1,8 +1,8 @@
 {
   "upstreamRepository": "https://github.com/w3c-cg/mnx",
-  "upstreamCommit": "0a8c7602d624942668e1ac2b5c6a1aa2214be0d1",
+  "upstreamCommit": "92f714347d3f721a4f61477cc9665b542ced9be1",
   "upstreamPath": "docs/mnx-schema.json",
-  "upstreamBlob": "90e627279113096b5631ce5af6f000f1de788a22",
-  "schemaId": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/34",
-  "canonicalSha256": "be01f205c2c6561b56c0262e3960058cc3487318819ebc8fa180c652eb07b8a5"
+  "upstreamBlob": "774406554cb6d2f8f213a5309a2b5973105f6d03",
+  "schemaId": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
+  "canonicalSha256": "3fb396c046f0a64ad6cd88021c3a1566b8a67fd9de2d7a1e358257059cfc93e8"
 }
