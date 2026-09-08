@@ -45,7 +45,6 @@ function NotationInspectorEmptyState() {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function -- cohesive orchestration for independently extracted inspector sections
 export function NotationInspector(_props: NotationInspectorProps = {}) {
   const selection = useSelection();
   const selectedElementType = useSelectedElementType();
