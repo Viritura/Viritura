@@ -4,6 +4,8 @@ import type { Score, ScoreDefinition, LayoutDefinition, PartDisplayInfo } from "
 import { Button, FormInput, type ContextMenuState, type MenuItemDef } from "@viritura/ui";
 import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 import { LayoutTreeRow } from "./LayoutTreeRow";
+import { InstrumentNameDisplayControl } from "./InstrumentNameDisplayControl";
+import { setScoreInstrumentNameDisplay, type InstrumentNameDisplayPolicy } from "./instrumentNameDisplay";
 import type { FlatRowData } from "./treeFlatten";
 import type { NodePath } from "./treeOps";
 import { partsSectionDividerStyle, scoreHeaderStyle, scoreHeaderActiveStyle } from "./styles";
@@ -274,6 +276,8 @@ export function ScoreListItem(props: ScoreListItemProps) {
     if (onRenameScore && renamingScoreName.trim()) onRenameScore(i, renamingScoreName.trim());
     setRenamingScoreIndex(null);
   };
+  const updateInstrumentNameDisplay = (policy: InstrumentNameDisplayPolicy) =>
+    onLayoutChange?.(setScoreInstrumentNameDisplay(score.layouts ?? [], sd, policy));
 
   return (
     <Fragment>
@@ -366,6 +370,10 @@ export function ScoreListItem(props: ScoreListItemProps) {
             />
           )}
         </div>
+
+        {isSelected && !isCollapsed && onLayoutChange && (
+          <InstrumentNameDisplayControl content={layoutContent} onChange={updateInstrumentNameDisplay} />
+        )}
 
         {showStaves && (
           <div

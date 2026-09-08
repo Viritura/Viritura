@@ -411,12 +411,15 @@ export interface LayoutGroup {
   barlineStyle?: string;
 }
 
+/** Standard MNX reference to a part's full or abbreviated staff label. */
+export type StaffLabelRef = "name" | "shortName";
+
 /** A staff node in the layout tree. */
 export interface LayoutStaff {
   type: "staff";
   sources: LayoutSource[];
   label?: string;
-  labelref?: string;
+  labelref?: StaffLabelRef;
 }
 
 /** A source mapping a part (and optionally a staff/voice within it) to a layout staff. */
@@ -425,7 +428,7 @@ export interface LayoutSource {
   staff?: number;
   stem?: string;
   voice?: string;
-  labelref?: string;
+  labelref?: StaffLabelRef;
 }
 
 /** A multimeasure rest range within a score definition. */

@@ -1200,6 +1200,50 @@ fn test_explicit_part_omits_repeated_label_and_indents_first_system() {
 }
 
 #[test]
+fn test_condensed_staff_respects_short_and_hidden_label_policies() {
+    use crate::layout::mnx_layout::layout_with_mnx_scores;
+    use crate::parse::parse_mnx;
+    use crate::render::RenderCommand;
+
+    let document = |labelref: &str| {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "layouts": [{{"id": "L", "content": [
+                    {{"type": "staff"{labelref}, "sources": [{{"part": "fl1"}}, {{"part": "fl2"}}]}},
+                    {{"type": "staff"{labelref}, "sources": [{{"part": "ob"}}]}}
+                ]}}],
+                "scores": [{{"name": "Score", "layout": "L"}}],
+                "parts": [
+                    {{"id": "fl1", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}]}},
+                    {{"id": "fl2", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}]}},
+                    {{"id": "ob", "name": "Oboe", "shortName": "Ob.", "measures": [{{"sequences": []}}]}}
+                ]
+            }}"#
+        )
+    };
+    let labels = |json: String| {
+        let score = parse_mnx(&json).unwrap();
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0)
+            .commands
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. } => Some(text),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let short = labels(document(r#", "labelref": "shortName""#));
+    assert!(short.iter().any(|text| text == "Fl."));
+    assert!(!short.iter().any(|text| text == "Flute"));
+
+    let hidden = labels(document(""));
+    assert!(!hidden.iter().any(|text| text == "Flute" || text == "Fl."));
+}
+
+#[test]
 fn test_explicit_part_seeded_from_autoflow_keeps_same_system_membership() {
     // Regression for "note spacing gets significantly wider when a system break
     // is inserted." Adding a break seeds `pages` from the live auto-flow layout

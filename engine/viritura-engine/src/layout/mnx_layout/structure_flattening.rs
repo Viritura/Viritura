@@ -160,7 +160,22 @@ fn condensed_labels(
             }
         }
     }
-    (staff.label.clone().or(base_label), base_short, numbers)
+    let label_ref = staff.labelref.as_deref().or_else(|| {
+        staff
+            .sources
+            .iter()
+            .find_map(|source| source.labelref.as_deref())
+    });
+    let label = staff.label.clone().or_else(|| match label_ref {
+        Some("name") => base_label,
+        Some("shortName") => base_short.clone(),
+        _ => None,
+    });
+    let short_label = label.as_ref().and_then(|_| match label_ref {
+        Some("shortName") => base_short.clone(),
+        _ => base_short,
+    });
+    (label, short_label, numbers)
 }
 
 fn regular_labels(
