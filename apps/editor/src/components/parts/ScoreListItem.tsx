@@ -4,6 +4,8 @@ import type { Score, ScoreDefinition, LayoutDefinition, PartDisplayInfo } from "
 import { Button, FormInput, type ContextMenuState, type MenuItemDef } from "@viritura/ui";
 import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 import { LayoutTreeRow } from "./LayoutTreeRow";
+import { InstrumentNameDisplayControl } from "./InstrumentNameDisplayControl";
+import { setScoreInstrumentNameDisplay, type InstrumentNameDisplaySettings } from "./instrumentNameDisplay";
 import type { FlatRowData } from "./treeFlatten";
 import type { NodePath } from "./treeOps";
 import { partsSectionDividerStyle, scoreHeaderStyle, scoreHeaderActiveStyle } from "./styles";
@@ -16,6 +18,8 @@ interface DropTarget {
   path: NodePath;
   position: "before" | "after" | "inside";
 }
+
+type LayoutChangeHandler = (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => void;
 
 export interface ScoreListItemProps {
   // identity
@@ -49,7 +53,7 @@ export interface ScoreListItemProps {
   // callbacks
   canEdit: boolean;
   onSelectScore: (index: number) => void;
-  onLayoutChange?: (layouts: LayoutDefinition[]) => void;
+  onLayoutChange?: LayoutChangeHandler;
   onReorderScores?: (from: number, to: number) => void;
   onDeleteScore?: (index: number) => void;
   onRenameScore?: (index: number, name: string) => void;
@@ -123,6 +127,18 @@ function scoreHeaderButtonStyle(index: number, isSelected: boolean): CSSProperti
 
 function scoreDisplayName(sd: ScoreDefinition, index: number): string {
   return sd.name ?? (index === 0 ? "Full Score" : `Score ${index + 1}`);
+}
+
+function applyInstrumentNameDisplay(
+  score: Score,
+  scoreDefinition: ScoreDefinition,
+  scoreIndex: number,
+  settings: InstrumentNameDisplaySettings,
+  onLayoutChange: LayoutChangeHandler,
+): void {
+  const scores = score.scores ?? [scoreDefinition];
+  const updated = setScoreInstrumentNameDisplay(score.layouts ?? [], scores, scoreIndex, settings);
+  onLayoutChange(updated.layouts, updated.scores);
 }
 
 /** Parts not yet present in this score's layout, as an "Add Instrument" submenu. */
@@ -274,6 +290,8 @@ export function ScoreListItem(props: ScoreListItemProps) {
     if (onRenameScore && renamingScoreName.trim()) onRenameScore(i, renamingScoreName.trim());
     setRenamingScoreIndex(null);
   };
+  const updateInstrumentNameDisplay = (settings: InstrumentNameDisplaySettings) =>
+    onLayoutChange && applyInstrumentNameDisplay(score, sd, i, settings, onLayoutChange);
 
   return (
     <Fragment>
@@ -366,6 +384,10 @@ export function ScoreListItem(props: ScoreListItemProps) {
             />
           )}
         </div>
+
+        {isSelected && !isCollapsed && onLayoutChange && (
+          <InstrumentNameDisplayControl content={layoutContent} score={sd} onChange={updateInstrumentNameDisplay} />
+        )}
 
         {showStaves && (
           <div

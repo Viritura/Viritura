@@ -8,10 +8,13 @@ import { Button, Panel, PreviewStatusBar, type PreviewViewMode, type WriteViewMo
 import { TransportBar } from "@viritura/playback";
 import { Eye, RotateCcw } from "lucide-react";
 import { ScoreSwitcher } from "../scoreSwitcher";
+import { NotationInspector } from "../components/NotationInspector";
 import { SlurPropertiesPanel } from "../components/modes/engrave/SlurPropertiesPanel";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
 import { toolbarStyle as engraveToolbarStyle } from "../components/modes/engrave/styles";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
+import { getNoteEventAtLocation, resolveEventLocation } from "../score/ElementPath";
+import type { SelectionState } from "../store/selectionStore";
 import { formatZoomPercent } from "../zoomScale";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import { openDialog } from "../store/dialogStore";
@@ -21,8 +24,15 @@ import type { useFloatingPanel } from "./useFloatingPanel";
 
 type FloatingPanel = ReturnType<typeof useFloatingPanel>;
 
+function isRestSelection(selection: SelectionState, score: EngraveMode["score"]): boolean {
+  if (selection.kind !== "single" || !score) return false;
+  const location = resolveEventLocation(selection.elementId, score);
+  return location ? getNoteEventAtLocation(score, location)?.rest !== undefined : false;
+}
+
 export interface BuildEngraveModeArgs {
   engrave: EngraveMode;
+  selection: SelectionState;
   onTogglePanels: () => void;
   leftFloat: FloatingPanel;
   rightFloat: FloatingPanel;
@@ -40,6 +50,7 @@ export interface BuildEngraveModeArgs {
 
 export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
   const { engrave, rightFloat, canvasRef, currentZoom, previewViewMode, setViewMode } = args;
+  const selectedRest = isRestSelection(args.selection, engrave.score);
 
   // Selecting a score also drops any expanded-system state, which was tied to
   // the score being engraved when the left rail owned this control.
@@ -69,7 +80,7 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
       </Panel>,
     );
   }
-  if (!engrave.slurPanelCollapsed) {
+  if (selectedRest || !engrave.slurPanelCollapsed) {
     panels.push(
       <Panel
         key="engrave-right"
@@ -79,13 +90,17 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
         min={220}
         max={400}
       >
-        <SlurPropertiesPanel
-          slurElementId={engrave.slurId}
-          shape={engrave.slurShape}
-          onChange={engrave.onSlurChange}
-          onReset={engrave.onSlurReset}
-          onDeselect={engrave.onSlurDeselect}
-        />
+        {selectedRest ? (
+          <NotationInspector />
+        ) : (
+          <SlurPropertiesPanel
+            slurElementId={engrave.slurId}
+            shape={engrave.slurShape}
+            onChange={engrave.onSlurChange}
+            onReset={engrave.onSlurReset}
+            onDeselect={engrave.onSlurDeselect}
+          />
+        )}
       </Panel>,
     );
   }

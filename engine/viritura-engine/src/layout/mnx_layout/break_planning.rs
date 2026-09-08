@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 
 use super::super::*;
+use super::instrument_labels::label_text;
 use super::measure_widths::MeasureWidthBudget;
 use super::mmr_grouping::MmrPlan;
 use super::page_turn_planning::single_source_part_index;
@@ -91,6 +92,7 @@ pub(super) fn plan_system_breaks(
     flat_staves: &[FlatStaff],
     budget: &MeasureWidthBudget,
     mmr: &MmrPlan,
+    instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     cache: Option<&mut cache::LayoutCache>,
 ) -> SystemBreakPlan {
     let sp = config.sp;
@@ -103,7 +105,16 @@ pub(super) fn plan_system_breaks(
     // with an instrument name in the margin — standard engraving practice places
     // the name in the header instead. Only reserve the gutter when there are two
     // or more staves to disambiguate.
-    let has_labels = flat_staves.len() > 1 && flat_staves.iter().any(|s| s.label.is_some());
+    let first_policy = instrument_name_display.map(|settings| settings.first_system);
+    let subsequent_policy = instrument_name_display.map(|settings| settings.subsequent_systems);
+    let has_first_labels = flat_staves.len() > 1
+        && flat_staves
+            .iter()
+            .any(|staff| label_text(staff, true, first_policy).is_some());
+    let has_subsequent_labels = flat_staves.len() > 1
+        && flat_staves
+            .iter()
+            .any(|staff| label_text(staff, false, subsequent_policy).is_some());
     // Gap between the right edge of the instrument name and the system's left
     // margin (where brackets/braces sit). Matches `render_staff_labels`, which
     // right-anchors labels at `margin_left - 2.8 sp`. Sizing the gutter as
@@ -111,24 +122,24 @@ pub(super) fn plan_system_breaks(
     // margin exactly, with no wasted space.
     const LABEL_GAP_SP: f64 = 2.8;
     let label_gap = LABEL_GAP_SP * sp;
-    let first_label_margin = if has_labels {
+    let first_label_margin = if has_first_labels {
         flat_staves
             .iter()
-            .filter_map(|s| s.label.as_ref().map(|l| (l, &s.condensed_numbers)))
+            .filter_map(|staff| {
+                label_text(staff, true, first_policy).map(|label| (label, &staff.condensed_numbers))
+            })
             .map(|(l, cn)| label_gutter_extent(l, cn, sp, label_style))
             .fold(0.0_f64, f64::max)
             + label_gap
     } else {
         0.0
     };
-    let subseq_label_margin = if has_labels {
+    let subseq_label_margin = if has_subsequent_labels {
         flat_staves
             .iter()
-            .filter_map(|s| {
-                s.short_label
-                    .as_ref()
-                    .or(s.label.as_ref())
-                    .map(|l| (l, &s.condensed_numbers))
+            .filter_map(|staff| {
+                label_text(staff, false, subsequent_policy)
+                    .map(|label| (label, &staff.condensed_numbers))
             })
             .map(|(l, cn)| label_gutter_extent(l, cn, sp, label_style))
             .fold(0.0_f64, f64::max)

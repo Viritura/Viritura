@@ -25,7 +25,12 @@ import { hitTestSlurHandle } from "./slurHandles";
 import { hitTestSlurCurve } from "./slurCurveHit";
 import { buildSlurAnchorPoints, nearestSlurAnchor } from "./slurAnchorSnap";
 import { findSlurAnchorInfo } from "../../score/ScoreMutations";
-import { resolveAnnotationLocation, isEngraveTextAnnotationId } from "../../score/ElementPath";
+import {
+  getNoteEventAtLocation,
+  resolveAnnotationLocation,
+  resolveEventLocation,
+  isEngraveTextAnnotationId,
+} from "../../score/ElementPath";
 import { getAnnotationOffset, isMovableAnnotationId } from "../../score/annotationOffsetMutations";
 import type { BarlineHit, EngraveAdornments, EngraveClickModifiers, StaffEyeHit } from "./ScoreCanvas";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
@@ -206,6 +211,13 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   }
 }
 
+function selectEngraveElement(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx, elementId: string): void {
+  if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
+  if (e.shiftKey) ctx.extendSelection(elementId);
+  else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(elementId);
+  else ctx.selectElement(elementId);
+}
+
 function handleEngraveClick(
   e: React.MouseEvent<HTMLCanvasElement>,
   ctx: CanvasHandlerCtx,
@@ -296,10 +308,14 @@ function handleEngraveClick(
   // shared selection store so the notation-properties inspector opens, mirroring
   // the slur properties panel.
   if (hitId && isEngraveTextAnnotationId(hitId)) {
-    if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
-    if (e.shiftKey) ctx.extendSelection(hitId);
-    else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(hitId);
-    else ctx.selectElement(hitId);
+    selectEngraveElement(e, ctx, hitId);
+    return true;
+  }
+  const score = ctx.docScoreRef.current;
+  const eventLocation = hitId && score ? resolveEventLocation(hitId, score) : null;
+  const event = eventLocation && score ? getNoteEventAtLocation(score, eventLocation) : undefined;
+  if (hitId && event?.rest) {
+    selectEngraveElement(e, ctx, hitId);
     return true;
   }
   // 4. Empty click → deselect

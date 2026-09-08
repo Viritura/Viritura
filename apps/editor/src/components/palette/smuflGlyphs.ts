@@ -131,6 +131,8 @@ export const SMUFL = {
   ottavaBassaVb: String.fromCodePoint(0xe51c),
   quindicesima: String.fromCodePoint(0xe515),
   quindicesimaBassMb: String.fromCodePoint(0xe51d),
+  ventiduesima: String.fromCodePoint(0xe518),
+  ventiduesimaBassMb: String.fromCodePoint(0xe51e),
   // Pedal
   pedalPed: String.fromCodePoint(0xe650),
   pedalSost: String.fromCodePoint(0xe659),

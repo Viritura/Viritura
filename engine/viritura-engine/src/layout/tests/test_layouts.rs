@@ -1200,6 +1200,186 @@ fn test_explicit_part_omits_repeated_label_and_indents_first_system() {
 }
 
 #[test]
+fn test_condensed_staff_respects_short_and_hidden_label_policies() {
+    use crate::layout::mnx_layout::layout_with_mnx_scores;
+    use crate::parse::parse_mnx;
+    use crate::render::RenderCommand;
+
+    let document = |labelref: &str| {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "layouts": [{{"id": "L", "content": [
+                    {{"type": "staff"{labelref}, "sources": [{{"part": "fl1"}}, {{"part": "fl2"}}]}},
+                    {{"type": "staff"{labelref}, "sources": [{{"part": "ob"}}]}}
+                ]}}],
+                "scores": [{{"name": "Score", "layout": "L"}}],
+                "parts": [
+                    {{"id": "fl1", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}]}},
+                    {{"id": "fl2", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}]}},
+                    {{"id": "ob", "name": "Oboe", "shortName": "Ob.", "measures": [{{"sequences": []}}]}}
+                ]
+            }}"#
+        )
+    };
+    let labels = |json: String| {
+        let score = parse_mnx(&json).unwrap();
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0)
+            .commands
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. } => Some(text),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let short = labels(document(r#", "labelref": "shortName""#));
+    assert!(short.iter().any(|text| text == "Fl."));
+    assert!(!short.iter().any(|text| text == "Flute"));
+
+    let hidden = labels(document(""));
+    assert!(!hidden.iter().any(|text| text == "Flute" || text == "Fl."));
+}
+
+#[test]
+fn test_score_override_controls_first_and_subsequent_system_labels_independently() {
+    use crate::layout::mnx_layout::layout_with_mnx_scores;
+    use crate::parse::parse_mnx;
+    use crate::render::RenderCommand;
+
+    let document = |first: &str, subsequent: &str| {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [
+                    {{"id": "m1", "time": {{"count": 4, "unit": 4}}}},
+                    {{"id": "m2"}}
+                ]}},
+                "layouts": [{{"id": "L", "content": [
+                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "fl"}}]}},
+                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "ob"}}]}}
+                ]}}],
+                "scores": [{{
+                    "name": "Score",
+                    "layout": "L",
+                    "pages": [{{"systems": [{{"measure": "m1"}}, {{"measure": "m2"}}]}}],
+                    "_x": {{"viritura": {{"instrumentNameDisplay": {{
+                        "firstSystem": "{first}",
+                        "subsequentSystems": "{subsequent}"
+                    }}}}}}
+                }}],
+                "parts": [
+                    {{"id": "fl", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}, {{"sequences": []}}]}},
+                    {{"id": "ob", "name": "Oboe", "shortName": "Ob.", "measures": [{{"sequences": []}}, {{"sequences": []}}]}}
+                ]
+            }}"#
+        )
+    };
+    let labels = |json: String| {
+        layout_with_mnx_scores(&parse_mnx(&json).unwrap(), &LayoutConfig::default(), 0)
+            .commands
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. }
+                    if ["Flute", "Fl.", "Oboe", "Ob."].contains(&text.as_str()) =>
+                {
+                    Some(text)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(labels(document("hidden", "short")), vec!["Fl.", "Ob."]);
+    assert_eq!(labels(document("full", "hidden")), vec!["Flute", "Oboe"]);
+
+    let hidden_first = layout_with_mnx_scores(
+        &parse_mnx(&document("hidden", "short")).unwrap(),
+        &LayoutConfig::default(),
+        0,
+    );
+    let full_first = layout_with_mnx_scores(
+        &parse_mnx(&document("full", "short")).unwrap(),
+        &LayoutConfig::default(),
+        0,
+    );
+    let first_x = |dl: &crate::render::DisplayList| {
+        dl.measure_bounds
+            .iter()
+            .filter(|bound| bound.system_index == 0)
+            .map(|bound| bound.x)
+            .fold(f64::INFINITY, f64::min)
+    };
+    assert!(
+        first_x(&hidden_first) < first_x(&full_first),
+        "a hidden first-system policy must not retain an empty label gutter"
+    );
+}
+
+#[test]
+fn test_score_override_recovers_names_and_hides_group_labels() {
+    use crate::layout::mnx_layout::layout_with_mnx_scores;
+    use crate::parse::parse_mnx;
+    use crate::render::RenderCommand;
+
+    let document = |labelref: &str, group_label: &str, first: &str| {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"id": "m1", "time": {{"count": 4, "unit": 4}}}}]}},
+                "layouts": [{{"id": "L", "content": [{{
+                    "type": "group", "symbol": "brace"{group_label}, "content": [
+                        {{"type": "staff"{labelref}, "sources": [{{"part": "fl"}}]}},
+                        {{"type": "staff"{labelref}, "sources": [{{"part": "ob"}}]}}
+                    ]
+                }}]}}],
+                "scores": [{{
+                    "name": "Score", "layout": "L",
+                    "_x": {{"viritura": {{"instrumentNameDisplay": {{
+                        "firstSystem": "{first}", "subsequentSystems": "hidden"
+                    }}}}}}
+                }}],
+                "parts": [
+                    {{"id": "fl", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}]}},
+                    {{"id": "ob", "name": "Oboe", "shortName": "Ob.", "measures": [{{"sequences": []}}]}}
+                ]
+            }}"#
+        )
+    };
+    let labels = |json: String| {
+        layout_with_mnx_scores(&parse_mnx(&json).unwrap(), &LayoutConfig::default(), 0)
+            .commands
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. }
+                    if ["Winds", "Flute", "Fl.", "Oboe", "Ob."].contains(&text.as_str()) =>
+                {
+                    Some(text)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(
+        labels(document(r#", "labelref": "shortName""#, "", "full")),
+        vec!["Flute", "Oboe"]
+    );
+    assert_eq!(labels(document("", "", "full")), vec!["Flute", "Oboe"]);
+    assert!(
+        labels(document(
+            r#", "labelref": "name""#,
+            r#", "label": "Winds""#,
+            "hidden"
+        ))
+        .is_empty(),
+        "hidden instrument labels must include labelled brace groups"
+    );
+}
+
+#[test]
 fn test_explicit_part_seeded_from_autoflow_keeps_same_system_membership() {
     // Regression for "note spacing gets significantly wider when a system break
     // is inserted." Adding a break seeds `pages` from the live auto-flow layout

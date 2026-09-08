@@ -743,6 +743,7 @@ pub(super) fn render_staff_labels(
     staff_height: f64,
     sp: f64,
     sys_idx: usize,
+    policy: Option<InstrumentNameDisplayPolicy>,
     style: &crate::layout::text_styles::TextStyle,
 ) {
     super::instrument_labels::render_staff_labels(
@@ -754,6 +755,7 @@ pub(super) fn render_staff_labels(
         staff_height,
         sp,
         sys_idx,
+        policy,
         style,
     );
 }

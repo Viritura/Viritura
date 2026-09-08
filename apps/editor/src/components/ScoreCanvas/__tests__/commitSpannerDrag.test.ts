@@ -50,6 +50,31 @@ function hairpinOf(score: Score) {
   return score.parts[0]!.measures[0]!.dynamics![0]!;
 }
 
+function makeOttavaScore(): Score {
+  const score = makeHairpinScore();
+  return {
+    ...score,
+    parts: [
+      {
+        ...score.parts[0]!,
+        measures: [
+          {
+            ...score.parts[0]!.measures[0]!,
+            ottavas: [
+              {
+                value: 3,
+                position: { fraction: [0, 16] },
+                end: { measure: "m0", position: { fraction: [8, 16] } },
+              },
+            ],
+          },
+          score.parts[0]!.measures[1]!,
+        ],
+      },
+    ],
+  };
+}
+
 describe("commitSpannerDragImpl — hairpin group ids", () => {
   it("moves the end handle of a hairpin identified by its group id", () => {
     const score = makeHairpinScore();
@@ -77,5 +102,12 @@ describe("commitSpannerDragImpl — hairpin group ids", () => {
   it("returns the original score when there are no snap points", () => {
     const score = makeHairpinScore();
     expect(commitSpannerDragImpl(score, hit(`p0/m0/hairpin${HAIRPIN_GROUP_ID}`, "end"), 300, [])).toBe(score);
+  });
+
+  it("moves a selected ottava endpoint to the visible snap position", () => {
+    const score = makeOttavaScore();
+    const next = commitSpannerDragImpl(score, hit("p0/m0/ottava0", "end"), 300, SNAPS);
+
+    expect(next.parts[0]!.measures[0]!.ottavas![0]!.end.position.fraction).toEqual([12, 16]);
   });
 });

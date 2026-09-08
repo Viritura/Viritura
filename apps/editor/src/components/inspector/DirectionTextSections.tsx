@@ -3,6 +3,7 @@ import type { NotationSelectionTarget } from "../../commands/notationInspectorCo
 import { useDirectionTextHandlers } from "./useNotationInspectorActions";
 import { DirectionTextSection } from "./DirectionTextSection";
 import { DynamicGroupSection } from "./DynamicGroupSection";
+import { OttavaInspector } from "./OttavaInspector";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -10,7 +11,7 @@ export interface DirectionTextSectionsProps {
   updateScore: (score: Score) => void;
 }
 
-/** Renders the text-editing section for a selected dynamic or expression. */
+/** Renders the property section for a selected direction. */
 export function DirectionTextSections({ score, target, updateScore }: DirectionTextSectionsProps) {
   const staffCount = target ? (score?.parts[target.partIndex]?.staves ?? 1) : 1;
   const targetSequences = target ? score?.parts[target.partIndex]?.measures[target.measureIndex]?.sequences : undefined;
@@ -117,6 +118,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           }}
         />
       )}
+      <OttavaInspector score={score} target={target} updateScore={updateScore} />
     </>
   );
 }

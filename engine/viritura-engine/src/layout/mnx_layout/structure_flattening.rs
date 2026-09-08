@@ -3,6 +3,14 @@ use super::super::page::{resolve_part_display_names, PartDisplayInfo};
 use crate::model::{LayoutContent, Score};
 use std::collections::HashMap;
 
+struct ResolvedStaffLabels {
+    label: Option<String>,
+    short_label: Option<String>,
+    full_name: Option<String>,
+    short_name: Option<String>,
+    condensed_numbers: Vec<u32>,
+}
+
 pub(super) fn build_part_id_map(score: &Score) -> HashMap<String, usize> {
     score
         .parts
@@ -124,17 +132,19 @@ fn flatten_content_recursive(
                         })
                     })
                     .collect();
-                let (label, short_label, condensed_numbers) = if staff.is_condensing() {
+                let labels = if staff.is_condensing() {
                     condensed_labels(staff, part_id_map, display_names)
                 } else {
                     regular_labels(staff, part_id_map, display_names)
                 };
                 staves.push(FlatStaff {
                     sources,
-                    label,
-                    short_label,
+                    label: labels.label,
+                    short_label: labels.short_label,
+                    resolved_full_label: labels.full_name,
+                    resolved_short_label: labels.short_name,
                     expansion: staff.expansion,
-                    condensed_numbers,
+                    condensed_numbers: labels.condensed_numbers,
                 });
             }
         }
@@ -145,7 +155,7 @@ fn condensed_labels(
     staff: &crate::model::LayoutStaff,
     part_id_map: &HashMap<String, usize>,
     display_names: &[PartDisplayInfo],
-) -> (Option<String>, Option<String>, Vec<u32>) {
+) -> ResolvedStaffLabels {
     let mut numbers = Vec::new();
     let mut base_label = None;
     let mut base_short = None;
@@ -160,14 +170,45 @@ fn condensed_labels(
             }
         }
     }
-    (staff.label.clone().or(base_label), base_short, numbers)
+    let label_ref = staff.labelref.as_deref().or_else(|| {
+        staff
+            .sources
+            .iter()
+            .find_map(|source| source.labelref.as_deref())
+    });
+    let label = staff.label.clone().or_else(|| match label_ref {
+        Some("name") => base_label.clone(),
+        Some("shortName") => base_short.clone(),
+        _ => None,
+    });
+    let short_label = label.as_ref().and_then(|_| match label_ref {
+        Some("shortName") => base_short.clone(),
+        _ => base_short.clone(),
+    });
+    ResolvedStaffLabels {
+        label,
+        short_label,
+        full_name: base_label,
+        short_name: base_short,
+        condensed_numbers: numbers,
+    }
 }
 
 fn regular_labels(
     staff: &crate::model::LayoutStaff,
     part_id_map: &HashMap<String, usize>,
     display_names: &[PartDisplayInfo],
-) -> (Option<String>, Option<String>, Vec<u32>) {
+) -> ResolvedStaffLabels {
+    let resolved_names = staff
+        .sources
+        .first()
+        .and_then(|source| part_id_map.get(&source.part))
+        .map(|&index| {
+            (
+                display_names[index].display_name.clone(),
+                display_names[index].display_short_name.clone(),
+            )
+        });
     let label = staff.label.clone().or_else(|| {
         staff
             .labelref
@@ -195,7 +236,14 @@ fn regular_labels(
                 .map(|&index| display_names[index].display_short_name.clone())
         })
     });
-    (label, short_label, Vec::new())
+    let (resolved_full_label, resolved_short_label) = resolved_names.unzip();
+    ResolvedStaffLabels {
+        label,
+        short_label,
+        full_name: resolved_full_label,
+        short_name: resolved_short_label,
+        condensed_numbers: Vec::new(),
+    }
 }
 
 fn display_label(label_ref: &str, display: &PartDisplayInfo) -> Option<String> {

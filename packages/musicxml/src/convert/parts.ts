@@ -1,6 +1,7 @@
 import { childText, findChild, findChildren } from "../xmlHelpers";
 import type {
   MnxGlobalMeasure,
+  MnxClef,
   MnxGraceEvent,
   MnxDynamic,
   MnxOttava,
@@ -178,6 +179,7 @@ export function buildParts(
     }
 
     let divisions = 4;
+    const activeClefs = new Map<number, MnxClef>();
     openSlurs.clear();
     openGlissandos.clear();
     tieIds.clear();
@@ -245,6 +247,7 @@ export function buildParts(
         vendorExt,
         partTranspose,
         flags,
+        activeClefs,
       );
 
       if (result.clefs.length > 0) {

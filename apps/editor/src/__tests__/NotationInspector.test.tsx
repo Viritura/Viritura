@@ -30,11 +30,20 @@ function buildScore(): Score {
     parts: [
       {
         name: "Piano",
+        staves: 2,
         measures: [
           {
             measureRepeat: { number: 2 },
+            ottavas: [
+              {
+                value: 1,
+                position: { fraction: [0, 1] },
+                end: { measure: "m1", position: { fraction: [1, 2] } },
+              },
+            ],
             sequences: [
               {
+                voice: "upper",
                 content: [
                   {
                     type: "event",
@@ -57,6 +66,17 @@ function buildScore(): Score {
                     id: "ev2",
                     duration: { base: "quarter" },
                     notes: [{ id: "n2", pitch: { step: "C", octave: 4 } }],
+                  },
+                ],
+              },
+              {
+                voice: "2",
+                content: [
+                  {
+                    type: "event",
+                    id: "rest1",
+                    duration: { base: "whole" },
+                    rest: {},
                   },
                 ],
               },
@@ -183,6 +203,36 @@ describe("NotationInspector", () => {
     fireEvent.click(counter);
     await waitFor(() => expect(counter.checked).toBe(true));
     expect(screen.getByRole("spinbutton", { name: "Counter" })).toBeTruthy();
+  });
+
+  it("edits every meaningful property of a selected ottava and explains span adjustment", async () => {
+    render(withProviders(<Harness elementId="p0/m0/ottava0" />));
+
+    expect(await screen.findByText("Ottava")).toBeTruthy();
+    expect(screen.getByText("Drag either endpoint handle in the score to adjust the span.")).toBeTruthy();
+    expect(screen.getByText("0/1 → m1 @ 1/2")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava displacement" }));
+    fireEvent.click(await screen.findByRole("option", { name: "22mb (down 3 octaves)" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava displacement" }).textContent).toContain("22mb"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava orientation" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Below" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava orientation" }).textContent).toContain("Below"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava staff" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Staff 2" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava staff" }).textContent).toContain("Staff 2"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava voice" }));
+    fireEvent.click(await screen.findByRole("option", { name: "upper" }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Ottava voice" }).textContent).toContain("upper"));
   });
 
   it("keeps tempo text responsive while deferring the expensive score update", () => {
@@ -326,6 +376,32 @@ describe("NotationInspector", () => {
     await user.click(orientation);
     await user.click(await screen.findByRole("option", { name: "Below" }));
     await waitFor(() => expect(orientation.textContent).toContain("Below"));
+  });
+
+  it("authors and resets a selected rest staff position", async () => {
+    render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
+
+    const automatic = await screen.findByRole("radio", { name: "Automatic" });
+    expect(automatic.getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Explicit" }));
+    const position = (await screen.findByRole("spinbutton", { name: "Staff position" })) as HTMLInputElement;
+    expect(position.value).toBe("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Move up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move up" }));
+    await waitFor(() =>
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("2"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Move down" }));
+    await waitFor(() =>
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("1"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await waitFor(() => expect(screen.queryByRole("spinbutton", { name: "Staff position" })).toBeNull());
+    expect(screen.getByRole("radio", { name: "Automatic" }).getAttribute("aria-checked")).toBe("true");
   });
 
   it("opens the panel and shows the slur section for a grace-note slur", async () => {

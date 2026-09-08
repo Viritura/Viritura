@@ -127,6 +127,23 @@ pub struct ScoreDefinition {
     pub use_written: Option<bool>,
     #[serde(default)]
     pub pages: Vec<PageDefinition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instrument_name_display: Option<InstrumentNameDisplaySettings>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum InstrumentNameDisplayPolicy {
+    Full,
+    Short,
+    Hidden,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct InstrumentNameDisplaySettings {
+    pub first_system: InstrumentNameDisplayPolicy,
+    pub subsequent_systems: InstrumentNameDisplayPolicy,
 }
 
 /// A page within a score definition.
