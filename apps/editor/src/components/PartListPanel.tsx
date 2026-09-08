@@ -19,7 +19,7 @@ export interface PartListPanelProps {
   scoreDefinitions: ScoreDefinition[];
   selectedScoreIndex: number;
   onSelectScore: (index: number) => void;
-  onLayoutChange?: (layouts: LayoutDefinition[]) => void;
+  onLayoutChange?: (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => void;
   onSelectedPartsChange?: (partIds: string[]) => void;
   onAddInstrument?: (instrumentId: string, targetLayoutIds?: readonly string[]) => void;
   onRemoveInstrument?: (partId: string) => void;

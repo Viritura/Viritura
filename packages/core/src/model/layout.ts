@@ -414,6 +414,18 @@ export interface LayoutGroup {
 /** Standard MNX reference to a part's full or abbreviated staff label. */
 export type StaffLabelRef = "name" | "shortName";
 
+/** Instrument-name rendering choice for one class of systems. */
+export type InstrumentNameDisplayPolicy = "full" | "short" | "hidden";
+
+/**
+ * Viritura score-level override for instrument names. The conventional MNX
+ * `labelref: "name"` behavior (full first, short later) needs no override.
+ */
+export interface InstrumentNameDisplaySettings {
+  firstSystem: InstrumentNameDisplayPolicy;
+  subsequentSystems: InstrumentNameDisplayPolicy;
+}
+
 /** A staff node in the layout tree. */
 export interface LayoutStaff {
   type: "staff";
@@ -447,6 +459,8 @@ export interface ScoreDefinition {
   pages?: PageDefinition[];
   /** Per-score page setup (page size, margins, staff size). */
   pageSetup?: PageSetup;
+  /** Independent instrument-name policies for the first and later systems. */
+  instrumentNameDisplay?: InstrumentNameDisplaySettings;
 }
 
 /** A page within a score definition. */

@@ -1,7 +1,18 @@
-import type { LayoutContent, LayoutDefinition, LayoutStaff, ScoreDefinition, StaffLabelRef } from "@viritura/core";
+import type {
+  InstrumentNameDisplayPolicy,
+  InstrumentNameDisplaySettings,
+  LayoutContent,
+  LayoutDefinition,
+  LayoutStaff,
+  ScoreDefinition,
+  StaffLabelRef,
+} from "@viritura/core";
 
-export type InstrumentNameDisplayPolicy = "fullThenShort" | "short" | "hidden";
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
+export interface InstrumentNameDisplayValues {
+  firstSystem: InstrumentNameDisplayValue;
+  subsequentSystems: InstrumentNameDisplayValue;
+}
 
 function staffLabelRef(staff: LayoutStaff): StaffLabelRef | undefined {
   return staff.labelref ?? staff.sources.find((source) => source.labelref)?.labelref;
@@ -14,22 +25,32 @@ function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[])
   }
 }
 
-export function instrumentNameDisplayFor(content: readonly LayoutContent[]): InstrumentNameDisplayValue {
+function uniformLayoutPolicy(content: readonly LayoutContent[]): InstrumentNameDisplayValue {
   const staffs: LayoutStaff[] = [];
   collectStaffs(content, staffs);
   if (staffs.length === 0 || staffs.some((staff) => staff.label !== undefined)) return "custom";
 
   const refs = staffs.map(staffLabelRef);
   if (refs.every((ref) => ref === undefined)) return "hidden";
-  if (refs.every((ref) => ref === "name")) return "fullThenShort";
+  if (refs.every((ref) => ref === "name")) return "full";
   if (refs.every((ref) => ref === "shortName")) return "short";
   return "custom";
 }
 
-function applyPolicy(content: LayoutContent[], labelref: StaffLabelRef | undefined): void {
+export function instrumentNameDisplayFor(
+  content: readonly LayoutContent[],
+  score: ScoreDefinition,
+): InstrumentNameDisplayValues {
+  if (score.instrumentNameDisplay) return score.instrumentNameDisplay;
+  const policy = uniformLayoutPolicy(content);
+  if (policy === "full") return { firstSystem: "full", subsequentSystems: "short" };
+  return { firstSystem: policy, subsequentSystems: policy };
+}
+
+function applyLabelRef(content: LayoutContent[], labelref: StaffLabelRef | undefined): void {
   for (const node of content) {
     if (node.type === "group") {
-      applyPolicy(node.content, labelref);
+      applyLabelRef(node.content, labelref);
       continue;
     }
     delete node.label;
@@ -39,13 +60,12 @@ function applyPolicy(content: LayoutContent[], labelref: StaffLabelRef | undefin
   }
 }
 
-export function setInstrumentNameDisplay(
+function setInstrumentNameDisplay(
   content: readonly LayoutContent[],
-  policy: InstrumentNameDisplayPolicy,
+  labelref: StaffLabelRef | undefined,
 ): LayoutContent[] {
   const next = structuredClone(content) as LayoutContent[];
-  const labelref = policy === "fullThenShort" ? "name" : policy === "short" ? "shortName" : undefined;
-  applyPolicy(next, labelref);
+  applyLabelRef(next, labelref);
   return next;
 }
 
@@ -64,10 +84,30 @@ export function instrumentNameDisplayLayoutIds(score: ScoreDefinition): Set<stri
 export function setScoreInstrumentNameDisplay(
   layouts: readonly LayoutDefinition[],
   score: ScoreDefinition,
-  policy: InstrumentNameDisplayPolicy,
-): LayoutDefinition[] {
+  settings: InstrumentNameDisplaySettings,
+): { layouts: LayoutDefinition[]; score: ScoreDefinition } {
   const layoutIds = instrumentNameDisplayLayoutIds(score);
-  return layouts.map((layout) =>
-    layoutIds.has(layout.id) ? { ...layout, content: setInstrumentNameDisplay(layout.content, policy) } : layout,
+  const standardLabelRef =
+    settings.firstSystem === "full" && settings.subsequentSystems === "short"
+      ? "name"
+      : settings.firstSystem === "short" && settings.subsequentSystems === "short"
+        ? "shortName"
+        : settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"
+          ? undefined
+          : "name";
+  const nextLayouts = layouts.map((layout) =>
+    layoutIds.has(layout.id)
+      ? { ...layout, content: setInstrumentNameDisplay(layout.content, standardLabelRef) }
+      : layout,
   );
+  const usesStandardMnx =
+    (settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
+    (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
+    (settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden");
+  const nextScore = { ...score };
+  if (usesStandardMnx) delete nextScore.instrumentNameDisplay;
+  else nextScore.instrumentNameDisplay = settings;
+  return { layouts: nextLayouts, score: nextScore };
 }
+
+export type { InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings };

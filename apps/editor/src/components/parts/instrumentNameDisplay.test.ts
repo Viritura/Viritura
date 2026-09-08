@@ -3,7 +3,6 @@ import type { LayoutContent } from "@viritura/core";
 import {
   instrumentNameDisplayFor,
   instrumentNameDisplayLayoutIds,
-  setInstrumentNameDisplay,
   setScoreInstrumentNameDisplay,
 } from "./instrumentNameDisplay";
 
@@ -19,14 +18,27 @@ const content: LayoutContent[] = [
 
 describe("instrument name display policy", () => {
   it("recognizes the conventional default across staff- and source-level MNX references", () => {
-    expect(instrumentNameDisplayFor(content)).toBe("fullThenShort");
+    expect(instrumentNameDisplayFor(content, {})).toEqual({
+      firstSystem: "full",
+      subsequentSystems: "short",
+    });
   });
 
   it("writes canonical standard-MNX references without mutating the source layout", () => {
     const original = structuredClone(content);
-    const short = setInstrumentNameDisplay(content, "short");
-    expect(instrumentNameDisplayFor(short)).toBe("short");
-    expect(short[0]).toMatchObject({
+    const updated = setScoreInstrumentNameDisplay(
+      [{ id: "base", content }],
+      { layout: "base" },
+      {
+        firstSystem: "short",
+        subsequentSystems: "short",
+      },
+    );
+    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.score)).toEqual({
+      firstSystem: "short",
+      subsequentSystems: "short",
+    });
+    expect(updated.layouts[0]!.content[0]).toMatchObject({
       content: [
         { labelref: "shortName", sources: [{ part: "fl" }] },
         { labelref: "shortName", sources: [{ part: "ob" }] },
@@ -35,11 +47,18 @@ describe("instrument name display policy", () => {
     expect(content).toEqual(original);
   });
 
-  it("removes literal and referenced labels when hidden", () => {
+  it("removes literal and referenced labels for the standard hidden policy", () => {
     const custom: LayoutContent[] = [{ type: "staff", label: "Solo", sources: [{ part: "vn", labelref: "name" }] }];
-    const hidden = setInstrumentNameDisplay(custom, "hidden");
-    expect(instrumentNameDisplayFor(hidden)).toBe("hidden");
-    expect(hidden).toEqual([{ type: "staff", sources: [{ part: "vn" }] }]);
+    const updated = setScoreInstrumentNameDisplay(
+      [{ id: "base", content: custom }],
+      { layout: "base" },
+      {
+        firstSystem: "hidden",
+        subsequentSystems: "hidden",
+      },
+    );
+    expect(updated.score.instrumentNameDisplay).toBeUndefined();
+    expect(updated.layouts[0]!.content).toEqual([{ type: "staff", sources: [{ part: "vn" }] }]);
   });
 
   it("finds every layout used by authored pages and mid-system changes", () => {
@@ -74,10 +93,14 @@ describe("instrument name display policy", () => {
           },
         ],
       },
-      "hidden",
+      { firstSystem: "hidden", subsequentSystems: "full" },
     );
 
-    expect(updated.slice(0, 3).every((layout) => instrumentNameDisplayFor(layout.content) === "hidden")).toBe(true);
-    expect(updated[3]).toBe(layouts[3]);
+    expect(updated.score.instrumentNameDisplay).toEqual({
+      firstSystem: "hidden",
+      subsequentSystems: "full",
+    });
+    expect(updated.layouts.slice(0, 3).every((layout) => layout.content[0])).toBe(true);
+    expect(updated.layouts[3]).toBe(layouts[3]);
   });
 });

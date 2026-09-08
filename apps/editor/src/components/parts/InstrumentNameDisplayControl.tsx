@@ -3,15 +3,16 @@ import { Select, type SelectOption } from "@viritura/ui";
 import {
   instrumentNameDisplayFor,
   type InstrumentNameDisplayPolicy,
-  type InstrumentNameDisplayValue,
+  type InstrumentNameDisplaySettings,
+  type InstrumentNameDisplayValues,
 } from "./instrumentNameDisplay";
-import type { LayoutContent } from "@viritura/core";
+import type { LayoutContent, ScoreDefinition } from "@viritura/core";
 
 const OPTIONS: readonly SelectOption[] = [
-  { value: "fullThenShort", label: "First full, then short" },
-  { value: "short", label: "Short on every system" },
+  { value: "full", label: "Full" },
+  { value: "short", label: "Short" },
   { value: "hidden", label: "Hidden" },
-  { value: "custom", label: "Custom layout", disabled: true },
+  { value: "custom", label: "Custom/imported", disabled: true },
 ];
 
 const ROOT_STYLE: CSSProperties = {
@@ -25,6 +26,8 @@ const LABEL_STYLE: CSSProperties = {
   fontSize: "var(--type-eyebrow-size)",
   fontWeight: 700,
 };
+const FIELD_STYLE: CSSProperties = { display: "grid", gap: 4 };
+const FIELDS_STYLE: CSSProperties = { display: "grid", gap: 8 };
 const HELP_STYLE: CSSProperties = {
   marginTop: 4,
   color: "var(--text-muted)",
@@ -33,29 +36,59 @@ const HELP_STYLE: CSSProperties = {
 
 export interface InstrumentNameDisplayControlProps {
   content: readonly LayoutContent[];
-  onChange: (policy: InstrumentNameDisplayPolicy) => void;
+  score: ScoreDefinition;
+  onChange: (settings: InstrumentNameDisplaySettings) => void;
 }
 
-export function InstrumentNameDisplayControl({ content, onChange }: InstrumentNameDisplayControlProps) {
-  const value: InstrumentNameDisplayValue = instrumentNameDisplayFor(content);
+function nextSettings(
+  values: InstrumentNameDisplayValues,
+  key: keyof InstrumentNameDisplaySettings,
+  policy: InstrumentNameDisplayPolicy,
+): InstrumentNameDisplaySettings {
+  return {
+    firstSystem: values.firstSystem === "custom" ? "full" : values.firstSystem,
+    subsequentSystems: values.subsequentSystems === "custom" ? "short" : values.subsequentSystems,
+    [key]: policy,
+  };
+}
+
+export function InstrumentNameDisplayControl({ content, score, onChange }: InstrumentNameDisplayControlProps) {
+  const values = instrumentNameDisplayFor(content, score);
   return (
     <div
       style={ROOT_STYLE}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <label style={LABEL_STYLE} htmlFor="instrument-name-display">
-        Instrument label display
-      </label>
-      <Select
-        id="instrument-name-display"
-        aria-label="Instrument label display"
-        value={value}
-        options={OPTIONS}
-        onValueChange={(next) => {
-          if (next !== "custom") onChange(next as InstrumentNameDisplayPolicy);
-        }}
-      />
+      <div style={LABEL_STYLE}>Instrument label display</div>
+      <div style={FIELDS_STYLE}>
+        <label style={FIELD_STYLE} htmlFor={`instrument-name-first-${score.name ?? "score"}`}>
+          <span>First system</span>
+          <Select
+            id={`instrument-name-first-${score.name ?? "score"}`}
+            aria-label="First system instrument labels"
+            value={values.firstSystem}
+            options={OPTIONS}
+            onValueChange={(next) => {
+              if (next !== "custom") onChange(nextSettings(values, "firstSystem", next as InstrumentNameDisplayPolicy));
+            }}
+          />
+        </label>
+        <label style={FIELD_STYLE} htmlFor={`instrument-name-subsequent-${score.name ?? "score"}`}>
+          <span>Subsequent systems</span>
+          <Select
+            id={`instrument-name-subsequent-${score.name ?? "score"}`}
+            aria-label="Subsequent systems instrument labels"
+            value={values.subsequentSystems}
+            options={OPTIONS}
+            onValueChange={(next) => {
+              if (next !== "custom") {
+                onChange(nextSettings(values, "subsequentSystems", next as InstrumentNameDisplayPolicy));
+              }
+            }}
+          />
+        </label>
+      </div>
       <div style={HELP_STYLE}>Full and short label text is edited in Instruments.</div>
     </div>
   );

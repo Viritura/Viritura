@@ -77,13 +77,19 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   }
   if (sd.useWritten !== undefined) obj["useWritten"] = sd.useWritten;
 
+  const viritura: Obj = {};
+  if (sd.instrumentNameDisplay) {
+    viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };
+  }
+
   // Vendor extension: _x.viritura.pageSetup — only write non-default values
   if (sd.pageSetup) {
     const psObj = serializePageSetup(sd.pageSetup);
     if (Object.keys(psObj).length > 0) {
-      obj["_x"] = { viritura: { pageSetup: psObj } };
+      viritura["pageSetup"] = psObj;
     }
   }
+  if (Object.keys(viritura).length > 0) obj["_x"] = { viritura };
 
   return obj;
 }

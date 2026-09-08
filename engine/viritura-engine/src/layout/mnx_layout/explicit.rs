@@ -37,6 +37,7 @@ use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
 use super::explicit_system_layouts::{build_explicit_system_layouts, PersistentStaffState};
 use super::explicit_widths::compute_explicit_max_widths;
+use super::instrument_labels::{explicit_label_margin, policy_for_system};
 use super::page_turn_planning::single_source_part_index;
 use super::shared::*;
 use super::system_connectors::{
@@ -145,55 +146,6 @@ fn resolve_explicit_systems_and_layouts(
         system_flat_staves,
         system_layout_changes,
     )
-}
-
-/// Width of the left label gutter for the explicit-pages path: sized to the
-/// widest actual label across all systems so long instrument names like
-/// "Bass Clarinet in BΓÖ¡" hug the left margin without wasted space, and short
-/// names don't leave a large empty gutter. Measured with accurate text metrics
-/// (see `label_gutter_extent`).
-fn compute_explicit_label_margin(
-    system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
-    sp: f64,
-    label_style: &crate::layout::text_styles::TextStyle,
-) -> f64 {
-    // Only multi-staff systems carry instrument labels (matches the auto-flow
-    // path and `render_explicit_system`, which both gate label rendering on
-    // `flat_staves.len() > 1`). A single-staff part repeats no instrument name,
-    // so it reserves NO left gutter — otherwise the part would be pushed right
-    // and rendered like a full score. Single-staff systems are skipped here.
-    let labelled = |staves: &[FlatStaff], groups: &[GroupRange]| {
-        staves.len() > 1
-            && (staves.iter().any(|s| s.label.is_some())
-                || groups.iter().any(|g| g.label.is_some()))
-    };
-    let has_labels = system_flat_staves
-        .iter()
-        .any(|(staves, groups)| labelled(staves, groups));
-    if !has_labels {
-        return 0.0;
-    }
-    // Gap between the label's right edge and the system margin; matches the
-    // `render_staff_labels` anchor of `margin_left - 2.0 sp` on this path.
-    let label_gap = 2.0 * sp;
-    let widest: f64 = system_flat_staves
-        .iter()
-        .filter(|(staves, groups)| labelled(staves, groups))
-        .flat_map(|(staves, groups)| {
-            staves
-                .iter()
-                .filter_map(|s| s.label.as_ref().map(|l| (l, &s.condensed_numbers)))
-                .map(|(l, cn)| label_gutter_extent(l, cn, sp, label_style))
-                .chain(
-                    groups
-                        .iter()
-                        .filter_map(|g| g.label.as_ref().map(|l| (l, Vec::<u32>::new())))
-                        .map(|(l, cn)| label_gutter_extent(l, &cn, sp, label_style)),
-                )
-                .collect::<Vec<_>>()
-        })
-        .fold(0.0_f64, f64::max);
-    widest + label_gap
 }
 
 /// Render the page-1 title block, the part-score instrument name (when only
@@ -582,6 +534,7 @@ fn render_explicit_system(
             staff_height,
             sp,
             sys_idx,
+            policy_for_system(ctx.score_def.instrument_name_display.as_ref(), sys_idx),
             ctx.config
                 .text_styles
                 .resolve(crate::layout::text_styles::TextRole::StaffLabel),
@@ -693,6 +646,7 @@ pub fn layout_with_mnx_scores_cached(
             &skip_measures,
             &mmr_label_map,
             use_written,
+            score_def.instrument_name_display.as_ref(),
             dirty_region,
             cache.as_deref_mut(),
         );
@@ -740,7 +694,12 @@ pub fn layout_with_mnx_scores_cached(
     let label_style = config
         .text_styles
         .resolve(crate::layout::text_styles::TextRole::StaffLabel);
-    let label_margin = compute_explicit_label_margin(&system_flat_staves, sp, label_style);
+    let label_margin = explicit_label_margin(
+        &system_flat_staves,
+        score_def.instrument_name_display.as_ref(),
+        sp,
+        label_style,
+    );
     // When laid out into pages, use the configured page margins; the
     // editor-only `config.margin_*` values are smaller and intended for
     // the unpaged scrolling view. Without this, the explicit-pages path

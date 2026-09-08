@@ -3,7 +3,7 @@ import { useScoreCreation, type ScoreCreationActions } from "./useScoreCreation"
 import { useScoreEditingActions } from "./useScoreEditingActions";
 import { useScoreListActions, type ScoreListActions } from "./useScoreListActions";
 import { useExportActions } from "./useExportActions";
-import type { LayoutDefinition, Score } from "@viritura/core";
+import type { LayoutDefinition, Score, ScoreDefinition } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
@@ -30,7 +30,7 @@ interface UseScoreHandlersParams {
 }
 
 export interface ScoreHandlers extends ScoreCreationActions, ScoreEditingActions, ScoreListActions, ExportActions {
-  handleLayoutChange: (layouts: LayoutDefinition[]) => void;
+  handleLayoutChange: (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => void;
 }
 
 /**
@@ -84,10 +84,10 @@ export function useScoreHandlers(params: UseScoreHandlersParams): ScoreHandlers 
   const exports = useExportActions({ canvasRef, store });
 
   const handleLayoutChange = useCallback(
-    (layouts: LayoutDefinition[]) => {
+    (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => {
       const { score } = store.getState();
       if (!score) return;
-      updateScore({ ...score, layouts });
+      updateScore({ ...score, layouts, ...(scores ? { scores } : {}) });
     },
     [store, updateScore],
   );

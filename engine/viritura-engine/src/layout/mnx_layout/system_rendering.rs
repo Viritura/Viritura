@@ -1,6 +1,7 @@
 #![allow(clippy::too_many_arguments, clippy::too_many_lines, unused_imports)]
 
 use super::super::*;
+use super::instrument_labels::policy_for_system;
 use super::inter_staff_barlines::render_inter_staff_barlines;
 use super::render_hashing::*;
 use super::resolve_condensing::ResolvedStaffSnapshot;
@@ -15,6 +16,7 @@ pub(super) struct SystemRenderContext<'a> {
     pub dl: &'a mut DisplayList,
     pub score: &'a Score,
     pub config: &'a LayoutConfig,
+    pub instrument_name_display: Option<&'a InstrumentNameDisplaySettings>,
     pub flat_staves: &'a [FlatStaff],
     pub group_ranges: &'a [GroupRange],
     pub systems: &'a [Vec<usize>],
@@ -72,6 +74,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
         dl,
         score,
         config,
+        instrument_name_display,
         flat_staves,
         group_ranges,
         systems,
@@ -674,6 +677,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     staff_height,
                     sp,
                     sys_idx,
+                    policy_for_system(instrument_name_display, sys_idx),
                     config
                         .text_styles
                         .resolve(crate::layout::text_styles::TextRole::StaffLabel),

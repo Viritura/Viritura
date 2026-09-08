@@ -38,7 +38,7 @@ export interface ScoreListBodyProps {
   renamingScoreName: string;
   canEdit: boolean;
   onSelectScore: (i: number) => void;
-  onLayoutChange?: (layouts: LayoutDefinition[]) => void;
+  onLayoutChange?: (layouts: LayoutDefinition[], scores?: ScoreDefinition[]) => void;
   onReorderScores?: (from: number, to: number) => void;
   onDeleteScore?: (i: number) => void;
   onRenameScore?: (i: number, name: string) => void;

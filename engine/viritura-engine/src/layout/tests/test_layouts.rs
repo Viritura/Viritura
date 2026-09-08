@@ -1244,6 +1244,59 @@ fn test_condensed_staff_respects_short_and_hidden_label_policies() {
 }
 
 #[test]
+fn test_score_override_controls_first_and_subsequent_system_labels_independently() {
+    use crate::layout::mnx_layout::layout_with_mnx_scores;
+    use crate::parse::parse_mnx;
+    use crate::render::RenderCommand;
+
+    let document = |first: &str, subsequent: &str| {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [
+                    {{"id": "m1", "time": {{"count": 4, "unit": 4}}}},
+                    {{"id": "m2"}}
+                ]}},
+                "layouts": [{{"id": "L", "content": [
+                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "fl"}}]}},
+                    {{"type": "staff", "labelref": "name", "sources": [{{"part": "ob"}}]}}
+                ]}}],
+                "scores": [{{
+                    "name": "Score",
+                    "layout": "L",
+                    "pages": [{{"systems": [{{"measure": "m1"}}, {{"measure": "m2"}}]}}],
+                    "_x": {{"viritura": {{"instrumentNameDisplay": {{
+                        "firstSystem": "{first}",
+                        "subsequentSystems": "{subsequent}"
+                    }}}}}}
+                }}],
+                "parts": [
+                    {{"id": "fl", "name": "Flute", "shortName": "Fl.", "measures": [{{"sequences": []}}, {{"sequences": []}}]}},
+                    {{"id": "ob", "name": "Oboe", "shortName": "Ob.", "measures": [{{"sequences": []}}, {{"sequences": []}}]}}
+                ]
+            }}"#
+        )
+    };
+    let labels = |json: String| {
+        layout_with_mnx_scores(&parse_mnx(&json).unwrap(), &LayoutConfig::default(), 0)
+            .commands
+            .into_iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { text, .. }
+                    if ["Flute", "Fl.", "Oboe", "Ob."].contains(&text.as_str()) =>
+                {
+                    Some(text)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(labels(document("hidden", "short")), vec!["Fl.", "Ob."]);
+    assert_eq!(labels(document("full", "hidden")), vec!["Flute", "Oboe"]);
+}
+
+#[test]
 fn test_explicit_part_seeded_from_autoflow_keeps_same_system_membership() {
     // Regression for "note spacing gets significantly wider when a system break
     // is inserted." Adding a break seeds `pages` from the live auto-flow layout
