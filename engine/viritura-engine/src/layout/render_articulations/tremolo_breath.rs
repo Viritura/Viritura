@@ -152,7 +152,8 @@ pub(crate) fn render_breath_marks(
 
     for vl in &ml.voice_layouts {
         for i in 0..vl.events.len() {
-            let breath = match &vl.events.event(i).markings {
+            let event = vl.events.event(i);
+            let breath = match &event.markings {
                 Some(m) => match &m.breath {
                     Some(b) => b,
                     None => continue,
@@ -166,16 +167,39 @@ pub(crate) fn render_breath_marks(
 
             // Position: just before the subsequent note, or before the barline.
             let bx = next_x - right_padding - glyph_w * sp;
-            let by = staff_y - config.breath_mark_above_staff * sp;
+            let by = if matches!(breath.orient, Some(Orientation::Below)) {
+                staff_y + (4.0 + config.breath_mark_above_staff) * sp
+            } else {
+                staff_y - config.breath_mark_above_staff * sp
+            };
 
-            dl.push(RenderCommand::DrawGlyph {
-                x: bx,
-                y: by,
-                codepoint,
-                font: "Bravura".into(),
-                size: glyph_size,
-                color: "#000000".into(),
-                rotation: 0.0,
+            let event_id = event
+                .id
+                .as_deref()
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("e{}", i));
+            let base_id = element_id::event(
+                vl.part_index_override.unwrap_or(ml.part_index),
+                ml.resolved.index,
+                vl.seq_index_override.unwrap_or(vl.voice_index),
+                &event_id,
+            );
+            let breath_id = element_id::breath(&base_id);
+            dl.push_tagged(
+                RenderCommand::DrawGlyph {
+                    x: bx,
+                    y: by,
+                    codepoint,
+                    font: "Bravura".into(),
+                    size: glyph_size,
+                    color: "#000000".into(),
+                    rotation: 0.0,
+                },
+                breath_id.clone(),
+            );
+            dl.push_element_bbox_with_shape(ElementBBox {
+                element_id: breath_id,
+                bbox: glyph_pixel_bbox(bx, by, codepoint, glyph_size),
             });
         }
     }

@@ -52,6 +52,7 @@ pub(crate) fn render_arpeggios(
                         .and_then(|k| acc_extents.get(&k).copied()),
                     sp,
                 );
+                let command_start = dl.commands.len();
                 render_arpeggio_span(
                     dl,
                     span,
@@ -63,6 +64,18 @@ pub(crate) fn render_arpeggios(
                     font_size,
                     rotation,
                     extra_left,
+                );
+                tag_arpeggio(
+                    dl,
+                    ml,
+                    &arpeggio.span.start,
+                    span,
+                    staff_y,
+                    sp,
+                    config,
+                    extra_left,
+                    command_start,
+                    false,
                 );
             }
         }
@@ -89,7 +102,20 @@ pub(crate) fn render_arpeggios(
                         .and_then(|k| acc_extents.get(&k).copied()),
                     sp,
                 );
+                let command_start = dl.commands.len();
                 render_non_arpeggio_span(dl, span, staff_y, sp, config, extra_left);
+                tag_arpeggio(
+                    dl,
+                    ml,
+                    &non_arpeggio.span.start,
+                    span,
+                    staff_y,
+                    sp,
+                    config,
+                    extra_left,
+                    command_start,
+                    true,
+                );
             }
         }
     }
@@ -202,6 +228,7 @@ pub(super) fn render_legacy_event_arpeggios(
                 None | Some(crate::model::ArpeggioDirection::Auto)
             );
             let extra_left = arpeggio_accidental_clearance(acc_extents.get(&(vi, ei)).copied(), sp);
+            let command_start = dl.commands.len();
             render_arpeggio_span(
                 dl,
                 span,
@@ -214,8 +241,103 @@ pub(super) fn render_legacy_event_arpeggios(
                 rotation,
                 extra_left,
             );
+            let event_id = el
+                .event
+                .id
+                .as_deref()
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("e{}", ei));
+            let base_id = element_id::event(
+                vl.part_index_override.unwrap_or(ml.part_index),
+                ml.resolved.index,
+                vl.seq_index_override.unwrap_or(vl.voice_index),
+                &event_id,
+            );
+            tag_arpeggio_with_id(
+                dl,
+                element_id::arpeggio(&base_id),
+                span,
+                staff_y,
+                sp,
+                config,
+                extra_left,
+                command_start,
+                false,
+            );
         }
     }
+}
+
+#[allow(clippy::too_many_arguments)] // Rendering geometry and selection identity are all required at this boundary.
+fn tag_arpeggio(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    start_note_id: &str,
+    span: RenderedNoteSpan,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    extra_left: f64,
+    command_start: usize,
+    non_arpeggio: bool,
+) {
+    let Some((voice_index, event_index)) = resolve_event_index(ml, start_note_id) else {
+        return;
+    };
+    let voice = &ml.voice_layouts[voice_index];
+    let event = voice.events.event(event_index);
+    let event_id = event
+        .id
+        .as_deref()
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("e{}", event_index));
+    let base_id = element_id::event(
+        voice.part_index_override.unwrap_or(ml.part_index),
+        ml.resolved.index,
+        voice.seq_index_override.unwrap_or(voice.voice_index),
+        &event_id,
+    );
+    tag_arpeggio_with_id(
+        dl,
+        element_id::arpeggio(&base_id),
+        span,
+        staff_y,
+        sp,
+        config,
+        extra_left,
+        command_start,
+        non_arpeggio,
+    );
+}
+
+#[allow(clippy::too_many_arguments)] // The bbox must use the same complete geometry input as the rendered mark.
+fn tag_arpeggio_with_id(
+    dl: &mut DisplayList,
+    element_id: String,
+    span: RenderedNoteSpan,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    extra_left: f64,
+    command_start: usize,
+    non_arpeggio: bool,
+) {
+    for command_index in command_start..dl.commands.len() {
+        dl.tag_command(command_index, element_id.clone());
+    }
+    let top_y = staff_y + (span.top_pos - 0.5) * sp * 0.5;
+    let bottom_y = staff_y + (span.bottom_pos + 0.5) * sp * 0.5;
+    let width = if non_arpeggio { 0.95 * sp } else { 1.2 * sp };
+    let x = span.min_x - config.arpeggio_offset * sp - extra_left;
+    dl.push_element_bbox_with_shape(ElementBBox {
+        element_id,
+        bbox: BoundingBox::new(
+            x - 0.4 * sp,
+            top_y - 0.65 * sp,
+            width,
+            bottom_y - top_y + 1.3 * sp,
+        ),
+    });
 }
 
 #[derive(Clone, Copy)]

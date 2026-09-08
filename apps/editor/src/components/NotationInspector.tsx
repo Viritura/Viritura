@@ -22,6 +22,7 @@ import {
   useNoteheadHandler,
 } from "./inspector/useNotationInspectorActions";
 import { useNotationInspectorSelection } from "./inspector/useNotationInspectorSelection";
+import { SelectedMarkingInspectors } from "./inspector/SelectedMarkingSections";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -45,7 +46,6 @@ function NotationInspectorEmptyState() {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function -- cohesive orchestration for independently extracted inspector sections
 export function NotationInspector(_props: NotationInspectorProps = {}) {
   const selection = useSelection();
   const selectedElementType = useSelectedElementType();
@@ -73,19 +73,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
 
-  const {
-    isTempoSelected,
-    selectedTempo,
-    handleTempoTextChange,
-    handleTempoShowTextChange,
-    handleTempoShowMetronomeChange,
-    handleTempoBpmChange,
-    handleTempoValueBaseChange,
-    handleTempoDotsChange,
-    handleTempoOffsetChange,
-    handleTempoOffsetReset,
-    handleTempoAvoidCollisionsChange,
-  } = useTempoHandlers({ score, target, updateScore });
+  const tempo = useTempoHandlers({ score, target, updateScore });
 
   const {
     currentBarlineType,
@@ -142,29 +130,37 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         subtitle={`Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`}
       />
       <div className="viritura-scroll" style={bodyStyle}>
-        {isTempoSelected && selectedTempo && (
+        {tempo.isTempoSelected && tempo.selectedTempo && (
           <TempoSection
             key={target.elementId}
-            tempo={selectedTempo}
-            onBpmChange={handleTempoBpmChange}
-            onValueBaseChange={handleTempoValueBaseChange}
-            onDotsChange={handleTempoDotsChange}
-            onTextChange={handleTempoTextChange}
-            onShowTextChange={handleTempoShowTextChange}
-            onShowMetronomeChange={handleTempoShowMetronomeChange}
+            tempo={tempo.selectedTempo}
+            onBpmChange={tempo.handleTempoBpmChange}
+            onValueBaseChange={tempo.handleTempoValueBaseChange}
+            onDotsChange={tempo.handleTempoDotsChange}
+            onTextChange={tempo.handleTempoTextChange}
+            onShowTextChange={tempo.handleTempoShowTextChange}
+            onShowMetronomeChange={tempo.handleTempoShowMetronomeChange}
             offset={{
-              value: selectedTempo.manualOffset ?? [0, 0],
-              onChange: handleTempoOffsetChange,
-              onReset: handleTempoOffsetReset,
+              value: tempo.selectedTempo.manualOffset ?? [0, 0],
+              onChange: tempo.handleTempoOffsetChange,
+              onReset: tempo.handleTempoOffsetReset,
               avoidCollisions: {
-                value: selectedTempo.avoidCollisions ?? true,
-                onChange: handleTempoAvoidCollisionsChange,
+                value: tempo.selectedTempo.avoidCollisions ?? true,
+                onChange: tempo.handleTempoAvoidCollisionsChange,
               },
             }}
           />
         )}
 
         <DirectionTextSections score={score} target={target} updateScore={updateScore} />
+
+        <SelectedMarkingInspectors
+          score={score}
+          target={target}
+          selectedElementType={selectedElementType}
+          selectedEvent={selectedEvent}
+          updateScore={updateScore}
+        />
 
         {selectedElementType === "barline" && (
           <BarlineSection

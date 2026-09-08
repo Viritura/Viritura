@@ -256,6 +256,21 @@ pub fn fermata_bbox(base_id: &str) -> String {
     format!("{}/fermata", base_id)
 }
 
+/// Breath mark: `{base_id}/breath`
+pub fn breath(base_id: &str) -> String {
+    format!("{}/breath", base_id)
+}
+
+/// Fingering: `{base_id}/fing{index}`
+pub fn fingering(base_id: &str, index: usize) -> String {
+    format!("{}/fing{}", base_id, index)
+}
+
+/// Arpeggio or non-arpeggio: `{base_id}/arp`
+pub fn arpeggio(base_id: &str) -> String {
+    format!("{}/arp", base_id)
+}
+
 /// Ornament bbox: `{base_id}/ornament`
 pub fn ornament_bbox(base_id: &str) -> String {
     format!("{}/ornament", base_id)

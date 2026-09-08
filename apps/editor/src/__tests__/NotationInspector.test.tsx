@@ -4,11 +4,15 @@ import { useEffect, type ReactNode } from "react";
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
-import { TooltipPrimitives } from "@viritura/ui";
+import { parseMnx, serializeMnx } from "@viritura/format";
+import { Button, TooltipPrimitives } from "@viritura/ui";
 import { NotationInspector } from "../components/NotationInspector";
 import { TempoSection } from "../components/inspector/TempoSection";
 import { sectionForElementType } from "../components/inspector/notationInspectorMeta";
-import { DocumentProvider, useDocumentActions } from "../store/DocumentContext";
+import { DocumentProvider, useDocument, useDocumentActions, useDocumentStoreApi } from "../store/DocumentContext";
+import { HistoryProvider } from "../store/HistoryContext";
+import { useHistoryStore } from "../store/historyStore";
+import { useMnxChangeReporter } from "../app/useMnxChangeReporter";
 import { useSelectionActions, resetSelectionStore } from "../store/selectionStore";
 
 // Primitives (Button, IconButton, …) wrap their rendered DOM in <Tooltip>
@@ -26,7 +30,7 @@ function withProviders(children: ReactNode) {
 function buildScore(): Score {
   return {
     mnx: { version: 1 },
-    global: { measures: [{}] },
+    global: { measures: [{ id: "m1" }] },
     parts: [
       {
         name: "Piano",
@@ -34,6 +38,22 @@ function buildScore(): Score {
         measures: [
           {
             measureRepeat: { number: 2 },
+            arpeggios: [
+              {
+                position: { fraction: [0, 1] },
+                span: { start: "n1", end: "n2" },
+                direction: "auto",
+                arrow: false,
+              },
+            ],
+            pedals: [
+              {
+                type: "sustain",
+                style: "text",
+                position: { fraction: [0, 1] },
+                end: { measure: "m1", position: { fraction: [1, 2] } },
+              },
+            ],
             ottavas: [
               {
                 value: 1,
@@ -49,7 +69,10 @@ function buildScore(): Score {
                     type: "event",
                     id: "ev1",
                     duration: { base: "quarter" },
-                    notes: [{ id: "n1", pitch: { step: "C", octave: 4 }, ties: [{ target: "n2" }] }],
+                    notes: [
+                      { id: "n1", pitch: { step: "C", octave: 4 }, ties: [{ target: "n2" }] },
+                      { id: "n1b", pitch: { step: "E", octave: 4 } },
+                    ],
                     slurs: [{ target: "ev2", lineType: "solid" }],
                     fermata: { symbol: "normal" },
                     markings: {
@@ -90,6 +113,7 @@ function buildScore(): Score {
 
 function Harness({ elementId }: { elementId?: string }) {
   const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
   const { selectElement } = useSelectionActions();
 
   useEffect(() => {
@@ -99,7 +123,59 @@ function Harness({ elementId }: { elementId?: string }) {
     }
   }, [loadScore, selectElement, elementId]);
 
-  return <NotationInspector />;
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
+function currentScore(): Score {
+  return JSON.parse(screen.getByTestId("score-snapshot").textContent ?? "null") as Score;
+}
+
+function currentMnx(): Record<string, unknown> {
+  return JSON.parse(screen.getByTestId("mnx-snapshot").textContent ?? "null") as Record<string, unknown>;
+}
+
+function HistoryHarnessInner() {
+  const { loadScore } = useDocumentActions();
+  const store = useDocumentStoreApi();
+  const { selectElement } = useSelectionActions();
+  const pushState = useHistoryStore((state) => state.pushState);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
+  useMnxChangeReporter({ store, pushState });
+
+  useEffect(() => {
+    loadScore(buildScore(), "history.mnx");
+    selectElement("p0/m0/s0/ev1/breath");
+  }, [loadScore, selectElement]);
+
+  return (
+    <>
+      <NotationInspector />
+      <Button disabled={!canUndo} onClick={undo} label="Undo inspector edit" />
+      <Button disabled={!canRedo} onClick={redo} label="Redo inspector edit" />
+    </>
+  );
+}
+
+function HistoryHarness() {
+  const initialMnx = JSON.stringify(serializeMnx(buildScore()));
+  const store = useDocumentStoreApi();
+  return (
+    <HistoryProvider
+      initialMnxJson={initialMnx}
+      onRestore={(mnxJson) => store.getState().loadScore(parseMnx(JSON.parse(mnxJson)), "history.mnx", mnxJson)}
+    >
+      <HistoryHarnessInner />
+    </HistoryProvider>
+  );
 }
 
 function buildGraceSlurScore(): Score {
@@ -203,6 +279,135 @@ describe("NotationInspector", () => {
     fireEvent.click(counter);
     await waitFor(() => expect(counter.checked).toBe(true));
     expect(screen.getByRole("spinbutton", { name: "Counter" })).toBeTruthy();
+  });
+
+  it.each([
+    ["p0/m0/s0/ev1/breath", "Breath Mark", "Breath symbol", "Tick"],
+    ["p0/m0/s0/ev1/fing0", "Fingering", "Fingering value", "3"],
+    ["p0/m0/s0/ev1/ornament", "Ornament", "Ornament variant 1", "Mordent"],
+    ["p0/m0/s0/ev1/arp", "Arpeggio", "Arpeggio variant", "Arrow down"],
+    ["p0/m0/pedal0", "Pedal", "Pedal type", "Sostenuto"],
+  ])("selects and edits %s", async (elementId, section, control, option) => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId={elementId} />));
+
+    expect(await screen.findByText(section)).toBeTruthy();
+    const select = screen.getByRole("combobox", { name: control });
+    await user.click(select);
+    await user.click(await screen.findByRole("option", { name: option }));
+
+    await waitFor(() => expect(select.textContent).toContain(option));
+    const score = currentScore();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("Expected event");
+    if (section === "Breath Mark") expect(event.markings?.breath?.symbol).toBe("tick");
+    if (section === "Fingering") expect(event.markings?.fingerings?.[0]?.finger).toBe(3);
+    if (section === "Ornament") expect(event.markings?.ornaments?.[0]).toBe("mordent");
+    if (section === "Arpeggio") {
+      expect(score.parts[0]!.measures[0]!.arpeggios?.[0]).toMatchObject({ direction: "down", arrow: true });
+    }
+    if (section === "Pedal") expect(score.parts[0]!.measures[0]!.pedals?.[0]?.type).toBe("sostenuto");
+    expect(currentMnx()).toBeTruthy();
+  });
+
+  it("edits pedal scope and span properties", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/pedal0" />));
+
+    const style = await screen.findByRole("combobox", { name: "Pedal line style" });
+    await user.click(style);
+    await user.click(await screen.findByRole("option", { name: "Bracket" }));
+
+    const start = screen.getByRole("spinbutton", { name: "Pedal start numerator" }) as HTMLInputElement;
+    fireEvent.change(start, { target: { value: "1" } });
+
+    const endMeasure = screen.getByLabelText("End measure ID") as HTMLInputElement;
+    fireEvent.change(endMeasure, { target: { value: "m2" } });
+
+    const staff = (await screen.findByRole("spinbutton", { name: "Pedal staff" })) as HTMLInputElement;
+    fireEvent.change(staff, { target: { value: "2" } });
+    await waitFor(() => expect(staff.value).toBe("2"));
+
+    const end = screen.getByRole("spinbutton", { name: "Pedal end numerator" }) as HTMLInputElement;
+    fireEvent.change(end, { target: { value: "3" } });
+    await waitFor(() => expect(end.value).toBe("3"));
+
+    const voice = screen.getByLabelText("Voice") as HTMLInputElement;
+    fireEvent.change(voice, { target: { value: "v2" } });
+    await waitFor(() => expect(voice.value).toBe("v2"));
+
+    expect(currentScore().parts[0]!.measures[0]!.pedals?.[0]).toEqual({
+      type: "sustain",
+      style: "bracket",
+      position: { fraction: [1, 1] },
+      end: { measure: "m2", position: { fraction: [3, 2] } },
+      staff: 2,
+      voice: "v2",
+    });
+    const rawPart = currentMnx().parts as Array<{ measures: Array<{ _x?: { viritura?: { pedals?: unknown[] } } }> }>;
+    expect(rawPart[0]!.measures[0]!._x?.viritura?.pedals).toHaveLength(1);
+    expect(parseMnx(currentMnx()).parts[0]!.measures[0]!.pedals?.[0]).toEqual(
+      currentScore().parts[0]!.measures[0]!.pedals?.[0],
+    );
+  });
+
+  it("edits breath placement and arpeggio position/span", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(withProviders(<Harness elementId="p0/m0/s0/ev1/breath" />));
+
+    const placement = await screen.findByRole("combobox", { name: "Breath placement" });
+    await user.click(placement);
+    await user.click(await screen.findByRole("option", { name: "Below" }));
+    await waitFor(() => expect(placement.textContent).toContain("Below"));
+    expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      markings: { breath: { orient: "below" } },
+    });
+
+    unmount();
+    resetSelectionStore();
+
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/arp" />));
+    const numerator = (await screen.findByRole("spinbutton", {
+      name: "Arpeggio position numerator",
+    })) as HTMLInputElement;
+    fireEvent.change(numerator, { target: { value: "1" } });
+    await waitFor(() => expect(numerator.value).toBe("1"));
+    fireEvent.change(numerator, { target: { value: "-1" } });
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.arpeggios?.[0]?.position.fraction[0]).toBe(1));
+
+    const spanEnd = screen.getByLabelText("Span end note ID") as HTMLInputElement;
+    fireEvent.change(spanEnd, { target: { value: "n1" } });
+    await waitFor(() =>
+      expect(currentScore().parts[0]!.measures[0]!.arpeggios?.[0]).toMatchObject({
+        position: { fraction: [1, 1] },
+        span: { start: "n1", end: "n1" },
+      }),
+    );
+  });
+
+  it("records inspector mutations in undo and redo history", async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <HistoryHarness />
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    const symbol = await screen.findByRole("combobox", { name: "Breath symbol" });
+    await user.click(symbol);
+    await user.click(await screen.findByRole("option", { name: "Tick" }));
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+
+    await user.click(undo);
+    await waitFor(() => expect(symbol.textContent).toContain("Comma"));
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+
+    await user.click(redo);
+    await waitFor(() => expect(symbol.textContent).toContain("Tick"));
   });
 
   it("edits every meaningful property of a selected ottava and explains span adjustment", async () => {

@@ -106,6 +106,12 @@ fn test_arpeggio_renders_glyph_on_chord() {
         !has_arrow,
         "Plain arpeggio (no direction) should NOT have arrow glyphs"
     );
+    assert!(
+        dl.element_bboxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/arp")),
+        "Arpeggio should publish a selectable bounding box"
+    );
 
     // All glyphs should be rotated -90°
     for cmd in &arpeggio_cmds {
@@ -209,6 +215,12 @@ fn test_arpeggio_up_arrow_uses_repeat_offset_origin() {
         "Up-arrow origin should follow the segment repeatOffset: got {:.3}, expected {:.3}",
         arrow_y,
         expected_arrow_y
+    );
+    assert!(
+        dl.element_bboxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/e0/arp")),
+        "Standard MNX arpeggio should be selectable from its owning event"
     );
 }
 
@@ -440,6 +452,12 @@ fn test_fingering_renders_glyph() {
         matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::FINGERING_3)
     });
     assert!(has_fingering, "Should render fingering 3 glyph (U+ED13)");
+    assert!(
+        dl.element_bboxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/fing0")),
+        "Fingering should publish a selectable bounding box"
+    );
 }
 
 #[test]

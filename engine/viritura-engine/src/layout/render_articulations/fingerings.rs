@@ -68,7 +68,19 @@ pub(crate) fn render_fingerings(
                 staff_y + top_pos * sp * 0.5 - config.fingering_distance * sp - sp
             };
 
-            for f in fingerings {
+            let event_id = event
+                .id
+                .as_deref()
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("e{}", i));
+            let base_id = element_id::event(
+                vl.part_index_override.unwrap_or(ml.part_index),
+                ml.resolved.index,
+                vl.seq_index_override.unwrap_or(vl.voice_index),
+                &event_id,
+            );
+
+            for (fingering_index, f) in fingerings.iter().enumerate() {
                 let codepoint = match smufl::fingering_glyph(f.finger) {
                     Some(cp) => cp,
                     None => continue,
@@ -78,14 +90,22 @@ pub(crate) fn render_fingerings(
                 let scaled_w = glyph_w * sp * config.fingering_font_scale;
                 let fx = notehead_center_x - scaled_w * 0.5;
 
-                dl.push(RenderCommand::DrawGlyph {
-                    x: fx,
-                    y: cur_y,
-                    codepoint,
-                    font: "Bravura".into(),
-                    size: glyph_size,
-                    color: "#000000".into(),
-                    rotation: 0.0,
+                let fingering_id = element_id::fingering(&base_id, fingering_index);
+                dl.push_tagged(
+                    RenderCommand::DrawGlyph {
+                        x: fx,
+                        y: cur_y,
+                        codepoint,
+                        font: "Bravura".into(),
+                        size: glyph_size,
+                        color: "#000000".into(),
+                        rotation: 0.0,
+                    },
+                    fingering_id.clone(),
+                );
+                dl.push_element_bbox_with_shape(ElementBBox {
+                    element_id: fingering_id,
+                    bbox: glyph_pixel_bbox(fx, cur_y, codepoint, glyph_size),
                 });
 
                 // Stack the next fingering further out
