@@ -29,11 +29,20 @@ function buildScore(): Score {
     parts: [
       {
         name: "Piano",
+        staves: 2,
         measures: [
           {
             measureRepeat: { number: 2 },
+            ottavas: [
+              {
+                value: 1,
+                position: { fraction: [0, 1] },
+                end: { measure: "m1", position: { fraction: [1, 2] } },
+              },
+            ],
             sequences: [
               {
+                voice: "upper",
                 content: [
                   {
                     type: "event",
@@ -181,6 +190,36 @@ describe("NotationInspector", () => {
     fireEvent.click(counter);
     await waitFor(() => expect(counter.checked).toBe(true));
     expect(screen.getByRole("spinbutton", { name: "Counter" })).toBeTruthy();
+  });
+
+  it("edits every meaningful property of a selected ottava and explains span adjustment", async () => {
+    render(withProviders(<Harness elementId="p0/m0/ottava0" />));
+
+    expect(await screen.findByText("Ottava")).toBeTruthy();
+    expect(screen.getByText("Drag either endpoint handle in the score to adjust the span.")).toBeTruthy();
+    expect(screen.getByText("0/1 → m1 @ 1/2")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava displacement" }));
+    fireEvent.click(await screen.findByRole("option", { name: "22mb (down 3 octaves)" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava displacement" }).textContent).toContain("22mb"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava orientation" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Below" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava orientation" }).textContent).toContain("Below"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava staff" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Staff 2" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Ottava staff" }).textContent).toContain("Staff 2"),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava voice" }));
+    fireEvent.click(await screen.findByRole("option", { name: "upper" }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Ottava voice" }).textContent).toContain("upper"));
   });
 
   it("keeps tempo text responsive while deferring the expensive score update", () => {

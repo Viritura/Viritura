@@ -1735,6 +1735,21 @@ describe("convertMusicXmlToMnx — octave shifts", () => {
     expect(ottavas).toHaveLength(1);
     expect(ottavas![0]!.value).toBe(-2);
   });
+
+  it.each([
+    ["down", 3],
+    ["up", -3],
+  ] as const)("maps size 22 with `%s` direction to a three-octave shift", (type, expected) => {
+    const xml = wrapScore(`
+      <direction><direction-type><octave-shift type="${type}" size="22"/></direction-type></direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type></note>
+      <direction><direction-type><octave-shift type="stop" size="22"/></direction-type></direction>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><type>half</type></note>
+    `);
+    const ottavas = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!.ottavas as OttavaSpan[] | undefined;
+    expect(ottavas).toHaveLength(1);
+    expect(ottavas![0]!.value).toBe(expected);
+  });
 });
 
 describe("convertMusicXmlToMnx — slurs", () => {

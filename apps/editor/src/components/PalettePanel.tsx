@@ -1244,7 +1244,7 @@ export function PalettePanel() {
   const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
   const textMatch = !searchQuery || "rehearsal mark expression text".includes(searchLower);
   const linesMatch =
-    !searchQuery || "ottava 8va 8vb 15ma 15mb pedal sustain sostenuto una corda lines".includes(searchLower);
+    !searchQuery || "ottava 8va 8vb 15ma 15mb 22ma 22mb pedal sustain sostenuto una corda lines".includes(searchLower);
   const repeatsNavigationMatch =
     MEASURE_REPEAT_PALETTE_ITEMS.some(matchesSearch) ||
     !searchQuery ||
@@ -1697,6 +1697,13 @@ export function PalettePanel() {
             title="Ottava 15mb (down)"
             useBravura
             onClick={handleAddOttava(-2)}
+          />
+          <PaletteButton label={SMUFL.ventiduesima} title="Ottava 22ma (up)" useBravura onClick={handleAddOttava(3)} />
+          <PaletteButton
+            label={SMUFL.ventiduesimaBassMb}
+            title="Ottava 22mb (down)"
+            useBravura
+            onClick={handleAddOttava(-3)}
           />
           <PaletteButton label={SMUFL.pedalPed} title="Sustain pedal" useBravura onClick={handleAddPedal("sustain")} />
           <PaletteButton
