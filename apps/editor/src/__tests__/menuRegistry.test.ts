@@ -29,13 +29,15 @@ describe("getMenuItems", () => {
     }
   });
 
-  it("breath-fermata returns all 9 items", () => {
+  it("breath-fermata returns all 11 items", () => {
     const items = getMenuItems("breath-fermata");
-    expect(items).toHaveLength(9);
+    expect(items).toHaveLength(11);
     const ids = items.map((i) => i.id);
     expect(ids).toContain("caesura");
     expect(ids).toContain("breath-comma");
     expect(ids).toContain("fermata-normal");
+    expect(ids).toContain("fermata-double-angled");
+    expect(ids).toContain("fermata-double-square");
   });
 
   it("includes one-, two-, and four-bar repeats in the repeat menu", () => {
