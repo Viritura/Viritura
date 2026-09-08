@@ -326,6 +326,7 @@ export function parseOttava(raw: RawOttava): Ottava {
     end: parseMeasureRhythmicPosition(raw.end),
     value: raw.value,
   };
+  if (raw.orient !== undefined) ott.orient = raw.orient;
   if (raw.staff !== undefined) ott.staff = raw.staff;
   if (raw.voice) ott.voice = raw.voice;
   return ott;

@@ -21,6 +21,7 @@ import type {
   MultimeasureRestRange,
   PageSetup,
   PageTurnSettings,
+  InstrumentNameDisplaySettings,
 } from "@viritura/core";
 
 import type {
@@ -120,6 +121,13 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   // Vendor extension: _x.viritura.pageSetup
   // (vendor dicts are untyped in the schema; narrow-cast the known shape.)
   const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
+  const labelsRaw = viritura?.["instrumentNameDisplay"] as Record<string, unknown> | undefined;
+  if (labelsRaw) {
+    sd.instrumentNameDisplay = {
+      firstSystem: labelsRaw["firstSystem"] as InstrumentNameDisplaySettings["firstSystem"],
+      subsequentSystems: labelsRaw["subsequentSystems"] as InstrumentNameDisplaySettings["subsequentSystems"],
+    };
+  }
   const psRaw = viritura?.["pageSetup"] as Record<string, unknown> | undefined;
   if (psRaw) {
     const pageSetup: Partial<PageSetup> = {};

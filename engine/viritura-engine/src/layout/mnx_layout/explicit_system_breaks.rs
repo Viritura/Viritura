@@ -1,14 +1,15 @@
 //! Width-driven subdivision of authored MNX systems.
 
 use super::super::full_score::{FlatStaff, GroupRange};
-use super::super::system::break_into_systems;
+use super::super::system::{break_into_systems, break_into_systems_dual_width};
 use std::collections::{HashMap, HashSet};
 
 pub(super) type SystemLayoutChanges = Vec<HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>>;
 
 /// Subdivide authored systems that exceed the available content width.
 pub(super) fn expand_oversized_systems_explicit(
-    available_width: f64,
+    first_available_width: f64,
+    subsequent_available_width: f64,
     max_widths: &[f64],
     skip_measures: &HashSet<usize>,
     system_measure_ranges: &mut Vec<(usize, usize)>,
@@ -23,11 +24,25 @@ pub(super) fn expand_oversized_systems_explicit(
     };
 
     for (system_index, &(start, end)) in system_measure_ranges.iter().enumerate() {
+        let available_width = if system_index == 0 {
+            first_available_width
+        } else {
+            subsequent_available_width
+        };
         let natural_widths: Vec<f64> = (start..end)
             .map(|index| max_widths.get(index).copied().unwrap_or(0.0) * 1.15)
             .collect();
         if natural_widths.iter().sum::<f64>() > available_width && end - start > 1 {
-            for subsystem in break_into_systems(&natural_widths, available_width) {
+            let subsystems = if system_index == 0 {
+                break_into_systems_dual_width(
+                    &natural_widths,
+                    first_available_width,
+                    subsequent_available_width,
+                )
+            } else {
+                break_into_systems(&natural_widths, subsequent_available_width)
+            };
+            for subsystem in subsystems {
                 let sub_start = start + subsystem[0];
                 let sub_end = start + subsystem.last().copied().unwrap_or(0) + 1;
                 if all_skipped(sub_start, sub_end) {

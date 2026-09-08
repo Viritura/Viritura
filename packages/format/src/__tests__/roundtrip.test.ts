@@ -21,6 +21,86 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves all editable ottava properties", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m1" }] },
+      parts: [
+        {
+          staves: 2,
+          measures: [
+            {
+              ottavas: [
+                {
+                  value: -3,
+                  orient: "below",
+                  staff: 2,
+                  voice: "lower",
+                  position: { fraction: [1, 4] },
+                  end: { measure: "m1", position: { fraction: [3, 4] } },
+                },
+              ],
+              sequences: [{ content: [] }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parseMnx(source);
+    const serialized = serializeMnx(parsed);
+    expect(serialized.parts[0]!.measures[0]!.ottavas).toEqual(source.parts[0]!.measures[0]!.ottavas);
+    expect(parseMnx(serialized)).toEqual(parsed);
+  });
+
+  it("preserves full, abbreviated, and hidden instrument-label policies", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [
+        { id: "fl", name: "Flute", shortName: "Fl.", measures: [] },
+        { id: "ob", name: "Oboe", shortName: "Ob.", measures: [] },
+        { id: "cl", name: "Clarinet", shortName: "Cl.", measures: [] },
+      ],
+      layouts: [
+        {
+          id: "score",
+          content: [
+            { type: "staff", labelref: "name", sources: [{ part: "fl" }] },
+            { type: "staff", labelref: "shortName", sources: [{ part: "ob" }] },
+            { type: "staff", sources: [{ part: "cl" }] },
+          ],
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+  });
+
+  it("preserves independent first and subsequent system label policies", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [],
+      layouts: [],
+      scores: [
+        {
+          name: "Full Score",
+          _x: {
+            viritura: {
+              instrumentNameDisplay: {
+                firstSystem: "hidden",
+                subsequentSystems: "full",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).scores).toEqual(source.scores);
+  });
+
   it("preserves an explicit empty beam list that suppresses auto-beaming", () => {
     const source = {
       mnx: { version: 1 },

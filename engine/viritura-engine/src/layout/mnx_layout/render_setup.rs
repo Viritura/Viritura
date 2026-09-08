@@ -53,15 +53,19 @@ pub(super) fn score_render_salt(
     lyric_line_order: Option<&[String]>,
     flat_staves: &[FlatStaff],
     group_ranges: &[GroupRange],
+    instrument_name_display: Option<&InstrumentNameDisplaySettings>,
 ) -> u64 {
     let mut hasher = DefaultHasher::new();
     sp.to_bits().hash(&mut hasher);
     staff_height.to_bits().hash(&mut hasher);
     barline_width.to_bits().hash(&mut hasher);
     lyric_line_order.hash(&mut hasher);
+    instrument_name_display.hash(&mut hasher);
     for staff in flat_staves {
         staff.label.hash(&mut hasher);
         staff.short_label.hash(&mut hasher);
+        staff.resolved_full_label.hash(&mut hasher);
+        staff.resolved_short_label.hash(&mut hasher);
         staff.expansion.hash(&mut hasher);
         staff.condensed_numbers.hash(&mut hasher);
         for source in &staff.sources {

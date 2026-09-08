@@ -172,6 +172,7 @@ function serializeMeasureRepeat(mr: MeasureRepeat): Obj {
 
 function serializeOttava(o: Ottava): Obj {
   const out: Obj = { end: o.end, position: o.position, value: o.value };
+  if (o.orient !== undefined) out["orient"] = o.orient;
   if (o.staff !== undefined) out["staff"] = o.staff;
   if (o.voice) out["voice"] = o.voice;
   return out;
