@@ -80,14 +80,20 @@ describe("applyBreathFermata — fermata", () => {
     }
   });
 
-  it("applies square fermata to an event", () => {
+  it.each([
+    ["doubleAngled", "doubleAngled"],
+    ["angled", "angled"],
+    ["square", "square"],
+    ["doubleSquare", "doubleSquare"],
+    ["doubleDot", "doubleDot"],
+  ] as const)("applies the %s fermata variant to an event", (shape, expected) => {
     const score = makeScore();
-    const resolved: BreathFermataSelection = { kind: "fermata", shape: "square" };
+    const resolved: BreathFermataSelection = { kind: "fermata", shape };
     const result = applyBreathFermata(score, { kind: "single", elementId: "p0/m0/s0/ev-1" }, resolved);
     expect(result).not.toBeNull();
     const ev = result!.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
     if (ev.type === "event") {
-      expect(ev.fermata).toEqual({ symbol: "square" });
+      expect(ev.fermata).toEqual({ symbol: expected });
     }
   });
 });

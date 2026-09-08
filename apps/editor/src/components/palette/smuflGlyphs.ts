@@ -20,9 +20,11 @@ export const SMUFL = {
   breathMarkSalzedo: String.fromCodePoint(0xe4d5),
   caesura: String.fromCodePoint(0xe4d1),
   fermataAbove: String.fromCodePoint(0xe4c0),
+  fermataVeryShortAbove: String.fromCodePoint(0xe4c2),
   fermataShortAbove: String.fromCodePoint(0xe4c4),
   fermataLongAbove: String.fromCodePoint(0xe4c6),
   fermataVeryLongAbove: String.fromCodePoint(0xe4c8),
+  fermataLongHenzeAbove: String.fromCodePoint(0xe4ca),
   // Dynamics
   dynamicPPPP: String.fromCodePoint(0xe529),
   dynamicPPP: String.fromCodePoint(0xe52a),

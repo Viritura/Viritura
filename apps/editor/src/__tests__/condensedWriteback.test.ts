@@ -157,6 +157,25 @@ describe("condensed projection write-back", () => {
     expect(events.map((event) => event.partIndex)).toEqual(Array.from({ length: sourceCount }, (_, index) => index));
   });
 
+  it("broadcasts a shared rest annotation to every condensed source", () => {
+    const score = condensedScore(2);
+    for (const part of score.parts) {
+      const event = part.measures[0]!.sequences[0]!.content[0]!;
+      if (event.type !== "event") throw new Error("expected event");
+      event.notes = undefined;
+      event.rest = {};
+      event.fermata = {};
+    }
+
+    const events = resolveCondensedSelectionEvents(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/event-0/fermata", elementType: "fermata" },
+      0,
+    );
+
+    expect(events.map((event) => event.partIndex)).toEqual([0, 1]);
+  });
+
   it("keeps divisi notation source-specific", () => {
     const score = condensedScore(3, true);
     const events = resolveCondensedSelectionEvents(

@@ -11,6 +11,7 @@ import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspec
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
+import { FermataSection } from "./inspector/FermataSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
@@ -86,7 +87,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleTempoAvoidCollisionsChange,
   } = useTempoHandlers({ score, target, updateScore });
 
-  const isBarlineSelected = selectedElementType === "barline";
   const {
     currentBarlineType,
     hasRepeatStart,
@@ -96,8 +96,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleToggleRepeatStart,
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
-  } = useBarlineHandlers({ score, target, updateScore }, isBarlineSelected);
-  const measureDisabled = !target;
+  } = useBarlineHandlers({ score, target, updateScore }, selectedElementType === "barline");
 
   const {
     handleAccidentalDisplayShow,
@@ -167,7 +166,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         <DirectionTextSections score={score} target={target} updateScore={updateScore} />
 
-        {isBarlineSelected && (
+        {selectedElementType === "barline" && (
           <BarlineSection
             focusedSection={focusedSection}
             currentBarlineType={currentBarlineType}
@@ -220,6 +219,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 
+        <FermataSection />
         <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
 
         {(isTuplet || isEvent) && (
@@ -233,7 +233,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             selectedContent={selectedContent}
             isTuplet={isTuplet}
             isEvent={isEvent}
-            disabled={measureDisabled}
+            disabled={false}
           />
         )}
 
@@ -252,7 +252,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         {target && (
           <ColorSection
-            disabled={measureDisabled}
+            disabled={false}
             colorTarget={colorTarget}
             colorInput={colorInput}
             colorError={colorError}

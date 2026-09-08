@@ -27,19 +27,15 @@ describe("resolveBreathFermata", () => {
     expect(r).toEqual({ kind: "fermata", shape: "normal" });
   });
 
-  it("resolves fermata-angled", () => {
-    const r = resolveBreathFermata("fermata-angled");
-    expect(r).toEqual({ kind: "fermata", shape: "angled" });
-  });
-
-  it("resolves fermata-square", () => {
-    const r = resolveBreathFermata("fermata-square");
-    expect(r).toEqual({ kind: "fermata", shape: "square" });
-  });
-
-  it("resolves fermata-double-dot", () => {
-    const r = resolveBreathFermata("fermata-double-dot");
-    expect(r).toEqual({ kind: "fermata", shape: "doubleDot" });
+  it.each([
+    ["fermata-double-angled", "doubleAngled", "Fermata (very short)"],
+    ["fermata-angled", "angled", "Fermata (short)"],
+    ["fermata-square", "square", "Fermata (long)"],
+    ["fermata-double-square", "doubleSquare", "Fermata (very long)"],
+    ["fermata-double-dot", "doubleDot", "Fermata (long, Henze)"],
+  ] as const)("resolves %s to %s", (id, shape, label) => {
+    expect(resolveBreathFermata(id)).toEqual({ kind: "fermata", shape });
+    expect(BREATH_FERMATA_ITEMS.find((item) => item.id === id)?.label).toBe(label);
   });
 
   it("returns null for unknown id", () => {
@@ -49,8 +45,8 @@ describe("resolveBreathFermata", () => {
 });
 
 describe("item list", () => {
-  it("BREATH_FERMATA_ITEMS contains all 9 items", () => {
-    expect(BREATH_FERMATA_ITEMS).toHaveLength(9);
+  it("BREATH_FERMATA_ITEMS contains all 11 items", () => {
+    expect(BREATH_FERMATA_ITEMS).toHaveLength(11);
     const ids = BREATH_FERMATA_ITEMS.map((i) => i.id);
     expect(ids).toContain("breath-comma");
     expect(ids).toContain("breath-tick");
@@ -58,8 +54,10 @@ describe("item list", () => {
     expect(ids).toContain("breath-salzedo");
     expect(ids).toContain("caesura");
     expect(ids).toContain("fermata-normal");
+    expect(ids).toContain("fermata-double-angled");
     expect(ids).toContain("fermata-angled");
     expect(ids).toContain("fermata-square");
+    expect(ids).toContain("fermata-double-square");
     expect(ids).toContain("fermata-double-dot");
   });
 

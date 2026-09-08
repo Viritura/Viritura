@@ -46,23 +46,40 @@ const ITEMS: BreathFermataItem[] = [
     resolved: { kind: "breath", symbol: "salzedo" },
   },
   { id: "caesura", label: "Caesura", glyph: SMUFL.caesura, resolved: { kind: "caesura" } },
-  { id: "fermata-normal", label: "Fermata", glyph: SMUFL.fermataAbove, resolved: { kind: "fermata", shape: "normal" } },
+  {
+    id: "fermata-normal",
+    label: "Fermata (normal)",
+    glyph: SMUFL.fermataAbove,
+    resolved: { kind: "fermata", shape: "normal" },
+  },
+  {
+    id: "fermata-double-angled",
+    label: "Fermata (very short)",
+    glyph: SMUFL.fermataVeryShortAbove,
+    resolved: { kind: "fermata", shape: "doubleAngled" },
+  },
   {
     id: "fermata-angled",
-    label: "Fermata (angled)",
+    label: "Fermata (short)",
     glyph: SMUFL.fermataShortAbove,
     resolved: { kind: "fermata", shape: "angled" },
   },
   {
     id: "fermata-square",
-    label: "Fermata (square)",
+    label: "Fermata (long)",
     glyph: SMUFL.fermataLongAbove,
     resolved: { kind: "fermata", shape: "square" },
   },
   {
-    id: "fermata-double-dot",
+    id: "fermata-double-square",
     label: "Fermata (very long)",
     glyph: SMUFL.fermataVeryLongAbove,
+    resolved: { kind: "fermata", shape: "doubleSquare" },
+  },
+  {
+    id: "fermata-double-dot",
+    label: "Fermata (long, Henze)",
+    glyph: SMUFL.fermataLongHenzeAbove,
     resolved: { kind: "fermata", shape: "doubleDot" },
   },
 ];
@@ -72,9 +89,11 @@ const SEARCH: Record<string, string[]> = {
   "breath-tick": ["tick", "breath", "v"],
   caesura: ["railroad", "tram", "tracks", "pause"],
   "fermata-normal": ["hold", "bird's eye", "corona"],
-  "fermata-short": ["short hold", "breve"],
-  "fermata-long": ["long hold", "lunga"],
-  "fermata-square": ["square hold", "box"],
+  "fermata-double-angled": ["very short hold"],
+  "fermata-angled": ["short hold", "angled", "breve"],
+  "fermata-square": ["long hold", "square", "box", "lunga"],
+  "fermata-double-square": ["very long hold"],
+  "fermata-double-dot": ["long Henze", "double dot"],
 };
 
 function toRadial(items: BreathFermataItem[]): RadialMenuItem[] {

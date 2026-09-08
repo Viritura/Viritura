@@ -958,9 +958,9 @@ export function PalettePanel() {
   }, [active, selectedScoreIndex, store, updateScore]);
 
   const handleFermata = useCallback(
-    (shape: string) => () =>
+    (shape: FermataSymbol) => () =>
       applySelectionScore((score, sel) =>
-        applyBreathFermata(score, sel, { kind: "fermata", shape: shape as FermataSymbol }, selectedScoreIndex),
+        applyBreathFermata(score, sel, { kind: "fermata", shape }, selectedScoreIndex),
       ),
     [applySelectionScore, selectedScoreIndex],
   );
@@ -1595,16 +1595,34 @@ export function PalettePanel() {
             onClick={handleFermata("normal")}
           />
           <PaletteButton
+            label={SMUFL.fermataVeryShortAbove}
+            title="Fermata (very short)"
+            useBravura
+            onClick={handleFermata("doubleAngled")}
+          />
+          <PaletteButton
             label={SMUFL.fermataShortAbove}
             title="Fermata (short)"
             useBravura
-            onClick={handleFermata("short")}
+            onClick={handleFermata("angled")}
           />
           <PaletteButton
             label={SMUFL.fermataLongAbove}
             title="Fermata (long)"
             useBravura
-            onClick={handleFermata("long")}
+            onClick={handleFermata("square")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataVeryLongAbove}
+            title="Fermata (very long)"
+            useBravura
+            onClick={handleFermata("doubleSquare")}
+          />
+          <PaletteButton
+            label={SMUFL.fermataLongHenzeAbove}
+            title="Fermata (long, Henze)"
+            useBravura
+            onClick={handleFermata("doubleDot")}
           />
           <PaletteButton label={SMUFL.caesura} title="Caesura" useBravura onClick={handleSetCaesura("normal")} />
         </div>
