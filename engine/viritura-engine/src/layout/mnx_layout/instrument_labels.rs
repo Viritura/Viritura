@@ -88,48 +88,53 @@ pub(super) fn policy_for_system(
     })
 }
 
-/// Width of the widest instrument or group label across authored systems.
-pub(super) fn explicit_label_margin(
+/// Instrument-label gutters for first and subsequent authored systems.
+pub(super) fn explicit_label_margins(
     system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
     settings: Option<&InstrumentNameDisplaySettings>,
     sp: f64,
     label_style: &TextStyle,
-) -> f64 {
-    let labelled = |staves: &[FlatStaff], groups: &[GroupRange]| {
-        staves.len() > 1
-            && (staves.iter().any(|staff| staff.label.is_some())
-                || groups.iter().any(|group| group.label.is_some()))
+) -> (f64, f64) {
+    let margin = |policy: Option<InstrumentNameDisplayPolicy>,
+                  is_first_system: bool,
+                  include_group_labels: bool| {
+        let widest = system_flat_staves
+            .iter()
+            .filter(|(staves, _)| staves.len() > 1)
+            .flat_map(|(staves, groups)| {
+                staves
+                    .iter()
+                    .filter_map(move |staff| {
+                        label_text(staff, is_first_system, policy)
+                            .map(|label| (label, &staff.condensed_numbers))
+                    })
+                    .map(|(label, numbers)| label_gutter_extent(label, numbers, sp, label_style))
+                    .chain(
+                        (include_group_labels
+                            && policy != Some(InstrumentNameDisplayPolicy::Hidden))
+                        .then_some(groups)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|group| {
+                            group
+                                .label
+                                .as_deref()
+                                .map(|label| label_gutter_extent(label, &[], sp, label_style))
+                        }),
+                    )
+                    .collect::<Vec<_>>()
+            })
+            .fold(0.0_f64, f64::max);
+        if widest > 0.0 {
+            widest + 2.0 * sp
+        } else {
+            0.0
+        }
     };
-    if !system_flat_staves
-        .iter()
-        .any(|(staves, groups)| labelled(staves, groups))
-    {
-        return 0.0;
-    }
-
-    let widest = system_flat_staves
-        .iter()
-        .enumerate()
-        .filter(|(_, (staves, groups))| labelled(staves, groups))
-        .flat_map(|(system_index, (staves, groups))| {
-            let policy = policy_for_system(settings, system_index);
-            staves
-                .iter()
-                .filter_map(move |staff| {
-                    label_text(staff, system_index == 0, policy)
-                        .map(|label| (label, &staff.condensed_numbers))
-                })
-                .map(|(label, numbers)| label_gutter_extent(label, numbers, sp, label_style))
-                .chain(groups.iter().filter_map(|group| {
-                    group
-                        .label
-                        .as_deref()
-                        .map(|label| label_gutter_extent(label, &[], sp, label_style))
-                }))
-                .collect::<Vec<_>>()
-        })
-        .fold(0.0_f64, f64::max);
-    widest + 2.0 * sp
+    (
+        margin(settings.map(|value| value.first_system), true, true),
+        margin(settings.map(|value| value.subsequent_systems), false, false),
+    )
 }
 
 /// Render instrument labels in the left margin of a system.
@@ -274,11 +279,11 @@ pub(super) fn label_text(
     policy: Option<InstrumentNameDisplayPolicy>,
 ) -> Option<&str> {
     match policy {
-        Some(InstrumentNameDisplayPolicy::Full) => flat_staff.label.as_deref(),
+        Some(InstrumentNameDisplayPolicy::Full) => flat_staff.resolved_full_label.as_deref(),
         Some(InstrumentNameDisplayPolicy::Short) => flat_staff
-            .short_label
+            .resolved_short_label
             .as_deref()
-            .or(flat_staff.label.as_deref()),
+            .or(flat_staff.resolved_full_label.as_deref()),
         Some(InstrumentNameDisplayPolicy::Hidden) => None,
         None if is_first_system => flat_staff.label.as_deref(),
         None => flat_staff

@@ -64,6 +64,8 @@ pub(super) fn score_render_salt(
     for staff in flat_staves {
         staff.label.hash(&mut hasher);
         staff.short_label.hash(&mut hasher);
+        staff.resolved_full_label.hash(&mut hasher);
+        staff.resolved_short_label.hash(&mut hasher);
         staff.expansion.hash(&mut hasher);
         staff.condensed_numbers.hash(&mut hasher);
         for source in &staff.sources {

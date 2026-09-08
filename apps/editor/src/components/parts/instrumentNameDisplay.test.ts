@@ -26,15 +26,11 @@ describe("instrument name display policy", () => {
 
   it("writes canonical standard-MNX references without mutating the source layout", () => {
     const original = structuredClone(content);
-    const updated = setScoreInstrumentNameDisplay(
-      [{ id: "base", content }],
-      { layout: "base" },
-      {
-        firstSystem: "short",
-        subsequentSystems: "short",
-      },
-    );
-    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.score)).toEqual({
+    const updated = setScoreInstrumentNameDisplay([{ id: "base", content }], [{ layout: "base" }], 0, {
+      firstSystem: "short",
+      subsequentSystems: "short",
+    });
+    expect(instrumentNameDisplayFor(updated.layouts[0]!.content, updated.scores[0]!)).toEqual({
       firstSystem: "short",
       subsequentSystems: "short",
     });
@@ -49,16 +45,33 @@ describe("instrument name display policy", () => {
 
   it("removes literal and referenced labels for the standard hidden policy", () => {
     const custom: LayoutContent[] = [{ type: "staff", label: "Solo", sources: [{ part: "vn", labelref: "name" }] }];
-    const updated = setScoreInstrumentNameDisplay(
-      [{ id: "base", content: custom }],
-      { layout: "base" },
-      {
-        firstSystem: "hidden",
-        subsequentSystems: "hidden",
-      },
-    );
-    expect(updated.score.instrumentNameDisplay).toBeUndefined();
+    const updated = setScoreInstrumentNameDisplay([{ id: "base", content: custom }], [{ layout: "base" }], 0, {
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+    expect(updated.scores[0]!.instrumentNameDisplay).toBeUndefined();
     expect(updated.layouts[0]!.content).toEqual([{ type: "staff", sources: [{ part: "vn" }] }]);
+  });
+
+  it("treats group labels as custom and removes them when applying a policy", () => {
+    const labelledGroup: LayoutContent[] = [
+      {
+        type: "group",
+        symbol: "brace",
+        label: "Piano",
+        content: [{ type: "staff", sources: [{ part: "pno", labelref: "name" }] }],
+      },
+    ];
+    expect(instrumentNameDisplayFor(labelledGroup, {})).toEqual({
+      firstSystem: "custom",
+      subsequentSystems: "custom",
+    });
+
+    const updated = setScoreInstrumentNameDisplay([{ id: "base", content: labelledGroup }], [{ layout: "base" }], 0, {
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+    expect(updated.layouts[0]!.content[0]).not.toHaveProperty("label");
   });
 
   it("finds every layout used by authored pages and mid-system changes", () => {
@@ -83,24 +96,54 @@ describe("instrument name display policy", () => {
     }));
     const updated = setScoreInstrumentNameDisplay(
       layouts,
-      {
-        layout: "base",
-        pages: [
-          {
-            systems: [
-              { measure: "m1", layout: "first", layoutChanges: [{ layout: "later", location: { measure: "m2" } }] },
-            ],
-          },
-        ],
-      },
+      [
+        {
+          layout: "base",
+          pages: [
+            {
+              systems: [
+                { measure: "m1", layout: "first", layoutChanges: [{ layout: "later", location: { measure: "m2" } }] },
+              ],
+            },
+          ],
+        },
+      ],
+      0,
       { firstSystem: "hidden", subsequentSystems: "full" },
     );
 
-    expect(updated.score.instrumentNameDisplay).toEqual({
+    expect(updated.scores[0]!.instrumentNameDisplay).toEqual({
       firstSystem: "hidden",
       subsequentSystems: "full",
     });
     expect(updated.layouts.slice(0, 3).every((layout) => layout.content[0])).toBe(true);
     expect(updated.layouts[3]).toBe(layouts[3]);
+  });
+
+  it("clones and repoints layouts shared with another score", () => {
+    const layouts = [{ id: "shared", content: structuredClone(content) }];
+    const scores = [
+      { name: "Score", layout: "shared" },
+      { name: "Part", layout: "shared" },
+    ];
+
+    const updated = setScoreInstrumentNameDisplay(layouts, scores, 0, {
+      firstSystem: "hidden",
+      subsequentSystems: "hidden",
+    });
+
+    expect(updated.layouts).toHaveLength(2);
+    expect(updated.scores[0]!.layout).not.toBe("shared");
+    expect(updated.scores[1]!.layout).toBe("shared");
+    expect(updated.layouts.find((layout) => layout.id === "shared")!.content).toEqual(content);
+    expect(updated.layouts.find((layout) => layout.id === updated.scores[0]!.layout)!.content).toEqual([
+      {
+        type: "group",
+        content: [
+          { type: "staff", sources: [{ part: "fl" }] },
+          { type: "staff", sources: [{ part: "ob" }] },
+        ],
+      },
+    ]);
   });
 });

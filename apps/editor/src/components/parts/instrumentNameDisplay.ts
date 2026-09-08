@@ -7,6 +7,7 @@ import type {
   ScoreDefinition,
   StaffLabelRef,
 } from "@viritura/core";
+import { generateId } from "@viritura/core";
 
 export type InstrumentNameDisplayValue = InstrumentNameDisplayPolicy | "custom";
 
@@ -21,10 +22,14 @@ function collectStaffs(content: readonly LayoutContent[], result: LayoutStaff[])
   }
 }
 
+function hasLiteralLabel(content: readonly LayoutContent[]): boolean {
+  return content.some((node) => node.label !== undefined || (node.type === "group" && hasLiteralLabel(node.content)));
+}
+
 function uniformLayoutPolicy(content: readonly LayoutContent[]): InstrumentNameDisplayValue {
   const staffs: LayoutStaff[] = [];
   collectStaffs(content, staffs);
-  if (staffs.length === 0 || staffs.some((staff) => staff.label !== undefined)) return "custom";
+  if (staffs.length === 0 || hasLiteralLabel(content)) return "custom";
 
   const refs = staffs.map(staffLabelRef);
   if (refs.every((ref) => ref === undefined)) return "hidden";
@@ -49,6 +54,7 @@ export function instrumentNameDisplayFor(
 function applyLabelRef(content: LayoutContent[], labelref: StaffLabelRef | undefined): void {
   for (const node of content) {
     if (node.type === "group") {
+      delete node.label;
       applyLabelRef(node.content, labelref);
       continue;
     }
@@ -82,9 +88,12 @@ export function instrumentNameDisplayLayoutIds(score: ScoreDefinition): Set<stri
 
 export function setScoreInstrumentNameDisplay(
   layouts: readonly LayoutDefinition[],
-  score: ScoreDefinition,
+  scores: readonly ScoreDefinition[],
+  scoreIndex: number,
   settings: InstrumentNameDisplaySettings,
-): { layouts: LayoutDefinition[]; score: ScoreDefinition } {
+): { layouts: LayoutDefinition[]; scores: ScoreDefinition[] } {
+  const score = scores[scoreIndex];
+  if (!score) return { layouts: [...layouts], scores: [...scores] };
   const layoutIds = instrumentNameDisplayLayoutIds(score);
   const standardLabelRef =
     settings.firstSystem === "full" && settings.subsequentSystems === "short"
@@ -94,11 +103,21 @@ export function setScoreInstrumentNameDisplay(
         : settings.firstSystem === "hidden" && settings.subsequentSystems === "hidden"
           ? undefined
           : "name";
-  const nextLayouts = layouts.map((layout) =>
-    layoutIds.has(layout.id)
-      ? { ...layout, content: setInstrumentNameDisplay(layout.content, standardLabelRef) }
-      : layout,
-  );
+  const layoutsUsedByOtherScores = new Set<string>();
+  scores.forEach((candidate, index) => {
+    if (index !== scoreIndex) {
+      for (const id of instrumentNameDisplayLayoutIds(candidate)) layoutsUsedByOtherScores.add(id);
+    }
+  });
+  const replacements = new Map<string, string>();
+  const nextLayouts = layouts.flatMap((layout) => {
+    if (!layoutIds.has(layout.id)) return [layout];
+    const updated = { ...layout, content: setInstrumentNameDisplay(layout.content, standardLabelRef) };
+    if (!layoutsUsedByOtherScores.has(layout.id)) return [updated];
+    const id = generateId();
+    replacements.set(layout.id, id);
+    return [layout, { ...updated, id }];
+  });
   const usesStandardMnx =
     (settings.firstSystem === "full" && settings.subsequentSystems === "short") ||
     (settings.firstSystem === "short" && settings.subsequentSystems === "short") ||
@@ -106,7 +125,25 @@ export function setScoreInstrumentNameDisplay(
   const nextScore = { ...score };
   if (usesStandardMnx) delete nextScore.instrumentNameDisplay;
   else nextScore.instrumentNameDisplay = settings;
-  return { layouts: nextLayouts, score: nextScore };
+  if (nextScore.layout) nextScore.layout = replacements.get(nextScore.layout) ?? nextScore.layout;
+  nextScore.pages = nextScore.pages?.map((page) => ({
+    ...page,
+    systems: page.systems.map((system) => ({
+      ...system,
+      ...(system.layout ? { layout: replacements.get(system.layout) ?? system.layout } : {}),
+      ...(system.layoutChanges
+        ? {
+            layoutChanges: system.layoutChanges.map((change) => ({
+              ...change,
+              layout: replacements.get(change.layout) ?? change.layout,
+            })),
+          }
+        : {}),
+    })),
+  }));
+  const nextScores = [...scores];
+  nextScores[scoreIndex] = nextScore;
+  return { layouts: nextLayouts, scores: nextScores };
 }
 
 export type { InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings };

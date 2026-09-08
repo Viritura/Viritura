@@ -659,7 +659,8 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                     staff_height,
                     sp,
                     config,
-                    true, // auto-flow path renders brace labels on every system
+                    policy_for_system(instrument_name_display, sys_idx)
+                        != Some(InstrumentNameDisplayPolicy::Hidden),
                 );
             }
 

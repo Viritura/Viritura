@@ -136,10 +136,9 @@ function applyInstrumentNameDisplay(
   settings: InstrumentNameDisplaySettings,
   onLayoutChange: LayoutChangeHandler,
 ): void {
-  const updated = setScoreInstrumentNameDisplay(score.layouts ?? [], scoreDefinition, settings);
-  const scores = [...(score.scores ?? [])];
-  scores[scoreIndex] = updated.score;
-  onLayoutChange(updated.layouts, scores);
+  const scores = score.scores ?? [scoreDefinition];
+  const updated = setScoreInstrumentNameDisplay(score.layouts ?? [], scores, scoreIndex, settings);
+  onLayoutChange(updated.layouts, updated.scores);
 }
 
 /** Parts not yet present in this score's layout, as an "Add Instrument" submenu. */

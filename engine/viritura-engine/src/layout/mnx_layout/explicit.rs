@@ -37,7 +37,7 @@ use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
 use super::explicit_system_layouts::{build_explicit_system_layouts, PersistentStaffState};
 use super::explicit_widths::compute_explicit_max_widths;
-use super::instrument_labels::{explicit_label_margin, policy_for_system};
+use super::instrument_labels::{explicit_label_margins, policy_for_system};
 use super::page_turn_planning::single_source_part_index;
 use super::shared::*;
 use super::system_connectors::{
@@ -123,6 +123,8 @@ fn resolve_explicit_systems_and_layouts(
                     }],
                     label: Some(full),
                     short_label: Some(short),
+                    resolved_full_label: Some(display_names[i].display_name.clone()),
+                    resolved_short_label: Some(display_names[i].display_short_name.clone()),
                     expansion: false,
                     condensed_numbers: Vec::new(),
                 });
@@ -259,14 +261,14 @@ struct ExplicitSystemCtx<'a> {
     staff_height: f64,
     barline_w: f64,
     base_margin_l: f64,
-    label_margin: f64,
-    margin_left: f64,
+    base_margin_r: f64,
+    first_label_margin: f64,
+    subsequent_label_margin: f64,
     /// First-system indent (px) applied to `sys_idx == 0` only, for single-part
     /// layouts — signals the start of the music exactly like the auto-flow path.
     /// `0.0` for full scores (their instrument-name gutter is the start cue).
     first_system_indent: f64,
     system_count: usize,
-    content_width: Option<f64>,
     common_shortest_beats: f64,
     lyric_line_order: Option<&'a [String]>,
     all_resolved: &'a [Vec<ResolvedMeasure>],
@@ -275,6 +277,28 @@ struct ExplicitSystemCtx<'a> {
     mmr_skip_measures: &'a HashSet<usize>,
     mmr_label_map: &'a HashMap<usize, String>,
     pages: &'a [PageLayout],
+}
+
+fn explicit_system_horizontal_geometry(
+    ctx: &ExplicitSystemCtx<'_>,
+    system_index: usize,
+) -> (f64, Option<f64>, f64) {
+    let indent = if system_index == 0 {
+        ctx.first_system_indent
+    } else {
+        0.0
+    };
+    let label_margin = if system_index == 0 {
+        ctx.first_label_margin
+    } else {
+        ctx.subsequent_label_margin
+    };
+    let margin_left = ctx.base_margin_l + label_margin + indent;
+    let content_width = ctx
+        .config
+        .page_width
+        .map(|width| (width - margin_left - ctx.base_margin_r).max(0.0));
+    (margin_left, content_width, label_margin)
 }
 
 /// Render one system for the explicit-pages path: empty-system fallback,
@@ -302,17 +326,8 @@ fn render_explicit_system(
 ) {
     let sp = ctx.sp;
     let staff_height = ctx.staff_height;
-    // First-system indent for single-part layouts: shift system 0 right by
-    // `first_system_indent` and shrink its justification width to match, so the
-    // music starts with the standard part indent instead of hugging the margin
-    // like a full score. Subsequent systems and full scores get no indent.
-    let indent = if sys_idx == 0 {
-        ctx.first_system_indent
-    } else {
-        0.0
-    };
-    let margin_left = ctx.margin_left + indent;
-    let content_width = ctx.content_width.map(|w| (w - indent).max(0.0));
+    let (margin_left, content_width, label_margin) =
+        explicit_system_horizontal_geometry(ctx, sys_idx);
     let system_count = ctx.system_count;
 
     // Initial naive staff Y offsets (overwritten by Phase 2 in the non-empty
@@ -516,7 +531,9 @@ fn render_explicit_system(
         staff_height,
         sp,
         ctx.config,
-        sys_idx == 0,
+        sys_idx == 0
+            && policy_for_system(ctx.score_def.instrument_name_display.as_ref(), sys_idx)
+                != Some(InstrumentNameDisplayPolicy::Hidden),
     );
 
     // Individual staff labels (long on first system, short on rest; staves
@@ -530,7 +547,7 @@ fn render_explicit_system(
             flat_staves,
             group_ranges,
             &staff_y_offsets,
-            ctx.base_margin_l + ctx.label_margin - 2.0 * sp,
+            ctx.base_margin_l + label_margin - 2.0 * sp,
             staff_height,
             sp,
             sys_idx,
@@ -694,7 +711,7 @@ pub fn layout_with_mnx_scores_cached(
     let label_style = config
         .text_styles
         .resolve(crate::layout::text_styles::TextRole::StaffLabel);
-    let label_margin = explicit_label_margin(
+    let (first_label_margin, subsequent_label_margin) = explicit_label_margins(
         &system_flat_staves,
         score_def.instrument_name_display.as_ref(),
         sp,
@@ -716,7 +733,7 @@ pub fn layout_with_mnx_scores_cached(
     } else {
         config.margin_right
     };
-    let margin_left = base_margin_l + label_margin;
+    let max_margin_left = base_margin_l + first_label_margin.max(subsequent_label_margin);
     let margin_top = if config.page_width.is_some() {
         config.page_margin_top * sp
     } else {
@@ -784,14 +801,20 @@ pub fn layout_with_mnx_scores_cached(
         cache,
     );
 
-    let content_width = config
+    let first_content_width = config
         .page_width
-        .map(|pw| pw - margin_left - base_margin_r_sp * sp);
+        .map(|pw| pw - base_margin_l - first_label_margin - base_margin_r_sp * sp);
+    let subsequent_content_width = config
+        .page_width
+        .map(|pw| pw - base_margin_l - subsequent_label_margin - base_margin_r_sp * sp);
 
     // Sub-break systems whose natural width exceeds available content width.
-    if let Some(avail_w) = content_width {
+    if let (Some(first_width), Some(subsequent_width)) =
+        (first_content_width, subsequent_content_width)
+    {
         expand_oversized_systems_explicit(
-            avail_w,
+            first_width,
+            subsequent_width,
             &max_widths,
             &skip_measures,
             &mut system_measure_ranges,
@@ -814,7 +837,7 @@ pub fn layout_with_mnx_scores_cached(
         sp,
         staff_height,
         margin_top,
-        margin_left,
+        max_margin_left,
         base_margin_r_sp,
         inter_group_gap,
         inter_staff_gap,
@@ -869,11 +892,11 @@ pub fn layout_with_mnx_scores_cached(
         staff_height,
         barline_w,
         base_margin_l,
-        label_margin,
-        margin_left,
+        base_margin_r: base_margin_r_sp * sp,
+        first_label_margin,
+        subsequent_label_margin,
         first_system_indent,
         system_count,
-        content_width,
         common_shortest_beats,
         lyric_line_order,
         all_resolved: &all_resolved,
