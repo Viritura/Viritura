@@ -13,6 +13,7 @@ import { deleteNote } from "../commands/noteCommands";
 import {
   deleteAnnotation,
   deleteAnnotations,
+  deleteArpeggioByElementId,
   deleteGraceNote,
   expandCondensedDynamicLocations,
 } from "../commands/deleteCommands";
@@ -172,6 +173,7 @@ function deleteCondensedWholeEvent(
 function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreIndex: number): Score | null | undefined {
   if (elementId.endsWith("/measurerepeat")) return deleteMeasureRepeatByElementId(score, elementId);
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);
+  if (elementId.endsWith("/arp")) return deleteArpeggioByElementId(score, elementId);
   if (isAccidentalId(elementId)) return deleteCondensedAccidental(score, elementId, selectedScoreIndex);
   if (isArticulationId(elementId)) return deleteCondensedArticulation(score, elementId, selectedScoreIndex);
   return undefined;

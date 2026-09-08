@@ -7,6 +7,7 @@ import {
   applyFingeringToSelection,
   applyOrnamentToSelection,
   applyTrillToSelection,
+  applyArpeggioToSelection,
 } from "../radialMenu/applyToSelection";
 import { getEventAtLocation } from "../score/ElementPath";
 import type { Selection } from "../store/selectionStore";
@@ -45,6 +46,29 @@ function markingsOf(score: Score, eventIndex: number): NonNullable<NoteEvent["ma
   const ev = getEventAtLocation(score, { partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex });
   return ev?.type === "event" ? ev.markings : undefined;
 }
+
+describe("applyArpeggioToSelection", () => {
+  it("adds an arpeggio to a selected chord whose notes do not yet have ids", () => {
+    const next = applyArpeggioToSelection(
+      makeScore(),
+      { kind: "single", elementId: "p0/m0/s0/ev0", elementType: "event" },
+      "up",
+    );
+
+    expect(next).not.toBeNull();
+    const chordEvent = next!.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+    expect(chordEvent.notes?.[0]?.id).toBeDefined();
+    expect(chordEvent.notes?.[2]?.id).toBeDefined();
+    expect(next!.parts[0]!.measures[0]!.arpeggios).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        span: { start: chordEvent.notes![0]!.id!, end: chordEvent.notes![2]!.id! },
+        direction: "up",
+        arrow: true,
+      },
+    ]);
+  });
+});
 
 describe("applyArticulationToSelection", () => {
   it("toggles a chord exactly once when two of its noteheads are selected (no double-cancel)", () => {

@@ -5,7 +5,7 @@
  * compatibility — external callers should keep importing from noteCommands.
  */
 
-import type { NoteEvent, Score, SequenceContent } from "@viritura/core";
+import type { NoteEvent, Score, Sequence, SequenceContent } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import { iterAllEvents } from "../keyboard/normalModeDeleteHelpers";
 import type { EventLocation } from "../score/ElementPath";
@@ -165,13 +165,38 @@ function firstNoteEventFrom(content: SequenceContent[], startIdx: number): NoteE
 }
 
 /** Find the first note event in any subsequent measure (same sequence index). */
+function matchingSequenceIndex(
+  sequences: { staff?: number; voice?: string }[],
+  sourceSequences: { staff?: number; voice?: string }[],
+  sourceIndex: number,
+): number {
+  const source = sourceSequences[sourceIndex];
+  if (!source) return sourceIndex;
+  if (source.voice !== undefined) {
+    const exact = sequences.findIndex((sequence) => sequence.voice === source.voice && sequence.staff === source.staff);
+    if (exact >= 0) return exact;
+  }
+  if (source.staff !== undefined) {
+    const sourceStaffOrdinal =
+      sourceSequences.slice(0, sourceIndex + 1).filter((sequence) => sequence.staff === source.staff).length - 1;
+    const sameStaff = sequences
+      .map((sequence, index) => ({ sequence, index }))
+      .filter(({ sequence }) => sequence.staff === source.staff);
+    if (sameStaff[sourceStaffOrdinal]) return sameStaff[sourceStaffOrdinal]!.index;
+  }
+  return sourceIndex;
+}
+
 function firstNoteEventInFollowingMeasures(
-  measures: { sequences: { content: SequenceContent[] }[] }[],
+  measures: { sequences: Sequence[] }[],
   fromMeasureIdx: number,
   sequenceIndex: number,
+  sourceSequences: { staff?: number; voice?: string }[],
 ): NoteEvent | null {
   for (let m = fromMeasureIdx; m < measures.length; m++) {
-    const nextSeq = measures[m]?.sequences[sequenceIndex];
+    const sequences = measures[m]?.sequences;
+    if (!sequences) continue;
+    const nextSeq = sequences[matchingSequenceIndex(sequences, sourceSequences, sequenceIndex)];
     if (!nextSeq) continue;
     const found = firstNoteEventFrom(nextSeq.content, 0);
     if (found) return found;
@@ -212,7 +237,12 @@ export function addTie(score: Score, params: AddTieParams): Score | null {
     targetEv = firstNoteEventFrom(seq.content, tupletIndex + 1);
   }
   if (!targetEv) {
-    targetEv = firstNoteEventInFollowingMeasures(part.measures, measureIndex + 1, sequenceIndex);
+    targetEv = firstNoteEventInFollowingMeasures(
+      part.measures,
+      measureIndex + 1,
+      sequenceIndex,
+      part.measures[measureIndex]!.sequences,
+    );
   }
   if (!targetEv || !targetEv.notes) return null;
 

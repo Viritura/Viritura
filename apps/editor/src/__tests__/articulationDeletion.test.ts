@@ -193,6 +193,7 @@ function makeCtx(
     clearSelection: () => {
       calls.push("clear");
     },
+    getConfig: () => ({ selectedScoreIndex: 0 }),
   } as unknown as KeyboardHandlerContext;
   return { ctx, latest: () => current, selectionCalls: () => calls };
 }
@@ -200,6 +201,34 @@ function makeCtx(
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
 describe("handleDelete — articulations", () => {
+  it("deletes a selected arpeggio sign without deleting its chord", () => {
+    const score = makeScore({});
+    const chord = eventOf(score);
+    chord.notes = [
+      { id: "low", pitch: { step: "C", octave: 4 } },
+      { id: "high", pitch: { step: "G", octave: 4 } },
+    ];
+    score.parts[0]!.measures[0]!.arpeggios = [
+      {
+        position: { fraction: [0, 1] },
+        span: { start: "low", end: "high" },
+        direction: "up",
+        arrow: true,
+      },
+    ];
+    const { ctx, latest, selectionCalls } = makeCtx(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/e1/arp",
+      elementType: "arpeggio",
+    });
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(latest().parts[0]!.measures[0]!.arpeggios).toBeUndefined();
+    expect(eventOf(latest()).notes).toEqual(chord.notes);
+    expect(selectionCalls()).toEqual(["clear"]);
+  });
+
   it("strips the marking and leaves the note intact", () => {
     const sel: Selection = { kind: "single", elementId: ACCENT };
     const { ctx, latest } = makeCtx(makeScore({ accent: {}, tenuto: {} }), sel);

@@ -37,6 +37,136 @@ const paste: PasteResult = {
 };
 
 describe("computePasteResult grand-staff destinations", () => {
+  it("uses the active input cursor after a tuplet instead of the copied selection", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Flute",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      type: "tuplet",
+                      inner: { multiple: 5, duration: { base: "16th" } },
+                      outer: { multiple: 4, duration: { base: "16th" } },
+                      content: ["t1", "t2", "t3", "t4", "t5"].map((id) => ({
+                        type: "event" as const,
+                        id,
+                        duration: { base: "16th" as const },
+                        notes: [{ pitch: { step: "C" as const, octave: 4 as const } }],
+                      })),
+                    },
+                    {
+                      type: "event",
+                      id: "blue",
+                      duration: { base: "quarter" },
+                      notes: [{ pitch: { step: "E", octave: 4 } }],
+                    },
+                    { type: "event", id: "destination", duration: { base: "quarter" }, rest: {} },
+                    { type: "event", id: "tail", duration: { base: "quarter" }, rest: {} },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = computePasteResult(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/blue", elementType: "event" },
+      {
+        content: [
+          {
+            type: "event",
+            id: "pasted-blue",
+            duration: { base: "quarter" },
+            notes: [{ pitch: { step: "E", octave: 4 } }],
+          },
+        ],
+        sourceTimeSignature: { count: 4, unit: 4 },
+        sourceKeySignature: { fifths: 0 },
+      },
+      { measureIndex: 0, beatPosition: 2, partIndex: 0, staffIndex: 0, voice: 0 },
+    );
+
+    const content = result!.newScore.parts[0]!.measures[0]!.sequences[0]!.content;
+    expect(content[0]).toMatchObject({ type: "tuplet", inner: { multiple: 5 }, outer: { multiple: 4 } });
+    expect(content[1]).toMatchObject({ type: "event", id: "blue" });
+    expect(content[2]).toMatchObject({ type: "event", id: "pasted-blue" });
+    expect(result!.cursorAfterPaste).toEqual({
+      measureIndex: 0,
+      beatPosition: 3,
+      partIndex: 0,
+      staffIndex: 0,
+    });
+  });
+
+  it("anchors a paste on the containing tuplet when an inner event is selected", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Flute",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    { type: "event", id: "before", duration: { base: "quarter" }, rest: {} },
+                    {
+                      type: "tuplet",
+                      inner: { multiple: 3, duration: { base: "eighth" } },
+                      outer: { multiple: 2, duration: { base: "eighth" } },
+                      content: ["one", "two", "three"].map((id) => ({
+                        type: "event" as const,
+                        id,
+                        duration: { base: "eighth" as const },
+                        rest: {},
+                      })),
+                    },
+                    {
+                      type: "event",
+                      id: "after",
+                      duration: { base: "quarter" },
+                      notes: [{ pitch: { step: "A", octave: 4 } }],
+                    },
+                    { type: "event", id: "tail", duration: { base: "quarter" }, rest: {} },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = computePasteResult(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/three", elementType: "event" },
+      {
+        content: [
+          {
+            type: "event",
+            id: "pasted",
+            duration: { base: "quarter" },
+            notes: [{ pitch: { step: "G", octave: 4 } }],
+          },
+        ],
+        sourceTimeSignature: { count: 4, unit: 4 },
+        sourceKeySignature: { fifths: 0 },
+      },
+    );
+
+    const content = result!.newScore.parts[0]!.measures[0]!.sequences[0]!.content;
+    expect(content[1]).toMatchObject({ type: "event", id: "pasted" });
+    expect(content[2]).toMatchObject({ type: "event", id: "after" });
+  });
+
   it.each([
     {
       label: "selected lower-staff bar",

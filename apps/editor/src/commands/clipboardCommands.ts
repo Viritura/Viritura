@@ -599,7 +599,7 @@ function mergeRests(seq: { content: SequenceContent[] }): void {
   while (i < seq.content.length - 1) {
     const curr = seq.content[i]!;
     const next = seq.content[i + 1]!;
-    if (isRest(curr as NoteEvent) && isRest(next as NoteEvent)) {
+    if (curr.type === "event" && next.type === "event" && isRest(curr) && isRest(next)) {
       const totalBeats = sequenceContentBeats(curr) + sequenceContentBeats(next);
       const merged = decomposeDuration(totalBeats);
       if (merged.length === 1) {

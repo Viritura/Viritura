@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { resolveEventLocation } from "../score/ElementPath";
-import { sequenceContentBeats } from "../commands/noteCommands";
+import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
 import { computeEndOfContentCursor } from "../commands/cursorCommands";
 import { measureIndexFromElementId, partIndexFromElementId } from "../commands/signatureCommands";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
@@ -23,9 +23,18 @@ function cursorAtEvent(elementId: string, score: Score): CursorPosition | null {
   if (!loc) return null;
   const seq = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
   if (!seq) return null;
-  let beatPosition = 0;
-  for (let index = 0; index < loc.eventIndex && index < seq.content.length; index++) {
-    beatPosition += sequenceContentBeats(seq.content[index]!);
+  const topLevelIndex = loc.tupletIndex ?? loc.eventIndex;
+  let beatPosition = seq.content.slice(0, topLevelIndex).reduce((beats, item) => beats + sequenceContentBeats(item), 0);
+  if (loc.tupletIndex !== undefined) {
+    const container = seq.content[loc.tupletIndex];
+    if (container?.type === "tuplet") {
+      const innerBeats = container.outer.multiple * durationToBeats(container.outer.duration);
+      const notatedBeats = container.inner.multiple * durationToBeats(container.inner.duration);
+      const scale = notatedBeats > 0 ? innerBeats / notatedBeats : 1;
+      beatPosition += container.content
+        .slice(0, loc.eventIndex)
+        .reduce((beats, item) => beats + sequenceContentBeats(item) * scale, 0);
+    }
   }
   return {
     measureIndex: loc.measureIndex,

@@ -4,7 +4,7 @@
 import type { Score, NoteEvent, SequenceContent, Sequence } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import type { SelectionState } from "../store/selectionStore";
-import { deleteAnnotation, deleteGraceNote } from "./deleteCommands";
+import { deleteAnnotation, deleteArpeggioByElementId, deleteGraceNote } from "./deleteCommands";
 import { deleteNote } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
@@ -128,6 +128,12 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
     const withoutRepeat = deleteMeasureRepeatByElementId(score, elementId);
     return withoutRepeat
       ? { kind: "single", score: withoutRepeat, nextSelection: { kind: "clear" } }
+      : { kind: "noop" };
+  }
+  if (elementId.endsWith("/arp")) {
+    const withoutArpeggio = deleteArpeggioByElementId(score, elementId);
+    return withoutArpeggio
+      ? { kind: "single", score: withoutArpeggio, nextSelection: { kind: "clear" } }
       : { kind: "noop" };
   }
   // An accidental deletes to a respelling of its note, not to a rest, so it

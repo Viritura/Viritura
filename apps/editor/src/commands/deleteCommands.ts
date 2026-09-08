@@ -1,5 +1,6 @@
 import type { DynamicGroup, Score, SequenceContent } from "@viritura/core";
 import type { AnnotationLocation, GraceLocation } from "../score/ElementPath";
+import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
 import { condensedStaffSourcePartIndices } from "../score/condensedWriteback";
 
@@ -55,6 +56,31 @@ const PART_ANNOTATION_KEYS: Partial<Record<AnnotationLocation["type"], keyof Par
   pedal: "pedals",
   ottava: "ottavas",
 };
+
+/** Delete the standard arpeggio or non-arpeggio span tagged as `{eventId}/arp`. */
+export function deleteArpeggioByElementId(score: Score, elementId: string): Score | null {
+  if (!elementId.endsWith("/arp")) return null;
+  const location = resolveEventLocation(elementId.slice(0, -4), score);
+  if (!location) return null;
+  const event = getEventAtLocation(score, location);
+  const noteIds = new Set(event?.type === "event" ? event.notes?.flatMap((note) => (note.id ? [note.id] : [])) : []);
+  if (noteIds.size < 2) return null;
+
+  const next = cloneScore(score);
+  const measure = next.parts[location.partIndex]?.measures[location.measureIndex];
+  if (!measure) return null;
+  const matchesChord = (value: { span: { start: string; end: string } }) =>
+    noteIds.has(value.span.start) && noteIds.has(value.span.end);
+  const arpeggioCount = measure.arpeggios?.length ?? 0;
+  const nonArpeggioCount = measure.nonArpeggios?.length ?? 0;
+  measure.arpeggios = measure.arpeggios?.filter((value) => !matchesChord(value));
+  measure.nonArpeggios = measure.nonArpeggios?.filter((value) => !matchesChord(value));
+  if (measure.arpeggios?.length === 0) delete measure.arpeggios;
+  if (measure.nonArpeggios?.length === 0) delete measure.nonArpeggios;
+  const changed =
+    arpeggioCount !== (measure.arpeggios?.length ?? 0) || nonArpeggioCount !== (measure.nonArpeggios?.length ?? 0);
+  return changed ? next : null;
+}
 
 /**
  * Dynamics and hairpins both live in `pm.dynamics` and are addressed by group

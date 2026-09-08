@@ -235,8 +235,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // rebuild the spatial index immediately (not on the typing debounce) so the
     // selection overlay tracks edited geometry instead of lagging one edit
     // behind (e.g. transposing a selected note).
-    const selectionActiveRef = useRef(false);
-    selectionActiveRef.current = selection.kind !== "none";
     const selectionActions = useSelectionActions();
     const { selectElement, extendSelection, toggleSelection, selectMeasure, extendMeasure, clearSelection } =
       selectionActions;
@@ -548,9 +546,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
 
     // Repaint debounce/rAF refs (used by fast-layout path + paintNow scheduling).
     const rafRef = useRef(0);
-    /** Debounce timer for spatial index rebuild during rapid edits. */
-    const spatialDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
     // Register synchronous fast-layout callback on the global perf tracker.
     // DocumentContext calls this from updateScore BEFORE React state updates,
     // eliminating the ~32ms react-schedule gap.
@@ -563,14 +558,10 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       displayListRef,
       displayListVersionRef,
       spatialIndexRef,
-      rafRef,
-      spatialDebounceRef,
       docScoreRef,
       paintNowRef,
       lastFastPaintedJsonRef,
       pendingFastJsonRef,
-      interactionModeRef,
-      selectionActiveRef,
     });
 
     // Ref to track selectedScoreIndex without triggering the main effect
@@ -625,8 +616,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           displayListRef,
           displayListVersionRef,
           spatialIndexRef,
-          rafRef,
-          spatialDebounceRef,
           docScoreRef,
           paintNowRef,
           perfTracker: perfTrackerRef.current,
@@ -1047,8 +1036,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       return () => {
         cancelAnimationFrame(rafRef.current);
         clearTimeout(zoomTileTimerRef.current);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- timeout handle ref, intentional
-        clearTimeout(spatialDebounceRef.current);
       };
     }, [loading, repaint, selectedIds]);
 

@@ -119,6 +119,18 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
       // measure selections set the clef at the measure boundary.
       let position: { fraction: [number, number] } | undefined;
       let staff: number | undefined;
+      if (
+        selection.kind === "measure" &&
+        selection.startLocalStaffIndex !== undefined &&
+        (selection.endLocalStaffIndex === undefined || selection.startLocalStaffIndex === selection.endLocalStaffIndex)
+      ) {
+        staff = selection.startLocalStaffIndex + 1;
+      } else if (
+        (selection.kind === "single" || selection.kind === "range") &&
+        selection.measureAnchor?.localStaffIndex !== undefined
+      ) {
+        staff = selection.measureAnchor.localStaffIndex + 1;
+      }
       if (selection.kind === "single" && selection.elementId) {
         const loc = resolveEventLocation(selection.elementId, score);
         if (loc) {
@@ -133,7 +145,7 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
               const reduced = toReducedFraction(scaledNumerator, 4096);
               position = { fraction: reduced };
             }
-            staff = sequence.staff;
+            staff = sequence.staff ?? staff;
           }
         }
       }

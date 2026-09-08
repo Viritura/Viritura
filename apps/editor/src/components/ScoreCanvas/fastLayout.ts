@@ -7,8 +7,6 @@ export interface FastLayoutRefs {
   displayListRef: { current: DisplayList | null };
   displayListVersionRef: { current: number };
   spatialIndexRef: { current: SpatialIndex | null };
-  rafRef: { current: number };
-  spatialDebounceRef: { current: ReturnType<typeof setTimeout> | undefined };
   docScoreRef: { current: Score | null };
   paintNowRef: { current: (forceDirect?: boolean) => void };
   perfTracker: PerfTracker;
@@ -32,11 +30,6 @@ export async function runFastLayoutAndPaint(
      * from a document generation superseded by `LayoutCoalescer.reset()`.
      */
     shouldCommit?: () => boolean;
-    /** When true, rebuild the spatial index synchronously instead of on the
-     *  150 ms debounce. Used in engrave mode so a just-dragged element is
-     *  immediately re-grabbable (the debounced index would still report its
-     *  pre-edit hit region, so the next pointer-down would miss and deselect). */
-    immediateSpatialIndex?: boolean;
   } & FastLayoutRefs,
 ): Promise<void> {
   const {
@@ -44,12 +37,9 @@ export async function runFastLayoutAndPaint(
     computeDisplayList,
     patchInfo,
     shouldCommit,
-    immediateSpatialIndex = false,
     displayListRef,
     displayListVersionRef,
     spatialIndexRef,
-    rafRef,
-    spatialDebounceRef,
     docScoreRef,
     paintNowRef,
     perfTracker,
@@ -70,15 +60,6 @@ export async function runFastLayoutAndPaint(
 
   const previousDisplayList = displayListRef.current;
   const previousSpatialIndex = spatialIndexRef.current;
-  displayListRef.current = displayList;
-  spatialIndexRef.current = null;
-  perfTracker.wasmLayoutMs = t1 - t0;
-
-  displayListVersionRef.current += 1;
-  performance.mark("viritura:raf-callback");
-  performance.mark("viritura:repaint-call");
-  // Direct render for instant feedback — spatial index deferred
-  paintNowRef.current(true);
   if (displayList.finalizeRetainedFrame) {
     performance.mark("viritura:compatibility-reconstruct-start");
     displayList.finalizeRetainedFrame();
@@ -94,85 +75,28 @@ export async function runFastLayoutAndPaint(
     }
   }
 
-  scheduleSpatialIndexRebuild({
-    displayList,
-    previousDisplayList,
+  performance.mark("viritura:spatial-start");
+  const s0 = performance.now();
+  const spatialIndex = updateEnrichedSpatialIndexForPatch(
     previousSpatialIndex,
-    patchInfo,
-    rafRef,
-    spatialDebounceRef,
-    docScoreRef,
-    spatialIndexRef,
-    perfTracker,
-    paintNowRef,
-    immediate: immediateSpatialIndex,
-  });
-}
-
-/**
- * Debounce spatial index rebuild: only run 150ms after the last edit.
- * Spatial index is only needed for mouse interaction (click-to-select,
- * hover), not for visual rendering, so skipping it during rapid typing
- * avoids wasting ~18ms per keystroke on a 23-part score.
- */
-function scheduleSpatialIndexRebuild(args: {
-  displayList: DisplayList;
-  previousDisplayList: DisplayList | null;
-  previousSpatialIndex: SpatialIndex | null;
-  patchInfo?: PatchInfo;
-  rafRef: { current: number };
-  spatialDebounceRef: { current: ReturnType<typeof setTimeout> | undefined };
-  docScoreRef: { current: Score | null };
-  spatialIndexRef: { current: SpatialIndex | null };
-  perfTracker: PerfTracker;
-  paintNowRef: { current: (forceDirect?: boolean) => void };
-  /** Rebuild synchronously now instead of on the 150 ms debounce. */
-  immediate?: boolean;
-}): void {
-  const {
-    displayList,
     previousDisplayList,
-    previousSpatialIndex,
+    displayList,
+    docScoreRef.current,
     patchInfo,
-    rafRef,
-    spatialDebounceRef,
-    docScoreRef,
-    spatialIndexRef,
-    perfTracker,
-    paintNowRef,
-    immediate,
-  } = args;
-  cancelAnimationFrame(rafRef.current);
-  clearTimeout(spatialDebounceRef.current);
-  const scoreSnapshot = docScoreRef.current;
-  const rebuild = (): void => {
-    performance.mark("viritura:spatial-start");
-    const s0 = performance.now();
-    spatialIndexRef.current = updateEnrichedSpatialIndexForPatch(
-      previousSpatialIndex,
-      previousDisplayList,
-      displayList,
-      scoreSnapshot,
-      patchInfo,
-    );
-    perfTracker.spatialIndexMs = performance.now() - s0;
-    performance.mark("viritura:spatial-end");
-    try {
-      performance.measure("viritura:spatial-index", "viritura:spatial-start", "viritura:spatial-end");
-    } catch {
-      /* ignore */
-    }
-    // Repaint so overlays that read from the spatial index (e.g. the selection
-    // highlight) re-render at the freshly-laid-out geometry. Without this the
-    // overlay keeps painting the pre-rebuild bbox and lags one edit behind
-    // (e.g. transposing a selected note leaves the blue highlight a step away).
-    paintNowRef.current(true);
-  };
-  if (immediate) {
-    rebuild();
-    return;
+  );
+  perfTracker.spatialIndexMs = performance.now() - s0;
+  performance.mark("viritura:spatial-end");
+  try {
+    performance.measure("viritura:spatial-index", "viritura:spatial-start", "viritura:spatial-end");
+  } catch {
+    /* ignore */
   }
-  spatialDebounceRef.current = setTimeout(() => {
-    rafRef.current = requestAnimationFrame(rebuild);
-  }, 150);
+
+  displayListRef.current = displayList;
+  spatialIndexRef.current = spatialIndex;
+  perfTracker.wasmLayoutMs = t1 - t0;
+  displayListVersionRef.current += 1;
+  performance.mark("viritura:raf-callback");
+  performance.mark("viritura:repaint-call");
+  paintNowRef.current(true);
 }

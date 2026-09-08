@@ -52,6 +52,41 @@ describe("useSignatureActions — scope derivation via resolveSelectionScope", (
     expect(updateScore).toHaveBeenCalledWith(setTimeSignature(score, 1, { count: 3, unit: 4 }));
   });
 
+  it("applies a clef only to the selected staff of a grand staff", () => {
+    const score = makeScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[1] = {
+      clefs: [
+        { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+        { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+      ],
+      sequences: [
+        { content: [note("upper")], staff: 1 },
+        { content: [note("lower", "C", 3)], staff: 2 },
+      ],
+    };
+    const sel: SelectionState = {
+      kind: "measure",
+      startMeasure: 1,
+      endMeasure: 1,
+      startPartIndex: 0,
+      endPartIndex: 0,
+      startStaffIndex: 0,
+      endStaffIndex: 0,
+      startLocalStaffIndex: 0,
+      endLocalStaffIndex: 0,
+    };
+    const { actions, updateScore } = setup(score, sel);
+
+    actions.handleSetClef({ sign: "C", staffPosition: 0 });
+
+    const updated = updateScore.mock.calls[0]![0];
+    expect(updated.parts[0]!.measures[1]!.clefs).toEqual([
+      { clef: { sign: "C", staffPosition: 0 }, staff: 1 },
+      { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+    ]);
+  });
+
   it("applies a key signature at the lowest measure of a multi selection", () => {
     const score = makeScore();
     const sel: SelectionState = { kind: "multi", elementIds: ["p0/m2/s0/e2", "p0/m1/s0/e1"] };

@@ -5,6 +5,7 @@ import { isRest } from "@viritura/core";
 import {
   addNote,
   addSlur,
+  addTie,
   findForwardSlurTargetId,
   setNoteAccidentalDisplay,
   toggleCourtesyAccidental,
@@ -29,6 +30,78 @@ import {
   toggleRestAtLocations,
   toggleDotAtLocations,
 } from "../commands/noteCommands";
+
+describe("addTie grand-staff continuation", () => {
+  it("follows the bass staff when its sequence index changes in the next measure", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }, {}, {}] },
+      parts: [
+        {
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              sequences: [
+                { staff: 1, content: [{ type: "event", duration: { base: "whole" }, rest: {} }] },
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      id: "bass-source",
+                      duration: { base: "whole" },
+                      notes: [{ id: "bass-source-note", pitch: { step: "C", octave: 3 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              sequences: [
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      id: "bass-target",
+                      duration: { base: "whole" },
+                      notes: [{ id: "bass-target-note", pitch: { step: "C", octave: 3 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              sequences: [
+                { staff: 1, content: [{ type: "event", duration: { base: "whole" }, rest: {} }] },
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      id: "bass-final",
+                      duration: { base: "whole" },
+                      notes: [{ id: "bass-final-note", pitch: { step: "C", octave: 3 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(addTie(score, { partIndex: 0, measureIndex: 0, sequenceIndex: 1, eventIndex: 0 })).not.toBeNull();
+    const source = score.parts[0]!.measures[0]!.sequences[1]!.content[0] as NoteEvent;
+    expect(source.notes![0]!.ties).toEqual([{ target: "bass-target-note" }]);
+
+    expect(addTie(score, { partIndex: 0, measureIndex: 1, sequenceIndex: 0, eventIndex: 0 })).not.toBeNull();
+    const middle = score.parts[0]!.measures[1]!.sequences[0]!.content[0] as NoteEvent;
+    expect(middle.notes![0]!.ties).toEqual([{ target: "bass-final-note" }]);
+  });
+});
 
 // ═══════════════════════════════════════════
 // Helpers

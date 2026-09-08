@@ -24,6 +24,7 @@ export type ScoreElementType =
   | "hairpin"
   | "pedal"
   | "ottava"
+  | "arpeggio"
   | "volta"
   | "note"
   | "accidental"
@@ -56,6 +57,7 @@ export function getElementType(id: string): ScoreElementType {
   if (last.startsWith("hairpin")) return "hairpin";
   if (last.startsWith("pedal")) return "pedal";
   if (last.startsWith("ottava")) return "ottava";
+  if (last === "arp") return "arpeggio";
   if (last.startsWith("volta")) return "volta";
   if (/^n\d/.test(last)) return "note";
   if (/^acc\d/.test(last)) return "accidental";

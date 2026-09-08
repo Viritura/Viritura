@@ -24,7 +24,10 @@ const SCORE: Score = {
                   type: "event",
                   id: "first-note",
                   duration: { base: "quarter" },
-                  notes: [{ pitch: { step: "C", octave: 4 } }],
+                  notes: [
+                    { id: "first-note-low", pitch: { step: "C", octave: 4 } },
+                    { id: "first-note-high", pitch: { step: "E", octave: 4 } },
+                  ],
                 },
               ],
             },
@@ -62,6 +65,7 @@ function WithScore({ children }: { readonly children: ReactNode }) {
       </output>
       <output data-testid="time-0">{JSON.stringify(score.global.measures[0]?.time ?? null)}</output>
       <output data-testid="time-1">{JSON.stringify(score.global.measures[1]?.time ?? null)}</output>
+      <output data-testid="arpeggios-1">{JSON.stringify(score.parts[0]?.measures[1]?.arpeggios ?? null)}</output>
     </>
   ) : null;
 }
@@ -88,6 +92,28 @@ describe("PalettePanel", () => {
     ]) {
       expect(await screen.findByRole("button", { name })).toBeTruthy();
     }
+  });
+
+  it("applies an arpeggio to a selected chord", async () => {
+    useSelectionStore.setState({
+      selection: { kind: "single", elementId: "p0/m1/s0/first-note", elementType: "event" },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Arpeggio up" }));
+
+    expect(screen.getByTestId("arpeggios-1").textContent).toBe(
+      '[{"position":{"fraction":[0,1]},"span":{"start":"first-note-low","end":"first-note-high"},"direction":"up","arrow":true}]',
+    );
   });
 
   it("applies a custom time signature to a selected measure", async () => {
