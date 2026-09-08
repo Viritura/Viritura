@@ -61,6 +61,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     openedFile,
     setSelectedScoreIndex,
     setFileHandle,
+    setFileError,
   });
 
   useBootSequence({

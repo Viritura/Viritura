@@ -23,6 +23,10 @@ export const errorBannerStyle: React.CSSProperties = {
   color: "var(--warning)",
   fontSize: "0.85rem",
   flexShrink: 0,
+  maxHeight: "12rem",
+  overflow: "auto",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
 };
 
 export const printWarningBannerStyle: React.CSSProperties = {

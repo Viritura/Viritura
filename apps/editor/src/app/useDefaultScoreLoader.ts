@@ -9,6 +9,11 @@ import type { Score } from "@viritura/core";
 import { openPercussionReviewForParts } from "../store/drumKitTargetStore";
 import { DEFAULT_SCORE_SAMPLE, type ScoreSample } from "../scoreSamples";
 
+export function formatOpenedFileError(filename: string, error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `Could not open "${filename}".\n${detail}\nPlease include this message when reporting the issue.`;
+}
+
 interface UseDefaultScoreLoaderArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
   loadScore: (score: Score, fileName?: string, mnxJson?: string) => void;
@@ -16,6 +21,7 @@ interface UseDefaultScoreLoaderArgs {
   openedFile: OpenFileResult | null;
   setSelectedScoreIndex: (idx: number) => void;
   setFileHandle: (handle: FileSystemFileHandle | null) => void;
+  setFileError: (error: string | null) => void;
 }
 
 export interface DefaultScoreLoader {
@@ -30,6 +36,7 @@ export function useDefaultScoreLoader({
   openedFile,
   setSelectedScoreIndex,
   setFileHandle,
+  setFileError,
 }: UseDefaultScoreLoaderArgs): DefaultScoreLoader {
   const loadBundledScore = useCallback(
     async (sample: ScoreSample) => {
@@ -89,6 +96,7 @@ export function useDefaultScoreLoader({
       loadScore(parsed, openedFile.filename);
       resetHistory(store.getState().mnxJson || openedFile.mnxJson);
       setFileHandle(openedFile.fileHandle);
+      setFileError(null);
       if (openedFile.percussionReviewPartIndices?.length) {
         toast.warning(
           `Review ${openedFile.percussionReviewPartIndices.length} percussion ${openedFile.percussionReviewPartIndices.length === 1 ? "map" : "maps"}: MusicXML did not identify every sound.`,
@@ -98,9 +106,10 @@ export function useDefaultScoreLoader({
       }
     } catch (err) {
       console.error("Failed to load opened file:", err);
-      toast.error("Failed to load file");
+      setFileError(formatOpenedFileError(openedFile.filename, err));
+      toast.error(`Failed to open ${openedFile.filename}`);
     }
-  }, [openedFile, loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle]);
+  }, [openedFile, loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle, setFileError]);
 
   return { loadDefaultScore, loadSampleScore };
 }
