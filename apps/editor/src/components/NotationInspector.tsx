@@ -20,6 +20,7 @@ import {
   useNoteheadHandler,
 } from "./inspector/useNotationInspectorActions";
 import { useNotationInspectorSelection } from "./inspector/useNotationInspectorSelection";
+import { SelectedMarkingInspectors } from "./inspector/SelectedMarkingSections";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -58,16 +59,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     return resolveNotationSelectionTarget(selection, score);
   }, [selection, score]);
 
-  const {
-    selectedNote,
-    selectedTie,
-    selectedSlur,
-    selectedTrill,
-    selectedSequence,
-    selectedContent,
-    isTuplet,
-    isEvent,
-  } = useNotationInspectorSelection(selection, score, target);
+  const { selectedNote, selectedEvent, selectedTie, selectedSlur, selectedTrill, selectedSequence, selectedContent, isTuplet, isEvent } =
+    useNotationInspectorSelection(selection, score, target);
 
   // Tempo selection data
   const {
@@ -167,6 +160,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         <DirectionTextSections score={score} target={target} updateScore={updateScore} />
+
+        <SelectedMarkingInspectors score={score} target={target} selectedElementType={selectedElementType} selectedEvent={selectedEvent} updateScore={updateScore} />
 
         {isBarlineSelected && (
           <BarlineSection

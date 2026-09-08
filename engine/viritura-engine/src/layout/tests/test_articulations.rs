@@ -906,6 +906,14 @@ fn test_breath_marks_render_from_mnx() {
         breath_glyphs.len(),
         breath_glyphs
     );
+    assert_eq!(
+        dl.element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id.ends_with("/breath"))
+            .count(),
+        4,
+        "Every breath mark should publish a selectable bounding box"
+    );
 
     // Verify all three symbol types are present
     assert!(
@@ -934,7 +942,7 @@ fn test_breath_marks_above_staff() {
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "markings": {"breath": {}},
                  "notes": [{"pitch": {"step": "E", "octave": 5}}]},
-                {"duration": {"base": "quarter"},
+                {"duration": {"base": "quarter"}, "markings": {"breath": {"orient": "below"}},
                  "notes": [{"pitch": {"step": "D", "octave": 5}}]},
                 {"duration": {"base": "half"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}]}
@@ -992,6 +1000,14 @@ fn test_breath_marks_above_staff() {
         "Breath mark (y={:.1}) should be above top staff line (y={:.1})",
         breath_y,
         staff_y
+    );
+    assert!(
+        dl.commands.iter().any(|command| matches!(
+            command,
+            RenderCommand::DrawGlyph { codepoint, y, .. }
+                if *codepoint == smufl::BREATH_MARK_COMMA && *y > staff_y + 4.0 * sp
+        )),
+        "An explicitly below breath mark should render below the bottom staff line"
     );
 
     // Breath mark should be just before the subsequent note.
