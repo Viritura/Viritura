@@ -62,13 +62,13 @@ const PEDAL_STYLE_OPTIONS = [
 const NUMBER_STYLE = { width: "5rem" };
 const FRACTION_STYLE = { display: "flex", gap: "0.4rem", alignItems: "center" };
 
-export interface BreathMarkSectionProps {
+interface BreathMarkSectionProps {
   breath: BreathMark;
   onSymbolChange: (symbol: BreathMarkSymbol) => void;
   onOrientationChange: (orient: Orientation | undefined) => void;
 }
 
-export function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: BreathMarkSectionProps) {
+function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: BreathMarkSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Breath Mark</legend>
@@ -94,12 +94,12 @@ export function BreathMarkSection({ breath, onSymbolChange, onOrientationChange 
   );
 }
 
-export interface FingeringSectionProps {
+interface FingeringSectionProps {
   fingering: Fingering;
   onValueChange: (finger: number) => void;
 }
 
-export function FingeringSection({ fingering, onValueChange }: FingeringSectionProps) {
+function FingeringSection({ fingering, onValueChange }: FingeringSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Fingering</legend>
@@ -116,12 +116,12 @@ export function FingeringSection({ fingering, onValueChange }: FingeringSectionP
   );
 }
 
-export interface OrnamentSectionProps {
+interface OrnamentSectionProps {
   ornaments: readonly OrnamentType[];
   onVariantChange: (index: number, ornament: OrnamentType) => void;
 }
 
-export function OrnamentSection({ ornaments, onVariantChange }: OrnamentSectionProps) {
+function OrnamentSection({ ornaments, onVariantChange }: OrnamentSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Ornament</legend>
@@ -140,7 +140,7 @@ export function OrnamentSection({ ornaments, onVariantChange }: OrnamentSectionP
   );
 }
 
-export interface ArpeggioSectionProps {
+interface ArpeggioSectionProps {
   kind: ArpeggioMarkKind;
   arpeggio: PartMeasureArpeggio | NonArpeggio;
   onKindChange: (kind: ArpeggioMarkKind) => void;
@@ -148,13 +148,7 @@ export interface ArpeggioSectionProps {
   onSpanChange: (endpoint: "start" | "end", value: string) => void;
 }
 
-export function ArpeggioSection({
-  kind,
-  arpeggio,
-  onKindChange,
-  onPositionChange,
-  onSpanChange,
-}: ArpeggioSectionProps) {
+function ArpeggioSection({ kind, arpeggio, onKindChange, onPositionChange, onSpanChange }: ArpeggioSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Arpeggio</legend>
@@ -200,7 +194,7 @@ export function ArpeggioSection({
   );
 }
 
-export interface PedalSectionProps {
+interface PedalSectionProps {
   pedal: Pedal;
   onTypeChange: (type: PedalType) => void;
   onStyleChange: (style: PedalLineStyle) => void;
@@ -211,7 +205,7 @@ export interface PedalSectionProps {
   onVoiceChange: (voice: string) => void;
 }
 
-export function PedalSection({
+function PedalSection({
   pedal,
   onTypeChange,
   onStyleChange,
