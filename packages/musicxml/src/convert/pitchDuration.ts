@@ -112,6 +112,13 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
   return result;
 }
 
+export function displayPitchToStaffPosition(step: string, octave: number, clef: MnxClef): number | undefined {
+  const stepIndex = STEPS.indexOf(step as (typeof STEPS)[number]);
+  if (stepIndex < 0 || !Number.isInteger(octave)) return undefined;
+  const reference = clef.sign === "F" ? 3 * 7 + 3 : clef.sign === "C" ? 4 * 7 : 4 * 7 + 4;
+  return clef.staffPosition + (octave * 7 + stepIndex - (reference + (clef.octave ?? 0) * 7));
+}
+
 function fractionToDuration(frac: Fraction): MnxDuration {
   return DURATION_FROM_FRACTION[frac.key()] ?? { base: "whole" };
 }

@@ -11,6 +11,7 @@ import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspec
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
+import { RestPositionSection } from "./inspector/RestPositionSection";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -44,6 +45,7 @@ function NotationInspectorEmptyState() {
   );
 }
 
+// eslint-disable-next-line max-lines-per-function -- cohesive orchestration for independently extracted inspector sections
 export function NotationInspector(_props: NotationInspectorProps = {}) {
   const selection = useSelection();
   const selectedElementType = useSelectedElementType();
@@ -60,8 +62,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   }, [selection, score]);
 
   const {
-    selectedNote,
     selectedEvent,
+    selectedNote,
     selectedTie,
     selectedSlur,
     selectedTrill,
@@ -71,7 +73,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isEvent,
   } = useNotationInspectorSelection(selection, score, target);
 
-  // Tempo selection data
   const tempo = useTempoHandlers({ score, target, updateScore });
 
   const isBarlineSelected = selectedElementType === "barline";
@@ -95,9 +96,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
-
-  // ── Color handlers ──
-
   const { colorTarget, setColorTarget, colorInput, setColorInput, colorError, setColorError, applySelectedColor } =
     useColorHandlers({ score, selection, updateScore });
 
@@ -218,6 +216,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         {selectedElementType === "trill" && selectedTrill && (
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
+
+        <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
 
         {(isTuplet || isEvent) && (
           <LayoutSection

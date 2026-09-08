@@ -640,6 +640,7 @@ function AppInner({
     : isEngrave
       ? buildEngraveMode({
           engrave: engraveBag,
+          selection,
           onTogglePanels: () => togglePanels(leftPanelRef, rightPanelRef),
           leftFloat,
           rightFloat,

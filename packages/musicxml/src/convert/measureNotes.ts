@@ -5,6 +5,7 @@ import { childElements, childText, findChild, findChildren, notationChildren } f
 import type {
   MnxBeam,
   MnxDuration,
+  MnxClef,
   MnxDynamic,
   MnxEvent,
   MnxGraceEvent,
@@ -31,7 +32,13 @@ import {
   type GlissandoState,
   type SlurState,
 } from "./notes";
-import { clefFromElement, computeNoteDuration, makePosition, type TransposeInterval } from "./pitchDuration";
+import {
+  clefFromElement,
+  computeNoteDuration,
+  displayPitchToStaffPosition,
+  makePosition,
+  type TransposeInterval,
+} from "./pitchDuration";
 
 /** Per-note conversion flags resolved from `ConvertOptions`. Distinct from
  *  `vendorExt` (which gates `_x.viritura` output) — these toggle how authored
@@ -283,6 +290,7 @@ export function processMeasureNotes(
   vendorExt: boolean,
   transpose?: TransposeInterval,
   flags: ConvertFlags = {},
+  activeClefs: Map<number, MnxClef> = new Map(),
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
@@ -299,6 +307,24 @@ export function processMeasureNotes(
 
   const cumulative = new Map<string, Fraction>();
   let currentPos = Fraction.ZERO;
+  const clefTimelines = new Map<number, { position: Fraction; clef: MnxClef }[]>();
+  for (const [staff, clef] of activeClefs) {
+    clefTimelines.set(staff, [{ position: Fraction.ZERO, clef }]);
+  }
+
+  const clefAt = (staff: number, position: Fraction): MnxClef => {
+    const entries = clefTimelines.get(staff) ?? [];
+    let active = entries[0]?.clef;
+    let activePosition = entries[0]?.position;
+    for (const entry of entries) {
+      if (position.subtract(entry.position).isNegative()) continue;
+      if (!activePosition || !entry.position.subtract(activePosition).isNegative()) {
+        active = entry.clef;
+        activePosition = entry.position;
+      }
+    }
+    return active ?? { sign: "G", staffPosition: -2 };
+  };
 
   // Furthest written-content position per voice. A `<forward>` that merely
   // repositions the cursor over already-written notes (the backup+forward
@@ -560,7 +586,14 @@ export function processMeasureNotes(
       }
 
       if (isRest) {
-        event.rest = {};
+        const restEl = findChild(el, "rest")!;
+        const displayStep = childText(restEl, "display-step");
+        const displayOctave = Number.parseInt(childText(restEl, "display-octave") ?? "", 10);
+        const staffPosition =
+          displayStep === null
+            ? undefined
+            : displayPitchToStaffPosition(displayStep, displayOctave, clefAt(staffNum, currentPos));
+        event.rest = staffPosition === undefined ? {} : { staffPosition };
       } else {
         const noteObj = buildNote(el, voiceNum, tieIds, ids, transpose);
         event.notes = [noteObj];
@@ -865,7 +898,12 @@ export function processMeasureNotes(
       // rhythmic offset for each change.
       for (const clefEl of findChildren(el, "clef")) {
         const position = currentPos.n === 0 ? undefined : makePosition(currentPos);
-        clefs.push(clefFromElement(clefEl, position));
+        const positionedClef = clefFromElement(clefEl, position);
+        clefs.push(positionedClef);
+        const staff = positionedClef.staff ?? 1;
+        const timeline = clefTimelines.get(staff) ?? [];
+        timeline.push({ position: currentPos, clef: positionedClef.clef });
+        clefTimelines.set(staff, timeline);
       }
     }
 
@@ -877,6 +915,14 @@ export function processMeasureNotes(
     if (tupletAcc.events.length > 0) {
       getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
     }
+  }
+
+  for (const [staff, timeline] of clefTimelines) {
+    const finalPosition = timeline.reduce(
+      (latest, entry) => (entry.position.subtract(latest).isNegative() ? latest : entry.position),
+      Fraction.ZERO,
+    );
+    activeClefs.set(staff, clefAt(staff, finalPosition));
   }
 
   // Divisi parts emit one `<direction>` per voice/layer, so an identical
