@@ -67,6 +67,17 @@ function buildScore(): Score {
                   },
                 ],
               },
+              {
+                voice: "2",
+                content: [
+                  {
+                    type: "event",
+                    id: "rest1",
+                    duration: { base: "whole" },
+                    rest: {},
+                  },
+                ],
+              },
             ],
           },
         ],
@@ -343,6 +354,32 @@ describe("NotationInspector", () => {
     await waitFor(() => {
       expect((screen.getByTestId("notation-layout-stem") as HTMLSelectElement).value).toBe("up");
     });
+  });
+
+  it("authors and resets a selected rest staff position", async () => {
+    render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
+
+    const automatic = await screen.findByRole("radio", { name: "Automatic" });
+    expect(automatic.getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Explicit" }));
+    const position = (await screen.findByRole("spinbutton", { name: "Staff position" })) as HTMLInputElement;
+    expect(position.value).toBe("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Move up" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move up" }));
+    await waitFor(() =>
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("2"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Move down" }));
+    await waitFor(() =>
+      expect((screen.getByRole("spinbutton", { name: "Staff position" }) as HTMLInputElement).value).toBe("1"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await waitFor(() => expect(screen.queryByRole("spinbutton", { name: "Staff position" })).toBeNull());
+    expect(screen.getByRole("radio", { name: "Automatic" }).getAttribute("aria-checked")).toBe("true");
   });
 
   it("opens the panel and shows the slur section for a grace-note slur", async () => {
