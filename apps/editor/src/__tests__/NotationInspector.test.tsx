@@ -9,12 +9,7 @@ import { Button, TooltipPrimitives } from "@viritura/ui";
 import { NotationInspector } from "../components/NotationInspector";
 import { TempoSection } from "../components/inspector/TempoSection";
 import { sectionForElementType } from "../components/inspector/notationInspectorMeta";
-import {
-  DocumentProvider,
-  useDocument,
-  useDocumentActions,
-  useDocumentStoreApi,
-} from "../store/DocumentContext";
+import { DocumentProvider, useDocument, useDocumentActions, useDocumentStoreApi } from "../store/DocumentContext";
 import { HistoryProvider } from "../store/HistoryContext";
 import { useHistoryStore } from "../store/historyStore";
 import { useMnxChangeReporter } from "../app/useMnxChangeReporter";

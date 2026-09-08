@@ -30,7 +30,10 @@ interface SelectedArpeggio {
   value: PartMeasureArpeggio | NonArpeggio;
 }
 
-function pedalIndexFor(target: NotationSelectionTarget | null, selectedElementType: SelectableElementType | null): number {
+function pedalIndexFor(
+  target: NotationSelectionTarget | null,
+  selectedElementType: SelectableElementType | null,
+): number {
   if (!target || selectedElementType !== "pedal") return Number.NaN;
   return Number.parseInt(target.elementType.match(/^pedal(\d+)$/)?.[1] ?? "", 10);
 }
@@ -42,7 +45,8 @@ function indexFromElementId(elementId: string, prefix: string): number {
 
 function eventAtTarget(score: Score, target: NotationSelectionTarget): NoteEvent | null {
   if (target.sequenceIndex === undefined || target.eventIndex === undefined) return null;
-  const content = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex]?.content;
+  const content =
+    score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex]?.content;
   if (!content) return null;
   if (target.graceContainerIndex !== undefined) {
     const container = content[target.graceContainerIndex];
