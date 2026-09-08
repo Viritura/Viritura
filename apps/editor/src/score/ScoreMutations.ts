@@ -66,7 +66,7 @@ export {
 } from "./slurShapeMutations";
 export { findSlurAnchorInfo, reanchoredSlurElementId, reanchorSlurInScore } from "./slurAnchorMutations";
 export { setAnnotationOffsetInScore } from "./annotationOffsetMutations";
-export { setRestStaffPositionInScore, type RestPositionTarget } from "./restPositionMutations";
+export { setRestStaffPositionInScore } from "./restPositionMutations";
 
 // ─── Score-definition edits (kept local — small, no complexity issues) ──
 
