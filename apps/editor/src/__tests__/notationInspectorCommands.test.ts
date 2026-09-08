@@ -160,6 +160,44 @@ describe("notationInspectorCommands", () => {
     },
   );
 
+  it("updates every source fermata on an amalgamated condensed staff", () => {
+    const score = buildScore();
+    score.parts[0]!.id = "player-1";
+    const firstEvent = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (firstEvent.type !== "event") throw new Error("expected note event");
+    firstEvent.fermata = {};
+    const secondPart = structuredClone(score.parts[0]!);
+    secondPart.id = "player-2";
+    secondPart.name = "Player 2";
+    const secondEvent = secondPart.measures[0]!.sequences[0]!.content[0]!;
+    if (secondEvent.type !== "event") throw new Error("expected note event");
+    secondEvent.id = "ev2";
+    secondEvent.notes![0]!.pitch = { step: "E", octave: 4 };
+    score.parts.push(secondPart);
+    score.layouts = [
+      {
+        id: "condensed",
+        content: [{ type: "staff", sources: [{ part: "player-1" }, { part: "player-2" }] }],
+      },
+    ];
+    score.scores = [{ name: "Condensed", layout: "condensed" }];
+    const target = resolveNotationSelectionTarget(
+      { kind: "single", elementId: "p0/m0/s0/ev1/fermata", elementType: "fermata" },
+      score,
+    )!;
+
+    const result = setFermataProperties(score, target, { symbol: "doubleSquare", duration: "veryLong" }, 0);
+
+    expect(result.ok).toBe(true);
+    for (const part of result.score!.parts) {
+      const event = part.measures[0]!.sequences[0]!.content[0]!;
+      expect(event.type === "event" ? event.fermata : undefined).toEqual({
+        symbol: "doubleSquare",
+        duration: "veryLong",
+      });
+    }
+  });
+
   it("preserves a fermata edit through serialization, undo, redo, and reopen", () => {
     const score = buildScore();
     const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;

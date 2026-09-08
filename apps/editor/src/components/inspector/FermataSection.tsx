@@ -4,6 +4,7 @@ import { Select } from "@viritura/ui";
 import { resolveNotationSelectionTarget, setFermataProperties } from "../../commands/notationInspectorCommands";
 import { useDocument, useDocumentActions } from "../../store/DocumentContext";
 import { useSelection, useSelectedElementType } from "../../store/selectionStore";
+import { useViewStateStore } from "../../store/viewStateStore";
 import { useNotationInspectorSelection } from "./useNotationInspectorSelection";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
 
@@ -39,12 +40,13 @@ export function FermataSection() {
   const selectedElementType = useSelectedElementType();
   const { score } = useDocument();
   const { updateScore } = useDocumentActions();
+  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const target = useMemo(() => (score ? resolveNotationSelectionTarget(selection, score) : null), [score, selection]);
   const { selectedFermata: fermata } = useNotationInspectorSelection(selection, score, target);
   if (selectedElementType !== "fermata" || !fermata || !score || !target) return null;
 
   const updateFermata = (patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>) => {
-    const result = setFermataProperties(score, target, patch);
+    const result = setFermataProperties(score, target, patch, selectedScoreIndex);
     if (result.score) updateScore(result.score);
   };
 

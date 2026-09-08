@@ -7,6 +7,7 @@ import { setSlurProperties, setTieProperties } from "./noteCommands";
 
 import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
 import { produce } from "../score/scoreClone";
+import { resolveCondensedEventTargets } from "../score/condensedWriteback";
 
 export interface NotationSelectionTarget {
   elementId: string;
@@ -440,12 +441,29 @@ export function setFermataProperties(
   score: Score,
   target: NotationSelectionTarget,
   patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>,
+  selectedScoreIndex?: number,
 ): EditResult {
   const event = getSelectedEvent(score, target);
   if (!event?.fermata) return { ok: false, error: "Selection is not a fermata." };
 
+  const targets =
+    selectedScoreIndex === undefined ||
+    target.sequenceIndex === undefined ||
+    target.eventIndex === undefined ||
+    target.graceContainerIndex !== undefined
+      ? [target]
+      : resolveCondensedEventTargets(score, selectedScoreIndex, {
+          partIndex: target.partIndex,
+          measureIndex: target.measureIndex,
+          sequenceIndex: target.sequenceIndex,
+          eventIndex: target.eventIndex,
+          tupletIndex: target.tupletIndex,
+        });
   const nextScore = produce(score, (draft) => {
-    Object.assign(getSelectedEvent(draft, target)!.fermata!, patch);
+    for (const sourceTarget of targets) {
+      const sourceEvent = getSelectedEvent(draft, { ...target, ...sourceTarget });
+      if (sourceEvent) sourceEvent.fermata = { ...sourceEvent.fermata, ...patch };
+    }
   });
   return { ok: true, score: nextScore };
 }
