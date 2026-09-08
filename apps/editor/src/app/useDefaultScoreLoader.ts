@@ -11,7 +11,9 @@ import { DEFAULT_SCORE_SAMPLE, type ScoreSample } from "../scoreSamples";
 
 export function formatOpenedFileError(filename: string, error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
-  return `Could not open "${filename}".\n${detail}\nPlease include this message when reporting the issue.`;
+  const stack = error instanceof Error ? error.stack : undefined;
+  const technicalDetails = stack && stack !== detail ? `${detail}\n\nStack trace:\n${stack}` : detail;
+  return `Could not open "${filename}".\n${technicalDetails}\n\nPlease include these details when reporting the issue.`;
 }
 
 interface UseDefaultScoreLoaderArgs {

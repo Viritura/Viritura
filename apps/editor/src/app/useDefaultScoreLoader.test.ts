@@ -52,7 +52,8 @@ describe("useDefaultScoreLoader", () => {
       );
     });
     expect(setFileError).toHaveBeenCalledWith(expect.stringContaining("/parts/0/measures/0/sequences/0/content/0"));
-    expect(setFileError).toHaveBeenCalledWith(expect.stringContaining("Please include this message when reporting"));
+    expect(setFileError).toHaveBeenCalledWith(expect.stringContaining("Stack trace:"));
+    expect(setFileError).toHaveBeenCalledWith(expect.stringContaining("Please include these details when reporting"));
     expect(loadScore).not.toHaveBeenCalled();
   });
 });
