@@ -5,13 +5,15 @@
 name: viritura-${VIRITURA_SLUG:?set VIRITURA_SLUG (use infra/dev/worktree.ps1)}
 
 x-node-build: &node-build
-  image: viritura-dev-worktree:${VIRITURA_SLUG}
+  image: viritura-dev-worktree:${VIRITURA_NODE_IMAGE_TAG:?set by infra/dev/worktree.ps1}
 
 x-api-build: &api-build
-  image: viritura-api-dev:${VIRITURA_SLUG}
+  image: viritura-api-dev:${VIRITURA_API_IMAGE_TAG:?set by infra/dev/worktree.ps1}
   build:
     context: ../../..
     dockerfile: infra/dev/worktree/api.Dockerfile
+    labels:
+      com.viritura.dev.cache: api-image
 
 x-wasm-image: &wasm-image
   image: viritura-wasm-dev:rust-1.93.1-wasm-pack-0.14.0
@@ -21,33 +23,47 @@ x-public-environment: &public-environment
   VIRITURA_PUBLIC_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
   VIRITURA_PUBLIC_API_URL: http://api.${VIRITURA_SLUG}.localhost
   VIRITURA_INTERNAL_API_URL: http://api:8080
+  VIRITURA_CACHE_ROOT: /tmp/viritura-cache
+  VIRITURA_VITE_CACHE_DIR: /tmp/viritura-vite
+
+x-managed-labels: &managed-labels
+  com.viritura.dev.managed: "true"
 
 x-node-volumes: &node-volumes
   - ../../..:/workspace
-  - node_modules:/workspace/node_modules
-  # Hide Windows pnpm junctions behind Linux-native, image-seeded volumes.
-  - /workspace/packages/audio/node_modules
-  - /workspace/packages/core/node_modules
-  - /workspace/packages/crdt/node_modules
-  - /workspace/apps/editor/node_modules
-  - /workspace/packages/format/node_modules
-  - /workspace/packages/instrument-profiles/node_modules
-  - /workspace/packages/midi/node_modules
-  - /workspace/packages/monaco-react/node_modules
-  - /workspace/packages/musicxml/node_modules
-  - /workspace/packages/piano-roll/node_modules
-  - /workspace/packages/playback/node_modules
-  - /workspace/packages/renderer/node_modules
-  - /workspace/packages/score-engine/node_modules
-  - /workspace/packages/score-viewer-react/node_modules
-  - /workspace/packages/sound-profiles/node_modules
-  - /workspace/packages/ui/node_modules
-  - /workspace/packages/video-sync/node_modules
-  - /workspace/examples/score-viewer-react-minimal/node_modules
-  - /workspace/apps/desktop/node_modules
-  - /workspace/apps/server-ui/node_modules
-  - /workspace/apps/vscode-mnx-viewer/node_modules
-  - /workspace/apps/website/node_modules
+  # These read-only volumes are shared by every worktree with the same
+  # dependency hash. Writable tool caches live under /tmp in each container.
+  - node_modules:/workspace/node_modules:ro
+  - package_audio_node_modules:/workspace/packages/audio/node_modules:ro
+  - package_core_node_modules:/workspace/packages/core/node_modules:ro
+  - package_crdt_node_modules:/workspace/packages/crdt/node_modules:ro
+  - app_editor_node_modules:/workspace/apps/editor/node_modules:ro
+  - package_format_node_modules:/workspace/packages/format/node_modules:ro
+  - package_instrument_profiles_node_modules:/workspace/packages/instrument-profiles/node_modules:ro
+  - package_midi_node_modules:/workspace/packages/midi/node_modules:ro
+  - package_monaco_react_node_modules:/workspace/packages/monaco-react/node_modules:ro
+  - package_musicxml_node_modules:/workspace/packages/musicxml/node_modules:ro
+  - package_piano_roll_node_modules:/workspace/packages/piano-roll/node_modules:ro
+  - package_playback_node_modules:/workspace/packages/playback/node_modules:ro
+  - package_renderer_node_modules:/workspace/packages/renderer/node_modules:ro
+  - package_score_engine_node_modules:/workspace/packages/score-engine/node_modules:ro
+  - package_score_viewer_react_node_modules:/workspace/packages/score-viewer-react/node_modules:ro
+  - package_sound_profiles_node_modules:/workspace/packages/sound-profiles/node_modules:ro
+  - package_ui_node_modules:/workspace/packages/ui/node_modules:ro
+  - package_video_sync_node_modules:/workspace/packages/video-sync/node_modules:ro
+  - example_score_viewer_node_modules:/workspace/examples/score-viewer-react-minimal/node_modules:ro
+  - app_desktop_node_modules:/workspace/apps/desktop/node_modules:ro
+  - app_server_ui_node_modules:/workspace/apps/server-ui/node_modules:ro
+  - app_vscode_viewer_node_modules:/workspace/apps/vscode-mnx-viewer/node_modules:ro
+  - app_website_node_modules:/workspace/apps/website/node_modules:ro
+
+x-node-cache-tmpfs: &node-cache-tmpfs
+  - /workspace/apps/editor/node_modules/.cache
+  - /workspace/apps/editor/node_modules/.vite-temp
+  - /workspace/apps/server-ui/node_modules/.vite-temp
+  - /workspace/apps/website/node_modules/.vite
+  - /workspace/apps/website/node_modules/.vite-temp
+  - /workspace/packages/ui/node_modules/.cache
 
 x-node-service: &node-service
   <<: *node-build
@@ -55,8 +71,9 @@ x-node-service: &node-service
   env_file:
     - path: ../.env.frontend.local
       required: false
+  labels: *managed-labels
+  tmpfs: *node-cache-tmpfs
   volumes: *node-volumes
-  restart: unless-stopped
 
 x-proxy-networks: &proxy-networks
   - default
@@ -67,11 +84,25 @@ services:
   # service prevents concurrent frontend services from racing on the same tag.
   node-image:
     profiles: ["images"]
-    image: viritura-dev-worktree:${VIRITURA_SLUG}
+    image: viritura-dev-worktree:${VIRITURA_NODE_IMAGE_TAG}
     build:
       context: ../../..
       dockerfile: infra/dev/worktree/dev.Dockerfile
+      labels:
+        com.viritura.dev.cache: node-image
     command: ["true"]
+
+  # Mounting an empty named volume over an image directory makes Docker seed it
+  # from that directory. The wrapper serializes this one-shot step so concurrent
+  # worktrees cannot race while initializing a shared dependency hash.
+  dependency-seed:
+    <<: *node-build
+    profiles: ["images"]
+    command: ["true"]
+    environment:
+      VIRITURA_CACHE_ROOT: /tmp/viritura-cache
+    tmpfs: *node-cache-tmpfs
+    volumes: *node-volumes
 
   # One-shot cache-aware builder invoked automatically by worktree.ps1 for
   # profiles that render scores. It publishes ignored output through the source
@@ -99,6 +130,7 @@ services:
       # Keep watch artifacts smaller and faster for browser startup while
       # retaining Cargo's incremental development profile.
       CARGO_PROFILE_DEV_OPT_LEVEL: "1"
+    labels: *managed-labels
     working_dir: /workspace
     volumes:
       - ../../..:/workspace
@@ -109,8 +141,8 @@ services:
 
   editor:
     <<: *node-service
-    profiles: ["core", "editor", "ui", "full"]
-    command: ["pnpm", "--filter", "@viritura/editor", "dev"]
+    profiles: ["app", "editor", "ui", "full"]
+    command: ["pnpm", "--filter", "@viritura/editor", "dev", "--configLoader", "runner"]
     environment:
       <<: *public-environment
       VIRITURA_CONTAINER_HOST: editor.${VIRITURA_SLUG}.localhost
@@ -118,42 +150,46 @@ services:
       VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-editor.rule=Host(`editor.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port=5173
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-editor.rule: Host(`editor.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port: "5173"
 
   website:
     <<: *node-service
-    profiles: ["core", "website", "ui", "full"]
-    command: ["pnpm", "--filter", "@viritura/website", "dev"]
+    profiles: ["website", "ui", "full"]
+    # Container PIDs are recycled across recreates, so an Astro lock file on the
+    # source bind mount can mistake an unrelated new process for the old server.
+    command: ["pnpm", "--filter", "@viritura/website", "dev", "--configLoader", "runner", "--ignore-lock"]
     environment:
       <<: *public-environment
       VIRITURA_CONTAINER_HOST: web.${VIRITURA_SLUG}.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-web.rule=Host(`web.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port=5180
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-web.rule: Host(`web.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port: "5180"
 
   server-ui:
     <<: *node-service
-    profiles: ["core", "backend", "website", "full"]
+    profiles: ["app", "backend", "website", "full"]
     command:
       - sh
       - -c
       - pnpm --filter @viritura/server-ui exec tsc --noEmit &&
-        pnpm --filter @viritura/server-ui exec vite build --watch
+        pnpm --filter @viritura/server-ui exec vite build --watch --configLoader runner
     environment:
       <<: *public-environment
 
   api:
     <<: *api-build
-    profiles: ["core", "backend", "website", "full"]
+    profiles: ["app", "backend", "website", "full"]
     depends_on:
       - server-ui
     env_file:
@@ -179,24 +215,24 @@ services:
       - ../../..:/workspace
       - nuget_packages:/root/.nuget/packages
       - api_data:/var/lib/viritura
-      - /workspace/server/Viritura.Api/bin
-      - /workspace/server/Viritura.Api/obj
-      - /workspace/server/Viritura.GitHub/bin
-      - /workspace/server/Viritura.GitHub/obj
-      - /workspace/server/Viritura.Infrastructure/bin
-      - /workspace/server/Viritura.Infrastructure/obj
+      - api_bin:/workspace/server/Viritura.Api/bin
+      - api_obj:/workspace/server/Viritura.Api/obj
+      - github_bin:/workspace/server/Viritura.GitHub/bin
+      - github_obj:/workspace/server/Viritura.GitHub/obj
+      - infrastructure_bin:/workspace/server/Viritura.Infrastructure/bin
+      - infrastructure_obj:/workspace/server/Viritura.Infrastructure/obj
     networks: *proxy-networks
-    restart: unless-stopped
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-api.rule=Host(`api.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port=8080
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-api.rule: Host(`api.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port: "8080"
 
   storybook-ui:
     <<: *node-service
-    profiles: ["storybook", "full"]
+    profiles: ["storybook", "storybook-ui", "full"]
     command:
       ["pnpm", "--filter", "@viritura/ui", "exec", "storybook", "dev", "-p", "6005", "--host", "0.0.0.0", "--no-open"]
     environment:
@@ -204,15 +240,16 @@ services:
       CI: "true"
     networks: *proxy-networks
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule=Host(`ui.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port=6005
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule: Host(`ui.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port: "6005"
 
   storybook-mnx:
     <<: *node-service
-    profiles: ["storybook", "full"]
+    profiles: ["storybook", "storybook-mnx", "full"]
     command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook:mnx", "--host", "0.0.0.0", "--no-open"]
     environment:
       <<: *public-environment
@@ -220,15 +257,16 @@ services:
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule=Host(`mnx.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port=6006
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule: Host(`mnx.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port: "6006"
 
   storybook-app:
     <<: *node-service
-    profiles: ["storybook", "full"]
+    profiles: ["storybook", "storybook-app", "full"]
     command: ["pnpm", "--filter", "@viritura/editor", "run", "storybook", "--host", "0.0.0.0", "--no-open"]
     environment:
       <<: *public-environment
@@ -236,33 +274,117 @@ services:
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule=Host(`storybook.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port=6007
+      <<: *managed-labels
+      traefik.enable: "true"
+      traefik.docker.network: viritura-dev-proxy
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule: Host(`storybook.${VIRITURA_SLUG}.localhost`)
+      traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints: web
+      traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port: "6007"
 
 volumes:
   node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-root
+  package_audio_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-audio
+  package_core_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-core
+  package_crdt_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-crdt
+  app_editor_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-app-editor
+  package_format_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-format
+  package_instrument_profiles_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-instrument-profiles
+  package_midi_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-midi
+  package_monaco_react_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-monaco-react
+  package_musicxml_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-musicxml
+  package_piano_roll_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-piano-roll
+  package_playback_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-playback
+  package_renderer_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-renderer
+  package_score_engine_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-score-engine
+  package_score_viewer_react_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-score-viewer-react
+  package_sound_profiles_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-sound-profiles
+  package_ui_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-ui
+  package_video_sync_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-video-sync
+  example_score_viewer_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-example-score-viewer
+  app_desktop_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-app-desktop
+  app_server_ui_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-app-server-ui
+  app_vscode_viewer_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-app-vscode-viewer
+  app_website_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-app-website
   nuget_packages:
+    external: true
+    name: viritura-dev-nuget-packages
+  api_bin:
+    labels: *managed-labels
+  api_obj:
+    labels: *managed-labels
+  github_bin:
+    labels: *managed-labels
+  github_obj:
+    labels: *managed-labels
+  infrastructure_bin:
+    labels: *managed-labels
+  infrastructure_obj:
+    labels: *managed-labels
   api_data:
     external: true
     name: viritura-dev-api-data
   cargo_registry:
     external: true
-    name: viritura-${VIRITURA_SLUG}-cargo-registry
+    name: viritura-dev-cargo-registry
   cargo_git:
     external: true
-    name: viritura-${VIRITURA_SLUG}-cargo-git
+    name: viritura-dev-cargo-git
   wasm_pack_cache:
     external: true
-    name: viritura-${VIRITURA_SLUG}-wasm-pack-cache
+    name: viritura-dev-wasm-pack-cache
   wasm_target:
     external: true
     name: viritura-${VIRITURA_SLUG}-wasm-target
 
 networks:
   default:
+    labels: *managed-labels
   proxy:
     external: true
     name: viritura-dev-proxy

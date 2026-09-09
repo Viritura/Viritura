@@ -26,6 +26,10 @@ const config: StorybookConfig = {
     name: getAbsolutePath("@storybook/react-vite"),
     options: {},
   },
+  viteFinal: async (config) => {
+    config.cacheDir = process.env.VIRITURA_VITE_CACHE_DIR;
+    return config;
+  },
   // Serve the shared font assets at `/fonts/*` so the UI Storybook
   // can use Bravura (SMuFL music font) for `useBravura` Button /
   // PaletteButton previews. Without this, `font-family: Bravura, serif`

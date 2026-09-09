@@ -3,8 +3,8 @@
 # Development image for parallel Git-worktree runs. It is NOT a production
 # artifact: it only bakes a warm `node_modules` so a worktree's Vite dev server
 # starts quickly. At runtime the worktree source is bind-mounted over /workspace
-# and a named volume (seeded from this layer on first `up`) shadows the ROOT
-# /workspace/node_modules — see ../worktree/docker-compose.yml.
+# and content-addressed named volumes (seeded from this layer on first `up`)
+# shadow the workspace node_modules directories — see docker-compose.yml.
 #
 # The install uses pnpm's default (isolated) linker, exactly like the host. That
 # is deliberate: at runtime the bind mount still exposes the host's per-package
@@ -48,6 +48,13 @@ COPY packages/sound-profiles/package.json ./packages/sound-profiles/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 COPY packages/video-sync/package.json ./packages/video-sync/package.json
 RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN mkdir -p \
+    /workspace/apps/editor/node_modules/.cache \
+    /workspace/apps/editor/node_modules/.vite-temp \
+    /workspace/apps/website/node_modules/.vite \
+    /workspace/apps/website/node_modules/.vite-temp \
+    /workspace/apps/server-ui/node_modules/.vite-temp \
+    /workspace/packages/ui/node_modules/.cache
 
 # Vite and Storybook servers. Never published to the host; Traefik reaches them
 # over the shared proxy network.
