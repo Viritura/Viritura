@@ -147,6 +147,109 @@ fn test_voice_linked_dynamics_use_separate_voice_sides() {
 }
 
 #[test]
+fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"staves": 3, "measures": [{
+            "dynamics": [
+                {"id": "top", "type": "immediate", "position": {"fraction": [0, 1]},
+                 "value": "p", "staff": 1, "orient": "between"},
+                {"id": "middle", "type": "immediate", "position": {"fraction": [1, 4]},
+                 "value": "p", "staff": 2, "orient": "between"},
+                {"id": "bottom", "type": "immediate", "position": {"fraction": [1, 2]},
+                 "value": "p", "staff": 3, "orient": "between"},
+                {"id": "unscoped", "type": "immediate", "position": {"fraction": [3, 4]},
+                 "value": "p", "orient": "between"}
+            ],
+            "sequences": [
+                {"staff": 1, "content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                ]},
+                {"staff": 2, "content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+                ]},
+                {"staff": 3, "content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                ]}
+            ]
+        }]}]
+    }"#;
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
+    let dynamic_y = |id: &str| {
+        dl.commands
+            .iter()
+            .zip(dl.element_ids.iter())
+            .find_map(|(command, element_id)| {
+                if element_id.as_deref() != Some(id) {
+                    return None;
+                }
+                match command {
+                    RenderCommand::DrawGlyph { y, .. } => Some(*y),
+                    _ => None,
+                }
+            })
+            .expect("dynamic glyph")
+    };
+    let top_y = dynamic_y("p0/m0/dyntop");
+    let middle_y = dynamic_y("p0/m0/dynmiddle");
+    let bottom_y = dynamic_y("p0/m0/dynbottom");
+    let unscoped_y = dynamic_y("p0/m0/dynunscoped");
+
+    assert!(
+        top_y < middle_y,
+        "staff 1 should use the upper gap and staff 2 the lower gap"
+    );
+    assert!(
+        (middle_y - bottom_y).abs() < 0.01,
+        "middle staff should prefer its lower gap and bottom staff should use that same gap above"
+    );
+    assert!(
+        (top_y - unscoped_y).abs() < 0.01,
+        "an unscoped between dynamic should use the topmost gap"
+    );
+}
+
+#[test]
+fn test_between_dynamic_on_single_staff_degrades_below() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "dynamics": [
+                {"id": "single", "type": "immediate", "position": {"fraction": [0, 1]},
+                 "value": "p", "staff": 1, "orient": "between"}
+            ],
+            "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
+            ]}]
+        }]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let dynamic_y = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .find_map(|(command, element_id)| {
+            if element_id.as_deref() != Some("p0/m0/dynsingle") {
+                return None;
+            }
+            match command {
+                RenderCommand::DrawGlyph { y, .. } => Some(*y),
+                _ => None,
+            }
+        })
+        .expect("dynamic glyph");
+    let staff_bottom = (config.margin_top + 4.0) * config.sp;
+
+    assert!(
+        dynamic_y > staff_bottom,
+        "single-staff between dynamic should render below the staff"
+    );
+}
+
+#[test]
 fn test_rhapsody_rehearsal_29_violin_dynamics_are_voice_linked() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/Rhapsody in Blue.mnx");
     let score = parse_mnx(json).expect("parse Rhapsody");

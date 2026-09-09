@@ -631,6 +631,9 @@ pub(crate) fn grand_staff_gap_center(
     let index = offsets
         .iter()
         .position(|offset| (*offset - staff_y).abs() < 0.01)?;
+    // Prefer the gap below the associated staff. The bottom staff has no lower
+    // gap, so use the one above; this keeps every valid `between` orientation
+    // visible without assigning extra semantics to the MNX `staff` property.
     if let Some(next) = offsets.get(index + 1) {
         return Some((staff_y + 4.0 * sp + next) * 0.5);
     }

@@ -299,16 +299,6 @@ function validateDynamicGroups(score: RawScore): RawScoreValidationError[] {
             keyword: "range",
           });
         }
-        if (group.orient === "between") {
-          const hasPair = group.staff !== undefined ? group.staff < staffCount : staffCount === 2;
-          if (!hasPair) {
-            errors.push({
-              pointer: `${pointer}/orient`,
-              message: "'between' requires an adjacent staff pair; specify staff for parts with more than two staves",
-              keyword: "placement",
-            });
-          }
-        }
         group.glyphs?.forEach((glyph, glyphIndex) => {
           if (!isSupportedDynamicGlyph(glyph)) {
             errors.push({

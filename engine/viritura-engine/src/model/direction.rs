@@ -229,8 +229,18 @@ impl DynamicGroup {
         self.group_type == DynamicGroupType::Gradual
     }
 
-    /// Resolve the requested vertical side. `between` is engraved below its
-    /// upper anchor staff; `auto` falls back to the condensing placement hint.
+    /// Resolve an authored orientation to the side of its associated staff.
+    pub fn resolved_placement_above(&self, staff_count: u32, staff: u32) -> Option<bool> {
+        match self.orient {
+            Some(MultiStaffOrientation::Above) => Some(true),
+            Some(MultiStaffOrientation::Below) => Some(false),
+            Some(MultiStaffOrientation::Between) => Some(staff_count > 1 && staff == staff_count),
+            Some(MultiStaffOrientation::Auto) | None => self.placement_above,
+        }
+    }
+
+    /// Resolve the requested vertical side. Inter-staff layout refines `between`
+    /// against the available staff gaps; this is its single-staff fallback.
     pub fn places_above(&self) -> bool {
         match self.orient {
             Some(MultiStaffOrientation::Above) => true,
