@@ -16,6 +16,7 @@ storybook-mnx-static/
 **/target-test/
 engine/target-*/
 *.wasm
+!packages/musx-import/assets/denigma.wasm
 
 # Canonical WASM build output and generated application staging
 engine/viritura-wasm/pkg-browser/
@@ -24,6 +25,7 @@ apps/editor/public/favicon.svg
 apps/editor/public/viritura-logo.svg
 apps/editor/public/viritura-mark.svg
 apps/editor/public/wasm/
+apps/editor/public/denigma/
 apps/editor/public/mnx-schema.json
 apps/editor/public/scores/
 apps/editor/public/sounds/

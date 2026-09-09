@@ -10,6 +10,7 @@
  */
 
 import { convertMusicXmlToMnx, convertMxlToMnx, type PercussionImportReview } from "@viritura/musicxml";
+import { convertMusxToMnx, type DenigmaDiagnostic } from "@viritura/musx-import";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -25,6 +26,8 @@ export interface OpenFileResult {
   percussionReviewPartIndices?: number[];
   /** Human-readable reasons corresponding to the reviewed parts. */
   percussionReviewReasons?: string[];
+  /** Non-fatal diagnostics reported by the source-format converter. */
+  importDiagnostics?: DenigmaDiagnostic[];
 }
 
 /** Options accepted by the File System Access API picker. */
@@ -126,22 +129,43 @@ export async function readDroppedMnxFile(file: File): Promise<OpenFileResult> {
 }
 
 // ═══════════════════════════════════════════
-// Import (MusicXML / MXL → MNX)
+// Import (MusicXML / MXL / MUSX → MNX)
 // ═══════════════════════════════════════════
 
 /** Extensions accepted by the music-import picker. */
-const MUSICXML_EXTENSIONS = [".mxl", ".musicxml", ".xml"] as const;
+const MUSIC_IMPORT_EXTENSIONS = [".mxl", ".musicxml", ".xml", ".musx"] as const;
+
+export function isMusicImportFilename(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return MUSIC_IMPORT_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
 
 /**
- * Convert an imported MusicXML/MXL `File` into an {@link OpenFileResult} that
- * holds the resulting MNX JSON. `.mxl` (zipped MusicXML) is read as binary and
- * unzipped by the converter; plain `.musicxml`/`.xml` is read as text. The
- * returned filename swaps the source extension for `.mnx` and carries no file
- * handle (an import has no MNX file on disk to save back to).
+ * Convert an imported MusicXML, MXL, or Finale MUSX `File` into an
+ * {@link OpenFileResult} that holds the resulting MNX JSON.
  */
 export async function convertImportedMusicFile(file: File): Promise<OpenFileResult> {
   return runBackgroundTask(`Importing ${file.name}…`, async () => {
     const lower = file.name.toLowerCase();
+    if (!isMusicImportFilename(lower)) {
+      throw new Error(`Unsupported music file: ${file.name}`);
+    }
+    if (lower.endsWith(".musx")) {
+      const conversion = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
+        includeTempoTool: true,
+      });
+      const validationError = validateMnxJson(conversion.mnxJson);
+      if (validationError) {
+        throw new Error(`Denigma produced invalid MNX: ${validationError}`);
+      }
+      return {
+        mnxJson: conversion.mnxJson,
+        filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
+        fileHandle: null,
+        importDiagnostics: conversion.diagnostics,
+      };
+    }
+
     // Import behavior is driven by the persisted import settings (Settings →
     // Import). Vendor extensions default on so Viritura-only details (tempo
     // text, hairpins, pedals, rehearsal marks, etc.) survive the round-trip.
@@ -184,8 +208,11 @@ async function importWithFileSystemAccess(): Promise<OpenFileResult | null> {
     const [handle] = await fsWindow.showOpenFilePicker({
       types: [
         {
-          description: "MusicXML Files",
-          accept: { "application/xml": [...MUSICXML_EXTENSIONS] },
+          description: "Music Notation Files",
+          accept: {
+            "application/xml": [".mxl", ".musicxml", ".xml"],
+            "application/octet-stream": [".musx"],
+          },
         },
       ],
       multiple: false,
@@ -204,7 +231,7 @@ function importWithInputFallback(): Promise<OpenFileResult | null> {
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = MUSICXML_EXTENSIONS.join(",");
+    input.accept = MUSIC_IMPORT_EXTENSIONS.join(",");
     input.addEventListener("change", () => {
       const file = input.files?.[0];
       if (!file) {
@@ -219,9 +246,7 @@ function importWithInputFallback(): Promise<OpenFileResult | null> {
 }
 
 /**
- * Import a MusicXML (`.musicxml`/`.xml`) or compressed MusicXML (`.mxl`) file
- * and convert it to MNX. Returns an {@link OpenFileResult} holding the MNX JSON,
- * or null if the user cancels. Throws if conversion fails.
+ * Import a MusicXML, MXL, or Finale MUSX file and convert it to MNX.
  */
 export async function importMusicFile(): Promise<OpenFileResult | null> {
   const fsWindow = window as unknown as FileSystemWindow;

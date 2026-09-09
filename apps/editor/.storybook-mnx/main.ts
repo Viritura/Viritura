@@ -1,10 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
-import { syncMnxFixtures, syncMnxSchema, syncSharedAssets, syncSounds } from "../buildAssets";
+import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "../buildAssets";
 
 syncSharedAssets();
 syncSounds();
+syncMusxImporter();
 syncMnxSchema();
 syncMnxFixtures();
 

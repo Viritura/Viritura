@@ -16,6 +16,7 @@ tsconfig.tsbuildinfo
 # Generated artifacts
 **/.astro/
 apps/editor/public/wasm/
+packages/musx-import/assets/denigma.js
 packages/*/dist/
 apps/*/dist/
 apps/vscode-mnx-viewer/assets/

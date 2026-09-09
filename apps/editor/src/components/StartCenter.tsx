@@ -80,10 +80,7 @@ export interface StartCenterProps {
   onOpenFile: () => void;
   onOpenFolder: () => void;
   /**
-   * Import a score from another format. Wired to the `@viritura/musicxml`
-   * converter (`convertMxlToMnx` / `convertMusicXmlToMnx`): the picked file is
-   * converted to MNX and loaded into the editor. If omitted, the tile is
-   * disabled.
+   * Import a score from another format and convert it to MNX before loading.
    */
   onImport?: () => void;
   onSelectRecent: (entry: RecentScore) => void;
@@ -198,7 +195,7 @@ export function StartCenter(props: StartCenterProps) {
             <ActionTile
               icon={<Download size={18} />}
               title="Import…"
-              hint={onImport ? "Convert MusicXML or MXL" : "Coming soon"}
+              hint={onImport ? "Convert MusicXML, MXL, or Finale MUSX" : "Coming soon"}
               onClick={onImport}
               disabled={!onImport}
             />

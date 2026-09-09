@@ -1,6 +1,11 @@
 import { useCallback } from "react";
 import type React from "react";
-import { readDroppedMnxFile, validateMnxJson } from "../commands/fileCommands";
+import {
+  convertImportedMusicFile,
+  isMusicImportFilename,
+  readDroppedMnxFile,
+  validateMnxJson,
+} from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
 
 interface UseDragAndDropArgs {
@@ -73,12 +78,14 @@ export function useDragAndDrop({
 
       const file = e.dataTransfer.files[0];
       if (!file) return;
-      if (!file.name.endsWith(".mnx") && !file.name.endsWith(".json")) {
-        setFileError("Please drop an .mnx or .json file, or a project folder");
+      const lowerName = file.name.toLowerCase();
+      const isMnx = lowerName.endsWith(".mnx") || lowerName.endsWith(".json");
+      if (!isMnx && !isMusicImportFilename(lowerName)) {
+        setFileError("Please drop an MNX, MusicXML, MXL, or MUSX file, or a project folder");
         return;
       }
       try {
-        const result = await readDroppedMnxFile(file);
+        const result = isMnx ? await readDroppedMnxFile(file) : await convertImportedMusicFile(file);
         const validationError = validateMnxJson(result.mnxJson);
         if (validationError) {
           setFileError(`${result.filename}: ${validationError}`);

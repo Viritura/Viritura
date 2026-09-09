@@ -5,10 +5,11 @@ import babel from "@rolldown/plugin-babel";
 import { existsSync, readFileSync, statSync, rmSync } from "node:fs";
 import path, { normalize, resolve, sep } from "node:path";
 import type { Plugin } from "vite";
-import { syncMnxFixtures, syncMnxSchema, syncSharedAssets, syncSounds } from "./buildAssets.ts";
+import { syncMnxFixtures, syncMnxSchema, syncMusxImporter, syncSharedAssets, syncSounds } from "./buildAssets.ts";
 
 syncSharedAssets();
 syncSounds();
+syncMusxImporter();
 syncMnxSchema();
 syncMnxFixtures();
 
