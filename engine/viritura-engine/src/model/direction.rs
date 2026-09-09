@@ -244,7 +244,8 @@ impl DynamicGroup {
     pub fn places_above(&self) -> bool {
         match self.orient {
             Some(MultiStaffOrientation::Above) => true,
-            Some(MultiStaffOrientation::Below | MultiStaffOrientation::Between) => false,
+            Some(MultiStaffOrientation::Between) => self.placement_above == Some(true),
+            Some(MultiStaffOrientation::Below) => false,
             Some(MultiStaffOrientation::Auto) | None => self.placement_above == Some(true),
         }
     }

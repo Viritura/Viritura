@@ -157,7 +157,7 @@ fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
                  "value": "p", "staff": 1, "orient": "between"},
                 {"id": "middle", "type": "immediate", "position": {"fraction": [1, 4]},
                  "value": "p", "staff": 2, "orient": "between"},
-                {"id": "bottom", "type": "immediate", "position": {"fraction": [1, 2]},
+                {"id": "bottom", "type": "immediate", "position": {"fraction": [1, 4]},
                  "value": "p", "staff": 3, "orient": "between"},
                 {"id": "unscoped", "type": "immediate", "position": {"fraction": [3, 4]},
                  "value": "p", "orient": "between"}
@@ -170,7 +170,13 @@ fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
                     {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
                 ]},
                 {"staff": 3, "content": [
-                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                    {"id": "lower-start", "duration": {"base": "quarter"},
+                     "notes": [{"pitch": {"step": "C", "octave": 3}}],
+                     "slurs": [{"target": "lower-end", "side": "down"}]},
+                    {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 3}}]},
+                    {"id": "lower-end", "duration": {"base": "quarter"},
+                     "notes": [{"pitch": {"step": "E", "octave": 3}}]},
+                    {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "F", "octave": 3}}]}
                 ]}
             ]
         }]}]
@@ -202,7 +208,7 @@ fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
     );
     assert!(
         (middle_y - bottom_y).abs() < 0.01,
-        "middle staff should prefer its lower gap and bottom staff should use that same gap above"
+        "bottom-staff between dynamic should stay in the gap above, clear of its below-staff slur"
     );
     assert!(
         (top_y - unscoped_y).abs() < 0.01,
