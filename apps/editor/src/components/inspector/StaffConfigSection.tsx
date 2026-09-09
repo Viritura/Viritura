@@ -14,7 +14,6 @@ interface StaffConfigSectionProps {
   lines: number;
   staff: number;
   measureNumber: number;
-  source: "measure" | "barline";
   hasExplicitChange: boolean;
   onLinesChange: (lines: number) => void;
   onClear: () => void;
@@ -24,7 +23,6 @@ export function StaffConfigSection({
   lines,
   staff,
   measureNumber,
-  source,
   hasExplicitChange,
   onLinesChange,
   onClear,
@@ -63,8 +61,7 @@ export function StaffConfigSection({
         </div>
       </label>
       <span style={HINT_STYLE}>
-        Staff {staff}, from measure {measureNumber}
-        {source === "barline" ? " after the selected barline" : ""}. Zero hides all staff lines.
+        Staff {staff}, from measure {measureNumber}. Zero hides all staff lines.
       </span>
     </fieldset>
   );

@@ -189,7 +189,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             lines={staffConfig.lines}
             staff={staffConfig.target.staff}
             measureNumber={staffConfig.target.measureIndex + 1}
-            source={staffConfig.target.source}
             hasExplicitChange={staffConfig.hasExplicitChange}
             onLinesChange={staffConfig.setLines}
             onClear={staffConfig.clear}

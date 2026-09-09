@@ -61,7 +61,6 @@ describe("staffConfigCommands", () => {
       partIndex: 0,
       measureIndex: 1,
       staff: 2,
-      source: "measure",
     });
   });
 
@@ -77,23 +76,18 @@ describe("staffConfigCommands", () => {
       partIndex: 0,
       measureIndex: 1,
       staff: 1,
-      source: "measure" as const,
     };
     expect(readStaffLineConfig(score, target)).toEqual({ lines: 5, hasExplicitChange: false });
   });
 
-  it("targets the measure beginning at an anchored barline", () => {
+  it("does not expose staff-specific configuration for a barline selection", () => {
     const selection: Selection = {
       kind: "single",
       elementId: "m0/barline",
       elementType: "barline",
       measureAnchor: { partIndex: 0, staffIndex: 1, localStaffIndex: 1, measureIndex: 0 },
     };
-    expect(resolveStaffConfigSelectionTarget(selection, makeScore())).toMatchObject({
-      measureIndex: 0,
-      staff: 2,
-      source: "barline",
-    });
+    expect(resolveStaffConfigSelectionTarget(selection, makeScore())).toBeNull();
   });
 
   it("sets, inherits, updates, and clears a measure-start line count", () => {
@@ -103,7 +97,6 @@ describe("staffConfigCommands", () => {
       partIndex: 0,
       measureIndex: 1,
       staff: 1,
-      source: "measure" as const,
     };
     expect(readStaffLineConfig(score, target)).toEqual({ lines: 1, hasExplicitChange: false });
 
@@ -130,7 +123,6 @@ describe("staffConfigCommands", () => {
       partIndex: 0,
       measureIndex: 1,
       staff: 1,
-      source: "measure" as const,
     };
     const next = applyPatchesToScore(score, planSetStaffLineCount(score, target, 4));
     expect(next.parts[0]!.measures[1]!.staffConfigs).toEqual([

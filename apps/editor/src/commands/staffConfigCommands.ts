@@ -6,7 +6,6 @@ export interface StaffConfigSelectionTarget {
   partIndex: number;
   measureIndex: number;
   staff: number;
-  source: "measure" | "barline";
 }
 
 export interface StaffLineConfigState {
@@ -39,24 +38,10 @@ export function resolveStaffConfigSelectionTarget(
       partIndex: selection.startPartIndex,
       measureIndex: selection.startMeasure,
       staff: (selection.startLocalStaffIndex ?? 0) + 1,
-      source: "measure",
     };
   }
 
-  if (selection.kind !== "single" || selection.elementType !== "barline" || !selection.measureAnchor) return null;
-  const measureMatch = selection.elementId.match(/(?:^|\/)m(\d+)(?:\/|$)/);
-  if (!measureMatch) return null;
-  const measureIndex = Number.parseInt(measureMatch[1]!, 10);
-  const partIndex = selection.measureAnchor.partIndex;
-  const part = score.parts[partIndex];
-  if (!part?.id || !part.measures[measureIndex]) return null;
-  return {
-    partId: part.id,
-    partIndex,
-    measureIndex,
-    staff: (selection.measureAnchor.localStaffIndex ?? 0) + 1,
-    source: "barline",
-  };
+  return null;
 }
 
 export function readStaffLineConfig(score: Score, target: StaffConfigSelectionTarget): StaffLineConfigState {
