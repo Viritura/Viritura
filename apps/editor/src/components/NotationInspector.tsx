@@ -129,7 +129,9 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
   const selectionSubtitle = target
     ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
-    : `Selected: measure ${staffConfig.target!.measureIndex + 1}, staff ${staffConfig.target!.staff}`;
+    : staffConfig.target!.endMeasureIndex > staffConfig.target!.measureIndex
+      ? `Selected: bars ${staffConfig.target!.measureIndex + 1}-${staffConfig.target!.endMeasureIndex + 1}, staff ${staffConfig.target!.staff}`
+      : `Selected: bar ${staffConfig.target!.measureIndex + 1}, staff ${staffConfig.target!.staff}`;
 
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
@@ -185,11 +187,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         {staffConfig.target && (
           <StaffConfigSection
-            key={`${staffConfig.target.partId}:${staffConfig.target.measureIndex}:${staffConfig.target.staff}:${staffConfig.lines}`}
+            key={`${staffConfig.target.partId}:${staffConfig.target.measureIndex}:${staffConfig.target.endMeasureIndex}:${staffConfig.target.staff}:${staffConfig.lines}`}
             lines={staffConfig.lines}
             staff={staffConfig.target.staff}
-            measureNumber={staffConfig.target.measureIndex + 1}
-            hasExplicitChange={staffConfig.hasExplicitChange}
+            startMeasureNumber={staffConfig.target.measureIndex + 1}
+            endMeasureNumber={staffConfig.target.endMeasureIndex + 1}
+            origin={staffConfig.origin}
+            hasChangesInSelection={staffConfig.hasChangesInSelection}
             onLinesChange={staffConfig.setLines}
             onClear={staffConfig.clear}
           />

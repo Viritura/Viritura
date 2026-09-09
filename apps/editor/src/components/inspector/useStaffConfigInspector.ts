@@ -36,8 +36,9 @@ export function useStaffConfigInspector({ score, selection, commitPatches }: Use
 
   return {
     target,
-    lines: state?.lines ?? 5,
-    hasExplicitChange: state?.hasExplicitChange ?? false,
+    lines: state?.lines ?? null,
+    origin: state?.origin ?? "default",
+    hasChangesInSelection: state?.hasChangesInSelection ?? false,
     setLines,
     clear,
   };

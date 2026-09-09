@@ -11,32 +11,49 @@ const HINT_STYLE: CSSProperties = {
 };
 
 interface StaffConfigSectionProps {
-  lines: number;
+  lines: number | null;
   staff: number;
-  measureNumber: number;
-  hasExplicitChange: boolean;
+  startMeasureNumber: number;
+  endMeasureNumber: number;
+  origin: "default" | "inherited" | "explicit";
+  hasChangesInSelection: boolean;
   onLinesChange: (lines: number) => void;
   onClear: () => void;
+}
+
+function lineCountLabel(lines: number): string {
+  return `${lines} ${lines === 1 ? "line" : "lines"}`;
+}
+
+function describeState(lines: number | null, origin: StaffConfigSectionProps["origin"]): string {
+  if (lines === null) return "Mixed line counts";
+  if (origin === "explicit") return `Explicit change: ${lineCountLabel(lines)}`;
+  if (origin === "inherited") return `Inherited from an earlier change: ${lineCountLabel(lines)}`;
+  return `Score default: ${lineCountLabel(lines)}`;
 }
 
 export function StaffConfigSection({
   lines,
   staff,
-  measureNumber,
-  hasExplicitChange,
+  startMeasureNumber,
+  endMeasureNumber,
+  origin,
+  hasChangesInSelection,
   onLinesChange,
   onClear,
 }: StaffConfigSectionProps) {
-  const [draft, setDraft] = useState(String(lines));
+  const [draft, setDraft] = useState(lines === null ? "" : String(lines));
+  const isRange = startMeasureNumber !== endMeasureNumber;
   const commitDraft = () => {
     if (draft.trim() === "") {
-      setDraft(String(lines));
+      setDraft(lines === null ? "" : String(lines));
       return;
     }
     const value = Number(draft);
     if (Number.isSafeInteger(value) && value >= 0) onLinesChange(value);
-    else setDraft(String(lines));
+    else setDraft(lines === null ? "" : String(lines));
   };
+  const status = describeState(lines, origin);
 
   return (
     <fieldset style={sectionStyle}>
@@ -50,6 +67,7 @@ export function StaffConfigSection({
             min={0}
             step={1}
             value={draft}
+            placeholder={lines === null ? "Mixed" : undefined}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {
@@ -57,11 +75,17 @@ export function StaffConfigSection({
             }}
             style={INPUT_STYLE}
           />
-          {hasExplicitChange && <Button size="sm" label="Use inherited" onClick={onClear} />}
+          {hasChangesInSelection && (
+            <Button size="sm" label={isRange ? "Remove selected changes" : "Remove change"} onClick={onClear} />
+          )}
         </div>
       </label>
       <span style={HINT_STYLE}>
-        Staff {staff}, from measure {measureNumber}. Zero hides all staff lines.
+        {status}. Staff {staff},{" "}
+        {isRange
+          ? `bars ${startMeasureNumber}-${endMeasureNumber}; changes apply only to this selection`
+          : `from bar ${startMeasureNumber} until the next staff-line change`}
+        . Zero hides all staff lines.
       </span>
     </fieldset>
   );

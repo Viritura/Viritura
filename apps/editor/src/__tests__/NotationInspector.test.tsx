@@ -272,12 +272,14 @@ describe("NotationInspector", () => {
 
     const input = (await screen.findByRole("spinbutton", { name: "Number of staff lines" })) as HTMLInputElement;
     expect(input.value).toBe("5");
+    expect(screen.getByText(/Score default: 5 lines/)).toBeTruthy();
     fireEvent.change(input, { target: { value: "1" } });
     fireEvent.blur(input);
 
     await waitFor(() =>
       expect(currentScore().parts[0]!.measures[0]!.staffConfigs).toEqual([{ config: { lines: 1 }, staff: 2 }]),
     );
+    expect(screen.getByText(/Explicit change: 1 line/)).toBeTruthy();
     const serializedPart = (currentMnx()["parts"] as Array<{ measures: Array<Record<string, unknown>> }>)[0]!;
     expect(serializedPart.measures[0]!["staffConfigs"]).toEqual([{ config: { lines: 1 }, staff: 2 }]);
   });
