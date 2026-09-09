@@ -10,6 +10,7 @@
     "prebuild": "pnpm run check-design-tokens && pnpm run copy-assets",
     "dev": "astro dev",
     "build": "astro check && astro build",
+    "postbuild": "tsx scripts/scope-content-security-policy.ts",
     "preview": "astro preview",
     "test": "vitest run"
   },

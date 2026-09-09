@@ -114,7 +114,21 @@ directory provide security headers, immutable caching for fingerprinted assets,
 HTML revalidation, cross-origin isolation for the editor, and SPA fallback
 routing. The website Pages HTTP CSP intentionally contains only
 `frame-ancestors 'self'` because Astro and the MNX Storybook emit their own CSP
-meta policies with generated script/style hashes.
+meta policies with generated script/style hashes. The website post-build step
+removes `wasm-unsafe-eval` from every page except `/mnx/`,
+`/mnx/playground/`, and `/mnx/mxl-converter/`, the three routes that instantiate
+the engraving engine. It also limits Monaco's
+`style-src-elem 'unsafe-inline'` allowance to the playground and converter. Keep
+`apps/website/scripts/scope-content-security-policy.ts` aligned with routes that
+add either runtime.
+
+The editor uses build-generated AJV standalone validators, so its script policy
+does not require exact `unsafe-eval`. The narrower `wasm-unsafe-eval` remains on
+the editor, public MNX Storybook, and the two website engraving routes.
+Chromium, Firefox, and Safari support that CSP source expression; CSP hashes and
+nonces authorize scripts but do not authorize WebAssembly compilation. See the
+[CSP Level 3 WebAssembly algorithms](https://www.w3.org/TR/CSP3/#wasm-integration)
+and [MDN's `script-src` reference](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src#unsafe_webassembly_execution).
 
 ## R2 assets
 

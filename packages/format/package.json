@@ -11,7 +11,9 @@
     "gen:raw": "tsx scripts/generate-raw-types.ts",
     "gen:raw:check": "tsx scripts/check-generated-types.ts mnx",
     "gen:raw-viritura": "tsx scripts/generate-viritura-types.ts",
-    "gen:raw-viritura:check": "tsx scripts/check-generated-types.ts viritura"
+    "gen:raw-viritura:check": "tsx scripts/check-generated-types.ts viritura",
+    "gen:validators": "tsx scripts/generate-standalone-validators.ts",
+    "gen:validators:check": "tsx scripts/check-generated-types.ts validators"
   },
   "dependencies": {
     "@viritura/core": "workspace:*",
