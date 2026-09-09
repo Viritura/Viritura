@@ -211,19 +211,6 @@ fn semantic_dynamic_errors(value: &Value) -> Vec<RawScoreValidationError> {
                         "range",
                     ));
                 }
-                if group.get("orient").and_then(Value::as_str) == Some("between") {
-                    let valid = match staff {
-                        Some(number) => number < staves,
-                        None => staves == 2,
-                    };
-                    if !valid {
-                        errors.push(dynamic_error(
-                            format!("{pointer}/orient"),
-                            "between orientation requires an adjacent staff pair",
-                            "orientation",
-                        ));
-                    }
-                }
                 if let Some(glyphs) = group.get("glyphs").and_then(Value::as_array) {
                     for (glyph_index, glyph) in glyphs.iter().enumerate() {
                         if glyph.as_str().is_none_or(|name| {
@@ -528,8 +515,30 @@ mod tests {
             panic!("invalid dynamic semantics should fail validation");
         };
         assert!(errors.iter().any(|error| error.keyword == "reference"));
-        assert!(errors.iter().any(|error| error.keyword == "orientation"));
         assert!(errors.iter().any(|error| error.keyword == "glyph"));
+    }
+
+    #[test]
+    fn accepts_between_dynamic_associated_with_last_staff() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "id": "m1" }] },
+            "parts": [{ "staves": 2, "measures": [{
+                "sequences": [],
+                "dynamics": [{
+                    "id": "lower-staff-dynamic",
+                    "type": "immediate",
+                    "position": { "fraction": [0, 1] },
+                    "value": "p",
+                    "staff": 2,
+                    "orient": "between"
+                }]
+            }] }]
+        });
+        assert!(matches!(
+            validate_raw_score(&value),
+            RawScoreValidationResult::Ok
+        ));
     }
 
     #[test]

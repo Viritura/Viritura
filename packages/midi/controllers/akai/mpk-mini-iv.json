@@ -1,0 +1,200 @@
+{
+  "$schema": "../schema.json",
+  "schemaVersion": 1,
+  "id": "akai.mpk-mini-iv",
+  "name": "MPK mini IV",
+  "manufacturer": "Akai Professional",
+  "match": {
+    "nameIncludes": ["MPK mini IV"],
+    "manufacturerIncludes": ["AKAI"]
+  },
+  "ports": [
+    {
+      "role": "performance",
+      "names": ["MPK mini IV"]
+    },
+    {
+      "role": "controls",
+      "names": ["MIDIIN2 (MPK mini IV)", "MPK mini IV DAW Port"]
+    }
+  ],
+  "bindings": [
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 76,
+      "value": 127,
+      "action": { "type": "transport.play-stop" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 73,
+      "value": 127,
+      "action": { "type": "history.undo" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 13,
+      "value": 127,
+      "action": { "type": "note-input.toggle" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 81,
+      "value": 127,
+      "action": { "type": "note-input.move-cursor", "direction": "right" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 80,
+      "value": 127,
+      "action": { "type": "note-input.move-cursor", "direction": "left" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 14,
+      "value": 1,
+      "action": { "type": "note-input.move-cursor", "direction": "up" }
+    },
+    {
+      "portRole": "controls",
+      "message": "control-change",
+      "channel": 1,
+      "number": 14,
+      "value": 127,
+      "action": { "type": "note-input.move-cursor", "direction": "down" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 36,
+      "action": { "type": "note-input.set-duration", "duration": "64th" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 37,
+      "action": { "type": "note-input.set-duration", "duration": "32nd" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 38,
+      "action": { "type": "note-input.set-duration", "duration": "16th" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 39,
+      "action": { "type": "note-input.set-duration", "duration": "eighth" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 40,
+      "action": { "type": "note-input.set-duration", "duration": "quarter" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 41,
+      "action": { "type": "note-input.set-duration", "duration": "half" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 42,
+      "action": { "type": "note-input.set-duration", "duration": "whole" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 43,
+      "action": { "type": "note-input.set-duration", "duration": "breve" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 44,
+      "action": { "type": "note-input.set-duration", "duration": "64th" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 45,
+      "action": { "type": "note-input.set-duration", "duration": "32nd" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 46,
+      "action": { "type": "note-input.set-duration", "duration": "16th" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 47,
+      "action": { "type": "note-input.set-duration", "duration": "eighth" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 48,
+      "action": { "type": "note-input.set-duration", "duration": "quarter" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 49,
+      "action": { "type": "note-input.set-duration", "duration": "half" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 50,
+      "action": { "type": "note-input.set-duration", "duration": "whole" }
+    },
+    {
+      "portRole": "controls",
+      "message": "note-on",
+      "channel": 10,
+      "number": 51,
+      "action": { "type": "note-input.set-duration", "duration": "breve" }
+    }
+  ],
+  "notePreview": {
+    "portRole": "performance",
+    "program": 0,
+    "channels": [1]
+  },
+  "tested": {
+    "operatingSystems": ["Windows 11"],
+    "notes": "Mapped from simultaneous Web MIDI and native WinMM captures. Windows exposes the controls port as MIDIIN2. Pad banks emit channel-10 notes 36-43 and 44-51."
+  }
+}

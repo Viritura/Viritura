@@ -5355,7 +5355,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/34",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -6536,6 +6536,12 @@ impl ::std::convert::From<&Part> for Part {
 ///      "items": {
 ///        "$ref": "#/$defs/sequence"
 ///      }
+///    },
+///    "staffConfigs": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/positioned-staff-config"
+///      }
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -6575,6 +6581,12 @@ pub struct PartMeasure {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub ottavas: ::std::vec::Vec<Ottava>,
     pub sequences: ::std::vec::Vec<Sequence>,
+    #[serde(
+        rename = "staffConfigs",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub staff_configs: ::std::vec::Vec<PositionedStaffConfig>,
     #[serde(
         rename = "_x",
         default,
@@ -6913,6 +6925,63 @@ pub struct PositionedClef {
 }
 impl ::std::convert::From<&PositionedClef> for PositionedClef {
     fn from(value: &PositionedClef) -> Self {
+        value.clone()
+    }
+}
+///`PositionedStaffConfig`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "required": [
+///    "config"
+///  ],
+///  "properties": {
+///    "config": {
+///      "$ref": "#/$defs/staff-config"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "staff": {
+///      "$ref": "#/$defs/staff-number"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct PositionedStaffConfig {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    pub config: StaffConfig,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub position: ::std::option::Option<RhythmicPosition>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<StaffNumber>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&PositionedStaffConfig> for PositionedStaffConfig {
+    fn from(value: &PositionedStaffConfig) -> Self {
         value.clone()
     }
 }
@@ -8669,6 +8738,61 @@ pub struct Staff {
 impl ::std::convert::From<&Staff> for Staff {
     fn from(value: &Staff) -> Self {
         value.clone()
+    }
+}
+///`StaffConfig`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "lines": {
+///      "$ref": "#/$defs/integer-unsigned"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct StaffConfig {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub lines: ::std::option::Option<IntegerUnsigned>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&StaffConfig> for StaffConfig {
+    fn from(value: &StaffConfig) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for StaffConfig {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            id: Default::default(),
+            lines: Default::default(),
+            x: Default::default(),
+        }
     }
 }
 ///`StaffCount`

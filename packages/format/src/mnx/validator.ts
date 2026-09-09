@@ -163,12 +163,15 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     asObjects(part["measures"]).forEach((measure, measureIndex) => {
       const measurePointer = `${partPointer}/measures/${measureIndex}`;
       validateAt(measure, measurePointer, "part-measure-extensions");
+      asObjects(measure["staffConfigs"]).forEach((config, configIndex) =>
+        validateAt(config, `${measurePointer}/staffConfigs/${configIndex}`, "positioned-staff-config-extensions"),
+      );
       asObjects(measure["dynamics"]).forEach((dynamic, dynamicIndex) =>
         validateAt(dynamic, `${measurePointer}/dynamics/${dynamicIndex}`, "dynamic-group-extensions"),
       );
-      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) =>
-        visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`),
-      );
+      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);
+      });
     });
   });
 
@@ -295,16 +298,6 @@ function validateDynamicGroups(score: RawScore): RawScoreValidationError[] {
             message: `must address a staff between 1 and ${staffCount}`,
             keyword: "range",
           });
-        }
-        if (group.orient === "between") {
-          const hasPair = group.staff !== undefined ? group.staff < staffCount : staffCount === 2;
-          if (!hasPair) {
-            errors.push({
-              pointer: `${pointer}/orient`,
-              message: "'between' requires an adjacent staff pair; specify staff for parts with more than two staves",
-              keyword: "placement",
-            });
-          }
         }
         group.glyphs?.forEach((glyph, glyphIndex) => {
           if (!isSupportedDynamicGlyph(glyph)) {

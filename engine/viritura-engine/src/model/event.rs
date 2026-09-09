@@ -902,6 +902,9 @@ pub struct FullMeasure {
     /// 0 = middle line, positive = up, negative = down.
     #[serde(skip_serializing_if = "Option::is_none", rename = "staffPosition")]
     pub staff_position: Option<i32>,
+    /// Fermata attached to this meter-independent bar rest.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fermata: Option<Fermata>,
 }
 
 /// A sequence (voice) within a measure.

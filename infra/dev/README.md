@@ -1,10 +1,11 @@
 # Parallel Git-worktree development
 
 Run any number of worktrees behind one shared Traefik proxy. Every worktree gets
-its own Compose project, internal network, dependency caches, and
-`*.<slug>.localhost` routes. Worktrees share one development API database and
-Data Protection key ring so the same local account credentials work everywhere.
-Application containers do not publish host ports.
+its own Compose project, internal network, compiler output, and
+`*.<slug>.localhost` routes. Worktrees with the same dependency manifests share
+one read-only Node dependency set; all worktrees share package-download caches,
+one development API database, and one Data Protection key ring. Application
+containers do not publish host ports.
 
 ## Quick start
 
@@ -12,8 +13,8 @@ Run from any worktree; the wrapper starts Docker Desktop automatically when the
 standard Windows installation is present but the engine is not ready:
 
 ```powershell
-./infra/dev/worktree.ps1 up     # core: editor + API + server UI watcher
-./infra/dev/worktree.ps1 watch  # core plus continuous Rust/WASM rebuilding
+./infra/dev/worktree.ps1 up     # app: editor + API + server UI watcher
+./infra/dev/worktree.ps1 watch  # app plus continuous Rust/WASM rebuilding
 ./infra/dev/worktree.ps1 status
 ```
 
@@ -27,15 +28,19 @@ The wrapper prints the worktree slug and routes. Chromium browsers resolve
 
 Targets select Compose profiles and can be combined:
 
-| Target      | Services                                                    |
-| ----------- | ----------------------------------------------------------- |
-| `core`      | Editor, website, API, and server UI watcher (default)       |
-| `editor`    | Editor only                                                 |
-| `ui`        | Editor and marketing website                                |
-| `website`   | Website, API, and server UI watcher                         |
-| `backend`   | Hot-reload API and server UI watcher                        |
-| `storybook` | UI, MNX, and composed-app Storybooks                        |
-| `full`      | Editor, website, API, server UI watcher, and all Storybooks |
+| Target          | Services                                                    |
+| --------------- | ----------------------------------------------------------- |
+| `app`           | Editor, API, and server UI watcher (default)                |
+| `core`          | Compatibility alias for `app`                               |
+| `editor`        | Editor only                                                 |
+| `ui`            | Editor and marketing website                                |
+| `website`       | Website, API, and server UI watcher                         |
+| `backend`       | Hot-reload API and server UI watcher                        |
+| `storybook-ui`  | UI design-system Storybook                                  |
+| `storybook-mnx` | MNX and Viritura extension Storybook                        |
+| `storybook-app` | Composed-app Storybook                                      |
+| `storybook`     | All three Storybooks                                        |
+| `full`          | Editor, website, API, server UI watcher, and all Storybooks |
 
 Use `worktree.ps1 watch [targets]` instead of `up [targets]` when Rust/WASM
 changes should rebuild continuously. UI and API watching is enabled in both
@@ -50,7 +55,8 @@ Examples:
 
 ```powershell
 ./infra/dev/worktree.ps1 up backend
-./infra/dev/worktree.ps1 up ui storybook
+./infra/dev/worktree.ps1 up storybook-mnx
+./infra/dev/worktree.ps1 up ui storybook-app
 ./infra/dev/worktree.ps1 up full
 ```
 
@@ -117,20 +123,40 @@ local env files so services cannot accidentally connect to another worktree.
 
 | Command                             | Effect                                                                    |
 | ----------------------------------- | ------------------------------------------------------------------------- |
-| `worktree.ps1 up [targets]`         | Build and start selected targets; defaults to `core`.                     |
+| `worktree.ps1 up [targets]`         | Build and start selected targets; defaults to `app`.                      |
 | `worktree.ps1 watch [targets]`      | Start selected targets with incremental development Rust/WASM rebuilding. |
 | `worktree.ps1 restart [targets]`    | Restart services in selected targets.                                     |
-| `worktree.ps1 rebuild [targets]`    | Refresh dependency/build volumes; preserve API data.                      |
+| `worktree.ps1 rebuild [targets]`    | Recreate worktree compiler output and rebuild selected images.            |
 | `worktree.ps1 status`               | Show containers and all possible routes.                                  |
 | `worktree.ps1 logs [service]`       | Follow all logs or one Compose service.                                   |
 | `worktree.ps1 wasm`                 | Build missing/stale WASM with the isolated Docker toolchain.              |
 | `worktree.ps1 url` / `slug`         | Print routes or the derived slug.                                         |
-| `worktree.ps1 down`                 | Stop containers; preserve caches and API data.                            |
-| `worktree.ps1 prune`                | Delete containers and worktree caches; preserve shared API data.          |
+| `worktree.ps1 keepalive`            | Renew the worktree's eight-hour runtime lease.                            |
+| `worktree.ps1 stop`                 | Stop containers while preserving them for a fast restart.                 |
+| `worktree.ps1 down`                 | Remove containers and networks; preserve compiler output temporarily.     |
+| `worktree.ps1 prune`                | Delete containers and worktree compiler output; preserve shared caches.   |
+| `worktree.ps1 cleanup`              | Stop expired stacks and remove stacks past the cleanup grace period.      |
+| `worktree.ps1 janitor-install`      | Install the per-user cleanup task, which runs every 15 minutes.           |
 | `worktree.ps1 proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                             |
 
-Use `rebuild` after changing JavaScript or .NET dependency manifests. The API
-uses `dotnet watch` with polling, so C# source edits rebuild automatically.
+Every successful `up`, `watch`, `restart`, or `rebuild` grants the stack an
+eight-hour lease. Install the per-user janitor once:
+
+```powershell
+./infra/dev/worktree.ps1 janitor-install
+```
+
+The janitor stops an expired stack, retains its compiler output for 24 hours,
+then removes its containers, network, and worktree-local volumes. Run
+`keepalive` to extend an active session. It also removes unused
+content-addressed dependency volumes and development images after seven days.
+The scheduled task runs only while the user is signed in and never touches
+unmanaged Docker resources.
+
+A JavaScript or .NET dependency-manifest change automatically selects a new
+content-addressed image on the next `up`. Use `rebuild` only to discard stale
+worktree-local compiler output or force selected images to rebuild. The API uses
+`dotnet watch` with polling, so C# source edits rebuild automatically.
 Vite and Storybook source edits also update without rebuilding images.
 The `watch` command uses `wasm-pack --dev` with development `opt-level=1`;
 Cargo reuses the per-worktree target volume and the build skips optimized WASM
@@ -147,9 +173,16 @@ worktree stack, so an account created in any worktree can immediately sign in to
 all of them with the same credentials. Browser sessions remain host-specific,
 so each worktree still requires its own sign-in.
 
-Cargo, wasm-pack tools, and Rust build output use separate external cache
-volumes for each worktree. Normal `down`, `rebuild`, and `prune` preserve the
-shared API volume.
+Node and API development images use hashes of their restore inputs rather than
+worktree names. Node dependency volumes use the same dependency hash and are
+mounted read-only by every matching worktree. Vite, Storybook, and asset-staging
+caches remain private in container tmpfs storage.
+
+Cargo registry and Git downloads, wasm-pack tools, and NuGet packages use
+machine-wide external cache volumes. Rust `target`, .NET `bin`/`obj`, and other
+branch-dependent compiler output remain worktree-specific. Normal `stop` and
+`down` preserve this output; `prune` removes it. All lifecycle commands preserve
+the shared API volume.
 
 Because every running API migrates the same SQLite schema at startup, avoid
 running worktrees whose branches contain incompatible database migrations at

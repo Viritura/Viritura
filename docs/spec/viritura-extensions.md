@@ -1,6 +1,6 @@
 # Viritura MNX Vendor Extensions Reference
 
-Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using the standard `_x` vendor extension mechanism defined in MNX's [global attributes](https://w3c.github.io/mnx/docs/mnx-reference/objects/global-attrs/). All Viritura extensions live under the `"viritura"` vendor key.
+Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using the standard `_x` vendor extension mechanism defined in MNX's [global attributes](https://mnx.formats.music/docs/mnx-reference/objects/global-attrs/). All Viritura extensions live under the `"viritura"` vendor key.
 
 > **Why `_x`?** MNX objects set `unevaluatedProperties: false`, which means adding custom top-level properties fails schema validation. The `_x` vendor dict is the only spec-sanctioned way to extend MNX objects.
 
@@ -11,21 +11,20 @@ Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                   | Extensions                                                            |
-| -------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                               | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
-| score definition                             | `scores[]._x.viritura`                      | pageSetup, instrumentNameDisplay                                      |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`             | rehearsalMark, coda, jump variants not in MNX                         |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`            | pedals, chordSymbols, expressions, condensingOverride                 |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura` | manualOffset, avoidCollisions                                         |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`         | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                  | glissandos                                                            |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`          | shape                                                                 |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                 | notehead                                                              |
+| MNX Object                                   | JSON Path                                       | Extensions                                                            |
+| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                      |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                         |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                 |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                 |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                         |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                            |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                 |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                              |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
-
----
 
 ## Score Definition Extensions
 
@@ -403,6 +402,20 @@ Extensions on each standard `parts[].measures[].dynamics[]` object.
   "_x": { "viritura": { "manualOffset": [0.5, -0.25] } }
 }
 ```
+
+## Positioned Staff Configuration Extensions
+
+Extensions on `parts[].measures[].staffConfigs[]._x.viritura`.
+
+### `staffLineRangeRestore`
+
+The editor sets this boolean to `true` on the synthetic restoration event after
+a bounded multi-bar staff-line edit. It carries no engraving semantics beyond
+the standard MNX `staffConfigs` event. The marker lets a later “Remove selected
+changes” command remove the generated boundary without deleting a pre-existing
+explicit staff-line change.
+
+---
 
 ## Part Measure Extensions
 

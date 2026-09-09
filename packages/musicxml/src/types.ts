@@ -1,4 +1,4 @@
-// ─── MNX document output types (schema version 34) ──────────────────
+// ─── MNX document output types (schema version 35) ──────────────────
 
 import type { ChordSymbol, DynamicGroup } from "@viritura/core";
 
@@ -110,6 +110,11 @@ export interface MnxPartMeasure {
   beams?: MnxBeam[];
   ottavas?: MnxOttava[];
   nonArpeggios?: MnxNonArpeggio[];
+  staffConfigs?: Array<{
+    config: { lines?: number };
+    position?: MnxRhythmicPosition;
+    staff?: number;
+  }>;
   _x?: { viritura: { chordSymbols?: ChordSymbol[]; [key: string]: unknown } };
 }
 

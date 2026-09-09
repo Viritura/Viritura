@@ -84,15 +84,19 @@ Storybook, or `dotnet watch` directly. The wrapper gives every worktree isolated
 containers, data, internal service DNS, and `*.<slug>.localhost` routes without
 host-port collisions.
 
-- Default/core work: `./infra/dev/worktree.ps1 up` (editor + website + API + server UI watcher).
+- Default app work: `./infra/dev/worktree.ps1 up` (editor + API + server UI watcher).
 - Frontend-only work: `./infra/dev/worktree.ps1 up ui`.
 - API/server work: `./infra/dev/worktree.ps1 up backend`.
-- Storybook work: `./infra/dev/worktree.ps1 up storybook`.
+- Storybook work: `./infra/dev/worktree.ps1 up storybook-ui`,
+  `storybook-mnx`, or `storybook-app`; use `storybook` only when all three are needed.
 - Cross-stack or uncertain scope: `./infra/dev/worktree.ps1 up full`.
 - Report routes with `./infra/dev/worktree.ps1 url`; inspect with `status` and
   `logs [service]`.
-- Use `rebuild [target]` after dependency-manifest changes. Use `down` for normal
-  cleanup; `prune` deletes that worktree's per-worktree caches (the shared API database volume is preserved).
+- Dependency-manifest changes select a new content-addressed image
+  automatically. Use `rebuild [target]` only to discard stale compiler output,
+  `stop` for a short pause, `down` to remove containers, and `prune` to delete
+  worktree-local compiler output. Shared dependency and API data volumes are
+  preserved.
 - Rust-only builds and tests do not need a server. UI-capable profiles
   automatically run the cache-aware Docker WASM builder before startup; use
   `./infra/dev/worktree.ps1 wasm` to invoke it explicitly.

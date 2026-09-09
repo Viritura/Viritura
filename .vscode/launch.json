@@ -16,11 +16,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Viritura: Worktree Core (Docker/Traefik)",
+      "name": "Viritura: Worktree App (Docker/Traefik)",
       "type": "node-terminal",
       "request": "launch",
       "cwd": "${workspaceFolder}",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up app",
       "presentation": { "group": "0_worktree", "order": 1 }
     },
     {

@@ -540,16 +540,25 @@ fn render_one_staff_for_system(
         .filter(|(_, (part_index, _))| *part_index == current_part_index)
         .map(|(index, _)| staff_y_offsets[index])
         .collect();
+    let shared_lane = shared_staff_lane(staff_y, sp, Some(&part_staff_y_offsets));
+    let render_measure_number_here = visual_staves
+        .first()
+        .is_some_and(|(part_index, _)| *part_index == current_part_index)
+        && shared_lane.is_bottom;
     let x_end = measure_layouts
         .last()
         .map_or(margin_left, |ml| ml.x + ml.width);
     let staff_shape_start = dl.element_shapes.len();
     let staff_cmd_start = dl.commands.len();
 
-    for line in 0..5 {
-        let y = staff_y + line as f64 * sp;
-        dl.staff_line(margin_left, x_end, y, config.staff_line_width * sp);
-    }
+    super::staff_lines::render_staff_lines(
+        dl,
+        measure_layouts,
+        staff_y,
+        margin_left,
+        sp,
+        config.staff_line_width * sp,
+    );
 
     let global_beamed_ids = collect_all_beamed_event_ids(measure_layouts, use_beams);
     let explicit_beamed_ids = collect_explicit_beamed_event_ids(measure_layouts);
@@ -606,7 +615,7 @@ fn render_one_staff_for_system(
             lyric_line_order,
             Some(staff_y_offsets),
             Some(&part_staff_y_offsets),
-            vi == 0,
+            render_measure_number_here,
             use_beams,
             use_accidental_display,
             Some(&slur_map),

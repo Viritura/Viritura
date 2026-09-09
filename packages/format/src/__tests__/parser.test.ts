@@ -85,6 +85,69 @@ describe("parseMnx", () => {
     expect(clefs?.[0]?.clef.staffPosition).toBe(-2);
   });
 
+  it("parses and round-trips part-measure staffConfigs", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      parts: Array<{ measures: Array<Record<string, unknown>> }>;
+    };
+    mnx.parts[0]!.measures[0] = {
+      staffConfigs: [
+        {
+          id: "positioned-config",
+          _c: "positioned comment",
+          _x: {
+            test: { source: "fixture" },
+            viritura: { staffLineRangeRestore: true },
+          },
+          config: {
+            id: "staff-config",
+            _c: "config comment",
+            _x: { test: { custom: true } },
+            lines: 1,
+          },
+        },
+        { config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } },
+      ],
+      sequences: [{ content: [{ duration: { base: "whole" }, rest: {} }] }],
+    };
+
+    const score = parseMnx(mnx);
+    const parsed = score.parts[0]?.measures[0]?.staffConfigs;
+    expect(parsed).toHaveLength(2);
+    expect(parsed?.[0]).toEqual({
+      id: "positioned-config",
+      _c: "positioned comment",
+      _x: {
+        test: { source: "fixture" },
+        viritura: { staffLineRangeRestore: true },
+      },
+      config: {
+        id: "staff-config",
+        _c: "config comment",
+        _x: { test: { custom: true } },
+        lines: 1,
+      },
+    });
+    expect(parsed?.[1]).toEqual({ config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } });
+
+    expect(serializeMnx(score).parts[0]?.measures[0]?.staffConfigs).toEqual([
+      {
+        id: "positioned-config",
+        _c: "positioned comment",
+        _x: {
+          test: { source: "fixture" },
+          viritura: { staffLineRangeRestore: true },
+        },
+        config: {
+          id: "staff-config",
+          _c: "config comment",
+          _x: { test: { custom: true } },
+          lines: 1,
+        },
+      },
+      { config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } },
+    ]);
+  });
+
   it("should parse the whole-note C4 event", () => {
     const score = parseMnx(helloWorldMnx);
     const item = score.parts[0]?.measures[0]?.sequences[0]?.content[0];

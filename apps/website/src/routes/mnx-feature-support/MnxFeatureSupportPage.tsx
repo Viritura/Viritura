@@ -256,7 +256,7 @@ export function MnxFeatureSupportPage() {
         <aside>
           <span>Audit snapshot</span>
           <p>{coverageAudit.snapshot}</p>
-          <a href="https://w3c-cg.github.io/music-notationref/">Open the W3C reference</a>
+          <a href="https://mnx.formats.music/notation-reference/">Open the W3C reference</a>
         </aside>
       </header>
 

@@ -1809,7 +1809,9 @@ fn test_below_staff_extra_reserves_for_system_start_bar_number() {
     rm.global.number = Some(3);
     let mut ml = layout_measure(&rm, sp, 0.0, &config, None, &[], 1.0);
     ml.is_first_on_system = true;
-    ml.is_first_staff = true;
+    // Grand-staff numbers render under the bottom staff, whose layout is not
+    // flagged as the score's first staff.
+    ml.is_first_staff = false;
     ml.part_index = 0;
     let layouts = vec![ml];
 

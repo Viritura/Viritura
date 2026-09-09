@@ -964,6 +964,31 @@ fn test_grand_staff_in_full_score() {
         matches!(c, RenderCommand::DrawStretchedGlyph { codepoint, .. } if is_brace_glyph(*codepoint))
     }).collect();
     assert_eq!(braces.len(), 1, "Expected 1 brace for Piano");
+    let mut piano_staff_ys: Vec<_> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bounds| bounds.staff_index < 2)
+        .map(|bounds| bounds.y)
+        .collect();
+    piano_staff_ys.sort_by(f64::total_cmp);
+    piano_staff_ys.dedup_by(|left, right| (*left - *right).abs() < 0.01);
+    let measure_number_y = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "10" => Some(*y),
+            _ => None,
+        })
+        .expect("system-start measure number");
+    assert_eq!(
+        piano_staff_ys.len(),
+        2,
+        "expected both piano staff positions"
+    );
+    assert!(
+        measure_number_y > piano_staff_ys[1] + 4.0 * config.sp,
+        "measure number should be below the bottom piano staff"
+    );
     let violin_staff_y = dl
         .measure_bounds
         .iter()

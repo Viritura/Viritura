@@ -16,7 +16,7 @@ import {
   buildPartTransposition,
 } from "./InstrumentCatalog";
 import { buildLayouts, buildScoreDefinitions } from "./layoutBuilder";
-import { createCatalogPart, persistedPartNames } from "./catalogPart";
+import { buildInitialStaffConfigs, createCatalogPart, persistedPartNames } from "./catalogPart";
 
 // ─── Extract players from an existing Score ──────────────────────
 
@@ -186,6 +186,7 @@ function buildEmptyMeasures(
         }
       }
       mObj.clefs = clefs;
+      mObj.staffConfigs = buildInitialStaffConfigs(inst);
     }
 
     const sequences = [];

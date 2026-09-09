@@ -129,7 +129,7 @@ export function buildGlobalMeasures(
             const beatDots = findChildren(metronome, "beat-unit-dot").length;
             const perMinute = childText(metronome, "per-minute");
             if (perMinute) {
-              const bpm = Math.round(parseFloat(perMinute));
+              const bpm = parseFloat(perMinute);
               if (bpm > 0) {
                 const base = BEAT_UNIT_MAP[beatUnit] ?? "quarter";
                 const tempo: MnxTempo = {

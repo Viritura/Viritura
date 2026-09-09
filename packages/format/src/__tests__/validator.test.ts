@@ -30,6 +30,32 @@ function percussionScore() {
   };
 }
 
+function betweenDynamicScore(staff: number) {
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ id: "m1" }] },
+    parts: [
+      {
+        staves: 2,
+        measures: [
+          {
+            dynamics: [
+              {
+                type: "immediate",
+                position: { fraction: [0, 1] },
+                value: "p",
+                staff,
+                orient: "between",
+              },
+            ],
+            sequences: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 describe("MNX percussion semantic validation", () => {
   it("accepts valid component and sound references", () => {
     expect(validateRawScore(percussionScore()).ok).toBe(true);
@@ -100,6 +126,19 @@ describe("MNX percussion semantic validation", () => {
       }
     });
 
+    it("accepts the generated staff-line range restoration marker", () => {
+      const score = percussionScore();
+      const measure = score.parts[0]!.measures[0]! as Record<string, unknown>;
+      measure["staffConfigs"] = [
+        {
+          config: { lines: 5 },
+          _x: { viritura: { staffLineRangeRestore: true } },
+        },
+      ];
+
+      expect(validateRawScore(score).ok).toBe(true);
+    });
+
     it("rejects a non-object Viritura payload", () => {
       const score = percussionScore() as ReturnType<typeof percussionScore> & { _x?: unknown };
       score._x = { viritura: "not-an-object" };
@@ -139,6 +178,25 @@ describe("MNX percussion semantic validation", () => {
     if (!result.ok) {
       expect(result.errors).toContainEqual(
         expect.objectContaining({ pointer: expect.stringContaining("/kitComponent"), keyword: "reference" }),
+      );
+    }
+  });
+});
+
+describe("MNX dynamic semantic validation", () => {
+  it("accepts a between dynamic associated with the last staff", () => {
+    expect(validateRawScore(betweenDynamicScore(2)).ok).toBe(true);
+  });
+
+  it("still rejects a dynamic associated with a nonexistent staff", () => {
+    const result = validateRawScore(betweenDynamicScore(3));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContainEqual(
+        expect.objectContaining({
+          pointer: "/parts/0/measures/0/dynamics/0/staff",
+          keyword: "range",
+        }),
       );
     }
   });

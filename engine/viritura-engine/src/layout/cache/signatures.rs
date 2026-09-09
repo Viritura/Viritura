@@ -22,6 +22,7 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     }
     rm.measure_repeat_covered.hash(&mut hasher);
     rm.next_has_repeat_start.hash(&mut hasher);
+    rm.active_staff_lines.hash(&mut hasher);
     if let Ok(json) = serde_json::to_string(&rm.active_time) {
         json.hash(&mut hasher);
     }
@@ -89,6 +90,7 @@ pub(crate) struct BoundaryState {
     pub active_key: KeySignature,
     pub last_clef: Option<PositionedClef>,
     pub prev_display_key: KeySignature,
+    pub active_staff_lines: u32,
 }
 
 /// Compute a fingerprint over carried resolve state and staff transposition.
@@ -120,6 +122,7 @@ pub(crate) fn boundary_state_fingerprint(
             }
         }
     }
+    state.active_staff_lines.hash(&mut h);
     transposition.hash(&mut h);
     key_fifths_flip_at.hash(&mut h);
     h.finish()

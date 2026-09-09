@@ -93,7 +93,6 @@ prose imposes more. Parsers in both languages additionally enforce:
 - `relative` requires `relativeValue`;
 - `end.measure` resolves to a global-measure ID;
 - `staff`, when present, addresses an existing staff;
-- `orient: "between"` has a usable adjacent staff pair;
 - each glyph name resolves through the supported SMuFL metadata;
 - group IDs are unique.
 
@@ -213,9 +212,11 @@ An omitted `staff` applies the group to every staff in the part (not staff 1).
 - Explicit `staff`: scope semantics and placement to that staff.
 - `orient: "above"` / `"below"`: the requested side of the scoped staff, or the
   outer edge of the all-staff group.
-- `orient: "between"`: between `staff` and `staff + 1`; with `staff` omitted
-  this is accepted automatically only for a two-staff part, otherwise `staff`
-  is required and its absence is a diagnostic.
+- `orient: "between"` remains intact in the model and never fails validation
+  based on staff association. Layout uses the gap below the associated staff,
+  or the gap above when it is the last staff. With `staff` omitted, it uses the
+  only gap in a two-staff part or the topmost gap in a larger part. On a
+  single-staff part it degrades to `below`.
 - `orient: "auto"` or omitted: automatic placement; a two-staff keyboard part
   with all-staff scope prefers the inter-staff gap.
 

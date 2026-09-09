@@ -116,16 +116,18 @@ Each worktree has isolated API data, dependency caches, internal service DNS,
 and `*.<slug>.localhost` routes with no per-worktree host ports:
 
 ```powershell
-./infra/dev/worktree.ps1 up        # core: editor + hot-reload API
+./infra/dev/worktree.ps1 up        # app: editor + hot-reload API
 ./infra/dev/worktree.ps1 up backend
+./infra/dev/worktree.ps1 up storybook-mnx
 ./infra/dev/worktree.ps1 up full   # website + API + editor + all Storybooks
 ./infra/dev/worktree.ps1 status
-./infra/dev/worktree.ps1 down
+./infra/dev/worktree.ps1 stop      # short pause; keep containers
+./infra/dev/worktree.ps1 down      # remove containers; keep compiler output
 ```
 
 Chromium browsers resolve `*.localhost` to `127.0.0.1` automatically, so no
 `hosts` edits are needed. VS Code ships matching tasks
-(`Viritura: Worktree Core (Docker/Traefik)` and friends) so agents can start a
+(`Viritura: Worktree App (Docker/Traefik)` and friends) so agents can start a
 worktree without a terminal. Browser-facing variables use routed public URLs;
 container-to-container variables use Compose DNS such as `http://api:8080`.
 Full profile, environment, persistence, and cleanup reference:
@@ -199,15 +201,18 @@ part of the normal workflow.
 
 ## Production deployments
 
-Production deployments run through the manual **Deploy website**, **Deploy
-editor**, and **Deploy API** workflows in GitHub Actions. Each static workflow
-builds and validates one surface without deployment credentials, then passes
-the resulting artifact to an environment-protected deployment job. There is no
-local production upload command.
+Static production deployments run through Cloudflare Pages' GitHub App
+integration for the website and editor. Pushes to `main` produce production
+Pages deployments for the affected static project; preview deployments are
+controlled in each Pages project's branch and path filters.
+
+The API still deploys through the manual **Deploy API** workflow in GitHub
+Actions. It builds and validates the API without deployment credentials, then
+passes the resulting artifact to an environment-protected deployment job. There
+is no local production upload command.
 
 See [production-deployment.md](production-deployment.md) for the complete
 topology, API deployment, configuration, verification, and rollback runbook.
 
-`scripts/build-cloudflare-pages.sh` is retained for the unconfigured future
-Cloudflare Pages option described in [cloudflare.md](cloudflare.md). It is not
-part of the current production pipeline.
+`scripts/build-cloudflare-pages.sh` is the Cloudflare Pages build entrypoint for
+the configured website and editor Pages projects.

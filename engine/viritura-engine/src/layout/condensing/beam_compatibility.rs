@@ -150,6 +150,7 @@ mod tests {
             dynamics: None,
             ottavas: None,
             measure_repeat: None,
+            staff_configs: None,
             pedals: None,
             chord_symbols: None,
             expressions: None,

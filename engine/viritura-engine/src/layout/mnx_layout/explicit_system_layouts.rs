@@ -12,6 +12,7 @@ use super::shared::{
     append_partial_unison_label, build_virtual_part_measure, compute_flat_staff_transposition,
 };
 use crate::model::*;
+use crate::render::DisplayList;
 use std::collections::{HashMap, HashSet};
 
 type StaffKey = (usize, u32);
@@ -23,6 +24,67 @@ pub(super) struct PersistentStaffState {
     active_time: HashMap<StaffKey, TimeSignature>,
     active_key: HashMap<StaffKey, KeySignature>,
     prev_condensing: HashMap<StaffKey, MergeMode>,
+    active_staff_lines: HashMap<StaffKey, u32>,
+}
+
+impl PersistentStaffState {
+    pub(super) fn staff_lines_for(
+        &self,
+        staff: &FlatStaff,
+        score: &Score,
+        before_measure: usize,
+    ) -> u32 {
+        let key = (
+            staff.sources.first().map_or(0, |source| source.part_index),
+            staff
+                .sources
+                .first()
+                .and_then(|source| source.staff_number)
+                .unwrap_or(1),
+        );
+        if let Some(&lines) = self.active_staff_lines.get(&key) {
+            return lines;
+        }
+        let mut lines = super::super::staff_lines::DEFAULT_STAFF_LINES;
+        for measure_index in 0..before_measure {
+            let prior_measure = build_virtual_part_measure(staff, measure_index, score).0;
+            super::super::staff_lines::resolve_measure_staff_lines(
+                &mut lines,
+                prior_measure.staff_configs.as_deref(),
+            );
+        }
+        lines
+    }
+
+    #[allow(clippy::too_many_arguments)] // Explicit empty-system geometry and persistent state.
+    pub(super) fn render_empty_system_staff_lines(
+        &self,
+        dl: &mut DisplayList,
+        flat_staves: &[FlatStaff],
+        staff_y_offsets: &[f64],
+        x1: f64,
+        x2: f64,
+        sp: f64,
+        line_width: f64,
+        score: &Score,
+        before_measure: usize,
+    ) {
+        for (staff, &staff_y) in flat_staves.iter().zip(staff_y_offsets) {
+            let recolor_start = dl.commands.len();
+            super::super::staff_lines::render_staff_line_run(
+                dl,
+                x1,
+                x2,
+                staff_y,
+                self.staff_lines_for(staff, score, before_measure),
+                sp,
+                line_width,
+            );
+            if staff.expansion {
+                dl.recolor_range(recolor_start, super::instrument_labels::EXPANSION_COLOR);
+            }
+        }
+    }
 }
 
 /// Build all measure layouts for one explicit system.
@@ -92,6 +154,7 @@ pub(super) fn build_explicit_system_layouts(
             });
         let mut active_layout_staves: Option<&Vec<FlatStaff>> = None;
         let mut last_clef = state.last_clef.get(&staff_key).cloned();
+        let mut active_staff_lines = state.staff_lines_for(flat_staff, score, m_start);
 
         if last_clef.is_none() && m_start > 0 {
             'sources: for source in &flat_staff.sources {
@@ -151,6 +214,10 @@ pub(super) fn build_explicit_system_layouts(
             }
             let (mut virtual_part, condensing_mode) =
                 build_virtual_part_measure(effective_staff, measure_index, score);
+            let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
+                &mut active_staff_lines,
+                virtual_part.staff_configs.as_deref(),
+            );
 
             let is_condensing_change = if let Some(mode) = &condensing_mode {
                 let changed = previous_condensing.as_ref() != Some(mode);
@@ -240,6 +307,7 @@ pub(super) fn build_explicit_system_layouts(
                 active_key: display_key.clone(),
                 prev_key: previous_display_key.clone(),
                 tie_continuation_ids: Vec::new(),
+                active_staff_lines: measure_staff_lines,
                 transposition,
                 written_diatonic_adjustment: diatonic_adjustment,
                 condensing_change: is_condensing_change,
@@ -257,6 +325,9 @@ pub(super) fn build_explicit_system_layouts(
         let mut measure_layouts = Vec::new();
         state.active_time.insert(staff_key, active_time.clone());
         state.active_key.insert(staff_key, active_key.clone());
+        state
+            .active_staff_lines
+            .insert(staff_key, active_staff_lines);
         if let Some(clef) = last_clef {
             state.last_clef.insert(staff_key, clef);
         }

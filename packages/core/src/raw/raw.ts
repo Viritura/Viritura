@@ -350,6 +350,7 @@ export interface components {
             nonArpeggios?: components["schemas"]["non-arpeggio"][];
             ottavas?: components["schemas"]["ottava"][];
             sequences: components["schemas"]["sequence"][];
+            staffConfigs?: components["schemas"]["positioned-staff-config"][];
         } & components["schemas"]["global-attrs"];
         "part-name": string;
         "part-short-name": string;
@@ -366,6 +367,11 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         "positioned-clef": {
             clef: components["schemas"]["clef"];
+            position?: components["schemas"]["rhythmic-position"];
+            staff?: components["schemas"]["staff-number"];
+        } & components["schemas"]["global-attrs"];
+        "positioned-staff-config": {
+            config: components["schemas"]["staff-config"];
             position?: components["schemas"]["rhythmic-position"];
             staff?: components["schemas"]["staff-number"];
         } & components["schemas"]["global-attrs"];
@@ -456,6 +462,9 @@ export interface components {
             symbol?: components["schemas"]["staff-symbol"];
             /** @constant */
             type: "staff";
+        } & components["schemas"]["global-attrs"];
+        "staff-config": {
+            lines?: components["schemas"]["integer-unsigned"];
         } & components["schemas"]["global-attrs"];
         "staff-count": number;
         "staff-group": {
@@ -679,6 +688,7 @@ export type PartTransposition = components["schemas"]["part-transposition"];
 export type PerformOptions = components["schemas"]["perform-options"];
 export type Pitch = components["schemas"]["pitch"];
 export type PositionedClef = components["schemas"]["positioned-clef"];
+export type PositionedStaffConfig = components["schemas"]["positioned-staff-config"];
 export type PositiveInteger = components["schemas"]["positive-integer"];
 export type RelativeDynamicValue = components["schemas"]["relative-dynamic-value"];
 export type RepeatEnd = components["schemas"]["repeat-end"];
@@ -705,6 +715,7 @@ export type Spiccato = components["schemas"]["spiccato"];
 export type Staccatissimo = components["schemas"]["staccatissimo"];
 export type Staccato = components["schemas"]["staccato"];
 export type Staff = components["schemas"]["staff"];
+export type StaffConfig = components["schemas"]["staff-config"];
 export type StaffCount = components["schemas"]["staff-count"];
 export type StaffGroup = components["schemas"]["staff-group"];
 export type StaffGroupBarlineStyle = components["schemas"]["staff-group-barline-style"];

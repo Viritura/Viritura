@@ -396,6 +396,15 @@ function serializeBeam(beam: Beam): Obj {
 // Sequences
 // ═══════════════════════════════════════════
 
+function serializeFermata(fermata: NonNullable<NoteEvent["fermata"]>): Obj {
+  const result: Obj = {};
+  if (fermata.symbol) result["symbol"] = fermata.symbol;
+  if (fermata.duration) result["duration"] = fermata.duration;
+  if (fermata.orient) result["orient"] = fermata.orient;
+  if (fermata.pointing) result["pointing"] = fermata.pointing;
+  return result;
+}
+
 function serializeSequence(seq: Sequence): Obj {
   const seqObj: Obj = {
     content: seq.content.map(serializeSequenceContent),
@@ -406,6 +415,9 @@ function serializeSequence(seq: Sequence): Obj {
     };
     if (seq.fullMeasure.staffPosition !== undefined) {
       fmObj["staffPosition"] = seq.fullMeasure.staffPosition;
+    }
+    if (seq.fullMeasure.fermata) {
+      fmObj["fermata"] = serializeFermata(seq.fullMeasure.fermata);
     }
     seqObj["fullMeasure"] = fmObj;
   }
@@ -504,13 +516,9 @@ export function serializeEvent(ev: NoteEvent): Obj {
   if (ev.markings) evObj["markings"] = serializeMarkings(ev.markings);
   // Native MNX fermata (event-level since v15).
   if (ev.fermata !== undefined) {
-    const f: Obj = {};
-    if (ev.fermata.symbol) f["symbol"] = ev.fermata.symbol;
-    if (ev.fermata.duration) f["duration"] = ev.fermata.duration;
-    if (ev.fermata.orient) f["orient"] = ev.fermata.orient;
-    if (ev.fermata.pointing) f["pointing"] = ev.fermata.pointing;
-    evObj["fermata"] = f;
+    evObj["fermata"] = serializeFermata(ev.fermata);
   }
+
   if (ev.notes && ev.notes.length > 0) {
     evObj["notes"] = ev.notes.map(serializeNote);
   }

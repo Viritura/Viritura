@@ -30,10 +30,14 @@ pub(in crate::layout) fn render_systems_pass2(
             .last()
             .map_or(margin_left, |ml| ml.x + ml.width);
 
-        for line in 0..5 {
-            let y = staff_y + line as f64 * sp;
-            dl.staff_line(margin_left, sys_x_end, y, config.staff_line_width * sp);
-        }
+        super::super::staff_lines::render_staff_lines(
+            dl,
+            sys_measure_layouts,
+            staff_y,
+            margin_left,
+            sp,
+            config.staff_line_width * sp,
+        );
 
         let next_sys_clef: Option<&Clef> = systems
             .get(sys_idx + 1)

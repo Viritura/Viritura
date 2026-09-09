@@ -35,7 +35,9 @@ fn detect_all_staff_mmr_groups(
         index += 1;
         while index < first_staff.len()
             && measure_is_empty(index)
-            && !super::super::resolve::starts_new_mmr_group(first_staff, index)
+            && !all_staff_resolved
+                .iter()
+                .any(|staff| super::super::resolve::starts_new_mmr_group(staff, index))
         {
             index += 1;
         }
@@ -73,7 +75,7 @@ pub(super) fn resolve_mmr_grouping(
         skipped.hash(&mut hasher);
         hasher.finish()
     };
-    let cache_eligible = !mmr_start_map.is_empty() || all_staff_resolved.len() <= 1;
+    let cache_eligible = all_staff_resolved.len() <= 1;
     if let (Some(first_staff), Some(layout_cache)) = (
         all_staff_resolved.first(),
         cache.as_deref_mut().filter(|_| cache_eligible),
@@ -89,8 +91,13 @@ pub(super) fn resolve_mmr_grouping(
         // still sees those markings — an export tool may author one long rest
         // straight across them. Falls back to the raw map if no resolved
         // measures are available to test against.
-        if let Some(first) = all_staff_resolved.first() {
-            split_authored_mmr_ranges(mmr_start_map, first)
+        if !all_staff_resolved.is_empty() {
+            let mut split_map = mmr_start_map.clone();
+            let mut split_skip = skip_measures.clone();
+            for staff in all_staff_resolved {
+                (split_map, split_skip) = split_authored_mmr_ranges(&split_map, staff);
+            }
+            (split_map, split_skip)
         } else {
             (mmr_start_map.clone(), skip_measures.clone())
         }

@@ -12,7 +12,7 @@
  * capture-phase listeners — they're modal-scoped, not editor shortcuts.
  */
 
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { pitchToMidi } from "@viritura/core";
 import { useNoteInput } from "../store/noteInputStore";
 import { useSelection, useSelectionActions } from "../store/selectionStore";
@@ -25,6 +25,8 @@ import { selectAllRange } from "../store/selectionUtils";
 import type { KeyboardHandlerContext } from "./types";
 import { keyboardRegistry } from "./KeyboardRegistry";
 import { buildEditorBindings } from "./editorBindings";
+import { handleMidiChordEntry } from "./noteEntryHandler";
+import { moveNoteInputCursor } from "./noteInputHandlers";
 
 // ═══════════════════════════════════════════
 // Config interface
@@ -161,7 +163,12 @@ function installRegistry(noteInputStateRef: { current: { active: boolean } }): (
 // Hook
 // ═══════════════════════════════════════════
 
-export function useEditorKeyboard(config: EditorKeyboardConfig): void {
+export interface EditorKeyboardActions {
+  enterMidiNotes(midiNotes: readonly number[]): void;
+  moveMidiCursor(direction: "left" | "right" | "up" | "down"): void;
+}
+
+export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardActions {
   // ─── Context hooks ──────────────────────────────
   const {
     state: noteInputState,
@@ -299,6 +306,12 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): void {
     undo,
     redo,
   });
+  const enterMidiNotes = useCallback((midiNotes: readonly number[]) => {
+    handleMidiChordEntry(midiNotes, ctxRef.current);
+  }, []);
+  const moveMidiCursor = useCallback((direction: "left" | "right" | "up" | "down") => {
+    moveNoteInputCursor(direction, ctxRef.current);
+  }, []);
 
   // ─── Install registry + register bindings ──────
   useEffect(() => {
@@ -330,4 +343,6 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): void {
       uninstall();
     };
   }, [ctx, selectRange, setVoice, toggleNoteInput, selectElement, clearSelection, undo, redo, setAccidental]);
+
+  return useMemo(() => ({ enterMidiNotes, moveMidiCursor }), [enterMidiNotes, moveMidiCursor]);
 }

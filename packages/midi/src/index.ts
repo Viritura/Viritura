@@ -52,6 +52,23 @@ export type {
 } from "./dynamicPlayback";
 
 // Web MIDI API
-export { isWebMidiSupported, listMidiOutputs } from "./webMidi";
+export { isWebMidiSupported, listMidiInputs, listMidiOutputs, queryMidiPermission } from "./webMidi";
 export { MidiOutputManager } from "./MidiOutputManager";
 export type { MidiOutputPort, MidiOutputManagerEvents } from "./MidiOutputManager";
+export { MidiInputManager, decodeMidiInputMessage } from "./midiInput";
+export type { MidiInputManagerEvents, MidiInputMessage, MidiInputMessageKind, MidiInputPort } from "./midiInput";
+export {
+  controllerPortRole,
+  controllerProfileSourceUrl,
+  findControllerProfile,
+  listControllerProfiles,
+  parseControllerProfile,
+  resolveControllerAction,
+  isControllerPreviewMessage,
+} from "./controllerProfiles";
+export type {
+  ControllerAction,
+  ControllerBinding,
+  ControllerPortProfile,
+  ControllerProfile,
+} from "./controllerProfiles";

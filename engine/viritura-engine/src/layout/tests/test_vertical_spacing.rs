@@ -629,6 +629,8 @@ fn test_multi_system_spacing_monotonic() {
     let score = parse_mnx(json).unwrap();
     let config = LayoutConfig {
         page_width: Some(100.0), // force page mode with narrow width → many systems
+        page_margin_left: 1.0,
+        page_margin_right: 1.0,
         ..Default::default()
     };
     let dl = layout_score(&score, 0, &config);

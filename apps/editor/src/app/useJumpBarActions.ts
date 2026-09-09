@@ -1,7 +1,6 @@
 import { useMemo, type RefObject, type MutableRefObject } from "react";
 import { buildJumpBarActions } from "../jumpBar";
 import { selectAllRange } from "../store/selectionUtils";
-import { resolveEventLocation } from "../score/ElementPath";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { DocumentStore } from "../store/documentStore";
@@ -11,7 +10,7 @@ import type { ActivityView } from "../components/activityRegistry";
 import { openSettings } from "../components/SettingsDialog";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { RadialMenuCategory } from "../radialMenu";
-import type { TempoPopoverState, StaffTextPopoverState } from "./useAppKeyboardWiring";
+import { resolveStaffTextTargets, type TempoPopoverState, type StaffTextPopoverState } from "./useAppKeyboardWiring";
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
 
 interface LyricStateRef {
@@ -28,6 +27,7 @@ export interface JumpBarActionsDeps {
   mousePositionRef: MutableRefObject<{ x: number; y: number }>;
   store: DocumentStore;
   selection: SelectionState;
+  selectedScoreIndex: number;
   currentZoom: number;
   undo: () => void;
   redo: () => void;
@@ -61,6 +61,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
     mousePositionRef,
     store,
     selection,
+    selectedScoreIndex,
     currentZoom,
     undo,
     redo,
@@ -187,15 +188,12 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           },
           addStaffText: () => {
             const { score } = store.getState();
-            if (!score || selection.kind !== "single") return;
-            const loc = resolveEventLocation(selection.elementId, score);
-            if (!loc) return;
+            if (!score) return;
+            const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
+            if (!target) return;
             setStaffTextPopover({
               position: { ...mousePositionRef.current },
-              partIndex: loc.partIndex,
-              measureIndex: loc.measureIndex,
-              sequenceIndex: loc.sequenceIndex,
-              eventIndex: loc.eventIndex,
+              ...target,
             });
           },
           enterLyrics: () => {
@@ -215,6 +213,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
     [
       store,
       selection,
+      selectedScoreIndex,
       currentZoom,
       undo,
       redo,

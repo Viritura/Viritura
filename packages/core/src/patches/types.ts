@@ -40,6 +40,7 @@ import type {
   RepeatStart,
   RhythmicPosition,
   Tempo,
+  PositionedStaffConfig,
 } from "../model/measure";
 import type { PositionedClef } from "../model/clef";
 import type { TimeSignature } from "../model/time";
@@ -304,9 +305,11 @@ export interface RemoveMeasuresPatch {
 
 /**
  * A single field update on a `PartMeasure` (the part-specific side of a
- * measure). Currently only clef changes; the tagged union leaves room for more.
+ * measure).
  */
-export type PartMeasureField = { field: "clefs"; value: PositionedClef[] | undefined };
+export type PartMeasureField =
+  | { field: "clefs"; value: PositionedClef[] | undefined }
+  | { field: "staffConfigs"; value: PositionedStaffConfig[] | undefined };
 
 export interface SetPartMeasureFieldPatch {
   kind: "setPartMeasureField";

@@ -73,26 +73,33 @@ export function applyTempoEdit(score: Score, popover: TempoPopoverState, rawValu
 // ─── Staff text ──────────────────────────────────────────────────
 export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState, rawValue: string): Score {
   return produce(score, (draft) => {
-    const pm = draft.parts[popover.partIndex]?.measures[popover.measureIndex];
-    if (!pm) return;
-    const seq = pm.sequences?.[popover.sequenceIndex];
-    let beat = 0;
-    if (seq) {
-      for (let i = 0; i < popover.eventIndex && i < seq.content.length; i++) {
-        const ev = seq.content[i];
-        if (ev && "duration" in ev) beat += durationToBeats(ev.duration as Duration);
+    for (const target of popover.targets ?? [popover]) {
+      const pm = draft.parts[target.partIndex]?.measures[target.measureIndex];
+      if (!pm) continue;
+      const seq = pm.sequences?.[target.sequenceIndex];
+      let beat = 0;
+      if (seq) {
+        for (let i = 0; i < target.eventIndex && i < seq.content.length; i++) {
+          const ev = seq.content[i];
+          if (ev && "duration" in ev) beat += durationToBeats(ev.duration as Duration);
+        }
       }
+      let num = beat;
+      let den = 4;
+      while (Math.abs(num - Math.round(num)) > 1e-9 && den < 4096) {
+        num *= 2;
+        den *= 2;
+      }
+      const fraction: [number, number] = [Math.round(num), den];
+      const existing = pm.expressions ?? [];
+      existing.push({
+        text: rawValue.trim(),
+        position: { fraction },
+        placement: "above",
+        ...(target.staff !== undefined && { staff: target.staff }),
+      });
+      pm.expressions = existing;
     }
-    let num = beat;
-    let den = 4;
-    while (Math.abs(num - Math.round(num)) > 1e-9 && den < 4096) {
-      num *= 2;
-      den *= 2;
-    }
-    const fraction: [number, number] = [Math.round(num), den];
-    const existing = pm.expressions ?? [];
-    existing.push({ text: rawValue.trim(), position: { fraction }, placement: "above" });
-    pm.expressions = existing;
   });
 }
 

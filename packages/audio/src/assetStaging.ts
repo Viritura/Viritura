@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 const audioRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = dirname(fileURLToPath(import.meta.resolve("spessasynth_lib/package.json")));
 const canonicalSounds = resolve(audioRoot, "assets/sounds");
-const stageLockRoot = resolve(audioRoot, "node_modules/.cache/viritura-sound-assets");
+const stageLockRoot = resolve(
+  process.env.VIRITURA_CACHE_ROOT ?? resolve(audioRoot, "node_modules/.cache"),
+  "viritura-sound-assets",
+);
 const SOUND_ASSETS = [
   "Shan-SGM-Pro-15.sf2",
   "ir/french-salon.wav",

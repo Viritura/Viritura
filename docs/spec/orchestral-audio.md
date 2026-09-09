@@ -245,14 +245,14 @@ Every signal — direct and reverb return — converges on `masterOut`, then:
 
 ## Pooling & performance trade-offs
 
-| Decision                                                                              | Why                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| One `Sf2Synth` (spessasynth `WorkletSynthesizer`) per orchestra section, not per part | Each synth has its own `AudioWorklet`. Per-part synths would blow the per-context worklet budget in any large score and duplicate the 100–200 MB SF2 buffer.         |
-| Section centroid + max-projection for `sectionGain` / `predelay` / `reverbSend`       | Cheap, perceptually close enough — the listener can't tell two violins 0.5 m apart have the same reverb send. Recomputed only when the listener moves significantly. |
-| Per-part stereo via MIDI CC10 inside the shared synth                                 | Free in CPU and gives correct per-part pan within a section; no need for per-part `GainNode`/`StereoPannerNode` chains.                                              |
-| Sampler builds preserved across note edits                                            | `samplerPartSignatureRef` keeps a signature of the part list; the expensive `Sf2Synth.create` only runs when instruments actually change, not on every note edit.    |
-| `latencyHint: "playback"`                                                             | We optimize for jitter resistance / smooth output over input latency — there's no live input path here.                                                              |
-| Eager warm-up                                                                         | `warmUpSectionSynths` plays a silent note on every used MIDI channel to force the SF2 voice allocator to load and initialize the preset before the user hits Play.   |
+| Decision                                                                              | Why                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One `Sf2Synth` (spessasynth `WorkletSynthesizer`) per orchestra section, not per part | Each synth has its own `AudioWorklet`. Per-part synths would blow the per-context worklet budget in any large score and duplicate the 100–200 MB SF2 buffer.           |
+| Section centroid + max-projection for `sectionGain` / `predelay` / `reverbSend`       | Cheap, perceptually close enough — the listener can't tell two violins 0.5 m apart have the same reverb send. Recomputed only when the listener moves significantly.   |
+| Per-part stereo via MIDI CC10 inside the shared synth                                 | Free in CPU and gives correct per-part pan within a section; no need for per-part `GainNode`/`StereoPannerNode` chains.                                                |
+| Sampler builds preserved across note edits                                            | `samplerPartSignatureRef` keeps a signature of the part list; the expensive `Sf2Synth.create` only runs when instruments actually change, not on every note edit.      |
+| `latencyHint: "playback"`                                                             | Score playback optimizes for jitter resistance and smooth output. Live controller audition uses a separate `interactive` context so it does not weaken this guarantee. |
+| Eager warm-up                                                                         | `warmUpSectionSynths` plays a silent note on every used MIDI channel to force the SF2 voice allocator to load and initialize the preset before the user hits Play.     |
 
 ---
 

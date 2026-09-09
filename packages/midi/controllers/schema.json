@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://viritura.com/schemas/midi-controller-profile.json",
+  "title": "Viritura MIDI controller profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name", "manufacturer", "match", "ports", "bindings", "tested"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "manufacturer": { "type": "string", "minLength": 1 },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nameIncludes"],
+      "properties": {
+        "nameIncludes": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "manufacturerIncludes": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "ports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "names"],
+        "properties": {
+          "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "names": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["portRole", "message", "channel", "number", "action"],
+        "properties": {
+          "portRole": { "type": "string", "minLength": 1 },
+          "message": { "enum": ["control-change", "note-on"] },
+          "channel": { "type": "integer", "minimum": 1, "maximum": 16 },
+          "number": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "value": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "action": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": { "type": { "enum": ["transport.play-stop", "history.undo", "note-input.toggle"] } }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "duration"],
+                "properties": {
+                  "type": { "const": "note-input.set-duration" },
+                  "duration": {
+                    "enum": [
+                      "duplexMaxima",
+                      "maxima",
+                      "longa",
+                      "breve",
+                      "whole",
+                      "half",
+                      "quarter",
+                      "eighth",
+                      "16th",
+                      "32nd",
+                      "64th",
+                      "128th",
+                      "256th",
+                      "512th",
+                      "1024th",
+                      "2048th",
+                      "4096th"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "direction"],
+                "properties": {
+                  "type": { "const": "note-input.move-cursor" },
+                  "direction": { "enum": ["left", "right", "up", "down"] }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "notePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["portRole", "channels"],
+      "properties": {
+        "portRole": { "type": "string", "minLength": 1 },
+        "program": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+        }
+      }
+    },
+    "tested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operatingSystems", "notes"],
+      "properties": {
+        "operatingSystems": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "firmware": { "type": "string" },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

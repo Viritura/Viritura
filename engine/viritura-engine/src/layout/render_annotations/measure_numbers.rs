@@ -8,7 +8,7 @@ use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
 
-/// Render measure number above the staff following house style.
+/// Render a measure number below the staff following house style.
 pub(crate) fn render_measure_numbers(
     dl: &mut DisplayList,
     ml: &MeasureLayout,
@@ -117,14 +117,6 @@ fn render_multimeasure_number_range(
         },
         element_id::measure_number(ml.resolved.index),
     );
-}
-
-/// The measure number to print, following the system-start house style.
-pub(crate) fn measure_number_to_display(ml: &MeasureLayout) -> Option<i32> {
-    if !ml.is_first_staff {
-        return None;
-    }
-    measure_number_value(ml)
 }
 
 pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {

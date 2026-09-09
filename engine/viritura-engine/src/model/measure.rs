@@ -124,6 +124,9 @@ pub struct PartMeasure {
     /// measures (MNX `measureRepeat`).
     #[serde(skip_serializing_if = "Option::is_none", rename = "measureRepeat")]
     pub measure_repeat: Option<MeasureRepeat>,
+    /// Staff-line configuration changes in this measure (MNX `staffConfigs`).
+    #[serde(skip_serializing_if = "Option::is_none", rename = "staffConfigs")]
+    pub staff_configs: Option<Vec<PositionedStaffConfig>>,
     /// Piano pedal markings in this measure (Viritura extension `_x.viritura.pedals[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pedals: Option<Vec<Pedal>>,
@@ -137,6 +140,23 @@ pub struct PartMeasure {
     /// Values: "unison", "solo1", "solo2", "amalgamate", "divisi"
     #[serde(skip_serializing_if = "Option::is_none", rename = "condensingOverride")]
     pub condensing_override: Option<String>,
+}
+
+/// MNX `staff-config`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StaffConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<u32>,
+}
+
+/// MNX `positioned-staff-config`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PositionedStaffConfig {
+    pub config: StaffConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<RhythmicPosition>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub staff: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -220,6 +240,9 @@ pub struct ResolvedMeasure {
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
     pub tie_continuation_ids: Vec<String>,
+    /// Staff line count in force at the start of this measure.
+    /// The canonical five-line coordinate frame remains unchanged.
+    pub active_staff_lines: u32,
     /// Transposition interval to apply when rendering (staff_distance, half_steps).
     /// Only set when useWritten is true and the part has a transposition.
     /// Convention (MNX): sounding + interval = written.

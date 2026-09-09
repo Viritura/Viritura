@@ -43,6 +43,7 @@ mod slurs;
 mod space_requests;
 mod spacing;
 mod staff_brace;
+mod staff_lines;
 mod system;
 pub mod text_styles;
 mod ties;
@@ -526,7 +527,7 @@ pub(crate) fn compute_below_staff_extra_from_layouts(
             // Range label: fixed one-line-below position (no clef-tail clear).
             let bottom = staff_bottom + 0.5 * sp + font_size;
             number_extra = number_extra.max((bottom - staff_bottom).max(0.0));
-        } else if render_annotations::measure_number_to_display(ml).is_some() {
+        } else if render_annotations::measure_number_value(ml).is_some() {
             // System-start bar number (clef-tail aware). staff_y = 0 convention.
             let top = render_annotations::below_staff_number_top_y(ml, 0.0, sp, config);
             let bottom = top + font_size; // TextBaseline::Top
@@ -875,7 +876,11 @@ pub(crate) fn render_system_contents(
     let mmr_number_extents =
         render_measure::above_measure_obstacles(measure_layouts, staff_y, sp, config);
     let shared_lane = render_measure::shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_ordinary_measure_number = staff_idx.is_none_or(|index| index == 0);
+    let render_ordinary_measure_number = if shared_lane.center_y.is_some() {
+        shared_lane.is_bottom
+    } else {
+        staff_idx.is_none_or(|index| index == 0)
+    };
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         let prev_has_repeat_end = if i > 0 {

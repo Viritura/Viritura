@@ -105,6 +105,22 @@ describe("structural patches — part measures and sequences", () => {
     expect(next.parts[0]!.measures[0]!.clefs).toHaveLength(1);
   });
 
+  it("setPartMeasureField sets and clears staff configs", () => {
+    const score = makeScore();
+    const set = applyPatchesToScore(score, [
+      patch.setPartMeasureField(
+        { partId: "p1", measureIndex: 0 },
+        { field: "staffConfigs", value: [{ config: { lines: 1 } }] },
+      ),
+    ]);
+    expect(set.parts[0]!.measures[0]!.staffConfigs).toEqual([{ config: { lines: 1 } }]);
+
+    const cleared = applyPatchesToScore(set, [
+      patch.setPartMeasureField({ partId: "p1", measureIndex: 0 }, { field: "staffConfigs", value: undefined }),
+    ]);
+    expect(cleared.parts[0]!.measures[0]!.staffConfigs).toBeUndefined();
+  });
+
   it("setSequenceContent replaces a voice wholesale (empty-measure bootstrap)", () => {
     // Insert a blank measure, then fill voice 0 without any anchor event.
     const inserted = applyPatchesToScore(makeScore(), [patch.insertMeasures(1, [{}])]);

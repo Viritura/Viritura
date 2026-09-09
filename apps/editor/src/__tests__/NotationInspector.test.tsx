@@ -132,6 +132,27 @@ function Harness({ elementId }: { elementId?: string }) {
   );
 }
 
+function StaffConfigHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
+  const { selectMeasure } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    initial.parts[0]!.id = "piano";
+    loadScore(initial, "staff-config.mnx");
+    selectMeasure(0, 1, 0, 1);
+  }, [loadScore, selectMeasure]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
 function currentScore(): Score {
   return JSON.parse(screen.getByTestId("score-snapshot").textContent ?? "null") as Score;
 }
@@ -244,6 +265,23 @@ describe("NotationInspector", () => {
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("No current selection")).toBeTruthy();
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
+  });
+
+  it("edits the selected staff's line count from a measure selection", async () => {
+    render(withProviders(<StaffConfigHarness />));
+
+    const input = (await screen.findByRole("spinbutton", { name: "Number of staff lines" })) as HTMLInputElement;
+    expect(input.value).toBe("5");
+    expect(screen.getByText(/Score default: 5 lines/)).toBeTruthy();
+    fireEvent.change(input, { target: { value: "1" } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(currentScore().parts[0]!.measures[0]!.staffConfigs).toEqual([{ config: { lines: 1 }, staff: 2 }]),
+    );
+    expect(screen.getByText(/Explicit change: 1 line/)).toBeTruthy();
+    const serializedPart = (currentMnx()["parts"] as Array<{ measures: Array<Record<string, unknown>> }>)[0]!;
+    expect(serializedPart.measures[0]!["staffConfigs"]).toEqual([{ config: { lines: 1 }, staff: 2 }]);
   });
 
   it("updates accidental display properties from the notation panel", async () => {

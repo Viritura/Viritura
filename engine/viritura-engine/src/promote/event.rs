@@ -49,6 +49,7 @@ pub(crate) fn promote_full_measure_rest(
     Ok(ModelFullMeasure {
         visual_duration,
         staff_position: r.staff_position.map(|p| i32::try_from(p.0).unwrap_or(0)),
+        fermata: r.fermata.map(promote_fermata),
     })
 }
 

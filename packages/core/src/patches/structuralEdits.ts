@@ -100,9 +100,12 @@ function writePartMeasureField(measure: PartMeasure, update: PartMeasureField): 
     case "clefs":
       assign(target, "clefs", update.value);
       return;
+    case "staffConfigs":
+      assign(target, "staffConfigs", update.value);
+      return;
     default: {
-      const _exhaustive: never = update.field;
-      throw new Error(`Unhandled PartMeasureField: ${String(_exhaustive)}`);
+      const _exhaustive: never = update;
+      throw new Error(`Unhandled PartMeasureField: ${JSON.stringify(_exhaustive)}`);
     }
   }
 }

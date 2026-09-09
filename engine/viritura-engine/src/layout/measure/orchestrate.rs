@@ -565,7 +565,7 @@ pub(super) fn layout_voice_for_measure(
             slurs: None,
             glissandos: None,
             markings: None,
-            fermata: None,
+            fermata: fm.fermata.clone(),
             lyrics: None,
             stem_direction: None,
             orient: None,

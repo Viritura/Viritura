@@ -14,6 +14,13 @@ export function isWebMidiSupported(): boolean {
   return typeof navigator !== "undefined" && "requestMIDIAccess" in navigator;
 }
 
+/** Query MIDI permission without causing the browser to display a prompt. */
+export async function queryMidiPermission(): Promise<PermissionState | "unsupported"> {
+  if (typeof navigator === "undefined" || !navigator.permissions) return "unsupported";
+  const descriptor = { name: "midi" as PermissionName, sysex: false };
+  return (await navigator.permissions.query(descriptor)).state;
+}
+
 /**
  * Request access to the Web MIDI API.
  *
@@ -45,4 +52,14 @@ export function listMidiOutputs(access: MIDIAccess): ReadonlyArray<readonly [str
   });
   outputs.sort((a, b) => (a[1].name ?? "").localeCompare(b[1].name ?? ""));
   return outputs;
+}
+
+/** Collect available MIDI input ports, sorted by name for stable UI ordering. */
+export function listMidiInputs(access: MIDIAccess): ReadonlyArray<readonly [string, MIDIInput]> {
+  const inputs: Array<readonly [string, MIDIInput]> = [];
+  access.inputs.forEach((input, id) => {
+    inputs.push([id, input] as const);
+  });
+  inputs.sort((a, b) => (a[1].name ?? "").localeCompare(b[1].name ?? ""));
+  return inputs;
 }

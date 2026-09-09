@@ -45,11 +45,11 @@ export function transposePitchChromatic(pitch: Pitch, semitones: number): Pitch 
   const clampedMidi = Math.max(0, Math.min(127, midi));
   const octave = Math.floor(clampedMidi / 12) - 1;
   const pc = ((clampedMidi % 12) + 12) % 12;
-  return simplestSpelling(pc, octave);
+  return simplestSpelling(pc, octave, "sharp");
 }
 
 /** Pick the simplest enharmonic spelling for a pitch class. */
-function simplestSpelling(pc: number, octave: number): Pitch {
+function simplestSpelling(pc: number, octave: number, accidentalPreference: "sharp" | "flat"): Pitch {
   const NATURAL_PCS: [Step, number][] = [
     ["C", 0],
     ["D", 2],
@@ -65,22 +65,30 @@ function simplestSpelling(pc: number, octave: number): Pitch {
       return { step, octave: Math.max(0, Math.min(9, octave)) as Octave };
     }
   }
-  // Try sharps
-  for (const [step, semi] of NATURAL_PCS) {
-    if ((semi + 1) % 12 === pc) {
-      return { step, octave: Math.max(0, Math.min(9, octave)) as Octave, alter: 1 };
-    }
-  }
-  // Try flats
-  for (const [step, semi] of NATURAL_PCS) {
-    if ((semi - 1 + 12) % 12 === pc) {
-      let o = octave;
-      if (step === "C") o += 1; // Cb is in the next octave down
-      return { step, octave: Math.max(0, Math.min(9, o)) as Octave, alter: -1 };
+  const alterations = accidentalPreference === "flat" ? ([-1, 1] as const) : ([1, -1] as const);
+  for (const alter of alterations) {
+    for (const [step, semi] of NATURAL_PCS) {
+      if ((semi + alter + 12) % 12 !== pc) continue;
+      let adjustedOctave = octave;
+      if (alter === -1 && step === "C") adjustedOctave += 1;
+      if (alter === 1 && step === "B") adjustedOctave -= 1;
+      return {
+        step,
+        octave: Math.max(0, Math.min(9, adjustedOctave)) as Octave,
+        alter,
+      };
     }
   }
   // Should not reach here, but fallback
   return { step: "C", octave: Math.max(0, Math.min(9, octave)) as Octave };
+}
+
+/** Convert a MIDI note to notation spelling, preferring the active key signature's accidental direction. */
+export function midiNoteToPitch(midiNote: number, keyFifths: number): Pitch {
+  const clampedMidi = Math.max(0, Math.min(127, midiNote));
+  const octave = Math.floor(clampedMidi / 12) - 1;
+  const pitchClass = clampedMidi % 12;
+  return simplestSpelling(pitchClass, octave, keyFifths < 0 ? "flat" : "sharp");
 }
 
 // ═══════════════════════════════════════════
