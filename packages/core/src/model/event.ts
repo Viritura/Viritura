@@ -380,6 +380,8 @@ export interface FullMeasure {
   visualDuration: Duration;
   /** Explicit staff position override (MNX staffPosition). 0 = middle line, positive = up. */
   staffPosition?: number;
+  /** Fermata on this meter-independent bar rest (`_x.viritura.fullMeasureFermata`). */
+  fermata?: Fermata;
 }
 
 /**

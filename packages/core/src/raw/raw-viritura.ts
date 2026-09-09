@@ -279,6 +279,22 @@ export interface components {
             /** @description Glissando/portamento lines to target events. */
             glissandos?: components["schemas"]["glissando"][];
         };
+        /** @description A fermata attached to a full-measure rest placeholder. This mirrors the native MNX event fermata shape without converting the meter-independent bar rest into explicit rhythmic events. */
+        "full-measure-fermata": {
+            /** @enum {string} */
+            symbol?: "normal" | "angled" | "square" | "doubleAngled" | "doubleSquare" | "doubleDot" | "halfCurve" | "curlew";
+            /** @enum {string} */
+            duration?: "auto" | "none" | "veryShort" | "short" | "normal" | "long" | "veryLong";
+            /** @enum {string} */
+            orient?: "above" | "below" | "auto";
+            /** @enum {string} */
+            pointing?: "up" | "down" | "auto";
+        };
+        /** @description Viritura vendor extensions on an MNX sequence object. */
+        "sequence-extensions": {
+            /** @description Fermata attached to this sequence's fullMeasure rest. */
+            fullMeasureFermata?: components["schemas"]["full-measure-fermata"];
+        };
         /**
          * @description A notehead shape. MNX has no notehead field on note, kit-note or kit-component (W3C MNX issue #249); Viritura tracks it as a vendor extension on the kit-component (per-instrument) and optionally on a pitched note (per-note override).
          * @enum {string}
@@ -632,6 +648,8 @@ export type PartMeasureExtensions = components["schemas"]["part-measure-extensio
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];
 export type EventExtensions = components["schemas"]["event-extensions"];
+export type FullMeasureFermata = components["schemas"]["full-measure-fermata"];
+export type SequenceExtensions = components["schemas"]["sequence-extensions"];
 export type NoteheadShape = components["schemas"]["notehead-shape"];
 export type KitComponentExtensions = components["schemas"]["kit-component-extensions"];
 export type NoteExtensions = components["schemas"]["note-extensions"];

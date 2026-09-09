@@ -269,6 +269,13 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
                 );
             }
             for (sequence_index, sequence) in array(measure, "sequences").iter().enumerate() {
+                validate_at(
+                    Some(sequence),
+                    &format!("{measure_pointer}/sequences/{sequence_index}"),
+                    "sequence-extensions",
+                    &mut consumed,
+                    &mut errors,
+                );
                 visit_content(
                     array(sequence, "content"),
                     &format!("{measure_pointer}/sequences/{sequence_index}/content"),

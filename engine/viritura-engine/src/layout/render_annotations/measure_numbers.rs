@@ -8,7 +8,7 @@ use super::super::types::*;
 use crate::model::*;
 use crate::render::*;
 
-/// Render measure number above the staff following house style.
+/// Render a measure number below the staff following house style.
 pub(crate) fn render_measure_numbers(
     dl: &mut DisplayList,
     ml: &MeasureLayout,

@@ -3,9 +3,9 @@
  * to score mutations.
  */
 
-import type { DynamicGroup, Score, RhythmicPosition, TextExpression } from "@viritura/core";
+import type { DynamicGroup, FermataSymbol, Score, RhythmicPosition, TextExpression } from "@viritura/core";
 import { createDynamicGroup, createRelativeDynamicGroup, generateId } from "@viritura/core";
-import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
+import { getEventAtLocation, resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
 import { ensureMeasureId } from "../score/spanUtils";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { getActiveTimeSignature } from "../commands/cursorCommands";
@@ -281,7 +281,18 @@ function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
 
   if (selection.kind === "single") {
     const loc = resolveEventLocation(selection.elementId, score);
-    if (!loc) return [];
+    if (!loc) {
+      const barRest = resolveFullMeasureRestLocation(selection.elementId, score);
+      if (!barRest) return [];
+      return [
+        {
+          partIndex: barRest.partIndex,
+          staff: dynamicStaffAtLocation(score, barRest),
+          startMeasureIndex: barRest.measureIndex,
+          startPosition: { fraction: [0, 1] },
+        },
+      ];
+    }
     return [
       {
         partIndex: loc.partIndex,
@@ -708,19 +719,22 @@ export function applyBreathFermata(
   resolved: BreathFermataSelection,
   selectedScoreIndex?: number,
 ): Score | null {
+  const result = structuredClone(score);
+  const updatedFullMeasureRest =
+    resolved.kind === "fermata" && applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape);
   const events =
     selectedScoreIndex === undefined
-      ? resolveSelectionEvents(selection, score)
-      : resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
-  if (events.length === 0) return null;
+      ? resolveSelectionEvents(selection, result)
+      : resolveCondensedSelectionEvents(result, selection, selectedScoreIndex);
+  if (events.length === 0) return updatedFullMeasureRest ? result : null;
 
-  let result: Score | null = structuredClone(score);
+  let updated: Score | null = result;
   for (const { partIndex, measureIndex, sequenceIndex, eventIndex, tupletIndex } of events) {
-    if (!result) break;
+    if (!updated) break;
     switch (resolved.kind) {
       case "breath":
-        result = setBreathMark(
-          result,
+        updated = setBreathMark(
+          updated,
           partIndex,
           measureIndex,
           sequenceIndex,
@@ -730,8 +744,8 @@ export function applyBreathFermata(
         );
         break;
       case "fermata":
-        result = setFermataShape(
-          result,
+        updated = setFermataShape(
+          updated,
           partIndex,
           measureIndex,
           sequenceIndex,
@@ -741,9 +755,88 @@ export function applyBreathFermata(
         );
         break;
       case "caesura":
-        result = setCaesura(result, partIndex, measureIndex, sequenceIndex, eventIndex, "normal");
+        updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal");
         break;
     }
   }
-  return result;
+  return updated;
+}
+
+function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selection, shape: FermataSymbol): boolean {
+  const locations = new Map<string, ReturnType<typeof resolveFullMeasureRestLocation>>();
+  const addElement = (elementId: string) => {
+    const location = resolveFullMeasureRestLocation(elementId, score);
+    if (location) {
+      locations.set(`${location.partIndex}/${location.measureIndex}/${location.sequenceIndex}`, location);
+    }
+    return location ?? resolveEventLocation(elementId, score);
+  };
+
+  if (selection.kind === "single") {
+    addElement(selection.elementId);
+  } else if (selection.kind === "multi") {
+    for (const elementId of selection.elementIds) addElement(elementId);
+  } else if (selection.kind === "range") {
+    const start = addElement(selection.startElementId);
+    const end = addElement(selection.endElementId);
+    if (start && end) {
+      addFullMeasureRestRange(
+        score,
+        locations,
+        Math.min(start.partIndex, end.partIndex),
+        Math.max(start.partIndex, end.partIndex),
+        Math.min(start.measureIndex, end.measureIndex),
+        Math.max(start.measureIndex, end.measureIndex),
+      );
+    }
+  } else if (selection.kind === "measure") {
+    addFullMeasureRestRange(
+      score,
+      locations,
+      Math.min(selection.startPartIndex, selection.endPartIndex),
+      Math.max(selection.startPartIndex, selection.endPartIndex),
+      Math.min(selection.startMeasure, selection.endMeasure),
+      Math.max(selection.startMeasure, selection.endMeasure),
+    );
+  }
+
+  let changed = false;
+  for (const location of locations.values()) {
+    if (!location) continue;
+    const sequence =
+      score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
+    if (!sequence?.fullMeasure) continue;
+    sequence.fullMeasure.fermata = shape === "normal" ? {} : { symbol: shape };
+    changed = true;
+  }
+  return changed;
+}
+
+function addFullMeasureRestRange(
+  score: Score,
+  locations: Map<string, ReturnType<typeof resolveFullMeasureRestLocation>>,
+  startPart: number,
+  endPart: number,
+  startMeasure: number,
+  endMeasure: number,
+): void {
+  for (let partIndex = startPart; partIndex <= endPart; partIndex++) {
+    const part = score.parts[partIndex];
+    if (!part) continue;
+    for (let measureIndex = startMeasure; measureIndex <= endMeasure; measureIndex++) {
+      const measure = part.measures[measureIndex];
+      if (!measure) continue;
+      for (let sequenceIndex = 0; sequenceIndex < measure.sequences.length; sequenceIndex++) {
+        const sequence = measure.sequences[sequenceIndex];
+        if (sequence?.fullMeasure && sequence.content.length === 0) {
+          locations.set(`${partIndex}/${measureIndex}/${sequenceIndex}`, {
+            partIndex,
+            measureIndex,
+            sequenceIndex,
+            eventIndex: 0,
+          });
+        }
+      }
+    }
+  }
 }

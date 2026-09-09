@@ -96,6 +96,31 @@ describe("applyBreathFermata — fermata", () => {
       expect(ev.fermata).toEqual({ symbol: expected });
     }
   });
+
+  it("applies a fermata without splitting a full-measure rest in 5/2", () => {
+    const score = makeScore();
+    score.global.measures[0]!.time = { count: 5, unit: 2 };
+    score.parts[0]!.measures[0]!.sequences[0] = {
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" }, staffPosition: 1 },
+    };
+    const result = applyBreathFermata(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/e0" },
+      { kind: "fermata", shape: "normal" },
+      0,
+    );
+
+    expect(result).not.toBeNull();
+    const sequence = result!.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({
+      visualDuration: { base: "whole" },
+      staffPosition: 1,
+      fermata: {},
+    });
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.fullMeasure?.fermata).toBeUndefined();
+  });
 });
 
 describe("applyBreathFermata — caesura", () => {

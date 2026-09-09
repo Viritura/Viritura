@@ -408,6 +408,9 @@ function serializeSequence(seq: Sequence): Obj {
       fmObj["staffPosition"] = seq.fullMeasure.staffPosition;
     }
     seqObj["fullMeasure"] = fmObj;
+    if (seq.fullMeasure.fermata) {
+      seqObj["_x"] = { viritura: { fullMeasureFermata: { ...seq.fullMeasure.fermata } } };
+    }
   }
   if (seq.orient) seqObj["orient"] = seq.orient;
   if (seq.staff !== undefined) seqObj["staff"] = seq.staff;

@@ -22,7 +22,12 @@ import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
 import { useSelection, useSelectionStore, type SelectionState } from "../store/selectionStore";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
-import { resolveEventLocation, getEventAtLocation, type EventLocation } from "../score/ElementPath";
+import {
+  resolveEventLocation,
+  resolveFullMeasureRestLocation,
+  getEventAtLocation,
+  type EventLocation,
+} from "../score/ElementPath";
 import { resolveCapabilityTargets, EVENT_ACTION } from "../store/selectionCapabilities";
 import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
 import { resolveCondensedEventTargets, resolveCondensedSelectionEvents } from "../score/condensedWriteback";
@@ -825,7 +830,8 @@ export function PalettePanel() {
     const sel = useSelectionStore.getState().selection;
     if (!score || sel.kind !== "single") return;
     const loc = resolveEventLocation(sel.elementId, score);
-    if (!loc) return;
+    const barRest = loc ? null : resolveFullMeasureRestLocation(sel.elementId, score);
+    if (!loc && !barRest) return;
     setPromptState({
       open: true,
       title: "Staff text",
@@ -834,9 +840,9 @@ export function PalettePanel() {
       allowEmpty: false,
       onSubmit: (input) => {
         if (!input.trim()) return;
-        const targets = resolveCondensedEventTargets(score, selectedScoreIndex, loc);
+        const targets = loc ? resolveCondensedEventTargets(score, selectedScoreIndex, loc) : [barRest!];
         const newScore = produce(score, (draft) => {
-          const fraction = eventPositionFraction(score, loc);
+          const fraction: [number, number] = loc ? eventPositionFraction(score, loc) : [0, 1];
 
           for (const target of targets) {
             const partMeasure = draft.parts[target.partIndex]?.measures[target.measureIndex];

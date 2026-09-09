@@ -21,6 +21,38 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves a fermata on a full-measure rest without creating events", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 5, unit: 2 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [],
+                  fullMeasure: {},
+                  _x: { viritura: { fullMeasureFermata: { symbol: "square" } } },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parseMnx(source);
+    expect(parsed.parts[0]!.measures[0]!.sequences[0]).toMatchObject({
+      content: [],
+      fullMeasure: {
+        visualDuration: { base: "whole" },
+        fermata: { symbol: "square" },
+      },
+    });
+    expect(parseMnx(serializeMnx(parsed))).toEqual(parsed);
+  });
+
   it("preserves all editable ottava properties", () => {
     const source = {
       mnx: { version: 1 },

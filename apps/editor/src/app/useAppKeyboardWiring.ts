@@ -8,7 +8,7 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { resolveEventLocation } from "../score/ElementPath";
+import { resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
 
@@ -159,7 +159,8 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
   const onAddStaffText = useCallback(() => {
     const { score } = store.getState();
     if (!score || selection.kind !== "single") return;
-    const loc = resolveEventLocation(selection.elementId, score);
+    const loc =
+      resolveEventLocation(selection.elementId, score) ?? resolveFullMeasureRestLocation(selection.elementId, score);
     if (!loc) return;
     setStaffTextPopover({
       position: { ...mousePositionRef.current },

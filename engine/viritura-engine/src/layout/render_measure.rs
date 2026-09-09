@@ -1042,7 +1042,7 @@ pub(crate) fn render_measure(
     // Render chord symbols above staff
     render_chord_symbols(dl, ml, staff_y, sp, config);
 
-    // Render measure numbers above staff when explicitly set
+    // Render measure numbers below the designated staff.
     render_measure_numbers(dl, ml, staff_y, sp, config, render_ordinary_measure_number);
 
     // Render breath marks above staff

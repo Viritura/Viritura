@@ -434,6 +434,47 @@ fn test_fermata_on_rest() {
 }
 
 #[test]
+fn test_fermata_on_full_measure_rest_in_irregular_meter_stays_single() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 5, "unit": 2}}]},
+        "parts": [{"measures": [{
+            "sequences": [{
+                "content": [],
+                "fullMeasure": {},
+                "_x": {"viritura": {"fullMeasureFermata": {"symbol": "normal"}}}
+            }]
+        }]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+
+    let rest_count = dl
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::REST_WHOLE
+            )
+        })
+        .count();
+    let fermata_count = dl
+        .commands
+        .iter()
+        .filter(|command| {
+            matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::FERMATA_ABOVE
+            )
+        })
+        .count();
+
+    assert_eq!(rest_count, 1, "full-measure rest must remain one glyph");
+    assert_eq!(fermata_count, 1, "full-measure rest fermata must render");
+}
+
+#[test]
 fn test_full_measure_rest_and_fermata_share_ink_center() {
     let json = score_with_events(
         r#"

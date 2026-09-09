@@ -1279,6 +1279,477 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
         value.parse()
     }
 }
+///A fermata attached to a full-measure rest placeholder. This mirrors the native MNX event fermata shape without converting the meter-independent bar rest into explicit rhythmic events.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A fermata attached to a full-measure rest placeholder. This mirrors the native MNX event fermata shape without converting the meter-independent bar rest into explicit rhythmic events.",
+///  "type": "object",
+///  "properties": {
+///    "duration": {
+///      "type": "string",
+///      "enum": [
+///        "auto",
+///        "none",
+///        "veryShort",
+///        "short",
+///        "normal",
+///        "long",
+///        "veryLong"
+///      ]
+///    },
+///    "orient": {
+///      "type": "string",
+///      "enum": [
+///        "above",
+///        "below",
+///        "auto"
+///      ]
+///    },
+///    "pointing": {
+///      "type": "string",
+///      "enum": [
+///        "up",
+///        "down",
+///        "auto"
+///      ]
+///    },
+///    "symbol": {
+///      "type": "string",
+///      "enum": [
+///        "normal",
+///        "angled",
+///        "square",
+///        "doubleAngled",
+///        "doubleSquare",
+///        "doubleDot",
+///        "halfCurve",
+///        "curlew"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FullMeasureFermata {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub duration: ::std::option::Option<FullMeasureFermataDuration>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub orient: ::std::option::Option<FullMeasureFermataOrient>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pointing: ::std::option::Option<FullMeasureFermataPointing>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub symbol: ::std::option::Option<FullMeasureFermataSymbol>,
+}
+impl ::std::convert::From<&FullMeasureFermata> for FullMeasureFermata {
+    fn from(value: &FullMeasureFermata) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for FullMeasureFermata {
+    fn default() -> Self {
+        Self {
+            duration: Default::default(),
+            orient: Default::default(),
+            pointing: Default::default(),
+            symbol: Default::default(),
+        }
+    }
+}
+///`FullMeasureFermataDuration`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "auto",
+///    "none",
+///    "veryShort",
+///    "short",
+///    "normal",
+///    "long",
+///    "veryLong"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FullMeasureFermataDuration {
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "veryShort")]
+    VeryShort,
+    #[serde(rename = "short")]
+    Short,
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "long")]
+    Long,
+    #[serde(rename = "veryLong")]
+    VeryLong,
+}
+impl ::std::convert::From<&Self> for FullMeasureFermataDuration {
+    fn from(value: &FullMeasureFermataDuration) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FullMeasureFermataDuration {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Auto => f.write_str("auto"),
+            Self::None => f.write_str("none"),
+            Self::VeryShort => f.write_str("veryShort"),
+            Self::Short => f.write_str("short"),
+            Self::Normal => f.write_str("normal"),
+            Self::Long => f.write_str("long"),
+            Self::VeryLong => f.write_str("veryLong"),
+        }
+    }
+}
+impl ::std::str::FromStr for FullMeasureFermataDuration {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "none" => Ok(Self::None),
+            "veryShort" => Ok(Self::VeryShort),
+            "short" => Ok(Self::Short),
+            "normal" => Ok(Self::Normal),
+            "long" => Ok(Self::Long),
+            "veryLong" => Ok(Self::VeryLong),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FullMeasureFermataDuration {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FullMeasureFermataDuration {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FullMeasureFermataDuration {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`FullMeasureFermataOrient`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "above",
+///    "below",
+///    "auto"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FullMeasureFermataOrient {
+    #[serde(rename = "above")]
+    Above,
+    #[serde(rename = "below")]
+    Below,
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl ::std::convert::From<&Self> for FullMeasureFermataOrient {
+    fn from(value: &FullMeasureFermataOrient) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FullMeasureFermataOrient {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Above => f.write_str("above"),
+            Self::Below => f.write_str("below"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+impl ::std::str::FromStr for FullMeasureFermataOrient {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "above" => Ok(Self::Above),
+            "below" => Ok(Self::Below),
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FullMeasureFermataOrient {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FullMeasureFermataOrient {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FullMeasureFermataOrient {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`FullMeasureFermataPointing`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "up",
+///    "down",
+///    "auto"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FullMeasureFermataPointing {
+    #[serde(rename = "up")]
+    Up,
+    #[serde(rename = "down")]
+    Down,
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl ::std::convert::From<&Self> for FullMeasureFermataPointing {
+    fn from(value: &FullMeasureFermataPointing) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FullMeasureFermataPointing {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Up => f.write_str("up"),
+            Self::Down => f.write_str("down"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+impl ::std::str::FromStr for FullMeasureFermataPointing {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "up" => Ok(Self::Up),
+            "down" => Ok(Self::Down),
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FullMeasureFermataPointing {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FullMeasureFermataPointing {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FullMeasureFermataPointing {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`FullMeasureFermataSymbol`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "angled",
+///    "square",
+///    "doubleAngled",
+///    "doubleSquare",
+///    "doubleDot",
+///    "halfCurve",
+///    "curlew"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum FullMeasureFermataSymbol {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "angled")]
+    Angled,
+    #[serde(rename = "square")]
+    Square,
+    #[serde(rename = "doubleAngled")]
+    DoubleAngled,
+    #[serde(rename = "doubleSquare")]
+    DoubleSquare,
+    #[serde(rename = "doubleDot")]
+    DoubleDot,
+    #[serde(rename = "halfCurve")]
+    HalfCurve,
+    #[serde(rename = "curlew")]
+    Curlew,
+}
+impl ::std::convert::From<&Self> for FullMeasureFermataSymbol {
+    fn from(value: &FullMeasureFermataSymbol) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for FullMeasureFermataSymbol {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Angled => f.write_str("angled"),
+            Self::Square => f.write_str("square"),
+            Self::DoubleAngled => f.write_str("doubleAngled"),
+            Self::DoubleSquare => f.write_str("doubleSquare"),
+            Self::DoubleDot => f.write_str("doubleDot"),
+            Self::HalfCurve => f.write_str("halfCurve"),
+            Self::Curlew => f.write_str("curlew"),
+        }
+    }
+}
+impl ::std::str::FromStr for FullMeasureFermataSymbol {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "angled" => Ok(Self::Angled),
+            "square" => Ok(Self::Square),
+            "doubleAngled" => Ok(Self::DoubleAngled),
+            "doubleSquare" => Ok(Self::DoubleSquare),
+            "doubleDot" => Ok(Self::DoubleDot),
+            "halfCurve" => Ok(Self::HalfCurve),
+            "curlew" => Ok(Self::Curlew),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for FullMeasureFermataSymbol {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for FullMeasureFermataSymbol {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for FullMeasureFermataSymbol {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///A glissando or portamento connecting this event to a target event.
 ///
 /// <details><summary>JSON schema</summary>
@@ -4500,6 +4971,47 @@ impl ::std::convert::TryFrom<::std::string::String> for SenzaMisuraDisplay {
         value.parse()
     }
 }
+///Viritura vendor extensions on an MNX sequence object.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura vendor extensions on an MNX sequence object.",
+///  "type": "object",
+///  "properties": {
+///    "fullMeasureFermata": {
+///      "description": "Fermata attached to this sequence's fullMeasure rest.",
+///      "$ref": "#/$defs/full-measure-fermata"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SequenceExtensions {
+    ///Fermata attached to this sequence's fullMeasure rest.
+    #[serde(
+        rename = "fullMeasureFermata",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub full_measure_fermata: ::std::option::Option<FullMeasureFermata>,
+}
+impl ::std::convert::From<&SequenceExtensions> for SequenceExtensions {
+    fn from(value: &SequenceExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for SequenceExtensions {
+    fn default() -> Self {
+        Self {
+            full_measure_fermata: Default::default(),
+        }
+    }
+}
 ///Viritura vendor extensions on an MNX slur object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -6628,6 +7140,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "font-family": {
 ///      "$ref": "#/$defs/font-family"
 ///    },
+///    "full-measure-fermata": {
+///      "$ref": "#/$defs/full-measure-fermata"
+///    },
 ///    "glissando": {
 ///      "$ref": "#/$defs/glissando"
 ///    },
@@ -6723,6 +7238,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "senza-misura-display": {
 ///      "$ref": "#/$defs/senza-misura-display"
+///    },
+///    "sequence-extensions": {
+///      "$ref": "#/$defs/sequence-extensions"
 ///    },
 ///    "slur-extensions": {
 ///      "$ref": "#/$defs/slur-extensions"
@@ -6854,6 +7372,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub font_family: ::std::option::Option<FontFamily>,
+    #[serde(
+        rename = "full-measure-fermata",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub full_measure_fermata: ::std::option::Option<FullMeasureFermata>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub glissando: ::std::option::Option<Glissando>,
     #[serde(
@@ -7033,6 +7557,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub senza_misura_display: ::std::option::Option<SenzaMisuraDisplay>,
     #[serde(
+        rename = "sequence-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub sequence_extensions: ::std::option::Option<SequenceExtensions>,
+    #[serde(
         rename = "slur-extensions",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -7183,6 +7713,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             expression_placement: Default::default(),
             fingering: Default::default(),
             font_family: Default::default(),
+            full_measure_fermata: Default::default(),
             glissando: Default::default(),
             glissando_style: Default::default(),
             gradual_tempo: Default::default(),
@@ -7215,6 +7746,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             score_extensions: Default::default(),
             score_metadata: Default::default(),
             senza_misura_display: Default::default(),
+            sequence_extensions: Default::default(),
             slur_extensions: Default::default(),
             slur_shape: Default::default(),
             sound_profile_assignment: Default::default(),

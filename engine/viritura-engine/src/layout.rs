@@ -875,7 +875,11 @@ pub(crate) fn render_system_contents(
     let mmr_number_extents =
         render_measure::above_measure_obstacles(measure_layouts, staff_y, sp, config);
     let shared_lane = render_measure::shared_staff_lane(staff_y, sp, shared_lane_staff_y_offsets);
-    let render_ordinary_measure_number = staff_idx.is_none_or(|index| index == 0);
+    let render_ordinary_measure_number = if shared_lane.center_y.is_some() {
+        shared_lane.is_bottom
+    } else {
+        staff_idx.is_none_or(|index| index == 0)
+    };
 
     for (i, ml) in measure_layouts.iter().enumerate() {
         let prev_has_repeat_end = if i > 0 {

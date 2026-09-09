@@ -20,10 +20,38 @@ Viritura extends the [MNX specification](https://w3c.github.io/mnx/docs/) using 
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura` | manualOffset, avoidCollisions                                         |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`         | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
 | [event](#event-extensions)                   | `...content[]._x.viritura`                  | glissandos                                                            |
+| sequence                                     | `...sequences[]._x.viritura`                | fullMeasureFermata                                                    |
 | [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`          | shape                                                                 |
 | [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                 | notehead                                                              |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
+
+---
+
+## Sequence Extensions
+
+`_x.viritura` on an entry in `parts[].measures[].sequences[]`. Schema def:
+`sequence-extensions`.
+
+### `fullMeasureFermata`
+
+Stores a fermata on the sequence's standard MNX `fullMeasure` rest. MNX fermatas
+are otherwise event-level, but converting a meter-independent bar rest into
+events can require several rest glyphs in meters such as 5/2. The extension uses
+the native fermata fields (`symbol`, `duration`, `orient`, and `pointing`) while
+preserving the single centered bar-rest glyph.
+
+```json
+{
+  "content": [],
+  "fullMeasure": {},
+  "_x": {
+    "viritura": {
+      "fullMeasureFermata": { "symbol": "normal" }
+    }
+  }
+}
+```
 
 ---
 

@@ -350,6 +350,7 @@ mod tests {
                     dots: None,
                 },
                 staff_position: None,
+                fermata: None,
             }),
             staff: None,
             voice: None,

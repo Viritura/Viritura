@@ -56,6 +56,23 @@ describe("addMixedExpression", () => {
     expect(pm.expressions![0]!.inline).toBeUndefined();
   });
 
+  it("places text at the start of a selected full-measure rest", () => {
+    const score = makeSimpleScore();
+    score.parts[0]!.measures[0]!.sequences[0] = {
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    };
+    const result = addMixedExpression(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/e0" },
+      [{ type: "text", value: "freely" }],
+      0,
+    );
+
+    expect(result?.parts[0]!.measures[0]!.expressions).toEqual([{ text: "freely", position: { fraction: [0, 1] } }]);
+    expect(result?.parts[0]!.measures[0]!.sequences[0]!.fullMeasure).toBeDefined();
+  });
+
   it("places both dynamic and text for mixed input", () => {
     const score = makeSimpleScore();
     const tokens: MixedExpressionToken[] = [

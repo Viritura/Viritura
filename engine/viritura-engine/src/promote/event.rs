@@ -23,6 +23,7 @@ use crate::promote::duration::promote_duration;
 use crate::promote::note::{promote_kit_note_to_note, promote_note};
 use crate::promote::slur::promote_slur;
 use crate::promote::vendor_directions::extract_event_glissandos;
+use crate::promote::vendor_ext::read_viritura_ext;
 use crate::promote::PromoteError;
 use crate::raw;
 
@@ -36,6 +37,7 @@ pub(crate) fn promote_rest(r: raw::Rest) -> ModelRest {
 
 pub(crate) fn promote_full_measure_rest(
     r: raw::FullMeasureRest,
+    fermata: Option<raw::Fermata>,
 ) -> Result<ModelFullMeasure, PromoteError> {
     // The MNX schema makes `visualDuration` optional, but the engine model
     // requires it. Default to a whole note when absent.
@@ -49,6 +51,7 @@ pub(crate) fn promote_full_measure_rest(
     Ok(ModelFullMeasure {
         visual_duration,
         staff_position: r.staff_position.map(|p| i32::try_from(p.0).unwrap_or(0)),
+        fermata: fermata.map(promote_fermata),
     })
 }
 
@@ -284,6 +287,9 @@ pub(crate) fn promote_sequence(
     r: raw::Sequence,
     content_json: serde_json::Value,
 ) -> Result<ModelSequence, PromoteError> {
+    let full_measure_fermata = read_viritura_ext(r.x.as_ref())
+        .and_then(|ext| ext.get("fullMeasureFermata"))
+        .and_then(|value| serde_json::from_value::<raw::Fermata>(value.clone()).ok());
     let items = match content_json {
         serde_json::Value::Array(a) => a,
         _ => Vec::new(),
@@ -294,7 +300,10 @@ pub(crate) fn promote_sequence(
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ModelSequence {
         content,
-        full_measure: r.full_measure.map(promote_full_measure_rest).transpose()?,
+        full_measure: r
+            .full_measure
+            .map(|full_measure| promote_full_measure_rest(full_measure, full_measure_fermata))
+            .transpose()?,
         staff: r.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
         voice: r.voice.map(|v| v.0),
         orient: r.orient.map(promote_orientation),

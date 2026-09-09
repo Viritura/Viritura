@@ -1,7 +1,7 @@
 import { useMemo, type RefObject, type MutableRefObject } from "react";
 import { buildJumpBarActions } from "../jumpBar";
 import { selectAllRange } from "../store/selectionUtils";
-import { resolveEventLocation } from "../score/ElementPath";
+import { resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import type { DocumentStore } from "../store/documentStore";
@@ -188,7 +188,9 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           addStaffText: () => {
             const { score } = store.getState();
             if (!score || selection.kind !== "single") return;
-            const loc = resolveEventLocation(selection.elementId, score);
+            const loc =
+              resolveEventLocation(selection.elementId, score) ??
+              resolveFullMeasureRestLocation(selection.elementId, score);
             if (!loc) return;
             setStaffTextPopover({
               position: { ...mousePositionRef.current },

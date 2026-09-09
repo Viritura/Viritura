@@ -544,6 +544,42 @@
       "additionalProperties": false
     },
 
+    "full-measure-fermata": {
+      "type": "object",
+      "description": "A fermata attached to a full-measure rest placeholder. This mirrors the native MNX event fermata shape without converting the meter-independent bar rest into explicit rhythmic events.",
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "enum": ["normal", "angled", "square", "doubleAngled", "doubleSquare", "doubleDot", "halfCurve", "curlew"]
+        },
+        "duration": {
+          "type": "string",
+          "enum": ["auto", "none", "veryShort", "short", "normal", "long", "veryLong"]
+        },
+        "orient": {
+          "type": "string",
+          "enum": ["above", "below", "auto"]
+        },
+        "pointing": {
+          "type": "string",
+          "enum": ["up", "down", "auto"]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "sequence-extensions": {
+      "type": "object",
+      "description": "Viritura vendor extensions on an MNX sequence object.",
+      "properties": {
+        "fullMeasureFermata": {
+          "$ref": "#/$defs/full-measure-fermata",
+          "description": "Fermata attached to this sequence's fullMeasure rest."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "notehead-shape": {
       "type": "string",
       "enum": ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],

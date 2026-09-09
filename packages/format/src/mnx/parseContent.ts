@@ -69,6 +69,7 @@ import type {
 } from "@viritura/core/raw";
 import type {
   EventExtensions as RawEventExt,
+  SequenceExtensions as RawSequenceExt,
   EventMarkingsExtensions as RawEventMarkingsExt,
   SlurExtensions as RawSlurExt,
   NoteExtensions as RawNoteExt,
@@ -101,6 +102,10 @@ function parseSequence(raw: RawSequence): Sequence {
     };
     if (fm.staffPosition !== undefined) {
       seq.fullMeasure.staffPosition = fm.staffPosition;
+    }
+    const viritura = raw._x?.["viritura"] as RawSequenceExt | undefined;
+    if (viritura?.fullMeasureFermata) {
+      seq.fullMeasure.fermata = { ...viritura.fullMeasureFermata };
     }
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
