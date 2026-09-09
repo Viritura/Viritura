@@ -6,49 +6,69 @@
  * inhabits that shape at runtime. Together they form the only safe
  * boundary at which `unknown` can be narrowed to {@link RawScore}.
  *
- * Architecture: the MNX schema is the single source of truth. The
- * generator script (`pnpm gen:raw`) copies the schema into
- * `@viritura/core/raw/mnx-schema.json` alongside the generated types, so this
- * module never duplicates schema files between packages.
- *
- * The Ajv validator is lazy-initialised on first use (compiling a draft
- * 2020-12 schema is not free).
+ * Architecture: the MNX and Viritura schemas are the single sources of truth.
+ * AJV standalone validators are generated from them at build time so browser
+ * validation does not require dynamic code evaluation.
  */
 
-import Ajv2020, { type ValidateFunction, type ErrorObject } from "ajv/dist/2020";
-import addFormats from "ajv-formats";
-
-import mnxSchema from "@viritura/core/raw/mnx-schema.json" with { type: "json" };
-import virituraExtensionsSchema from "../../schemas/viritura-extensions.json" with { type: "json" };
+import type { ValidateFunction, ErrorObject } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
 import { isSupportedDynamicGlyph } from "@viritura/core";
+import {
+  mnxDocument,
+  rootExtensions,
+  measureGlobalExtensions,
+  keyExtensions,
+  tempoExtensions,
+  partExtensions,
+  kitComponentExtensions,
+  partMeasureExtensions,
+  positionedStaffConfigExtensions,
+  dynamicGroupExtensions,
+  eventExtensions,
+  eventMarkingsExtensions,
+  noteExtensions,
+  slurExtensions,
+  systemLayoutExtensions,
+  scoreExtensions,
+} from "./standaloneValidators";
 
-let cachedValidator: ValidateFunction | null = null;
-const cachedVirituraExtensionsValidators = new Map<string, ValidateFunction>();
+type ExtensionDefinition =
+  | "root-extensions"
+  | "measure-global-extensions"
+  | "key-extensions"
+  | "tempo-extensions"
+  | "part-extensions"
+  | "kit-component-extensions"
+  | "part-measure-extensions"
+  | "positioned-staff-config-extensions"
+  | "dynamic-group-extensions"
+  | "event-extensions"
+  | "event-markings-extensions"
+  | "note-extensions"
+  | "slur-extensions"
+  | "system-layout-extensions"
+  | "score-extensions";
 
-function getValidator(): ValidateFunction {
-  if (cachedValidator) return cachedValidator;
-  // `strict: false` because the MNX schema uses keywords (e.g.
-  // unevaluatedProperties contexts) that Ajv would otherwise warn on;
-  // we want validation behavior, not lint warnings. `allErrors` so the
-  // full diagnostic set is available, not just the first failure.
-  const ajv = new Ajv2020({ strict: false, allErrors: true });
-  addFormats(ajv);
-  cachedValidator = ajv.compile(mnxSchema as unknown as object);
-  return cachedValidator;
-}
+type StandaloneValidateFunction = ((data: unknown) => boolean) & Pick<ValidateFunction, "errors">;
 
-function getVirituraExtensionsValidator(definition: string): ValidateFunction {
-  const cached = cachedVirituraExtensionsValidators.get(definition);
-  if (cached) return cached;
-  const ajv = new Ajv2020({ strict: false, allErrors: true });
-  const validator = ajv.compile({
-    ...virituraExtensionsSchema,
-    $ref: `#/$defs/${definition}`,
-  });
-  cachedVirituraExtensionsValidators.set(definition, validator);
-  return validator;
-}
+const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunction> = {
+  "root-extensions": rootExtensions,
+  "measure-global-extensions": measureGlobalExtensions,
+  "key-extensions": keyExtensions,
+  "tempo-extensions": tempoExtensions,
+  "part-extensions": partExtensions,
+  "kit-component-extensions": kitComponentExtensions,
+  "part-measure-extensions": partMeasureExtensions,
+  "positioned-staff-config-extensions": positionedStaffConfigExtensions,
+  "dynamic-group-extensions": dynamicGroupExtensions,
+  "event-extensions": eventExtensions,
+  "event-markings-extensions": eventMarkingsExtensions,
+  "note-extensions": noteExtensions,
+  "slur-extensions": slurExtensions,
+  "system-layout-extensions": systemLayoutExtensions,
+  "score-extensions": scoreExtensions,
+};
 
 /** A single schema-validation failure, normalised for caller consumption. */
 export interface RawScoreValidationError {
@@ -70,7 +90,7 @@ export type RawScoreValidationResult =
  * (now-typed) value or a structured error list.
  */
 export function validateRawScore(json: unknown): RawScoreValidationResult {
-  const validate = getValidator();
+  const validate: StandaloneValidateFunction = mnxDocument;
   const ok = validate(json);
   if (ok) {
     const value = json as RawScore;
@@ -104,13 +124,13 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
   const errors: RawScoreValidationError[] = [];
   const consumed = new Set<string>();
 
-  const validateAt = (object: JsonObject | undefined, pointer: string, definition: string): void => {
+  const validateAt = (object: JsonObject | undefined, pointer: string, definition: ExtensionDefinition): void => {
     const extensionContainer = asObject(object?.["_x"]);
     if (!extensionContainer || !("viritura" in extensionContainer)) return;
     const extension = extensionContainer["viritura"];
     const extensionPointer = `${pointer}/_x/viritura`;
     consumed.add(extensionPointer);
-    const validate = getVirituraExtensionsValidator(definition);
+    const validate = extensionValidators[definition];
     if (validate(extension)) return;
     errors.push(
       ...normaliseErrors(validate.errors).map((error) => ({

@@ -39,6 +39,7 @@ export default tseslint.config(
       // banner — linting it only yields spurious unused-directive warnings).
       "packages/core/src/raw/raw.ts",
       "packages/core/src/raw/raw-viritura.ts",
+      "packages/format/src/mnx/standaloneValidators.ts",
       // Bundled webview output (generated, not source)
       "apps/vscode-mnx-viewer/media/**",
     ],
