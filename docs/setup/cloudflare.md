@@ -1,17 +1,10 @@
 # Cloudflare production setup
 
-> **Status: static migration in progress.** Cloudflare DNS, the two Cloudflare
-> Pages projects, and the R2 public asset bucket are configured. Until Pages
-> custom domains are attached, live `viritura.com` and `app.viritura.com`
-> traffic remains on the existing host nginx static deployments. The API
-> remains on the host-managed container at `api.viritura.com`.
-
-In the target static topology, Cloudflare owns Viritura's public static edge
-while the ASP.NET API remains on the current host until a separate backend
-migration:
+Cloudflare owns Viritura's public static edge. The ASP.NET API remains on the
+current host until a separate backend migration:
 
 - Cloudflare Pages: `viritura.com` and `app.viritura.com`;
-- Cloudflare DNS, DNSSEC, CDN, TLS, DDoS protection, and Free Managed WAF rules;
+- Cloudflare DNS, CDN, TLS, DDoS protection, and Free Managed WAF rules;
 - Cloudflare R2: large static/application objects at `assets.viritura.com`;
 - current host nginx/API container: `api.viritura.com`.
 
@@ -28,8 +21,46 @@ GitHub App integration is the deployment identity; do not add a long-lived
 Cloudflare API token to GitHub just to deploy Pages.
 
 Production deployments are automatic from the configured production branch.
-Preview deployments are enabled for pull requests, but monorepo build watch
-paths prevent unrelated server-only changes from building the static projects.
+Monorepo build watch paths prevent unrelated server-only changes from building
+the static projects.
+
+Cloudflare Pages does not provide a per-pull-request manual approval button for
+GitHub App previews. Automatic preview deployments are disabled with **Preview
+branch control** set to **None**. Create ad hoc preview deployments from a
+trusted workstation with Wrangler instead. Wrangler can upload a prebuilt
+artifact to the existing Git-integrated project and attach it to a synthetic
+preview branch:
+
+VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
+VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \
+bash scripts/build-cloudflare-pages.sh editor
+npx wrangler pages deploy apps/editor/dist \
+ --project-name viritura-app \
+ --branch cf-preview-my-pr-or-topic \
+ --commit-dirty=false
+
+````
+
+The resulting branch alias is
+`https://cf-preview-my-pr-or-topic.viritura-app.pages.dev`. Use the same
+pattern for the website:
+
+```bash
+VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
+VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \
+bash scripts/build-cloudflare-pages.sh website
+npx wrangler pages deploy dist \
+  --project-name viritura-website \
+  --branch cf-preview-my-pr-or-topic \
+  --commit-dirty=false
+````
+
+This keeps routine PRs from consuming Pages build queue time. The tradeoff is
+that Wrangler previews are manual artifacts: they do not automatically update
+when the PR changes and they do not post the normal Cloudflare Pages GitHub
+check/comment. Keep the path filters below even when automatic preview branch
+deployments are disabled so production builds remain monorepo-aware.
+
 If production needs a manual promotion gate later, prefer changing the Pages
 production branch to a protected `production` or `release` branch instead of
 storing Cloudflare deployment credentials in GitHub Actions.
@@ -40,13 +71,14 @@ storing Cloudflare deployment credentials in GitHub Actions.
 - Build command: `bash scripts/build-cloudflare-pages.sh website`
 - Build output: `dist`
 - Custom domains: `viritura.com`, `www.viritura.com`
-- Build watch paths: `apps/website/**`, `apps/editor/**`, `packages/**`,
-  `engine/**`, `scripts/**`, `docs/**`, `assets/**`, `build-site.ts`, and root
+- Build watch paths: `apps/website/*`, `apps/editor/*`, `packages/*`,
+  `engine/*`, `scripts/*`, `docs/*`, `assets/*`, `build-site.ts`, and root
   package/build configuration files
 
 The website build publishes the MNX project hub at `/mnx`, the playground at
-`/mnx/playground`, and the public MNX Storybook at `/mnx/examples`. Redirect
-`www.viritura.com` to the apex with a Cloudflare Redirect Rule.
+`/mnx/playground`, and the public MNX Storybook at `/mnx/examples`. If the
+canonical hostname should be apex-only, add a Cloudflare Redirect Rule from
+`www.viritura.com` to `viritura.com`.
 
 ### `viritura-app`
 
@@ -54,8 +86,8 @@ The website build publishes the MNX project hub at `/mnx`, the playground at
 - Build command: `bash scripts/build-cloudflare-pages.sh editor`
 - Build output: `apps/editor/dist`
 - Custom domain: `app.viritura.com`
-- Build watch paths: `apps/editor/**`, `packages/**`, `engine/**`,
-  `scripts/**`, `docs/spec/keyboard-shortcuts.md`, `assets/**`, and root
+- Build watch paths: `apps/editor/*`, `packages/*`, `engine/*`,
+  `scripts/*`, `docs/spec/keyboard-shortcuts.md`, `assets/*`, and root
   package/build configuration files
 
 Both projects require these production build variables:
@@ -117,26 +149,19 @@ storage charges.
 Database backups should use a separate private bucket and credentials from
 public application assets.
 
-## DNS and static cutover
+## DNS
 
-The authoritative `viritura.com` zone is in Cloudflare. Before any Pages custom
-domain cutover, keep these DNS-only records mirrored to the existing host so the
-nameserver change remains zero-downtime:
+The authoritative `viritura.com` zone is in Cloudflare. Current production DNS:
 
-- `viritura.com` A `104.236.162.149`
-- `www.viritura.com` A `104.236.162.149`
-- `app.viritura.com` A `104.236.162.149`
-- `api.viritura.com` A `104.236.162.149`
+- `viritura.com` CNAME `viritura-website.pages.dev`, proxied.
+- `www.viritura.com` CNAME `viritura-website.pages.dev`, proxied.
+- `app.viritura.com` CNAME `viritura-app.pages.dev`, proxied.
+- `assets.viritura.com` R2 custom domain for `viritura-assets`, proxied.
+- `api.viritura.com` A `104.236.162.149`, DNS-only.
 
-After the Pages production deployments from `main` succeed, attach custom
-domains one surface at a time:
-
-1. `viritura.com` and `www.viritura.com` to `viritura-website`.
-2. `app.viritura.com` to `viritura-app`.
-
-Pages custom-domain setup creates or updates the website/editor records. Keep
-`api.viritura.com` pointed at the existing host unless and until the API moves.
-Enable DNSSEC after the nameserver change and static cutover are stable.
+Keep `api.viritura.com` pointed at the existing host unless and until the API
+moves. Enable DNSSEC after the static cutover has been stable long enough for a
+separate DNS maintenance window.
 
 ## API edge
 
@@ -171,10 +196,10 @@ security boundary. Email verification and API rate limits remain required.
 ### Web Analytics
 
 Cloudflare Web Analytics is free and does not use cookies, local storage, or
-fingerprinting for its displayed analytics. Defer enabling its browser beacon
-until the privacy notice accurately discloses production processors and
-analytics. Edge traffic analytics are still useful without adding application
-analytics code.
+fingerprinting for its displayed analytics. The editor CSP allows Cloudflare's
+auto-injected beacon script and RUM endpoint; if analytics is disabled in the
+dashboard, those allowances can be removed in a later hardening pass. Keep the
+privacy notice aligned with the production analytics processor state.
 
 ### Workers, Durable Objects, Queues, KV, and D1
 

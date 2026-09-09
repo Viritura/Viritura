@@ -24,7 +24,7 @@ runbooks.
 - **Configuring production auth and early access:** read [setup/production-auth.md](setup/production-auth.md).
 - **Managing production configuration and secrets:** read [setup/production-secrets.md](setup/production-secrets.md).
 - **Deploying current production:** read [setup/production-deployment.md](setup/production-deployment.md).
-- **Managing the Cloudflare static migration:** read [setup/cloudflare.md](setup/cloudflare.md) and [plans/production-infrastructure.md](plans/production-infrastructure.md).
+- **Managing Cloudflare static hosting:** read [setup/cloudflare.md](setup/cloudflare.md) and [plans/production-infrastructure.md](plans/production-infrastructure.md).
 - **Working on authentication and production security:** read [spec/auth.md](spec/auth.md), [setup/production-auth.md](setup/production-auth.md), and [setup/production-deployment.md](setup/production-deployment.md).
 - **Working on the engine or layout:** [spec/data-model-pipeline.md](spec/data-model-pipeline.md), the performance [single source of truth](plans/performance-architecture.md), and the target-achieved/current-follow-ups [60 FPS incremental-layout plan](plans/sixty-fps-incremental-layout.md).
 - **Working on MNX parsing/serialization:** [spec/music-notationref-coverage.md](spec/music-notationref-coverage.md), [spec/viritura-extensions.md](spec/viritura-extensions.md), [spec/mnx-converter-coverage.md](spec/mnx-converter-coverage.md), [spec/dynamics.md](spec/dynamics.md).

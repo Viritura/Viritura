@@ -85,7 +85,7 @@ Lazy-loaded and prerendered route at `/mnx/mxl-converter` on the website. Compon
 
 Build / deploy: the website prerender catalog writes
 `dist/mnx/mxl-converter/index.html`; the former `/mnx-converter` URL is not
-generated and returns 404 in `deploy/nginx-viritura.com.conf`.
+generated and returns 404 on the Cloudflare Pages website.
 
 ### Already-verified-working MNX features (no further work needed)
 
