@@ -5,7 +5,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
 WORKDIR /workspace
-COPY server/ ./server/
+COPY server/Directory.Build.props ./server/Directory.Build.props
+COPY server/Viritura.Api/Viritura.Api.csproj server/Viritura.Api/packages.lock.json ./server/Viritura.Api/
+COPY server/Viritura.GitHub/Viritura.GitHub.csproj server/Viritura.GitHub/packages.lock.json ./server/Viritura.GitHub/
+COPY server/Viritura.Infrastructure/Viritura.Infrastructure.csproj server/Viritura.Infrastructure/packages.lock.json ./server/Viritura.Infrastructure/
 RUN dotnet restore server/Viritura.Api/Viritura.Api.csproj
 
 ENV ASPNETCORE_URLS=http://0.0.0.0:8080 \

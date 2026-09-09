@@ -43,11 +43,19 @@
       "isBackground": true
     },
     {
-      "label": "Viritura: Worktree Core (Docker/Traefik)",
+      "label": "Viritura: Worktree App (Docker/Traefik)",
       "detail": "Start this worktree's editor + API with isolated data and routed .localhost URLs.",
       "type": "shell",
       "command": "powershell",
-      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/infra/dev/worktree.ps1", "up"],
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "up",
+        "app"
+      ],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -154,8 +162,31 @@
       "problemMatcher": []
     },
     {
+      "label": "Viritura: Worktree Stop (Docker/Traefik)",
+      "detail": "Stop this worktree's dev containers for a fast restart.",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/infra/dev/worktree.ps1",
+        "stop"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Viritura: Worktree Down (Docker/Traefik)",
-      "detail": "Stop this worktree's dev stack (keeps node_modules volumes for fast restarts).",
+      "detail": "Remove this worktree's containers and network while preserving compiler output.",
       "type": "shell",
       "command": "powershell",
       "args": [

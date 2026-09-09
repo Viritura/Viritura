@@ -1,7 +1,11 @@
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
+const configDirectory = fileURLToPath(new URL(".", import.meta.url));
+
 export default defineConfig({
+  cacheDir: process.env.VIRITURA_VITE_CACHE_DIR,
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
   },
@@ -14,7 +18,7 @@ export default defineConfig({
     cssMinify: "esbuild",
     cssCodeSplit: false,
     lib: {
-      entry: resolve(__dirname, "src/main.tsx"),
+      entry: resolve(configDirectory, "src/main.tsx"),
       formats: ["es"],
       fileName: () => "server-ui.js",
     },

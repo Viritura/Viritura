@@ -4,6 +4,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import { existsSync, readFileSync, statSync, rmSync } from "node:fs";
 import path, { normalize, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { syncMnxFixtures, syncMnxSchema, syncSharedAssets, syncSounds } from "./buildAssets.ts";
 
@@ -12,8 +13,10 @@ syncSounds();
 syncMnxSchema();
 syncMnxFixtures();
 
+const configDirectory = path.dirname(fileURLToPath(import.meta.url));
+
 function serveContainerPublicFiles(): Plugin {
-  const publicRoot = resolve(__dirname, "public");
+  const publicRoot = resolve(configDirectory, "public");
   const contentTypes: Record<string, string> = {
     ".css": "text/css",
     ".gif": "image/gif",
@@ -88,7 +91,7 @@ function externalizeLargeSoundfont() {
     name: "viritura-externalize-large-soundfont",
     closeBundle() {
       if (process.env.VIRITURA_EXTERNAL_SOUNDFONT !== "true") return;
-      rmSync(path.resolve(__dirname, "dist/sounds/Shan-SGM-Pro-15.sf2"), { force: true });
+      rmSync(path.resolve(configDirectory, "dist/sounds/Shan-SGM-Pro-15.sf2"), { force: true });
     },
   };
 }
@@ -98,12 +101,13 @@ function externalizeLargeSoundfont() {
 // var's presence flips on proxy-aware settings; when unset (normal host runs)
 // every server option below stays exactly as it was.
 const containerHost = process.env.VIRITURA_CONTAINER_HOST;
-const wasmAssetVersionPath = resolve(__dirname, "public/wasm/asset-version.json");
+const wasmAssetVersionPath = resolve(configDirectory, "public/wasm/asset-version.json");
 const wasmAssetHash = existsSync(wasmAssetVersionPath)
   ? (JSON.parse(readFileSync(wasmAssetVersionPath, "utf8")) as { assetHash: string }).assetHash
   : "";
 
 export default defineConfig(({ command }) => ({
+  cacheDir: process.env.VIRITURA_VITE_CACHE_DIR,
   define: {
     __VIRITURA_WASM_ASSET_HASH__: JSON.stringify(command === "build" ? wasmAssetHash : ""),
   },
@@ -162,7 +166,7 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       // Resolve the WASM package
-      "@viritura/engine-wasm": path.resolve(__dirname, "../../engine/viritura-wasm"),
+      "@viritura/engine-wasm": path.resolve(configDirectory, "../../engine/viritura-wasm"),
     },
   },
   optimizeDeps: {

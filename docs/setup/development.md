@@ -116,16 +116,18 @@ Each worktree has isolated API data, dependency caches, internal service DNS,
 and `*.<slug>.localhost` routes with no per-worktree host ports:
 
 ```powershell
-./infra/dev/worktree.ps1 up        # core: editor + hot-reload API
+./infra/dev/worktree.ps1 up        # app: editor + hot-reload API
 ./infra/dev/worktree.ps1 up backend
+./infra/dev/worktree.ps1 up storybook-mnx
 ./infra/dev/worktree.ps1 up full   # website + API + editor + all Storybooks
 ./infra/dev/worktree.ps1 status
-./infra/dev/worktree.ps1 down
+./infra/dev/worktree.ps1 stop      # short pause; keep containers
+./infra/dev/worktree.ps1 down      # remove containers; keep compiler output
 ```
 
 Chromium browsers resolve `*.localhost` to `127.0.0.1` automatically, so no
 `hosts` edits are needed. VS Code ships matching tasks
-(`Viritura: Worktree Core (Docker/Traefik)` and friends) so agents can start a
+(`Viritura: Worktree App (Docker/Traefik)` and friends) so agents can start a
 worktree without a terminal. Browser-facing variables use routed public URLs;
 container-to-container variables use Compose DNS such as `http://api:8080`.
 Full profile, environment, persistence, and cleanup reference:

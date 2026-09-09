@@ -11,8 +11,9 @@ const publicFonts = resolve(editorRoot, "public/fonts");
 const mnxSchema = resolve(repoRoot, "packages/format/schemas/mnx-schema.json");
 const mnxFixtures = resolve(repoRoot, "packages/format/fixtures/mnx");
 const publicScores = resolve(editorRoot, "public/scores");
-const sharedAssetStageLock = resolve(editorRoot, "node_modules/.cache/viritura-shared-assets.lock");
-const fixtureStageLock = resolve(editorRoot, "node_modules/.cache/viritura-mnx-fixtures.lock");
+const cacheRoot = process.env.VIRITURA_CACHE_ROOT ?? resolve(editorRoot, "node_modules/.cache");
+const sharedAssetStageLock = resolve(cacheRoot, "viritura-shared-assets.lock");
+const fixtureStageLock = resolve(cacheRoot, "viritura-mnx-fixtures.lock");
 const FONT_ASSETS = [
   "Anybody-700.ttf",
   "BodoniModa-600.ttf",

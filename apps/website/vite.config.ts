@@ -4,13 +4,16 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import { rmSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const configDirectory = fileURLToPath(new URL(".", import.meta.url));
 
 function externalizeLargeSoundfont(): Plugin {
   return {
     name: "viritura-externalize-large-soundfont",
     closeBundle() {
       if (process.env.VIRITURA_EXTERNAL_SOUNDFONT !== "true") return;
-      rmSync(resolve(__dirname, "dist/sounds/Shan-SGM-Pro-15.sf2"), { force: true });
+      rmSync(resolve(configDirectory, "dist/sounds/Shan-SGM-Pro-15.sf2"), { force: true });
     },
   };
 }
@@ -21,6 +24,7 @@ function externalizeLargeSoundfont(): Plugin {
 const containerHost = process.env.VIRITURA_CONTAINER_HOST;
 
 export default defineConfig({
+  cacheDir: process.env.VIRITURA_VITE_CACHE_DIR,
   plugins: [
     // Vite 8's plugin-react handles JSX + Fast Refresh via Oxc; the React
     // Compiler still runs through Babel, wired in with @rolldown/plugin-babel
