@@ -80,7 +80,7 @@ Viritura being open-source provides a _second_ layer of guarantee — even if th
 
 ### Why MNX specifically
 
-From the [MNX specification](https://w3c.github.io/mnx/docs/):
+From the [MNX specification](https://mnx.formats.music/docs/):
 
 > _MNX is designed to be easy for software to read, write and pass through.
 > It uses JSON, the most widely used format for data exchange on the web.

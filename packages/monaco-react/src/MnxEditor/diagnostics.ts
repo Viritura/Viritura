@@ -1,6 +1,6 @@
 import type { MonacoApi } from "../types";
 
-const MNX_SCHEMA_URI = "https://w3c.github.io/mnx/docs/mnx-schema.json";
+const MNX_SCHEMA_URI = "https://mnx.formats.music/docs/mnx-schema.json";
 const schemaPromises = new Map<string, Promise<Record<string, unknown>>>();
 
 export function loadMnxSchema(schemaUrl: string): Promise<Record<string, unknown>> {

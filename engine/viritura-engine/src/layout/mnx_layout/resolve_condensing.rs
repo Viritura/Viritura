@@ -136,6 +136,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
             },
             last_clef: None,
             prev_display_key: KeySignature::default(),
+            active_staff_lines: super::super::staff_lines::DEFAULT_STAFF_LINES,
         };
 
         // Affected non-condensing staff: restart at the dirty boundary and stop
@@ -485,6 +486,10 @@ pub(super) fn resolve_one_measure_phase1(
         state.active_key = k.clone();
     }
     let (mut virtual_pm, condensing_mode) = build_virtual_part_measure(flat_staff, mi, score);
+    let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
+        &mut state.active_staff_lines,
+        virtual_pm.staff_configs.as_deref(),
+    );
 
     // Carry forward clefs: inject last active clef when measure has none.
     let has_start_clef = virtual_pm.clefs.as_ref().is_some_and(|clefs| {
@@ -531,6 +536,7 @@ pub(super) fn resolve_one_measure_phase1(
         active_key: display_key.clone(),
         prev_key: state.prev_display_key.clone(),
         tie_continuation_ids: Vec::new(),
+        active_staff_lines: measure_staff_lines,
         transposition,
         written_diatonic_adjustment: diatonic_adjustment,
         condensing_change: false, // set in Phase 2 (condensing staves only)

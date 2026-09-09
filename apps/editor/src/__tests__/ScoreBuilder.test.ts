@@ -245,6 +245,7 @@ describe("buildBlankScore", () => {
     );
 
     expect(parsed.parts[0].kit.hit.staffPosition).toBe(0);
+    expect(parsed.parts[0].measures[0].staffConfigs).toEqual([{ config: { lines: 1 } }]);
     expect(parsed.global.sounds[parsed.parts[0].kit.hit.sound].midiNumber).toBe(midiNumber);
     expect(parsed.parts[0].kit.hit._x?.viritura.notehead ?? "normal").toBe(notehead);
   });

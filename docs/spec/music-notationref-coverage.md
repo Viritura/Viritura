@@ -1,12 +1,12 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"0a8c7602d624942668e1ac2b5c6a1aa2214be0d1","musicXmlCommit":"d5b9b6a0e44322dfefeab52977cbc06f2392f5e0","virituraCommit":"e4b3103f192fb71f176b7c051e0d47823fa59dcc","upstreamSyncedAt":"2026-09-03","virituraAuditedAt":"2026-09-02"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"29b7b212000e60ef06f938895e15cfc4c7fd90c0","virituraCommit":"19b96cf48c28f0f36cbbeb827be58634e8628720","upstreamSyncedAt":"2026-09-09","virituraAuditedAt":"2026-09-09"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
-> · MNX matrix: [`mnx@0a8c760`](https://github.com/w3c-cg/mnx/commit/0a8c7602d624942668e1ac2b5c6a1aa2214be0d1)
-> · MusicXML matrix: [`musicxml@d5b9b6a`](https://github.com/w3c-cg/musicxml/commit/d5b9b6a0e44322dfefeab52977cbc06f2392f5e0)
-> · Viritura source: [`e4b3103`](https://github.com/Viritura/Viritura/commit/e4b3103f192fb71f176b7c051e0d47823fa59dcc)
-> · Upstream synced 2026-09-03; Viritura audited 2026-09-02.
+> · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
+> · MusicXML matrix: [`musicxml@29b7b21`](https://github.com/w3c-cg/musicxml/commit/29b7b212000e60ef06f938895e15cfc4c7fd90c0)
+> · Viritura source: [`19b96cf`](https://github.com/Viritura/Viritura/commit/19b96cf48c28f0f36cbbeb827be58634e8628720)
+> · Upstream synced 2026-09-09; Viritura audited 2026-09-09.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
 Reference to the current Viritura MNX ingest/model/engraving pipeline and the
@@ -67,7 +67,7 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 429 |  86 | 337 |   0 |   0 |
+| Viritura MNX pipeline          | 431 |  87 | 334 |   0 |   0 |
 | Viritura MusicXML/MXL importer | 272 |  92 | 438 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
@@ -79,7 +79,7 @@ or round-trip support unless a row note says so.
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
 | Measures          |  104 |            65/3/36/0 |           52/0/46/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
-| Structure         |  117 |           61/20/36/0 |          24/24/67/2/0 |
+| Structure         |  117 |           63/21/33/0 |          24/24/67/2/0 |
 | Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
 | Metadata          |   12 |              6/0/6/0 |             0/5/7/0/0 |
 | Lyrics            |   30 |            15/3/12/0 |           12/2/15/1/0 |
@@ -672,9 +672,9 @@ or round-trip support unless a row note says so.
 | Subgroup                                                     | Concept                                                                                 | ID                                 | MNX | MusicXML | Viritura MNX | Viritura MXL | Viritura partial gap                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------- | :-: | :------: | :----------: | :----------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Staff lines                                                  | Five-line staff                                                                         | `struct-lines-5`                   |  P  |    S     |      S       |      N       | -                                                                                                                                                                                                                                                                                                              |
-| Staff lines                                                  | Single-line staff                                                                       | `struct-lines-1`                   |  N  |    S     |      N       |      N       | -                                                                                                                                                                                                                                                                                                              |
-| Staff lines                                                  | Two-line staff                                                                          | `struct-lines-2`                   |  N  |    S     |      N       |      N       | -                                                                                                                                                                                                                                                                                                              |
-| Staff lines                                                  | Arbitrary number of staff lines, with definition of how to intrepret                    | `struct-lines-arbitrary`           |  N  |    S     |      N       |      N       | -                                                                                                                                                                                                                                                                                                              |
+| Staff lines                                                  | Single-line staff                                                                       | `struct-lines-1`                   |  N  |    S     |      S       |      N       | -                                                                                                                                                                                                                                                                                                              |
+| Staff lines                                                  | Two-line staff                                                                          | `struct-lines-2`                   |  N  |    S     |      S       |      N       | -                                                                                                                                                                                                                                                                                                              |
+| Staff lines                                                  | Arbitrary number of staff lines, with definition of how to intrepret                    | `struct-lines-arbitrary`           |  N  |    S     |      P       |      N       | Viritura MNX [Fixed style]: Staff-line counts and positioned changes engrave, but counts above five retain the canonical five-line layout frame rather than expanding vertical spacing, and rendering is capped at 64 lines                                                                                    |
 | Repeat structures &gt; Simple repeats                        | Forward repeat (start repeat)                                                           | `struct-repeat-forward`            |  S  |    S     |      S       |      S       | -                                                                                                                                                                                                                                                                                                              |
 | Repeat structures &gt; Simple repeats                        | Backward repeat (end repeat)                                                            | `struct-repeat-backward`           |  S  |    S     |      S       |      S       | -                                                                                                                                                                                                                                                                                                              |
 | Repeat structures &gt; Simple repeats                        | End-start repeat (back-to-back, combined)                                               | `struct-repeat-forward-backward`   |  P  |    S     |      S       |      S       | -                                                                                                                                                                                                                                                                                                              |

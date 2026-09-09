@@ -100,6 +100,19 @@ describe("MNX percussion semantic validation", () => {
       }
     });
 
+    it("accepts the generated staff-line range restoration marker", () => {
+      const score = percussionScore();
+      const measure = score.parts[0]!.measures[0]! as Record<string, unknown>;
+      measure["staffConfigs"] = [
+        {
+          config: { lines: 5 },
+          _x: { viritura: { staffLineRangeRestore: true } },
+        },
+      ];
+
+      expect(validateRawScore(score).ok).toBe(true);
+    });
+
     it("rejects a non-object Viritura payload", () => {
       const score = percussionScore() as ReturnType<typeof percussionScore> & { _x?: unknown };
       score._x = { viritura: "not-an-object" };

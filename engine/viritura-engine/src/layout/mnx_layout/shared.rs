@@ -339,6 +339,7 @@ pub(super) fn build_virtual_part_measure(
     let mut chord_symbols: Option<Vec<ChordSymbol>> = None;
     let mut arpeggios: Option<Vec<MnxArpeggio>> = None;
     let mut non_arpeggios: Option<Vec<NonArpeggio>> = None;
+    let mut staff_configs: Option<Vec<PositionedStaffConfig>> = None;
     let mut beams = Vec::new();
 
     // --- Condensing merge mode analysis ---
@@ -501,6 +502,9 @@ pub(super) fn build_virtual_part_measure(
                 }
             }
         }
+        if staff_configs.is_none() {
+            staff_configs = super::super::staff_lines::configs_for_staff(pm, source.staff_number);
+        }
 
         // For Unison/Amalgamate/Solo: only take directions from the first active source
         // (they're identical or we only show one). For Divisi: merge from all.
@@ -647,6 +651,7 @@ pub(super) fn build_virtual_part_measure(
             dynamics,
             ottavas,
             measure_repeat,
+            staff_configs,
             pedals,
             chord_symbols,
             expressions,
@@ -884,15 +889,16 @@ pub(super) fn render_system_staff_lines(
 ) {
     for (staff_idx, flat_staff) in flat_staves.iter().enumerate() {
         let staff_y = staff_y_offsets[staff_idx];
-        let x_end = all_staff_layouts[staff_idx]
-            .last()
-            .map_or(margin_left, |ml| ml.x + ml.width);
         let is_expansion = flat_staff.expansion;
         let recolor_start = dl.commands.len();
-        for line in 0..5 {
-            let ly = staff_y + line as f64 * sp;
-            dl.staff_line(margin_left, x_end, ly, config.staff_line_width * sp);
-        }
+        super::super::staff_lines::render_staff_lines(
+            dl,
+            &all_staff_layouts[staff_idx],
+            staff_y,
+            margin_left,
+            sp,
+            config.staff_line_width * sp,
+        );
         if is_expansion {
             dl.recolor_range(recolor_start, EXPANSION_COLOR);
         }

@@ -3961,6 +3961,48 @@ impl ::std::convert::From<f64> for PlacementMetricsPadding {
         Self::Variant0(value)
     }
 }
+///Viritura editor bookkeeping on an MNX positioned-staff-config object.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura editor bookkeeping on an MNX positioned-staff-config object.",
+///  "type": "object",
+///  "properties": {
+///    "staffLineRangeRestore": {
+///      "description": "Marks a restoration event generated after a bounded multi-bar staff-line edit so clearing that edit can remove only its synthetic boundary.",
+///      "const": true
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PositionedStaffConfigExtensions {
+    ///Marks a restoration event generated after a bounded multi-bar staff-line edit so clearing that edit can remove only its synthetic boundary.
+    #[serde(
+        rename = "staffLineRangeRestore",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_line_range_restore: ::std::option::Option<::serde_json::Value>,
+}
+impl ::std::convert::From<&PositionedStaffConfigExtensions>
+for PositionedStaffConfigExtensions {
+    fn from(value: &PositionedStaffConfigExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for PositionedStaffConfigExtensions {
+    fn default() -> Self {
+        Self {
+            staff_line_range_restore: Default::default(),
+        }
+    }
+}
 ///A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle.
 ///
 /// <details><summary>JSON schema</summary>
@@ -6706,6 +6748,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "placement-metrics": {
 ///      "$ref": "#/$defs/placement-metrics"
 ///    },
+///    "positioned-staff-config-extensions": {
+///      "$ref": "#/$defs/positioned-staff-config-extensions"
+///    },
 ///    "rehearsal-mark": {
 ///      "$ref": "#/$defs/rehearsal-mark"
 ///    },
@@ -6997,6 +7042,14 @@ pub struct VirituraExtensionsRoot {
     )]
     pub placement_metrics: ::std::option::Option<PlacementMetrics>,
     #[serde(
+        rename = "positioned-staff-config-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub positioned_staff_config_extensions: ::std::option::Option<
+        PositionedStaffConfigExtensions,
+    >,
+    #[serde(
         rename = "rehearsal-mark",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -7209,6 +7262,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             pedal_type: Default::default(),
             placement: Default::default(),
             placement_metrics: Default::default(),
+            positioned_staff_config_extensions: Default::default(),
             rehearsal_mark: Default::default(),
             rhythmic_position: Default::default(),
             root_extensions: Default::default(),

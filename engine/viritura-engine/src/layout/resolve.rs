@@ -268,6 +268,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         ..Default::default()
     };
     let mut last_clef: Option<PositionedClef> = None;
+    let mut active_staff_lines = super::staff_lines::DEFAULT_STAFF_LINES;
     let mut result = Vec::new();
     let count = globals.len().max(part.measures.len());
     let mut prev_display_key = KeySignature::default();
@@ -297,6 +298,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             dynamics: None,
             ottavas: None,
             measure_repeat: None,
+            staff_configs: None,
             pedals: None,
             chord_symbols: None,
             expressions: None,
@@ -352,6 +354,10 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             &incoming_ties,
             &previous_accidental_state,
         );
+        let measure_staff_lines = super::staff_lines::resolve_measure_staff_lines(
+            &mut active_staff_lines,
+            part_measure.staff_configs.as_deref(),
+        );
 
         result.push(ResolvedMeasure {
             index: i,
@@ -365,6 +371,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             active_key: display_key.clone(),
             prev_key: prev_display_key.clone(),
             tie_continuation_ids: incoming_ties,
+            active_staff_lines: measure_staff_lines,
             transposition,
             written_diatonic_adjustment: diatonic_adjustment,
             condensing_change: false,
@@ -496,8 +503,8 @@ fn emit_mmr_segment(
 ///
 /// A caesura or fermata therefore breaks on **both** sides, isolating its own
 /// bar so the grand-pause / hold is always shown rather than absorbed into an
-/// H-bar — the player must see where the music pauses and where the tempo
-/// changes.
+/// H-bar. Staff-configuration changes likewise isolate their measure so even a
+/// mid-measure line-count transition remains visible.
 pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bool {
     if i == 0 {
         return true;
@@ -513,6 +520,7 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
         || g.ending.is_some()
         || g.segno.is_some()
         || g.coda().is_some()
+        || has_staff_configs(&cur.part)
         || part_interrupts_mmr(&cur.part);
 
     let prev = &resolved[i - 1];
@@ -533,9 +541,17 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
         || pg.fine.is_some()
         || pg.jump.is_some()
         || jump_in_ext(pg)
+        || has_staff_configs(&prev.part)
         || part_interrupts_mmr(&prev.part);
 
     starts_here || ends_prev
+}
+
+fn has_staff_configs(measure: &PartMeasure) -> bool {
+    measure
+        .staff_configs
+        .as_ref()
+        .is_some_and(|configs| !configs.is_empty())
 }
 
 /// Vendor-extension jump (`_x.viritura.jump`) on a global measure.
@@ -707,6 +723,14 @@ fn split_part_measure_by_staff_count(
         // A simile sign is engraved on every staff of the part, like a
         // whole-measure rest.
         measure_repeat: pm.measure_repeat.clone(),
+        staff_configs: pm.staff_configs.as_ref().and_then(|configs| {
+            let filtered: Vec<_> = configs
+                .iter()
+                .filter(|config| config.staff.unwrap_or(1) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         pedals: if staff_num == 1 {
             pm.pedals.clone()
         } else {
@@ -769,6 +793,7 @@ pub(crate) fn resolve_measures_for_staff(
     let base = resolve_measures(score, part_index);
     let staff_count = score.parts.get(part_index).map_or(1, |part| part.staves);
     let mut last_clef: Option<PositionedClef> = None;
+    let mut active_staff_lines = super::staff_lines::DEFAULT_STAFF_LINES;
 
     base.into_iter()
         .map(|rm| {
@@ -806,6 +831,10 @@ pub(crate) fn resolve_measures_for_staff(
             }
 
             split.clefs = Some(measure_clefs);
+            let measure_staff_lines = super::staff_lines::resolve_measure_staff_lines(
+                &mut active_staff_lines,
+                split.staff_configs.as_deref(),
+            );
 
             ResolvedMeasure {
                 index: rm.index,
@@ -817,6 +846,7 @@ pub(crate) fn resolve_measures_for_staff(
                 active_time: rm.active_time,
                 active_key: rm.active_key,
                 prev_key: rm.prev_key,
+                active_staff_lines: measure_staff_lines,
                 transposition: None,
                 written_diatonic_adjustment: 0,
                 condensing_change: rm.condensing_change,

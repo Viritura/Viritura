@@ -418,6 +418,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     shortName: "S.Dr.",
     family: "percussion",
     staves: 1,
+    staffLines: { 1: 1 },
     clefs: { 1: PERCUSSION_CLEF },
     midiProgram: 0,
     unpitchedDrum: 38, // GM Acoustic Snare
@@ -431,6 +432,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     shortName: "B.Dr.",
     family: "percussion",
     staves: 1,
+    staffLines: { 1: 1 },
     clefs: { 1: PERCUSSION_CLEF },
     midiProgram: 0,
     unpitchedDrum: 36, // GM Bass Drum 1
@@ -444,6 +446,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     shortName: "Cym.",
     family: "percussion",
     staves: 1,
+    staffLines: { 1: 1 },
     clefs: { 1: PERCUSSION_CLEF },
     midiProgram: 0,
     unpitchedDrum: 49, // GM Crash Cymbal 1
@@ -458,6 +461,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     shortName: "Tri.",
     family: "percussion",
     staves: 1,
+    staffLines: { 1: 1 },
     clefs: { 1: PERCUSSION_CLEF },
     midiProgram: 0,
     unpitchedDrum: 81, // GM Open Triangle
@@ -472,6 +476,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     shortName: "Tamb.",
     family: "percussion",
     staves: 1,
+    staffLines: { 1: 1 },
     clefs: { 1: PERCUSSION_CLEF },
     midiProgram: 0,
     unpitchedDrum: 54, // GM Tambourine

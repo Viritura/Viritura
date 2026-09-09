@@ -306,7 +306,7 @@ export function OpenApproachSection() {
         </p>
         <p>
           Viritura stores scores as{" "}
-          <a href="https://w3c-cg.github.io/mnx/docs/" target="_blank" rel="noopener noreferrer">
+          <a href="https://mnx.formats.music/docs/" target="_blank" rel="noopener noreferrer">
             MNX, an open music notation format
           </a>{" "}
           from the W3C Music Notation Community Group. Projects are git-backed, so access to your work does not depend

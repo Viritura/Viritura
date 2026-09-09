@@ -485,6 +485,18 @@
       "additionalProperties": false
     },
 
+    "positioned-staff-config-extensions": {
+      "type": "object",
+      "description": "Viritura editor bookkeeping on an MNX positioned-staff-config object.",
+      "properties": {
+        "staffLineRangeRestore": {
+          "const": true,
+          "description": "Marks a restoration event generated after a bounded multi-bar staff-line edit so clearing that edit can remove only its synthetic boundary."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "event-markings-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on an event-markings object.",

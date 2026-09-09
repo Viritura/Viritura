@@ -120,6 +120,22 @@ function replaceInitialClefs(existing: Part, template: Part): void {
   };
 }
 
+function isMeasureStart(position: { fraction: [number, number] } | undefined): boolean {
+  return position === undefined || position.fraction[0] === 0;
+}
+
+function replaceInitialStaffConfigs(existing: Part, template: Part): void {
+  if (!existing.measures[0] || !template.measures[0]) return;
+  const laterConfigs = (existing.measures[0].staffConfigs ?? []).filter((config) => !isMeasureStart(config.position));
+  const initialConfigs = template.measures[0].staffConfigs ?? [];
+  const staffConfigs = [...initialConfigs, ...laterConfigs];
+  existing.measures[0] = {
+    ...existing.measures[0],
+    ...(staffConfigs.length > 0 ? { staffConfigs } : {}),
+  };
+  if (staffConfigs.length === 0) delete existing.measures[0].staffConfigs;
+}
+
 function layoutHasSharedPartStaff(node: LayoutContent, partId: string): boolean {
   if (node.type === "group") return node.content.some((child) => layoutHasSharedPartStaff(child, partId));
   return node.sources.some((source) => source.part === partId) && node.sources.length > 1;
@@ -192,6 +208,7 @@ export function changeInstrumentInScore(score: Score, partId: string, instrument
   };
   expandPartStaves(nextPart, created.part, oldStaves, newStaves);
   replaceInitialClefs(nextPart, created.part);
+  replaceInitialStaffConfigs(nextPart, created.part);
   if (oldPercussion && newPercussion) remapPercussionNotes(oldPart, nextPart);
 
   const next: Score = structuredClone(score);

@@ -88,7 +88,20 @@ describe("changeInstrumentInScore", () => {
     const score = makeScore("flute");
     const changed = changeInstrumentInScore(score, score.parts[0]!.id!, "snare-drum")!;
     expect(Object.keys(changed.parts[0]!.kit ?? {})).toEqual(["hit"]);
+    expect(changed.parts[0]!.measures[0]!.staffConfigs).toEqual([{ config: { lines: 1 } }]);
     expect(changed.global.sounds?.[changed.parts[0]!.kit!.hit!.sound!]?.midiNumber).toBe(38);
+  });
+
+  it("removes an instrument default without deleting later staff-line changes", () => {
+    const score = makeScore("snare-drum");
+    score.parts[0]!.measures[0]!.staffConfigs!.push({
+      config: { lines: 3 },
+      position: { fraction: [1, 2] },
+    });
+    const changed = changeInstrumentInScore(score, score.parts[0]!.id!, "flute")!;
+    expect(changed.parts[0]!.measures[0]!.staffConfigs).toEqual([
+      { config: { lines: 3 }, position: { fraction: [1, 2] } },
+    ]);
   });
 
   it("rebinds percussion notes to the nearest component in a replacement map", () => {
