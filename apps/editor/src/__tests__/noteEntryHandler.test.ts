@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
-import { handleNoteEntry } from "../keyboard/noteEntryHandler";
+import { handleMidiChordEntry, handleMidiNoteEntry, handleNoteEntry } from "../keyboard/noteEntryHandler";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 
 function makeScore(): Score {
@@ -21,6 +21,140 @@ function makeScore(): Score {
 }
 
 describe("handleNoteEntry", () => {
+  it("inserts the exact MIDI pitch and advances the note-input cursor", () => {
+    let score = makeScore();
+    const setCursor = vi.fn();
+    const setLastPitch = vi.fn();
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice: 1,
+        currentDuration: "quarter",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 0, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setCursor,
+      setLastPitch,
+      setAccidental: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleMidiNoteEntry(61, context);
+
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch).toEqual({
+      step: "C",
+      octave: 4,
+      alter: 1,
+    });
+    expect(setLastPitch).toHaveBeenCalledWith({ step: "C", octave: 4, alter: 1 });
+    expect(setCursor).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatPosition: 1,
+      partIndex: 0,
+      staffIndex: 0,
+    });
+  });
+
+  it("spells black-key MIDI input with flats in a flat key signature", () => {
+    let score = makeScore();
+    score.global.measures[0]!.key = { fifths: -2 };
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice: 1,
+        currentDuration: "quarter",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 0, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setCursor: vi.fn(),
+      setLastPitch: vi.fn(),
+      setAccidental: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleMidiNoteEntry(61, context);
+
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch).toEqual({
+      step: "D",
+      octave: 4,
+      alter: -1,
+    });
+  });
+
+  it("commits a released MIDI chord in one score update and advances once", () => {
+    let score = makeScore();
+    const updateScore = vi.fn((next: Score) => {
+      score = next;
+    });
+    const setCursor = vi.fn();
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice: 1,
+        currentDuration: "quarter",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 0, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore,
+      setCursor,
+      setLastPitch: vi.fn(),
+      setAccidental: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleMidiChordEntry([67, 60, 64], context);
+
+    expect(updateScore).toHaveBeenCalledTimes(1);
+    expect(
+      score.parts[0]!.measures[0]!.sequences[0]!.content.filter((event) => event.type === "event" && event.notes),
+    ).toHaveLength(1);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes?.map((note) => note.pitch)).toEqual([
+      { step: "C", octave: 4 },
+      { step: "E", octave: 4 },
+      { step: "G", octave: 4 },
+    ]);
+    expect(setCursor).toHaveBeenCalledTimes(1);
+    expect(setCursor).toHaveBeenCalledWith({
+      measureIndex: 0,
+      beatPosition: 1,
+      partIndex: 0,
+      staffIndex: 0,
+    });
+  });
+
   it("clears an explicit accidental after inserting a pitched note", () => {
     let score = makeScore();
     const setAccidental = vi.fn();

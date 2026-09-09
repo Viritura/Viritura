@@ -48,6 +48,7 @@ import { isFolderProjectSupported } from "../../app/projectFolder";
 import type { ActivityView } from "../../components/activityRegistry";
 import { getTransposeSelectionInfo } from "../../components/TransposeDialog";
 import { usePublishJumpBarCatalog } from "../../app/useJumpBarDestinations";
+import { MidiControllerBridge } from "../../midiController";
 
 import { useNotePreview } from "../../hooks/useNotePreview";
 import { useSelectionPruner } from "../../store/useSelectionPruner";
@@ -473,6 +474,8 @@ function AppInner({
     handleLyricCommit,
     handleLyricNavigate,
     handleLyricExit,
+    enterMidiNotes,
+    moveMidiCursor,
   } = useInteractionHandlers({
     canvasRef,
     leftPanelRef,
@@ -748,16 +751,19 @@ function AppInner({
   };
 
   return (
-    <AppInnerView
-      isActiveView={isActiveView}
-      mode={mode}
-      dropRef={dropRef}
-      handleDragOver={handleDragOver}
-      handleDragLeave={handleDragLeave}
-      handleDrop={handleDrop}
-      banners={banners}
-      workspace={workspace}
-      overlays={overlays}
-    />
+    <>
+      <MidiControllerBridge onNoteInput={enterMidiNotes} onCursorMove={moveMidiCursor} />
+      <AppInnerView
+        isActiveView={isActiveView}
+        mode={mode}
+        dropRef={dropRef}
+        handleDragOver={handleDragOver}
+        handleDragLeave={handleDragLeave}
+        handleDrop={handleDrop}
+        banners={banners}
+        workspace={workspace}
+        overlays={overlays}
+      />
+    </>
   );
 }

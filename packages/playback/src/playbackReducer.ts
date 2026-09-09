@@ -109,6 +109,14 @@ export interface PlaybackActions {
     durationMs?: number,
     altKitProgram?: number,
   ): void;
+  /** Start a held GM-instrument preview independently of the score's instruments. */
+  previewInstrumentNoteOn(midiNote: number, program?: number, velocity?: number): Promise<void>;
+  /** Start a held preview using the resolved SoundFont voice for a score part. */
+  previewPartNoteOn(midiNote: number, partIndex: number, velocity?: number): Promise<void>;
+  /** Release a held GM-instrument preview. */
+  previewInstrumentNoteOff(midiNote: number): void;
+  /** Release every held instrument-preview note, such as after an input disconnects. */
+  previewInstrumentAllNotesOff(): void;
   /** Preview a GM/GS percussion hit independently of the currently loaded score. */
   previewPercussion(midiNote: number, drumKitProgram?: number, velocity?: number, durationMs?: number): Promise<void>;
   /** Convert a measure index and beat to absolute time in seconds. Returns null if unavailable. */

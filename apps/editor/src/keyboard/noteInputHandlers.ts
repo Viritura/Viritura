@@ -22,7 +22,7 @@ import { backspaceInNoteInput, durationToBeats } from "../commands/noteCommands"
 import { DURATION_KEY_MAP } from "../commands/noteInputCommands";
 import type { KeyboardHandlerContext } from "./types";
 import { resolveSeqIndex, stepAccidental } from "./noteInputShared";
-import { arrowNavigateStaffPart, findTransposeTarget, applyArrowTranspose } from "./noteInputArrows";
+import { navigateNoteInputStaffPart, findTransposeTarget, applyArrowTranspose } from "./noteInputArrows";
 import { handleNoteEntry } from "./noteEntryHandler";
 
 /**
@@ -39,9 +39,9 @@ export function handleNoteInputArrowUpDown(e: KeyboardEvent, ctx: KeyboardHandle
   const cursor = ni.cursorPosition;
   if (!currentScore || !cursor) return;
 
-  if (arrowNavigateStaffPart(e, ctx, currentScore, cursor)) {
-    // Plain arrow consumed for navigation (or no-op); no transpose.
-    if (!e.altKey && !(e.ctrlKey || e.metaKey) && !e.shiftKey) return;
+  if (!e.altKey && !(e.ctrlKey || e.metaKey) && !e.shiftKey) {
+    navigateNoteInputStaffPart(e.key === "ArrowUp" ? "up" : "down", ctx, currentScore, cursor);
+    return;
   }
 
   const voiceIdx = resolveSeqIndex(currentScore, ctx);
@@ -155,6 +155,32 @@ function handleBackspaceKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): bool
 }
 
 /** Space, Left/Right arrow, H/J cursor travel. */
+export function moveNoteInputCursor(direction: "left" | "right" | "up" | "down", ctx: KeyboardHandlerContext): void {
+  const ni = ctx.getNoteInput();
+  const currentScore = ctx.getScore();
+  const cursor = ni.cursorPosition;
+  if (!currentScore || !cursor) return;
+
+  if (direction === "up" || direction === "down") {
+    navigateNoteInputStaffPart(direction, ctx, currentScore, cursor);
+    return;
+  }
+
+  const stepBeats = durationToBeats({
+    base: ni.currentDuration,
+    ...(ni.dotCount > 0 ? { dots: ni.dotCount } : {}),
+  });
+  const voice = ni.currentVoice - 1;
+  const newCursor = advanceCursorByNotatedDuration(
+    currentScore,
+    cursor,
+    stepBeats,
+    voice,
+    direction === "left" ? -1 : 1,
+  );
+  ctx.setCursor({ ...newCursor, staffIndex: cursor.staffIndex ?? 0 });
+}
+
 function handleCursorTravel(e: KeyboardEvent, ctx: KeyboardHandlerContext): boolean {
   const ni = ctx.getNoteInput();
   const currentScore = ctx.getScore();
@@ -175,20 +201,7 @@ function handleCursorTravel(e: KeyboardEvent, ctx: KeyboardHandlerContext): bool
 
   if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
     e.preventDefault();
-    if (!currentScore || !cursor) return true;
-    const stepBeats = durationToBeats({
-      base: ni.currentDuration,
-      ...(ni.dotCount > 0 ? { dots: ni.dotCount } : {}),
-    });
-    const voice = ni.currentVoice - 1;
-    const newCursor = advanceCursorByNotatedDuration(
-      currentScore,
-      cursor,
-      stepBeats,
-      voice,
-      e.key === "ArrowLeft" ? -1 : 1,
-    );
-    ctx.setCursor({ ...newCursor, staffIndex: cursor.staffIndex ?? 0 });
+    moveNoteInputCursor(e.key === "ArrowLeft" ? "left" : "right", ctx);
     return true;
   }
 

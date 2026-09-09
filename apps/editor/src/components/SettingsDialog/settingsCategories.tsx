@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import { Bug, CircleUserRound, FileInput, Gauge, Music, Palette, Volume2, Waves } from "lucide-react";
+import { Bug, CircleUserRound, FileInput, Gauge, KeyboardMusic, Music, Palette, Volume2, Waves } from "lucide-react";
 import {
   InstrumentProfilesPanel,
   AudioRenderModeSettings,
@@ -11,6 +11,7 @@ import { ImportPanel } from "./panels/ImportPanel";
 import { RenderingPanel } from "./panels/RenderingPanel";
 import { LayoutDebugPanel } from "./panels/LayoutDebugPanel";
 import { AccountPanel } from "./panels/AccountPanel";
+import { MidiInputPanel } from "./panels/MidiInputPanel";
 
 /** Rail groups, in display order. */
 export const SETTINGS_GROUPS = ["General", "Audio", "Files", "Advanced"] as const;
@@ -103,6 +104,15 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: "How MNX and MusicXML files are interpreted when opened.",
     keywords: ["mnx", "musicxml", "open", "vendor", "extensions", "stems", "metronome"],
     Panel: ImportPanel,
+  },
+  {
+    id: "midi-input",
+    label: "MIDI Input",
+    group: "Audio",
+    icon: <KeyboardMusic size={14} />,
+    description: "Controller access, performance and control inputs, profiles, and diagnostics.",
+    keywords: ["keyboard", "controller", "web midi", "input", "note", "velocity", "cc", "pedal", "debug", "monitor"],
+    Panel: MidiInputPanel,
   },
   {
     id: "rendering",
