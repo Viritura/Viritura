@@ -240,6 +240,9 @@ pub struct ResolvedMeasure {
     /// continuations suppress automatic accidental spacing unless the renderer
     /// elects to show a courtesy accidental at a system start.
     pub tie_continuation_ids: Vec<String>,
+    /// Staff line count in force at the start of this measure.
+    /// The canonical five-line coordinate frame remains unchanged.
+    pub active_staff_lines: u32,
     /// Transposition interval to apply when rendering (staff_distance, half_steps).
     /// Only set when useWritten is true and the part has a transposition.
     /// Convention (MNX): sounding + interval = written.

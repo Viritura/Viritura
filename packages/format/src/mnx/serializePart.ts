@@ -139,8 +139,14 @@ function serializePositionedClef(pc: PositionedClef): Obj {
 
 function serializePositionedStaffConfig(sc: NonNullable<PartMeasure["staffConfigs"]>[number]): Obj {
   const config: Obj = {};
+  if (sc.config.id !== undefined) config["id"] = sc.config.id;
+  if (sc.config._c !== undefined) config["_c"] = sc.config._c;
+  if (sc.config._x !== undefined) config["_x"] = sc.config._x;
   if (sc.config.lines !== undefined) config["lines"] = sc.config.lines;
   const out: Obj = { config };
+  if (sc.id !== undefined) out["id"] = sc.id;
+  if (sc._c !== undefined) out["_c"] = sc._c;
+  if (sc._x !== undefined) out["_x"] = sc._x;
   if (sc.position) out["position"] = sc.position;
   if (sc.staff !== undefined) out["staff"] = sc.staff;
   return out;

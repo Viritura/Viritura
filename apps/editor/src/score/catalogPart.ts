@@ -1,4 +1,4 @@
-import type { ClefSign, KitComponent, Part, Sound } from "@viritura/core";
+import type { ClefSign, KitComponent, Part, PositionedStaffConfig, Sound } from "@viritura/core";
 import type { CatalogInstrument, KitComponentDef } from "./InstrumentCatalog";
 import { buildPartTransposition } from "./InstrumentCatalog";
 
@@ -10,6 +10,20 @@ export interface CatalogPartNames {
 export interface CatalogPartResult {
   part: Part;
   sounds: Record<string, Sound>;
+}
+
+/** Build the measure-start staff configuration supplied by the instrument catalog. */
+export function buildInitialStaffConfigs(instrument: CatalogInstrument): PositionedStaffConfig[] | undefined {
+  const staves = instrument.staves ?? 1;
+  const configs = Object.entries(instrument.staffLines ?? {})
+    .map(([staffValue, lines]) => ({ staff: Number.parseInt(staffValue, 10), lines }))
+    .filter(({ staff, lines }) => Number.isInteger(staff) && staff >= 1 && staff <= staves && lines >= 0)
+    .sort((a, b) => a.staff - b.staff)
+    .map(({ staff, lines }) => ({
+      config: { lines },
+      ...(staves > 1 ? { staff } : {}),
+    }));
+  return configs.length > 0 ? configs : undefined;
 }
 
 /** Resolve the percussion map represented by a catalog instrument. */
@@ -67,6 +81,7 @@ function buildEmptyMeasures(instrument: CatalogInstrument, measureCount: number)
           ...(staves > 1 ? { staff } : {}),
         };
       }).filter((clef): clef is NonNullable<typeof clef> => clef !== null);
+      measure.staffConfigs = buildInitialStaffConfigs(instrument);
     }
     return measure;
   });

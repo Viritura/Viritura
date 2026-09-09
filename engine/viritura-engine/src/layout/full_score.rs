@@ -546,10 +546,14 @@ fn render_one_staff_for_system(
     let staff_shape_start = dl.element_shapes.len();
     let staff_cmd_start = dl.commands.len();
 
-    for line in 0..5 {
-        let y = staff_y + line as f64 * sp;
-        dl.staff_line(margin_left, x_end, y, config.staff_line_width * sp);
-    }
+    super::staff_lines::render_staff_lines(
+        dl,
+        measure_layouts,
+        staff_y,
+        margin_left,
+        sp,
+        config.staff_line_width * sp,
+    );
 
     let global_beamed_ids = collect_all_beamed_event_ids(measure_layouts, use_beams);
     let explicit_beamed_ids = collect_explicit_beamed_event_ids(measure_layouts);

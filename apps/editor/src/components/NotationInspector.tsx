@@ -23,6 +23,8 @@ import {
 } from "./inspector/useNotationInspectorActions";
 import { useNotationInspectorSelection } from "./inspector/useNotationInspectorSelection";
 import { SelectedMarkingInspectors } from "./inspector/SelectedMarkingSections";
+import { StaffConfigSection } from "./inspector/StaffConfigSection";
+import { useStaffConfigInspector } from "./inspector/useStaffConfigInspector";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -46,6 +48,7 @@ function NotationInspectorEmptyState() {
   );
 }
 
+// eslint-disable-next-line complexity, max-lines-per-function -- The inspector composes independent property sections whose visibility mirrors selection capabilities.
 export function NotationInspector(_props: NotationInspectorProps = {}) {
   const selection = useSelection();
   const selectedElementType = useSelectedElementType();
@@ -74,6 +77,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useNotationInspectorSelection(selection, score, target);
 
   const tempo = useTempoHandlers({ score, target, updateScore });
+  const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
 
   const {
     currentBarlineType,
@@ -121,16 +125,17 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleSlurEndNoteChange,
   } = useTieSlurHandlers({ score, target, updateScore });
 
-  if (!target) return <NotationInspectorEmptyState />;
+  if (!target && !staffConfig.target) return <NotationInspectorEmptyState />;
+
+  const selectionSubtitle = target
+    ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
+    : `Selected: measure ${staffConfig.target!.measureIndex + 1}, staff ${staffConfig.target!.staff}`;
 
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
-      <PanelHeader
-        title="Notation Properties"
-        subtitle={`Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`}
-      />
+      <PanelHeader title="Notation Properties" subtitle={selectionSubtitle} />
       <div className="viritura-scroll" style={bodyStyle}>
-        {tempo.isTempoSelected && tempo.selectedTempo && (
+        {target && tempo.isTempoSelected && tempo.selectedTempo && (
           <TempoSection
             key={target.elementId}
             tempo={tempo.selectedTempo}
@@ -152,15 +157,17 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        <DirectionTextSections score={score} target={target} updateScore={updateScore} />
+        {target && <DirectionTextSections score={score} target={target} updateScore={updateScore} />}
 
-        <SelectedMarkingInspectors
-          score={score}
-          target={target}
-          selectedElementType={selectedElementType}
-          selectedEvent={selectedEvent}
-          updateScore={updateScore}
-        />
+        {target && (
+          <SelectedMarkingInspectors
+            score={score}
+            target={target}
+            selectedElementType={selectedElementType}
+            selectedEvent={selectedEvent}
+            updateScore={updateScore}
+          />
+        )}
 
         {selectedElementType === "barline" && (
           <BarlineSection
@@ -176,12 +183,27 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        <MeasureRepeatInspector
-          score={score}
-          target={target}
-          focusedSection={focusedSection}
-          updateScore={updateScore}
-        />
+        {staffConfig.target && (
+          <StaffConfigSection
+            key={`${staffConfig.target.partId}:${staffConfig.target.measureIndex}:${staffConfig.target.staff}:${staffConfig.lines}`}
+            lines={staffConfig.lines}
+            staff={staffConfig.target.staff}
+            measureNumber={staffConfig.target.measureIndex + 1}
+            source={staffConfig.target.source}
+            hasExplicitChange={staffConfig.hasExplicitChange}
+            onLinesChange={staffConfig.setLines}
+            onClear={staffConfig.clear}
+          />
+        )}
+
+        {target && (
+          <MeasureRepeatInspector
+            score={score}
+            target={target}
+            focusedSection={focusedSection}
+            updateScore={updateScore}
+          />
+        )}
 
         {selectedTie && (
           <TieSection
@@ -215,8 +237,10 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 
-        <FermataSection />
-        <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
+        {target && <FermataSection />}
+        {target && (
+          <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
+        )}
 
         {(isTuplet || isEvent) && (
           <LayoutSection

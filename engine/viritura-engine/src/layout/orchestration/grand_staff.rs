@@ -275,10 +275,14 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
         let staff_shape_start = dl.element_shapes.len();
         let staff_cmd_start = dl.commands.len();
 
-        for line in 0..5 {
-            let y = staff_y + line as f64 * sp;
-            dl.staff_line(margin_left, x_end, y, config.staff_line_width * sp);
-        }
+        super::super::staff_lines::render_staff_lines(
+            dl,
+            layouts,
+            staff_y,
+            margin_left,
+            sp,
+            config.staff_line_width * sp,
+        );
 
         let global_beamed_ids = collect_all_beamed_event_ids(layouts, use_beams);
         let explicit_beamed_ids = collect_explicit_beamed_event_ids(layouts);

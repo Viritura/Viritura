@@ -56,6 +56,8 @@ export interface CatalogInstrument {
   family: InstrumentFamily;
   /** Number of staves (default 1, 2 for keyboards). */
   staves: number;
+  /** Non-default staff-line counts keyed by one-based staff number. */
+  staffLines?: Record<number, number>;
   /** Clefs per staff (1-indexed). */
   clefs: Record<number, ClefDef>;
   /** Transposition interval, if transposing instrument. */

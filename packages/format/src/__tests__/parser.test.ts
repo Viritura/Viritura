@@ -90,18 +90,51 @@ describe("parseMnx", () => {
       parts: Array<{ measures: Array<Record<string, unknown>> }>;
     };
     mnx.parts[0]!.measures[0] = {
-      staffConfigs: [{ config: { lines: 1 } }, { config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } }],
+      staffConfigs: [
+        {
+          id: "positioned-config",
+          _c: "positioned comment",
+          _x: { test: { source: "fixture" } },
+          config: {
+            id: "staff-config",
+            _c: "config comment",
+            _x: { test: { custom: true } },
+            lines: 1,
+          },
+        },
+        { config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } },
+      ],
       sequences: [{ content: [{ duration: { base: "whole" }, rest: {} }] }],
     };
 
     const score = parseMnx(mnx);
     const parsed = score.parts[0]?.measures[0]?.staffConfigs;
     expect(parsed).toHaveLength(2);
-    expect(parsed?.[0]).toEqual({ config: { lines: 1 } });
+    expect(parsed?.[0]).toEqual({
+      id: "positioned-config",
+      _c: "positioned comment",
+      _x: { test: { source: "fixture" } },
+      config: {
+        id: "staff-config",
+        _c: "config comment",
+        _x: { test: { custom: true } },
+        lines: 1,
+      },
+    });
     expect(parsed?.[1]).toEqual({ config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } });
 
     expect(serializeMnx(score).parts[0]?.measures[0]?.staffConfigs).toEqual([
-      { config: { lines: 1 } },
+      {
+        id: "positioned-config",
+        _c: "positioned comment",
+        _x: { test: { source: "fixture" } },
+        config: {
+          id: "staff-config",
+          _c: "config comment",
+          _x: { test: { custom: true } },
+          lines: 1,
+        },
+      },
       { config: { lines: 0 }, staff: 2, position: { fraction: [1, 4] } },
     ]);
   });

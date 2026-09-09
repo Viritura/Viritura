@@ -43,6 +43,7 @@ mod slurs;
 mod space_requests;
 mod spacing;
 mod staff_brace;
+mod staff_lines;
 mod system;
 pub mod text_styles;
 mod ties;

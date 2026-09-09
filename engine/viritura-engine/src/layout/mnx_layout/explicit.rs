@@ -351,18 +351,17 @@ fn render_explicit_system(
         // No measures ΓÇö draw empty staff lines with default width
         let default_width = content_width.unwrap_or(30.0 * sp);
         let sys_x_end = margin_left + default_width;
-        for (staff_idx, _) in flat_staves.iter().enumerate() {
-            let staff_y = staff_y_offsets[staff_idx];
-            let is_expansion = flat_staves.get(staff_idx).is_some_and(|fs| fs.expansion);
-            let recolor_start = dl.commands.len();
-            for line in 0..5 {
-                let ly = staff_y + line as f64 * sp;
-                dl.staff_line(margin_left, sys_x_end, ly, ctx.config.staff_line_width * sp);
-            }
-            if is_expansion {
-                dl.recolor_range(recolor_start, EXPANSION_COLOR);
-            }
-        }
+        persistent_state.render_empty_system_staff_lines(
+            dl,
+            flat_staves,
+            &staff_y_offsets,
+            margin_left,
+            sys_x_end,
+            sp,
+            ctx.config.staff_line_width * sp,
+            ctx.score,
+            m_start,
+        );
     } else {
         // Compute justified widths
         let natural_total: f64 = sys_measure_indices

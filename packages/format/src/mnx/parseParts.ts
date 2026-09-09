@@ -273,9 +273,11 @@ function parseStaffConfigs(arr: RawPositionedStaffConfig[] | undefined): PartMea
 }
 
 function parsePositionedStaffConfig(raw: RawPositionedStaffConfig): NonNullable<PartMeasure["staffConfigs"]>[number] {
-  const config: RawStaffConfig = {};
-  if (raw.config.lines !== undefined) config.lines = raw.config.lines;
+  const config: RawStaffConfig = { ...raw.config };
   const positioned: NonNullable<PartMeasure["staffConfigs"]>[number] = { config };
+  if (raw.id !== undefined) positioned.id = raw.id;
+  if (raw._c !== undefined) positioned._c = raw._c;
+  if (raw._x !== undefined) positioned._x = raw._x;
   if (raw.position) positioned.position = parseRhythmicPosition(raw.position);
   if (raw.staff !== undefined) positioned.staff = raw.staff;
   return positioned;
