@@ -518,8 +518,8 @@ pub(super) fn build_virtual_part_measure(
             // Filter directions to this source's staff. For a grand-staff part
             // (e.g. piano), a `<direction>` authored on staff 2 carries
             // `staff: Some(2)`. MNX dynamic groups with no staff apply to every
-            // staff in the part. A `between` group is emitted once on its upper
-            // anchor staff (explicit `staff`, or staff 1 for a two-staff part).
+            // staff in the part. A `between` group is emitted once on its
+            // associated staff (or staff 1 when omitted).
             // Other direction kinds retain their established staff-1 default.
             let legacy_staff_matches = |dir_staff: Option<u32>| match source.staff_number {
                 None => true,
@@ -541,6 +541,9 @@ pub(super) fn build_virtual_part_measure(
                         .cloned()
                         .map(|mut group| {
                             group.source_part_index = Some(source.part_index);
+                            let staff = source.staff_number.unwrap_or(1);
+                            let above = group.resolved_placement_above(part.staves, staff);
+                            group.placement_above = above;
                             group
                         }),
                 );

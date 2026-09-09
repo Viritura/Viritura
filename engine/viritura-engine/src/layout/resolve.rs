@@ -704,13 +704,7 @@ fn split_part_measure_by_staff_count(
                 })
                 .cloned()
                 .map(|mut group| {
-                    group.placement_above = match group.orient {
-                        Some(MultiStaffOrientation::Above) => Some(true),
-                        Some(MultiStaffOrientation::Below | MultiStaffOrientation::Between) => {
-                            Some(false)
-                        }
-                        Some(MultiStaffOrientation::Auto) | None => group.placement_above,
-                    };
+                    group.placement_above = group.resolved_placement_above(staff_count, staff_num);
                     group
                 })
                 .collect()
