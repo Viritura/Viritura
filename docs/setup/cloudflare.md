@@ -26,10 +26,40 @@ the static projects.
 
 Cloudflare Pages does not provide a per-pull-request manual approval button for
 GitHub App previews. To make previews opt in without storing Cloudflare API
-tokens in GitHub, set **Preview branch control** to **Custom branches** and
-include only an explicit branch pattern such as `cf-preview/*`, or set previews
-to **None** and temporarily add branch patterns when a preview is needed. Keep
-the path filters below even when preview branch controls are restrictive.
+tokens in GitHub, set **Preview branch control** to **None** and create ad hoc
+preview deployments from a trusted workstation with Wrangler. Wrangler can
+upload a prebuilt artifact to the existing Git-integrated project and attach it
+to a synthetic preview branch:
+
+VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
+VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \
+bash scripts/build-cloudflare-pages.sh editor
+npx wrangler pages deploy apps/editor/dist \
+ --project-name viritura-app \
+ --branch cf-preview-my-pr-or-topic \
+ --commit-dirty=false
+
+````
+
+The resulting branch alias is
+`https://cf-preview-my-pr-or-topic.viritura-app.pages.dev`. Use the same
+pattern for the website:
+
+```bash
+VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
+VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \
+bash scripts/build-cloudflare-pages.sh website
+npx wrangler pages deploy dist \
+  --project-name viritura-website \
+  --branch cf-preview-my-pr-or-topic \
+  --commit-dirty=false
+````
+
+This keeps routine PRs from consuming Pages build queue time. The tradeoff is
+that Wrangler previews are manual artifacts: they do not automatically update
+when the PR changes and they do not post the normal Cloudflare Pages GitHub
+check/comment. Keep the path filters below even when automatic preview branch
+deployments are disabled so production builds remain monorepo-aware.
 
 If production needs a manual promotion gate later, prefer changing the Pages
 production branch to a protected `production` or `release` branch instead of
