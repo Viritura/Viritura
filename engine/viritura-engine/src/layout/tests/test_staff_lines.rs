@@ -139,6 +139,20 @@ fn single_and_zero_line_staves_render_centered() {
 }
 
 #[test]
+fn excessive_line_counts_are_bounded_during_rendering() {
+    let config = LayoutConfig::default();
+    let display = layout_score(
+        &single_measure_score(Some(r#"[{"config": {"lines": 4294967296}}]"#)),
+        0,
+        &config,
+    );
+    assert_eq!(
+        staff_line_segments(&display, &config).len(),
+        super::super::staff_lines::MAX_RENDERED_STAFF_LINES as usize
+    );
+}
+
+#[test]
 fn mid_measure_change_keeps_shared_lines_continuous() {
     let config = LayoutConfig::default();
     let display = layout_score(

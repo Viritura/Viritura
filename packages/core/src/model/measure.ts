@@ -20,7 +20,7 @@ import type { Caesura, Sequence } from "./event";
 import type { KeySignature } from "./key";
 import type { TimeSignature } from "./time";
 import type { Barline } from "./barline";
-import type { Narrow } from "./_derive";
+import type { Narrow, WithVendor } from "./_derive";
 
 // ═══════════════════════════════════════════
 // Rhythmic position
@@ -403,13 +403,16 @@ export interface PartMeasure {
 export type StaffConfig = RawStaffConfig;
 
 /** Staff configuration positioned within a part measure (MNX `positioned-staff-config`). */
-export type PositionedStaffConfig = Narrow<
-  RawPositionedStaffConfig,
-  {
-    config: StaffConfig;
-    position?: RhythmicPosition;
-    staff?: number;
-  }
+export type PositionedStaffConfig = WithVendor<
+  Narrow<
+    RawPositionedStaffConfig,
+    {
+      config: StaffConfig;
+      position?: RhythmicPosition;
+      staff?: number;
+    }
+  >,
+  import("../raw/raw-viritura").PositionedStaffConfigExtensions
 >;
 
 /**

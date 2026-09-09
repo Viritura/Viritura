@@ -25,6 +25,7 @@ import { useNotationInspectorSelection } from "./inspector/useNotationInspectorS
 import { SelectedMarkingInspectors } from "./inspector/SelectedMarkingSections";
 import { StaffConfigSection } from "./inspector/StaffConfigSection";
 import { useStaffConfigInspector } from "./inspector/useStaffConfigInspector";
+import { MAX_STAFF_LINES } from "../commands/staffConfigCommands";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -192,6 +193,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             staff={staffConfig.target.staff}
             startMeasureNumber={staffConfig.target.measureIndex + 1}
             endMeasureNumber={staffConfig.target.endMeasureIndex + 1}
+            maxLines={MAX_STAFF_LINES}
             origin={staffConfig.origin}
             hasChangesInSelection={staffConfig.hasChangesInSelection}
             onLinesChange={staffConfig.setLines}

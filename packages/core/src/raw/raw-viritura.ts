@@ -248,6 +248,14 @@ export interface components {
              */
             condensingOverride?: "unison" | "solo1" | "solo2" | "amalgamate" | "divisi";
         };
+        /** @description Viritura editor bookkeeping on an MNX positioned-staff-config object. */
+        "positioned-staff-config-extensions": {
+            /**
+             * @description Marks a restoration event generated after a bounded multi-bar staff-line edit so clearing that edit can remove only its synthetic boundary.
+             * @constant
+             */
+            staffLineRangeRestore?: true;
+        };
         /** @description Viritura vendor extensions on an event-markings object. */
         "event-markings-extensions": {
             /** @description Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge). */
@@ -629,6 +637,7 @@ export type Jump = components["schemas"]["jump"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
+export type PositionedStaffConfigExtensions = components["schemas"]["positioned-staff-config-extensions"];
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];
 export type EventExtensions = components["schemas"]["event-extensions"];

@@ -1,6 +1,9 @@
 import { patch, type PositionedStaffConfig, type Score, type ScorePatch } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 
+export const MAX_STAFF_LINES = 64;
+const RANGE_RESTORE_KEY = "staffLineRangeRestore";
+
 export interface StaffConfigSelectionTarget {
   partId: string;
   partIndex: number;
@@ -21,6 +24,19 @@ function isMeasureStart(config: PositionedStaffConfig): boolean {
 
 function appliesToStaff(config: PositionedStaffConfig, staff: number): boolean {
   return (config.staff ?? 1) === staff;
+}
+
+function isRangeRestore(config: PositionedStaffConfig): boolean {
+  return config._x?.["viritura"]?.[RANGE_RESTORE_KEY] === true;
+}
+
+function withoutRangeRestoreMarker(config: PositionedStaffConfig): PositionedStaffConfig {
+  if (!isRangeRestore(config)) return config;
+  const { [RANGE_RESTORE_KEY]: _marker, ...viritura } = config._x?.["viritura"] ?? {};
+  const otherVendors = Object.fromEntries(Object.entries(config._x ?? {}).filter(([vendor]) => vendor !== "viritura"));
+  const _x = Object.keys(viritura).length > 0 ? { ...otherVendors, viritura } : otherVendors;
+  const { _x: _previousExtensions, ...withoutExtensions } = config;
+  return Object.keys(_x).length > 0 ? { ...withoutExtensions, _x } : withoutExtensions;
 }
 
 export function resolveStaffConfigSelectionTarget(
@@ -90,67 +106,72 @@ export function readStaffLineConfig(score: Score, target: StaffConfigSelectionTa
   return { lines, origin, hasChangesInSelection };
 }
 
+function planSetStaffLineRange(score: Score, target: StaffConfigSelectionTarget, lines: number): ScorePatch[] {
+  const part = score.parts[target.partIndex]!;
+  const patches: ScorePatch[] = [];
+  for (let measureIndex = target.measureIndex; measureIndex <= target.endMeasureIndex; measureIndex++) {
+    const current = part.measures[measureIndex];
+    if (!current) continue;
+    const retained = (current.staffConfigs ?? []).filter((config) => !appliesToStaff(config, target.staff));
+    const existingStart = (current.staffConfigs ?? []).findLast(
+      (config) => appliesToStaff(config, target.staff) && isMeasureStart(config),
+    );
+    const staffConfigs =
+      measureIndex === target.measureIndex
+        ? [
+            ...retained,
+            existingStart
+              ? {
+                  ...withoutRangeRestoreMarker(existingStart),
+                  config: { ...existingStart.config, lines },
+                }
+              : {
+                  config: { lines },
+                  ...(target.staff > 1 ? { staff: target.staff } : {}),
+                },
+          ]
+        : retained;
+    patches.push(
+      patch.setPartMeasureField(
+        { partId: target.partId, measureIndex },
+        { field: "staffConfigs", value: staffConfigs.length > 0 ? staffConfigs : undefined },
+      ),
+    );
+  }
+
+  const restoreMeasureIndex = target.endMeasureIndex + 1;
+  const restoreMeasure = part.measures[restoreMeasureIndex];
+  if (!restoreMeasure) return patches;
+  const restoreTarget = {
+    ...target,
+    measureIndex: restoreMeasureIndex,
+    endMeasureIndex: restoreMeasureIndex,
+  };
+  const restoreState = readStaffLineConfig(score, restoreTarget);
+  if (restoreState.origin === "explicit") return patches;
+  const staffConfigs: PositionedStaffConfig[] = [
+    ...(restoreMeasure.staffConfigs ?? []),
+    {
+      config: { lines: restoreState.lines ?? 5 },
+      ...(target.staff > 1 ? { staff: target.staff } : {}),
+      _x: { viritura: { [RANGE_RESTORE_KEY]: true } },
+    },
+  ];
+  patches.push(
+    patch.setPartMeasureField(
+      { partId: target.partId, measureIndex: restoreMeasureIndex },
+      { field: "staffConfigs", value: staffConfigs },
+    ),
+  );
+  return patches;
+}
+
 export function planSetStaffLineCount(score: Score, target: StaffConfigSelectionTarget, lines: number): ScorePatch[] {
-  if (!Number.isSafeInteger(lines) || lines < 0) return [];
+  if (!Number.isSafeInteger(lines) || lines < 0 || lines > MAX_STAFF_LINES) return [];
   const part = score.parts[target.partIndex];
   const measure = part?.measures[target.measureIndex];
   if (!measure) return [];
-  if (target.endMeasureIndex > target.measureIndex) {
-    const patches: ScorePatch[] = [];
-    for (let measureIndex = target.measureIndex; measureIndex <= target.endMeasureIndex; measureIndex++) {
-      const current = part.measures[measureIndex];
-      if (!current) continue;
-      const retained = (current.staffConfigs ?? []).filter((config) => !appliesToStaff(config, target.staff));
-      const existingStart = (current.staffConfigs ?? []).findLast(
-        (config) => appliesToStaff(config, target.staff) && isMeasureStart(config),
-      );
-      const staffConfigs =
-        measureIndex === target.measureIndex
-          ? [
-              ...retained,
-              existingStart
-                ? { ...existingStart, config: { ...existingStart.config, lines } }
-                : {
-                    config: { lines },
-                    ...(target.staff > 1 ? { staff: target.staff } : {}),
-                  },
-            ]
-          : retained;
-      patches.push(
-        patch.setPartMeasureField(
-          { partId: target.partId, measureIndex },
-          { field: "staffConfigs", value: staffConfigs.length > 0 ? staffConfigs : undefined },
-        ),
-      );
-    }
-
-    const restoreMeasureIndex = target.endMeasureIndex + 1;
-    const restoreMeasure = part.measures[restoreMeasureIndex];
-    if (restoreMeasure) {
-      const restoreTarget = {
-        ...target,
-        measureIndex: restoreMeasureIndex,
-        endMeasureIndex: restoreMeasureIndex,
-      };
-      const restoreState = readStaffLineConfig(score, restoreTarget);
-      if (restoreState.origin !== "explicit") {
-        const staffConfigs = [
-          ...(restoreMeasure.staffConfigs ?? []),
-          {
-            config: { lines: restoreState.lines ?? 5 },
-            ...(target.staff > 1 ? { staff: target.staff } : {}),
-          },
-        ];
-        patches.push(
-          patch.setPartMeasureField(
-            { partId: target.partId, measureIndex: restoreMeasureIndex },
-            { field: "staffConfigs", value: staffConfigs },
-          ),
-        );
-      }
-    }
-    return patches;
-  }
+  if (target.endMeasureIndex > target.measureIndex) return planSetStaffLineRange(score, target, lines);
 
   const staffConfigs = [...(measure.staffConfigs ?? [])];
   let matchingIndex = -1;
@@ -161,7 +182,7 @@ export function planSetStaffLineCount(score: Score, target: StaffConfigSelection
   if (matchingIndex >= 0) {
     const existing = staffConfigs[matchingIndex]!;
     staffConfigs[matchingIndex] = {
-      ...existing,
+      ...withoutRangeRestoreMarker(existing),
       config: { ...existing.config, lines },
     };
   } else {
@@ -196,6 +217,23 @@ export function planClearStaffLineCount(score: Score, target: StaffConfigSelecti
         { field: "staffConfigs", value: staffConfigs.length > 0 ? staffConfigs : undefined },
       ),
     );
+  }
+  if (target.endMeasureIndex > target.measureIndex) {
+    const restoreMeasureIndex = target.endMeasureIndex + 1;
+    const restoreMeasure = part.measures[restoreMeasureIndex];
+    if (restoreMeasure?.staffConfigs) {
+      const staffConfigs = restoreMeasure.staffConfigs.filter(
+        (config) => !(appliesToStaff(config, target.staff) && isMeasureStart(config) && isRangeRestore(config)),
+      );
+      if (staffConfigs.length !== restoreMeasure.staffConfigs.length) {
+        patches.push(
+          patch.setPartMeasureField(
+            { partId: target.partId, measureIndex: restoreMeasureIndex },
+            { field: "staffConfigs", value: staffConfigs.length > 0 ? staffConfigs : undefined },
+          ),
+        );
+      }
+    }
   }
   return patches;
 }

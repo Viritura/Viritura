@@ -73,7 +73,10 @@ fn promote_non_arpeggio(r: raw::NonArpeggio) -> ModelNonArpeggio {
 fn promote_positioned_staff_config(r: raw::PositionedStaffConfig) -> ModelPositionedStaffConfig {
     ModelPositionedStaffConfig {
         config: ModelStaffConfig {
-            lines: r.config.lines.map(|value| value.0 as u32),
+            lines: r
+                .config
+                .lines
+                .map(|value| u32::try_from(value.0).unwrap_or(u32::MAX)),
         },
         position: r.position.map(promote_rhythmic_position),
         staff: r.staff.map(|staff| u32::try_from(staff.0).unwrap_or(1)),

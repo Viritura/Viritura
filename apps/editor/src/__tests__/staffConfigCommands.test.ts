@@ -204,7 +204,77 @@ describe("staffConfigCommands", () => {
       { id: "boundary", config: { id: "payload", lines: 3 } },
     ]);
     expect(next.parts[0]!.measures[2]!.staffConfigs).toBeUndefined();
-    expect(next.parts[0]!.measures[3]!.staffConfigs).toEqual([{ config: { lines: 4 } }]);
+    expect(next.parts[0]!.measures[3]!.staffConfigs).toEqual([
+      {
+        config: { lines: 4 },
+        _x: { viritura: { staffLineRangeRestore: true } },
+      },
+    ]);
+  });
+
+  it("removes a generated range restoration when clearing the bounded change", () => {
+    const score = makeScore();
+    const target = {
+      partId: "part-1",
+      partIndex: 0,
+      measureIndex: 1,
+      endMeasureIndex: 2,
+      staff: 1,
+    };
+
+    const set = applyPatchesToScore(score, planSetStaffLineCount(score, target, 3));
+    expect(set.parts[0]!.measures[3]!.staffConfigs).toEqual([
+      {
+        config: { lines: 1 },
+        _x: { viritura: { staffLineRangeRestore: true } },
+      },
+    ]);
+
+    const cleared = applyPatchesToScore(set, planClearStaffLineCount(set, target));
+    expect(cleared.parts[0]!.measures[1]!.staffConfigs).toBeUndefined();
+    expect(cleared.parts[0]!.measures[2]!.staffConfigs).toBeUndefined();
+    expect(cleared.parts[0]!.measures[3]!.staffConfigs).toBeUndefined();
+    expect(
+      readStaffLineConfig(cleared, {
+        ...target,
+        measureIndex: 3,
+        endMeasureIndex: 3,
+      }),
+    ).toMatchObject({ lines: 1, origin: "inherited" });
+  });
+
+  it("keeps an edited restoration as an explicit user change", () => {
+    const score = makeScore();
+    const rangeTarget = {
+      partId: "part-1",
+      partIndex: 0,
+      measureIndex: 1,
+      endMeasureIndex: 2,
+      staff: 1,
+    };
+    const set = applyPatchesToScore(score, planSetStaffLineCount(score, rangeTarget, 3));
+    const restorationTarget = {
+      ...rangeTarget,
+      measureIndex: 3,
+      endMeasureIndex: 3,
+    };
+    const edited = applyPatchesToScore(set, planSetStaffLineCount(set, restorationTarget, 5));
+    expect(edited.parts[0]!.measures[3]!.staffConfigs).toEqual([{ config: { lines: 5 } }]);
+
+    const cleared = applyPatchesToScore(edited, planClearStaffLineCount(edited, rangeTarget));
+    expect(cleared.parts[0]!.measures[3]!.staffConfigs).toEqual([{ config: { lines: 5 } }]);
+  });
+
+  it("rejects impractical line counts from the editor", () => {
+    const score = makeScore();
+    const target = {
+      partId: "part-1",
+      partIndex: 0,
+      measureIndex: 1,
+      endMeasureIndex: 1,
+      staff: 1,
+    };
+    expect(planSetStaffLineCount(score, target, 65)).toEqual([]);
   });
 
   it("normalizes a backwards multi-bar selection on one staff", () => {

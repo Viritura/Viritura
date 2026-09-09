@@ -6,6 +6,7 @@ use crate::model::{PartMeasure, PositionedStaffConfig};
 use crate::render::DisplayList;
 
 pub(super) const DEFAULT_STAFF_LINES: u32 = 5;
+pub(super) const MAX_RENDERED_STAFF_LINES: u32 = 64;
 
 pub(super) fn configs_for_staff(
     measure: &PartMeasure,
@@ -139,6 +140,7 @@ pub(super) fn render_staff_line_run(
     sp: f64,
     line_width: f64,
 ) {
+    let lines = lines.min(MAX_RENDERED_STAFF_LINES);
     if lines == 0 || x2 <= x1 {
         return;
     }
@@ -209,12 +211,13 @@ fn append_horizontal_runs(
     staff_y: f64,
     sp: f64,
 ) {
-    if config_run.lines == 0 || config_run.x2 <= config_run.x1 {
+    let lines = config_run.lines.min(MAX_RENDERED_STAFF_LINES);
+    if lines == 0 || config_run.x2 <= config_run.x1 {
         return;
     }
     let middle_y = staff_y + 2.0 * sp;
-    let first_offset = -0.5 * f64::from(config_run.lines.saturating_sub(1));
-    for line in 0..config_run.lines {
+    let first_offset = -0.5 * f64::from(lines.saturating_sub(1));
+    for line in 0..lines {
         runs.push(HorizontalLineRun {
             x1: config_run.x1,
             x2: config_run.x2,

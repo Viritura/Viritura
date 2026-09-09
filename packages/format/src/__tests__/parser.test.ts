@@ -94,7 +94,10 @@ describe("parseMnx", () => {
         {
           id: "positioned-config",
           _c: "positioned comment",
-          _x: { test: { source: "fixture" } },
+          _x: {
+            test: { source: "fixture" },
+            viritura: { staffLineRangeRestore: true },
+          },
           config: {
             id: "staff-config",
             _c: "config comment",
@@ -113,7 +116,10 @@ describe("parseMnx", () => {
     expect(parsed?.[0]).toEqual({
       id: "positioned-config",
       _c: "positioned comment",
-      _x: { test: { source: "fixture" } },
+      _x: {
+        test: { source: "fixture" },
+        viritura: { staffLineRangeRestore: true },
+      },
       config: {
         id: "staff-config",
         _c: "config comment",
@@ -127,7 +133,10 @@ describe("parseMnx", () => {
       {
         id: "positioned-config",
         _c: "positioned comment",
-        _x: { test: { source: "fixture" } },
+        _x: {
+          test: { source: "fixture" },
+          viritura: { staffLineRangeRestore: true },
+        },
         config: {
           id: "staff-config",
           _c: "config comment",

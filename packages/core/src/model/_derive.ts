@@ -25,6 +25,11 @@
  */
 export type Narrow<T, M extends Partial<Record<keyof T, unknown>>> = Omit<T, keyof M> & M;
 
+/** Retype `_x.viritura` without hoisting its fields into the decoded model. */
+export type WithVendor<T, V> = Omit<T, "_x"> & {
+  _x?: { [key: string]: Record<string, unknown> } & { viritura?: V };
+};
+
 /**
  * Combined helper: hoist vendor-ext fields to the top level AND retype the
  * `_x.viritura` slot so deep writes/reads are also type-safe.
@@ -39,7 +44,4 @@ export type Narrow<T, M extends Partial<Record<keyof T, unknown>>> = Omit<T, key
  *   //   key.atonal works (hoisted)
  *   //   key._x = { viritura: { atonal: true } } works (deep)
  */
-export type HoistVendor<T, V> = Omit<T, "_x"> &
-  V & {
-    _x?: { [key: string]: Record<string, unknown> } & { viritura?: V };
-  };
+export type HoistVendor<T, V> = WithVendor<T, V> & V;

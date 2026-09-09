@@ -163,6 +163,9 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     asObjects(part["measures"]).forEach((measure, measureIndex) => {
       const measurePointer = `${partPointer}/measures/${measureIndex}`;
       validateAt(measure, measurePointer, "part-measure-extensions");
+      asObjects(measure["staffConfigs"]).forEach((config, configIndex) =>
+        validateAt(config, `${measurePointer}/staffConfigs/${configIndex}`, "positioned-staff-config-extensions"),
+      );
       asObjects(measure["dynamics"]).forEach((dynamic, dynamicIndex) =>
         validateAt(dynamic, `${measurePointer}/dynamics/${dynamicIndex}`, "dynamic-group-extensions"),
       );

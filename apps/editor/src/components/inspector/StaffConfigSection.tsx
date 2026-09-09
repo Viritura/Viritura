@@ -15,6 +15,7 @@ interface StaffConfigSectionProps {
   staff: number;
   startMeasureNumber: number;
   endMeasureNumber: number;
+  maxLines: number;
   origin: "default" | "inherited" | "explicit";
   hasChangesInSelection: boolean;
   onLinesChange: (lines: number) => void;
@@ -37,6 +38,7 @@ export function StaffConfigSection({
   staff,
   startMeasureNumber,
   endMeasureNumber,
+  maxLines,
   origin,
   hasChangesInSelection,
   onLinesChange,
@@ -65,6 +67,7 @@ export function StaffConfigSection({
             aria-label="Number of staff lines"
             type="number"
             min={0}
+            max={maxLines}
             step={1}
             value={draft}
             placeholder={lines === null ? "Mixed" : undefined}
@@ -85,7 +88,7 @@ export function StaffConfigSection({
         {isRange
           ? `bars ${startMeasureNumber}-${endMeasureNumber}; changes apply only to this selection`
           : `from bar ${startMeasureNumber} until the next staff-line change`}
-        . Zero hides all staff lines.
+        . Zero hides all staff lines; the editor supports up to {maxLines}.
       </span>
     </fieldset>
   );
