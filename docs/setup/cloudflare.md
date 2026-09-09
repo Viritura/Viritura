@@ -35,7 +35,7 @@ The website build publishes the MNX project hub at `/mnx`, the playground at
 `/mnx/playground`, and the public MNX Storybook at `/mnx/examples`. Redirect
 `www.viritura.com` to the apex with a Cloudflare Redirect Rule.
 
-### `viritura-editor`
+### `viritura-app`
 
 - Root directory: repository root
 - Build command: `bash scripts/build-cloudflare-pages.sh editor`
