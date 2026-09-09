@@ -10,7 +10,11 @@ import { ensureMeasureId } from "../score/spanUtils";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { getActiveTimeSignature } from "../commands/cursorCommands";
 import { dynamicStaffAtLocation } from "../commands/dynamicStaff";
-import { resolveCondensedSelectionEvents } from "../score/condensedWriteback";
+import {
+  condensedStaffSourcePartIndices,
+  resolveCondensedFullMeasureRestTargets,
+  resolveCondensedSelectionEvents,
+} from "../score/condensedWriteback";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import type { Selection } from "../store/selectionStore";
 import {
@@ -387,8 +391,12 @@ function resolveDynamicTargets(score: Score, selection: Selection, selectedScore
   const targets = resolveTargets(score, selection);
   if (selectedScoreIndex === undefined) return targets;
   const sourceEvents = resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
-  if (sourceEvents.length === 0) return targets;
-  const sourceParts = new Set(sourceEvents.map((location) => location.partIndex));
+  const sourceParts =
+    sourceEvents.length > 0
+      ? new Set(sourceEvents.map((location) => location.partIndex))
+      : new Set(
+          targets.flatMap((target) => condensedStaffSourcePartIndices(score, selectedScoreIndex, target.partIndex)),
+        );
   const expanded = targets.flatMap((target) => [...sourceParts].map((partIndex) => ({ ...target, partIndex })));
   return [...new Map(expanded.map((target) => [`${target.partIndex}/${target.staff ?? ""}`, target])).values()];
 }
@@ -721,7 +729,8 @@ export function applyBreathFermata(
 ): Score | null {
   const result = structuredClone(score);
   const updatedFullMeasureRest =
-    resolved.kind === "fermata" && applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape);
+    resolved.kind === "fermata" &&
+    applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape, selectedScoreIndex);
   const events =
     selectedScoreIndex === undefined
       ? resolveSelectionEvents(selection, result)
@@ -762,7 +771,12 @@ export function applyBreathFermata(
   return updated;
 }
 
-function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selection, shape: FermataSymbol): boolean {
+function applyFermataToSelectedFullMeasureRests(
+  score: Score,
+  selection: Selection,
+  shape: FermataSymbol,
+  selectedScoreIndex?: number,
+): boolean {
   const locations = new Map<string, ReturnType<typeof resolveFullMeasureRestLocation>>();
   const addElement = (elementId: string) => {
     const location = resolveFullMeasureRestLocation(elementId, score);
@@ -780,6 +794,8 @@ function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selecti
     const start = addElement(selection.startElementId);
     const end = addElement(selection.endElementId);
     if (start && end) {
+      const sequenceScope =
+        start.partIndex === end.partIndex ? fullMeasureRangeSequenceScope(score, start, end) : undefined;
       addFullMeasureRestRange(
         score,
         locations,
@@ -787,6 +803,7 @@ function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selecti
         Math.max(start.partIndex, end.partIndex),
         Math.min(start.measureIndex, end.measureIndex),
         Math.max(start.measureIndex, end.measureIndex),
+        sequenceScope,
       );
     }
   } else if (selection.kind === "measure") {
@@ -800,8 +817,14 @@ function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selecti
     );
   }
 
+  const targets =
+    selectedScoreIndex === undefined
+      ? [...locations.values()]
+      : [...locations.values()].flatMap((location) =>
+          location ? resolveCondensedFullMeasureRestTargets(score, selectedScoreIndex, location) : [],
+        );
   let changed = false;
-  for (const location of locations.values()) {
+  for (const location of targets) {
     if (!location) continue;
     const sequence =
       score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
@@ -812,6 +835,32 @@ function applyFermataToSelectedFullMeasureRests(score: Score, selection: Selecti
   return changed;
 }
 
+interface FullMeasureSequenceScope {
+  staff?: number;
+  voice?: string;
+  indexRange?: readonly [number, number];
+}
+
+function fullMeasureRangeSequenceScope(
+  score: Score,
+  start: NonNullable<ReturnType<typeof resolveFullMeasureRestLocation>>,
+  end: NonNullable<ReturnType<typeof resolveFullMeasureRestLocation>>,
+): FullMeasureSequenceScope {
+  const startSequence = score.parts[start.partIndex]?.measures[start.measureIndex]?.sequences[start.sequenceIndex];
+  const endSequence = score.parts[end.partIndex]?.measures[end.measureIndex]?.sequences[end.sequenceIndex];
+  const startStaff = startSequence?.staff ?? 1;
+  const endStaff = endSequence?.staff ?? 1;
+  if (startStaff === endStaff) {
+    return { staff: startStaff };
+  }
+  if (startSequence?.voice !== undefined && startSequence.voice === endSequence?.voice) {
+    return { voice: startSequence.voice };
+  }
+  return {
+    indexRange: [Math.min(start.sequenceIndex, end.sequenceIndex), Math.max(start.sequenceIndex, end.sequenceIndex)],
+  };
+}
+
 function addFullMeasureRestRange(
   score: Score,
   locations: Map<string, ReturnType<typeof resolveFullMeasureRestLocation>>,
@@ -819,6 +868,7 @@ function addFullMeasureRestRange(
   endPart: number,
   startMeasure: number,
   endMeasure: number,
+  sequenceScope?: FullMeasureSequenceScope,
 ): void {
   for (let partIndex = startPart; partIndex <= endPart; partIndex++) {
     const part = score.parts[partIndex];
@@ -828,6 +878,14 @@ function addFullMeasureRestRange(
       if (!measure) continue;
       for (let sequenceIndex = 0; sequenceIndex < measure.sequences.length; sequenceIndex++) {
         const sequence = measure.sequences[sequenceIndex];
+        if (sequenceScope?.staff !== undefined && (sequence?.staff ?? 1) !== sequenceScope.staff) continue;
+        if (sequenceScope?.voice !== undefined && sequence?.voice !== sequenceScope.voice) continue;
+        if (
+          sequenceScope?.indexRange &&
+          (sequenceIndex < sequenceScope.indexRange[0] || sequenceIndex > sequenceScope.indexRange[1])
+        ) {
+          continue;
+        }
         if (sequence?.fullMeasure && sequence.content.length === 0) {
           locations.set(`${partIndex}/${measureIndex}/${sequenceIndex}`, {
             partIndex,

@@ -4,11 +4,14 @@ import {
   applySelectionWriteback,
   expandCondensedSpannerIds,
   expandCondensedSubElementIds,
+  resolveCondensedFullMeasureRestTargets,
   resolveCondensedSelectionEvents,
   planCondensedEventWriteback,
   planCondensedSelectionWriteback,
 } from "../score/condensedWriteback";
 import { applyArticulationToSelection } from "../radialMenu/applyToSelection";
+import { resolveStaffTextTargets } from "../app/useAppKeyboardWiring";
+import { applyStaffTextEdit } from "../app/popoverHandlers";
 import { handleDelete } from "../keyboard/normalModeDelete";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 import type { Selection } from "../store/selectionStore";
@@ -76,6 +79,71 @@ function deleteSelection(score: Score, selection: Selection): Score {
 }
 
 describe("condensed projection write-back", () => {
+  it("keeps staff text on the selected lower staff of a full-measure rest", () => {
+    const score = condensedScore(1);
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.sequences[0] = {
+      staff: 2,
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    };
+    const target = resolveStaffTextTargets(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/e0", elementType: "event" },
+      0,
+    );
+
+    const updated = applyStaffTextEdit(score, { position: { x: 0, y: 0 }, ...target! }, "dolce");
+
+    expect(updated.parts[0]!.measures[0]!.expressions).toEqual([
+      { text: "dolce", position: { fraction: [0, 4] }, placement: "above", staff: 2 },
+    ]);
+  });
+
+  it("resolves a shared full-measure rest to every condensed source part", () => {
+    const score = condensedScore(3);
+    for (const part of score.parts) {
+      part.measures[0]!.sequences[0] = {
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" } },
+      };
+    }
+
+    expect(
+      resolveCondensedFullMeasureRestTargets(score, 0, {
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+      }).map((location) => location.partIndex),
+    ).toEqual([0, 1, 2]);
+  });
+
+  it("matches condensed full-measure rests by normalized staff when source sequences are reordered", () => {
+    const score = condensedScore(2);
+    for (const part of score.parts) part.staves = 2;
+    score.parts[0]!.measures[0]!.sequences = [
+      { content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+      { staff: 2, content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+    ];
+    score.parts[1]!.measures[0]!.sequences = [
+      { staff: 2, content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+      { content: [], fullMeasure: { visualDuration: { base: "whole" } } },
+    ];
+
+    expect(
+      resolveCondensedFullMeasureRestTargets(score, 0, {
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+      }).map((location) => [location.partIndex, location.sequenceIndex]),
+    ).toEqual([
+      [0, 0],
+      [1, 1],
+    ]);
+  });
+
   it("describes merged projection edits as broadcast source write-back", () => {
     const score = condensedScore(3);
     const selection = { kind: "single", elementId: "p0/m0/s0/event-0", elementType: "event" } as const;

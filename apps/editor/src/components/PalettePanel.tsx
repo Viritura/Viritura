@@ -30,9 +30,14 @@ import {
 } from "../score/ElementPath";
 import { resolveCapabilityTargets, EVENT_ACTION } from "../store/selectionCapabilities";
 import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
-import { resolveCondensedEventTargets, resolveCondensedSelectionEvents } from "../score/condensedWriteback";
+import {
+  resolveCondensedEventTargets,
+  resolveCondensedFullMeasureRestTargets,
+  resolveCondensedSelectionEvents,
+} from "../score/condensedWriteback";
 import { useViewStateStore } from "../store/viewStateStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
+import { dynamicStaffAtLocation } from "../commands/dynamicStaff";
 import {
   toggleDynamic,
   setMultiNoteTremolo,
@@ -840,16 +845,24 @@ export function PalettePanel() {
       allowEmpty: false,
       onSubmit: (input) => {
         if (!input.trim()) return;
-        const targets = loc ? resolveCondensedEventTargets(score, selectedScoreIndex, loc) : [barRest!];
+        const targets = loc
+          ? resolveCondensedEventTargets(score, selectedScoreIndex, loc)
+          : resolveCondensedFullMeasureRestTargets(score, selectedScoreIndex, barRest!);
         const newScore = produce(score, (draft) => {
           const fraction: [number, number] = loc ? eventPositionFraction(score, loc) : [0, 1];
 
           for (const target of targets) {
             const partMeasure = draft.parts[target.partIndex]?.measures[target.measureIndex];
             if (!partMeasure) continue;
+            const staff = dynamicStaffAtLocation(score, target);
             partMeasure.expressions = [
               ...(partMeasure.expressions ?? []),
-              { text: input.trim(), position: { fraction }, placement: "above" },
+              {
+                text: input.trim(),
+                position: { fraction },
+                placement: "above",
+                ...(staff !== undefined && { staff }),
+              },
             ];
           }
         });

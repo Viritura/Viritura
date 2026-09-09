@@ -441,8 +441,7 @@ fn test_fermata_on_full_measure_rest_in_irregular_meter_stays_single() {
         "parts": [{"measures": [{
             "sequences": [{
                 "content": [],
-                "fullMeasure": {},
-                "_x": {"viritura": {"fullMeasureFermata": {"symbol": "normal"}}}
+                "fullMeasure": {"fermata": {"symbol": "normal"}}
             }]
         }]}]
     }"#;

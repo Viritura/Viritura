@@ -526,7 +526,7 @@ pub(crate) fn compute_below_staff_extra_from_layouts(
             // Range label: fixed one-line-below position (no clef-tail clear).
             let bottom = staff_bottom + 0.5 * sp + font_size;
             number_extra = number_extra.max((bottom - staff_bottom).max(0.0));
-        } else if render_annotations::measure_number_to_display(ml).is_some() {
+        } else if render_annotations::measure_number_value(ml).is_some() {
             // System-start bar number (clef-tail aware). staff_y = 0 convention.
             let top = render_annotations::below_staff_number_top_y(ml, 0.0, sp, config);
             let bottom = top + font_size; // TextBaseline::Top

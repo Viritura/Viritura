@@ -32,8 +32,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
               sequences: [
                 {
                   content: [],
-                  fullMeasure: {},
-                  _x: { viritura: { fullMeasureFermata: { symbol: "square" } } },
+                  fullMeasure: { fermata: { symbol: "square" } },
                 },
               ],
             },

@@ -39,6 +39,14 @@ export interface StaffTextPopoverState {
   measureIndex: number;
   sequenceIndex: number;
   eventIndex: number;
+  staff?: number;
+  targets?: Array<{
+    partIndex: number;
+    measureIndex: number;
+    sequenceIndex: number;
+    eventIndex: number;
+    staff?: number;
+  }>;
 }
 
 interface OverlayState {

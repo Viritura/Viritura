@@ -119,14 +119,6 @@ fn render_multimeasure_number_range(
     );
 }
 
-/// The measure number to print, following the system-start house style.
-pub(crate) fn measure_number_to_display(ml: &MeasureLayout) -> Option<i32> {
-    if !ml.is_first_staff {
-        return None;
-    }
-    measure_number_value(ml)
-}
-
 pub(crate) fn measure_number_value(ml: &MeasureLayout) -> Option<i32> {
     if !ml.is_first_on_system {
         return None;

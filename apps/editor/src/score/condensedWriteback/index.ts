@@ -53,6 +53,36 @@ export function condensedStaffSourcePartIndices(score: Score, selectedScoreIndex
   return findCondensingStaff(score, layoutId, partIndex)?.sourcePartIndices ?? [partIndex];
 }
 
+/** Canonical full-measure-rest placeholders represented by one condensed rest. */
+export function resolveCondensedFullMeasureRestTargets(
+  score: Score,
+  selectedScoreIndex: number,
+  location: EventLocation,
+): EventLocation[] {
+  const visualSequence =
+    score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
+  const staff = visualSequence?.staff ?? 1;
+  const voice = visualSequence?.voice;
+  return condensedStaffSourcePartIndices(score, selectedScoreIndex, location.partIndex).flatMap((partIndex) => {
+    const sequences = score.parts[partIndex]?.measures[location.measureIndex]?.sequences;
+    if (!sequences) return [];
+    const indexedSequence = sequences[location.sequenceIndex];
+    const sequenceIndex =
+      indexedSequence?.fullMeasure &&
+      (indexedSequence.staff ?? 1) === staff &&
+      (voice === undefined || indexedSequence.voice === voice)
+        ? location.sequenceIndex
+        : sequences.findIndex(
+            (sequence) =>
+              sequence.fullMeasure !== undefined &&
+              (sequence.staff ?? 1) === staff &&
+              (voice === undefined || sequence.voice === voice),
+          );
+    const sequence = sequences[sequenceIndex];
+    return sequence?.fullMeasure && sequence.content.length === 0 ? [{ ...location, partIndex, sequenceIndex }] : [];
+  });
+}
+
 /**
  * Build the write-back provenance for one event in the condensed projection.
  * Merged notation records every canonical contributor; divisi/solo notation

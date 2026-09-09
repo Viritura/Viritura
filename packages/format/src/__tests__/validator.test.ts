@@ -83,7 +83,7 @@ describe("MNX percussion semantic validation", () => {
       }
     });
 
-    it("rejects unknown sequence extension fields", () => {
+    it("rejects Viritura payloads at unsupported MNX object locations", () => {
       const score = percussionScore();
       const sequence = score.parts[0]!.measures[0]!.sequences[0]! as Record<string, unknown>;
       sequence["_x"] = { viritura: { inventedProperty: true } };
@@ -94,7 +94,7 @@ describe("MNX percussion semantic validation", () => {
         expect(result.errors).toContainEqual(
           expect.objectContaining({
             pointer: "/parts/0/measures/0/sequences/0/_x/viritura",
-            keyword: "additionalProperties",
+            keyword: "extensionLocation",
           }),
         );
       }
