@@ -537,6 +537,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      ajv:
+        specifier: ^8.17.1
+        version: 8.18.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

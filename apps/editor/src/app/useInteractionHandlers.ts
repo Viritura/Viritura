@@ -28,6 +28,7 @@ import type { ActivityView } from "../components/activityRegistry";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { RefObject, MutableRefObject } from "react";
 import type { useNoteInput } from "../store/noteInputStore";
+import type { EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 
 type NoteInputState = ReturnType<typeof useNoteInput>["state"];
 type JumpBarActions = ReturnType<typeof useJumpBarActions>;
@@ -99,6 +100,8 @@ interface UseInteractionHandlersParams {
 }
 
 export interface InteractionHandlers extends RadialMenuHandlers, DragAndDropHandlers {
+  enterMidiNotes: EditorKeyboardActions["enterMidiNotes"];
+  moveMidiCursor: EditorKeyboardActions["moveMidiCursor"];
   jumpBarActions: JumpBarActions;
   lyricNavIndex: LyricHandlers["lyricNavIndex"];
   lyricPosition: LyricHandlers["lyricPosition"];
@@ -168,7 +171,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     onNewScore,
   } = params;
 
-  useAppKeyboardWiring({
+  const { enterMidiNotes, moveMidiCursor } = useAppKeyboardWiring({
     canvasRef,
     leftPanelRef,
     rightPanelRef,
@@ -280,5 +283,5 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
 
   const dnd = useDragAndDrop({ openFolderHandle, setIsDragOver, setFileError, setOpenedFile });
 
-  return { ...radial, ...dnd, jumpBarActions, ...lyric };
+  return { ...radial, ...dnd, jumpBarActions, ...lyric, enterMidiNotes, moveMidiCursor };
 }

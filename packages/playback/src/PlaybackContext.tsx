@@ -71,6 +71,7 @@ import type {
   OrchestraSection,
 } from "@viritura/audio";
 import { usePercussionPreview } from "./usePercussionPreview";
+import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
@@ -412,6 +413,21 @@ export function PlaybackProvider({
     sf2BufferRef,
     sf2FetchPromiseRef,
   });
+  const {
+    noteOn: previewInstrumentNoteOn,
+    noteOff: previewInstrumentNoteOff,
+    allNotesOff: previewInstrumentAllNotesOff,
+  } = useMelodicPreview({ sf2BufferRef, sf2FetchPromiseRef });
+  const previewPartNoteOn = useCallback(
+    (midiNote: number, partIndex: number, velocity = 80): Promise<void> => {
+      const part = score?.parts[partIndex];
+      if (!part || !score) return previewInstrumentNoteOn(midiNote, 0, velocity);
+      const resolved = resolvePartSounds(score.parts, score.soundProfile, soundProfileRegistryRef.current)[partIndex];
+      const program = resolved ? requireSf2Sound(part.name, resolved.sf2).primary.program : 0;
+      return previewInstrumentNoteOn(midiNote, program, velocity);
+    },
+    [previewInstrumentNoteOn, score],
+  );
 
   useEffect(() => {
     if (sf2BufferRef.current || sf2FetchPromiseRef.current) return;
@@ -1175,6 +1191,10 @@ export function PlaybackProvider({
       setReverbPreset,
       setReverbWet,
       previewNote,
+      previewInstrumentNoteOn,
+      previewPartNoteOn,
+      previewInstrumentNoteOff,
+      previewInstrumentAllNotesOff,
       previewPercussion,
       measureBeatToSeconds,
       setEnsembleLayer,
@@ -1201,6 +1221,10 @@ export function PlaybackProvider({
       setReverbPreset,
       setReverbWet,
       previewNote,
+      previewInstrumentNoteOn,
+      previewPartNoteOn,
+      previewInstrumentNoteOff,
+      previewInstrumentAllNotesOff,
       previewPercussion,
       measureBeatToSeconds,
       setEnsembleLayer,

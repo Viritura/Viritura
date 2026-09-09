@@ -23,14 +23,12 @@ type NoteInputCursorSnapshot = CursorPosition;
 
 /** Plain arrow (no modifiers): move cursor between parts/staves.
  *  Returns true if movement was handled, false to fall through to transpose. */
-export function arrowNavigateStaffPart(
-  e: KeyboardEvent,
+export function navigateNoteInputStaffPart(
+  direction: "up" | "down",
   ctx: KeyboardHandlerContext,
   currentScore: Score,
   cursor: NoteInputCursorSnapshot,
 ): boolean {
-  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return false;
-
   const partIndex = cursor.partIndex ?? 0;
   const part = currentScore.parts[partIndex];
   const partCount = currentScore.parts.length;
@@ -39,17 +37,17 @@ export function arrowNavigateStaffPart(
   let newStaffIdx = staffIdx;
   let newPartIndex = partIndex;
 
-  if (e.key === "ArrowUp" && staffIdx > 0) {
+  if (direction === "up" && staffIdx > 0) {
     newStaffIdx = staffIdx - 1;
     ctx.setCursor({ ...cursor, staffIndex: newStaffIdx });
-  } else if (e.key === "ArrowDown" && staffIdx < staffCount - 1) {
+  } else if (direction === "down" && staffIdx < staffCount - 1) {
     newStaffIdx = staffIdx + 1;
     ctx.setCursor({ ...cursor, staffIndex: newStaffIdx });
-  } else if (e.key === "ArrowUp" && partIndex > 0) {
+  } else if (direction === "up" && partIndex > 0) {
     newPartIndex = partIndex - 1;
     newStaffIdx = 0;
     ctx.setCursor({ ...cursor, partIndex: newPartIndex, staffIndex: 0 });
-  } else if (e.key === "ArrowDown" && partIndex < partCount - 1) {
+  } else if (direction === "down" && partIndex < partCount - 1) {
     newPartIndex = partIndex + 1;
     newStaffIdx = 0;
     ctx.setCursor({ ...cursor, partIndex: newPartIndex, staffIndex: 0 });

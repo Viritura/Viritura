@@ -24,7 +24,13 @@ import {
   getActiveLayoutId,
 } from "../score/condensingRouter";
 import { redistributeChordAcrossSources } from "../score/condensingChord";
-import { getKeySignatureAlter, resolveKeyAtMeasure, resolveEntryPitch } from "../commands/transposeCommands";
+import {
+  getKeySignatureAlter,
+  midiNoteToPitch,
+  resolveKeyAtMeasure,
+  resolveEntryPitch,
+  resolveWrittenPitchFromSounding,
+} from "../commands/transposeCommands";
 import { prevailingAlterationAtPosition } from "../commands/accidentalCommands";
 import { getActiveTimeSignature, computeUsedBeats, advanceCursorByNotatedDuration } from "../commands/cursorCommands";
 import { closestOctave, aboveOctave, defaultPitchForClef } from "../input/octaveLogic";
@@ -248,6 +254,7 @@ function tryChordEntry(
   entryCtx: EntryContext,
   pitch: Pitch,
   writtenPitch: Pitch,
+  stackAbove = true,
 ): boolean {
   const ni = ctx.getNoteInput();
   const cursor = ni.cursorPosition;
@@ -261,7 +268,7 @@ function tryChordEntry(
 
   if (loc && cs) {
     const highestExisting = findHighestPitchAtLoc(currentScore, cs.sourcePartIndices, loc);
-    if (highestExisting) {
+    if (highestExisting && stackAbove) {
       stackPitchAboveReference(pitch, writtenPitch, highestExisting);
     }
     const resultScore = redistributeChordAcrossSources(currentScore, {
@@ -282,7 +289,7 @@ function tryChordEntry(
     const newScore = produce(currentScore, (draft) => {
       const targetEv =
         draft.parts[entryCtx.partIndex]?.measures[loc.measureIndex]?.sequences[entryCtx.voice]?.content[loc.eventIndex];
-      if (targetEv && targetEv.type === "event" && targetEv.notes?.length) {
+      if (stackAbove && targetEv && targetEv.type === "event" && targetEv.notes?.length) {
         const highest = targetEv.notes.reduce((hi, n) =>
           n.pitch.octave * 7 + "CDEFGAB".indexOf(n.pitch.step) > hi.pitch.octave * 7 + "CDEFGAB".indexOf(hi.pitch.step)
             ? n
@@ -520,6 +527,29 @@ function performFallbackInsert(
   }
 }
 
+function insertPlannedPitch(
+  ctx: KeyboardHandlerContext,
+  currentScore: Score,
+  entryCtx: EntryContext,
+  plan: InsertPlan,
+  pitch: Pitch,
+  writtenPitch: Pitch,
+): void {
+  const ts = getActiveTimeSignature(currentScore, plan.measureIdx);
+  const maxBeats = measureBeats(ts);
+  const ni = ctx.getNoteInput();
+  const inBounds =
+    plan.measureIdx < currentScore.global.measures.length &&
+    plan.beatPos + plan.noteBeats <= maxBeats + 1e-9 &&
+    !ni.slurActive;
+
+  if (inBounds) {
+    performInBoundsInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+    return;
+  }
+  performFallbackInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+}
+
 /** Enter a note by letter name. */
 export function handleNoteEntry(step: string, isChord: boolean, ctx: KeyboardHandlerContext): void {
   const currentScore = ctx.getScore();
@@ -535,19 +565,93 @@ export function handleNoteEntry(step: string, isChord: boolean, ctx: KeyboardHan
   const plan = planInsert(ctx, currentScore, entryCtx);
   const plannedEntryCtx = { ...entryCtx, cursorMeasure: plan.measureIdx, cursorBeat: plan.beatPos };
   const { pitch, writtenPitch } = buildEntryPitch(step, ctx, currentScore, plannedEntryCtx);
-  const ts = getActiveTimeSignature(currentScore, plan.measureIdx);
-  const maxBeats = measureBeats(ts);
-  const ni = ctx.getNoteInput();
-  const inBounds =
-    plan.measureIdx < currentScore.global.measures.length &&
-    plan.beatPos + plan.noteBeats <= maxBeats + 1e-9 &&
-    !ni.slurActive;
+  insertPlannedPitch(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+}
 
-  if (inBounds) {
-    performInBoundsInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+/** Enter the exact concert pitch received from a MIDI performance input. */
+export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContext): void {
+  const currentScore = ctx.getScore();
+  if (!currentScore || !Number.isInteger(midiNote) || midiNote < 0 || midiNote > 127) return;
+  const entryCtx = buildEntryContext(ctx, currentScore);
+  const entryKeyFifths = resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure);
+  const soundingPitch = midiNoteToPitch(midiNote, entryKeyFifths);
+
+  if (ctx.getNoteInput().chordLock) {
+    const writtenPitch = resolveWrittenPitchFromSounding(
+      soundingPitch,
+      currentScore,
+      entryCtx.partIndex,
+      entryKeyFifths,
+    );
+    tryChordEntry(ctx, currentScore, entryCtx, soundingPitch, writtenPitch, false);
     return;
   }
-  performFallbackInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+
+  const plan = planInsert(ctx, currentScore, entryCtx);
+  const plannedKeyFifths = resolveKeyAtMeasure(currentScore, plan.measureIdx);
+  const plannedSoundingPitch = midiNoteToPitch(midiNote, plannedKeyFifths);
+  const writtenPitch = resolveWrittenPitchFromSounding(
+    plannedSoundingPitch,
+    currentScore,
+    entryCtx.partIndex,
+    plannedKeyFifths,
+  );
+  insertPlannedPitch(ctx, currentScore, entryCtx, plan, plannedSoundingPitch, writtenPitch);
+}
+
+/** Enter one released MIDI-key gesture as a single note or chord and advance once. */
+export function handleMidiChordEntry(midiNotes: readonly number[], ctx: KeyboardHandlerContext): void {
+  const notes = [...new Set(midiNotes)].filter((note) => Number.isInteger(note) && note >= 0 && note <= 127);
+  if (notes.length === 0) return;
+  if (notes.length === 1) {
+    handleMidiNoteEntry(notes[0]!, ctx);
+    return;
+  }
+
+  const initialScore = ctx.getScore();
+  if (!initialScore) return;
+  let workingScore = initialScore;
+  let affectedMeasures: { start: number; end: number } | undefined;
+  const initialInput = ctx.getNoteInput();
+  const batchedInput = { ...initialInput, chordLock: false };
+  const batchedContext: KeyboardHandlerContext = {
+    ...ctx,
+    getScore: () => workingScore,
+    getNoteInput: () => batchedInput,
+    updateScore: (nextScore, affected) => {
+      workingScore = nextScore;
+      if (!affected) {
+        affectedMeasures = undefined;
+      } else if (affectedMeasures) {
+        affectedMeasures = {
+          start: Math.min(affectedMeasures.start, affected.start),
+          end: Math.max(affectedMeasures.end, affected.end),
+        };
+      } else {
+        affectedMeasures = affected;
+      }
+    },
+    setCursor: (position) => {
+      batchedInput.cursorPosition = position;
+    },
+    setLastPitch: (pitch) => {
+      batchedInput.lastPitch = pitch;
+    },
+  };
+
+  const ascendingNotes = notes.sort((a, b) => a - b);
+  handleMidiNoteEntry(ascendingNotes[0]!, batchedContext);
+  for (const note of ascendingNotes.slice(1)) {
+    const entryCtx = buildEntryContext(batchedContext, workingScore);
+    const keyFifths = resolveKeyAtMeasure(workingScore, entryCtx.cursorMeasure);
+    const soundingPitch = midiNoteToPitch(note, keyFifths);
+    const writtenPitch = resolveWrittenPitchFromSounding(soundingPitch, workingScore, entryCtx.partIndex, keyFifths);
+    tryChordEntry(batchedContext, workingScore, entryCtx, soundingPitch, writtenPitch, false);
+  }
+
+  if (workingScore !== initialScore) ctx.updateScore(workingScore, affectedMeasures);
+  if (batchedInput.cursorPosition) ctx.setCursor(batchedInput.cursorPosition);
+  if (batchedInput.lastPitch) ctx.setLastPitch(batchedInput.lastPitch);
 }
 
 /** Wire slur after note entry (connects start→end when two notes entered). */

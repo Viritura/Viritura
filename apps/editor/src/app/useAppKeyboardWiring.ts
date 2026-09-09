@@ -1,7 +1,7 @@
 import { useCallback, type RefObject, type MutableRefObject } from "react";
 import type { Barline, Clef, Score } from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
-import { useEditorKeyboard } from "../keyboard/useEditorKeyboard";
+import { useEditorKeyboard, type EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { requestPanelToggle } from "../keyboard/panelToggle";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { DocumentStore } from "../store/documentStore";
@@ -118,7 +118,7 @@ export function togglePanels(
  * Wire global editor keyboard shortcuts. Mirrors the inline `useEditorKeyboard`
  * call previously in App.tsx; behaviour is unchanged.
  */
-export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
+export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboardActions {
   const {
     canvasRef,
     mousePositionRef,
@@ -214,7 +214,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
     [store, selectedScoreIndex, onSwitchScore],
   );
 
-  useEditorKeyboard({
+  return useEditorKeyboard({
     canvasRef,
     currentZoom,
     selectedScoreIndex,
