@@ -56,38 +56,38 @@ function Save-Lease {
 function Remove-ProjectResources {
   param([string]$Project)
 
-  $containers = Get-DockerIds @(
+  $containers = @(Get-DockerIds @(
     'container', 'ls', '--all', '--quiet',
     '--filter', "label=com.docker.compose.project=$Project",
     '--filter', 'label=com.viritura.dev.managed=true'
-  )
+  ))
   if ($containers.Count -gt 0) {
     Invoke-Docker (@('container', 'rm', '--force') + $containers)
   }
 
-  $networks = Get-DockerIds @(
+  $networks = @(Get-DockerIds @(
     'network', 'ls', '--quiet',
     '--filter', "label=com.docker.compose.project=$Project",
     '--filter', 'label=com.viritura.dev.managed=true'
-  )
+  ))
   foreach ($network in $networks) {
     Invoke-Docker @('network', 'rm', $network)
   }
 
-  $volumes = Get-DockerIds @(
+  $volumes = @(Get-DockerIds @(
     'volume', 'ls', '--quiet',
     '--filter', "label=com.docker.compose.project=$Project",
     '--filter', 'label=com.viritura.dev.managed=true'
-  )
+  ))
   foreach ($volume in $volumes) {
     Invoke-Docker @('volume', 'rm', $volume)
   }
 
-  $worktreeVolumes = Get-DockerIds @(
+  $worktreeVolumes = @(Get-DockerIds @(
     'volume', 'ls', '--quiet',
     '--filter', "label=com.viritura.dev.project=$Project",
     '--filter', 'label=com.viritura.dev.managed=true'
-  )
+  ))
   foreach ($volume in $worktreeVolumes) {
     Invoke-Docker @('volume', 'rm', $volume)
   }
@@ -97,27 +97,27 @@ function Remove-StaleCaches {
   param([DateTimeOffset]$Now)
 
   $cutoff = $Now - $CacheRetention
-  $dependencyVolumes = Get-DockerIds @(
+  $dependencyVolumes = @(Get-DockerIds @(
     'volume', 'ls', '--quiet',
     '--filter', 'label=com.viritura.dev.cache=node-dependencies'
-  )
+  ))
   foreach ($volume in $dependencyVolumes) {
     $inspection = @(& docker volume inspect $volume | ConvertFrom-Json)[0]
     if ($LASTEXITCODE -ne 0) { continue }
     if ([DateTimeOffset]::Parse([string]$inspection.CreatedAt) -gt $cutoff) { continue }
-    $users = Get-DockerIds @('container', 'ls', '--all', '--quiet', '--filter', "volume=$volume")
+    $users = @(Get-DockerIds @('container', 'ls', '--all', '--quiet', '--filter', "volume=$volume"))
     if ($users.Count -eq 0) {
       Invoke-Docker @('volume', 'rm', $volume)
     }
   }
 
   foreach ($cacheLabel in @('node-image', 'api-image')) {
-    $images = Get-DockerIds @('image', 'ls', '--quiet', '--filter', "label=com.viritura.dev.cache=$cacheLabel")
+    $images = @(Get-DockerIds @('image', 'ls', '--quiet', '--filter', "label=com.viritura.dev.cache=$cacheLabel"))
     foreach ($image in ($images | Sort-Object -Unique)) {
       $inspection = @(& docker image inspect $image | ConvertFrom-Json)[0]
       if ($LASTEXITCODE -ne 0) { continue }
       if ([DateTimeOffset]::Parse([string]$inspection.Created) -gt $cutoff) { continue }
-      $users = Get-DockerIds @('container', 'ls', '--all', '--quiet', '--filter', "ancestor=$image")
+      $users = @(Get-DockerIds @('container', 'ls', '--all', '--quiet', '--filter', "ancestor=$image"))
       if ($users.Count -eq 0) {
         Invoke-Docker @('image', 'rm', $image)
       }
@@ -154,11 +154,11 @@ function Invoke-Cleanup {
       }
 
       if (-not $lease.StoppedAt) {
-        $containers = Get-DockerIds @(
+        $containers = @(Get-DockerIds @(
           'container', 'ls', '--quiet',
           '--filter', "label=com.docker.compose.project=$project",
           '--filter', 'label=com.viritura.dev.managed=true'
-        )
+        ))
         if ($containers.Count -gt 0) {
           Write-Host "Stopping expired development stack '$project'..." -ForegroundColor Yellow
           Invoke-Docker (@('container', 'stop') + $containers)

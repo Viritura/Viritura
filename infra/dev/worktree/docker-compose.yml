@@ -150,12 +150,12 @@ services:
       VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-editor.rule: Host(`editor.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port: "5173"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-editor.rule=Host(`editor.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port=5173
 
   website:
     <<: *node-service
@@ -169,12 +169,12 @@ services:
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-web.rule: Host(`web.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port: "5180"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-web.rule=Host(`web.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port=5180
 
   server-ui:
     <<: *node-service
@@ -223,12 +223,12 @@ services:
       - infrastructure_obj:/workspace/server/Viritura.Infrastructure/obj
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-api.rule: Host(`api.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port: "8080"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-api.rule=Host(`api.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port=8080
 
   storybook-ui:
     <<: *node-service
@@ -240,12 +240,12 @@ services:
       CI: "true"
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule: Host(`ui.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port: "6005"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule=Host(`ui.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port=6005
 
   storybook-mnx:
     <<: *node-service
@@ -257,12 +257,12 @@ services:
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule: Host(`mnx.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port: "6006"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule=Host(`mnx.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port=6006
 
   storybook-app:
     <<: *node-service
@@ -274,12 +274,12 @@ services:
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:
-      <<: *managed-labels
-      traefik.enable: "true"
-      traefik.docker.network: viritura-dev-proxy
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule: Host(`storybook.${VIRITURA_SLUG}.localhost`)
-      traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints: web
-      traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port: "6007"
+      - com.viritura.dev.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=viritura-dev-proxy
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule=Host(`storybook.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints=web
+      - traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port=6007
 
 volumes:
   node_modules:
