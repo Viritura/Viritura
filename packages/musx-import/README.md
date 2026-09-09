@@ -17,6 +17,10 @@ The generated module, WASM binary, source revisions, hashes, and upstream
 licenses live in `assets/`. Vite stages the runtime under `/denigma/`; conversion
 runs in a dedicated Web Worker.
 
+Imports are bounded by archive-size, entry-count, expansion-ratio, decoded-score,
+WASM-memory, and conversion-time limits before untrusted MUSX data can exhaust
+the editor process.
+
 ```ts
 import { convertMusxToMnx } from "@viritura/musx-import";
 

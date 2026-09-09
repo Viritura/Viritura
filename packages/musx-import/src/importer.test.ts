@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_MUSX_BYTES } from "./archiveLimits";
 import { createMusxImporter } from "./importer";
 import type { DenigmaWorkerRequest, DenigmaWorkerResponse } from "./types";
 
@@ -79,5 +80,55 @@ describe("createMusxImporter", () => {
 
     await expect(conversion).rejects.toThrow("terminated");
     expect(worker.terminated).toBe(true);
+  });
+
+  it("terminates a conversion that exceeds its time limit", async () => {
+    const worker = new FakeWorker();
+    const importer = createMusxImporter(() => worker as unknown as Worker);
+    const conversion = importer.convert(new Uint8Array([1]), "score.musx", { timeoutMs: 1 });
+
+    await expect(conversion).rejects.toThrow("safety limit");
+    expect(worker.terminated).toBe(true);
+  });
+
+  it("rejects oversized input before creating a worker or copying bytes", async () => {
+    let workerCreated = false;
+    const importer = createMusxImporter(() => {
+      workerCreated = true;
+      return new FakeWorker() as unknown as Worker;
+    });
+    const oversized = { byteLength: MAX_MUSX_BYTES + 1 } as ArrayBuffer;
+
+    await expect(importer.convert(oversized, "oversized.musx")).rejects.toThrow("64 MiB");
+    expect(workerCreated).toBe(false);
+  });
+
+  it("fails every request on a timed-out worker without affecting its replacement", async () => {
+    const workers: FakeWorker[] = [];
+    const importer = createMusxImporter(() => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker as unknown as Worker;
+    });
+    const first = importer.convert(new Uint8Array([1]), "first.musx", { timeoutMs: 1 });
+    const second = importer.convert(new Uint8Array([2]), "second.musx", { timeoutMs: 100 });
+
+    const failed = await Promise.allSettled([first, second]);
+    expect(failed.every((result) => result.status === "rejected")).toBe(true);
+    expect(workers[0]!.terminated).toBe(true);
+
+    const third = importer.convert(new Uint8Array([3]), "third.musx");
+    const replacement = workers[1]!;
+    replacement.respond({
+      type: "converted",
+      requestId: replacement.request!.requestId,
+      result: {
+        mnxJson: '{"global":{"measures":[]},"parts":[]}',
+        diagnostics: [],
+        denigmaVersion: "4.0.0",
+        denigmaCommit: "abc123",
+      },
+    });
+    await expect(third).resolves.toMatchObject({ denigmaCommit: "abc123" });
   });
 });

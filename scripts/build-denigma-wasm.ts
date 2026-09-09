@@ -29,7 +29,8 @@ function run(command: string, args: string[], cwd = root): void {
 
 function checkout(repository: string, commit: string, destination: string): void {
   mkdirSync(dirname(destination), { recursive: true });
-  run("git", ["clone", "--filter=blob:none", "--no-checkout", repository, destination]);
+  run("git", ["-c", "core.autocrlf=false", "clone", "--filter=blob:none", "--no-checkout", repository, destination]);
+  run("git", ["config", "core.autocrlf", "false"], destination);
   run("git", ["fetch", "origin", commit, "--depth=1"], destination);
   run("git", ["checkout", "--detach", commit], destination);
   verifyCheckout(destination, commit);
@@ -53,6 +54,13 @@ function verifyCheckout(destination: string, commit: string): void {
 
 function sha256(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function copyLicense(source: string, destination: string): void {
+  const normalized = readFileSync(source, "utf8")
+    .replace(/[ \t]+$/gm, "")
+    .trimEnd();
+  writeFileSync(destination, `${normalized}\n`);
 }
 
 if (!resume && existsSync(buildRoot)) {
@@ -89,14 +97,19 @@ run("docker", [
   "bash",
   "-lc",
   [
-    "emcmake cmake -S /source -B /work/build-wasm",
+    "git config --global --add safe.directory /work/denigma",
+    `&& test "$(git -C /work/denigma rev-parse HEAD)" = "${DENIGMA_COMMIT}"`,
+    '&& test -z "$(git -C /work/denigma status --porcelain)"',
+    "&& emcmake cmake -S /source -B /work/build-wasm",
     "-DCMAKE_BUILD_TYPE=MinSizeRel",
     "-DDENIGMA_SOURCE_DIR=/work/denigma",
     `-DDENIGMA_GIT_TAG=${DENIGMA_COMMIT}`,
     `-DVIRITURA_DENIGMA_VERSION=${DENIGMA_VERSION}`,
     `-DVIRITURA_DENIGMA_COMMIT=${DENIGMA_COMMIT}`,
     "&& cmake --build /work/build-wasm --target viritura_denigma_mnx --parallel 2",
-    "&& cp /emsdk/LICENSE /work/LICENSE-EMSCRIPTEN.txt",
+    "&& cp /emsdk/upstream/emscripten/LICENSE /work/LICENSE-EMSCRIPTEN.txt",
+    "&& cp /emsdk/upstream/emscripten/system/lib/libc/musl/COPYRIGHT /work/LICENSE-MUSL.txt",
+    "&& cp /emsdk/upstream/emscripten/system/lib/libcxx/LICENSE.TXT /work/LICENSE-LIBCXX.txt",
   ].join(" "),
 ]);
 
@@ -117,14 +130,17 @@ const licenses = [
   ["MUSXDOM", resolve(dependencyRoot, "musx-src/LICENSE")],
   ["MNXDOM", resolve(dependencyRoot, "mnxdom-src/LICENSE")],
   ["SMUFL-MAPPING", resolve(dependencyRoot, "smufl_mapping-src/LICENSE")],
+  ["BRAVURA-OFL", resolve(dependencyRoot, "smufl_mapping-src/OFL.txt")],
   ["PUGIXML", resolve(dependencyRoot, "pugixml-src/LICENSE.md")],
   ["NLOHMANN-JSON", resolve(dependencyRoot, "nlohmann_json-src/LICENSE.MIT")],
   ["JSON-SCHEMA-VALIDATOR", resolve(dependencyRoot, "json_schema_validator-src/LICENSE")],
   ["ZLIB", resolve(dependencyRoot, "zlib-src/LICENSE")],
   ["EMSCRIPTEN", resolve(buildRoot, "LICENSE-EMSCRIPTEN.txt")],
+  ["MUSL", resolve(buildRoot, "LICENSE-MUSL.txt")],
+  ["LIBCXX", resolve(buildRoot, "LICENSE-LIBCXX.txt")],
 ] as const;
 for (const [name, source] of licenses) {
-  copyFileSync(source, resolve(outputRoot, `LICENSE-${name}.txt`));
+  copyLicense(source, resolve(outputRoot, `LICENSE-${name}.txt`));
 }
 copyFileSync(resolve(dependencyRoot, "smufl_mapping-src/NOTICE.md"), resolve(outputRoot, "NOTICE-SMUFL-MAPPING.md"));
 

@@ -1,4 +1,5 @@
 import type { DenigmaDiagnostic, DenigmaDiagnosticSeverity, MusxImportOptions, MusxImportResult } from "./types";
+import { validateMusxArchive } from "./archiveLimits";
 
 interface DenigmaModule {
   HEAPU8: Uint8Array;
@@ -93,6 +94,7 @@ export async function convertWithDenigma(
   sourceName: string,
   options: MusxImportOptions,
 ): Promise<MusxImportResult> {
+  await validateMusxArchive(new Uint8Array(source));
   const module = await loadDenigmaModule();
   const input = new Uint8Array(source);
   let inputPointer = 0;

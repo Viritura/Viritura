@@ -8,6 +8,14 @@ endif()
 
 include(FetchContent)
 
+set(PUGIXML_BUILD_TESTS OFF CACHE BOOL "Do not build pugixml tests" FORCE)
+FetchContent_Declare(
+    pugixml
+    URL https://github.com/zeux/pugixml/releases/download/v1.15/pugixml-1.15.tar.gz
+    URL_HASH SHA256=655ade57fa703fb421c2eb9a0113b5064bddb145d415dd1f88c79353d90d511a
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
 set(DENIGMA_GIT_REPOSITORY "https://github.com/rpatters1/denigma.git" CACHE STRING
     "Denigma repository used by FetchContent")
 set(DENIGMA_GIT_TAG "" CACHE STRING "Pinned Denigma commit")
@@ -62,6 +70,8 @@ target_link_options(viritura_denigma_mnx PRIVATE
     "-sEXPORT_ES6=1"
     "-sENVIRONMENT=web,worker,node"
     "-sALLOW_MEMORY_GROWTH=1"
+    "-sABORTING_MALLOC=0"
+    "-sMAXIMUM_MEMORY=268435456"
     "-sFILESYSTEM=0"
     "-sASSERTIONS=0"
     "-sEXPORTED_FUNCTIONS=['_denigma_malloc','_denigma_free','_denigma_musx_to_mnx','_denigma_result_destroy','_denigma_result_success','_denigma_result_output_data','_denigma_result_output_size','_denigma_result_diagnostic_count','_denigma_result_diagnostic_severity','_denigma_result_diagnostic_message','_denigma_version','_denigma_commit']"

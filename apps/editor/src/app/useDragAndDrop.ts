@@ -7,6 +7,7 @@ import {
   validateMnxJson,
 } from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
+import { useProjectStore } from "../store/projectStore";
 
 interface UseDragAndDropArgs {
   openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
@@ -91,6 +92,7 @@ export function useDragAndDrop({
           setFileError(`${result.filename}: ${validationError}`);
           return;
         }
+        void useProjectStore.getState().setAdapter(null);
         setOpenedFile(result);
       } catch (err: unknown) {
         setFileError(err instanceof Error ? err.message : "Failed to read dropped file");

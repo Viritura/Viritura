@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const { convertMusxToMnx } = vi.hoisted(() => ({
   convertMusxToMnx: vi.fn(),
@@ -6,14 +8,12 @@ const { convertMusxToMnx } = vi.hoisted(() => ({
 
 vi.mock("@viritura/musx-import", () => ({
   convertMusxToMnx,
+  MAX_MUSX_BYTES: 64 * 1024 * 1024,
 }));
 
 import { convertImportedMusicFile, isMusicImportFilename } from "../commands/fileCommands";
 
-const VALID_MNX = JSON.stringify({
-  global: { measures: [] },
-  parts: [],
-});
+const VALID_MNX = readFileSync(resolve(process.cwd(), "../../packages/format/fixtures/mnx/hello-world.mnx"), "utf8");
 
 describe("Finale MUSX import", () => {
   beforeEach(() => {
@@ -62,5 +62,41 @@ describe("Finale MUSX import", () => {
     const file = new File([new Uint8Array([1])], "broken.musx");
 
     await expect(convertImportedMusicFile(file)).rejects.toThrow("Denigma produced invalid MNX");
+  });
+
+  it("rejects schema-invalid notation even when Denigma reports success", async () => {
+    const invalid = JSON.parse(VALID_MNX) as {
+      parts: Array<{
+        measures: Array<{
+          sequences: Array<{ content: Array<Record<string, unknown>> }>;
+        }>;
+      }>;
+    };
+    invalid.parts[0]!.measures[0]!.sequences[0]!.content[0]!.markings = {
+      tremolo: { marks: 0 },
+    };
+    convertMusxToMnx.mockResolvedValue({
+      mnxJson: JSON.stringify(invalid),
+      diagnostics: [],
+      denigmaVersion: "4.0.0",
+      denigmaCommit: "abc123",
+    });
+
+    const file = new File([new Uint8Array([1])], "tremolo.musx");
+
+    await expect(convertImportedMusicFile(file)).rejects.toThrow(/marks/);
+  });
+
+  it("rejects oversized MUSX files before reading their bytes", async () => {
+    const arrayBuffer = vi.fn();
+    const file = {
+      name: "oversized.musx",
+      size: 64 * 1024 * 1024 + 1,
+      arrayBuffer,
+    } as unknown as File;
+
+    await expect(convertImportedMusicFile(file)).rejects.toThrow("64 MiB");
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(convertMusxToMnx).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,8 @@
 
 namespace {
 
+constexpr std::size_t MAX_MUSX_BYTES = 64 * 1024 * 1024;
+
 struct ImportResult
 {
     bool success{};
@@ -76,6 +78,9 @@ ImportResult* denigma_musx_to_mnx(const std::uint8_t* data,
     return makeResult([&](ImportResult& result) {
         if (!data && size != 0) {
             throw std::invalid_argument("Input buffer is null.");
+        }
+        if (size > MAX_MUSX_BYTES) {
+            throw std::invalid_argument("MUSX input exceeds the 64 MiB safety limit.");
         }
 
         const auto bytes = std::span<const std::byte>(reinterpret_cast<const std::byte*>(data), size);

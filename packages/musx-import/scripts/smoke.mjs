@@ -35,6 +35,9 @@ try {
     if (!parsed.global || !Array.isArray(parsed.parts)) {
       throw new Error("Denigma output is not an MNX document.");
     }
+    if (JSON.stringify(parsed).includes("-dirty")) {
+      throw new Error("Denigma output reports a dirty source checkout.");
+    }
     console.log(`Converted ${input.byteLength} MUSX bytes to ${outputSize} MNX bytes.`);
   } finally {
     module._denigma_result_destroy(result);

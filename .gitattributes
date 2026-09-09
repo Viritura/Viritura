@@ -6,6 +6,9 @@ packages/core/src/raw/raw-viritura.ts text eol=lf
 engine/viritura-engine/src/raw.rs text eol=lf
 engine/viritura-engine/src/raw_viritura.rs text eol=lf
 docs/spec/music-notationref-coverage.md text eol=lf
+packages/musx-import/assets/denigma.js text eol=lf
+packages/musx-import/assets/manifest.json text eol=lf
+packages/musx-import/assets/*.wasm binary
 
 # Shell scripts run on Linux; CRLF breaks shebang resolution.
 *.sh text eol=lf

@@ -10,6 +10,8 @@ export interface MusxImportOptions {
   splitInstruments?: boolean;
   indentSpaces?: number;
   cueLayer?: number;
+  /** Conversion timeout, capped at the package's 120-second safety maximum. */
+  timeoutMs?: number;
 }
 
 export interface MusxImportResult {

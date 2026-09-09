@@ -10,7 +10,8 @@
  */
 
 import { convertMusicXmlToMnx, convertMxlToMnx, type PercussionImportReview } from "@viritura/musicxml";
-import { convertMusxToMnx, type DenigmaDiagnostic } from "@viritura/musx-import";
+import { convertMusxToMnx, MAX_MUSX_BYTES, type DenigmaDiagnostic } from "@viritura/musx-import";
+import { validateRawScore } from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -140,6 +141,20 @@ export function isMusicImportFilename(filename: string): boolean {
   return MUSIC_IMPORT_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
+function validateConvertedMnxJson(text: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return "output is not valid JSON";
+  }
+  const validation = validateRawScore(parsed);
+  if (validation.ok) return null;
+  const first = validation.errors[0];
+  if (!first) return "output does not satisfy the MNX schema";
+  return `${first.pointer || "/"} ${first.message}`;
+}
+
 /**
  * Convert an imported MusicXML, MXL, or Finale MUSX `File` into an
  * {@link OpenFileResult} that holds the resulting MNX JSON.
@@ -151,10 +166,13 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
       throw new Error(`Unsupported music file: ${file.name}`);
     }
     if (lower.endsWith(".musx")) {
+      if (file.size > MAX_MUSX_BYTES) {
+        throw new Error("MUSX input exceeds the 64 MiB safety limit.");
+      }
       const conversion = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
         includeTempoTool: true,
       });
-      const validationError = validateMnxJson(conversion.mnxJson);
+      const validationError = validateConvertedMnxJson(conversion.mnxJson);
       if (validationError) {
         throw new Error(`Denigma produced invalid MNX: ${validationError}`);
       }
