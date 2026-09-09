@@ -1,5 +1,5 @@
 import { useCallback, type RefObject, type MutableRefObject } from "react";
-import type { Barline, Clef } from "@viritura/core";
+import type { Barline, Clef, Score } from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { useEditorKeyboard } from "../keyboard/useEditorKeyboard";
 import { requestPanelToggle } from "../keyboard/panelToggle";
@@ -8,7 +8,8 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { resolveEventLocation } from "../score/ElementPath";
+import { resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
+import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
 
@@ -27,6 +28,35 @@ export interface StaffTextPopoverState {
   measureIndex: number;
   sequenceIndex: number;
   eventIndex: number;
+  staff?: number;
+  targets?: Array<{
+    partIndex: number;
+    measureIndex: number;
+    sequenceIndex: number;
+    eventIndex: number;
+    staff?: number;
+  }>;
+}
+
+export function resolveStaffTextTargets(
+  score: Score,
+  selection: SelectionState,
+  selectedScoreIndex: number,
+): Omit<StaffTextPopoverState, "position"> | null {
+  if (selection.kind !== "single") return null;
+  const explicit = resolveEventLocation(selection.elementId, score);
+  const location = explicit ?? resolveFullMeasureRestLocation(selection.elementId, score);
+  if (!location) return null;
+  const targetWithStaff = (target: typeof location) => {
+    const part = score.parts[target.partIndex];
+    const sequence = part?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
+    const staff = (part?.staves ?? 1) > 1 ? (sequence?.staff ?? 1) : undefined;
+    return { ...target, ...(staff !== undefined && { staff }) };
+  };
+  const targets = explicit
+    ? undefined
+    : resolveCondensedFullMeasureRestTargets(score, selectedScoreIndex, location).map(targetWithStaff);
+  return { ...targetWithStaff(location), ...(targets && { targets }) };
 }
 
 export interface AppKeyboardWiringDeps {
@@ -158,17 +188,14 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): void {
 
   const onAddStaffText = useCallback(() => {
     const { score } = store.getState();
-    if (!score || selection.kind !== "single") return;
-    const loc = resolveEventLocation(selection.elementId, score);
-    if (!loc) return;
+    if (!score) return;
+    const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
+    if (!target) return;
     setStaffTextPopover({
       position: { ...mousePositionRef.current },
-      partIndex: loc.partIndex,
-      measureIndex: loc.measureIndex,
-      sequenceIndex: loc.sequenceIndex,
-      eventIndex: loc.eventIndex,
+      ...target,
     });
-  }, [store, selection, mousePositionRef, setStaffTextPopover]);
+  }, [store, selection, mousePositionRef, selectedScoreIndex, setStaffTextPopover]);
 
   const onToggleCondensingPopover = useCallback(() => {
     toggleDialog("condensingPopover");

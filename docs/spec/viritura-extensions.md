@@ -26,8 +26,6 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
----
-
 ## Score Definition Extensions
 
 `_x.viritura` on an entry in `scores[]`. Schema def: `score-extensions`.

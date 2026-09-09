@@ -349,6 +349,25 @@ export function resolveEventLocation(elementId: string, score: Score): EventLoca
 }
 
 /**
+ * Resolve the synthetic event ID emitted for an empty `fullMeasure` sequence.
+ * The returned event index is the slot that will exist after the placeholder is
+ * materialized as explicit rest content.
+ */
+export function resolveFullMeasureRestLocation(elementId: string, score: Score): EventLocation | null {
+  const parsed = parseEventPathSegments(getEventAncestorId(elementId));
+  if (!parsed) return null;
+  const { base, evSuffix } = parsed;
+  const isSyntheticFirstEvent =
+    evSuffix === eventSuffix(undefined, 0) ||
+    evSuffix === eventSuffix(undefined, 0, base.measureIndex, base.sequenceIndex);
+  if (!isSyntheticFirstEvent) return null;
+
+  const sequence = score.parts[base.partIndex]?.measures[base.measureIndex]?.sequences[base.sequenceIndex];
+  if (!sequence?.fullMeasure || sequence.content.length > 0) return null;
+  return { ...base, eventIndex: 0 };
+}
+
+/**
  * Resolve an element ID that may include sub-element suffixes.
  * Strips suffixes like /art0, /n0, /ferm, etc. before resolving.
  */

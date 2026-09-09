@@ -540,6 +540,11 @@ fn render_one_staff_for_system(
         .filter(|(_, (part_index, _))| *part_index == current_part_index)
         .map(|(index, _)| staff_y_offsets[index])
         .collect();
+    let shared_lane = shared_staff_lane(staff_y, sp, Some(&part_staff_y_offsets));
+    let render_measure_number_here = visual_staves
+        .first()
+        .is_some_and(|(part_index, _)| *part_index == current_part_index)
+        && shared_lane.is_bottom;
     let x_end = measure_layouts
         .last()
         .map_or(margin_left, |ml| ml.x + ml.width);
@@ -610,7 +615,7 @@ fn render_one_staff_for_system(
             lyric_line_order,
             Some(staff_y_offsets),
             Some(&part_staff_y_offsets),
-            vi == 0,
+            render_measure_number_here,
             use_beams,
             use_accidental_display,
             Some(&slur_map),

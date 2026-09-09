@@ -3,8 +3,8 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::render_annotations::{
-    below_staff_number_top_y, highest_point_in_range, measure_number_to_display,
-    measure_number_value, rehearsal_mark_x_extent, tempo_metronome_runs,
+    below_staff_number_top_y, highest_point_in_range, measure_number_value,
+    rehearsal_mark_x_extent, tempo_metronome_runs,
 };
 use super::super::render_barlines::{render_barline, BarlineKind};
 use super::super::render_measure::MIDDLE_LINE_POS;

@@ -96,6 +96,87 @@ describe("applyBreathFermata — fermata", () => {
       expect(ev.fermata).toEqual({ symbol: expected });
     }
   });
+
+  it("applies a fermata without splitting a full-measure rest in 5/2", () => {
+    const score = makeScore();
+    score.global.measures[0]!.time = { count: 5, unit: 2 };
+    score.parts[0]!.measures[0]!.sequences[0] = {
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" }, staffPosition: 1 },
+    };
+    const result = applyBreathFermata(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/e0" },
+      { kind: "fermata", shape: "normal" },
+      0,
+    );
+
+    expect(result).not.toBeNull();
+    const sequence = result!.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({
+      visualDuration: { base: "whole" },
+      staffPosition: 1,
+      fermata: {},
+    });
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.fullMeasure?.fermata).toBeUndefined();
+  });
+
+  it("broadcasts a condensed full-measure-rest fermata to every source part", () => {
+    const score = makeScore();
+    score.parts[0]!.id = "part-0";
+    score.parts[0]!.measures[0]!.sequences[0] = {
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    };
+    score.parts.push({
+      id: "part-1",
+      name: "Piano 2",
+      measures: [{ sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }] }],
+    });
+    score.layouts = [
+      {
+        id: "condensed",
+        content: [{ type: "staff", sources: [{ part: "part-0" }, { part: "part-1" }] }],
+      },
+    ];
+    score.scores = [{ name: "Condensed", layout: "condensed" }];
+
+    const result = applyBreathFermata(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/e0" },
+      { kind: "fermata", shape: "normal" },
+      0,
+    )!;
+
+    expect(result.parts.map((part) => part.measures[0]!.sequences[0]!.fullMeasure?.fermata)).toEqual([{}, {}]);
+  });
+
+  it("keeps a same-staff range from changing another grand-staff sequence", () => {
+    const score = makeScore();
+    score.global.measures.push({});
+    const emptyMeasure = () => ({
+      sequences: [
+        { content: [], fullMeasure: { visualDuration: { base: "whole" as const } } },
+        { staff: 2, content: [], fullMeasure: { visualDuration: { base: "whole" as const } } },
+      ],
+    });
+    score.parts[0]!.staves = 2;
+    const secondMeasure = emptyMeasure();
+    secondMeasure.sequences.reverse();
+    score.parts[0]!.measures = [emptyMeasure(), secondMeasure];
+
+    const result = applyBreathFermata(
+      score,
+      { kind: "range", startElementId: "p0/m0/s0/e0", endElementId: "p0/m1/s1/e0" },
+      { kind: "fermata", shape: "normal" },
+    )!;
+
+    for (const measure of result.parts[0]!.measures) {
+      expect(measure.sequences.find((sequence) => (sequence.staff ?? 1) === 1)?.fullMeasure?.fermata).toEqual({});
+      expect(measure.sequences.find((sequence) => sequence.staff === 2)?.fullMeasure?.fermata).toBeUndefined();
+    }
+  });
 });
 
 describe("applyBreathFermata — caesura", () => {

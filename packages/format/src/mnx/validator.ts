@@ -169,9 +169,9 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
       asObjects(measure["dynamics"]).forEach((dynamic, dynamicIndex) =>
         validateAt(dynamic, `${measurePointer}/dynamics/${dynamicIndex}`, "dynamic-group-extensions"),
       );
-      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) =>
-        visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`),
-      );
+      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        visitContent(sequence["content"], `${measurePointer}/sequences/${sequenceIndex}/content`);
+      });
     });
   });
 

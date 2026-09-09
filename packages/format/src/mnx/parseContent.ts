@@ -102,6 +102,7 @@ function parseSequence(raw: RawSequence): Sequence {
     if (fm.staffPosition !== undefined) {
       seq.fullMeasure.staffPosition = fm.staffPosition;
     }
+    if (fm.fermata) seq.fullMeasure.fermata = { ...fm.fermata };
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
   if (raw.voice !== undefined) seq.voice = raw.voice;
