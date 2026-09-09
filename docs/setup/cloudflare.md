@@ -25,11 +25,11 @@ Monorepo build watch paths prevent unrelated server-only changes from building
 the static projects.
 
 Cloudflare Pages does not provide a per-pull-request manual approval button for
-GitHub App previews. To make previews opt in without storing Cloudflare API
-tokens in GitHub, set **Preview branch control** to **None** and create ad hoc
-preview deployments from a trusted workstation with Wrangler. Wrangler can
-upload a prebuilt artifact to the existing Git-integrated project and attach it
-to a synthetic preview branch:
+GitHub App previews. Automatic preview deployments are disabled with **Preview
+branch control** set to **None**. Create ad hoc preview deployments from a
+trusted workstation with Wrangler instead. Wrangler can upload a prebuilt
+artifact to the existing Git-integrated project and attach it to a synthetic
+preview branch:
 
 VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
 VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \

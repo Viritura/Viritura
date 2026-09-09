@@ -38,7 +38,7 @@ not require SSH.
 
 - Truly free at our scale (unlimited bandwidth, 500 builds/mo, 100 custom domains).
 - Global edge — instant loads worldwide, not pinned to one DO region.
-- Optional preview deployments for matching branches and paths.
+- Manual opt-in preview deployments through Wrangler.
 - Faster builds than App Platform for static output.
 - SPA routing via a one-line `_redirects` file (`/* /index.html 200`).
 
