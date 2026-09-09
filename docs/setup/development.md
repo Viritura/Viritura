@@ -208,6 +208,7 @@ local production upload command.
 See [production-deployment.md](production-deployment.md) for the complete
 topology, API deployment, configuration, verification, and rollback runbook.
 
-`scripts/build-cloudflare-pages.sh` is retained for the unconfigured future
-Cloudflare Pages option described in [cloudflare.md](cloudflare.md). It is not
-part of the current production pipeline.
+`scripts/build-cloudflare-pages.sh` is the Cloudflare Pages build entrypoint
+for the configured website and editor Pages projects. The current host
+deployment workflows remain the live static deployment path until Pages custom
+domains are attached.

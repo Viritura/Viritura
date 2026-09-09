@@ -1,18 +1,19 @@
 # Cloudflare production setup
 
-> **Status: planned, not configured.** Current production uses host nginx,
-> manual SSH static deployment, and a host-managed API container. See
-> [production-deployment.md](production-deployment.md). This document is a
-> migration runbook for a possible Cloudflare/Railway topology.
+> **Status: static migration in progress.** Cloudflare DNS, the two Cloudflare
+> Pages projects, and the R2 public asset bucket are configured. Until Pages
+> custom domains are attached, live `viritura.com` and `app.viritura.com`
+> traffic remains on the existing host nginx static deployments. The API
+> remains on the host-managed container at `api.viritura.com`.
 
-In the proposed topology, Cloudflare would own Viritura's public edge while
-Railway runs the ASP.NET API:
+In the target static topology, Cloudflare owns Viritura's public static edge
+while the ASP.NET API remains on the current host until a separate backend
+migration:
 
 - Cloudflare Pages: `viritura.com` and `app.viritura.com`;
 - Cloudflare DNS, DNSSEC, CDN, TLS, DDoS protection, and Free Managed WAF rules;
 - Cloudflare R2: large static/application objects at `assets.viritura.com`;
-- Railway: `api.viritura.com`, configuration, sealed secrets, SQLite, and the
-  long-running API container.
+- current host nginx/API container: `api.viritura.com`.
 
 GitHub Pages can publish static files, but Cloudflare Pages is a better
 production fit here because it provides deployment previews, instant rollback,
@@ -22,7 +23,16 @@ the rest of the Cloudflare security boundary.
 ## Pages projects
 
 Create two Pages projects from the same Git repository. Use the v3 build image,
-enable build caching, and set the production branch to `main`.
+enable build caching, and set the production branch to `main`. Cloudflare's
+GitHub App integration is the deployment identity; do not add a long-lived
+Cloudflare API token to GitHub just to deploy Pages.
+
+Production deployments are automatic from the configured production branch.
+Preview deployments are enabled for pull requests, but monorepo build watch
+paths prevent unrelated server-only changes from building the static projects.
+If production needs a manual promotion gate later, prefer changing the Pages
+production branch to a protected `production` or `release` branch instead of
+storing Cloudflare deployment credentials in GitHub Actions.
 
 ### `viritura-website`
 
@@ -30,6 +40,9 @@ enable build caching, and set the production branch to `main`.
 - Build command: `bash scripts/build-cloudflare-pages.sh website`
 - Build output: `dist`
 - Custom domains: `viritura.com`, `www.viritura.com`
+- Build watch paths: `apps/website/**`, `apps/editor/**`, `packages/**`,
+  `engine/**`, `scripts/**`, `docs/**`, `assets/**`, `build-site.ts`, and root
+  package/build configuration files
 
 The website build publishes the MNX project hub at `/mnx`, the playground at
 `/mnx/playground`, and the public MNX Storybook at `/mnx/examples`. Redirect
@@ -41,6 +54,9 @@ The website build publishes the MNX project hub at `/mnx`, the playground at
 - Build command: `bash scripts/build-cloudflare-pages.sh editor`
 - Build output: `apps/editor/dist`
 - Custom domain: `app.viritura.com`
+- Build watch paths: `apps/editor/**`, `packages/**`, `engine/**`,
+  `scripts/**`, `docs/spec/keyboard-shortcuts.md`, `assets/**`, and root
+  package/build configuration files
 
 Both projects require these production build variables:
 
@@ -61,9 +77,12 @@ in previews. Do not point arbitrary preview origins at production auth: the API
 uses an explicit CORS allow-list and production OAuth callbacks use canonical
 origins.
 
-The `_headers` and `_redirects` files under each application's `public` directory
-provide security headers, immutable caching for fingerprinted assets, HTML
-revalidation, cross-origin isolation for the editor, and SPA fallback routing.
+The `_headers` and `_redirects` files under each application's `public`
+directory provide security headers, immutable caching for fingerprinted assets,
+HTML revalidation, cross-origin isolation for the editor, and SPA fallback
+routing. The website Pages HTTP CSP intentionally contains only
+`frame-ancestors 'self'` because Astro and the MNX Storybook emit their own CSP
+meta policies with generated script/style hashes.
 
 ## R2 assets
 
@@ -72,17 +91,21 @@ SoundFont is approximately 119 MiB, so it cannot be included in a Pages deploy.
 The Cloudflare build removes that one file and the playback package loads it
 from the configured asset origin.
 
-1. Create an R2 Standard bucket named `viritura-assets`.
-2. Upload the SoundFont at `sounds/Shan-SGM-Pro-15.sf2`.
-3. Attach the custom domain `assets.viritura.com`.
-4. Disable the public `r2.dev` development URL.
-5. Configure CORS for `GET` and `HEAD` from `https://app.viritura.com` and
-   `https://viritura.com`.
-6. Add a cache rule for `assets.viritura.com/sounds/*` with a long edge/browser
-   TTL. The filename must change when its bytes change so immutable caching is
-   safe.
-7. Use a bucket-scoped write token for deployments. The running editor needs no
-   R2 credential because the SoundFont is a public read.
+Current public asset configuration:
+
+1. R2 Standard bucket `viritura-assets`.
+2. SoundFont object `sounds/Shan-SGM-Pro-15.sf2`.
+3. Custom domain `assets.viritura.com`.
+4. Public `r2.dev` development URL disabled.
+5. CORS allows `GET` and `HEAD`, the `Range` request header, and exposes
+   `Accept-Ranges`, `Content-Length`, `Content-Range`, and `ETag`.
+6. The SoundFont is uploaded with
+   `Cache-Control: public, max-age=31536000, immutable`.
+7. A cache rule applies to `assets.viritura.com/sounds/*`. The filename must
+   change when its bytes change so immutable caching is safe.
+8. Use a bucket-scoped write token only for future asset deployment automation.
+   The running editor needs no R2 credential because the SoundFont is a public
+   read.
 
 R2 Standard currently includes 10 GB-month storage, one million Class A
 operations, ten million Class B operations, and Internet egress at no charge
@@ -94,15 +117,32 @@ storage charges.
 Database backups should use a separate private bucket and credentials from
 public application assets.
 
-## DNS and API edge
+## DNS and static cutover
 
-Move the authoritative zone to Cloudflare and enable DNSSEC after the nameserver
-change is stable.
+The authoritative `viritura.com` zone is in Cloudflare. Before any Pages custom
+domain cutover, keep these DNS-only records mirrored to the existing host so the
+nameserver change remains zero-downtime:
 
-Pages custom-domain setup creates the website/editor records. For Railway, add
-the exact `CNAME` and verification `TXT` records Railway supplies for
-`api.viritura.com`. Allow Railway to finish certificate validation before
-changing proxy behavior.
+- `viritura.com` A `104.236.162.149`
+- `www.viritura.com` A `104.236.162.149`
+- `app.viritura.com` A `104.236.162.149`
+- `api.viritura.com` A `104.236.162.149`
+
+After the Pages production deployments from `main` succeed, attach custom
+domains one surface at a time:
+
+1. `viritura.com` and `www.viritura.com` to `viritura-website`.
+2. `app.viritura.com` to `viritura-app`.
+
+Pages custom-domain setup creates or updates the website/editor records. Keep
+`api.viritura.com` pointed at the existing host unless and until the API moves.
+Enable DNSSEC after the nameserver change and static cutover are stable.
+
+## API edge
+
+If the API later moves to Railway, add the exact `CNAME` and verification `TXT`
+records Railway supplies for `api.viritura.com`. Allow Railway to finish
+certificate validation before changing proxy behavior.
 
 Proxy `api.viritura.com` through Cloudflare when Railway's custom domain is
 healthy:

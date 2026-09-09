@@ -1,8 +1,9 @@
 # Production Infrastructure Plan
 
-> **Status: proposed migration, not active.** Viritura currently runs on a
-> standalone nginx host and deploys static bundles over SSH. Cloudflare Pages,
-> R2, and Railway are not configured. See
+> **Status: static migration in progress.** Cloudflare DNS, Pages, and R2 are
+> configured for the static surfaces, but live website/editor custom domains
+> remain on the standalone nginx host until the production Pages builds are
+> verified and attached. Railway remains a proposed API migration. See
 > [../setup/production-deployment.md](../setup/production-deployment.md) for the
 > authoritative production runbook.
 
@@ -245,7 +246,7 @@ Keep the SQLite-to-Postgres cutover cheap by enforcing these constraints now:
 
 1. Point `viritura.com` nameservers at Cloudflare (one-time).
 2. Cloudflare R2 → create `viritura-assets`, upload the SoundFont, attach `assets.viritura.com`, configure CORS/cache rules, and disable `r2.dev` access.
-3. Cloudflare Pages × 2 → use the settings in [../setup/cloudflare.md](../setup/cloudflare.md), then attach `viritura.com` and `app.viritura.com`.
+3. Cloudflare Pages × 2 → use the settings in [../setup/cloudflare.md](../setup/cloudflare.md), merge the Pages build fixes, verify production `pages.dev` deployments from `main`, then attach `viritura.com`, `www.viritura.com`, and `app.viritura.com`.
 4. Railway → create the Viritura project and `staging`/`production` environments.
 5. Railway API → connect the repository, set root to the repository root, config `/railway.json`, mount a volume at `/var/lib/viritura`, and enter variables according to [../setup/production-secrets.md](../setup/production-secrets.md).
 6. Railway API → attach `api.viritura.com`, then update Cloudflare DNS with the records Railway supplies and proxy it only after certificate validation.
