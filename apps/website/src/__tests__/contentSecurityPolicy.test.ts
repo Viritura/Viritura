@@ -13,8 +13,14 @@ describe("generated website CSP", () => {
     expect(result).toContain("'sha256-example='");
   });
 
-  it("retains only WASM on the converter", () => {
+  it("retains WASM and Monaco runtime styles on the converter", () => {
     const result = scopeContentSecurityPolicy(policy, "mnx/mxl-converter/index.html");
+    expect(result).toContain("'wasm-unsafe-eval'");
+    expect(result).toContain("style-src-elem 'self' 'unsafe-inline'");
+  });
+
+  it("retains only WASM on the MNX hub", () => {
+    const result = scopeContentSecurityPolicy(policy, "mnx/index.html");
     expect(result).toContain("'wasm-unsafe-eval'");
     expect(result).toContain("style-src-elem 'self'");
   });

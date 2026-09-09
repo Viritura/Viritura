@@ -2,8 +2,8 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { relative, resolve } from "node:path";
 
-const wasmRoutes = new Set(["mnx/mxl-converter/index.html", "mnx/playground/index.html"]);
-const monacoRoutes = new Set(["mnx/playground/index.html"]);
+const wasmRoutes = new Set(["mnx/index.html", "mnx/mxl-converter/index.html", "mnx/playground/index.html"]);
+const monacoRoutes = new Set(["mnx/mxl-converter/index.html", "mnx/playground/index.html"]);
 
 function removeSource(directive: string, source: string): string {
   return directive
