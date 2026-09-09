@@ -1,9 +1,8 @@
 # Production Infrastructure Plan
 
-> **Status: static migration in progress.** Cloudflare DNS, Pages, and R2 are
-> configured for the static surfaces, but live website/editor custom domains
-> remain on the standalone nginx host until the production Pages builds are
-> verified and attached. Railway remains a proposed API migration. See
+> **Status: static hosting migrated.** Cloudflare DNS, Pages, and R2 serve the
+> public static website, editor, and large public assets. The API remains on the
+> standalone nginx host. Railway remains a proposed API migration. See
 > [../setup/production-deployment.md](../setup/production-deployment.md) for the
 > authoritative production runbook.
 
@@ -39,7 +38,7 @@ not require SSH.
 
 - Truly free at our scale (unlimited bandwidth, 500 builds/mo, 100 custom domains).
 - Global edge — instant loads worldwide, not pinned to one DO region.
-- Automatic preview deployments per PR (every PR gets its own URL).
+- Optional preview deployments for matching branches and paths.
 - Faster builds than App Platform for static output.
 - SPA routing via a one-line `_redirects` file (`/* /index.html 200`).
 
@@ -246,7 +245,7 @@ Keep the SQLite-to-Postgres cutover cheap by enforcing these constraints now:
 
 1. Point `viritura.com` nameservers at Cloudflare (one-time).
 2. Cloudflare R2 → create `viritura-assets`, upload the SoundFont, attach `assets.viritura.com`, configure CORS/cache rules, and disable `r2.dev` access.
-3. Cloudflare Pages × 2 → use the settings in [../setup/cloudflare.md](../setup/cloudflare.md), merge the Pages build fixes, verify production `pages.dev` deployments from `main`, then attach `viritura.com`, `www.viritura.com`, and `app.viritura.com`.
+3. Cloudflare Pages × 2 → use the settings in [../setup/cloudflare.md](../setup/cloudflare.md), verify production `pages.dev` deployments from `main`, then attach `viritura.com`, `www.viritura.com`, and `app.viritura.com`. **Complete.**
 4. Railway → create the Viritura project and `staging`/`production` environments.
 5. Railway API → connect the repository, set root to the repository root, config `/railway.json`, mount a volume at `/var/lib/viritura`, and enter variables according to [../setup/production-secrets.md](../setup/production-secrets.md).
 6. Railway API → attach `api.viritura.com`, then update Cloudflare DNS with the records Railway supplies and proxy it only after certificate validation.
