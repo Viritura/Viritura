@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly target="${1:?usage: build-cloudflare-pages.sh {editor|website}}"
+readonly raw_target="${1:?usage: build-cloudflare-pages.sh {editor|website}}"
+readonly target="${raw_target%\}}"
 
 case "$target" in
   editor | website) ;;

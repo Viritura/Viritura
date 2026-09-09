@@ -5,30 +5,38 @@ Viritura.
 
 ## Current topology
 
-The public origins run on the standalone `schemes.me` host:
+The public origins are in a static-hosting migration. Cloudflare is
+authoritative for DNS and owns the static asset bucket, but live website and
+editor traffic remains on the standalone `schemes.me` host until the Pages
+custom domains are attached:
 
 ```text
-viritura.com      -> host nginx -> static website
-app.viritura.com  -> host nginx -> static editor
-api.viritura.com  -> host nginx -> API container on 127.0.0.1:5001
+viritura.com        -> Cloudflare DNS -> host nginx -> static website
+www.viritura.com    -> Cloudflare DNS -> host nginx -> static website
+app.viritura.com    -> Cloudflare DNS -> host nginx -> static editor
+api.viritura.com    -> Cloudflare DNS -> host nginx -> API container on 127.0.0.1:5001
+assets.viritura.com -> Cloudflare R2  -> public SoundFont and future large assets
 ```
 
-Website and editor builds are deployed independently through manual GitHub
-Actions workflows. The API runs in Docker Compose with host-managed SQLite,
-backups, Data Protection keys, and a root-owned environment file.
+Website and editor builds still have the manual GitHub Actions workflows as
+the current host deployment and rollback path. Cloudflare Pages projects are
+configured for GitHub App based builds from `main` and pull request previews;
+those become the static production path after #62 is merged, production
+`pages.dev` builds pass, and the Pages custom domains are attached. The API
+runs in Docker Compose with host-managed SQLite, backups, Data Protection keys,
+and a root-owned environment file.
 
-Cloudflare Pages, Cloudflare R2, and Railway are not configured. Their documents
-describe a possible future migration, not the active production system.
-When that infrastructure is configured, keep these same three manual GitHub
-Actions workflows as the deployment interface and update their implementation
-to target the new providers. A hosting migration must not reintroduce local
-production deployment commands.
+Cloudflare static setup is documented in [cloudflare.md](cloudflare.md).
+Railway remains a possible future API migration, not the active API production
+system. A hosting migration must not reintroduce local production deployment
+commands.
 
 ## Deploy the website or editor
 
-Open the repository's **Actions** tab, choose **Deploy website** or **Deploy
-editor**, select the `main` branch, and run the workflow. Production jobs use
-the protected `production` GitHub Environment.
+Until Pages custom domains are live, open the repository's **Actions** tab,
+choose **Deploy website** or **Deploy editor**, select the `main` branch, and
+run the workflow. Production jobs use the protected `production` GitHub
+Environment.
 
 Each workflow:
 
@@ -54,6 +62,11 @@ The website build imports the public guides from `docs/` at build time.
 Changing a guide or `docs/spec/keyboard-shortcuts.md` therefore requires a new
 static deployment. The editor imports the same keyboard reference into its Help
 dialog, so shortcut changes also require redeploying the editor bundle.
+
+After the static cutover, Cloudflare Pages' GitHub App integration deploys the
+website and editor from `main`. Keep the manual workflows until the cutover is
+verified, then either remove them or retarget them to an intentional manual
+promotion model such as a protected Pages production branch.
 
 ## Deploy the API
 
