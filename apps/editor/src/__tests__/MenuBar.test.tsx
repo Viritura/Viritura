@@ -48,11 +48,11 @@ describe("MenuBar", () => {
   it("opens File menu on click", async () => {
     const { user } = renderMenuBar();
     await user.click(screen.getByText("File"));
-    expect(screen.getByText("New Project…")).toBeTruthy();
-    expect(screen.getByText("Open Project Folder…")).toBeTruthy();
-    expect(screen.getByText("Open MNX Score…")).toBeTruthy();
+    expect(screen.getByText("New Project")).toBeTruthy();
+    expect(screen.getByText("Open Project Folder")).toBeTruthy();
+    expect(screen.getByText("Open MNX Score")).toBeTruthy();
     expect(screen.getByText("Save")).toBeTruthy();
-    expect(screen.getByText("Save As…")).toBeTruthy();
+    expect(screen.getByText("Save As")).toBeTruthy();
     expect(screen.getByText("Example Scores")).toBeTruthy();
   });
 
@@ -65,8 +65,8 @@ describe("MenuBar", () => {
     expect(screen.getByText("Copy")).toBeTruthy();
     expect(screen.getByText("Paste")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
-    expect(screen.getByText("Transpose Selection…")).toBeTruthy();
-    expect(screen.getByText("Split Combined Orchestral Parts…")).toBeTruthy();
+    expect(screen.getByText("Transpose Selection")).toBeTruthy();
+    expect(screen.getByText("Split Combined Orchestral Parts")).toBeTruthy();
     expect(screen.getByText("Select All")).toBeTruthy();
   });
 
@@ -74,8 +74,8 @@ describe("MenuBar", () => {
     const { user } = renderMenuBar({}, { canTranspose: true });
     await user.click(screen.getByText("Edit"));
 
-    const transposeItem = screen.getByText("Transpose Selection…").closest('[role="menuitem"]');
-    expect(transposeItem?.textContent).toBe("Transpose Selection…");
+    const transposeItem = screen.getByText("Transpose Selection").closest('[role="menuitem"]');
+    expect(transposeItem?.textContent).toBe("Transpose Selection");
     expect(transposeItem?.getAttribute("data-disabled")).toBeNull();
   });
 
@@ -84,7 +84,7 @@ describe("MenuBar", () => {
     await user.click(screen.getByText("Edit"));
 
     expect(
-      screen.getByText("Transpose Selection…").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
+      screen.getByText("Transpose Selection").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
     ).not.toBeNull();
   });
 
@@ -92,16 +92,16 @@ describe("MenuBar", () => {
     const onSplitOrchestralStaves = vi.fn();
     const { user } = renderMenuBar({ onSplitOrchestralStaves }, { hasDocument: true });
     await user.click(screen.getByText("Edit"));
-    const item = screen.getByText("Split Combined Orchestral Parts…").closest('[role="menuitem"]');
+    const item = screen.getByText("Split Combined Orchestral Parts").closest('[role="menuitem"]');
     expect(item?.getAttribute("data-disabled")).toBeNull();
-    await user.click(screen.getByText("Split Combined Orchestral Parts…"));
+    await user.click(screen.getByText("Split Combined Orchestral Parts"));
     expect(onSplitOrchestralStaves).toHaveBeenCalledOnce();
 
     cleanup();
     const disabled = renderMenuBar({ onSplitOrchestralStaves }, { hasDocument: false });
     await disabled.user.click(screen.getByText("Edit"));
     expect(
-      screen.getByText("Split Combined Orchestral Parts…").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
+      screen.getByText("Split Combined Orchestral Parts").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
     ).not.toBeNull();
   });
 
@@ -111,7 +111,7 @@ describe("MenuBar", () => {
     expect(screen.getByText("Zoom In")).toBeTruthy();
     expect(screen.getByText("Zoom Out")).toBeTruthy();
     expect(screen.getByText("Reset Zoom")).toBeTruthy();
-    expect(screen.queryByText("Calibrate Display…")).toBeNull();
+    expect(screen.queryByText("Calibrate Display")).toBeNull();
     expect(screen.queryByText("AI Assistant")).toBeNull();
   });
 
@@ -140,21 +140,21 @@ describe("MenuBar", () => {
   it("dispatches onOpenFile when Open MNX Score is clicked", async () => {
     const { callbacks, user } = renderMenuBar();
     await user.click(screen.getByText("File"));
-    await user.click(screen.getByText("Open MNX Score…"));
+    await user.click(screen.getByText("Open MNX Score"));
     expect(callbacks.onOpenFile).toHaveBeenCalledOnce();
   });
 
   it("dispatches onOpenProject when Open Project Folder is clicked", async () => {
     const { callbacks, user } = renderMenuBar();
     await user.click(screen.getByText("File"));
-    await user.click(screen.getByText("Open Project Folder…"));
+    await user.click(screen.getByText("Open Project Folder"));
     expect(callbacks.onOpenProject).toHaveBeenCalledOnce();
   });
 
   it("dispatches onNewScore when New Project is clicked", async () => {
     const { callbacks, user } = renderMenuBar();
     await user.click(screen.getByText("File"));
-    await user.click(screen.getByText("New Project…"));
+    await user.click(screen.getByText("New Project"));
     expect(callbacks.onNewScore).toHaveBeenCalledOnce();
   });
 
@@ -198,9 +198,9 @@ describe("MenuBar", () => {
   it("closes menu after clicking an item", async () => {
     const { user } = renderMenuBar();
     await user.click(screen.getByText("File"));
-    await user.click(screen.getByText("New Project…"));
+    await user.click(screen.getByText("New Project"));
     // After clicking, the dropdown should be closed (items not visible)
-    expect(screen.queryByText("Open MNX Score…")).toBeNull();
+    expect(screen.queryByText("Open MNX Score")).toBeNull();
   });
 
   it("shows keyboard shortcuts", async () => {
@@ -220,7 +220,7 @@ describe("MenuBar", () => {
     const { user } = renderMenuBar({}, { hasDocument: false });
     await user.click(screen.getByText("File"));
     expect(screen.getByText("Save").closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
-    expect(screen.getByText("Save As…").closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
+    expect(screen.getByText("Save As").closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
   });
 
   it("disables activity commands when the active activity does not provide them", async () => {

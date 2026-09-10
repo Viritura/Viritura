@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Select } from "./Select";
+import { LayoutGrid } from "lucide-react";
 
 const WRAPPER_200_STYLE: CSSProperties = { width: 200 };
 const WRAPPER_160_STYLE: CSSProperties = { width: 160 };
@@ -80,5 +81,19 @@ export const ManyOptions: Story = {
         <Select {...args} value={value} onValueChange={setValue} />
       </div>
     );
+  },
+};
+
+export const AutoWidthWithLeadingIcon: Story = {
+  args: {
+    value: "score",
+    options: [
+      { value: "score", label: "Full Score", icon: <LayoutGrid size={13} aria-hidden="true" /> },
+      { value: "flute", label: "Flute 1", icon: <LayoutGrid size={13} aria-hidden="true" /> },
+    ],
+  },
+  render: function Render(args) {
+    const [value, setValue] = useState(args.value);
+    return <Select {...args} fullWidth={false} value={value} onValueChange={setValue} />;
   },
 };

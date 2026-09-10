@@ -119,6 +119,10 @@ describe("StartCenter samples", () => {
     expect(screen.getByLabelText("Project name")).toBeTruthy();
     expect((screen.getByLabelText("Project name") as HTMLInputElement).required).toBe(true);
     expect(screen.getByText("Choose the folder that should contain your new project.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Initial score" })).toBeTruthy();
+    expect((screen.getByTestId("new-project-time-count") as HTMLInputElement).value).toBe("4");
+    expect((screen.getByTestId("new-project-tempo") as HTMLInputElement).value).toBe("120");
+    expect((screen.getByTestId("new-project-bars") as HTMLInputElement).value).toBe("32");
     expect(document.activeElement).toBe(screen.getByLabelText("Project name"));
     expect(screen.getByRole("button", { name: "Create project" }).hasAttribute("disabled")).toBe(true);
 
@@ -139,8 +143,62 @@ describe("StartCenter samples", () => {
     expect(screen.getByLabelText("Project location").textContent).toContain("Projects");
 
     await user.click(screen.getByRole("button", { name: "Create project" }));
-    expect(onNewScore).toHaveBeenCalledWith("Film Cue 13", ALTERNATE_PROJECT_PARENT);
+    expect(onNewScore).toHaveBeenCalledWith("Film Cue 13", ALTERNATE_PROJECT_PARENT, {
+      time: { count: 4, unit: 4 },
+      keyFifths: 0,
+      tempoBpm: 120,
+      measureCount: 32,
+    });
     expect(screen.getByRole("heading", { name: "New Project" })).toBeTruthy();
+  });
+
+  it("passes customized initial score settings into project creation", async () => {
+    const onNewScore = vi.fn(async () => true);
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <StartCenter
+          open
+          initialView="newProject"
+          recentScores={[]}
+          projectsSupported
+          suppressOnLaunch={false}
+          onSuppressOnLaunchChange={vi.fn()}
+          onSignIn={vi.fn()}
+          onOpenAccountSettings={vi.fn()}
+          onChooseProjectLocation={vi.fn(async () => PROJECT_PARENT)}
+          onNewScore={onNewScore}
+          onOpenFile={vi.fn()}
+          onOpenFolder={vi.fn()}
+          onImport={vi.fn()}
+          onSelectRecent={vi.fn()}
+          onForgetRecent={vi.fn()}
+          onSelectSample={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.type(screen.getByLabelText("Project name"), "Waltz");
+    await user.click(screen.getByLabelText("Project location"));
+    await user.clear(screen.getByTestId("new-project-time-count"));
+    await user.type(screen.getByTestId("new-project-time-count"), "3");
+    await user.click(screen.getByTestId("new-project-time-unit"));
+    await user.click(await screen.findByRole("option", { name: "8" }));
+    await user.click(screen.getByTestId("new-project-key"));
+    await user.click(await screen.findByRole("option", { name: "D major" }));
+    await user.clear(screen.getByTestId("new-project-tempo"));
+    await user.type(screen.getByTestId("new-project-tempo"), "96");
+    await user.clear(screen.getByTestId("new-project-bars"));
+    await user.type(screen.getByTestId("new-project-bars"), "24");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(onNewScore).toHaveBeenCalledWith("Waltz", PROJECT_PARENT, {
+      time: { count: 3, unit: 8 },
+      keyFifths: 2,
+      tempoBpm: 96,
+      measureCount: 24,
+    });
   });
 
   it("opens directly into the new-project view when requested by a command", () => {

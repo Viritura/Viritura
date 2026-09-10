@@ -154,11 +154,6 @@
 .workspace-panel .parts-row:hover {
   background: rgba(var(--accent-rgb, 33, 94, 78), 0.08);
 }
-.workspace-panel .parts-score-header:hover {
-  color: var(--text);
-  background: rgba(var(--accent-rgb, 33, 94, 78), 0.06);
-}
-
 /* ── Slot system: header / body / footer ──────────────────────
    Opt-in via <WorkspacePanel header={…} footer={…} scrollBody>.
    Visual reference is PublishView's .panelHeader/.panelBody/.panelFooter;

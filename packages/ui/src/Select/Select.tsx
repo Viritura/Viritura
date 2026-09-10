@@ -1,7 +1,8 @@
 import * as RadixSelect from "@radix-ui/react-select";
-import { ChevronDown, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import styles from "./Select.module.css";
+import { SelectTrigger } from "./SelectTrigger";
 
 export interface SelectOption {
   readonly value: string;
@@ -20,6 +21,8 @@ export interface SelectProps {
   readonly placeholder?: string;
   /** Visual size — `md` (default, inspector/toolbar) or `lg` (dialogs / FormField stacks). */
   readonly size?: "md" | "lg";
+  /** Stretch the trigger to its container width. Defaults to true for form layouts. */
+  readonly fullWidth?: boolean;
   /** Accessible name for the select trigger when no associated label is available. */
   readonly "aria-label"?: string;
   /** Id applied to the trigger, so an external `<label htmlFor>` can name it. */
@@ -48,6 +51,7 @@ export function Select({
   disabled,
   placeholder = "Select…",
   size = "md",
+  fullWidth = true,
   "aria-label": ariaLabel,
   id,
   "aria-labelledby": ariaLabelledBy,
@@ -56,30 +60,26 @@ export function Select({
   className,
 }: SelectProps) {
   const selected = options.find((o) => o.value === value);
-  const triggerClass = [styles.trigger, size === "lg" ? styles.triggerLg : "", className ?? ""]
-    .filter(Boolean)
-    .join(" ");
   return (
     <RadixSelect.Root
       value={toRadix(value)}
       onValueChange={(v) => onValueChange(fromRadix(v))}
       disabled={disabled ?? false}
     >
-      <RadixSelect.Trigger
-        className={triggerClass}
-        id={id}
-        aria-label={ariaLabel}
-        aria-labelledby={ariaLabelledBy}
-        aria-describedby={ariaDescribedBy}
-        data-testid={testId}
-      >
-        <span className={styles.triggerInner}>
-          {selected?.icon ? <span className={styles.triggerIcon}>{selected.icon}</span> : null}
+      <RadixSelect.Trigger asChild>
+        <SelectTrigger
+          fullWidth={fullWidth}
+          size={size}
+          className={className}
+          id={id}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+          aria-describedby={ariaDescribedBy}
+          data-testid={testId}
+          leading={selected?.icon}
+        >
           <RadixSelect.Value placeholder={placeholder} />
-        </span>
-        <RadixSelect.Icon className={styles.icon}>
-          <ChevronDown size={12} />
-        </RadixSelect.Icon>
+        </SelectTrigger>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>
         <RadixSelect.Content className={styles.content} position="popper" sideOffset={4}>

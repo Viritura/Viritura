@@ -156,13 +156,13 @@ export function SlotInspector({ profileId, slot, bridge }: SlotInspectorProps) {
       <div className={styles.configureRow}>
         <span className={styles.configureLabel}>Lua script</span>
         <ValueText value={binding.luaScriptPath} />
-        <Button label="Choose…" size="sm" onClick={() => setPicker("lua")} disabled={busy} />
+        <Button label="Choose" size="sm" onClick={() => setPicker("lua")} disabled={busy} />
       </div>
 
       <div className={styles.configureRow}>
         <span className={styles.configureLabel}>VST plugin</span>
         <ValueText value={binding.pluginPath} />
-        <Button label="Choose…" size="sm" onClick={() => setPicker("vst")} disabled={busy} />
+        <Button label="Choose" size="sm" onClick={() => setPicker("vst")} disabled={busy} />
       </div>
 
       <div className={styles.configureRow}>

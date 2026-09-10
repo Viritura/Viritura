@@ -60,7 +60,10 @@ export function useChangeInstrument({ score, updateScore, onAddInstrument }: Use
   const confirm = useCallback(() => {
     if (!pending) return;
     if (pending.analysis.allowed) apply(pending.instrument);
-    else onAddInstrument?.(pending.instrument.id);
+    else {
+      onAddInstrument?.(pending.instrument.id);
+      setPartId(null);
+    }
     setPending(null);
   }, [pending, apply, onAddInstrument]);
 

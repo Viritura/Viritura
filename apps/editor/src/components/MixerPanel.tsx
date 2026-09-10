@@ -253,7 +253,7 @@ function AssignAllControl({ onAssign }: { onAssign: (profile: VstInstrumentProfi
     [profiles, onAssign],
   );
   if (items.length === 0) return null;
-  return <CascadingMenu ariaLabel="Assign all instruments to a profile" label="Assign all…" items={items} />;
+  return <CascadingMenu ariaLabel="Assign all instruments to a profile" label="Assign all" items={items} />;
 }
 
 // ═══════════════════════════════════════════
@@ -685,7 +685,7 @@ function VstReverbGroup() {
           {summary}
         </span>
         <Button variant="ghost" size="sm" onClick={() => openFxChain("reverb")}>
-          Fx…
+          Fx
         </Button>
       </div>
     </FxGroup>
@@ -714,7 +714,7 @@ function VstMasterGroup() {
           {summary}
         </span>
         <Button variant="ghost" size="sm" onClick={() => openFxChain("master")}>
-          Fx…
+          Fx
         </Button>
       </div>
     </FxGroup>

@@ -1,37 +1,44 @@
-.row {
+.group {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
 }
 
-.chip,
-.chipActive {
+.option,
+.optionActive {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
   padding: 0;
-  border-radius: var(--radius-sm);
   border: 1px solid var(--border-input);
+  border-radius: var(--radius-sm);
   background: var(--surface-input);
   color: var(--text);
+  font-family: Bravura, serif;
   cursor: pointer;
 }
 
-.chip:hover {
+.option:hover:not(:disabled) {
   background: var(--surface-hover);
 }
 
-.chipActive {
+.optionActive {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
 }
 
+.option:disabled,
+.optionActive:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .glyph {
-  font-family: Bravura, serif;
+  display: inline-block;
   font-size: 22px;
   line-height: 1;
-  transform: translateY(-1px);
+  transform: translateY(-7px);
 }

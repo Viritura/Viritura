@@ -1,14 +1,11 @@
 import { Fragment, type CSSProperties } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import type { Score, ScoreDefinition, LayoutDefinition, PartDisplayInfo } from "@viritura/core";
-import { Button, FormInput, type ContextMenuState, type MenuItemDef } from "@viritura/ui";
+import { FormInput, ListRow, SectionLabel, type ContextMenuState, type MenuItemDef } from "@viritura/ui";
 import { collectPartIdsInLayout } from "../../score/ScoreMutations";
 import { LayoutTreeRow } from "./LayoutTreeRow";
-import { InstrumentNameDisplayControl } from "./InstrumentNameDisplayControl";
-import { setScoreInstrumentNameDisplay, type InstrumentNameDisplaySettings } from "./instrumentNameDisplay";
 import type { FlatRowData } from "./treeFlatten";
 import type { NodePath } from "./treeOps";
-import { partsSectionDividerStyle, scoreHeaderStyle, scoreHeaderActiveStyle } from "./styles";
 
 interface DragState {
   path: NodePath;
@@ -98,47 +95,29 @@ const dropIndicatorOverlayStyle: CSSProperties = {
 
 const SCORE_HEADER_ROW_STYLE: CSSProperties = { display: "flex", alignItems: "center" };
 const SCORE_STAVES_WRAP_STYLE: CSSProperties = { padding: "2px 4px 4px 8px" };
+const PARTS_SECTION_STYLE: CSSProperties = {
+  marginTop: "var(--space-2)",
+  borderTop: "1px solid rgba(20, 20, 28, 0.1)",
+};
 const CHEVRON_DOWN_STYLE: CSSProperties = { flexShrink: 0, opacity: 0.85 };
 const CHEVRON_RIGHT_STYLE: CSSProperties = { flexShrink: 0, opacity: 0.65 };
 const CHEVRON_SPACER_STYLE: CSSProperties = { display: "inline-block", width: 11, flexShrink: 0 };
-const SCORE_NAME_STYLE: CSSProperties = { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 const SCORE_RENAME_INPUT_STYLE: CSSProperties = {
-  ...scoreHeaderStyle,
+  width: "100%",
+  margin: "var(--space-1) var(--space-2)",
   border: "1px solid var(--accent)",
   outline: "none",
   borderRadius: 6,
   padding: "4px 8px",
   flex: 1,
-  textTransform: "none",
-  letterSpacing: 0,
   fontSize: "var(--type-small-size)",
 };
 function scoreRowStyle(isDragging: boolean): CSSProperties {
   return { opacity: isDragging ? 0.4 : 1, position: "relative" };
 }
-function scoreHeaderButtonStyle(index: number, isSelected: boolean): CSSProperties {
-  return {
-    ...scoreHeaderStyle,
-    ...(index === 0 ? { borderTop: "none" } : {}),
-    ...(isSelected ? scoreHeaderActiveStyle : {}),
-    flex: 1,
-  };
-}
 
 function scoreDisplayName(sd: ScoreDefinition, index: number): string {
   return sd.name ?? (index === 0 ? "Full Score" : `Score ${index + 1}`);
-}
-
-function applyInstrumentNameDisplay(
-  score: Score,
-  scoreDefinition: ScoreDefinition,
-  scoreIndex: number,
-  settings: InstrumentNameDisplaySettings,
-  onLayoutChange: LayoutChangeHandler,
-): void {
-  const scores = score.scores ?? [scoreDefinition];
-  const updated = setScoreInstrumentNameDisplay(score.layouts ?? [], scores, scoreIndex, settings);
-  onLayoutChange(updated.layouts, updated.scores);
 }
 
 /** Parts not yet present in this score's layout, as an "Add Instrument" submenu. */
@@ -210,7 +189,7 @@ function buildScoreContextMenuItems(
   // dialog). Single-staff part extracts are 1:1 with a part, so skip them.
   if (onManageInstruments && isExpandable) {
     if (items.length > 0) items.push({ separator: true });
-    items.push({ label: "Manage Instruments…", action: () => onManageInstruments(i) });
+    items.push({ label: "Manage Instruments", action: () => onManageInstruments(i) });
   }
   // Add an existing instrument to this conductor score's layout. Only offered
   // for multi-staff scores; single-staff part extracts are 1:1 with a part.
@@ -290,14 +269,11 @@ export function ScoreListItem(props: ScoreListItemProps) {
     if (onRenameScore && renamingScoreName.trim()) onRenameScore(i, renamingScoreName.trim());
     setRenamingScoreIndex(null);
   };
-  const updateInstrumentNameDisplay = (settings: InstrumentNameDisplaySettings) =>
-    onLayoutChange && applyInstrumentNameDisplay(score, sd, i, settings, onLayoutChange);
-
   return (
     <Fragment>
       {showPartsDivider && (
-        <div style={partsSectionDividerStyle}>
-          <span>Parts</span>
+        <div style={PARTS_SECTION_STYLE}>
+          <SectionLabel label="Parts" />
         </div>
       )}
       <div
@@ -354,7 +330,6 @@ export function ScoreListItem(props: ScoreListItemProps) {
             />
           ) : (
             <ScoreHeaderButton
-              index={i}
               displayName={displayName}
               isSelected={isSelected}
               isExpandable={isExpandable}
@@ -384,10 +359,6 @@ export function ScoreListItem(props: ScoreListItemProps) {
             />
           )}
         </div>
-
-        {isSelected && !isCollapsed && onLayoutChange && (
-          <InstrumentNameDisplayControl content={layoutContent} score={sd} onChange={updateInstrumentNameDisplay} />
-        )}
 
         {showStaves && (
           <div
@@ -462,7 +433,6 @@ function ScoreRenameInput({ value, onChange, onCommit, onCancel }: ScoreRenameIn
 }
 
 interface ScoreHeaderButtonProps {
-  index: number;
   displayName: string;
   isSelected: boolean;
   isExpandable: boolean;
@@ -470,31 +440,25 @@ interface ScoreHeaderButtonProps {
   onClick: () => void;
 }
 
-function ScoreHeaderButton({
-  index,
-  displayName,
-  isSelected,
-  isExpandable,
-  isCollapsed,
-  onClick,
-}: ScoreHeaderButtonProps) {
+function ScoreHeaderButton({ displayName, isSelected, isExpandable, isCollapsed, onClick }: ScoreHeaderButtonProps) {
+  const disclosure = isExpandable ? (
+    isSelected && !isCollapsed ? (
+      <ChevronDown size={11} style={CHEVRON_DOWN_STYLE} />
+    ) : (
+      <ChevronRight size={11} style={CHEVRON_RIGHT_STYLE} />
+    )
+  ) : (
+    <span style={CHEVRON_SPACER_STYLE} />
+  );
+
   return (
-    <Button
+    <ListRow
       onClick={onClick}
-      className="parts-score-header"
-      style={scoreHeaderButtonStyle(index, isSelected)}
+      selected={isSelected}
+      leading={disclosure}
       tooltip={isExpandable ? (isSelected ? (isCollapsed ? "Expand" : "Collapse") : displayName) : displayName}
     >
-      {isExpandable ? (
-        isSelected && !isCollapsed ? (
-          <ChevronDown size={11} style={CHEVRON_DOWN_STYLE} />
-        ) : (
-          <ChevronRight size={11} style={CHEVRON_RIGHT_STYLE} />
-        )
-      ) : (
-        <span style={CHEVRON_SPACER_STYLE} />
-      )}
-      <span style={SCORE_NAME_STYLE}>{displayName}</span>
-    </Button>
+      {displayName}
+    </ListRow>
   );
 }

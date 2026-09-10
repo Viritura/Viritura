@@ -99,7 +99,7 @@ describe("AccountDetails", () => {
     render(<AccountDetails account={ACCOUNT} github={GITHUB} user={linkedUser} />);
 
     expect(screen.getByText("Google")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Manage…" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Manage" })).toBeTruthy();
   });
 
   it("uses values and actions instead of redundant status badges", () => {
@@ -112,6 +112,6 @@ describe("AccountDetails", () => {
     expect(screen.getByText("Danger zone")).toBeTruthy();
     expect(screen.getAllByText(USER.email)).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Manage password/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Delete account…" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
   });
 });

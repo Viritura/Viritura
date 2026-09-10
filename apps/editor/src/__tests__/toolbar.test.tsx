@@ -121,6 +121,34 @@ describe("Toolbar", () => {
     }
   });
 
+  it("orders duration buttons from shortest to longest", () => {
+    const c = renderToolbar();
+    const durationGroup = c.querySelector('[role="group"][aria-label="Duration"]');
+    if (!durationGroup) throw new Error("Duration group not found");
+    const toggle = durationGroup.querySelector<HTMLElement>('[aria-label="Toggle extended durations"]');
+    if (!toggle) throw new Error("Extended duration toggle not found");
+
+    click(toggle);
+
+    const durationIds = Array.from(durationGroup.querySelectorAll('[data-testid^="toolbar-duration-"]')).map((button) =>
+      button.getAttribute("data-testid"),
+    );
+    expect(durationIds).toEqual([
+      "toolbar-duration-256",
+      "toolbar-duration-128",
+      "toolbar-duration-64",
+      "toolbar-duration-32",
+      "toolbar-duration-16",
+      "toolbar-duration-8",
+      "toolbar-duration-4",
+      "toolbar-duration-2",
+      "toolbar-duration-1",
+      "toolbar-duration-breve",
+      "toolbar-duration-longa",
+      "toolbar-duration-maxima",
+    ]);
+  });
+
   it("quarter note is active by default", () => {
     const c = renderToolbar();
     expect(getByTestId(c, "toolbar-duration-4").getAttribute("aria-pressed")).toBe("true");
@@ -149,7 +177,9 @@ describe("Toolbar", () => {
 
   it("renders a disabled beam-break button without a note selection", () => {
     const c = renderToolbar();
-    expect(getByTestId(c, "toolbar-beam-break").hasAttribute("disabled")).toBe(true);
+    const beamBreak = getByTestId(c, "toolbar-beam-break");
+    expect(beamBreak.hasAttribute("disabled")).toBe(true);
+    expect(beamBreak.textContent).toBe(String.fromCodePoint(0xeca7).repeat(2));
   });
 
   it("renders a disabled beam-together button without a note range", () => {

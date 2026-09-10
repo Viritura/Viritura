@@ -1,10 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Plus } from "lucide-react";
-import { Button, ListRow } from "@viritura/ui";
+import { useMemo } from "react";
+import { CascadingMenu, PanelFooter, type CascadingMenuItem } from "@viritura/ui";
 import type { Part, PartDisplayInfo } from "@viritura/core";
-import { addScoreDropdownStyle } from "./styles";
-
-const ADD_SCORE_WRAPPER_STYLE: CSSProperties = { position: "relative" };
+import styles from "./AddScoreButton.module.css";
 
 export interface AddScoreButtonProps {
   parts: readonly Part[];
@@ -15,80 +12,44 @@ export interface AddScoreButtonProps {
 }
 
 export function AddScoreButton({ parts, partDisplayMap, onAddScore, onAddSectionScore }: AddScoreButtonProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const items = useMemo<CascadingMenuItem[]>(() => {
+    const scoreTypes: CascadingMenuItem[] = [
+      { id: "full", label: "Full score", onSelect: () => onAddScore("full") },
+      { id: "condensed", label: "Condensed score", onSelect: () => onAddScore("condensed") },
+      { id: "custom", label: "Custom score", onSelect: () => onAddScore("custom") },
+    ];
+    if (onAddSectionScore) {
+      scoreTypes.push({ id: "section", label: "Section score", onSelect: onAddSectionScore });
+    }
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+    const partScores = parts.map((part, index) => {
+      const partId = part.id ?? "";
+      const info = partDisplayMap.get(partId);
+      return {
+        id: partId || `part-${index}`,
+        label: info?.displayName ?? part.name ?? partId,
+        onSelect: () => onAddScore("part", part.id),
+      };
+    });
+
+    return partScores.length === 0
+      ? scoreTypes
+      : [
+          ...scoreTypes,
+          { id: "score-type-separator", separator: true },
+          { id: "part", label: "Instrumental part", children: partScores },
+        ];
+  }, [onAddScore, onAddSectionScore, partDisplayMap, parts]);
 
   return (
-    <div style={ADD_SCORE_WRAPPER_STYLE}>
-      <Button onClick={() => setOpen((v) => !v)} tooltip="Add a score" size="sm" active={open}>
-        <Plus size={11} /> Add Score
-      </Button>
-      {open && (
-        <div ref={ref} style={addScoreDropdownStyle}>
-          <ListRow
-            density="compact"
-            onClick={() => {
-              onAddScore("full");
-              setOpen(false);
-            }}
-          >
-            Full Score
-          </ListRow>
-          <ListRow
-            density="compact"
-            onClick={() => {
-              onAddScore("condensed");
-              setOpen(false);
-            }}
-          >
-            Condensed Score
-          </ListRow>
-          <ListRow
-            density="compact"
-            onClick={() => {
-              onAddScore("custom");
-              setOpen(false);
-            }}
-          >
-            Custom Score
-          </ListRow>
-          {onAddSectionScore && (
-            <ListRow
-              density="compact"
-              onClick={() => {
-                onAddSectionScore();
-                setOpen(false);
-              }}
-            >
-              Section Score…
-            </ListRow>
-          )}
-          {parts.map((p) => {
-            const info = partDisplayMap.get(p.id ?? "");
-            return (
-              <ListRow
-                key={p.id}
-                density="compact"
-                onClick={() => {
-                  onAddScore("part", p.id);
-                  setOpen(false);
-                }}
-              >
-                Part: {info?.displayName ?? p.name ?? p.id}
-              </ListRow>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <PanelFooter>
+      <CascadingMenu
+        ariaLabel="Add score"
+        className={styles.trigger}
+        label="Add score"
+        items={items}
+        triggerSize="sm"
+      />
+    </PanelFooter>
   );
 }

@@ -26,6 +26,7 @@ mod test_measure_numbers;
 mod test_misc;
 mod test_mmr;
 mod test_multivoice;
+mod test_noteheads;
 mod test_orient;
 mod test_ornaments;
 mod test_ottava;

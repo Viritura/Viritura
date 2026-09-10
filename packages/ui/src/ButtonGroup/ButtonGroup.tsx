@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import styles from "./ButtonGroup.module.css";
 import { BravuraGlyph } from "../BravuraGlyph";
+import { useRadioGroupNavigation } from "../RadioGroup";
 import { withTooltip } from "../Tooltip/withTooltip";
 
 export interface ButtonGroupOption<T extends string = string> {
@@ -23,6 +24,8 @@ export interface ButtonGroupProps<T extends string = string> {
   value: T;
   /** Called when user selects an option */
   onChange: (value: T) => void;
+  /** Disable every option in the group. */
+  disabled?: boolean;
   /** Accessible name for the group when no external label names it. */
   ariaLabel?: string;
   /** Id of an element naming this group (e.g. a `SettingsRow` label). A
@@ -37,6 +40,8 @@ export interface ButtonGroupProps<T extends string = string> {
   "aria-invalid"?: boolean | "false" | "true";
   /** Additional className */
   className?: string;
+  /** Test ID applied to the radiogroup. */
+  "data-testid"?: string;
 }
 
 /**
@@ -57,6 +62,7 @@ export function ButtonGroup<T extends string = string>({
   options,
   value,
   onChange,
+  disabled = false,
   ariaLabel,
   ariaLabelledBy,
   ariaDescribedBy,
@@ -64,18 +70,23 @@ export function ButtonGroup<T extends string = string>({
   "aria-describedby": ariaDescribedByAttribute,
   "aria-invalid": ariaInvalid,
   className,
+  "data-testid": testId,
 }: ButtonGroupProps<T>) {
+  const { optionRef, optionTabIndex, onOptionKeyDown } = useRadioGroupNavigation(options, value, onChange, disabled);
   return (
     <div
       id={id}
       className={`${styles.group} ${className ?? ""}`}
       role="radiogroup"
+      aria-orientation="horizontal"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledByAttribute ?? ariaLabelledBy}
       aria-describedby={ariaDescribedByAttribute ?? ariaDescribedBy}
       aria-invalid={ariaInvalid}
+      aria-disabled={disabled}
+      data-testid={testId}
     >
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const selected = opt.value === value;
         const isBravura = opt.useBravura && typeof opt.label === "string";
         return (
@@ -83,11 +94,15 @@ export function ButtonGroup<T extends string = string>({
             {withTooltip(
               <button
                 type="button"
+                ref={optionRef(index)}
                 role="radio"
                 aria-checked={selected}
                 aria-label={opt.tooltip}
+                disabled={disabled}
+                tabIndex={optionTabIndex(index)}
                 className={`${styles.option} ${selected ? styles.active : ""} ${isBravura ? styles.bravura : ""}`.trim()}
                 onClick={() => onChange(opt.value)}
+                onKeyDown={(event) => onOptionKeyDown(event, index)}
               >
                 {isBravura ? <BravuraGlyph>{opt.label as string}</BravuraGlyph> : opt.label}
               </button>,

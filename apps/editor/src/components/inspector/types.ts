@@ -23,9 +23,8 @@ export interface InspectorSectionProps {
 
 export const sectionStyle: CSSProperties = {
   margin: 0,
-  padding: "14px 0 4px",
+  padding: "8px 0 4px",
   border: "none",
-  borderTop: "1px solid var(--border-hairline)",
   borderRadius: 0,
   background: "transparent",
   boxShadow: "none",

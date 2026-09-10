@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { Button, LongPressButton, Select } from "@viritura/ui";
-import { ChevronsRight, ChevronsLeft, Link2, Unlink2 } from "lucide-react";
+import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useNoteInput, type DotCount, type GraceType, type Voice } from "../store/noteInputStore";
 import type { NoteValueBase, AccidentalType, Duration } from "@viritura/core";
 import { useSelectionStore } from "../store/selectionStore";
@@ -41,6 +41,18 @@ const TUPLET_GLYPH_STACK_STYLE: CSSProperties = {
 };
 const AUG_DOT_ROW_STYLE: CSSProperties = { display: "inline-flex", alignItems: "center", gap: "3px" };
 const AUG_DOT_SPAN_STYLE: CSSProperties = { letterSpacing: "2px" };
+const BEAM_ICON_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "18px",
+  whiteSpace: "nowrap",
+  fontFamily: "Bravura",
+  fontSize: "18px",
+  lineHeight: 1,
+  transform: "scale(0.72)",
+};
+const BROKEN_BEAM_ICON_STYLE: CSSProperties = { ...BEAM_ICON_STYLE, gap: "3px" };
 
 /**
  * SMuFL codepoints for toolbar icons (from Bravura font).
@@ -66,6 +78,9 @@ const SMUFL = {
   tripleSharp: String.fromCodePoint(0xe265),
   graceNoteAcciaccatura: String.fromCodePoint(0xe560),
   graceNoteAppoggiatura: String.fromCodePoint(0xe562),
+  textBlackNoteShortStem: String.fromCodePoint(0xe1f0),
+  textBlackNoteFrac8thShortStem: String.fromCodePoint(0xe1f2),
+  textCont8thBeamShortStem: String.fromCodePoint(0xe1f7),
 };
 
 interface DurationButtonDef {
@@ -83,6 +98,17 @@ interface DurationButtonDef {
 }
 
 const DURATION_BUTTONS_DEFAULT: DurationButtonDef[] = [
+  { duration: "16th", label: SMUFL.metNote16th, title: "16th note", shortcut: "3", testId: "16", useBravura: true },
+  { duration: "eighth", label: SMUFL.metNote8th, title: "Eighth note", shortcut: "4", testId: "8", useBravura: true },
+  {
+    duration: "quarter",
+    label: SMUFL.metNoteQuarter,
+    title: "Quarter note",
+    shortcut: "5",
+    testId: "4",
+    useBravura: true,
+  },
+  { duration: "half", label: SMUFL.metNoteHalf, title: "Half note", shortcut: "6", testId: "2", useBravura: true },
   {
     duration: "whole",
     label: SMUFL.metNoteWhole,
@@ -92,22 +118,9 @@ const DURATION_BUTTONS_DEFAULT: DurationButtonDef[] = [
     useBravura: true,
     bravuraAlign: "baseline",
   },
-  { duration: "half", label: SMUFL.metNoteHalf, title: "Half note", shortcut: "6", testId: "2", useBravura: true },
-  {
-    duration: "quarter",
-    label: SMUFL.metNoteQuarter,
-    title: "Quarter note",
-    shortcut: "5",
-    testId: "4",
-    useBravura: true,
-  },
-  { duration: "eighth", label: SMUFL.metNote8th, title: "Eighth note", shortcut: "4", testId: "8", useBravura: true },
-  { duration: "16th", label: SMUFL.metNote16th, title: "16th note", shortcut: "3", testId: "16", useBravura: true },
 ];
 
 const DURATION_BUTTONS_EXTENDED: DurationButtonDef[] = [
-  { duration: "maxima", label: "M", title: "Maxima (8× whole)", shortcut: "9", testId: "maxima" },
-  { duration: "longa", label: "L", title: "Longa (4× whole)", shortcut: "", testId: "longa" },
   {
     duration: "breve",
     label: SMUFL.metNoteDoubleWhole,
@@ -117,13 +130,15 @@ const DURATION_BUTTONS_EXTENDED: DurationButtonDef[] = [
     useBravura: true,
     bravuraAlign: "baseline",
   },
+  { duration: "longa", label: "L", title: "Longa (4× whole)", shortcut: "", testId: "longa" },
+  { duration: "maxima", label: "M", title: "Maxima (8× whole)", shortcut: "9", testId: "maxima" },
 ];
 
 const DURATION_BUTTONS_EXTENDED_SHORT: DurationButtonDef[] = [
-  { duration: "32nd", label: SMUFL.metNote32nd, title: "32nd note", shortcut: "2", testId: "32", useBravura: true },
-  { duration: "64th", label: SMUFL.metNote64th, title: "64th note", shortcut: "1", testId: "64", useBravura: true },
-  { duration: "128th", label: "128", title: "128th note", shortcut: "", testId: "128" },
   { duration: "256th", label: "256", title: "256th note", shortcut: "", testId: "256" },
+  { duration: "128th", label: "128", title: "128th note", shortcut: "", testId: "128" },
+  { duration: "64th", label: SMUFL.metNote64th, title: "64th note", shortcut: "1", testId: "64", useBravura: true },
+  { duration: "32nd", label: SMUFL.metNote32nd, title: "32nd note", shortcut: "2", testId: "32", useBravura: true },
 ];
 
 interface AccidentalButtonDef {
@@ -420,6 +435,7 @@ export function Toolbar(_props: ToolbarProps = {}) {
         onValueChange={(v) => handleVoiceClick(Number(v) as Voice)}
         options={VOICES.map((v) => ({ value: String(v), label: `Voice ${v}` }))}
         data-testid="toolbar-voice"
+        fullWidth={false}
       />
 
       <Separator />
@@ -431,7 +447,11 @@ export function Toolbar(_props: ToolbarProps = {}) {
         ariaLabel="Beam selected notes"
         tooltip="Beam selected notes together"
       >
-        <Link2 size={15} aria-hidden="true" />
+        <span style={BEAM_ICON_STYLE} aria-hidden="true">
+          {SMUFL.textBlackNoteShortStem}
+          {SMUFL.textCont8thBeamShortStem}
+          {SMUFL.textBlackNoteFrac8thShortStem}
+        </span>
       </Button>
 
       <Button
@@ -441,7 +461,10 @@ export function Toolbar(_props: ToolbarProps = {}) {
         ariaLabel="Break beam after selection"
         tooltip="Break beam after the last selected note"
       >
-        <Unlink2 size={15} aria-hidden="true" />
+        <span style={BROKEN_BEAM_ICON_STYLE} aria-hidden="true">
+          <span>{SMUFL.metNote8th}</span>
+          <span>{SMUFL.metNote8th}</span>
+        </span>
       </Button>
     </div>
   );
@@ -556,9 +579,9 @@ function DurationGroup({ currentDuration, expanded, onToggleExpanded, onSelect }
   };
   return (
     <div className={styles.group} role="group" aria-label="Duration">
-      {expanded && DURATION_BUTTONS_EXTENDED.map(renderButton)}
-      {DURATION_BUTTONS_DEFAULT.map(renderButton)}
       {expanded && DURATION_BUTTONS_EXTENDED_SHORT.map(renderButton)}
+      {DURATION_BUTTONS_DEFAULT.map(renderButton)}
+      {expanded && DURATION_BUTTONS_EXTENDED.map(renderButton)}
       <Button
         onClick={onToggleExpanded}
         active={expanded}

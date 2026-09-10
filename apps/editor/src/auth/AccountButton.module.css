@@ -1,31 +1,5 @@
-.trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--type-eyebrow-size);
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard);
-}
-
-.trigger:hover,
-.trigger[data-state="open"] {
-  background: var(--surface-hover);
-}
-
-.trigger[data-state-kind="error"] {
-  border-color: rgba(180, 55, 55, 0.38);
+.error {
+  color: var(--error);
 }
 
 .spin {

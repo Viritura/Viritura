@@ -71,7 +71,7 @@ export function EmailRow({ user }: { readonly user: VirituraUser }) {
             }
           }}
         >
-          {isPlaceholderEmail(user.email) ? "Add…" : "Change…"}
+          {isPlaceholderEmail(user.email) ? "Add" : "Change"}
         </Button>
       }
       details={
@@ -195,7 +195,7 @@ export function DeleteAccountRow({
             }
           }}
         >
-          Delete account…
+          Delete account
         </Button>
       }
       details={
@@ -303,7 +303,7 @@ export function DisplayNameRow({
             setDisplayName(user.displayName ?? "");
           }}
         >
-          {current ? "Change…" : "Set…"}
+          {current ? "Change" : "Set"}
         </Button>
       }
       details={
@@ -321,7 +321,7 @@ export function DisplayNameRow({
               />
             </FormField>
             <PasswordFormActions
-              submitLabel={submitting ? "Saving…" : "Save"}
+              submitLabel={submitting ? "Saving" : "Save"}
               submitting={submitting}
               onCancel={() => setOpen(false)}
             />

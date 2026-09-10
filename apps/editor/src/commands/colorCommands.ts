@@ -1,14 +1,11 @@
 import type { Score } from "@viritura/core";
-import { resolveEventLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
+import type { NotationSelectionTarget } from "./notationInspectorCommands";
 
-export type ColorTarget = "clef" | "key" | "ending" | "grace" | "segno" | "fine" | "coda";
-
-export interface ColorSelectionContext {
-  measureIndex: number;
-  partIndex: number;
-  sequenceIndex?: number;
-  eventIndex?: number;
+export interface ColorSelectionTarget {
+  kind: "clef" | "key" | "ending" | "grace" | "segno" | "fine" | "coda";
+  label: string;
+  color?: string;
 }
 
 const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -27,89 +24,92 @@ export function normalizeHexColor(value: string): string | null {
   return trimmed.toLowerCase();
 }
 
-export function parseSelectionContext(elementId: string | undefined, score: Score): ColorSelectionContext | null {
-  if (!elementId) return null;
-  const measureMatch = elementId.match(/(?:^|\/)m(\d+)(?:\/|$)/);
-  if (!measureMatch) return null;
-  const measureIndex = Number.parseInt(measureMatch[1]!, 10);
-  if (Number.isNaN(measureIndex) || measureIndex < 0 || measureIndex >= score.global.measures.length) {
-    return null;
+function resolveGlobalColorTarget(
+  measure: Score["global"]["measures"][number] | undefined,
+  elementType: string,
+): ColorSelectionTarget | null {
+  if (!measure) return null;
+  switch (elementType) {
+    case "key":
+      return measure.key ? { kind: "key", label: "key signature", color: measure.key.color } : null;
+    case "volta":
+      return measure.ending ? { kind: "ending", label: "ending", color: measure.ending.color } : null;
+    case "segno":
+      return measure.segno ? { kind: "segno", label: "segno", color: measure.segno.color } : null;
+    case "fine":
+      return measure.fine ? { kind: "fine", label: "fine", color: measure.fine.color } : null;
+    case "coda":
+      return measure.coda ? { kind: "coda", label: "coda", color: measure.coda.color } : null;
+    default:
+      return null;
   }
-  const partMatch = elementId.match(/(?:^|\/)p(\d+)(?:\/|$)/);
-  const partIndex = partMatch ? Number.parseInt(partMatch[1]!, 10) : 0;
-  const eventLoc = resolveEventLocation(elementId, score);
-  if (!eventLoc) {
-    return { measureIndex, partIndex };
-  }
-  return {
-    measureIndex,
-    partIndex: eventLoc.partIndex,
-    sequenceIndex: eventLoc.sequenceIndex,
-    eventIndex: eventLoc.eventIndex,
-  };
 }
 
-type ColorableMeasureField = "key" | "ending" | "segno" | "fine" | "coda";
-
-function setGlobalMeasureColor(
+export function resolveColorSelectionTarget(
   score: Score,
-  measureIndex: number,
-  field: ColorableMeasureField,
-  storedColor: string | null,
-): Score {
-  const next = cloneScore(score);
-  const target = next.global.measures[measureIndex]?.[field];
-  if (!target) return score;
-  if (storedColor === null) delete target.color;
-  else target.color = storedColor;
-  return next;
-}
-
-function applyClefColor(score: Score, context: ColorSelectionContext, storedColor: string | null): Score {
-  const next = cloneScore(score);
-  const clef = next.parts[context.partIndex]?.measures[context.measureIndex]?.clefs?.[0]?.clef;
-  if (!clef) return score;
-  if (storedColor === null) delete clef.color;
-  else clef.color = storedColor;
-  return next;
-}
-
-function applyGraceColor(score: Score, context: ColorSelectionContext, storedColor: string | null): Score {
-  const next = cloneScore(score);
-  const partMeasure = next.parts[context.partIndex]?.measures[context.measureIndex];
-  if (!partMeasure) return score;
-
-  if (context.sequenceIndex !== undefined && context.eventIndex !== undefined) {
-    const selected = partMeasure.sequences[context.sequenceIndex]?.content[context.eventIndex];
-    if (selected?.type === "grace") {
-      if (storedColor === null) delete selected.color;
-      else selected.color = storedColor;
-      return next;
+  target: NotationSelectionTarget | null,
+): ColorSelectionTarget | null {
+  if (!target) return null;
+  const globalTarget = resolveGlobalColorTarget(score.global.measures[target.measureIndex], target.elementType);
+  if (globalTarget) return globalTarget;
+  if (target.elementType === "clef") {
+    const clef = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs?.[0]?.clef;
+    return clef ? { kind: "clef", label: "clef", color: clef.color } : null;
+  }
+  if (
+    target.graceContainerIndex === undefined &&
+    target.sequenceIndex !== undefined &&
+    target.eventIndex !== undefined
+  ) {
+    const content =
+      score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex]?.content[
+        target.eventIndex
+      ];
+    if (content?.type === "grace") {
+      return { kind: "grace", label: "grace group", color: content.color };
     }
   }
-
-  for (const sequence of partMeasure.sequences) {
-    for (const content of sequence.content) {
-      if (content.type !== "grace") continue;
-      if (storedColor === null) delete content.color;
-      else content.color = storedColor;
-      return next;
-    }
-  }
-  return score;
+  return null;
 }
 
-export function applyColorToTarget(
+function getColorable(
   score: Score,
-  target: ColorTarget,
-  color: string | null,
-  context: ColorSelectionContext,
-): Score {
-  const storedColor = color === "#000000" ? null : color;
-  if (target === "key" || target === "ending" || target === "segno" || target === "fine" || target === "coda") {
-    return setGlobalMeasureColor(score, context.measureIndex, target, storedColor);
+  target: NotationSelectionTarget,
+  kind: ColorSelectionTarget["kind"],
+): { color?: string } {
+  const globalMeasure = score.global.measures[target.measureIndex]!;
+  switch (kind) {
+    case "key":
+      return globalMeasure.key!;
+    case "ending":
+      return globalMeasure.ending!;
+    case "segno":
+      return globalMeasure.segno!;
+    case "fine":
+      return globalMeasure.fine!;
+    case "coda":
+      return globalMeasure.coda!;
+    case "clef":
+      return score.parts[target.partIndex]!.measures[target.measureIndex]!.clefs![0]!.clef;
+    case "grace": {
+      const content =
+        score.parts[target.partIndex]!.measures[target.measureIndex]!.sequences[target.sequenceIndex!]!.content[
+          target.eventIndex!
+        ]!;
+      if (content.type !== "grace") {
+        throw new Error("Resolved color target is no longer a grace group.");
+      }
+      return content;
+    }
   }
-  if (target === "clef") return applyClefColor(score, context, storedColor);
-  if (target === "grace") return applyGraceColor(score, context, storedColor);
-  return score;
+}
+
+export function applyColorToSelection(score: Score, target: NotationSelectionTarget, color: string | null): Score {
+  const selectionTarget = resolveColorSelectionTarget(score, target);
+  if (!selectionTarget) return score;
+  const next = cloneScore(score);
+  const colorable = getColorable(next, target, selectionTarget.kind);
+  if (color === null) delete colorable.color;
+  else colorable.color = color;
+  return next;
 }

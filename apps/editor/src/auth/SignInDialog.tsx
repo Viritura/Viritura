@@ -236,7 +236,7 @@ function CredentialError({
             onClick={() => void onResend()}
             disabled={resendStatus === "sending" || !email.trim()}
           >
-            {resendStatus === "sending" ? "Sending…" : "Resend verification email"}
+            {resendStatus === "sending" ? "Sending" : "Resend verification email"}
           </button>
         )}
       </div>
@@ -429,7 +429,7 @@ export function SignInDialog({ open, account, onClose, onSignedIn }: SignInDialo
           {step === "password" && <SignUpAvailability mode={capabilities?.emailRegistrationMode} />}
           <DialogCancelButton>Cancel</DialogCancelButton>
           <DialogPrimaryButton disabled={submitting || !canSubmit}>
-            {submitting ? "Please wait…" : step === "password" ? "Sign in" : "Verify"}
+            {submitting ? "Please wait" : step === "password" ? "Sign in" : "Verify"}
           </DialogPrimaryButton>
         </DialogActions>
       </form>
@@ -537,7 +537,7 @@ function TwoFactorStep({
             }}
             disabled={recoveryEmailStatus === "sending"}
           >
-            {recoveryEmailStatus === "sending" ? "Sending…" : "Lost your authenticator and recovery codes?"}
+            {recoveryEmailStatus === "sending" ? "Sending" : "Lost your authenticator and recovery codes?"}
           </button>
         </div>
       )}

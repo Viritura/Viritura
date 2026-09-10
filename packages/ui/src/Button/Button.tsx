@@ -48,7 +48,7 @@ export interface ButtonProps extends Omit<
   bravuraSize?: string;
   /** Size variant. `xs` is an 18px tile reserved for `shape="icon"` (mixer
    *  M/S capsules); on `shape="pill"` it falls back to `sm` proportions. */
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "rail";
   /** Visual variant:
    *  - default: glass pill (most contexts)
    *  - ghost:   transparent, hover-tint only (toolbars, dense rows)

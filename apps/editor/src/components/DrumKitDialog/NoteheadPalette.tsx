@@ -1,6 +1,6 @@
 import type { NoteheadShape } from "@viritura/core";
+import { GlyphButtonGroup } from "@viritura/ui";
 import { NOTEHEAD_GLYPHS, NOTEHEAD_SHAPES } from "./noteheadGlyphs";
-import styles from "./NoteheadPalette.module.css";
 
 export interface NoteheadPaletteProps {
   readonly value: NoteheadShape;
@@ -13,25 +13,11 @@ export interface NoteheadPaletteProps {
  */
 export function NoteheadPalette({ value, onChange }: NoteheadPaletteProps) {
   return (
-    <div className={styles.row} role="radiogroup" aria-label="Notehead shape">
-      {NOTEHEAD_SHAPES.map((shape) => {
-        const { glyph, label } = NOTEHEAD_GLYPHS[shape];
-        const active = shape === value;
-        return (
-          // eslint-disable-next-line no-restricted-syntax -- bespoke glyph toggle chip: a SMuFL notehead swatch, not a text button
-          <button
-            key={shape}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={label}
-            className={active ? styles.chipActive : styles.chip}
-            onClick={() => onChange(shape)}
-          >
-            <span className={styles.glyph}>{glyph}</span>
-          </button>
-        );
-      })}
-    </div>
+    <GlyphButtonGroup
+      ariaLabel="Notehead shape"
+      value={value}
+      onChange={onChange}
+      options={NOTEHEAD_SHAPES.map((shape) => ({ value: shape, ...NOTEHEAD_GLYPHS[shape] }))}
+    />
   );
 }

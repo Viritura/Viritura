@@ -14,6 +14,23 @@ line-height + default color tier + tracking`. Each token has one job.
 Off-scale values are the wrong value, not a missing token — same
 discipline as the spacing scale and the motion scale.
 
+## Action copy
+
+Button labels, menu commands, action tiles, and busy-state action labels do
+**not** end in `…` or `...`. Keep the verb concise and stable; communicate
+pending work with a spinner, disabled state, `aria-busy`, or a live status
+message rather than punctuation.
+
+Use ellipses only where they are content: prose omission, search/input
+placeholders, truncation, or literal musical dot notation.
+
+```tsx
+<Button>Open project</Button>
+<Button aria-busy={opening} disabled={opening}>
+  Open project
+</Button>
+```
+
 ## UI font stack
 
 ```css

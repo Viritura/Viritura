@@ -67,8 +67,8 @@ export function SourcePickerDialog({
           </div>
         )}
         <div className={styles.pickerActions}>
-          <Button label="Configure folders…" onClick={onConfigureFolders} />
-          <Button label="Browse for file…" onClick={onBrowse} />
+          <Button label="Configure folders" onClick={onConfigureFolders} />
+          <Button label="Browse for file" onClick={onBrowse} />
         </div>
       </div>
     </Dialog>

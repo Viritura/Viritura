@@ -1,0 +1,61 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+
+.sectionLabel {
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+}
+
+.summary {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-lh);
+  overflow-wrap: anywhere;
+}
+
+.writtenPitches {
+  padding: var(--space-2) 0;
+}
+
+.advanced {
+  border-top: 1px solid var(--border-hairline);
+}
+
+.advancedFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.keyFlipRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.keyFlipInput {
+  width: 72px;
+}

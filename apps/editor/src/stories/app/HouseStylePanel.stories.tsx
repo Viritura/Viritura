@@ -29,6 +29,7 @@ function HouseStyleHarness() {
         activeScoreIndex={0}
         onApplyPageSetup={() => {}}
         onResetPageSetup={() => {}}
+        onInstrumentNameDisplayChange={() => {}}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
-import { Button, ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
+import { Button, ButtonGroup, Checkbox, FormInput, GlyphButtonGroup } from "@viritura/ui";
 import type { MeasureRepeat, MeasureRepeatDisplayNumber, MultiStaffOrientation, Note } from "@viritura/core";
+import type { AccidentalDisplayMode } from "../../commands/noteCommands";
 import { sectionStyle, legendStyle, labelStyle, mergeFocusedSectionStyle } from "./types";
 import type { InspectorSection } from "./notationInspectorMeta";
 
@@ -13,8 +14,26 @@ const REPEAT_COUNT_HINT_STYLE: CSSProperties = {
   color: "var(--vscode-descriptionForeground, #888)",
 };
 const TRILL_ROW_STYLE: CSSProperties = { display: "flex", gap: "0.4rem", marginTop: "0.2rem" };
-const ACCIDENTAL_ROW_WRAP_STYLE: CSSProperties = { display: "flex", gap: "0.4rem", flexWrap: "wrap" };
-const ACCIDENTAL_ROW_STYLE: CSSProperties = { display: "flex", gap: "0.4rem", marginTop: "0.3rem" };
+const ACCIDENTAL_DISPLAY_OPTIONS = [
+  { value: "auto", label: "Auto" },
+  { value: "show", label: "Show" },
+  { value: "hide", label: "Hide" },
+] satisfies Array<{ value: AccidentalDisplayMode; label: string }>;
+
+type AccidentalEnclosureMode = "bare" | "parentheses" | "brackets";
+const ACCIDENTAL_GLYPHS: Record<number, string> = {
+  [-3]: String.fromCodePoint(0xe266),
+  [-2]: String.fromCodePoint(0xe264),
+  [-1]: String.fromCodePoint(0xe260),
+  [0]: String.fromCodePoint(0xe261),
+  [1]: String.fromCodePoint(0xe262),
+  [2]: String.fromCodePoint(0xe263),
+  [3]: String.fromCodePoint(0xe265),
+};
+const PARENS_LEFT = String.fromCodePoint(0xe26a);
+const PARENS_RIGHT = String.fromCodePoint(0xe26b);
+const BRACKET_LEFT = String.fromCodePoint(0xe26c);
+const BRACKET_RIGHT = String.fromCodePoint(0xe26d);
 
 const BARLINE_TYPES = ["regular", "double", "final", "heavy", "dashed", "dotted", "tick", "short"] as const;
 type BarlineTypeValue = (typeof BARLINE_TYPES)[number];
@@ -218,38 +237,54 @@ export function TrillSection({ accidental, onAccidentalChange }: TrillSectionPro
 
 export interface AccidentalDisplaySectionProps {
   note: Note;
-  onShowToggle: () => void;
-  onCourtesyToggle: () => void;
-  onEnclosureToggle: (symbol: "parentheses" | "brackets") => () => void;
+  onModeChange: (mode: AccidentalDisplayMode) => void;
+  onEnclosureChange: (symbol: "parentheses" | "brackets" | null) => void;
 }
 
-export function AccidentalDisplaySection({
-  note,
-  onShowToggle,
-  onCourtesyToggle,
-  onEnclosureToggle,
-}: AccidentalDisplaySectionProps) {
+export function AccidentalDisplaySection({ note, onModeChange, onEnclosureChange }: AccidentalDisplaySectionProps) {
+  const displayMode: AccidentalDisplayMode = note.accidentalDisplay
+    ? note.accidentalDisplay.show
+      ? "show"
+      : "hide"
+    : "auto";
+  const accidentalGlyph = ACCIDENTAL_GLYPHS[note.pitch.alter ?? 0] ?? ACCIDENTAL_GLYPHS[0]!;
+  const enclosureMode: AccidentalEnclosureMode = note.accidentalDisplay?.enclosure?.symbol ?? "bare";
+  const enclosureOptions = [
+    { value: "bare", label: accidentalGlyph, tooltip: "Bare", useBravura: true },
+    {
+      value: "parentheses",
+      label: `${PARENS_LEFT}${accidentalGlyph}${PARENS_RIGHT}`,
+      tooltip: "Parentheses",
+      useBravura: true,
+    },
+    {
+      value: "brackets",
+      label: `${BRACKET_LEFT}${accidentalGlyph}${BRACKET_RIGHT}`,
+      tooltip: "Brackets",
+      useBravura: true,
+    },
+  ] satisfies Array<{ value: AccidentalEnclosureMode; label: string; tooltip: string; useBravura: true }>;
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Accidental Display</legend>
-      <div style={ACCIDENTAL_ROW_WRAP_STYLE}>
-        <Checkbox label="Show" checked={note.accidentalDisplay?.show === true} onChange={onShowToggle} />
-        <Checkbox
-          label="Courtesy (A)"
-          checked={note.accidentalDisplay?.show === true && note.accidentalDisplay.force === true}
-          onChange={onCourtesyToggle}
+      <div style={labelStyle}>
+        <span>Visibility</span>
+        <ButtonGroup
+          data-testid="notation-accidental-display-mode"
+          options={ACCIDENTAL_DISPLAY_OPTIONS}
+          value={displayMode}
+          onChange={onModeChange}
+          ariaLabel="Accidental visibility"
         />
       </div>
-      <div style={ACCIDENTAL_ROW_STYLE}>
-        <Checkbox
-          label="( )"
-          checked={note.accidentalDisplay?.enclosure?.symbol === "parentheses"}
-          onChange={onEnclosureToggle("parentheses")}
-        />
-        <Checkbox
-          label="[ ]"
-          checked={note.accidentalDisplay?.enclosure?.symbol === "brackets"}
-          onChange={onEnclosureToggle("brackets")}
+      <div style={labelStyle}>
+        <span>Style</span>
+        <GlyphButtonGroup<AccidentalEnclosureMode>
+          data-testid="notation-accidental-enclosure"
+          options={enclosureOptions.map(({ value, label, tooltip }) => ({ value, glyph: label, label: tooltip }))}
+          value={enclosureMode}
+          onChange={(mode) => onEnclosureChange(mode === "bare" ? null : mode)}
+          ariaLabel="Accidental enclosure"
         />
       </div>
     </fieldset>

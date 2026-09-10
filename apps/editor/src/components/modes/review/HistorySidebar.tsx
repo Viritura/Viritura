@@ -110,7 +110,7 @@ function RepoCard({ githubRepository, status, fetching, onFetch }: RepoCardProps
             onClick={onFetch}
             disabled={fetching}
             tooltip="Check GitHub for new versions (fetch)"
-            label={fetching ? "Checking…" : "Check"}
+            label={fetching ? "Checking" : "Check"}
           />
           <Tooltip content={`Open ${githubRepository.fullName} on GitHub`}>
             <a href={githubRepository.htmlUrl} target="_blank" rel="noreferrer" style={repoOpenLinkStyle}>
@@ -222,7 +222,7 @@ export function HistorySidebar(props: HistorySidebarProps) {
                 >
                   <UploadCloud size={11} />
                   {props.pushing
-                    ? "Pushing…"
+                    ? "Pushing"
                     : `Push ${props.status.aheadCount} ${(props.status.aheadCount ?? 0) === 1 ? "change" : "changes"}`}
                 </PanelActionButton>
               )}

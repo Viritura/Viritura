@@ -194,7 +194,7 @@ describe("buildJumpBarActions", () => {
 
   it("labels the orchestral split as a Part operation", () => {
     expect(actions.find((action) => action.id === "edit.splitOrchestralStaves")?.label).toBe(
-      "Split Combined Orchestral Parts…",
+      "Split Combined Orchestral Parts",
     );
   });
 

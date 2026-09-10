@@ -25,7 +25,9 @@ export { LongPressButton, type LongPressButtonProps, type LongPressOption } from
 // ── Layout Components ──
 export {
   Panel,
+  PanelFooter,
   usePanelState,
+  type PanelFooterProps,
   type PanelProps,
   type PanelSide,
   type PanelState,
@@ -102,9 +104,10 @@ export {
 
 // ── Form Controls ──
 export { Slider, type SliderProps } from "./Slider/Slider";
-export { Select, type SelectProps, type SelectOption } from "./Select/Select";
+export { Select, SelectTrigger, type SelectOption, type SelectProps, type SelectTriggerProps } from "./Select";
 export { SearchInput, type SearchInputProps, type SearchInputSize } from "./SearchInput/SearchInput";
 export { ButtonGroup, type ButtonGroupProps, type ButtonGroupOption } from "./ButtonGroup/ButtonGroup";
+export { GlyphButtonGroup, type GlyphButtonGroupOption, type GlyphButtonGroupProps } from "./GlyphButtonGroup";
 export { Tooltip, TooltipPrimitives, type TooltipProps } from "./Tooltip/Tooltip";
 export { withTooltip } from "./Tooltip/withTooltip";
 

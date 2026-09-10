@@ -140,7 +140,7 @@ const MUSICXML_EXTENSIONS = [".mxl", ".musicxml", ".xml"] as const;
  * handle (an import has no MNX file on disk to save back to).
  */
 export async function convertImportedMusicFile(file: File): Promise<OpenFileResult> {
-  return runBackgroundTask(`Importing ${file.name}…`, async () => {
+  return runBackgroundTask(`Importing ${file.name}`, async () => {
     const lower = file.name.toLowerCase();
     // Import behavior is driven by the persisted import settings (Settings →
     // Import). Vendor extensions default on so Viritura-only details (tempo

@@ -12,8 +12,8 @@
  */
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { Check, ChevronDown, LayoutGrid } from "lucide-react";
-import { Button, ListRow, SearchInput } from "@viritura/ui";
+import { Check, LayoutGrid } from "lucide-react";
+import { Button, ListRow, SearchInput, SelectTrigger } from "@viritura/ui";
 import { useDocumentStore } from "../store/DocumentContext";
 import { buildScoreEntries, type ScoreEntry } from "./scoreEntries";
 import styles from "./ScoreSwitcher.module.css";
@@ -119,12 +119,13 @@ export function ScoreSwitcher({ selectedScoreIndex, onSelectScore, onScoreContex
         }}
       >
         <Popover.Trigger asChild>
-          {/* eslint-disable-next-line no-restricted-syntax -- header chrome: a labelled view-context combo box, not a generic action button. */}
-          <button type="button" className={styles.trigger} aria-label={`Select score or part: ${currentLabel}`}>
-            <LayoutGrid size={13} style={ICON_STYLE} aria-hidden="true" />
+          <SelectTrigger
+            className={styles.trigger}
+            leading={<LayoutGrid size={13} style={ICON_STYLE} aria-hidden="true" />}
+            aria-label={`Select score or part: ${currentLabel}`}
+          >
             <span className={styles.triggerLabel}>{currentLabel}</span>
-            <ChevronDown size={13} style={ICON_STYLE} aria-hidden="true" />
-          </button>
+          </SelectTrigger>
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Content className={styles.popover} side="bottom" align="start" sideOffset={6} collisionPadding={12}>

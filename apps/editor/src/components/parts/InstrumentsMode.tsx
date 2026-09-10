@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Plus, X } from "lucide-react";
-import { Button, IconButton, Checkbox } from "@viritura/ui";
+import { Button, PanelFooter, SectionLabel } from "@viritura/ui";
 import { InstrumentsEmptyState } from "./InstrumentsEmptyState";
 import { resolvePartDisplayNames, type Part, type PartDisplayInfo } from "@viritura/core";
 import { useDocumentStore } from "../../store/DocumentContext";
@@ -10,14 +9,13 @@ import { collectConductorScores, type ConductorScore } from "../../score/ScoreMu
 import { isPercussionPart } from "../../score/kitInput";
 import { resolveDrumKitTarget } from "../../commands/drumKitCommands";
 import type { PartListPanelProps } from "../PartListPanel";
-import { InstrumentCatalogPicker } from "./InstrumentCatalogPicker";
-import type { InstrumentCompatibility } from "./InstrumentCatalogPicker";
 import { usePartListDrumKit } from "./usePartListDrumKit";
 import { useDragAutoscroll } from "../../hooks/useDragAutoscroll";
 import { RosterPartRow } from "./roster/RosterPartRow";
 import { dropIndicatorStyle } from "./styles";
 import { ConfirmationDialog } from "../ConfirmationDialog";
 import { useChangeInstrument } from "./useChangeInstrument";
+import { InstrumentPickerDialog } from "./InstrumentPickerDialog";
 
 const INSTRUMENTS_NO_SCORE_STYLE: CSSProperties = {
   padding: 16,
@@ -32,53 +30,6 @@ const INSTRUMENTS_ROOT_STYLE: CSSProperties = {
 };
 const INSTRUMENTS_LIST_STYLE: CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto" };
 
-const ADD_SECTION_STYLE: CSSProperties = {
-  flexShrink: 0,
-  display: "flex",
-  flexDirection: "column",
-  borderTop: "1px solid var(--border, rgba(20, 20, 28, 0.06))",
-  background: "rgba(20, 20, 28, 0.015)",
-};
-const ADD_PICKER_WRAP_STYLE: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  minHeight: 0,
-  maxHeight: 320,
-};
-const ADD_PICKER_HEADER_STYLE: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  padding: "6px 8px 2px 10px",
-};
-const ADD_PICKER_LABEL_STYLE: CSSProperties = {
-  fontSize: "var(--type-eyebrow-size)",
-  fontWeight: "var(--type-heading-weight)",
-  color: "var(--text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-};
-const ADD_BUTTON_WRAP_STYLE: CSSProperties = { padding: "8px 10px" };
-const ADD_TARGET_WRAP_STYLE: CSSProperties = { display: "flex", flexDirection: "column", padding: "8px 10px", gap: 6 };
-const ADD_TARGET_TITLE_STYLE: CSSProperties = {
-  fontSize: "var(--type-small-size)",
-  color: "var(--text)",
-};
-const ADD_TARGET_TITLE_NAME_STYLE: CSSProperties = { fontWeight: "var(--type-heading-weight)" };
-const ADD_TARGET_LIST_STYLE: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-  maxHeight: 160,
-  overflowY: "auto",
-  padding: "2px 0",
-};
-const ADD_TARGET_HINT_STYLE: CSSProperties = {
-  fontSize: "var(--type-eyebrow-size)",
-  color: "var(--text-muted)",
-  fontStyle: "italic",
-};
-const ADD_TARGET_ACTIONS_STYLE: CSSProperties = { display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 };
 function rowWrapStyle(isDragging: boolean): CSSProperties {
   return { position: "relative", opacity: isDragging ? 0.4 : 1 };
 }
@@ -152,19 +103,10 @@ export function InstrumentsMode({
 
   const handleAdd = useCallback(
     (inst: CatalogInstrument) => {
-      // When the document has multiple multi-instrument scores, let the user
-      // choose which layouts include the new instrument. Its source part and
-      // instrumental-part view are created regardless of this selection.
-      if (conductorScores.length === 0) {
-        onAddInstrument?.(inst.id);
-        setShowPicker(false);
-        return;
-      }
       setPendingInst(inst);
       setTargetLayoutIds(new Set(conductorScores.map((c) => c.layoutId)));
-      setShowPicker(false);
     },
-    [onAddInstrument, conductorScores],
+    [conductorScores],
   );
 
   const handleToggleTarget = useCallback((layoutId: string) => {
@@ -179,6 +121,7 @@ export function InstrumentsMode({
   const handleConfirmAdd = useCallback(() => {
     if (!pendingInst) return;
     onAddInstrument?.(pendingInst.id, Array.from(targetLayoutIds));
+    setShowPicker(false);
     setPendingInst(null);
     setTargetLayoutIds(new Set());
   }, [pendingInst, targetLayoutIds, onAddInstrument]);
@@ -187,6 +130,10 @@ export function InstrumentsMode({
     setPendingInst(null);
     setTargetLayoutIds(new Set());
   }, []);
+  const closeAddDialog = useCallback(() => {
+    setShowPicker(false);
+    handleCancelAdd();
+  }, [handleCancelAdd]);
 
   const handleToggle = useCallback((partId: string) => {
     setExpandedPartId((prev) => (prev === partId ? null : partId));
@@ -222,6 +169,7 @@ export function InstrumentsMode({
     <div style={INSTRUMENTS_ROOT_STYLE}>
       {/* Parts list */}
       <div className="viritura-scroll" style={INSTRUMENTS_LIST_STYLE} ref={listRef}>
+        {score.parts.length > 0 && <SectionLabel label="Instruments" />}
         {score.parts.length === 0 ? (
           <InstrumentsEmptyState onAddEnsemble={onAddEnsemble} />
         ) : (
@@ -289,28 +237,21 @@ export function InstrumentsMode({
         )}
       </div>
 
-      {changeInstrument.partId ? (
-        <ChangeInstrumentSection
-          onSelect={changeInstrument.select}
-          onBlockedSelect={(instrument) => changeInstrument.select(instrument)}
-          compatibility={changeInstrument.compatibility}
-          onCancel={() => changeInstrument.setPartId(null)}
+      {onAddInstrument && (
+        <AddInstrumentWorkflow
+          open={showPicker}
+          setOpen={setShowPicker}
+          onClose={closeAddDialog}
+          onSelect={handleAdd}
+          pendingInstrumentId={pendingInst?.id ?? null}
+          pendingInstrumentName={pendingInst?.name ?? null}
+          conductorScores={conductorScores}
+          targetLayoutIds={targetLayoutIds}
+          onToggleTarget={handleToggleTarget}
+          onConfirm={handleConfirmAdd}
         />
-      ) : (
-        onAddInstrument &&
-        (pendingInst ? (
-          <AddTargetSection
-            instName={pendingInst.name}
-            conductorScores={conductorScores}
-            targetLayoutIds={targetLayoutIds}
-            onToggleTarget={handleToggleTarget}
-            onConfirm={handleConfirmAdd}
-            onCancel={handleCancelAdd}
-          />
-        ) : (
-          <AddInstrumentSection showPicker={showPicker} setShowPicker={setShowPicker} handleAdd={handleAdd} />
-        ))
       )}
+      <ChangeInstrumentWorkflow workflow={changeInstrument} />
       <ConfirmationDialog
         open={changeInstrument.pending !== null}
         title={changeInstrument.pending?.analysis.allowed ? "Review instrument change" : "Add as a new instrument?"}
@@ -327,125 +268,61 @@ export function InstrumentsMode({
   );
 }
 
-function ChangeInstrumentSection({
+function ChangeInstrumentWorkflow({ workflow }: { workflow: ReturnType<typeof useChangeInstrument> }) {
+  return (
+    <InstrumentPickerDialog
+      mode="change"
+      open={workflow.partId !== null}
+      onClose={() => workflow.setPartId(null)}
+      onSelect={workflow.select}
+      onBlockedSelect={workflow.select}
+      compatibility={workflow.compatibility}
+    />
+  );
+}
+
+function AddInstrumentWorkflow({
+  open,
+  setOpen,
+  onClose,
   onSelect,
-  onBlockedSelect,
-  compatibility,
-  onCancel,
-}: {
-  onSelect: (instrument: CatalogInstrument) => void;
-  onBlockedSelect: (instrument: CatalogInstrument, analysis: InstrumentCompatibility) => void;
-  compatibility: (instrument: CatalogInstrument) => InstrumentCompatibility;
-  onCancel: () => void;
-}) {
-  return (
-    <div style={ADD_SECTION_STYLE}>
-      <div style={ADD_PICKER_WRAP_STYLE}>
-        <div style={ADD_PICKER_HEADER_STYLE}>
-          <span style={ADD_PICKER_LABEL_STYLE}>Change instrument</span>
-          <IconButton size="sm" onClick={onCancel} tooltip="Cancel instrument change">
-            <X size={13} />
-          </IconButton>
-        </div>
-        <InstrumentCatalogPicker
-          onSelect={onSelect}
-          onBlockedSelect={onBlockedSelect}
-          compatibility={compatibility}
-          autoFocus
-          maxHeight={260}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AddInstrumentSection({
-  showPicker,
-  setShowPicker,
-  handleAdd,
-}: {
-  showPicker: boolean;
-  setShowPicker: (v: boolean) => void;
-  handleAdd: (inst: CatalogInstrument) => void;
-}) {
-  return (
-    <div style={ADD_SECTION_STYLE}>
-      {showPicker ? (
-        <div style={ADD_PICKER_WRAP_STYLE}>
-          <div style={ADD_PICKER_HEADER_STYLE}>
-            <span style={ADD_PICKER_LABEL_STYLE}>Add instrument</span>
-            <IconButton size="sm" onClick={() => setShowPicker(false)} tooltip="Close add instrument">
-              <X size={13} />
-            </IconButton>
-          </div>
-          <InstrumentCatalogPicker
-            onSelect={(inst) => {
-              handleAdd(inst);
-            }}
-            searchPlaceholder="Search instruments…"
-            autoFocus
-          />
-        </div>
-      ) : (
-        <div style={ADD_BUTTON_WRAP_STYLE}>
-          <Button fullWidth size="sm" onClick={() => setShowPicker(true)}>
-            <Plus size={13} />
-            Add instrument
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Score-inclusion step shown after an instrument is chosen: a checklist of the
- * document's multi-instrument scores, all pre-checked. The checked layouts gain
- * the instrument; its source part and instrumental-part view are always
- * created regardless of this selection.
- */
-function AddTargetSection({
-  instName,
+  pendingInstrumentName,
+  pendingInstrumentId,
   conductorScores,
   targetLayoutIds,
   onToggleTarget,
   onConfirm,
-  onCancel,
 }: {
-  instName: string;
-  conductorScores: ConductorScore[];
-  targetLayoutIds: Set<string>;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  onClose: () => void;
+  onSelect: (instrument: CatalogInstrument) => void;
+  pendingInstrumentName: string | null;
+  pendingInstrumentId: string | null;
+  conductorScores: readonly ConductorScore[];
+  targetLayoutIds: ReadonlySet<string>;
   onToggleTarget: (layoutId: string) => void;
   onConfirm: () => void;
-  onCancel: () => void;
 }) {
   return (
-    <div style={ADD_SECTION_STYLE}>
-      <div style={ADD_TARGET_WRAP_STYLE}>
-        <div style={ADD_TARGET_TITLE_STYLE}>
-          Include <span style={ADD_TARGET_TITLE_NAME_STYLE}>{instName}</span> in these scores:
-        </div>
-        <div style={ADD_TARGET_LIST_STYLE}>
-          {conductorScores.map((cs) => (
-            <Checkbox
-              key={cs.layoutId}
-              label={cs.name}
-              checked={targetLayoutIds.has(cs.layoutId)}
-              onChange={() => onToggleTarget(cs.layoutId)}
-            />
-          ))}
-        </div>
-        <div style={ADD_TARGET_HINT_STYLE}>The instrument and its instrumental part are always created.</div>
-        <div style={ADD_TARGET_ACTIONS_STYLE}>
-          <Button size="sm" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={onConfirm}>
-            <Plus size={13} />
-            Add
-          </Button>
-        </div>
-      </div>
-    </div>
+    <>
+      <PanelFooter>
+        <Button fullWidth size="sm" onClick={() => setOpen(true)}>
+          Add instrument…
+        </Button>
+      </PanelFooter>
+      <InstrumentPickerDialog
+        mode="add"
+        open={open}
+        onClose={onClose}
+        onSelect={onSelect}
+        pendingInstrumentId={pendingInstrumentId}
+        pendingInstrumentName={pendingInstrumentName}
+        conductorScores={conductorScores}
+        targetLayoutIds={targetLayoutIds}
+        onToggleTarget={onToggleTarget}
+        onConfirm={onConfirm}
+      />
+    </>
   );
 }

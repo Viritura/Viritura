@@ -9,6 +9,7 @@ import {
   Section,
   FormField,
   FormInput,
+  PanelFooter,
   Select,
   ButtonGroup,
   Button,
@@ -138,7 +139,6 @@ function UnitInput({
           inputRef.current?.blur();
         }
       }}
-      className={css.unitInput}
     />
   );
 }
@@ -152,6 +152,8 @@ interface PageSetupDialogProps {
   initialSetup: PageSetup;
   /** Render the editor directly in a panel instead of inside a modal dialog. */
   embedded?: boolean;
+  /** Content rendered before embedded page-setup sections inside the scrolling panel body. */
+  embeddedPreamble?: React.ReactNode;
   /**
    * Optional name of the score/layout being formatted (e.g. "Violin I",
    * "Full Score"). Shown in the dialog title so the user knows what
@@ -170,24 +172,29 @@ interface PageSetupDialogProps {
 
 function EmbeddedPageSetup({
   children,
+  preamble,
   onReset,
   onApply,
 }: {
   children: React.ReactNode;
+  preamble?: React.ReactNode;
   onReset: () => void;
   onApply: () => void;
 }) {
   return (
     <div className={css.embedded}>
-      <div className={css.form}>{children}</div>
-      <div className={css.embeddedActions}>
+      <div className={`viritura-scroll ${css.form}`}>
+        {preamble}
+        {children}
+      </div>
+      <PanelFooter className={css.embeddedActions}>
         <Button variant="ghost" size="sm" onClick={onReset}>
           Reset to document default
         </Button>
         <Button variant="primary" size="sm" onClick={onApply}>
           Apply
         </Button>
-      </div>
+      </PanelFooter>
     </div>
   );
 }
@@ -275,6 +282,7 @@ export function PageSetupDialog({
   onApply,
   initialSetup,
   embedded = false,
+  embeddedPreamble,
   scopeName,
   onResetToDefault,
 }: PageSetupDialogProps) {
@@ -445,7 +453,7 @@ export function PageSetupDialog({
 
   if (embedded) {
     return (
-      <EmbeddedPageSetup onReset={resetToDefault} onApply={handleApply}>
+      <EmbeddedPageSetup preamble={embeddedPreamble} onReset={resetToDefault} onApply={handleApply}>
         {formFields}
       </EmbeddedPageSetup>
     );
@@ -534,10 +542,10 @@ function PageSizeSection({
       <FormField label="Preset" horizontal>
         <Select value={pageSizeName} onValueChange={onPageSizeChange} options={pageSizeOptions} />
       </FormField>
-      <FormField label="Width" horizontal>
+      <FormField label="Width (mm)" horizontal>
         <UnitInput value={width} onChange={onWidthChange} min={50} max={1000} />
       </FormField>
-      <FormField label="Height" horizontal>
+      <FormField label="Height (mm)" horizontal>
         <UnitInput value={height} onChange={onHeightChange} min={50} max={1000} />
       </FormField>
       <FormField label="Orientation" horizontal>
@@ -578,16 +586,16 @@ function MarginsSection({
   return (
     <Section title="Margins">
       <div className={css.marginGrid}>
-        <FormField label="Top" horizontal>
+        <FormField label="Top (mm)" horizontal>
           <UnitInput value={marginTop} onChange={onMarginTopChange} min={0} max={100} />
         </FormField>
-        <FormField label="Bottom" horizontal>
+        <FormField label="Bottom (mm)" horizontal>
           <UnitInput value={marginBottom} onChange={onMarginBottomChange} min={0} max={100} />
         </FormField>
-        <FormField label="Left" horizontal>
+        <FormField label="Left (mm)" horizontal>
           <UnitInput value={marginLeft} onChange={onMarginLeftChange} min={0} max={100} />
         </FormField>
-        <FormField label="Right" horizontal>
+        <FormField label="Right (mm)" horizontal>
           <UnitInput value={marginRight} onChange={onMarginRightChange} min={0} max={100} />
         </FormField>
       </div>

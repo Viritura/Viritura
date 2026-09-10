@@ -1,42 +1,15 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useState } from "react";
 import type { Part } from "@viritura/core";
 import type { PartDisplayInfo } from "@viritura/core";
-import { Button, FormField, FormInput } from "@viritura/ui";
-import { Repeat2 } from "lucide-react";
+import { FormField, FormInput, SettingsRow } from "@viritura/ui";
 import { isPercussionPart } from "../../../score/kitInput";
 import { KitMappingPreview, type KitComponentEdit } from "../../DrumKitDialog";
 import { buildTransposition, partEditBuffersFor, type PartUpdate } from "./transposition";
 import { RosterPartHeader } from "./RosterPartHeader";
 import { RosterPartTransposeFields } from "./RosterPartTransposeFields";
-import { RosterPartRemoveButton } from "./RosterPartRemoveButton";
-import { RosterPartDrumKitButton } from "./RosterPartDrumKitButton";
+import { RosterPartActions } from "./RosterPartActions";
 import { getCatalogInstrument } from "../../../score/InstrumentCatalog";
-
-const ROSTER_ROW_ROOT_STYLE: CSSProperties = { borderBottom: "1px solid var(--border, rgba(20, 20, 28, 0.06))" };
-const ROSTER_ROW_EXPANDED_STYLE: CSSProperties = {
-  padding: "10px 12px 14px 26px",
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-  background: "linear-gradient(180deg, rgba(20, 20, 28, 0.025), rgba(20, 20, 28, 0.01))",
-  borderTop: "1px solid rgba(20, 20, 28, 0.05)",
-};
-const KIT_PREVIEW_LABEL_STYLE: CSSProperties = {
-  fontSize: "var(--type-eyebrow-size)",
-  fontWeight: "var(--type-heading-weight)",
-  color: "var(--text-muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  marginTop: 6,
-};
-const INSTRUMENT_IDENTITY_STYLE: CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 8,
-  color: "var(--text-muted)",
-  fontSize: "var(--type-small-size)",
-  marginBottom: 4,
-};
+import styles from "./RosterPartRow.module.css";
 
 export interface RosterPartRowProps {
   part: Part;
@@ -104,67 +77,52 @@ export function RosterPartRow({
   }, [part.id, onUpdate, name, shortName, chromatic, staffDistance, keyFifthsFlipAt, prefersWritten]);
 
   const displayName = info?.displayName ?? part.name;
-  const displayShort = info?.displayShortName ?? part.shortName;
   const isPercussion = isPercussionPart(part);
   const catalogInstrument = part._x?.viritura?.instrumentId
     ? getCatalogInstrument(part._x.viritura.instrumentId)
     : undefined;
 
   return (
-    <div style={ROSTER_ROW_ROOT_STYLE}>
-      <RosterPartHeader
-        part={part}
-        displayName={displayName}
-        displayShort={displayShort}
-        expanded={expanded}
-        onToggle={onToggle}
-      />
+    <div className={styles.root}>
+      <RosterPartHeader displayName={displayName} expanded={expanded} onToggle={onToggle} />
       {expanded && (
-        <div style={ROSTER_ROW_EXPANDED_STYLE}>
-          {catalogInstrument && (
-            <div style={INSTRUMENT_IDENTITY_STYLE}>
-              <span>Instrument</span>
-              <strong>{catalogInstrument.name}</strong>
-            </div>
-          )}
-          {part.id && onChangeInstrument && (
-            <Button fullWidth size="sm" variant="default" onClick={() => onChangeInstrument(part.id!)}>
-              <Repeat2 size={11} />
-              Change Instrument…
-            </Button>
-          )}
-          <FormField label="Name">
-            <FormInput
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-            />
-          </FormField>
-          <FormField label="Short name">
-            <FormInput
-              value={shortName}
-              onChange={(e) => setShortName(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              placeholder="e.g. Fl."
-            />
-          </FormField>
+        <div className={styles.expanded}>
+          <SettingsRow label="Instrument">
+            <span className={styles.instrumentValue}>{catalogInstrument?.name ?? part.name}</span>
+          </SettingsRow>
+          <div className={styles.nameFields}>
+            <FormField label="Name">
+              <FormInput
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+              />
+            </FormField>
+            <FormField label="Short name">
+              <FormInput
+                value={shortName}
+                onChange={(e) => setShortName(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                placeholder="e.g. Fl."
+              />
+            </FormField>
+          </div>
           {isPercussion ? (
             // Percussion parts don't transpose — show the drum-kit mapping
             // instead, with editing deferred to the full Drum Kit dialog.
             <>
               {kitRows ? (
                 <>
-                  <span style={KIT_PREVIEW_LABEL_STYLE}>Percussion map</span>
+                  <span className={styles.sectionLabel}>Percussion map</span>
                   <KitMappingPreview rows={kitRows} />
                 </>
               ) : null}
-              {onEditDrumKit && part.id && <RosterPartDrumKitButton partId={part.id} onEditDrumKit={onEditDrumKit} />}
             </>
           ) : (
             <RosterPartTransposeFields
@@ -183,8 +141,15 @@ export function RosterPartRow({
               onUpdate={onUpdate}
             />
           )}
-          {canRemove && onRemove && part.id && (
-            <RosterPartRemoveButton partId={part.id} displayName={displayName} onRemove={onRemove} />
+          {part.id && (
+            <RosterPartActions
+              partId={part.id}
+              displayName={displayName}
+              canRemove={canRemove}
+              onChangeInstrument={onChangeInstrument}
+              onEditDrumKit={isPercussion ? onEditDrumKit : undefined}
+              onRemove={onRemove}
+            />
           )}
         </div>
       )}

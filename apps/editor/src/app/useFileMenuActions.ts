@@ -23,6 +23,7 @@ import { useProjectStore, bootProjectFromHandle } from "../store/projectStore";
 import type { DocumentStore } from "../store/documentStore";
 import type { ScoreSample } from "../scoreSamples";
 import { isFolderProjectSupported } from "./projectFolder";
+import type { InitialScoreSettings } from "../score/ScoreBuilder";
 
 export interface FileMenuDeps {
   store: DocumentStore;
@@ -38,7 +39,11 @@ export interface FileMenuDeps {
   suppressTrackBanner: boolean;
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
   onChooseProjectLocation: () => Promise<FileSystemDirectoryHandle | null>;
-  onNewScore: (projectName?: string, parentHandle?: FileSystemDirectoryHandle) => Promise<boolean>;
+  onNewScore: (
+    projectName?: string,
+    parentHandle?: FileSystemDirectoryHandle,
+    initialScore?: InitialScoreSettings,
+  ) => Promise<boolean>;
 }
 
 export interface FileMenuActions {
@@ -52,7 +57,11 @@ export interface FileMenuActions {
   handleSelectSample: (sample: ScoreSample) => Promise<void>;
   handleStartCenterClose: () => void;
   handleStartCenterChooseProjectLocation: () => Promise<FileSystemDirectoryHandle | null>;
-  handleStartCenterNewScore: (projectName: string, parentHandle: FileSystemDirectoryHandle) => Promise<boolean>;
+  handleStartCenterNewScore: (
+    projectName: string,
+    parentHandle: FileSystemDirectoryHandle,
+    initialScore: InitialScoreSettings,
+  ) => Promise<boolean>;
   handleStartCenterOpenFile: () => Promise<void>;
   handleStartCenterOpenProject: () => Promise<void>;
   handleStartCenterImport: () => Promise<void>;
@@ -213,8 +222,8 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
   }, [loadDefaultScore, store]);
 
   const handleStartCenterNewScore = useCallback(
-    async (projectName: string, parentHandle: FileSystemDirectoryHandle) => {
-      const created = await onNewScore(projectName, parentHandle);
+    async (projectName: string, parentHandle: FileSystemDirectoryHandle, initialScore: InitialScoreSettings) => {
+      const created = await onNewScore(projectName, parentHandle, initialScore);
       if (created) setStartCenterOpen(false);
       return created;
     },

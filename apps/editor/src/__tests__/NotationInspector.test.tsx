@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useEffect, type ReactNode } from "react";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
@@ -30,7 +30,7 @@ function withProviders(children: ReactNode) {
 function buildScore(): Score {
   return {
     mnx: { version: 1 },
-    global: { measures: [{ id: "m1" }] },
+    global: { measures: [{ id: "m1", key: { fifths: 0 } }] },
     parts: [
       {
         name: "Piano",
@@ -111,17 +111,19 @@ function buildScore(): Score {
   };
 }
 
-function Harness({ elementId }: { elementId?: string }) {
+function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: number }) {
   const { loadScore } = useDocumentActions();
   const { score, mnxJson } = useDocument();
   const { selectElement } = useSelectionActions();
 
   useEffect(() => {
-    loadScore(buildScore(), "test.mnx");
+    const initial = buildScore();
+    initial.parts[0]!.staves = staves;
+    loadScore(initial, "test.mnx");
     if (elementId) {
       selectElement(elementId);
     }
-  }, [loadScore, selectElement, elementId]);
+  }, [loadScore, selectElement, elementId, staves]);
 
   return (
     <>
@@ -267,6 +269,30 @@ describe("NotationInspector", () => {
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
   });
 
+  it("shows color only for a selected MNX-colorable object", async () => {
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
+
+    await screen.findByText(/Selected: event/);
+    expect(screen.queryByText("Color")).toBeNull();
+  });
+
+  it("applies and resets color directly on the selected key signature", async () => {
+    render(withProviders(<Harness elementId="p0/m0/key" />));
+
+    const picker = (await screen.findByLabelText("Choose color for selected key signature")) as HTMLInputElement;
+    expect(screen.getByText("Applies to the selected key signature.")).toBeTruthy();
+    expect(screen.queryByText("Target")).toBeNull();
+
+    fireEvent.change(picker, { target: { value: "#ff0000" } });
+    fireEvent.change(picker, { target: { value: "#3366ff" } });
+    expect(picker.value).toBe("#3366ff");
+    expect(currentScore().global.measures[0]!.key?.color).toBeUndefined();
+    await waitFor(() => expect(currentScore().global.measures[0]!.key?.color).toBe("#3366ff"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.key?.color).toBeUndefined());
+  });
+
   it("edits the selected staff's line count from a measure selection", async () => {
     render(withProviders(<StaffConfigHarness />));
 
@@ -285,21 +311,91 @@ describe("NotationInspector", () => {
   });
 
   it("updates accidental display properties from the notation panel", async () => {
+    const user = userEvent.setup();
     render(withProviders(<Harness elementId="p0/m0/s0/ev1/n0" />));
 
-    const show = (await screen.findByRole("checkbox", { name: "Show" })) as HTMLInputElement;
-    const courtesy = screen.getByRole("checkbox", { name: "Courtesy (A)" }) as HTMLInputElement;
-    const parentheses = screen.getByRole("checkbox", { name: "( )" }) as HTMLInputElement;
+    const visibility = await screen.findByTestId("notation-accidental-display-mode");
+    const enclosure = screen.getByTestId("notation-accidental-enclosure");
 
-    expect(show.checked).toBe(false);
-    fireEvent.click(show);
-    await waitFor(() => expect(show.checked).toBe(true));
+    expect(within(visibility).getByRole("radio", { name: "Auto" }).getAttribute("aria-checked")).toBe("true");
+    expect(within(enclosure).getByRole("radio", { name: "Bare" }).textContent).toBe(String.fromCodePoint(0xe261));
+    await user.click(within(visibility).getByRole("radio", { name: "Show" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.accidentalDisplay).toEqual({
+        show: true,
+        force: true,
+      });
+    });
 
-    fireEvent.click(courtesy);
-    await waitFor(() => expect(courtesy.checked).toBe(true));
+    await user.click(within(enclosure).getByRole("radio", { name: "Parentheses" }));
+    await waitFor(() => {
+      expect(
+        currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.accidentalDisplay?.enclosure,
+      ).toEqual({ symbol: "parentheses" });
+    });
 
-    fireEvent.click(parentheses);
-    await waitFor(() => expect(parentheses.checked).toBe(true));
+    await user.click(within(visibility).getByRole("radio", { name: "Hide" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.accidentalDisplay).toEqual({
+        show: false,
+        force: true,
+      });
+    });
+
+    await user.click(within(visibility).getByRole("radio", { name: "Auto" }));
+    await waitFor(() => {
+      expect(
+        currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.accidentalDisplay,
+      ).toBeUndefined();
+    });
+  });
+
+  it("updates the rendered notehead override from the notation panel", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/n0" />));
+
+    const noteheadPicker = await screen.findByRole("radiogroup", { name: "Notehead shape" });
+    await user.click(within(noteheadPicker).getByRole("radio", { name: "Diamond" }));
+
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0];
+      expect(event?.type === "event" ? event.notes?.map((note) => note.notehead) : []).toEqual(["diamond", "diamond"]);
+    });
+  });
+
+  it("supports roving keyboard navigation in text and glyph pickers", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/n0" />));
+
+    const visibility = await screen.findByTestId("notation-accidental-display-mode");
+    const auto = within(visibility).getByRole("radio", { name: "Auto" });
+    const show = within(visibility).getByRole("radio", { name: "Show" });
+    const hide = within(visibility).getByRole("radio", { name: "Hide" });
+    expect(auto.tabIndex).toBe(0);
+    expect(show.tabIndex).toBe(-1);
+
+    auto.focus();
+    await user.keyboard("{ArrowLeft}");
+    await waitFor(() => {
+      expect(document.activeElement).toBe(hide);
+      expect(hide.getAttribute("aria-checked")).toBe("true");
+      expect(hide.tabIndex).toBe(0);
+    });
+
+    await user.keyboard("{Home}");
+    await waitFor(() => expect(document.activeElement).toBe(auto));
+    await user.keyboard("{End}");
+    await waitFor(() => expect(document.activeElement).toBe(hide));
+
+    const enclosure = screen.getByTestId("notation-accidental-enclosure");
+    const bare = within(enclosure).getByRole("radio", { name: "Bare" });
+    const parentheses = within(enclosure).getByRole("radio", { name: "Parentheses" });
+    bare.focus();
+    await user.keyboard("{ArrowRight}");
+    await waitFor(() => {
+      expect(document.activeElement).toBe(parentheses);
+      expect(parentheses.getAttribute("aria-checked")).toBe("true");
+    });
   });
 
   it("edits a selected measure repeat's number display and counter", async () => {
@@ -591,14 +687,66 @@ describe("NotationInspector", () => {
   });
 
   it("edits layout override properties (stem direction)", async () => {
+    const user = userEvent.setup();
     render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
 
-    const stemSelect = (await screen.findByTestId("notation-layout-stem")) as HTMLSelectElement;
-    expect(stemSelect.disabled).toBe(false);
-    fireEvent.change(stemSelect, { target: { value: "up" } });
+    const stemPicker = await screen.findByTestId("notation-layout-stem");
+    await user.click(within(stemPicker).getByRole("radio", { name: "Up" }));
     await waitFor(() => {
-      expect((screen.getByTestId("notation-layout-stem") as HTMLSelectElement).value).toBe("up");
+      expect(
+        within(screen.getByTestId("notation-layout-stem"))
+          .getByRole("radio", { name: "Up" })
+          .getAttribute("aria-checked"),
+      ).toBe("true");
     });
+  });
+
+  it("hides tuplet overrides for a non-tuplet selection", async () => {
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
+
+    await screen.findByTestId("notation-layout-stem");
+    expect(screen.queryByText("Tuplet Overrides")).toBeNull();
+    expect(screen.queryByTestId("notation-layout-tuplet-orient")).toBeNull();
+  });
+
+  it("explains layout orientation controls and groups them before cross-staff", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
+
+    const stemHelp = await screen.findByRole("button", { name: "About Stem Direction" });
+    expect(screen.getByRole("button", { name: "About Event Orientation" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "About Sequence Orientation" })).toBeTruthy();
+    await user.hover(stemHelp);
+    expect((await screen.findAllByText(/selected event's stem direction/)).length).toBeGreaterThan(0);
+
+    const layoutControls = [
+      screen.getByTestId("notation-layout-event-orient"),
+      screen.getByTestId("notation-layout-seq-orient"),
+      screen.getByTestId("notation-layout-staff"),
+    ];
+    expect(
+      layoutControls[0]!.compareDocumentPosition(layoutControls[1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      layoutControls[1]!.compareDocumentPosition(layoutControls[2]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(layoutControls[2]!)
+        .getAllByRole("radio")
+        .map((option) => option.textContent),
+    ).toEqual(["Auto", "1", "2"]);
+    await user.click(within(layoutControls[2]!).getByRole("radio", { name: "2" }));
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0];
+      expect(event?.type === "event" ? event.staff : undefined).toBe(2);
+    });
+  });
+
+  it("hides cross-staff controls for single-staff instruments", async () => {
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1" staves={1} />));
+
+    await screen.findByTestId("notation-layout-stem");
+    expect(screen.queryByTestId("notation-layout-staff")).toBeNull();
   });
 
   it("edits the symbol, duration, and orientation of a selected fermata", async () => {

@@ -121,7 +121,7 @@ export function GitHubAdvancedUnlink({
                   </button>
                   {/* eslint-disable-next-line no-restricted-syntax -- destructive inline confirm; @viritura/ui Button chrome doesn't fit the inline disclosure. */}
                   <button type="button" className={styles.linkActionDanger} disabled={unlinking} onClick={handleUnlink}>
-                    <span>{unlinking ? "Unlinking…" : "Yes, unlink"}</span>
+                    <span>{unlinking ? "Unlinking" : "Yes, unlink"}</span>
                   </button>
                 </div>
               </div>
@@ -256,7 +256,7 @@ export function GoogleAdvancedUnlink({
                   </button>
                   {/* eslint-disable-next-line no-restricted-syntax -- destructive confirm matches GitHubAdvancedUnlink. */}
                   <button type="button" className={styles.linkActionDanger} disabled={unlinking} onClick={handleUnlink}>
-                    <span>{unlinking ? "Unlinking…" : "Yes, unlink"}</span>
+                    <span>{unlinking ? "Unlinking" : "Yes, unlink"}</span>
                   </button>
                 </div>
               </div>

@@ -84,7 +84,7 @@ const AppShellContext = createContext<AppShellContextValue>({
 // AppShell — the global header + content layout
 // ═══════════════════════════════════════════
 
-const HEADER_HEIGHT = 44;
+const HEADER_HEIGHT = 48;
 
 interface AppShellProps {
   children: ReactNode;

@@ -5,43 +5,28 @@
   min-height: 0;
 }
 
+.tabBar {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  background: transparent;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+[data-theme="dark"] .tabBar,
+[data-theme="midnight"] .tabBar {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
 .layouts {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-3);
-}
-
-.intro {
-  margin-bottom: var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--type-small-size);
-  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .selection {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.selectionHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.selectionHeader strong {
-  color: var(--text);
-  font-size: var(--type-control-size);
-}
-
-.selectionHeader span {
-  color: var(--text-muted);
-  font-size: var(--type-small-size);
-}
-
-.summary {
-  color: var(--text-muted);
-  font-size: var(--type-small-size);
 }

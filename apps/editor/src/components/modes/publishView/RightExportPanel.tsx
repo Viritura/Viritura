@@ -194,7 +194,7 @@ function DestinationRow({
           <span className={styles.destinationHint}>Files will be written here.</span>
         </div>
         <div className={styles.destinationBtns}>
-          <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Change…" />
+          <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Change" />
           <Button size="sm" onClick={onClearFolder} disabled={exporting} label="Clear" />
         </div>
       </div>
@@ -207,7 +207,7 @@ function DestinationRow({
         <span className={styles.destinationHint}>Pick a folder to write files directly without download prompts.</span>
       </div>
       <div className={styles.destinationBtns}>
-        <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Choose folder…" />
+        <Button size="sm" onClick={onPickFolder} disabled={exporting} label="Choose folder" />
       </div>
     </div>
   );

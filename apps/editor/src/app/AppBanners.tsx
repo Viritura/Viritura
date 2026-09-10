@@ -73,7 +73,7 @@ export function AppBanners(props: AppBannersProps): React.ReactElement {
           <Button
             variant="primary"
             size="sm"
-            label="Open folder…"
+            label="Open folder"
             onClick={() => {
               void handleTrackWithGit();
             }}

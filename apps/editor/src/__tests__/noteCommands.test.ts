@@ -8,7 +8,7 @@ import {
   addTie,
   findForwardSlurTargetId,
   setNoteAccidentalDisplay,
-  toggleCourtesyAccidental,
+  setNoteAccidentalDisplayMode,
   addNoteWithAutoTie,
   addRest,
   addPitchToChord,
@@ -1636,27 +1636,21 @@ describe("accidentalDisplay helpers", () => {
     expect(note.pitch.alter).toBe(1);
   });
 
-  it("toggles courtesy accidental force mode", () => {
+  it("sets and clears intentional accidental display modes", () => {
     const score = makeScoreWithSingleNote();
+    const location = { partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex: 0 };
 
-    toggleCourtesyAccidental(score, {
-      partIndex: 0,
-      measureIndex: 0,
-      sequenceIndex: 0,
-      eventIndex: 0,
-    });
+    setNoteAccidentalDisplayMode(score, location, "show");
     let note = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!;
     expect(note.accidentalDisplay).toEqual({ show: true, force: true });
 
-    toggleCourtesyAccidental(score, {
-      partIndex: 0,
-      measureIndex: 0,
-      sequenceIndex: 0,
-      eventIndex: 0,
-    });
+    setNoteAccidentalDisplay(score, { ...location, enclosureSymbol: "parentheses" });
+    setNoteAccidentalDisplayMode(score, location, "hide");
     note = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!;
-    expect(note.accidentalDisplay).toEqual({ show: true });
-    expect(note.pitch.alter).toBe(1);
+    expect(note.accidentalDisplay).toEqual({ show: false, force: true });
+
+    setNoteAccidentalDisplayMode(score, location, "auto");
+    expect(note.accidentalDisplay).toBeUndefined();
   });
 });
 
