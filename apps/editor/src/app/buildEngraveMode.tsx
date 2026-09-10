@@ -76,6 +76,7 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
           activeScoreIndex={engrave.activeScoreIndex}
           onApplyPageSetup={engrave.pageSetup.handleApplyPageSetup}
           onResetPageSetup={engrave.pageSetup.handleResetPageSetup}
+          onInstrumentNameDisplayChange={engrave.handleInstrumentNameDisplayChange}
         />
       </Panel>,
     );

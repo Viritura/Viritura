@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Loader2, UserRound } from "lucide-react";
-import { Tooltip } from "@viritura/ui";
+import { IconButton, Tooltip } from "@viritura/ui";
 import { useGitHubAccount, type GitHubAccountState } from "../github/useGitHubAccount";
 import { SignInDialog } from "./SignInDialog";
 import { useVirituraAccount, type VirituraAccountState } from "./useVirituraAccount";
@@ -48,11 +48,11 @@ export function AccountButton({
         {/* Opens to the right: the activity bar is a vertical strip, so a
          *  bottom-opening tooltip would cover the next button down. */}
         <Tooltip content="Sign in to Viritura" side="right" open={dialogOpen ? false : undefined}>
-          {/* eslint-disable-next-line no-restricted-syntax -- activity-bar avatar trigger; bespoke circular chrome with status-based hover treatment, no @viritura/ui primitive models it. */}
-          <button
-            type="button"
-            className={styles.trigger}
-            data-state-kind={account.status}
+          <IconButton
+            size="rail"
+            variant="ghost"
+            className={account.status === "error" ? styles.error : undefined}
+            tooltipSide="right"
             aria-label="Sign in to Viritura"
             onClick={() => setDialogOpen(true)}
           >
@@ -61,7 +61,7 @@ export function AccountButton({
             ) : (
               <UserRound size={18} aria-hidden="true" />
             )}
-          </button>
+          </IconButton>
         </Tooltip>
         <SignInDialog open={dialogOpen} account={account} onClose={() => setDialogOpen(false)} />
       </>
@@ -77,15 +77,9 @@ export function AccountButton({
       {/* Suppressed while the popover is open, or it would sit over the panel. */}
       <Tooltip content={`Signed in as ${displayLabel}`} side="right" open={popoverOpen ? false : undefined}>
         <Popover.Trigger asChild>
-          {/* eslint-disable-next-line no-restricted-syntax -- activity-bar avatar trigger; bespoke circular chrome with status-based hover treatment, no @viritura/ui primitive models it. */}
-          <button
-            type="button"
-            className={styles.trigger}
-            data-state-kind={account.status}
-            aria-label={`Signed in as ${displayLabel}`}
-          >
+          <IconButton size="rail" variant="ghost" tooltipSide="right" aria-label={`Signed in as ${displayLabel}`}>
             <AvatarBubble avatarUrl={avatarUrl} initials={initials} size={22} />
-          </button>
+          </IconButton>
         </Popover.Trigger>
       </Tooltip>
       <Popover.Portal>

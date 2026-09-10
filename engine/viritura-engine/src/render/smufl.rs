@@ -834,9 +834,10 @@ pub mod smufl {
         }
     }
 
-    /// Get the percussion / shape notehead glyph for a kit-component shape and duration.
+    /// Get a shaped notehead glyph for a shape and duration.
+    /// Used by both pitched-note overrides and percussion kit components.
     /// Falls back to the standard notehead_glyph when shape is None or Normal.
-    pub fn percussion_notehead_glyph(
+    pub fn shaped_notehead_glyph(
         shape: Option<&crate::model::kit::NoteheadShape>,
         duration: &crate::model::NoteValueBase,
     ) -> u32 {

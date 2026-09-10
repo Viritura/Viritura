@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
 import type { Score } from "@viritura/core";
 import type { SelectableElementType } from "../../score/elementTypes";
-import type { SelectionState } from "../../store/selectionStore";
 import { sectionForElementType, type InspectorSection } from "./notationInspectorMeta";
 import {
   setPrimarySlurProperties,
@@ -12,10 +11,10 @@ import {
   type NotationSelectionTarget,
 } from "../../commands/notationInspectorCommands";
 import {
-  applyColorToTarget,
+  applyColorToSelection,
   normalizeHexColor,
-  parseSelectionContext,
-  type ColorTarget,
+  resolveColorSelectionTarget,
+  type ColorSelectionTarget,
 } from "../../commands/colorCommands";
 
 interface AutoScrollArgs {
@@ -175,28 +174,39 @@ export function useTieSlurHandlers({ score, target, updateScore }: TieSlurHandle
 
 interface ColorHandlersArgs {
   score: Score | null;
-  selection: SelectionState;
+  target: NotationSelectionTarget | null;
   updateScore: (s: Score) => void;
 }
 
 export interface ColorHandlers {
-  colorTarget: ColorTarget;
-  setColorTarget: (t: ColorTarget) => void;
+  selectionTarget: ColorSelectionTarget | null;
   colorInput: string;
   setColorInput: (v: string) => void;
   colorError: string | null;
   setColorError: (v: string | null) => void;
-  applySelectedColor: (rawColor: string) => void;
+  applySelectedColor: (rawColor: string | null) => void;
 }
 
-export function useColorHandlers({ score, selection, updateScore }: ColorHandlersArgs): ColorHandlers {
-  const [colorTarget, setColorTarget] = useState<ColorTarget>("key");
+export function useColorHandlers({ score, target, updateScore }: ColorHandlersArgs): ColorHandlers {
+  const selectionTarget = score ? resolveColorSelectionTarget(score, target) : null;
   const [colorInput, setColorInput] = useState("#000000");
   const [colorError, setColorError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setColorInput(selectionTarget?.color ?? "#000000");
+    setColorError(null);
+  }, [selectionTarget?.color, selectionTarget?.kind, target?.elementId]);
+
   const applySelectedColor = useCallback(
-    (rawColor: string) => {
-      if (!score || selection.kind !== "single") return;
+    (rawColor: string | null) => {
+      if (!score || !target || !selectionTarget) return;
+      if (rawColor === null) {
+        setColorInput("#000000");
+        setColorError(null);
+        const newScore = applyColorToSelection(score, target, null);
+        if (newScore !== score) updateScore(newScore);
+        return;
+      }
       const parsed = normalizeHexColor(rawColor);
       if (!parsed) {
         setColorError("Use #RRGGBB");
@@ -204,17 +214,14 @@ export function useColorHandlers({ score, selection, updateScore }: ColorHandler
       }
       setColorInput(parsed);
       setColorError(null);
-      const context = parseSelectionContext(selection.elementId, score);
-      if (!context) return;
-      const newScore = applyColorToTarget(score, colorTarget, parsed, context);
+      const newScore = applyColorToSelection(score, target, parsed);
       if (newScore !== score) updateScore(newScore);
     },
-    [score, selection, colorTarget, updateScore],
+    [score, target, selectionTarget, updateScore],
   );
 
   return {
-    colorTarget,
-    setColorTarget,
+    selectionTarget,
     colorInput,
     setColorInput,
     colorError,

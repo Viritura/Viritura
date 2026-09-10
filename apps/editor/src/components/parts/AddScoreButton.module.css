@@ -1,0 +1,7 @@
+.trigger {
+  justify-content: center;
+}
+
+.trigger > svg {
+  display: none;
+}

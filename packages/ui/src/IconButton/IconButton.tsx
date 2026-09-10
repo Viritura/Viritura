@@ -20,8 +20,10 @@ export interface IconButtonProps {
    *  clickable surface (e.g. a row that opens on click). */
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   /** Size variant. `xs` is a compact 18px tile for letter glyphs in dense
-   *  rows (mixer M/S capsules). */
-  size?: "xs" | "sm" | "md" | "lg";
+   *  rows (mixer M/S capsules); `rail` is the 40px navigation-rail control. */
+  size?: "xs" | "sm" | "md" | "lg" | "rail";
+  /** Visual treatment inherited from the shared Button primitive. */
+  variant?: ButtonProps["variant"];
   /** Whether the button is disabled */
   disabled?: boolean;
   /** Test ID for testing */
@@ -51,6 +53,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     activeColor,
     onClick,
     size = "lg",
+    variant = "default",
     disabled,
     testId,
     className,
@@ -64,6 +67,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       shape="icon"
       size={size}
+      variant={variant}
       tooltip={tooltip}
       tooltipSide={tooltipSide}
       ariaLabel={rest["aria-label"] ?? tooltip}

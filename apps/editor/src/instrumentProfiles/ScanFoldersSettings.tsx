@@ -19,10 +19,10 @@ function FolderList({
     <div className={styles.folderGroup}>
       <div className={styles.folderGroupHeader}>
         <span className={styles.sectionTitle}>{title}</span>
-        <Button label="Add folder…" onClick={onAdd} />
+        <Button label="Add folder" onClick={onAdd} />
       </div>
       {folders.length === 0 ? (
-        <div className={styles.emptySection}>No folders yet. Use “Add folder…”.</div>
+        <div className={styles.emptySection}>No folders yet. Use “Add folder”.</div>
       ) : (
         <div className={styles.slotRows}>
           {folders.map((folder) => (

@@ -72,7 +72,7 @@ export function TwoFactorRow({ user }: { readonly user: VirituraUser }) {
       }
       action={
         <Button aria-expanded={open} onClick={handleToggle} disabled={status === null && !statusError}>
-          {enabled ? "Manage…" : "Set up…"}
+          {enabled ? "Manage" : "Set up"}
         </Button>
       }
       details={
@@ -384,7 +384,7 @@ function TwoFactorFormActions({
         className={danger ? styles.linkActionDanger : styles.linkActionPrimary}
         disabled={submitting}
       >
-        <span>{submitting ? "Saving…" : submitLabel}</span>
+        <span>{submitting ? "Saving" : submitLabel}</span>
       </button>
     </div>
   );

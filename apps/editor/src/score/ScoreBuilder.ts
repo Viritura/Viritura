@@ -43,6 +43,8 @@ export interface NewScoreSettings {
   versioning?: "project" | "standalone";
 }
 
+export type InitialScoreSettings = Pick<NewScoreSettings, "time" | "keyFifths" | "measureCount" | "tempoBpm">;
+
 /** Default settings for a new blank score. */
 export const DEFAULT_NEW_SCORE_SETTINGS: NewScoreSettings = {
   title: "Untitled Score",

@@ -34,6 +34,9 @@ export function ActivityBar({
             onClick={() => onViewChange(item.view)}
             tooltip={item.label}
             tooltipSide="right"
+            className={styles.item}
+            size="rail"
+            variant="ghost"
           >
             <Icon size={20} />
           </IconButton>
@@ -43,7 +46,15 @@ export function ActivityBar({
         <McpActivityButton />
         <LiveActivityButton />
         <AccountButton onOpenSettings={onOpenAccountSettings} />
-        <IconButton tooltip="Settings" tooltipSide="right" active={settingsOpen} onClick={onToggleSettings}>
+        <IconButton
+          tooltip="Settings"
+          tooltipSide="right"
+          active={settingsOpen}
+          onClick={onToggleSettings}
+          className={styles.item}
+          size="rail"
+          variant="ghost"
+        >
           <Settings size={20} />
         </IconButton>
       </div>

@@ -37,7 +37,7 @@ export interface DrumKitDialogProps {
 }
 
 const PRESET_OPTIONS = [
-  { value: "", label: "Load preset…" },
+  { value: "", label: "Load preset" },
   ...PERCUSSION_PRESETS.map((p) => ({ value: p.id, label: `${p.name} — ${p.description}` })),
 ];
 

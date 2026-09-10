@@ -79,7 +79,7 @@ export function ModalFlowHost(): React.JSX.Element {
           description="Name the project folder Viritura will create inside the location you choose next."
           label="Project name"
           initialValue={projectName.initialValue}
-          confirmLabel="Choose Location…"
+          confirmLabel="Choose Location"
           allowEmpty={false}
           onSubmit={(value) => {
             const error = getProjectFolderNameError(value);

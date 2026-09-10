@@ -29,7 +29,7 @@ pub(crate) fn promote_kit_component(raw: raw::KitComponent) -> KitComponent {
     }
 }
 
-fn parse_notehead_shape(s: &str) -> Option<NoteheadShape> {
+pub(crate) fn parse_notehead_shape(s: &str) -> Option<NoteheadShape> {
     Some(match s {
         "normal" => NoteheadShape::Normal,
         "x" => NoteheadShape::X,

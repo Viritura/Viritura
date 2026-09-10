@@ -51,7 +51,6 @@ import {
   applyArticulationToSelection,
   applyArpeggioToSelection,
   applyBreathMarkToSelection,
-  applyCourtesyAccidentalToSelection,
   applyFingeringToSelection,
   applyOrnamentToSelection,
   applyTrillToSelection,
@@ -1154,14 +1153,8 @@ export function PalettePanel() {
     });
   }, [handleTuplet]);
 
-  // â”€â”€ Accidental display handlers â”€â”€
-
-  const handleCourtesyAccidental = useCallback(() => {
-    applySelectionScore((score, sel) => applyCourtesyAccidentalToSelection(score, sel, selectedScoreIndex));
-  }, [applySelectionScore, selectedScoreIndex]);
-
   // ── Keyboard shortcuts for palette actions (registered centrally) ──
-  // Z/X/C/V/B = articulations; A = courtesy accidental.
+  // Z/X/C/V/B = articulations.
   // Articulations are normal-mode only — registered as global with a
   // mutually-exclusive `when` predicate so the registry knows they're
   // disabled in note-input mode.
@@ -1169,19 +1162,11 @@ export function PalettePanel() {
   // The keyboard registry calls these handlers from outside React (after
   // commit), so wrap the latest-value reads in `useEffectEvent`: the
   // registration Effect runs once on mount, but each invocation always
-  // sees the latest committed `handleArticulation`/`handleCourtesyAccidental`
-  // and `state.active`. (React 19 stable; see
+  // sees the latest committed `handleArticulation` and `state.active`. (React 19 stable; see
   // https://react.dev/reference/react/useEffectEvent.)
   const onArticulationKey = useEffectEvent((art: ArticulationType) => {
     handleArticulation(art)();
   });
-  const onCourtesyAccidentalKey = useEffectEvent(() => {
-    const sel = useSelectionStore.getState().selection;
-    if (sel.kind === "single" && !useNoteInputStore.getState().active) {
-      handleCourtesyAccidental();
-    }
-  });
-
   useEffect(() => {
     const articulationMap: Record<string, ArticulationType> = {
       Z: "staccato",
@@ -1203,16 +1188,6 @@ export function PalettePanel() {
         }),
       );
     }
-    teardowns.push(
-      keyboardRegistry.register({
-        id: "palette.courtesyAccidental",
-        key: "A",
-        context: "normal",
-        handler: () => {
-          onCourtesyAccidentalKey();
-        },
-      }),
-    );
     return () => {
       for (const t of teardowns) t();
     };
@@ -1410,7 +1385,7 @@ export function PalettePanel() {
               <BarlineGlyph glyph={p.glyph} />
             </PaletteButton>
           ))}
-          <PaletteButton shape="wide" label="Add bars…" title="Insert bars at the selection" onClick={handleAddBars} />
+          <PaletteButton shape="wide" label="Add bars" title="Insert bars at the selection" onClick={handleAddBars} />
         </div>
       ),
     },

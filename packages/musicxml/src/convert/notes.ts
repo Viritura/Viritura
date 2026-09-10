@@ -101,7 +101,19 @@ export function buildNote(
   if (accidental) {
     const accText = accidental.textContent ?? "";
     if (accText in ACCIDENTAL_MAP) {
-      note.accidentalDisplay = { show: true };
+      const intentional =
+        accidental.getAttribute("cautionary") === "yes" || accidental.getAttribute("editorial") === "yes";
+      const enclosure =
+        accidental.getAttribute("bracket") === "yes"
+          ? { symbol: "brackets" as const }
+          : accidental.getAttribute("parentheses") === "yes"
+            ? { symbol: "parentheses" as const }
+            : undefined;
+      note.accidentalDisplay = {
+        show: true,
+        ...(intentional ? { force: true } : {}),
+        ...(enclosure ? { enclosure } : {}),
+      };
     }
   }
 

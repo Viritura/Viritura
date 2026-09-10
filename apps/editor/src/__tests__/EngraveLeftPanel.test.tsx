@@ -21,11 +21,11 @@ const SCORE: Score = {
     {
       id: "full",
       content: [
-        { type: "staff", sources: [{ part: "p1" }] },
-        { type: "staff", sources: [{ part: "p2" }] },
+        { type: "staff", sources: [{ part: "p1", labelref: "name" }] },
+        { type: "staff", sources: [{ part: "p2", labelref: "name" }] },
       ],
     },
-    { id: "flute", content: [{ type: "staff", sources: [{ part: "p1" }] }] },
+    { id: "flute", content: [{ type: "staff", sources: [{ part: "p1", labelref: "name" }] }] },
   ],
   scores: [
     { name: "Full Score", layout: "full", pageSetup: { width: 297, height: 420, spatiumMm: 1.25 } },
@@ -40,7 +40,7 @@ function WithScore({ children }: { readonly children: ReactNode }) {
   return loaded ? children : null;
 }
 
-function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn()) {
+function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onInstrumentNameDisplayChange = vi.fn()) {
   return {
     ...render(
       <TooltipPrimitives.Provider delayDuration={0}>
@@ -51,6 +51,7 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn()) {
               activeScoreIndex={0}
               onApplyPageSetup={onApplyPageSetup}
               onResetPageSetup={onResetPageSetup}
+              onInstrumentNameDisplayChange={onInstrumentNameDisplayChange}
             />
           </WithScore>
         </DocumentProvider>
@@ -58,6 +59,7 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn()) {
     ),
     onApplyPageSetup,
     onResetPageSetup,
+    onInstrumentNameDisplayChange,
   };
 }
 
@@ -69,7 +71,7 @@ describe("EngraveLeftPanel", () => {
     expect(await screen.findByLabelText("Search house style")).toBeTruthy();
     await user.click(screen.getByRole("tab", { name: "Layouts" }));
 
-    expect(screen.getByText("Layout settings for the score or part selected in the header.")).toBeTruthy();
+    expect(screen.getByText("Instrument Labels")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Apply" })).toBeTruthy();
   });
 
@@ -93,7 +95,21 @@ describe("EngraveLeftPanel", () => {
       expect.objectContaining({ width: 297, height: 420, spatiumMm: 1.25 }),
     );
     expect(screen.queryByRole("button", { name: "Flute" })).toBeNull();
-    expect(screen.getByText("297 mm × 420 mm · 5 mm staff")).toBeTruthy();
+    expect(screen.queryByText("297 mm × 420 mm · 5 mm staff")).toBeNull();
+  });
+
+  it("edits instrument label display for the active layout", async () => {
+    const user = userEvent.setup();
+    const { onInstrumentNameDisplayChange } = renderPanel();
+
+    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    await user.click(screen.getByRole("combobox", { name: "First system" }));
+    await user.click(await screen.findByRole("option", { name: "Hidden" }));
+
+    expect(onInstrumentNameDisplayChange).toHaveBeenCalledWith({
+      firstSystem: "hidden",
+      subsequentSystems: "short",
+    });
   });
 
   it("preserves an embedded draft across equivalent parent rerenders", async () => {
@@ -108,7 +124,7 @@ describe("EngraveLeftPanel", () => {
     const { rerender } = render(
       <PageSetupDialog embedded initialSetup={setup} onApply={() => {}} onResetToDefault={() => {}} />,
     );
-    const width = screen.getByRole("textbox", { name: "Width" }) as HTMLInputElement;
+    const width = screen.getByRole("textbox", { name: "Width (mm)" }) as HTMLInputElement;
     expect(screen.getByRole("radiogroup", { name: "Orientation" })).toBeTruthy();
     await user.clear(width);
     await user.type(width, "250");

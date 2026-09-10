@@ -203,6 +203,7 @@ function getEditableNote(score: Score, loc: NoteEditLocation): Note | null {
 }
 
 export type AccidentalEnclosureSymbolValue = "parentheses" | "brackets";
+export type AccidentalDisplayMode = "auto" | "show" | "hide";
 
 export interface SetNoteAccidentalDisplayParams extends NoteEditLocation {
   show?: boolean;
@@ -235,21 +236,25 @@ export function setNoteAccidentalDisplay(score: Score, params: SetNoteAccidental
   return score;
 }
 
-export type ToggleCourtesyAccidentalParams = NoteEditLocation;
-
-/**
- * Convenience toggle for courtesy accidental mode (show=true + force=true).
- */
-export function toggleCourtesyAccidental(score: Score, params: ToggleCourtesyAccidentalParams): Score | null {
+/** Apply a user-authored visibility override, or return visibility to the engraving algorithm. */
+export function setNoteAccidentalDisplayMode(
+  score: Score,
+  params: NoteEditLocation,
+  mode: AccidentalDisplayMode,
+): Score | null {
   const note = getEditableNote(score, params);
   if (!note) return null;
-  const current = note.accidentalDisplay;
-  const isCourtesy = current?.show === true && current.force === true;
-  return setNoteAccidentalDisplay(score, {
-    ...params,
-    show: true,
-    force: !isCourtesy,
-  });
+  if (mode === "auto") {
+    delete note.accidentalDisplay;
+    return score;
+  }
+
+  note.accidentalDisplay = {
+    show: mode === "show",
+    force: true,
+    ...(mode === "show" && note.accidentalDisplay?.enclosure ? { enclosure: note.accidentalDisplay.enclosure } : {}),
+  };
+  return score;
 }
 
 function editLocationKey(loc: EditEventLocation): string {

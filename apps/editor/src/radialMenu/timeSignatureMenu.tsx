@@ -41,7 +41,7 @@ export const TIME_SIGNATURE_ITEMS: RadialMenuItem[] = [
   {
     id: "custom",
     icon: "n/d",
-    label: "Custom…",
+    label: "Custom",
     expressionSeed: "5/8",
     ...keys(TIME_SIG_SEARCH, "custom"),
   },

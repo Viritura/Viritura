@@ -1,5 +1,7 @@
 .group {
   display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
   border-radius: var(--radius-pill);
   overflow: hidden;
   border: 1px solid rgba(20, 20, 28, 0.12);
@@ -16,10 +18,15 @@
 }
 
 .option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
   border: none;
   background: transparent;
-  padding: var(--space-1) var(--space-3);
+  padding: 0 var(--space-3);
   font-size: var(--type-small-size);
+  line-height: var(--type-control-lh);
   font-family: inherit;
   color: #54545c;
   cursor: pointer;
@@ -37,14 +44,24 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
-.option:hover:not(.active) {
+.option:hover:not(.active):not(:disabled) {
   color: var(--text);
   background: rgba(var(--accent-rgb, 33, 94, 78), 0.1);
 }
 
-[data-theme="dark"] .option:hover:not(.active),
-[data-theme="midnight"] .option:hover:not(.active),
-[data-on-dark] .option:hover:not(.active) {
+.option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.option:disabled:hover {
+  color: #54545c;
+  background: transparent;
+}
+
+[data-theme="dark"] .option:hover:not(.active):not(:disabled),
+[data-theme="midnight"] .option:hover:not(.active):not(:disabled),
+[data-on-dark] .option:hover:not(.active):not(:disabled) {
   color: #fff;
   background: rgba(255, 255, 255, 0.06);
 }
@@ -71,6 +88,13 @@
 
 /* Bravura glyph (icon) size — intentionally off the --type-* scale. */
 .bravura {
+  height: 40px;
   font-family: Bravura, serif;
-  font-size: 1.2rem;
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.active.bravura {
+  font-weight: 400;
 }

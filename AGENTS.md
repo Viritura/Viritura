@@ -115,6 +115,7 @@ prints the external per-worktree API environment-file path under
 
 - Rust: Use `serde` derive macros for all model types, snake_case
 - TypeScript: Strict mode, no `any`, prefer `interface` over `type`
+- **Action copy:** Button labels, menu commands, tiles, and busy-state action labels must not end in `…` or `...`. Keep the action label stable where possible and communicate progress with a spinner, disabled state, `aria-busy`, or a live status message. Ellipses remain valid in prose, search/input placeholders, truncation, and literal musical dot notation.
 - All music glyphs use SMuFL codepoints from `render/smufl.rs`, rendered via `DrawGlyph` command with `font: "Bravura"`
 - Layout computation happens in Rust, Canvas painting happens in TypeScript
 - **Engraving decisions:** Ground rendering rules in established engraving practice rather than inventing them ad hoc. Comments should describe the rule itself ("standard engraving practice: …") and not name any particular third-party implementation.

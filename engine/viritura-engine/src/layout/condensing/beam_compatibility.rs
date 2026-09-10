@@ -105,6 +105,7 @@ mod tests {
                 source_part_index: None,
                 kit_component: None,
                 perform: None,
+                notehead: None,
                 source_note_index: None,
                 source_event_id: None,
             }]),

@@ -121,7 +121,7 @@ function SignOutEverywhereRow({ account }: { readonly account: VirituraAccountSt
       <AccountSettingsRow
         label="Other sessions"
         description="Sign out browsers and devices when their session is next checked, within 30 minutes."
-        action={<Button onClick={() => setConfirming(true)}>Sign out everywhere…</Button>}
+        action={<Button onClick={() => setConfirming(true)}>Sign out everywhere</Button>}
       />
     );
   }
@@ -147,7 +147,7 @@ function SignOutEverywhereRow({ account }: { readonly account: VirituraAccountSt
       details={
         <div className={styles.confirmActions}>
           <Button size="sm" variant="danger" disabled={working} onClick={handle}>
-            {working ? "Signing out…" : "Confirm sign out everywhere"}
+            {working ? "Signing out" : "Confirm sign out everywhere"}
           </Button>
         </div>
       }
@@ -191,7 +191,7 @@ function GitHubRow({ github, user }: { readonly github: GitHubAccountState; read
       action={
         connected ? (
           <Button onClick={() => setManageOpen((open) => !open)} aria-expanded={manageOpen}>
-            Manage…
+            Manage
           </Button>
         ) : (
           <Button
@@ -203,7 +203,7 @@ function GitHubRow({ github, user }: { readonly github: GitHubAccountState; read
               });
             }}
           >
-            {loading ? "Checking…" : configured ? "Connect" : "Unavailable"}
+            {loading ? "Checking" : configured ? "Connect" : "Unavailable"}
           </Button>
         )
       }
@@ -245,7 +245,7 @@ function GoogleRow({ user, account }: { readonly user: VirituraUser; readonly ac
       action={
         connected ? (
           <Button onClick={() => setManageOpen((open) => !open)} aria-expanded={manageOpen}>
-            Manage…
+            Manage
           </Button>
         ) : (
           <Button

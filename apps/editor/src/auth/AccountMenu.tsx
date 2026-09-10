@@ -32,7 +32,7 @@ export function AccountMenu({
       <div className={styles.compactActions}>
         <Button variant="utility-row" size="sm" fullWidth onClick={onOpenSettings}>
           <Settings size={15} />
-          Account settings…
+          Account settings
         </Button>
         <Button
           variant="utility-row"

@@ -4,7 +4,7 @@ import type { CascadingMenuItem } from "./types";
 
 const fileItems: CascadingMenuItem[] = [
   { id: "new", label: "New Score", onSelect: () => {} },
-  { id: "open", label: "Open…", onSelect: () => {} },
+  { id: "open", label: "Open", onSelect: () => {} },
   { id: "save", label: "Save", onSelect: () => {} },
   { id: "sep-1", separator: true },
   { id: "export", label: "Export as PDF", onSelect: () => {} },

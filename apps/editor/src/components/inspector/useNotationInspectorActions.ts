@@ -25,7 +25,8 @@ import {
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import {
   setNoteAccidentalDisplay,
-  toggleCourtesyAccidental,
+  setNoteAccidentalDisplayMode,
+  type AccidentalDisplayMode,
   type AccidentalEnclosureSymbolValue,
 } from "../../commands/noteCommands";
 import { setTrillAccidental, planSetTrillAccidental } from "../../commands/articulationCommands";
@@ -463,9 +464,8 @@ export function useBarlineHandlers(
 }
 
 export interface AccidentalAndTrillHandlers {
-  handleAccidentalDisplayShow: () => void;
-  handleCourtesyAccidental: () => void;
-  handleAccidentalEnclosure: (symbol: AccidentalEnclosureSymbolValue) => () => void;
+  handleAccidentalDisplayModeChange: (mode: AccidentalDisplayMode) => void;
+  handleAccidentalEnclosureChange: (symbol: AccidentalEnclosureSymbolValue | null) => void;
   handleTrillAccidentalChange: (accidental: -1 | 0 | 1 | null) => () => void;
 }
 
@@ -497,36 +497,28 @@ export function useAccidentalAndTrillHandlers({
   updateScore,
   commitPatches,
 }: SelectionArgs): AccidentalAndTrillHandlers {
-  const handleAccidentalDisplayShow = useCallback(() => {
-    if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
-    const note = accidentalTargetNote(score, target);
-    if (!note) return;
-    const nextScore = produce(score, (draft) => {
-      setNoteAccidentalDisplay(draft, {
-        ...accidentalTargetParams(target),
-        show: !(note.accidentalDisplay?.show ?? false),
+  const handleAccidentalDisplayModeChange = useCallback(
+    (mode: AccidentalDisplayMode) => {
+      if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
+      const nextScore = produce(score, (draft) => {
+        setNoteAccidentalDisplayMode(draft, accidentalTargetParams(target), mode);
       });
-    });
-    if (nextScore !== score) updateScore(nextScore);
-  }, [score, target, updateScore]);
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [score, target, updateScore],
+  );
 
-  const handleCourtesyAccidental = useCallback(() => {
-    if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
-    const nextScore = produce(score, (draft) => {
-      toggleCourtesyAccidental(draft, accidentalTargetParams(target));
-    });
-    if (nextScore !== score) updateScore(nextScore);
-  }, [score, target, updateScore]);
-
-  const handleAccidentalEnclosure = useCallback(
-    (symbol: AccidentalEnclosureSymbolValue) => () => {
+  const handleAccidentalEnclosureChange = useCallback(
+    (symbol: AccidentalEnclosureSymbolValue | null) => {
       if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
       const note = accidentalTargetNote(score, target);
       if (!note) return;
+      if (symbol === null && !note.accidentalDisplay) return;
       const nextScore = produce(score, (draft) => {
         setNoteAccidentalDisplay(draft, {
           ...accidentalTargetParams(target),
-          enclosureSymbol: note.accidentalDisplay?.enclosure?.symbol === symbol ? null : symbol,
+          ...(symbol === null ? {} : { show: true, force: true }),
+          enclosureSymbol: symbol,
         });
       });
       if (nextScore !== score) updateScore(nextScore);
@@ -556,9 +548,8 @@ export function useAccidentalAndTrillHandlers({
   );
 
   return {
-    handleAccidentalDisplayShow,
-    handleCourtesyAccidental,
-    handleAccidentalEnclosure,
+    handleAccidentalDisplayModeChange,
+    handleAccidentalEnclosureChange,
     handleTrillAccidentalChange,
   };
 }

@@ -24,7 +24,6 @@ import {
   type ArticulationType,
   type ArpeggioMarkKind,
 } from "../commands/articulationCommands";
-import { toggleCourtesyAccidental } from "../commands/noteCommands";
 import { getEventAtLocation, type EventLocation } from "../score/ElementPath";
 import { applySelectionWriteback, planSelectionWriteback } from "../score/condensedWriteback";
 
@@ -335,27 +334,6 @@ export function applyArpeggioToSelection(
     selection,
     (draft, loc) => {
       setArpeggioMark(draft, loc.partIndex, loc.measureIndex, loc.sequenceIndex, loc.eventIndex, kind, loc.tupletIndex);
-    },
-    selectedScoreIndex,
-  );
-}
-
-export function applyCourtesyAccidentalToSelection(
-  score: Score,
-  selection: SelectionState,
-  selectedScoreIndex?: number,
-): Score | null {
-  return applyToSelectedEvents(
-    score,
-    selection,
-    (draft, loc) => {
-      toggleCourtesyAccidental(draft, {
-        partIndex: loc.partIndex,
-        measureIndex: loc.measureIndex,
-        sequenceIndex: loc.sequenceIndex,
-        eventIndex: loc.eventIndex,
-        tupletIndex: loc.tupletIndex,
-      });
     },
     selectedScoreIndex,
   );

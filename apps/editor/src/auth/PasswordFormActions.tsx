@@ -30,7 +30,7 @@ export function PasswordFormActions({
         className={danger ? styles.linkActionDanger : styles.linkActionPrimary}
         disabled={submitting}
       >
-        <span>{submitting ? "Saving…" : submitLabel}</span>
+        <span>{submitting ? "Saving" : submitLabel}</span>
       </button>
     </div>
   );

@@ -13,11 +13,9 @@ describe("InstrumentNameDisplayControl", () => {
     const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelref: "name" }] }];
     render(<InstrumentNameDisplayControl content={content} score={score} onChange={vi.fn()} />);
 
-    expect(screen.getByRole("combobox", { name: "First system instrument labels" }).textContent).toContain("Full");
-    expect(screen.getByRole("combobox", { name: "Subsequent systems instrument labels" }).textContent).toContain(
-      "Short",
-    );
-    expect(screen.getByText("Full and short label text is edited in Instruments.")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "First system" }).textContent).toContain("Full");
+    expect(screen.getByRole("combobox", { name: "Later systems" }).textContent).toContain("Short");
+    expect(screen.getByText("Edit full and short label text in Setup → Instruments.")).toBeTruthy();
   });
 
   it("reports independent first-system changes while retaining the subsequent-system policy", async () => {
@@ -26,7 +24,7 @@ describe("InstrumentNameDisplayControl", () => {
     const content: LayoutContent[] = [{ type: "staff", sources: [{ part: "fl", labelref: "name" }] }];
     render(<InstrumentNameDisplayControl content={content} score={score} onChange={onChange} />);
 
-    await user.click(screen.getByRole("combobox", { name: "First system instrument labels" }));
+    await user.click(screen.getByRole("combobox", { name: "First system" }));
     await user.click(screen.getByRole("option", { name: "Hidden" }));
 
     expect(onChange).toHaveBeenCalledWith({ firstSystem: "hidden", subsequentSystems: "short" });

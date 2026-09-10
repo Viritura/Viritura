@@ -145,7 +145,7 @@ const VARIANT_GUIDELINES: ReadonlyArray<{
 const VARIANTS: ReadonlyArray<{ variant: NonNullable<ButtonProps["variant"]>; label: string }> = [
   { variant: "default", label: "Default" },
   { variant: "ghost", label: "Ghost" },
-  { variant: "primary", label: "Open folder…" },
+  { variant: "primary", label: "Open folder" },
   { variant: "cta", label: "Create project" },
   { variant: "link", label: "Don’t show again" },
   { variant: "link-row", label: "Open standalone file" },
@@ -254,6 +254,10 @@ export const Guidelines: Story = {
           <li>
             <strong>Danger is always labeled.</strong> Never use a bare icon for destructive actions — pair red with an
             explicit verb so the action is impossible to misread.
+          </li>
+          <li>
+            <strong>Action labels do not end in ellipses.</strong> Keep labels concise and stable; communicate pending
+            work with a spinner, disabled state, <code>aria-busy</code>, or live status instead of punctuation.
           </li>
           <li>
             <strong>Bravura font is opt-in.</strong> Use <code>useBravura</code> only when the label is a SMuFL glyph

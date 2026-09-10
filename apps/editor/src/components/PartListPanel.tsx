@@ -3,6 +3,7 @@ import type { ScoreDefinition, LayoutDefinition, Part } from "@viritura/core";
 import { ContextMenu, type ContextMenuState } from "@viritura/ui";
 import { usePartListContextMenus } from "./parts/usePartListContextMenus";
 import { ScoreListBody } from "./parts/ScoreListBody";
+import { AddScoreButton } from "./parts/AddScoreButton";
 import { useDocumentStore } from "../store/DocumentContext";
 import { InstrumentCatalogPicker } from "./parts/InstrumentCatalogPicker";
 import { usePartListDrumKit } from "./parts/usePartListDrumKit";
@@ -236,8 +237,6 @@ export function PartListPanel({
             onRenameScore={onRenameScore}
             onDuplicateScore={onDuplicateScore}
             onResetLayout={onResetLayout}
-            onAddScore={onAddScore}
-            onAddSectionScore={openSectionDialog}
             onAddInstrumentToScore={onAddInstrumentToScore}
             onManageInstruments={openManageDialog}
             setScoreDragIndex={setScoreDragIndex}
@@ -273,7 +272,15 @@ export function PartListPanel({
         onClose={() => setDoublingStaffPath(null)}
       />
 
-      {/* Footer toggles */}
+      {score && onAddScore && (
+        <AddScoreButton
+          parts={score.parts}
+          partDisplayMap={partDisplayMap}
+          onAddScore={onAddScore}
+          onAddSectionScore={openSectionDialog}
+        />
+      )}
+
       {/* Context menu */}
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       {dialogElement}

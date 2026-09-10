@@ -78,9 +78,6 @@ export const SEARCH_ROW_STYLE: CSSProperties = {
 export const SEARCH_INPUT_WRAP_STYLE: CSSProperties = { position: "relative", flex: 1 };
 export const SEARCH_INPUT_STYLE: CSSProperties = {
   width: "100%",
-  height: 28,
-  fontSize: "var(--type-eyebrow-size)",
-  padding: "0 28px 0 10px",
 };
 
 // ── Button-level styles ──
