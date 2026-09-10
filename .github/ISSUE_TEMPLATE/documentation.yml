@@ -1,0 +1,37 @@
+name: Documentation improvement
+description: Report missing, incorrect, or unclear public documentation
+title: "[Docs]: "
+labels:
+  - documentation
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Link the page or provide the repository path.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is missing, incorrect, unavailable, or unclear?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Describe the content or terminology that would resolve the problem.
+  - type: input
+    id: environment
+    attributes:
+      label: Platform context
+      description: If relevant, include browser, operating system, host, or workflow limitations.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched for an existing documentation issue.
+          required: true
