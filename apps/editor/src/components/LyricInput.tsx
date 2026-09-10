@@ -18,7 +18,8 @@ import type { LyricLineType } from "@viritura/core";
 import { findNextInVoice, findPrevInVoice } from "../navigation/NavigationIndex";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
-import { useDocumentStoreApi } from "../store/DocumentContext";
+import { useDocumentStore, useDocumentStoreApi } from "../store/DocumentContext";
+import { getLyricLineDisplay, getLyricLineIds } from "../lyrics";
 
 function lyricPortalStyle(x: number, y: number): CSSProperties {
   return {
@@ -154,6 +155,7 @@ export function LyricInput({
   onExit,
 }: LyricInputProps) {
   const store = useDocumentStoreApi();
+  const score = useDocumentStore((storeState) => storeState.score);
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   // Track whether the current syllable continues a word (arrived via hyphen)
@@ -264,11 +266,20 @@ export function LyricInput({
     (direction: 1 | -1) => {
       if (!state) return;
       commitPendingSyllable();
+      if (score) {
+        const lineIds = getLyricLineIds(score);
+        const currentIndex = lineIds.indexOf(state.lineId);
+        if (currentIndex >= 0) {
+          const nextLineId = lineIds[currentIndex + direction];
+          if (nextLineId) onNavigate({ elementId: state.elementId, lineId: nextLineId });
+          return;
+        }
+      }
       const currentNum = parseInt(state.lineId, 10) || 1;
       const nextNum = Math.max(1, currentNum + direction);
       onNavigate({ elementId: state.elementId, lineId: String(nextNum) });
     },
-    [state, commitPendingSyllable, onNavigate],
+    [state, score, commitPendingSyllable, onNavigate],
   );
 
   // Keyboard handler — intercepts special keys before the input processes them
@@ -308,7 +319,9 @@ export function LyricInput({
         spellCheck
         style={lyricInputStyle(value)}
       />
-      <div style={LYRIC_VERSE_LABEL_STYLE}>verse {state.lineId}</div>
+      <div style={LYRIC_VERSE_LABEL_STYLE}>
+        {score ? getLyricLineDisplay(score, state.lineId) : `verse ${state.lineId}`}
+      </div>
     </div>,
     document.body,
   );

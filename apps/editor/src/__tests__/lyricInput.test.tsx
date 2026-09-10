@@ -16,7 +16,13 @@ import { DocumentProvider, useDocumentActions } from "../store/DocumentContext";
 function scoreWithVerses(line1: string, line2: string): Score {
   return {
     mnx: { version: 1 },
-    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    global: {
+      measures: [{ time: { count: 4, unit: 4 } }],
+      lyrics: {
+        lineMetadata: { "1": { label: "Chorus" }, "2": { label: "Translation" } },
+        lineOrder: ["2", "1"],
+      },
+    },
     parts: [
       {
         name: "P",
@@ -176,5 +182,46 @@ describe("LyricInput re-seed", () => {
 
     renderWith({ elementId: "p0/m0/s0/ev0", lineId: "1" });
     expect(getInput().value).toBe("hello");
+  });
+
+  it("shows the configured label and navigates in configured line order", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let harness: Harness | null = null;
+    const navigations: LyricInputState[] = [];
+    act(() => {
+      root.render(
+        createElement(
+          DocumentProvider,
+          null,
+          createElement(HarnessBridge, {
+            onReady: (h: Harness) => {
+              harness = h;
+            },
+          }),
+          createElement(LyricInput, {
+            active: true,
+            state: { elementId: "p0/m0/s0/ev0", lineId: "2" },
+            navIndex: null,
+            position: { x: 0, y: 0 },
+            onCommitSyllable: () => {},
+            onNavigate: (state: LyricInputState) => navigations.push(state),
+            onExit: () => {},
+          }),
+        ),
+      );
+    });
+    if (!harness) throw new Error("harness not ready");
+    act(() => {
+      (harness as Harness).loadScore(scoreWithVerses("hello", "world"));
+    });
+
+    expect(document.body.textContent).toContain("Translation");
+    getInput().focus();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    });
+    expect(navigations.at(-1)?.lineId).toBe("1");
   });
 });

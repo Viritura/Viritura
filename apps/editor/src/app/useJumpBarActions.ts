@@ -1,5 +1,6 @@
 import { useMemo, type RefObject, type MutableRefObject } from "react";
 import { buildJumpBarActions } from "../jumpBar";
+import { getInitialLyricLineId } from "../lyrics";
 import { selectAllRange } from "../store/selectionUtils";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
@@ -200,7 +201,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
             const { score } = store.getState();
             if (score && selection.kind === "single") {
               setLyricMode(true);
-              setLyricState({ elementId: selection.elementId, lineId: "1" });
+              setLyricState({ elementId: selection.elementId, lineId: getInitialLyricLineId(score) });
             }
           },
           repeatSelection: handleRepeat,

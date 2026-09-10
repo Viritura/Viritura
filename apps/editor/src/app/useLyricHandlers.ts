@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type RefObject } from "react";
 import { produce } from "../score/scoreClone";
-import { resolveEventLocation } from "../score/ElementPath";
+import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
 import { buildNavigationIndex, type NavigationIndex } from "../navigation/NavigationIndex";
 import type { LyricInputState } from "../components/LyricInput";
 import type { DocumentStore } from "../store/documentStore";
@@ -47,12 +47,21 @@ export function useLyricHandlers({
     const bbox = si.getBBox(lyricState.elementId);
     if (!bbox) return null;
     const rect = canvas.getBoundingClientRect();
-    const verseNum = parseInt(lyricState.lineId, 10) || 1;
-    const lyricYOffset = 20 + (verseNum - 1) * 16;
+    const { score } = store.getState();
+    const location = score ? resolveEventLocation(lyricState.elementId, score) : null;
+    const event = score && location ? getEventAtLocation(score, location) : null;
+    const eventLineIds = Object.keys(event?.type === "event" ? (event.lyrics?.lines ?? {}) : {});
+    const displayedLineIds = score?.global.lyrics?.lineOrder
+      ? score.global.lyrics.lineOrder.filter((id) => eventLineIds.includes(id))
+      : eventLineIds.sort();
+    const displayedIndex = displayedLineIds.indexOf(lyricState.lineId);
+    const lineIndex =
+      displayedIndex >= 0 ? displayedIndex : Math.max(0, (parseInt(lyricState.lineId, 10) || 1) - 1);
+    const lyricYOffset = 20 + lineIndex * 16;
     const screenX = (bbox.x + bbox.width / 2 - vp.scrollX) * vp.zoom + rect.left;
     const screenY = (bbox.y + bbox.height - vp.scrollY) * vp.zoom + rect.top + lyricYOffset;
     return { x: screenX, y: screenY };
-  }, [lyricMode, lyricState, canvasRef]);
+  }, [lyricMode, lyricState, canvasRef, store]);
 
   const handleLyricCommit = useCallback(
     (elementId: string, lineId: string, text: string, type: LyricLineType) => {

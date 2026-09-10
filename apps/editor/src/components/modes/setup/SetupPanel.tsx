@@ -9,18 +9,20 @@
  */
 import { useCallback, useState } from "react";
 import { Tabs, type TabDef } from "@viritura/ui";
-import { FileText, Music, Users, LayoutGrid } from "lucide-react";
+import { FileText, ListMusic, Music, Users, LayoutGrid } from "lucide-react";
 import { PartListPanel, type PartListPanelProps } from "../../PartListPanel";
 import { ProjectMode } from "../../parts/ProjectMode";
 import { InstrumentsMode } from "../../parts/InstrumentsMode";
 import { MusicTab } from "./MusicTab";
+import { LyricsPanel } from "./LyricsPanel";
 import styles from "./SetupPanel.module.css";
 
-type SetupTab = "project" | "music" | "instruments" | "scores";
+type SetupTab = "project" | "music" | "lyrics" | "instruments" | "scores";
 
 const TAB_DEFS: TabDef[] = [
   { id: "project", label: "Project", icon: <FileText size={13} /> },
   { id: "music", label: "Music", icon: <Music size={13} /> },
+  { id: "lyrics", label: "Lyrics", icon: <ListMusic size={13} /> },
   { id: "instruments", label: "Instruments", icon: <Users size={13} /> },
   { id: "scores", label: "Scores", icon: <LayoutGrid size={13} /> },
 ];
@@ -39,6 +41,7 @@ export function SetupPanel({ onAddEnsemble, ...props }: SetupPanelProps) {
       <Tabs tabs={TAB_DEFS} activeTab={activeTab} onTabChange={handleTabChange} className={styles.tabBar}>
         {activeTab === "project" && <ProjectMode />}
         {activeTab === "music" && <MusicTab />}
+        {activeTab === "lyrics" && <LyricsPanel />}
         {activeTab === "instruments" && <InstrumentsMode {...props} onAddEnsemble={onAddEnsemble} />}
         {activeTab === "scores" && <PartListPanel {...props} />}
       </Tabs>

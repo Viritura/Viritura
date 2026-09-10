@@ -1,0 +1,1 @@
+export { LyricsPanel } from "./LyricsPanel";

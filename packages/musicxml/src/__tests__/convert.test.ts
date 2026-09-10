@@ -1159,6 +1159,27 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     const ev1 = content[1]! as { lyrics: { lines: Record<string, { type: string }> } };
     expect(ev1.lyrics.lines["line-1"]!.type).toBe("end");
   });
+
+  it("preserves representable lyric labels and BCP 47 language tags", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+        <lyric number="2" name="Translation" xml:lang="qaa-Qaaa-QM-x-studio">
+          <syllabic>single</syllabic><text>Hello</text>
+        </lyric>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.global.lyrics).toEqual({
+      lineMetadata: {
+        "line-2": { label: "Translation", lang: "qaa-Qaaa-QM-x-studio" },
+      },
+      lineOrder: ["line-2"],
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════
