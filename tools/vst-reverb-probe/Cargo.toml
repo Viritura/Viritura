@@ -14,7 +14,7 @@ path = "main.rs"
 
 [dependencies]
 # Match the desktop app's exact host dependency so the repro is faithful.
-vst3-host = { version = "=0.7.0", default-features = false, features = ["cpal-backend"] }
+vst3-host = { version = "=0.9.0", default-features = false, features = ["cpal-backend"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Only used by --open-editor: pump the native editor window's message loop and
