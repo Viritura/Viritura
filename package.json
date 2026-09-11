@@ -71,7 +71,7 @@
     "@inquirer/checkbox": "^5.1.5",
     "@playwright/test": "^1.55.1",
     "autoprefixer": "^10.5.4",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.5",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
