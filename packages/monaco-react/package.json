@@ -23,7 +23,7 @@
     "react": "^19"
   },
   "dependencies": {
-    "monaco-editor": "0.55.1"
+    "monaco-editor": "0.56.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
