@@ -15,12 +15,12 @@
     "lucide-react": "^0.577.0",
     "mediainfo.js": "0.3.7",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.8",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react-dom": "^19.2.7",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   }

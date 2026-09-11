@@ -24,7 +24,7 @@
     "@viritura/ui": "workspace:*",
     "marked": "^14.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
@@ -32,7 +32,7 @@
     "@astrojs/sitemap": "3.7.4",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.0.5",
     "astro": "7.2.10",
     "babel-plugin-react-compiler": "^1.0.0",
