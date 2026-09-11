@@ -74,6 +74,13 @@ The full documentation index lives at [`docs/README.md`](docs/README.md). Highli
 | [Viritura Extensions](docs/spec/viritura-extensions.md)                      | `_x.viritura` vendor extension reference                    |
 | [MCP Integration](docs/spec/mcp-integration.md)                              | MCP relay, model tools, mandatory proposal review           |
 
+## Contributing
+
+Public contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+supported contribution types, setup and test guidance, generated-file rules,
+and the review process. Report suspected vulnerabilities privately according to
+[`SECURITY.md`](SECURITY.md).
+
 ## Getting Started
 
 ### Prerequisites

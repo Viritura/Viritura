@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a new capability or a substantial behavior change
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what you would like Viritura to help you do.
+  - type: textarea
+    id: story
+    attributes:
+      label: Your story
+      description: What are you trying to accomplish, and how would this feature help?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Add examples, screenshots, related software, or other useful context.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched for an existing request.
+          required: true
