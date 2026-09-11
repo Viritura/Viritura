@@ -7,36 +7,23 @@ body:
   - type: markdown
     attributes:
       value: |
-        Describe the user problem before proposing an implementation. Large changes require maintainer agreement before implementation.
+        Tell us what you would like Viritura to help you do.
   - type: textarea
-    id: problem
+    id: story
     attributes:
-      label: User problem
-      description: Who is affected, and what can they not accomplish today?
+      label: Your story
+      description: What are you trying to accomplish, and how would this feature help?
     validations:
       required: true
   - type: textarea
-    id: outcome
+    id: context
     attributes:
-      label: Desired outcome
-      description: Describe the observable result without assuming a particular implementation.
-    validations:
-      required: true
-  - type: textarea
-    id: proposal
-    attributes:
-      label: Proposed approach
-      description: Include scope, compatibility considerations, and relevant standards or engraving practice.
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
+      label: Anything else?
+      description: Add examples, screenshots, related software, or other useful context.
   - type: checkboxes
     id: checks
     attributes:
       label: Checks
       options:
-        - label: I searched for an existing request and reviewed the public documentation.
-          required: true
-        - label: I will wait for maintainer agreement before starting a large implementation.
+        - label: I searched for an existing request.
           required: true

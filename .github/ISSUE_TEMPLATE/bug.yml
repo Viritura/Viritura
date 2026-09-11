@@ -27,18 +27,22 @@ body:
         3. Observe …
     validations:
       required: true
-  - type: input
-    id: version
+  - type: dropdown
+    id: surface
     attributes:
-      label: Version or commit
-      description: Provide the deployed version, desktop version, or commit SHA.
+      label: Viritura app
+      description: Where did the problem occur?
+      options:
+        - Web app
+        - Desktop app
+        - VS Code extension
     validations:
       required: true
   - type: input
     id: environment
     attributes:
       label: Environment
-      description: Include operating system, browser, and host (web, desktop, or VS Code) as relevant.
+      description: Include your operating system and browser as relevant.
     validations:
       required: true
   - type: textarea

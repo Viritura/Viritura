@@ -1,60 +1,20 @@
 # Contributing to Viritura
 
-Thank you for contributing. Viritura welcomes focused bug fixes, tests,
-documentation improvements, accessibility work, performance improvements,
-notation and import/export corrections, and well-scoped features.
+Thank you for contributing. Bug fixes, features, tests, documentation,
+accessibility improvements, and ideas are all welcome. Open an issue or a pull
+request—whichever feels more useful for the change. If you are unsure where to
+start, an issue is a good place to discuss it.
 
-## Before starting
+Setup instructions and repository structure are in the
+[`README`](README.md#getting-started). Validation commands and guidance for
+choosing focused checks are in
+[`docs/setup/development.md`](docs/setup/development.md). Please include tests
+for behavior changes where practical and list the checks you ran in the pull
+request. Screenshots or recordings help reviewers understand visible changes.
 
-Search existing issues before opening a new one. Small, well-understood fixes can
-go directly to a pull request. For a new feature, format change, architectural
-change, or work spanning several packages, open a feature request first. Explain
-the user problem, proposed scope, compatibility impact, and alternatives. Wait
-for maintainer agreement before investing in a large implementation; agreement
-on an issue is not a promise that a change will be merged.
-
-Use the issue forms for bugs, feature requests, and documentation work. Do not
-put suspected vulnerabilities, credentials, or private user data in an issue or
-pull request. Follow [`SECURITY.md`](SECURITY.md) to report vulnerabilities
-privately.
-
-## Set up the repository
-
-The recommended Docker worktree workflow and native prerequisites are in the
-[`README`](README.md#getting-started). The complete toolchain setup, development
-commands, and cache behavior are in
-[`docs/setup/development.md`](docs/setup/development.md).
-
-Keep a pull request limited to one concern. Use descriptive, imperative commit
-messages and keep commits reviewable; do not mix formatting or dependency
-updates with an unrelated fix. Do not rewrite reviewed history without telling
-reviewers. Link the issue the pull request addresses.
-
-Follow the conventions in `AGENTS.md` and any path-specific repository
-instructions. Engraving changes should be grounded in established engraving
-practice. New engraving behavior and UI surfaces generally need the
-corresponding tests and Storybook story described there.
-
-## Select checks
-
-Run the smallest relevant checks while iterating, then run all checks appropriate
-to the changed surfaces before requesting review:
-
-| Change                                    | Required checks                                                                                                          |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| TypeScript or React                       | Affected package test/build, then `pnpm lint`                                                                            |
-| Rust engine or WASM                       | Focused `pnpm test:rust <test-name>`, then `pnpm lint:rust` and `pnpm test:rust`; add `pnpm test:rust:wasm` for bindings |
-| .NET server                               | `pnpm lint:dotnet`, `pnpm build:dotnet`, and `pnpm test:dotnet`                                                          |
-| Desktop Rust                              | `pnpm test:desktop`                                                                                                      |
-| VST probe                                 | `pnpm test:vst-probe`                                                                                                    |
-| Cross-cutting or release-sensitive        | `pnpm validate`                                                                                                          |
-| Browser behavior                          | Relevant unit tests plus `pnpm e2e` with worktree services running                                                       |
-| Documentation or repository metadata only | `pnpm exec prettier --check --ignore-unknown <changed-files>`                                                            |
-
-`pnpm test` covers JavaScript and TypeScript only. If a toolchain is unavailable,
-state which check was not run and why in the pull request. CI is a backstop, not
-a replacement for focused local testing. Include regression tests for behavior
-changes and screenshots or recordings for visible changes.
+Do not include credentials, private user data, or suspected vulnerabilities in
+public issues or pull requests. Follow [`SECURITY.md`](SECURITY.md) to report
+security problems privately.
 
 ## Generated files and schemas
 
@@ -88,17 +48,11 @@ license, modifications, and any required attribution. Add the license text and
 update [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) when applicable. Do not
 assume that public availability permits redistribution.
 
-## Review and acceptance
+## Review and releases
 
-Maintainers review correctness, scope, tests, compatibility, security, user
-experience, provenance, and long-term maintenance cost. Address review comments
-with new commits or clearly explain a different approach. Approval may require
-review from owners of sensitive surfaces such as authentication, deployment,
-schemas, and the engraving engine.
-
-Maintainers decide whether and how to merge, may ask that a change be split or
-reworked, and retain sole authority for releases, versioning, deployment, and
-security disclosures. Contributors must not publish artifacts or represent an
-unmerged change as an official Viritura release.
+Reviews consider correctness, tests, compatibility, security, user experience,
+provenance, and maintenance cost. Maintainers may suggest a different approach
+or follow-up work. Maintainers are responsible for merging, versioning,
+deployment, releases, and security disclosures.
 
 Participation is governed by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
