@@ -1,8 +1,8 @@
 {
-  "denigmaCommit": "e72b7b75852aec9291a21ebf108452471fccb77f",
+  "denigmaCommit": "286112c438f303f03845356a61093487e3583f78",
   "denigmaVersion": "4.0.0",
   "emscriptenImage": "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a",
-  "moduleSha256": "717907fba388961434d809ed598228bcf54b33916ed67d862b9fe4824523dd52",
-  "wasmSha256": "bb5c3d21cd6fc3fefb7771e42e4616904bc250b333e972acfa212eee6b70362f",
-  "wasmBytes": 4356314
+  "moduleSha256": "6b8cdb577431a46ab18a771476590b66b75a3930f80545969999e0f67c981521",
+  "wasmSha256": "80b1d4f14a912c50eeef54dbe0b4f71e49c817b1e055a03bd1f508562edc9616",
+  "wasmBytes": 4363289
 }

@@ -9,11 +9,9 @@
 #include <new>
 #include <optional>
 #include <stdexcept>
-#include <sstream>
 #include <span>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "denigma/formats/mnx.h"
 #include "denigma/io/random_access_reader.h"
@@ -22,29 +20,11 @@ namespace {
 
 constexpr std::size_t MAX_MUSX_BYTES = 64 * 1024 * 1024;
 
-struct ImportResult
+denigma::ConversionArtifact* errorArtifact(std::string message)
 {
-    bool success{};
-    std::string output;
-    std::vector<denigma::Diagnostic> diagnostics;
-};
-
-template <typename Callback>
-ImportResult* makeResult(Callback&& callback)
-{
-    auto result = std::make_unique<ImportResult>();
-    try {
-        callback(*result);
-    } catch (const std::exception& error) {
-        result->diagnostics.push_back({ denigma::MessageSeverity::Error, error.what() });
-    } catch (...) {
-        result->diagnostics.push_back({ denigma::MessageSeverity::Error, "Unknown Denigma conversion error." });
-    }
-    result->success = !result->output.empty()
-        && std::none_of(result->diagnostics.begin(), result->diagnostics.end(), [](const auto& diagnostic) {
-            return diagnostic.severity == denigma::MessageSeverity::Error;
-        });
-    return result.release();
+    denigma::ConversionResult result;
+    result.addDiagnostic(denigma::MessageSeverity::Error, std::move(message));
+    return new denigma::ConversionArtifact(std::move(result), {});
 }
 
 template <typename Collection>
@@ -67,15 +47,15 @@ void denigma_free(void* pointer)
     ::operator delete(pointer);
 }
 
-ImportResult* denigma_musx_to_mnx(const std::uint8_t* data,
-                                  std::size_t size,
-                                  const char* sourceName,
-                                  int includeTempo,
-                                  int splitInstruments,
-                                  int indentSpaces,
-                                  int cueLayer)
+denigma::ConversionArtifact* denigma_musx_to_mnx(const std::uint8_t* data,
+                                                 std::size_t size,
+                                                 const char* sourceName,
+                                                 int includeTempo,
+                                                 int splitInstruments,
+                                                 int indentSpaces,
+                                                 int cueLayer)
 {
-    return makeResult([&](ImportResult& result) {
+    try {
         if (!data && size != 0) {
             throw std::invalid_argument("Input buffer is null.");
         }
@@ -95,51 +75,58 @@ ImportResult* denigma_musx_to_mnx(const std::uint8_t* data,
             options.cueLayer = cueLayer;
         }
 
-        std::ostringstream output;
-        const auto conversion = denigma::formats::mnx::MusxToMnxJsonConverter{}.convert(reader, output, options);
-        result.diagnostics.assign(conversion.diagnostics().begin(), conversion.diagnostics().end());
-        if (!conversion.hasError()) {
-            result.output = output.str();
-        }
-    });
+        denigma::ConverterRegistry registry;
+        denigma::formats::mnx::registerConverters(registry);
+        auto artifact = registry.convert(denigma::FormatId::Musx,
+                                         denigma::FormatId::MnxJson,
+                                         reader,
+                                         denigma::ConversionRequest{ &options });
+        return new denigma::ConversionArtifact(std::move(artifact));
+    } catch (const std::exception& error) {
+        return errorArtifact(error.what());
+    } catch (...) {
+        return errorArtifact("Unknown Denigma conversion error.");
+    }
 }
 
-void denigma_result_destroy(ImportResult* result)
+void denigma_result_destroy(denigma::ConversionArtifact* result)
 {
     delete result;
 }
 
-int denigma_result_success(const ImportResult* result)
+int denigma_result_success(const denigma::ConversionArtifact* result)
 {
-    return result && result->success ? 1 : 0;
+    return result && *result && !result->outputs().empty() ? 1 : 0;
 }
 
-const std::uint8_t* denigma_result_output_data(const ImportResult* result)
+const std::uint8_t* denigma_result_output_data(const denigma::ConversionArtifact* result)
 {
-    return result ? reinterpret_cast<const std::uint8_t*>(result->output.data()) : nullptr;
+    const auto* output = result ? itemAt(result->outputs(), 0) : nullptr;
+    return output ? reinterpret_cast<const std::uint8_t*>(output->data.data()) : nullptr;
 }
 
-std::size_t denigma_result_output_size(const ImportResult* result)
+std::size_t denigma_result_output_size(const denigma::ConversionArtifact* result)
 {
-    return result ? result->output.size() : 0;
+    const auto* output = result ? itemAt(result->outputs(), 0) : nullptr;
+    return output ? output->data.size() : 0;
 }
 
-std::size_t denigma_result_diagnostic_count(const ImportResult* result)
+std::size_t denigma_result_diagnostic_count(const denigma::ConversionArtifact* result)
 {
-    return result ? result->diagnostics.size() : 0;
+    return result ? result->result().diagnostics().size() : 0;
 }
 
-int denigma_result_diagnostic_severity(const ImportResult* result, std::size_t index)
+int denigma_result_diagnostic_severity(const denigma::ConversionArtifact* result, std::size_t index)
 {
-    const auto* diagnostic = result ? itemAt(result->diagnostics, index) : nullptr;
+    const auto* diagnostic = result ? itemAt(result->result().diagnostics(), index) : nullptr;
     return diagnostic
         ? static_cast<int>(diagnostic->severity)
         : static_cast<int>(denigma::MessageSeverity::Error);
 }
 
-const char* denigma_result_diagnostic_message(const ImportResult* result, std::size_t index)
+const char* denigma_result_diagnostic_message(const denigma::ConversionArtifact* result, std::size_t index)
 {
-    const auto* diagnostic = result ? itemAt(result->diagnostics, index) : nullptr;
+    const auto* diagnostic = result ? itemAt(result->result().diagnostics(), index) : nullptr;
     return diagnostic ? diagnostic->message.c_str() : "";
 }
 
