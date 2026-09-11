@@ -50,8 +50,8 @@
     "lucide-react": "^0.577.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0",
+    "@types/react": "^19.2.18",
+    "react": "^19.2.8",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   },
