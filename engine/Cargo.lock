@@ -1140,7 +1140,7 @@ dependencies = [
  "prettyplease 0.3.0",
  "schemars",
  "serde_json",
- "syn 2.0.117",
+ "syn 3.0.5",
  "typify",
 ]
 
