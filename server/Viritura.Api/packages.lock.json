@@ -57,13 +57,13 @@
       },
       "OpenIddict.EntityFrameworkCore": {
         "type": "Direct",
-        "requested": "[7.5.0, )",
-        "resolved": "7.5.0",
-        "contentHash": "3xamhrqh8y+l22wiyy+A9D/UvWPjsS6N8TGybpVlpJIFU5g2QGqk3JPamHuXn3gvwmP4OlwzgAZDzzLv8YWEeQ==",
+        "requested": "[7.7.0, )",
+        "resolved": "7.7.0",
+        "contentHash": "8XlJJccN0JmBr/8UpZPD3gKqASe+1oovO9LPGUaLvmExM1Dcb/2TDf2G8/rG01GbJj0WPQlSdlEWsjfQxgB7Mw==",
         "dependencies": {
-          "Microsoft.EntityFrameworkCore.Relational": "10.0.7",
-          "OpenIddict.Core": "7.5.0",
-          "OpenIddict.EntityFrameworkCore.Models": "7.5.0"
+          "Microsoft.EntityFrameworkCore.Relational": "10.0.11",
+          "OpenIddict.Core": "7.7.0",
+          "OpenIddict.EntityFrameworkCore.Models": "7.7.0"
         }
       },
       "Humanizer.Core": {
@@ -430,8 +430,8 @@
       },
       "OpenIddict.EntityFrameworkCore.Models": {
         "type": "Transitive",
-        "resolved": "7.5.0",
-        "contentHash": "n21lCWOkjvu0sA9EwnDrlZ61WdzAd2KuTUSBeJeF5QGe6Sw/nLvu7Yr1yZ1I8t5iQw+QlI7PQAVPLkLLlHE5Yw=="
+        "resolved": "7.7.0",
+        "contentHash": "Ios00zCukWvrCifpY0DO1lrVCpDpUYq3YdHwQNgjdFpLqiQFgWBwH/KnmXKv5hL6Frhpf9qEhX0lnRPzCbCSEQ=="
       },
       "OpenIddict.Server": {
         "type": "Transitive",
@@ -628,7 +628,7 @@
         "dependencies": {
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "[10.0.12, )",
           "Microsoft.EntityFrameworkCore.Sqlite": "[10.0.12, )",
-          "OpenIddict.EntityFrameworkCore": "[7.5.0, )",
+          "OpenIddict.EntityFrameworkCore": "[7.7.0, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )"
         }
       }
