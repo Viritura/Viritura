@@ -67,7 +67,7 @@
     "prepare": "tsx scripts/setup-git-hooks.ts"
   },
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
+    "@eslint/js": "^9.39.5",
     "@inquirer/checkbox": "^5.1.5",
     "@playwright/test": "^1.55.1",
     "autoprefixer": "^10.5.4",
