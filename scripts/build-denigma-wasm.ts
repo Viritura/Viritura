@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const DENIGMA_REPOSITORY = "https://github.com/PeterYangIO/denigma.git";
-const DENIGMA_COMMIT = "286112c438f303f03845356a61093487e3583f78";
+const DENIGMA_COMMIT = "e0f65b7cbd1ce89a8ff5bd236bb66030435c9b8e";
 const DENIGMA_VERSION = "4.0.0";
 const EMSCRIPTEN_IMAGE =
   "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a";
