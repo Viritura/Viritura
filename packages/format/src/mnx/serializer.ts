@@ -70,7 +70,7 @@ export function serializeMnx(score: Score): unknown {
     root["scores"] = score.scores.map(serializeScoreDefinition);
   }
 
-  // Root-level vendor extensions: _x.viritura.{metadata,textStyles,soundProfile,videoSync}
+  // Root-level vendor extensions.
   const virituraExt = serializeRootExtensions(score);
   if (Object.keys(virituraExt).length > 0) {
     root["_x"] = { viritura: virituraExt };
@@ -127,6 +127,10 @@ function serializeRootExtensions(score: Score): Obj {
 
   if (score.videoSync) {
     virituraExt["videoSync"] = serializeVideoSync(score.videoSync);
+  }
+
+  if (score.lyricWorkflow && Object.keys(score.lyricWorkflow.sources).length > 0) {
+    virituraExt["lyricWorkflow"] = score.lyricWorkflow as unknown as Obj;
   }
 
   return virituraExt;

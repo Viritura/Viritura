@@ -270,6 +270,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
     let mut last_clef: Option<PositionedClef> = None;
     let mut active_staff_lines = super::staff_lines::DEFAULT_STAFF_LINES;
     let mut result = Vec::new();
+    let part_has_lyrics = (1..=part.staves.max(1)).any(|staff| part_staff_has_lyrics(part, staff));
     let count = globals.len().max(part.measures.len());
     let mut prev_display_key = KeySignature::default();
     let mut previous_accidental_state = AccidentalState::new();
@@ -376,11 +377,54 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             written_diatonic_adjustment: diatonic_adjustment,
             condensing_change: false,
             kit: part.kit.clone(),
+            staff_has_lyrics: part_has_lyrics,
         });
         previous_accidental_state = current_accidental_state;
         prev_display_key = display_key;
     }
     result
+}
+
+fn event_has_lyrics_on_staff(event: &Event, sequence_staff: u32, staff_num: u32) -> bool {
+    event.staff.unwrap_or(sequence_staff) == staff_num
+        && event
+            .lyrics
+            .as_ref()
+            .and_then(|lyrics| lyrics.lines.as_ref())
+            .is_some_and(|lines| !lines.is_empty())
+}
+
+fn content_has_lyrics_on_staff(
+    content: &[SequenceContent],
+    sequence_staff: u32,
+    staff_num: u32,
+) -> bool {
+    content.iter().any(|item| match item {
+        SequenceContent::Event(event) => {
+            event_has_lyrics_on_staff(event, sequence_staff, staff_num)
+        }
+        SequenceContent::Tuplet(tuplet) => {
+            content_has_lyrics_on_staff(&tuplet.content, sequence_staff, staff_num)
+        }
+        SequenceContent::MultiNoteTremolo(tremolo) => tremolo
+            .content
+            .iter()
+            .any(|event| event_has_lyrics_on_staff(event, sequence_staff, staff_num)),
+        SequenceContent::Grace(grace) => grace
+            .content
+            .iter()
+            .any(|event| event_has_lyrics_on_staff(event, sequence_staff, staff_num)),
+        SequenceContent::Space(_) | SequenceContent::Other(_) => false,
+    })
+}
+
+pub(crate) fn part_staff_has_lyrics(part: &Part, staff_num: u32) -> bool {
+    part.measures.iter().any(|measure| {
+        measure.sequences.iter().any(|sequence| {
+            let sequence_staff = sequence.staff.unwrap_or(1);
+            content_has_lyrics_on_staff(&sequence.content, sequence_staff, staff_num)
+        })
+    })
 }
 
 /// Check if a resolved measure is a full-measure rest (all sequences are rests).
@@ -845,6 +889,7 @@ pub(crate) fn resolve_measures_for_staff(
                 written_diatonic_adjustment: 0,
                 condensing_change: rm.condensing_change,
                 kit: rm.kit.clone(),
+                staff_has_lyrics: part_staff_has_lyrics(&score.parts[part_index], staff_num),
             }
         })
         .collect()

@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import type { Score } from "@viritura/core";
 import { LyricInput, type LyricInputState } from "../components/LyricInput";
+import { buildNavigationIndex } from "../navigation/NavigationIndex";
 import { DocumentProvider, useDocumentActions } from "../store/DocumentContext";
 
 /**
@@ -223,5 +224,148 @@ describe("LyricInput re-seed", () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     });
     expect(navigations.at(-1)?.lineId).toBe("1");
+  });
+
+  it("uses Space to advance across full-measure rests to the next note", () => {
+    const score = {
+      mnx: { version: 1 },
+      global: { measures: [{}, {}, {}, {}] },
+      parts: [
+        {
+          name: "Voice",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      type: "event",
+                      id: "before",
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              sequences: [
+                {
+                  fullMeasure: { visualDuration: { base: "whole" } },
+                  content: [{ type: "event", id: "rest-1", duration: { base: "whole" }, rest: {} }],
+                },
+              ],
+            },
+            {
+              sequences: [
+                {
+                  fullMeasure: { visualDuration: { base: "whole" } },
+                  content: [{ type: "event", id: "rest-2", duration: { base: "whole" }, rest: {} }],
+                },
+              ],
+            },
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      type: "event",
+                      id: "after",
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "D", octave: 4 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as Score;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const navigations: LyricInputState[] = [];
+    let harness: Harness | null = null;
+
+    act(() => {
+      root.render(
+        createElement(
+          DocumentProvider,
+          null,
+          createElement(HarnessBridge, {
+            onReady: (h: Harness) => {
+              harness = h;
+            },
+          }),
+          createElement(LyricInput, {
+            active: true,
+            state: { elementId: "p0/m0/s0/before", lineId: "1" },
+            navIndex: buildNavigationIndex(score),
+            position: { x: 0, y: 0 },
+            onCommitSyllable: () => {},
+            onNavigate: (next: LyricInputState) => navigations.push(next),
+            onExit: () => {},
+          }),
+        ),
+      );
+    });
+    if (!harness) throw new Error("harness not ready");
+    act(() => {
+      (harness as Harness).loadScore(score);
+    });
+
+    getInput().focus();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+
+    expect(navigations.at(-1)?.elementId).toBe("p0/m3/s0/after");
+  });
+
+  it("clears and exits with one commit when Space reaches the end of the voice", () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onCommitSyllable = vi.fn();
+    const onExit = vi.fn();
+    let harness: Harness | null = null;
+    const score = scoreWithLyric("");
+
+    act(() => {
+      root.render(
+        createElement(
+          DocumentProvider,
+          null,
+          createElement(HarnessBridge, {
+            onReady: (h: Harness) => {
+              harness = h;
+            },
+          }),
+          createElement(LyricInput, {
+            active: true,
+            state: STATE,
+            navIndex: buildNavigationIndex(score),
+            position: { x: 0, y: 0 },
+            onCommitSyllable,
+            onNavigate: () => {},
+            onExit,
+          }),
+        ),
+      );
+    });
+    if (!harness) throw new Error("harness not ready");
+    act(() => {
+      (harness as Harness).loadScore(score);
+    });
+    typeInto(getInput(), "final");
+    getInput().focus();
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+
+    expect(onCommitSyllable).toHaveBeenCalledOnce();
+    expect(onExit).toHaveBeenCalledOnce();
+    expect(getInput().value).toBe("");
   });
 });

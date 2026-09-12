@@ -2020,6 +2020,758 @@ impl ::std::default::Default for KitComponentExtensions {
         }
     }
 }
+///Source text and stable anchors for previewed lyric distribution and repair.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Source text and stable anchors for previewed lyric distribution and repair.",
+///  "type": "object",
+///  "required": [
+///    "sources"
+///  ],
+///  "properties": {
+///    "sources": {
+///      "type": "object",
+///      "additionalProperties": {
+///        "$ref": "#/$defs/lyric-workflow-source"
+///      }
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LyricWorkflow {
+    pub sources: ::std::collections::HashMap<::std::string::String, LyricWorkflowSource>,
+}
+impl ::std::convert::From<&LyricWorkflow> for LyricWorkflow {
+    fn from(value: &LyricWorkflow) -> Self {
+        value.clone()
+    }
+}
+///Original source and stable token identities for one atomic lyric distribution.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Original source and stable token identities for one atomic lyric distribution.",
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "lineId",
+///    "text",
+///    "tokens"
+///  ],
+///  "properties": {
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "language": {
+///      "description": "BCP 47 language used for optional generated syllabification.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "lineId": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "text": {
+///      "description": "Verbatim pasted text retained for non-destructive re-syllabification.",
+///      "type": "string"
+///    },
+///    "tokens": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/lyric-workflow-token"
+///      }
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LyricWorkflowSource {
+    pub id: LyricWorkflowSourceId,
+    ///BCP 47 language used for optional generated syllabification.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub language: ::std::option::Option<LyricWorkflowSourceLanguage>,
+    #[serde(rename = "lineId")]
+    pub line_id: LyricWorkflowSourceLineId,
+    ///Verbatim pasted text retained for non-destructive re-syllabification.
+    pub text: ::std::string::String,
+    pub tokens: ::std::vec::Vec<LyricWorkflowToken>,
+}
+impl ::std::convert::From<&LyricWorkflowSource> for LyricWorkflowSource {
+    fn from(value: &LyricWorkflowSource) -> Self {
+        value.clone()
+    }
+}
+///`LyricWorkflowSourceId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowSourceId(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowSourceId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowSourceId> for ::std::string::String {
+    fn from(value: LyricWorkflowSourceId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowSourceId> for LyricWorkflowSourceId {
+    fn from(value: &LyricWorkflowSourceId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowSourceId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowSourceId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowSourceId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowSourceId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowSourceId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///BCP 47 language used for optional generated syllabification.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "BCP 47 language used for optional generated syllabification.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowSourceLanguage(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowSourceLanguage {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowSourceLanguage> for ::std::string::String {
+    fn from(value: LyricWorkflowSourceLanguage) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowSourceLanguage> for LyricWorkflowSourceLanguage {
+    fn from(value: &LyricWorkflowSourceLanguage) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowSourceLanguage {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowSourceLanguage {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowSourceLanguage {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowSourceLanguage {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowSourceLanguage {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`LyricWorkflowSourceLineId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowSourceLineId(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowSourceLineId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowSourceLineId> for ::std::string::String {
+    fn from(value: LyricWorkflowSourceLineId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowSourceLineId> for LyricWorkflowSourceLineId {
+    fn from(value: &LyricWorkflowSourceLineId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowSourceLineId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowSourceLineId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowSourceLineId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowSourceLineId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowSourceLineId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///A stable token from a paste-and-distribute lyric source.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A stable token from a paste-and-distribute lyric source.",
+///  "type": "object",
+///  "required": [
+///    "id"
+///  ],
+///  "properties": {
+///    "eventId": {
+///      "description": "Stable MNX event ID currently anchoring this token; absent when detached.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "id": {
+///      "description": "Stable identity used by reflow and collaborative repair.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "partId": {
+///      "description": "Part ID at the time the token was assigned.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "sequenceIndex": {
+///      "description": "Voice index at the time the token was assigned.",
+///      "type": "integer"
+///    },
+///    "skip": {
+///      "description": "Marks an explicit underscore in the original source.",
+///      "type": "boolean",
+///      "const": true
+///    },
+///    "text": {
+///      "description": "Authored syllable text. Omitted for an explicit melisma skip.",
+///      "type": "string"
+///    },
+///    "type": {
+///      "description": "MNX syllabic role for a visible token.",
+///      "type": "string",
+///      "enum": [
+///        "start",
+///        "middle",
+///        "end",
+///        "whole"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LyricWorkflowToken {
+    ///Stable MNX event ID currently anchoring this token; absent when detached.
+    #[serde(
+        rename = "eventId",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub event_id: ::std::option::Option<LyricWorkflowTokenEventId>,
+    ///Stable identity used by reflow and collaborative repair.
+    pub id: LyricWorkflowTokenId,
+    ///Part ID at the time the token was assigned.
+    #[serde(
+        rename = "partId",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub part_id: ::std::option::Option<LyricWorkflowTokenPartId>,
+    ///Voice index at the time the token was assigned.
+    #[serde(
+        rename = "sequenceIndex",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub sequence_index: ::std::option::Option<i64>,
+    ///Marks an explicit underscore in the original source.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub skip: ::std::option::Option<bool>,
+    ///Authored syllable text. Omitted for an explicit melisma skip.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text: ::std::option::Option<::std::string::String>,
+    ///MNX syllabic role for a visible token.
+    #[serde(
+        rename = "type",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub type_: ::std::option::Option<LyricWorkflowTokenType>,
+}
+impl ::std::convert::From<&LyricWorkflowToken> for LyricWorkflowToken {
+    fn from(value: &LyricWorkflowToken) -> Self {
+        value.clone()
+    }
+}
+///Stable MNX event ID currently anchoring this token; absent when detached.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stable MNX event ID currently anchoring this token; absent when detached.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowTokenEventId(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowTokenEventId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowTokenEventId> for ::std::string::String {
+    fn from(value: LyricWorkflowTokenEventId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowTokenEventId> for LyricWorkflowTokenEventId {
+    fn from(value: &LyricWorkflowTokenEventId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowTokenEventId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowTokenEventId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowTokenEventId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenEventId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowTokenEventId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///Stable identity used by reflow and collaborative repair.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stable identity used by reflow and collaborative repair.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowTokenId(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowTokenId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowTokenId> for ::std::string::String {
+    fn from(value: LyricWorkflowTokenId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowTokenId> for LyricWorkflowTokenId {
+    fn from(value: &LyricWorkflowTokenId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowTokenId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowTokenId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowTokenId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowTokenId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///Part ID at the time the token was assigned.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Part ID at the time the token was assigned.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LyricWorkflowTokenPartId(::std::string::String);
+impl ::std::ops::Deref for LyricWorkflowTokenPartId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LyricWorkflowTokenPartId> for ::std::string::String {
+    fn from(value: LyricWorkflowTokenPartId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LyricWorkflowTokenPartId> for LyricWorkflowTokenPartId {
+    fn from(value: &LyricWorkflowTokenPartId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowTokenPartId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowTokenPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowTokenPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LyricWorkflowTokenPartId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///MNX syllabic role for a visible token.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "MNX syllabic role for a visible token.",
+///  "type": "string",
+///  "enum": [
+///    "start",
+///    "middle",
+///    "end",
+///    "whole"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LyricWorkflowTokenType {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "middle")]
+    Middle,
+    #[serde(rename = "end")]
+    End,
+    #[serde(rename = "whole")]
+    Whole,
+}
+impl ::std::convert::From<&Self> for LyricWorkflowTokenType {
+    fn from(value: &LyricWorkflowTokenType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LyricWorkflowTokenType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::Middle => f.write_str("middle"),
+            Self::End => f.write_str("end"),
+            Self::Whole => f.write_str("whole"),
+        }
+    }
+}
+impl ::std::str::FromStr for LyricWorkflowTokenType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "middle" => Ok(Self::Middle),
+            "end" => Ok(Self::End),
+            "whole" => Ok(Self::Whole),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LyricWorkflowTokenType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LyricWorkflowTokenType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Viritura vendor extensions on a global measure object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -4202,6 +4954,10 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///  "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
 ///  "type": "object",
 ///  "properties": {
+///    "lyricWorkflow": {
+///      "description": "Original lyric source text and stable token anchors for distribution and repair.",
+///      "$ref": "#/$defs/lyric-workflow"
+///    },
 ///    "metadata": {
 ///      "description": "Score-level bibliographic metadata.",
 ///      "$ref": "#/$defs/score-metadata"
@@ -4234,6 +4990,13 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RootExtensions {
+    ///Original lyric source text and stable token anchors for distribution and repair.
+    #[serde(
+        rename = "lyricWorkflow",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub lyric_workflow: ::std::option::Option<LyricWorkflow>,
     ///Score-level bibliographic metadata.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub metadata: ::std::option::Option<ScoreMetadata>,
@@ -4277,6 +5040,7 @@ impl ::std::convert::From<&RootExtensions> for RootExtensions {
 impl ::std::default::Default for RootExtensions {
     fn default() -> Self {
         Self {
+            lyric_workflow: Default::default(),
             metadata: Default::default(),
             placement: Default::default(),
             sound_profile: Default::default(),
@@ -6697,6 +7461,15 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "kit-component-extensions": {
 ///      "$ref": "#/$defs/kit-component-extensions"
 ///    },
+///    "lyric-workflow": {
+///      "$ref": "#/$defs/lyric-workflow"
+///    },
+///    "lyric-workflow-source": {
+///      "$ref": "#/$defs/lyric-workflow-source"
+///    },
+///    "lyric-workflow-token": {
+///      "$ref": "#/$defs/lyric-workflow-token"
+///    },
 ///    "measure-global-extensions": {
 ///      "$ref": "#/$defs/measure-global-extensions"
 ///    },
@@ -6947,6 +7720,24 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub kit_component_extensions: ::std::option::Option<KitComponentExtensions>,
+    #[serde(
+        rename = "lyric-workflow",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub lyric_workflow: ::std::option::Option<LyricWorkflow>,
+    #[serde(
+        rename = "lyric-workflow-source",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub lyric_workflow_source: ::std::option::Option<LyricWorkflowSource>,
+    #[serde(
+        rename = "lyric-workflow-token",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub lyric_workflow_token: ::std::option::Option<LyricWorkflowToken>,
     #[serde(
         rename = "measure-global-extensions",
         default,
@@ -7245,6 +8036,9 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
+            lyric_workflow: Default::default(),
+            lyric_workflow_source: Default::default(),
+            lyric_workflow_token: Default::default(),
             measure_global_extensions: Default::default(),
             measure_rhythmic_position: Default::default(),
             note_extensions: Default::default(),

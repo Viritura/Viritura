@@ -27,12 +27,17 @@ pub(crate) fn dynamic_places_above(ml: &MeasureLayout, dynamic: &DynamicGroup) -
     if dynamic.orient.is_some() || dynamic.placement_above.is_some() {
         return dynamic.places_above();
     }
+    // Standard engraving practice: vocal staves reserve the area below the
+    // staff for lyrics, so dynamics without an explicit side go above.
+    if ml.resolved.staff_has_lyrics {
+        return true;
+    }
     dynamic_voice_index(ml, dynamic).is_some_and(|index| {
         dynamic.voice.is_some() && ml.voice_layouts.len() > 1 && index % 2 == 0
     })
 }
 
-/// Render dynamic markings (pp, ff, etc.) below the staff.
+/// Render dynamic markings (pp, ff, etc.) on their resolved staff side.
 ///
 /// Y coordinate of the baseline for a dynamic glyph, given which side of the
 /// staff it sits on. Walks every voice's events and pushes the glyph past any

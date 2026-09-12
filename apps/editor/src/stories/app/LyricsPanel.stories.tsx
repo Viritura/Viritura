@@ -5,6 +5,7 @@ import { TooltipPrimitives } from "@viritura/ui";
 import { PalettePanel } from "../../components/PalettePanel";
 import { DocumentProvider, useDocumentActions } from "../../store/DocumentContext";
 import { useOverlayStore } from "../../store/overlayStore";
+import { useSelectionActions } from "../../store/selectionStore";
 
 const FRAME_STYLE: CSSProperties = {
   width: 360,
@@ -19,6 +20,7 @@ const FRAME_STYLE: CSSProperties = {
 
 function LyricsPanelHarness() {
   const { loadScore } = useDocumentActions();
+  const { selectRange } = useSelectionActions();
 
   useEffect(() => {
     loadScore(
@@ -44,7 +46,7 @@ function LyricsPanelHarness() {
                     content: [
                       {
                         id: "event-1",
-                        duration: { base: "whole" },
+                        duration: { base: "quarter" },
                         notes: [{ pitch: { step: "C", octave: 4 } }],
                         lyrics: {
                           lines: {
@@ -52,6 +54,21 @@ function LyricsPanelHarness() {
                             "line-2": { text: "Bonjour" },
                           },
                         },
+                      },
+                      {
+                        id: "event-2",
+                        duration: { base: "quarter" },
+                        notes: [{ pitch: { step: "D", octave: 4 } }],
+                      },
+                      {
+                        id: "event-3",
+                        duration: { base: "quarter" },
+                        notes: [{ pitch: { step: "E", octave: 4 } }],
+                      },
+                      {
+                        id: "event-4",
+                        duration: { base: "quarter" },
+                        notes: [{ pitch: { step: "F", octave: 4 } }],
                       },
                     ],
                   },
@@ -63,8 +80,9 @@ function LyricsPanelHarness() {
       }),
       "lyrics-panel-story.mnx",
     );
+    selectRange("p0/m0/s0/event-1", "p0/m0/s0/event-4");
     useOverlayStore.setState({ lyricMode: false, lyricState: null, activeLyricLineId: "line-1" });
-  }, [loadScore]);
+  }, [loadScore, selectRange]);
 
   return (
     <div style={FRAME_STYLE}>

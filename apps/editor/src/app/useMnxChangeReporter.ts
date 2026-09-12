@@ -10,12 +10,14 @@ type PushState = (
   cursorBefore?: CursorPosition | null,
   cursorAfter?: CursorPosition | null,
 ) => void;
+type ResetHistory = (mnxJson: string) => void;
 
 interface UseMnxChangeReporterParams {
   store: DocumentStoreApi;
   onMnxChange?: ((mnx: string) => void) | undefined;
   onFirstLoad?: ((mnx: string) => void) | undefined;
   pushState: PushState;
+  resetHistory?: ResetHistory;
 }
 
 /**
@@ -28,17 +30,20 @@ interface UseMnxChangeReporterParams {
  * tear down and rebuild the subscription on every render.
  */
 export function useMnxChangeReporter(params: UseMnxChangeReporterParams): void {
-  const { store, onMnxChange, onFirstLoad, pushState } = params;
+  const { store, onMnxChange, onFirstLoad, pushState, resetHistory } = params;
   const onMnxChangeRef = useRef(onMnxChange);
   onMnxChangeRef.current = onMnxChange;
   const onFirstLoadRef = useRef(onFirstLoad);
   onFirstLoadRef.current = onFirstLoad;
   const pushStateRef = useRef(pushState);
   pushStateRef.current = pushState;
+  const resetHistoryRef = useRef(resetHistory);
+  resetHistoryRef.current = resetHistory;
 
   useEffect(() => {
     let firstLoadDone = false;
     let prevMnx = store.getState().mnxJson;
+    let prevDocumentGeneration = store.getState().documentGeneration;
 
     if (prevMnx) {
       onMnxChangeRef.current?.(prevMnx);
@@ -47,10 +52,15 @@ export function useMnxChangeReporter(params: UseMnxChangeReporterParams): void {
     }
 
     return store.subscribe((state) => {
-      const { mnxJson: currentMnx, dirty: currentDirty } = state;
+      const { mnxJson: currentMnx, dirty: currentDirty, documentGeneration } = state;
+      const openedNewDocument = documentGeneration !== prevDocumentGeneration;
+      prevDocumentGeneration = documentGeneration;
+      if (openedNewDocument && currentMnx) {
+        resetHistoryRef.current?.(currentMnx);
+      }
       if (!currentMnx || currentMnx === prevMnx) return;
 
-      if (currentDirty) {
+      if (!openedNewDocument && currentDirty) {
         const cursorBefore = state.lastEditCursorBefore;
         queueMicrotask(() => {
           pushStateRef.current(currentMnx, "Edit", cursorBefore, useNoteInputStore.getState().cursorPosition);
