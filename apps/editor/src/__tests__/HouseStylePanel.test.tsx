@@ -23,12 +23,16 @@ function WithScore({ children }: { readonly children: ReactNode }) {
   const loadScore = useDocumentStore((state) => state.loadScore);
   const loaded = useDocumentStore((state) => state.score !== null);
   const pageTurns = useDocumentStore((state) => state.score?.scores?.[0]?.pageSetup?.pageTurns);
+  const chordSymbols = useDocumentStore((state) => state.score?.chordSymbolStyle);
   useEffect(() => loadScore(SCORE, "house-style-test.mnx"), [loadScore]);
   return loaded ? (
     <>
       {children}
       <output hidden data-testid="stored-page-turns">
         {JSON.stringify(pageTurns)}
+      </output>
+      <output hidden data-testid="stored-chord-symbols">
+        {JSON.stringify(chordSymbols)}
       </output>
     </>
   ) : null;
@@ -79,6 +83,27 @@ describe("HouseStylePanel", () => {
     expect(screen.queryByRole("button", { name: /Time Signatures/ })).toBeNull();
     expect(screen.getByRole("button", { name: /Text Styles/ }).getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/Sizes are in staff spaces/)).toBeTruthy();
+  });
+
+  it("persists chord-symbol house style choices", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByRole("button", { name: /Chord Symbols/ }));
+    await user.click(screen.getByRole("radio", { name: "Plain text" }));
+
+    const stored = screen.getByTestId("stored-chord-symbols").textContent ?? "";
+    expect(stored).toContain('"majorSeventh":"maj"');
+    expect(stored).toContain('"extensions":"baseline"');
+
+    await user.click(screen.getAllByRole("button", { name: "Advanced" })[0]!);
+    await user.click(screen.getByRole("radio", { name: "Minor lowercase" }));
+    await user.click(screen.getByRole("radio", { name: "No suffix" }));
+
+    const updated = screen.getByTestId("stored-chord-symbols").textContent ?? "";
+    expect(updated).toContain('"rootCase":"lowercaseMinor"');
+    expect(updated).toContain('"minor":"none"');
+    expect(updated).toContain('"extensions":"baseline"');
   });
 
   it("shows and persists every page-turn control group", async () => {

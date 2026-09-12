@@ -24,6 +24,7 @@ const extensionDefinitions = [
   "note-extensions",
   "slur-extensions",
   "system-layout-extensions",
+  "layout-staff-extensions",
   "score-extensions",
 ] as const;
 

@@ -98,7 +98,7 @@ export interface components {
          * @description Harmonic quality of a chord symbol.
          * @enum {string}
          */
-        "chord-quality": "major" | "minor" | "dominant" | "diminished" | "augmented" | "half-diminished" | "minor-major" | "power" | "suspended2" | "suspended4";
+        "chord-quality": "major" | "minor" | "dominant" | "diminished" | "augmented" | "half-diminished" | "minor-major" | "power" | "suspended2" | "suspended4" | "other";
         /** @description Root or bass note of a chord symbol. */
         "chord-root": {
             /**
@@ -113,18 +113,44 @@ export interface components {
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
+            /** @description Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff. */
+            displayStaff?: number;
+            /**
+             * @deprecated
+             * @description Deprecated alias for displayStaff. Accepted on read for compatibility.
+             */
+            staff?: number;
             /** @description Root note of the chord. */
             root: components["schemas"]["chord-root"];
             quality: components["schemas"]["chord-quality"];
+            /** @description Authored quality spelling retained alongside the normalized quality. */
+            kindText?: string;
             /** @description Bass note for slash chords (e.g. the 'E' in 'C/E'). */
             bass?: components["schemas"]["chord-root"];
             /**
-             * @description Chord extension (7th, 9th, 11th, 13th).
+             * @description Chord extension (6th, 7th, 9th, 11th, 13th).
              * @enum {integer}
              */
-            extension?: 7 | 9 | 11 | 13;
+            extension?: 6 | 7 | 9 | 11 | 13;
             /** @description Override the computed display text (e.g. 'Cadd9'). */
             textOverride?: string;
+        };
+        /** @description Score-wide chord-symbol engraving choices. */
+        "chord-symbol-style": {
+            /** @enum {string} */
+            rootCase?: "uppercase" | "lowercaseMinor";
+            /** @enum {string} */
+            majorSeventh?: "triangle" | "maj" | "M";
+            /** @enum {string} */
+            minor?: "m" | "min" | "minus" | "none";
+            /** @enum {string} */
+            diminished?: "symbol" | "dim";
+            /** @enum {string} */
+            halfDiminished?: "symbol" | "minorFlatFive";
+            /** @enum {string} */
+            augmented?: "plus" | "aug";
+            /** @enum {string} */
+            extensions?: "superscript" | "baseline";
         };
         /**
          * @description Placement of a text expression relative to the staff. Default: 'below'.
@@ -326,6 +352,14 @@ export interface components {
         "system-layout-extensions": {
             /** @constant */
             derived?: true;
+        };
+        /** @description Viritura engraving properties on a layout staff. */
+        "layout-staff-extensions": {
+            /**
+             * @description Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.
+             * @enum {string}
+             */
+            chordSymbolVisibility?: "auto" | "show" | "hide";
         };
         "page-turn-weights": {
             density?: number;
@@ -592,6 +626,8 @@ export interface components {
             placement?: components["schemas"]["placement"];
             /** @description Per-document time signature engraving styles for scores and parts. */
             timeSignatures?: components["schemas"]["time-signature-styles"];
+            /** @description Score-wide chord-symbol engraving style. */
+            chordSymbolStyle?: components["schemas"]["chord-symbol-style"];
             /** @description Per-part playback sound assignments keyed by stable MNX part ID. */
             soundProfile?: components["schemas"]["sound-profile-assignment"];
             /** @description Score-to-picture synchronization settings. */
@@ -623,6 +659,7 @@ export type Pedal = components["schemas"]["pedal"];
 export type ChordQuality = components["schemas"]["chord-quality"];
 export type ChordRoot = components["schemas"]["chord-root"];
 export type ChordSymbol = components["schemas"]["chord-symbol"];
+export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
 export type TextExpression = components["schemas"]["text-expression"];
 export type Trill = components["schemas"]["trill"];
@@ -647,6 +684,7 @@ export type NoteExtensions = components["schemas"]["note-extensions"];
 export type StagePosition = components["schemas"]["stage-position"];
 export type PartExtensions = components["schemas"]["part-extensions"];
 export type SystemLayoutExtensions = components["schemas"]["system-layout-extensions"];
+export type LayoutStaffExtensions = components["schemas"]["layout-staff-extensions"];
 export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];

@@ -1,12 +1,12 @@
 import { produce } from "../score/scoreClone";
 import { resolveEventLocation, resolveEventFromSubElement } from "../score/ElementPath";
-import { durationToBeats } from "../commands/noteCommands";
 import { findCondensingStaff } from "../score/condensingRouter";
-import type { Score, NoteValueBase, Tempo, Duration } from "@viritura/core";
-import type { TempoPopoverState, StaffTextPopoverState } from "../store/overlayStore";
+import { parseChordSymbolText, type Score, type NoteValueBase, type Tempo } from "@viritura/core";
+import type { ChordSymbolPopoverState, TempoPopoverState, StaffTextPopoverState } from "../store/overlayStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 import type { CondensingMode } from "../components/CondensingPopover";
+import { beatPositionToFraction, eventBeatPosition } from "./timedAnnotationPosition";
 
 // ─── Tempo parsing ────────────────────────────────────────────────
 // Supports "120", "q=120", "q.=120", "e140", "Allegro q=120", "Andante".
@@ -77,20 +77,7 @@ export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState,
       const pm = draft.parts[target.partIndex]?.measures[target.measureIndex];
       if (!pm) continue;
       const seq = pm.sequences?.[target.sequenceIndex];
-      let beat = 0;
-      if (seq) {
-        for (let i = 0; i < target.eventIndex && i < seq.content.length; i++) {
-          const ev = seq.content[i];
-          if (ev && "duration" in ev) beat += durationToBeats(ev.duration as Duration);
-        }
-      }
-      let num = beat;
-      let den = 4;
-      while (Math.abs(num - Math.round(num)) > 1e-9 && den < 4096) {
-        num *= 2;
-        den *= 2;
-      }
-      const fraction: [number, number] = [Math.round(num), den];
+      const fraction = beatPositionToFraction(seq ? eventBeatPosition(seq, target) : 0);
       const existing = pm.expressions ?? [];
       existing.push({
         text: rawValue.trim(),
@@ -100,6 +87,52 @@ export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState,
       });
       pm.expressions = existing;
     }
+  });
+}
+
+/** Insert or replace a harmony-lane event at the selected rhythmic position. */
+export function applyChordSymbolEdit(
+  score: Score,
+  popover: ChordSymbolPopoverState,
+  rawValue: string,
+): Score | undefined {
+  const pm = score.parts[popover.partIndex]?.measures[popover.measureIndex];
+  const sequence = pm?.sequences[popover.sequenceIndex];
+  if (!pm || !sequence) return undefined;
+
+  const position = popover.rhythmicPosition ?? {
+    fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)),
+  };
+  const chord = parseChordSymbolText(rawValue, position);
+  if (!chord) return undefined;
+
+  return produce(score, (draft) => {
+    const measure = draft.parts[popover.partIndex]?.measures[popover.measureIndex];
+    if (!measure) return;
+    const chords = measure.chordSymbols ?? [];
+    const atSamePosition = (candidate: (typeof chords)[number]) =>
+      candidate.position.fraction[0] * chord.position.fraction[1] ===
+      chord.position.fraction[0] * candidate.position.fraction[1];
+    const existingIndex = chords.findIndex(
+      (candidate) => atSamePosition(candidate) && candidate.displayStaff === popover.anchorStaff,
+    );
+    const unscopedIndex = chords.findIndex(
+      (candidate) => atSamePosition(candidate) && candidate.displayStaff === undefined,
+    );
+    const fallbackIndex = chords.findIndex(atSamePosition);
+    const replaceIndex = existingIndex >= 0 ? existingIndex : unscopedIndex >= 0 ? unscopedIndex : fallbackIndex;
+    if (replaceIndex >= 0) {
+      const displayStaff = chords[replaceIndex]!.displayStaff;
+      if (displayStaff !== undefined) chord.displayStaff = displayStaff;
+      chords[replaceIndex] = chord;
+    } else {
+      chords.push(chord);
+    }
+    chords.sort(
+      (left, right) =>
+        left.position.fraction[0] / left.position.fraction[1] - right.position.fraction[0] / right.position.fraction[1],
+    );
+    measure.chordSymbols = chords;
   });
 }
 

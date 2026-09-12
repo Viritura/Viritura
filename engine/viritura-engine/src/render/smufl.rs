@@ -644,15 +644,47 @@ pub mod smufl {
     pub const FINGERING_5: u32 = 0xED15;
     // Chord symbol accidentals (U+ED60 - U+ED6F)
     // ═══════════════════════════════════════
-    pub const CHORD_SHARP: u32 = 0xED60;
-    pub const CHORD_FLAT: u32 = 0xED62;
+    pub const CHORD_FLAT: u32 = 0xED60;
+    pub const CHORD_NATURAL: u32 = 0xED61;
+    pub const CHORD_SHARP: u32 = 0xED62;
+    pub const CHORD_DOUBLE_SHARP: u32 = 0xED63;
+    pub const CHORD_DOUBLE_FLAT: u32 = 0xED64;
+    pub const CHORD_DIMINISHED: u32 = 0xE870;
+    pub const CHORD_HALF_DIMINISHED: u32 = 0xE871;
+    pub const CHORD_AUGMENTED: u32 = 0xE872;
+    pub const CHORD_MAJOR_SEVENTH: u32 = 0xE873;
+    pub const CHORD_MINOR: u32 = 0xE874;
 
     /// Get the chord symbol accidental glyph for a chromatic alteration.
     pub fn chord_accidental_glyph(alter: i32) -> Option<u32> {
         match alter {
+            -2 => Some(CHORD_DOUBLE_FLAT),
             1 => Some(CHORD_SHARP),
             -1 => Some(CHORD_FLAT),
+            2 => Some(CHORD_DOUBLE_SHARP),
             _ => None,
+        }
+    }
+
+    pub fn chord_accidental_width(alter: i32) -> f64 {
+        match alter {
+            -2 => 2.096,
+            -1 => 1.136,
+            0 => 0.736,
+            1 => 1.24,
+            2 => 1.776,
+            _ => accidental_width(alter),
+        }
+    }
+
+    pub fn chord_symbol_glyph_width(codepoint: u32) -> f64 {
+        match codepoint {
+            CHORD_AUGMENTED => 1.58,
+            CHORD_DIMINISHED => 1.892,
+            CHORD_HALF_DIMINISHED => 1.896,
+            CHORD_MAJOR_SEVENTH => 2.236,
+            CHORD_MINOR => 1.3,
+            _ => glyph_bbox(codepoint).2,
         }
     }
 
@@ -1637,6 +1669,16 @@ pub mod smufl {
             ACCIDENTAL_PARENS_RIGHT => (0.0, -0.992, 0.564, 0.988),
             ACCIDENTAL_BRACKET_LEFT => (0.0, -0.748, 0.308, 0.752),
             ACCIDENTAL_BRACKET_RIGHT => (0.0, -0.748, 0.308, 0.752),
+            CHORD_DOUBLE_FLAT => (0.004, -3.0, 2.092, 3.004),
+            CHORD_FLAT => (0.004, -3.0, 1.132, 3.004),
+            CHORD_NATURAL => (0.0, -3.004, 0.736, 3.004),
+            CHORD_SHARP => (0.0, -3.048, 1.24, 3.1),
+            CHORD_DOUBLE_SHARP => (0.0, -1.796, 1.776, 1.796),
+            CHORD_AUGMENTED => (0.0, -1.584, 1.58, 1.58),
+            CHORD_DIMINISHED => (0.0, -1.892, 1.892, 1.892),
+            CHORD_HALF_DIMINISHED => (-0.064, -1.956, 2.016, 2.016),
+            CHORD_MAJOR_SEVENTH => (0.0, -1.908, 2.232, 1.904),
+            CHORD_MINOR => (0.0, -1.04, 1.3, 0.176),
 
             // Dynamics — individual letter glyphs
             DYNAMIC_PIANO => (-0.356, -1.096, 1.820, 1.664),

@@ -192,7 +192,8 @@
         "minor-major",
         "power",
         "suspended2",
-        "suspended4"
+        "suspended4",
+        "other"
       ],
       "description": "Harmonic quality of a chord symbol."
     },
@@ -224,6 +225,17 @@
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
         },
+        "displayStaff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff."
+        },
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Deprecated alias for displayStaff. Accepted on read for compatibility."
+        },
         "root": {
           "$ref": "#/$defs/chord-root",
           "description": "Root note of the chord."
@@ -231,18 +243,58 @@
         "quality": {
           "$ref": "#/$defs/chord-quality"
         },
+        "kindText": {
+          "type": "string",
+          "description": "Authored quality spelling retained alongside the normalized quality."
+        },
         "bass": {
           "$ref": "#/$defs/chord-root",
           "description": "Bass note for slash chords (e.g. the 'E' in 'C/E')."
         },
         "extension": {
           "type": "integer",
-          "enum": [7, 9, 11, 13],
-          "description": "Chord extension (7th, 9th, 11th, 13th)."
+          "enum": [6, 7, 9, 11, 13],
+          "description": "Chord extension (6th, 7th, 9th, 11th, 13th)."
         },
         "textOverride": {
           "type": "string",
           "description": "Override the computed display text (e.g. 'Cadd9')."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "chord-symbol-style": {
+      "type": "object",
+      "description": "Score-wide chord-symbol engraving choices.",
+      "properties": {
+        "rootCase": {
+          "type": "string",
+          "enum": ["uppercase", "lowercaseMinor"]
+        },
+        "majorSeventh": {
+          "type": "string",
+          "enum": ["triangle", "maj", "M"]
+        },
+        "minor": {
+          "type": "string",
+          "enum": ["m", "min", "minus", "none"]
+        },
+        "diminished": {
+          "type": "string",
+          "enum": ["symbol", "dim"]
+        },
+        "halfDiminished": {
+          "type": "string",
+          "enum": ["symbol", "minorFlatFive"]
+        },
+        "augmented": {
+          "type": "string",
+          "enum": ["plus", "aug"]
+        },
+        "extensions": {
+          "type": "string",
+          "enum": ["superscript", "baseline"]
         }
       },
       "additionalProperties": false
@@ -640,6 +692,19 @@
       "description": "Viritura extensions on a standard MNX system-layout object.",
       "properties": {
         "derived": { "type": "boolean", "const": true }
+      },
+      "additionalProperties": false
+    },
+
+    "layout-staff-extensions": {
+      "type": "object",
+      "description": "Viritura engraving properties on a layout staff.",
+      "properties": {
+        "chordSymbolVisibility": {
+          "type": "string",
+          "enum": ["auto", "show", "hide"],
+          "description": "Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part."
+        }
       },
       "additionalProperties": false
     },
@@ -1116,6 +1181,10 @@
         "timeSignatures": {
           "$ref": "#/$defs/time-signature-styles",
           "description": "Per-document time signature engraving styles for scores and parts."
+        },
+        "chordSymbolStyle": {
+          "$ref": "#/$defs/chord-symbol-style",
+          "description": "Score-wide chord-symbol engraving style."
         },
         "soundProfile": {
           "$ref": "#/$defs/sound-profile-assignment",

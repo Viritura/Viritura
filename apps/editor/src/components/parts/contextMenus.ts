@@ -46,6 +46,7 @@ export interface StaffContextMenuDeps {
   partIdToScoreIndex: Map<string, number>;
   onSelectScore: (i: number) => void;
   ungroupStaff: (path: NodePath) => void;
+  updateStaffChordSymbolVisibility: (path: NodePath, value: LayoutStaff["chordSymbolVisibility"]) => void;
   onAddDoubling?: (path: NodePath, instrumentId: string) => void;
   onRemoveDoubling?: (path: NodePath, sourceIndex: number) => void;
   onRemoveInstrument?: (partId: string) => void;
@@ -64,6 +65,22 @@ export interface StaffContextMenuDeps {
   setDoublingStaffPath: (path: NodePath) => void;
 }
 
+function chordSymbolVisibilityMenu(
+  node: LayoutStaff,
+  path: NodePath,
+  update: StaffContextMenuDeps["updateStaffChordSymbolVisibility"],
+): MenuItemDef {
+  const current = node.chordSymbolVisibility ?? "auto";
+  return {
+    label: "Chord Symbols",
+    children: [
+      { label: "Automatic", action: () => update(path, "auto"), disabled: current === "auto" },
+      { label: "Show", action: () => update(path, "show"), disabled: current === "show" },
+      { label: "Hide", action: () => update(path, "hide"), disabled: current === "hide" },
+    ],
+  };
+}
+
 export function buildStaffContextMenuItems(
   partId: string,
   path: NodePath,
@@ -74,6 +91,7 @@ export function buildStaffContextMenuItems(
     partIdToScoreIndex,
     onSelectScore,
     ungroupStaff,
+    updateStaffChordSymbolVisibility,
     onAddDoubling,
     onRemoveDoubling,
     onRemoveInstrument,
@@ -94,6 +112,10 @@ export function buildStaffContextMenuItems(
   if (onEditDrumKit && isPercussionPartId?.(partId)) {
     items.push({ label: "Edit Percussion Map", action: () => onEditDrumKit(partId) });
   }
+  const node = getNodeAt(layoutContent, path);
+  if (node?.type === "staff") {
+    items.push(chordSymbolVisibilityMenu(node, path, updateStaffChordSymbolVisibility));
+  }
   if (depth > 0) {
     items.push({ label: "Move to Root", action: () => ungroupStaff(path) });
   }
@@ -101,7 +123,6 @@ export function buildStaffContextMenuItems(
     if (items.length > 0) items.push({ separator: true });
     items.push({ label: "Add Doubling", action: () => setDoublingStaffPath(path) });
   }
-  const node = getNodeAt(layoutContent, path);
   if (onRemoveDoubling && node?.type === "staff" && (node as LayoutStaff).sources.length > 1) {
     const staffNode = node as LayoutStaff;
     items.push({

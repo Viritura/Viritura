@@ -16,6 +16,7 @@ import {
   setRadialMenu,
   setTempoPopover,
   setStaffTextPopover,
+  setChordSymbolPopover,
   setJumpBarOpen,
   setLyricMode,
   setLyricState,
@@ -281,14 +282,15 @@ function AppInner({
   // Report MNX changes to parent + push history via store subscription.
   useMnxChangeReporter({ store, onMnxChange, onFirstLoad, pushState });
 
-  // Floating overlays — radial menu, tempo/staff-text popovers, jump bar,
+  // Floating overlays — radial menu, text-entry popovers, jump bar,
   // and lyric-input mode. Single store keeps all of these out of the
   // AppInner closure and gives non-React handlers a stable imperative API.
-  const { radialMenu, tempoPopover, staffTextPopover, lyricMode, lyricState } = useOverlayStore(
+  const { radialMenu, tempoPopover, staffTextPopover, chordSymbolPopover, lyricMode, lyricState } = useOverlayStore(
     useShallow((s) => ({
       radialMenu: s.radialMenu,
       tempoPopover: s.tempoPopover,
       staffTextPopover: s.staffTextPopover,
+      chordSymbolPopover: s.chordSymbolPopover,
       lyricMode: s.lyricMode,
       lyricState: s.lyricState,
     })),
@@ -520,6 +522,7 @@ function AppInner({
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
+    setChordSymbolPopover,
     setJumpBarOpen,
     setLyricMode,
     setLyricState,
@@ -756,6 +759,7 @@ function AppInner({
     setCondensingRouting,
     tempoPopover,
     staffTextPopover,
+    chordSymbolPopover,
     lyricMode,
     lyricState,
     lyricNavIndex,

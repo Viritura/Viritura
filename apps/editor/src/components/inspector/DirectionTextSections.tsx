@@ -4,6 +4,8 @@ import { useDirectionTextHandlers } from "./useNotationInspectorActions";
 import { DirectionTextSection } from "./DirectionTextSection";
 import { DynamicGroupSection } from "./DynamicGroupSection";
 import { OttavaInspector } from "./OttavaInspector";
+import { ChordSymbolSection } from "./ChordSymbolSection";
+import { useChordSymbolInspector } from "./useChordSymbolInspector";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -48,6 +50,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     handleAnnotationOffsetReset,
     handleAnnotationAvoidCollisionsChange,
   } = useDirectionTextHandlers({ score, target, updateScore });
+  const chordSymbol = useChordSymbolInspector({ score, target, updateScore });
 
   return (
     <>
@@ -116,6 +119,21 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
               onChange: handleAnnotationAvoidCollisionsChange,
             },
           }}
+        />
+      )}
+      {chordSymbol.chord && (
+        <ChordSymbolSection
+          chord={chordSymbol.chord}
+          staffCount={staffCount}
+          onRootStepChange={chordSymbol.setRootStep}
+          onRootAlterChange={chordSymbol.setRootAlter}
+          onQualityChange={chordSymbol.setQuality}
+          onKindTextChange={chordSymbol.setKindText}
+          onExtensionChange={chordSymbol.setExtension}
+          onBassStepChange={chordSymbol.setBassStep}
+          onBassAlterChange={chordSymbol.setBassAlter}
+          onDisplayStaffChange={chordSymbol.setDisplayStaff}
+          onTextOverrideChange={chordSymbol.setTextOverride}
         />
       )}
       <OttavaInspector score={score} target={target} updateScore={updateScore} />

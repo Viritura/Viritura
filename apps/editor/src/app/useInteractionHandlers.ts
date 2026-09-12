@@ -1,5 +1,10 @@
 import { useCallback } from "react";
-import { useAppKeyboardWiring, type TempoPopoverState, type StaffTextPopoverState } from "./useAppKeyboardWiring";
+import {
+  useAppKeyboardWiring,
+  type ChordSymbolPopoverState,
+  type TempoPopoverState,
+  type StaffTextPopoverState,
+} from "./useAppKeyboardWiring";
 import { useJumpBarActions } from "./useJumpBarActions";
 import { useLyricHandlers, type LyricStateRef } from "./useLyricHandlers";
 import {
@@ -81,6 +86,7 @@ interface UseInteractionHandlersParams {
   setRadialMenu: (m: RadialMenuState | null) => void;
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
+  setChordSymbolPopover: (s: ChordSymbolPopoverState | null) => void;
   setJumpBarOpen: (open: boolean) => void;
   setLyricMode: (b: boolean) => void;
   setLyricState: (s: LyricStateRef | null) => void;
@@ -161,6 +167,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
+    setChordSymbolPopover,
     setJumpBarOpen,
     setLyricMode,
     setLyricState,
@@ -216,6 +223,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
+    setChordSymbolPopover,
     setJumpBarOpen,
     onEnterLyrics: handleEnterLyrics,
     onOpenPublish,
@@ -250,6 +258,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setTempoPopover,
     setStaffTextPopover,
     onEnterLyrics: handleEnterLyrics,
+    setChordSymbolPopover,
     onOpenActivity,
     onSwitchScore,
   });

@@ -313,13 +313,17 @@ export interface ChordRoot {
   alter?: number;
 }
 
-/** A chord symbol above the staff (e.g., "Cmaj7", "Dm", "G7", "F#dim"). */
+/** A time-anchored harmony event rendered as a chord symbol above the staff. */
 export interface ChordSymbol {
   position: RhythmicPosition;
+  /** Optional imported/per-event display-staff override (1-based). */
+  displayStaff?: number;
   root: ChordRoot;
   quality: ChordQuality;
+  /** Authored quality spelling retained alongside the normalized quality. */
+  kindText?: string;
   bass?: ChordRoot;
-  extension?: number;
+  extension?: 6 | 7 | 9 | 11 | 13;
   textOverride?: string;
 }
 

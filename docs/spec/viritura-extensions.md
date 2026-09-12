@@ -11,18 +11,19 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                            |
-| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                      |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                         |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                 |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                 |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                         |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                            |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                 |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                              |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                      |
+| -------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                                |
+| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                           |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                   |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                           |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                           |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                   |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate           |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                      |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                           |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                        |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -47,6 +48,41 @@ same policy directly: full-then-short, short-only, or hidden.
         "firstSystem": "hidden",
         "subsequentSystems": "short"
       }
+    }
+  }
+}
+```
+
+## Layout Staff Extensions
+
+`_x.viritura` on a `staff` node in a layout definition. Schema def:
+`layout-staff-extensions`.
+
+### `chordSymbolVisibility`
+
+Controls whether the part-level harmony lane is engraved on this displayed
+staff:
+
+- `auto` (or omitted): show each part's chord symbols on the first displayed
+  staff sourced from that part.
+- `show`: show chord symbols on this layout staff.
+- `hide`: suppress chord symbols on this layout staff.
+
+An imported chord's `displayStaff` remains a per-event compatibility override
+when the layout is `auto`. Explicit layout `show`/`hide` settings take
+precedence, allowing full-score and part layouts to display the same semantic
+harmony lane differently.
+
+In the editor's Setup layout tree, right-click a staff and choose
+**Chord Symbols** → **Automatic**, **Show**, or **Hide**.
+
+```json
+{
+  "type": "staff",
+  "sources": [{ "part": "piano", "staff": 2 }],
+  "_x": {
+    "viritura": {
+      "chordSymbolVisibility": "show"
     }
   }
 }
@@ -105,6 +141,26 @@ Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, 
   }
 }
 ```
+
+### `chordSymbolStyle`
+
+Score-wide chord-symbol engraving style. Omitted fields use Viritura's
+conventional default: uppercase roots, `m` for minor, SMuFL triangle/circle/
+slashed-circle/plus quality symbols, and superscript extensions.
+
+| Field            | Values                        | Default       |
+| ---------------- | ----------------------------- | ------------- |
+| `rootCase`       | `uppercase`, `lowercaseMinor` | `uppercase`   |
+| `majorSeventh`   | `triangle`, `maj`, `M`        | `triangle`    |
+| `minor`          | `m`, `min`, `minus`, `none`   | `m`           |
+| `diminished`     | `symbol`, `dim`               | `symbol`      |
+| `halfDiminished` | `symbol`, `minorFlatFive`     | `symbol`      |
+| `augmented`      | `plus`, `aug`                 | `plus`        |
+| `extensions`     | `superscript`, `baseline`     | `superscript` |
+
+The editor exposes these fields under **Engrave → House Style → Chord
+Symbols**, with Conventional, Jazz symbols, Plain text, and Lowercase minor
+presets.
 
 ### `timeSignatures`
 
@@ -438,15 +494,25 @@ Array of piano pedal markings.
 
 ### `chordSymbols`
 
-Array of chord symbols above the staff.
+Array of time-anchored harmony events rendered as chord symbols. Each event
+belongs to the part at its rhythmic position; it is not attached to a note,
+voice, or staff. Layout-staff `chordSymbolVisibility` controls ordinary
+engraving placement, while `displayStaff` preserves an explicit per-event
+source override.
+
+Semantic root, bass, and numeric modifier accidentals are rendered with SMuFL
+accidental glyphs from Bravura. `textOverride` is intentionally rendered
+literally because it represents author-supplied presentation text.
 
 | Property       | Type                                   | Required | Description                                   |
 | -------------- | -------------------------------------- | -------- | --------------------------------------------- |
 | `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                             |
+| `displayStaff` | integer (>=1)                          | No       | Imported/per-event display-staff override     |
 | `root`         | [ChordRoot](#chord-root)               | **Yes**  | Root note                                     |
 | `quality`      | [ChordQuality](#chord-quality)         | **Yes**  | Harmonic quality                              |
+| `kindText`     | string                                 | No       | Authored quality spelling                     |
 | `bass`         | [ChordRoot](#chord-root)               | No       | Bass note for slash chords (e.g. "C/E")       |
-| `extension`    | `7` \| `9` \| `11` \| `13`             | No       | Chord extension                               |
+| `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                               |
 | `textOverride` | string                                 | No       | Override computed display text (e.g. "Cadd9") |
 
 ```json

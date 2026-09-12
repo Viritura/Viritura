@@ -1,7 +1,7 @@
 use super::super::full_score::{FlatSource, FlatStaff, GroupRange};
 use super::super::page::{resolve_part_display_names, PartDisplayInfo};
-use crate::model::{LayoutContent, Score};
-use std::collections::HashMap;
+use crate::model::{ChordSymbolVisibility, LayoutContent, Score};
+use std::collections::{HashMap, HashSet};
 
 struct ResolvedStaffLabels {
     label: Option<String>,
@@ -78,6 +78,7 @@ pub(super) fn flatten_layout(
         &mut groups,
         0,
     );
+    resolve_chord_symbol_sources(&mut staves);
     (staves, groups)
 }
 
@@ -129,6 +130,11 @@ fn flatten_content_recursive(
                             staff_number: source.staff,
                             voice_filter: source.voice.clone(),
                             stem_direction: source.stem.clone(),
+                            default_chord_symbol_source: false,
+                            first_chord_symbol_source_for_staff: false,
+                            first_chord_symbol_source_on_layout_staff: false,
+                            part_has_explicit_chord_symbol_staff: false,
+                            displayed_staff_numbers: Vec::new(),
                         })
                     })
                     .collect();
@@ -145,8 +151,58 @@ fn flatten_content_recursive(
                     resolved_short_label: labels.short_name,
                     expansion: staff.expansion,
                     condensed_numbers: labels.condensed_numbers,
+                    chord_symbols_visible: match staff.chord_symbol_visibility {
+                        Some(ChordSymbolVisibility::Show) => Some(true),
+                        Some(ChordSymbolVisibility::Hide) => Some(false),
+                        Some(ChordSymbolVisibility::Auto) | None => None,
+                    },
                 });
             }
+        }
+    }
+}
+
+fn resolve_chord_symbol_sources(staves: &mut [FlatStaff]) {
+    let mut displayed_by_part: HashMap<usize, HashSet<u32>> = HashMap::new();
+    let explicit_parts: HashSet<usize> = staves
+        .iter()
+        .filter(|staff| staff.chord_symbols_visible == Some(true))
+        .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
+        .collect();
+    for source in staves
+        .iter()
+        .filter(|staff| staff.chord_symbols_visible != Some(false))
+        .flat_map(|staff| staff.sources.iter())
+    {
+        if let Some(staff_number) = source.staff_number {
+            displayed_by_part
+                .entry(source.part_index)
+                .or_default()
+                .insert(staff_number);
+        }
+    }
+
+    let mut seen_parts = HashSet::new();
+    let mut seen_part_staves = HashSet::new();
+    for staff in staves {
+        let mut seen_on_layout_staff = HashSet::new();
+        let hidden = staff.chord_symbols_visible == Some(false);
+        for source in &mut staff.sources {
+            let auto_suppressed = staff.chord_symbols_visible.is_none()
+                && explicit_parts.contains(&source.part_index);
+            source.default_chord_symbol_source =
+                !hidden && !auto_suppressed && seen_parts.insert(source.part_index);
+            source.first_chord_symbol_source_for_staff = !hidden
+                && !auto_suppressed
+                && seen_part_staves.insert((source.part_index, source.staff_number));
+            source.first_chord_symbol_source_on_layout_staff =
+                !hidden && seen_on_layout_staff.insert(source.part_index);
+            source.part_has_explicit_chord_symbol_staff =
+                explicit_parts.contains(&source.part_index);
+            source.displayed_staff_numbers = displayed_by_part
+                .get(&source.part_index)
+                .map(|numbers| numbers.iter().copied().collect())
+                .unwrap_or_default();
         }
     }
 }

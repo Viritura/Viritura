@@ -210,6 +210,8 @@ function serializeChordSymbol(cs: ChordSymbol): Obj {
     root: { step: cs.root.step } as Obj,
     quality: cs.quality,
   };
+  if (cs.displayStaff !== undefined) csObj["displayStaff"] = cs.displayStaff;
+  if (cs.kindText) csObj["kindText"] = cs.kindText;
   if (cs.root.alter !== undefined) (csObj["root"] as Obj)["alter"] = cs.root.alter;
   if (cs.bass) {
     const bassObj: Obj = { step: cs.bass.step };
@@ -217,7 +219,7 @@ function serializeChordSymbol(cs: ChordSymbol): Obj {
     csObj["bass"] = bassObj;
   }
   if (cs.extension !== undefined) csObj["extension"] = cs.extension;
-  if (cs.textOverride) csObj["textOverride"] = cs.textOverride;
+  if (cs.textOverride !== undefined) csObj["textOverride"] = cs.textOverride;
   return csObj;
 }
 

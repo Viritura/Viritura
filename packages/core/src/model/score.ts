@@ -84,6 +84,26 @@ export interface TimeSignatureStyles {
   parts?: TimeSignatureSettings;
 }
 
+export interface ChordSymbolStyle {
+  rootCase?: "uppercase" | "lowercaseMinor";
+  majorSeventh?: "triangle" | "maj" | "M";
+  minor?: "m" | "min" | "minus" | "none";
+  diminished?: "symbol" | "dim";
+  halfDiminished?: "symbol" | "minorFlatFive";
+  augmented?: "plus" | "aug";
+  extensions?: "superscript" | "baseline";
+}
+
+export const DEFAULT_CHORD_SYMBOL_STYLE: Required<ChordSymbolStyle> = {
+  rootCase: "uppercase",
+  majorSeventh: "triangle",
+  minor: "m",
+  diminished: "symbol",
+  halfDiminished: "symbol",
+  augmented: "plus",
+  extensions: "superscript",
+};
+
 /** A selected source from a score sound profile. */
 export interface PartSoundOverride {
   /** Stable profile-defined source ID, never a MIDI program number. */
@@ -255,6 +275,8 @@ export interface Score {
   textStyles?: TextStyles;
   /** Time signature engraving styles (root `_x.viritura.timeSignatures`). */
   timeSignatures?: TimeSignatureStyles;
+  /** Chord-symbol engraving style (root `_x.viritura.chordSymbolStyle`). */
+  chordSymbolStyle?: ChordSymbolStyle;
   /** Per-part playback sound assignments (root `_x.viritura.soundProfile`). */
   soundProfile?: SoundProfileAssignment;
   /** Score-to-picture synchronization settings (root `_x.viritura.videoSync`). */
