@@ -80,14 +80,10 @@ function parseQuality(text: string): { quality: ChordQuality; extension?: ChordS
 /**
  * Parse the common chord-symbol shorthand used by inline entry.
  *
- * The returned event is anchored only by measure-relative time and optional
- * staff. Selecting a note is an editor convenience, not persistent ownership.
+ * The returned event is anchored only by its part-measure and relative time.
+ * Selecting a note is an editor convenience, not persistent ownership.
  */
-export function parseChordSymbolText(
-  input: string,
-  position: RhythmicPosition,
-  staff?: number,
-): ChordSymbol | undefined {
+export function parseChordSymbolText(input: string, position: RhythmicPosition): ChordSymbol | undefined {
   const text = input.trim();
   const match = /^([A-Ga-g])(bb|##|b|#|x)?([^/]*?)(?:\/([A-Ga-g])(bb|##|b|#|x)?)?$/.exec(text);
   if (!match) return undefined;
@@ -102,7 +98,6 @@ export function parseChordSymbolText(
     quality: parsedQuality?.quality ?? "other",
   };
   if (!parsedQuality) chord.kindText = match[3]!;
-  if (staff !== undefined) chord.staff = staff;
   if (parsedQuality?.extension !== undefined) chord.extension = parsedQuality.extension;
 
   if (match[4]) {

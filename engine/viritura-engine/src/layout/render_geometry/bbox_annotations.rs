@@ -58,7 +58,7 @@ pub(super) fn bbox_chord_symbols(
         );
         bboxes.push(ElementBBox {
             element_id: element_id::chord_symbol(
-                part_idx,
+                chord.source_part_index.unwrap_or(part_idx),
                 measure_idx,
                 chord.source_index.unwrap_or(i),
             ),

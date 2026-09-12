@@ -47,14 +47,14 @@ interface Props {
   onExtensionChange: (extension: ChordSymbol["extension"]) => void;
   onBassStepChange: (step: string | undefined) => void;
   onBassAlterChange: (alter: number | undefined) => void;
-  onStaffChange: (staff: number | undefined) => void;
+  onDisplayStaffChange: (staff: number | undefined) => void;
   onTextOverrideChange: (text: string) => void;
 }
 
 export function ChordSymbolSection(props: Props) {
   const { chord, staffCount } = props;
   const staffOptions = [
-    { value: "", label: "Top staff" },
+    { value: "", label: "Use layout" },
     ...Array.from({ length: staffCount }, (_, index) => ({
       value: String(index + 1),
       label: `Staff ${index + 1}`,
@@ -122,11 +122,11 @@ export function ChordSymbolSection(props: Props) {
       )}
       {staffCount > 1 && (
         <label style={labelStyle}>
-          Staff
+          Display staff override
           <Select
-            value={chord.staff?.toString() ?? ""}
+            value={chord.displayStaff?.toString() ?? ""}
             options={staffOptions}
-            onValueChange={(value) => props.onStaffChange(value === "" ? undefined : Number(value))}
+            onValueChange={(value) => props.onDisplayStaffChange(value === "" ? undefined : Number(value))}
           />
         </label>
       )}

@@ -61,7 +61,8 @@ export interface ChordSymbolPopoverState {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
-  staff?: number;
+  /** Selected staff used only to disambiguate same-position imported chords. */
+  anchorStaff?: number;
 }
 
 interface OverlayState {

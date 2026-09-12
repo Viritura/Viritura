@@ -9,6 +9,7 @@ function scoreWithQuarterNotes(): Score {
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
     parts: [
       {
+        staves: 2,
         measures: [
           {
             sequences: [
@@ -42,10 +43,11 @@ describe("applyChordSymbolEdit", () => {
       measureIndex: 0,
       sequenceIndex: 0,
       eventIndex: 1,
+      anchorStaff: 2,
     });
   });
 
-  it("creates an independent harmony event at the selected time and staff", () => {
+  it("creates a part-level harmony event without inheriting the selected note's staff", () => {
     const updated = applyChordSymbolEdit(
       scoreWithQuarterNotes(),
       {
@@ -54,7 +56,6 @@ describe("applyChordSymbolEdit", () => {
         measureIndex: 0,
         sequenceIndex: 0,
         eventIndex: 1,
-        staff: 2,
       },
       "F#maj7/A#",
     );
@@ -62,7 +63,6 @@ describe("applyChordSymbolEdit", () => {
     expect(updated?.parts[0]!.measures[0]!.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
-        staff: 2,
         root: { step: "F", alter: 1 },
         quality: "major",
         extension: 7,
@@ -79,7 +79,6 @@ describe("applyChordSymbolEdit", () => {
       measureIndex: 0,
       sequenceIndex: 0,
       eventIndex: 0,
-      staff: 2,
     };
     const first = applyChordSymbolEdit(score, target, "C");
     const replaced = first ? applyChordSymbolEdit(first, target, "Dm7") : undefined;
@@ -87,9 +86,57 @@ describe("applyChordSymbolEdit", () => {
     expect(replaced?.parts[0]!.measures[0]!.chordSymbols).toEqual([
       {
         position: { fraction: [0, 1] },
-        staff: 2,
         root: { step: "D" },
         quality: "minor",
+        extension: 7,
+      },
+    ]);
+  });
+
+  it("replaces an imported staff-targeted chord while preserving its display override", () => {
+    const score = scoreWithQuarterNotes();
+    score.parts[0]!.measures[0]!.chordSymbols = [
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 2,
+        root: { step: "C" },
+        quality: "major",
+      },
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 1,
+        root: { step: "G" },
+        quality: "dominant",
+        extension: 7,
+      },
+    ];
+
+    const updated = applyChordSymbolEdit(
+      score,
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+        anchorStaff: 2,
+      },
+      "Dm7",
+    );
+
+    expect(updated?.parts[0]!.measures[0]!.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 2,
+        root: { step: "D" },
+        quality: "minor",
+        extension: 7,
+      },
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 1,
+        root: { step: "G" },
+        quality: "dominant",
         extension: 7,
       },
     ]);

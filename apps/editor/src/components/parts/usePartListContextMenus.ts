@@ -10,6 +10,10 @@ export interface UsePartListContextMenusArgs {
   setContextMenu: (state: ContextMenuState | null) => void;
   removeGroup: (path: NodePath) => void;
   updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
+  updateStaffChordSymbolVisibility: (
+    path: NodePath,
+    value: import("@viritura/core").LayoutStaff["chordSymbolVisibility"],
+  ) => void;
   setEditingGroup: (key: string | null) => void;
   setEditingGroupLabel: (label: string) => void;
   partIdToScoreIndex: Map<string, number>;
@@ -40,6 +44,7 @@ export function usePartListContextMenus(args: UsePartListContextMenusArgs): UseP
     setContextMenu,
     removeGroup,
     updateGroupProp,
+    updateStaffChordSymbolVisibility,
     setEditingGroup,
     setEditingGroupLabel,
     partIdToScoreIndex,
@@ -97,6 +102,7 @@ export function usePartListContextMenus(args: UsePartListContextMenusArgs): UseP
         partIdToScoreIndex,
         onSelectScore,
         ungroupStaff,
+        updateStaffChordSymbolVisibility,
         onAddDoubling,
         onRemoveDoubling,
         onRemoveInstrument,

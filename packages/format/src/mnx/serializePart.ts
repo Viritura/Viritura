@@ -210,7 +210,7 @@ function serializeChordSymbol(cs: ChordSymbol): Obj {
     root: { step: cs.root.step } as Obj,
     quality: cs.quality,
   };
-  if (cs.staff !== undefined) csObj["staff"] = cs.staff;
+  if (cs.displayStaff !== undefined) csObj["displayStaff"] = cs.displayStaff;
   if (cs.kindText) csObj["kindText"] = cs.kindText;
   if (cs.root.alter !== undefined) (csObj["root"] as Obj)["alter"] = cs.root.alter;
   if (cs.bass) {

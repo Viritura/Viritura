@@ -141,20 +141,31 @@ export function applyChordSymbolEdit(
   if (!pm || !sequence) return undefined;
 
   const position = { fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)) };
-  const chord = parseChordSymbolText(rawValue, position, popover.staff);
+  const chord = parseChordSymbolText(rawValue, position);
   if (!chord) return undefined;
 
   return produce(score, (draft) => {
     const measure = draft.parts[popover.partIndex]?.measures[popover.measureIndex];
     if (!measure) return;
     const chords = measure.chordSymbols ?? [];
+    const atSamePosition = (candidate: (typeof chords)[number]) =>
+      candidate.position.fraction[0] * chord.position.fraction[1] ===
+      chord.position.fraction[0] * candidate.position.fraction[1];
     const existingIndex = chords.findIndex(
-      (candidate) =>
-        candidate.position.fraction[0] * chord.position.fraction[1] ===
-          chord.position.fraction[0] * candidate.position.fraction[1] && (candidate.staff ?? 1) === (chord.staff ?? 1),
+      (candidate) => atSamePosition(candidate) && candidate.displayStaff === popover.anchorStaff,
     );
-    if (existingIndex >= 0) chords[existingIndex] = chord;
-    else chords.push(chord);
+    const unscopedIndex = chords.findIndex(
+      (candidate) => atSamePosition(candidate) && candidate.displayStaff === undefined,
+    );
+    const fallbackIndex = chords.findIndex(atSamePosition);
+    const replaceIndex = existingIndex >= 0 ? existingIndex : unscopedIndex >= 0 ? unscopedIndex : fallbackIndex;
+    if (replaceIndex >= 0) {
+      const displayStaff = chords[replaceIndex]!.displayStaff;
+      if (displayStaff !== undefined) chord.displayStaff = displayStaff;
+      chords[replaceIndex] = chord;
+    } else {
+      chords.push(chord);
+    }
     chords.sort(
       (left, right) =>
         left.position.fraction[0] / left.position.fraction[1] - right.position.fraction[0] / right.position.fraction[1],

@@ -2050,7 +2050,7 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
     expect(measure._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
-        staff: 2,
+        displayStaff: 2,
         root: { step: "F", alter: 1 },
         quality: "major",
         kindText: "M7",

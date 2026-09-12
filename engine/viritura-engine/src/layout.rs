@@ -623,10 +623,12 @@ pub(crate) fn compute_above_staff_extra(
                 Some((_left, _right, top)) => highest.min(top),
                 None => highest,
             };
+            let chord_protrusion = mnx_layout::above_staff_protrusion(ml, sp, config);
             // highest < 0 means above the staff
             if highest < -max_protrusion {
                 max_protrusion = -highest;
             }
+            max_protrusion = max_protrusion.max(chord_protrusion);
         }
     }
 

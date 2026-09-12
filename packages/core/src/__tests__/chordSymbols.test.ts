@@ -24,15 +24,6 @@ describe("parseChordSymbolText", () => {
     expect(parseChordSymbolText(input, POSITION)).toEqual({ position: POSITION, ...expected });
   });
 
-  it("preserves the independent staff lane", () => {
-    expect(parseChordSymbolText("C", POSITION, 2)).toEqual({
-      position: POSITION,
-      staff: 2,
-      root: { step: "C" },
-      quality: "major",
-    });
-  });
-
   it.each(["", "H7", "C/E/G"])("rejects unsupported syntax %s", (input) => {
     expect(parseChordSymbolText(input, POSITION)).toBeUndefined();
   });

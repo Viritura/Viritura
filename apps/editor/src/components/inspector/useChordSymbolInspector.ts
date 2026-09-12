@@ -51,7 +51,8 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
       mutateChord((selected) => {
         if (selected.bass) selected.bass.alter = alter;
       }),
-    setStaff: (staff: number | undefined) => mutateChord((selected) => (selected.staff = staff)),
+    setDisplayStaff: (displayStaff: number | undefined) =>
+      mutateChord((selected) => (selected.displayStaff = displayStaff)),
     setTextOverride: (text: string) =>
       mutateChord((selected) => (selected.textOverride = text.trim() === "" ? undefined : text)),
   };
