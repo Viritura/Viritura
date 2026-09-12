@@ -11,21 +11,28 @@ pub(crate) fn above_staff_protrusion(
     sp: f64,
     config: &LayoutConfig,
 ) -> f64 {
-    let has_chords = layout
-        .resolved
-        .part
-        .chord_symbols
-        .as_ref()
-        .is_some_and(|chords| !chords.is_empty());
-    if !has_chords {
+    let Some(chords) = layout.resolved.part.chord_symbols.as_ref() else {
+        return 0.0;
+    };
+    if chords.is_empty() {
         return 0.0;
     }
     let attach_gap = config
         .placement
         .resolve(ElementKind::ChordSymbol)
         .attach_gap;
-    let font_ascent = 2.4 * 0.82;
-    (attach_gap + font_ascent) * sp
+    let max_ascent = chords
+        .iter()
+        .map(|chord| {
+            super::super::render_annotations::chord_symbol_dimensions(
+                chord,
+                config.chord_symbol_style,
+                sp,
+            )
+            .1
+        })
+        .fold(0.0_f64, f64::max);
+    attach_gap * sp + max_ascent
 }
 
 pub(super) fn extend_visible_chord_symbols(

@@ -104,6 +104,9 @@ pub struct RootVirituraExtension {
     /// so it is promoted to typed values rather than carried as raw JSON.
     #[serde(rename = "timeSignatures", skip_serializing_if = "Option::is_none")]
     pub time_signatures: Option<TimeSignatureStyles>,
+    /// Per-document chord-symbol engraving style.
+    #[serde(rename = "chordSymbolStyle", skip_serializing_if = "Option::is_none")]
+    pub chord_symbol_style: Option<crate::model::ChordSymbolStyle>,
 }
 
 /// Wrapper for the `_x` vendor extension container at root level.
@@ -176,6 +179,14 @@ impl Score {
             .as_ref()
             .and_then(|x| x.viritura.as_ref())
             .and_then(|v| v.time_signatures)
+            .unwrap_or_default()
+    }
+
+    pub fn chord_symbol_style(&self) -> crate::model::ChordSymbolStyle {
+        self.vendor_ext
+            .as_ref()
+            .and_then(|x| x.viritura.as_ref())
+            .and_then(|v| v.chord_symbol_style)
             .unwrap_or_default()
     }
 
