@@ -8,7 +8,12 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { resolveEventFromSubElement, resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
+import {
+  getEventAncestorId,
+  resolveEventFromSubElement,
+  resolveEventLocation,
+  resolveFullMeasureRestLocation,
+} from "../score/ElementPath";
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
@@ -30,8 +35,6 @@ export interface StaffTextPopoverState {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
-  /** Selected staff used only to disambiguate same-position imported chords. */
-  anchorStaff?: number;
   staff?: number;
   targets?: Array<{
     partIndex: number;
@@ -52,6 +55,9 @@ export interface ChordSymbolPopoverState {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
+  anchorStaff?: number;
+  anchorElementId?: string;
+  rhythmicPosition?: import("@viritura/core").RhythmicPosition;
 }
 
 export function resolveStaffTextTargets(
@@ -82,6 +88,7 @@ export function resolveChordSymbolTarget(
   selectedScoreIndex: number,
   position: { x: number; y: number },
 ): ChordSymbolPopoverState | null {
+  if (selection.kind !== "single") return null;
   const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
   if (!target) return null;
   return {
@@ -93,6 +100,7 @@ export function resolveChordSymbolTarget(
     ...(target.tupletIndex !== undefined && { tupletIndex: target.tupletIndex }),
     ...(target.graceContainerIndex !== undefined && { graceContainerIndex: target.graceContainerIndex }),
     ...(target.staff !== undefined && { anchorStaff: target.staff }),
+    anchorElementId: getEventAncestorId(selection.elementId),
   };
 }
 
@@ -239,7 +247,8 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
   }, [store, selection, mousePositionRef, selectedScoreIndex, setStaffTextPopover]);
 
   const onAddChordSymbol = useCallback(() => {
-    const { score } = store.getState();
+    const state = store.getState();
+    const score = state.workingScore ?? state.score;
     if (!score) return;
     setChordSymbolPopover(
       resolveChordSymbolTarget(score, selection, selectedScoreIndex, { ...mousePositionRef.current }),
