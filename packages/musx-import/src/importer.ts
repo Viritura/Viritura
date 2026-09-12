@@ -94,9 +94,7 @@ export function createMusxImporter(
           };
           activeWorker.postMessage(request, [bytes]);
         } catch (error) {
-          pending.delete(requestId);
-          clearTimeout(timeout);
-          reject(error instanceof Error ? error : new Error(String(error)));
+          failWorker(activeWorker, error instanceof Error ? error : new Error(String(error)));
         }
       });
     },

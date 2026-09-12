@@ -6,6 +6,7 @@ import type { DenigmaWorkerRequest, DenigmaWorkerResponse } from "./types";
 class FakeWorker {
   request?: DenigmaWorkerRequest;
   terminated = false;
+  postError?: Error;
   private messageListener?: (event: MessageEvent<DenigmaWorkerResponse>) => void;
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
@@ -15,6 +16,7 @@ class FakeWorker {
   }
 
   postMessage(message: DenigmaWorkerRequest): void {
+    if (this.postError) throw this.postError;
     this.request = message;
   }
 
@@ -101,6 +103,30 @@ describe("createMusxImporter", () => {
 
     await expect(importer.convert(oversized, "oversized.musx")).rejects.toThrow("64 MiB");
     expect(workerCreated).toBe(false);
+  });
+
+  it("discards a worker that fails to accept a request", async () => {
+    const failedWorker = new FakeWorker();
+    failedWorker.postError = new Error("post failed");
+    const replacement = new FakeWorker();
+    const workers = [failedWorker, replacement];
+    const importer = createMusxImporter(() => workers.shift()! as unknown as Worker);
+
+    await expect(importer.convert(new Uint8Array([1]), "broken.musx")).rejects.toThrow("post failed");
+    expect(failedWorker.terminated).toBe(true);
+
+    const conversion = importer.convert(new Uint8Array([2]), "score.musx");
+    replacement.respond({
+      type: "converted",
+      requestId: replacement.request!.requestId,
+      result: {
+        mnxJson: '{"global":{"measures":[]},"parts":[]}',
+        diagnostics: [],
+        denigmaVersion: "4.0.0",
+        denigmaCommit: "abc123",
+      },
+    });
+    await expect(conversion).resolves.toMatchObject({ denigmaCommit: "abc123" });
   });
 
   it("fails every request on a timed-out worker without affecting its replacement", async () => {
