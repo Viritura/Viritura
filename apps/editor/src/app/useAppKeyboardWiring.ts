@@ -259,9 +259,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     toggleDialog("condensingPopover");
   }, []);
 
-  const onOpenJumpBar = useCallback(() => {
-    setJumpBarOpen(true);
-  }, [setJumpBarOpen]);
+  const onOpenJumpBar = useCallback(() => setJumpBarOpen(true), [setJumpBarOpen]);
 
   const navigateScoreOrPart = useCallback(
     (direction: -1 | 1) => {

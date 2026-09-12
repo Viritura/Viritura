@@ -46,8 +46,13 @@ function beatStep(time: TimeSignature): [number, number] {
 }
 
 function measureEnd(score: Score, target: ChordSymbolPopoverState, time: TimeSignature): RhythmicPosition {
-  const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
-  const contentBeats = sequence?.content.reduce((total, content) => total + sequenceContentBeats(content), 0) ?? 0;
+  const measure = score.parts[target.partIndex]?.measures[target.measureIndex];
+  const contentBeats = Math.max(
+    0,
+    ...(measure?.sequences.map((sequence) =>
+      sequence.content.reduce((total, content) => total + sequenceContentBeats(content), 0),
+    ) ?? []),
+  );
   return contentBeats > 0 ? { fraction: beatPositionToFraction(contentBeats) } : fraction(time.count, time.unit);
 }
 

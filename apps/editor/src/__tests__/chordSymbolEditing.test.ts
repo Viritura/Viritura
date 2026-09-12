@@ -283,4 +283,29 @@ describe("applyChordSymbolEdit", () => {
     expect(nextMeasure).toMatchObject({ measureIndex: 1, eventIndex: 0 });
     expect(nextMeasure?.anchorElementId).toBeTruthy();
   });
+
+  it("uses the longest voice when beat-stepping through a polyphonic measure", () => {
+    const score = scoreWithQuarterNotes();
+    score.parts[0]!.measures[0]!.sequences.push({
+      staff: 2,
+      content: [{ type: "event", id: "sustained", duration: { base: "whole" }, rest: {} }],
+    });
+    const first = score.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    if (first?.type === "event") first.id = "short-voice";
+    const current = resolveChordSymbolTarget(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/short-voice/n0", elementType: "note" },
+      0,
+      { x: 100, y: 80 },
+    )!;
+
+    const nextBeat = navigateChordSymbolInput(
+      score,
+      { ...current, rhythmicPosition: { fraction: [1, 4] } },
+      "nextBeat",
+      0,
+    );
+
+    expect(nextBeat).toMatchObject({ measureIndex: 0, rhythmicPosition: { fraction: [1, 2] } });
+  });
 });
