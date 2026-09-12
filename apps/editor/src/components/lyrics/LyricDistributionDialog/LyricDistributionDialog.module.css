@@ -1,0 +1,74 @@
+.intro {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.preview,
+.diagnostics {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.preview h3,
+.diagnostics h3,
+.preview p {
+  margin-top: 0;
+}
+
+.assignmentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.assignment {
+  display: grid;
+  grid-template-columns: 2rem minmax(5rem, 1fr) minmax(7rem, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--type-small-size);
+}
+
+.assignment[data-invalid="true"] {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.position {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagnostics ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.diagnostics li {
+  color: var(--text-muted);
+}
+
+.diagnostics li[data-severity="error"] {
+  color: var(--danger);
+}
+
+.confirmation {
+  margin-top: var(--space-4);
+}

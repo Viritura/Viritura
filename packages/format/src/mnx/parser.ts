@@ -18,6 +18,9 @@ import type {
   VideoSyncSettings,
   VideoMediaIdentity,
   HitPoint,
+  LyricWorkflow,
+  LyricWorkflowSource,
+  LyricWorkflowToken,
 } from "@viritura/core";
 import { generateId } from "@viritura/core";
 
@@ -143,6 +146,58 @@ function parseRootTextStyles(rootX: Obj | undefined): TextStyles | undefined {
   const ts = viritura?.["textStyles"] as TextStyles | undefined;
   if (!ts || typeof ts !== "object" || Object.keys(ts).length === 0) return undefined;
   return ts;
+}
+
+function parseLyricWorkflowToken(raw: unknown): LyricWorkflowToken | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Obj;
+  if (typeof value["id"] !== "string" || value["id"].length === 0) return null;
+  const token: LyricWorkflowToken = { id: value["id"] };
+  if (typeof value["text"] === "string") token.text = value["text"];
+  if (value["type"] === "start" || value["type"] === "middle" || value["type"] === "end" || value["type"] === "whole") {
+    token.type = value["type"];
+  }
+  if (value["skip"] === true) token.skip = true;
+  if (typeof value["eventId"] === "string" && value["eventId"].length > 0) token.eventId = value["eventId"];
+  if (typeof value["partId"] === "string" && value["partId"].length > 0) token.partId = value["partId"];
+  if (
+    typeof value["sequenceIndex"] === "number" &&
+    Number.isInteger(value["sequenceIndex"]) &&
+    value["sequenceIndex"] >= 0
+  ) {
+    token.sequenceIndex = value["sequenceIndex"];
+  }
+  return token;
+}
+
+function parseRootLyricWorkflow(rootX: Obj | undefined): LyricWorkflow | undefined {
+  const viritura = rootX?.["viritura"] as Obj | undefined;
+  const raw = viritura?.["lyricWorkflow"] as Obj | undefined;
+  const rawSources = raw?.["sources"];
+  if (!rawSources || typeof rawSources !== "object") return undefined;
+  const sources: Record<string, LyricWorkflowSource> = {};
+  for (const [key, candidate] of Object.entries(rawSources as Obj)) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const value = candidate as Obj;
+    if (
+      typeof value["id"] !== "string" ||
+      typeof value["lineId"] !== "string" ||
+      typeof value["text"] !== "string" ||
+      !Array.isArray(value["tokens"])
+    ) {
+      continue;
+    }
+    const tokens = value["tokens"].map(parseLyricWorkflowToken).filter((token): token is LyricWorkflowToken => !!token);
+    const source: LyricWorkflowSource = {
+      id: value["id"],
+      lineId: value["lineId"],
+      text: value["text"],
+      tokens,
+    };
+    if (typeof value["language"] === "string" && value["language"].length > 0) source.language = value["language"];
+    sources[key] = source;
+  }
+  return Object.keys(sources).length > 0 ? { sources } : undefined;
 }
 
 const RENDER_STYLES: readonly TimeSignatureRenderStyle[] = [
@@ -469,6 +524,9 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
 
   const videoSync = parseRootVideoSync(rootX);
   if (videoSync) score.videoSync = videoSync;
+
+  const lyricWorkflow = parseRootLyricWorkflow(rootX);
+  if (lyricWorkflow) score.lyricWorkflow = lyricWorkflow;
 }
 
 /**

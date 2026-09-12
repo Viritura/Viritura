@@ -11,18 +11,18 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                            |
-| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                      |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                         |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                 |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                 |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                         |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                            |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                 |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                              |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                   |
+| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                             |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                        |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                        |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate        |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                   |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                        |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                     |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -323,6 +323,66 @@ binding_ the user relinks; `contentHash` is what makes that relink verifiable
 rather than a guess. Timing itself is never stored: score position comes from
 the tempo model, and `pictureOffsetSeconds` is the only scalar joining the two
 timelines. See [`plans/video-sync.md`](../plans/video-sync.md).
+
+### `lyricWorkflow`
+
+Source and repair metadata for previewed lyric distribution
+(`lyric-workflow`). Standard MNX event lyrics remain authoritative for visible
+text. This root index retains information that MNX event lyrics cannot express:
+the verbatim pasted source, stable token identity, explicit melisma skips, and
+the event/voice anchor last confirmed by the user.
+
+| Field     | Type                              | Required | Notes                                     |
+| --------- | --------------------------------- | -------- | ----------------------------------------- |
+| `sources` | object of `lyric-workflow-source` | **Yes**  | Keyed by stable source ID, never by index |
+
+Each source contains `id`, `lineId`, verbatim `text`, optional BCP 47
+`language`, and a `tokens` array. A token always has a stable `id`; visible
+tokens carry `text` and optional MNX syllabic `type`, while explicit
+underscores carry `skip: true`. `eventId`, `partId`, and `sequenceIndex`
+describe the last confirmed anchor. Omitting those anchor fields detaches a
+token for review without discarding it.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "lyricWorkflow": {
+        "sources": {
+          "0199-source": {
+            "id": "0199-source",
+            "lineId": "verse-1",
+            "text": "Hal-le _",
+            "language": "en",
+            "tokens": [
+              {
+                "id": "0199-token-1",
+                "text": "Hal",
+                "type": "start",
+                "eventId": "event-12",
+                "partId": "soprano",
+                "sequenceIndex": 0
+              },
+              {
+                "id": "0199-token-2",
+                "skip": true,
+                "eventId": "event-13",
+                "partId": "soprano",
+                "sequenceIndex": 0
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Keeping sources and tokens in ID-keyed records lets concurrent work on
+different lyric lines merge without index renumbering. If an anchored event is
+deleted or revoiced, the editor reports the source token as orphaned or moved
+instead of silently choosing another voice.
 
 ---
 

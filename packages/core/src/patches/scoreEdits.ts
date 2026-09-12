@@ -82,6 +82,7 @@ function writeScoreExtension(score: Score, update: ScoreExtensionField): void {
     case "videoSync":
     case "soundProfile":
     case "textStyles":
+    case "lyricWorkflow":
       if (update.value === undefined) delete target[update.field];
       else target[update.field] = update.value;
       return;

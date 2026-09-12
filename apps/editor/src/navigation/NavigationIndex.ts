@@ -105,6 +105,34 @@ export function findPrevInVoice(navIndex: NavigationIndex, currentId: string): s
   return undefined;
 }
 
+function findNoteInVoice(navIndex: NavigationIndex, currentId: string, direction: 1 | -1): string | undefined {
+  const idx = findEntryIndex(navIndex, currentId);
+  if (idx < 0) return undefined;
+  const current = navIndex.entries[idx]!;
+
+  for (let i = idx + direction; i >= 0 && i < navIndex.entries.length; i += direction) {
+    const entry = navIndex.entries[i]!;
+    if (entry.partIndex !== current.partIndex) {
+      if (direction > 0 && entry.partIndex > current.partIndex) break;
+      continue;
+    }
+    if (entry.sequenceIndex === current.sequenceIndex && entry.elementType === "event" && !entry.isRest) {
+      return entry.elementId;
+    }
+  }
+  return undefined;
+}
+
+/** Get the next pitched or unpitched note in the same voice, skipping rests. */
+export function findNextNoteInVoice(navIndex: NavigationIndex, currentId: string): string | undefined {
+  return findNoteInVoice(navIndex, currentId, 1);
+}
+
+/** Get the previous pitched or unpitched note in the same voice, skipping rests. */
+export function findPrevNoteInVoice(navIndex: NavigationIndex, currentId: string): string | undefined {
+  return findNoteInVoice(navIndex, currentId, -1);
+}
+
 /**
  * Get the first event of the next measure in the same voice.
  * Only walks events for backward compatibility.

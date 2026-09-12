@@ -55,8 +55,62 @@ Standard clipboard commands follow the selection:
   also carry the referenced line labels, languages, and ordering so they remain
   available when pasted into another document.
 
-Pasting and distributing a complete verse across a passage is tracked
-separately in [#119](https://github.com/Viritura/Viritura/issues/119).
+## Paste and distribute a verse
+
+Select a contiguous passage in one voice, then choose **Paste verse** in the
+Lyrics controls. Enter or paste the complete text and review the token-to-event
+preview before applying it.
+
+- Spaces end words.
+- Hyphens divide authored syllables and are never rewritten. Pasted ASCII,
+  Unicode, non-breaking, and soft hyphens are recognized.
+- Each underscore skips one selected event for a melisma, tie continuation, or
+  intentional gap.
+- Rests, tie continuations, existing lyrics, mixed-voice selections, and token
+  count mismatches appear in the preview. Errors must be resolved before the
+  operation can be applied.
+- Enable **Replace existing lyrics** only when the previewed line should
+  overwrite text already attached to the selected events.
+
+When the active line has a language, **Suggest syllables** offers conservative
+language-aware boundaries for unhyphenated words. Generated boundaries are
+marked as suggestions and require explicit confirmation. Authored hyphens and
+underscores always take precedence.
+
+Applying the preview is one document edit, so undo, redo, history, and live
+collaboration treat the whole distribution atomically. The document also keeps
+the verbatim source text and stable token identities under
+`_x.viritura.lyricWorkflow`; later reflow never has to reverse-engineer or
+rewrite the original paste.
+
+## Reflow and repair
+
+Select the destination passage and choose **Reflow** to preview the active
+line's most recent distributed source against a new range. Reflow preserves
+stable token identities and commits as one edit.
+
+Lyrics remain attached to their rhythmic event during duration changes and
+same-voice insertion. Structural changes never silently move a syllable to a
+different voice:
+
+| Rhythm edit              | Lyric behavior                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Insert an event          | Existing event anchors remain unchanged. Use **Reflow** to include the insertion.                |
+| Delete an event          | The source token becomes orphaned and remains available for repair.                              |
+| Revoice or move an event | The lyric follows its event, but Viritura flags the changed voice for confirmation.              |
+| Split or join events     | Existing event IDs remain authoritative; tokens whose anchor disappears are flagged as orphaned. |
+| Change duration          | The lyric remains on the same stable event ID.                                                   |
+| Replace a passage        | Missing and conflicting anchors are listed separately from engraving.                            |
+
+The repair panel offers explicit choices:
+
+- **Follow events** accepts revoiced anchors and restores stored token text
+  where an anchored lyric conflicts.
+- **Reflow** remaps the retained source forward over the current selection.
+- **Detach for review** removes token anchors without discarding the retained
+  source or visible text.
+- **Delete affected** removes the affected distributed source and its matching
+  lyric text.
 
 ## Manage lyric lines
 

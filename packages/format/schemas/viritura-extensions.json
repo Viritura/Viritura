@@ -1097,6 +1097,86 @@
       "additionalProperties": false
     },
 
+    "lyric-workflow-token": {
+      "type": "object",
+      "description": "A stable token from a paste-and-distribute lyric source.",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity used by reflow and collaborative repair."
+        },
+        "text": {
+          "type": "string",
+          "description": "Authored syllable text. Omitted for an explicit melisma skip."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "middle", "end", "whole"],
+          "description": "MNX syllabic role for a visible token."
+        },
+        "skip": {
+          "type": "boolean",
+          "const": true,
+          "description": "Marks an explicit underscore in the original source."
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable MNX event ID currently anchoring this token; absent when detached."
+        },
+        "partId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Part ID at the time the token was assigned."
+        },
+        "sequenceIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Voice index at the time the token was assigned."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "lyric-workflow-source": {
+      "type": "object",
+      "description": "Original source and stable token identities for one atomic lyric distribution.",
+      "required": ["id", "lineId", "text", "tokens"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "lineId": { "type": "string", "minLength": 1 },
+        "text": {
+          "type": "string",
+          "description": "Verbatim pasted text retained for non-destructive re-syllabification."
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1,
+          "description": "BCP 47 language used for optional generated syllabification."
+        },
+        "tokens": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lyric-workflow-token" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "lyric-workflow": {
+      "type": "object",
+      "description": "Source text and stable anchors for previewed lyric distribution and repair.",
+      "required": ["sources"],
+      "properties": {
+        "sources": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/lyric-workflow-source" }
+        }
+      },
+      "additionalProperties": false
+    },
+
     "root-extensions": {
       "type": "object",
       "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
@@ -1124,6 +1204,10 @@
         "videoSync": {
           "$ref": "#/$defs/video-sync",
           "description": "Score-to-picture synchronization settings."
+        },
+        "lyricWorkflow": {
+          "$ref": "#/$defs/lyric-workflow",
+          "description": "Original lyric source text and stable token anchors for distribution and repair."
         }
       },
       "additionalProperties": false

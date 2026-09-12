@@ -47,7 +47,13 @@ import type { TimeSignature } from "../model/time";
 import type { KeySignature } from "../model/key";
 import type { Barline } from "../model/barline";
 import type { Part, Transposition } from "../model/part";
-import type { ScoreMetadata, SoundProfileAssignment, TextStyles, VideoSyncSettings } from "../model/score";
+import type {
+  LyricWorkflow,
+  ScoreMetadata,
+  SoundProfileAssignment,
+  TextStyles,
+  VideoSyncSettings,
+} from "../model/score";
 import type { StemDirection } from "../enums";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,7 +388,8 @@ export interface SetScoreMetadataPatch {
 export type ScoreExtensionField =
   | { field: "videoSync"; value: VideoSyncSettings | undefined }
   | { field: "soundProfile"; value: SoundProfileAssignment | undefined }
-  | { field: "textStyles"; value: TextStyles | undefined };
+  | { field: "textStyles"; value: TextStyles | undefined }
+  | { field: "lyricWorkflow"; value: LyricWorkflow | undefined };
 
 export interface SetScoreExtensionPatch {
   kind: "setScoreExtension";

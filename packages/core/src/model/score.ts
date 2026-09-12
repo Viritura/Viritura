@@ -216,6 +216,40 @@ export interface GlobalLyrics {
   lineOrder?: string[];
 }
 
+/** A stable token from a paste-and-distribute lyric source. */
+export interface LyricWorkflowToken {
+  /** Stable identity used by reflow and collaborative repair. */
+  id: string;
+  /** Authored syllable text. Omitted for an explicit melisma skip. */
+  text?: string;
+  /** MNX syllabic role for visible tokens. */
+  type?: "start" | "middle" | "end" | "whole";
+  /** True when the source contained an explicit underscore at this position. */
+  skip?: boolean;
+  /** Stable MNX event ID currently anchoring this token. Omitted when detached. */
+  eventId?: string;
+  /** Original part ID, used to diagnose an event moved between parts. */
+  partId?: string;
+  /** Original voice index, used to diagnose revoicing without silently reflowing. */
+  sequenceIndex?: number;
+}
+
+/** Original source and token identities for one atomic lyric distribution. */
+export interface LyricWorkflowSource {
+  id: string;
+  lineId: string;
+  /** Verbatim text pasted by the user, retained for non-destructive re-syllabification. */
+  text: string;
+  /** BCP 47 language used for optional generated syllabification. */
+  language?: string;
+  tokens: LyricWorkflowToken[];
+}
+
+/** Repair metadata for paste, reflow, and collaborative lyric edits. */
+export interface LyricWorkflow {
+  sources: Record<string, LyricWorkflowSource>;
+}
+
 /** MNX support flags — declares which optional features the document uses. */
 export interface Support {
   /** When true, every note with a visible accidental has accidentalDisplay set. */
@@ -259,4 +293,6 @@ export interface Score {
   soundProfile?: SoundProfileAssignment;
   /** Score-to-picture synchronization settings (root `_x.viritura.videoSync`). */
   videoSync?: VideoSyncSettings;
+  /** Paste/reflow source text and stable token anchors (root `_x.viritura.lyricWorkflow`). */
+  lyricWorkflow?: LyricWorkflow;
 }

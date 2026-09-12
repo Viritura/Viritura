@@ -94,6 +94,65 @@ fn test_dynamics_render_glyphs() {
 }
 
 #[test]
+fn test_vocal_staff_defaults_dynamics_above_across_measures() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {"count": 4, "unit": 4}},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {
+                "dynamics": [
+                    {"id": "automatic", "type": "immediate", "position": {"fraction": [0, 1]},
+                     "value": "f"},
+                    {"id": "explicit-below", "type": "immediate", "position": {"fraction": [1, 2]},
+                     "value": "p", "orient": "below"}
+                ],
+                "sequences": [{"content": [
+                    {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+                    {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]}
+                ]}]
+            },
+            {
+                "sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 4}}],
+                     "lyrics": {"lines": {"1": {"text": "sing"}}}}
+                ]}]
+            }
+        ]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let dynamic_y = |id: &str| {
+        dl.commands
+            .iter()
+            .zip(dl.element_ids.iter())
+            .find_map(|(command, element_id)| {
+                if element_id.as_deref() != Some(id) {
+                    return None;
+                }
+                match command {
+                    RenderCommand::DrawGlyph { y, .. } => Some(*y),
+                    _ => None,
+                }
+            })
+            .expect("dynamic glyph")
+    };
+    let staff_y = config.margin_top * config.sp;
+    let staff_bottom = staff_y + 4.0 * config.sp;
+
+    assert!(
+        dynamic_y("p0/m0/dynautomatic") < staff_y,
+        "an automatic dynamic should engrave above a staff that has lyrics in another measure"
+    );
+    assert!(
+        dynamic_y("p0/m0/dynexplicit-below") > staff_bottom,
+        "an explicit below orientation must override the vocal-staff default"
+    );
+}
+
+#[test]
 fn test_voice_linked_dynamics_use_separate_voice_sides() {
     let json = r#"{
         "mnx": {"version": 1},

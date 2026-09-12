@@ -13,6 +13,13 @@ interface PlayPauseArgs {
   docScoreRef: { current: Score | null };
 }
 
+export function shouldHandlePlayPauseShortcut(event: KeyboardEvent, noteInputActive: boolean): boolean {
+  const target = event.target;
+  const editingText =
+    target instanceof HTMLElement && (target.matches("input, textarea, select, button") || target.isContentEditable);
+  return !noteInputActive && !editingText;
+}
+
 /**
  * Register the global Space-key play/pause shortcut. The handler reads from
  * refs so re-renders that change `playback`/`selection` don't tear down/
@@ -33,7 +40,7 @@ export function usePlayPauseShortcut(args: PlayPauseArgs): void {
       key: "Space",
       context: "global",
       // Space in note-input advances cursor — only fire here when not in note input.
-      when: () => !noteInputActiveRef.current,
+      when: (event) => shouldHandlePlayPauseShortcut(event, noteInputActiveRef.current),
       handler: () => {
         const pb = playbackRef.current;
         const acts = playbackActionsRef.current;

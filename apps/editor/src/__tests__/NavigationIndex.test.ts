@@ -3,7 +3,9 @@ import type { Score } from "@viritura/core";
 import {
   buildNavigationIndex,
   findNextInVoice,
+  findNextNoteInVoice,
   findPrevInVoice,
+  findPrevNoteInVoice,
   findNextMeasure,
   findPrevMeasure,
   findFirst,
@@ -290,6 +292,44 @@ describe("findNextInVoice / findPrevInVoice", () => {
 
   it("moves to next event in same voice", () => {
     expect(findNextInVoice(nav, "p0/m0/s0/e0")).toBe("p0/m0/s0/e1");
+  });
+
+  describe("lyric note navigation", () => {
+    const score = makeScore([
+      {
+        measures: [
+          {
+            sequences: [
+              {
+                content: [{ id: "before", notes: [{ pitch: { step: "C", octave: 4 } }] }],
+              },
+            ],
+          },
+          {
+            sequences: [{ content: [{ id: "mmr-1", rest: {} }] }],
+          },
+          {
+            sequences: [{ content: [{ id: "mmr-2", rest: {} }] }],
+          },
+          {
+            sequences: [
+              {
+                content: [{ id: "after", notes: [{ pitch: { step: "D", octave: 4 } }] }],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const nav = buildNavigationIndex(score);
+
+    it("advances across a multi-measure rest to the next note", () => {
+      expect(findNextNoteInVoice(nav, "p0/m0/s0/before")).toBe("p0/m3/s0/after");
+    });
+
+    it("moves backward across a multi-measure rest to the previous note", () => {
+      expect(findPrevNoteInVoice(nav, "p0/m3/s0/after")).toBe("p0/m0/s0/before");
+    });
   });
 
   it("moves across measures in same voice", () => {
