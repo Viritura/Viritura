@@ -44,6 +44,9 @@ pub struct LayoutStaff {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub labelref: Option<String>,
+    /// Per-layout chord-symbol visibility for this displayed staff.
+    #[serde(skip)]
+    pub chord_symbol_visibility: Option<ChordSymbolVisibility>,
     /// Staff symbol type (MNX `symbol`): "brace", "bracket", "noSymbol".
     /// Nested brackets automatically render as thin lines.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,6 +76,13 @@ pub struct LayoutStaff {
         rename = "_condensedNumberRows"
     )]
     pub condensed_number_rows_override: Option<Vec<Vec<u32>>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChordSymbolVisibility {
+    Auto,
+    Show,
+    Hide,
 }
 
 /// A source mapping a part (and optionally a staff/voice within it) to a layout staff.

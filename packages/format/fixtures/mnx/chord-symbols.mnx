@@ -98,7 +98,7 @@
                       1
                     ]
                   },
-                  "staff": 1,
+                  "displayStaff": 1,
                   "root": {
                     "step": "C"
                   },

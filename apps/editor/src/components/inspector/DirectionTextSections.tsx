@@ -132,7 +132,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           onExtensionChange={chordSymbol.setExtension}
           onBassStepChange={chordSymbol.setBassStep}
           onBassAlterChange={chordSymbol.setBassAlter}
-          onStaffChange={chordSymbol.setStaff}
+          onDisplayStaffChange={chordSymbol.setDisplayStaff}
           onTextOverrideChange={chordSymbol.setTextOverride}
         />
       )}

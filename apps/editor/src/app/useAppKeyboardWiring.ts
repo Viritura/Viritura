@@ -30,6 +30,8 @@ export interface StaffTextPopoverState {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
+  /** Selected staff used only to disambiguate same-position imported chords. */
+  anchorStaff?: number;
   staff?: number;
   targets?: Array<{
     partIndex: number;
@@ -50,7 +52,6 @@ export interface ChordSymbolPopoverState {
   eventIndex: number;
   tupletIndex?: number;
   graceContainerIndex?: number;
-  staff?: number;
 }
 
 export function resolveStaffTextTargets(
@@ -91,7 +92,7 @@ export function resolveChordSymbolTarget(
     eventIndex: target.eventIndex,
     ...(target.tupletIndex !== undefined && { tupletIndex: target.tupletIndex }),
     ...(target.graceContainerIndex !== undefined && { graceContainerIndex: target.graceContainerIndex }),
-    ...(target.staff !== undefined && { staff: target.staff }),
+    ...(target.staff !== undefined && { anchorStaff: target.staff }),
   };
 }
 

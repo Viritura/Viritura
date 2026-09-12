@@ -108,6 +108,29 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
   });
 
+  it("preserves layout-staff chord-symbol visibility", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [] },
+      parts: [{ id: "piano", name: "Piano", measures: [] }],
+      layouts: [
+        {
+          id: "piano-part",
+          content: [
+            { type: "staff", sources: [{ part: "piano", staff: 1 }] },
+            {
+              type: "staff",
+              sources: [{ part: "piano", staff: 2 }],
+              _x: { viritura: { chordSymbolVisibility: "show" } },
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+  });
+
   it("preserves independent first and subsequent system label policies", () => {
     const source = {
       mnx: { version: 1 },

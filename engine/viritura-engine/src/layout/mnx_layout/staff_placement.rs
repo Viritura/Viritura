@@ -97,6 +97,9 @@ pub(super) fn compute_staff_y_offsets_for_system(
             if highest < 0.0 {
                 above_protrusion = above_protrusion.max(-highest);
             }
+            above_protrusion = above_protrusion.max(super::chord_symbols::above_staff_protrusion(
+                layout, sp, config,
+            ));
         }
 
         let content_y = lowest_above + above_protrusion + min_clearance;

@@ -15,6 +15,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                      |
+| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                 |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                         |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                 |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                 |
@@ -47,6 +48,41 @@ same policy directly: full-then-short, short-only, or hidden.
         "firstSystem": "hidden",
         "subsequentSystems": "short"
       }
+    }
+  }
+}
+```
+
+## Layout Staff Extensions
+
+`_x.viritura` on a `staff` node in a layout definition. Schema def:
+`layout-staff-extensions`.
+
+### `chordSymbolVisibility`
+
+Controls whether the part-level harmony lane is engraved on this displayed
+staff:
+
+- `auto` (or omitted): show each part's chord symbols on the first displayed
+  staff sourced from that part.
+- `show`: show chord symbols on this layout staff.
+- `hide`: suppress chord symbols on this layout staff.
+
+An imported chord's `displayStaff` remains a per-event compatibility override
+when the layout is `auto`. Explicit layout `show`/`hide` settings take
+precedence, allowing full-score and part layouts to display the same semantic
+harmony lane differently.
+
+In the editor's Setup layout tree, right-click a staff and choose
+**Chord Symbols** → **Automatic**, **Show**, or **Hide**.
+
+```json
+{
+  "type": "staff",
+  "sources": [{ "part": "piano", "staff": 2 }],
+  "_x": {
+    "viritura": {
+      "chordSymbolVisibility": "show"
     }
   }
 }
@@ -438,14 +474,16 @@ Array of piano pedal markings.
 
 ### `chordSymbols`
 
-Array of time-anchored harmony events rendered as chord symbols above the
-staff. Each event belongs to the part and optional staff at its rhythmic
-position; it is not attached to a note or voice.
+Array of time-anchored harmony events rendered as chord symbols. Each event
+belongs to the part at its rhythmic position; it is not attached to a note,
+voice, or staff. Layout-staff `chordSymbolVisibility` controls ordinary
+engraving placement, while `displayStaff` preserves an explicit per-event
+source override.
 
 | Property       | Type                                   | Required | Description                                   |
 | -------------- | -------------------------------------- | -------- | --------------------------------------------- |
 | `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                             |
-| `staff`        | integer (>=1)                          | No       | Staff number; defaults to the top staff       |
+| `displayStaff` | integer (>=1)                          | No       | Imported/per-event display-staff override     |
 | `root`         | [ChordRoot](#chord-root)               | **Yes**  | Root note                                     |
 | `quality`      | [ChordQuality](#chord-quality)         | **Yes**  | Harmonic quality                              |
 | `kindText`     | string                                 | No       | Authored quality spelling                     |

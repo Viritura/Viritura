@@ -656,7 +656,7 @@ pub(crate) fn resolve_all_ottavas(
 /// default is provided: G clef for staff 1, F clef for staff 2+.
 #[allow(dead_code)] // Prepared for per-staff incremental resolution; current callers still use the whole-part path.
 pub(crate) fn split_part_measure_by_staff(pm: &PartMeasure, staff_num: u32) -> PartMeasure {
-    split_part_measure_by_staff_count(pm, staff_num, 1)
+    split_part_measure_by_staff_count(pm, staff_num, u32::MAX)
 }
 
 fn split_part_measure_by_staff_count(
@@ -734,7 +734,13 @@ fn split_part_measure_by_staff_count(
             let filtered: Vec<_> = chords
                 .iter()
                 .enumerate()
-                .filter(|(_, chord)| chord.staff.unwrap_or(1) == staff_num)
+                .filter(|(_, chord)| {
+                    chord
+                        .display_staff
+                        .filter(|display_staff| *display_staff <= staff_count)
+                        .unwrap_or(1)
+                        == staff_num
+                })
                 .map(|(index, chord)| {
                     let mut chord = chord.clone();
                     chord.source_index = Some(index);

@@ -155,8 +155,12 @@ fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpressi
 fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {
     ModelChordSymbol {
         position: promote_rhythmic_position_local(r.position),
-        staff: r.staff.map(|staff| u32::try_from(staff).unwrap_or(1)),
+        display_staff: r
+            .display_staff
+            .or(r.staff)
+            .map(|staff| u32::try_from(staff).unwrap_or(1)),
         source_index: None,
+        source_part_index: None,
         root: promote_chord_root(r.root),
         quality: r.quality,
         kind_text: r.kind_text,

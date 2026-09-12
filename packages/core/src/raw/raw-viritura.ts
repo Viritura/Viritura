@@ -113,7 +113,12 @@ export interface components {
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
-            /** @description Staff number (1-based). The chord remains time-anchored and is not owned by a note. */
+            /** @description Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff. */
+            displayStaff?: number;
+            /**
+             * @deprecated
+             * @description Deprecated alias for displayStaff. Accepted on read for compatibility.
+             */
             staff?: number;
             /** @description Root note of the chord. */
             root: components["schemas"]["chord-root"];
@@ -330,6 +335,14 @@ export interface components {
         "system-layout-extensions": {
             /** @constant */
             derived?: true;
+        };
+        /** @description Viritura engraving properties on a layout staff. */
+        "layout-staff-extensions": {
+            /**
+             * @description Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.
+             * @enum {string}
+             */
+            chordSymbolVisibility?: "auto" | "show" | "hide";
         };
         "page-turn-weights": {
             density?: number;
@@ -651,6 +664,7 @@ export type NoteExtensions = components["schemas"]["note-extensions"];
 export type StagePosition = components["schemas"]["stage-position"];
 export type PartExtensions = components["schemas"]["part-extensions"];
 export type SystemLayoutExtensions = components["schemas"]["system-layout-extensions"];
+export type LayoutStaffExtensions = components["schemas"]["layout-staff-extensions"];
 export type PageTurnWeights = components["schemas"]["page-turn-weights"];
 export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];

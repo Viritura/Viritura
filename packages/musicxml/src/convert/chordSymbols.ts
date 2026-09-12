@@ -71,7 +71,7 @@ export function extractChordSymbol(harmony: Element, position: RhythmicPosition)
   };
   if (authoredKindText || !kind) chord.kindText = authoredKindText || sourceKind;
   const staff = readStaff(harmony);
-  if (staff !== undefined) chord.staff = staff;
+  if (staff !== undefined) chord.displayStaff = staff;
   if (kind?.extension !== undefined) chord.extension = kind.extension;
   const bassElement = findChild(harmony, "bass");
   const bass = bassElement ? readRoot(bassElement, "bass") : undefined;

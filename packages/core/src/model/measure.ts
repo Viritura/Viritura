@@ -316,8 +316,8 @@ export interface ChordRoot {
 /** A time-anchored harmony event rendered as a chord symbol above the staff. */
 export interface ChordSymbol {
   position: RhythmicPosition;
-  /** Optional 1-based staff number. The chord is not owned by a note or voice. */
-  staff?: number;
+  /** Optional imported/per-event display-staff override (1-based). */
+  displayStaff?: number;
   root: ChordRoot;
   quality: ChordQuality;
   /** Authored quality spelling retained alongside the normalized quality. */

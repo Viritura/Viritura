@@ -43,6 +43,9 @@ function serializeLayoutStaff(s: LayoutStaff): Obj {
   const obj: Obj = { type: "staff" };
   if (s.label) obj["label"] = s.label;
   if (s.labelref) obj["labelref"] = s.labelref;
+  if (s.chordSymbolVisibility && s.chordSymbolVisibility !== "auto") {
+    obj["_x"] = { viritura: { chordSymbolVisibility: s.chordSymbolVisibility } };
+  }
   obj["sources"] = s.sources.map((src) => {
     const srcObj: Obj = { part: src.part };
     if (src.staff !== undefined) srcObj["staff"] = src.staff;

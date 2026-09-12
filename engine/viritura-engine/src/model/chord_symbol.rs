@@ -20,12 +20,15 @@ pub struct ChordRoot {
 pub struct ChordSymbol {
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
-    /// Optional 1-based staff number. The chord is not owned by a note or voice.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub staff: Option<u32>,
+    /// Optional imported/per-event display-staff override (1-based).
+    #[serde(skip_serializing_if = "Option::is_none", rename = "displayStaff")]
+    pub display_staff: Option<u32>,
     /// Original measure-list index retained when layout filters by staff.
     #[serde(skip)]
     pub source_index: Option<usize>,
+    /// Source part retained when a layout staff combines multiple parts.
+    #[serde(skip)]
+    pub source_part_index: Option<usize>,
     /// Root note (e.g., C, F#, Bb)
     pub root: ChordRoot,
     /// Chord quality
@@ -154,8 +157,9 @@ mod tests {
     ) -> ChordSymbol {
         ChordSymbol {
             position: RhythmicPosition { fraction: (0, 1) },
-            staff: None,
+            display_staff: None,
             source_index: None,
+            source_part_index: None,
             root: ChordRoot {
                 step: step.into(),
                 alter,

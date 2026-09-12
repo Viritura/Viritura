@@ -1326,7 +1326,7 @@ describe("parseMnx _x.viritura extensions", () => {
                   chordSymbols: [
                     {
                       position: { fraction: [0, 1] },
-                      staff: 2,
+                      displayStaff: 2,
                       root: { step: "C" },
                       quality: "other",
                       kindText: "Neapolitan",
@@ -1344,9 +1344,39 @@ describe("parseMnx _x.viritura extensions", () => {
     const cs = score.parts[0]?.measures[0]?.chordSymbols;
     expect(cs).toHaveLength(1);
     expect(cs?.[0]?.root.step).toBe("C");
-    expect(cs?.[0]?.staff).toBe(2);
+    expect(cs?.[0]?.displayStaff).toBe(2);
     expect(cs?.[0]?.quality).toBe("other");
     expect(cs?.[0]?.kindText).toBe("Neapolitan");
+  });
+
+  it("should migrate the legacy chord-symbol staff field to displayStaff", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              _x: {
+                viritura: {
+                  chordSymbols: [
+                    {
+                      position: { fraction: [0, 1] },
+                      staff: 2,
+                      root: { step: "C" },
+                      quality: "major",
+                    },
+                  ],
+                },
+              },
+              sequences: [{ content: [] }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(parseMnx(mnx).parts[0]?.measures[0]?.chordSymbols?.[0]?.displayStaff).toBe(2);
   });
 
   it("should parse text expressions from _x.viritura", () => {

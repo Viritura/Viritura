@@ -606,6 +606,10 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordRootStep {
 ///      "description": "Bass note for slash chords (e.g. the 'E' in 'C/E').",
 ///      "$ref": "#/$defs/chord-root"
 ///    },
+///    "displayStaff": {
+///      "description": "Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff.",
+///      "type": "integer"
+///    },
 ///    "extension": {
 ///      "description": "Chord extension (6th, 7th, 9th, 11th, 13th).",
 ///      "type": "integer",
@@ -633,7 +637,8 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordRootStep {
 ///      "$ref": "#/$defs/chord-root"
 ///    },
 ///    "staff": {
-///      "description": "Staff number (1-based). The chord remains time-anchored and is not owned by a note.",
+///      "description": "Deprecated alias for displayStaff. Accepted on read for compatibility.",
+///      "deprecated": true,
 ///      "type": "integer"
 ///    },
 ///    "textOverride": {
@@ -651,6 +656,13 @@ pub struct ChordSymbol {
     ///Bass note for slash chords (e.g. the 'E' in 'C/E').
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub bass: ::std::option::Option<ChordRoot>,
+    ///Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff.
+    #[serde(
+        rename = "displayStaff",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub display_staff: ::std::option::Option<i64>,
     ///Chord extension (6th, 7th, 9th, 11th, 13th).
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub extension: ::std::option::Option<ChordSymbolExtension>,
@@ -666,7 +678,7 @@ pub struct ChordSymbol {
     pub quality: ChordQuality,
     ///Root note of the chord.
     pub root: ChordRoot,
-    ///Staff number (1-based). The chord remains time-anchored and is not owned by a note.
+    ///Deprecated alias for displayStaff. Accepted on read for compatibility.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<i64>,
     ///Override the computed display text (e.g. 'Cadd9').
@@ -2043,6 +2055,143 @@ impl ::std::default::Default for KitComponentExtensions {
             drum_kit: Default::default(),
             notehead: Default::default(),
         }
+    }
+}
+///Viritura engraving properties on a layout staff.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura engraving properties on a layout staff.",
+///  "type": "object",
+///  "properties": {
+///    "chordSymbolVisibility": {
+///      "description": "Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.",
+///      "type": "string",
+///      "enum": [
+///        "auto",
+///        "show",
+///        "hide"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutStaffExtensions {
+    ///Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.
+    #[serde(
+        rename = "chordSymbolVisibility",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub chord_symbol_visibility: ::std::option::Option<
+        LayoutStaffExtensionsChordSymbolVisibility,
+    >,
+}
+impl ::std::convert::From<&LayoutStaffExtensions> for LayoutStaffExtensions {
+    fn from(value: &LayoutStaffExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for LayoutStaffExtensions {
+    fn default() -> Self {
+        Self {
+            chord_symbol_visibility: Default::default(),
+        }
+    }
+}
+///Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.",
+///  "type": "string",
+///  "enum": [
+///    "auto",
+///    "show",
+///    "hide"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LayoutStaffExtensionsChordSymbolVisibility {
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "show")]
+    Show,
+    #[serde(rename = "hide")]
+    Hide,
+}
+impl ::std::convert::From<&Self> for LayoutStaffExtensionsChordSymbolVisibility {
+    fn from(value: &LayoutStaffExtensionsChordSymbolVisibility) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LayoutStaffExtensionsChordSymbolVisibility {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Auto => f.write_str("auto"),
+            Self::Show => f.write_str("show"),
+            Self::Hide => f.write_str("hide"),
+        }
+    }
+}
+impl ::std::str::FromStr for LayoutStaffExtensionsChordSymbolVisibility {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "show" => Ok(Self::Show),
+            "hide" => Ok(Self::Hide),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutStaffExtensionsChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for LayoutStaffExtensionsChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for LayoutStaffExtensionsChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Viritura vendor extensions on a global measure object.
@@ -6722,6 +6871,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "kit-component-extensions": {
 ///      "$ref": "#/$defs/kit-component-extensions"
 ///    },
+///    "layout-staff-extensions": {
+///      "$ref": "#/$defs/layout-staff-extensions"
+///    },
 ///    "measure-global-extensions": {
 ///      "$ref": "#/$defs/measure-global-extensions"
 ///    },
@@ -6972,6 +7124,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub kit_component_extensions: ::std::option::Option<KitComponentExtensions>,
+    #[serde(
+        rename = "layout-staff-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub layout_staff_extensions: ::std::option::Option<LayoutStaffExtensions>,
     #[serde(
         rename = "measure-global-extensions",
         default,
@@ -7270,6 +7428,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
+            layout_staff_extensions: Default::default(),
             measure_global_extensions: Default::default(),
             measure_rhythmic_position: Default::default(),
             note_extensions: Default::default(),
