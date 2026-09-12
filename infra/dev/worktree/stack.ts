@@ -52,6 +52,7 @@ interface StackContext {
   readonly stateRoot: string;
   readonly lockDirectory: string;
   readonly leaseFile: string;
+  readonly apiEnvFile: string;
   readonly slug: string;
   readonly project: string;
   readonly dependencyHash: string;
@@ -75,11 +76,12 @@ async function createContext(runner: CommandRunner): Promise<StackContext> {
   const dependencyHash = getContentTag(repositoryRoot, getNodeDependencyInputs(repositoryRoot));
   const apiRestoreHash = getContentTag(repositoryRoot, getApiRestoreInputs(repositoryRoot));
   const apiConfigDirectory = join(stateRoot, slug);
+  const apiEnvFile = join(apiConfigDirectory, "api.env");
   mkdirSync(apiConfigDirectory, { recursive: true, mode: 0o700 });
   const env = {
     ...process.env,
     VIRITURA_SLUG: slug,
-    VIRITURA_API_ENV_FILE: join(apiConfigDirectory, "api.env"),
+    VIRITURA_API_ENV_FILE: apiEnvFile,
     VIRITURA_DEPENDENCY_HASH: dependencyHash,
     VIRITURA_NODE_IMAGE_TAG: dependencyHash,
     VIRITURA_API_IMAGE_TAG: apiRestoreHash,
@@ -92,6 +94,7 @@ async function createContext(runner: CommandRunner): Promise<StackContext> {
     stateRoot,
     lockDirectory: join(stateRoot, "locks"),
     leaseFile: join(stateRoot, "leases", `${project}.json`),
+    apiEnvFile,
     slug,
     project,
     dependencyHash,
@@ -212,7 +215,7 @@ function showUrls(context: StackContext): void {
   console.log(`  App stories  http://storybook.${context.slug}.localhost`);
   console.log("  Traefik      http://traefik.localhost  (dashboard http://127.0.0.1:8080)");
   console.log("\n  Container API URL: http://api:8080");
-  console.log(`  API secrets file: ${context.env.VIRITURA_API_ENV_FILE}\n`);
+  console.log(`  API secrets file: ${context.apiEnvFile}\n`);
 }
 
 async function prepareStack(docker: DockerClient, context: StackContext, targets: readonly string[]): Promise<void> {
