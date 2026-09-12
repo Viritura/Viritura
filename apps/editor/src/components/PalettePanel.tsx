@@ -135,6 +135,7 @@ import {
   CUSTOM_TIME_SIGNATURE_STYLE,
   TEMPO_LABEL_STYLE,
   TEMPO_GLYPH_STYLE,
+  CHORD_SYMBOL_LABEL_STYLE,
   EXPRESSION_LABEL_STYLE,
   REHEARSAL_BOX_STYLE,
   SEARCH_ROW_STYLE,
@@ -145,6 +146,8 @@ import {
   SortablePaletteSection,
 } from "./palette";
 import { LyricsPanel } from "./lyrics/LyricsPanel";
+import { setChordSymbolPopover } from "../store/overlayStore";
+import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
@@ -382,6 +385,19 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     });
     if (newScore !== score) updateScore(newScore);
   }, [store, updateScore]);
+
+  const handleAddChordSymbol = useCallback(() => {
+    const state = store.getState();
+    const score = state.workingScore ?? state.score;
+    const selection = useSelectionStore.getState().selection;
+    if (!score) return;
+    setChordSymbolPopover(
+      resolveChordSymbolTarget(score, selection, selectedScoreIndex, {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }),
+    );
+  }, [selectedScoreIndex, store]);
 
   // ── Measure-level helpers (shared by time/key/barline/clef/repeat/ending) ──
 
@@ -1275,7 +1291,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
   const textMatch =
     !searchQuery ||
-    "rehearsal mark expression text lyrics lyric words syllables verses language translation".includes(searchLower);
+    "chord symbol harmony rehearsal mark expression text lyrics lyric words syllables verses language translation".includes(
+      searchLower,
+    );
   const linesMatch =
     !searchQuery || "ottava 8va 8vb 15ma 15mb 22ma 22mb pedal sustain sostenuto una corda lines".includes(searchLower);
   const repeatsNavigationMatch =
@@ -1549,6 +1567,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               shortcut="Shift+X"
               onClick={handleAddStaffText}
             />
+            <PaletteButton shape="wide" title="Chord symbol" shortcut="Shift+K" onClick={handleAddChordSymbol}>
+              <span style={CHORD_SYMBOL_LABEL_STYLE}>CΔ⁷</span>
+            </PaletteButton>
             <PaletteButton shape="wide" title="Expression text" onClick={handleAddExpression}>
               <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
             </PaletteButton>

@@ -1379,6 +1379,41 @@ describe("parseMnx _x.viritura extensions", () => {
     expect(parseMnx(mnx).parts[0]?.measures[0]?.chordSymbols?.[0]?.displayStaff).toBe(2);
   });
 
+  it("should preserve an empty chord-symbol text override", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [{ content: [] }],
+              _x: {
+                viritura: {
+                  chordSymbols: [
+                    {
+                      position: { fraction: [0, 1] },
+                      root: { step: "C" },
+                      quality: "major",
+                      textOverride: "",
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parseMnx(mnx);
+    const serialized = serializeMnx(parsed) as {
+      parts: Array<{ measures: Array<{ _x: { viritura: { chordSymbols: Array<{ textOverride?: string }> } } }> }>;
+    };
+    expect(parsed.parts[0]?.measures[0]?.chordSymbols?.[0]?.textOverride).toBe("");
+    expect(serialized.parts[0]?.measures[0]?._x.viritura.chordSymbols[0]?.textOverride).toBe("");
+  });
+
   it("should parse text expressions from _x.viritura", () => {
     const mnx = {
       mnx: { version: 1 },

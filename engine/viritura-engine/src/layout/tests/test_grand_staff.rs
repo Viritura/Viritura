@@ -1322,7 +1322,7 @@ fn test_explicit_show_suppresses_automatic_chord_staff() {
 }
 
 #[test]
-fn test_condensed_layout_chord_ids_keep_their_source_part() {
+fn test_condensed_layout_chords_use_source_order_for_same_onset() {
     let score = parse_mnx(
         r#"{
             "mnx": {"version": 1},
@@ -1353,7 +1353,8 @@ fn test_condensed_layout_chord_ids_keep_their_source_part() {
                     "measures": [{
                         "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
                         "_x": {"viritura": {"chordSymbols": [
-                            {"position": {"fraction": [1, 2]}, "root": {"step": "F"}, "quality": "major"}
+                            {"position": {"fraction": [0, 1]}, "root": {"step": "F"}, "quality": "major"},
+                            {"position": {"fraction": [1, 2]}, "root": {"step": "G"}, "quality": "major"}
                         ]}}
                     }]
                 }
@@ -1367,7 +1368,7 @@ fn test_condensed_layout_chord_ids_keep_their_source_part() {
         .iter()
         .zip(dl.element_ids.iter())
         .filter_map(|(command, id)| match command {
-            RenderCommand::DrawText { text, .. } if text == "C" || text == "F" => {
+            RenderCommand::DrawText { text, .. } if text == "C" || text == "F" || text == "G" => {
                 id.as_deref().map(str::to_owned)
             }
             _ => None,
@@ -1376,7 +1377,7 @@ fn test_condensed_layout_chord_ids_keep_their_source_part() {
 
     assert_eq!(
         chord_ids,
-        vec!["p0/m0/chord0".to_string(), "p1/m0/chord0".to_string()]
+        vec!["p0/m0/chord0".to_string(), "p1/m0/chord1".to_string()]
     );
 }
 

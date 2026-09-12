@@ -219,7 +219,7 @@ function serializeChordSymbol(cs: ChordSymbol): Obj {
     csObj["bass"] = bassObj;
   }
   if (cs.extension !== undefined) csObj["extension"] = cs.extension;
-  if (cs.textOverride) csObj["textOverride"] = cs.textOverride;
+  if (cs.textOverride !== undefined) csObj["textOverride"] = cs.textOverride;
   return csObj;
 }
 

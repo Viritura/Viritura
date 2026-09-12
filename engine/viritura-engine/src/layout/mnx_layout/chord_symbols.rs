@@ -72,6 +72,17 @@ pub(super) fn extend_visible_chord_symbols(
         })
         .collect();
     if !visible.is_empty() {
-        target.get_or_insert_with(Vec::new).extend(visible);
+        let lane = target.get_or_insert_with(Vec::new);
+        for chord in visible {
+            // A condensed staff has one visual harmony lane. Source order is
+            // the deterministic precedence when source parts disagree.
+            if lane
+                .iter()
+                .any(|existing| existing.position == chord.position)
+            {
+                continue;
+            }
+            lane.push(chord);
+        }
     }
 }

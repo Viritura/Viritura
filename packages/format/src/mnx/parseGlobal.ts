@@ -368,7 +368,7 @@ export function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   if (raw.kindText) cs.kindText = raw.kindText;
   if (raw.bass) cs.bass = parseChordRoot(raw.bass);
   if (raw.extension !== undefined) cs.extension = raw.extension;
-  if (raw.textOverride) cs.textOverride = raw.textOverride;
+  if (raw.textOverride !== undefined) cs.textOverride = raw.textOverride;
   return cs;
 }
 
