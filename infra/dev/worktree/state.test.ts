@@ -46,11 +46,17 @@ test("file locks recover an abandoned owner", async () => {
   const lock = join(root, "test.lock");
   try {
     writeFileSync(lock, JSON.stringify({ pid: 2_147_483_647, createdAt: "2020-01-01T00:00:00.000Z" }));
-    let ran = false;
-    await withFileLock(lock, 2_000, async () => {
-      ran = true;
-    });
-    assert.equal(ran, true);
+    let active = 0;
+    let maximumActive = 0;
+    const contender = () =>
+      withFileLock(lock, 2_000, async () => {
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 25));
+        active -= 1;
+      });
+    await Promise.all([contender(), contender()]);
+    assert.equal(maximumActive, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 interface LockOwner {
@@ -21,6 +21,21 @@ function lockIsStale(path: string): boolean {
     return typeof owner.pid !== "number" || !processIsRunning(owner.pid);
   } catch {
     return true;
+  }
+}
+
+function recoverStaleLock(path: string): void {
+  const quarantinePath = `${path}.stale-${process.pid}-${Date.now()}`;
+  try {
+    renameSync(path, quarantinePath);
+  } catch (error) {
+    if (["ENOENT", "EACCES", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) return;
+    throw error;
+  }
+  try {
+    unlinkSync(quarantinePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 }
 
@@ -50,11 +65,7 @@ export async function withFileLock<T>(path: string, timeoutMilliseconds: number,
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       if (lockIsStale(path)) {
-        try {
-          unlinkSync(path);
-        } catch {
-          // Another process recovered the stale lock first.
-        }
+        recoverStaleLock(path);
         continue;
       }
       if (Date.now() >= deadline) throw new Error(`Timed out waiting for lock '${path}'.`, { cause: error });
