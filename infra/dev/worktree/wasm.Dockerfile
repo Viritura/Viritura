@@ -2,7 +2,7 @@
 #
 # Shared tool image for building a worktree's ignored WASM artifacts. Source,
 # output, and Cargo target/cache volumes are mounted by Compose at runtime.
-FROM node:22-bookworm-slim AS node
+FROM node:24-bookworm-slim AS node
 
 FROM rust:1.93.1-bookworm
 

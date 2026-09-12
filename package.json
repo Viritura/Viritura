@@ -5,6 +5,7 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:stack": "node --experimental-strip-types infra/dev/worktree/index.ts",
     "dev:editor": "corepack pnpm --filter @viritura/editor dev",
     "dev:website": "corepack pnpm --filter @viritura/website dev",
     "dev:storybook": "corepack pnpm --filter @viritura/editor storybook",
@@ -34,7 +35,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "validate": "pnpm lint && pnpm lint:rust && pnpm lint:dotnet && pnpm build:dotnet:check && pnpm test && pnpm test:rust && pnpm test:rust:wasm && pnpm test:desktop && pnpm test:vst-probe && pnpm test:dotnet && pnpm audit:deps && pnpm wasm:build && pnpm build:site",
-    "lint": "pnpm mnx:schema:check && tsx scripts/check-application-boundaries.ts && tsx --test scripts/check-application-boundaries.test.ts && pnpm notationref:test && tsx scripts/check-no-grabbag-filenames.ts && tsx scripts/check-missing-barrels.ts && tsx scripts/check-ui-public-styles.ts && pnpm lint:rust:size && prettier --check . && eslint . && knip --no-config-hints && pnpm --filter @viritura/format gen:raw:check && pnpm --filter @viritura/format gen:raw-viritura:check && pnpm --filter @viritura/format gen:validators:check",
+    "lint": "pnpm mnx:schema:check && tsx scripts/check-application-boundaries.ts && tsx --test scripts/check-application-boundaries.test.ts && pnpm notationref:test && pnpm test:dev-stack && tsx scripts/check-no-grabbag-filenames.ts && tsx scripts/check-missing-barrels.ts && tsx scripts/check-ui-public-styles.ts && pnpm lint:rust:size && prettier --check . && eslint . && knip --no-config-hints && pnpm --filter @viritura/format gen:raw:check && pnpm --filter @viritura/format gen:raw-viritura:check && pnpm --filter @viritura/format gen:validators:check",
     "lint:fix": "prettier --write . && eslint . --fix",
     "lint:eslint": "eslint .",
     "lint:dead": "knip",
@@ -63,6 +64,7 @@
     "notationref:preview": "tsx scripts/notationref-audit/index.ts",
     "notationref:update": "tsx scripts/notationref-audit/index.ts --write",
     "notationref:test": "tsx --test scripts/notationref-audit/update.test.ts",
+    "test:dev-stack": "node --experimental-strip-types --test infra/dev/worktree/*.test.ts",
     "hooks:install": "tsx scripts/setup-git-hooks.ts",
     "prepare": "tsx scripts/setup-git-hooks.ts"
   },
@@ -70,6 +72,7 @@
     "@eslint/js": "^9.39.5",
     "@inquirer/checkbox": "^5.1.5",
     "@playwright/test": "^1.63.0",
+    "@types/node": "24.0.0",
     "autoprefixer": "^10.5.4",
     "concurrently": "^10.0.5",
     "eslint": "^9.39.5",
@@ -87,7 +90,7 @@
     "typescript-eslint": "^8.59.4"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=24.0.0",
     "pnpm": ">=9.0.0"
   },
   "pnpm": {

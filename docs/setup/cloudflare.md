@@ -93,7 +93,7 @@ canonical hostname should be apex-only, add a Cloudflare Redirect Rule from
 Both projects require these production build variables:
 
 ```text
-NODE_VERSION=22.16.0
+NODE_VERSION=24.21.0
 PNPM_VERSION=9.15.4
 VITE_VIRITURA_API_BASE_URL=https://api.viritura.com
 VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com

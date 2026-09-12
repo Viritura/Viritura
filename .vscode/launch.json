@@ -20,7 +20,7 @@
       "type": "node-terminal",
       "request": "launch",
       "cwd": "${workspaceFolder}",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up app",
+      "command": "corepack pnpm dev:stack up app",
       "presentation": { "group": "0_worktree", "order": 1 }
     },
     {
@@ -28,7 +28,7 @@
       "type": "node-terminal",
       "request": "launch",
       "cwd": "${workspaceFolder}",
-      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/dev/worktree.ps1 up full",
+      "command": "corepack pnpm dev:stack up full",
       "presentation": { "group": "0_worktree", "order": 2 }
     },
     {

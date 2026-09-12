@@ -7,7 +7,7 @@ validation, using build caches, and deploying already-validated artifacts.
 
 Prerequisites:
 
-- Node.js 22 or newer;
+- Node.js 24 LTS;
 - pnpm 9 through Corepack;
 - Git LFS for the bundled SoundFont;
 - the Rust toolchain pinned by `engine/rust-toolchain.toml`;
@@ -115,14 +115,14 @@ worktree's selected stack in containers behind a single shared Traefik proxy.
 Each worktree has isolated API data, dependency caches, internal service DNS,
 and `*.<slug>.localhost` routes with no per-worktree host ports:
 
-```powershell
-./infra/dev/worktree.ps1 up        # app: editor + hot-reload API
-./infra/dev/worktree.ps1 up backend
-./infra/dev/worktree.ps1 up storybook-mnx
-./infra/dev/worktree.ps1 up full   # website + API + editor + all Storybooks
-./infra/dev/worktree.ps1 status
-./infra/dev/worktree.ps1 stop      # short pause; keep containers
-./infra/dev/worktree.ps1 down      # remove containers; keep compiler output
+```bash
+pnpm dev:stack up        # app: editor + hot-reload API
+pnpm dev:stack up backend
+pnpm dev:stack up storybook-mnx
+pnpm dev:stack up full   # website + API + editor + all Storybooks
+pnpm dev:stack status
+pnpm dev:stack stop      # short pause; keep containers
+pnpm dev:stack down      # remove containers; keep compiler output
 ```
 
 Chromium browsers resolve `*.localhost` to `127.0.0.1` automatically, so no
@@ -135,7 +135,8 @@ Full profile, environment, persistence, and cleanup reference:
 
 UI-capable worktree profiles automatically build missing or stale WASM through a
 one-shot Docker builder with isolated Cargo and wasm-pack caches. A fresh
-worktree does not require a host dependency install before `worktree.ps1 up`.
+worktree does not require Rust, wasm-pack, or .NET on the host before
+`pnpm dev:stack up`.
 
 ## Build caches
 

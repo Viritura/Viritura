@@ -1,14 +1,14 @@
-# Per-worktree development stack. Driven by infra/dev/worktree.ps1.
+# Per-worktree development stack. Driven by pnpm dev:stack.
 #
 # Public URLs are browser-reachable Traefik hosts. Internal URLs use Compose DNS
 # and are valid only between containers on this worktree's default network.
-name: viritura-${VIRITURA_SLUG:?set VIRITURA_SLUG (use infra/dev/worktree.ps1)}
+name: viritura-${VIRITURA_SLUG:?set VIRITURA_SLUG (use pnpm dev:stack)}
 
 x-node-build: &node-build
-  image: viritura-dev-worktree:${VIRITURA_NODE_IMAGE_TAG:?set by infra/dev/worktree.ps1}
+  image: viritura-dev-worktree:${VIRITURA_NODE_IMAGE_TAG:?set by pnpm dev:stack}
 
 x-api-build: &api-build
-  image: viritura-api-dev:${VIRITURA_API_IMAGE_TAG:?set by infra/dev/worktree.ps1}
+  image: viritura-api-dev:${VIRITURA_API_IMAGE_TAG:?set by pnpm dev:stack}
   build:
     context: ../../..
     dockerfile: infra/dev/worktree/api.Dockerfile
@@ -80,7 +80,7 @@ x-proxy-networks: &proxy-networks
   - proxy
 
 services:
-  # Build-only target used by worktree.ps1. Keeping the build definition on one
+  # Build-only target used by pnpm dev:stack. Keeping the build definition on one
   # service prevents concurrent frontend services from racing on the same tag.
   node-image:
     profiles: ["images"]
@@ -104,7 +104,7 @@ services:
     tmpfs: *node-cache-tmpfs
     volumes: *node-volumes
 
-  # One-shot cache-aware builder invoked automatically by worktree.ps1 for
+  # One-shot cache-aware builder invoked automatically by pnpm dev:stack for
   # profiles that render scores. It publishes ignored output through the source
   # bind mount, while all Linux-native Cargo state stays in Docker volumes.
   wasm-build:
@@ -193,9 +193,9 @@ services:
     depends_on:
       - server-ui
     env_file:
-      # worktree.ps1 resolves this outside the repository so frontend
+      # pnpm dev:stack resolves this outside the repository so frontend
       # containers and Docker build contexts cannot read backend secrets.
-      - path: ${VIRITURA_API_ENV_FILE:?set by infra/dev/worktree.ps1}
+      - path: ${VIRITURA_API_ENV_FILE:?set by pnpm dev:stack}
         required: false
     environment:
       <<: *public-environment
