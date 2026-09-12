@@ -1065,6 +1065,42 @@ fn test_organ_layout_clefs_all_staves() {
 }
 
 #[test]
+fn test_chord_symbols_follow_staff_without_losing_source_index() {
+    let score = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"staves": 2, "measures": [{
+                "sequences": [
+                    {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
+                    {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
+                ],
+                "_x": {"viritura": {"chordSymbols": [
+                    {"position": {"fraction": [0, 1]}, "staff": 1, "root": {"step": "C"}, "quality": "major"},
+                    {"position": {"fraction": [0, 1]}, "staff": 2, "root": {"step": "F"}, "quality": "major"}
+                ]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let pm = &score.parts[0].measures[0];
+
+    let upper = split_part_measure_by_staff(pm, 1);
+    let lower = split_part_measure_by_staff(pm, 2);
+
+    assert_eq!(upper.chord_symbols.as_ref().unwrap()[0].root.step, "C");
+    assert_eq!(
+        upper.chord_symbols.as_ref().unwrap()[0].source_index,
+        Some(0)
+    );
+    assert_eq!(lower.chord_symbols.as_ref().unwrap()[0].root.step, "F");
+    assert_eq!(
+        lower.chord_symbols.as_ref().unwrap()[0].source_index,
+        Some(1)
+    );
+}
+
+#[test]
 fn test_grand_staff_brace_spans_from_top_to_bottom() {
     // The brace glyph should be vertically aligned so it spans from the
     // top of staff 1 to the bottom of staff 2.

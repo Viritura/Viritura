@@ -1,0 +1,121 @@
+import { describe, expect, it } from "vitest";
+import type { Score } from "@viritura/core";
+import { applyChordSymbolEdit } from "../app/popoverHandlers";
+
+function scoreWithQuarterNotes(): Score {
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [
+      {
+        measures: [
+          {
+            sequences: [
+              {
+                staff: 2,
+                content: [
+                  { type: "event", duration: { base: "quarter" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+                  { type: "event", duration: { base: "quarter" }, notes: [{ pitch: { step: "D", octave: 4 } }] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("applyChordSymbolEdit", () => {
+  it("creates an independent harmony event at the selected time and staff", () => {
+    const updated = applyChordSymbolEdit(
+      scoreWithQuarterNotes(),
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 1,
+        staff: 2,
+      },
+      "F#maj7/A#",
+    );
+
+    expect(updated?.parts[0]!.measures[0]!.chordSymbols).toEqual([
+      {
+        position: { fraction: [1, 4] },
+        staff: 2,
+        root: { step: "F", alter: 1 },
+        quality: "major",
+        extension: 7,
+        bass: { step: "A", alter: 1 },
+      },
+    ]);
+  });
+
+  it("replaces an event at the same lane position instead of attaching another to the note", () => {
+    const score = scoreWithQuarterNotes();
+    const target = {
+      position: { x: 0, y: 0 },
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 0,
+      staff: 2,
+    };
+    const first = applyChordSymbolEdit(score, target, "C");
+    const replaced = first ? applyChordSymbolEdit(first, target, "Dm7") : undefined;
+
+    expect(replaced?.parts[0]!.measures[0]!.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        staff: 2,
+        root: { step: "D" },
+        quality: "minor",
+        extension: 7,
+      },
+    ]);
+  });
+
+  it("rejects unsupported input without mutating the score", () => {
+    expect(
+      applyChordSymbolEdit(
+        scoreWithQuarterNotes(),
+        { position: { x: 0, y: 0 }, partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex: 0 },
+        "not a chord",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("anchors a chord to the performed position inside a tuplet", () => {
+    const score = scoreWithQuarterNotes();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      { type: "event", duration: { base: "quarter" }, rest: {} },
+      {
+        type: "tuplet",
+        inner: { multiple: 3, duration: { base: "eighth" } },
+        outer: { multiple: 2, duration: { base: "eighth" } },
+        content: [
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+          { type: "event", duration: { base: "eighth" }, rest: {} },
+        ],
+      },
+    ];
+
+    const updated = applyChordSymbolEdit(
+      score,
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        tupletIndex: 1,
+        eventIndex: 1,
+      },
+      "G7",
+    );
+
+    expect(updated?.parts[0]!.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [1, 3] });
+  });
+});

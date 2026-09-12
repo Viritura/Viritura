@@ -43,7 +43,11 @@ pub(crate) fn render_chord_symbols(
                 align: TextAlign::Left,
                 baseline: TextBaseline::Alphabetic,
             },
-            element_id::chord_symbol(part_index, measure_index, index),
+            element_id::chord_symbol(
+                part_index,
+                measure_index,
+                chord.source_index.unwrap_or(index),
+            ),
         );
     }
 }

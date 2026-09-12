@@ -438,15 +438,19 @@ Array of piano pedal markings.
 
 ### `chordSymbols`
 
-Array of chord symbols above the staff.
+Array of time-anchored harmony events rendered as chord symbols above the
+staff. Each event belongs to the part and optional staff at its rhythmic
+position; it is not attached to a note or voice.
 
 | Property       | Type                                   | Required | Description                                   |
 | -------------- | -------------------------------------- | -------- | --------------------------------------------- |
 | `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                             |
+| `staff`        | integer (>=1)                          | No       | Staff number; defaults to the top staff       |
 | `root`         | [ChordRoot](#chord-root)               | **Yes**  | Root note                                     |
 | `quality`      | [ChordQuality](#chord-quality)         | **Yes**  | Harmonic quality                              |
+| `kindText`     | string                                 | No       | Authored quality spelling                     |
 | `bass`         | [ChordRoot](#chord-root)               | No       | Bass note for slash chords (e.g. "C/E")       |
-| `extension`    | `7` \| `9` \| `11` \| `13`             | No       | Chord extension                               |
+| `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                               |
 | `textOverride` | string                                 | No       | Override computed display text (e.g. "Cadd9") |
 
 ```json

@@ -57,7 +57,11 @@ pub(super) fn bbox_chord_symbols(
             chord_font_size * 0.82,
         );
         bboxes.push(ElementBBox {
-            element_id: element_id::chord_symbol(part_idx, measure_idx, i),
+            element_id: element_id::chord_symbol(
+                part_idx,
+                measure_idx,
+                chord.source_index.unwrap_or(i),
+            ),
             bbox,
         });
     }

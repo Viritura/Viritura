@@ -55,6 +55,7 @@ export interface EditorKeyboardConfig {
   onSetTempo?: () => void;
   onAddStaffText?: () => void;
   onEnterLyrics?: () => void;
+  onAddChordSymbol?: () => void;
   onTogglePanels?: () => void;
   onToggleCondensingPopover?: () => void;
   onOpenJumpBar?: () => void;
@@ -139,6 +140,7 @@ function buildAppCallbacks(configRef: {
     onSetTempo: () => configRef.current.onSetTempo?.(),
     onAddStaffText: () => configRef.current.onAddStaffText?.(),
     onEnterLyrics: () => configRef.current.onEnterLyrics?.(),
+    onAddChordSymbol: () => configRef.current.onAddChordSymbol?.(),
     onRepeat: () => configRef.current.onRepeat?.(),
     onPreviousScoreOrPart: () => configRef.current.onPreviousScoreOrPart?.(),
     onNextScoreOrPart: () => configRef.current.onNextScoreOrPart?.(),

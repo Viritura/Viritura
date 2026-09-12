@@ -15,19 +15,28 @@ pub struct ChordRoot {
     pub alter: Option<i32>,
 }
 
-/// A chord symbol above the staff (e.g., "Cmaj7", "Dm", "G7", "F#dim").
+/// A time-anchored harmony event rendered as a chord symbol above the staff.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChordSymbol {
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
+    /// Optional 1-based staff number. The chord is not owned by a note or voice.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub staff: Option<u32>,
+    /// Original measure-list index retained when layout filters by staff.
+    #[serde(skip)]
+    pub source_index: Option<usize>,
     /// Root note (e.g., C, F#, Bb)
     pub root: ChordRoot,
     /// Chord quality
     pub quality: ChordQuality,
+    /// Authored quality spelling retained alongside the normalized quality.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "kindText")]
+    pub kind_text: Option<String>,
     /// Optional bass note for slash chords (e.g., C/E → bass = E)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bass: Option<ChordRoot>,
-    /// Extension degree (7, 9, 11, 13) — None for triads
+    /// Extension degree (6, 7, 9, 11, 13) — None for triads
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension: Option<u32>,
     /// Text override — if set, render this exact string instead of computing from fields
@@ -60,7 +69,9 @@ impl ChordSymbol {
         let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
         match self.quality {
             ChordQuality::Major => {
-                if self.extension.is_some() {
+                if self.extension == Some(6) {
+                    s.push('6');
+                } else if self.extension.is_some() {
                     s.push_str("maj");
                     s.push_str(&ext);
                 }
@@ -106,6 +117,11 @@ impl ChordSymbol {
             ChordQuality::Suspended4 => {
                 s.push_str("sus4");
             }
+            ChordQuality::Other => {
+                if let Some(ref kind_text) = self.kind_text {
+                    s.push_str(kind_text);
+                }
+            }
         }
 
         // Bass note for slash chords
@@ -138,11 +154,14 @@ mod tests {
     ) -> ChordSymbol {
         ChordSymbol {
             position: RhythmicPosition { fraction: (0, 1) },
+            staff: None,
+            source_index: None,
             root: ChordRoot {
                 step: step.into(),
                 alter,
             },
             quality,
+            kind_text: None,
             bass,
             extension: ext,
             text_override: None,
@@ -159,6 +178,12 @@ mod tests {
     fn test_major_seventh() {
         let c = make_chord("C", None, ChordQuality::Major, Some(7), None);
         assert_eq!(c.display_text(), "Cmaj7");
+    }
+
+    #[test]
+    fn test_major_sixth() {
+        let c = make_chord("C", None, ChordQuality::Major, Some(6), None);
+        assert_eq!(c.display_text(), "C6");
     }
 
     #[test]

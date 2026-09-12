@@ -1,5 +1,5 @@
 import { DiagnosticCollector, ptr } from "@viritura/core";
-import { isSupportedHarmony } from "./chordSymbols";
+import { isPreservableHarmony, isSupportedHarmony } from "./chordSymbols";
 
 /**
  * Scan the MusicXML root for constructs that this converter drops or
@@ -86,15 +86,27 @@ export function collectLossyDiagnostics(root: Element, dx: DiagnosticCollector, 
   } else {
     const harmonies = root.getElementsByTagName("harmony");
     let unsupportedHarmonyCount = 0;
+    let droppedHarmonyCount = 0;
     for (let i = 0; i < harmonies.length; i++) {
-      if (harmonies[i] && !isSupportedHarmony(harmonies[i]!)) unsupportedHarmonyCount++;
+      const harmony = harmonies[i];
+      if (!harmony || isSupportedHarmony(harmony)) continue;
+      if (isPreservableHarmony(harmony)) unsupportedHarmonyCount++;
+      else droppedHarmonyCount++;
     }
     if (unsupportedHarmonyCount > 0) {
       dx.emit({
         pointer: ptr("harmony"),
-        message: `Unsupported MusicXML chord kind dropped (${unsupportedHarmonyCount} occurrences)`,
+        message: `MusicXML chord kind preserved as text without normalized semantics (${unsupportedHarmonyCount} occurrences)`,
         severity: "warning",
         code: "musicxml-harmony-kind",
+      });
+    }
+    if (droppedHarmonyCount > 0) {
+      dx.emit({
+        pointer: ptr("harmony"),
+        message: `MusicXML harmony without a root and kind dropped (${droppedHarmonyCount} occurrences)`,
+        severity: "warning",
+        code: "musicxml-harmony-dropped",
       });
     }
   }

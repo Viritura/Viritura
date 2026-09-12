@@ -51,6 +51,7 @@ export interface EditorBindingConfig {
     onSetTempo?: () => void;
     onAddStaffText?: () => void;
     onEnterLyrics?: () => void;
+    onAddChordSymbol?: () => void;
     onRepeat?: () => void;
     onPreviousScoreOrPart?: () => void;
     onNextScoreOrPart?: () => void;
@@ -589,6 +590,13 @@ function buildNormalModeBindings(cfg: EditorBindingConfig): KeyBinding[] {
     key: "Shift+X",
     context: "normal",
     handler: () => cb.onAddStaffText?.(),
+  });
+
+  bindings.push({
+    id: "normal.chordSymbol",
+    key: "Ctrl+K",
+    context: "normal",
+    handler: () => cb.onAddChordSymbol?.(),
   });
 
   return bindings;

@@ -331,7 +331,8 @@ impl ::std::convert::TryFrom<::std::string::String> for CaesuraStyle {
 ///    "minor-major",
 ///    "power",
 ///    "suspended2",
-///    "suspended4"
+///    "suspended4",
+///    "other"
 ///  ]
 ///}
 /// ```
@@ -369,6 +370,8 @@ pub enum ChordQuality {
     Suspended2,
     #[serde(rename = "suspended4")]
     Suspended4,
+    #[serde(rename = "other")]
+    Other,
 }
 impl ::std::convert::From<&Self> for ChordQuality {
     fn from(value: &ChordQuality) -> Self {
@@ -388,6 +391,7 @@ impl ::std::fmt::Display for ChordQuality {
             Self::Power => f.write_str("power"),
             Self::Suspended2 => f.write_str("suspended2"),
             Self::Suspended4 => f.write_str("suspended4"),
+            Self::Other => f.write_str("other"),
         }
     }
 }
@@ -407,6 +411,7 @@ impl ::std::str::FromStr for ChordQuality {
             "power" => Ok(Self::Power),
             "suspended2" => Ok(Self::Suspended2),
             "suspended4" => Ok(Self::Suspended4),
+            "other" => Ok(Self::Other),
             _ => Err("invalid value".into()),
         }
     }
@@ -602,14 +607,19 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordRootStep {
 ///      "$ref": "#/$defs/chord-root"
 ///    },
 ///    "extension": {
-///      "description": "Chord extension (7th, 9th, 11th, 13th).",
+///      "description": "Chord extension (6th, 7th, 9th, 11th, 13th).",
 ///      "type": "integer",
 ///      "enum": [
+///        6,
 ///        7,
 ///        9,
 ///        11,
 ///        13
 ///      ]
+///    },
+///    "kindText": {
+///      "description": "Authored quality spelling retained alongside the normalized quality.",
+///      "type": "string"
 ///    },
 ///    "position": {
 ///      "description": "Rhythmic position within the measure.",
@@ -621,6 +631,10 @@ impl ::std::convert::TryFrom<::std::string::String> for ChordRootStep {
 ///    "root": {
 ///      "description": "Root note of the chord.",
 ///      "$ref": "#/$defs/chord-root"
+///    },
+///    "staff": {
+///      "description": "Staff number (1-based). The chord remains time-anchored and is not owned by a note.",
+///      "type": "integer"
 ///    },
 ///    "textOverride": {
 ///      "description": "Override the computed display text (e.g. 'Cadd9').",
@@ -637,14 +651,24 @@ pub struct ChordSymbol {
     ///Bass note for slash chords (e.g. the 'E' in 'C/E').
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub bass: ::std::option::Option<ChordRoot>,
-    ///Chord extension (7th, 9th, 11th, 13th).
+    ///Chord extension (6th, 7th, 9th, 11th, 13th).
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub extension: ::std::option::Option<ChordSymbolExtension>,
+    ///Authored quality spelling retained alongside the normalized quality.
+    #[serde(
+        rename = "kindText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub kind_text: ::std::option::Option<::std::string::String>,
     ///Rhythmic position within the measure.
     pub position: RhythmicPosition,
     pub quality: ChordQuality,
     ///Root note of the chord.
     pub root: ChordRoot,
+    ///Staff number (1-based). The chord remains time-anchored and is not owned by a note.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<i64>,
     ///Override the computed display text (e.g. 'Cadd9').
     #[serde(
         rename = "textOverride",
@@ -658,15 +682,16 @@ impl ::std::convert::From<&ChordSymbol> for ChordSymbol {
         value.clone()
     }
 }
-///Chord extension (7th, 9th, 11th, 13th).
+///Chord extension (6th, 7th, 9th, 11th, 13th).
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Chord extension (7th, 9th, 11th, 13th).",
+///  "description": "Chord extension (6th, 7th, 9th, 11th, 13th).",
 ///  "type": "integer",
 ///  "enum": [
+///    6,
 ///    7,
 ///    9,
 ///    11,
@@ -699,7 +724,7 @@ impl ::std::convert::TryFrom<i64> for ChordSymbolExtension {
     fn try_from(
         value: i64,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        if ![7_i64, 9_i64, 11_i64, 13_i64].contains(&value) {
+        if ![6_i64, 7_i64, 9_i64, 11_i64, 13_i64].contains(&value) {
             Err("invalid value".into())
         } else {
             Ok(Self(value))

@@ -98,7 +98,7 @@ export interface components {
          * @description Harmonic quality of a chord symbol.
          * @enum {string}
          */
-        "chord-quality": "major" | "minor" | "dominant" | "diminished" | "augmented" | "half-diminished" | "minor-major" | "power" | "suspended2" | "suspended4";
+        "chord-quality": "major" | "minor" | "dominant" | "diminished" | "augmented" | "half-diminished" | "minor-major" | "power" | "suspended2" | "suspended4" | "other";
         /** @description Root or bass note of a chord symbol. */
         "chord-root": {
             /**
@@ -113,16 +113,20 @@ export interface components {
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
+            /** @description Staff number (1-based). The chord remains time-anchored and is not owned by a note. */
+            staff?: number;
             /** @description Root note of the chord. */
             root: components["schemas"]["chord-root"];
             quality: components["schemas"]["chord-quality"];
+            /** @description Authored quality spelling retained alongside the normalized quality. */
+            kindText?: string;
             /** @description Bass note for slash chords (e.g. the 'E' in 'C/E'). */
             bass?: components["schemas"]["chord-root"];
             /**
-             * @description Chord extension (7th, 9th, 11th, 13th).
+             * @description Chord extension (6th, 7th, 9th, 11th, 13th).
              * @enum {integer}
              */
-            extension?: 7 | 9 | 11 | 13;
+            extension?: 6 | 7 | 9 | 11 | 13;
             /** @description Override the computed display text (e.g. 'Cadd9'). */
             textOverride?: string;
         };

@@ -28,14 +28,29 @@ export interface StaffTextPopoverState {
   measureIndex: number;
   sequenceIndex: number;
   eventIndex: number;
+  tupletIndex?: number;
+  graceContainerIndex?: number;
   staff?: number;
   targets?: Array<{
     partIndex: number;
     measureIndex: number;
     sequenceIndex: number;
     eventIndex: number;
+    tupletIndex?: number;
+    graceContainerIndex?: number;
     staff?: number;
   }>;
+}
+
+export interface ChordSymbolPopoverState {
+  position: { x: number; y: number };
+  partIndex: number;
+  measureIndex: number;
+  sequenceIndex: number;
+  eventIndex: number;
+  tupletIndex?: number;
+  graceContainerIndex?: number;
+  staff?: number;
 }
 
 export function resolveStaffTextTargets(
@@ -57,6 +72,26 @@ export function resolveStaffTextTargets(
     ? undefined
     : resolveCondensedFullMeasureRestTargets(score, selectedScoreIndex, location).map(targetWithStaff);
   return { ...targetWithStaff(location), ...(targets && { targets }) };
+}
+
+export function resolveChordSymbolTarget(
+  score: Score,
+  selection: SelectionState,
+  selectedScoreIndex: number,
+  position: { x: number; y: number },
+): ChordSymbolPopoverState | null {
+  const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
+  if (!target) return null;
+  return {
+    position,
+    partIndex: target.partIndex,
+    measureIndex: target.measureIndex,
+    sequenceIndex: target.sequenceIndex,
+    eventIndex: target.eventIndex,
+    ...(target.tupletIndex !== undefined && { tupletIndex: target.tupletIndex }),
+    ...(target.graceContainerIndex !== undefined && { graceContainerIndex: target.graceContainerIndex }),
+    ...(target.staff !== undefined && { staff: target.staff }),
+  };
 }
 
 export interface AppKeyboardWiringDeps {
@@ -87,6 +122,7 @@ export interface AppKeyboardWiringDeps {
   setRadialMenu: (m: RadialMenuState | null) => void;
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
+  setChordSymbolPopover: (s: ChordSymbolPopoverState | null) => void;
   setJumpBarOpen: (open: boolean) => void;
   onEnterLyrics: () => void;
   onOpenPublish: (() => void) | undefined;
@@ -146,6 +182,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
+    setChordSymbolPopover,
     setJumpBarOpen,
     onEnterLyrics,
     onOpenPublish,
@@ -198,6 +235,14 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
       ...target,
     });
   }, [store, selection, mousePositionRef, selectedScoreIndex, setStaffTextPopover]);
+
+  const onAddChordSymbol = useCallback(() => {
+    const { score } = store.getState();
+    if (!score) return;
+    setChordSymbolPopover(
+      resolveChordSymbolTarget(score, selection, selectedScoreIndex, { ...mousePositionRef.current }),
+    );
+  }, [store, selection, mousePositionRef, selectedScoreIndex, setChordSymbolPopover]);
 
   const onToggleCondensingPopover = useCallback(() => {
     toggleDialog("condensingPopover");
@@ -309,6 +354,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     onSetTempo,
     onAddStaffText,
     onEnterLyrics,
+    onAddChordSymbol,
     onToggleCondensingPopover,
     onOpenJumpBar,
     onRepeat: handleRepeat,

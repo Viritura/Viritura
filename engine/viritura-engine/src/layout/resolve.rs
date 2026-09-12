@@ -730,11 +730,19 @@ fn split_part_measure_by_staff_count(
         } else {
             None
         },
-        chord_symbols: if staff_num == 1 {
-            pm.chord_symbols.clone()
-        } else {
-            None
-        },
+        chord_symbols: pm.chord_symbols.as_ref().and_then(|chords| {
+            let filtered: Vec<_> = chords
+                .iter()
+                .enumerate()
+                .filter(|(_, chord)| chord.staff.unwrap_or(1) == staff_num)
+                .map(|(index, chord)| {
+                    let mut chord = chord.clone();
+                    chord.source_index = Some(index);
+                    chord
+                })
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         expressions: if staff_num == 1 {
             pm.expressions.clone()
         } else {

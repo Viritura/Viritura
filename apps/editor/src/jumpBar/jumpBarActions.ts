@@ -79,6 +79,7 @@ export interface JumpBarCallbacks {
   // Popovers
   setTempo: () => void;
   addStaffText: () => void;
+  addChordSymbol: () => void;
   enterLyrics: () => void;
 
   // Repeat
@@ -272,6 +273,14 @@ export function buildJumpBarActions(
       shortcut: "Shift+X",
       keywords: ["expression", "annotation", "text"],
       execute: cb.addStaffText,
+    },
+    {
+      id: "add.chordSymbol",
+      label: "Add Chord Symbol",
+      category: "Add",
+      shortcut: "Ctrl+K",
+      keywords: ["harmony", "chord", "lead sheet"],
+      execute: cb.addChordSymbol,
     },
     {
       id: "add.clef",

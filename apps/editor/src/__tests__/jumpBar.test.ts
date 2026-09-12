@@ -125,6 +125,7 @@ describe("buildJumpBarActions", () => {
     openRepeatsMenu: noop,
     setTempo: noop,
     addStaffText: noop,
+    addChordSymbol: noop,
     enterLyrics: noop,
     repeatSelection: noop,
     goToActivity: noop,
