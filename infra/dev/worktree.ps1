@@ -14,8 +14,7 @@
 
 .PARAMETER Command
   up | watch | stop | down | restart | rebuild | status | logs | wasm | url |
-  slug | keepalive | cleanup | janitor-install | janitor-uninstall | proxy |
-  proxy-down | prune
+  slug | keepalive | cleanup | proxy | proxy-down | prune
 
 .PARAMETER Services
   Stack targets for `up`, `restart`, or `rebuild`. The default is `app`
@@ -34,7 +33,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)]
-  [ValidateSet('up', 'watch', 'stop', 'down', 'restart', 'rebuild', 'status', 'logs', 'wasm', 'url', 'slug', 'keepalive', 'cleanup', 'janitor-install', 'janitor-uninstall', 'proxy', 'proxy-down', 'prune')]
+  [ValidateSet('up', 'watch', 'stop', 'down', 'restart', 'rebuild', 'status', 'logs', 'wasm', 'url', 'slug', 'keepalive', 'cleanup', 'proxy', 'proxy-down', 'prune')]
   [string]$Command = 'status',
 
   [Parameter(Position = 1, ValueFromRemainingArguments = $true)]
@@ -47,7 +46,7 @@ Set-StrictMode -Version Latest
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProxyCompose = Join-Path $ScriptDir 'proxy\docker-compose.yml'
 $WorktreeCompose = Join-Path $ScriptDir 'worktree\docker-compose.yml'
-$JanitorScript = Join-Path $ScriptDir 'worktree-janitor.ps1'
+$CleanupScript = Join-Path $ScriptDir 'worktree-janitor.ps1'
 $ProxyNetwork = 'viritura-dev-proxy'
 $LeaseDuration = [TimeSpan]::FromHours(8)
 
@@ -469,6 +468,7 @@ function Mark-LeaseStopped {
 function Invoke-ComposeWithLease {
   param([string[]]$ComposeArgs)
 
+  & $CleanupScript
   Invoke-WithLeaseLock {
     Set-LeaseActive
     try {
@@ -489,7 +489,7 @@ function Remove-Lease {
   }
 }
 
-if ($Command -notin @('slug', 'url', 'keepalive', 'janitor-install', 'janitor-uninstall')) {
+if ($Command -notin @('slug', 'url', 'keepalive')) {
   Ensure-DockerEngine
 }
 
@@ -504,16 +504,7 @@ switch ($Command) {
     Renew-Lease
   }
   'cleanup' {
-    & $JanitorScript cleanup
-    if ($LASTEXITCODE -ne 0) { throw "Worktree janitor failed (exit $LASTEXITCODE)." }
-  }
-  'janitor-install' {
-    & $JanitorScript install
-    if ($LASTEXITCODE -ne 0) { throw "Worktree janitor installation failed (exit $LASTEXITCODE)." }
-  }
-  'janitor-uninstall' {
-    & $JanitorScript uninstall
-    if ($LASTEXITCODE -ne 0) { throw "Worktree janitor removal failed (exit $LASTEXITCODE)." }
+    & $CleanupScript
   }
   'proxy' {
     Ensure-Proxy

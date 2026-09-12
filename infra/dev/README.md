@@ -136,22 +136,16 @@ local env files so services cannot accidentally connect to another worktree.
 | `worktree.ps1 down`                 | Remove containers and networks; preserve compiler output temporarily.     |
 | `worktree.ps1 prune`                | Delete containers and worktree compiler output; preserve shared caches.   |
 | `worktree.ps1 cleanup`              | Stop expired stacks and remove stacks past the cleanup grace period.      |
-| `worktree.ps1 janitor-install`      | Install the per-user cleanup task, which runs every 15 minutes.           |
 | `worktree.ps1 proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                             |
 
 Every successful `up`, `watch`, `restart`, or `rebuild` grants the stack an
-eight-hour lease. Install the per-user janitor once:
-
-```powershell
-./infra/dev/worktree.ps1 janitor-install
-```
-
-The janitor stops an expired stack, retains its compiler output for 24 hours,
-then removes its containers, network, and worktree-local volumes. Run
-`keepalive` to extend an active session. It also removes unused
+eight-hour lease. Before starting or restarting a stack, the wrapper stops
+expired stacks and removes stacks that have remained stopped for 24 hours. Run
+`keepalive` to extend an active session. The same startup cleanup removes unused
 content-addressed dependency volumes and development images after seven days.
-The scheduled task runs only while the user is signed in and never touches
-unmanaged Docker resources.
+No background cleanup task is installed, so expired resources can remain until
+the next worktree stack starts. Cleanup never touches unmanaged Docker
+resources.
 
 A JavaScript or .NET dependency-manifest change automatically selects a new
 content-addressed image on the next `up`. Use `rebuild` only to discard stale
