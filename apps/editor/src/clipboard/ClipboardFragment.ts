@@ -1,11 +1,11 @@
-import type { MeasureRepeat, SequenceContent } from "@viritura/core";
+import type { GlobalLyrics, MeasureRepeat, SequenceContent } from "@viritura/core";
 import type { TimeSignature, KeySignature, Clef, Transposition, DynamicGroup } from "@viritura/core";
 
 /** Internal marker to identify Viritura clipboard data in plain text */
 export const VIRITURA_FRAGMENT_TYPE = "viritura/fragment" as const;
 
 /** Current fragment format version */
-export const FRAGMENT_VERSION = 3;
+export const FRAGMENT_VERSION = 4;
 
 /**
  * A measure-level decoration captured at copy time. `measureOffset` is the
@@ -63,6 +63,7 @@ export interface ClipboardTrack {
  *
  * Version 2 adds multi-track support for cross-staff copy/paste.
  * Version 3 adds structural measure repeats and part-relative dynamics.
+ * Version 4 adds metadata for lyric lines referenced by copied events.
  * Version 1 fragments (flat `content` array) are still supported on read.
  */
 export interface ClipboardFragment {
@@ -97,4 +98,6 @@ export interface ClipboardFragment {
   measureRepeats?: CapturedMeasureRepeat[];
   /** Multi-track content for cross-staff copy/paste (v2+). If present, takes precedence over `content`. */
   tracks?: ClipboardTrack[];
+  /** Metadata and ordering for lyric lines referenced by copied events. */
+  lyrics?: GlobalLyrics;
 }

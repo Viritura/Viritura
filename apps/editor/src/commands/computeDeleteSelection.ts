@@ -25,6 +25,7 @@ import {
   deleteMeasureRepeatsForSelection,
   measureRepeatElementIdsForSelection,
 } from "./measureRepeatCommands";
+import { isLyricId, removeLyricByElementId, removeLyrics } from "./lyricCommands";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -124,6 +125,10 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */
 function deleteStandaloneElement(score: Score, elementId: string): DeleteSelectionResult | null {
+  if (isLyricId(elementId)) {
+    const withoutLyric = removeLyricByElementId(score, elementId);
+    return withoutLyric ? { kind: "single", score: withoutLyric, nextSelection: { kind: "clear" } } : { kind: "noop" };
+  }
   if (elementId.endsWith("/measurerepeat")) {
     const withoutRepeat = deleteMeasureRepeatByElementId(score, elementId);
     return withoutRepeat
@@ -241,6 +246,7 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   // navigation index, whose entries are events, so shift-selecting across an
   // accidental selects the music — which is what a range should mean.
   const markingIds = selection.kind === "multi" ? partitionMarkingIds(selection.elementIds).markingIds : [];
+  const lyricIds = selection.kind === "multi" ? selection.elementIds.filter(isLyricId) : [];
   const graceIds =
     selection.kind === "multi" ? selection.elementIds.filter((id) => resolveGraceLocation(id, score) !== null) : [];
   const deletableIds = selection.kind === "multi" ? selection.elementIds.filter(addressesWholeEvent) : [];
@@ -269,11 +275,13 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
       ? []
       : resolveSelectionEvents(eventSelection, score);
 
-  let newScore = score;
+  const lyricResult = removeLyrics(score, lyricIds);
+  let newScore = lyricResult.score;
   const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
+  const leavesRemoved = [markingsRemoved, lyricResult.removed].includes(true);
   if (events.length === 0) {
     const graceRemoved = deleteSelectedGraceNotes(newScore, graceIds);
-    return markingsRemoved || chordsThinned || graceRemoved !== newScore
+    return leavesRemoved || chordsThinned || graceRemoved !== newScore
       ? { kind: "multi", score: graceRemoved, nextSelection: { kind: "clear" } }
       : { kind: "noop" };
   }

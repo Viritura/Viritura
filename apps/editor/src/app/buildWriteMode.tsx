@@ -14,7 +14,7 @@ import { Panel, WriteStatusBar, type WriteViewMode as ViewMode } from "@viritura
 import { TransportBar } from "@viritura/playback";
 import { Toolbar } from "../components/Toolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
-import { LeftPanel } from "../components/LeftPanel";
+import { LeftPanel, type WriteLeftTab } from "../components/LeftPanel";
 import { NotationInspector } from "../components/NotationInspector";
 import { MnxSourcePanel } from "../components/MnxSourcePanel";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
@@ -53,6 +53,11 @@ export interface BuildWriteModeArgs {
   inspectorFocus: NonNullable<React.ComponentProps<typeof NotationInspector>>["preferredSection"];
   selection: SelectionState;
   dialogs: { source?: boolean };
+  writeLeftTab: WriteLeftTab;
+  setWriteLeftTab: (tab: WriteLeftTab) => void;
+  paletteSectionRequest: { id: string; requestId: number } | null;
+  lyricMode: boolean;
+  onToggleLyrics: () => void;
 }
 
 export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
@@ -70,7 +75,12 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
         max={500}
         onCollapse={() => leftFloat.setCollapsed(true)}
       >
-        <LeftPanel preferredInspectorSection={selection.kind === "single" ? inspectorFocus : null} />
+        <LeftPanel
+          preferredInspectorSection={selection.kind === "single" ? inspectorFocus : null}
+          activeTab={args.writeLeftTab}
+          onActiveTabChange={args.setWriteLeftTab}
+          paletteSectionRequest={args.paletteSectionRequest}
+        />
       </Panel>,
     );
   }
@@ -103,7 +113,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
       <>
         <ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />
         <div style={TOOLBAR_CENTER_STYLE}>
-          <Toolbar />
+          <Toolbar lyricMode={args.lyricMode} onToggleLyrics={args.onToggleLyrics} />
         </div>
         <TransportBar />
       </>

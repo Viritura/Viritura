@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { OpenFileResult } from "../commands/fileCommands";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { useViewStateStore } from "../store/viewStateStore";
+import type { WriteLeftTab } from "../components/LeftPanel";
 
 type InspectorFocus = "tie" | "slur" | "markings" | "directions" | "layout" | null;
 
@@ -27,6 +28,10 @@ export interface AppLocalState {
   currentZoom: number;
   setCurrentZoom: React.Dispatch<React.SetStateAction<number>>;
   inspectorFocus: InspectorFocus;
+  writeLeftTab: WriteLeftTab;
+  setWriteLeftTab: React.Dispatch<React.SetStateAction<WriteLeftTab>>;
+  paletteSectionRequest: { id: string; requestId: number } | null;
+  setPaletteSectionRequest: React.Dispatch<React.SetStateAction<{ id: string; requestId: number } | null>>;
 }
 
 /**
@@ -52,6 +57,8 @@ export function useAppLocalState(): AppLocalState {
   const [expandedCondensingStaves, setExpandedCondensingStaves] = useState<Set<string>>(new Set());
   const [currentZoom, setCurrentZoom] = useState(1.0);
   const [inspectorFocus] = useState<InspectorFocus>(null);
+  const [writeLeftTab, setWriteLeftTab] = useState<WriteLeftTab>("palettes");
+  const [paletteSectionRequest, setPaletteSectionRequest] = useState<{ id: string; requestId: number } | null>(null);
 
   return {
     pageSetupTargetIndex,
@@ -75,5 +82,9 @@ export function useAppLocalState(): AppLocalState {
     currentZoom,
     setCurrentZoom,
     inspectorFocus,
+    writeLeftTab,
+    setWriteLeftTab,
+    paletteSectionRequest,
+    setPaletteSectionRequest,
   };
 }

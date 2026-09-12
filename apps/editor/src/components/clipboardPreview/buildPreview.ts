@@ -114,7 +114,10 @@ function buildSingleTrackPreview(
 
   return {
     mnx: { version: 1 },
-    global: { measures: perMeasure.map((_, m) => (m === 0 ? { time: ts } : {})) },
+    global: {
+      measures: perMeasure.map((_, m) => (m === 0 ? { time: ts } : {})),
+      ...(fragment.lyrics ? { lyrics: structuredClone(fragment.lyrics) } : {}),
+    },
     parts: [
       {
         name: "Preview",
@@ -155,7 +158,14 @@ function buildMultiTrackPreview(
     buildPartForOffset(partMap.get(offset)!, offset, measureCount, beatsPerMeasure),
   );
 
-  return { mnx: { version: 1 }, global: { measures: globalMeasures }, parts };
+  return {
+    mnx: { version: 1 },
+    global: {
+      measures: globalMeasures,
+      ...(fragment.lyrics ? { lyrics: structuredClone(fragment.lyrics) } : {}),
+    },
+    parts,
+  };
 }
 
 function buildPartForOffset(

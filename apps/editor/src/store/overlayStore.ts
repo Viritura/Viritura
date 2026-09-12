@@ -56,6 +56,7 @@ interface OverlayState {
   jumpBarOpen: boolean;
   lyricMode: boolean;
   lyricState: LyricInputState | null;
+  activeLyricLineId: string;
 }
 
 interface OverlayActions {
@@ -65,6 +66,7 @@ interface OverlayActions {
   setJumpBarOpen: (open: boolean) => void;
   setLyricMode: (active: boolean) => void;
   setLyricState: (next: LyricInputState | null) => void;
+  setActiveLyricLineId: (lineId: string) => void;
 }
 
 type OverlayStore = OverlayState & OverlayActions;
@@ -76,6 +78,7 @@ export const useOverlayStore = create<OverlayStore>((set) => ({
   jumpBarOpen: false,
   lyricMode: false,
   lyricState: null,
+  activeLyricLineId: "1",
 
   setRadialMenu: (next) => set({ radialMenu: next }),
   setTempoPopover: (next) => set({ tempoPopover: next }),
@@ -83,6 +86,7 @@ export const useOverlayStore = create<OverlayStore>((set) => ({
   setJumpBarOpen: (open) => set({ jumpBarOpen: open }),
   setLyricMode: (active) => set({ lyricMode: active }),
   setLyricState: (next) => set({ lyricState: next }),
+  setActiveLyricLineId: (lineId) => set({ activeLyricLineId: lineId }),
 }));
 
 /**
@@ -97,3 +101,4 @@ export const setStaffTextPopover = (next: StaffTextPopoverState | null): void =>
 export const setJumpBarOpen = (open: boolean): void => useOverlayStore.getState().setJumpBarOpen(open);
 export const setLyricMode = (active: boolean): void => useOverlayStore.getState().setLyricMode(active);
 export const setLyricState = (next: LyricInputState | null): void => useOverlayStore.getState().setLyricState(next);
+export const setActiveLyricLineId = (lineId: string): void => useOverlayStore.getState().setActiveLyricLineId(lineId);

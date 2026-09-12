@@ -17,6 +17,7 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import type { NoteValueBase, AccidentalType, Pitch } from "@viritura/core";
 import type { CondensingMode } from "../components/CondensingPopover";
+import { setLyricMode, setLyricState } from "./overlayStore";
 
 // ═══════════════════════════════════════════
 // State
@@ -301,6 +302,14 @@ function dispatchNoteInput(action: NoteInputAction): void {
   useNoteInputStore.getState()._dispatch(action);
 }
 
+export function toggleNoteInputMode(): void {
+  if (!useNoteInputStore.getState().active) {
+    setLyricMode(false);
+    setLyricState(null);
+  }
+  dispatchNoteInput({ type: "TOGGLE_NOTE_INPUT" });
+}
+
 /** Reset the store to its initial state (primarily for test isolation). */
 export function resetNoteInputStore(): void {
   useNoteInputStore.setState(
@@ -347,7 +356,7 @@ export interface NoteInputContextValue {
 
 /** Stable action methods — module-scoped so identity never changes. */
 const actions = {
-  toggleNoteInput: () => dispatchNoteInput({ type: "TOGGLE_NOTE_INPUT" }),
+  toggleNoteInput: toggleNoteInputMode,
   setDuration: (duration: NoteValueBase) => dispatchNoteInput({ type: "SET_DURATION", duration }),
   setAccidental: (accidental: AccidentalType | null) => dispatchNoteInput({ type: "SET_ACCIDENTAL", accidental }),
   toggleRest: () => dispatchNoteInput({ type: "TOGGLE_REST" }),

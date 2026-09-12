@@ -50,6 +50,7 @@ export interface EditorBindingConfig {
     onToggleCondensingPopover?: () => void;
     onSetTempo?: () => void;
     onAddStaffText?: () => void;
+    onEnterLyrics?: () => void;
     onRepeat?: () => void;
     onPreviousScoreOrPart?: () => void;
     onNextScoreOrPart?: () => void;
@@ -199,6 +200,12 @@ function buildGlobalGuardedBindings(cfg: EditorBindingConfig): KeyBinding[] {
       key: "N",
       context: "global",
       handler: () => cfg.toggleNoteInput(),
+    },
+    {
+      id: "global.toggleLyricInput",
+      key: "Shift+W",
+      context: "global",
+      handler: () => cb.onEnterLyrics?.(),
     },
     {
       id: "global.selectAll",

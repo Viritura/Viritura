@@ -54,6 +54,7 @@ export interface EditorKeyboardConfig {
   onOpenRadialMenu?: (category: import("../radialMenu").RadialMenuCategory) => void;
   onSetTempo?: () => void;
   onAddStaffText?: () => void;
+  onEnterLyrics?: () => void;
   onTogglePanels?: () => void;
   onToggleCondensingPopover?: () => void;
   onOpenJumpBar?: () => void;
@@ -137,6 +138,7 @@ function buildAppCallbacks(configRef: {
     onToggleCondensingPopover: () => configRef.current.onToggleCondensingPopover?.(),
     onSetTempo: () => configRef.current.onSetTempo?.(),
     onAddStaffText: () => configRef.current.onAddStaffText?.(),
+    onEnterLyrics: () => configRef.current.onEnterLyrics?.(),
     onRepeat: () => configRef.current.onRepeat?.(),
     onPreviousScoreOrPart: () => configRef.current.onPreviousScoreOrPart?.(),
     onNextScoreOrPart: () => configRef.current.onNextScoreOrPart?.(),

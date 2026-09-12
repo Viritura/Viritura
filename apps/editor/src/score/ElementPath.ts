@@ -503,6 +503,26 @@ export function extractNoteIndex(elementId: string): number | undefined {
   return match ? parseInt(match[1]!, 10) : undefined;
 }
 
+/** Decode a lyric line ID from `{event}/lyric-{utf8 hex}`. */
+export function extractLyricLineId(elementId: string): string | null {
+  const match = elementId.match(/\/lyric-([0-9a-f]*)$/i);
+  const encoded = match?.[1];
+  if (encoded === undefined || encoded.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(encoded.length / 2);
+  for (let index = 0; index < bytes.length; index++) {
+    const byte = Number.parseInt(encoded.slice(index * 2, index * 2 + 2), 16);
+    if (!Number.isFinite(byte)) return null;
+    bytes[index] = byte;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** Build the renderer-compatible selection ID for one event lyric line. */
+export function lyricElementId(eventId: string, lineId: string): string {
+  const encoded = [...new TextEncoder().encode(lineId)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${getEventAncestorId(eventId)}/lyric-${encoded}`;
+}
+
 /**
  * Resolved location of a grace note inside a grace container.
  * `parent` points to the regular event the grace adorns.

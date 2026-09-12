@@ -69,12 +69,17 @@ Choose an item from a radial menu to apply it to the current selection. The
 same commands remain available from the palettes when you prefer a persistent
 visual list.
 
+The **Text** palette also contains lyric-line controls and the command that
+starts syllable entry. See [Lyrics](/docs/lyrics) for the entry keys, melismas,
+labels, languages, and line ordering.
+
 ## Inspector
 
 The right inspector changes properties of the selected item. The available
 controls depend on what is selected: notes expose pitch and notation
-properties, while slurs, barlines, text, and other annotations expose their own
-specialized controls.
+properties, while lyrics, slurs, barlines, text, and other annotations expose
+their own specialized controls. Selecting a lyric syllable lets you correct its
+text, word position, or lyric line without changing its note.
 
 Use direct shortcuts for frequent actions and the inspector for precise or
 less common properties. Both edit the same MNX document and participate in
@@ -100,5 +105,6 @@ Type a few characters to filter the list, use the arrow keys to choose a
 result, and press `Enter`. For direct navigation, type `m12` or `b12` for
 measure 12, or `rA` for rehearsal mark A.
 
-For entering new notes, see [Note Entry](/docs/note-entry). For the complete
-binding list, see [Keyboard & Mouse](/docs/keyboard-shortcuts).
+For entering new notes, see [Note Entry](/docs/note-entry). For entering words
+under notes, see [Lyrics](/docs/lyrics). For the complete binding list, see
+[Keyboard & Mouse](/docs/keyboard-shortcuts).

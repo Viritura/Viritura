@@ -1,9 +1,51 @@
 // Extracted from render_measure.rs — render_lyrics
 
 use super::config::LayoutConfig;
+use super::element_id;
+use super::text_styles;
 use super::types::*;
 use crate::model::*;
 use crate::render::*;
+use std::collections::HashSet;
+
+/// Resolve the lyric rows used by one rendered staff across a whole system.
+///
+/// Global order controls relative placement, while filtering to the staff's
+/// used lines avoids reserving empty rows for unrelated vocal parts.
+pub(super) fn line_order_for_staff(
+    measure_layouts: &[MeasureLayout],
+    global_order: Option<&[String]>,
+) -> Option<Vec<String>> {
+    let mut used = HashSet::new();
+    for measure in measure_layouts {
+        for voice in &measure.voice_layouts {
+            for event_index in 0..voice.events.len() {
+                if let Some(lines) = voice
+                    .events
+                    .event(event_index)
+                    .lyrics
+                    .as_ref()
+                    .and_then(|lyrics| lyrics.lines.as_ref())
+                {
+                    used.extend(lines.keys().cloned());
+                }
+            }
+        }
+    }
+
+    let mut ordered = Vec::with_capacity(used.len());
+    if let Some(global_order) = global_order {
+        for line_id in global_order {
+            if used.remove(line_id) {
+                ordered.push(line_id.clone());
+            }
+        }
+    }
+    let mut remaining: Vec<String> = used.into_iter().collect();
+    remaining.sort();
+    ordered.extend(remaining);
+    (!ordered.is_empty()).then_some(ordered)
+}
 
 /// Render lyrics text below the staff for events that carry lyrics.
 ///
@@ -43,29 +85,61 @@ pub(crate) fn render_lyrics(
                 _ => continue,
             };
 
-            // Use explicit lineOrder if provided, otherwise sort IDs alphabetically
-            let ordered_ids: Vec<&String> = if let Some(order) = lyric_line_order {
-                order.iter().filter(|id| lines.contains_key(*id)).collect()
+            let fallback_order;
+            let ordered_ids = if let Some(order) = lyric_line_order {
+                order
             } else {
-                let mut ids: Vec<&String> = lines.keys().collect();
-                ids.sort();
-                ids
+                fallback_order = {
+                    let mut ids: Vec<String> = lines.keys().cloned().collect();
+                    ids.sort();
+                    ids
+                };
+                &fallback_order
             };
 
-            for (li, line_id) in ordered_ids.iter().enumerate() {
-                let line = &lines[*line_id];
-                let lyric_y = base_lyric_y + li as f64 * line_spacing;
+            for (line_index, line_id) in ordered_ids.iter().enumerate() {
+                let Some(line) = lines.get(line_id) else {
+                    continue;
+                };
+                let lyric_y = base_lyric_y + line_index as f64 * line_spacing;
                 let lyric_x = vl.events.x(ei) + notehead_w * 0.5;
+                let event = vl.events.event(ei);
+                let event_suffix = element_id::event_suffix(event.id.as_deref(), ei);
+                let event_id = element_id::event(
+                    vl.part_index_override.unwrap_or(ml.part_index),
+                    ml.resolved.index,
+                    vl.seq_index_override.unwrap_or(vl.voice_index),
+                    &event_suffix,
+                );
+                let lyric_id = element_id::lyric(&event_id, line_id);
+                let text_width = text_styles::text_width(
+                    &line.text,
+                    font_size,
+                    text_styles::FontFamily::Serif,
+                    false,
+                );
 
-                dl.push(RenderCommand::DrawText {
-                    x: lyric_x,
-                    y: lyric_y,
-                    text: line.text.clone(),
-                    font: "serif".into(),
-                    size: font_size,
-                    color: "#000000".into(),
-                    align: TextAlign::Center,
-                    baseline: TextBaseline::Top,
+                dl.push_tagged(
+                    RenderCommand::DrawText {
+                        x: lyric_x,
+                        y: lyric_y,
+                        text: line.text.clone(),
+                        font: "serif".into(),
+                        size: font_size,
+                        color: "#000000".into(),
+                        align: TextAlign::Center,
+                        baseline: TextBaseline::Top,
+                    },
+                    lyric_id.clone(),
+                );
+                dl.push_element_bbox_with_shape(ElementBBox {
+                    element_id: lyric_id.clone(),
+                    bbox: BoundingBox::new(
+                        lyric_x - text_width * 0.5,
+                        lyric_y,
+                        text_width.max(sp),
+                        font_size,
+                    ),
                 });
 
                 // Draw continuation dash for start/middle syllables
@@ -80,16 +154,19 @@ pub(crate) fn render_lyrics(
                     };
                     let dash_x = (lyric_x + next_x) / 2.0;
 
-                    dl.push(RenderCommand::DrawText {
-                        x: dash_x,
-                        y: lyric_y,
-                        text: "\u{2010}".into(),
-                        font: "serif".into(),
-                        size: font_size,
-                        color: "#000000".into(),
-                        align: TextAlign::Center,
-                        baseline: TextBaseline::Top,
-                    });
+                    dl.push_tagged(
+                        RenderCommand::DrawText {
+                            x: dash_x,
+                            y: lyric_y,
+                            text: "\u{2010}".into(),
+                            font: "serif".into(),
+                            size: font_size,
+                            color: "#000000".into(),
+                            align: TextAlign::Center,
+                            baseline: TextBaseline::Top,
+                        },
+                        lyric_id,
+                    );
                 }
             }
         }

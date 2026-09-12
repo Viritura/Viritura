@@ -3,6 +3,7 @@ import type { NoteValueBase, Octave, StemDirection, Step } from "@viritura/core"
 import { walkSequenceEvents } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 import { resolveEventLocation, resolveEventFromSubElement, resolveGraceLocation } from "../score/ElementPath";
+import { parseElementType } from "../score/elementTypes";
 import { setSlurProperties, setTieProperties } from "./noteCommands";
 
 import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
@@ -60,7 +61,7 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
   if (graceLoc && graceLoc.tupletIndex === undefined) {
     return {
       elementId,
-      elementType: "event",
+      elementType: parseElementType(elementId),
       partIndex: graceLoc.partIndex,
       measureIndex: graceLoc.measureIndex,
       sequenceIndex: graceLoc.sequenceIndex,

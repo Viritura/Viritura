@@ -7,7 +7,7 @@ import { Tabs, type TabDef } from "@viritura/ui";
 import { useHistoryStore } from "../store/historyStore";
 import styles from "./LeftPanel.module.css";
 
-type LeftTab = "palettes" | "clipboard" | "properties";
+export type WriteLeftTab = "palettes" | "clipboard" | "properties";
 
 const TAB_DEFS: TabDef[] = [
   { id: "palettes", label: "Palettes", icon: <LayoutGrid size={13} /> },
@@ -17,10 +17,19 @@ const TAB_DEFS: TabDef[] = [
 
 interface LeftPanelProps {
   preferredInspectorSection?: NonNullable<ComponentProps<typeof NotationInspector>>["preferredSection"];
+  activeTab?: WriteLeftTab;
+  onActiveTabChange?: (tab: WriteLeftTab) => void;
+  paletteSectionRequest?: { id: string; requestId: number } | null;
 }
 
-export function LeftPanel({ preferredInspectorSection }: LeftPanelProps = {}) {
-  const [activeTab, setActiveTab] = useState<LeftTab>("palettes");
+export function LeftPanel({
+  preferredInspectorSection,
+  activeTab: controlledTab,
+  onActiveTabChange,
+  paletteSectionRequest,
+}: LeftPanelProps = {}) {
+  const [localTab, setLocalTab] = useState<WriteLeftTab>("palettes");
+  const activeTab = controlledTab ?? localTab;
   const preloadDescriptions = useHistoryStore((s) => s.preloadDescriptions);
 
   // Hover-preload undo descriptions when the user is about to open the Clips
@@ -35,17 +44,25 @@ export function LeftPanel({ preferredInspectorSection }: LeftPanelProps = {}) {
     },
     [preloadDescriptions],
   );
+  const handleTabChange = useCallback(
+    (id: string) => {
+      const tab = id as WriteLeftTab;
+      if (onActiveTabChange) onActiveTabChange(tab);
+      else setLocalTab(tab);
+    },
+    [onActiveTabChange],
+  );
 
   return (
     <div className={styles.container}>
       <Tabs
         tabs={TAB_DEFS}
         activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as LeftTab)}
+        onTabChange={handleTabChange}
         onTabHover={handleTabHover}
         className={styles.tabBar}
       >
-        {activeTab === "palettes" && <PalettePanel />}
+        {activeTab === "palettes" && <PalettePanel openSectionRequest={paletteSectionRequest} />}
         {activeTab === "clipboard" && <ClipboardHistoryPanel />}
         {activeTab === "properties" && <NotationInspector preferredSection={preferredInspectorSection} />}
       </Tabs>

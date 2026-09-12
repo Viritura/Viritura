@@ -138,3 +138,6 @@ menus), see [Keyboard &amp; Mouse](/docs/keyboard-shortcuts).
 
 For selection, palettes, the inspector, and clipboard history, see
 [Notation &amp; Editing](/docs/notation-and-editing).
+
+For syllable entry, melismas, translations, and lyric-line metadata, see
+[Lyrics](/docs/lyrics).

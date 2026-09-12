@@ -228,6 +228,10 @@ function AppInner({
     currentZoom,
     setCurrentZoom,
     inspectorFocus,
+    writeLeftTab,
+    setWriteLeftTab,
+    paletteSectionRequest,
+    setPaletteSectionRequest,
   } = useAppLocalState();
   const dropRef = useRef<HTMLDivElement>(null);
   const githubAccount = useGitHubAccount();
@@ -262,7 +266,6 @@ function AppInner({
     setCursor,
     setCondensingRouting,
   } = useAppStoreSelectors();
-
   // Floating-panel widths + imperative refs (Write mode)
   const { leftPanelRef, rightPanelRef, leftFloat, rightFloat, sourceFloat } = useAppFloatingPanels();
 
@@ -474,6 +477,7 @@ function AppInner({
     handleLyricCommit,
     handleLyricNavigate,
     handleLyricExit,
+    handleEnterLyrics,
     enterMidiNotes,
     moveMidiCursor,
   } = useInteractionHandlers({
@@ -489,6 +493,7 @@ function AppInner({
     selectedScoreIndex,
     onSwitchScore: handleSelectScore,
     noteInputState,
+    lyricEntryEnabled: modeKind === "write",
     getSelectedMeasureIndex,
     getSelectedPartIndex,
     selectRange,
@@ -520,6 +525,14 @@ function AppInner({
     setLyricState,
     lyricMode,
     lyricState,
+    onOpenLyricsPalette: () => {
+      setWriteLeftTab("palettes");
+      setPaletteSectionRequest((current) => ({
+        id: "text",
+        requestId: (current?.requestId ?? 0) + 1,
+      }));
+      leftFloat.setCollapsed(false);
+    },
     radialMenu,
     openFolderHandle,
     setIsDragOver,
@@ -685,6 +698,11 @@ function AppInner({
             inspectorFocus,
             selection,
             dialogs,
+            writeLeftTab,
+            setWriteLeftTab,
+            paletteSectionRequest,
+            lyricMode,
+            onToggleLyrics: handleEnterLyrics,
           });
   /* eslint-enable react-hooks/refs */
 

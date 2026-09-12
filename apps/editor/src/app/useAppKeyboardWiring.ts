@@ -88,6 +88,7 @@ export interface AppKeyboardWiringDeps {
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
   setJumpBarOpen: (open: boolean) => void;
+  onEnterLyrics: () => void;
   onOpenPublish: (() => void) | undefined;
   /** Create a new score (folder picker + Setup mode); replaces the old wizard dialog. */
   onNewScore: () => void;
@@ -146,6 +147,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     setTempoPopover,
     setStaffTextPopover,
     setJumpBarOpen,
+    onEnterLyrics,
     onOpenPublish,
     onNewScore,
   } = deps;
@@ -306,6 +308,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     },
     onSetTempo,
     onAddStaffText,
+    onEnterLyrics,
     onToggleCondensingPopover,
     onOpenJumpBar,
     onRepeat: handleRepeat,

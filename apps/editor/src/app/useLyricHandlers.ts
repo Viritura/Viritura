@@ -6,6 +6,8 @@ import type { LyricInputState } from "../components/LyricInput";
 import type { DocumentStore } from "../store/documentStore";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { LyricLineType, SequenceContent, Score } from "@viritura/core";
+import { getLyricLineIds } from "../lyrics";
+import { setActiveLyricLineId } from "../store/overlayStore";
 
 export interface LyricStateRef {
   elementId: string;
@@ -47,12 +49,13 @@ export function useLyricHandlers({
     const bbox = si.getBBox(lyricState.elementId);
     if (!bbox) return null;
     const rect = canvas.getBoundingClientRect();
-    const verseNum = parseInt(lyricState.lineId, 10) || 1;
-    const lyricYOffset = 20 + (verseNum - 1) * 16;
+    const { score } = store.getState();
+    const lineIndex = score ? Math.max(0, getLyricLineIds(score).indexOf(lyricState.lineId)) : 0;
+    const lyricYOffset = 20 + lineIndex * 16;
     const screenX = (bbox.x + bbox.width / 2 - vp.scrollX) * vp.zoom + rect.left;
     const screenY = (bbox.y + bbox.height - vp.scrollY) * vp.zoom + rect.top + lyricYOffset;
     return { x: screenX, y: screenY };
-  }, [lyricMode, lyricState, canvasRef]);
+  }, [lyricMode, lyricState, canvasRef, store]);
 
   const handleLyricCommit = useCallback(
     (elementId: string, lineId: string, text: string, type: LyricLineType) => {
@@ -75,6 +78,9 @@ export function useLyricHandlers({
         if (!ev.lyrics) ev.lyrics = {};
         if (!ev.lyrics.lines) ev.lyrics.lines = {};
         ev.lyrics.lines[lineId] = { text, ...(type !== "whole" ? { type } : {}) };
+        draft.global.lyrics ??= {};
+        const lineOrder = draft.global.lyrics.lineOrder ?? [];
+        if (!lineOrder.includes(lineId)) draft.global.lyrics.lineOrder = [...lineOrder, lineId];
       });
       if (newScore !== score) updateScore(newScore);
     },
@@ -83,6 +89,7 @@ export function useLyricHandlers({
 
   const handleLyricNavigate = useCallback(
     (nextState: LyricInputState) => {
+      setActiveLyricLineId(nextState.lineId);
       setLyricState(nextState);
     },
     [setLyricState],
@@ -90,8 +97,9 @@ export function useLyricHandlers({
 
   const handleLyricExit = useCallback(() => {
     setLyricMode(false);
+    if (lyricState) setActiveLyricLineId(lyricState.lineId);
     setLyricState(null);
-  }, [setLyricMode, setLyricState]);
+  }, [lyricState, setLyricMode, setLyricState]);
 
   return {
     lyricNavIndex,

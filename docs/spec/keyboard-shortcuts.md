@@ -110,6 +110,7 @@ Always available. Browser-style shortcuts (clipboard, save, undo, etc.) fire eve
 | `Mod+0`           | Reset viewport                                |
 | `Mod+\`           | Toggle side panels                            |
 | `N`               | Toggle note input mode                        |
+| `Shift+W`         | Toggle lyric entry and open the Text palette  |
 | `Space`           | Play / pause (suppressed in note input)       |
 | `Alt+1` … `Alt+4` | Switch active voice (1–4)                     |
 | `Alt+C`           | Toggle condensing popover                     |
@@ -340,6 +341,7 @@ These keys are claimed for the listed commands. Some are shipped today (see tabl
 | `Alt+C`            | `condensing.popover`                  | shipped |
 | `Mod+Alt+M`        | `measures.add`                        | shipped |
 | `Shift+T` (normal) | `tempo.set` (note input: tuplet menu) | shipped |
+| `Shift+W`          | `lyrics.enter`                        | shipped |
 | `Shift+X` (normal) | `staffText.add`                       | shipped |
 
 ### Reserved radial-menu keys

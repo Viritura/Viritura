@@ -27,18 +27,44 @@ function isClipboardFragment(value: unknown): value is ClipboardFragment {
 
   if (obj["type"] !== VIRITURA_FRAGMENT_TYPE) return false;
   if ((obj["version"] as number) > FRAGMENT_VERSION) return false;
-  // Versions 1 and 2 are both supported
+  // Older fragment versions remain supported.
   if (typeof obj["version"] !== "number" || obj["version"] < 1) return false;
 
   if (!isTimeSignature(obj["timeSignature"])) return false;
   if (!isKeySignature(obj["keySignature"])) return false;
   if (!Array.isArray(obj["content"])) return false;
+  if (obj["lyrics"] !== undefined && !isGlobalLyrics(obj["lyrics"])) return false;
 
   // Validate each content item is a valid SequenceContent
   for (const item of obj["content"] as unknown[]) {
     if (!isSequenceContent(item)) return false;
   }
 
+  return true;
+}
+
+function isGlobalLyrics(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const lyrics = value as Record<string, unknown>;
+  if (lyrics["lineOrder"] !== undefined) {
+    if (!Array.isArray(lyrics["lineOrder"]) || !lyrics["lineOrder"].every((lineId) => typeof lineId === "string")) {
+      return false;
+    }
+  }
+  if (lyrics["lineMetadata"] === undefined) return true;
+  if (
+    typeof lyrics["lineMetadata"] !== "object" ||
+    lyrics["lineMetadata"] === null ||
+    Array.isArray(lyrics["lineMetadata"])
+  ) {
+    return false;
+  }
+  for (const metadata of Object.values(lyrics["lineMetadata"] as Record<string, unknown>)) {
+    if (typeof metadata !== "object" || metadata === null) return false;
+    const entry = metadata as Record<string, unknown>;
+    if (entry["label"] !== undefined && typeof entry["label"] !== "string") return false;
+    if (entry["lang"] !== undefined && typeof entry["lang"] !== "string") return false;
+  }
   return true;
 }
 

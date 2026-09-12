@@ -75,7 +75,7 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   const { parts: partsInfo, groups } = getPartsInfo(root);
   const metadata = extractMetadata(root);
   const globalMeasures = buildGlobalMeasures(root, ids, vendorExt, hideMetronomeWhenTempoText);
-  const { mnxParts, lyricLineIds } = buildParts(root, partsInfo, globalMeasures, ids, vendorExt, {
+  const { mnxParts, lyricLineIds, lyricLineMetadata } = buildParts(root, partsInfo, globalMeasures, ids, vendorExt, {
     discardStemDirections,
   });
   const layoutContent = buildLayout(partsInfo, groups);
@@ -93,12 +93,12 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
 
   // Lyrics global metadata
   if (lyricLineIds.size > 0) {
-    const lineOrder = Array.from(lyricLineIds).sort();
-    const lineMetadata: Record<string, { label?: string }> = {};
+    const lineOrder = Array.from(lyricLineIds).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const lineMetadata: Record<string, { label?: string; lang?: string }> = {};
     for (const id of lineOrder) {
       // Extract line number from id (e.g., "line-1" → "Verse 1")
       const num = id.replace("line-", "");
-      lineMetadata[id] = { label: `Verse ${num}` };
+      lineMetadata[id] = { label: `Verse ${num}`, ...lyricLineMetadata[id] };
     }
     result.global.lyrics = { lineMetadata, lineOrder };
   }

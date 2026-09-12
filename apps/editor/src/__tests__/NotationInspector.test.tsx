@@ -14,6 +14,7 @@ import { HistoryProvider } from "../store/HistoryContext";
 import { useHistoryStore } from "../store/historyStore";
 import { useMnxChangeReporter } from "../app/useMnxChangeReporter";
 import { useSelectionActions, resetSelectionStore } from "../store/selectionStore";
+import { lyricElementId } from "../score/ElementPath";
 
 // Primitives (Button, IconButton, …) wrap their rendered DOM in <Tooltip>
 // when a `tooltip` prop is set; the hoisted TooltipPrimitives.Provider that
@@ -30,7 +31,16 @@ function withProviders(children: ReactNode) {
 function buildScore(): Score {
   return {
     mnx: { version: 1 },
-    global: { measures: [{ id: "m1", key: { fifths: 0 } }] },
+    global: {
+      measures: [{ id: "m1", key: { fifths: 0 } }],
+      lyrics: {
+        lineMetadata: {
+          "verse-a": { label: "Verse 1", lang: "en" },
+          translation: { label: "Translation", lang: "fr" },
+        },
+        lineOrder: ["verse-a", "translation"],
+      },
+    },
     parts: [
       {
         name: "Piano",
@@ -83,6 +93,7 @@ function buildScore(): Score {
                       ornaments: ["turn"],
                       fingerings: [{ finger: 1 }],
                     },
+                    lyrics: { lines: { "verse-a": { text: "Sing" } } },
                   },
                   {
                     type: "event",
@@ -163,8 +174,9 @@ function currentMnx(): Record<string, unknown> {
   return JSON.parse(screen.getByTestId("mnx-snapshot").textContent ?? "null") as Record<string, unknown>;
 }
 
-function HistoryHarnessInner() {
+function HistoryHarnessInner({ elementId }: { elementId: string }) {
   const { loadScore } = useDocumentActions();
+  const { score } = useDocument();
   const store = useDocumentStoreApi();
   const { selectElement } = useSelectionActions();
   const pushState = useHistoryStore((state) => state.pushState);
@@ -176,19 +188,20 @@ function HistoryHarnessInner() {
 
   useEffect(() => {
     loadScore(buildScore(), "history.mnx");
-    selectElement("p0/m0/s0/ev1/breath");
-  }, [loadScore, selectElement]);
+    selectElement(elementId);
+  }, [elementId, loadScore, selectElement]);
 
   return (
     <>
       <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
       <Button disabled={!canUndo} onClick={undo} label="Undo inspector edit" />
       <Button disabled={!canRedo} onClick={redo} label="Redo inspector edit" />
     </>
   );
 }
 
-function HistoryHarness() {
+function HistoryHarness({ elementId = "p0/m0/s0/ev1/breath" }: { elementId?: string }) {
   const initialMnx = JSON.stringify(serializeMnx(buildScore()));
   const store = useDocumentStoreApi();
   return (
@@ -196,7 +209,7 @@ function HistoryHarness() {
       initialMnxJson={initialMnx}
       onRestore={(mnxJson) => store.getState().loadScore(parseMnx(JSON.parse(mnxJson)), "history.mnx", mnxJson)}
     >
-      <HistoryHarnessInner />
+      <HistoryHarnessInner elementId={elementId} />
     </HistoryProvider>
   );
 }
@@ -267,6 +280,40 @@ describe("NotationInspector", () => {
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("No current selection")).toBeTruthy();
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
+  });
+
+  it("edits a selected lyric syllable without changing its note", async () => {
+    const user = userEvent.setup();
+    const lyricId = lyricElementId("p0/m0/s0/ev1", "verse-a");
+    render(withProviders(<Harness elementId={lyricId} />));
+
+    const text = await screen.findByRole("textbox", { name: "Lyric syllable text" });
+    expect(screen.queryByRole("group", { name: "Tie advanced" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Layout Overrides" })).toBeNull();
+    await user.clear(text);
+    await user.type(text, "Singing");
+    expect(
+      (
+        currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as {
+          lyrics?: { lines?: Record<string, { text: string }> };
+        }
+      ).lyrics?.lines?.["verse-a"]?.text,
+    ).toBe("Sing");
+    await user.tab();
+
+    await user.click(screen.getByRole("combobox", { name: "Lyric syllable position" }));
+    await user.click(await screen.findByRole("option", { name: "Start of word" }));
+    await user.click(screen.getByRole("combobox", { name: "Lyric line" }));
+    await user.click(await screen.findByRole("option", { name: "Translation" }));
+
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0];
+      expect(event?.type).toBe("event");
+      if (event?.type !== "event") return;
+      expect(event.notes).toHaveLength(2);
+      expect(event.lyrics?.lines?.translation).toEqual({ text: "Singing", type: "start" });
+      expect(event.lyrics?.lines?.["verse-a"]).toBeUndefined();
+    });
   });
 
   it("shows color only for a selected MNX-colorable object", async () => {
@@ -542,6 +589,42 @@ describe("NotationInspector", () => {
 
     await user.click(redo);
     await waitFor(() => expect(symbol.textContent).toContain("Tick"));
+  });
+
+  it("records a lyric text edit as one committed undoable change", async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <HistoryHarness elementId={lyricElementId("p0/m0/s0/ev1", "verse-a")} />
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    const text = await screen.findByRole("textbox", { name: "Lyric syllable text" });
+    await user.clear(text);
+    await user.type(text, "Song");
+    expect(
+      (
+        currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as {
+          lyrics?: { lines?: Record<string, { text: string }> };
+        }
+      ).lyrics?.lines?.["verse-a"]?.text,
+    ).toBe("Sing");
+
+    await user.tab();
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() =>
+      expect(
+        (
+          currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as {
+            lyrics?: { lines?: Record<string, { text: string }> };
+          }
+        ).lyrics?.lines?.["verse-a"]?.text,
+      ).toBe("Sing"),
+    );
   });
 
   it("edits every meaningful property of a selected ottava and explains span adjustment", async () => {

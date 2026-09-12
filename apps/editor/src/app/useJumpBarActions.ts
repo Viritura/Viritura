@@ -13,11 +13,6 @@ import type { RadialMenuCategory } from "../radialMenu";
 import { resolveStaffTextTargets, type TempoPopoverState, type StaffTextPopoverState } from "./useAppKeyboardWiring";
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
 
-interface LyricStateRef {
-  elementId: string;
-  lineId: string;
-}
-
 export interface JumpBarActionsDeps {
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
   onNewScore: () => void;
@@ -46,8 +41,7 @@ export interface JumpBarActionsDeps {
   setRadialMenu: (m: { category: RadialMenuCategory; position: { x: number; y: number } } | null) => void;
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
-  setLyricMode: (b: boolean) => void;
-  setLyricState: (s: LyricStateRef | null) => void;
+  onEnterLyrics: () => void;
   onOpenActivity: (view: ActivityView) => void;
   onSwitchScore: (index: number) => void;
 }
@@ -80,8 +74,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
-    setLyricMode,
-    setLyricState,
+    onEnterLyrics,
     onNewScore,
     onOpenActivity,
     onSwitchScore,
@@ -196,13 +189,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
               ...target,
             });
           },
-          enterLyrics: () => {
-            const { score } = store.getState();
-            if (score && selection.kind === "single") {
-              setLyricMode(true);
-              setLyricState({ elementId: selection.elementId, lineId: "1" });
-            }
-          },
+          enterLyrics: onEnterLyrics,
           repeatSelection: handleRepeat,
           goToActivity: onOpenActivity,
           switchScore: onSwitchScore,
@@ -236,8 +223,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
       setRadialMenu,
       setTempoPopover,
       setStaffTextPopover,
-      setLyricMode,
-      setLyricState,
+      onEnterLyrics,
       onNewScore,
       onOpenActivity,
       onSwitchScore,

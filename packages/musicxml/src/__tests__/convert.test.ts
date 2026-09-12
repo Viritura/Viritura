@@ -1175,6 +1175,30 @@ describe("convertMusicXmlToMnx — lyrics", () => {
     expect(result.global.lyrics!.lineOrder).toContain("line-1");
   });
 
+  it("preserves consistent lyric names and inherited language metadata", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric number="2" name="Translation"><text xml:lang="qaa-Qaaa-QM-x-studio">Bonjour</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric number="2" name="Translation"><text xml:lang="qaa-Qaaa-QM-x-studio">monde</text></lyric>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml);
+
+    expect(result.global.lyrics?.lineMetadata?.["line-2"]).toEqual({
+      label: "Translation",
+      lang: "qaa-Qaaa-QM-x-studio",
+    });
+  });
+
   it("converts syllabic begin/end types", () => {
     const xml = wrapScore(`
       <note>

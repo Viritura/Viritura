@@ -8,6 +8,7 @@ import type {
   Clef,
   Transposition,
   DynamicGroup,
+  GlobalLyrics,
 } from "@viritura/core";
 import { generateId, isRest, measureBeats } from "@viritura/core";
 import { serializeFragment } from "../clipboard/serialize";
@@ -38,6 +39,8 @@ export interface ClipboardSelection {
   /** Dynamics in the primary track's spanned measures, filtered to selection */
   dynamics?: CapturedDynamic[];
   measureRepeats?: CapturedMeasureRepeat[];
+  /** Metadata and ordering for lyric lines referenced by copied events. */
+  lyrics?: GlobalLyrics;
   /** Location info for paste/cut */
   partIndex: number;
   measureIndex: number;
@@ -73,6 +76,7 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
     selection.transposition,
     selection.dynamics,
     selection.measureRepeats,
+    selection.lyrics,
   );
 
   try {
@@ -151,6 +155,7 @@ export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResul
       ...track,
       content: assignFreshIds(track.content),
     })),
+    lyrics: fragment.lyrics ? structuredClone(fragment.lyrics) : undefined,
   };
 }
 
@@ -167,6 +172,7 @@ export interface PasteResult {
   /** Multi-track content for cross-staff paste */
   tracks?: ClipboardTrack[];
   measureRepeats?: CapturedMeasureRepeat[];
+  lyrics?: GlobalLyrics;
 }
 
 /**
@@ -198,6 +204,7 @@ export function applyPaste(
 
   // Deep clone to avoid mutation
   const newScore = structuredClone(score);
+  mergeClipboardLyrics(newScore, paste.lyrics);
 
   // Compute paste start beat (quarter-note beats from measure start, primary staff)
   // — needed for both event placement and dynamic-position remapping.
@@ -259,6 +266,21 @@ export function applyPaste(
     applyCapturedDynamicsByPart(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
   }
   return newScore;
+}
+
+function mergeClipboardLyrics(score: Score, lyrics: GlobalLyrics | undefined): void {
+  if (!lyrics) return;
+  score.global.lyrics ??= {};
+  const target = score.global.lyrics;
+  if (lyrics.lineMetadata) {
+    target.lineMetadata ??= {};
+    for (const [lineId, metadata] of Object.entries(lyrics.lineMetadata)) {
+      target.lineMetadata[lineId] ??= structuredClone(metadata);
+    }
+  }
+  const existingOrder = target.lineOrder ?? [];
+  const sourceOrder = lyrics.lineOrder ?? [];
+  target.lineOrder = [...existingOrder, ...sourceOrder.filter((lineId) => !existingOrder.includes(lineId))];
 }
 
 function applyCapturedDynamicsByPart(

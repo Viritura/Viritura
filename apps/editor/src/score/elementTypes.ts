@@ -15,6 +15,7 @@ export type SelectableElementType =
   | "ornament"
   | "trill"
   | "fingering"
+  | "lyric"
   | "arpeggio"
   | "tremolo"
   | "breath"
@@ -57,6 +58,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
   ["orn", "ornament"],
   ["trill", "trill"],
   ["fing", "fingering"],
+  ["lyric-", "lyric"],
   ["arp", "arpeggio"],
   ["trem", "tremolo"],
   ["breath", "breath"],
@@ -131,6 +133,7 @@ const EVENT_ATTACHED: ReadonlySet<SelectableElementType> = new Set([
   "ornament",
   "trill",
   "fingering",
+  "lyric",
   "arpeggio",
   "tremolo",
   "breath",
