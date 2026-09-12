@@ -164,12 +164,7 @@ function ChordSymbolEntryPopover({
         if (next.anchorElementId) selectElement(next.anchorElementId);
         return true;
       }}
-    >
-      <small>
-        Enter: finish · Esc: cancel · Space: next note · Shift+Space: previous · ; / Shift+;: next/previous beat ·
-        Ctrl/Cmd+Arrow: next/previous bar
-      </small>
-    </TextPopover>
+    />
   );
 }
 
