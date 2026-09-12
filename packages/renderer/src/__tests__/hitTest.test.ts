@@ -684,6 +684,10 @@ describe("getElementType", () => {
     expect(getElementType("p0/m0/s0/ev-1/n2")).toBe("note");
   });
 
+  it("classifies lyric syllable IDs", () => {
+    expect(getElementType("p0/m0/s0/ev-1/lyric-76657273652d31")).toBe("lyric");
+  });
+
   it("classifies dynamics IDs", () => {
     expect(getElementType("p0/m0/dyn0")).toBe("dynamics");
     expect(getElementType("p0/m2/dyn12")).toBe("dynamics");

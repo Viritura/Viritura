@@ -144,6 +144,11 @@ import {
   resolveSpannerPositions,
   SortablePaletteSection,
 } from "./palette";
+import { LyricsPanel } from "./lyrics/LyricsPanel";
+
+interface PalettePanelProps {
+  openSectionRequest?: { id: string; requestId: number } | null;
+}
 
 function measureStartIndexForSelection(selection: SelectionState, score: Score): number | null {
   if (selection.kind === "single") {
@@ -158,7 +163,7 @@ function measureStartIndexForSelection(selection: SelectionState, score: Score):
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- component body holds prompt-dialog state, ~30 handler useCallback declarations (one per palette toggle), derived selection state, and JSX layout for sortable sections. Sub-handlers and sortable section primitives are already extracted to ./palette/*; the remaining body is one-line handler wrappers + JSX wiring.
-export function PalettePanel() {
+export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   // Subscribe ONLY to the note-input slices that affect what this panel
   // renders (the active-mode flag and the tie/slur button highlight state).
   // The high-frequency slices (cursorPosition, lastPitch, currentDuration,
@@ -1244,6 +1249,7 @@ export function PalettePanel() {
       }
     }
   }, []);
+  const [dismissedOpenRequests, setDismissedOpenRequests] = useState<Record<string, number>>({});
 
   // Activate drag only after a small movement so plain clicks on the
   // handle still bubble cleanly to focus/aria handlers.
@@ -1267,7 +1273,9 @@ export function PalettePanel() {
   const tremMatch = !searchQuery || "tremolo slash single".includes(searchLower);
   const arpMatch = !searchQuery || "arpeggio up down plain no arrow".includes(searchLower);
   const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
-  const textMatch = !searchQuery || "rehearsal mark expression text".includes(searchLower);
+  const textMatch =
+    !searchQuery ||
+    "rehearsal mark expression text lyrics lyric words syllables verses language translation".includes(searchLower);
   const linesMatch =
     !searchQuery || "ottava 8va 8vb 15ma 15mb 22ma 22mb pedal sustain sostenuto una corda lines".includes(searchLower);
   const repeatsNavigationMatch =
@@ -1532,21 +1540,24 @@ export function PalettePanel() {
       title: "Text",
       show: textMatch,
       render: () => (
-        <div style={gridStyle}>
-          <PaletteButton
-            shape="wide"
-            label="Staff text"
-            title="Staff text"
-            shortcut="Shift+X"
-            onClick={handleAddStaffText}
-          />
-          <PaletteButton shape="wide" title="Expression text" onClick={handleAddExpression}>
-            <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
-          </PaletteButton>
-          <PaletteButton title="Rehearsal mark" onClick={handleSetRehearsalMark}>
-            <span style={REHEARSAL_BOX_STYLE}>A</span>
-          </PaletteButton>
-        </div>
+        <>
+          <div style={gridStyle}>
+            <PaletteButton
+              shape="wide"
+              label="Staff text"
+              title="Staff text"
+              shortcut="Shift+X"
+              onClick={handleAddStaffText}
+            />
+            <PaletteButton shape="wide" title="Expression text" onClick={handleAddExpression}>
+              <span style={EXPRESSION_LABEL_STYLE}>espress.</span>
+            </PaletteButton>
+            <PaletteButton title="Rehearsal mark" onClick={handleSetRehearsalMark}>
+              <span style={REHEARSAL_BOX_STYLE}>A</span>
+            </PaletteButton>
+          </div>
+          <LyricsPanel embedded />
+        </>
       ),
     },
     {
@@ -1825,14 +1836,25 @@ export function PalettePanel() {
           <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
             {visibleIds.map((id) => {
               const cat = byId.get(id)!;
+              const requestedOpen =
+                openSectionRequest?.id === cat.id &&
+                openSectionRequest.requestId > (dismissedOpenRequests[cat.id] ?? 0);
               return (
                 <SortablePaletteSection
                   key={cat.id}
                   id={cat.id}
                   title={cat.title}
                   shortcut={cat.shortcut}
-                  open={openMap[cat.id] !== false}
-                  onOpenChange={(o) => setOpenMap({ ...openMap, [cat.id]: o })}
+                  open={requestedOpen || openMap[cat.id] !== false}
+                  onOpenChange={(open) => {
+                    if (!open && requestedOpen && openSectionRequest) {
+                      setDismissedOpenRequests({
+                        ...dismissedOpenRequests,
+                        [cat.id]: openSectionRequest.requestId,
+                      });
+                    }
+                    setOpenMap({ ...openMap, [cat.id]: open });
+                  }}
                 >
                   {cat.render()}
                 </SortablePaletteSection>

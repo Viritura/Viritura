@@ -13,6 +13,7 @@ import gettingStarted from "../../../../../docs/guide/getting-started.md?raw";
 import instrumentsAndScores from "../../../../../docs/guide/instruments-and-scores.md?raw";
 import percussionMaps from "../../../../../docs/guide/percussion-maps.md?raw";
 import noteEntry from "../../../../../docs/guide/note-entry.md?raw";
+import lyrics from "../../../../../docs/guide/lyrics.md?raw";
 import notationAndEditing from "../../../../../docs/guide/notation-and-editing.md?raw";
 import engravingAndLayout from "../../../../../docs/guide/engraving-and-layout.md?raw";
 import playbackAndPianoRoll from "../../../../../docs/guide/playback-and-piano-roll.md?raw";
@@ -31,6 +32,7 @@ const rawBySlug: Readonly<Record<string, string>> = {
   "instruments-and-scores": instrumentsAndScores,
   "percussion-maps": percussionMaps,
   "note-entry": noteEntry,
+  lyrics,
   "notation-and-editing": notationAndEditing,
   "engraving-and-layout": engravingAndLayout,
   "playback-and-piano-roll": playbackAndPianoRoll,

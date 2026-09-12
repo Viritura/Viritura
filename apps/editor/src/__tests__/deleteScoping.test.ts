@@ -15,6 +15,7 @@ import type { KeyboardHandlerContext } from "../keyboard/types";
 import { handleDelete } from "../keyboard/normalModeDelete";
 import { computeDeleteSelection } from "../commands/computeDeleteSelection";
 import { addressesWholeEvent } from "../score/ElementPath";
+import { lyricElementId } from "../score/ElementPath";
 
 const EVENT = "p0/m0/s0/e1";
 
@@ -36,6 +37,7 @@ function makeScore(): Score {
                     duration: { base: "quarter", dots: 1 },
                     notes: [{ pitch: { step: "C", octave: 4, alter: 1 } }],
                     markings: { accent: {}, fingerings: [{ digit: "3" }] },
+                    lyrics: { lines: { "1": { text: "Sing" } } },
                   },
                   {
                     type: "event",
@@ -96,13 +98,33 @@ describe("addressesWholeEvent", () => {
 });
 
 describe("delete never blanks a note from an unhandled sub-element", () => {
-  // Fingerings, augmentation dots and lyrics have ids but no delete handler.
-  // Until they get one, Delete on them must do nothing.
+  // Fingerings and augmentation dots have ids but no delete handler. Until
+  // they get one, Delete on them must do nothing.
   const unhandled = [`${EVENT}/fing0`, `${EVENT}/dot/0/0`, `${EVENT}/lyric0`, `${EVENT}/totalNonsense`];
 
   for (const id of unhandled) {
     it(`is a no-op for ${id} (computeDeleteSelection)`, () => {
       expect(computeDeleteSelection(makeScore(), { kind: "single", elementId: id } as never).kind).toBe("noop");
+    });
+
+    describe("lyric deletion", () => {
+      const lyricId = lyricElementId(EVENT, "1");
+
+      it("removes only the selected lyric through the pure delete command", () => {
+        const result = computeDeleteSelection(makeScore(), { kind: "single", elementId: lyricId } as never);
+        expect(result.kind).toBe("single");
+        if (result.kind !== "single") return;
+        expect(eventAt(result.score, 0).lyrics).toBeUndefined();
+        expect(eventAt(result.score, 0).notes).toHaveLength(1);
+      });
+
+      it("removes only the selected lyric through keyboard Delete", () => {
+        const { ctx, latest } = makeCtx(makeScore(), { kind: "single", elementId: lyricId });
+        handleDelete(noopEvent, false, ctx);
+        expect(eventAt(latest(), 0).lyrics).toBeUndefined();
+        expect(eventAt(latest(), 0).notes).toHaveLength(1);
+        expect(eventAt(latest(), 0).rest).toBeUndefined();
+      });
     });
 
     it(`is a no-op for ${id} (keyboard Delete)`, () => {

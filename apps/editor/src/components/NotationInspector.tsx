@@ -13,6 +13,7 @@ import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
 import { FermataSection } from "./inspector/FermataSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
+import { LyricSection } from "./inspector/LyricSection";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -26,6 +27,7 @@ import { SelectedMarkingInspectors } from "./inspector/SelectedMarkingSections";
 import { StaffConfigSection } from "./inspector/StaffConfigSection";
 import { useStaffConfigInspector } from "./inspector/useStaffConfigInspector";
 import { MAX_STAFF_LINES } from "../commands/staffConfigCommands";
+import { useLyricInspector } from "./inspector/useLyricInspector";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -79,6 +81,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
   const tempo = useTempoHandlers({ score, target, updateScore });
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
+  const lyric = useLyricInspector({ score, selection, updateScore });
+  const isLyricSelected = lyric.selected !== null;
 
   const {
     currentBarlineType,
@@ -164,6 +168,19 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         {target && <DirectionTextSections score={score} target={target} updateScore={updateScore} />}
 
+        {lyric.selected && (
+          <LyricSection
+            key={`${target?.elementId}:${lyric.selected.line.text}`}
+            text={lyric.selected.line.text}
+            syllabicType={lyric.selected.line.type ?? "whole"}
+            lineId={lyric.selected.lineId}
+            lineOptions={lyric.lineOptions}
+            onTextChange={lyric.handleTextChange}
+            onSyllabicTypeChange={lyric.handleSyllabicTypeChange}
+            onLineChange={lyric.handleLineChange}
+          />
+        )}
+
         {target && (
           <SelectedMarkingInspectors
             score={score}
@@ -212,7 +229,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {selectedTie && (
+        {!isLyricSelected && selectedTie && (
           <TieSection
             tie={selectedTie}
             focusedSection={focusedSection}
@@ -225,7 +242,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {selectedSlur && (
+        {!isLyricSelected && selectedSlur && (
           <SlurSection
             slur={selectedSlur}
             focusedSection={focusedSection}
@@ -244,12 +261,12 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
         )}
 
-        {target && <FermataSection />}
-        {target && (
+        {!isLyricSelected && target && <FermataSection />}
+        {!isLyricSelected && target && (
           <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
         )}
 
-        {(isTuplet || isEvent) && (
+        {!isLyricSelected && (isTuplet || isEvent) && (
           <LayoutSection
             score={score}
             target={target}
@@ -265,7 +282,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {selectedNote && (
+        {!isLyricSelected && selectedNote && (
           <AccidentalDisplaySection
             note={selectedNote}
             onModeChange={handleAccidentalDisplayModeChange}
@@ -273,7 +290,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {isEvent && selectedNotehead !== null && (
+        {!isLyricSelected && isEvent && selectedNotehead !== null && (
           <NoteheadSection notehead={selectedNotehead} onNoteheadChange={handleNoteheadChange} />
         )}
 

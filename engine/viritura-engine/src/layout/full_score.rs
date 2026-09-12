@@ -564,6 +564,8 @@ fn render_one_staff_for_system(
     let explicit_beamed_ids = collect_explicit_beamed_event_ids(measure_layouts);
     let slur_map = collect_slur_participation(measure_layouts);
     let tie_accidentals = compute_tie_accidental_map(measure_layouts);
+    let staff_lyric_line_order =
+        super::render_lyrics::line_order_for_staff(measure_layouts, lyric_line_order);
 
     // Multimeasure-rest count numbers protrude above the staff; collect their
     // horizontal bands so a tempo marking in any measure of this system can
@@ -612,7 +614,7 @@ fn render_one_staff_for_system(
             prev_barline_type,
             &global_beamed_ids,
             &explicit_beamed_ids,
-            lyric_line_order,
+            staff_lyric_line_order.as_deref(),
             Some(staff_y_offsets),
             Some(&part_staff_y_offsets),
             render_measure_number_here,

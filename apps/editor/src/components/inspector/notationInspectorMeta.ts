@@ -19,6 +19,7 @@ const SECTION_BY_TYPE: Partial<Record<SelectableElementType, InspectorSection>> 
   ornament: "markings",
   trill: "markings",
   fingering: "markings",
+  lyric: "event",
   arpeggio: "markings",
   tremolo: "markings",
   breath: "markings",

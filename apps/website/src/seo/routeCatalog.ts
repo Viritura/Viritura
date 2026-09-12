@@ -90,6 +90,13 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
+    path: "/docs/lyrics",
+    title: "Lyrics | Viritura Documentation",
+    description: "Enter, organize, edit, and import multi-line lyrics in Viritura.",
+    canonicalPath: "/docs/lyrics",
+    indexable: true,
+  },
+  {
     path: "/docs/notation-and-editing",
     title: "Notation and Editing | Viritura Documentation",
     description: "Edit pitches, rhythms, articulations, directions, and other notation in a Viritura document.",

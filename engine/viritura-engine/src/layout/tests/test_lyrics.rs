@@ -4,6 +4,16 @@
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::render::*;
+use std::collections::HashSet;
+
+#[test]
+fn test_line_order_preserves_preceding_rows_across_systems() {
+    let used = HashSet::from(["2".to_string()]);
+    let global = ["1".to_string(), "2".to_string(), "3".to_string()];
+    let order = crate::layout::render_lyrics::line_order_for_used_lines(used, Some(&global));
+
+    assert_eq!(order, Some(vec!["1".to_string(), "2".to_string()]));
+}
 
 #[test]
 fn test_lyrics_basic_rendering() {
@@ -320,6 +330,80 @@ fn test_lyrics_line_metadata_rendering() {
         "Expected at least 1 continuation dash for Ukrainian syllables, got {}",
         dash_count
     );
+}
+
+#[test]
+fn test_sparse_lyric_lines_keep_stable_rows_within_system() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {
+            "lyrics": {"lineOrder": ["1", "2"]},
+            "measures": [{"time": {"count": 4, "unit": 4}}]
+        },
+        "parts": [{
+            "measures": [{
+                "sequences": [{
+                    "content": [
+                        {
+                            "duration": {"base": "half"},
+                            "lyrics": {"lines": {"1": {"text": "first"}}},
+                            "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                        },
+                        {
+                            "duration": {"base": "half"},
+                            "lyrics": {"lines": {"2": {"text": "second"}}},
+                            "notes": [{"pitch": {"step": "D", "octave": 4}}]
+                        }
+                    ]
+                }]
+            }]
+        }]
+    }"#;
+    let score = crate::parse::parse_mnx(json).expect("Failed to parse sparse lyrics");
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+
+    let lyric_y = |wanted: &str| {
+        dl.commands.iter().find_map(|command| match command {
+            RenderCommand::DrawText { text, font, y, .. } if font == "serif" && text == wanted => {
+                Some(*y)
+            }
+            _ => None,
+        })
+    };
+    let first_y = lyric_y("first").expect("Missing first lyric line");
+    let second_y = lyric_y("second").expect("Missing second lyric line");
+
+    assert!(
+        second_y > first_y,
+        "A missing first-line syllable must not pull the second lyric line upward"
+    );
+    let lyric_boxes: Vec<&ElementBBox> = dl
+        .element_bboxes
+        .iter()
+        .filter(|bbox| bbox.element_id.contains("/lyric-"))
+        .collect();
+    assert_eq!(lyric_boxes.len(), 2, "Each syllable needs its own hit box");
+    assert!(
+        lyric_boxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/lyric-31")),
+        "Line ID 1 should be reversibly encoded in its selection ID"
+    );
+    assert!(
+        lyric_boxes
+            .iter()
+            .any(|bbox| bbox.element_id.ends_with("/lyric-32")),
+        "Line ID 2 should be reversibly encoded in its selection ID"
+    );
+    for bbox in lyric_boxes {
+        assert!(
+            dl.element_ids
+                .iter()
+                .any(|element_id| element_id.as_ref() == Some(&bbox.element_id)),
+            "Lyric text must carry the same ID as its hit box"
+        );
+    }
 }
 
 #[test]

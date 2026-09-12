@@ -18,7 +18,8 @@ import type { LyricLineType } from "@viritura/core";
 import { findNextInVoice, findPrevInVoice } from "../navigation/NavigationIndex";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
-import { useDocumentStoreApi } from "../store/DocumentContext";
+import { useDocumentStore, useDocumentStoreApi } from "../store/DocumentContext";
+import { getLyricLineDisplay, getLyricLineIds } from "../lyrics";
 
 function lyricPortalStyle(x: number, y: number): CSSProperties {
   return {
@@ -154,6 +155,7 @@ export function LyricInput({
   onExit,
 }: LyricInputProps) {
   const store = useDocumentStoreApi();
+  const score = useDocumentStore((document) => document.score);
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   // Track whether the current syllable continues a word (arrived via hyphen)
@@ -262,13 +264,17 @@ export function LyricInput({
   // Move to next/previous verse on same note
   const changeVerse = useCallback(
     (direction: 1 | -1) => {
-      if (!state) return;
+      if (!state || !score) return;
       commitPendingSyllable();
-      const currentNum = parseInt(state.lineId, 10) || 1;
-      const nextNum = Math.max(1, currentNum + direction);
-      onNavigate({ elementId: state.elementId, lineId: String(nextNum) });
+      const lineIds = getLyricLineIds(score);
+      const currentIndex = Math.max(0, lineIds.indexOf(state.lineId));
+      const nextIndex = Math.min(lineIds.length - 1, Math.max(0, currentIndex + direction));
+      const nextLineId = lineIds[nextIndex];
+      if (nextLineId && nextLineId !== state.lineId) {
+        onNavigate({ elementId: state.elementId, lineId: nextLineId });
+      }
     },
-    [state, commitPendingSyllable, onNavigate],
+    [state, score, commitPendingSyllable, onNavigate],
   );
 
   // Keyboard handler — intercepts special keys before the input processes them
@@ -306,9 +312,10 @@ export function LyricInput({
         onChange={(e) => setValue(e.target.value)}
         autoComplete="off"
         spellCheck
+        aria-label={`Lyrics for ${score ? getLyricLineDisplay(score, state.lineId) : state.lineId}`}
         style={lyricInputStyle(value)}
       />
-      <div style={LYRIC_VERSE_LABEL_STYLE}>verse {state.lineId}</div>
+      <div style={LYRIC_VERSE_LABEL_STYLE}>{score ? getLyricLineDisplay(score, state.lineId) : state.lineId}</div>
     </div>,
     document.body,
   );

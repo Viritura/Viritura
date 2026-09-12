@@ -28,6 +28,7 @@ export type ScoreElementType =
   | "volta"
   | "note"
   | "accidental"
+  | "lyric"
   | "unknown";
 
 /**
@@ -61,6 +62,7 @@ export function getElementType(id: string): ScoreElementType {
   if (last.startsWith("volta")) return "volta";
   if (/^n\d/.test(last)) return "note";
   if (/^acc\d/.test(last)) return "accidental";
+  if (last.startsWith("lyric-")) return "lyric";
   // Events: v{voice}/e{idx}, s{seq}/{id}, or bare event IDs
   if (/^[ve]/.test(last) || id.includes("/s") || id.includes("/v")) return "event";
   return "unknown";

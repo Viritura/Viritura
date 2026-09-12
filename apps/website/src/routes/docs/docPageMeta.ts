@@ -50,6 +50,13 @@ export const DOC_PAGE_META: readonly DocPageMeta[] = [
     file: "docs/guide/note-entry.md",
   },
   {
+    slug: "lyrics",
+    path: "/docs/lyrics",
+    title: "Lyrics",
+    group: "Create",
+    file: "docs/guide/lyrics.md",
+  },
+  {
     slug: "notation-and-editing",
     path: "/docs/notation-and-editing",
     title: "Notation & Editing",

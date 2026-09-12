@@ -846,6 +846,8 @@ pub(crate) fn render_system_contents(
     // suppressed — a per-chunk map can't see the target note in the next chunk.
     tie_accidentals_override: Option<&HashMap<String, bool>>,
 ) {
+    let staff_lyric_line_order =
+        render_lyrics::line_order_for_staff(measure_layouts, lyric_line_order);
     let staff_height = 4.0 * sp;
     let use_beams = score
         .mnx
@@ -909,7 +911,7 @@ pub(crate) fn render_system_contents(
             prev_barline_type,
             &global_beamed_ids,
             &explicit_beamed_ids,
-            lyric_line_order,
+            staff_lyric_line_order.as_deref(),
             staff_y_offsets,
             shared_lane_staff_y_offsets,
             render_ordinary_measure_number,

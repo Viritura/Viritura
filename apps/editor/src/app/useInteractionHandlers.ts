@@ -29,6 +29,7 @@ import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { RefObject, MutableRefObject } from "react";
 import type { useNoteInput } from "../store/noteInputStore";
 import type { EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
+import { useLyricEntryCommand } from "../lyrics";
 
 type NoteInputState = ReturnType<typeof useNoteInput>["state"];
 type JumpBarActions = ReturnType<typeof useJumpBarActions>;
@@ -49,6 +50,7 @@ interface UseInteractionHandlersParams {
   selectedScoreIndex: number;
   onSwitchScore: (index: number) => void;
   noteInputState: NoteInputState;
+  lyricEntryEnabled: boolean;
   // editing helpers
   getSelectedMeasureIndex: () => number | null;
   getSelectedPartIndex: () => number | null;
@@ -85,6 +87,7 @@ interface UseInteractionHandlersParams {
   // lyric state
   lyricMode: boolean;
   lyricState: LyricStateRef | null;
+  onOpenLyricsPalette: () => void;
   // radial menu state
   radialMenu: RadialMenuState | null;
   // drag-and-drop
@@ -108,6 +111,7 @@ export interface InteractionHandlers extends RadialMenuHandlers, DragAndDropHand
   handleLyricCommit: LyricHandlers["handleLyricCommit"];
   handleLyricNavigate: LyricHandlers["handleLyricNavigate"];
   handleLyricExit: LyricHandlers["handleLyricExit"];
+  handleEnterLyrics: () => void;
 }
 
 /**
@@ -130,6 +134,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     selectedScoreIndex,
     onSwitchScore,
     noteInputState,
+    lyricEntryEnabled,
     getSelectedMeasureIndex,
     getSelectedPartIndex,
     selectRange,
@@ -161,6 +166,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setLyricState,
     lyricMode,
     lyricState,
+    onOpenLyricsPalette,
     radialMenu,
     openFolderHandle,
     setIsDragOver,
@@ -170,6 +176,17 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     onOpenActivity,
     onNewScore,
   } = params;
+
+  const handleEnterLyrics = useLyricEntryCommand({
+    store,
+    selection,
+    noteInputActive: noteInputState.active,
+    lyricMode,
+    setLyricMode,
+    setLyricState,
+    onOpenLyricsPalette,
+    enabled: lyricEntryEnabled,
+  });
 
   const { enterMidiNotes, moveMidiCursor } = useAppKeyboardWiring({
     canvasRef,
@@ -200,6 +217,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setTempoPopover,
     setStaffTextPopover,
     setJumpBarOpen,
+    onEnterLyrics: handleEnterLyrics,
     onOpenPublish,
     onNewScore,
   });
@@ -231,8 +249,7 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
-    setLyricMode,
-    setLyricState,
+    onEnterLyrics: handleEnterLyrics,
     onOpenActivity,
     onSwitchScore,
   });
@@ -283,5 +300,5 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
 
   const dnd = useDragAndDrop({ openFolderHandle, setIsDragOver, setFileError, setOpenedFile });
 
-  return { ...radial, ...dnd, jumpBarActions, ...lyric, enterMidiNotes, moveMidiCursor };
+  return { ...radial, ...dnd, jumpBarActions, ...lyric, handleEnterLyrics, enterMidiNotes, moveMidiCursor };
 }

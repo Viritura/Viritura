@@ -49,6 +49,7 @@ import {
   expandCondensedSpannerIds,
   expandCondensedSubElementIds,
 } from "../score/condensedWriteback";
+import { isLyricId, removeLyricByElementId, removeLyricsByElementId } from "../commands/lyricCommands";
 function applyDeletion(e: KeyboardEvent, ctx: KeyboardHandlerContext, newScore: Score | null): boolean {
   if (!newScore) return false;
   e.preventDefault();
@@ -171,6 +172,7 @@ function deleteCondensedWholeEvent(
 }
 
 function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreIndex: number): Score | null | undefined {
+  if (isLyricId(elementId)) return removeLyricByElementId(score, elementId);
   if (elementId.endsWith("/measurerepeat")) return deleteMeasureRepeatByElementId(score, elementId);
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);
   if (elementId.endsWith("/arp")) return deleteArpeggioByElementId(score, elementId);
@@ -431,11 +433,12 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
       ? expandCondensedSubElementIds(currentScore, selection.elementIds, ctx.getConfig?.().selectedScoreIndex ?? 0)
       : [];
   const connectorIds = selectedIds.filter((id) => id.startsWith("slur/") || id.startsWith("tie/"));
+  const lyricIds = selectedIds.filter(isLyricId);
   const graceIds = selectedIds.filter((id) => resolveGraceLocation(id, currentScore) !== null);
   const annotationLocations = selectedIds.map(resolveAnnotationLocation).filter((loc) => loc !== null);
   const annotationIds = new Set(selectedIds.filter((id) => resolveAnnotationLocation(id) !== null));
   const { markingIds, eventIds } = partitionMarkingIds(
-    selectedIds.filter((id) => !annotationIds.has(id) && !connectorIds.includes(id)),
+    selectedIds.filter((id) => !annotationIds.has(id) && !connectorIds.includes(id) && !lyricIds.includes(id)),
   );
 
   // Same gate as the single path: only ids addressing a whole event may reach
@@ -450,6 +453,7 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
       : null;
   let newScore = annotationsResult ?? cloneScore(currentScore);
   const annotationsRemoved = annotationsResult !== null;
+  const lyricsRemoved = removeLyricsByElementId(newScore, lyricIds);
   let connectorsRemoved = false;
   for (const connectorId of connectorIds) {
     const next = deleteConnectorSelection(newScore, connectorId, ctx.getConfig?.().selectedScoreIndex ?? 0);
@@ -468,10 +472,11 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   const eventSelection = { ...selection, elementIds: wholeEventIds };
   const events = wholeEventIds.length > 0 ? resolveSelectionEvents(eventSelection, currentScore) : [];
   const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
+  const leavesRemoved = [markingsRemoved, lyricsRemoved].includes(true);
   if (
     events.length === 0 &&
     !annotationsRemoved &&
-    !markingsRemoved &&
+    !leavesRemoved &&
     !chordsRemoved &&
     !connectorsRemoved &&
     graceIds.length === 0

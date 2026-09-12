@@ -1,5 +1,5 @@
 import type { SequenceContent } from "@viritura/core";
-import type { TimeSignature, KeySignature, Clef, Transposition } from "@viritura/core";
+import type { TimeSignature, KeySignature, Clef, Transposition, GlobalLyrics } from "@viritura/core";
 import {
   VIRITURA_FRAGMENT_TYPE,
   FRAGMENT_VERSION,
@@ -30,6 +30,7 @@ export function serializeFragment(
   transposition?: Transposition,
   dynamics?: CapturedDynamic[],
   measureRepeats?: CapturedMeasureRepeat[],
+  lyrics?: GlobalLyrics,
 ): string {
   const fragment: ClipboardFragment = {
     type: VIRITURA_FRAGMENT_TYPE,
@@ -41,6 +42,7 @@ export function serializeFragment(
     ...(transposition ? { transposition } : {}),
     ...(dynamics && dynamics.length > 0 ? { dynamics: structuredClone(dynamics) } : {}),
     ...(measureRepeats && measureRepeats.length > 0 ? { measureRepeats: structuredClone(measureRepeats) } : {}),
+    ...(lyrics ? { lyrics: structuredClone(lyrics) } : {}),
     ...(tracks
       ? {
           tracks: tracks.map((t) => ({

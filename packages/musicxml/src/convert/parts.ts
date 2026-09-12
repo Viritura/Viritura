@@ -93,6 +93,38 @@ function resolveStaves(declaredText: string | null | undefined, partEl: Element)
 // `stop`, remembered across measures so a shift can span them.
 type OpenOttava = { mi: number; position: MnxRhythmicPosition; value: number; staff?: number };
 
+interface LyricMetadataCandidates {
+  labels: Set<string>;
+  languages: Set<string>;
+}
+
+function effectiveLanguage(element: Element | null): string | undefined {
+  let current: Node | null = element;
+  while (current) {
+    if (current.nodeType === 1) {
+      const value = (current as Element).getAttribute("xml:lang");
+      if (value) return value;
+    }
+    current = current.parentNode;
+  }
+  return undefined;
+}
+
+function collectLyricMetadata(measure: Element, candidates: Map<string, LyricMetadataCandidates>): void {
+  for (const note of findChildren(measure, "note")) {
+    for (const lyric of findChildren(note, "lyric")) {
+      const number = lyric.getAttribute("number") ?? lyric.getAttribute("name") ?? "1";
+      const lineId = `line-${number}`;
+      const entry = candidates.get(lineId) ?? { labels: new Set<string>(), languages: new Set<string>() };
+      const label = lyric.getAttribute("name");
+      if (label) entry.labels.add(label);
+      const language = effectiveLanguage(findChild(lyric, "text") ?? lyric);
+      if (language) entry.languages.add(language);
+      candidates.set(lineId, entry);
+    }
+  }
+}
+
 // Fold one measure's octave-shift boundary events into completed `ottava`
 // spans, buffered against their START measure. A shift may begin in one measure
 // and end in a later one, so the open boundary is threaded through (returned)
@@ -142,9 +174,14 @@ export function buildParts(
   ids: IdGenerator,
   vendorExt: boolean,
   flags: ConvertFlags = {},
-): { mnxParts: MnxPart[]; lyricLineIds: Set<string> } {
+): {
+  mnxParts: MnxPart[];
+  lyricLineIds: Set<string>;
+  lyricLineMetadata: Record<string, { label?: string; lang?: string }>;
+} {
   const mnxParts: MnxPart[] = [];
   const lyricLineIds = new Set<string>();
+  const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
   const openSlurs = new Map<string, SlurState>();
   const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
@@ -211,6 +248,7 @@ export function buildParts(
 
     for (let mi = 0; mi < partMeasureEls.length; mi++) {
       const measureEl = partMeasureEls[mi]!;
+      collectLyricMetadata(measureEl, lyricMetadataCandidates);
       const mnxMeasure: MnxPartMeasure = {};
       const measureId = globalMeasures[mi]?.id ?? `m${mi + 1}`;
 
@@ -437,5 +475,12 @@ export function buildParts(
     mnxParts.push(mnxPart);
   }
 
-  return { mnxParts, lyricLineIds };
+  const lyricLineMetadata: Record<string, { label?: string; lang?: string }> = {};
+  for (const [lineId, candidates] of lyricMetadataCandidates) {
+    const entry: { label?: string; lang?: string } = {};
+    if (candidates.labels.size === 1) entry.label = [...candidates.labels][0];
+    if (candidates.languages.size === 1) entry.lang = [...candidates.languages][0];
+    lyricLineMetadata[lineId] = entry;
+  }
+  return { mnxParts, lyricLineIds, lyricLineMetadata };
 }

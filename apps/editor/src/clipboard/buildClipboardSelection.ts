@@ -21,6 +21,8 @@ import { expandCondensedDynamicLocations } from "../commands/deleteCommands";
 import { sequenceContentBeats, decomposeDuration, generateEventId } from "../commands/noteCommands";
 import { buildNavigationIndex } from "../navigation/NavigationIndex";
 import { measureRepeatElementIdsForSelection } from "../commands/measureRepeatCommands";
+import { isLyricId } from "../commands/lyricCommands";
+import { withClipboardLyricMetadata, withoutSelectedLyrics } from "./lyricMetadata";
 
 /** Walk backwards from measureIndex to find the most recent clef on partIndex. */
 function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
@@ -104,6 +106,7 @@ export function buildClipboardSelection(
   selectedScoreIndex?: number,
 ): ClipboardSelection | null {
   if (!score) return null;
+  if (selection.kind === "single" && isLyricId(selection.elementId)) return null;
   const repeatSelection = buildMeasureRepeatClipboardSelection(score, selection);
   const regularSelection =
     selection.kind === "single"
@@ -115,9 +118,12 @@ export function buildClipboardSelection(
           : selection.kind === "measure"
             ? buildMeasureClipboardSelection(score, selection)
             : null;
-  if (!repeatSelection) return regularSelection;
-  if (!regularSelection) return repeatSelection;
-  return mergeStructuralClipboardSelection(regularSelection, repeatSelection);
+  const combined = !repeatSelection
+    ? regularSelection
+    : !regularSelection
+      ? repeatSelection
+      : mergeStructuralClipboardSelection(regularSelection, repeatSelection);
+  return combined ? withClipboardLyricMetadata(score, combined) : null;
 }
 
 function mergeStructuralClipboardSelection(
@@ -253,11 +259,13 @@ function buildMultiClipboardSelection(
   let firstLoc: { partIndex: number; measureIndex: number; sequenceIndex: number; eventIndex: number } | null = null;
   const locations =
     selectedScoreIndex === undefined
-      ? selection.elementIds.flatMap((elementId) => {
-          const location = resolveEventFromSubElement(elementId, score) ?? resolveEventLocation(elementId, score);
-          return location ? [location] : [];
-        })
-      : resolveCondensedSelectionEvents(score, selection, selectedScoreIndex);
+      ? selection.elementIds
+          .filter((elementId) => !isLyricId(elementId))
+          .flatMap((elementId) => {
+            const location = resolveEventFromSubElement(elementId, score) ?? resolveEventLocation(elementId, score);
+            return location ? [location] : [];
+          })
+      : resolveCondensedSelectionEvents(score, withoutSelectedLyrics(selection), selectedScoreIndex);
   const annotationLocations = selection.elementIds
     .map(resolveAnnotationLocation)
     .filter((location): location is AnnotationLocation => location !== null);

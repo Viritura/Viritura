@@ -52,6 +52,24 @@ function WithSelectedNote({ children }: { readonly children: ReactNode }) {
 }
 
 describe("LeftPanel", () => {
+  it("keeps lyric controls inside Palettes instead of a dedicated tab", async () => {
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <HistoryProvider initialMnxJson="{}">
+          <DocumentProvider>
+            <WithSelectedNote>
+              <LeftPanel />
+            </WithSelectedNote>
+          </DocumentProvider>
+        </HistoryProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    expect(screen.queryByRole("tab", { name: "Lyrics" })).toBeNull();
+    expect(await screen.findByText("Lyrics")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start lyric entry" })).toBeTruthy();
+  });
+
   it("renders notation properties as a left-panel tab", async () => {
     const user = userEvent.setup();
     render(

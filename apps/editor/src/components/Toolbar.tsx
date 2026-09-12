@@ -176,10 +176,13 @@ const EXTENDED_ACCIDENTALS: readonly AccidentalType[] = ["double-flat", "triple-
  * Articulations, dynamics, tuplets, grace notes, and colors are in the Palette panel.
  * Streamlined notation-entry toolbar grouped by editing task.
  */
-type ToolbarProps = Record<string, never>;
+interface ToolbarProps {
+  readonly lyricMode?: boolean;
+  readonly onToggleLyrics?: () => void;
+}
 
 // eslint-disable-next-line max-lines-per-function -- toolbar render: pulls ~12 fields from the note-input store and emits one button group per (duration, rests, dots, accidentals, voice, modes, beaming, playback, history, view). Each group is 5-10 lines of JSX; splitting per group would force re-passing the store slice into every sub-component.
-export function Toolbar(_props: ToolbarProps = {}) {
+export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}) {
   const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const {
     state,
@@ -345,6 +348,15 @@ export function Toolbar(_props: ToolbarProps = {}) {
         testId="toolbar-note-input"
         ariaLabel="Toggle note input (N)"
         tooltip="Toggle note input (N)"
+      />
+
+      <Button
+        label="Lyrics"
+        active={lyricMode}
+        onClick={onToggleLyrics}
+        testId="toolbar-lyrics"
+        ariaLabel="Toggle lyric entry (Shift+W)"
+        tooltip="Toggle lyric entry (Shift+W)"
       />
 
       {/* ── Chord-mode Lock (Q) ── */}

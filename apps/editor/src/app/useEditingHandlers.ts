@@ -48,6 +48,7 @@ export function useEditingHandlers(params: UseEditingHandlersParams): EditingHan
     updateScore,
     selectRange,
     selectElement,
+    clearSelection,
   });
 
   const signature = useSignatureActions({ store, selection, updateScore });

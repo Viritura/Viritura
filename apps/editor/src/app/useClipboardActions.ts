@@ -21,6 +21,14 @@ import type { useSelection } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
 import { useViewStateStore } from "../store/viewStateStore";
 import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
+import { deserializeFragment } from "../clipboard/deserialize";
+import {
+  pasteTextIntoSelectedLyric,
+  removeLyricByElementId,
+  resolveSelectedLyric,
+  selectedLyricText,
+} from "../commands/lyricCommands";
+import { toast } from "sonner";
 
 type SelectionState = ReturnType<typeof useSelection>;
 
@@ -31,6 +39,7 @@ interface UseClipboardActionsArgs {
   updateScore: (next: Score) => void;
   selectRange: (start: string, end: string) => void;
   selectElement: (id: string) => void;
+  clearSelection: () => void;
 }
 
 export interface ClipboardActions {
@@ -49,6 +58,7 @@ export function useClipboardActions({
   updateScore,
   selectRange,
   selectElement,
+  clearSelection,
 }: UseClipboardActionsArgs): ClipboardActions {
   const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const getClipboardSelection = useCallback((): ClipboardSelection | null => {
@@ -60,6 +70,16 @@ export function useClipboardActions({
   }, [store, historyStore, selection]);
 
   const handleCopy = useCallback(async () => {
+    const score = store.getState().score;
+    const lyricText = score ? selectedLyricText(score, selection) : null;
+    if (lyricText !== null) {
+      try {
+        await navigator.clipboard.writeText(lyricText);
+      } catch {
+        toast.error("Could not copy the selected lyric.");
+      }
+      return;
+    }
     const sel = getClipboardSelection();
     if (!sel) return;
     const copied = await copyToClipboard(sel);
@@ -76,17 +96,35 @@ export function useClipboardActions({
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
+          ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
         },
         source,
       );
     }
-  }, [getClipboardSelection, buildClipboardSourceRef]);
+  }, [store, selection, getClipboardSelection, buildClipboardSourceRef]);
 
   const handleCut = useCallback(async () => {
-    const sel = getClipboardSelection();
     const { score } = store.getState();
-    if (!sel || !score) return;
+    if (!score) return;
+    const lyricElementId = selection.kind === "single" ? selection.elementId : null;
+    const lyric = lyricElementId ? resolveSelectedLyric(score, lyricElementId) : null;
+    if (lyric && lyricElementId) {
+      try {
+        await navigator.clipboard.writeText(lyric.line.text);
+      } catch {
+        toast.error("Could not cut the selected lyric.");
+        return;
+      }
+      const next = removeLyricByElementId(score, lyricElementId);
+      if (next) {
+        updateScore(next);
+        clearSelection();
+      }
+      return;
+    }
+    const sel = getClipboardSelection();
+    if (!sel) return;
     const result = await cutToClipboard(sel);
     if (result) {
       addClipboardEntry(
@@ -100,6 +138,7 @@ export function useClipboardActions({
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
+          ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
         },
         buildClipboardSourceRef(),
@@ -107,11 +146,25 @@ export function useClipboardActions({
       const newScore = applyCut(score, result);
       updateScore(newScore);
     }
-  }, [getClipboardSelection, store, updateScore, buildClipboardSourceRef]);
+  }, [getClipboardSelection, store, selection, updateScore, buildClipboardSourceRef, clearSelection]);
 
   const handlePaste = useCallback(async () => {
     const { score } = store.getState();
     if (!score) return;
+    if (selection.kind === "single" && resolveSelectedLyric(score, selection.elementId)) {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (deserializeFragment(text)) {
+          toast.info("Select a note or rhythmic position to paste notation.");
+          return;
+        }
+        const next = pasteTextIntoSelectedLyric(score, selection, text);
+        if (next) updateScore(next);
+      } catch {
+        toast.error("Could not paste into the selected lyric.");
+      }
+      return;
+    }
     const paste =
       (await pasteFromClipboard()) ??
       (() => {

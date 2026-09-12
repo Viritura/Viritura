@@ -100,6 +100,19 @@ pub fn fermata(event_id: &str) -> String {
     format!("{}/ferm", event_id)
 }
 
+/// Lyric syllable for one line: `{event_id}/lyric-{utf8_hex_line_id}`.
+///
+/// Hex encoding keeps arbitrary MNX line IDs reversible without allowing `/`
+/// or other punctuation to alter the internal path hierarchy.
+pub fn lyric(event_id: &str, line_id: &str) -> String {
+    let encoded = line_id
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    format!("{event_id}/lyric-{encoded}")
+}
+
 // ── Part-scoped measure elements ────────────────────────────────────
 
 /// Clef: `p{part}/m{measure}/clef`
