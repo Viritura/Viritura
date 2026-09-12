@@ -90,17 +90,15 @@ describe("HouseStylePanel", () => {
     renderPanel();
 
     await user.click(await screen.findByRole("button", { name: /Chord Symbols/ }));
-    await user.click(screen.getByRole("combobox", { name: "Preset" }));
-    await user.click(await screen.findByRole("option", { name: "Plain text" }));
+    await user.click(screen.getByRole("radio", { name: "Plain text" }));
 
     const stored = screen.getByTestId("stored-chord-symbols").textContent ?? "";
     expect(stored).toContain('"majorSeventh":"maj"');
     expect(stored).toContain('"extensions":"baseline"');
 
-    await user.click(screen.getByRole("combobox", { name: "Root letters" }));
-    await user.click(await screen.findByRole("option", { name: "Lowercase minor roots" }));
-    await user.click(screen.getByRole("combobox", { name: "Minor" }));
-    await user.click(await screen.findByRole("option", { name: "No suffix" }));
+    await user.click(screen.getAllByRole("button", { name: "Advanced" })[0]!);
+    await user.click(screen.getByRole("radio", { name: "Minor lowercase" }));
+    await user.click(screen.getByRole("radio", { name: "No suffix" }));
 
     const updated = screen.getByTestId("stored-chord-symbols").textContent ?? "";
     expect(updated).toContain('"rootCase":"lowercaseMinor"');
