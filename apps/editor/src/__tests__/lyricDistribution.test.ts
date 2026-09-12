@@ -32,15 +32,16 @@ function scoreWithEvents(): Score {
                     duration: { base: "quarter" },
                     notes: [
                       {
+                        id: "note-1",
                         pitch: { step: "C", octave: 4 },
-                        ties: [{ target: "event-2", targetType: "nextNote" }],
+                        ties: [{ target: "note-2", targetType: "nextNote" }],
                       },
                     ],
                   },
                   {
                     id: "event-2",
                     duration: { base: "quarter" },
-                    notes: [{ pitch: { step: "C", octave: 4 } }],
+                    notes: [{ id: "note-2", pitch: { step: "C", octave: 4 } }],
                   },
                   { id: "event-3", duration: { base: "quarter" }, rest: {} },
                   {
@@ -139,6 +140,31 @@ describe("lyric distribution", () => {
     });
     const reflowed = applyLyricDistributionPlan(distributed, reflowPlan, false, "source-1");
     expect(reflowed.lyricWorkflow!.sources["source-1"]!.tokens[0]!.id).toBe(firstTokenId);
+  });
+
+  it("transfers overlapping token ownership when a new source replaces lyrics", () => {
+    const score = scoreWithEvents();
+    const selection: SelectionState = {
+      kind: "range",
+      startElementId: "p0/m0/s0/event-1",
+      endElementId: "p0/m0/s0/event-2",
+    };
+    const first = applyLyricDistributionPlan(
+      score,
+      buildLyricDistributionPlan(score, selection, "verse", "old _"),
+      false,
+      "source-a",
+    );
+    const replacement = applyLyricDistributionPlan(
+      first,
+      buildLyricDistributionPlan(first, selection, "verse", "new _", { replaceExisting: true }),
+      false,
+      "source-b",
+    );
+
+    expect(replacement.lyricWorkflow?.sources["source-a"]).toBeUndefined();
+    expect(replacement.lyricWorkflow?.sources["source-b"]?.tokens).toHaveLength(2);
+    expect(inspectLyricWorkflow(replacement)).toEqual([]);
   });
 
   it("reconstructs a reflow source from ordinary MNX lyrics", () => {

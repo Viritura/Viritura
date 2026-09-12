@@ -193,13 +193,17 @@ function collectSequenceEvents(content: readonly SequenceContent[], events: Note
   }
 }
 
-function collectIncomingTies(events: readonly NoteEvent[], incoming: Set<string>): void {
+function collectIncomingTies(
+  events: readonly NoteEvent[],
+  incoming: Set<string>,
+  noteOwnerEventIds: ReadonlyMap<string, string>,
+): void {
   for (let index = 0; index < events.length; index++) {
     const event = events[index]!;
     const ties = (event.notes ?? []).flatMap((note) => note.ties ?? []);
     for (const tie of ties) {
       if (tie.target) {
-        incoming.add(tie.target.replace(/\/n\d+$/, ""));
+        incoming.add(noteOwnerEventIds.get(tie.target) ?? tie.target.replace(/\/n\d+$/, ""));
         continue;
       }
       if (tie.targetType && tie.targetType !== "nextNote") continue;
@@ -209,8 +213,28 @@ function collectIncomingTies(events: readonly NoteEvent[], incoming: Set<string>
   }
 }
 
+function indexNoteOwnerEvents(score: Score): Map<string, string> {
+  const owners = new Map<string, string>();
+  for (const part of score.parts) {
+    for (const measure of part.measures) {
+      for (const sequence of measure.sequences) {
+        const events: NoteEvent[] = [];
+        collectSequenceEvents(sequence.content, events);
+        for (const event of events) {
+          if (!event.id) continue;
+          for (const note of event.notes ?? []) {
+            if (note.id) owners.set(note.id, event.id);
+          }
+        }
+      }
+    }
+  }
+  return owners;
+}
+
 function incomingTieEventIds(score: Score): Set<string> {
   const incoming = new Set<string>();
+  const noteOwnerEventIds = indexNoteOwnerEvents(score);
   for (const part of score.parts) {
     const sequenceCount = Math.max(0, ...part.measures.map((measure) => measure.sequences.length));
     for (let sequenceIndex = 0; sequenceIndex < sequenceCount; sequenceIndex++) {
@@ -221,7 +245,7 @@ function incomingTieEventIds(score: Score): Set<string> {
           collectSequenceEvents(sequence.content, events);
         }
       }
-      collectIncomingTies(events, incoming);
+      collectIncomingTies(events, incoming, noteOwnerEventIds);
     }
   }
   return incoming;
@@ -415,6 +439,21 @@ function assignToken(score: Score, assignment: LyricAssignment, lineId: string, 
   };
 }
 
+function removeOverlappingWorkflowTokens(
+  score: Score,
+  sourceId: string,
+  lineId: string,
+  eventIds: ReadonlySet<string>,
+): void {
+  const sources = score.lyricWorkflow?.sources;
+  if (!sources) return;
+  for (const [candidateId, candidate] of Object.entries(sources)) {
+    if (candidateId === sourceId || candidate.lineId !== lineId) continue;
+    candidate.tokens = candidate.tokens.filter((token) => !token.eventId || !eventIds.has(token.eventId));
+    if (candidate.tokens.length === 0) delete sources[candidateId];
+  }
+}
+
 export function applyLyricDistributionPlan(
   score: Score,
   plan: LyricDistributionPlan,
@@ -434,6 +473,12 @@ export function applyLyricDistributionPlan(
       delete event.lyrics!.lines![plan.lineId];
       if (Object.keys(event.lyrics!.lines!).length === 0) delete event.lyrics;
     }
+    removeOverlappingWorkflowTokens(
+      draft,
+      sourceId,
+      plan.lineId,
+      new Set(plan.assignments.flatMap((assignment) => assignment.destination.eventId ?? [])),
+    );
     const tokens = plan.assignments.map((assignment, index) =>
       assignToken(draft, assignment, plan.lineId, previous?.tokens[index]?.id ?? generateId()),
     );
