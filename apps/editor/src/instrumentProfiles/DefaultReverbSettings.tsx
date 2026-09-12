@@ -42,7 +42,7 @@ export function DefaultReverbSettings() {
     <div>
       <div style={ROW_STYLE}>
         <span style={pluginName ? VALUE_STYLE : VALUE_UNSET_STYLE}>{pluginName ?? "None selected"}</span>
-        <Button label="Choose…" size="sm" onClick={() => setPickerOpen(true)} />
+        <Button label="Choose" size="sm" onClick={() => setPickerOpen(true)} />
         {pluginName ? (
           <Button label="Clear" variant="ghost" size="sm" onClick={() => setDefaultReverb(null, null)} />
         ) : null}

@@ -25,6 +25,7 @@ interface CanvasRepaintArgs {
   measureRects: Map<number, FocusRect>;
   measureDiff: MeasureDiffResult | null;
   focusedMeasure: number | null;
+  focusRect: FocusRect | null;
   viewport: { scrollX: number; scrollY: number; zoom: number };
   perfRef: MutableRefObject<PerfTracker>;
   glyphAtlasRef: MutableRefObject<GlyphAtlas | null>;
@@ -39,41 +40,40 @@ export function useCanvasRepaint({
   measureRects,
   measureDiff,
   focusedMeasure,
+  focusRect,
   viewport,
   perfRef,
   glyphAtlasRef,
 }: CanvasRepaintArgs): void {
-  // Per-side tile cache (original / modified each get their own). Mirrors how
-  // every other view mode renders: pre-render the galley into zoom-scaled tiles
-  // and blit the visible slice, instead of re-walking the command list each
-  // scroll frame. Review lays the score out as a single unbroken galley, so the
-  // tile cache runs in "horizon" mode.
+  // Each Review side owns an independent cache. Sharing would mix before/after
+  // display-list versions and is intentionally avoided.
   const tileCacheRef = useRef<TileCache | null>(null);
-  // DisplayList identity → content version. Bumping it invalidates all tiles so
-  // a re-layout (text edit, concert-pitch toggle) re-renders from scratch.
   const versionRef = useRef(0);
   const lastDlRef = useRef<DisplayList | null>(null);
-  // Pending follow-up frame: the cache renders at most N new tiles per frame, so
-  // a freshly-invalidated galley may need a couple of rAF passes to fill in.
-  const rafRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container || !dl) return;
     const dpr = window.devicePixelRatio || 1;
+    const canvasBackground =
+      getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#e0e2ea";
+    const paperFill = "#ffffff";
     // Only resize the backing store when the pixel dimensions actually change.
     // Assigning canvas.width/height reallocates and clears the buffer, so doing
     // it every scroll/zoom frame (this effect re-runs on `viewport` changes)
     // was needless churn on a large Review-mode score.
-    const wPx = Math.round(container.clientWidth * dpr);
-    const hPx = Math.round(container.clientHeight * dpr);
-    if (canvas.width !== wPx || canvas.height !== hPx) {
-      canvas.width = wPx;
-      canvas.height = hPx;
-      canvas.style.width = `${container.clientWidth}px`;
-      canvas.style.height = `${container.clientHeight}px`;
-    }
+    const resizeCanvas = () => {
+      const wPx = Math.round(container.clientWidth * dpr);
+      const hPx = Math.round(container.clientHeight * dpr);
+      if (canvas.width !== wPx || canvas.height !== hPx) {
+        canvas.width = wPx;
+        canvas.height = hPx;
+        canvas.style.width = `${container.clientWidth}px`;
+        canvas.style.height = `${container.clientHeight}px`;
+      }
+    };
+    resizeCanvas();
 
     // Diff colour overlays + focus indicator paint on top of the score, in
     // content coordinates, so the ctx transform must match the score transform.
@@ -90,11 +90,11 @@ export function useCanvasRepaint({
         -viewport.scrollY * dpr * viewport.zoom,
       );
       if (measureDiff && bounds.length > 0) {
-        paintDiffOverlays(ctx, bounds, measureDiff, side, dl.height, focusedMeasure, measureRects);
+        paintDiffOverlays(ctx, bounds, measureDiff, side, focusedMeasure, measureRects);
       }
       if (focusedMeasure !== null) {
-        const fr = measureRects.get(focusedMeasure) ?? null;
-        if (fr) paintFocusIndicator(ctx, fr);
+        const fr = focusRect ?? measureRects.get(focusedMeasure) ?? null;
+        if (fr) paintFocusIndicator(ctx, fr, side);
       }
       if (isPerfEnabled()) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -105,8 +105,16 @@ export function useCanvasRepaint({
     const endFrame = perfRef.current.beginFrame();
 
     if (isTileCacheDisabled()) {
-      // Debug escape hatch: bypass tiling and paint commands directly.
-      repaintCanvas(canvas, dl, viewport.scrollX, viewport.scrollY, viewport.zoom, glyphAtlasRef.current);
+      repaintCanvas(
+        canvas,
+        dl,
+        viewport.scrollX,
+        viewport.scrollY,
+        viewport.zoom,
+        glyphAtlasRef.current,
+        canvasBackground,
+        paperFill,
+      );
       paintOverlays();
       endFrame();
       return;
@@ -114,12 +122,15 @@ export function useCanvasRepaint({
 
     if (!tileCacheRef.current) tileCacheRef.current = new TileCache();
     const tileCache = tileCacheRef.current;
+    let cancelled = false;
+    let pendingFrame = 0;
     if (lastDlRef.current !== dl) {
       lastDlRef.current = dl;
       versionRef.current += 1;
     }
 
     const paintTiles = () => {
+      if (cancelled) return;
       tileCache.paintFrame({
         canvas,
         displayList: dl,
@@ -129,9 +140,8 @@ export function useCanvasRepaint({
         version: versionRef.current,
         glyphAtlas: glyphAtlasRef.current,
         viewMode: "horizon",
-        // Review keeps the flat white page it has always used.
-        canvasBg: "#FFFFFF",
-        paperFill: "#FFFFFF",
+        canvasBg: canvasBackground,
+        paperFill,
       });
       paintOverlays();
     };
@@ -139,19 +149,20 @@ export function useCanvasRepaint({
     paintTiles();
     endFrame();
 
-    // Fill in any tiles deferred past this frame's budget across subsequent
-    // animation frames, repainting overlays on top each pass.
-    cancelAnimationFrame(rafRef.current);
     const renderPending = () => {
-      if (!tileCache.hasPendingTiles) return;
-      rafRef.current = requestAnimationFrame(() => {
+      if (cancelled || !tileCache.hasPendingTiles) return;
+      pendingFrame = requestAnimationFrame(() => {
+        if (cancelled) return;
         paintTiles();
         renderPending();
       });
     };
     renderPending();
 
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(pendingFrame);
+    };
   }, [
     canvasRef,
     containerRef,
@@ -161,6 +172,7 @@ export function useCanvasRepaint({
     measureRects,
     measureDiff,
     focusedMeasure,
+    focusRect,
     viewport,
     perfRef,
     glyphAtlasRef,
@@ -263,7 +275,7 @@ export function useSplitterDrag(
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!isDraggingSplitter.current) return;
-      const container = document.getElementById("diff-main-container");
+      const container = document.getElementById("diff-content-container");
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const percent = ((e.clientY - rect.top) / rect.height) * 100;

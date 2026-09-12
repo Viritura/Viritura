@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Score, ScoreDefinition, LayoutDefinition, PartDisplayInfo } from "@viritura/core";
-import type { ContextMenuState } from "@viritura/ui";
+import { SectionLabel, type ContextMenuState } from "@viritura/ui";
 
 const END_DROP_INDICATOR_STYLE: CSSProperties = {
   position: "relative",
@@ -10,7 +10,6 @@ const END_DROP_INDICATOR_STYLE: CSSProperties = {
   borderRadius: 1,
 };
 import { ScoreListItem } from "./ScoreListItem";
-import { AddScoreButton } from "./AddScoreButton";
 import type { FlatRowData } from "./treeFlatten";
 import type { NodePath } from "./treeOps";
 import type { DragState, DropTarget } from "./usePartListLayout";
@@ -44,8 +43,6 @@ export interface ScoreListBodyProps {
   onRenameScore?: (i: number, name: string) => void;
   onDuplicateScore?: (i: number) => void;
   onResetLayout?: (i: number) => void;
-  onAddScore?: (type: "full" | "condensed" | "custom" | "part", partId?: string) => void;
-  onAddSectionScore?: () => void;
   onAddInstrumentToScore?: (scoreIndex: number, partId: string) => void;
   onManageInstruments?: (scoreIndex: number) => void;
   setScoreDragIndex: React.Dispatch<React.SetStateAction<number | null>>;
@@ -84,13 +81,16 @@ export function ScoreListBody(props: ScoreListBodyProps) {
     partDisplayMap,
     scoreDragIndex,
     scoreDropIndex,
-    onAddScore,
     onReorderScores,
     setScoreDragIndex,
     setScoreDropIndex,
   } = props;
+  const firstScoreIndex = visibleScores[0]?.index;
+  const hasLeadingScores = firstScoreIndex !== undefined && (staffCountByScoreIndex.get(firstScoreIndex) ?? 0) > 1;
+
   return (
     <>
+      {hasLeadingScores && <SectionLabel label="Scores" />}
       {visibleScores.map(({ index: i, sd }, pos) => {
         const isSelected = selectedScoreIndex === i;
         const rowStaffCount = staffCountByScoreIndex.get(i) ?? 0;
@@ -176,14 +176,6 @@ export function ScoreListBody(props: ScoreListBodyProps) {
             setScoreDragIndex(null);
             setScoreDropIndex(null);
           }}
-        />
-      )}
-      {onAddScore && (
-        <AddScoreButton
-          parts={score.parts}
-          partDisplayMap={partDisplayMap}
-          onAddScore={onAddScore}
-          onAddSectionScore={props.onAddSectionScore}
         />
       )}
     </>

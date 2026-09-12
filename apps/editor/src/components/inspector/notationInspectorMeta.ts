@@ -1,13 +1,11 @@
 /**
- * NotationInspector metadata: section types, lookup, color swatches.
+ * NotationInspector metadata: section types and lookup.
  *
  * Lives in a sibling file (not NotationInspector.tsx) so this module can be
  * imported by both NotationInspector and its sub-component files without
  * tripping the react-refresh/only-export-components rule.
  */
 import type { SelectableElementType } from "../../score/elementTypes";
-
-export const COLOR_SWATCHES: readonly string[] = ["#000000", "#ff0000", "#00aa00", "#0066ff", "#ff8800", "#8000ff"];
 
 /** Inspector section names that can be auto-scrolled to. */
 export type InspectorSection = "measure" | "event" | "note" | "tie" | "slur" | "markings" | "directions" | "layout";

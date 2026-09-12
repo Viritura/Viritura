@@ -32,6 +32,10 @@ export const BRAVURA_GLYPH_BBOXES: Record<string, GlyphBBoxEm> = {
   "\uE264": { ascent: 1.748, descent: 0.7 }, // accidentalDoubleFlat
   "\uE265": { ascent: 1.4, descent: 1.392 }, // accidentalTripleSharp
   "\uE266": { ascent: 1.756, descent: 0.7 }, // accidentalTripleFlat
+  "\uE26A": { ascent: 0.988, descent: 0.992 }, // accidentalParensLeft
+  "\uE26B": { ascent: 0.988, descent: 0.992 }, // accidentalParensRight
+  "\uE26C": { ascent: 0.752, descent: 0.748 }, // accidentalBracketLeft
+  "\uE26D": { ascent: 0.752, descent: 0.748 }, // accidentalBracketRight
   // Noteheads (used as the duration-row baseline anchor)
   "\uE0A2": { ascent: 0.5, descent: 0.5 }, // noteheadWhole
   "\uE0A3": { ascent: 0.5, descent: 0.5 }, // noteheadHalf

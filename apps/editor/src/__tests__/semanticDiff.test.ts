@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { semanticDiff, collectLeaves, countChanges, lcsAlign, lcsAlignWithModifications } from "../diff/semanticDiff";
+import {
+  semanticDiff,
+  collectLeaves,
+  countChanges,
+  summarizeChanges,
+  lcsAlign,
+  lcsAlignWithModifications,
+} from "../diff/semanticDiff";
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -587,6 +594,19 @@ describe("semanticDiff", () => {
     expect(counts.modified).toBe(1);
     expect(counts.added).toBe(0);
     expect(counts.removed).toBe(0);
+  });
+
+  it("summarizes the musical effect and score location", () => {
+    const original = makeSlursOriginal();
+    const modified = makeSlursModified();
+
+    expect(summarizeChanges(semanticDiff(original, modified))).toBe("1 pitch change in measure 2");
+  });
+
+  it("summarizes identical scores without diff terminology", () => {
+    const score = makeSlursOriginal();
+
+    expect(summarizeChanges(semanticDiff(score, score))).toBe("No musical changes");
   });
 
   it("handles empty documents", () => {

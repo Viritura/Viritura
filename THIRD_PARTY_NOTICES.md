@@ -39,7 +39,7 @@ license and no separate `NOTICE` file.
 ## Denigma
 
 The Finale MUSX importer bundles a WebAssembly build of
-[Denigma](https://github.com/rpatters1/denigma), distributed under the MIT
+[Denigma](https://github.com/openmusx/denigma), distributed under the MIT
 License. Exact source revisions and artifact hashes are recorded in
 `packages/musx-import/assets/manifest.json`; the Denigma license is retained
 beside the generated assets. The package also retains the license files for the

@@ -79,6 +79,45 @@ describe("convertMusicXmlToMnx — basics", () => {
     expect(event.notes![0]!.pitch).toEqual({ step: "C", octave: 4 });
   });
 
+  it("preserves accidental display intent and enclosure", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>F</step><alter>1</alter><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <accidental>sharp</accidental>
+      </note>
+      <note>
+        <pitch><step>F</step><alter>1</alter><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <accidental cautionary="yes" parentheses="yes">sharp</accidental>
+      </note>
+      <note>
+        <pitch><step>F</step><alter>1</alter><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <accidental editorial="yes" bracket="yes">sharp</accidental>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    const events = result.parts[0]!.measures[0]!.sequences![0]!.content as Array<{
+      notes: Array<{ accidentalDisplay?: unknown }>;
+    }>;
+
+    expect(events[0]!.notes[0]!.accidentalDisplay).toEqual({ show: true });
+    expect(events[1]!.notes[0]!.accidentalDisplay).toEqual({
+      show: true,
+      force: true,
+      enclosure: { symbol: "parentheses" },
+    });
+    expect(events[2]!.notes[0]!.accidentalDisplay).toEqual({
+      show: true,
+      force: true,
+      enclosure: { symbol: "brackets" },
+    });
+  });
+
   it("handles multiple voices", () => {
     const xml = wrapScore(`
       <note>

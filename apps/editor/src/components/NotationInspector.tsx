@@ -91,16 +91,18 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleRepeatEndTimesChange,
   } = useBarlineHandlers({ score, target, updateScore }, selectedElementType === "barline");
 
-  const {
-    handleAccidentalDisplayShow,
-    handleCourtesyAccidental,
-    handleAccidentalEnclosure,
-    handleTrillAccidentalChange,
-  } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
+  const { handleAccidentalDisplayModeChange, handleAccidentalEnclosureChange, handleTrillAccidentalChange } =
+    useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
-  const { colorTarget, setColorTarget, colorInput, setColorInput, colorError, setColorError, applySelectedColor } =
-    useColorHandlers({ score, selection, updateScore });
+  const {
+    selectionTarget: colorTarget,
+    colorInput,
+    setColorInput,
+    colorError,
+    setColorError,
+    applySelectedColor,
+  } = useColorHandlers({ score, target, updateScore });
 
   useInspectorAutoScroll({
     preferredSection: _props.preferredSection,
@@ -258,6 +260,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             selectedContent={selectedContent}
             isTuplet={isTuplet}
             isEvent={isEvent}
+            staffCount={score?.parts[target?.partIndex ?? -1]?.staves ?? 1}
             disabled={false}
           />
         )}
@@ -265,9 +268,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         {selectedNote && (
           <AccidentalDisplaySection
             note={selectedNote}
-            onShowToggle={handleAccidentalDisplayShow}
-            onCourtesyToggle={handleCourtesyAccidental}
-            onEnclosureToggle={handleAccidentalEnclosure}
+            onModeChange={handleAccidentalDisplayModeChange}
+            onEnclosureChange={handleAccidentalEnclosureChange}
           />
         )}
 
@@ -275,13 +277,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           <NoteheadSection notehead={selectedNotehead} onNoteheadChange={handleNoteheadChange} />
         )}
 
-        {target && (
+        {colorTarget && (
           <ColorSection
+            key={target?.elementId}
             disabled={false}
-            colorTarget={colorTarget}
+            targetLabel={colorTarget.label}
             colorInput={colorInput}
             colorError={colorError}
-            onColorTargetChange={setColorTarget}
             onColorInputChange={(value) => {
               setColorInput(value);
               if (colorError) setColorError(null);
@@ -312,7 +314,7 @@ const bodyStyle: CSSProperties = {
   overflowX: "hidden",
   display: "flex",
   flexDirection: "column",
-  gap: "0.75rem",
+  gap: "var(--space-4)",
 };
 
 const emptyStateStyle: CSSProperties = {

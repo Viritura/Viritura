@@ -1,0 +1,47 @@
+.root {
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.expanded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-3) var(--space-6);
+  background: linear-gradient(180deg, rgba(20, 20, 28, 0.025), rgba(20, 20, 28, 0.01));
+  border-top: 1px solid var(--border-hairline);
+}
+
+.instrumentValue {
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.nameFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-2);
+}
+
+.sectionLabel {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-eyebrow-tracking);
+  text-transform: var(--type-eyebrow-transform);
+}
+
+.actionsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-hairline);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

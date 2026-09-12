@@ -260,6 +260,7 @@ mod tests {
                 staff: None,
                 kit_component: None,
                 perform: None,
+                notehead: None,
                 source_part_index: None,
                 source_event_id: None,
                 source_note_index: None,

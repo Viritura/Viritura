@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Pencil, Plus, Minus, Circle, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, Plus, Minus, Circle, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { DiffEditor, Editor } from "@viritura/monaco-react";
 import type { DiffNode, DiffType } from "../diff/semanticDiff";
 
@@ -446,7 +446,15 @@ export function DiffTreeView({ diffTree, onNodeSelect, focusedMeasureIndex }: Di
   }, [focusedMeasureIndex, diffTree]); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally exclude selectedNode
 
   if (diffTree.type === "unchanged") {
-    return <div style={NO_DIFF_STYLE}>✅ No differences found — scores are identical.</div>;
+    return (
+      <div style={NO_DIFF_STYLE}>
+        <CheckCircle2 size={18} strokeWidth={1.6} aria-hidden="true" />
+        <span>
+          <strong style={NO_DIFF_TITLE_STYLE}>Versions are identical</strong>
+          <span style={NO_DIFF_DESCRIPTION_STYLE}>No musical or notation changes were detected.</span>
+        </span>
+      </div>
+    );
   }
 
   return (
@@ -471,9 +479,20 @@ export function DiffTreeView({ diffTree, onNodeSelect, focusedMeasureIndex }: Di
 const NO_DIFF_STYLE: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  height: "100%",
+  gap: 8,
+  margin: "10px 12px",
+  padding: 12,
+  border: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+  borderRadius: 8,
+  background: "color-mix(in srgb, var(--surface-raised) 70%, transparent)",
   color: "var(--text-muted)",
-  fontSize: "var(--type-body-size)",
+  fontSize: "var(--type-small-size)",
+};
+const NO_DIFF_TITLE_STYLE: CSSProperties = { display: "block", color: "var(--text)", fontWeight: 600 };
+const NO_DIFF_DESCRIPTION_STYLE: CSSProperties = {
+  display: "block",
+  marginTop: 2,
+  fontSize: "var(--type-eyebrow-size)",
+  lineHeight: 1.4,
 };
 const TREE_ROOT_STYLE: CSSProperties = { display: "flex", flexDirection: "column" };

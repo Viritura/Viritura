@@ -89,7 +89,8 @@ impl ReverbEditorWindow {
 
     /// A VST3 parent-window handle for `Plugin::open_editor`.
     pub(super) fn handle(&self) -> WindowHandle {
-        WindowHandle::from_hwnd(self.hwnd as *mut c_void)
+        // SAFETY: `self.hwnd` is a live window owned by this wrapper until `Drop` destroys it.
+        unsafe { WindowHandle::from_hwnd(self.hwnd as *mut c_void) }
     }
 
     /// Show and focus the window (used when "Show UI" is clicked again).

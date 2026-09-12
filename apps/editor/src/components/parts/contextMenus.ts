@@ -92,7 +92,7 @@ export function buildStaffContextMenuItems(
     items.push({ label: "Select Part", action: () => onSelectScore(scoreIndex) });
   }
   if (onEditDrumKit && isPercussionPartId?.(partId)) {
-    items.push({ label: "Edit Percussion Map…", action: () => onEditDrumKit(partId) });
+    items.push({ label: "Edit Percussion Map", action: () => onEditDrumKit(partId) });
   }
   if (depth > 0) {
     items.push({ label: "Move to Root", action: () => ungroupStaff(path) });

@@ -107,44 +107,44 @@ fn test_kit_notes_no_accidentals() {
 }
 
 #[test]
-fn test_percussion_notehead_glyph_selector() {
+fn test_shaped_notehead_glyph_selector() {
     use crate::model::kit::NoteheadShape;
     use crate::model::NoteValueBase::*;
 
     assert_eq!(
-        smufl::percussion_notehead_glyph(None, &Quarter),
+        smufl::shaped_notehead_glyph(None, &Quarter),
         smufl::NOTEHEAD_BLACK
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::Normal), &Half),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::Normal), &Half),
         smufl::NOTEHEAD_HALF
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::X), &Quarter),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::X), &Quarter),
         smufl::NOTEHEAD_X_BLACK
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::X), &Whole),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::X), &Whole),
         smufl::NOTEHEAD_X_WHOLE
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::Diamond), &Half),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::Diamond), &Half),
         smufl::NOTEHEAD_DIAMOND_HALF
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::CircleX), &Quarter),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::CircleX), &Quarter),
         smufl::NOTEHEAD_CIRCLE_X
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::Slash), &Quarter),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::Slash), &Quarter),
         smufl::NOTEHEAD_SLASH_VERTICAL_BLACK
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::TriangleUp), &Quarter),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::TriangleUp), &Quarter),
         smufl::NOTEHEAD_TRIANGLE_UP_BLACK
     );
     assert_eq!(
-        smufl::percussion_notehead_glyph(Some(&NoteheadShape::TriangleDown), &Quarter),
+        smufl::shaped_notehead_glyph(Some(&NoteheadShape::TriangleDown), &Quarter),
         smufl::NOTEHEAD_TRIANGLE_DOWN_BLACK
     );
 }

@@ -74,12 +74,20 @@ The full documentation index lives at [`docs/README.md`](docs/README.md). Highli
 | [Viritura Extensions](docs/spec/viritura-extensions.md)                      | `_x.viritura` vendor extension reference                    |
 | [MCP Integration](docs/spec/mcp-integration.md)                              | MCP relay, model tools, mandatory proposal review           |
 
+## Contributing
+
+Public contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+supported contribution types, setup and test guidance, generated-file rules,
+and the review process. Report suspected vulnerabilities privately according to
+[`SECURITY.md`](SECURITY.md).
+
 ## Getting Started
 
 ### Prerequisites
 
-- Git and Docker Desktop for the recommended isolated-worktree workflow.
-- Node.js 22+ / pnpm 9+, the Rust toolchain pinned by
+- Git, Git LFS, Docker Desktop or Docker Engine, and Node.js 24 LTS with pnpm 9
+  through Corepack for the recommended isolated-worktree workflow.
+- The Rust toolchain pinned by
   `engine/rust-toolchain.toml`, wasm-pack, and the .NET 10 SDK for direct host
   development and validation.
 
@@ -94,10 +102,11 @@ the same local account credentials work everywhere.
 
 Create a worktree and start the default editor + API stack:
 
-```powershell
-git worktree add ..\Harmonia.worktrees\my-feature -b feat/my-feature main
-Set-Location ..\Harmonia.worktrees\my-feature
-.\infra\dev\worktree.ps1 up
+```bash
+git worktree add ../Viritura.worktrees/my-feature -b feat/my-feature main
+cd ../Viritura.worktrees/my-feature
+corepack enable
+pnpm dev:stack up
 ```
 
 Docker automatically installs JavaScript/.NET dependencies and builds missing
@@ -106,17 +115,17 @@ Rust, wasm-pack, or the .NET SDK on the host just to run the application.
 
 Choose the smallest stack target that matches the work:
 
-| Command                                     | Services                                     |
-| ------------------------------------------- | -------------------------------------------- |
-| `.\infra\dev\worktree.ps1 up`               | Editor + website + API + server UI (default) |
-| `.\infra\dev\worktree.ps1 up ui`            | Editor + website                             |
-| `.\infra\dev\worktree.ps1 up backend`       | Hot-reload API + server UI watcher           |
-| `.\infra\dev\worktree.ps1 up storybook`     | UI, MNX, and composed-app Storybooks         |
-| `.\infra\dev\worktree.ps1 up full`          | Core services + all Storybooks               |
-| `.\infra\dev\worktree.ps1 status`           | Running containers and worktree URLs         |
-| `.\infra\dev\worktree.ps1 down`             | Stop while preserving data and caches        |
-| `.\infra\dev\worktree.ps1 rebuild [target]` | Refresh dependency images; preserve API data |
-| `.\infra\dev\worktree.ps1 prune`            | Delete this worktree's containers and data   |
+| Command                           | Services                                     |
+| --------------------------------- | -------------------------------------------- |
+| `pnpm dev:stack up`               | Editor + website + API + server UI (default) |
+| `pnpm dev:stack up ui`            | Editor + website                             |
+| `pnpm dev:stack up backend`       | Hot-reload API + server UI watcher           |
+| `pnpm dev:stack up storybook`     | UI, MNX, and composed-app Storybooks         |
+| `pnpm dev:stack up full`          | Core services + all Storybooks               |
+| `pnpm dev:stack status`           | Running containers and worktree URLs         |
+| `pnpm dev:stack down`             | Stop while preserving data and caches        |
+| `pnpm dev:stack rebuild [target]` | Refresh dependency images; preserve API data |
+| `pnpm dev:stack prune`            | Delete this worktree's containers and data   |
 
 The wrapper derives a DNS-safe slug from the branch and worktree path. It prints
 routes such as:
@@ -134,7 +143,7 @@ Containers call one another through isolated Compose DNS, such as
 `http://api:8080`; browser code receives the corresponding public Traefik URL.
 Optional frontend settings go in `infra/dev/.env.frontend.local` and must not
 contain secrets. API secrets live outside the repository at the path printed by
-`worktree.ps1 url`:
+`pnpm dev:stack url`:
 
 ```text
 %LOCALAPPDATA%\Viritura\dev\<slug>\api.env
@@ -184,7 +193,7 @@ brew install --cask dotnet-sdk
 sudo apt update
 sudo apt install -y curl build-essential pkg-config libssl-dev
 curl https://sh.rustup.rs -sSf | sh -s -- -y
-# install Node 22+ via nvm or NodeSource
+# install Node 24 via nvm or NodeSource
 # install .NET 10 SDK from Microsoft package feed
 ```
 

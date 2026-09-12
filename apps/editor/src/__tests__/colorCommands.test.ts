@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import { applyColorToTarget, normalizeHexColor, parseSelectionContext } from "../commands/colorCommands";
+import { applyColorToSelection, normalizeHexColor, resolveColorSelectionTarget } from "../commands/colorCommands";
+import type { NotationSelectionTarget } from "../commands/notationInspectorCommands";
 
 function makeScore(): Score {
   return {
@@ -68,54 +69,44 @@ describe("normalizeHexColor", () => {
   });
 });
 
-describe("parseSelectionContext", () => {
-  it("parses part+measure context from event IDs", () => {
+describe("selection-aware color commands", () => {
+  it("resolves color support from the selected object", () => {
     const score = makeScore();
-    expect(parseSelectionContext("p0/m0/s0/g1", score)).toEqual({
-      measureIndex: 0,
-      partIndex: 0,
-      sequenceIndex: 0,
-      eventIndex: 0,
+    expect(resolveColorSelectionTarget(score, target("p0/m0/key", "key"))).toEqual({
+      kind: "key",
+      label: "key signature",
+      color: undefined,
     });
+    expect(resolveColorSelectionTarget(score, target("p0/m0/s0/n1", "event", 1))).toBeNull();
   });
 
-  it("parses measure-only IDs like time signatures", () => {
+  it("applies color directly to the selected key signature", () => {
     const score = makeScore();
-    expect(parseSelectionContext("m0/time", score)).toEqual({
-      measureIndex: 0,
-      partIndex: 0,
-    });
-  });
-});
-
-describe("applyColorToTarget", () => {
-  it("applies key color and keeps other fields", () => {
-    const score = makeScore();
-    const next = applyColorToTarget(score, "key", "#00aa00", { measureIndex: 0, partIndex: 0 });
+    const selected = target("p0/m0/key", "key");
+    const next = applyColorToSelection(score, selected, "#00aa00");
     expect(next.global.measures[0]!.key).toEqual({ fifths: 2, color: "#00aa00" });
   });
 
-  it("removes color property when color is black", () => {
+  it("keeps explicit black and removes color only when reset", () => {
     const score = makeScore();
-    const colored = applyColorToTarget(score, "ending", "#123456", { measureIndex: 0, partIndex: 0 });
-    const cleared = applyColorToTarget(colored, "ending", "#000000", { measureIndex: 0, partIndex: 0 });
+    const selected = target("m0/volta", "volta");
+    const black = applyColorToSelection(score, selected, "#000000");
+    expect(black.global.measures[0]!.ending?.color).toBe("#000000");
+    const cleared = applyColorToSelection(black, selected, null);
     expect(cleared.global.measures[0]!.ending).toEqual({ duration: 1, numbers: [1] });
   });
 
   it("applies clef color on selected part measure", () => {
     const score = makeScore();
-    const next = applyColorToTarget(score, "clef", "#ff0000", { measureIndex: 0, partIndex: 0 });
+    const selected = target("p0/m0/clef", "clef");
+    const next = applyColorToSelection(score, selected, "#ff0000");
     expect(next.parts[0]!.measures[0]!.clefs?.[0]!.clef.color).toBe("#ff0000");
   });
 
-  it("applies grace color to selected grace event", () => {
+  it("applies grace color only when the grace group itself is selected", () => {
     const score = makeScore();
-    const next = applyColorToTarget(score, "grace", "#3366ff", {
-      measureIndex: 0,
-      partIndex: 0,
-      sequenceIndex: 0,
-      eventIndex: 0,
-    });
+    const selected = target("p0/m0/s0/g1", "event", 0);
+    const next = applyColorToSelection(score, selected, "#3366ff");
     const event = next.parts[0]!.measures[0]!.sequences[0]!.content[0];
     expect(event?.type).toBe("grace");
     if (event?.type === "grace") {
@@ -123,3 +114,14 @@ describe("applyColorToTarget", () => {
     }
   });
 });
+
+function target(elementId: string, elementType: string, eventIndex?: number): NotationSelectionTarget {
+  return {
+    elementId,
+    elementType,
+    partIndex: 0,
+    measureIndex: 0,
+    sequenceIndex: eventIndex === undefined ? undefined : 0,
+    eventIndex,
+  };
+}

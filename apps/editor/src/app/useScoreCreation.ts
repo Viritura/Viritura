@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
-import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS } from "../score/ScoreBuilder";
+import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS, type InitialScoreSettings } from "../score/ScoreBuilder";
 import { bootProjectFromHandle } from "../store/projectStore";
 import { openDialog } from "../store/dialogStore";
 import { openProjectNamePrompt } from "../store/modalFlowStore";
@@ -22,7 +22,11 @@ export interface ScoreCreationDeps {
 
 export interface ScoreCreationActions {
   handleChooseProjectLocation: () => Promise<FileSystemDirectoryHandle | null>;
-  handleCreateScore: (projectName?: string, parentHandle?: FileSystemDirectoryHandle) => Promise<boolean>;
+  handleCreateScore: (
+    projectName?: string,
+    parentHandle?: FileSystemDirectoryHandle,
+    initialScore?: InitialScoreSettings,
+  ) => Promise<boolean>;
 }
 
 export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions {
@@ -40,11 +44,9 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
    *
    * A new score is always a project. The user names it, picks the parent
    * location, and Viritura creates a dedicated child folder containing the
-   * MNX score and Git history. The user then lands
-   * in Setup mode, where the ensemble, layouts, and opening signatures are all
-   * edited against a live canvas. This replaces the former three-step modal,
-   * whose instruments step duplicated Setup's roster editor against a
-   * throwaway `Player[]` draft.
+   * MNX score and Git history. Opening musical conditions are supplied by the
+   * New Project form, then the user lands in Setup to build the ensemble and
+   * score layouts against a live canvas.
    */
   const handleChooseProjectLocation = useCallback(async (): Promise<FileSystemDirectoryHandle | null> => {
     const picker = getDirectoryPicker();
@@ -63,7 +65,11 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
   }, []);
 
   const handleCreateScore = useCallback(
-    async (requestedProjectName?: string, selectedParentHandle?: FileSystemDirectoryHandle): Promise<boolean> => {
+    async (
+      requestedProjectName?: string,
+      selectedParentHandle?: FileSystemDirectoryHandle,
+      initialScore?: InitialScoreSettings,
+    ): Promise<boolean> => {
       const finalize = (json: string, name: string): boolean => {
         let parsed;
         try {
@@ -90,7 +96,7 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
       let projectHandle: FileSystemDirectoryHandle | null = null;
       try {
         projectHandle = await createProjectDirectory(parentHandle, projectName);
-        const json = buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, title: projectName });
+        const json = buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, ...initialScore, title: projectName });
 
         await bootProjectFromHandle({
           rootHandle: projectHandle,

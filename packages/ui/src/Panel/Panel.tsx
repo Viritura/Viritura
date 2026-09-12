@@ -85,6 +85,18 @@ export interface PanelProps {
   children?: ReactNode;
 }
 
+export interface PanelFooterProps {
+  /** Footer content, typically a full-width panel action. */
+  children: ReactNode;
+  /** Extra class names appended after the standard footer class. */
+  className?: string;
+}
+
+/** Standard non-scrolling footer surface for panels and tab-local panel content. */
+export function PanelFooter({ children, className }: PanelFooterProps) {
+  return <div className={className ? `${styles.footer} ${className}` : styles.footer}>{children}</div>;
+}
+
 export function Panel({
   side,
   width,
@@ -137,7 +149,7 @@ export function Panel({
           </div>
         )}
         {hasHeader || footer !== undefined || scrollBody ? <div className={bodyClass}>{children}</div> : children}
-        {footer !== undefined && <div className={styles.footer}>{footer}</div>}
+        {footer !== undefined && <PanelFooter>{footer}</PanelFooter>}
       </div>
       {onResize !== undefined && (
         <ResizeHandle

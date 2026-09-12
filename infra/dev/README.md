@@ -9,17 +9,14 @@ containers do not publish host ports.
 
 ## Quick start
 
-Run from any worktree; the wrapper starts Docker Desktop automatically when the
-standard Windows installation is present but the engine is not ready:
+Run from any worktree after starting Docker Desktop, Docker Engine, or another
+compatible Docker service:
 
-```powershell
-./infra/dev/worktree.ps1 up     # app: editor + API + server UI watcher
-./infra/dev/worktree.ps1 watch  # app plus continuous Rust/WASM rebuilding
-./infra/dev/worktree.ps1 status
+```bash
+pnpm dev:stack up     # app: editor + API + server UI watcher
+pnpm dev:stack watch  # app plus continuous Rust/WASM rebuilding
+pnpm dev:stack status
 ```
-
-If Docker Desktop is installed somewhere else, or the engine does not become
-ready within two minutes, start it manually and rerun the command.
 
 The wrapper prints the worktree slug and routes. Chromium browsers resolve
 `*.localhost` automatically; no hosts-file entries are required.
@@ -42,22 +39,22 @@ Targets select Compose profiles and can be combined:
 | `storybook`     | All three Storybooks                                        |
 | `full`          | Editor, website, API, server UI watcher, and all Storybooks |
 
-Use `worktree.ps1 watch [targets]` instead of `up [targets]` when Rust/WASM
+Use `pnpm dev:stack watch [targets]` instead of `up [targets]` when Rust/WASM
 changes should rebuild continuously. UI and API watching is enabled in both
 modes; `watch` adds a polling Rust/WASM builder because bind-mounted Windows
 files do not reliably deliver Linux filesystem events. For example:
 
-```powershell
-./infra/dev/worktree.ps1 watch full
+```bash
+pnpm dev:stack watch full
 ```
 
 Examples:
 
-```powershell
-./infra/dev/worktree.ps1 up backend
-./infra/dev/worktree.ps1 up storybook-mnx
-./infra/dev/worktree.ps1 up ui storybook-app
-./infra/dev/worktree.ps1 up full
+```bash
+pnpm dev:stack up backend
+pnpm dev:stack up storybook-mnx
+pnpm dev:stack up ui storybook-app
+pnpm dev:stack up full
 ```
 
 Rust is a build dependency rather than a long-running network service.
@@ -65,8 +62,9 @@ Rust-only changes do not require the application stack. Run `pnpm test:rust` for
 engine validation. Before starting an editor, website, Storybook, or full
 profile, the wrapper automatically runs a one-shot Docker builder. It hashes the
 Rust inputs and skips compilation when that worktree's generated WASM is current.
-A fresh worktree therefore needs only Docker Desktop and `worktree.ps1 up`; it
-does not need host Node, Rust, or wasm-pack installations to render scores.
+A fresh worktree therefore needs Git, Docker, Node.js 24, Corepack, and
+`pnpm dev:stack up`; it does not need host Rust, .NET, or wasm-pack installations
+to render scores or run the API.
 
 ## Routes
 
@@ -108,9 +106,11 @@ Optional local settings are split to avoid leaking backend secrets into
 frontend processes:
 
 - Copy entries from `.env.api.example` to the external per-worktree path shown
-  by `worktree.ps1 url` for API secrets such as GitHub or Google OAuth
-  credentials. On Windows this is
-  `%LOCALAPPDATA%\Viritura\dev\<slug>\api.env`. Never place API secrets inside
+  by `pnpm dev:stack url` for API secrets such as GitHub or Google OAuth
+  credentials. It is `%LOCALAPPDATA%\Viritura\dev\<slug>\api.env` on Windows,
+  `~/Library/Application Support/Viritura/dev/<slug>/api.env` on macOS, and
+  `$XDG_STATE_HOME/viritura/dev/<slug>/api.env` (or
+  `~/.local/state/viritura/dev/<slug>/api.env`) on Linux. Never place API secrets inside
   the repository: frontend containers bind-mount the source tree.
 - Copy entries from `.env.frontend.example` to ignored
   `.env.frontend.local` for non-secret browser build settings. Every `VITE_`
@@ -121,37 +121,31 @@ local env files so services cannot accidentally connect to another worktree.
 
 ## Lifecycle
 
-| Command                             | Effect                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------- |
-| `worktree.ps1 up [targets]`         | Build and start selected targets; defaults to `app`.                      |
-| `worktree.ps1 watch [targets]`      | Start selected targets with incremental development Rust/WASM rebuilding. |
-| `worktree.ps1 restart [targets]`    | Restart services in selected targets.                                     |
-| `worktree.ps1 rebuild [targets]`    | Recreate worktree compiler output and rebuild selected images.            |
-| `worktree.ps1 status`               | Show containers and all possible routes.                                  |
-| `worktree.ps1 logs [service]`       | Follow all logs or one Compose service.                                   |
-| `worktree.ps1 wasm`                 | Build missing/stale WASM with the isolated Docker toolchain.              |
-| `worktree.ps1 url` / `slug`         | Print routes or the derived slug.                                         |
-| `worktree.ps1 keepalive`            | Renew the worktree's eight-hour runtime lease.                            |
-| `worktree.ps1 stop`                 | Stop containers while preserving them for a fast restart.                 |
-| `worktree.ps1 down`                 | Remove containers and networks; preserve compiler output temporarily.     |
-| `worktree.ps1 prune`                | Delete containers and worktree compiler output; preserve shared caches.   |
-| `worktree.ps1 cleanup`              | Stop expired stacks and remove stacks past the cleanup grace period.      |
-| `worktree.ps1 janitor-install`      | Install the per-user cleanup task, which runs every 15 minutes.           |
-| `worktree.ps1 proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                             |
+| Command                               | Effect                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| `pnpm dev:stack up [targets]`         | Build and start selected targets; defaults to `app`.                      |
+| `pnpm dev:stack watch [targets]`      | Start selected targets with incremental development Rust/WASM rebuilding. |
+| `pnpm dev:stack restart [targets]`    | Restart services in selected targets.                                     |
+| `pnpm dev:stack rebuild [targets]`    | Recreate worktree compiler output and rebuild selected images.            |
+| `pnpm dev:stack status`               | Show containers and all possible routes.                                  |
+| `pnpm dev:stack logs [service]`       | Follow all logs or one Compose service.                                   |
+| `pnpm dev:stack wasm`                 | Build missing/stale WASM with the isolated Docker toolchain.              |
+| `pnpm dev:stack url` / `slug`         | Print routes or the derived slug.                                         |
+| `pnpm dev:stack keepalive`            | Renew the worktree's eight-hour runtime lease.                            |
+| `pnpm dev:stack stop`                 | Stop containers while preserving them for a fast restart.                 |
+| `pnpm dev:stack down`                 | Remove containers and networks; preserve compiler output temporarily.     |
+| `pnpm dev:stack prune`                | Delete containers and worktree compiler output; preserve shared caches.   |
+| `pnpm dev:stack cleanup`              | Stop expired stacks and remove stacks past the cleanup grace period.      |
+| `pnpm dev:stack proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                             |
 
 Every successful `up`, `watch`, `restart`, or `rebuild` grants the stack an
-eight-hour lease. Install the per-user janitor once:
-
-```powershell
-./infra/dev/worktree.ps1 janitor-install
-```
-
-The janitor stops an expired stack, retains its compiler output for 24 hours,
-then removes its containers, network, and worktree-local volumes. Run
-`keepalive` to extend an active session. It also removes unused
+eight-hour lease. Before starting or restarting a stack, the wrapper stops
+expired stacks and removes stacks that have remained stopped for 24 hours. Run
+`keepalive` to extend an active session. The same startup cleanup removes unused
 content-addressed dependency volumes and development images after seven days.
-The scheduled task runs only while the user is signed in and never touches
-unmanaged Docker resources.
+No background cleanup task is installed, so expired resources can remain until
+the next worktree stack starts. Cleanup never touches unmanaged Docker
+resources.
 
 A JavaScript or .NET dependency-manifest change automatically selects a new
 content-addressed image on the next `up`. Use `rebuild` only to discard stale
@@ -162,7 +156,7 @@ The `watch` command uses `wasm-pack --dev` with development `opt-level=1`;
 Cargo reuses the per-worktree target volume and the build skips optimized WASM
 post-processing. The lower optimization level keeps the browser artifact and
 startup compilation substantially smaller while preserving fast incremental
-Rust rebuilds. Use `worktree.ps1 wasm` when you need the optimized release
+Rust rebuilds. Use `pnpm dev:stack wasm` when you need the optimized release
 artifact.
 
 The API's SQLite database and Data Protection keys live in the machine-wide
@@ -214,14 +208,14 @@ Nothing in the logs indicates this; the server just keeps serving what it last
 transformed. To confirm, ask the server directly rather than trusting the file on
 disk:
 
-```powershell
+```bash
 curl.exe -s -H "Host: editor.<slug>.localhost" http://127.0.0.1/src/main.tsx
 ```
 
 If that output is stale, restart the service:
 
-```powershell
-./infra/dev/worktree.ps1 restart editor
+```bash
+pnpm dev:stack restart editor
 ```
 
 Restarting after any change to a Vite config is the safe habit.
@@ -271,7 +265,7 @@ container read with the browser route before changing Rust or application
 loading code. MNX fixtures are canonically owned by
 `packages/format/fixtures/mnx` and staged into the editor path below:
 
-```powershell
+```bash
 docker exec <editor-container> node -e "const fs=require('fs'); const t=Date.now(); fs.readFileSync('/workspace/apps/editor/public/scores/<file>.mnx'); console.log(Date.now()-t)"
 ```
 
@@ -281,7 +275,7 @@ developer can feel.
 If the container's idle CPU is more than a few percent, suspect the watcher
 first:
 
-```powershell
+```bash
 docker stats --no-stream --format "{{.Name}} CPU={{.CPUPerc}}"
 ```
 

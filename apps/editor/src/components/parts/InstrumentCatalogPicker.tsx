@@ -8,7 +8,7 @@ import {
   getFamiliesInOrder,
   getInstrumentsByFamily,
 } from "../../score/InstrumentCatalog";
-import { FAMILY_COLORS, searchInputStyle } from "./styles";
+import { searchInputStyle } from "./styles";
 
 const PICKER_ROOT_STYLE: CSSProperties = { display: "flex", flexDirection: "column", minHeight: 0 };
 const PICKER_TITLE_STYLE: CSSProperties = {
@@ -37,16 +37,6 @@ const COMPATIBILITY_STYLE: CSSProperties = {
 function listScrollStyle(maxHeight: number): CSSProperties {
   return { flex: 1, overflowY: "auto", maxHeight };
 }
-function familyDotStyle(family: InstrumentFamily): CSSProperties {
-  return {
-    width: 6,
-    height: 6,
-    borderRadius: "50%",
-    background: FAMILY_COLORS[family],
-    flexShrink: 0,
-  };
-}
-
 export interface InstrumentCatalogPickerProps {
   onSelect: (inst: CatalogInstrument) => void;
   /** Placeholder text for the search input. */
@@ -67,6 +57,8 @@ export interface InstrumentCatalogPickerProps {
   compatibility?: (inst: CatalogInstrument) => InstrumentCompatibility;
   /** Invoked for blocked choices so hosts can offer a safe Add Instead path. */
   onBlockedSelect?: (inst: CatalogInstrument, analysis: InstrumentCompatibility) => void;
+  /** Currently selected catalog item, when selection is confirmed separately. */
+  selectedInstrumentId?: string;
 }
 
 export interface InstrumentCompatibility {
@@ -95,6 +87,7 @@ export function InstrumentCatalogPicker({
   showFamilyCounts = true,
   compatibility,
   onBlockedSelect,
+  selectedInstrumentId,
 }: InstrumentCatalogPickerProps) {
   const [search, setSearch] = useState("");
   const defaultExpanded = useMemo(() => new Set(initiallyExpanded ?? []), [initiallyExpanded]);
@@ -119,6 +112,7 @@ export function InstrumentCatalogPicker({
   const instrumentRow = (instrument: CatalogInstrument, compact = false) => {
     const analysis = compatibility?.(instrument);
     const blocked = analysis?.status === "blocked";
+    const selected = selectedInstrumentId === instrument.id;
     return (
       <ListRow
         key={instrument.id}
@@ -126,9 +120,11 @@ export function InstrumentCatalogPicker({
         tooltip={analysis?.message ?? `Add ${instrument.name}`}
         density={compact ? "compact" : undefined}
         indent={compact}
+        selected={selected}
         aria-disabled={blocked || undefined}
-        leading={!compact ? <span style={familyDotStyle(instrument.family)} /> : undefined}
-        trailing={analysis ? <CompatibilityLabel analysis={analysis} /> : <Plus size={10} />}
+        trailing={
+          analysis ? <CompatibilityLabel analysis={analysis} /> : selected ? <Check size={10} /> : <Plus size={10} />
+        }
       >
         {instrument.name}
       </ListRow>
@@ -143,6 +139,7 @@ export function InstrumentCatalogPicker({
         <FormInput
           ref={searchRef}
           type="text"
+          aria-label={searchPlaceholder}
           placeholder={searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -174,7 +171,6 @@ export function InstrumentCatalogPicker({
                 key={family}
                 title={label}
                 defaultOpen={defaultExpanded.has(family)}
-                icon={<span style={familyDotStyle(family)} />}
                 actions={showFamilyCounts ? <span style={FAMILY_COUNT_STYLE}>{instruments.length}</span> : undefined}
               >
                 {instruments.map((inst) => instrumentRow(inst, true))}

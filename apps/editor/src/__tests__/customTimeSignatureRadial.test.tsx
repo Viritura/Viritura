@@ -6,7 +6,7 @@ import { renderTimeSignatureExpression } from "../radialMenu/timeSignatureMenu";
 const CUSTOM_ITEM: RadialMenuItem = {
   id: "custom",
   icon: "n/d",
-  label: "Custom…",
+  label: "Custom",
   expressionSeed: "5/8",
 };
 
@@ -28,7 +28,7 @@ describe("custom time signature radial item", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Custom…"));
+    fireEvent.click(screen.getByText("Custom"));
 
     const input = screen.getByPlaceholderText("Filter or enter time (5/8)…") as HTMLInputElement;
     await waitFor(() => expect(input.value).toBe("5/8"));

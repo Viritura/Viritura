@@ -19,7 +19,7 @@
 # The root ignore file retains all workspace manifests while excluding source
 # trees not needed for dependency installation. Runtime source, generated WASM,
 # and engine files arrive through the bind mount.
-FROM node:22-bookworm-slim AS dev
+FROM node:24-bookworm-slim AS dev
 
 RUN corepack enable
 WORKDIR /workspace

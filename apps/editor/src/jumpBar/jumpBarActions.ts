@@ -157,7 +157,7 @@ export function buildJumpBarActions(
     },
     {
       id: "file.saveAs",
-      label: "Save As…",
+      label: "Save As",
       category: "File",
       shortcut: "Ctrl+Shift+S",
       keywords: ["export", "download"],
@@ -197,14 +197,14 @@ export function buildJumpBarActions(
     },
     {
       id: "edit.transpose",
-      label: "Transpose…",
+      label: "Transpose",
       category: "Edit",
       keywords: ["key", "interval", "semitone"],
       execute: cb.transpose,
     },
     {
       id: "edit.splitOrchestralStaves",
-      label: "Split Combined Orchestral Parts…",
+      label: "Split Combined Orchestral Parts",
       category: "Edit",
       keywords: ["orchestra", "players", "divisi", "parts"],
       execute: cb.splitOrchestralStaves,

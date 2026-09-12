@@ -16,6 +16,33 @@ export function diatonicFromChromatic(chromatic: number): number {
   return Math.round((chromatic * 7) / 12);
 }
 
+const INTERVAL_NAMES = [
+  "",
+  "minor second",
+  "major second",
+  "minor third",
+  "major third",
+  "perfect fourth",
+  "tritone",
+  "perfect fifth",
+  "minor sixth",
+  "major sixth",
+  "minor seventh",
+  "major seventh",
+] as const;
+
+/** Human-readable summary for the interval from written to sounding pitch. */
+export function transpositionSummary(chromatic: number): string {
+  if (chromatic === 0) return "Concert pitch";
+  const distance = Math.abs(chromatic);
+  const octaves = Math.floor(distance / 12);
+  const remainder = distance % 12;
+  const parts: string[] = [];
+  if (octaves > 0) parts.push(octaves === 1 ? "one octave" : `${octaves} octaves`);
+  if (remainder > 0) parts.push(`a ${INTERVAL_NAMES[remainder]!}`);
+  return `Sounds ${parts.join(" and ")} ${chromatic > 0 ? "lower" : "higher"} than written`;
+}
+
 /** Build the MNX `transposition` field, or undefined when everything is at
  *  its identity (no transposition + no key flip + no written-pitch
  *  preference). */

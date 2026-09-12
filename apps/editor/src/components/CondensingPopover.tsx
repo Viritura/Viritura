@@ -192,7 +192,7 @@ export function CondensingPopover({
               (e.currentTarget as HTMLDivElement).style.background = "";
             }}
           >
-            <span style={GROUPING_LABEL_STYLE}>Staff grouping…</span>
+            <span style={GROUPING_LABEL_STYLE}>Staff grouping</span>
           </div>
         </>
       )}

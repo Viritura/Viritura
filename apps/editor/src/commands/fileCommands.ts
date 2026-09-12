@@ -160,7 +160,7 @@ function validateConvertedMnxJson(text: string): string | null {
  * {@link OpenFileResult} that holds the resulting MNX JSON.
  */
 export async function convertImportedMusicFile(file: File): Promise<OpenFileResult> {
-  return runBackgroundTask(`Importing ${file.name}…`, async () => {
+  return runBackgroundTask(`Importing ${file.name}`, async () => {
     const lower = file.name.toLowerCase();
     if (!isMusicImportFilename(lower)) {
       throw new Error(`Unsupported music file: ${file.name}`);

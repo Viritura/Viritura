@@ -53,7 +53,19 @@ function getGlyphOffset(content: string, fontSize: string, align: "baseline" | "
   const key = `${align}:${ref}@${fontSize}`;
   const cached = glyphOffsetCache.get(key);
   if (cached !== undefined) return cached;
-  const bbox = align === "baseline" ? REFERENCE_BBOX : BRAVURA_GLYPH_BBOXES[ref];
+  const compositeBoxes = Array.from(ref)
+    .map((glyph) => BRAVURA_GLYPH_BBOXES[glyph])
+    .filter((bbox) => bbox !== undefined);
+  const bbox =
+    align === "baseline"
+      ? REFERENCE_BBOX
+      : (BRAVURA_GLYPH_BBOXES[ref] ??
+        (compositeBoxes.length > 0
+          ? {
+              ascent: Math.max(...compositeBoxes.map((box) => box.ascent)),
+              descent: Math.max(...compositeBoxes.map((box) => box.descent)),
+            }
+          : undefined));
   if (!bbox) {
     // Unknown glyph — leave it at the browser's default inline-block
     // placement. Add the codepoint to `bravuraGlyphBBoxes.ts` if you

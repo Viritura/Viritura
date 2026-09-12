@@ -35,6 +35,10 @@ import {
   useSlurEditState,
   usePageSetupEditor,
 } from "../components/modes/engrave/hooks";
+import {
+  setScoreInstrumentNameDisplay,
+  type InstrumentNameDisplaySettings,
+} from "../components/parts/instrumentNameDisplay";
 
 interface UseEngraveModeArgs {
   score: Score | null;
@@ -89,6 +93,7 @@ export interface EngraveMode {
 
   // ── Embedded page setup editor ───────────────────────────────
   pageSetup: ReturnType<typeof usePageSetupEditor>;
+  handleInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
 }
 
 export function useEngraveMode({
@@ -217,6 +222,21 @@ export function useEngraveMode({
     [scoreRef, updateScoreRef],
   );
 
+  const handleInstrumentNameDisplayChange = useCallback(
+    (settings: InstrumentNameDisplaySettings) => {
+      const current = scoreRef.current;
+      if (!current?.scores?.[activeScoreIndexRef.current]) return;
+      const updated = setScoreInstrumentNameDisplay(
+        current.layouts ?? [],
+        current.scores,
+        activeScoreIndexRef.current,
+        settings,
+      );
+      updateScoreRef.current({ ...current, layouts: updated.layouts, scores: updated.scores });
+    },
+    [scoreRef, activeScoreIndexRef, updateScoreRef],
+  );
+
   return {
     score,
     engraveAdornments,
@@ -250,5 +270,6 @@ export function useEngraveMode({
     handleShowAllHidden: staffVis.handleShowAllHidden,
 
     pageSetup,
+    handleInstrumentNameDisplayChange,
   };
 }

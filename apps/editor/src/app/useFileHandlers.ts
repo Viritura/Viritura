@@ -6,6 +6,7 @@ import { useFileSaveActions, type FileSaveActions } from "./useFileSaveActions";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { Score } from "@viritura/core";
 import type { OpenFileResult } from "../commands/fileCommands";
+import type { InitialScoreSettings } from "../score/ScoreBuilder";
 
 type DocumentStoreApi = ReturnType<typeof useDocumentStoreApi>;
 type LoadScore = (score: Score, fileName?: string, mnxJson?: string) => void;
@@ -25,7 +26,11 @@ interface UseFileHandlersParams {
   fileHandle: FileSystemFileHandle | null;
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
   onChooseProjectLocation: () => Promise<FileSystemDirectoryHandle | null>;
-  onNewScore: (projectName?: string, parentHandle?: FileSystemDirectoryHandle) => Promise<boolean>;
+  onNewScore: (
+    projectName?: string,
+    parentHandle?: FileSystemDirectoryHandle,
+    initialScore?: InitialScoreSettings,
+  ) => Promise<boolean>;
 }
 
 export interface FileHandlers extends DefaultScoreLoader, FolderOpenActions, FileMenuActions, FileSaveActions {}

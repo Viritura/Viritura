@@ -1,31 +1,9 @@
 .trigger {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard);
 }
 
-.trigger:hover,
-.trigger[data-state="open"] {
-  background: var(--surface-hover);
-  color: var(--text-bright);
-}
-
-.trigger[data-active="true"] {
+.trigger[aria-pressed="true"] {
   color: var(--accent);
 }
 

@@ -128,17 +128,17 @@ export function MenuBar({ callbacks, state = {}, sampleScores = [], recentEntrie
         }));
 
   const fileItems: MenuItemDef[] = [
-    { label: "New Project…", action: callbacks.onNewScore },
-    { label: "Open Project Folder…", shortcut: `${MOD}O`, action: callbacks.onOpenProject },
-    { label: "Open MNX Score…", shortcut: `${MOD}⇧O`, action: callbacks.onOpenFile },
+    { label: "New Project", action: callbacks.onNewScore },
+    { label: "Open Project Folder", shortcut: `${MOD}O`, action: callbacks.onOpenProject },
+    { label: "Open MNX Score", shortcut: `${MOD}⇧O`, action: callbacks.onOpenFile },
     {
       label: "Open Recent",
       children: recentSubmenu,
     },
     { label: "separator", separator: true },
-    { label: "Import…", action: callbacks.onImport },
+    { label: "Import", action: callbacks.onImport },
     { label: "separator", separator: true },
-    { label: "Start Center…", action: callbacks.onShowStartCenter },
+    { label: "Start Center", action: callbacks.onShowStartCenter },
     { label: "separator", separator: true },
     {
       label: "Save",
@@ -147,7 +147,7 @@ export function MenuBar({ callbacks, state = {}, sampleScores = [], recentEntrie
       disabled: !state.hasDocument,
     },
     {
-      label: "Save As…",
+      label: "Save As",
       shortcut: IS_MAC ? "⇧⌘S" : "Ctrl+Shift+S",
       action: callbacks.onSaveAs,
       disabled: !state.hasDocument,
@@ -163,7 +163,7 @@ export function MenuBar({ callbacks, state = {}, sampleScores = [], recentEntrie
       : []),
     { label: "separator", separator: true },
     {
-      label: "Publish…",
+      label: "Publish",
       shortcut: `${MOD}P`,
       action: callbacks.onOpenPublish,
       disabled: !state.hasDocument,
@@ -210,12 +210,12 @@ export function MenuBar({ callbacks, state = {}, sampleScores = [], recentEntrie
     },
     { label: "separator", separator: true },
     {
-      label: "Transpose Selection…",
+      label: "Transpose Selection",
       action: callbacks.onTranspose,
       disabled: !state.canTranspose,
     },
     {
-      label: "Split Combined Orchestral Parts…",
+      label: "Split Combined Orchestral Parts",
       action: callbacks.onSplitOrchestralStaves,
       disabled: !state.hasDocument,
     },

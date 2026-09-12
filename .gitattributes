@@ -1,3 +1,6 @@
+# Keep text files identical across Windows, WSL, and Linux checkouts.
+* text=auto eol=lf
+
 *.sf2 filter=lfs diff=lfs merge=lfs -text
 
 # Generators emit LF. Keep byte-for-byte check gates stable on Windows checkouts.

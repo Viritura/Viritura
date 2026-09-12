@@ -127,7 +127,7 @@ export function CreateGitHubRepositoryDialog({
       <DialogActions>
         <DialogCancelButton>Close</DialogCancelButton>
         <DialogPrimaryButton onClick={handleCreate} disabled={Boolean(validationError) || submitting}>
-          {submitting ? "Creating…" : "Create"}
+          {submitting ? "Creating" : "Create"}
         </DialogPrimaryButton>
       </DialogActions>
     </Dialog>

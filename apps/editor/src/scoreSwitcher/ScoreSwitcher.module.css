@@ -6,36 +6,7 @@
 }
 
 .trigger {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
   max-width: 300px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.28);
-  color: var(--text);
-  font-size: var(--type-small-size);
-  cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard);
-}
-
-[data-theme="dark"] .trigger,
-[data-theme="midnight"] .trigger {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.trigger:hover {
-  background: var(--surface-hover);
-  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
-}
-
-.trigger[data-state="open"] {
-  background: var(--surface-raised);
-  box-shadow: var(--inset-strong);
 }
 
 .triggerLabel {

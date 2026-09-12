@@ -6,22 +6,28 @@ interface DenigmaModule {
   UTF8ToString(pointer: number): string;
   _denigma_malloc(size: number): number;
   _denigma_free(pointer: number): void;
-  _denigma_musx_to_mnx(
+  _denigma_convert(
     data: number,
     size: number,
     sourceName: number,
+    format: number,
     includeTempo: number,
+    allFontsAvailable: number,
+    useFinaleRestPosition: number,
     splitInstruments: number,
     indentSpaces: number,
     cueLayer: number,
+    selectedOutputs: number,
+    selectedOutputCount: number,
   ): number;
   _denigma_result_destroy(result: number): void;
   _denigma_result_success(result: number): number;
   _denigma_result_diagnostic_count(result: number): number;
   _denigma_result_diagnostic_severity(result: number, index: number): number;
   _denigma_result_diagnostic_message(result: number, index: number): number;
-  _denigma_result_output_data(result: number): number;
-  _denigma_result_output_size(result: number): number;
+  _denigma_result_output_count(result: number): number;
+  _denigma_result_output_data(result: number, index: number): number;
+  _denigma_result_output_size(result: number, index: number): number;
   _denigma_version(): number;
   _denigma_commit(): number;
 }
@@ -35,6 +41,7 @@ interface DenigmaModuleFactoryOptions {
 type DenigmaModuleFactory = (options: DenigmaModuleFactoryOptions) => Promise<DenigmaModule>;
 
 const severityNames: readonly DenigmaDiagnosticSeverity[] = ["info", "warning", "error", "verbose"];
+const DENIGMA_FORMAT_MNX = 1;
 
 let modulePromise: Promise<DenigmaModule> | undefined;
 
@@ -104,25 +111,31 @@ export async function convertWithDenigma(
   try {
     inputPointer = allocateBytes(module, input);
     namePointer = allocateString(module, sourceName);
-    resultPointer = module._denigma_musx_to_mnx(
+    resultPointer = module._denigma_convert(
       inputPointer,
       input.byteLength,
       namePointer,
+      DENIGMA_FORMAT_MNX,
       options.includeTempoTool ? 1 : 0,
+      0,
+      0,
       options.splitInstruments ? 1 : 0,
       options.indentSpaces ?? -1,
       options.cueLayer ?? 0,
+      0,
+      0,
     );
     if (!resultPointer) throw new Error("Denigma did not return a conversion result.");
 
     const diagnostics = readDiagnostics(module, resultPointer);
-    const outputSize = module._denigma_result_output_size(resultPointer);
-    if (module._denigma_result_success(resultPointer) !== 1 || outputSize === 0) {
+    const outputCount = module._denigma_result_output_count(resultPointer);
+    const outputSize = outputCount === 1 ? module._denigma_result_output_size(resultPointer, 0) : 0;
+    if (module._denigma_result_success(resultPointer) !== 1 || outputCount !== 1 || outputSize === 0) {
       const detail = diagnostics.find((diagnostic) => diagnostic.severity === "error")?.message;
       throw new DenigmaConversionError(detail ?? "Denigma could not convert the MUSX file.", diagnostics);
     }
 
-    const outputPointer = module._denigma_result_output_data(resultPointer);
+    const outputPointer = module._denigma_result_output_data(resultPointer, 0);
     const output = module.HEAPU8.slice(outputPointer, outputPointer + outputSize);
     return {
       mnxJson: new TextDecoder().decode(output),

@@ -64,19 +64,20 @@ MUSX bytes
   -> editor document
 ```
 
-The internal package compiles Denigma's public `denigma::mnx` target through a
-narrow C ABI. Its build pins the Denigma commit, Emscripten image, and
-content-addressed archive dependencies; generated assets carry hashes,
-provenance, and licenses.
+The internal package consumes the WebAssembly module built and smoke-tested by
+OpenMUSX Denigma. Its maintenance build pins the Denigma commit, verifies the
+module's embedded provenance, and falls back to building Denigma's own
+`denigma_wasm` target when the CI artifact is unavailable. Generated assets
+carry hashes, provenance, and licenses.
 
 This is a deployment mechanism, not the target vendor-gap protocol. The current
 Denigma API returns MNX and diagnostics only.
 
-Long term, the preferred upstream distribution is a reusable, versioned
-MUSX-to-MNX WebAssembly package built from Denigma. Denigma Online should be a
-consumer of that package rather than the application-level dependency Viritura
-imports. Native executables remain useful for command-line users, but cannot be
-rebundled into WebAssembly after compilation.
+Denigma and Denigma Online now use this same upstream module, which supports
+MNX, MusicXML, and EnigmaXML output. Official Denigma releases will attach a
+versioned copy; commit-pinned builds use the corresponding GitHub Actions
+artifact while it remains available. Native executables remain useful for
+command-line users, but cannot be rebundled into WebAssembly after compilation.
 
 ---
 

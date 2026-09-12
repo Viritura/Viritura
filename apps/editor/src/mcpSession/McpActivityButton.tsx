@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Bot } from "lucide-react";
-import { Tooltip } from "@viritura/ui";
+import { IconButton, Tooltip } from "@viritura/ui";
 import { McpSessionPanel } from "./McpSessionPanel";
 import { useMcpSessionStore } from "./sessionStore";
 import styles from "./McpActivityButton.module.css";
@@ -23,17 +23,17 @@ export function McpActivityButton() {
        *  while the popover is open, or it would sit over the panel. */}
       <Tooltip content={label} side="right" open={open ? false : undefined}>
         <Popover.Trigger asChild>
-          {/* eslint-disable-next-line no-restricted-syntax -- activity-bar trigger needs an overlaid connection-status dot. */}
-          <button
-            type="button"
-            className={styles.trigger}
-            data-active={isActive ? "true" : "false"}
-            data-error={hasError ? "true" : "false"}
+          <IconButton
+            size="rail"
+            variant="ghost"
+            className={`${styles.trigger} ${hasError ? styles.error : ""}`}
+            active={isActive}
+            tooltipSide="right"
             aria-label={label}
           >
             <Bot size={20} aria-hidden="true" />
             {isActive || hasError ? <span className={styles.statusDot} aria-hidden="true" /> : null}
-          </button>
+          </IconButton>
         </Popover.Trigger>
       </Tooltip>
       <Popover.Portal>

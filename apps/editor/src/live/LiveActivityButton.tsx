@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { Radio } from "lucide-react";
-import { Tooltip } from "@viritura/ui";
+import { IconButton, Tooltip } from "@viritura/ui";
 import { useLocalIdentity } from "./LiveSessionProvider";
 import { LivePanel } from "./LivePanel";
 import { useLiveSessionStore } from "./liveSessionStore";
@@ -55,11 +55,17 @@ export function LiveActivityButton({ scoreId }: LiveActivityButtonProps) {
        *  while the popover is open, or it would sit over the panel. */}
       <Tooltip content={label} side="right" open={open ? false : undefined}>
         <Popover.Trigger asChild>
-          {/* eslint-disable-next-line no-restricted-syntax -- activity-bar trigger; bespoke chrome with absolutely-positioned status dot, no @viritura/ui primitive models it. */}
-          <button type="button" className={styles.trigger} data-active={isActive ? "true" : "false"} aria-label={label}>
+          <IconButton
+            size="rail"
+            variant="ghost"
+            className={styles.trigger}
+            active={isActive}
+            tooltipSide="right"
+            aria-label={label}
+          >
             <Radio size={20} aria-hidden="true" />
             {isActive ? <span className={styles.statusDot} aria-hidden="true" /> : null}
-          </button>
+          </IconButton>
         </Popover.Trigger>
       </Tooltip>
       <Popover.Portal>

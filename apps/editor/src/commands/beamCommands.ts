@@ -98,7 +98,9 @@ function beamableEventSelection(score: Score, locations: readonly EventLocation[
 }
 
 function selectedBeamableEvents(score: Score, selection: Selection): BeamSelection | null {
-  return selection.kind === "range" ? beamableEventSelection(score, resolveSelectionEvents(selection, score)) : null;
+  return selection.kind === "range" || selection.kind === "multi"
+    ? beamableEventSelection(score, resolveSelectionEvents(selection, score))
+    : null;
 }
 
 function beamSelectionIds(score: Score, selection: BeamSelection, createMissingIds: boolean): string[] | null {

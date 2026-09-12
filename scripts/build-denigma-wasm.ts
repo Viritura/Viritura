@@ -6,8 +6,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const DENIGMA_REPOSITORY = "https://github.com/PeterYangIO/denigma.git";
-const DENIGMA_COMMIT = "e0f65b7cbd1ce89a8ff5bd236bb66030435c9b8e";
+const DENIGMA_REPOSITORY = "https://github.com/openmusx/denigma.git";
+const DENIGMA_REPOSITORY_SLUG = "openmusx/denigma";
+const DENIGMA_COMMIT = "1956a698c3608f520082321a82ab0c289878d4a8";
 const DENIGMA_VERSION = "4.0.0";
 const EMSCRIPTEN_IMAGE =
   "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a";
@@ -15,16 +16,25 @@ const EMSCRIPTEN_IMAGE =
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const buildRoot = resolve(root, "build/denigma-wasm");
 const denigmaRoot = resolve(buildRoot, "denigma");
-const nativeRoot = resolve(root, "packages/musx-import/native");
 const outputRoot = resolve(root, "packages/musx-import/assets");
+const prebuiltRoot = resolve(buildRoot, "prebuilt");
 const dependencyRoot = resolve(buildRoot, "build-wasm/_deps");
 const resume = process.argv.includes("--resume");
+const sourceBuild = process.argv.includes("--source");
 
 function run(command: string, args: string[], cwd = root): void {
   const result = spawnSync(command, args, { cwd, stdio: "inherit", windowsHide: true });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
   }
+}
+
+function output(command: string, args: string[], cwd = root): string {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", windowsHide: true });
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`);
+  }
+  return result.stdout.trim();
 }
 
 function checkout(repository: string, commit: string, destination: string): void {
@@ -63,90 +73,122 @@ function copyLicense(source: string, destination: string): void {
   writeFileSync(destination, `${normalized}\n`);
 }
 
-if (!resume && existsSync(buildRoot)) {
-  // CMake dependencies can contain Unix symlinks that Windows cannot remove.
-  // Delete this build's exact contents inside Linux before recreating it.
+interface GitHubArtifact {
+  expired: boolean;
+  workflow_run?: { head_sha?: string; id?: number };
+}
+
+function fetchPrebuilt(): { moduleSource: string; wasmSource: string; origin: string } | undefined {
+  try {
+    const response = JSON.parse(
+      output("gh", ["api", `repos/${DENIGMA_REPOSITORY_SLUG}/actions/artifacts?name=denigma-wasm&per_page=100`]),
+    ) as { artifacts?: GitHubArtifact[] };
+    const artifact = response.artifacts?.find(
+      (candidate) => !candidate.expired && candidate.workflow_run?.head_sha === DENIGMA_COMMIT,
+    );
+    const runId = artifact?.workflow_run?.id;
+    if (!runId) return undefined;
+
+    rmSync(prebuiltRoot, { recursive: true, force: true });
+    mkdirSync(prebuiltRoot, { recursive: true });
+    run("gh", [
+      "run",
+      "download",
+      String(runId),
+      "--repo",
+      DENIGMA_REPOSITORY_SLUG,
+      "--name",
+      "denigma-wasm",
+      "--dir",
+      prebuiltRoot,
+    ]);
+    const moduleSource = resolve(prebuiltRoot, "denigma.js");
+    const wasmSource = resolve(prebuiltRoot, "denigma.wasm");
+    if (!existsSync(moduleSource) || !existsSync(wasmSource)) {
+      throw new Error("The downloaded artifact does not contain denigma.js and denigma.wasm.");
+    }
+    return { moduleSource, wasmSource, origin: `github-actions:${runId}` };
+  } catch (error) {
+    console.warn(`Prebuilt Denigma WASM unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return undefined;
+  }
+}
+
+if (resume) {
+  verifyCheckout(denigmaRoot, DENIGMA_COMMIT);
+} else {
+  rmSync(denigmaRoot, { recursive: true, force: true });
+  checkout(DENIGMA_REPOSITORY, DENIGMA_COMMIT, denigmaRoot);
+}
+
+let wasmBuild = sourceBuild ? undefined : fetchPrebuilt();
+if (!wasmBuild) {
   run("docker", [
     "run",
     "--rm",
     "--volume",
     `${buildRoot}:/work`,
+    "--workdir",
+    "/work/denigma",
     EMSCRIPTEN_IMAGE,
     "bash",
     "-lc",
-    "find /work -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +",
+    [
+      "git config --global --add safe.directory /work/denigma",
+      `&& test "$(git rev-parse HEAD)" = "${DENIGMA_COMMIT}"`,
+      '&& test -z "$(git status --porcelain)"',
+      "&& emcmake cmake -S /work/denigma -B /work/build-wasm",
+      "-DCMAKE_BUILD_TYPE=MinSizeRel",
+      "-DDENIGMA_CXX_STANDARD=20",
+      "&& cmake --build /work/build-wasm --target denigma_wasm --parallel 2",
+      "&& cp /emsdk/upstream/emscripten/LICENSE /work/LICENSE-EMSCRIPTEN.txt",
+      "&& cp /emsdk/upstream/emscripten/system/lib/libc/musl/COPYRIGHT /work/LICENSE-MUSL.txt",
+      "&& cp /emsdk/upstream/emscripten/system/lib/libcxx/LICENSE.TXT /work/LICENSE-LIBCXX.txt",
+    ].join(" "),
   ]);
+  wasmBuild = {
+    moduleSource: resolve(buildRoot, "build-wasm/wasm/denigma.js"),
+    wasmSource: resolve(buildRoot, "build-wasm/wasm/denigma.wasm"),
+    origin: "source-build",
+  };
 }
-if (resume) {
-  verifyCheckout(denigmaRoot, DENIGMA_COMMIT);
-} else {
-  rmSync(buildRoot, { recursive: true, force: true });
-  checkout(DENIGMA_REPOSITORY, DENIGMA_COMMIT, denigmaRoot);
-}
-
-run("docker", [
-  "run",
-  "--rm",
-  "--volume",
-  `${buildRoot}:/work`,
-  "--volume",
-  `${nativeRoot}:/source:ro`,
-  "--workdir",
-  "/source",
-  EMSCRIPTEN_IMAGE,
-  "bash",
-  "-lc",
-  [
-    "git config --global --add safe.directory /work/denigma",
-    `&& test "$(git -C /work/denigma rev-parse HEAD)" = "${DENIGMA_COMMIT}"`,
-    '&& test -z "$(git -C /work/denigma status --porcelain)"',
-    "&& emcmake cmake -S /source -B /work/build-wasm",
-    "-DCMAKE_BUILD_TYPE=MinSizeRel",
-    "-DDENIGMA_SOURCE_DIR=/work/denigma",
-    `-DDENIGMA_GIT_TAG=${DENIGMA_COMMIT}`,
-    `-DVIRITURA_DENIGMA_VERSION=${DENIGMA_VERSION}`,
-    `-DVIRITURA_DENIGMA_COMMIT=${DENIGMA_COMMIT}`,
-    "&& cmake --build /work/build-wasm --target viritura_denigma_mnx --parallel 2",
-    "&& cp /emsdk/upstream/emscripten/LICENSE /work/LICENSE-EMSCRIPTEN.txt",
-    "&& cp /emsdk/upstream/emscripten/system/lib/libc/musl/COPYRIGHT /work/LICENSE-MUSL.txt",
-    "&& cp /emsdk/upstream/emscripten/system/lib/libcxx/LICENSE.TXT /work/LICENSE-LIBCXX.txt",
-  ].join(" "),
-]);
 
 run(process.execPath, [
   resolve(root, "packages/musx-import/scripts/smoke.mjs"),
-  resolve(buildRoot, "build-wasm/wasm/denigma.js"),
+  wasmBuild.moduleSource,
   resolve(denigmaRoot, "tests/data/inputs/barline_short_normal.musx"),
+  DENIGMA_COMMIT,
 ]);
 
-rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
-const moduleSource = resolve(buildRoot, "build-wasm/wasm/denigma.js");
-const wasmSource = resolve(buildRoot, "build-wasm/wasm/denigma.wasm");
+const { moduleSource, wasmSource } = wasmBuild;
 copyFileSync(moduleSource, resolve(outputRoot, "denigma.js"));
 copyFileSync(wasmSource, resolve(outputRoot, "denigma.wasm"));
-const licenses = [
-  ["DENIGMA", resolve(denigmaRoot, "LICENSE")],
-  ["MUSXDOM", resolve(dependencyRoot, "musx-src/LICENSE")],
-  ["MNXDOM", resolve(dependencyRoot, "mnxdom-src/LICENSE")],
-  ["SMUFL-MAPPING", resolve(dependencyRoot, "smufl_mapping-src/LICENSE")],
-  ["BRAVURA-OFL", resolve(dependencyRoot, "smufl_mapping-src/OFL.txt")],
-  ["PUGIXML", resolve(dependencyRoot, "pugixml-src/LICENSE.md")],
-  ["NLOHMANN-JSON", resolve(dependencyRoot, "nlohmann_json-src/LICENSE.MIT")],
-  ["JSON-SCHEMA-VALIDATOR", resolve(dependencyRoot, "json_schema_validator-src/LICENSE")],
-  ["ZLIB", resolve(dependencyRoot, "zlib-src/LICENSE")],
-  ["EMSCRIPTEN", resolve(buildRoot, "LICENSE-EMSCRIPTEN.txt")],
-  ["MUSL", resolve(buildRoot, "LICENSE-MUSL.txt")],
-  ["LIBCXX", resolve(buildRoot, "LICENSE-LIBCXX.txt")],
-] as const;
-for (const [name, source] of licenses) {
-  copyLicense(source, resolve(outputRoot, `LICENSE-${name}.txt`));
+copyLicense(resolve(denigmaRoot, "LICENSE"), resolve(outputRoot, "LICENSE-DENIGMA.txt"));
+if (wasmBuild.origin === "source-build") {
+  const licenses = [
+    ["MUSXDOM", resolve(dependencyRoot, "musx-src/LICENSE")],
+    ["MNXDOM", resolve(dependencyRoot, "mnxdom-src/LICENSE")],
+    ["SMUFL-MAPPING", resolve(dependencyRoot, "smufl_mapping-src/LICENSE")],
+    ["BRAVURA-OFL", resolve(dependencyRoot, "smufl_mapping-src/OFL.txt")],
+    ["PUGIXML", resolve(dependencyRoot, "pugixml-src/LICENSE.md")],
+    ["NLOHMANN-JSON", resolve(dependencyRoot, "nlohmann_json-src/LICENSE.MIT")],
+    ["JSON-SCHEMA-VALIDATOR", resolve(dependencyRoot, "json_schema_validator-src/LICENSE")],
+    ["ZLIB", resolve(dependencyRoot, "zlib-src/LICENSE")],
+    ["EMSCRIPTEN", resolve(buildRoot, "LICENSE-EMSCRIPTEN.txt")],
+    ["MUSL", resolve(buildRoot, "LICENSE-MUSL.txt")],
+    ["LIBCXX", resolve(buildRoot, "LICENSE-LIBCXX.txt")],
+  ] as const;
+  for (const [name, source] of licenses) {
+    copyLicense(source, resolve(outputRoot, `LICENSE-${name}.txt`));
+  }
+  copyFileSync(resolve(dependencyRoot, "smufl_mapping-src/NOTICE.md"), resolve(outputRoot, "NOTICE-SMUFL-MAPPING.md"));
 }
-copyFileSync(resolve(dependencyRoot, "smufl_mapping-src/NOTICE.md"), resolve(outputRoot, "NOTICE-SMUFL-MAPPING.md"));
 
 const manifest = {
   denigmaCommit: DENIGMA_COMMIT,
   denigmaVersion: DENIGMA_VERSION,
+  origin: wasmBuild.origin,
   emscriptenImage: EMSCRIPTEN_IMAGE,
   moduleSha256: sha256(moduleSource),
   wasmSha256: sha256(wasmSource),

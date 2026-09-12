@@ -3,7 +3,7 @@
 # Stage 1 builds the server-UI bundle from the pnpm workspace. Its vite build
 # owns apps/server-ui/dist. The publish stage consumes that declared output and
 # lets MSBuild fold it into wwwroot without generating assets in API source.
-FROM node:22-slim AS server-ui
+FROM node:24-slim AS server-ui
 WORKDIR /repo
 ENV CI=1
 RUN corepack enable

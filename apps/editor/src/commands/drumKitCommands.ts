@@ -173,7 +173,7 @@ export interface SetNoteheadParams {
  * Set the notehead shape of every note in the targeted event.
  *
  * Pitched events: stored on each `note._x.viritura.notehead` (Option A — the
- * engine ignores this for now, but it round-trips through MNX). Setting
+ * engine renders the matching duration-aware SMuFL notehead). Setting
  * `"normal"` clears the override.
  *
  * Percussion events: notehead is a property of the *kit-component*, not the

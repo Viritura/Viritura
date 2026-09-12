@@ -16,9 +16,14 @@ const checks =
           generator: "./generate-viritura-types.ts",
           outputs: ["../../core/src/raw/raw-viritura.ts"],
         }
-      : null;
+      : mode === "validators"
+        ? {
+            generator: "./generate-standalone-validators.ts",
+            outputs: ["../src/mnx/standaloneValidators.ts"],
+          }
+        : null;
 
-if (!checks) throw new Error("Expected generated-type target 'mnx' or 'viritura'.");
+if (!checks) throw new Error("Expected generated target 'mnx', 'viritura', or 'validators'.");
 
 const outputPaths = checks.outputs.map((path) => resolve(here, path));
 const before = await Promise.all(outputPaths.map((path) => readFile(path)));

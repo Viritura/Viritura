@@ -4,7 +4,7 @@
 # stack (see ../worktree/docker-compose.yml) joins the external
 # `viritura-dev-proxy` network and advertises its services with Traefik labels,
 # so no worktree ever binds a host app port and any number of worktrees can run
-# at once. Bring it up once with `infra/dev/worktree.ps1 proxy` (the worktree
+# at once. Bring it up once with `pnpm dev:stack proxy` (the worktree
 # wrapper starts it automatically on the first `up`).
 name: viritura-dev-proxy
 

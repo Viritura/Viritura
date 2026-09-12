@@ -549,6 +549,7 @@ export function semanticDiff(original: unknown, modified: unknown): DiffNode {
   if (children.length > 0) {
     root.children = children;
   }
+  root.summary = summarizeChanges(root);
   return root;
 }
 
@@ -565,6 +566,59 @@ export function collectLeaves(node: DiffNode): DiffNode[] {
     leaves.push(...collectLeaves(child));
   }
   return leaves;
+}
+
+function pluralize(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+function summarizeChangeKinds(leaves: DiffNode[]): string {
+  const kinds = new Map<string, number>();
+  for (const leaf of leaves) {
+    const summary = leaf.summary.toLowerCase();
+    const kind =
+      summary.includes("pitch") || /\b[a-g][♯♭]?\d\s*→\s*[a-g][♯♭]?\d/i.test(leaf.summary)
+        ? "pitch change"
+        : summary.includes("duration") || summary.includes("rhythm")
+          ? "rhythm change"
+          : summary.includes("added") || leaf.type === "added"
+            ? "addition"
+            : summary.includes("removed") || leaf.type === "removed"
+              ? "removal"
+              : "notation change";
+    kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+  }
+  const phrases = [...kinds].map(([kind, count]) => pluralize(count, kind));
+  if (phrases.length <= 1) return phrases[0] ?? "No changes";
+  return `${phrases.slice(0, -1).join(", ")} and ${phrases.at(-1)}`;
+}
+
+/**
+ * Summarize the musical effect and scope of a semantic diff without exposing
+ * JSON tree terminology to the user.
+ */
+export function summarizeChanges(node: DiffNode): string {
+  const leaves = collectLeaves(node);
+  if (leaves.length === 0) return "No musical changes";
+
+  const measureNumbers = new Set<number>();
+  const partIndexes = new Set<number>();
+  for (const leaf of leaves) {
+    const measureMatch = leaf.path.match(/measures\[(\d+)\]/);
+    if (measureMatch?.[1] !== undefined) measureNumbers.add(Number(measureMatch[1]) + 1);
+    const partMatch = leaf.path.match(/parts\[(\d+)\]/);
+    if (partMatch?.[1] !== undefined) partIndexes.add(Number(partMatch[1]));
+  }
+
+  const changeSummary = summarizeChangeKinds(leaves);
+  const scopes: string[] = [];
+  if (measureNumbers.size === 1) {
+    scopes.push(`in measure ${[...measureNumbers][0]}`);
+  } else if (measureNumbers.size > 1) {
+    scopes.push(`across ${pluralize(measureNumbers.size, "measure")}`);
+  }
+  if (partIndexes.size > 1) scopes.push(`in ${pluralize(partIndexes.size, "part")}`);
+  return scopes.length > 0 ? `${changeSummary} ${scopes.join(" ")}` : changeSummary;
 }
 
 /**

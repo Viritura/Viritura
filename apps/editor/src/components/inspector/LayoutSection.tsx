@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
 import type { Score } from "@viritura/core";
-import { FormInput, Select, type SelectOption } from "@viritura/ui";
+import { ButtonGroup, IconButton, Select, type ButtonGroupOption, type SelectOption } from "@viritura/ui";
+import { Info } from "lucide-react";
 import type { InspectorSectionProps } from "./types";
 
-function tupletFieldsetStyle(isTuplet: boolean): CSSProperties {
+function tupletFieldsetStyle(): CSSProperties {
   // Sub-group within a section: flat, no divider, indented label.
   return {
     margin: 0,
@@ -14,7 +15,6 @@ function tupletFieldsetStyle(isTuplet: boolean): CSSProperties {
     flexDirection: "column",
     gap: "0.5rem",
     marginTop: "6px",
-    opacity: isTuplet ? 1 : 0.5,
   };
 }
 function tupletLegendStyle(): CSSProperties {
@@ -26,7 +26,6 @@ function tupletLegendStyle(): CSSProperties {
     opacity: 0.75,
   };
 }
-import { useDebouncedInput } from "../../hooks/useDebouncedInput";
 import { useLayoutOverrideHandlers } from "./useLayoutOverrideHandlers";
 import { legendStyle, labelStyle, mergeFocusedSectionStyle, errorStyle } from "./types";
 
@@ -35,6 +34,7 @@ const UP_DOWN_OPTIONS: SelectOption[] = [
   { value: "up", label: "Up" },
   { value: "down", label: "Down" },
 ];
+const UP_DOWN_PILL_OPTIONS: ButtonGroupOption[] = UP_DOWN_OPTIONS;
 
 const BRACKET_OPTIONS: SelectOption[] = [
   { value: "", label: "Auto" },
@@ -48,6 +48,12 @@ const DISPLAY_OPTIONS: SelectOption[] = [
   { value: "inner", label: "Inner" },
   { value: "both", label: "Both" },
 ];
+
+const FIELD_LABEL_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-1)",
+};
 
 interface LayoutSectionProps extends InspectorSectionProps {
   /** The selected sequence (if any). */
@@ -66,6 +72,8 @@ interface LayoutSectionProps extends InspectorSectionProps {
   isTuplet: boolean;
   /** Whether the selected content is an event. */
   isEvent: boolean;
+  /** Number of staves owned by the selected event's instrument. */
+  staffCount: number;
   disabled: boolean;
 }
 
@@ -79,6 +87,7 @@ export function LayoutSection({
   selectedContent,
   isTuplet,
   isEvent,
+  staffCount,
   disabled,
 }: LayoutSectionProps) {
   const {
@@ -93,8 +102,6 @@ export function LayoutSection({
     handleTupletShowValueChange,
   } = useLayoutOverrideHandlers({ score, target, updateScore });
 
-  const crossStaffInput = useDebouncedInput(readCrossStaffValue(isEvent, selectedContent), handleEventStaffChange);
-
   // Pre-compute current-value reads so the JSX stays declarative.
   const {
     stemDirectionValue,
@@ -105,72 +112,115 @@ export function LayoutSection({
     tupletShowNumberValue,
     tupletShowValueValue,
   } = readLayoutOverrideValues({ isEvent, isTuplet, selectedContent, selectedSequence });
+  const staffOptions: ButtonGroupOption[] = [
+    { value: "", label: "Auto" },
+    ...Array.from({ length: staffCount }, (_, index) => ({
+      value: String(index + 1),
+      label: String(index + 1),
+    })),
+  ];
 
   return (
     <fieldset ref={sectionRef} style={mergeFocusedSectionStyle("layout", focusedSection)} disabled={disabled}>
-      <legend style={legendStyle}>Layout Overrides (O)</legend>
+      <legend style={legendStyle}>Layout Overrides</legend>
 
-      <label style={labelStyle}>
-        Stem Direction
-        <Select
+      <LayoutOverrideField
+        label="Stem Direction"
+        tooltip="Sets only the selected event's stem direction. It does not change the event's vertical orientation."
+      >
+        <ButtonGroup
           data-testid="notation-layout-stem"
+          ariaLabel="Stem Direction"
           disabled={!isEvent}
           value={stemDirectionValue}
-          onValueChange={handleStemDirectionChange}
-          options={UP_DOWN_OPTIONS}
+          onChange={handleStemDirectionChange}
+          options={UP_DOWN_PILL_OPTIONS}
         />
-      </label>
+      </LayoutOverrideField>
 
-      <label style={labelStyle}>
-        Event Orient
-        <Select
+      <LayoutOverrideField
+        label="Event Orientation"
+        tooltip="Places the selected event on the up or down side of the staff and forces that event's stem direction."
+      >
+        <ButtonGroup
           data-testid="notation-layout-event-orient"
+          ariaLabel="Event Orientation"
           disabled={!isEvent}
           value={eventOrientValue}
-          onValueChange={handleEventOrientChange}
-          options={UP_DOWN_OPTIONS}
+          onChange={handleEventOrientChange}
+          options={UP_DOWN_PILL_OPTIONS}
         />
-      </label>
+      </LayoutOverrideField>
 
-      <label style={labelStyle}>
-        Cross-Staff
-        <FormInput
-          data-testid="notation-layout-staff"
-          disabled={!isEvent}
-          value={crossStaffInput.value}
-          onChange={(e) => crossStaffInput.onChange(e.target.value)}
-          onBlur={crossStaffInput.onBlur}
-          placeholder="Staff number (blank = default)"
-        />
-      </label>
-
-      <label style={labelStyle}>
-        Sequence Orient
-        <Select
+      <LayoutOverrideField
+        label="Sequence Orientation"
+        tooltip="Sets the up or down orientation for the entire voice sequence, supplying a stem direction for its events unless an event overrides it."
+      >
+        <ButtonGroup
           data-testid="notation-layout-seq-orient"
+          ariaLabel="Sequence Orientation"
           disabled={!selectedSequence}
           value={sequenceOrientValue}
-          onValueChange={handleSequenceOrientChange}
-          options={UP_DOWN_OPTIONS}
+          onChange={handleSequenceOrientChange}
+          options={UP_DOWN_PILL_OPTIONS}
         />
-      </label>
+      </LayoutOverrideField>
 
-      <fieldset style={tupletFieldsetStyle(isTuplet)} disabled={!isTuplet}>
-        <legend style={tupletLegendStyle()}>Tuplet Overrides</legend>
-        <TupletOverrideControls
-          orient={tupletOrientValue}
-          bracket={tupletBracketValue}
-          showNumber={tupletShowNumberValue}
-          showValue={tupletShowValueValue}
-          onOrientChange={handleTupletOrientChange}
-          onBracketChange={handleTupletBracketChange}
-          onShowNumberChange={handleTupletShowNumberChange}
-          onShowValueChange={handleTupletShowValueChange}
-        />
-      </fieldset>
+      {isEvent && staffCount > 1 && (
+        <LayoutOverrideField
+          label="Cross-Staff"
+          tooltip="Moves the selected event to another staff of the same instrument while keeping it in its current voice sequence."
+        >
+          <ButtonGroup
+            data-testid="notation-layout-staff"
+            ariaLabel="Cross-Staff"
+            value={readCrossStaffValue(isEvent, selectedContent)}
+            onChange={handleEventStaffChange}
+            options={staffOptions}
+          />
+        </LayoutOverrideField>
+      )}
+
+      {isTuplet && (
+        <fieldset style={tupletFieldsetStyle()}>
+          <legend style={tupletLegendStyle()}>Tuplet Overrides</legend>
+          <TupletOverrideControls
+            orient={tupletOrientValue}
+            bracket={tupletBracketValue}
+            showNumber={tupletShowNumberValue}
+            showValue={tupletShowValueValue}
+            onOrientChange={handleTupletOrientChange}
+            onBracketChange={handleTupletBracketChange}
+            onShowNumberChange={handleTupletShowNumberChange}
+            onShowValueChange={handleTupletShowValueChange}
+          />
+        </fieldset>
+      )}
 
       {layoutError && <div style={errorStyle}>{layoutError}</div>}
     </fieldset>
+  );
+}
+
+function LayoutOverrideField({
+  label,
+  tooltip,
+  children,
+}: {
+  label: string;
+  tooltip: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={labelStyle}>
+      <span style={FIELD_LABEL_HEADER_STYLE}>
+        {label}
+        <IconButton size="xs" variant="ghost" tooltip={tooltip} tooltipSide="right" aria-label={`About ${label}`}>
+          <Info size={11} aria-hidden="true" />
+        </IconButton>
+      </span>
+      {children}
+    </div>
   );
 }
 

@@ -783,16 +783,19 @@ pub(crate) fn render_event(
     // Accidental info collected during note loop for post-loop stacking
     let mut acc_infos: Vec<AccidentalPlacement> = Vec::new();
 
-    // Per-note notehead codepoint: kit-notes may override the shape via their
-    // KitComponent.notehead (Viritura vendor extension). Used both when drawing
-    // the noteheads and when picking the per-shape stem-attachment anchor.
+    // Per-note notehead codepoint: pitched notes may override the shape directly,
+    // while kit-notes inherit it from their KitComponent. Used for drawing,
+    // extents, and the per-shape stem-attachment anchor.
     let per_note_cp = |i: usize| -> u32 {
         if let Some(note) = notes.get(i) {
+            if note.kit_component.is_none() {
+                return smufl::shaped_notehead_glyph(note.notehead.as_ref(), &event.duration.base);
+            }
             if let Some(kc_id) = &note.kit_component {
                 let shape = kit
                     .and_then(|k| k.get(kc_id.as_str()))
                     .and_then(|c| c.notehead.as_ref());
-                return smufl::percussion_notehead_glyph(shape, &event.duration.base);
+                return smufl::shaped_notehead_glyph(shape, &event.duration.base);
             }
         }
         notehead_codepoint
@@ -817,10 +820,6 @@ pub(crate) fn render_event(
     let dot_y_offsets = compute_dot_y_offsets(note_positions, sp);
 
     // Draw noteheads + ledger lines
-    // Use the actual glyph width for ledger line centering — whole notes are
-    // wider than quarter/half noteheads (1.66sp vs 1.18sp).
-    let ledger_w = smufl::notehead_width(notehead_codepoint) * sp;
-
     for (i, &pos) in note_positions.iter().enumerate() {
         // Skip shared noteheads — the other voice renders this notehead
         if shared_noteheads.get(i).copied().unwrap_or(false) {
@@ -830,6 +829,7 @@ pub(crate) fn render_event(
         // Per-note notehead codepoint: kit-notes may override the shape via
         // their KitComponent.notehead (Viritura vendor extension).
         let per_note_codepoint = per_note_cp(i);
+        let ledger_w = smufl::notehead_width(per_note_codepoint) * sp;
 
         let note_y = staff_y + pos * sp * 0.5;
         let note_x_offset = note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;

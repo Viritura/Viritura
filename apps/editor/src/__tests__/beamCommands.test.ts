@@ -30,6 +30,10 @@ function single(id: string): Selection {
   return { kind: "single", elementId: `p0/m0/s0/${id}`, elementType: "event" };
 }
 
+function multi(...ids: string[]): Selection {
+  return { kind: "multi", elementIds: ids.map((id) => `p0/m0/s0/${id}`) };
+}
+
 describe("breakBeamAfterSelection", () => {
   it("materializes automatic groups and splits after the range endpoint", () => {
     const value = score();
@@ -49,6 +53,24 @@ describe("breakBeamAfterSelection", () => {
       expect(canBeamTogetherSelection(value, range("e2", "e4"))).toBe(true);
       expect(beamTogetherSelection(value, range("e2", "e4"))).toBe(true);
       expect(value.parts[0]!.measures[0]!.beams).toEqual([{ events: ["e2", "e3", "e4"] }]);
+    });
+
+    it("creates an explicit beam over consecutive Ctrl+click selections", () => {
+      const value = score();
+      const selection = multi("e4", "e2", "e3");
+
+      expect(canBeamTogetherSelection(value, selection)).toBe(true);
+      expect(beamTogetherSelection(value, selection)).toBe(true);
+      expect(value.parts[0]!.measures[0]!.beams).toEqual([{ events: ["e2", "e3", "e4"] }]);
+    });
+
+    it("rejects non-contiguous Ctrl+click selections", () => {
+      const value = score();
+      const selection = multi("e2", "e4");
+
+      expect(canBeamTogetherSelection(value, selection)).toBe(false);
+      expect(beamTogetherSelection(value, selection)).toBe(false);
+      expect(value.parts[0]!.measures[0]!.beams).toBeUndefined();
     });
 
     it("replaces the selected portion of an existing beam and preserves the rest", () => {

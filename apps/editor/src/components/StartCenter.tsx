@@ -45,6 +45,7 @@ import {
   FormInput,
   IconButton,
   ListRow,
+  Select,
   VirituraLogo,
 } from "@viritura/ui";
 import * as RadixDialog from "@radix-ui/react-dialog";
@@ -57,6 +58,26 @@ import accountPopoverStyles from "../auth/AccountButton.module.css";
 import { SCORE_SAMPLES, type ScoreSample } from "../scoreSamples";
 import { getProjectFolderNameError } from "../app/projectFolder";
 import type { StartCenterView } from "../store/onboardingStore";
+import { DEFAULT_NEW_SCORE_SETTINGS, type InitialScoreSettings } from "../score/ScoreBuilder";
+
+const KEY_OPTIONS = [
+  { value: "-7", label: "C♭ major" },
+  { value: "-6", label: "G♭ major" },
+  { value: "-5", label: "D♭ major" },
+  { value: "-4", label: "A♭ major" },
+  { value: "-3", label: "E♭ major" },
+  { value: "-2", label: "B♭ major" },
+  { value: "-1", label: "F major" },
+  { value: "0", label: "C major" },
+  { value: "1", label: "G major" },
+  { value: "2", label: "D major" },
+  { value: "3", label: "A major" },
+  { value: "4", label: "E major" },
+  { value: "5", label: "B major" },
+  { value: "6", label: "F♯ major" },
+  { value: "7", label: "C♯ major" },
+];
+const TIME_UNIT_OPTIONS = [2, 4, 8, 16].map((unit) => ({ value: String(unit), label: String(unit) }));
 
 export interface StartCenterProps {
   open: boolean;
@@ -76,7 +97,11 @@ export interface StartCenterProps {
   onChooseProjectLocation: () => Promise<FileSystemDirectoryHandle | null>;
   onSignIn: () => void;
   onOpenAccountSettings: () => void;
-  onNewScore: (projectName: string, parentHandle: FileSystemDirectoryHandle) => Promise<boolean>;
+  onNewScore: (
+    projectName: string,
+    parentHandle: FileSystemDirectoryHandle,
+    initialScore: InitialScoreSettings,
+  ) => Promise<boolean>;
   onOpenFile: () => void;
   onOpenFolder: () => void;
   /**
@@ -178,7 +203,7 @@ export function StartCenter(props: StartCenterProps) {
             <ActionTile
               active={view === "newProject"}
               icon={<FilePlus2 size={18} />}
-              title="New Project…"
+              title="New Project"
               hint={projectsSupported ? "Create with version history" : "Unavailable in this browser"}
               onClick={() => setView("newProject")}
               disabled={!projectsSupported}
@@ -186,7 +211,7 @@ export function StartCenter(props: StartCenterProps) {
             />
             <ActionTile
               icon={<FolderOpen size={18} />}
-              title="Open Project Folder…"
+              title="Open Project Folder"
               hint={projectsSupported ? "Continue an existing project" : "Unavailable in this browser"}
               onClick={onOpenFolder}
               disabled={!projectsSupported}
@@ -194,7 +219,7 @@ export function StartCenter(props: StartCenterProps) {
             />
             <ActionTile
               icon={<Download size={18} />}
-              title="Import…"
+              title="Import"
               hint={onImport ? "Convert MusicXML, MXL, or Finale MUSX" : "Coming soon"}
               onClick={onImport}
               disabled={!onImport}
@@ -244,7 +269,7 @@ export function StartCenter(props: StartCenterProps) {
             </div>
           </header>
 
-          <div className={styles.mainContent}>
+          <div className={`${styles.mainContent} ${view === "newProject" ? styles.mainContentForm : ""}`}>
             {view === "newProject" ? (
               <NewProjectForm
                 onChooseLocation={onChooseProjectLocation}
@@ -293,7 +318,11 @@ function NewProjectForm({
   onCreated,
 }: {
   onChooseLocation: () => Promise<FileSystemDirectoryHandle | null>;
-  onCreate: (projectName: string, parentHandle: FileSystemDirectoryHandle) => Promise<boolean>;
+  onCreate: (
+    projectName: string,
+    parentHandle: FileSystemDirectoryHandle,
+    initialScore: InitialScoreSettings,
+  ) => Promise<boolean>;
   onCreated: () => void;
 }) {
   const [projectName, setProjectName] = useState("");
@@ -303,15 +332,22 @@ function NewProjectForm({
   const [parentHandle, setParentHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [choosingLocation, setChoosingLocation] = useState(false);
   const [working, setWorking] = useState(false);
+  const [timeCount, setTimeCount] = useState(String(DEFAULT_NEW_SCORE_SETTINGS.time.count));
+  const [timeUnit, setTimeUnit] = useState(String(DEFAULT_NEW_SCORE_SETTINGS.time.unit));
+  const [keyFifths, setKeyFifths] = useState(String(DEFAULT_NEW_SCORE_SETTINGS.keyFifths));
+  const [tempoBpm, setTempoBpm] = useState(String(DEFAULT_NEW_SCORE_SETTINGS.tempoBpm));
+  const [measureCount, setMeasureCount] = useState(String(DEFAULT_NEW_SCORE_SETTINGS.measureCount));
   const error = getProjectFolderNameError(projectName);
+  const initialScore = parseInitialScoreSettings({ timeCount, timeUnit, keyFifths, tempoBpm, measureCount });
+  const initialScoreInvalid = initialScore === null;
   const showError = Boolean(error) && (submitAttempted || (dirty && blurred));
 
   const create = async () => {
     setSubmitAttempted(true);
-    if (error || !parentHandle || working) return;
+    if (error || !parentHandle || working || !initialScore) return;
     setWorking(true);
     try {
-      if (await onCreate(projectName.trim(), parentHandle)) onCreated();
+      if (await onCreate(projectName.trim(), parentHandle, initialScore)) onCreated();
     } finally {
       setWorking(false);
     }
@@ -342,65 +378,160 @@ function NewProjectForm({
         submit();
       }}
     >
-      <section className={styles.projectForm}>
-        <p className={styles.projectFormIntro}>
-          Create a project folder for your score and version history. Instruments and layouts come next.
-        </p>
-        <FormField
-          label="Project name"
-          error={showError ? (error ?? undefined) : undefined}
-          className={styles.projectNameField}
-        >
-          <FormInput
-            large
-            autoFocus
-            required
-            value={projectName}
-            placeholder="My Project"
-            onInvalid={(event) => {
-              event.preventDefault();
-              setSubmitAttempted(true);
-            }}
-            onBlur={() => setBlurred(true)}
-            onChange={(event) => {
-              if (!dirty) setBlurred(false);
-              setDirty(true);
-              setProjectName(event.target.value);
-            }}
-          />
-        </FormField>
-        <FormField
-          label="Project location"
-          message={
-            showError
-              ? undefined
-              : parentHandle
-                ? `New folder: ${parentHandle.name} / ${projectName.trim() || "Project name"}`
-                : "Choose the folder that should contain your new project."
-          }
-        >
-          <FolderPickerInput
-            large
-            required
-            value={parentHandle?.name}
-            placeholder={choosingLocation ? "Choosing folder…" : "Choose a folder…"}
-            disabled={working || choosingLocation}
-            onClick={() => void chooseLocation()}
-          />
-        </FormField>
-      </section>
+      <div className={styles.projectFormScroll}>
+        <section className={styles.projectForm}>
+          <p className={styles.projectFormIntro}>
+            Create a project folder for your score and version history. Instruments and layouts come next.
+          </p>
+          <FormField
+            label="Project name"
+            error={showError ? (error ?? undefined) : undefined}
+            className={styles.projectNameField}
+          >
+            <FormInput
+              large
+              autoFocus
+              required
+              value={projectName}
+              placeholder="My Project"
+              onInvalid={(event) => {
+                event.preventDefault();
+                setSubmitAttempted(true);
+              }}
+              onBlur={() => setBlurred(true)}
+              onChange={(event) => {
+                if (!dirty) setBlurred(false);
+                setDirty(true);
+                setProjectName(event.target.value);
+              }}
+            />
+          </FormField>
+          <FormField
+            label="Project location"
+            message={
+              showError
+                ? undefined
+                : parentHandle
+                  ? `New folder: ${parentHandle.name} / ${projectName.trim() || "Project name"}`
+                  : "Choose the folder that should contain your new project."
+            }
+          >
+            <FolderPickerInput
+              large
+              required
+              value={parentHandle?.name}
+              placeholder={choosingLocation ? "Choosing folder…" : "Choose a folder…"}
+              disabled={working || choosingLocation}
+              onClick={() => void chooseLocation()}
+            />
+          </FormField>
+          <section className={styles.initialScoreSection} aria-labelledby="new-project-initial-score">
+            <h3 id="new-project-initial-score" className={styles.initialScoreHeading}>
+              Initial score
+            </h3>
+            <div className={styles.initialScoreGrid}>
+              <FormField label="Time signature">
+                <div className={styles.timeSignatureFields}>
+                  <FormInput
+                    large
+                    type="number"
+                    min={1}
+                    max={32}
+                    value={timeCount}
+                    data-testid="new-project-time-count"
+                    aria-label="Time signature beats"
+                    onChange={(event) => setTimeCount(event.target.value)}
+                  />
+                  <Select
+                    size="lg"
+                    value={timeUnit}
+                    options={TIME_UNIT_OPTIONS}
+                    aria-label="Time signature beat unit"
+                    data-testid="new-project-time-unit"
+                    onValueChange={setTimeUnit}
+                  />
+                </div>
+              </FormField>
+              <FormField label="Key signature">
+                <Select
+                  size="lg"
+                  value={keyFifths}
+                  options={KEY_OPTIONS}
+                  aria-label="Initial key signature"
+                  data-testid="new-project-key"
+                  onValueChange={setKeyFifths}
+                />
+              </FormField>
+              <FormField label="Tempo (BPM)">
+                <FormInput
+                  large
+                  type="number"
+                  min={20}
+                  max={400}
+                  value={tempoBpm}
+                  data-testid="new-project-tempo"
+                  onChange={(event) => setTempoBpm(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Bars">
+                <FormInput
+                  large
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={measureCount}
+                  data-testid="new-project-bars"
+                  onChange={(event) => setMeasureCount(event.target.value)}
+                />
+              </FormField>
+            </div>
+          </section>
+        </section>
+      </div>
       <DialogActions className={styles.projectDialogActions}>
         <Button
           type="submit"
           variant="primary"
-          disabled={Boolean(error) || !parentHandle || working || choosingLocation}
+          disabled={Boolean(error) || !parentHandle || working || choosingLocation || initialScoreInvalid}
         >
           {working && <Loader2 className={styles.accountSpin} size={16} />}
-          {working ? "Creating project…" : "Create project"}
+          {working ? "Creating project" : "Create project"}
         </Button>
       </DialogActions>
     </form>
   );
+}
+
+function parseInitialScoreSettings(values: {
+  timeCount: string;
+  timeUnit: string;
+  keyFifths: string;
+  tempoBpm: string;
+  measureCount: string;
+}): InitialScoreSettings | null {
+  const timeCount = Number(values.timeCount);
+  const timeUnit = Number(values.timeUnit);
+  const keyFifths = Number(values.keyFifths);
+  const tempoBpm = Number(values.tempoBpm);
+  const measureCount = Number(values.measureCount);
+  if (
+    !Number.isInteger(timeCount) ||
+    timeCount < 1 ||
+    timeCount > 32 ||
+    ![2, 4, 8, 16].includes(timeUnit) ||
+    !Number.isInteger(keyFifths) ||
+    keyFifths < -7 ||
+    keyFifths > 7 ||
+    !Number.isFinite(tempoBpm) ||
+    tempoBpm < 20 ||
+    tempoBpm > 400 ||
+    !Number.isInteger(measureCount) ||
+    measureCount < 1 ||
+    measureCount > 999
+  ) {
+    return null;
+  }
+  return { time: { count: timeCount, unit: timeUnit }, keyFifths, tempoBpm, measureCount };
 }
 
 function EmptyRecentState({ canCreate, onCreate }: { canCreate: boolean; onCreate: () => void }) {

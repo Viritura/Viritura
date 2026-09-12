@@ -3,15 +3,18 @@
 Browser and Tauri-webview adapter for converting Finale MUSX files to standard
 MNX with Denigma WebAssembly.
 
-The generated runtime is built from a pinned revision of
-[`rpatters1/denigma`](https://github.com/rpatters1/denigma). Run this from the
-repository root to clone that revision, compile the public `denigma::mnx`
-converter through a small Viritura-owned C ABI in a pinned Docker image, run a
-WASM smoke test, and stage the resulting assets:
+The generated runtime comes from a pinned revision of
+[`openmusx/denigma`](https://github.com/openmusx/denigma). Run this from the
+repository root to download that revision's CI-built `denigma-wasm` artifact,
+verify its embedded commit, run a conversion smoke test, and stage the assets:
 
 ```powershell
 pnpm build:denigma-wasm
 ```
+
+If the commit artifact is unavailable or expired, the command builds Denigma's
+own `denigma_wasm` target from source in the pinned Emscripten Docker image. Use
+`pnpm build:denigma-wasm:source` to exercise that fallback explicitly.
 
 The generated module, WASM binary, source revisions, hashes, and upstream
 licenses live in `assets/`. Vite stages the runtime under `/denigma/`; conversion

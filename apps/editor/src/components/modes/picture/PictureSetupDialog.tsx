@@ -70,7 +70,7 @@ export function PictureSetupDialog({ open, onClose }: PictureSetupDialogProps) {
           <div className={styles.fileActions}>
             <label className={styles.fileButton}>
               <FormInput type="file" accept={VIDEO_FILE_ACCEPT} className={styles.fileInput} onChange={handleFile} />
-              <span>{hasClip ? "Relink…" : "Choose video…"}</span>
+              <span>{hasClip ? "Relink" : "Choose video"}</span>
             </label>
             {!hasClip &&
               DEMO_VIDEO_SOURCES.map((source) => (

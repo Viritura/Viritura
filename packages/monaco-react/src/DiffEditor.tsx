@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { editor } from "monaco-editor";
-import "monaco-editor/min/vs/editor/editor.main.css";
 import { monaco } from "./monacoApi";
 import type { DiffEditorProps } from "./types";
 

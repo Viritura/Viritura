@@ -14,6 +14,7 @@ import { type CommitInfo, type ProjectAdapter, type ProjectStatus } from "./Proj
 import { getIdentity } from "./identity";
 
 const DEFAULT_BRANCH = "main";
+const SCORE_HISTORY_CACHE_SIZE = 8;
 
 export interface GitAdapterOptions {
   fs: IsoGitFs;
@@ -106,6 +107,7 @@ export class GitProjectAdapter implements ProjectAdapter {
   name: string;
   private fs: IsoGitFs;
   private scorePath: string;
+  private readonly scoreHistoryCache = new Map<string, Promise<string>>();
 
   constructor(opts: GitAdapterOptions) {
     this.fs = opts.fs;
@@ -246,17 +248,31 @@ export class GitProjectAdapter implements ProjectAdapter {
   }
 
   async readScoreAtCommit(sha: string): Promise<string> {
-    try {
-      const { blob } = await git.readBlob({
+    const cached = this.scoreHistoryCache.get(sha);
+    if (cached) {
+      this.scoreHistoryCache.delete(sha);
+      this.scoreHistoryCache.set(sha, cached);
+      return cached;
+    }
+
+    const read = git
+      .readBlob({
         fs: this.fs,
         dir: "/",
         oid: sha,
         filepath: this.scorePath,
+      })
+      .then(({ blob }) => new TextDecoder().decode(blob))
+      .catch((err: unknown) => {
+        this.scoreHistoryCache.delete(sha);
+        throw new Error(`Could not read score at commit ${sha.slice(0, 7)}: ${(err as Error).message}`);
       });
-      return new TextDecoder().decode(blob);
-    } catch (err) {
-      throw new Error(`Could not read score at commit ${sha.slice(0, 7)}: ${(err as Error).message}`);
+    this.scoreHistoryCache.set(sha, read);
+    if (this.scoreHistoryCache.size > SCORE_HISTORY_CACHE_SIZE) {
+      const oldestSha = this.scoreHistoryCache.keys().next().value;
+      if (oldestSha !== undefined) this.scoreHistoryCache.delete(oldestSha);
     }
+    return read;
   }
 
   async setRemoteUrl(remote: string, url: string): Promise<void> {

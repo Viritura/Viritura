@@ -274,7 +274,11 @@ export interface MnxEventLyrics {
 
 export interface MnxNote {
   pitch?: MnxPitch;
-  accidentalDisplay?: { show: boolean };
+  accidentalDisplay?: {
+    show: boolean;
+    force?: boolean;
+    enclosure?: { symbol: "parentheses" | "brackets" };
+  };
   id?: string;
   ties?: MnxTie[];
   staff?: number;

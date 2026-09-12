@@ -10,7 +10,7 @@ serde_json = "1"
 ttf-parser = "0.25"
 # Used by typify-generated pattern validators in src/raw.rs. Kept here (not
 # behind a feature flag) so the generated module compiles unconditionally.
-regress = "0.10"
+regress = "0.12"
 # Runtime JSON Schema validation against src/mnx-schema.json (draft 2020-12).
 # Used by validator.rs to back assert_raw_score / is_raw_score.
 jsonschema = { version = "0.18", default-features = false, features = ["draft202012"] }
