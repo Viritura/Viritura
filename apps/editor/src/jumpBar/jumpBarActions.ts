@@ -278,7 +278,7 @@ export function buildJumpBarActions(
       id: "add.chordSymbol",
       label: "Add Chord Symbol",
       category: "Add",
-      shortcut: "Ctrl+K",
+      shortcut: "Shift+K",
       keywords: ["harmony", "chord", "lead sheet"],
       execute: cb.addChordSymbol,
     },
