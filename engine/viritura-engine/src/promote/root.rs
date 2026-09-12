@@ -12,6 +12,7 @@ use crate::model::score::{
     ScoreMetadata as ModelScoreMetadata, Support as ModelSupport,
 };
 use crate::model::time::TimeSignatureStyles as ModelTimeSignatureStyles;
+use crate::model::ChordSymbolStyle as ModelChordSymbolStyle;
 use crate::promote::kit::promote_sound;
 use crate::promote::layout::promote_system_layout;
 use crate::promote::measure::promote_global_measure_with_json;
@@ -99,10 +100,15 @@ fn promote_root_vendor(x: Option<&raw::VendorExtensions>) -> Option<ModelRootVen
         .get("timeSignatures")
         .cloned()
         .and_then(|v| serde_json::from_value::<ModelTimeSignatureStyles>(v).ok());
+    let chord_symbol_style = json
+        .get("chordSymbolStyle")
+        .cloned()
+        .and_then(|v| serde_json::from_value::<ModelChordSymbolStyle>(v).ok());
     if metadata.is_none()
         && text_styles.is_none()
         && placement.is_none()
         && time_signatures.is_none()
+        && chord_symbol_style.is_none()
     {
         return None;
     }
@@ -112,6 +118,7 @@ fn promote_root_vendor(x: Option<&raw::VendorExtensions>) -> Option<ModelRootVen
             text_styles,
             placement,
             time_signatures,
+            chord_symbol_style,
         }),
     })
 }
@@ -347,6 +354,7 @@ mod tests {
             text_styles: Some(serde_json::json!({})),
             placement: Some(serde_json::json!({})),
             time_signatures: Some(ModelTimeSignatureStyles::default()),
+            chord_symbol_style: Some(ModelChordSymbolStyle::default()),
         };
         for key in serialized_keys(&model) {
             assert!(

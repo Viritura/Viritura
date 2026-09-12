@@ -2,6 +2,7 @@ use crate::layout::page_turn::PageTurnConfig;
 use crate::layout::placement_metrics::PlacementTable;
 use crate::layout::text_styles::TextStylesheet;
 use crate::model::time::TimeSignatureSettings;
+use crate::model::ChordSymbolStyle;
 
 /// Music-frame inset policy for one edge (top or bottom) of a page. See
 /// `docs/plans/page-margin-bands.md`.
@@ -248,6 +249,8 @@ pub struct LayoutConfig {
     /// lives on the config, changing it invalidates the layout cache through
     /// the existing config snapshot check.
     pub time_signature_settings: TimeSignatureSettings,
+    /// Score-wide chord-symbol engraving choices.
+    pub chord_symbol_style: ChordSymbolStyle,
 }
 
 impl Default for LayoutConfig {
@@ -400,6 +403,7 @@ impl Default for LayoutConfig {
             placement,
             page_turns: PageTurnConfig::default(),
             time_signature_settings: TimeSignatureSettings::default(),
+            chord_symbol_style: ChordSymbolStyle::default(),
         }
     }
 }

@@ -264,6 +264,42 @@
       "additionalProperties": false
     },
 
+    "chord-symbol-style": {
+      "type": "object",
+      "description": "Score-wide chord-symbol engraving choices.",
+      "properties": {
+        "rootCase": {
+          "type": "string",
+          "enum": ["uppercase", "lowercaseMinor"]
+        },
+        "majorSeventh": {
+          "type": "string",
+          "enum": ["triangle", "maj", "M"]
+        },
+        "minor": {
+          "type": "string",
+          "enum": ["m", "min", "minus", "none"]
+        },
+        "diminished": {
+          "type": "string",
+          "enum": ["symbol", "dim"]
+        },
+        "halfDiminished": {
+          "type": "string",
+          "enum": ["symbol", "minorFlatFive"]
+        },
+        "augmented": {
+          "type": "string",
+          "enum": ["plus", "aug"]
+        },
+        "extensions": {
+          "type": "string",
+          "enum": ["superscript", "baseline"]
+        }
+      },
+      "additionalProperties": false
+    },
+
     "expression-placement": {
       "type": "string",
       "enum": ["below", "above"],
@@ -1145,6 +1181,10 @@
         "timeSignatures": {
           "$ref": "#/$defs/time-signature-styles",
           "description": "Per-document time signature engraving styles for scores and parts."
+        },
+        "chordSymbolStyle": {
+          "$ref": "#/$defs/chord-symbol-style",
+          "description": "Score-wide chord-symbol engraving style."
         },
         "soundProfile": {
           "$ref": "#/$defs/sound-profile-assignment",

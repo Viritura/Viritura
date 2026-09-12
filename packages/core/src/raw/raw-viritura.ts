@@ -135,6 +135,23 @@ export interface components {
             /** @description Override the computed display text (e.g. 'Cadd9'). */
             textOverride?: string;
         };
+        /** @description Score-wide chord-symbol engraving choices. */
+        "chord-symbol-style": {
+            /** @enum {string} */
+            rootCase?: "uppercase" | "lowercaseMinor";
+            /** @enum {string} */
+            majorSeventh?: "triangle" | "maj" | "M";
+            /** @enum {string} */
+            minor?: "m" | "min" | "minus" | "none";
+            /** @enum {string} */
+            diminished?: "symbol" | "dim";
+            /** @enum {string} */
+            halfDiminished?: "symbol" | "minorFlatFive";
+            /** @enum {string} */
+            augmented?: "plus" | "aug";
+            /** @enum {string} */
+            extensions?: "superscript" | "baseline";
+        };
         /**
          * @description Placement of a text expression relative to the staff. Default: 'below'.
          * @enum {string}
@@ -609,6 +626,8 @@ export interface components {
             placement?: components["schemas"]["placement"];
             /** @description Per-document time signature engraving styles for scores and parts. */
             timeSignatures?: components["schemas"]["time-signature-styles"];
+            /** @description Score-wide chord-symbol engraving style. */
+            chordSymbolStyle?: components["schemas"]["chord-symbol-style"];
             /** @description Per-part playback sound assignments keyed by stable MNX part ID. */
             soundProfile?: components["schemas"]["sound-profile-assignment"];
             /** @description Score-to-picture synchronization settings. */
@@ -640,6 +659,7 @@ export type Pedal = components["schemas"]["pedal"];
 export type ChordQuality = components["schemas"]["chord-quality"];
 export type ChordRoot = components["schemas"]["chord-root"];
 export type ChordSymbol = components["schemas"]["chord-symbol"];
+export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
 export type TextExpression = components["schemas"]["text-expression"];
 export type Trill = components["schemas"]["trill"];

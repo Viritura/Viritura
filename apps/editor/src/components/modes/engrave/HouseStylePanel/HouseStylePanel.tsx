@@ -5,9 +5,10 @@ import { Collapsible, FormInput, IconButton, Tooltip } from "@viritura/ui";
 import { TextStylesPanel } from "./TextStylesPanel";
 import { TimeSignatureAppearance } from "./TimeSignatureAppearance";
 import { PageTurnsPanel } from "./PageTurnsPanel";
+import { ChordSymbolsPanel } from "./ChordSymbolsPanel";
 import styles from "./HouseStylePanel.module.css";
 
-type HouseStyleCategory = "time-signatures" | "text-styles" | "page-turns";
+type HouseStyleCategory = "time-signatures" | "chord-symbols" | "text-styles" | "page-turns";
 
 interface CategoryDefinition {
   id: HouseStyleCategory;
@@ -17,6 +18,13 @@ interface CategoryDefinition {
 }
 
 const CATEGORIES: readonly CategoryDefinition[] = [
+  {
+    id: "chord-symbols",
+    title: "Chord Symbols",
+    keywords:
+      "chord harmony jazz root uppercase lowercase major minor diminished half diminished augmented superscript extension",
+    render: () => <ChordSymbolsPanel />,
+  },
   {
     id: "time-signatures",
     title: "Time Signatures",
@@ -41,6 +49,7 @@ const CATEGORIES: readonly CategoryDefinition[] = [
 
 const DEFAULT_OPEN: Record<HouseStyleCategory, boolean> = {
   "time-signatures": true,
+  "chord-symbols": false,
   "page-turns": false,
   "text-styles": false,
 };

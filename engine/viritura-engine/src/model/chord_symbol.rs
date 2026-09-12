@@ -5,6 +5,82 @@ use serde::{Deserialize, Serialize};
 /// the Viritura vendor `chord-quality` schema.
 pub use crate::raw_viritura::ChordQuality;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ChordRootCase {
+    #[default]
+    Uppercase,
+    LowercaseMinor,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum MajorSeventhStyle {
+    #[serde(rename = "triangle")]
+    #[default]
+    Triangle,
+    #[serde(rename = "maj")]
+    Maj,
+    #[serde(rename = "M")]
+    CapitalM,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum MinorStyle {
+    #[serde(rename = "m")]
+    #[default]
+    M,
+    #[serde(rename = "min")]
+    Min,
+    #[serde(rename = "minus")]
+    Minus,
+    #[serde(rename = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum DiminishedStyle {
+    #[default]
+    Symbol,
+    Dim,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum HalfDiminishedStyle {
+    #[default]
+    Symbol,
+    MinorFlatFive,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum AugmentedStyle {
+    #[default]
+    Plus,
+    Aug,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ChordExtensionPosition {
+    #[default]
+    Superscript,
+    Baseline,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ChordSymbolStyle {
+    pub root_case: ChordRootCase,
+    pub major_seventh: MajorSeventhStyle,
+    pub minor: MinorStyle,
+    pub diminished: DiminishedStyle,
+    pub half_diminished: HalfDiminishedStyle,
+    pub augmented: AugmentedStyle,
+    pub extensions: ChordExtensionPosition,
+}
+
 /// Root or bass note of a chord (step + optional alteration).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChordRoot {
@@ -110,7 +186,8 @@ impl ChordSymbol {
         suffix
     }
 
-    /// Build an ASCII fallback used for diagnostics and text-only consumers.
+    /// Build a style-independent ASCII fallback for diagnostics, import/export
+    /// compatibility, and tests. Engraving uses structured house-style runs.
     pub fn display_text(&self) -> String {
         if let Some(ref text) = self.text_override {
             return text.clone();

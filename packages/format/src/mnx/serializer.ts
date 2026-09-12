@@ -109,6 +109,9 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.timeSignatures && Object.keys(score.timeSignatures).length > 0) {
     virituraExt["timeSignatures"] = score.timeSignatures as unknown as Obj;
   }
+  if (score.chordSymbolStyle && Object.keys(score.chordSymbolStyle).length > 0) {
+    virituraExt["chordSymbolStyle"] = score.chordSymbolStyle as unknown as Obj;
+  }
 
   if (score.soundProfile) {
     const parts: Obj = {};

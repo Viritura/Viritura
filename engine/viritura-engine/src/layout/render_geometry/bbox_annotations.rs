@@ -47,7 +47,7 @@ pub(super) fn bbox_chord_symbols(
         let beat = chord.position.beats();
         let beat_pos = beat / total_beats;
         let chord_x = x_origin + beat_pos * content_width;
-        let (width, ascent) = chord_symbol_dimensions(chord, sp);
+        let (width, ascent) = chord_symbol_dimensions(chord, config.chord_symbol_style, sp);
         let bbox = BoundingBox::new(chord_x, chord_baseline_y - ascent, width, ascent);
         bboxes.push(ElementBBox {
             element_id: element_id::chord_symbol(

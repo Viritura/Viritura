@@ -752,6 +752,701 @@ impl<'de> ::serde::Deserialize<'de> for ChordSymbolExtension {
             .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
+///Score-wide chord-symbol engraving choices.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Score-wide chord-symbol engraving choices.",
+///  "type": "object",
+///  "properties": {
+///    "augmented": {
+///      "type": "string",
+///      "enum": [
+///        "plus",
+///        "aug"
+///      ]
+///    },
+///    "diminished": {
+///      "type": "string",
+///      "enum": [
+///        "symbol",
+///        "dim"
+///      ]
+///    },
+///    "extensions": {
+///      "type": "string",
+///      "enum": [
+///        "superscript",
+///        "baseline"
+///      ]
+///    },
+///    "halfDiminished": {
+///      "type": "string",
+///      "enum": [
+///        "symbol",
+///        "minorFlatFive"
+///      ]
+///    },
+///    "majorSeventh": {
+///      "type": "string",
+///      "enum": [
+///        "triangle",
+///        "maj",
+///        "M"
+///      ]
+///    },
+///    "minor": {
+///      "type": "string",
+///      "enum": [
+///        "m",
+///        "min",
+///        "minus",
+///        "none"
+///      ]
+///    },
+///    "rootCase": {
+///      "type": "string",
+///      "enum": [
+///        "uppercase",
+///        "lowercaseMinor"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ChordSymbolStyle {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub augmented: ::std::option::Option<ChordSymbolStyleAugmented>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub diminished: ::std::option::Option<ChordSymbolStyleDiminished>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extensions: ::std::option::Option<ChordSymbolStyleExtensions>,
+    #[serde(
+        rename = "halfDiminished",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub half_diminished: ::std::option::Option<ChordSymbolStyleHalfDiminished>,
+    #[serde(
+        rename = "majorSeventh",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub major_seventh: ::std::option::Option<ChordSymbolStyleMajorSeventh>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub minor: ::std::option::Option<ChordSymbolStyleMinor>,
+    #[serde(
+        rename = "rootCase",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub root_case: ::std::option::Option<ChordSymbolStyleRootCase>,
+}
+impl ::std::convert::From<&ChordSymbolStyle> for ChordSymbolStyle {
+    fn from(value: &ChordSymbolStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for ChordSymbolStyle {
+    fn default() -> Self {
+        Self {
+            augmented: Default::default(),
+            diminished: Default::default(),
+            extensions: Default::default(),
+            half_diminished: Default::default(),
+            major_seventh: Default::default(),
+            minor: Default::default(),
+            root_case: Default::default(),
+        }
+    }
+}
+///`ChordSymbolStyleAugmented`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "plus",
+///    "aug"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleAugmented {
+    #[serde(rename = "plus")]
+    Plus,
+    #[serde(rename = "aug")]
+    Aug,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleAugmented {
+    fn from(value: &ChordSymbolStyleAugmented) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleAugmented {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Plus => f.write_str("plus"),
+            Self::Aug => f.write_str("aug"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleAugmented {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "plus" => Ok(Self::Plus),
+            "aug" => Ok(Self::Aug),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleAugmented {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleAugmented {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleAugmented {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleDiminished`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "symbol",
+///    "dim"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleDiminished {
+    #[serde(rename = "symbol")]
+    Symbol,
+    #[serde(rename = "dim")]
+    Dim,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleDiminished {
+    fn from(value: &ChordSymbolStyleDiminished) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleDiminished {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Symbol => f.write_str("symbol"),
+            Self::Dim => f.write_str("dim"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleDiminished {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "symbol" => Ok(Self::Symbol),
+            "dim" => Ok(Self::Dim),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleExtensions`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "superscript",
+///    "baseline"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleExtensions {
+    #[serde(rename = "superscript")]
+    Superscript,
+    #[serde(rename = "baseline")]
+    Baseline,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleExtensions {
+    fn from(value: &ChordSymbolStyleExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleExtensions {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Superscript => f.write_str("superscript"),
+            Self::Baseline => f.write_str("baseline"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleExtensions {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "superscript" => Ok(Self::Superscript),
+            "baseline" => Ok(Self::Baseline),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleExtensions {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleExtensions {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleExtensions {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleHalfDiminished`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "symbol",
+///    "minorFlatFive"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleHalfDiminished {
+    #[serde(rename = "symbol")]
+    Symbol,
+    #[serde(rename = "minorFlatFive")]
+    MinorFlatFive,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleHalfDiminished {
+    fn from(value: &ChordSymbolStyleHalfDiminished) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleHalfDiminished {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Symbol => f.write_str("symbol"),
+            Self::MinorFlatFive => f.write_str("minorFlatFive"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleHalfDiminished {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "symbol" => Ok(Self::Symbol),
+            "minorFlatFive" => Ok(Self::MinorFlatFive),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleHalfDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleHalfDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleHalfDiminished {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleMajorSeventh`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "triangle",
+///    "maj",
+///    "M"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleMajorSeventh {
+    #[serde(rename = "triangle")]
+    Triangle,
+    #[serde(rename = "maj")]
+    Maj,
+    M,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleMajorSeventh {
+    fn from(value: &ChordSymbolStyleMajorSeventh) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleMajorSeventh {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Triangle => f.write_str("triangle"),
+            Self::Maj => f.write_str("maj"),
+            Self::M => f.write_str("M"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleMajorSeventh {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "triangle" => Ok(Self::Triangle),
+            "maj" => Ok(Self::Maj),
+            "M" => Ok(Self::M),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleMajorSeventh {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleMajorSeventh {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleMajorSeventh {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleMinor`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "m",
+///    "min",
+///    "minus",
+///    "none"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleMinor {
+    #[serde(rename = "m")]
+    M,
+    #[serde(rename = "min")]
+    Min,
+    #[serde(rename = "minus")]
+    Minus,
+    #[serde(rename = "none")]
+    None,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleMinor {
+    fn from(value: &ChordSymbolStyleMinor) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleMinor {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::M => f.write_str("m"),
+            Self::Min => f.write_str("min"),
+            Self::Minus => f.write_str("minus"),
+            Self::None => f.write_str("none"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleMinor {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "m" => Ok(Self::M),
+            "min" => Ok(Self::Min),
+            "minus" => Ok(Self::Minus),
+            "none" => Ok(Self::None),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleMinor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleMinor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleMinor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ChordSymbolStyleRootCase`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "uppercase",
+///    "lowercaseMinor"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ChordSymbolStyleRootCase {
+    #[serde(rename = "uppercase")]
+    Uppercase,
+    #[serde(rename = "lowercaseMinor")]
+    LowercaseMinor,
+}
+impl ::std::convert::From<&Self> for ChordSymbolStyleRootCase {
+    fn from(value: &ChordSymbolStyleRootCase) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for ChordSymbolStyleRootCase {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Uppercase => f.write_str("uppercase"),
+            Self::LowercaseMinor => f.write_str("lowercaseMinor"),
+        }
+    }
+}
+impl ::std::str::FromStr for ChordSymbolStyleRootCase {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "uppercase" => Ok(Self::Uppercase),
+            "lowercaseMinor" => Ok(Self::LowercaseMinor),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ChordSymbolStyleRootCase {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ChordSymbolStyleRootCase {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ChordSymbolStyleRootCase {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///A coda navigation marker on a global measure.
 ///
 /// <details><summary>JSON schema</summary>
@@ -4376,6 +5071,10 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///  "description": "Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object).",
 ///  "type": "object",
 ///  "properties": {
+///    "chordSymbolStyle": {
+///      "description": "Score-wide chord-symbol engraving style.",
+///      "$ref": "#/$defs/chord-symbol-style"
+///    },
 ///    "metadata": {
 ///      "description": "Score-level bibliographic metadata.",
 ///      "$ref": "#/$defs/score-metadata"
@@ -4408,6 +5107,13 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RootExtensions {
+    ///Score-wide chord-symbol engraving style.
+    #[serde(
+        rename = "chordSymbolStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
     ///Score-level bibliographic metadata.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub metadata: ::std::option::Option<ScoreMetadata>,
@@ -4451,6 +5157,7 @@ impl ::std::convert::From<&RootExtensions> for RootExtensions {
 impl ::std::default::Default for RootExtensions {
     fn default() -> Self {
         Self {
+            chord_symbol_style: Default::default(),
             metadata: Default::default(),
             placement: Default::default(),
             sound_profile: Default::default(),
@@ -6823,6 +7530,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "chord-symbol": {
 ///      "$ref": "#/$defs/chord-symbol"
 ///    },
+///    "chord-symbol-style": {
+///      "$ref": "#/$defs/chord-symbol-style"
+///    },
 ///    "coda": {
 ///      "$ref": "#/$defs/coda"
 ///    },
@@ -7042,6 +7752,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub chord_symbol: ::std::option::Option<ChordSymbol>,
+    #[serde(
+        rename = "chord-symbol-style",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub coda: ::std::option::Option<Coda>,
     #[serde(
@@ -7412,6 +8128,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             chord_quality: Default::default(),
             chord_root: Default::default(),
             chord_symbol: Default::default(),
+            chord_symbol_style: Default::default(),
             coda: Default::default(),
             dynamic_group_extensions: Default::default(),
             event_extensions: Default::default(),

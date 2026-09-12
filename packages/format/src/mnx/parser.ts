@@ -9,6 +9,7 @@ import type {
   Support,
   ScoreMetadata,
   TextStyles,
+  ChordSymbolStyle,
   TimeSignatureDistribution,
   TimeSignatureGrandStaff,
   TimeSignaturePosition,
@@ -203,6 +204,28 @@ function parseRootTimeSignatures(rootX: Obj | undefined): TimeSignatureStyles | 
   if (score) styles.score = score;
   if (parts) styles.parts = parts;
   return Object.keys(styles).length > 0 ? styles : undefined;
+}
+
+function parseRootChordSymbolStyle(rootX: Obj | undefined): ChordSymbolStyle | undefined {
+  const viritura = rootX?.["viritura"] as Obj | undefined;
+  const raw = viritura?.["chordSymbolStyle"] as Obj | undefined;
+  if (!raw) return undefined;
+  const style: ChordSymbolStyle = {};
+  const rootCase = enumValue(["uppercase", "lowercaseMinor"] as const, raw["rootCase"]);
+  const majorSeventh = enumValue(["triangle", "maj", "M"] as const, raw["majorSeventh"]);
+  const minor = enumValue(["m", "min", "minus", "none"] as const, raw["minor"]);
+  const diminished = enumValue(["symbol", "dim"] as const, raw["diminished"]);
+  const halfDiminished = enumValue(["symbol", "minorFlatFive"] as const, raw["halfDiminished"]);
+  const augmented = enumValue(["plus", "aug"] as const, raw["augmented"]);
+  const extensions = enumValue(["superscript", "baseline"] as const, raw["extensions"]);
+  if (rootCase) style.rootCase = rootCase;
+  if (majorSeventh) style.majorSeventh = majorSeventh;
+  if (minor) style.minor = minor;
+  if (diminished) style.diminished = diminished;
+  if (halfDiminished) style.halfDiminished = halfDiminished;
+  if (augmented) style.augmented = augmented;
+  if (extensions) style.extensions = extensions;
+  return Object.keys(style).length > 0 ? style : undefined;
 }
 
 function parseRootSoundProfile(rootX: Obj | undefined): SoundProfileAssignment | undefined {
@@ -463,6 +486,8 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
 
   const timeSignatures = parseRootTimeSignatures(rootX);
   if (timeSignatures) score.timeSignatures = timeSignatures;
+  const chordSymbolStyle = parseRootChordSymbolStyle(rootX);
+  if (chordSymbolStyle) score.chordSymbolStyle = chordSymbolStyle;
 
   const soundProfile = parseRootSoundProfile(rootX);
   if (soundProfile) score.soundProfile = soundProfile;

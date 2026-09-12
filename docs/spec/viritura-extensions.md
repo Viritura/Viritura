@@ -11,19 +11,19 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                            |
-| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, timeSignatures, soundProfile, videoSync         |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                      |
-| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                 |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                         |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                 |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                 |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                         |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                            |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                 |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                              |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                      |
+| -------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                                |
+| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                           |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                   |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                           |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                           |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                   |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate           |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                      |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                           |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                        |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -141,6 +141,26 @@ Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, 
   }
 }
 ```
+
+### `chordSymbolStyle`
+
+Score-wide chord-symbol engraving style. Omitted fields use Viritura's
+conventional default: uppercase roots, `m` for minor, SMuFL triangle/circle/
+slashed-circle/plus quality symbols, and superscript extensions.
+
+| Field            | Values                        | Default       |
+| ---------------- | ----------------------------- | ------------- |
+| `rootCase`       | `uppercase`, `lowercaseMinor` | `uppercase`   |
+| `majorSeventh`   | `triangle`, `maj`, `M`        | `triangle`    |
+| `minor`          | `m`, `min`, `minus`, `none`   | `m`           |
+| `diminished`     | `symbol`, `dim`               | `symbol`      |
+| `halfDiminished` | `symbol`, `minorFlatFive`     | `symbol`      |
+| `augmented`      | `plus`, `aug`                 | `plus`        |
+| `extensions`     | `superscript`, `baseline`     | `superscript` |
+
+The editor exposes these fields under **Engrave → House Style → Chord
+Symbols**, with Conventional, Jazz symbols, Plain text, and Lowercase minor
+presets.
 
 ### `timeSignatures`
 
