@@ -123,6 +123,10 @@ function alignPartMeasures(
     parts.set(partKey, "added");
     const modMeasures = modParts[p]!.measures ?? [];
     for (let m = 0; m < modMeasures.length; m++) measures.set(`p${p}/m${m}`, "added");
+    alignments.set(
+      p,
+      modMeasures.map((_, modifiedIndex) => ({ status: "added", modifiedIndex })),
+    );
     return;
   }
 
@@ -130,6 +134,10 @@ function alignPartMeasures(
     parts.set(partKey, "removed");
     const origMeasures = origParts[p]!.measures ?? [];
     for (let m = 0; m < origMeasures.length; m++) measures.set(`p${p}/m${m}`, "removed");
+    alignments.set(
+      p,
+      origMeasures.map((_, originalIndex) => ({ status: "removed", originalIndex })),
+    );
     return;
   }
 
@@ -698,5 +706,43 @@ export function getMeasureOverallStatus(diff: MeasureDiffResult, measureIndex: n
   if (hasModified) return "modified";
   if (hasAdded) return "added";
   if (hasRemoved) return "removed";
+  return "unchanged";
+}
+
+/**
+ * Resolve a measure's status using the index space of one rendered document.
+ * Alignment indices cannot be used directly after inserted or deleted bars.
+ */
+export function getMeasureStatusForSide(
+  diff: MeasureDiffResult,
+  measureIndex: number,
+  side: "original" | "modified",
+): MeasureDiffStatus {
+  const indexKey = side === "original" ? "originalIndex" : "modifiedIndex";
+  const visibleChange = side === "original" ? "removed" : "added";
+  let hasModified = false;
+  let hasGlobalVisibleChange = false;
+  let hasPartVisibleChange = false;
+  let hasPartEntry = false;
+
+  const matchesIndex = (entry: AlignmentInfo): boolean => entry[indexKey] === measureIndex;
+
+  for (const entry of diff.globalAlignment) {
+    if (!matchesIndex(entry)) continue;
+    if (entry.status === "modified") hasModified = true;
+    if (entry.status === visibleChange) hasGlobalVisibleChange = true;
+  }
+
+  for (const alignment of diff.alignments.values()) {
+    for (const entry of alignment) {
+      if (!matchesIndex(entry)) continue;
+      hasPartEntry = true;
+      if (entry.status === "modified") hasModified = true;
+      if (entry.status === visibleChange) hasPartVisibleChange = true;
+    }
+  }
+
+  if (hasModified) return "modified";
+  if (hasPartVisibleChange || (hasGlobalVisibleChange && !hasPartEntry)) return visibleChange;
   return "unchanged";
 }

@@ -3,7 +3,7 @@
  */
 
 import git from "isomorphic-git";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { InMemoryFs } from "../fs/inMemoryFs";
 import { initRepo, openRepo, GitProjectAdapter } from "../GitProjectAdapter";
 import { _clearIdentityForTesting } from "../identity";
@@ -55,6 +55,7 @@ describe("InMemoryFs", () => {
 
 describe("GitProjectAdapter end-to-end", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     _clearIdentityForTesting();
   });
 
@@ -119,6 +120,23 @@ describe("GitProjectAdapter end-to-end", () => {
     expect(v1).toBe(SCORE_V1);
     const v2 = await adapter.readScoreAtCommit(log[0].sha);
     expect(v2).toBe(SCORE_V2);
+  });
+
+  it("caches repeated reads of the same historical score", async () => {
+    const fs = new InMemoryFs();
+    const adapter = await initRepo({
+      fs,
+      name: "p",
+      scorePath: "score.mnx",
+      initialJson: SCORE_V1,
+    });
+    const [commit] = await adapter.log();
+    const readBlob = vi.spyOn(git, "readBlob");
+
+    await Promise.all([adapter.readScoreAtCommit(commit!.sha), adapter.readScoreAtCommit(commit!.sha)]);
+    await adapter.readScoreAtCommit(commit!.sha);
+
+    expect(readBlob).toHaveBeenCalledOnce();
   });
 
   it("status reflects dirty working tree", async () => {

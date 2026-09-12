@@ -26,8 +26,6 @@ export const panelOuterStyle: CSSProperties = {
 export const panelBodyStyle: CSSProperties = {
   flex: 1,
   minHeight: 0,
-  overflowY: "auto",
-  overflowX: "hidden",
   display: "flex",
   flexDirection: "column",
 };
@@ -36,14 +34,19 @@ export const changePillRowStyle: CSSProperties = {
   display: "flex",
   gap: 6,
   flexWrap: "wrap",
-  padding: "4px 14px 12px",
+  marginTop: 8,
 };
 
 export const emptyHintStyle: CSSProperties = {
-  padding: "16px 12px",
+  margin: "10px 12px",
+  padding: "12px",
   fontSize: "0.75rem",
   color: "var(--text-muted)",
   textAlign: "center",
+  lineHeight: 1.45,
+  border: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+  borderRadius: 8,
+  background: "color-mix(in srgb, var(--surface-raised) 70%, transparent)",
 };
 
 export const changePillStyle: CSSProperties = {
@@ -51,6 +54,118 @@ export const changePillStyle: CSSProperties = {
   fontWeight: 600,
   padding: "2px 8px",
   borderRadius: 10,
+};
+
+export const comparisonCardStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  padding: 12,
+  borderBottom: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+};
+
+export const comparisonRowStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "stretch",
+  gap: 4,
+  minWidth: 0,
+};
+
+export const comparisonRowHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+};
+
+export const comparisonTextStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 1,
+  minWidth: 0,
+};
+
+export const comparisonMetaStyle: CSSProperties = {
+  color: "var(--text-muted)",
+  fontSize: "var(--type-eyebrow-size)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+export const comparisonTitleStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: "var(--type-small-size)",
+  fontWeight: 600,
+  lineHeight: 1.35,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+export const comparisonBadgeStyle: CSSProperties = {
+  alignSelf: "flex-start",
+  fontSize: "0.6rem",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+export const comparisonBeforeBadgeStyle: CSSProperties = {
+  ...comparisonBadgeStyle,
+  color: "#c62828",
+};
+
+export const comparisonAfterBadgeStyle: CSSProperties = {
+  ...comparisonBadgeStyle,
+  color: "#2e7d32",
+};
+
+export const tabPaneStyle: CSSProperties = {
+  display: "flex",
+  flex: 1,
+  minHeight: 0,
+  flexDirection: "column",
+  overflowY: "auto",
+  overflowX: "hidden",
+};
+
+export const changeSummaryCardStyle: CSSProperties = {
+  margin: "10px 12px 6px",
+  padding: "10px",
+  border: "1px solid color-mix(in srgb, var(--border) 65%, transparent)",
+  borderRadius: 8,
+  background: "color-mix(in srgb, var(--surface-raised) 70%, transparent)",
+};
+
+export const changeSummaryTitleStyle: CSSProperties = {
+  color: "var(--text)",
+  fontSize: "var(--type-small-size)",
+  fontWeight: 600,
+};
+
+export const loadMoreStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  padding: "10px 12px 14px",
+};
+
+export const historyHintStyle: CSSProperties = {
+  padding: "8px 12px",
+  color: "var(--text-muted)",
+  fontSize: "var(--type-eyebrow-size)",
+  lineHeight: 1.4,
+  borderBottom: "1px solid color-mix(in srgb, var(--border) 50%, transparent)",
+};
+
+export const historyDateStyle: CSSProperties = {
+  padding: "12px 12px 4px",
+  color: "var(--text-muted)",
+  fontSize: "0.62rem",
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
 };
 
 export const splitterStyle: CSSProperties = {

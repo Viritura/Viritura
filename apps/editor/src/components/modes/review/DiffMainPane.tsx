@@ -5,6 +5,13 @@ import type { UseDiffEngineResult } from "../../../hooks/useDiffEngine";
 import { splitterStyle, canvasPlaceholderStyle, canvasLabelStyle } from "./styles";
 
 const DIFF_ROOT_STYLE: CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" };
+const DIFF_CONTENT_STYLE: CSSProperties = {
+  display: "flex",
+  flex: 1,
+  flexDirection: "column",
+  minHeight: 0,
+  overflow: "hidden",
+};
 const OVERSIZED_NOTICE_STYLE: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -33,8 +40,8 @@ const MODIFIED_LABEL_STYLE: CSSProperties = {
 function topPaneStyle(splitPercent: number): CSSProperties {
   return { height: `${splitPercent}%`, overflow: "hidden", borderBottom: "1px solid var(--border)" };
 }
-function bottomPaneStyle(splitPercent: number): CSSProperties {
-  return { height: `${100 - splitPercent}%`, display: "flex", overflow: "hidden" };
+function bottomPaneStyle(): CSSProperties {
+  return { flex: 1, minHeight: 0, display: "flex", overflow: "hidden" };
 }
 function canvasContainerStyle(isViewportDragging: boolean, withBorder: boolean): CSSProperties {
   return {
@@ -55,6 +62,7 @@ export function DiffMainPane({ engine }: { engine: UseDiffEngineResult }) {
     originalText,
     modifiedText,
     viewMode,
+    showSource,
     handleBeforeMount,
     handleEditorMount,
     handleSplitterMouseDown,
@@ -83,54 +91,66 @@ export function DiffMainPane({ engine }: { engine: UseDiffEngineResult }) {
   }
   return (
     <div id="diff-main-container" style={DIFF_ROOT_STYLE}>
-      <div style={topPaneStyle(splitPercent)}>
-        {diffMode === "snippets" ? (
-          <SnippetEditor node={selectedDiffNode} />
-        ) : (
-          <DiffEditor
-            original={originalText}
-            modified={modifiedText}
-            language="json"
-            theme="vs-light"
-            beforeMount={handleBeforeMount}
-            onMount={handleEditorMount}
-            options={{
-              readOnly: true,
-              renderSideBySide: viewMode === "side",
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: "on",
-              wordWrap: "on",
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              renderIndicators: true,
-              renderMarginRevertIcon: false,
-              originalEditable: false,
-            }}
-          />
+      <div id="diff-content-container" style={DIFF_CONTENT_STYLE}>
+        {showSource && (
+          <>
+            <div style={topPaneStyle(splitPercent)}>
+              {diffMode === "snippets" ? (
+                <SnippetEditor node={selectedDiffNode} />
+              ) : (
+                <DiffEditor
+                  original={originalText}
+                  modified={modifiedText}
+                  language="json"
+                  theme="vs-light"
+                  beforeMount={handleBeforeMount}
+                  onMount={handleEditorMount}
+                  options={{
+                    readOnly: true,
+                    renderSideBySide: viewMode === "side",
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: "on",
+                    wordWrap: "on",
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    renderIndicators: true,
+                    renderMarginRevertIcon: false,
+                    originalEditable: false,
+                  }}
+                />
+              )}
+            </div>
+            <div
+              onMouseDown={handleSplitterMouseDown}
+              role="separator"
+              aria-label="Resize source and score comparison"
+              aria-orientation="horizontal"
+              style={splitterStyle}
+            />
+          </>
         )}
-      </div>
-      <div onMouseDown={handleSplitterMouseDown} role="separator" aria-orientation="horizontal" style={splitterStyle} />
-      <div style={bottomPaneStyle(splitPercent)}>
-        <div ref={leftContainerRef} style={canvasContainerStyle(isViewportDragging, true)}>
-          {!wasmReady ? (
-            <div style={canvasPlaceholderStyle}>Loading WASM…</div>
-          ) : originalDl ? (
-            <canvas ref={leftCanvasRef} style={CANVAS_BLOCK_STYLE} />
-          ) : (
-            <div style={canvasPlaceholderStyle}>No score to render</div>
-          )}
-          <div style={ORIGINAL_LABEL_STYLE}>Original</div>
-        </div>
-        <div ref={rightContainerRef} style={canvasContainerStyle(isViewportDragging, false)}>
-          {!wasmReady ? (
-            <div style={canvasPlaceholderStyle}>Loading WASM…</div>
-          ) : modifiedDl ? (
-            <canvas ref={rightCanvasRef} style={CANVAS_BLOCK_STYLE} />
-          ) : (
-            <div style={canvasPlaceholderStyle}>No score to render</div>
-          )}
-          <div style={MODIFIED_LABEL_STYLE}>Modified</div>
+        <div style={bottomPaneStyle()}>
+          <div ref={leftContainerRef} style={canvasContainerStyle(isViewportDragging, true)}>
+            {!wasmReady ? (
+              <div style={canvasPlaceholderStyle}>Loading WASM…</div>
+            ) : originalDl ? (
+              <canvas ref={leftCanvasRef} style={CANVAS_BLOCK_STYLE} />
+            ) : (
+              <div style={canvasPlaceholderStyle}>No score to render</div>
+            )}
+            <div style={ORIGINAL_LABEL_STYLE}>Before</div>
+          </div>
+          <div ref={rightContainerRef} style={canvasContainerStyle(isViewportDragging, false)}>
+            {!wasmReady ? (
+              <div style={canvasPlaceholderStyle}>Loading WASM…</div>
+            ) : modifiedDl ? (
+              <canvas ref={rightCanvasRef} style={CANVAS_BLOCK_STYLE} />
+            ) : (
+              <div style={canvasPlaceholderStyle}>No score to render</div>
+            )}
+            <div style={MODIFIED_LABEL_STYLE}>After</div>
+          </div>
         </div>
       </div>
     </div>

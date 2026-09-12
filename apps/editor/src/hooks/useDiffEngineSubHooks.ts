@@ -25,6 +25,7 @@ interface CanvasRepaintArgs {
   measureRects: Map<number, FocusRect>;
   measureDiff: MeasureDiffResult | null;
   focusedMeasure: number | null;
+  focusRect: FocusRect | null;
   viewport: { scrollX: number; scrollY: number; zoom: number };
   perfRef: MutableRefObject<PerfTracker>;
   glyphAtlasRef: MutableRefObject<GlyphAtlas | null>;
@@ -39,6 +40,7 @@ export function useCanvasRepaint({
   measureRects,
   measureDiff,
   focusedMeasure,
+  focusRect,
   viewport,
   perfRef,
   glyphAtlasRef,
@@ -66,14 +68,17 @@ export function useCanvasRepaint({
     // Assigning canvas.width/height reallocates and clears the buffer, so doing
     // it every scroll/zoom frame (this effect re-runs on `viewport` changes)
     // was needless churn on a large Review-mode score.
-    const wPx = Math.round(container.clientWidth * dpr);
-    const hPx = Math.round(container.clientHeight * dpr);
-    if (canvas.width !== wPx || canvas.height !== hPx) {
-      canvas.width = wPx;
-      canvas.height = hPx;
-      canvas.style.width = `${container.clientWidth}px`;
-      canvas.style.height = `${container.clientHeight}px`;
-    }
+    const resizeCanvas = () => {
+      const wPx = Math.round(container.clientWidth * dpr);
+      const hPx = Math.round(container.clientHeight * dpr);
+      if (canvas.width !== wPx || canvas.height !== hPx) {
+        canvas.width = wPx;
+        canvas.height = hPx;
+        canvas.style.width = `${container.clientWidth}px`;
+        canvas.style.height = `${container.clientHeight}px`;
+      }
+    };
+    resizeCanvas();
 
     // Diff colour overlays + focus indicator paint on top of the score, in
     // content coordinates, so the ctx transform must match the score transform.
@@ -90,11 +95,11 @@ export function useCanvasRepaint({
         -viewport.scrollY * dpr * viewport.zoom,
       );
       if (measureDiff && bounds.length > 0) {
-        paintDiffOverlays(ctx, bounds, measureDiff, side, dl.height, focusedMeasure, measureRects);
+        paintDiffOverlays(ctx, bounds, measureDiff, side, focusedMeasure, measureRects);
       }
       if (focusedMeasure !== null) {
-        const fr = measureRects.get(focusedMeasure) ?? null;
-        if (fr) paintFocusIndicator(ctx, fr);
+        const fr = focusRect ?? measureRects.get(focusedMeasure) ?? null;
+        if (fr) paintFocusIndicator(ctx, fr, side);
       }
       if (isPerfEnabled()) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -161,6 +166,7 @@ export function useCanvasRepaint({
     measureRects,
     measureDiff,
     focusedMeasure,
+    focusRect,
     viewport,
     perfRef,
     glyphAtlasRef,
@@ -263,7 +269,7 @@ export function useSplitterDrag(
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (!isDraggingSplitter.current) return;
-      const container = document.getElementById("diff-main-container");
+      const container = document.getElementById("diff-content-container");
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const percent = ((e.clientY - rect.top) / rect.height) * 100;

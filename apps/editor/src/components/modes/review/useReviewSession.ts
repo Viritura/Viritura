@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useProjectStore, WORKING_TREE_SHA, bootProjectFromHandle } from "../../../store/projectStore";
 import { useGitHubAccount } from "../../../github/useGitHubAccount";
@@ -11,6 +11,15 @@ interface BackgroundFetchArgs {
   remoteUrl: string | null | undefined;
   githubViewer: { login: string } | null;
   fetchRemote: (opts: { corsProxy: string }) => Promise<unknown>;
+}
+
+export function getReviewSide(
+  selection: { from: string | null; to: string | null },
+  sha: string,
+): "from" | "to" | null {
+  if (selection.from === sha) return "from";
+  if (selection.to === sha) return "to";
+  return null;
 }
 
 /** Background-fetch GitHub refs every 60s while signed in. */
@@ -48,7 +57,6 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
   const status = useProjectStore((s) => s.status);
   const log = useProjectStore((s) => s.log);
   const selection = useProjectStore((s) => s.selection);
-  const toggleSelection = useProjectStore((s) => s.toggleSelection);
   const refresh = useProjectStore((s) => s.refresh);
   const fetchRemote = useProjectStore((s) => s.fetchRemote);
   const setSelection = useProjectStore((s) => s.setSelection);
@@ -66,15 +74,11 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
   const canCreateGitHubRepository = githubInstallation?.canCreateRepositories === true;
   const githubRepository = useMemo(() => getGitHubRepositoryLink(status?.remoteUrl ?? null), [status?.remoteUrl]);
 
-  // Ordered list of all SHA-like keys, newest first (working tree is index 0).
-  const allShas = useMemo<string[]>(() => [WORKING_TREE_SHA, ...log.map((c) => c.sha)], [log]);
-  const [lastIndex, setLastIndex] = useState<number | null>(null);
   // `useTransition` replaces the hand-rolled `pushing` / `fetching` boolean
   // flags around the GitHub round-trips. React tracks the pending status for
   // free; the button-disable wiring downstream stays unchanged.
   const [pushing, startPushTransition] = useTransition();
   const [fetching, startFetchTransition] = useTransition();
-  const [multiSelect, setMultiSelect] = useState(false);
 
   // Rescan local history occasionally so it picks up commits made outside Viritura.
   useEffect(() => {
@@ -120,12 +124,17 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     };
   }, [isVersioned, adapter, selection.from, selection.to, currentJson]);
 
-  const effectiveOriginal = isVersioned ? prettyJson(resolvedFrom) : (originalJson ?? "");
-  const effectiveModified = isVersioned ? prettyJson(resolvedTo) : (modifiedJson ?? "");
+  const effectiveOriginal = useMemo(
+    () => (isVersioned ? prettyJson(resolvedFrom) : (originalJson ?? "")),
+    [isVersioned, resolvedFrom, originalJson],
+  );
+  const effectiveModified = useMemo(
+    () => (isVersioned ? prettyJson(resolvedTo) : (modifiedJson ?? "")),
+    [isVersioned, resolvedTo, modifiedJson],
+  );
 
-  const isSelected = (sha: string): boolean =>
-    multiSelect ? selection.from === sha || selection.to === sha : selection.to === sha;
-  const sideOf = (_sha: string): "from" | "to" | null => null;
+  const isSelected = (sha: string): boolean => selection.from === sha || selection.to === sha;
+  const sideOf = (sha: string): "from" | "to" | null => getReviewSide(selection, sha);
 
   const handleSetupProject = async () => {
     const picker = (
@@ -186,45 +195,17 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     });
   };
 
-  const handleRowClick = (sha: string, e: React.MouseEvent) => {
-    const { shiftKey, ctrlKey, metaKey } = e;
-    const isModified = shiftKey || ctrlKey || metaKey;
-
-    if (!multiSelect && !isModified) {
-      // Simple mode: select commit + auto-parent.
-      if (sha === WORKING_TREE_SHA) {
-        const headSha = log[0]?.sha ?? null;
-        setSelection({ from: headSha, to: WORKING_TREE_SHA });
-      } else {
-        selectCommitForDiff(sha);
-      }
-      setLastIndex(allShas.indexOf(sha));
-      return;
-    }
-
-    // Enter / stay in multi-select mode.
-    if (!multiSelect) setMultiSelect(true);
-
-    const idx = allShas.indexOf(sha);
-    if (shiftKey && lastIndex !== null && lastIndex !== idx) {
-      const lo = Math.min(idx, lastIndex);
-      const hi = Math.max(idx, lastIndex);
-      const fromSha = allShas[hi]!; // higher index = older
-      const toSha = allShas[lo]!; // lower index = newer
-      setSelection({ from: fromSha, to: toSha });
-    } else if (ctrlKey || metaKey) {
-      toggleSelection(sha);
+  const handleRowClick = (sha: string) => {
+    if (sha === WORKING_TREE_SHA) {
+      const headSha = log[0]?.sha ?? null;
+      setSelection({ from: headSha, to: WORKING_TREE_SHA });
     } else {
-      // plain click while already in multi-select → exit back to simple select
-      setMultiSelect(false);
-      if (sha === WORKING_TREE_SHA) {
-        const headSha = log[0]?.sha ?? null;
-        setSelection({ from: headSha, to: WORKING_TREE_SHA });
-      } else {
-        selectCommitForDiff(sha);
-      }
+      selectCommitForDiff(sha);
     }
-    setLastIndex(idx);
+  };
+
+  const handleRevisionChange = (side: "from" | "to", sha: string) => {
+    setSelection({ [side]: sha || null });
   };
 
   return {
@@ -246,7 +227,6 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     githubRepository,
     pushing,
     fetching,
-    multiSelect,
     effectiveOriginal,
     effectiveModified,
     isSelected,
@@ -255,5 +235,6 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     handleFetchRemote,
     handlePushChanges,
     handleRowClick,
+    handleRevisionChange,
   };
 }

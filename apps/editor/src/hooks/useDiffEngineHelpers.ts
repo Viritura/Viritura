@@ -1,16 +1,9 @@
 /**
  * Helpers for useDiffEngine — canvas painting, geometry, and JSON utilities.
  */
-import {
-  getScoreInfo,
-  wasmComputeFullScoreLayout,
-  wasmComputeLayout,
-  paintCommandsCulled,
-  type DisplayList,
-  GlyphAtlas,
-} from "@viritura/renderer";
+import { paintCommandsCulled, type DisplayList, GlyphAtlas } from "@viritura/renderer";
 import type { DiffNode } from "../diff/semanticDiff";
-import { getMeasureOverallStatus, type MeasureDiffResult } from "../diff/measureDiff";
+import { getMeasureStatusForSide, type MeasureDiffResult } from "../diff/measureDiff";
 import type { MeasureBounds } from "../diff/measureBounds";
 
 export const ATLAS_FONT_SIZE = 48;
@@ -83,16 +76,6 @@ export function repaintCanvas(
   const cullX2 = scrollX + viewW + CULL_MARGIN;
   const cullY2 = scrollY + viewH + CULL_MARGIN;
   paintCommandsCulled(ctx, dl.commands, glyphAtlas, cullX1, cullX2, cullY1, cullY2);
-}
-
-export function computeLayout(json: string, _pageWidth: number): DisplayList | null {
-  try {
-    JSON.parse(json);
-    const info = getScoreInfo(json);
-    return info.partCount > 1 ? wasmComputeFullScoreLayout(json, 12, 0) : wasmComputeLayout(json, 0, 12, 0);
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -371,6 +354,19 @@ function computeMeasureRectForNode(
   };
 }
 
+export function computeDiffFocusRect(
+  node: DiffNode | null,
+  dl: DisplayList | null,
+  measureBounds: MeasureBounds[],
+  mnxJson: string,
+  otherDl: DisplayList | null,
+  side: "original" | "modified",
+): FocusRect | null {
+  if (!node || !dl) return null;
+  if ((node.type === "added" && side === "original") || (node.type === "removed" && side === "modified")) return null;
+  return computeMeasureRectForNode(node, dl, measureBounds, mnxJson, otherDl, side)?.rect ?? null;
+}
+
 export function computeAllMeasureRects(
   diffTree: DiffNode | null,
   dl: DisplayList,
@@ -385,8 +381,9 @@ export function computeAllMeasureRects(
   function visitNode(node: DiffNode) {
     if (node.type === "unchanged") return;
     const result = computeMeasureRectForNode(node, dl, measureBounds, mnxJson, otherDl, side);
-    if (result && !rects.has(result.measureIdx)) {
-      rects.set(result.measureIdx, result.rect);
+    if (result) {
+      if (!rects.has(result.measureIdx)) rects.set(result.measureIdx, result.rect);
+      return;
     }
     if (node.children) {
       for (const child of node.children) visitNode(child);
@@ -401,13 +398,12 @@ export function paintDiffOverlays(
   bounds: MeasureBounds[],
   diff: MeasureDiffResult,
   side: "original" | "modified",
-  scoreHeight: number,
   focusedMeasure: number | null = null,
   measureRects: Map<number, FocusRect> = new Map(),
 ) {
   ctx.save();
   for (const mb of bounds) {
-    const status = getMeasureOverallStatus(diff, mb.measureIndex);
+    const status = getMeasureStatusForSide(diff, mb.measureIndex, side);
     if (status === "unchanged") continue;
     const isFocused = focusedMeasure === mb.measureIndex;
     const isDimmed = focusedMeasure !== null && !isFocused;
@@ -426,29 +422,33 @@ export function paintDiffOverlays(
         ctx.strokeRect(eventRect.x, eventRect.y, eventRect.w, eventRect.h);
       }
     } else {
-      const pad = 2;
+      const pad = 4;
       const x = mb.xStart - pad;
       const w = mb.xEnd - mb.xStart + pad * 2;
+      const y = mb.yStart - pad;
+      const h = mb.yEnd - mb.yStart + pad * 2;
       ctx.fillStyle = fillColor;
-      ctx.fillRect(x, 0, w, scoreHeight);
+      ctx.fillRect(x, y, w, h);
       if (borderColor) {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(x, 0, w, scoreHeight);
+        ctx.strokeRect(x, y, w, h);
       }
     }
   }
   ctx.restore();
 }
 
-export function paintFocusIndicator(ctx: CanvasRenderingContext2D, fr: FocusRect) {
-  ctx.strokeStyle = FOCUS_BORDER;
+export function paintFocusIndicator(ctx: CanvasRenderingContext2D, fr: FocusRect, side?: "original" | "modified") {
+  const focusColor =
+    side === "original" ? "rgba(198, 40, 40, 0.9)" : side === "modified" ? "rgba(46, 125, 50, 0.9)" : FOCUS_BORDER;
+  ctx.strokeStyle = focusColor;
   ctx.lineWidth = 2.5;
   ctx.setLineDash([6, 4]);
   ctx.strokeRect(fr.x, fr.y, fr.w, fr.h);
   ctx.setLineDash([]);
   const cx = fr.x + fr.w / 2;
-  ctx.fillStyle = FOCUS_BORDER;
+  ctx.fillStyle = focusColor;
   ctx.beginPath();
   ctx.moveTo(cx - FOCUS_MARKER_SIZE, fr.y);
   ctx.lineTo(cx + FOCUS_MARKER_SIZE, fr.y);
