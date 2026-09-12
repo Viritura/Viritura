@@ -11,7 +11,7 @@ vi.mock("@viritura/musx-import", () => ({
   MAX_MUSX_BYTES: 64 * 1024 * 1024,
 }));
 
-import { convertImportedMusicFile, isMusicImportFilename } from "../commands/fileCommands";
+import { convertImportedMusicFile, importMusicFile, isMusicImportFilename } from "../commands/fileCommands";
 
 const VALID_MNX = readFileSync(resolve(process.cwd(), "../../packages/format/fixtures/mnx/hello-world.mnx"), "utf8");
 
@@ -31,6 +31,26 @@ describe("Finale MUSX import", () => {
     expect(isMusicImportFilename("score.musicxml")).toBe(true);
     expect(isMusicImportFilename("score.mxl")).toBe(true);
     expect(isMusicImportFilename("score.mnx")).toBe(false);
+  });
+
+  it("limits the native picker to music notation extensions", async () => {
+    const showOpenFilePicker = vi.fn().mockResolvedValue([]);
+    Object.assign(window, { showOpenFilePicker });
+
+    await importMusicFile();
+
+    expect(showOpenFilePicker).toHaveBeenCalledWith({
+      types: [
+        {
+          description: "Music Notation Files",
+          accept: {
+            "application/xml": [".mxl", ".musicxml", ".xml"],
+            "application/x-finale-musx": [".musx"],
+          },
+        },
+      ],
+      multiple: false,
+    });
   });
 
   it("converts MUSX bytes with Denigma and preserves diagnostics", async () => {

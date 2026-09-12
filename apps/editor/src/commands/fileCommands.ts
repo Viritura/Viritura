@@ -229,7 +229,7 @@ async function importWithFileSystemAccess(): Promise<OpenFileResult | null> {
           description: "Music Notation Files",
           accept: {
             "application/xml": [".mxl", ".musicxml", ".xml"],
-            "application/octet-stream": [".musx"],
+            "application/x-finale-musx": [".musx"],
           },
         },
       ],
