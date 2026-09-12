@@ -686,29 +686,6 @@ function collectPartMeasureChanges(
  * considering both global and part-level changes.
  * If any part has a change in that measure, or global has a change, return the "worst" status.
  */
-export function getMeasureOverallStatus(diff: MeasureDiffResult, measureIndex: number): MeasureDiffStatus {
-  const globalStatus = diff.globalMeasures.get(`global/m${measureIndex}`);
-
-  let hasModified = globalStatus === "modified";
-  let hasAdded = globalStatus === "added";
-  let hasRemoved = globalStatus === "removed";
-
-  for (const [key, status] of diff.measures) {
-    if (!key.startsWith("p")) continue;
-    const match = key.match(/^p\d+\/m(\d+)$/);
-    if (match && match[1] !== undefined && parseInt(match[1], 10) === measureIndex) {
-      if (status === "modified") hasModified = true;
-      if (status === "added") hasAdded = true;
-      if (status === "removed") hasRemoved = true;
-    }
-  }
-
-  if (hasModified) return "modified";
-  if (hasAdded) return "added";
-  if (hasRemoved) return "removed";
-  return "unchanged";
-}
-
 /**
  * Resolve a measure's status using the index space of one rendered document.
  * Alignment indices cannot be used directly after inserted or deleted bars.

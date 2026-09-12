@@ -104,7 +104,7 @@ export const comparisonTitleStyle: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-export const comparisonBadgeStyle: CSSProperties = {
+const comparisonBadgeStyle: CSSProperties = {
   alignSelf: "flex-start",
   fontSize: "0.6rem",
   fontWeight: 700,
