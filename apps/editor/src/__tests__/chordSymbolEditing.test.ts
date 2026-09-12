@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
 import { applyChordSymbolEdit } from "../app/popoverHandlers";
+import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 
 function scoreWithQuarterNotes(): Score {
   return {
@@ -27,6 +28,23 @@ function scoreWithQuarterNotes(): Score {
 }
 
 describe("applyChordSymbolEdit", () => {
+  it("uses a selected notehead as the harmony-lane onset anchor", () => {
+    const target = resolveChordSymbolTarget(
+      scoreWithQuarterNotes(),
+      { kind: "single", elementId: "p0/m0/s0/e1/n0", elementType: "note" },
+      0,
+      { x: 120, y: 80 },
+    );
+
+    expect(target).toEqual({
+      position: { x: 120, y: 80 },
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 1,
+    });
+  });
+
   it("creates an independent harmony event at the selected time and staff", () => {
     const updated = applyChordSymbolEdit(
       scoreWithQuarterNotes(),
