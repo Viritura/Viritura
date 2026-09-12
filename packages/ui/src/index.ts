@@ -79,7 +79,7 @@ export {
 } from "./Menu/index";
 export { RadialMenu, type RadialMenuProps } from "./RadialMenu";
 export { filterRadialMenuItems, type RadialMenuItem } from "./RadialMenu";
-export { TextPopover, type TextPopoverProps } from "./TextPopover/TextPopover";
+export { TextPopover, type TextPopoverNavigationCommand, type TextPopoverProps } from "./TextPopover/TextPopover";
 export { CascadingMenu, type CascadingMenuItem, type CascadingMenuProps } from "./CascadingMenu";
 
 // ── Dialog System ──

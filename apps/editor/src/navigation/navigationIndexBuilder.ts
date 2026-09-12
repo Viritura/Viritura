@@ -311,6 +311,20 @@ function collectSequenceEvents(
   seq: NonNullable<NonNullable<NonNullable<Score["parts"][number]>["measures"][number]>["sequences"][number]>,
   entries: NavigationEntry[],
 ): void {
+  if (seq.content.length === 0 && seq.fullMeasure) {
+    const evSuffix = eventSuffix(undefined, 0, ctx.m, ctx.s);
+    entries.push({
+      elementId: eventId(ctx.p, ctx.m, ctx.s, evSuffix),
+      elementType: "rest",
+      partIndex: ctx.p,
+      measureIndex: ctx.m,
+      sequenceIndex: ctx.s,
+      eventIndex: 0,
+      isRest: true,
+      sortKey: 0,
+    });
+    return;
+  }
   let beatPosition = 0;
   // Flat counter matching the Rust engine's e{N} numbering scheme.
   const flatCounter = { value: 0 };

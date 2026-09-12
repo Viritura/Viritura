@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
 import { applyChordSymbolEdit } from "../app/popoverHandlers";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
+import { navigateChordSymbolInput } from "../app/chordSymbolNavigation";
 
 function scoreWithQuarterNotes(): Score {
   return {
@@ -44,6 +45,7 @@ describe("applyChordSymbolEdit", () => {
       sequenceIndex: 0,
       eventIndex: 1,
       anchorStaff: 2,
+      anchorElementId: "p0/m0/s0/e1",
     });
   });
 
@@ -182,5 +184,103 @@ describe("applyChordSymbolEdit", () => {
     );
 
     expect(updated?.parts[0]!.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [1, 3] });
+  });
+
+  it("uses a direct beat-stepping position instead of the anchor event onset", () => {
+    const updated = applyChordSymbolEdit(
+      scoreWithQuarterNotes(),
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+        rhythmicPosition: { fraction: [3, 4] },
+      },
+      "G7",
+    );
+
+    expect(updated?.parts[0]!.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [3, 4] });
+  });
+
+  it("navigates continuously to the next event and next measure", () => {
+    const score = scoreWithQuarterNotes();
+    const firstMeasureContent = score.parts[0]!.measures[0]!.sequences[0]!.content;
+    if (firstMeasureContent[0]?.type === "event") firstMeasureContent[0].id = "nav-0";
+    if (firstMeasureContent[1]?.type === "event") firstMeasureContent[1].id = "nav-1";
+    score.parts[0]!.measures.push({
+      sequences: [
+        {
+          staff: 2,
+          content: [{ type: "event", id: "nav-2", duration: { base: "whole" }, rest: {} }],
+        },
+      ],
+    });
+    const current = resolveChordSymbolTarget(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/nav-0/n0", elementType: "note" },
+      0,
+      { x: 100, y: 80 },
+    )!;
+
+    const next = navigateChordSymbolInput(score, current, "next", 0);
+    const nextMeasure = navigateChordSymbolInput(score, next!, "nextMeasure", 0);
+
+    expect(next).toMatchObject({ measureIndex: 0, eventIndex: 1, anchorElementId: "p0/m0/s0/nav-1" });
+    expect(nextMeasure).toMatchObject({ measureIndex: 1, eventIndex: 0, anchorElementId: "p0/m1/s0/nav-2" });
+  });
+
+  it("steps by the active meter unit and crosses barlines", () => {
+    const score = scoreWithQuarterNotes();
+    score.parts[0]!.measures.push({
+      sequences: [{ staff: 2, content: [{ type: "event", id: "beat-next", duration: { base: "whole" }, rest: {} }] }],
+    });
+    const first = score.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    if (first?.type === "event") first.id = "beat-current";
+    const current = resolveChordSymbolTarget(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/beat-current/n0", elementType: "note" },
+      0,
+      { x: 100, y: 80 },
+    )!;
+
+    const beatTwo = navigateChordSymbolInput(score, current, "nextBeat", 0);
+    const finalBeat = navigateChordSymbolInput(
+      score,
+      { ...beatTwo!, rhythmicPosition: { fraction: [3, 4] } },
+      "nextBeat",
+      0,
+    );
+    const previousBeat = navigateChordSymbolInput(score, finalBeat!, "previousBeat", 0);
+
+    expect(beatTwo?.rhythmicPosition).toEqual({ fraction: [1, 4] });
+    expect(beatTwo).toMatchObject({ eventIndex: 1 });
+    expect(beatTwo?.anchorElementId).not.toBe(current.anchorElementId);
+    expect(finalBeat).toMatchObject({ measureIndex: 1, rhythmicPosition: { fraction: [0, 1] } });
+    expect(previousBeat).toMatchObject({ measureIndex: 0, rhythmicPosition: { fraction: [1, 4] } });
+  });
+
+  it("uses compound-meter beats and includes full-measure rests in navigation", () => {
+    const score = scoreWithQuarterNotes();
+    score.global.measures[0]!.time = { count: 6, unit: 8 };
+    score.global.measures.push({});
+    score.parts[0]!.measures.push({
+      sequences: [{ staff: 2, content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
+    });
+    const first = score.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    if (first?.type === "event") first.id = "compound-start";
+    const current = resolveChordSymbolTarget(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/compound-start/n0", elementType: "note" },
+      0,
+      { x: 100, y: 80 },
+    )!;
+
+    const nextBeat = navigateChordSymbolInput(score, current, "nextBeat", 0);
+    const nextMeasure = navigateChordSymbolInput(score, current, "nextMeasure", 0);
+
+    expect(nextBeat?.rhythmicPosition).toEqual({ fraction: [3, 8] });
+    expect(nextMeasure).toMatchObject({ measureIndex: 1, eventIndex: 0 });
+    expect(nextMeasure?.anchorElementId).toBeTruthy();
   });
 });

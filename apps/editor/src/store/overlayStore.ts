@@ -16,6 +16,7 @@ import { create } from "zustand";
 import { type RadialMenuCategory } from "../radialMenu";
 import { type LyricInputState } from "../components/LyricInput";
 import type { SelectionState } from "./selectionStore";
+import type { RhythmicPosition } from "@viritura/core";
 
 export interface RadialMenuState {
   category: RadialMenuCategory;
@@ -63,6 +64,10 @@ export interface ChordSymbolPopoverState {
   graceContainerIndex?: number;
   /** Selected staff used only to disambiguate same-position imported chords. */
   anchorStaff?: number;
+  /** Parent event ID used by continuous chord-entry navigation. */
+  anchorElementId?: string;
+  /** Direct beat-stepping position; absent when anchored to an event onset. */
+  rhythmicPosition?: RhythmicPosition;
 }
 
 interface OverlayState {

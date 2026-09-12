@@ -1,12 +1,12 @@
 import { produce } from "../score/scoreClone";
 import { resolveEventLocation, resolveEventFromSubElement } from "../score/ElementPath";
-import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
 import { findCondensingStaff } from "../score/condensingRouter";
-import { parseChordSymbolText, type Score, type NoteValueBase, type Tempo, type Sequence } from "@viritura/core";
+import { parseChordSymbolText, type Score, type NoteValueBase, type Tempo } from "@viritura/core";
 import type { ChordSymbolPopoverState, TempoPopoverState, StaffTextPopoverState } from "../store/overlayStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 import type { CondensingMode } from "../components/CondensingPopover";
+import { beatPositionToFraction, eventBeatPosition } from "./timedAnnotationPosition";
 
 // ─── Tempo parsing ────────────────────────────────────────────────
 // Supports "120", "q=120", "q.=120", "e140", "Allegro q=120", "Andante".
@@ -71,46 +71,6 @@ export function applyTempoEdit(score: Score, popover: TempoPopoverState, rawValu
 }
 
 // ─── Staff text ──────────────────────────────────────────────────
-interface TimedAnnotationTarget {
-  eventIndex: number;
-  tupletIndex?: number;
-  graceContainerIndex?: number;
-}
-
-function eventBeatPosition(sequence: Sequence, target: TimedAnnotationTarget): number {
-  const topLevelIndex = target.tupletIndex ?? target.graceContainerIndex ?? target.eventIndex;
-  let beat = sequence.content.slice(0, topLevelIndex).reduce((sum, content) => sum + sequenceContentBeats(content), 0);
-  if (target.tupletIndex === undefined) return beat;
-
-  const container = sequence.content[target.tupletIndex];
-  if (container?.type !== "tuplet") return beat;
-  const outerBeats = container.outer.multiple * durationToBeats(container.outer.duration);
-  const innerBeats = container.inner.multiple * durationToBeats(container.inner.duration);
-  const scale = innerBeats > 0 ? outerBeats / innerBeats : 1;
-  beat += container.content
-    .slice(0, target.eventIndex)
-    .reduce((sum, content) => sum + sequenceContentBeats(content) * scale, 0);
-  return beat;
-}
-
-function beatPositionToFraction(beat: number): [number, number] {
-  const wholeNotes = beat / 4;
-  let bestNumerator = 0;
-  let bestDenominator = 1;
-  let bestError = Math.abs(wholeNotes);
-  for (let denominator = 1; denominator <= 4096; denominator++) {
-    const numerator = Math.round(wholeNotes * denominator);
-    const error = Math.abs(wholeNotes - numerator / denominator);
-    if (error < bestError) {
-      bestNumerator = numerator;
-      bestDenominator = denominator;
-      bestError = error;
-      if (error < 1e-9) break;
-    }
-  }
-  return [bestNumerator, bestDenominator];
-}
-
 export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState, rawValue: string): Score {
   return produce(score, (draft) => {
     for (const target of popover.targets ?? [popover]) {
@@ -140,7 +100,9 @@ export function applyChordSymbolEdit(
   const sequence = pm?.sequences[popover.sequenceIndex];
   if (!pm || !sequence) return undefined;
 
-  const position = { fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)) };
+  const position = popover.rhythmicPosition ?? {
+    fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)),
+  };
   const chord = parseChordSymbolText(rawValue, position);
   if (!chord) return undefined;
 
