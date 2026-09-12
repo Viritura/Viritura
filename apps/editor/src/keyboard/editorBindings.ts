@@ -594,7 +594,7 @@ function buildNormalModeBindings(cfg: EditorBindingConfig): KeyBinding[] {
 
   bindings.push({
     id: "normal.chordSymbol",
-    key: "Ctrl+K",
+    key: "Shift+K",
     context: "normal",
     handler: () => cb.onAddChordSymbol?.(),
   });
