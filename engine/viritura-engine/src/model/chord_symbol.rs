@@ -48,99 +48,96 @@ pub struct ChordSymbol {
 }
 
 impl ChordSymbol {
-    /// Build the display string for this chord symbol.
+    /// Build the quality/extension text that follows the root accidental.
+    pub fn suffix_text(&self) -> String {
+        let mut suffix = String::new();
+        let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
+        match self.quality {
+            ChordQuality::Major => {
+                if self.extension == Some(6) {
+                    suffix.push('6');
+                } else if self.extension.is_some() {
+                    suffix.push_str("maj");
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Minor => {
+                suffix.push('m');
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Dominant => {
+                suffix.push_str(&ext);
+            }
+            ChordQuality::Diminished => {
+                suffix.push_str("dim");
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Augmented => {
+                suffix.push_str("aug");
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::HalfDiminished => {
+                suffix.push('m');
+                suffix.push_str(&ext);
+                suffix.push_str("b5");
+            }
+            ChordQuality::MinorMajor => {
+                suffix.push_str("m(maj");
+                suffix.push_str(&ext);
+                suffix.push(')');
+            }
+            ChordQuality::Power => {
+                suffix.push('5');
+            }
+            ChordQuality::Suspended2 => {
+                suffix.push_str("sus2");
+            }
+            ChordQuality::Suspended4 => {
+                suffix.push_str("sus4");
+            }
+            ChordQuality::Other => {
+                if let Some(ref kind_text) = self.kind_text {
+                    suffix.push_str(kind_text);
+                }
+            }
+        }
+        suffix
+    }
+
+    /// Build an ASCII fallback used for diagnostics and text-only consumers.
     pub fn display_text(&self) -> String {
         if let Some(ref text) = self.text_override {
             return text.clone();
         }
 
-        let mut s = String::new();
+        let mut s = self.root.step.clone();
+        append_ascii_accidental(&mut s, self.root.alter);
+        s.push_str(&self.suffix_text());
 
-        // Root note
-        s.push_str(&self.root.step);
-        if let Some(alter) = self.root.alter {
-            match alter {
-                1 => s.push('#'),
-                -1 => s.push('b'),
-                2 => s.push_str("##"),
-                -2 => s.push_str("bb"),
-                _ => {}
-            }
-        }
-
-        // Quality + extension
-        let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
-        match self.quality {
-            ChordQuality::Major => {
-                if self.extension == Some(6) {
-                    s.push('6');
-                } else if self.extension.is_some() {
-                    s.push_str("maj");
-                    s.push_str(&ext);
-                }
-                // Plain major triad: just root letter
-            }
-            ChordQuality::Minor => {
-                s.push('m');
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::Dominant => {
-                s.push_str(&ext);
-            }
-            ChordQuality::Diminished => {
-                s.push_str("dim");
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::Augmented => {
-                s.push_str("aug");
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::HalfDiminished => {
-                s.push('m');
-                s.push_str(&ext);
-                s.push_str("b5");
-            }
-            ChordQuality::MinorMajor => {
-                s.push_str("m(maj");
-                s.push_str(&ext);
-                s.push(')');
-            }
-            ChordQuality::Power => {
-                s.push('5');
-            }
-            ChordQuality::Suspended2 => {
-                s.push_str("sus2");
-            }
-            ChordQuality::Suspended4 => {
-                s.push_str("sus4");
-            }
-            ChordQuality::Other => {
-                if let Some(ref kind_text) = self.kind_text {
-                    s.push_str(kind_text);
-                }
-            }
-        }
-
-        // Bass note for slash chords
         if let Some(ref bass) = self.bass {
             s.push('/');
             s.push_str(&bass.step);
-            if let Some(alter) = bass.alter {
-                match alter {
-                    1 => s.push('#'),
-                    -1 => s.push('b'),
-                    _ => {}
-                }
-            }
+            append_ascii_accidental(&mut s, bass.alter);
         }
 
         s
+    }
+}
+
+fn append_ascii_accidental(text: &mut String, alter: Option<i32>) {
+    match alter {
+        Some(1) => text.push('#'),
+        Some(-1) => text.push('b'),
+        Some(2) => text.push_str("##"),
+        Some(-2) => text.push_str("bb"),
+        Some(0) | None => {}
+        Some(_) => {}
     }
 }
 

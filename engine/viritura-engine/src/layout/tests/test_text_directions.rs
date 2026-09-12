@@ -4,6 +4,9 @@
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::layout::placement_metrics::PlacementTable;
+use crate::render::smufl::smufl::{
+    ACCIDENTAL_DOUBLE_FLAT, ACCIDENTAL_DOUBLE_SHARP, ACCIDENTAL_FLAT,
+};
 use crate::render::*;
 
 // ═══════════════════════════════════════
@@ -188,6 +191,63 @@ fn test_chord_symbols_render_text() {
             staff_y
         );
     }
+}
+
+#[test]
+fn test_chord_symbol_accidentals_use_smufl_glyphs() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+                "_x": {"viritura": {"chordSymbols": [{
+                    "position": {"fraction": [0, 1]},
+                    "root": {"step": "F", "alter": 2},
+                    "quality": "other",
+                    "kindText": "7b9",
+                    "bass": {"step": "B", "alter": -2}
+                }]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let chord_id = "p0/m0/chord0";
+    let glyphs: Vec<(u32, &str)> = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawGlyph {
+                codepoint, font, ..
+            } if id.as_deref() == Some(chord_id) => Some((*codepoint, font.as_str())),
+            _ => None,
+        })
+        .collect();
+    let text: String = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawText { text, .. } if id.as_deref() == Some(chord_id) => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        glyphs,
+        vec![
+            (ACCIDENTAL_DOUBLE_SHARP, "Bravura"),
+            (ACCIDENTAL_FLAT, "Bravura"),
+            (ACCIDENTAL_DOUBLE_FLAT, "Bravura"),
+        ]
+    );
+    assert_eq!(text, "F79/B");
+    assert!(!text.contains('#'));
+    assert!(!text.contains("b9"));
 }
 
 #[test]
