@@ -9,19 +9,13 @@
   project are touched.
 #>
 [CmdletBinding()]
-param(
-  [Parameter(Position = 0)]
-  [ValidateSet('cleanup', 'install', 'uninstall')]
-  [string]$Command = 'cleanup'
-)
+param()
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $DevRoot = Join-Path $env:LOCALAPPDATA 'Viritura\dev'
 $LeaseDirectory = Join-Path $DevRoot 'leases'
-$InstalledScript = Join-Path $DevRoot 'worktree-janitor.ps1'
-$TaskName = 'Viritura Dev Worktree Janitor'
 $RemovalGrace = [TimeSpan]::FromHours(24)
 $CacheRetention = [TimeSpan]::FromDays(7)
 
@@ -186,48 +180,4 @@ function Invoke-Cleanup {
   Remove-StaleCaches -Now $now
 }
 
-function Install-Janitor {
-  New-Item -ItemType Directory -Path $DevRoot -Force | Out-Null
-  Copy-Item -LiteralPath $PSCommandPath -Destination $InstalledScript -Force
-
-  $action = New-ScheduledTaskAction `
-    -Execute 'powershell.exe' `
-    -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$InstalledScript`" cleanup"
-  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
-    -RepetitionInterval ([TimeSpan]::FromMinutes(15))
-  $settings = New-ScheduledTaskSettingsSet `
-    -ExecutionTimeLimit ([TimeSpan]::FromMinutes(10)) `
-    -MultipleInstances IgnoreNew `
-    -StartWhenAvailable
-  $principal = New-ScheduledTaskPrincipal `
-    -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) `
-    -LogonType Interactive `
-    -RunLevel Limited
-
-  Register-ScheduledTask `
-    -TaskName $TaskName `
-    -Action $action `
-    -Trigger $trigger `
-    -Settings $settings `
-    -Principal $principal `
-    -Description 'Stops expired Viritura development stacks and removes them after 24 hours.' `
-    -Force | Out-Null
-  Write-Host "Installed '$TaskName' (runs every 15 minutes while signed in)." -ForegroundColor Green
-}
-
-function Uninstall-Janitor {
-  $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-  if ($task) {
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-  }
-  if (Test-Path -LiteralPath $InstalledScript) {
-    Remove-Item -LiteralPath $InstalledScript -Force
-  }
-  Write-Host "Uninstalled '$TaskName'." -ForegroundColor Green
-}
-
-switch ($Command) {
-  'cleanup' { Invoke-Cleanup }
-  'install' { Install-Janitor }
-  'uninstall' { Uninstall-Janitor }
-}
+Invoke-Cleanup
