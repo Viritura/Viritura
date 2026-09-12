@@ -10,7 +10,13 @@
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { BeforeMount, editor } from "@viritura/monaco-react";
-import { initWasm, isWasmReady, loadMusicFont, GlyphAtlas, PerfTracker, type DisplayList } from "@viritura/renderer";
+import {
+  computeDisplayListContentBounds,
+  computeHorizonPaperGeometry,
+  GlyphAtlas,
+  PerfTracker,
+  type DisplayList,
+} from "@viritura/renderer";
 import { useSyncedViewport } from "./useSyncedViewport";
 import { semanticDiff, collectLeaves } from "../diff/semanticDiff";
 import type { DiffNode } from "../diff/semanticDiff";
@@ -21,12 +27,12 @@ import { configureMnxJsonDiagnostics, loadMnxSchema } from "../lib/monacoMnxSche
 import {
   ATLAS_FONT_SIZE,
   type FocusRect,
-  computeLayout,
-  applyUseWrittenOverride,
   findMeasureLine,
   computeAllMeasureRects,
+  computeDiffFocusRect,
 } from "./useDiffEngineHelpers";
 import { useCanvasRepaint, useCanvasMeasureClick, useSplitterDrag } from "./useDiffEngineSubHooks";
+import { useDiffLayouts } from "./useDiffLayouts";
 
 // ─── Hook ────────────────────────────────────────────────────────
 
@@ -81,6 +87,8 @@ export interface UseDiffEngineOptions {
   modifiedJson: string;
   /** Presentation-only override applied to both diff canvases. */
   useWritten?: boolean;
+  /** Whether Monaco source comparison is currently visible. */
+  showSource?: boolean;
 }
 
 export interface UseDiffEngineResult {
@@ -105,6 +113,7 @@ export interface UseDiffEngineResult {
   setViewMode: (mode: "side" | "inline") => void;
   diffMode: "full" | "snippets";
   setDiffMode: (mode: "full" | "snippets") => void;
+  showSource: boolean;
 
   // Splitter
   splitPercent: number;
@@ -129,16 +138,18 @@ export interface UseDiffEngineResult {
 }
 
 // eslint-disable-next-line max-lines-per-function -- diff-pane state hook: 8 useState (text/view/mode/wasm-ready/focus/selection/...) + 5 useEffect coordinating WASM init, diff parsing, focus mgmt, and node selection. Each effect reads multiple state slices; lifting them to sibling hooks would force the same slices to be re-threaded back through deps.
-export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDiffEngineOptions): UseDiffEngineResult {
+export function useDiffEngine({
+  originalJson,
+  modifiedJson,
+  useWritten,
+  showSource = true,
+}: UseDiffEngineOptions): UseDiffEngineResult {
   const [originalText, setOriginalText] = useState(originalJson);
   const [modifiedText, setModifiedText] = useState(modifiedJson);
   const [viewMode, setViewMode] = useState<"side" | "inline">("side");
   const [diffMode, setDiffMode] = useState<"full" | "snippets">("snippets");
-  const [wasmReady, setWasmReady] = useState(false);
   const [focusedMeasure, setFocusedMeasure] = useState<number | null>(null);
   const [selectedDiffNode, setSelectedDiffNode] = useState<DiffNode | null>(null);
-  const [originalDl, setOriginalDl] = useState<DisplayList | null>(null);
-  const [modifiedDl, setModifiedDl] = useState<DisplayList | null>(null);
   const [splitPercent, setSplitPercent] = useState(50);
 
   const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
@@ -177,49 +188,79 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     [deferredOriginalText, deferredModifiedText],
   );
 
-  // Derived data
-  const originalBounds = useMemo(() => (originalDl ? computeMeasureBounds(originalDl) : []), [originalDl]);
-  const modifiedBounds = useMemo(() => (modifiedDl ? computeMeasureBounds(modifiedDl) : []), [modifiedDl]);
-
-  const measureDiff: MeasureDiffResult | null = useMemo(() => {
+  const parsedDocuments = useMemo(() => {
     if (oversized || !deferredOriginalText || !deferredModifiedText) return null;
     try {
-      return computeMeasureDiff(JSON.parse(deferredOriginalText), JSON.parse(deferredModifiedText));
+      return {
+        original: JSON.parse(deferredOriginalText) as Parameters<typeof computeMeasureDiff>[0],
+        modified: JSON.parse(deferredModifiedText) as Parameters<typeof computeMeasureDiff>[1],
+      };
     } catch {
       return null;
     }
   }, [oversized, deferredOriginalText, deferredModifiedText]);
 
+  const measureDiff: MeasureDiffResult | null = useMemo(() => {
+    if (!parsedDocuments) return null;
+    return computeMeasureDiff(parsedDocuments.original, parsedDocuments.modified);
+  }, [parsedDocuments]);
+
   const originalLineMap = useMemo(() => {
-    if (oversized || !deferredOriginalText) return [];
+    if (!showSource || oversized || !deferredOriginalText) return [];
     try {
       return buildLineToMeasureMap(deferredOriginalText);
     } catch {
       return [];
     }
-  }, [oversized, deferredOriginalText]);
+  }, [showSource, oversized, deferredOriginalText]);
   const modifiedLineMap = useMemo(() => {
-    if (oversized || !deferredModifiedText) return [];
+    if (!showSource || oversized || !deferredModifiedText) return [];
     try {
       return buildLineToMeasureMap(deferredModifiedText);
     } catch {
       return [];
     }
-  }, [oversized, deferredModifiedText]);
+  }, [showSource, oversized, deferredModifiedText]);
 
   const diffTree: DiffNode | null = useMemo(() => {
-    if (oversized || !deferredOriginalText || !deferredModifiedText) return null;
-    try {
-      return semanticDiff(JSON.parse(deferredOriginalText) as unknown, JSON.parse(deferredModifiedText) as unknown);
-    } catch {
-      return null;
-    }
-  }, [oversized, deferredOriginalText, deferredModifiedText]);
+    if (!parsedDocuments) return null;
+    return semanticDiff(parsedDocuments.original, parsedDocuments.modified);
+  }, [parsedDocuments]);
+
+  const {
+    ready: wasmReady,
+    originalDl,
+    modifiedDl,
+  } = useDiffLayouts({
+    originalText: deferredOriginalText,
+    modifiedText: deferredModifiedText,
+    useWritten,
+    oversized,
+  });
+
+  // Derived display-list data
+  const originalBounds = useMemo(() => (originalDl ? computeMeasureBounds(originalDl) : []), [originalDl]);
+  const modifiedBounds = useMemo(() => (modifiedDl ? computeMeasureBounds(modifiedDl) : []), [modifiedDl]);
 
   const leafCount = useMemo(() => {
     if (!diffTree || diffTree.type === "unchanged") return 0;
     return collectLeaves(diffTree).length;
   }, [diffTree]);
+
+  const originalContentSize = useMemo(() => {
+    if (!originalDl) return { width: 0, height: 0 };
+    return {
+      width: computeDisplayListContentBounds(originalDl).maxX,
+      height: computeHorizonPaperGeometry(originalDl).contentHeight,
+    };
+  }, [originalDl]);
+  const modifiedContentSize = useMemo(() => {
+    if (!modifiedDl) return { width: 0, height: 0 };
+    return {
+      width: computeDisplayListContentBounds(modifiedDl).maxX,
+      height: computeHorizonPaperGeometry(modifiedDl).contentHeight,
+    };
+  }, [modifiedDl]);
 
   // Viewport
   const {
@@ -230,76 +271,45 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     setZoom,
     scrollTo,
   } = useSyncedViewport({
-    leftContentWidth: originalDl?.width ?? 0,
-    leftContentHeight: originalDl?.height ?? 0,
-    rightContentWidth: modifiedDl?.width ?? 0,
-    rightContentHeight: modifiedDl?.height ?? 0,
+    leftContentWidth: originalContentSize.width,
+    leftContentHeight: originalContentSize.height,
+    rightContentWidth: modifiedContentSize.width,
+    rightContentHeight: modifiedContentSize.height,
   });
 
-  // WASM + font init
+  // Glyph atlas
   useEffect(() => {
-    Promise.all([initWasm(), loadMusicFont()]).then(() => {
-      setWasmReady(isWasmReady());
-      if (typeof OffscreenCanvas !== "undefined") {
-        try {
-          const atlas = new GlyphAtlas({
-            fontSize: ATLAS_FONT_SIZE,
-            deviceScale: window.devicePixelRatio || 1,
-            atlasWidth: 4096,
-            atlasHeight: 4096,
-          });
-          atlas.build();
-          glyphAtlasRef.current = atlas;
-        } catch {
-          /* fallback */
-        }
-      }
-    });
-  }, []);
+    if (!wasmReady || typeof OffscreenCanvas === "undefined") return;
+    try {
+      const atlas = new GlyphAtlas({
+        fontSize: ATLAS_FONT_SIZE,
+        deviceScale: window.devicePixelRatio || 1,
+        atlasWidth: 4096,
+        atlasHeight: 4096,
+      });
+      atlas.build();
+      glyphAtlasRef.current = atlas;
+    } catch {
+      /* fallback */
+    }
+    return () => {
+      glyphAtlasRef.current = null;
+    };
+  }, [wasmReady]);
 
   // MNX schema
   useEffect(() => {
+    if (!showSource) return;
     loadMnxSchema().then((schema) => {
       mnxSchemaRef.current = schema;
       if (monacoRef.current) configureMnxJsonDiagnostics(monacoRef.current, schema);
     });
-  }, []);
+  }, [showSource]);
 
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     monacoRef.current = monaco;
     configureMnxJsonDiagnostics(monaco, mnxSchemaRef.current);
   }, []);
-
-  // Layout computation
-  useEffect(() => {
-    if (!wasmReady) return;
-    if (oversized) {
-      setOriginalDl(null);
-      return;
-    }
-    const pageWidth = leftContainerRef.current?.clientWidth ?? 400;
-    const text = deferredOriginalText
-      ? useWritten !== undefined
-        ? applyUseWrittenOverride(deferredOriginalText, useWritten)
-        : deferredOriginalText
-      : "";
-    setOriginalDl(text ? computeLayout(text, pageWidth) : null);
-  }, [oversized, deferredOriginalText, wasmReady, leftContainerRef, useWritten]);
-
-  useEffect(() => {
-    if (!wasmReady) return;
-    if (oversized) {
-      setModifiedDl(null);
-      return;
-    }
-    const pageWidth = rightContainerRef.current?.clientWidth ?? 400;
-    const text = deferredModifiedText
-      ? useWritten !== undefined
-        ? applyUseWrittenOverride(deferredModifiedText, useWritten)
-        : deferredModifiedText
-      : "";
-    setModifiedDl(text ? computeLayout(text, pageWidth) : null);
-  }, [oversized, deferredModifiedText, wasmReady, rightContainerRef, useWritten]);
 
   // Measure focus rects
   const origMeasureRects = useMemo(() => {
@@ -312,6 +322,17 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     return computeAllMeasureRects(diffTree, modifiedDl, modifiedBounds, deferredModifiedText, originalDl, "modified");
   }, [originalDl, modifiedDl, diffTree, modifiedBounds, deferredModifiedText]);
 
+  const originalFocusRect = useMemo(
+    () =>
+      computeDiffFocusRect(selectedDiffNode, originalDl, originalBounds, deferredOriginalText, modifiedDl, "original"),
+    [selectedDiffNode, originalDl, originalBounds, deferredOriginalText, modifiedDl],
+  );
+  const modifiedFocusRect = useMemo(
+    () =>
+      computeDiffFocusRect(selectedDiffNode, modifiedDl, modifiedBounds, deferredModifiedText, originalDl, "modified"),
+    [selectedDiffNode, modifiedDl, modifiedBounds, deferredModifiedText, originalDl],
+  );
+
   // Repaint canvases
   useCanvasRepaint({
     canvasRef: leftCanvasRef,
@@ -322,6 +343,7 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     measureRects: origMeasureRects,
     measureDiff,
     focusedMeasure,
+    focusRect: originalFocusRect,
     viewport,
     perfRef: leftPerfRef,
     glyphAtlasRef,
@@ -335,6 +357,7 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     measureRects: modMeasureRects,
     measureDiff,
     focusedMeasure,
+    focusRect: modifiedFocusRect,
     viewport,
     perfRef: rightPerfRef,
     glyphAtlasRef,
@@ -342,12 +365,13 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
 
   // Scroll to measure
   const scrollToMeasure = useCallback(
-    (measureIndex: number) => {
-      const bounds = modifiedBounds.length > 0 ? modifiedBounds : originalBounds;
-      const mb = bounds.find((b) => b.measureIndex === measureIndex);
-      if (!mb) return;
-      const centerX = (mb.xStart + mb.xEnd) / 2;
-      const centerY = (mb.yStart + mb.yEnd) / 2;
+    (measureIndex: number, preferredRect?: FocusRect | null) => {
+      const mb =
+        modifiedBounds.find((bound) => bound.measureIndex === measureIndex) ??
+        originalBounds.find((bound) => bound.measureIndex === measureIndex);
+      if (!preferredRect && !mb) return;
+      const centerX = preferredRect ? preferredRect.x + preferredRect.w / 2 : (mb!.xStart + mb!.xEnd) / 2;
+      const centerY = preferredRect ? preferredRect.y + preferredRect.h / 2 : (mb!.yStart + mb!.yEnd) / 2;
       const containerWidth = leftContainerRef.current?.clientWidth ?? 400;
       const containerHeight = leftContainerRef.current?.clientHeight ?? 300;
       scrollTo(
@@ -385,9 +409,12 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
         measureIndex = Number(globalMeasureMatch[1]);
       }
       if (measureIndex != null) {
-        scrollToMeasure(measureIndex);
+        const focusRect =
+          computeDiffFocusRect(node, modifiedDl, modifiedBounds, modifiedText, originalDl, "modified") ??
+          computeDiffFocusRect(node, originalDl, originalBounds, originalText, modifiedDl, "original");
+        scrollToMeasure(measureIndex, focusRect);
         const ed = diffEditorRef.current;
-        if (ed) {
+        if (showSource && ed) {
           const modEditor = ed.getModifiedEditor();
           const lineNumber = findMeasureLine(modifiedText, partIndex, measureIndex);
           if (lineNumber > 0) {
@@ -397,7 +424,7 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
         }
       }
     },
-    [scrollToMeasure, modifiedText],
+    [scrollToMeasure, modifiedText, originalText, modifiedDl, originalDl, modifiedBounds, originalBounds, showSource],
   );
 
   // Monaco editor mount
@@ -461,6 +488,7 @@ export function useDiffEngine({ originalJson, modifiedJson, useWritten }: UseDif
     setViewMode,
     diffMode,
     setDiffMode,
+    showSource,
     splitPercent,
     handleSplitterMouseDown,
     setZoom,

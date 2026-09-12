@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeMeasureDiff } from "../diff/measureDiff";
+import { computeMeasureDiff, getMeasureStatusForSide } from "../diff/measureDiff";
 
 // Slurs example — two measures, one part
 const slursOriginal = {
@@ -301,6 +301,9 @@ describe("computeMeasureDiff", () => {
 
     expect(addedCount).toBe(1);
     expect(unchangedCount).toBe(3);
+    expect(getMeasureStatusForSide(result, 2, "original")).toBe("unchanged");
+    expect(getMeasureStatusForSide(result, 2, "modified")).toBe("added");
+    expect(getMeasureStatusForSide(result, 3, "modified")).toBe("unchanged");
   });
 
   it("handles measure deletion in the middle — remaining measures stay unchanged", () => {
@@ -332,6 +335,8 @@ describe("computeMeasureDiff", () => {
 
     expect(removedCount).toBe(1);
     expect(unchangedCount).toBe(2);
+    expect(getMeasureStatusForSide(result, 1, "original")).toBe("removed");
+    expect(getMeasureStatusForSide(result, 1, "modified")).toBe("unchanged");
   });
 
   it("handles simultaneous insertion and modification", () => {

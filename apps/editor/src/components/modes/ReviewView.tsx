@@ -1,17 +1,16 @@
 import { useMemo, useState, useCallback, type CSSProperties } from "react";
-import { CheckCircle2, XCircle, Eye, Filter } from "lucide-react";
+import { Code2, PanelsTopLeft } from "lucide-react";
 
 const REVIEW_FLEX_SPACER_STYLE: CSSProperties = { flex: 1 };
 import { useDiffEngine } from "../../hooks/useDiffEngine";
-import { countChanges } from "../../diff/semanticDiff";
+import { countChanges, summarizeChanges } from "../../diff/semanticDiff";
 import { ToolbarPortal } from "../AppShell";
 import { ViewLayout } from "../ViewLayout";
 import { formatZoomPercent, getLifeSizeZoom } from "../../zoomScale";
 import { MIN_ZOOM, MAX_ZOOM } from "../../viewport";
-import { PanelActionButton, PreviewStatusBar } from "@viritura/ui";
+import { ButtonGroup, PanelActionButton, PreviewStatusBar } from "@viritura/ui";
 import { toast } from "sonner";
 import { CreateGitHubRepositoryDialog } from "../CreateGitHubRepositoryDialog";
-import { MockButton } from "./review/HistoryRow";
 import { HistorySidebar } from "./review/HistorySidebar";
 import { DiffMainPane } from "./review/DiffMainPane";
 import { useReviewSession } from "./review/useReviewSession";
@@ -36,12 +35,14 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
   // Presentation-only toggle: overrides scores[*].useWritten in both diff
   // canvases without mutating the underlying document.
   const [useWritten, setUseWritten] = useState(false);
+  const [comparisonMode, setComparisonMode] = useState<"visual" | "source">("visual");
   const handleConcertPitchToggle = useCallback((written: boolean) => setUseWritten(written), []);
 
   const engine = useDiffEngine({
     originalJson: session.effectiveOriginal,
     modifiedJson: session.effectiveModified,
     useWritten,
+    showSource: comparisonMode === "source",
   });
 
   const changeCounts = useMemo(() => {
@@ -49,6 +50,10 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
     return countChanges(engine.diffTree);
   }, [engine.diffTree]);
   const totalChanges = changeCounts.added + changeCounts.removed + changeCounts.modified;
+  const changeSummary = useMemo(
+    () => (engine.diffTree ? summarizeChanges(engine.diffTree) : "No musical changes"),
+    [engine.diffTree],
+  );
 
   const leftPanelContent = (
     <HistorySidebar
@@ -60,20 +65,21 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
         void session.handleFetchRemote();
       }}
       log={session.log}
-      multiSelect={session.multiSelect}
+      selection={session.selection}
       isSelected={session.isSelected}
       sideOf={session.sideOf}
       handleRowClick={session.handleRowClick}
+      handleRevisionChange={session.handleRevisionChange}
       handleSetupProject={() => {
         void session.handleSetupProject();
       }}
-      setupCard={null}
       pushing={session.pushing}
       handlePushChanges={() => {
         void session.handlePushChanges();
       }}
       totalChanges={totalChanges}
       changeCounts={changeCounts}
+      changeSummary={changeSummary}
       diffTree={engine.diffTree}
       handleNodeSelect={engine.handleNodeSelect as (...args: unknown[]) => void}
       focusedMeasure={engine.focusedMeasure}
@@ -105,27 +111,44 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
     <>
       <ToolbarPortal>
         <div style={toolbarStyle}>
-          <MockButton icon={<CheckCircle2 size={16} />} label="Accept Change" />
-          <MockButton icon={<XCircle size={16} />} label="Reject Change" />
-          <div style={dividerStyle} />
-          <MockButton icon={<Eye size={16} />} label="Show Markup" active />
-          <MockButton icon={<Filter size={16} />} label="Filter Changes" />
           <div style={REVIEW_FLEX_SPACER_STYLE} />
-          <PanelActionButton onClick={() => engine.setDiffMode("snippets")} active={engine.diffMode === "snippets"}>
-            Snippets{engine.leafCount > 0 ? ` (${engine.leafCount})` : ""}
-          </PanelActionButton>
-          <PanelActionButton onClick={() => engine.setDiffMode("full")} active={engine.diffMode === "full"}>
-            Full File
-          </PanelActionButton>
-          {engine.diffMode === "full" && (
+          <ButtonGroup
+            ariaLabel="Review content"
+            value={comparisonMode}
+            onChange={setComparisonMode}
+            options={[
+              {
+                value: "visual",
+                label: <PanelsTopLeft size={14} aria-hidden="true" />,
+                tooltip: "Scores only",
+              },
+              {
+                value: "source",
+                label: <Code2 size={14} aria-hidden="true" />,
+                tooltip: "Scores and MNX source",
+              },
+            ]}
+          />
+          {comparisonMode === "source" && (
             <>
-              <span style={dividerStyle} />
-              <PanelActionButton onClick={() => engine.setViewMode("side")} active={engine.viewMode === "side"}>
-                Side by Side
+              <div style={dividerStyle} />
+              <PanelActionButton onClick={() => engine.setDiffMode("snippets")} active={engine.diffMode === "snippets"}>
+                Snippets{engine.leafCount > 0 ? ` (${engine.leafCount})` : ""}
               </PanelActionButton>
-              <PanelActionButton onClick={() => engine.setViewMode("inline")} active={engine.viewMode === "inline"}>
-                Inline
+              <PanelActionButton onClick={() => engine.setDiffMode("full")} active={engine.diffMode === "full"}>
+                Full File
               </PanelActionButton>
+              {engine.diffMode === "full" && (
+                <>
+                  <span style={dividerStyle} />
+                  <PanelActionButton onClick={() => engine.setViewMode("side")} active={engine.viewMode === "side"}>
+                    Side by Side
+                  </PanelActionButton>
+                  <PanelActionButton onClick={() => engine.setViewMode("inline")} active={engine.viewMode === "inline"}>
+                    Inline
+                  </PanelActionButton>
+                </>
+              )}
             </>
           )}
         </div>
