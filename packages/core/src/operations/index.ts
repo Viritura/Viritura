@@ -19,3 +19,4 @@ export {
   isSupportedDynamicGlyph,
   type AuthoredDynamicValue,
 } from "./dynamicGroups";
+export { parseChordSymbolText } from "./chordSymbols";

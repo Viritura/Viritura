@@ -21,6 +21,8 @@ import {
   setRadialMenu,
   setTempoPopover,
   setStaffTextPopover,
+  setChordSymbolPopover,
+  type ChordSymbolPopoverState,
   type TempoPopoverState,
   type StaffTextPopoverState,
   type RadialMenuState,
@@ -31,12 +33,12 @@ import type { StartCenterView } from "../store/onboardingStore";
 import { openSettings } from "../components/SettingsDialog";
 import { useGitHubAccount } from "../github/useGitHubAccount";
 import type { VirituraAccountState } from "../auth";
-import { defaultPageSetupForScore, type Score, type PageSetup } from "@viritura/core";
+import { defaultPageSetupForScore, parseChordSymbolText, type Score, type PageSetup } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 
-import { applyTempoEdit, applyStaffTextEdit, applyCondensingOverride } from "./popoverHandlers";
+import { applyTempoEdit, applyStaffTextEdit, applyChordSymbolEdit, applyCondensingOverride } from "./popoverHandlers";
 import {
   getMenuItems,
   getMenuTitle,
@@ -108,6 +110,39 @@ function OrchestralStaffSplitOverlay({
   );
 }
 
+function ChordSymbolEntryPopover({
+  store,
+  popover,
+  updateScore,
+}: {
+  store: DocumentStore;
+  popover: ChordSymbolPopoverState | null;
+  updateScore: (next: Score) => void;
+}) {
+  return (
+    <TextPopover
+      open={popover !== null}
+      onClose={() => setChordSymbolPopover(null)}
+      onSubmit={(value) => {
+        const { score } = store.getState();
+        if (!score || !popover) return;
+        const newScore = applyChordSymbolEdit(score, popover, value);
+        if (!newScore) {
+          toast.error("Could not insert chord symbol at the selected position");
+          return;
+        }
+        if (newScore !== score) updateScore(newScore);
+      }}
+      position={popover?.position ?? { x: 0, y: 0 }}
+      title="Chord Symbol"
+      placeholder="e.g. C#m7, Bb7, C/E"
+      validate={(value) =>
+        parseChordSymbolText(value, { fraction: [0, 1] }) ? null : "Enter a chord beginning with A-G"
+      }
+    />
+  );
+}
+
 export interface AppOverlaysProps {
   // Document/state
   store: DocumentStore;
@@ -163,6 +198,7 @@ export interface AppOverlaysProps {
   // Popovers (overlay store state)
   tempoPopover: TempoPopoverState | null;
   staffTextPopover: StaffTextPopoverState | null;
+  chordSymbolPopover: ChordSymbolPopoverState | null;
 
   // Lyric
   lyricMode: boolean;
@@ -366,6 +402,8 @@ export function AppOverlays(props: AppOverlaysProps) {
         title="Staff Text"
         placeholder="e.g. dolce, pizz., arco"
       />
+
+      <ChordSymbolEntryPopover store={store} popover={props.chordSymbolPopover} updateScore={updateScore} />
 
       <LyricInput
         active={lyricMode}

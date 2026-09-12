@@ -3,7 +3,7 @@ import { childText, findChild } from "../xmlHelpers";
 
 interface ChordKindMapping {
   quality: ChordQuality;
-  extension?: 7 | 9 | 11 | 13;
+  extension?: ChordSymbol["extension"];
 }
 
 const CHORD_KIND_MAP: Record<string, ChordKindMapping> = {
@@ -18,6 +18,8 @@ const CHORD_KIND_MAP: Record<string, ChordKindMapping> = {
   "augmented-seventh": { quality: "augmented", extension: 7 },
   "half-diminished": { quality: "half-diminished", extension: 7 },
   "major-minor": { quality: "minor-major", extension: 7 },
+  "major-sixth": { quality: "major", extension: 6 },
+  "minor-sixth": { quality: "minor", extension: 6 },
   "dominant-ninth": { quality: "dominant", extension: 9 },
   "major-ninth": { quality: "major", extension: 9 },
   "minor-ninth": { quality: "minor", extension: 9 },
@@ -44,23 +46,45 @@ function readRoot(parent: Element, prefix: "root" | "bass"): ChordRoot | undefin
   return root;
 }
 
+function readStaff(harmony: Element): number | undefined {
+  const staffText = childText(harmony, "staff");
+  if (staffText === null) return undefined;
+  const staff = Number.parseInt(staffText, 10);
+  return Number.isInteger(staff) && staff >= 1 ? staff : undefined;
+}
+
 export function extractChordSymbol(harmony: Element, position: RhythmicPosition): ChordSymbol | undefined {
   const rootElement = findChild(harmony, "root");
   const kindElement = findChild(harmony, "kind");
   if (!rootElement || !kindElement) return undefined;
 
   const root = readRoot(rootElement, "root");
-  const kind = CHORD_KIND_MAP[kindElement.textContent?.trim() ?? ""];
-  if (!root || !kind) return undefined;
+  const sourceKind = kindElement.textContent?.trim() ?? "";
+  const kind = CHORD_KIND_MAP[sourceKind];
+  if (!root) return undefined;
 
-  const chord: ChordSymbol = { position, root, quality: kind.quality };
-  if (kind.extension !== undefined) chord.extension = kind.extension;
+  const authoredKindText = kindElement.getAttribute("text")?.trim();
+  const chord: ChordSymbol = {
+    position,
+    root,
+    quality: kind?.quality ?? "other",
+  };
+  if (authoredKindText || !kind) chord.kindText = authoredKindText || sourceKind;
+  const staff = readStaff(harmony);
+  if (staff !== undefined) chord.staff = staff;
+  if (kind?.extension !== undefined) chord.extension = kind.extension;
   const bassElement = findChild(harmony, "bass");
-  if (bassElement) chord.bass = readRoot(bassElement, "bass");
+  const bass = bassElement ? readRoot(bassElement, "bass") : undefined;
+  if (bass) chord.bass = bass;
   return chord;
 }
 
 export function isSupportedHarmony(harmony: Element): boolean {
+  if (!findChild(harmony, "root")) return false;
   const kind = findChild(harmony, "kind")?.textContent?.trim() ?? "";
   return CHORD_KIND_MAP[kind] !== undefined;
+}
+
+export function isPreservableHarmony(harmony: Element): boolean {
+  return findChild(harmony, "root") !== null && findChild(harmony, "kind") !== null;
 }

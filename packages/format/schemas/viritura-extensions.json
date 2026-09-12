@@ -192,7 +192,8 @@
         "minor-major",
         "power",
         "suspended2",
-        "suspended4"
+        "suspended4",
+        "other"
       ],
       "description": "Harmonic quality of a chord symbol."
     },
@@ -224,6 +225,11 @@
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
         },
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Staff number (1-based). The chord remains time-anchored and is not owned by a note."
+        },
         "root": {
           "$ref": "#/$defs/chord-root",
           "description": "Root note of the chord."
@@ -231,14 +237,18 @@
         "quality": {
           "$ref": "#/$defs/chord-quality"
         },
+        "kindText": {
+          "type": "string",
+          "description": "Authored quality spelling retained alongside the normalized quality."
+        },
         "bass": {
           "$ref": "#/$defs/chord-root",
           "description": "Bass note for slash chords (e.g. the 'E' in 'C/E')."
         },
         "extension": {
           "type": "integer",
-          "enum": [7, 9, 11, 13],
-          "description": "Chord extension (7th, 9th, 11th, 13th)."
+          "enum": [6, 7, 9, 11, 13],
+          "description": "Chord extension (6th, 7th, 9th, 11th, 13th)."
         },
         "textOverride": {
           "type": "string",

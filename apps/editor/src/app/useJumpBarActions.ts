@@ -10,7 +10,13 @@ import type { ActivityView } from "../components/activityRegistry";
 import { openSettings } from "../components/SettingsDialog";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import type { RadialMenuCategory } from "../radialMenu";
-import { resolveStaffTextTargets, type TempoPopoverState, type StaffTextPopoverState } from "./useAppKeyboardWiring";
+import {
+  resolveStaffTextTargets,
+  resolveChordSymbolTarget,
+  type ChordSymbolPopoverState,
+  type TempoPopoverState,
+  type StaffTextPopoverState,
+} from "./useAppKeyboardWiring";
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
 
 export interface JumpBarActionsDeps {
@@ -42,6 +48,7 @@ export interface JumpBarActionsDeps {
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
   onEnterLyrics: () => void;
+  setChordSymbolPopover: (s: ChordSymbolPopoverState | null) => void;
   onOpenActivity: (view: ActivityView) => void;
   onSwitchScore: (index: number) => void;
 }
@@ -190,6 +197,13 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
             });
           },
           enterLyrics: onEnterLyrics,
+          addChordSymbol: () => {
+            const { score } = store.getState();
+            if (!score) return;
+            deps.setChordSymbolPopover(
+              resolveChordSymbolTarget(score, selection, selectedScoreIndex, { ...mousePositionRef.current }),
+            );
+          },
           repeatSelection: handleRepeat,
           goToActivity: onOpenActivity,
           switchScore: onSwitchScore,
@@ -224,6 +238,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
       setTempoPopover,
       setStaffTextPopover,
       onEnterLyrics,
+      deps.setChordSymbolPopover,
       onNewScore,
       onOpenActivity,
       onSwitchScore,
