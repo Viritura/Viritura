@@ -79,18 +79,18 @@ docs/                       # Architecture documents
 ## Worktree development servers
 
 When an agent needs to start, run, preview, or visually inspect any web or API
-service, it must use `infra/dev/worktree.ps1` rather than launching Vite,
+service, it must use `pnpm dev:stack` rather than launching Vite,
 Storybook, or `dotnet watch` directly. The wrapper gives every worktree isolated
 containers, data, internal service DNS, and `*.<slug>.localhost` routes without
 host-port collisions.
 
-- Default app work: `./infra/dev/worktree.ps1 up` (editor + API + server UI watcher).
-- Frontend-only work: `./infra/dev/worktree.ps1 up ui`.
-- API/server work: `./infra/dev/worktree.ps1 up backend`.
-- Storybook work: `./infra/dev/worktree.ps1 up storybook-ui`,
+- Default app work: `pnpm dev:stack up` (editor + API + server UI watcher).
+- Frontend-only work: `pnpm dev:stack up ui`.
+- API/server work: `pnpm dev:stack up backend`.
+- Storybook work: `pnpm dev:stack up storybook-ui`,
   `storybook-mnx`, or `storybook-app`; use `storybook` only when all three are needed.
-- Cross-stack or uncertain scope: `./infra/dev/worktree.ps1 up full`.
-- Report routes with `./infra/dev/worktree.ps1 url`; inspect with `status` and
+- Cross-stack or uncertain scope: `pnpm dev:stack up full`.
+- Report routes with `pnpm dev:stack url`; inspect with `status` and
   `logs [service]`.
 - Dependency-manifest changes select a new content-addressed image
   automatically. Use `rebuild [target]` only to discard stale compiler output,
@@ -99,10 +99,9 @@ host-port collisions.
   preserved.
 - Rust-only builds and tests do not need a server. UI-capable profiles
   automatically run the cache-aware Docker WASM builder before startup; use
-  `./infra/dev/worktree.ps1 wasm` to invoke it explicitly.
-- On Windows, `worktree.ps1` starts Docker Desktop when the standard installation
-  is present but the Docker engine is stopped; if startup times out, start it
-  manually and retry.
+  `pnpm dev:stack wasm` to invoke it explicitly.
+- The wrapper requires Docker to be running. Start Docker Desktop, Docker Engine,
+  or another compatible Docker service before invoking it.
 
 Inside containers, services use Compose DNS (for example
 `VIRITURA_INTERNAL_API_URL=http://api:8080`). Browser code must use the routed

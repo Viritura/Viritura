@@ -46,16 +46,8 @@
       "label": "Viritura: Worktree App (Docker/Traefik)",
       "detail": "Start this worktree's editor + API with isolated data and routed .localhost URLs.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "up",
-        "app"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "up", "app"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -70,16 +62,8 @@
       "label": "Viritura: Worktree Backend (Docker/Traefik)",
       "detail": "Start this worktree's hot-reload API and server UI build watcher.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "up",
-        "backend"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "up", "backend"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -94,16 +78,8 @@
       "label": "Viritura: Worktree Storybooks (Docker/Traefik)",
       "detail": "Start all three Storybooks for this worktree.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "up",
-        "storybook"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "up", "storybook"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -118,16 +94,8 @@
       "label": "Viritura: Worktree Full Stack (Docker/Traefik)",
       "detail": "Start editor, website, API, server UI watcher, and all Storybooks for this worktree.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "up",
-        "full"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "up", "full"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -142,15 +110,8 @@
       "label": "Viritura: Worktree Status (Docker/Traefik)",
       "detail": "Show this worktree's dev containers and their .localhost URLs.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "status"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "status"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -165,15 +126,8 @@
       "label": "Viritura: Worktree Stop (Docker/Traefik)",
       "detail": "Stop this worktree's dev containers for a fast restart.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "stop"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "stop"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -188,15 +142,8 @@
       "label": "Viritura: Worktree Down (Docker/Traefik)",
       "detail": "Remove this worktree's containers and network while preserving compiler output.",
       "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}/infra/dev/worktree.ps1",
-        "down"
-      ],
+      "command": "corepack",
+      "args": ["pnpm", "dev:stack", "down"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
