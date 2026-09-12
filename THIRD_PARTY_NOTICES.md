@@ -36,6 +36,18 @@ from the installed `spessasynth_lib` package into Git-ignored application
 public-assets directories. The package distributions include the Apache 2.0
 license and no separate `NOTICE` file.
 
+## Denigma
+
+The Finale MUSX importer bundles a WebAssembly build of
+[Denigma](https://github.com/openmusx/denigma), distributed under the MIT
+License. Exact source revisions and artifact hashes are recorded in
+`packages/musx-import/assets/manifest.json`; the Denigma license is retained
+beside the generated assets. The package also retains the license files for the
+linked musxdom, mnxdom, smufl-mapping, pugixml, nlohmann/json,
+json-schema-validator, zlib, Emscripten, musl, and libc++ runtime dependencies,
+plus the smufl-mapping notice and Bravura-derived mapping data's SIL Open Font
+License.
+
 ## SoundFont
 
 `packages/audio/assets/sounds/Shan-SGM-Pro-15.sf2` is the **Shan SGM Pro 15**

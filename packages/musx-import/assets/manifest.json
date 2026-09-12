@@ -1,0 +1,9 @@
+{
+  "denigmaCommit": "1956a698c3608f520082321a82ab0c289878d4a8",
+  "denigmaVersion": "4.0.0",
+  "origin": "github-actions:34704679454",
+  "emscriptenImage": "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a",
+  "moduleSha256": "c553febcb40c814cd70a5869f8918be3ece24a14d12f2fe03ed2655ea2ab8d66",
+  "wasmSha256": "f8a87cdfd3a4cb112d2c44e5a09db922a8e2d552bca49aa38224a670074b396c",
+  "wasmBytes": 6153682
+}

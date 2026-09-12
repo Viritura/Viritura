@@ -21,7 +21,7 @@ export interface MenuBarCallbacks {
   readonly onNewScore?: () => void;
   readonly onOpenFile?: () => void;
   readonly onOpenProject?: () => void;
-  /** Import a MusicXML/MXL file (converted to MNX on load). */
+  /** Import a MusicXML, MXL, or Finale MUSX file (converted to MNX on load). */
   readonly onImport?: () => void;
   /** Show the Start Center launch dialog. */
   readonly onShowStartCenter?: () => void;

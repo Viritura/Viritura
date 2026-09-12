@@ -127,7 +127,13 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
       if (!result) return;
       setOpenedFile(result);
       void useProjectStore.getState().setAdapter(null);
-      toast.success(`Imported ${result.filename}`);
+      const warningCount =
+        result.importDiagnostics?.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
+      if (warningCount > 0) {
+        toast.warning(`Imported ${result.filename} with ${warningCount} warning${warningCount === 1 ? "" : "s"}`);
+      } else {
+        toast.success(`Imported ${result.filename}`);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to import file";
       setFileError(msg);

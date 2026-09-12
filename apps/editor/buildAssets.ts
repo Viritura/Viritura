@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, cpSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { syncDenigmaAssets } from "@viritura/musx-import/asset-staging";
 
 const editorRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(editorRoot, "../..");
@@ -48,6 +49,10 @@ export function syncSounds(): void {
     [pnpmCli, "--filter", "@viritura/audio", "stage-sounds", resolve(editorRoot, "public/sounds")],
     { cwd: repoRoot, stdio: "inherit" },
   );
+}
+
+export function syncMusxImporter(): void {
+  syncDenigmaAssets(resolve(editorRoot, "public/denigma"));
 }
 
 export function syncMnxSchema(): void {

@@ -33,6 +33,7 @@
     "@viritura/instrument-profiles": "workspace:*",
     "@viritura/midi": "workspace:*",
     "@viritura/monaco-react": "workspace:*",
+    "@viritura/musx-import": "workspace:*",
     "@viritura/musicxml": "workspace:*",
     "@viritura/piano-roll": "workspace:*",
     "@viritura/playback": "workspace:*",
