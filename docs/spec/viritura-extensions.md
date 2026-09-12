@@ -480,6 +480,10 @@ voice, or staff. Layout-staff `chordSymbolVisibility` controls ordinary
 engraving placement, while `displayStaff` preserves an explicit per-event
 source override.
 
+Semantic root, bass, and numeric modifier accidentals are rendered with SMuFL
+accidental glyphs from Bravura. `textOverride` is intentionally rendered
+literally because it represents author-supplied presentation text.
+
 | Property       | Type                                   | Required | Description                                   |
 | -------------- | -------------------------------------- | -------- | --------------------------------------------- |
 | `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                             |

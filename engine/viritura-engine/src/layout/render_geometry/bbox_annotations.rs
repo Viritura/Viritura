@@ -3,8 +3,8 @@
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::render_annotations::{
-    below_staff_number_top_y, highest_point_in_range, measure_number_value,
-    rehearsal_mark_x_extent, tempo_metronome_runs,
+    below_staff_number_top_y, chord_symbol_dimensions, highest_point_in_range,
+    measure_number_value, rehearsal_mark_x_extent, tempo_metronome_runs,
 };
 use super::super::render_barlines::{render_barline, BarlineKind};
 use super::super::render_measure::MIDDLE_LINE_POS;
@@ -34,7 +34,6 @@ pub(super) fn bbox_chord_symbols(
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
     let x_origin = ml.x + ml.prefix_width;
-    let chord_font_size = 2.4 * sp;
     // Mirror `render_chord_symbols`: Alphabetic baseline edge-anchored from the
     // table (`chordSymbol.attachGap`). The cap band spans up from the baseline;
     // the box bottom IS the baseline (chord symbols carry no descenders), so the
@@ -48,14 +47,8 @@ pub(super) fn bbox_chord_symbols(
         let beat = chord.position.beats();
         let beat_pos = beat / total_beats;
         let chord_x = x_origin + beat_pos * content_width;
-        let text = chord.display_text();
-        let text_w = text.len() as f64 * 0.6 * chord_font_size;
-        let bbox = BoundingBox::new(
-            chord_x,
-            chord_baseline_y - chord_font_size * 0.82,
-            text_w,
-            chord_font_size * 0.82,
-        );
+        let (width, ascent) = chord_symbol_dimensions(chord, sp);
+        let bbox = BoundingBox::new(chord_x, chord_baseline_y - ascent, width, ascent);
         bboxes.push(ElementBBox {
             element_id: element_id::chord_symbol(
                 chord.source_part_index.unwrap_or(part_idx),
