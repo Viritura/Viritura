@@ -1,6 +1,5 @@
 export {
   createLyricInputState,
-  getInitialLyricLineId,
   getLyricLineDisplay,
   getLyricLineIds,
   getNextLyricLineId,
