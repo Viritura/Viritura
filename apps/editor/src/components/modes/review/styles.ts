@@ -205,11 +205,15 @@ export const setupHintStyle: CSSProperties = {
 };
 
 export const setupCardOuterStyle: CSSProperties = {
-  padding: "10px 14px 14px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 8,
+  textAlign: "center",
 };
 
 export const repoCardOuterStyle: CSSProperties = {
-  padding: "4px 14px 10px",
+  minWidth: 0,
 };
 
 export const repoCardStyle: CSSProperties = {
@@ -275,7 +279,7 @@ export const repoOpenLinkStyle: CSSProperties = {
 };
 
 export const setupTitleStyle: CSSProperties = {
-  margin: "0 0 6px",
+  margin: 0,
   color: "var(--text)",
   fontSize: "0.78rem",
   fontWeight: 650,

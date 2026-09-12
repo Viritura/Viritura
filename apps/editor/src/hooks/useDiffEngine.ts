@@ -10,7 +10,13 @@
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { BeforeMount, editor } from "@viritura/monaco-react";
-import { GlyphAtlas, PerfTracker, type DisplayList } from "@viritura/renderer";
+import {
+  computeDisplayListContentBounds,
+  computeHorizonPaperGeometry,
+  GlyphAtlas,
+  PerfTracker,
+  type DisplayList,
+} from "@viritura/renderer";
 import { useSyncedViewport } from "./useSyncedViewport";
 import { semanticDiff, collectLeaves } from "../diff/semanticDiff";
 import type { DiffNode } from "../diff/semanticDiff";
@@ -241,6 +247,21 @@ export function useDiffEngine({
     return collectLeaves(diffTree).length;
   }, [diffTree]);
 
+  const originalContentSize = useMemo(() => {
+    if (!originalDl) return { width: 0, height: 0 };
+    return {
+      width: computeDisplayListContentBounds(originalDl).maxX,
+      height: computeHorizonPaperGeometry(originalDl).contentHeight,
+    };
+  }, [originalDl]);
+  const modifiedContentSize = useMemo(() => {
+    if (!modifiedDl) return { width: 0, height: 0 };
+    return {
+      width: computeDisplayListContentBounds(modifiedDl).maxX,
+      height: computeHorizonPaperGeometry(modifiedDl).contentHeight,
+    };
+  }, [modifiedDl]);
+
   // Viewport
   const {
     viewport,
@@ -250,10 +271,10 @@ export function useDiffEngine({
     setZoom,
     scrollTo,
   } = useSyncedViewport({
-    leftContentWidth: originalDl?.width ?? 0,
-    leftContentHeight: originalDl?.height ?? 0,
-    rightContentWidth: modifiedDl?.width ?? 0,
-    rightContentHeight: modifiedDl?.height ?? 0,
+    leftContentWidth: originalContentSize.width,
+    leftContentHeight: originalContentSize.height,
+    rightContentWidth: modifiedContentSize.width,
+    rightContentHeight: modifiedContentSize.height,
   });
 
   // Glyph atlas

@@ -73,7 +73,6 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
       handleSetupProject={() => {
         void session.handleSetupProject();
       }}
-      setupCard={null}
       pushing={session.pushing}
       handlePushChanges={() => {
         void session.handlePushChanges();

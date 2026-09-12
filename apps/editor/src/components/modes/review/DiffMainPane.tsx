@@ -25,6 +25,19 @@ const OVERSIZED_NOTICE_STYLE: CSSProperties = {
 };
 const OVERSIZED_TITLE_STYLE: CSSProperties = { fontWeight: 600, color: "var(--text)" };
 const CANVAS_BLOCK_STYLE: CSSProperties = { display: "block" };
+const COMPARISON_DIVIDER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "stretch",
+  justifyContent: "center",
+  width: 10,
+  flexShrink: 0,
+  background: "color-mix(in srgb, var(--canvas-bg, #e0e2ea) 82%, var(--surface))",
+  boxShadow: "inset 1px 0 rgba(20, 20, 28, 0.08), inset -1px 0 rgba(20, 20, 28, 0.08)",
+};
+const COMPARISON_DIVIDER_LINE_STYLE: CSSProperties = {
+  width: 1,
+  background: "color-mix(in srgb, var(--text-muted) 30%, transparent)",
+};
 const ORIGINAL_LABEL_STYLE: CSSProperties = {
   ...canvasLabelStyle,
   color: "#c62828",
@@ -43,13 +56,13 @@ function topPaneStyle(splitPercent: number): CSSProperties {
 function bottomPaneStyle(): CSSProperties {
   return { flex: 1, minHeight: 0, display: "flex", overflow: "hidden" };
 }
-function canvasContainerStyle(isViewportDragging: boolean, withBorder: boolean): CSSProperties {
+function canvasContainerStyle(isViewportDragging: boolean): CSSProperties {
   return {
-    width: "50%",
-    ...(withBorder ? { borderRight: "1px solid var(--border)" } : {}),
+    flex: 1,
+    minWidth: 0,
     overflow: "hidden",
     position: "relative",
-    background: "var(--surface-raised)",
+    background: "var(--canvas-bg, #e0e2ea)",
     cursor: isViewportDragging ? "grabbing" : "grab",
   };
 }
@@ -131,7 +144,7 @@ export function DiffMainPane({ engine }: { engine: UseDiffEngineResult }) {
           </>
         )}
         <div style={bottomPaneStyle()}>
-          <div ref={leftContainerRef} style={canvasContainerStyle(isViewportDragging, true)}>
+          <div ref={leftContainerRef} style={canvasContainerStyle(isViewportDragging)}>
             {!wasmReady ? (
               <div style={canvasPlaceholderStyle}>Loading WASM…</div>
             ) : originalDl ? (
@@ -141,7 +154,15 @@ export function DiffMainPane({ engine }: { engine: UseDiffEngineResult }) {
             )}
             <div style={ORIGINAL_LABEL_STYLE}>Before</div>
           </div>
-          <div ref={rightContainerRef} style={canvasContainerStyle(isViewportDragging, false)}>
+          <div
+            role="separator"
+            aria-label="Before and after scores"
+            aria-orientation="vertical"
+            style={COMPARISON_DIVIDER_STYLE}
+          >
+            <span style={COMPARISON_DIVIDER_LINE_STYLE} />
+          </div>
+          <div ref={rightContainerRef} style={canvasContainerStyle(isViewportDragging)}>
             {!wasmReady ? (
               <div style={canvasPlaceholderStyle}>Loading WASM…</div>
             ) : modifiedDl ? (

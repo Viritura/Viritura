@@ -1,6 +1,6 @@
 import React, { useMemo, useState, type CSSProperties } from "react";
 import { ExternalLink, FolderPlus } from "lucide-react";
-import { Button, Collapsible, Tabs, Tooltip } from "@viritura/ui";
+import { Button, Collapsible, PanelFooter, Tabs, Tooltip } from "@viritura/ui";
 import { DiffTreeView } from "../../DiffTreeView";
 import { useProjectStore, WORKING_TREE_SHA } from "../../../store/projectStore";
 import type { useGitHubAccount } from "../../../github/useGitHubAccount";
@@ -153,12 +153,6 @@ function RepoCard({ githubRepository, status, fetching, onFetch, pushing, onPush
 
 interface HistorySectionProps {
   isVersioned: boolean;
-  githubRepository: { fullName: string; htmlUrl: string } | null;
-  status: ProjectStatus;
-  fetching: boolean;
-  pushing: boolean;
-  handleFetchRemote: () => void;
-  handlePushChanges: () => void;
   log: ProjectLog;
   selection: ReturnType<typeof useProjectStore.getState>["selection"];
   isSelected: (sha: string) => boolean;
@@ -166,7 +160,6 @@ interface HistorySectionProps {
   handleRowClick: (sha: string) => void;
   handleRevisionChange: (side: "from" | "to", sha: string) => void;
   handleSetupProject: () => void;
-  setupCard: React.ReactNode;
 }
 
 function HistorySection(props: HistorySectionProps) {
@@ -191,16 +184,6 @@ function HistorySection(props: HistorySectionProps) {
 
   return (
     <div>
-      {props.githubRepository && (
-        <RepoCard
-          githubRepository={props.githubRepository}
-          status={props.status}
-          fetching={props.fetching}
-          onFetch={props.handleFetchRemote}
-          pushing={props.pushing}
-          onPush={props.handlePushChanges}
-        />
-      )}
       <HistoryRow
         label="Working tree"
         sublabel="Uncommitted changes"
@@ -238,7 +221,6 @@ function HistorySection(props: HistorySectionProps) {
           />
         </div>
       )}
-      {props.setupCard}
     </div>
   );
 }
@@ -360,6 +342,12 @@ function RevisionRow({
 }
 
 export interface HistorySidebarProps extends HistorySectionProps {
+  githubRepository: { fullName: string; htmlUrl: string } | null;
+  status: ProjectStatus;
+  fetching: boolean;
+  pushing: boolean;
+  handleFetchRemote: () => void;
+  handlePushChanges: () => void;
   totalChanges: number;
   changeCounts: { added: number; removed: number; modified: number };
   changeSummary: string;
@@ -372,7 +360,6 @@ export interface HistorySidebarProps extends HistorySectionProps {
 export function HistorySidebar(props: HistorySidebarProps) {
   const [activeTab, setActiveTab] = useState<ReviewSidebarTab>("changes");
   const [pickingSide, setPickingSide] = useState<"from" | "to" | null>(null);
-  const setupCard = <GitHubSetupCard {...props.githubSetupCardProps} />;
   const handleHistoryRowClick = (sha: string) => {
     if (pickingSide) {
       props.handleRevisionChange(pickingSide, sha);
@@ -381,8 +368,20 @@ export function HistorySidebar(props: HistorySidebarProps) {
     }
     props.handleRowClick(sha);
   };
-  const sectionProps: HistorySectionProps = { ...props, setupCard, handleRowClick: handleHistoryRowClick };
+  const sectionProps: HistorySectionProps = { ...props, handleRowClick: handleHistoryRowClick };
   const typedDiffTree = props.diffTree as Parameters<typeof DiffTreeView>[0]["diffTree"] | null;
+  const githubFooter = props.githubRepository ? (
+    <RepoCard
+      githubRepository={props.githubRepository}
+      status={props.status}
+      fetching={props.fetching}
+      onFetch={props.handleFetchRemote}
+      pushing={props.pushing}
+      onPush={props.handlePushChanges}
+    />
+  ) : (
+    <GitHubSetupCard {...props.githubSetupCardProps} />
+  );
   return (
     <div style={panelOuterStyle}>
       {props.isVersioned ? (
@@ -449,6 +448,7 @@ export function HistorySidebar(props: HistorySidebarProps) {
           <HistorySection {...sectionProps} />
         </div>
       )}
+      {(props.githubRepository || props.githubSetupCardProps.show) && <PanelFooter>{githubFooter}</PanelFooter>}
     </div>
   );
 }

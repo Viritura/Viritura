@@ -1,7 +1,7 @@
 /**
  * Helpers for useDiffEngine — canvas painting, geometry, and JSON utilities.
  */
-import { paintCommandsCulled, type DisplayList, GlyphAtlas } from "@viritura/renderer";
+import { computeHorizonPaperGeometry, paintCommandsCulled, type DisplayList, GlyphAtlas } from "@viritura/renderer";
 import type { DiffNode } from "../diff/semanticDiff";
 import { getMeasureStatusForSide, type MeasureDiffResult } from "../diff/measureDiff";
 import type { MeasureBounds } from "../diff/measureBounds";
@@ -49,6 +49,8 @@ export function repaintCanvas(
   scrollY: number,
   zoom: number,
   glyphAtlas: GlyphAtlas | null,
+  canvasBackground: string,
+  paperFill: string,
 ): void {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -58,9 +60,12 @@ export function repaintCanvas(
   glyphAtlas?.ensureDeviceScale(dpr * zoom);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = canvasBackground;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, -scrollX * dpr * zoom, -scrollY * dpr * zoom);
+  const paper = computeHorizonPaperGeometry(dl);
+  ctx.fillStyle = paperFill;
+  ctx.fillRect(paper.x, paper.y, paper.width, paper.height);
 
   // Cull off-screen commands so each frame only paints the visible slice of the
   // score, not the entire galley. A Review-mode full-score horizon can be

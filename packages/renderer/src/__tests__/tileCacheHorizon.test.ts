@@ -9,6 +9,7 @@ import type { DisplayList, RenderCommand } from "../wasm";
 interface Recorder {
   rects: Array<{ x: number; y: number; w: number; h: number }>;
   alphas: number[];
+  clears: number;
 }
 
 function makeRecordingCtx(rec: Recorder): CanvasRenderingContext2D {
@@ -20,6 +21,9 @@ function makeRecordingCtx(rec: Recorder): CanvasRenderingContext2D {
   };
   const base: Record<string, unknown> = {
     fillRect,
+    clearRect: () => {
+      rec.clears++;
+    },
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 0,
@@ -50,7 +54,7 @@ const origWindow = globalThis.window;
 let sharedRec: Recorder;
 
 beforeEach(() => {
-  sharedRec = { rects: [], alphas: [] };
+  sharedRec = { rects: [], alphas: [], clears: 0 };
   const tileCtx = makeRecordingCtx(sharedRec);
   globalThis.document = {
     documentElement: { dataset: {} },
@@ -152,5 +156,13 @@ describe("TileCache horizon bucketing", () => {
 
     expect(sharedRec.rects.some((r) => r.x === 4000)).toBe(true);
     expect(sharedRec.alphas).toContain(0.4);
+  });
+
+  it("clears the destination before painting a transparent canvas background", () => {
+    const cache = new TileCache();
+    paintViewport(cache, horizonDisplayList([rect(20, 30)], 6000));
+    paintViewport(cache, horizonDisplayList([rect(40, 30)], 6000));
+
+    expect(sharedRec.clears).toBe(2);
   });
 });
