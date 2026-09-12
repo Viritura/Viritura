@@ -12,11 +12,13 @@ import { HistoryProvider } from "../store/HistoryContext";
 import { useHistoryStore } from "../store/historyStore";
 import { resetSelectionStore, useSelectionActions } from "../store/selectionStore";
 import { useOverlayStore } from "../store/overlayStore";
+import { resetNoteInputStore, toggleNoteInputMode, useNoteInputStore } from "../store/noteInputStore";
 
 afterEach(() => {
   cleanup();
   resetSelectionStore();
   useOverlayStore.setState({ lyricMode: false, lyricState: null, activeLyricLineId: "1" });
+  resetNoteInputStore();
 });
 
 function lyricScore(): Score {
@@ -126,6 +128,18 @@ describe("Lyrics palette controls", () => {
     });
   });
 
+  it("turns off note input when entry starts from the palette", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    toggleNoteInputMode();
+    expect(useNoteInputStore.getState().active).toBe(true);
+
+    await user.click(await screen.findByRole("button", { name: "Start lyric entry" }));
+
+    expect(useNoteInputStore.getState().active).toBe(false);
+    expect(useOverlayStore.getState().lyricMode).toBe(true);
+  });
+
   it("edits accessible metadata fields and serializes explicit order", async () => {
     const user = userEvent.setup();
     renderPanel();
@@ -167,6 +181,10 @@ describe("Lyrics palette controls", () => {
     await user.type(language, "en_US");
     await user.tab();
     expect(language.getAttribute("aria-invalid")).toBe("true");
+    const describedBy = language.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(describedBy).not.toContain(" ");
+    expect(document.getElementById(describedBy ?? "")).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("BCP 47");
     expect(currentScore().global.lyrics?.lineMetadata?.["line-b"]?.lang).toBeUndefined();
 

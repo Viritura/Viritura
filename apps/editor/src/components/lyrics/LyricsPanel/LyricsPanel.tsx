@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
 import type { LyricLineMetadataEntry, Score } from "@viritura/core";
 import { Button, Collapsible, FormField, FormInput, IconButton, Select } from "@viritura/ui";
@@ -13,6 +13,7 @@ import { produce } from "../../../score/scoreClone";
 import { useDocumentStore } from "../../../store/DocumentContext";
 import { useOverlayStore } from "../../../store/overlayStore";
 import { useSelection } from "../../../store/selectionStore";
+import { toggleNoteInputMode, useNoteInputStore } from "../../../store/noteInputStore";
 import styles from "./LyricsPanel.module.css";
 
 type MetadataField = keyof LyricLineMetadataEntry;
@@ -52,6 +53,7 @@ function MetadataInput({
   ariaLabel,
 }: MetadataInputProps) {
   const [draft, setDraft] = useState(value);
+  const errorId = useId();
   const candidate = draft.trim();
   const invalid = field === "lang" && candidate !== "" && !isValidLanguageTag(candidate);
 
@@ -60,7 +62,6 @@ function MetadataInput({
     updateScore(updateMetadata(score, lineId, field, candidate));
   }, [candidate, field, invalid, lineId, score, updateScore, value]);
 
-  const errorId = `lyric-${field}-${lineId}-error`;
   return (
     <FormField label={label}>
       <FormInput
@@ -98,6 +99,7 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
   const score = useDocumentStore((state) => state.score);
   const updateScore = useDocumentStore((state) => state.updateScore);
   const selection = useSelection();
+  const noteInputActive = useNoteInputStore((state) => state.active);
   const { lyricMode, lyricState, activeLyricLineId, setLyricMode, setLyricState, setActiveLyricLineId } =
     useOverlayStore();
   const [status, setStatus] = useState("");
@@ -130,10 +132,11 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
       setStatus("Select a note or chord in the score before starting lyric entry.");
       return;
     }
+    if (noteInputActive) toggleNoteInputMode();
     setLyricState(next);
     setLyricMode(true);
     setStatus(`Entering ${getLyricLineDisplay(score, activeLyricLineId)}.`);
-  }, [activeLyricLineId, lyricMode, score, selection, setLyricMode, setLyricState]);
+  }, [activeLyricLineId, lyricMode, noteInputActive, score, selection, setLyricMode, setLyricState]);
 
   const moveLine = useCallback(
     (index: number, direction: -1 | 1) => {

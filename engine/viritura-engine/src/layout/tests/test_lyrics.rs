@@ -4,6 +4,16 @@
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::render::*;
+use std::collections::HashSet;
+
+#[test]
+fn test_line_order_preserves_preceding_rows_across_systems() {
+    let used = HashSet::from(["2".to_string()]);
+    let global = ["1".to_string(), "2".to_string(), "3".to_string()];
+    let order = crate::layout::render_lyrics::line_order_for_used_lines(used, Some(&global));
+
+    assert_eq!(order, Some(vec!["1".to_string(), "2".to_string()]));
+}
 
 #[test]
 fn test_lyrics_basic_rendering() {

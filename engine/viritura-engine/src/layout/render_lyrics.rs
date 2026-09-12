@@ -32,13 +32,22 @@ pub(super) fn line_order_for_staff(
             }
         }
     }
+    line_order_for_used_lines(used, global_order)
+}
 
+pub(super) fn line_order_for_used_lines(
+    mut used: HashSet<String>,
+    global_order: Option<&[String]>,
+) -> Option<Vec<String>> {
     let mut ordered = Vec::with_capacity(used.len());
     if let Some(global_order) = global_order {
-        for line_id in global_order {
-            if used.remove(line_id) {
-                ordered.push(line_id.clone());
-            }
+        let required_prefix_len = global_order
+            .iter()
+            .rposition(|line_id| used.contains(line_id))
+            .map_or(0, |index| index + 1);
+        for line_id in global_order.iter().take(required_prefix_len) {
+            used.remove(line_id);
+            ordered.push(line_id.clone());
         }
     }
     let mut remaining: Vec<String> = used.into_iter().collect();
