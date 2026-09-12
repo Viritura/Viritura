@@ -8,7 +8,7 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
+import { resolveEventFromSubElement, resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
@@ -59,7 +59,8 @@ export function resolveStaffTextTargets(
   selectedScoreIndex: number,
 ): Omit<StaffTextPopoverState, "position"> | null {
   if (selection.kind !== "single") return null;
-  const explicit = resolveEventLocation(selection.elementId, score);
+  const explicit =
+    resolveEventFromSubElement(selection.elementId, score) ?? resolveEventLocation(selection.elementId, score);
   const location = explicit ?? resolveFullMeasureRestLocation(selection.elementId, score);
   if (!location) return null;
   const targetWithStaff = (target: typeof location) => {
