@@ -56,6 +56,7 @@ export interface MenuBarCallbacks {
   readonly onPageSetup?: () => void;
   readonly onExportPdf?: () => void;
   readonly onExportSvg?: () => void;
+  readonly onShare?: () => void;
   readonly onOpenPublish?: () => void;
 }
 
@@ -150,6 +151,11 @@ export function MenuBar({ callbacks, state = {}, sampleScores = [], recentEntrie
       label: "Save As",
       shortcut: IS_MAC ? "⇧⌘S" : "Ctrl+Shift+S",
       action: callbacks.onSaveAs,
+      disabled: !state.hasDocument,
+    },
+    {
+      label: "Share",
+      action: callbacks.onShare,
       disabled: !state.hasDocument,
     },
     ...(exampleScoresSubmenu.length > 0

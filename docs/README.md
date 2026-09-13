@@ -26,6 +26,7 @@ runbooks.
 - **Deploying current production:** read [setup/production-deployment.md](setup/production-deployment.md).
 - **Managing Cloudflare static hosting:** read [setup/cloudflare.md](setup/cloudflare.md) and [plans/production-infrastructure.md](plans/production-infrastructure.md).
 - **Working on authentication and production security:** read [spec/auth.md](spec/auth.md), [setup/production-auth.md](setup/production-auth.md), and [setup/production-deployment.md](setup/production-deployment.md).
+- **Working on read-only score sharing:** read [plans/read-only-sharing.md](plans/read-only-sharing.md), [spec/auth.md](spec/auth.md), and [plans/production-infrastructure.md](plans/production-infrastructure.md).
 - **Working on the engine or layout:** [spec/data-model-pipeline.md](spec/data-model-pipeline.md), the performance [single source of truth](plans/performance-architecture.md), and the target-achieved/current-follow-ups [60 FPS incremental-layout plan](plans/sixty-fps-incremental-layout.md).
 - **Working on MNX parsing/serialization:** [spec/music-notationref-coverage.md](spec/music-notationref-coverage.md), [spec/viritura-extensions.md](spec/viritura-extensions.md), [spec/mnx-converter-coverage.md](spec/mnx-converter-coverage.md), [spec/dynamics.md](spec/dynamics.md).
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).

@@ -46,6 +46,10 @@ import { LiveSessionProvider } from "./live";
 import { BackgroundTaskToaster } from "./app/BackgroundTaskToaster";
 import { McpProposalReview, McpSessionBridge } from "./mcpSession";
 
+const GistShareViewer = React.lazy(() =>
+  import("./gistShareViewer").then((module) => ({ default: module.GistShareViewer })),
+);
+
 // Perf overlay flag — toggled via StatusBar button at runtime.
 // Can also be enabled via URL parameter ?perf=1 or console: enablePerfOverlay()
 
@@ -132,6 +136,13 @@ function Router() {
   // Deprecated: redirect to Storybook
   if (route === "#/examples") {
     return <StorybookRedirect />;
+  }
+  if (window.location.pathname.replace(/\/+$/, "") === "/s/gist") {
+    return (
+      <React.Suspense fallback={<div style={REDIRECT_ROOT_STYLE}>Loading shared score</div>}>
+        <GistShareViewer />
+      </React.Suspense>
+    );
   }
   // Main app with activity bar
   return <AppWithActivityBar />;

@@ -1,0 +1,141 @@
+.root,
+.statusRoot {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.identity,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.identity {
+  min-width: 0;
+}
+
+.actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.brand {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.title,
+.composer {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  font-size: var(--type-title-size);
+}
+
+.composer {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionButton:hover {
+  background: var(--menu-hover);
+}
+
+.notice {
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+  text-align: center;
+}
+
+.viewer {
+  flex: 1;
+  min-height: 0;
+}
+
+.viewport {
+  height: 100%;
+}
+
+.statusRoot {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.statusCard {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--elevation-1);
+}
+
+.statusCard h1 {
+  margin: 20px 0 8px;
+  font-size: var(--type-display-size);
+}
+
+.statusCard p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
