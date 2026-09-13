@@ -42,7 +42,7 @@ function reduceFraction(numerator: number, denominator: number): [number, number
   return [numerator / a, denominator / a];
 }
 
-export function durationToFraction(duration: Duration): [number, number] {
+function durationToFraction(duration: Duration): [number, number] {
   const dots = duration.dots ?? 0;
   const denominator = 2 ** dots;
   const dotMultiplier = 2 ** (dots + 1) - 1;
