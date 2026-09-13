@@ -878,6 +878,65 @@ describe("NotationInspector", () => {
     expect(screen.getByRole("radio", { name: "Automatic" }).getAttribute("aria-checked")).toBe("true");
   });
 
+  it("hides and unhides a selected rest through an accessible standard-space control", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
+
+    const hidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(hidden.checked).toBe(false);
+    await user.click(hidden);
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toEqual({
+        type: "space",
+        duration: [1, 1],
+      });
+      expect(
+        (
+          currentMnx() as {
+            parts: { measures: { sequences: { content: unknown[] }[] }[] }[];
+          }
+        ).parts[0]!.measures[0]!.sequences[1]!.content[0],
+      ).toEqual({ type: "space", duration: [1, 1] });
+    });
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("identifier"));
+
+    const shownHidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(shownHidden.checked).toBe(true);
+    await user.click(shownHidden);
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toMatchObject({
+        type: "event",
+        duration: { base: "whole" },
+        rest: {},
+      });
+    });
+  });
+
+  it("records hidden-rest conversion in undo and redo history", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    render(withProviders(<HistoryHarness elementId="p0/m0/s1/rest1" />));
+
+    await user.click(await screen.findByRole("checkbox", { name: "Hidden" }));
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("event"));
+
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+    await user.click(redo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+  });
+
   it("opens the panel and shows the slur section for a grace-note slur", async () => {
     render(withProviders(<GraceSlurHarness elementId="slur/g1/ev1" />));
 

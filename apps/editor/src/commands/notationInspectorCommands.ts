@@ -21,6 +21,8 @@ export interface NotationSelectionTarget {
   tupletIndex?: number;
   /** If the event is a grace note, the index of its grace container in seq.content. */
   graceContainerIndex?: number;
+  /** Full sequence-content index path for recursively nested tuplets. */
+  contentPath?: number[];
   /** For tie selections: index of the note in the source event holding the tie. */
   noteIndex?: number;
   /** For tie selections: index into the note's `ties` array. */
@@ -80,6 +82,7 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
       sequenceIndex: eventLoc.sequenceIndex,
       eventIndex: eventLoc.eventIndex,
       tupletIndex: eventLoc.tupletIndex,
+      contentPath: eventLoc.contentPath,
       noteIndex: eventLoc.noteIndex,
     };
   }
