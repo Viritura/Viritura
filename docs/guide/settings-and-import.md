@@ -31,21 +31,29 @@ Instrument Profiles choose the sound sources available for document playback.
 Open **Audio → MIDI Input** to connect a MIDI keyboard or control surface.
 
 > [!NOTE]
-> **Availability: Chromium web / desktop app**
+> **Availability: Web MIDI hosts only**
 >
-> MIDI input requires Web MIDI support and permission to access connected
-> devices. Firefox and Safari do not currently expose Web MIDI to the editor.
+> MIDI input requires a browser or desktop webview that exposes Web MIDI, plus
+> permission to access connected devices. Current Chromium and Firefox releases
+> can provide Web MIDI; Safari and desktop hosts without the API cannot.
 
 Select inputs separately by role:
 
-- **Performance input** sends keyboard notes for audition and note entry.
+- **Performance input** sends profiled keyboard notes for audition and note
+  entry.
 - **Control input** sends transport and editor commands from a recognized
   controller profile.
 
 Choose **Enable** the first time to grant access. Later visits reconnect to
-previously selected inputs when the browser retains permission. A recognized
-profile shows its port roles and fixed mappings; custom profile editing is not
-yet available.
+previously selected inputs when the browser retains permission. The current
+built-in profile covers the Akai MPK Mini IV. Unprofiled ports remain visible
+in the input picker and diagnostics, but do not yet drive audition, note entry,
+or mapped commands. A recognized profile shows its port roles and fixed
+mappings; custom profile editing is not yet available.
+
+Outside note input, a performance input auditions the preview sound defined by
+its controller profile. During note input, it previews the current instrumental
+part while capturing notes or chords.
 
 Use **MIDI diagnostics** to inspect incoming bytes, channels, note messages,
 control changes, pressure, program changes, and pitch bend. This is useful when

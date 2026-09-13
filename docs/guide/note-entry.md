@@ -36,16 +36,20 @@ step, `Alt+Shift+↑` / `Alt+Shift+↓` by a chromatic semitone, and
 ## MIDI keyboard input
 
 > [!NOTE]
-> **Availability: Chromium web / desktop app**
+> **Availability: Profiled Web MIDI input**
 >
-> MIDI note entry requires Web MIDI support, permission to access the device,
-> and a selected performance input.
+> MIDI note entry requires a Web MIDI host, permission to access the device,
+> and a performance port matched by a built-in controller profile. The current
+> built-in profile covers the Akai MPK Mini IV.
 
-Open **Settings → MIDI Input**, enable access, and select your keyboard as the
-**Performance input**. Playing it outside note input auditions the selected
-sound. In note input, hold one or more keys and release them to enter a note or
-chord at the cursor; the editor previews the held pitches through the current
-instrument while you play.
+Open **Settings → MIDI Input**, enable access, and select the profiled keyboard
+port as the **Performance input**. Unprofiled MIDI ports can be monitored in
+diagnostics but do not yet enter notes.
+
+Playing outside note input auditions the profile's fixed preview sound. In note
+input, hold one or more keys and release them to enter a note or chord at the
+cursor; the editor previews the held pitches through the current instrumental
+part while you play.
 
 The selected toolbar duration controls the entered rhythm. MIDI velocity is
 used for audition but does not replace the document's notated dynamics.
