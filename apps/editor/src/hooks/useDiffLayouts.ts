@@ -31,9 +31,9 @@ interface UseDiffLayoutsResult {
 async function computeLayout(service: LayoutService, json: string): Promise<DisplayList | null> {
   if (!json) return null;
   const info: ScoreInfo = await service.getScoreInfo(json);
-  return info.partCount > 1
-    ? service.engine.computeFullScoreLayout(json, 12, 0)
-    : service.engine.computeLayout(json, 0, 12, 0);
+  return info.partCount === 1
+    ? service.engine.computeLayout(json, 0, 12, 0)
+    : service.engine.computeFullScoreLayout(json, 12, 0);
 }
 
 /**
