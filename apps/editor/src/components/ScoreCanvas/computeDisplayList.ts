@@ -6,6 +6,7 @@ import { injectExpandedStaves, injectSyntheticLayout } from "./layoutHelpers";
 import { runLayoutEnginePath } from "./layoutEnginePath";
 import { PX_PER_MM } from "./constants";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
+import { projectHiddenRestsForWrite, scoreHasHiddenRests, tintHiddenRestPlaceholders } from "./hiddenRestProjection";
 
 interface ComputeDisplayListArgs {
   mnxJson: string;
@@ -21,6 +22,7 @@ interface ComputeDisplayListArgs {
   perfTracker: PerfTracker;
   setLayoutPerfDebug: (info: Record<string, unknown>) => void;
   pageSetupRef: { current: PageSetup };
+  showHiddenRests: boolean;
 }
 
 /**
@@ -93,6 +95,7 @@ export function tryRelayoutScoreView(args: {
 }): Promise<DisplayList | null> {
   const { scoreIdx, viewMode, selectedPartIds, expandedCondensingStaves, score, engine, pageSetupRef } = args;
   if (!engine || !engine.hasRetainedScore()) return Promise.resolve(null);
+  if (scoreHasHiddenRests(score)) return Promise.resolve(null);
   if (selectedPartIds && selectedPartIds.length >= 1) return Promise.resolve(null);
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return Promise.resolve(null);
   const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
@@ -131,6 +134,7 @@ export async function prewarmPatchChain(args: {
 }): Promise<void> {
   const { scoreIdx, viewMode, selectedPartIds, expandedCondensingStaves, score, engine, pageSetupRef } = args;
   if (!engine || !engine.hasRetainedScore()) return;
+  if (scoreHasHiddenRests(score)) return;
   if (selectedPartIds && selectedPartIds.length >= 1) return;
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return;
   const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
@@ -158,6 +162,7 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
     perfTracker,
     setLayoutPerfDebug,
     pageSetupRef,
+    showHiddenRests,
   } = args;
 
   const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
@@ -172,11 +177,15 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
   // condensed expansion) need that complete document before they can inject
   // synthetic layout content.
   const sourceJson = patchInfo?.fallbackJson?.() ?? mnxJson;
+  const layoutJson = showHiddenRests ? projectHiddenRestsForWrite(sourceJson) : sourceJson;
+  const projected = layoutJson !== sourceJson;
+  const finish = (promise: Promise<DisplayList>) =>
+    showHiddenRests ? promise.then(tintHiddenRestPlaceholders) : promise;
 
   // Staff filter: inject synthetic layout when staves are ctrl/shift-selected
   if (selectedPartIds && selectedPartIds.length >= 1) {
-    const { json, scoreIndex } = injectSyntheticLayout(sourceJson, selectedPartIds, scoreIdx);
-    return engine.computeMnxScoreLayout(json, sp, pageWidthPx, scoreIndex, pageSetupJson);
+    const { json, scoreIndex } = injectSyntheticLayout(layoutJson, selectedPartIds, scoreIdx);
+    return finish(engine.computeMnxScoreLayout(json, sp, pageWidthPx, scoreIndex, pageSetupJson));
   }
 
   // Condensing expansion: like the staff filter above, this rewrites the MNX
@@ -189,21 +198,23 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
   // silently did nothing. Keeping the retained score equal to the unmodified
   // document is what makes collapse correct.
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) {
-    const expandedJson = injectExpandedStaves(sourceJson, scoreIdx, expandedCondensingStaves);
-    return engine.computeMnxScoreLayout(expandedJson, sp, pageWidthPx, scoreIdx, pageSetupJson);
+    const expandedJson = injectExpandedStaves(layoutJson, scoreIdx, expandedCondensingStaves);
+    return finish(engine.computeMnxScoreLayout(expandedJson, sp, pageWidthPx, scoreIdx, pageSetupJson));
   }
 
-  return runLayoutEnginePath({
-    engine,
-    mnxJson,
-    info,
-    scoreIdx,
-    partIndex,
-    sp,
-    pageWidthPx,
-    pageSetupJson,
-    patchInfo,
-    perfTracker,
-    setLayoutPerfDebug,
-  });
+  return finish(
+    runLayoutEnginePath({
+      engine,
+      mnxJson: layoutJson,
+      info,
+      scoreIdx,
+      partIndex,
+      sp,
+      pageWidthPx,
+      pageSetupJson,
+      patchInfo: projected ? undefined : patchInfo,
+      perfTracker,
+      setLayoutPerfDebug,
+    }),
+  );
 }

@@ -290,6 +290,20 @@ function findEventByModelId(sequence: Sequence, base: EventBase, evSuffix: strin
   return null;
 }
 
+function findHiddenSpaceByPlaceholderId(sequence: Sequence, base: EventBase, evSuffix: string): EventLocation | null {
+  const match = evSuffix.match(/^__viritura_hidden_space_t(\d+)(?:_i(\d+))?$/);
+  if (!match) return null;
+  const topIndex = Number.parseInt(match[1]!, 10);
+  const innerIndex = match[2] === undefined ? undefined : Number.parseInt(match[2], 10);
+  if (innerIndex === undefined) {
+    return sequence.content[topIndex]?.type === "space" ? { ...base, eventIndex: topIndex } : null;
+  }
+  const container = sequence.content[topIndex];
+  return container?.type === "tuplet" && container.content[innerIndex]?.type === "space"
+    ? { ...base, eventIndex: innerIndex, tupletIndex: topIndex }
+    : null;
+}
+
 function parseFlatEventIndex(evSuffix: string): number {
   const indexMatch = evSuffix.match(/^e(\d+)$/);
   if (indexMatch) return parseInt(indexMatch[1]!, 10);
@@ -341,6 +355,8 @@ export function resolveEventLocation(elementId: string, score: Score): EventLoca
 
   const byId = findEventByModelId(sequence, base, evSuffix);
   if (byId) return byId;
+  const hiddenSpace = findHiddenSpaceByPlaceholderId(sequence, base, evSuffix);
+  if (hiddenSpace) return hiddenSpace;
 
   const flatIdx = parseFlatEventIndex(evSuffix);
   if (flatIdx >= 0) return findEventByFlatIndex(sequence, base, flatIdx);

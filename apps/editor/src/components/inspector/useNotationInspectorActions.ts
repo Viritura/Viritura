@@ -32,7 +32,13 @@ import {
 import { setTrillAccidental, planSetTrillAccidental } from "../../commands/articulationCommands";
 import { setEventNotehead, getEventNotehead } from "../../commands/drumKitCommands";
 import type { NoteheadShape } from "@viritura/core";
-import { setRestStaffPositionInScore } from "../../score/ScoreMutations";
+import {
+  hiddenRestPlaceholderId,
+  restMetadataLosses,
+  setRestHiddenInScore,
+  setRestStaffPositionInScore,
+} from "../../score/ScoreMutations";
+import { useSelectionActions } from "../../store/selectionStore";
 
 interface SelectionArgs {
   score: Score | null;
@@ -86,6 +92,51 @@ export function useRestPositionHandlers({ score, target, updateScore }: Selectio
     },
     resetRestPosition: () => setPosition(null),
   };
+}
+
+export function useRestVisibilityHandler({ score, target, updateScore }: SelectionArgs) {
+  const { selectElement } = useSelectionActions();
+  return useCallback(
+    (hidden: boolean) => {
+      if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
+      const location = {
+        partIndex: target.partIndex,
+        measureIndex: target.measureIndex,
+        sequenceIndex: target.sequenceIndex,
+        eventIndex: target.eventIndex,
+        tupletIndex: target.tupletIndex,
+      };
+      if (hidden) {
+        const event = selectedContent(score, target);
+        if (event?.type !== "event") return;
+        const losses = restMetadataLosses(event);
+        if (
+          losses.length > 0 &&
+          !window.confirm(`A space cannot store this rest's ${losses.join(", ")}. Hide it and remove that metadata?`)
+        ) {
+          return;
+        }
+      }
+      const nextScore = setRestHiddenInScore(score, location, hidden);
+      if (nextScore === score) return;
+      updateScore(nextScore);
+      if (hidden) selectElement(hiddenRestPlaceholderId(location));
+    },
+    [score, selectElement, target, updateScore],
+  );
+}
+
+function selectedContent(score: Score, target: NotationSelectionTarget) {
+  if (target.sequenceIndex === undefined || target.eventIndex === undefined) return undefined;
+  const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
+  if (!sequence) return undefined;
+  if (target.tupletIndex !== undefined) {
+    const container = sequence.content[target.tupletIndex];
+    return container?.type === "tuplet" || container?.type === "tremolo"
+      ? container.content[target.eventIndex]
+      : undefined;
+  }
+  return sequence.content[target.eventIndex];
 }
 
 function selectedRestPosition(score: Score, target: NotationSelectionTarget): number | undefined {

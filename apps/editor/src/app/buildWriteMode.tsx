@@ -104,6 +104,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
     onTogglePanels: args.onTogglePanels,
     canvasProps: {
       interactionMode: "write",
+      showHiddenRests: true,
       selectedPartIds: args.selectedPartIds,
       onToggleCondensedStaff: args.handleExpandCondensingStave,
     },
