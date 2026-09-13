@@ -33,6 +33,27 @@ In note input, `Alt+↑` / `Alt+↓` moves the just-entered note by a diatonic
 step, `Alt+Shift+↑` / `Alt+Shift+↓` by a chromatic semitone, and
 `Mod+Alt+↑` / `Mod+Alt+↓` by an octave.
 
+## MIDI keyboard input
+
+> [!NOTE]
+> **Availability: Profiled Web MIDI input**
+>
+> MIDI note entry requires a Web MIDI host, permission to access the device,
+> and a performance port matched by a built-in controller profile. The current
+> built-in profile covers the Akai MPK Mini IV.
+
+Open **Settings → MIDI Input**, enable access, and select the profiled keyboard
+port as the **Performance input**. Unprofiled MIDI ports can be monitored in
+diagnostics but do not yet enter notes.
+
+Playing outside note input auditions the profile's fixed preview sound. In note
+input, hold one or more keys and release them to enter a note or chord at the
+cursor; the editor previews the held pitches through the current instrumental
+part while you play.
+
+The selected toolbar duration controls the entered rhythm. MIDI velocity is
+used for audition but does not replace the document's notated dynamics.
+
 ## Ruler and click snapping
 
 Move the pointer over a staff in note input mode to show the insertion preview:
@@ -141,3 +162,6 @@ For selection, palettes, the inspector, and clipboard history, see
 
 For syllable entry, melismas, translations, and lyric-line metadata, see
 [Lyrics](/docs/lyrics).
+
+For entering and styling harmonic labels above the staff, see
+[Chord Symbols](/docs/chord-symbols).

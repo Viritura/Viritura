@@ -14,6 +14,38 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Viritura Folio Fallback";
+  src: local("Times New Roman");
+  font-style: normal;
+  font-weight: 400;
+  size-adjust: 101.5%;
+}
+
+@font-face {
+  font-family: "Viritura Folio Fallback";
+  src: local("Times New Roman Bold"), local("Times New Roman");
+  font-style: normal;
+  font-weight: 700;
+  size-adjust: 102.8%;
+}
+
+@font-face {
+  font-family: "Viritura Folio Georgia Fallback";
+  src: local("Georgia");
+  font-style: normal;
+  font-weight: 400;
+  size-adjust: 91.5%;
+}
+
+@font-face {
+  font-family: "Viritura Folio Georgia Fallback";
+  src: local("Georgia Bold"), local("Georgia");
+  font-style: normal;
+  font-weight: 700;
+  size-adjust: 88.4%;
+}
+
 :is(.marketing-home, .converter-route) {
   overflow: hidden;
   color: var(--site-ink);

@@ -69,9 +69,10 @@ Choose an item from a radial menu to apply it to the current selection. The
 same commands remain available from the palettes when you prefer a persistent
 visual list.
 
-The **Text** palette also contains lyric-line controls and the command that
-starts syllable entry. See [Lyrics](/docs/lyrics) for the entry keys, melismas,
-labels, languages, and line ordering.
+The **Text** palette also contains chord-symbol entry and lyric-line controls.
+See [Chord Symbols](/docs/chord-symbols) for entering harmony and
+[Lyrics](/docs/lyrics) for syllable entry, melismas, labels, languages, and
+line ordering.
 
 ## Inspector
 
