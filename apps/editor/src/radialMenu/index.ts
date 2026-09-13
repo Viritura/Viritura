@@ -16,7 +16,7 @@ export { resolveKeySignature } from "./keySignatureMenu";
 export { resolveOrnament } from "./ornamentMenu";
 export { resolveBreathFermata } from "./breathFermataMenu";
 export { resolveTuplet, parseTupletRatio } from "./tupletMenu";
-export { parseTimeSignatureInput, parseTimeSignatureInputWithError } from "../components/palette";
+export { parseTimeSignatureInputWithError } from "../components/palette";
 export { resolveFingering } from "./fingeringMenu";
 export { resolveRepeat } from "./repeatMenu";
 export { resolveArticulation } from "./articulationMenu";
