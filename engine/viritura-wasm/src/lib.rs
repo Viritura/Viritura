@@ -289,6 +289,52 @@ mod arpeggio_patch_tests {
     }
 }
 
+#[cfg(test)]
+mod zero_part_layout_tests {
+    use super::*;
+
+    const ZERO_PART_SCORE: &str = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": []
+    }"#;
+
+    const ZERO_PART_PROJECT_SCORE: &str = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [],
+        "layouts": [{"id": "FullScore", "content": []}],
+        "scores": [{"name": "Full score", "layout": "FullScore"}]
+    }"#;
+
+    fn assert_all_layout_paths(score_json: &str) {
+        let mut engine = LayoutEngine::default();
+        engine
+            .compute_full_score_layout_cached_dl(score_json, 12.0, 800.0, None, None)
+            .expect("initial zero-part layout");
+        engine
+            .relayout_retained_score_display_list(12.0, 700.0, None, None)
+            .expect("retained zero-part relayout");
+        engine
+            .apply_patch_and_layout_display_list("{}", 12.0, 700.0, None, None)
+            .expect("zero-part patch relayout");
+
+        LayoutEngine::default()
+            .full_layout(score_json, 12.0, 800.0, None, None)
+            .expect("zero-part structural layout");
+    }
+
+    #[test]
+    fn zero_part_score_uses_full_score_layout_for_all_retained_paths() {
+        assert_all_layout_paths(ZERO_PART_SCORE);
+    }
+
+    #[test]
+    fn zero_part_project_score_supports_all_retained_paths() {
+        assert_all_layout_paths(ZERO_PART_PROJECT_SCORE);
+    }
+}
+
 /// Global flag controlling whether layout passes emit `LayoutDebugInfo`
 /// on the resulting `DisplayList`. Toggled from JS via `set_emit_layout_debug`.
 /// Defaults to false so production builds skip the work.
@@ -855,10 +901,10 @@ impl LayoutEngine {
                 score_index.unwrap_or(0),
                 Some(&mut self.cache),
             )
-        } else if score.parts.len() > 1 {
-            layout_full_score_cached(score, &config, Some(&mut self.cache))
-        } else {
+        } else if score.parts.len() == 1 {
             layout_score_cached(score, 0, &config, Some(&mut self.cache))
+        } else {
+            layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
 
         if timing {
@@ -966,6 +1012,12 @@ impl LayoutEngine {
         let mut score = parse_mnx(mnx_json)
             .map_err(|e| JsValue::from_str(&format!("MNX parse error: {}", e)))?;
         reconcile_score(&mut score);
+        if part_index >= score.parts.len() {
+            return Err(JsValue::from_str(&format!(
+                "Part index {part_index} is out of bounds for a score with {} parts",
+                score.parts.len()
+            )));
+        }
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
         let display_list = layout_score_cached(&score, part_index, &config, Some(&mut self.cache));
@@ -1119,10 +1171,10 @@ impl LayoutEngine {
                 score_index.unwrap_or(0),
                 Some(&mut self.cache),
             )
-        } else if score.parts.len() > 1 {
-            layout_full_score_cached(score, &config, Some(&mut self.cache))
-        } else {
+        } else if score.parts.len() == 1 {
             layout_score_cached(score, 0, &config, Some(&mut self.cache))
+        } else {
+            layout_full_score_cached(score, &config, Some(&mut self.cache))
         };
 
         Ok(display_list)
@@ -1251,10 +1303,10 @@ impl LayoutEngine {
 
         let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
             layout_with_mnx_scores(&score, &config, score_index.unwrap_or(0))
-        } else if score.parts.len() > 1 {
-            layout_full_score(&score, &config)
-        } else {
+        } else if score.parts.len() == 1 {
             layout_score(&score, 0, &config)
+        } else {
+            layout_full_score(&score, &config)
         };
 
         self.score = Some(score);
