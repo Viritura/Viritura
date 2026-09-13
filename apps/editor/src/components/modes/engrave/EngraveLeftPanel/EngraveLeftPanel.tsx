@@ -11,6 +11,7 @@ import {
   type InstrumentNameDisplaySettings,
 } from "../../../parts/instrumentNameDisplay";
 import styles from "./EngraveLeftPanel.module.css";
+import { BreakManagement } from "./BreakManagement";
 
 interface EngraveLeftPanelProps {
   score: Score | null;
@@ -18,6 +19,11 @@ interface EngraveLeftPanelProps {
   onApplyPageSetup: (setup: PageSetup) => void;
   onResetPageSetup: () => void;
   onInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
+  selectedBreakKind: "system" | "page" | null;
+  selectedAfterMeasureNumber?: number;
+  hasLayoutOverrides: boolean;
+  onRemoveSelectedBreak: () => void;
+  onResetAll: () => void;
 }
 
 const TABS = [
@@ -32,6 +38,11 @@ export function EngraveLeftPanel({
   onApplyPageSetup,
   onResetPageSetup,
   onInstrumentNameDisplayChange,
+  selectedBreakKind,
+  selectedAfterMeasureNumber,
+  hasLayoutOverrides,
+  onRemoveSelectedBreak,
+  onResetAll,
 }: EngraveLeftPanelProps) {
   const [activeTab, setActiveTab] = useState("house-style");
   const defaults = defaultPageSetupForScore(score?.scores, activeScoreIndex, score?.layouts, score?.parts?.length);
@@ -57,13 +68,22 @@ export function EngraveLeftPanel({
                   key={activeScoreIndex}
                   embedded
                   embeddedPreamble={
-                    selectedLayout ? (
-                      <InstrumentNameDisplayControl
-                        content={selectedLayout.content}
-                        score={selectedScore}
-                        onChange={onInstrumentNameDisplayChange}
+                    <>
+                      <BreakManagement
+                        selectedBreakKind={selectedBreakKind}
+                        selectedAfterMeasureNumber={selectedAfterMeasureNumber}
+                        hasLayoutOverrides={hasLayoutOverrides}
+                        onRemoveSelectedBreak={onRemoveSelectedBreak}
+                        onResetAll={onResetAll}
                       />
-                    ) : undefined
+                      {selectedLayout && (
+                        <InstrumentNameDisplayControl
+                          content={selectedLayout.content}
+                          score={selectedScore}
+                          onChange={onInstrumentNameDisplayChange}
+                        />
+                      )}
+                    </>
                   }
                   initialSetup={pageSetup}
                   onApply={onApplyPageSetup}

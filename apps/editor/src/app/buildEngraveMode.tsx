@@ -6,12 +6,13 @@
 import type { ReactNode, RefObject } from "react";
 import { Button, Panel, PreviewStatusBar, type PreviewViewMode, type WriteViewMode as ViewMode } from "@viritura/ui";
 import { TransportBar } from "@viritura/playback";
-import { Eye, RotateCcw } from "lucide-react";
+import { Eye } from "lucide-react";
 import { ScoreSwitcher } from "../scoreSwitcher";
 import { NotationInspector } from "../components/NotationInspector";
 import { SlurPropertiesPanel } from "../components/modes/engrave/SlurPropertiesPanel";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
-import { toolbarStyle as engraveToolbarStyle } from "../components/modes/engrave/styles";
+import { BreakToolbar } from "../components/modes/engrave/BreakToolbar";
+import { WorkspaceToolbar, WorkspaceToolbarGroup } from "../components/WorkspaceToolbar";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { getNoteEventAtLocation, resolveEventLocation } from "../score/ElementPath";
 import type { SelectionState } from "../store/selectionStore";
@@ -77,6 +78,11 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
           onApplyPageSetup={engrave.pageSetup.handleApplyPageSetup}
           onResetPageSetup={engrave.pageSetup.handleResetPageSetup}
           onInstrumentNameDisplayChange={engrave.handleInstrumentNameDisplayChange}
+          selectedBreakKind={engrave.selectedBreakKind}
+          selectedAfterMeasureNumber={engrave.selectedBreakAfterMeasureNumber}
+          hasLayoutOverrides={engrave.hasLayoutOverrides}
+          onRemoveSelectedBreak={engrave.handleRemoveSelectedBreak}
+          onResetAll={engrave.handleResetAll}
         />
       </Panel>,
     );
@@ -129,30 +135,31 @@ export function buildEngraveMode(args: BuildEngraveModeArgs): WorkspaceMode {
     onExpandLeftPanel: () => args.leftFloat.setCollapsed(false),
     onTogglePanels: args.onTogglePanels,
     toolbar: (
-      <>
-        <div style={engraveToolbarStyle}>
-          <ScoreSwitcher selectedScoreIndex={engrave.activeScoreIndex} onSelectScore={handleSelectScore} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={engrave.handleResetAll}
-            tooltip="Revert to automatic pagination and clear all layout overrides"
-          >
-            <RotateCcw size={14} /> Reset to auto layout
-          </Button>
-          {engrave.hasAnyHidden && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={engrave.handleShowAllHidden}
-              tooltip="Restore visibility of all hidden staves on every system"
-            >
-              <Eye size={14} /> Show all hidden staves
-            </Button>
-          )}
-        </div>
-        <TransportBar />
-      </>
+      <WorkspaceToolbar
+        left={<ScoreSwitcher selectedScoreIndex={engrave.activeScoreIndex} onSelectScore={handleSelectScore} />}
+        center={
+          <WorkspaceToolbarGroup label="Engrave layout">
+            <BreakToolbar
+              selected={engrave.selectedMarkerId !== null}
+              kind={engrave.selectedBreakKind}
+              onSetKind={engrave.handleSetSelectedBreak}
+            />
+            {engrave.hasAnyHidden && (
+              <Button
+                variant="default"
+                size="sm"
+                shape="icon"
+                onClick={engrave.handleShowAllHidden}
+                tooltip="Restore visibility of all hidden staves on every system"
+                ariaLabel="Show all hidden staves"
+              >
+                <Eye size={14} />
+              </Button>
+            )}
+          </WorkspaceToolbarGroup>
+        }
+        right={<TransportBar />}
+      />
     ),
     statusBar: (
       <PreviewStatusBar

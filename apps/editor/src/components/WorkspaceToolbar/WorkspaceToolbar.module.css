@@ -1,0 +1,36 @@
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-2);
+  box-sizing: border-box;
+  gap: var(--space-2);
+}
+
+.left,
+.center,
+.right,
+.group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.left {
+  justify-content: flex-start;
+}
+
+.center {
+  justify-content: center;
+}
+
+.right {
+  justify-content: flex-end;
+}
+
+.group {
+  gap: var(--space-1);
+}

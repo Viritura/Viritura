@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { SpatialIndex, type MeasureBounds } from "@viritura/renderer";
 
-import { findNearbyElement, partLocalStaffIndex, pointerInsideMeasureStaff, pointerToMeasure } from "../hitTesting";
+import {
+  findNearbyElement,
+  partLocalStaffIndex,
+  pointerInsideMeasureStaff,
+  pointerToBarline,
+  pointerToMeasure,
+} from "../hitTesting";
 
 function measure(staffIndex: number, y: number, partIndex = staffIndex): MeasureBounds {
   return {
@@ -15,6 +21,17 @@ function measure(staffIndex: number, y: number, partIndex = staffIndex): Measure
     prefixWidth: 0,
     totalBeats: 4,
     beatAnchors: [],
+  };
+}
+
+function barlineMeasure(index: number, systemIndex: number, y: number, staffIndex = 0): MeasureBounds {
+  return {
+    ...measure(staffIndex, y),
+    index,
+    measureId: `m${index}`,
+    systemIndex,
+    x: 10,
+    width: 90,
   };
 }
 
@@ -80,5 +97,25 @@ describe("partLocalStaffIndex", () => {
 
     expect(partLocalStaffIndex(bounds, 3, 6)).toBe(0);
     expect(partLocalStaffIndex(bounds, 3, 7)).toBe(1);
+  });
+});
+
+describe("pointerToBarline", () => {
+  it("distinguishes vertically separated systems with aligned barlines", () => {
+    const bounds = [barlineMeasure(0, 0, 100), barlineMeasure(4, 1, 400)];
+
+    expect(pointerToBarline(100, 420, bounds)?.measureIndex).toBe(4);
+  });
+
+  it("covers the full vertical span between staves in one system", () => {
+    const bounds = [barlineMeasure(4, 1, 400, 0), barlineMeasure(4, 1, 500, 1)];
+
+    expect(pointerToBarline(100, 475, bounds)?.measureIndex).toBe(4);
+  });
+
+  it("rejects a point outside every matching system span", () => {
+    const bounds = [barlineMeasure(0, 0, 100), barlineMeasure(4, 1, 400)];
+
+    expect(pointerToBarline(100, 300, bounds)).toBeNull();
   });
 });

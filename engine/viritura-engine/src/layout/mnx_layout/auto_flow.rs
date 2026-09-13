@@ -66,6 +66,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     skip_measures: &HashSet<usize>,
     mmr_label_map: &HashMap<usize, String>,
     use_written: bool,
+    layout_breaks: &[LayoutBreak],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
@@ -201,27 +202,52 @@ pub(super) fn layout_auto_flow_mnx_score(
     // Phase E: label-aware baseline casting. Auto-paginated single parts then
     // evaluate alternate real boundaries over the retained natural-width
     // horizon while keeping this baseline system count fixed.
+    let visible_position_by_measure: HashMap<usize, usize> = mmr
+        .visible_indices
+        .iter()
+        .enumerate()
+        .map(|(visible_position, &measure_index)| (measure_index, visible_position))
+        .collect();
+    let measure_index_by_id: HashMap<&str, usize> = score
+        .global
+        .measures
+        .iter()
+        .enumerate()
+        .filter_map(|(index, measure)| measure.id.as_deref().map(|id| (id, index)))
+        .collect();
+    let forced_system_starts: Vec<usize> = layout_breaks
+        .iter()
+        .filter_map(|entry| measure_index_by_id.get(entry.measure.as_str()))
+        .filter_map(|measure_index| visible_position_by_measure.get(measure_index))
+        .copied()
+        .collect();
     let mut plan = plan_system_breaks(
         config,
         flat_staves,
         &budget,
         &mmr,
+        &forced_system_starts,
         instrument_name_display,
         cache.as_deref_mut(),
     );
     let title_height_px = title_block_height(score.metadata(), config);
-    let natural_part_plan = globally_plan_part_systems(
-        score,
-        config,
-        sp,
-        flat_staves,
-        &plan.systems,
-        &budget.natural_widths,
-        &mmr.visible_indices,
-        plan.content_width_first,
-        plan.content_width_subseq,
-        title_height_px,
-    );
+    let natural_part_plan = layout_breaks
+        .is_empty()
+        .then(|| {
+            globally_plan_part_systems(
+                score,
+                config,
+                sp,
+                flat_staves,
+                &plan.systems,
+                &budget.natural_widths,
+                &mmr.visible_indices,
+                plan.content_width_first,
+                plan.content_width_subseq,
+                title_height_px,
+            )
+        })
+        .flatten();
     if let Some(global_plan) = &natural_part_plan {
         plan.systems.clone_from(&global_plan.systems);
     }
@@ -240,6 +266,18 @@ pub(super) fn layout_auto_flow_mnx_score(
     let max_widths = &budget.max_widths;
     let natural_widths = &budget.natural_widths;
     let systems = &plan.systems;
+    let forced_page_starts: Vec<usize> = layout_breaks
+        .iter()
+        .filter(|entry| entry.kind == LayoutBreakKind::Page)
+        .filter_map(|entry| measure_index_by_id.get(entry.measure.as_str()))
+        .filter_map(|measure_index| {
+            systems.iter().position(|system| {
+                system
+                    .first()
+                    .is_some_and(|&visible_index| visible_indices[visible_index] == *measure_index)
+            })
+        })
+        .collect();
     let margin_left_first = plan.margin_left_first;
     let margin_top = plan.margin_top;
     let galley_offset_y = margin_top;
@@ -330,6 +368,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         title_height_px,
         chunked,
         natural_part_plan.as_ref(),
+        &forced_page_starts,
     );
 
     // ── Stitched-horizon chunks: one global vertical metric ──

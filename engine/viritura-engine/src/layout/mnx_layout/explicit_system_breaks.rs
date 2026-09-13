@@ -15,15 +15,17 @@ pub(super) fn expand_oversized_systems_explicit(
     system_measure_ranges: &mut Vec<(usize, usize)>,
     system_flat_staves: &mut Vec<(Vec<FlatStaff>, Vec<GroupRange>)>,
     system_layout_changes: &mut SystemLayoutChanges,
-) {
+) -> Vec<usize> {
     let mut expanded_ranges = Vec::new();
     let mut expanded_staves = Vec::new();
     let mut expanded_changes = Vec::new();
+    let mut expanded_system_starts = Vec::with_capacity(system_measure_ranges.len());
     let all_skipped = |start: usize, end: usize| {
         start < end && (start..end).all(|index| skip_measures.contains(&index))
     };
 
     for (system_index, &(start, end)) in system_measure_ranges.iter().enumerate() {
+        expanded_system_starts.push(expanded_ranges.len());
         let available_width = if system_index == 0 {
             first_available_width
         } else {
@@ -62,4 +64,5 @@ pub(super) fn expand_oversized_systems_explicit(
     *system_measure_ranges = expanded_ranges;
     *system_flat_staves = expanded_staves;
     *system_layout_changes = expanded_changes;
+    expanded_system_starts
 }

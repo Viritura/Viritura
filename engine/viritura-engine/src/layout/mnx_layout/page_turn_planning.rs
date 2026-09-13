@@ -190,11 +190,12 @@ pub(super) fn position_auto_flow_pages(
     title_height: f64,
     chunked: bool,
     natural_plan: Option<&page_turn::NaturalPartPlan>,
+    forced_page_starts: &[usize],
 ) -> AutoFlowPages {
     let sp = config.sp;
     let page_starts = natural_plan
         .map(|plan| plan.page_starts.clone())
-        .unwrap_or_default();
+        .unwrap_or_else(|| forced_page_starts.to_vec());
     let title_page = natural_plan.is_some_and(|plan| plan.title_page);
     let dedicated_title_page = title_page && config.page_width.is_some() && !chunked;
     let break_title_height = if dedicated_title_page {

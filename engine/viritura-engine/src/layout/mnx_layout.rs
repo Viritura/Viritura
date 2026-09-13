@@ -21,6 +21,7 @@ mod system_extras;
 mod system_precompute;
 mod system_rendering;
 
+mod authored_systems;
 mod cache_hashing;
 mod chord_symbols;
 mod explicit;

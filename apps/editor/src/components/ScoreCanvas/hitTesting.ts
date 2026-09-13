@@ -99,43 +99,50 @@ export function pointerToBarline(
   measureBounds: MeasureBounds[] | undefined,
 ): BarlineHit | null {
   if (!measureBounds || measureBounds.length === 0) return null;
-  // Group same-index measures within X tolerance into a single system span.
-  let bestTop: MeasureBounds | null = null;
-  let bestSpanTop = Infinity;
-  let bestSpanBottom = -Infinity;
-  let bestXDist = Infinity;
-  // First pass: find the closest right-barline X within tolerance, and the
-  // measure index it belongs to.
-  let targetIndex = -1;
+  const candidates = new Map<
+    number,
+    {
+      top: MeasureBounds;
+      spanTop: number;
+      spanBottom: number;
+      xDistance: number;
+    }
+  >();
+
+  // Build complete vertical spans before choosing a barline. Different systems
+  // commonly align barlines at the same X, so choosing by X first can select a
+  // measure on the first system and then reject an otherwise valid lower hit.
   for (const m of measureBounds) {
     const right = m.x + m.width;
     const dx = Math.abs(scoreX - right);
     if (dx > BARLINE_HIT_TOLERANCE) continue;
-    if (dx < bestXDist) {
-      bestXDist = dx;
-      targetIndex = m.index;
+    const candidate = candidates.get(m.index);
+    if (!candidate) {
+      candidates.set(m.index, {
+        top: m,
+        spanTop: m.y,
+        spanBottom: m.y + m.height,
+        xDistance: dx,
+      });
+      continue;
     }
-  }
-  if (targetIndex < 0) return null;
-  // Second pass: collect every staff sharing that index near the same X to
-  // compute the full vertical span of this barline.
-  for (const m of measureBounds) {
-    if (m.index !== targetIndex) continue;
-    const right = m.x + m.width;
-    if (Math.abs(scoreX - right) > BARLINE_HIT_TOLERANCE) continue;
-    if (m.y < bestSpanTop) {
-      bestSpanTop = m.y;
-      bestTop = m;
+    if (m.y < candidate.spanTop) {
+      candidate.spanTop = m.y;
+      candidate.top = m;
     }
-    if (m.y + m.height > bestSpanBottom) bestSpanBottom = m.y + m.height;
+    candidate.spanBottom = Math.max(candidate.spanBottom, m.y + m.height);
+    candidate.xDistance = Math.min(candidate.xDistance, dx);
   }
-  if (!bestTop) return null;
-  if (scoreY < bestSpanTop || scoreY > bestSpanBottom) return null;
+
+  const hit = [...candidates.values()]
+    .filter((candidate) => scoreY >= candidate.spanTop && scoreY <= candidate.spanBottom)
+    .sort((left, right) => left.xDistance - right.xDistance)[0];
+  if (!hit) return null;
   return {
-    measureIndex: bestTop.index,
-    partIndex: bestTop.partIndex,
-    staffIndex: bestTop.staffIndex,
-    barlineX: bestTop.x + bestTop.width,
-    staffTopY: bestTop.y,
+    measureIndex: hit.top.index,
+    partIndex: hit.top.partIndex,
+    staffIndex: hit.top.staffIndex,
+    barlineX: hit.top.x + hit.top.width,
+    staffTopY: hit.top.y,
   };
 }

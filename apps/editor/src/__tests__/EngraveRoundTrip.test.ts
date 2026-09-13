@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseMnx, serializeMnx } from "@viritura/format";
-import { insertBreakInScore, setStaffVisibilityInScore } from "../score/ScoreMutations";
+import { applyStaffVisibilityFromSystem, insertBreakInScore } from "../score/ScoreMutations";
 import { buildBlankScore, type NewScoreSettings } from "../score/ScoreBuilder";
 import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
 import type { Score } from "@viritura/core";
@@ -22,15 +22,12 @@ describe("Engrave-mode MNX round-trip", () => {
   it("forced breaks survive serialize → parse", () => {
     const original = makeScore();
     const ids = original.global.measures.map((m, i) => m.id ?? `m${i + 1}`);
-    const seed = [{ measure: ids[0]!, pageBreak: false }];
-
-    const withBreaks = insertBreakInScore(original, 0, ids[3]!, "page", seed);
+    const withBreaks = insertBreakInScore(original, 0, ids[3]!, "page");
     const obj = serializeMnx(withBreaks);
     const reparsed = parseMnx(obj);
 
-    const pages = reparsed.scores![0]!.pages!;
-    expect(pages.length).toBe(2);
-    expect(pages[1]!.systems[0]!.measure).toBe(ids[3]);
+    expect(reparsed.scores![0]!.pages).toBeUndefined();
+    expect(reparsed.scores![0]!.layoutBreaks).toEqual([{ measure: ids[3], kind: "page" }]);
   });
 
   it("hidden-staff layout swap survives serialize → parse", () => {
@@ -46,17 +43,17 @@ describe("Engrave-mode MNX round-trip", () => {
       layouts: original.layouts!.filter((l) => l.id === baseLayoutId),
     };
     const ids = trimmed.global.measures.map((m, i) => m.id ?? `m${i + 1}`);
-    const seed = [{ measure: ids[0]!, pageBreak: false }];
 
-    let next = insertBreakInScore(trimmed, 0, ids[4]!, "system", seed);
+    let next = insertBreakInScore(trimmed, 0, ids[4]!, "system");
     const partIdToHide = next.parts[1]!.id;
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, partIdToHide, false);
+    next = applyStaffVisibilityFromSystem(next, 0, ids[4]!, partIdToHide, false, []);
 
     const obj = serializeMnx(next);
     const reparsed = parseMnx(obj);
 
     const sys = reparsed.scores![0]!.pages!.flatMap((p) => p.systems).find((s) => s.measure === ids[4]);
     expect(sys?.layout).toBeDefined();
+    expect(reparsed.scores![0]!.layoutBreaks).toEqual([{ measure: ids[4], kind: "system" }]);
 
     // The derived layout must be present in the document's layouts list
     // and flagged via the vendor extension that round-trips through MNX.

@@ -2752,6 +2752,204 @@ impl ::std::default::Default for KitComponentExtensions {
         }
     }
 }
+///A forced system or page start within otherwise automatic score flow.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A forced system or page start within otherwise automatic score flow.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "measure"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "enum": [
+///        "system",
+///        "page"
+///      ]
+///    },
+///    "measure": {
+///      "type": "string",
+///      "minLength": 1
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct LayoutBreak {
+    pub kind: LayoutBreakKind,
+    pub measure: LayoutBreakMeasure,
+}
+impl ::std::convert::From<&LayoutBreak> for LayoutBreak {
+    fn from(value: &LayoutBreak) -> Self {
+        value.clone()
+    }
+}
+///`LayoutBreakKind`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "system",
+///    "page"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LayoutBreakKind {
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "page")]
+    Page,
+}
+impl ::std::convert::From<&Self> for LayoutBreakKind {
+    fn from(value: &LayoutBreakKind) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LayoutBreakKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::System => f.write_str("system"),
+            Self::Page => f.write_str("page"),
+        }
+    }
+}
+impl ::std::str::FromStr for LayoutBreakKind {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "system" => Ok(Self::System),
+            "page" => Ok(Self::Page),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutBreakKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LayoutBreakKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LayoutBreakKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`LayoutBreakMeasure`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct LayoutBreakMeasure(::std::string::String);
+impl ::std::ops::Deref for LayoutBreakMeasure {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<LayoutBreakMeasure> for ::std::string::String {
+    fn from(value: LayoutBreakMeasure) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&LayoutBreakMeasure> for LayoutBreakMeasure {
+    fn from(value: &LayoutBreakMeasure) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for LayoutBreakMeasure {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutBreakMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for LayoutBreakMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LayoutBreakMeasure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for LayoutBreakMeasure {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///Viritura engraving properties on a layout staff.
 ///
 /// <details><summary>JSON schema</summary>
@@ -5943,6 +6141,12 @@ impl ::std::default::Default for RootExtensions {
 ///    "instrumentNameDisplay": {
 ///      "$ref": "#/$defs/instrument-name-display"
 ///    },
+///    "layoutBreaks": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/layout-break"
+///      }
+///    },
 ///    "pageSetup": {
 ///      "$ref": "#/$defs/page-setup"
 ///    }
@@ -5961,6 +6165,12 @@ pub struct ScoreExtensions {
     )]
     pub instrument_name_display: ::std::option::Option<InstrumentNameDisplay>,
     #[serde(
+        rename = "layoutBreaks",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub layout_breaks: ::std::vec::Vec<LayoutBreak>,
+    #[serde(
         rename = "pageSetup",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -5976,6 +6186,7 @@ impl ::std::default::Default for ScoreExtensions {
     fn default() -> Self {
         Self {
             instrument_name_display: Default::default(),
+            layout_breaks: Default::default(),
             page_setup: Default::default(),
         }
     }
@@ -8390,6 +8601,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "kit-component-extensions": {
 ///      "$ref": "#/$defs/kit-component-extensions"
 ///    },
+///    "layout-break": {
+///      "$ref": "#/$defs/layout-break"
+///    },
 ///    "layout-staff-extensions": {
 ///      "$ref": "#/$defs/layout-staff-extensions"
 ///    },
@@ -8661,6 +8875,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub kit_component_extensions: ::std::option::Option<KitComponentExtensions>,
+    #[serde(
+        rename = "layout-break",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub layout_break: ::std::option::Option<LayoutBreak>,
     #[serde(
         rename = "layout-staff-extensions",
         default,
@@ -8990,6 +9210,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
+            layout_break: Default::default(),
             layout_staff_extensions: Default::default(),
             lyric_workflow: Default::default(),
             lyric_workflow_source: Default::default(),

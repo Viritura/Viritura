@@ -1,13 +1,5 @@
 import type { CSSProperties } from "react";
 
-export const toolbarStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  padding: "0 16px",
-  height: "100%",
-};
-
 // Two-tier panel layout: a flex-column outer shell that lets PanelHeader
 // sit pinned at the top while the body scrolls underneath.
 export const panelOuterStyle: CSSProperties = {

@@ -1493,6 +1493,118 @@ fn test_explicit_part_seeded_from_autoflow_keeps_same_system_membership() {
         "seeded explicit-pages layout must preserve auto-flow's system membership \
          (no spurious sub-breaks that would widen note spacing)"
     );
+
+    // 4. Keep only the implicit first-system anchor and one authored page
+    //    break. The wide prefix must auto-flow into as many systems as needed,
+    //    while the authored measure remains the first system on page 2.
+    let sparse_pages =
+        r#","pages":[{"systems":[{"measure":"m0"}]},{"systems":[{"measure":"m10"}]}]"#;
+    let sparse = layout_with_mnx_scores(&parse_mnx(&make(sparse_pages)).unwrap(), &config, 0);
+    let sparse_membership = membership(&sparse);
+    let rendered_measures: Vec<&str> = sparse_membership
+        .iter()
+        .flatten()
+        .map(String::as_str)
+        .collect();
+    let expected_measures: Vec<String> = (0..20).map(|index| format!("m{index}")).collect();
+    assert_eq!(
+        rendered_measures,
+        expected_measures
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        "sparse authored anchors must preserve every measure while auto-flowing between them"
+    );
+
+    let forced_system_index = sparse_membership
+        .iter()
+        .position(|system| system.first().is_some_and(|measure| measure == "m10"))
+        .expect("authored page-break measure should start a system");
+    assert_eq!(
+        sparse.pages.len(),
+        2,
+        "one authored page break should produce two pages"
+    );
+    assert_eq!(
+        sparse.pages[1].system_indices.first().copied(),
+        Some(forced_system_index),
+        "the authored measure, not an auto-generated prefix system, must start page 2"
+    );
+
+    // A lone sparse MNX anchor intentionally defines an excerpt and must not
+    // acquire an automatic prefix.
+    let lone_anchor_pages = r#","pages":[{"systems":[{"measure":"m10"}]}]"#;
+    let lone_anchor =
+        layout_with_mnx_scores(&parse_mnx(&make(lone_anchor_pages)).unwrap(), &config, 0);
+    let lone_anchor_measures: Vec<String> =
+        membership(&lone_anchor).into_iter().flatten().collect();
+    assert_eq!(
+        lone_anchor_measures.first().map(String::as_str),
+        Some("m10")
+    );
+
+    // 5. Viritura layout locks stay on the automatic-flow path. The forced
+    //    measure starts page 2, while every non-final system still justifies
+    //    to the normal right margin instead of collapsing to natural width.
+    let locked = layout_with_mnx_scores(
+        &parse_mnx(&make(
+            r#","_x":{"viritura":{"layoutBreaks":[{"measure":"m10","kind":"page"}]}}"#,
+        ))
+        .unwrap(),
+        &config,
+        0,
+    );
+    let locked_membership = membership(&locked);
+    let locked_system_index = locked_membership
+        .iter()
+        .position(|system| system.first().is_some_and(|measure| measure == "m10"))
+        .expect("page lock measure should start an automatic system");
+    assert_eq!(
+        locked.pages[1].system_indices.first().copied(),
+        Some(locked_system_index),
+        "page lock measure should start page 2"
+    );
+
+    let expected_right = config.page_width.unwrap() - config.page_margin_right * config.sp;
+    for system_index in 0..locked_membership.len().saturating_sub(1) {
+        let actual_right = locked
+            .measure_bounds
+            .iter()
+            .filter(|bound| bound.system_index == system_index)
+            .map(|bound| bound.x + bound.width)
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (actual_right - expected_right).abs() < 0.1,
+            "locked auto-flow system {system_index} should justify to {expected_right}, got {actual_right}"
+        );
+    }
+
+    // 6. Per-system layout overrides require the explicit path. Locks must be
+    //    merged into that anchor plan rather than silently ignored.
+    let mixed = layout_with_mnx_scores(
+        &parse_mnx(&make(
+            r#","pages":[{"systems":[{"measure":"m0"},{"measure":"m10","layout":"part-P1"}]}],"_x":{"viritura":{"layoutBreaks":[{"measure":"m5","kind":"page"}]}}"#,
+        ))
+        .unwrap(),
+        &config,
+        0,
+    );
+    let mixed_membership = membership(&mixed);
+    let locked_system_index = mixed_membership
+        .iter()
+        .position(|system| system.first().is_some_and(|measure| measure == "m5"))
+        .expect("layout lock should become an explicit-path system anchor");
+    assert_eq!(
+        mixed.pages[1].system_indices.first().copied(),
+        Some(locked_system_index),
+        "explicit layout overrides must not suppress page locks"
+    );
+    assert!(
+        mixed_membership
+            .iter()
+            .any(|system| system.first().is_some_and(|measure| measure == "m10")),
+        "the original layout-override anchor must remain present"
+    );
 }
 
 #[test]

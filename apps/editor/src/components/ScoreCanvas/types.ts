@@ -28,6 +28,8 @@ export interface EngraveBreakMarker {
 
 export interface EngraveAdornments {
   markers?: EngraveBreakMarker[];
+  /** Visible measure whose right barline is selected for break toolbar actions. */
+  selectedBoundaryMeasureIndex?: number;
   /**
    * Optional provider for staff-eye state. The canvas iterates its own
    * `MeasureBounds` (one per system × visible part) and asks the host for the
@@ -192,7 +194,7 @@ export interface ScoreCanvasProps {
   engraveAdornments?: EngraveAdornments;
   /** Currently selected marker id (highlighted on the canvas). */
   selectedEngraveMarkerId?: string | null;
-  /** Fired when the user clicks a barline in engrave mode (Ctrl/Shift modifiers). */
+  /** Fired when the user selects a barline in engrave mode; modifiers may apply a break immediately. */
   onEngraveBarlineClick?: (hit: BarlineHit, mods: EngraveClickModifiers) => void;
   /** Fired as the pointer moves over barlines in engrave mode (null on leave). */
   onEngraveBarlineHover?: (hit: BarlineHit | null) => void;

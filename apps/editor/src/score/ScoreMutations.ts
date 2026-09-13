@@ -21,7 +21,6 @@ import {
   applySnapshot,
   clearBreak as clearBreakInSnapshot,
   extractSnapshot,
-  insertBreak as insertBreakInSnapshot,
   pruneUnusedDerivedLayouts,
   sortSnapshot,
 } from "@viritura/core";
@@ -89,6 +88,7 @@ export function applyScoreDefChanges(score: Score, edits: ScoreDefEdit[]): Score
       ...(e.useWritten ? { useWritten: true } : {}),
       // Preserve engrave-mode authored state across edits to other fields.
       ...(existing?.pages ? { pages: existing.pages } : {}),
+      ...(existing?.layoutBreaks ? { layoutBreaks: existing.layoutBreaks } : {}),
       ...(existing?.pageSetup ? { pageSetup: existing.pageSetup } : {}),
       ...(existing?.multimeasureRests ? { multimeasureRests: existing.multimeasureRests } : {}),
     };
@@ -137,38 +137,64 @@ export function appendEmptyMeasures(score: Score, count: number): Score {
 /**
  * Insert (or update) a forced break at a measure in the active score.
  *
- * The first call on a score must be seeded with the full engine-computed
- * pagination — pass `computedSystemStarts` for that. On subsequent calls
- * the existing snapshot is used as-is.
+ * The first measure is materialised as the implicit start of page 1, but
+ * automatic system boundaries are deliberately not copied into the document.
+ * The engine remains free to reflow between authored break anchors.
  */
 export function insertBreakInScore(
   score: Score,
   scoreIndex: number,
   measureId: string,
   kind: "system" | "page",
-  computedSystemStarts: readonly { measure: string; pageBreak: boolean }[],
 ): Score {
   return withScoreDef(score, scoreIndex, (sd) => {
-    let snap = extractSnapshot(sd);
-    if (snap.entries.length === 0) {
-      snap = {
-        entries: computedSystemStarts.map((s) => ({
-          measure: s.measure,
-          pageBreak: s.pageBreak,
-        })),
-      };
+    const order = measureOrder(score);
+    const rank = new Map(order.map((id, index) => [id, index]));
+    const layoutBreaks = [...(sd.layoutBreaks ?? [])];
+    const existingIndex = layoutBreaks.findIndex((entry) => entry.measure === measureId);
+    const nextBreak = { measure: measureId, kind };
+    if (existingIndex >= 0) {
+      layoutBreaks[existingIndex] = nextBreak;
+    } else {
+      layoutBreaks.push(nextBreak);
     }
-    snap = insertBreakInSnapshot(snap, measureId, kind);
-    snap = sortSnapshot(snap, measureOrder(score));
-    return applySnapshot(sd, snap);
+    const next = {
+      ...sd,
+      layoutBreaks: layoutBreaks
+        .filter((entry) => rank.has(entry.measure))
+        .sort((left, right) => rank.get(left.measure)! - rank.get(right.measure)!),
+    };
+
+    // Migrate break-only pagination authored by the previous Engrave control
+    // into locks. Systems carrying layout overrides remain explicit MNX pages.
+    if (
+      next.pages?.length &&
+      next.pages.every((page) => page.systems.every((system) => !system.layout && !system.layoutChanges?.length))
+    ) {
+      const legacy = extractSnapshot(next)
+        .entries.slice(1)
+        .map((entry) => ({
+          measure: entry.measure,
+          kind: entry.pageBreak ? ("page" as const) : ("system" as const),
+        }));
+      const merged = new Map(next.layoutBreaks.map((entry) => [entry.measure, entry]));
+      legacy.forEach((entry) => {
+        if (!merged.has(entry.measure)) merged.set(entry.measure, entry);
+      });
+      next.layoutBreaks = [...merged.values()].sort(
+        (left, right) => rank.get(left.measure)! - rank.get(right.measure)!,
+      );
+      delete next.pages;
+    }
+    return next;
   });
 }
 
 /**
- * Clear a forced break at a measure in the active score. If clearing the
- * last entry leaves only the implicit page-0 starts, the snapshot is
- * preserved (still all-or-nothing). Pass `wipeAll=true` to fully revert
- * the score to automatic pagination.
+ * Clear a forced break at a measure in the active score. If only the synthetic
+ * opening anchor remains, it is removed too so the score returns to automatic
+ * flow. Authored layout overrides and other breaks are preserved. Pass
+ * `wipeAll=true` to clear all pagination and layout anchors.
  */
 export function clearBreakInScore(
   score: Score,
@@ -177,17 +203,39 @@ export function clearBreakInScore(
   options: { wipeAll?: boolean } = {},
 ): Score {
   return withScoreDef(score, scoreIndex, (sd) => {
-    if (options.wipeAll) return applySnapshot(sd, { entries: [] });
+    if (options.wipeAll) {
+      const next = applySnapshot(sd, { entries: [] });
+      delete next.layoutBreaks;
+      return next;
+    }
+    if (sd.layoutBreaks?.some((entry) => entry.measure === measureId)) {
+      const remainingBreaks = sd.layoutBreaks.filter((entry) => entry.measure !== measureId);
+      const next: ScoreDefinition = {
+        ...sd,
+        layoutBreaks: remainingBreaks,
+      };
+      if (remainingBreaks.length === 0) delete next.layoutBreaks;
+      return next;
+    }
     let snap = extractSnapshot(sd);
     snap = clearBreakInSnapshot(snap, measureId);
-    snap = sortSnapshot(snap, measureOrder(score));
+    const order = measureOrder(score);
+    snap = sortSnapshot(snap, order);
+    const onlyEntry = snap.entries.length === 1 ? snap.entries[0] : undefined;
+    if (onlyEntry && onlyEntry.measure === order[0] && !onlyEntry.layout) {
+      snap = { entries: [] };
+    }
     return applySnapshot(sd, snap);
   });
 }
 
 /** Revert a score to fully automatic pagination. */
 export function clearAllBreaksInScore(score: Score, scoreIndex: number): Score {
-  const cleared = withScoreDef(score, scoreIndex, (sd) => applySnapshot(sd, { entries: [] }));
+  const cleared = withScoreDef(score, scoreIndex, (sd) => {
+    const next = applySnapshot(sd, { entries: [] });
+    delete next.layoutBreaks;
+    return next;
+  });
   // Reset wipes pages[] (including system.layout overrides), so any derived
   // hide-staff layouts are now orphaned. GC them to avoid leaking.
   if (!cleared.layouts || cleared.layouts.length === 0) return cleared;

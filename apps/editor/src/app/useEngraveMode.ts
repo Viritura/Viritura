@@ -24,10 +24,15 @@ import type {
   EngraveClickModifiers,
   StaffEyeHit,
 } from "../components/ScoreCanvas";
-import { insertBreakInScore, clearAllBreaksInScore, setAnnotationOffsetInScore } from "../score/ScoreMutations";
+import {
+  insertBreakInScore,
+  clearBreakInScore,
+  clearAllBreaksInScore,
+  setAnnotationOffsetInScore,
+} from "../score/ScoreMutations";
 import { useSelectionActions } from "../store/selectionStore";
-import { defaultSystemStarts } from "../components/modes/engrave/defaultSystemStarts";
 import { buildSystemRows } from "../components/modes/engrave/buildSystemRows";
+import { breakTargetAfterBarline, markerMeasureBeforeBreak } from "../components/modes/engrave/breakTargets";
 import {
   useEngraveContextRefs,
   useMarkerSelection,
@@ -62,6 +67,9 @@ export interface EngraveMode {
   // ── Canvas adornments + interaction ─────────────────────────
   engraveAdornments: EngraveAdornments;
   selectedMarkerId: string | null;
+  selectedBreakKind: "system" | "page" | null;
+  selectedBreakAfterMeasureNumber: number | undefined;
+  hasLayoutOverrides: boolean;
   onBarlineClick: (hit: BarlineHit, mods: EngraveClickModifiers) => void;
   onMarkerClick: (markerId: string) => void;
   onEmptyClick: () => void;
@@ -90,10 +98,17 @@ export interface EngraveMode {
   hasAnyHidden: boolean;
   handleResetAll: () => void;
   handleShowAllHidden: () => void;
+  handleSetSelectedBreak: (kind: "system" | "page") => void;
+  handleRemoveSelectedBreak: () => void;
 
   // ── Embedded page setup editor ───────────────────────────────
   pageSetup: ReturnType<typeof usePageSetupEditor>;
   handleInstrumentNameDisplayChange: (settings: InstrumentNameDisplaySettings) => void;
+}
+
+function scoreHasLayoutOverrides(score: Score | null, scoreIndex: number): boolean {
+  const definition = score?.scores?.[scoreIndex];
+  return Boolean(definition?.layoutBreaks?.length || definition?.pages?.length);
 }
 
 export function useEngraveMode({
@@ -115,10 +130,7 @@ export function useEngraveMode({
 
   const { clearSelection } = useSelectionActions();
 
-  // Clear engrave selection when leaving Engrave mode. The marker-delete
-  // listener (in useMarkerSelection) stays mounted because this hook is always
-  // called; clearing on exit ensures Delete/Backspace in Write mode can't act
-  // on a break that was selected before the switch.
+  // Clear Engrave-only selection on exit so global shortcuts cannot act on stale targets.
   useEffect(() => {
     if (!active) {
       setSelectedMarkerId(null);
@@ -146,13 +158,14 @@ export function useEngraveMode({
 
   const engraveMarkers: EngraveBreakMarker[] = useMemo(() => {
     if (!score) return [];
+    const visibleMeasureIndices = canvasRef.current?.getDisplayList()?.measureBounds?.map((bounds) => bounds.index);
     const out: EngraveBreakMarker[] = [];
     for (const row of systemRows) {
       if (!row.isAuthored) continue;
       const startIdx = measureIndexById.get(row.measure);
       if (startIdx === undefined || startIdx <= 0) continue;
       out.push({
-        measureIndex: startIdx - 1,
+        measureIndex: markerMeasureBeforeBreak(score, selectedScoreIndex, startIdx, visibleMeasureIndices),
         kind: row.pageBreak ? "page" : "system",
         id: row.measure,
       });
@@ -164,10 +177,9 @@ export function useEngraveMode({
     (measure: string, kind: "system" | "page") => {
       const sc = scoreRef.current;
       if (!sc) return;
-      const seed = defaultSystemStarts(sc, canvasRef.current?.getDisplayList() ?? null);
-      updateScoreRef.current(insertBreakInScore(sc, activeScoreIndexRef.current, measure, kind, seed));
+      updateScoreRef.current(insertBreakInScore(sc, activeScoreIndexRef.current, measure, kind));
     },
-    [scoreRef, updateScoreRef, activeScoreIndexRef, canvasRef],
+    [scoreRef, updateScoreRef, activeScoreIndexRef],
   );
 
   const handleResetAll = useCallback(() => {
@@ -177,19 +189,61 @@ export function useEngraveMode({
     setExpandedSystem(null);
   }, [scoreRef, updateScoreRef, activeScoreIndexRef]);
 
+  const selectedBreakKind = useMemo(() => {
+    if (!selectedMarkerId) return null;
+    const row = systemRows.find((candidate) => candidate.measure === selectedMarkerId && candidate.isAuthored);
+    return row ? (row.pageBreak ? "page" : "system") : null;
+  }, [selectedMarkerId, systemRows]);
+  const selectedBreakAfterMeasureNumber = useMemo(
+    () => systemRows.find((candidate) => candidate.measure === selectedMarkerId)?.previousMeasureNumber,
+    [selectedMarkerId, systemRows],
+  );
+  const selectedBoundaryMeasureIndex = useMemo(() => {
+    if (!score || !selectedMarkerId) return undefined;
+    const startIndex = measureIndexById.get(selectedMarkerId);
+    if (startIndex === undefined || startIndex <= 0) return undefined;
+    const visibleMeasureIndices = canvasRef.current?.getDisplayList()?.measureBounds?.map((bounds) => bounds.index);
+    return markerMeasureBeforeBreak(score, selectedScoreIndex, startIndex, visibleMeasureIndices);
+  }, [score, selectedMarkerId, selectedScoreIndex, measureIndexById, canvasRef]);
+  const hasLayoutOverrides = scoreHasLayoutOverrides(score, selectedScoreIndex);
+
+  const handleSetSelectedBreak = useCallback(
+    (kind: "system" | "page") => {
+      if (!selectedMarkerId) return;
+      handleInsertBreak(selectedMarkerId, kind);
+    },
+    [selectedMarkerId, handleInsertBreak],
+  );
+
+  const handleRemoveSelectedBreak = useCallback(() => {
+    if (!selectedMarkerId || !selectedBreakKind) return;
+    const sc = scoreRef.current;
+    if (!sc) return;
+    updateScoreRef.current(clearBreakInScore(sc, activeScoreIndexRef.current, selectedMarkerId));
+  }, [selectedMarkerId, selectedBreakKind, scoreRef, updateScoreRef, activeScoreIndexRef]);
+
   // Ctrl/Cmd+click on a barline = system break after that measure.
   // Shift+click on a barline = page break after that measure.
   const onBarlineClick = useCallback(
     (hit: BarlineHit, mods: EngraveClickModifiers) => {
       const sc = scoreRef.current;
       if (!sc) return;
-      const next = sc.global.measures[hit.measureIndex + 1];
-      if (!next?.id) return; // Can't break after the last measure
-      const kind: "system" | "page" = mods.shiftKey ? "page" : "system";
-      handleInsertBreak(next.id, kind);
-      setSelectedMarkerId(next.id);
+      const visibleMeasureIndices = canvasRef.current?.getDisplayList()?.measureBounds?.map((bounds) => bounds.index);
+      const targetMeasureId = breakTargetAfterBarline(
+        sc,
+        activeScoreIndexRef.current,
+        hit.measureIndex,
+        visibleMeasureIndices,
+      );
+      if (!targetMeasureId) return; // Can't break after the last visible measure
+      setSelectedMarkerId(targetMeasureId);
+      if (mods.shiftKey) {
+        handleInsertBreak(targetMeasureId, "page");
+      } else if (mods.ctrlKey || mods.metaKey) {
+        handleInsertBreak(targetMeasureId, "system");
+      }
     },
-    [scoreRef, handleInsertBreak, setSelectedMarkerId],
+    [scoreRef, activeScoreIndexRef, canvasRef, handleInsertBreak, setSelectedMarkerId],
   );
 
   const onMarkerClick = useCallback(
@@ -202,12 +256,19 @@ export function useEngraveMode({
   const engraveAdornments: EngraveAdornments = useMemo(
     () => ({
       markers: engraveMarkers,
+      selectedBoundaryMeasureIndex,
       // Hide staff-visibility affordances entirely when the score has fewer
       // than 2 parts in its base layout — nothing meaningful to hide/restore.
       staffEyeProvider: staffVis.hasMultipleParts ? staffVis.staffEyeProvider : undefined,
       ghostRailGroupProvider: staffVis.hasMultipleParts ? staffVis.ghostRailGroupProvider : undefined,
     }),
-    [engraveMarkers, staffVis.hasMultipleParts, staffVis.staffEyeProvider, staffVis.ghostRailGroupProvider],
+    [
+      engraveMarkers,
+      selectedBoundaryMeasureIndex,
+      staffVis.hasMultipleParts,
+      staffVis.staffEyeProvider,
+      staffVis.ghostRailGroupProvider,
+    ],
   );
 
   const slurPanelCollapsed = slur.selectedSlurId === null || slur.selectedSlurShape === null;
@@ -241,6 +302,9 @@ export function useEngraveMode({
     score,
     engraveAdornments,
     selectedMarkerId,
+    selectedBreakKind,
+    selectedBreakAfterMeasureNumber,
+    hasLayoutOverrides,
     onBarlineClick,
     onMarkerClick,
     onEmptyClick: useCallback(() => setSelectedMarkerId(null), [setSelectedMarkerId]),
@@ -268,6 +332,8 @@ export function useEngraveMode({
     hasAnyHidden: staffVis.hasAnyHidden,
     handleResetAll,
     handleShowAllHidden: staffVis.handleShowAllHidden,
+    handleSetSelectedBreak,
+    handleRemoveSelectedBreak,
 
     pageSetup,
     handleInstrumentNameDisplayChange,

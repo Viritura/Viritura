@@ -454,6 +454,36 @@ describe("MNX round-trip preserves editor wiring fields", () => {
   });
 });
 
+describe("MNX round-trip preserves layout breaks", () => {
+  it("keeps system and page locks in the score extension", () => {
+    const input = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m1" }, { id: "m2" }, { id: "m3" }] },
+      parts: [{ name: "Violin", measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] }],
+      scores: [
+        {
+          name: "Violin",
+          _x: {
+            viritura: {
+              layoutBreaks: [
+                { measure: "m2", kind: "system" },
+                { measure: "m3", kind: "page" },
+              ],
+            },
+          },
+        },
+      ],
+    };
+
+    const parsed = parseMnx(input);
+    expect(parsed.scores?.[0]?.layoutBreaks).toEqual([
+      { measure: "m2", kind: "system" },
+      { measure: "m3", kind: "page" },
+    ]);
+    expect(parseMnx(serializeMnx(parsed))).toEqual(parsed);
+  });
+});
+
 describe("MNX round-trip preserves page-turn settings", () => {
   function buildScoreWithPageTurns(pageTurns: unknown) {
     return {

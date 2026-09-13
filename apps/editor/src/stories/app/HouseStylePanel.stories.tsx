@@ -30,6 +30,10 @@ function HouseStyleHarness() {
         onApplyPageSetup={() => {}}
         onResetPageSetup={() => {}}
         onInstrumentNameDisplayChange={() => {}}
+        selectedBreakKind={null}
+        hasLayoutOverrides={false}
+        onRemoveSelectedBreak={() => {}}
+        onResetAll={() => {}}
       />
     </div>
   );

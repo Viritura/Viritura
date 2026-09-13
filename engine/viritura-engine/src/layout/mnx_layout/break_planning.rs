@@ -92,6 +92,7 @@ pub(super) fn plan_system_breaks(
     flat_staves: &[FlatStaff],
     budget: &MeasureWidthBudget,
     mmr: &MmrPlan,
+    forced_system_starts: &[usize],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     cache: Option<&mut cache::LayoutCache>,
 ) -> SystemBreakPlan {
@@ -182,7 +183,12 @@ pub(super) fn plan_system_breaks(
     let systems = if let Some(avail_first) = content_width_first {
         let avail_subseq = content_width_subseq.unwrap_or(avail_first);
         if avail_first > 0.0 && avail_subseq > 0.0 {
-            break_into_systems_dual_width(&budget.natural_widths, avail_first, avail_subseq)
+            break_into_systems_with_forced_starts(
+                &budget.natural_widths,
+                avail_first,
+                avail_subseq,
+                forced_system_starts,
+            )
         } else {
             vec![(0..mmr.visible_indices.len()).collect()]
         }
@@ -219,4 +225,43 @@ pub(super) fn plan_system_breaks(
         content_width_subseq,
         inter_system_gap: config.inter_system_spacing * sp,
     }
+}
+
+fn break_into_systems_with_forced_starts(
+    natural_widths: &[f64],
+    first_width: f64,
+    subsequent_width: f64,
+    forced_starts: &[usize],
+) -> Vec<Vec<usize>> {
+    let mut boundaries = vec![0];
+    boundaries.extend(
+        forced_starts
+            .iter()
+            .copied()
+            .filter(|&index| index > 0 && index < natural_widths.len()),
+    );
+    boundaries.sort_unstable();
+    boundaries.dedup();
+    boundaries.push(natural_widths.len());
+
+    let mut systems = Vec::new();
+    for pair in boundaries.windows(2) {
+        let start = pair[0];
+        let end = pair[1];
+        if start >= end {
+            continue;
+        }
+        let segment = &natural_widths[start..end];
+        let local_systems = if start == 0 {
+            break_into_systems_dual_width(segment, first_width, subsequent_width)
+        } else {
+            break_into_systems(segment, subsequent_width)
+        };
+        systems.extend(
+            local_systems
+                .into_iter()
+                .map(|system| system.into_iter().map(|index| start + index).collect()),
+        );
+    }
+    systems
 }

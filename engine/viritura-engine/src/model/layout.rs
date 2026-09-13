@@ -139,6 +139,22 @@ pub struct ScoreDefinition {
     pub pages: Vec<PageDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instrument_name_display: Option<InstrumentNameDisplaySettings>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub layout_breaks: Vec<LayoutBreak>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutBreak {
+    pub measure: String,
+    pub kind: LayoutBreakKind,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum LayoutBreakKind {
+    System,
+    Page,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

@@ -3,9 +3,9 @@
  *
  * MNX represents per-score pagination as `ScoreDefinition.pages[].systems[]`,
  * where each system is a forced break point (start of system) at a measure id,
- * and pages are sequences of systems. The semantics are all-or-nothing: when
- * any pagination is authored for a score, the snapshot must enumerate every
- * system boundary the engine should honor.
+ * and pages are sequences of authored system anchors. The engine may add
+ * automatic system and page breaks between those anchors, so snapshots should
+ * contain only user-authored breaks and systems carrying layout overrides.
  *
  * These helpers convert between the MNX-shaped `pages[]` structure and a
  * flatter `Snapshot` form that's easier for UI/mutations to manipulate.
@@ -22,7 +22,7 @@ export interface PaginationEntry {
   pageBreak: boolean;
 }
 
-/** Flat representation of all forced system/page breaks in one score view. */
+/** Flat representation of all authored system/page anchors in one score view. */
 export interface PaginationSnapshot {
   /** Ordered system-start entries. The first entry implicitly starts page 0. */
   entries: PaginationEntry[];

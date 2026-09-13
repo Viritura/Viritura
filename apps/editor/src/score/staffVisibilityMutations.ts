@@ -373,12 +373,10 @@ export function setStaffVisibilityInScore(
  * Toggle staff visibility on a system, materialising just enough of
  * `pages[].systems[]` to anchor the layout override on the target system.
  *
- * Only the target system is added to the snapshot. All other system
- * boundaries stay on engine auto-flow so that subsequent content edits
- * (and reflow across pages) work normally — we deliberately do NOT
- * materialise every engine-computed system, because doing so would
- * convert auto-flow boundaries (especially page breaks) into forced
- * breaks and lock page geometry.
+ * The score start and target system are added to the snapshot. All intermediate
+ * system boundaries stay on engine auto-flow so subsequent edits can reflow;
+ * the opening anchor distinguishes a full-score override from an authored MNX
+ * excerpt whose first explicit system intentionally starts later.
  *
  * Cross-system staff state (e.g. last clef) is recovered engine-side:
  * when a part is hidden through the target system, the engine scans
@@ -411,8 +409,17 @@ export function applyStaffVisibilityFromSystem(
       // prior visibility action). Nothing to seed.
       return sd;
     }
+    const firstMeasureId = measureOrder(score)[0];
     const merged = {
-      entries: [...snap.entries, { measure: systemMeasureId, pageBreak: false }],
+      entries: [
+        ...snap.entries,
+        ...(firstMeasureId &&
+        firstMeasureId !== systemMeasureId &&
+        !snap.entries.some((entry) => entry.measure === firstMeasureId)
+          ? [{ measure: firstMeasureId, pageBreak: false }]
+          : []),
+        { measure: systemMeasureId, pageBreak: false },
+      ],
     };
     return applySnapshot(sd, sortSnapshot(merged, measureOrder(score)));
   });
