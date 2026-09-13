@@ -47,6 +47,29 @@ function toReducedFraction(numerator: number, denominator: number): [number, num
   return [n, d];
 }
 
+/**
+ * The 1-based staff number a selection resolves to, if any — the same
+ * derivation `handleSetClef` uses for a measure-start clef override. Grouping
+ * display's per-staff occurrence override reuses it so both controls agree on
+ * "which staff" a selection targets.
+ */
+export function staffFromSelection(selection: SelectionState): number | undefined {
+  if (
+    selection.kind === "measure" &&
+    selection.startLocalStaffIndex !== undefined &&
+    (selection.endLocalStaffIndex === undefined || selection.startLocalStaffIndex === selection.endLocalStaffIndex)
+  ) {
+    return selection.startLocalStaffIndex + 1;
+  }
+  if (
+    (selection.kind === "single" || selection.kind === "range") &&
+    selection.measureAnchor?.localStaffIndex !== undefined
+  ) {
+    return selection.measureAnchor.localStaffIndex + 1;
+  }
+  return undefined;
+}
+
 export interface SignatureActionsDeps {
   store: DocumentStore;
   selection: SelectionState;

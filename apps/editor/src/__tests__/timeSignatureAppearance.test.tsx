@@ -74,6 +74,7 @@ describe("time signature settings model", () => {
       position: "center",
       scale: 1,
       senzaMisura: "open",
+      nonDefaultGroupingDisplay: "standard",
     });
   });
 
@@ -97,6 +98,15 @@ describe("time signature settings model", () => {
     ).toEqual({ parts: { senzaMisura: "hidden" } });
   });
 
+  it("stores a non-default grouping display as a house-style override", () => {
+    expect(
+      setSettings(undefined, "score", {
+        ...settingsFor(undefined, "score"),
+        nonDefaultGroupingDisplay: "additive",
+      }),
+    ).toEqual({ score: { nonDefaultGroupingDisplay: "additive" } });
+  });
+
   it("maps recognizable presets onto the orthogonal settings", () => {
     const filmScore = settingsForPreset("filmScore")!;
     expect(filmScore).toEqual({
@@ -106,6 +116,7 @@ describe("time signature settings model", () => {
       position: "center",
       scale: 8,
       senzaMisura: "open",
+      nonDefaultGroupingDisplay: "standard",
     });
     expect(presetFor(filmScore)).toBe("filmScore");
     expect(presetFor({ ...filmScore, scale: 9 })).toBe("custom");
@@ -117,6 +128,7 @@ describe("time signature settings model", () => {
       position: "above",
       scale: 1,
       senzaMisura: "open",
+      nonDefaultGroupingDisplay: "standard",
     });
   });
 });
@@ -241,5 +253,28 @@ describe("Engrave time signature appearance", () => {
 
     await user.click(screen.getByRole("radio", { name: "Beat count only" }));
     await waitFor(() => expect(screen.getByText("Advanced controls differ from the built-in styles.")).toBeTruthy());
+  });
+
+  it("persists the house-style grouping display selection through the same update path as other fields", async () => {
+    const user = userEvent.setup();
+    renderPanel(makeScore());
+
+    await screen.findByLabelText("Time signature appearance scope");
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+
+    await user.click(screen.getByRole("combobox", { name: "House-style grouping display" }));
+    await user.click(screen.getByRole("option", { name: "Additive numerator" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("settings-snapshot").textContent).toContain(
+        '"score":{"nonDefaultGroupingDisplay":"additive"}',
+      ),
+    );
+
+    // Selecting "Standard" again clears the override rather than storing a
+    // redundant default value, matching every other field in this panel.
+    await user.click(screen.getByRole("combobox", { name: "House-style grouping display" }));
+    await user.click(screen.getByRole("option", { name: "Standard" }));
+    await waitFor(() => expect(screen.getByTestId("settings-snapshot").textContent).toBe(""));
   });
 });

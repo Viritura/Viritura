@@ -122,7 +122,8 @@ fn test_time_signature_changes() {
             count: 4,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
     assert_eq!(
@@ -131,7 +132,8 @@ fn test_time_signature_changes() {
             count: 4,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
     assert_eq!(
@@ -140,7 +142,8 @@ fn test_time_signature_changes() {
             count: 2,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
 
@@ -449,16 +452,17 @@ fn hidden_senza_misura_reserves_no_prefix_or_glyph() {
         unit: 4,
         display: Some(TimeSignatureDisplay::SenzaMisura),
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         senza_misura: SenzaMisuraDisplay::Hidden,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0);
+    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
 
     assert!(layout.glyphs.is_empty());
     assert_eq!(layout.width, 0.0);
-    assert_eq!(prefix_reserve(settings, &ts, 1.0), 0.0);
+    assert_eq!(prefix_reserve(settings, &ts, 1.0, None), 0.0);
 }
 
 #[test]
@@ -2028,12 +2032,13 @@ fn large_style_overflows_the_staff_and_reserves_more_room() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let large = TimeSignatureSettings {
         scale: 1.5,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(large, &ts, 0.0, 0.0, 4.0 * sp, sp);
+    let layout = time_signature_layout(large, &ts, 0.0, 0.0, 4.0 * sp, sp, None);
     assert!(
         layout.top_y < 0.0,
         "the pair reaches above the top staff line"
@@ -2043,7 +2048,8 @@ fn large_style_overflows_the_staff_and_reserves_more_room() {
         "and below the bottom staff line"
     );
     assert!(
-        prefix_reserve(large, &ts, sp) > prefix_reserve(TimeSignatureSettings::default(), &ts, sp),
+        prefix_reserve(large, &ts, sp, None)
+            > prefix_reserve(TimeSignatureSettings::default(), &ts, sp, None),
         "a large meter reserves more horizontal room than a normal one"
     );
 }
@@ -2064,6 +2070,7 @@ fn narrow_style_uses_the_condensed_cut_and_reserves_less_room() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     assert!(
         prefix_reserve(
@@ -2073,7 +2080,8 @@ fn narrow_style_uses_the_condensed_cut_and_reserves_less_room() {
             },
             &ts,
             sp,
-        ) < prefix_reserve(TimeSignatureSettings::default(), &ts, sp),
+            None,
+        ) < prefix_reserve(TimeSignatureSettings::default(), &ts, sp, None),
         "condensed digits are what buys the horizontal room back"
     );
 }
@@ -2096,6 +2104,7 @@ fn above_staff_style_engraves_over_the_staff_and_reserves_no_slot() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     assert_eq!(
         prefix_reserve(
@@ -2105,6 +2114,7 @@ fn above_staff_style_engraves_over_the_staff_and_reserves_no_slot() {
             },
             &ts,
             sp,
+            None,
         ),
         0.0,
         "an above-staff meter takes no room inside the staff"
@@ -2119,6 +2129,7 @@ fn scale_and_vertical_position_are_independent_of_render_style() {
         unit: 8,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::Narrow,
@@ -2126,7 +2137,7 @@ fn scale_and_vertical_position_are_independent_of_render_style() {
         scale: 1.7,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 10.0, 10.0 + 4.0 * sp, sp);
+    let layout = time_signature_layout(settings, &ts, 0.0, 10.0, 10.0 + 4.0 * sp, sp, None);
 
     assert!(layout.glyphs.iter().all(|glyph| (smufl::TIME_SIG_NARROW_0
         ..=smufl::TIME_SIG_NARROW_9)
@@ -2149,6 +2160,7 @@ fn outside_staff_render_style_is_independent_of_distribution_and_scale() {
         unit: 8,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::OutsideStaff,
@@ -2156,7 +2168,7 @@ fn outside_staff_render_style_is_independent_of_distribution_and_scale() {
         scale: 1.3,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0 * sp, sp);
+    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0 * sp, sp, None);
 
     assert!(layout.glyphs.iter().all(|glyph| {
         (smufl::TIME_SIG_LARGE_0..=smufl::TIME_SIG_LARGE_9).contains(&glyph.codepoint)
@@ -2365,4 +2377,272 @@ fn per_group_distribution_draws_one_meter_for_a_bracket_group() {
         "one 4/4 meter is shared by the two-staff bracket group"
     );
     assert!(digits.iter().all(|digit| (digit.3 - 60.0).abs() < 0.01));
+}
+
+// ── Grouping display (additive numerator / grouping annotation) ───────────
+//
+// These exercise `time_signature_layout`'s grouping-display axis directly
+// (unit-level geometry) and the cascade through a full score layout
+// (house style, per-occurrence, and per-staff overrides).
+
+use crate::model::time::GroupingDisplay;
+
+fn irregular_ts() -> TimeSignature {
+    // 7/8 grouped 3+2+2 — structurally non-default (the automatic default
+    // for 7/8 is 2+2+3).
+    TimeSignature {
+        count: 7,
+        unit: 8,
+        display: None,
+        beat_structure: Some(vec![3, 2, 2]),
+        grouping_display: None,
+    }
+}
+
+#[test]
+fn additive_numerator_joins_beat_groups_with_the_small_plus_glyph() {
+    let ts = irregular_ts();
+    let settings = TimeSignatureSettings::default();
+    let standard = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
+    let additive = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Additive),
+    );
+
+    let plus_glyphs = additive
+        .glyphs
+        .iter()
+        .filter(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
+        .count();
+    assert_eq!(
+        plus_glyphs, 2,
+        "3+2+2 has two plus signs joining its three groups"
+    );
+    let numerator_digits = additive
+        .glyphs
+        .iter()
+        .filter(|g| (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(&g.codepoint))
+        .count();
+    // Three numerator digits (3, 2, 2) plus one denominator digit (8).
+    assert_eq!(numerator_digits, 4);
+    assert!(
+        additive.width > standard.width,
+        "an additive numerator reserves more width than the plain count"
+    );
+    // Reserving the correct width: prefix_reserve must grow the same way.
+    assert!(
+        prefix_reserve(settings, &ts, 1.0, Some(GroupingDisplay::Additive))
+            > prefix_reserve(settings, &ts, 1.0, None)
+    );
+}
+
+#[test]
+fn grouping_annotation_adds_a_row_above_the_ordinary_meter() {
+    let ts = irregular_ts();
+    let settings = TimeSignatureSettings::default();
+    let standard = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
+    let annotated = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+
+    // The ordinary "7/8" numeral pair is still present...
+    let plain_numerator = annotated
+        .glyphs
+        .iter()
+        .filter(|g| g.codepoint == smufl::TIME_SIG_7)
+        .count();
+    assert_eq!(plain_numerator, 1, "the ordinary numerator 7 is unchanged");
+    // ...plus a generated "3+2+2" annotation above it.
+    let plus_glyphs = annotated
+        .glyphs
+        .iter()
+        .filter(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
+        .count();
+    assert_eq!(plus_glyphs, 2, "the annotation joins 3+2+2 with two pluses");
+    assert!(
+        annotated.top_y < standard.top_y,
+        "the annotation extends the layout's ink upward"
+    );
+    assert!(
+        annotated.glyphs.len() > standard.glyphs.len(),
+        "annotation adds glyphs on top of the ordinary meter"
+    );
+}
+
+#[test]
+fn single_group_structure_never_engraves_additive_or_annotation_glyphs() {
+    // An authored beatStructure of one all-encompassing group has nothing to
+    // add, even when a mode is explicitly forced.
+    let ts = TimeSignature {
+        count: 4,
+        unit: 4,
+        display: None,
+        beat_structure: Some(vec![4]),
+        grouping_display: Some(GroupingDisplay::Additive),
+    };
+    let settings = TimeSignatureSettings::default();
+    let layout = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+    assert!(
+        layout
+            .glyphs
+            .iter()
+            .all(|g| g.codepoint != smufl::TIME_SIG_PLUS_SMALL),
+        "a single-group structure falls back to a standard meter"
+    );
+}
+
+#[test]
+fn common_time_display_ignores_grouping_display_entirely() {
+    let ts = TimeSignature {
+        count: 4,
+        unit: 4,
+        display: Some(TimeSignatureDisplay::Common),
+        beat_structure: Some(vec![2, 2]),
+        grouping_display: Some(GroupingDisplay::Additive),
+    };
+    let settings = TimeSignatureSettings::default();
+    let layout = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+    assert_eq!(layout.glyphs.len(), 1, "still just the common-time symbol");
+    assert_eq!(layout.glyphs[0].codepoint, smufl::TIME_SIG_COMMON);
+}
+
+fn score_with_house_style_and_time(global_time_json: &str, house_style_json: &str) -> Score {
+    let json = format!(
+        r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {global_time_json}}}]}},
+            "parts": [{{"measures": [
+                {{
+                    "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+                    "sequences": [{{"content": [
+                        {{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "C", "octave": 5}}}}]}}
+                    ]}}]
+                }}
+            ]}}],
+            "_x": {{"viritura": {{"timeSignatures": {{"score": {house_style_json}}}}}}}
+        }}"#
+    );
+    parse_mnx(&json).expect("fixture parses")
+}
+
+#[test]
+fn house_style_additive_applies_only_to_non_default_meters() {
+    // A 7/8 authored 3+2+2 is non-default: the house style applies.
+    let irregular = score_with_house_style_and_time(
+        r#"{"count": 7, "unit": 8, "_x": {"viritura": {"beatStructure": [3, 2, 2]}}}"#,
+        r#"{"nonDefaultGroupingDisplay": "additive"}"#,
+    );
+    let dl = layout_score(&irregular, 0, &LayoutConfig::default());
+    assert!(
+        !glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
+        "the non-default 7/8 grouping is engraved additively"
+    );
+
+    // An ordinary 4/4 with no authored beatStructure must stay standard —
+    // never "1+1+1+1" — under the very same house style.
+    let ordinary = score_with_house_style_and_time(
+        r#"{"count": 4, "unit": 4}"#,
+        r#"{"nonDefaultGroupingDisplay": "additive"}"#,
+    );
+    let dl = layout_score(&ordinary, 0, &LayoutConfig::default());
+    assert!(
+        glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
+        "an ordinary default meter never engraves additive/annotation glyphs"
+    );
+}
+
+#[test]
+fn time_occurrence_override_forces_annotation_without_house_style() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {
+            "count": 7, "unit": 8,
+            "_x": {"viritura": {"beatStructure": [3, 2, 2], "groupingDisplay": "annotation"}}
+        }}]},
+        "parts": [{"measures": [
+            {
+                "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                "sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                ]}]
+            }
+        ]}]
+    }"#;
+    let score = parse_mnx(json).expect("fixture parses");
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let plain_numerator = glyphs_in_range(&dl, smufl::TIME_SIG_7..=smufl::TIME_SIG_7);
+    assert_eq!(plain_numerator.len(), 1, "the ordinary 7/8 numeral remains");
+    assert!(
+        !glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
+        "the occurrence override forces the grouping annotation with no house style set"
+    );
+}
+
+#[test]
+fn staff_occurrence_override_wins_over_time_occurrence_and_house_style() {
+    // Two-staff grand-staff-style part: staff 1 forces standard, staff 2
+    // takes the time signature's own "additive" occurrence override. The
+    // document house style (also additive) never gets a chance to apply.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {
+            "count": 7, "unit": 8,
+            "_x": {"viritura": {"beatStructure": [3, 2, 2], "groupingDisplay": "additive"}}
+        }}]},
+        "parts": [{"staves": 2, "measures": [
+            {
+                "clefs": [
+                    {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                    {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+                ],
+                "sequences": [
+                    {"staff": 1, "content": [
+                        {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                    ]},
+                    {"staff": 2, "content": [
+                        {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                    ]}
+                ],
+                "_x": {"viritura": {"groupingDisplayOverrides": [
+                    {"staff": 1, "groupingDisplay": "standard"}
+                ]}}
+            }
+        ]}],
+        "_x": {"viritura": {"timeSignatures": {"score": {"nonDefaultGroupingDisplay": "additive"}}}}
+    }"#;
+    let score = parse_mnx(json).expect("fixture parses");
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let plus_glyphs = glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL);
+    assert_eq!(
+        plus_glyphs.len(),
+        2,
+        "only staff 2's meter is additive (3+2+2 has two pluses); staff 1's override forces standard"
+    );
 }

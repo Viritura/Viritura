@@ -607,6 +607,7 @@ fn test_split_part_measure_default_clef_for_unassigned_staff() {
         chord_symbols: None,
         expressions: None,
         condensing_override: None,
+        grouping_display_overrides: None,
     };
 
     // Staff 1 should get the G clef (matched via unwrap_or(1))

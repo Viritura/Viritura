@@ -21,6 +21,31 @@ pub enum TimeSignatureDisplay {
     Note,
 }
 
+/// How a meter's beat grouping is presented, independent of the semantic
+/// [`TimeSignature::beat_structure`] the grouping is derived from.
+///
+/// `Standard` engraves an ordinary numeric (or symbolic) meter with no
+/// grouping decoration — automatic beaming still honors `beatStructure`, but
+/// nothing about the printed meter shows it. `Additive` and `Annotation` are
+/// only ever engraved for a meter whose resolved beat structure is
+/// structurally non-default and has more than one group; see
+/// [`resolve_grouping_display`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+pub enum GroupingDisplay {
+    /// Ordinary numeric (or symbolic) time signature — no grouping shown.
+    #[default]
+    #[serde(rename = "standard")]
+    Standard,
+    /// Numerator written as its beat groups joined by `+` (e.g. `2+3+2` over
+    /// `8`), replacing the plain count.
+    #[serde(rename = "additive")]
+    Additive,
+    /// Ordinary numeric meter, plus a generated grouping annotation (e.g.
+    /// `2+3+2+2`) engraved above it.
+    #[serde(rename = "annotation")]
+    Annotation,
+}
+
 /// Time signature (MNX-aligned).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TimeSignature {
@@ -38,6 +63,16 @@ pub struct TimeSignature {
         rename = "beatStructure"
     )]
     pub beat_structure: Option<Vec<u32>>,
+    /// Explicit per-occurrence grouping-display override (`_x.viritura.groupingDisplay`
+    /// on this time signature). Forces any mode regardless of the document's
+    /// house style, subject only to the symbolic-display/single-group safety
+    /// fallback in [`resolve_grouping_display`].
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "groupingDisplay"
+    )]
+    pub grouping_display: Option<GroupingDisplay>,
 }
 
 impl TimeSignature {
@@ -94,6 +129,7 @@ impl Default for TimeSignature {
             unit: 4,
             display: None,
             beat_structure: None,
+            grouping_display: None,
         }
     }
 }
@@ -133,7 +169,52 @@ impl std::fmt::Display for BeatStructureError {
 
 impl std::error::Error for BeatStructureError {}
 
-fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
+/// Resolve which [`GroupingDisplay`] mode a rendered meter should actually
+/// engrave.
+///
+/// Precedence: an explicit staff occurrence override wins outright, then the
+/// time signature's own occurrence override (`ts.grouping_display`), then the
+/// document's non-default house style — but only when `resolved` is
+/// structurally non-default (its beat structure differs from the meter's
+/// conventional default). Ordinary/default meters always stay `Standard`
+/// under the house style, so a plain 4/4 never engraves `1+1+1+1`.
+///
+/// A symbolic display (common/cut/senzaMisura/note-value) or a resolved beat
+/// structure of one group has nothing for additive/annotation to show, so
+/// both fall back to `Standard` unconditionally — even under an explicit
+/// occurrence or staff override.
+pub fn resolve_grouping_display(
+    ts: &TimeSignature,
+    resolved: &ResolvedMeter,
+    house_style: GroupingDisplay,
+    staff_override: Option<GroupingDisplay>,
+) -> GroupingDisplay {
+    if ts.display.is_some() || resolved.beat_structure.len() <= 1 {
+        return GroupingDisplay::Standard;
+    }
+    if let Some(mode) = staff_override {
+        return mode;
+    }
+    if let Some(mode) = ts.grouping_display {
+        return mode;
+    }
+    if house_style != GroupingDisplay::Standard
+        && is_non_default_grouping(resolved, ts.count, ts.unit)
+    {
+        return house_style;
+    }
+    GroupingDisplay::Standard
+}
+
+/// Whether a resolved beat structure differs from the meter's conventional
+/// default — i.e. whether it is worth decorating at all. An authored
+/// structure that happens to match the automatic default (a "redundant"
+/// structure) does not count as non-default.
+fn is_non_default_grouping(resolved: &ResolvedMeter, count: u32, unit: u32) -> bool {
+    resolved.beat_structure != default_beat_structure(count, unit)
+}
+
+pub(crate) fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
     if unit >= 8 {
         match count {
             5 => return vec![3, 2],
@@ -203,6 +284,7 @@ mod meter_tests {
                 unit: test_case.unit,
                 display: None,
                 beat_structure: None,
+                grouping_display: None,
             }
             .resolve_meter()
             .unwrap();
@@ -219,6 +301,7 @@ mod meter_tests {
             unit: test_case.unit,
             display: None,
             beat_structure: Some(test_case.beat_structure),
+            grouping_display: None,
         }
         .resolve_meter()
         .unwrap();
@@ -233,10 +316,116 @@ mod meter_tests {
             unit: 8,
             display: None,
             beat_structure: Some(vec![2, 2]),
+            grouping_display: None,
         };
         assert_eq!(
             meter.resolve_meter(),
             Err(BeatStructureError::InvalidBeatStructure)
+        );
+    }
+}
+
+#[cfg(test)]
+mod grouping_display_tests {
+    use super::*;
+
+    fn ts(count: u32, unit: u32, beat_structure: Option<Vec<u32>>) -> TimeSignature {
+        TimeSignature {
+            count,
+            unit,
+            display: None,
+            beat_structure,
+            grouping_display: None,
+        }
+    }
+
+    #[test]
+    fn default_meter_stays_standard_under_house_style() {
+        // 4/4 with no authored beatStructure: resolved == default, so the
+        // house style must never engrave "1+1+1+1".
+        let time = ts(4, 4, None);
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(&time, &resolved, GroupingDisplay::Additive, None),
+            GroupingDisplay::Standard
+        );
+    }
+
+    #[test]
+    fn redundant_authored_structure_stays_standard_under_house_style() {
+        // Authored [1,1,1,1] for 4/4 duplicates the automatic default, so it
+        // is not "non-default" even though it was explicitly authored.
+        let time = ts(4, 4, Some(vec![1, 1, 1, 1]));
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(&time, &resolved, GroupingDisplay::Annotation, None),
+            GroupingDisplay::Standard
+        );
+    }
+
+    #[test]
+    fn non_default_structure_takes_house_style() {
+        let time = ts(7, 8, Some(vec![3, 2, 2]));
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(&time, &resolved, GroupingDisplay::Additive, None),
+            GroupingDisplay::Additive
+        );
+    }
+
+    #[test]
+    fn time_occurrence_override_wins_over_house_style() {
+        let mut time = ts(7, 8, Some(vec![3, 2, 2]));
+        time.grouping_display = Some(GroupingDisplay::Annotation);
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(&time, &resolved, GroupingDisplay::Additive, None),
+            GroupingDisplay::Annotation
+        );
+    }
+
+    #[test]
+    fn staff_override_wins_over_time_occurrence_and_house_style() {
+        let mut time = ts(7, 8, Some(vec![3, 2, 2]));
+        time.grouping_display = Some(GroupingDisplay::Annotation);
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(
+                &time,
+                &resolved,
+                GroupingDisplay::Additive,
+                Some(GroupingDisplay::Standard)
+            ),
+            GroupingDisplay::Standard
+        );
+    }
+
+    #[test]
+    fn single_group_structure_falls_back_to_standard_even_when_forced() {
+        // A meter authored as one all-encompassing group has nothing to add.
+        let mut time = ts(4, 4, Some(vec![4]));
+        time.grouping_display = Some(GroupingDisplay::Additive);
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(&time, &resolved, GroupingDisplay::Standard, None),
+            GroupingDisplay::Standard
+        );
+    }
+
+    #[test]
+    fn symbolic_display_falls_back_to_standard_even_when_forced() {
+        let mut time = ts(4, 4, Some(vec![2, 2]));
+        time.display = Some(TimeSignatureDisplay::Common);
+        time.grouping_display = Some(GroupingDisplay::Additive);
+        let resolved = time.resolve_meter().unwrap();
+        assert_eq!(
+            resolve_grouping_display(
+                &time,
+                &resolved,
+                GroupingDisplay::Standard,
+                Some(GroupingDisplay::Annotation)
+            ),
+            GroupingDisplay::Standard
         );
     }
 }
@@ -332,6 +521,12 @@ pub struct TimeSignatureSettings {
     pub scale: f64,
     #[serde(default, skip_serializing_if = "is_default")]
     pub senza_misura: SenzaMisuraDisplay,
+    /// House-style grouping display, applied only when a meter's resolved
+    /// beat structure is structurally non-default (see
+    /// [`resolve_grouping_display`]). Ordinary/default meters always stay
+    /// `Standard` regardless of this setting.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub non_default_grouping_display: GroupingDisplay,
 }
 
 const fn default_scale() -> f64 {
@@ -347,6 +542,7 @@ impl Default for TimeSignatureSettings {
             position: TimeSignaturePosition::Center,
             scale: 1.0,
             senza_misura: SenzaMisuraDisplay::Open,
+            non_default_grouping_display: GroupingDisplay::Standard,
         }
     }
 }
@@ -366,6 +562,8 @@ struct TimeSignatureSettingsObject {
     scale: f64,
     #[serde(default)]
     senza_misura: SenzaMisuraDisplay,
+    #[serde(default)]
+    non_default_grouping_display: GroupingDisplay,
 }
 
 #[derive(Deserialize)]
@@ -388,6 +586,7 @@ impl<'de> Deserialize<'de> for TimeSignatureSettings {
                 position: value.position,
                 scale: value.scale.clamp(0.25, TIME_SIGNATURE_SCALE_MAX),
                 senza_misura: value.senza_misura,
+                non_default_grouping_display: value.non_default_grouping_display,
             },
             TimeSignatureSettingsWire::Legacy(value) => match value.as_str() {
                 "normal" => Self::default(),

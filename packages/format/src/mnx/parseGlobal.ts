@@ -454,6 +454,7 @@ function parseTimeSignature(raw: RawTime): TimeSignature {
   }
   const viritura = raw._x?.["viritura"] as RawTimeExtensions | undefined;
   if (viritura?.beatStructure) ts.beatStructure = [...viritura.beatStructure];
+  if (viritura?.groupingDisplay) ts.groupingDisplay = viritura.groupingDisplay;
   return ts;
 }
 

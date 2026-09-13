@@ -103,12 +103,7 @@ fn effective_time_signature(measures: &[GlobalMeasure], measure_idx: usize) -> T
         }
     }
     // Default: 4/4
-    TimeSignature {
-        count: 4,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    }
+    TimeSignature::default()
 }
 
 /// Compute total beats of a sequence's content.

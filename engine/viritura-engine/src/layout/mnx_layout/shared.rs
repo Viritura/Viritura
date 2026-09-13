@@ -656,6 +656,7 @@ pub(super) fn build_virtual_part_measure(
             chord_symbols,
             expressions,
             condensing_override: None,
+            grouping_display_overrides: None,
         },
         condensing_mode,
     )

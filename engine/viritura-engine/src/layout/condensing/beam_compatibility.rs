@@ -156,6 +156,7 @@ mod tests {
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         }
     }
 

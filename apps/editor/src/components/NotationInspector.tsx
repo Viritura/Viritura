@@ -15,6 +15,8 @@ import { NoteheadSection } from "./inspector/NoteheadSection";
 import { FermataSection } from "./inspector/FermataSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
 import { LyricSection } from "./inspector/LyricSection";
+import { GroupingDisplaySection } from "./inspector/GroupingDisplaySection";
+import { useGroupingDisplayInspector } from "./inspector/useGroupingDisplayInspector";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -85,6 +87,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
+  const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
 
   const {
     currentBarlineType,
@@ -212,6 +215,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onRepeatEndTimesChange={handleRepeatEndTimesChange}
           />
         )}
+
+        {selectedElementType === "time-signature" && <GroupingDisplaySection state={groupingDisplay} />}
 
         {staffConfig.target && (
           <StaffConfigSection

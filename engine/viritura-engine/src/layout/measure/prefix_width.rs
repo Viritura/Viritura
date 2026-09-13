@@ -201,10 +201,12 @@ pub(crate) fn prefix_layout(
     }
 
     if let Some(ref time) = rm.global.time {
+        let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         prefix_width += crate::layout::time_signatures::prefix_reserve(
             config.time_signature_settings,
             time,
             sp,
+            staff_override,
         );
     }
 
@@ -237,7 +239,13 @@ pub(crate) fn prefix_layout(
     prefix_width = prefix_width.max(min_clearance);
     let defer_repeat_start = (is_first || is_system_start) && has_repeat_start;
     let time_reserve = rm.global.time.as_ref().map(|time| {
-        crate::layout::time_signatures::prefix_reserve(config.time_signature_settings, time, sp)
+        let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
+        crate::layout::time_signatures::prefix_reserve(
+            config.time_signature_settings,
+            time,
+            sp,
+            staff_override,
+        )
     });
     let repeat_reserve = if defer_repeat_start { 1.5 * sp } else { 0.0 };
 

@@ -2388,6 +2388,93 @@ impl ::std::convert::TryFrom<::std::string::String> for GradualTempoKind {
         value.parse()
     }
 }
+///How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.",
+///  "type": "string",
+///  "enum": [
+///    "standard",
+///    "additive",
+///    "annotation"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GroupingDisplay {
+    #[serde(rename = "standard")]
+    Standard,
+    #[serde(rename = "additive")]
+    Additive,
+    #[serde(rename = "annotation")]
+    Annotation,
+}
+impl ::std::convert::From<&Self> for GroupingDisplay {
+    fn from(value: &GroupingDisplay) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GroupingDisplay {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Standard => f.write_str("standard"),
+            Self::Additive => f.write_str("additive"),
+            Self::Annotation => f.write_str("annotation"),
+        }
+    }
+}
+impl ::std::str::FromStr for GroupingDisplay {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "additive" => Ok(Self::Additive),
+            "annotation" => Ok(Self::Annotation),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GroupingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GroupingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GroupingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///A moment in the picture that music is written against — a cut, an impact, an emotional pivot. Addressed in picture time rather than musical time because that is what it actually is: a fact about the film, fixed while the score around it changes. Solving a cue means choosing bars, meters and tempi that place a downbeat here.
 ///
 /// <details><summary>JSON schema</summary>
@@ -5009,6 +5096,13 @@ impl ::std::default::Default for PartExtensions {
 ///        "$ref": "#/$defs/text-expression"
 ///      }
 ///    },
+///    "groupingDisplayOverrides": {
+///      "description": "Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/staff-grouping-display-override"
+///      }
+///    },
 ///    "pedals": {
 ///      "description": "Piano pedal markings.",
 ///      "type": "array",
@@ -5043,6 +5137,13 @@ pub struct PartMeasureExtensions {
     ///Text expressions and performance directions.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub expressions: ::std::vec::Vec<TextExpression>,
+    ///Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.
+    #[serde(
+        rename = "groupingDisplayOverrides",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub grouping_display_overrides: ::std::vec::Vec<StaffGroupingDisplayOverride>,
     ///Piano pedal markings.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub pedals: ::std::vec::Vec<Pedal>,
@@ -5058,6 +5159,7 @@ impl ::std::default::Default for PartMeasureExtensions {
             chord_symbols: Default::default(),
             condensing_override: Default::default(),
             expressions: Default::default(),
+            grouping_display_overrides: Default::default(),
             pedals: Default::default(),
         }
     }
@@ -6764,6 +6866,47 @@ impl ::std::convert::From<[f64; 2usize]> for SpDelta {
         Self(value)
     }
 }
+///A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure.",
+///  "type": "object",
+///  "required": [
+///    "groupingDisplay",
+///    "staff"
+///  ],
+///  "properties": {
+///    "groupingDisplay": {
+///      "description": "Forced grouping-display mode for this staff's meter.",
+///      "$ref": "#/$defs/grouping-display"
+///    },
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffGroupingDisplayOverride {
+    ///Forced grouping-display mode for this staff's meter.
+    #[serde(rename = "groupingDisplay")]
+    pub grouping_display: GroupingDisplay,
+    ///1-based staff number within this part.
+    pub staff: i64,
+}
+impl ::std::convert::From<&StaffGroupingDisplayOverride>
+for StaffGroupingDisplayOverride {
+    fn from(value: &StaffGroupingDisplayOverride) -> Self {
+        value.clone()
+    }
+}
 ///A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive).
 ///
 /// <details><summary>JSON schema</summary>
@@ -7343,6 +7486,10 @@ impl ::std::default::Default for TextStyles {
 ///        "type": "integer"
 ///      },
 ///      "minItems": 1
+///    },
+///    "groupingDisplay": {
+///      "description": "Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.",
+///      "$ref": "#/$defs/grouping-display"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -7359,6 +7506,13 @@ pub struct TimeExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub beat_structure: ::std::vec::Vec<i64>,
+    ///Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.
+    #[serde(
+        rename = "groupingDisplay",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub grouping_display: ::std::option::Option<GroupingDisplay>,
 }
 impl ::std::convert::From<&TimeExtensions> for TimeExtensions {
     fn from(value: &TimeExtensions) -> Self {
@@ -7369,6 +7523,7 @@ impl ::std::default::Default for TimeExtensions {
     fn default() -> Self {
         Self {
             beat_structure: Default::default(),
+            grouping_display: Default::default(),
         }
     }
 }
@@ -7886,6 +8041,10 @@ impl ::std::convert::From<TimeSignatureLegacyStyle> for TimeSignatureSettings {
 ///    "grandStaff": {
 ///      "$ref": "#/$defs/time-signature-grand-staff"
 ///    },
+///    "nonDefaultGroupingDisplay": {
+///      "description": "House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting.",
+///      "$ref": "#/$defs/grouping-display"
+///    },
 ///    "position": {
 ///      "$ref": "#/$defs/time-signature-position"
 ///    },
@@ -7915,6 +8074,13 @@ pub struct TimeSignatureSettingsObject {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub grand_staff: ::std::option::Option<TimeSignatureGrandStaff>,
+    ///House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting.
+    #[serde(
+        rename = "nonDefaultGroupingDisplay",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub non_default_grouping_display: ::std::option::Option<GroupingDisplay>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub position: ::std::option::Option<TimeSignaturePosition>,
     #[serde(
@@ -7942,6 +8108,7 @@ impl ::std::default::Default for TimeSignatureSettingsObject {
         Self {
             distribution: Default::default(),
             grand_staff: Default::default(),
+            non_default_grouping_display: Default::default(),
             position: Default::default(),
             render_style: Default::default(),
             scale: Default::default(),
@@ -8686,6 +8853,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "gradual-tempo": {
 ///      "$ref": "#/$defs/gradual-tempo"
 ///    },
+///    "grouping-display": {
+///      "$ref": "#/$defs/grouping-display"
+///    },
 ///    "hit-point": {
 ///      "$ref": "#/$defs/hit-point"
 ///    },
@@ -8802,6 +8972,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "sp-delta": {
 ///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "staff-grouping-display-override": {
+///      "$ref": "#/$defs/staff-grouping-display-override"
 ///    },
 ///    "stage-position": {
 ///      "$ref": "#/$defs/stage-position"
@@ -8950,6 +9123,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub gradual_tempo: ::std::option::Option<GradualTempo>,
+    #[serde(
+        rename = "grouping-display",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub grouping_display: ::std::option::Option<GroupingDisplay>,
     #[serde(
         rename = "hit-point",
         default,
@@ -9177,6 +9356,14 @@ pub struct VirituraExtensionsRoot {
     )]
     pub sp_delta: ::std::option::Option<SpDelta>,
     #[serde(
+        rename = "staff-grouping-display-override",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_grouping_display_override: ::std::option::Option<
+        StaffGroupingDisplayOverride,
+    >,
+    #[serde(
         rename = "stage-position",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9314,6 +9501,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             glissando_kind: Default::default(),
             glissando_style: Default::default(),
             gradual_tempo: Default::default(),
+            grouping_display: Default::default(),
             hit_point: Default::default(),
             instrument_name_display: Default::default(),
             instrument_name_display_policy: Default::default(),
@@ -9353,6 +9541,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             slur_shape: Default::default(),
             sound_profile_assignment: Default::default(),
             sp_delta: Default::default(),
+            staff_grouping_display_override: Default::default(),
             stage_position: Default::default(),
             system_layout_extensions: Default::default(),
             tempo_extensions: Default::default(),
