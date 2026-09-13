@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "name": "2/8 retains quarter-note-equivalent grouping",
+      "count": 2,
+      "unit": 8,
+      "expectedGroupSizes": [2]
+    },
+    {
+      "name": "4/8 retains quarter-note-equivalent grouping",
+      "count": 4,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2]
+    },
+    {
+      "name": "5/8 uses the conventional 3+2 default",
+      "count": 5,
+      "unit": 8,
+      "expectedGroupSizes": [3, 2]
+    },
+    {
+      "name": "5/8 accepts an authored 2+3 structure",
+      "count": 5,
+      "unit": 8,
+      "beatStructure": [2, 3],
+      "expectedGroupSizes": [2, 3]
+    },
+    {
+      "name": "7/8 uses the conventional 2+2+3 default",
+      "count": 7,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2, 3]
+    },
+    {
+      "name": "7/8 accepts an authored 3+2+2 structure",
+      "count": 7,
+      "unit": 8,
+      "beatStructure": [3, 2, 2],
+      "expectedGroupSizes": [3, 2, 2]
+    },
+    {
+      "name": "8/8 uses the conventional 3+3+2 default",
+      "count": 8,
+      "unit": 8,
+      "expectedGroupSizes": [3, 3, 2]
+    },
+    {
+      "name": "9/8 uses the conventional 3+3+3 default",
+      "count": 9,
+      "unit": 8,
+      "expectedGroupSizes": [3, 3, 3]
+    },
+    {
+      "name": "9/8 accepts an authored 2+3+2+2 structure",
+      "count": 9,
+      "unit": 8,
+      "beatStructure": [2, 3, 2, 2],
+      "expectedGroupSizes": [2, 3, 2, 2]
+    },
+    {
+      "name": "10/8 retains quarter-note-equivalent fallback grouping",
+      "count": 10,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2, 2, 2, 2]
+    },
+    {
+      "name": "11/8 leaves only the final unmatched eighth unbeamed",
+      "count": 11,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2, 2, 2, 2]
+    },
+    {
+      "name": "4/16 groups sixteenths through the quarter-note beat",
+      "count": 4,
+      "unit": 16,
+      "eventBase": "16th",
+      "expectedGroupSizes": [4]
+    },
+    {
+      "name": "authored 4/4 grouping is interpreted literally",
+      "count": 4,
+      "unit": 4,
+      "eventCount": 8,
+      "beatStructure": [1, 1, 1, 1],
+      "expectedGroupSizes": [2, 2, 2, 2]
+    }
+  ]
+}

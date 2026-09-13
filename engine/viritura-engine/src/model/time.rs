@@ -134,7 +134,7 @@ impl std::fmt::Display for BeatStructureError {
 impl std::error::Error for BeatStructureError {}
 
 fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
-    if unit == 8 {
+    if unit >= 8 {
         match count {
             5 => return vec![3, 2],
             7 => return vec![2, 2, 3],
@@ -142,8 +142,19 @@ fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
             _ => {}
         }
     }
-    if count.is_multiple_of(3) && (unit == 8 || count > 3) {
+    if count.is_multiple_of(3) && (unit >= 8 || count > 3) {
         return vec![3; (count / 3) as usize];
+    }
+    if unit >= 8 {
+        let quarter_units = unit / 4;
+        let mut groups = Vec::new();
+        let mut remaining = count;
+        while remaining > 0 {
+            let group = quarter_units.min(remaining);
+            groups.push(group);
+            remaining -= group;
+        }
+        return groups;
     }
     vec![1; count as usize]
 }

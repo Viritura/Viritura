@@ -7,7 +7,7 @@ import type { TimeSignature } from "@viritura/core";
 import { SMUFL } from "../components/palette/smuflGlyphs";
 import { TIME_SIG_PALETTE_ITEMS } from "../components/palette/paletteItems";
 import { TimeSigGlyph } from "../components/palette/GlyphRenderers";
-import { parseTimeSignatureInput } from "../components/palette/timeSignatureInput";
+import { parseTimeSignatureInputWithError } from "../components/palette/timeSignatureInput";
 import { keys } from "./types";
 
 const TIME_SIG_SEARCH: Record<string, string[]> = {
@@ -48,10 +48,11 @@ export const TIME_SIGNATURE_ITEMS: RadialMenuItem[] = [
 ];
 
 export function renderTimeSignatureExpression(input: string): React.ReactNode | null {
-  const time = parseTimeSignatureInput(input);
-  return time ? (
+  const result = parseTimeSignatureInputWithError(input);
+  return result.time ? (
     <span>
-      {time.count}/{time.unit}
+      {result.time.count}/{result.time.unit}
+      {result.enteredBeatStructure ? ` · ${result.enteredBeatStructure.join("+")}` : ""}
     </span>
   ) : null;
 }

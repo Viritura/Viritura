@@ -138,7 +138,7 @@ export function getMenuSearchPlaceholder(category: RadialMenuCategory): string {
     case "dynamic":
       return "Filter or build expression (p<f)…";
     case "time-signature":
-      return "Filter or enter time (5/8)…";
+      return "Enter time or grouping (5/8 32)…";
     default:
       return "Filter…";
   }

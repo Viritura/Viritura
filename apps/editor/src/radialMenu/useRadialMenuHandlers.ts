@@ -11,7 +11,7 @@ import {
   resolveBarline,
   parseAddMeasures,
   resolveTimeSignature,
-  parseTimeSignatureInput,
+  parseTimeSignatureInputWithError,
   resolveKeySignature,
   resolveOrnament,
   resolveBreathFermata,
@@ -156,9 +156,9 @@ export function useRadialMenuHandlers(deps: RadialMenuHandlersDeps): RadialMenuH
       }
 
       if (radialMenu.category === "time-signature") {
-        const time = parseTimeSignatureInput(expression);
-        if (time) handleSetTimeSignature(time);
-        else toast.warning("Use n/d with denominator 1, 2, 4, 8, 16, 32, 64, or 128");
+        const result = parseTimeSignatureInputWithError(expression);
+        if (result.time) handleSetTimeSignature(result.time);
+        else toast.warning(result.error);
         setRadialMenu(null);
         return;
       }

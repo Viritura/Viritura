@@ -52,6 +52,31 @@ describe("useSignatureActions — scope derivation via resolveSelectionScope", (
     expect(updateScore).toHaveBeenCalledWith(setTimeSignature(score, 1, { count: 3, unit: 4 }));
   });
 
+  it("creates an explicit grouped time signature at the selected inherited measure", () => {
+    const score = makeScore();
+    score.global.measures[0]!.time = { count: 7, unit: 8 };
+    const sel: SelectionState = {
+      kind: "measure",
+      startMeasure: 1,
+      endMeasure: 1,
+      startPartIndex: 0,
+      endPartIndex: 0,
+      startStaffIndex: 0,
+      endStaffIndex: 0,
+    };
+    const { actions, updateScore } = setup(score, sel);
+
+    actions.handleSetTimeSignature({ count: 7, unit: 8, beatStructure: [3, 2, 2] });
+
+    const updated = updateScore.mock.calls[0]![0] as Score;
+    expect(updated.global.measures[0]!.time).toEqual({ count: 7, unit: 8 });
+    expect(updated.global.measures[1]!.time).toEqual({
+      count: 7,
+      unit: 8,
+      beatStructure: [3, 2, 2],
+    });
+  });
+
   it("applies a clef only to the selected staff of a grand staff", () => {
     const score = makeScore();
     score.parts[0]!.staves = 2;

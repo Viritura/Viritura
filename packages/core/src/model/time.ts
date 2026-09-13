@@ -52,10 +52,18 @@ const IRREGULAR_EIGHTH_DEFAULTS: Readonly<Record<number, readonly number[]>> = {
 
 export function defaultBeatStructure(count: number, unit: number): number[] {
   assertValidTimeSignature(count, unit);
-  const irregularEighths = unit === 8 ? IRREGULAR_EIGHTH_DEFAULTS[count] : undefined;
-  if (irregularEighths) return [...irregularEighths];
-  if (count % 3 === 0 && (unit === 8 || count > 3)) {
+  const irregularShortMeter = unit >= 8 ? IRREGULAR_EIGHTH_DEFAULTS[count] : undefined;
+  if (irregularShortMeter) return [...irregularShortMeter];
+  if (count % 3 === 0 && (unit >= 8 || count > 3)) {
     return Array.from({ length: count / 3 }, () => 3);
+  }
+  if (unit >= 8) {
+    const quarterUnits = unit / 4;
+    const groups: number[] = [];
+    for (let remaining = count; remaining > 0; remaining -= quarterUnits) {
+      groups.push(Math.min(quarterUnits, remaining));
+    }
+    return groups;
   }
   return Array.from({ length: count }, () => 1);
 }

@@ -24,17 +24,23 @@ describe("custom time signature radial item", () => {
         items={[CUSTOM_ITEM]}
         position={{ x: 300, y: 300 }}
         renderExpression={renderTimeSignatureExpression}
-        searchPlaceholder="Filter or enter time (5/8)…"
+        searchPlaceholder="Enter time or grouping (5/8 32)…"
       />,
     );
 
     fireEvent.click(screen.getByText("Custom"));
 
-    const input = screen.getByPlaceholderText("Filter or enter time (5/8)…") as HTMLInputElement;
+    const input = screen.getByPlaceholderText("Enter time or grouping (5/8 32)…") as HTMLInputElement;
     await waitFor(() => expect(input.value).toBe("5/8"));
     await waitFor(() => expect([input.selectionStart, input.selectionEnd]).toEqual([0, 3]));
     expect(onSelect).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText("5/8")).toBeTruthy();
+  });
+
+  it("previews a compact beat grouping", () => {
+    render(<>{renderTimeSignatureExpression("9/8 2322")}</>);
+
+    expect(screen.getByText("9/8 · 2+3+2+2")).toBeTruthy();
   });
 });

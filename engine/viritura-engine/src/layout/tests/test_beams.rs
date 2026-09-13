@@ -5,7 +5,6 @@ use super::test_helpers::*;
 use crate::layout::beams::*;
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
-use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -1149,67 +1148,6 @@ fn test_beam_commands_tagged_with_element_ids() {
 // ═══════════════════════════════════════════
 
 #[test]
-fn test_beam_group_duration_4_4_eighths() {
-    let ts = TimeSignature {
-        count: 4,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    };
-    // Eighths in 4/4 should group by half-measure (2.0 QN)
-    assert_eq!(beam_group_duration(&ts, 1), 2.0);
-}
-
-#[test]
-fn test_beam_group_duration_4_4_sixteenths() {
-    let ts = TimeSignature {
-        count: 4,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    };
-    // 16ths in 4/4 should group by beat (1.0 QN)
-    assert_eq!(beam_group_duration(&ts, 2), 1.0);
-}
-
-#[test]
-fn test_beam_group_duration_3_4() {
-    let ts = TimeSignature {
-        count: 3,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    };
-    // All note values in 3/4 group by beat (1.0 QN)
-    assert_eq!(beam_group_duration(&ts, 1), 1.0);
-    assert_eq!(beam_group_duration(&ts, 2), 1.0);
-}
-
-#[test]
-fn test_beam_group_duration_6_8() {
-    let ts = TimeSignature {
-        count: 6,
-        unit: 8,
-        display: None,
-        beat_structure: None,
-    };
-    // Compound meter: group by dotted quarter (1.5 QN)
-    assert_eq!(beam_group_duration(&ts, 1), 1.5);
-    assert_eq!(beam_group_duration(&ts, 2), 1.5);
-}
-
-#[test]
-fn test_beam_group_duration_2_4() {
-    let ts = TimeSignature {
-        count: 2,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    };
-    assert_eq!(beam_group_duration(&ts, 1), 1.0);
-}
-
-#[test]
 fn test_beam_over_16th_rest_within_beat() {
     // 8th note + 16th rest + 16th note within one beat: beam should span over the rest.
     // The two notes should be in a single beam group (rest is skipped but doesn't break).
@@ -1499,18 +1437,6 @@ fn test_beam_over_rest_does_not_cross_beat_boundary() {
         "8th+8th_rest pattern should not beam across beats, got {} beam polygons",
         poly_count
     );
-}
-
-#[test]
-fn test_beam_group_duration_6_4_eighths() {
-    let ts = TimeSignature {
-        count: 6,
-        unit: 4,
-        display: None,
-        beat_structure: None,
-    };
-    // Eighths in 6/4 group by half-measure (3.0 QN)
-    assert_eq!(beam_group_duration(&ts, 1), 3.0);
 }
 
 #[test]
