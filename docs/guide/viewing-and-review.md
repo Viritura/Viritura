@@ -28,6 +28,31 @@ layout strategy tuned to its job; page mode is the source of truth for print.
 Keyboard zoom: `Mod+=` in, `Mod+-` out, `Mod+0` to reset the viewport. `Mod+\`
 toggles the side panels for a distraction‑free view.
 
+## Share a read-only preview
+
+> [!NOTE]
+> **Availability: GitHub Gist**
+>
+> Preview links currently load an MNX document from a GitHub Gist. The author
+> needs a GitHub account to create the Gist; recipients do not need an account.
+
+To share a score without starting a live editing session:
+
+1. Create a public or secret GitHub Gist containing exactly one `.mnx` file.
+2. In Viritura, choose **File > Share**.
+3. Paste the main Gist URL.
+4. Leave revision pinning off to follow future Gist edits, or enable it to keep
+   the preview fixed at the current revision.
+5. Create and copy the Viritura preview link.
+
+The preview provides score-view controls, playback, an MNX download, and a link
+to the source Gist. It cannot modify the author's document.
+
+A secret Gist is unlisted, not private. Anyone with the link can open or
+forward it, and the Gist exposes its GitHub author and revision history. Use
+live collaboration for an editing session; do not use a Gist preview for
+material that requires identity-based access control.
+
 ## Review version history
 
 In a versioned project, Review reads the Git log. Pick a _from_ and _to_

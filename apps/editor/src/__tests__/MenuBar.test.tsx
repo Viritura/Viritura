@@ -53,6 +53,7 @@ describe("MenuBar", () => {
     expect(screen.getByText("Open MNX Score")).toBeTruthy();
     expect(screen.getByText("Save")).toBeTruthy();
     expect(screen.getByText("Save As")).toBeTruthy();
+    expect(screen.getByText("Share")).toBeTruthy();
     expect(screen.getByText("Example Scores")).toBeTruthy();
   });
 
@@ -149,6 +150,21 @@ describe("MenuBar", () => {
     await user.click(screen.getByText("File"));
     await user.click(screen.getByText("Open Project Folder"));
     expect(callbacks.onOpenProject).toHaveBeenCalledOnce();
+  });
+
+  it("dispatches onShare only when a document is open", async () => {
+    const onShare = vi.fn();
+    const enabled = renderMenuBar({ onShare }, { hasDocument: true });
+    await enabled.user.click(screen.getByText("File"));
+    const enabledItem = screen.getByText("Share").closest('[role="menuitem"]');
+    expect(enabledItem?.getAttribute("data-disabled")).toBeNull();
+    await enabled.user.click(screen.getByText("Share"));
+    expect(onShare).toHaveBeenCalledOnce();
+
+    cleanup();
+    const disabled = renderMenuBar({ onShare }, { hasDocument: false });
+    await disabled.user.click(screen.getByText("File"));
+    expect(screen.getByText("Share").closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
   });
 
   it("dispatches onNewScore when New Project is clicked", async () => {

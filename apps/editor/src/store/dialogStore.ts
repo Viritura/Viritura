@@ -20,6 +20,7 @@ export type DialogId =
   | "calibration"
   | "identity"
   | "signIn"
+  | "gistShare"
   | "projectGitHubSetup"
   | "transpose"
   | "orchestralStaffSplit"
@@ -40,6 +41,7 @@ const allClosed: Record<DialogId, boolean> = {
   calibration: false,
   identity: false,
   signIn: false,
+  gistShare: false,
   projectGitHubSetup: false,
   transpose: false,
   orchestralStaffSplit: false,

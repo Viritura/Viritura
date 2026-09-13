@@ -55,6 +55,7 @@ const GLOBAL_CALLBACK_KEYS = [
   "onSaveAs",
   "onShowHelp",
   "onOpenDocs",
+  "onShare",
   "onOpenPublish",
 ] as const satisfies readonly (keyof MenuBarCallbacks)[];
 

@@ -152,6 +152,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onExportSvg: () => {
         void handleExportSvg();
       },
+      onShare: () => openDialog("gistShare"),
       onOpenPublish: () => {
         onOpenPublish?.();
       },

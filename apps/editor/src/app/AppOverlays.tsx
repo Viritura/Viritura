@@ -6,6 +6,7 @@ import { StartCenter } from "../components/StartCenter";
 import { SignInDialog } from "../auth";
 import { ModalFlowHost } from "../components/ModalFlowHost";
 import { CreateGitHubRepositoryDialog } from "../components/CreateGitHubRepositoryDialog";
+import { GistShareDialog } from "../gistShareDialog";
 import { PageSetupDialog } from "../components/PageSetupDialog";
 import { CalibrationDialog } from "../components/CalibrationDialog";
 import { HelpDialog } from "../components/HelpDialog";
@@ -372,6 +373,8 @@ export function AppOverlays(props: AppOverlaysProps) {
       />
 
       <SignInOverlay open={dialogs.signIn} account={account} />
+
+      {dialogs.gistShare && <GistShareDialog open onClose={() => closeDialog("gistShare")} />}
 
       <CreateGitHubRepositoryDialog
         open={dialogs.projectGitHubSetup}

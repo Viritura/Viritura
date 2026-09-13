@@ -26,14 +26,11 @@ Anonymous guest identity should use a session-scoped UUID with a locally remembe
 
 ## 2. Public read-only sharing
 
-Add a **Publish to public link** workflow independent of live collaboration:
-
-- Upload bounded MNX content to managed blob storage.
-- Serve it through the existing read-only score viewer with an embeddable chrome-free mode.
-- Apply per-user share quotas and per-document size limits.
-- Allow a viewer to fork the document into their own project when authenticated.
-
-The published artifact should be static viewer content plus MNX, not a live Y.Doc. This keeps anonymous viewing cheap and removes signaling availability from the read path.
+The detailed design is tracked in
+[read-only-sharing.md](read-only-sharing.md). The published artifact is a
+static, explicit MNX revision served through the existing read-only viewer, not
+a live Y.Doc. This keeps anonymous viewing cheap and removes signaling
+availability from the read path.
 
 ## 3. Review comments
 
