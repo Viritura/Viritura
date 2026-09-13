@@ -985,7 +985,15 @@ describe("parseMnx _x.viritura extensions", () => {
                       notes: [{ pitch: { step: "C", octave: 4 } }],
                       _x: {
                         viritura: {
-                          glissandos: [{ target: "ev2", kind: "portamento", style: "straight", text: "port." }],
+                          glissandos: [
+                            {
+                              target: "ev2",
+                              kind: "portamento",
+                              style: "straight",
+                              text: "port.",
+                              showText: false,
+                            },
+                          ],
                         },
                       },
                     },
@@ -1010,10 +1018,12 @@ describe("parseMnx _x.viritura extensions", () => {
       expect(ev.glissandos?.[0]?.kind).toBe("portamento");
       expect(ev.glissandos?.[0]?.style).toBe("straight");
       expect(ev.glissandos?.[0]?.text).toBe("port.");
+      expect(ev.glissandos?.[0]?.showText).toBe(false);
     }
     const reparsed = parseMnx(serializeMnx(score));
     const reparsedEvent = reparsed.parts[0]?.measures[0]?.sequences[0]?.content[0];
     expect(reparsedEvent?.type === "event" ? reparsedEvent.glissandos?.[0]?.kind : undefined).toBe("portamento");
+    expect(reparsedEvent?.type === "event" ? reparsedEvent.glissandos?.[0]?.showText : undefined).toBe(false);
   });
 
   it("should parse arpeggio from markings._x.viritura", () => {

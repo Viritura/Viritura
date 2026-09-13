@@ -422,6 +422,7 @@ function parseGlissando(raw: RawGlissando): Glissando {
   if (raw.kind) gliss.kind = raw.kind;
   if (raw.style) gliss.style = raw.style as GlissandoStyle;
   if (raw.text) gliss.text = raw.text;
+  if (raw.showText !== undefined) gliss.showText = raw.showText;
   return gliss;
 }
 

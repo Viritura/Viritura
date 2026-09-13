@@ -216,6 +216,8 @@ export interface components {
             style?: components["schemas"]["glissando-style"];
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
+            /** @description Whether to display the text label. Default: true. */
+            showText?: boolean;
         };
         /** @description A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point. */
         "sp-delta": number[];

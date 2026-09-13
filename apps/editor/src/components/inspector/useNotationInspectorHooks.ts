@@ -215,7 +215,15 @@ export function useTieSlurHandlers({ score, target, glissando, updateScore }: Ti
     },
     handleGlissandoTextVisibleChange: (visible: boolean) =>
       applyGlissando(
-        { text: visible ? (glissando?.kind === "portamento" ? "port." : "gliss.") : null },
+        {
+          text:
+            visible && glissando?.text === undefined
+              ? glissando?.kind === "portamento"
+                ? "port."
+                : "gliss."
+              : undefined,
+          showText: visible,
+        },
         "Unable to update glissando text display.",
       ),
     handleGlissandoTextChange: (v: string) =>

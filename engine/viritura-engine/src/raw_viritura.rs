@@ -2027,6 +2027,10 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///      "description": "Semantic kind. Default: 'glissando'.",
 ///      "$ref": "#/$defs/glissando-kind"
 ///    },
+///    "showText": {
+///      "description": "Whether to display the text label. Default: true.",
+///      "type": "boolean"
+///    },
 ///    "style": {
 ///      "description": "Line style. Default: 'straight'.",
 ///      "$ref": "#/$defs/glissando-style"
@@ -2050,6 +2054,13 @@ pub struct Glissando {
     ///Semantic kind. Default: 'glissando'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub kind: ::std::option::Option<GlissandoKind>,
+    ///Whether to display the text label. Default: true.
+    #[serde(
+        rename = "showText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_text: ::std::option::Option<bool>,
     ///Line style. Default: 'straight'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub style: ::std::option::Option<GlissandoStyle>,

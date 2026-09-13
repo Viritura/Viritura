@@ -278,6 +278,7 @@ export interface Glissando {
   kind?: GlissandoKind;
   style?: GlissandoStyle;
   text?: string;
+  showText?: boolean;
 }
 
 /**

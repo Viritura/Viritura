@@ -10,6 +10,7 @@ export interface AddGlissandoParams {
   kind?: GlissandoKind;
   style?: GlissandoStyle;
   text?: string;
+  showText?: boolean;
 }
 
 export interface SetGlissandoPropertiesParams {
@@ -24,6 +25,7 @@ export interface SetGlissandoPropertiesParams {
   kind?: GlissandoKind;
   style?: GlissandoStyle;
   text?: string | null;
+  showText?: boolean;
 }
 
 interface LocatedEvent {
@@ -67,6 +69,7 @@ export function addGlissando(score: Score, params: AddGlissandoParams): Score {
     style: params.style ?? "straight",
   };
   if (params.text) glissando.text = params.text;
+  if (params.showText !== undefined) glissando.showText = params.showText;
   source.event.glissandos = [...(source.event.glissandos ?? []), glissando];
   return score;
 }
@@ -106,6 +109,7 @@ export function setGlissandoProperties(score: Score, params: SetGlissandoPropert
   if (params.style !== undefined) glissando.style = params.style;
   if (params.text === null) delete glissando.text;
   else if (params.text !== undefined) glissando.text = params.text;
+  if (params.showText !== undefined) glissando.showText = params.showText;
   return score;
 }
 

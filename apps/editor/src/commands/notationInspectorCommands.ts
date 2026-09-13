@@ -482,6 +482,7 @@ export interface GlissandoInspectorPatch {
   kind?: NonNullable<Glissando["kind"]>;
   style?: GlissandoStyle;
   text?: string | null;
+  showText?: boolean;
 }
 
 export function setPrimaryGlissandoProperties(

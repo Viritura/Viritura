@@ -913,12 +913,13 @@ describe("NotationInspector", () => {
 
     await waitFor(() => {
       expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
-        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy" }],
+        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy", text: "port.", showText: false }],
       });
     });
     expect(screen.queryByTestId("notation-glissando-text")).toBeNull();
     expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
-    expect(JSON.stringify(currentMnx())).not.toContain('"text":"port."');
+    expect(JSON.stringify(currentMnx())).toContain('"text":"port."');
+    expect(JSON.stringify(currentMnx())).toContain('"showText":false');
   });
 
   it("shows the grace note's own slur when the grace note is selected directly", async () => {

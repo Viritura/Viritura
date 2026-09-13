@@ -66,10 +66,10 @@ export function GlissandoSection({
       <Checkbox
         data-testid="notation-glissando-show-text"
         label="Show text"
-        checked={glissando.text !== undefined}
+        checked={glissando.text !== undefined && glissando.showText !== false}
         onChange={(event) => onTextVisibleChange(event.target.checked)}
       />
-      {glissando.text !== undefined && (
+      {glissando.text !== undefined && glissando.showText !== false && (
         <label style={labelStyle}>
           Display text
           <FormInput

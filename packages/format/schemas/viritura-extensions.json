@@ -435,6 +435,10 @@
         "text": {
           "type": "string",
           "description": "Optional text label (e.g. 'gliss.', 'port.')."
+        },
+        "showText": {
+          "type": "boolean",
+          "description": "Whether to display the text label. Default: true."
         }
       },
       "additionalProperties": false

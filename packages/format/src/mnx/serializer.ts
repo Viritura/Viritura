@@ -556,6 +556,7 @@ export function serializeEvent(ev: NoteEvent): Obj {
       if (g.kind) gObj["kind"] = g.kind;
       if (g.style) gObj["style"] = g.style;
       if (g.text) gObj["text"] = g.text;
+      if (g.showText !== undefined) gObj["showText"] = g.showText;
       return gObj;
     });
   }
