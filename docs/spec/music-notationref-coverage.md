@@ -5,7 +5,7 @@
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
 > · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
 > · MusicXML matrix: [`musicxml@2520627`](https://github.com/w3c-cg/musicxml/commit/252062733f58677eb6cb0b30047fa097fe6c80e2)
-> · Viritura source: [`b292166`](https://github.com/Viritura/Viritura/commit/b29216653cf662011653318de1b895cba89863eb)
+> · Viritura source: [`e75616c`](https://github.com/Viritura/Viritura/commit/e75616c4c65eeffd62134e54e729c0f978f6b5e3)
 > · Upstream synced 2026-09-13; Viritura audited 2026-09-13.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
@@ -67,15 +67,15 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 436 |  83 | 333 |   0 |   0 |
-| Viritura MusicXML/MXL importer | 274 |  91 | 437 |  50 |   0 |
+| Viritura MNX pipeline          | 437 |  83 | 332 |   0 |   0 |
+| Viritura MusicXML/MXL importer | 275 |  91 | 436 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
 
 | Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
 | ----------------- | ---: | -------------------: | --------------------: |
 | Notes             |  344 |         186/29/129/0 |       102/56/152/34/0 |
-| Rhythms           |   46 |             37/5/4/0 |           30/2/13/1/0 |
+| Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
 | Measures          |  104 |            65/3/36/0 |           52/0/46/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
