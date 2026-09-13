@@ -1,7 +1,7 @@
 import { parseMnx } from "@viritura/format";
 import type { Score } from "@viritura/core";
 
-export const MAX_GIST_MNX_BYTES = 16 * 1024 * 1024;
+const MAX_GIST_MNX_BYTES = 16 * 1024 * 1024;
 const MAX_GIST_METADATA_BYTES = 2 * 1024 * 1024;
 const GIST_ID_PATTERN = /^[0-9a-f]{20,64}$/i;
 const GIST_REVISION_PATTERN = /^[0-9a-f]{40}$/i;

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { buildGistShareUrl, loadGistMnx, parseGistUrl } from "../gistShare";
 import styles from "./GistShareDialog.module.css";
 
-export interface GistShareDialogProps {
+interface GistShareDialogProps {
   readonly open: boolean;
   readonly onClose: () => void;
 }

@@ -1,1 +1,1 @@
-export { GistShareDialog, type GistShareDialogProps } from "./GistShareDialog";
+export { GistShareDialog } from "./GistShareDialog";
