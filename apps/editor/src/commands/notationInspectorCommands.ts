@@ -77,7 +77,10 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
     const loc = locateEventByModelId(score, sourceEventId);
     if (!loc) return null;
     const event = getEventAtLoc(score, loc);
-    const glissandoIndex = event?.glissandos?.findIndex((glissando) => glissando.target === targetEventId) ?? -1;
+    const glissandoIndex =
+      event?.glissandos?.findIndex(
+        (glissando) => glissando.target === targetEventId || glissando.target.replaceAll("/", "_") === targetEventId,
+      ) ?? -1;
     if (glissandoIndex < 0) return null;
     return {
       elementId,
@@ -250,10 +253,12 @@ function pathToEventLoc(
 }
 
 function locateEventByModelId(score: Score, eventId: string): EventLoc | null {
+  let sanitizedMatch: EventLoc | null = null;
   for (const { event, loc } of iterScoreEvents(score)) {
     if (event.id === eventId) return loc;
+    if (event.id?.replaceAll("/", "_") === eventId) sanitizedMatch ??= loc;
   }
-  return null;
+  return sanitizedMatch;
 }
 
 function locateNoteByModelId(score: Score, noteId: string): EventLoc | null {

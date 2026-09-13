@@ -267,6 +267,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
 
         {!isLyricSelected && selectedGlissando && (
           <GlissandoSection
+            key={`${target?.elementId}:${selectedGlissando.target}`}
             glissando={selectedGlissando}
             focusedSection={focusedSection}
             error={glissandoError}

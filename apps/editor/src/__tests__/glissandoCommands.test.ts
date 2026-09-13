@@ -111,4 +111,17 @@ describe("glissando commands", () => {
     expect(sourceEvent(removed!).glissandos).toBeUndefined();
     expect(removed!.parts[0]!.measures[0]!.sequences[1]!.content[0]).toMatchObject({ id: "target" });
   });
+
+  it("removes a rendered line whose model endpoint IDs contain slashes", () => {
+    const score = buildScore();
+    sourceEvent(score).id = "source/1";
+    const target = score.parts[0]!.measures[0]!.sequences[1]!.content[0] as NoteEvent;
+    target.id = "target/1";
+    addGlissando(score, { sourceEventId: "source/1", targetEventId: "target/1" });
+
+    const removed = removeGlissandoByElementId(score, "gliss/source_1/target_1");
+
+    expect(removed).not.toBeNull();
+    expect(sourceEvent(removed!).glissandos).toBeUndefined();
+  });
 });

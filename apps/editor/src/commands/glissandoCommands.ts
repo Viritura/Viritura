@@ -34,16 +34,18 @@ interface LocatedEvent {
 }
 
 function findEventById(score: Score, eventId: string): LocatedEvent | null {
+  let sanitizedMatch: LocatedEvent | null = null;
   for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
     for (const measure of score.parts[partIndex]!.measures) {
       for (const sequence of measure.sequences) {
         for (const { event } of walkSequenceEvents(sequence.content)) {
           if (event.id === eventId) return { event, partIndex };
+          if (event.id?.replaceAll("/", "_") === eventId) sanitizedMatch ??= { event, partIndex };
         }
       }
     }
   }
-  return null;
+  return sanitizedMatch;
 }
 
 function requireEndpoint(score: Score, eventId: string, name: "Source" | "Target"): LocatedEvent {
@@ -118,7 +120,10 @@ export function removeGlissandoByElementId(score: Score, elementId: string): Sco
   if (!sourceEventId || !targetEventId || !elementId.startsWith("gliss/")) return null;
 
   const source = findEventById(score, sourceEventId)?.event;
-  const index = source?.glissandos?.findIndex((glissando) => glissando.target === targetEventId) ?? -1;
+  const index =
+    source?.glissandos?.findIndex(
+      (glissando) => glissando.target === targetEventId || glissando.target.replaceAll("/", "_") === targetEventId,
+    ) ?? -1;
   if (!source?.glissandos || index < 0) return null;
 
   return produce(score, (draft) => {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Glissando } from "@viritura/core";
 import { Checkbox, FormInput, Select } from "@viritura/ui";
 import { errorStyle, labelStyle, legendStyle, mergeFocusedSectionStyle } from "./types";
@@ -34,6 +35,12 @@ export function GlissandoSection({
   onTextVisibleChange,
   onTextChange,
 }: GlissandoSectionProps) {
+  const [targetDraft, setTargetDraft] = useState(glissando.target);
+
+  const commitTarget = () => {
+    if (targetDraft !== glissando.target) onTargetChange(targetDraft);
+  };
+
   return (
     <fieldset style={mergeFocusedSectionStyle("glissando", focusedSection)}>
       <legend style={legendStyle}>Glissando / portamento</legend>
@@ -59,8 +66,12 @@ export function GlissandoSection({
         Target event ID
         <FormInput
           data-testid="notation-glissando-target"
-          value={glissando.target}
-          onChange={(event) => onTargetChange(event.target.value)}
+          value={targetDraft}
+          onChange={(event) => setTargetDraft(event.target.value)}
+          onBlur={commitTarget}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") commitTarget();
+          }}
         />
       </label>
       <Checkbox

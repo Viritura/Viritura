@@ -102,6 +102,12 @@ function buildScore(): Score {
                     duration: { base: "quarter" },
                     notes: [{ id: "n2", pitch: { step: "C", octave: 4 } }],
                   },
+                  {
+                    type: "event",
+                    id: "ev3",
+                    duration: { base: "quarter" },
+                    notes: [{ id: "n3", pitch: { step: "G", octave: 4 } }],
+                  },
                 ],
               },
               {
@@ -920,6 +926,27 @@ describe("NotationInspector", () => {
     expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
     expect(JSON.stringify(currentMnx())).toContain('"text":"port."');
     expect(JSON.stringify(currentMnx())).toContain('"showText":false');
+  });
+
+  it("commits an edited glissando endpoint after the field loses focus", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+    const target = await screen.findByTestId("notation-glissando-target");
+
+    await user.clear(target);
+    await user.type(target, "ev3");
+    expect(
+      (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+        .glissandos?.[0]?.target,
+    ).toBe("ev2");
+
+    await user.tab();
+    await waitFor(() =>
+      expect(
+        (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+          .glissandos?.[0]?.target,
+      ).toBe("ev3"),
+    );
   });
 
   it("shows the grace note's own slur when the grace note is selected directly", async () => {
