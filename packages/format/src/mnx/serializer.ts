@@ -465,6 +465,7 @@ function serializeTuplet(t: Tuplet): Obj {
   if (t.showNumber !== undefined) obj.showNumber = t.showNumber;
   if (t.showValue !== undefined) obj.showValue = t.showValue;
   if (t.orient) obj["orient"] = t.orient;
+  if (t.span) obj["_x"] = { viritura: { span: { id: t.span.id, type: t.span.type } } };
   return obj;
 }
 

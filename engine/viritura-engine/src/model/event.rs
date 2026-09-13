@@ -859,6 +859,23 @@ pub enum TupletBracket {
 /// Leaf enum aliased from codegen.
 pub use crate::raw::TupletDisplaySetting;
 
+/// Position of a measure-local fragment within one cross-barline tuplet.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TupletSpanType {
+    Start,
+    Continue,
+    Stop,
+}
+
+/// Viritura extension linking measure-local tuplet fragments.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct TupletSpan {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub type_: TupletSpanType,
+}
+
 /// A tuplet container — a group of events with modified duration.
 ///
 /// In MNX, `inner` describes the actual content duration (e.g., 3 eighths)
@@ -890,6 +907,9 @@ pub struct Tuplet {
     /// Cross-staff tuplet staff number (MNX `staff`, 1-indexed).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub staff: Option<u32>,
+    /// Cross-barline relationship (`_x.viritura.span`).
+    #[serde(skip)]
+    pub span: Option<TupletSpan>,
 }
 
 /// Multi-note tremolo container — two notes with beam-like slashes between stems.

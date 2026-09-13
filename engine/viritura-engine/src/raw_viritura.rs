@@ -7992,6 +7992,250 @@ impl<'de> ::serde::Deserialize<'de> for TrillAccidental {
             .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
+///Viritura extensions on an MNX tuplet object.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura extensions on an MNX tuplet object.",
+///  "type": "object",
+///  "properties": {
+///    "span": {
+///      "$ref": "#/$defs/tuplet-span"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TupletExtensions {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub span: ::std::option::Option<TupletSpan>,
+}
+impl ::std::convert::From<&TupletExtensions> for TupletExtensions {
+    fn from(value: &TupletExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for TupletExtensions {
+    fn default() -> Self {
+        Self { span: Default::default() }
+    }
+}
+///Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments.",
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "type"
+///  ],
+///  "properties": {
+///    "id": {
+///      "description": "Stable identity shared by every fragment of the logical tuplet.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "type": {
+///      "description": "The fragment's position within the logical tuplet.",
+///      "type": "string",
+///      "enum": [
+///        "start",
+///        "continue",
+///        "stop"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TupletSpan {
+    ///Stable identity shared by every fragment of the logical tuplet.
+    pub id: TupletSpanId,
+    ///The fragment's position within the logical tuplet.
+    #[serde(rename = "type")]
+    pub type_: TupletSpanType,
+}
+impl ::std::convert::From<&TupletSpan> for TupletSpan {
+    fn from(value: &TupletSpan) -> Self {
+        value.clone()
+    }
+}
+///Stable identity shared by every fragment of the logical tuplet.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stable identity shared by every fragment of the logical tuplet.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TupletSpanId(::std::string::String);
+impl ::std::ops::Deref for TupletSpanId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TupletSpanId> for ::std::string::String {
+    fn from(value: TupletSpanId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TupletSpanId> for TupletSpanId {
+    fn from(value: &TupletSpanId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TupletSpanId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TupletSpanId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///The fragment's position within the logical tuplet.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "The fragment's position within the logical tuplet.",
+///  "type": "string",
+///  "enum": [
+///    "start",
+///    "continue",
+///    "stop"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TupletSpanType {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "continue")]
+    Continue,
+    #[serde(rename = "stop")]
+    Stop,
+}
+impl ::std::convert::From<&Self> for TupletSpanType {
+    fn from(value: &TupletSpanType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TupletSpanType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::Continue => f.write_str("continue"),
+            Self::Stop => f.write_str("stop"),
+        }
+    }
+}
+impl ::std::str::FromStr for TupletSpanType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "continue" => Ok(Self::Continue),
+            "stop" => Ok(Self::Stop),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Portable identity of an attached picture. Deliberately carries no filesystem path and no media bytes: a score must open on another machine (and round-trip through any MNX reader) without dragging a multi-hundred-megabyte video along, so a local file stays a device-local binding the user relinks.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8751,6 +8995,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "trill": {
 ///      "$ref": "#/$defs/trill"
 ///    },
+///    "tuplet-extensions": {
+///      "$ref": "#/$defs/tuplet-extensions"
+///    },
+///    "tuplet-span": {
+///      "$ref": "#/$defs/tuplet-span"
+///    },
 ///    "video-media-identity": {
 ///      "$ref": "#/$defs/video-media-identity"
 ///    },
@@ -9168,6 +9418,18 @@ pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub trill: ::std::option::Option<Trill>,
     #[serde(
+        rename = "tuplet-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub tuplet_extensions: ::std::option::Option<TupletExtensions>,
+    #[serde(
+        rename = "tuplet-span",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub tuplet_span: ::std::option::Option<TupletSpan>,
+    #[serde(
         rename = "video-media-identity",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9260,6 +9522,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             time_signature_settings_object: Default::default(),
             time_signature_styles: Default::default(),
             trill: Default::default(),
+            tuplet_extensions: Default::default(),
+            tuplet_span: Default::default(),
             video_media_identity: Default::default(),
             video_sync: Default::default(),
         }

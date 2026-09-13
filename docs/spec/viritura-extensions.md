@@ -23,6 +23,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
 | [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
 | [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                          |
 | [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                       |
 
@@ -58,6 +59,45 @@ grouping-annotation display controls are separate future work. When omitted,
 Viritura resolves a conventional structure for the meter. When present, the
 authored structure is interpreted literally, even if its values match the
 meter's conventional beat structure.
+
+## Cross-barline Tuplet Fragments
+
+MNX tuplets are sequence-content containers and therefore cannot cross a
+part-measure boundary. The upstream notationref matrix currently calls the
+feature supported, but [MNX issue 173](https://github.com/w3c-cg/mnx/issues/173)
+remains open and the sequencing rules require both tuplets and measures to end
+at their declared durations. Viritura consequently stores each measure's notes
+in a normal tuplet fragment and links the fragments with `_x.viritura.span`.
+
+```json
+{
+  "type": "tuplet",
+  "inner": { "duration": { "base": "eighth" }, "multiple": 3 },
+  "outer": { "duration": { "base": "eighth" }, "multiple": 2 },
+  "content": [{ "id": "note-a", "duration": { "base": "eighth" }, "rest": {} }],
+  "_x": {
+    "viritura": {
+      "span": { "id": "cross-bar-triplet", "type": "start" }
+    }
+  }
+}
+```
+
+Every logical span has at least a `start` and `stop` fragment. Intermediate
+measures use `continue`. Fragments must occupy contiguous measures in the same
+sequence and repeat identical ratio and display settings. Each fragment applies
+the shared `outer / inner` timing ratio to its own content, so events remain
+owned by the measure in which they appear. The renderer draws one number, joins
+fragments to barlines, and uses the shared span ID for selection. Invalid or
+incomplete chains fail semantic validation instead of being flattened.
+
+This representation follows the practical distinction exposed by current
+notation applications: Dorico models a native spanning tuplet and controls
+cross-barline beaming separately, while Sibelius and MuseScore use split or
+simulated measure-local tuplets. See the
+[Dorico spanning-tuplet documentation](https://www.steinberg.help/r/dorico-se/6.1/en/dorico/topics/notation_reference/notation_reference_tuplets/notation_reference_tuplets_span_barline_allow_disallow_t.html),
+[Sibelius plug-in documentation](https://www.sibelius.com/download/plugins/index.html?plugin=597),
+and [MuseScore feature request](https://github.com/musescore/MuseScore/issues/19234).
 
 ## Score Definition Extensions
 

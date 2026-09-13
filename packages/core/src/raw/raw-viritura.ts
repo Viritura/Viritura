@@ -279,6 +279,20 @@ export interface components {
              */
             condensingOverride?: "unison" | "solo1" | "solo2" | "amalgamate" | "divisi";
         };
+        /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
+        "tuplet-span": {
+            /** @description Stable identity shared by every fragment of the logical tuplet. */
+            id: string;
+            /**
+             * @description The fragment's position within the logical tuplet.
+             * @enum {string}
+             */
+            type: "start" | "continue" | "stop";
+        };
+        /** @description Viritura extensions on an MNX tuplet object. */
+        "tuplet-extensions": {
+            span?: components["schemas"]["tuplet-span"];
+        };
         /** @description Viritura editor bookkeeping on an MNX positioned-staff-config object. */
         "positioned-staff-config-extensions": {
             /**
@@ -728,6 +742,8 @@ export type Jump = components["schemas"]["jump"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
+export type TupletSpan = components["schemas"]["tuplet-span"];
+export type TupletExtensions = components["schemas"]["tuplet-extensions"];
 export type PositionedStaffConfigExtensions = components["schemas"]["positioned-staff-config-extensions"];
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];

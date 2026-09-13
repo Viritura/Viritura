@@ -213,6 +213,7 @@ export interface MnxTuplet {
   showValue?: string;
   orient?: string;
   staff?: number;
+  _x?: { viritura: { span: { id: string; type: "start" | "continue" | "stop" } } };
 }
 
 export interface MnxNoteValueQuantity {
