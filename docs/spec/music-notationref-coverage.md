@@ -67,7 +67,7 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 435 |  84 | 333 |   0 |   0 |
+| Viritura MNX pipeline          | 436 |  83 | 333 |   0 |   0 |
 | Viritura MusicXML/MXL importer | 274 |  91 | 437 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
