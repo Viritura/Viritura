@@ -25,9 +25,9 @@ fi
 
 printf '%s\n' "Restoring Viritura worktree dependencies from the shared pnpm store..."
 if command -v pnpm >/dev/null 2>&1; then
-  pnpm install --frozen-lockfile --ignore-scripts
+  pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 elif command -v corepack >/dev/null 2>&1; then
-  corepack pnpm install --frozen-lockfile --ignore-scripts
+  corepack pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 else
   printf >&2 "\n%s\n\n" "Viritura worktree setup requires pnpm 9. Enable Corepack and run 'pnpm install --frozen-lockfile' in this worktree."
   exit 1
