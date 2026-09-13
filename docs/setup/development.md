@@ -88,7 +88,8 @@ WASM build, and the deployable site build. Browser tests remain separate:
   test boundary; the suite does not exercise API behavior or filesystem import,
   save, or download flows.
 - `pnpm e2e` runs every functional browser test, including the longer
-  collaboration lifecycle scenario. CI runs this suite nightly.
+  collaboration lifecycle scenario. Run it locally when changing the broader
+  browser workflows; scheduled production monitoring is intentionally deferred.
 - `pnpm e2e:deployed` checks the deployed website homepage and documentation
   route. The Pages release workflow runs it first against a SHA-specific
   Cloudflare preview and then against the production custom domain.
