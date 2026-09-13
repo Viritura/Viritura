@@ -1,0 +1,1 @@
+export { ChordSymbolsPanel } from "./ChordSymbolsPanel";

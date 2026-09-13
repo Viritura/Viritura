@@ -22,6 +22,7 @@ mod system_precompute;
 mod system_rendering;
 
 mod cache_hashing;
+mod chord_symbols;
 mod explicit;
 mod explicit_pagination;
 mod explicit_system_breaks;
@@ -36,4 +37,5 @@ mod staff_placement;
 mod structure_flattening;
 mod system_connectors;
 
+pub(super) use chord_symbols::above_staff_protrusion;
 pub use explicit::{layout_with_mnx_scores, layout_with_mnx_scores_cached};

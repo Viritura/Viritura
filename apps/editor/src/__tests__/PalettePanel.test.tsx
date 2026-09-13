@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { PalettePanel } from "../components/PalettePanel";
 import { DocumentProvider, useDocumentStore } from "../store/DocumentContext";
 import { resetSelectionStore, useSelectionStore } from "../store/selectionStore";
+import { setChordSymbolPopover, useOverlayStore } from "../store/overlayStore";
 
 const SCORE: Score = {
   mnx: { version: 1 },
@@ -44,6 +45,7 @@ const SCORE: Score = {
 afterEach(() => {
   cleanup();
   resetSelectionStore();
+  setChordSymbolPopover(null);
 });
 
 function WithScore({ children }: { readonly children: ReactNode }) {
@@ -71,6 +73,31 @@ function WithScore({ children }: { readonly children: ReactNode }) {
 }
 
 describe("PalettePanel", () => {
+  it("opens chord-symbol entry from the Text palette", async () => {
+    useSelectionStore.setState({
+      selection: { kind: "single", elementId: "p0/m1/s0/first-note/n0", elementType: "note" },
+    });
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Chord symbol/ }));
+
+    expect(useOverlayStore.getState().chordSymbolPopover).toMatchObject({
+      partIndex: 0,
+      measureIndex: 1,
+      sequenceIndex: 0,
+      eventIndex: 0,
+      anchorElementId: "p0/m1/s0/first-note",
+    });
+  });
+
   it("offers the same standard and Henze fermata variants as the radial menu", async () => {
     render(
       <TooltipPrimitives.Provider delayDuration={0}>

@@ -21,6 +21,8 @@ import {
   setRadialMenu,
   setTempoPopover,
   setStaffTextPopover,
+  setChordSymbolPopover,
+  type ChordSymbolPopoverState,
   type TempoPopoverState,
   type StaffTextPopoverState,
   type RadialMenuState,
@@ -31,12 +33,14 @@ import type { StartCenterView } from "../store/onboardingStore";
 import { openSettings } from "../components/SettingsDialog";
 import { useGitHubAccount } from "../github/useGitHubAccount";
 import type { VirituraAccountState } from "../auth";
-import { defaultPageSetupForScore, type Score, type PageSetup } from "@viritura/core";
+import { defaultPageSetupForScore, parseChordSymbolText, type Score, type PageSetup } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
+import { useSelectionActions } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 
-import { applyTempoEdit, applyStaffTextEdit, applyCondensingOverride } from "./popoverHandlers";
+import { applyTempoEdit, applyStaffTextEdit, applyChordSymbolEdit, applyCondensingOverride } from "./popoverHandlers";
+import { navigateChordSymbolInput } from "./chordSymbolNavigation";
 import {
   getMenuItems,
   getMenuTitle,
@@ -108,6 +112,117 @@ function OrchestralStaffSplitOverlay({
   );
 }
 
+function ChordSymbolEntryPopover({
+  store,
+  popover,
+  updateScore,
+  selectedScoreIndex,
+}: {
+  store: DocumentStore;
+  popover: ChordSymbolPopoverState | null;
+  updateScore: (next: Score) => void;
+  selectedScoreIndex: number;
+}) {
+  const { selectElement } = useSelectionActions();
+  return (
+    <TextPopover
+      open={popover !== null}
+      onClose={() => setChordSymbolPopover(null)}
+      onSubmit={(value) => {
+        const state = store.getState();
+        const score = state.workingScore ?? state.score;
+        if (!score || !popover) return;
+        const newScore = applyChordSymbolEdit(score, popover, value);
+        if (!newScore) {
+          toast.error("Could not insert chord symbol at the selected position");
+          return;
+        }
+        if (newScore !== score) updateScore(newScore);
+      }}
+      position={popover?.position ?? { x: 0, y: 0 }}
+      title="Chord Symbol"
+      placeholder="e.g. C#m7, Bb7, C/E"
+      validate={(value) =>
+        parseChordSymbolText(value, { fraction: [0, 1] }) ? null : "Enter a chord beginning with A-G"
+      }
+      onNavigate={(value, command) => {
+        const state = store.getState();
+        const score = state.workingScore ?? state.score;
+        if (!score || !popover) return false;
+        const edited = value.trim() ? applyChordSymbolEdit(score, popover, value) : score;
+        if (!edited) {
+          toast.error("Chord symbol was not recognized");
+          return false;
+        }
+        if (edited !== score) updateScore(edited);
+        const next = navigateChordSymbolInput(edited, popover, command, selectedScoreIndex);
+        if (!next) {
+          setChordSymbolPopover(null);
+          return true;
+        }
+        setChordSymbolPopover(next);
+        if (next.anchorElementId) selectElement(next.anchorElementId);
+        return true;
+      }}
+    />
+  );
+}
+
+function ScoreTextEntryPopovers({
+  store,
+  updateScore,
+  tempoPopover,
+  staffTextPopover,
+  chordSymbolPopover,
+  selectedScoreIndex,
+}: {
+  store: DocumentStore;
+  updateScore: (next: Score) => void;
+  tempoPopover: TempoPopoverState | null;
+  staffTextPopover: StaffTextPopoverState | null;
+  chordSymbolPopover: ChordSymbolPopoverState | null;
+  selectedScoreIndex: number;
+}) {
+  return (
+    <>
+      <TextPopover
+        open={tempoPopover !== null}
+        onClose={() => setTempoPopover(null)}
+        onSubmit={(value) => {
+          const { score } = store.getState();
+          if (!score || !tempoPopover) return;
+          const newScore = applyTempoEdit(score, tempoPopover, value);
+          if (newScore !== score) updateScore(newScore);
+        }}
+        position={tempoPopover?.position ?? { x: 0, y: 0 }}
+        title="Tempo"
+        placeholder="Allegro q=120"
+        initialValue={tempoPopover?.initialValue ?? ""}
+        allowEmpty
+      />
+      <TextPopover
+        open={staffTextPopover !== null}
+        onClose={() => setStaffTextPopover(null)}
+        onSubmit={(value) => {
+          const { score } = store.getState();
+          if (!score || !staffTextPopover) return;
+          const newScore = applyStaffTextEdit(score, staffTextPopover, value);
+          if (newScore !== score) updateScore(newScore);
+        }}
+        position={staffTextPopover?.position ?? { x: 0, y: 0 }}
+        title="Staff Text"
+        placeholder="e.g. dolce, pizz., arco"
+      />
+      <ChordSymbolEntryPopover
+        store={store}
+        popover={chordSymbolPopover}
+        updateScore={updateScore}
+        selectedScoreIndex={selectedScoreIndex}
+      />
+    </>
+  );
+}
+
 export interface AppOverlaysProps {
   // Document/state
   store: DocumentStore;
@@ -163,6 +278,7 @@ export interface AppOverlaysProps {
   // Popovers (overlay store state)
   tempoPopover: TempoPopoverState | null;
   staffTextPopover: StaffTextPopoverState | null;
+  chordSymbolPopover: ChordSymbolPopoverState | null;
 
   // Lyric
   lyricMode: boolean;
@@ -337,34 +453,13 @@ export function AppOverlays(props: AppOverlaysProps) {
         onClose={() => closeDialog("condensingPopover")}
       />
 
-      <TextPopover
-        open={tempoPopover !== null}
-        onClose={() => setTempoPopover(null)}
-        onSubmit={(value) => {
-          const { score } = store.getState();
-          if (!score || !tempoPopover) return;
-          const newScore = applyTempoEdit(score, tempoPopover, value);
-          if (newScore !== score) updateScore(newScore);
-        }}
-        position={tempoPopover?.position ?? { x: 0, y: 0 }}
-        title="Tempo"
-        placeholder="Allegro q=120"
-        initialValue={tempoPopover?.initialValue ?? ""}
-        allowEmpty
-      />
-
-      <TextPopover
-        open={staffTextPopover !== null}
-        onClose={() => setStaffTextPopover(null)}
-        onSubmit={(value) => {
-          const { score } = store.getState();
-          if (!score || !staffTextPopover) return;
-          const newScore = applyStaffTextEdit(score, staffTextPopover, value);
-          if (newScore !== score) updateScore(newScore);
-        }}
-        position={staffTextPopover?.position ?? { x: 0, y: 0 }}
-        title="Staff Text"
-        placeholder="e.g. dolce, pizz., arco"
+      <ScoreTextEntryPopovers
+        store={store}
+        updateScore={updateScore}
+        tempoPopover={tempoPopover}
+        staffTextPopover={staffTextPopover}
+        chordSymbolPopover={props.chordSymbolPopover}
+        selectedScoreIndex={selectedScoreIndex}
       />
 
       <LyricInput

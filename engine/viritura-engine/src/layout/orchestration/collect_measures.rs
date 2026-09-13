@@ -14,7 +14,12 @@ pub(in crate::layout) fn config_with_document_overrides(
     let ts = score.text_styles_json();
     let pj = score.placement_json();
     let time_signature_settings = score.time_signature_styles().resolve(context);
-    if ts.is_none() && pj.is_none() && time_signature_settings == config.time_signature_settings {
+    let chord_symbol_style = score.chord_symbol_style();
+    if ts.is_none()
+        && pj.is_none()
+        && time_signature_settings == config.time_signature_settings
+        && chord_symbol_style == config.chord_symbol_style
+    {
         return None;
     }
     let mut c = config.clone();
@@ -25,6 +30,7 @@ pub(in crate::layout) fn config_with_document_overrides(
         c.placement.merge_json(pj);
     }
     c.time_signature_settings = time_signature_settings;
+    c.chord_symbol_style = chord_symbol_style;
     Some(c)
 }
 

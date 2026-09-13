@@ -362,9 +362,13 @@ export function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
     root: parseChordRoot(raw.root),
     quality: raw.quality as ChordQuality,
   };
+  if (raw.displayStaff !== undefined || raw.staff !== undefined) {
+    cs.displayStaff = raw.displayStaff ?? raw.staff;
+  }
+  if (raw.kindText) cs.kindText = raw.kindText;
   if (raw.bass) cs.bass = parseChordRoot(raw.bass);
   if (raw.extension !== undefined) cs.extension = raw.extension;
-  if (raw.textOverride) cs.textOverride = raw.textOverride;
+  if (raw.textOverride !== undefined) cs.textOverride = raw.textOverride;
   return cs;
 }
 

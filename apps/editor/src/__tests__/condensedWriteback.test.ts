@@ -96,7 +96,7 @@ describe("condensed projection write-back", () => {
     const updated = applyStaffTextEdit(score, { position: { x: 0, y: 0 }, ...target! }, "dolce");
 
     expect(updated.parts[0]!.measures[0]!.expressions).toEqual([
-      { text: "dolce", position: { fraction: [0, 4] }, placement: "above", staff: 2 },
+      { text: "dolce", position: { fraction: [0, 1] }, placement: "above", staff: 2 },
     ]);
   });
 

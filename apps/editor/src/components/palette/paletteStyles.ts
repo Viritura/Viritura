@@ -56,6 +56,12 @@ export const TEMPO_LABEL_STYLE: CSSProperties = {
 };
 export const TEMPO_GLYPH_STYLE: CSSProperties = { fontFamily: "Bravura", fontSize: 24, lineHeight: 1 };
 export const EXPRESSION_LABEL_STYLE: CSSProperties = { fontStyle: "italic", fontSize: 14 };
+
+export const CHORD_SYMBOL_LABEL_STYLE: CSSProperties = {
+  fontSize: 18,
+  fontWeight: 600,
+};
+
 export const REHEARSAL_BOX_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",

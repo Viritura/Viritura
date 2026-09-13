@@ -158,7 +158,25 @@ Selection-based editing. Use these when **not** in note input mode.
 | `Q`       | Enter note input with chord-mode lock (A–G adds to chord instead of advancing) |
 | `.`       | Toggle augmentation dot on selected note                                       |
 | `Shift+T` | Set tempo at selection                                                         |
+| `Shift+K` | Enter chord symbols at the selected rhythmic position                          |
 | `Shift+X` | Add staff text                                                                 |
+
+### Chord symbol input
+
+After selecting a note or rest, press `Shift+K`. The selected event establishes
+the part and rhythmic position; the chord remains in the part-level harmony
+lane.
+
+| Key             | Action                                      |
+| --------------- | ------------------------------------------- |
+| `Enter`         | Commit chord and exit                       |
+| `Esc`           | Cancel and exit                             |
+| `Space`         | Commit and move to next note or rest        |
+| `Shift+Space`   | Commit and move to previous note or rest    |
+| `;`             | Commit and move to next beat                |
+| `Shift+;` / `:` | Commit and move to previous beat            |
+| `Mod+→`         | Commit and move to first event in next bar  |
+| `Mod+←`         | Commit and move to first event in prior bar |
 
 ### Duration (change selected note)
 
@@ -340,6 +358,7 @@ These keys are claimed for the listed commands. Some are shipped today (see tabl
 | `Alt+1` … `Alt+4`  | `voice.select1`–`voice.select4`       | shipped |
 | `Alt+C`            | `condensing.popover`                  | shipped |
 | `Mod+Alt+M`        | `measures.add`                        | shipped |
+| `Shift+K` (normal) | `chordSymbol.add`                     | shipped |
 | `Shift+T` (normal) | `tempo.set` (note input: tuplet menu) | shipped |
 | `Shift+W`          | `lyrics.enter`                        | shipped |
 | `Shift+X` (normal) | `staffText.add`                       | shipped |

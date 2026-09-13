@@ -767,6 +767,8 @@ pub(super) struct FlatStaff {
     /// For condensed staves: per-source numbers to display stacked vertically.
     /// When non-empty, `label`/`short_label` hold the base instrument name only.
     pub(crate) condensed_numbers: Vec<u32>,
+    /// Explicit layout-staff chord-symbol visibility. None means automatic.
+    pub(crate) chord_symbols_visible: Option<bool>,
 }
 
 #[derive(Clone)]
@@ -775,6 +777,32 @@ pub(super) struct FlatSource {
     pub(crate) staff_number: Option<u32>,
     pub(crate) voice_filter: Option<String>,
     pub(crate) stem_direction: Option<String>,
+    /// Whether this is the first displayed staff for the source part.
+    pub(crate) default_chord_symbol_source: bool,
+    /// Whether this is the first source for its explicit part/staff pair.
+    pub(crate) first_chord_symbol_source_for_staff: bool,
+    /// Whether this is the first source for its part on this layout staff.
+    pub(crate) first_chord_symbol_source_on_layout_staff: bool,
+    /// Whether this part has an explicitly selected chord-symbol layout staff.
+    pub(crate) part_has_explicit_chord_symbol_staff: bool,
+    /// Explicit source-staff numbers represented for this part in the layout.
+    pub(crate) displayed_staff_numbers: Vec<u32>,
+}
+
+impl FlatSource {
+    pub(super) fn whole_part(part_index: usize) -> Self {
+        Self {
+            part_index,
+            staff_number: None,
+            voice_filter: None,
+            stem_direction: None,
+            default_chord_symbol_source: true,
+            first_chord_symbol_source_for_staff: true,
+            first_chord_symbol_source_on_layout_staff: true,
+            part_has_explicit_chord_symbol_staff: false,
+            displayed_staff_numbers: Vec::new(),
+        }
+    }
 }
 
 impl FlatStaff {

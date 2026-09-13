@@ -8,7 +8,12 @@ import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
+import {
+  getEventAncestorId,
+  resolveEventFromSubElement,
+  resolveEventLocation,
+  resolveFullMeasureRestLocation,
+} from "../score/ElementPath";
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
@@ -28,14 +33,31 @@ export interface StaffTextPopoverState {
   measureIndex: number;
   sequenceIndex: number;
   eventIndex: number;
+  tupletIndex?: number;
+  graceContainerIndex?: number;
   staff?: number;
   targets?: Array<{
     partIndex: number;
     measureIndex: number;
     sequenceIndex: number;
     eventIndex: number;
+    tupletIndex?: number;
+    graceContainerIndex?: number;
     staff?: number;
   }>;
+}
+
+export interface ChordSymbolPopoverState {
+  position: { x: number; y: number };
+  partIndex: number;
+  measureIndex: number;
+  sequenceIndex: number;
+  eventIndex: number;
+  tupletIndex?: number;
+  graceContainerIndex?: number;
+  anchorStaff?: number;
+  anchorElementId?: string;
+  rhythmicPosition?: import("@viritura/core").RhythmicPosition;
 }
 
 export function resolveStaffTextTargets(
@@ -44,7 +66,8 @@ export function resolveStaffTextTargets(
   selectedScoreIndex: number,
 ): Omit<StaffTextPopoverState, "position"> | null {
   if (selection.kind !== "single") return null;
-  const explicit = resolveEventLocation(selection.elementId, score);
+  const explicit =
+    resolveEventFromSubElement(selection.elementId, score) ?? resolveEventLocation(selection.elementId, score);
   const location = explicit ?? resolveFullMeasureRestLocation(selection.elementId, score);
   if (!location) return null;
   const targetWithStaff = (target: typeof location) => {
@@ -57,6 +80,28 @@ export function resolveStaffTextTargets(
     ? undefined
     : resolveCondensedFullMeasureRestTargets(score, selectedScoreIndex, location).map(targetWithStaff);
   return { ...targetWithStaff(location), ...(targets && { targets }) };
+}
+
+export function resolveChordSymbolTarget(
+  score: Score,
+  selection: SelectionState,
+  selectedScoreIndex: number,
+  position: { x: number; y: number },
+): ChordSymbolPopoverState | null {
+  if (selection.kind !== "single") return null;
+  const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
+  if (!target) return null;
+  return {
+    position,
+    partIndex: target.partIndex,
+    measureIndex: target.measureIndex,
+    sequenceIndex: target.sequenceIndex,
+    eventIndex: target.eventIndex,
+    ...(target.tupletIndex !== undefined && { tupletIndex: target.tupletIndex }),
+    ...(target.graceContainerIndex !== undefined && { graceContainerIndex: target.graceContainerIndex }),
+    ...(target.staff !== undefined && { anchorStaff: target.staff }),
+    anchorElementId: getEventAncestorId(selection.elementId),
+  };
 }
 
 export interface AppKeyboardWiringDeps {
@@ -87,6 +132,7 @@ export interface AppKeyboardWiringDeps {
   setRadialMenu: (m: RadialMenuState | null) => void;
   setTempoPopover: (s: TempoPopoverState | null) => void;
   setStaffTextPopover: (s: StaffTextPopoverState | null) => void;
+  setChordSymbolPopover: (s: ChordSymbolPopoverState | null) => void;
   setJumpBarOpen: (open: boolean) => void;
   onEnterLyrics: () => void;
   onOpenPublish: (() => void) | undefined;
@@ -146,6 +192,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     setRadialMenu,
     setTempoPopover,
     setStaffTextPopover,
+    setChordSymbolPopover,
     setJumpBarOpen,
     onEnterLyrics,
     onOpenPublish,
@@ -199,13 +246,20 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     });
   }, [store, selection, mousePositionRef, selectedScoreIndex, setStaffTextPopover]);
 
+  const onAddChordSymbol = useCallback(() => {
+    const state = store.getState();
+    const score = state.workingScore ?? state.score;
+    if (!score) return;
+    setChordSymbolPopover(
+      resolveChordSymbolTarget(score, selection, selectedScoreIndex, { ...mousePositionRef.current }),
+    );
+  }, [store, selection, mousePositionRef, selectedScoreIndex, setChordSymbolPopover]);
+
   const onToggleCondensingPopover = useCallback(() => {
     toggleDialog("condensingPopover");
   }, []);
 
-  const onOpenJumpBar = useCallback(() => {
-    setJumpBarOpen(true);
-  }, [setJumpBarOpen]);
+  const onOpenJumpBar = useCallback(() => setJumpBarOpen(true), [setJumpBarOpen]);
 
   const navigateScoreOrPart = useCallback(
     (direction: -1 | 1) => {
@@ -309,6 +363,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     onSetTempo,
     onAddStaffText,
     onEnterLyrics,
+    onAddChordSymbol,
     onToggleCondensingPopover,
     onOpenJumpBar,
     onRepeat: handleRepeat,

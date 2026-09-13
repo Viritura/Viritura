@@ -32,6 +32,7 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 pub(super) use super::cache_hashing::{compound_layout_hash, time_signature_aware_hash};
+use super::chord_symbols::extend_visible_chord_symbols;
 pub(super) use super::instrument_labels::{
     build_label_lines, label_gutter_extent, split_label_transposition, EXPANSION_COLOR,
 };
@@ -588,11 +589,7 @@ pub(super) fn build_virtual_part_measure(
         if measure_repeat.is_none() {
             measure_repeat.clone_from(&pm.measure_repeat);
         }
-        if let Some(ref cs) = pm.chord_symbols {
-            chord_symbols
-                .get_or_insert_with(Vec::new)
-                .extend(cs.iter().cloned());
-        }
+        extend_visible_chord_symbols(&mut chord_symbols, pm, flat_staff, source);
         if let Some(ref source_beams) = pm.beams {
             beams.extend(source_beams.clone());
         }

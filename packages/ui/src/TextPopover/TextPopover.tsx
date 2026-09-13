@@ -36,7 +36,18 @@ export interface TextPopoverProps {
   inputType?: "text" | "number";
   /** Extra content rendered below the input */
   children?: ReactNode;
+  /** Optional continuous-entry navigation handler. Returning true clears the
+   * current value and keeps the popover open at the caller's next target. */
+  onNavigate?: (value: string, command: TextPopoverNavigationCommand) => boolean;
 }
+
+export type TextPopoverNavigationCommand =
+  | "next"
+  | "previous"
+  | "nextBeat"
+  | "previousBeat"
+  | "nextMeasure"
+  | "previousMeasure";
 
 // ═══════════════════════════════════════════
 // Component
@@ -55,6 +66,7 @@ export function TextPopover({
   allowEmpty = false,
   inputType = "text",
   children,
+  onNavigate,
 }: TextPopoverProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(initialValue);
@@ -80,6 +92,14 @@ export function TextPopover({
     onClose();
   }, [canSubmit, value, onSubmit, onClose]);
 
+  const handleNavigate = useCallback(
+    (command: TextPopoverNavigationCommand) => {
+      if (!onNavigate || (value.trim().length > 0 && validationError !== null)) return;
+      if (onNavigate(value, command)) setValue("");
+    },
+    [onNavigate, validationError, value],
+  );
+
   // Keyboard: Enter to submit, Escape to cancel
   useEffect(() => {
     if (!open) return;
@@ -96,10 +116,30 @@ export function TextPopover({
         handleSubmit();
         return;
       }
+      const command = onNavigate
+        ? e.key === " " && e.shiftKey
+          ? "previous"
+          : e.key === " "
+            ? "next"
+            : e.key === ":" || (e.key === ";" && e.shiftKey)
+              ? "previousBeat"
+              : e.key === ";"
+                ? "nextBeat"
+                : (e.ctrlKey || e.metaKey) && e.key === "ArrowRight"
+                  ? "nextMeasure"
+                  : (e.ctrlKey || e.metaKey) && e.key === "ArrowLeft"
+                    ? "previousMeasure"
+                    : null
+        : null;
+      if (command) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleNavigate(command);
+      }
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [open, onClose, handleSubmit]);
+  }, [open, onClose, onNavigate, handleSubmit, handleNavigate]);
 
   if (!open) return null;
 

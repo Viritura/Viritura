@@ -30,6 +30,7 @@ import {
   noteExtensions,
   slurExtensions,
   systemLayoutExtensions,
+  layoutStaffExtensions,
   scoreExtensions,
 } from "./standaloneValidators";
 
@@ -48,6 +49,7 @@ type ExtensionDefinition =
   | "note-extensions"
   | "slur-extensions"
   | "system-layout-extensions"
+  | "layout-staff-extensions"
   | "score-extensions";
 
 type StandaloneValidateFunction = ((data: unknown) => boolean) & Pick<ValidateFunction, "errors">;
@@ -67,6 +69,7 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "note-extensions": noteExtensions,
   "slur-extensions": slurExtensions,
   "system-layout-extensions": systemLayoutExtensions,
+  "layout-staff-extensions": layoutStaffExtensions,
   "score-extensions": scoreExtensions,
 };
 
@@ -162,6 +165,20 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     });
   };
 
+  const visitLayoutContent = (content: unknown, pointer: string): void => {
+    if (!Array.isArray(content)) return;
+    content.forEach((item, index) => {
+      const object = asObject(item);
+      if (!object) return;
+      const itemPointer = `${pointer}/${index}`;
+      if (object["type"] === "staff") {
+        validateAt(object, itemPointer, "layout-staff-extensions");
+      } else if (object["type"] === "group") {
+        visitLayoutContent(object["content"], `${itemPointer}/content`);
+      }
+    });
+  };
+
   validateAt(root, "", "root-extensions");
   const global = asObject(root["global"]);
   asObjects(global?.["measures"]).forEach((measure, measureIndex) => {
@@ -195,9 +212,11 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     });
   });
 
-  asObjects(root["layouts"]).forEach((layout, index) =>
-    validateAt(layout, `/layouts/${index}`, "system-layout-extensions"),
-  );
+  asObjects(root["layouts"]).forEach((layout, index) => {
+    const pointer = `/layouts/${index}`;
+    validateAt(layout, pointer, "system-layout-extensions");
+    visitLayoutContent(layout["content"], `${pointer}/content`);
+  });
   asObjects(root["scores"]).forEach((score, index) => validateAt(score, `/scores/${index}`, "score-extensions"));
 
   const findUnsupported = (value: unknown, pointer: string): void => {

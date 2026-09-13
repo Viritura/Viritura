@@ -4,6 +4,10 @@
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::layout::placement_metrics::PlacementTable;
+use crate::render::smufl::smufl::{
+    CHORD_AUGMENTED, CHORD_DIMINISHED, CHORD_DOUBLE_FLAT, CHORD_DOUBLE_SHARP, CHORD_FLAT,
+    CHORD_HALF_DIMINISHED, CHORD_MAJOR_SEVENTH, CHORD_MINOR,
+};
 use crate::render::*;
 
 // ═══════════════════════════════════════
@@ -120,8 +124,7 @@ fn test_chord_symbols_render_text() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
 
-    // Collect all DrawText commands that look like chord symbols
-    // (positioned above staff, bold serif font)
+    // Collect text runs positioned in the chord-symbol lane.
     let chord_texts: Vec<(f64, f64, String)> = dl
         .commands
         .iter()
@@ -166,14 +169,20 @@ fn test_chord_symbols_render_text() {
         texts
     );
     assert!(
-        texts.contains(&"G7"),
-        "Should contain 'G7' chord, got: {:?}",
+        texts.contains(&"Dsus4"),
+        "Suspension degrees should remain on the baseline, got: {:?}",
         texts
     );
     assert!(
-        texts.contains(&"Cmaj7"),
-        "Should contain 'Cmaj7' chord, got: {:?}",
+        texts.contains(&"G") && texts.contains(&"7"),
+        "Should contain split root and superscript extension runs, got: {:?}",
         texts
+    );
+    assert!(
+        dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == CHORD_MAJOR_SEVENTH)
+        ),
+        "major seventh should use the SMuFL triangle glyph"
     );
 
     // Chord symbols should be above the staff (y < staff_y)
@@ -188,6 +197,200 @@ fn test_chord_symbols_render_text() {
             staff_y
         );
     }
+}
+
+#[test]
+fn test_chord_symbol_accidentals_use_smufl_glyphs() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+                "_x": {"viritura": {"chordSymbols": [{
+                    "position": {"fraction": [0, 1]},
+                    "root": {"step": "F", "alter": 2},
+                    "quality": "other",
+                    "kindText": "7b9",
+                    "bass": {"step": "B", "alter": -2}
+                }]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let chord_id = "p0/m0/chord0";
+    let glyphs: Vec<(u32, &str)> = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawGlyph {
+                codepoint, font, ..
+            } if id.as_deref() == Some(chord_id) => Some((*codepoint, font.as_str())),
+            _ => None,
+        })
+        .collect();
+    let text: String = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawText { text, .. } if id.as_deref() == Some(chord_id) => {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        glyphs,
+        vec![
+            (CHORD_DOUBLE_SHARP, "Bravura"),
+            (CHORD_FLAT, "Bravura"),
+            (CHORD_DOUBLE_FLAT, "Bravura"),
+        ]
+    );
+    assert_eq!(text, "F79/B");
+    assert!(!text.contains('#'));
+    assert!(!text.contains("b9"));
+}
+
+#[test]
+fn test_default_chord_style_uses_quality_glyphs_and_superscripts() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+                "_x": {"viritura": {"chordSymbols": [
+                    {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major", "extension": 7},
+                    {"position": {"fraction": [1, 4]}, "root": {"step": "D"}, "quality": "diminished", "extension": 7},
+                    {"position": {"fraction": [2, 4]}, "root": {"step": "E"}, "quality": "half-diminished", "extension": 7},
+                    {"position": {"fraction": [3, 4]}, "root": {"step": "F"}, "quality": "augmented"}
+                ]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let quality_glyphs: Vec<u32> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, .. }
+                if matches!(
+                    *codepoint,
+                    CHORD_MAJOR_SEVENTH
+                        | CHORD_DIMINISHED
+                        | CHORD_HALF_DIMINISHED
+                        | CHORD_AUGMENTED
+                ) =>
+            {
+                Some(*codepoint)
+            }
+            _ => None,
+        })
+        .collect();
+    let extension_sizes: Vec<f64> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { text, size, .. } if text == "7" => Some(*size),
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(
+        quality_glyphs,
+        vec![
+            CHORD_MAJOR_SEVENTH,
+            CHORD_DIMINISHED,
+            CHORD_HALF_DIMINISHED,
+            CHORD_AUGMENTED,
+        ]
+    );
+    assert!(extension_sizes.iter().all(|size| *size < 2.4 * config.sp));
+}
+
+#[test]
+fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "_x": {"viritura": {"chordSymbolStyle": {
+                "rootCase": "lowercaseMinor",
+                "minor": "none",
+                "extensions": "baseline"
+            }}},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+                "_x": {"viritura": {"chordSymbols": [{
+                    "position": {"fraction": [0, 1]},
+                    "root": {"step": "D"},
+                    "quality": "minor",
+                    "extension": 7
+                }]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let chord_text: Vec<(&str, f64)> = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawText { text, size, .. } if id.as_deref() == Some("p0/m0/chord0") => {
+                Some((text.as_str(), *size))
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(chord_text, vec![("d7", 2.4 * config.sp)]);
+}
+
+#[test]
+fn test_half_diminished_fallback_honors_minor_house_style() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "_x": {"viritura": {"chordSymbolStyle": {
+                "minor": "minus",
+                "halfDiminished": "minorFlatFive"
+            }}},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+                "_x": {"viritura": {"chordSymbols": [{
+                    "position": {"fraction": [0, 1]},
+                    "root": {"step": "E"},
+                    "quality": "half-diminished",
+                    "extension": 7
+                }]}}
+            }]}]
+        }"#,
+    )
+    .unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let glyphs: Vec<u32> = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter_map(|(command, id)| match command {
+            RenderCommand::DrawGlyph { codepoint, .. } if id.as_deref() == Some("p0/m0/chord0") => {
+                Some(*codepoint)
+            }
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(glyphs, vec![CHORD_MINOR, CHORD_FLAT]);
 }
 
 #[test]

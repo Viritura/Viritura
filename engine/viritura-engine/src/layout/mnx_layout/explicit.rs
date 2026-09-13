@@ -115,18 +115,14 @@ fn resolve_explicit_systems_and_layouts(
                 let full = display_names[i].display_name.clone();
                 let short = display_names[i].display_short_name.clone();
                 staves.push(FlatStaff {
-                    sources: vec![FlatSource {
-                        part_index: i,
-                        staff_number: None,
-                        voice_filter: None,
-                        stem_direction: None,
-                    }],
+                    sources: vec![FlatSource::whole_part(i)],
                     label: Some(full),
                     short_label: Some(short),
                     resolved_full_label: Some(display_names[i].display_name.clone()),
                     resolved_short_label: Some(display_names[i].display_short_name.clone()),
                     expansion: false,
                     condensed_numbers: Vec::new(),
+                    chord_symbols_visible: None,
                 });
             }
             system_flat_staves.push((staves, Vec::new()));

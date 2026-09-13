@@ -1,0 +1,88 @@
+//! Harmony-lane filtering for layout staffs.
+
+use super::super::config::LayoutConfig;
+use super::super::full_score::{FlatSource, FlatStaff};
+use super::super::types::MeasureLayout;
+use crate::model::{ChordSymbol, PartMeasure};
+use crate::render::ElementKind;
+
+pub(crate) fn above_staff_protrusion(
+    layout: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> f64 {
+    let Some(chords) = layout.resolved.part.chord_symbols.as_ref() else {
+        return 0.0;
+    };
+    if chords.is_empty() {
+        return 0.0;
+    }
+    let attach_gap = config
+        .placement
+        .resolve(ElementKind::ChordSymbol)
+        .attach_gap;
+    let max_ascent = chords
+        .iter()
+        .map(|chord| {
+            super::super::render_annotations::chord_symbol_dimensions(
+                chord,
+                config.chord_symbol_style,
+                sp,
+            )
+            .1
+        })
+        .fold(0.0_f64, f64::max);
+    attach_gap * sp + max_ascent
+}
+
+pub(super) fn extend_visible_chord_symbols(
+    target: &mut Option<Vec<ChordSymbol>>,
+    measure: &PartMeasure,
+    staff: &FlatStaff,
+    source: &FlatSource,
+) {
+    let Some(chords) = &measure.chord_symbols else {
+        return;
+    };
+    let visible: Vec<_> = chords
+        .iter()
+        .enumerate()
+        .filter(|(_, chord)| match staff.chord_symbols_visible {
+            Some(true) => source.first_chord_symbol_source_on_layout_staff,
+            Some(false) => false,
+            None if source.part_has_explicit_chord_symbol_staff => false,
+            None => {
+                chord
+                    .display_staff
+                    .map_or(source.default_chord_symbol_source, |display_staff| {
+                        if source.displayed_staff_numbers.contains(&display_staff) {
+                            source.staff_number == Some(display_staff)
+                                && source.first_chord_symbol_source_for_staff
+                        } else {
+                            source.default_chord_symbol_source
+                        }
+                    })
+            }
+        })
+        .map(|(index, chord)| {
+            let mut chord = chord.clone();
+            chord.source_index = Some(index);
+            chord.source_part_index = Some(source.part_index);
+            chord
+        })
+        .collect();
+    if !visible.is_empty() {
+        let lane = target.get_or_insert_with(Vec::new);
+        for chord in visible {
+            // A condensed staff has one visual harmony lane. Source order is
+            // the deterministic precedence when source parts disagree.
+            if lane
+                .iter()
+                .any(|existing| existing.position == chord.position)
+            {
+                continue;
+            }
+            lane.push(chord);
+        }
+    }
+}

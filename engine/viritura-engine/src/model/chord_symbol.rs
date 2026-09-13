@@ -5,6 +5,82 @@ use serde::{Deserialize, Serialize};
 /// the Viritura vendor `chord-quality` schema.
 pub use crate::raw_viritura::ChordQuality;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ChordRootCase {
+    #[default]
+    Uppercase,
+    LowercaseMinor,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum MajorSeventhStyle {
+    #[serde(rename = "triangle")]
+    #[default]
+    Triangle,
+    #[serde(rename = "maj")]
+    Maj,
+    #[serde(rename = "M")]
+    CapitalM,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum MinorStyle {
+    #[serde(rename = "m")]
+    #[default]
+    M,
+    #[serde(rename = "min")]
+    Min,
+    #[serde(rename = "minus")]
+    Minus,
+    #[serde(rename = "none")]
+    None,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum DiminishedStyle {
+    #[default]
+    Symbol,
+    Dim,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum HalfDiminishedStyle {
+    #[default]
+    Symbol,
+    MinorFlatFive,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum AugmentedStyle {
+    #[default]
+    Plus,
+    Aug,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ChordExtensionPosition {
+    #[default]
+    Superscript,
+    Baseline,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ChordSymbolStyle {
+    pub root_case: ChordRootCase,
+    pub major_seventh: MajorSeventhStyle,
+    pub minor: MinorStyle,
+    pub diminished: DiminishedStyle,
+    pub half_diminished: HalfDiminishedStyle,
+    pub augmented: AugmentedStyle,
+    pub extensions: ChordExtensionPosition,
+}
+
 /// Root or bass note of a chord (step + optional alteration).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChordRoot {
@@ -15,19 +91,31 @@ pub struct ChordRoot {
     pub alter: Option<i32>,
 }
 
-/// A chord symbol above the staff (e.g., "Cmaj7", "Dm", "G7", "F#dim").
+/// A time-anchored harmony event rendered as a chord symbol above the staff.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChordSymbol {
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
+    /// Optional imported/per-event display-staff override (1-based).
+    #[serde(skip_serializing_if = "Option::is_none", rename = "displayStaff")]
+    pub display_staff: Option<u32>,
+    /// Original measure-list index retained when layout filters by staff.
+    #[serde(skip)]
+    pub source_index: Option<usize>,
+    /// Source part retained when a layout staff combines multiple parts.
+    #[serde(skip)]
+    pub source_part_index: Option<usize>,
     /// Root note (e.g., C, F#, Bb)
     pub root: ChordRoot,
     /// Chord quality
     pub quality: ChordQuality,
+    /// Authored quality spelling retained alongside the normalized quality.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "kindText")]
+    pub kind_text: Option<String>,
     /// Optional bass note for slash chords (e.g., C/E → bass = E)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bass: Option<ChordRoot>,
-    /// Extension degree (7, 9, 11, 13) — None for triads
+    /// Extension degree (6, 7, 9, 11, 13) — None for triads
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension: Option<u32>,
     /// Text override — if set, render this exact string instead of computing from fields
@@ -36,92 +124,97 @@ pub struct ChordSymbol {
 }
 
 impl ChordSymbol {
-    /// Build the display string for this chord symbol.
+    /// Build the quality/extension text that follows the root accidental.
+    pub fn suffix_text(&self) -> String {
+        let mut suffix = String::new();
+        let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
+        match self.quality {
+            ChordQuality::Major => {
+                if self.extension == Some(6) {
+                    suffix.push('6');
+                } else if self.extension.is_some() {
+                    suffix.push_str("maj");
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Minor => {
+                suffix.push('m');
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Dominant => {
+                suffix.push_str(&ext);
+            }
+            ChordQuality::Diminished => {
+                suffix.push_str("dim");
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::Augmented => {
+                suffix.push_str("aug");
+                if self.extension.is_some() {
+                    suffix.push_str(&ext);
+                }
+            }
+            ChordQuality::HalfDiminished => {
+                suffix.push('m');
+                suffix.push_str(&ext);
+                suffix.push_str("b5");
+            }
+            ChordQuality::MinorMajor => {
+                suffix.push_str("m(maj");
+                suffix.push_str(&ext);
+                suffix.push(')');
+            }
+            ChordQuality::Power => {
+                suffix.push('5');
+            }
+            ChordQuality::Suspended2 => {
+                suffix.push_str("sus2");
+            }
+            ChordQuality::Suspended4 => {
+                suffix.push_str("sus4");
+            }
+            ChordQuality::Other => {
+                if let Some(ref kind_text) = self.kind_text {
+                    suffix.push_str(kind_text);
+                }
+            }
+        }
+        suffix
+    }
+
+    /// Build a style-independent ASCII fallback for diagnostics, import/export
+    /// compatibility, and tests. Engraving uses structured house-style runs.
     pub fn display_text(&self) -> String {
         if let Some(ref text) = self.text_override {
             return text.clone();
         }
 
-        let mut s = String::new();
+        let mut s = self.root.step.clone();
+        append_ascii_accidental(&mut s, self.root.alter);
+        s.push_str(&self.suffix_text());
 
-        // Root note
-        s.push_str(&self.root.step);
-        if let Some(alter) = self.root.alter {
-            match alter {
-                1 => s.push('#'),
-                -1 => s.push('b'),
-                2 => s.push_str("##"),
-                -2 => s.push_str("bb"),
-                _ => {}
-            }
-        }
-
-        // Quality + extension
-        let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
-        match self.quality {
-            ChordQuality::Major => {
-                if self.extension.is_some() {
-                    s.push_str("maj");
-                    s.push_str(&ext);
-                }
-                // Plain major triad: just root letter
-            }
-            ChordQuality::Minor => {
-                s.push('m');
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::Dominant => {
-                s.push_str(&ext);
-            }
-            ChordQuality::Diminished => {
-                s.push_str("dim");
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::Augmented => {
-                s.push_str("aug");
-                if self.extension.is_some() {
-                    s.push_str(&ext);
-                }
-            }
-            ChordQuality::HalfDiminished => {
-                s.push('m');
-                s.push_str(&ext);
-                s.push_str("b5");
-            }
-            ChordQuality::MinorMajor => {
-                s.push_str("m(maj");
-                s.push_str(&ext);
-                s.push(')');
-            }
-            ChordQuality::Power => {
-                s.push('5');
-            }
-            ChordQuality::Suspended2 => {
-                s.push_str("sus2");
-            }
-            ChordQuality::Suspended4 => {
-                s.push_str("sus4");
-            }
-        }
-
-        // Bass note for slash chords
         if let Some(ref bass) = self.bass {
             s.push('/');
             s.push_str(&bass.step);
-            if let Some(alter) = bass.alter {
-                match alter {
-                    1 => s.push('#'),
-                    -1 => s.push('b'),
-                    _ => {}
-                }
-            }
+            append_ascii_accidental(&mut s, bass.alter);
         }
 
         s
+    }
+}
+
+fn append_ascii_accidental(text: &mut String, alter: Option<i32>) {
+    match alter {
+        Some(1) => text.push('#'),
+        Some(-1) => text.push('b'),
+        Some(2) => text.push_str("##"),
+        Some(-2) => text.push_str("bb"),
+        Some(0) | None => {}
+        Some(_) => {}
     }
 }
 
@@ -138,11 +231,15 @@ mod tests {
     ) -> ChordSymbol {
         ChordSymbol {
             position: RhythmicPosition { fraction: (0, 1) },
+            display_staff: None,
+            source_index: None,
+            source_part_index: None,
             root: ChordRoot {
                 step: step.into(),
                 alter,
             },
             quality,
+            kind_text: None,
             bass,
             extension: ext,
             text_override: None,
@@ -159,6 +256,12 @@ mod tests {
     fn test_major_seventh() {
         let c = make_chord("C", None, ChordQuality::Major, Some(7), None);
         assert_eq!(c.display_text(), "Cmaj7");
+    }
+
+    #[test]
+    fn test_major_sixth() {
+        let c = make_chord("C", None, ChordQuality::Major, Some(6), None);
+        assert_eq!(c.display_text(), "C6");
     }
 
     #[test]

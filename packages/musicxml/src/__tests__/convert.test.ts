@@ -2035,9 +2035,10 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
       `
       <harmony>
         <root><root-step>F</root-step><root-alter>1</root-alter></root>
-        <kind>major-seventh</kind>
+        <kind text="M7">major-seventh</kind>
         <bass><bass-step>A</bass-step><bass-alter>1</bass-alter></bass>
         <offset>2</offset>
+        <staff>2</staff>
       </harmony>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>8</duration><type>whole</type></note>
     `,
@@ -2049,24 +2050,47 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
     expect(measure._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
+        displayStaff: 2,
         root: { step: "F", alter: 1 },
         quality: "major",
+        kindText: "M7",
         extension: 7,
         bass: { step: "A", alter: 1 },
       },
     ]);
   });
 
-  it("reports MusicXML chord kinds outside the Viritura quality model", () => {
+  it("preserves MusicXML chord kinds outside the Viritura quality model", () => {
     const xml = wrapScore(`
       <harmony><root><root-step>C</root-step></root><kind>Neapolitan</kind></harmony>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
     `);
     const diagnostics = new DiagnosticCollector();
 
-    convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
     expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-kind");
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        quality: "other",
+        kindText: "Neapolitan",
+      },
+    ]);
+  });
+
+  it("reports harmony representations that the chord lane cannot preserve", () => {
+    const xml = wrapScore(`
+      <harmony><numeral><numeral-root>5</numeral-root></numeral><kind>dominant</kind></harmony>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-dropped");
   });
 });
 
