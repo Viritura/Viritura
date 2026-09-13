@@ -154,59 +154,6 @@ pub(crate) fn compute_beam_break_indices(
     breaks
 }
 
-/// Compute implied beam break indices based on time-signature grouping.
-///
-/// When no explicit sub-beam groups are provided, breaks secondary+ beams
-/// at metric sub-beat boundaries determined by the time signature.
-/// `level` is 1-indexed (1 = secondary, 2 = tertiary, etc.).
-pub(crate) fn compute_implied_beam_breaks(
-    beam_events: &[&EventLayout],
-    voice_onset_times: &HashMap<String, f64>,
-    time_sig: &TimeSignature,
-    level: u32,
-) -> HashSet<usize> {
-    let mut breaks = HashSet::new();
-    if beam_events.is_empty() || level == 0 {
-        return breaks;
-    }
-
-    // Beat duration in quarter-note beats
-    let beat_duration = 4.0 / time_sig.unit as f64;
-
-    // Sub-group boundary size: beat_duration / 2^level
-    let divisor = (1u64 << level) as f64;
-    let boundary = beat_duration / divisor;
-    if boundary <= 0.0001 {
-        return breaks;
-    }
-
-    // Look up onset time of the first beam event; fall back to 0.0
-    let first_onset = beam_events[0]
-        .id
-        .as_deref()
-        .and_then(|id| voice_onset_times.get(id).copied())
-        .unwrap_or(0.0);
-
-    // Compute onset times for each beam event by accumulating durations
-    let mut onset = first_onset;
-    let mut onsets = Vec::with_capacity(beam_events.len());
-    for el in beam_events {
-        onsets.push(onset);
-        onset += el.event.duration.total_beats();
-    }
-
-    // Break between consecutive events that fall in different boundary groups
-    for i in 0..beam_events.len().saturating_sub(1) {
-        let group_i = (onsets[i] / boundary + 0.0001).floor() as i64;
-        let group_next = (onsets[i + 1] / boundary + 0.0001).floor() as i64;
-        if group_i != group_next {
-            breaks.insert(i);
-        }
-    }
-
-    breaks
-}
-
 /// Split beam segments at explicit break points.
 ///
 /// Full segments that span a break index are split into separate segments.

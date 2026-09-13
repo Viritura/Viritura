@@ -107,6 +107,7 @@ fn effective_time_signature(measures: &[GlobalMeasure], measure_idx: usize) -> T
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     }
 }
 

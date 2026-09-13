@@ -49,6 +49,19 @@ pub(crate) fn beam_group_duration(time_sig: &TimeSignature, flag_count: u32) -> 
     }
 }
 
+fn sensitivity_region_duration(time_sig: &TimeSignature) -> f64 {
+    let measure_duration = time_sig.count as f64 * 4.0 / time_sig.unit as f64;
+    if time_sig.count.is_multiple_of(2) {
+        measure_duration / 2.0
+    } else {
+        measure_duration
+    }
+}
+
+fn sensitivity_region(beat_position: f64, time_sig: &TimeSignature) -> i64 {
+    ((beat_position + 0.0001) / sensitivity_region_duration(time_sig)).floor() as i64
+}
+
 /// Check if a beat position falls on a beam group boundary for the given group duration.
 pub(super) fn is_at_group_boundary(beat_position: f64, group_dur: f64) -> bool {
     if group_dur <= 0.0 {
@@ -68,6 +81,7 @@ fn event_has_caesura(event: &crate::model::Event) -> bool {
 /// Groups consecutive 8th/16th/32nd notes using duration-aware break positions
 /// based on standard grouping tables.
 /// Events whose IDs are in `exclude_ids` are skipped (they belong to cross-barline beams).
+/// Editor materialization parity is enforced by test-fixtures/auto-beaming.json.
 pub(crate) fn auto_beam_groups(
     voice_layouts: &[VoiceLayout],
     time_sig: &TimeSignature,
@@ -93,24 +107,29 @@ pub(crate) fn auto_beam_groups(
         }
         // Tuplet membership of the last note added to the current beam group.
         let mut current_tuplet: Option<usize> = None;
-        // Pre-scan the voice for the global maximum flag count among beamable events.
-        // Standard engraving rule (standard engraving practice): in 4/4, if ANY event in the
-        // voice has 16th notes (or shorter), ALL beam groups break at beat boundaries
-        // rather than at the wider half-measure boundary used for pure 8th-note groups.
-        let voice_max_flags: u32 = (0..event_count)
-            .filter(|&i| {
-                let event = vl.events.event(i);
-                let fc = event.duration.base.flag_count();
-                fc > 0
-                    && !event.is_rest()
-                    && vl.events.id(i).is_some_and(|id| !exclude_ids.contains(id))
-            })
-            .map(|i| vl.events.event(i).duration.base.flag_count())
-            .max()
-            .unwrap_or(0);
+        // Duration sensitivity is local to each half of an evenly divisible
+        // measure. Short values in one half therefore do not force unrelated
+        // eighth-note groups in the other half to break at beat boundaries.
+        let mut region_max_flags: HashMap<i64, u32> = HashMap::new();
+        for i in 0..event_count {
+            let event = vl.events.event(i);
+            let flag_count = event.duration.base.flag_count();
+            if flag_count > 0
+                && !event.is_rest()
+                && vl.events.id(i).is_some_and(|id| !exclude_ids.contains(id))
+            {
+                let region = sensitivity_region(vl.events.beat_position(i), time_sig);
+                region_max_flags
+                    .entry(region)
+                    .and_modify(|value| *value = (*value).max(flag_count))
+                    .or_insert(flag_count);
+            }
+        }
 
-        // group_max_flags tracks flags within the current group, but is floored
-        // by voice_max_flags so that mixed-duration voices use the correct boundaries.
+        let region_max_flags_for_event = |event_index: usize| {
+            let region = sensitivity_region(vl.events.beat_position(event_index), time_sig);
+            region_max_flags.get(&region).copied().unwrap_or(0)
+        };
         let mut group_max_flags: u32 = 0;
         // Track whether a rest was skipped since the last beamed note.
         // When true, the next note enforces beat-level boundary checking to
@@ -146,7 +165,9 @@ pub(crate) fn auto_beam_groups(
                         // Check if this note falls on a beam group boundary.
                         // Use the finest granularity: the max of the voice-level
                         // flags, the current group flags, and this note's flags.
-                        let effective_flags = voice_max_flags.max(group_max_flags).max(flag_count);
+                        let effective_flags = region_max_flags_for_event(event_idx)
+                            .max(group_max_flags)
+                            .max(flag_count);
                         let group_dur = beam_group_duration(time_sig, effective_flags);
                         // If a rest was skipped, also check beat-level boundary.
                         // Beam-over-rest only applies within the same beat.

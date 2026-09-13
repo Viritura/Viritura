@@ -671,7 +671,7 @@ const KEYS = {
     "jump",
     "_x",
   ]),
-  time: new Set(["count", "unit", "display"]),
+  time: new Set(["count", "unit", "display", "_x"]),
   key: new Set(["fifths", "color", "_x"]),
   barline: new Set(["type"]),
   ending: new Set(["duration", "numbers", "open", "color"]),

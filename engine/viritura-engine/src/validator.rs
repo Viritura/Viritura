@@ -318,6 +318,34 @@ fn semantic_kit_errors(value: &Value) -> Vec<RawScoreValidationError> {
     errors
 }
 
+fn semantic_beat_structure_errors(value: &Value) -> Vec<RawScoreValidationError> {
+    let mut errors = Vec::new();
+    let Some(measures) = value.pointer("/global/measures").and_then(Value::as_array) else {
+        return errors;
+    };
+    for (measure_index, measure) in measures.iter().enumerate() {
+        let Some(time) = measure.get("time") else {
+            continue;
+        };
+        let Some(groups) = time
+            .pointer("/_x/viritura/beatStructure")
+            .and_then(Value::as_array)
+        else {
+            continue;
+        };
+        let count = time.get("count").and_then(Value::as_f64).unwrap_or(0.0);
+        let total = groups.iter().filter_map(Value::as_f64).sum::<f64>();
+        if (total - count).abs() > f64::EPSILON {
+            errors.push(dynamic_error(
+                format!("/global/measures/{measure_index}/time/_x/viritura/beatStructure"),
+                format!("beatStructure values must sum to time.count ({count})"),
+                "sum",
+            ));
+        }
+    }
+    errors
+}
+
 /// Validate a JSON value against the MNX schema, returning a structured
 /// result. Does not throw.
 #[must_use]
@@ -329,6 +357,7 @@ pub fn validate_raw_score(value: &Value) -> RawScoreValidationResult {
         .unwrap_or_default();
     errors.extend(semantic_dynamic_errors(value));
     errors.extend(semantic_kit_errors(value));
+    errors.extend(semantic_beat_structure_errors(value));
     errors.extend(extensions::extension_errors(value));
     if errors.is_empty() {
         RawScoreValidationResult::Ok
@@ -345,6 +374,7 @@ pub fn is_raw_score(value: &Value) -> bool {
     schema().is_valid(value)
         && semantic_dynamic_errors(value).is_empty()
         && semantic_kit_errors(value).is_empty()
+        && semantic_beat_structure_errors(value).is_empty()
         && extensions::extension_errors(value).is_empty()
 }
 
@@ -368,6 +398,7 @@ pub fn assert_raw_score(value: &Value) -> Result<RawScore, RawScoreValidationFai
     let mut errors = errors;
     errors.extend(semantic_dynamic_errors(value));
     errors.extend(semantic_kit_errors(value));
+    errors.extend(semantic_beat_structure_errors(value));
     errors.extend(extensions::extension_errors(value));
     if !errors.is_empty() {
         return Err(RawScoreValidationFailure { errors });
@@ -447,6 +478,60 @@ mod tests {
         };
         assert!(errors.iter().any(|error| {
             error.pointer == "/parts/0/measures/0/sequences/0/content/0/_x/viritura"
+        }));
+    }
+
+    #[test]
+    fn accepts_valid_time_signature_beat_structure() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{
+                "time": {
+                    "count": 9,
+                    "unit": 8,
+                    "_x": { "viritura": { "beatStructure": [2, 3, 2, 2] } }
+                }
+            }] },
+            "parts": [{ "measures": [{ "sequences": [] }] }]
+        });
+        assert!(is_raw_score(&value));
+    }
+
+    #[test]
+    fn accepts_integer_valued_decimal_beat_structure() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{
+                "time": {
+                    "count": 9.0,
+                    "unit": 8,
+                    "_x": { "viritura": { "beatStructure": [2.0, 3, 2, 2] } }
+                }
+            }] },
+            "parts": [{ "measures": [{ "sequences": [] }] }]
+        });
+        assert!(is_raw_score(&value));
+    }
+
+    #[test]
+    fn rejects_time_signature_beat_structure_with_wrong_sum() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{
+                "time": {
+                    "count": 9,
+                    "unit": 8,
+                    "_x": { "viritura": { "beatStructure": [2, 3, 2] } }
+                }
+            }] },
+            "parts": [{ "measures": [{ "sequences": [] }] }]
+        });
+        let RawScoreValidationResult::Err(errors) = validate_raw_score(&value) else {
+            panic!("invalid beatStructure should fail validation");
+        };
+        assert!(errors.iter().any(|error| {
+            error.pointer == "/global/measures/0/time/_x/viritura/beatStructure"
+                && error.keyword == "sum"
         }));
     }
 

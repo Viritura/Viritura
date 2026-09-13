@@ -19,6 +19,11 @@ export interface components {
             measure: string;
             position: components["schemas"]["rhythmic-position"];
         };
+        /** @description Viritura semantic extensions on an MNX time signature. */
+        "time-extensions": {
+            /** @description Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count. */
+            beatStructure?: number[];
+        };
         /** @description A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle. */
         "rehearsal-mark": {
             /** @description The rehearsal mark label text. */
@@ -688,6 +693,7 @@ export type operations = Record<string, never>;
 // Auto-generated convenience aliases for every $def in viritura-extensions.json.
 export type RhythmicPosition = components["schemas"]["rhythmic-position"];
 export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-position"];
+export type TimeExtensions = components["schemas"]["time-extensions"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
 export type Coda = components["schemas"]["coda"];
 export type Caesura = components["schemas"]["caesura"];

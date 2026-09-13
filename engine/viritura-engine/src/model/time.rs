@@ -31,12 +31,59 @@ pub struct TimeSignature {
     /// Optional display style (common or cut time glyph)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display: Option<TimeSignatureDisplay>,
+    /// Ordered beat-group lengths in denominator units.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "beatStructure"
+    )]
+    pub beat_structure: Option<Vec<u32>>,
 }
 
 impl TimeSignature {
     /// Total quarter-note beats in a measure.
     pub fn measure_beats(&self) -> f64 {
         (self.count as f64 * 4.0) / self.unit as f64
+    }
+
+    /// Resolve authored grouping or conventional defaults into metric boundaries.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when an authored structure is empty, contains zero, or
+    /// does not sum to the time-signature numerator.
+    pub fn resolve_meter(&self) -> Result<ResolvedMeter, BeatStructureError> {
+        if self.count == 0 || !matches!(self.unit, 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128) {
+            return Err(BeatStructureError::InvalidTimeSignature);
+        }
+        let (beat_structure, source) = match &self.beat_structure {
+            Some(groups)
+                if groups.is_empty()
+                    || groups.contains(&0)
+                    || groups.iter().copied().sum::<u32>() != self.count =>
+            {
+                return Err(BeatStructureError::InvalidBeatStructure);
+            }
+            Some(groups) => (groups.clone(), MeterStructureSource::Authored),
+            None => (
+                default_beat_structure(self.count, self.unit),
+                MeterStructureSource::Default,
+            ),
+        };
+        let mut beat_boundaries = Vec::with_capacity(beat_structure.len() + 1);
+        beat_boundaries.push(0.0);
+        for group in &beat_structure {
+            let next = beat_boundaries.last().copied().unwrap_or(0.0)
+                + (*group as f64 * 4.0) / self.unit as f64;
+            beat_boundaries.push(next);
+        }
+        Ok(ResolvedMeter {
+            count: self.count,
+            unit: self.unit,
+            beat_structure,
+            beat_boundaries,
+            source,
+        })
     }
 }
 
@@ -46,7 +93,140 @@ impl Default for TimeSignature {
             count: 4,
             unit: 4,
             display: None,
+            beat_structure: None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeterStructureSource {
+    Authored,
+    Default,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedMeter {
+    pub count: u32,
+    pub unit: u32,
+    pub beat_structure: Vec<u32>,
+    pub beat_boundaries: Vec<f64>,
+    pub source: MeterStructureSource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BeatStructureError {
+    InvalidTimeSignature,
+    InvalidBeatStructure,
+}
+
+impl std::fmt::Display for BeatStructureError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidTimeSignature => formatter
+                .write_str("time signature count must be positive and unit must be supported"),
+            Self::InvalidBeatStructure => {
+                formatter.write_str("beat structure must contain positive values that sum to count")
+            }
+        }
+    }
+}
+
+impl std::error::Error for BeatStructureError {}
+
+fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
+    if unit == 8 {
+        match count {
+            5 => return vec![3, 2],
+            7 => return vec![2, 2, 3],
+            8 => return vec![3, 3, 2],
+            _ => {}
+        }
+    }
+    if count.is_multiple_of(3) && (unit == 8 || count > 3) {
+        return vec![3; (count / 3) as usize];
+    }
+    vec![1; count as usize]
+}
+
+#[cfg(test)]
+mod meter_tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct MeterCase {
+        count: u32,
+        unit: u32,
+        beat_structure: Vec<u32>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct AuthoredMeterCase {
+        count: u32,
+        unit: u32,
+        beat_structure: Vec<u32>,
+        beat_boundaries: Vec<f64>,
+    }
+
+    #[derive(Deserialize)]
+    struct MeterFixture {
+        defaults: Vec<MeterCase>,
+        authored: AuthoredMeterCase,
+    }
+
+    fn fixture() -> MeterFixture {
+        serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-fixtures/meter-definitions.json"
+        )))
+        .expect("shared meter fixture must parse")
+    }
+
+    #[test]
+    fn resolves_conventional_meter_defaults() {
+        for test_case in fixture().defaults {
+            let meter = TimeSignature {
+                count: test_case.count,
+                unit: test_case.unit,
+                display: None,
+                beat_structure: None,
+            }
+            .resolve_meter()
+            .unwrap();
+            assert_eq!(meter.beat_structure, test_case.beat_structure);
+            assert_eq!(meter.source, MeterStructureSource::Default);
+        }
+    }
+
+    #[test]
+    fn resolves_authored_meter_boundaries() {
+        let test_case = fixture().authored;
+        let meter = TimeSignature {
+            count: test_case.count,
+            unit: test_case.unit,
+            display: None,
+            beat_structure: Some(test_case.beat_structure),
+        }
+        .resolve_meter()
+        .unwrap();
+        assert_eq!(meter.beat_boundaries, test_case.beat_boundaries);
+        assert_eq!(meter.source, MeterStructureSource::Authored);
+    }
+
+    #[test]
+    fn rejects_invalid_authored_meter_structure() {
+        let meter = TimeSignature {
+            count: 5,
+            unit: 8,
+            display: None,
+            beat_structure: Some(vec![2, 2]),
+        };
+        assert_eq!(
+            meter.resolve_meter(),
+            Err(BeatStructureError::InvalidBeatStructure)
+        );
     }
 }
 

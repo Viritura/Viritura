@@ -37,6 +37,23 @@
       "additionalProperties": false
     },
 
+    "time-extensions": {
+      "type": "object",
+      "description": "Viritura semantic extensions on an MNX time signature.",
+      "properties": {
+        "beatStructure": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "description": "Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "rehearsal-mark": {
       "type": "object",
       "description": "A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle.",

@@ -1875,6 +1875,21 @@ describe("getEffectiveTimeSignature", () => {
     });
   });
 
+  it("inherits the authored beat structure with the time signature", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [{ time: { count: 9, unit: 8, beatStructure: [2, 3, 2, 2] } }, {}],
+      },
+      parts: [{ name: "P", measures: [{ sequences: [] }, { sequences: [] }] }],
+    };
+    expect(getEffectiveTimeSignature(score, 1)).toEqual({
+      count: 9,
+      unit: 8,
+      beatStructure: [2, 3, 2, 2],
+    });
+  });
+
   it("defaults to 4/4 if no time signature found", () => {
     const score: Score = {
       mnx: { version: 1 },

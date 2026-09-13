@@ -1,0 +1,424 @@
+{
+  "cases": [
+    {
+      "name": "pure eighths in 4/4 group by half measure",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e7",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "B", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e8",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["e1", "e2", "e3", "e4"],
+        ["e5", "e6", "e7", "e8"]
+      ]
+    },
+    {
+      "name": "mixed eighths and sixteenths in 4/4 group by beat",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e7",
+                        "duration": { "base": "half" },
+                        "notes": [{ "pitch": { "step": "B", "octave": 4 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["e1", "e2", "e3"],
+        ["e4", "e5", "e6"]
+      ]
+    },
+    {
+      "name": "duration sensitivity is local to each half of 4/4",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e7",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "B", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e8",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+                      },
+                      {
+                        "id": "e9",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 5 } }]
+                      },
+                      {
+                        "id": "e10",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 5 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["e1", "e2", "e3", "e4"],
+        ["e5", "e6", "e7", "e8"],
+        ["e9", "e10"]
+      ]
+    },
+    {
+      "name": "compound 6/8 groups by dotted-quarter beats",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 6, "unit": 8 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["e1", "e2", "e3"],
+        ["e4", "e5", "e6"]
+      ]
+    },
+    {
+      "name": "short rests inside a beat do not break a group",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      { "duration": { "base": "16th" } },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "quarter" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "half" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [["e1", "e2"]]
+    },
+    {
+      "name": "explicit event exclusions split inferred runs",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e7",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "B", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e8",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 5 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": ["e1", "e2", "e3", "e4"],
+      "expected": [["e5", "e6", "e7", "e8"]]
+    },
+    {
+      "name": "excluded short notes do not change inferred duration sensitivity",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "16th" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e5",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "G", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e6",
+                        "duration": { "base": "half" },
+                        "notes": [{ "pitch": { "step": "A", "octave": 4 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": ["e1", "e2"],
+      "expected": [["e3", "e4", "e5"]]
+    }
+  ]
+}

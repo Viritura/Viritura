@@ -466,10 +466,10 @@ fn test_secondary_beam_breaks_explicit() {
 }
 
 #[test]
-fn test_secondary_beam_breaks_implied() {
+fn test_inner_beams_remain_continuous_without_explicit_breaks() {
     // Load the implied beam breaks fixture: flat beam groups without nested
-    // sub-beams. The engine should automatically infer secondary/tertiary beam
-    // breaks based on 4/4 time signature grouping rules.
+    // sub-beams. Inner beams should remain continuous across each authored
+    // primary group unless recursive MNX beams explicitly request a break.
     let json = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../packages/format/fixtures/mnx/beams-secondary-beam-breaks-implied.mnx"),
@@ -502,27 +502,52 @@ fn test_secondary_beam_breaks_implied() {
         .collect();
 
     // Each beam group has 8 thirty-second notes in 4/4 time.
-    // Implied grouping per beam group (default policy):
+    // Default grouping per beam group:
     // Level 0 (primary): 1 beam spanning all 8 events
     // Level 1 (secondary): 1 continuous beam spanning all 8 events
-    // Level 2 (tertiary): 4 beams (break every 2 notes = 0.25 beats)
-    // = 6 segments per beam group × 2 groups = 12 beam DrawRects
-    assert!(
-        beam_widths.len() >= 12,
-        "Expected at least 12 beam DrawPolygons for implied tertiary-only breaks, got {}",
+    // Level 2 (tertiary): 1 continuous beam spanning all 8 events
+    // = 3 segments per beam group × 2 groups = 6 beam polygons
+    assert_eq!(
+        beam_widths.len(),
+        6,
+        "Expected three continuous beam levels per group, got {}",
         beam_widths.len()
     );
 
-    // Verify secondary beams are shorter than primary beams
+    // All three levels in each group span the same notes.
     let max_width = beam_widths.iter().cloned().fold(0.0_f64, f64::max);
-    let shorter_beams: Vec<&f64> = beam_widths
-        .iter()
-        .filter(|w| **w < max_width * 0.75)
-        .collect();
     assert!(
-        !shorter_beams.is_empty(),
-        "Implied secondary beams should break into shorter segments, but all near max width {}",
-        max_width
+        beam_widths.iter().all(|width| *width >= max_width * 0.95),
+        "Unspecified inner beams should remain continuous: {beam_widths:?}"
+    );
+}
+
+#[test]
+fn test_auto_beam_sixteenths_stay_connected_through_each_quarter_beat() {
+    let events = (1..=16)
+        .map(|index| {
+            format!(
+                r#"{{"id":"e{index}","duration":{{"base":"16th"}},"notes":[{{"pitch":{{"step":"C","octave":5}}}}]}}"#
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+            "parts": [{{"measures": [{{"sequences": [{{"content": [{events}]}}]}}]}}]
+        }}"#
+    );
+
+    let score = parse_mnx(&json).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let beam_count = dl.commands.iter().filter(|c| is_beam_polygon(c)).count();
+
+    assert_eq!(
+        beam_count, 8,
+        "Four sixteenths per beat should produce one primary and one continuous secondary beam per beat"
     );
 }
 
@@ -1129,6 +1154,7 @@ fn test_beam_group_duration_4_4_eighths() {
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     // Eighths in 4/4 should group by half-measure (2.0 QN)
     assert_eq!(beam_group_duration(&ts, 1), 2.0);
@@ -1140,6 +1166,7 @@ fn test_beam_group_duration_4_4_sixteenths() {
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     // 16ths in 4/4 should group by beat (1.0 QN)
     assert_eq!(beam_group_duration(&ts, 2), 1.0);
@@ -1151,6 +1178,7 @@ fn test_beam_group_duration_3_4() {
         count: 3,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     // All note values in 3/4 group by beat (1.0 QN)
     assert_eq!(beam_group_duration(&ts, 1), 1.0);
@@ -1163,6 +1191,7 @@ fn test_beam_group_duration_6_8() {
         count: 6,
         unit: 8,
         display: None,
+        beat_structure: None,
     };
     // Compound meter: group by dotted quarter (1.5 QN)
     assert_eq!(beam_group_duration(&ts, 1), 1.5);
@@ -1175,6 +1204,7 @@ fn test_beam_group_duration_2_4() {
         count: 2,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     assert_eq!(beam_group_duration(&ts, 1), 1.0);
 }
@@ -1477,6 +1507,7 @@ fn test_beam_group_duration_6_4_eighths() {
         count: 6,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     // Eighths in 6/4 group by half-measure (3.0 QN)
     assert_eq!(beam_group_duration(&ts, 1), 3.0);

@@ -686,28 +686,9 @@ pub(crate) fn render_beams(
         .flat_map(|vl| (0..vl.events.len()).map(|i| vl.events.to_event_layout(i)))
         .collect();
 
-    // Compute onset times (in quarter-note beats) per voice for implied breaks
-    let voice_onset_times: HashMap<String, f64> = {
-        let mut map = HashMap::new();
-        for vl in &ml.voice_layouts {
-            let mut t = 0.0;
-            for i in 0..vl.events.len() {
-                if let Some(id) = vl.events.id(i) {
-                    map.insert(id.to_string(), t);
-                }
-                t += vl.events.event(i).duration.total_beats();
-            }
-        }
-        map
-    };
-
     // Map each event ID to the tuplet group it belongs to (globally unique
-    // index across voices). Used to suppress meter-implied secondary/tertiary
-    // beam breaks inside a tuplet: the irregular real durations of tuplet
-    // members do not align to metric subdivisions, so a meter-based break
-    // would chop the inner beams into spurious fragments (e.g. a 17-tuplet of
-    // 32nds re-beamed every two notes). Standard engraving practice: a tuplet
-    // of equal note values carries continuous secondary/tertiary beams.
+    // index across voices). Secondary+ beams break at tuplet boundaries but
+    // remain continuous within each tuplet.
     let event_tuplet: HashMap<String, usize> = {
         let mut map = HashMap::new();
         let mut tuplet_counter = 0usize;
@@ -751,21 +732,6 @@ pub(crate) fn render_beams(
 
         // Record command index before rendering for element ID tagging
         let cmd_start = dl.commands.len();
-
-        // Determine whether the entire beam group lies within a single tuplet.
-        // If so, suppress meter-implied secondary/tertiary breaks (see note at
-        // `event_tuplet` construction above).
-        let within_single_tuplet = {
-            let mut tuplets = beam_events.iter().map(|el| {
-                el.id
-                    .as_deref()
-                    .and_then(|id| event_tuplet.get(id).copied())
-            });
-            match tuplets.next().flatten() {
-                Some(first_tg) => tuplets.all(|t| t == Some(first_tg)),
-                None => false,
-            }
-        };
 
         // Secondary+ beams break at TUPLET BOUNDARIES. When a beam group spans
         // two adjacent tuplets (e.g. two 16th-note triplets beamed together on
@@ -935,7 +901,6 @@ pub(crate) fn render_beams(
         // Draw beam rectangles for each level
         draw_beam_levels(
             dl,
-            ml,
             &beam_events,
             &stem_tips,
             *first,
@@ -946,8 +911,6 @@ pub(crate) fn render_beams(
             beam_gap,
             &explicit_hooks,
             &explicit_beam_groups,
-            &voice_onset_times,
-            within_single_tuplet,
             &tuplet_boundary_breaks,
             sp,
             config,

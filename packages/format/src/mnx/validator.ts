@@ -18,6 +18,7 @@ import {
   mnxDocument,
   rootExtensions,
   measureGlobalExtensions,
+  timeExtensions,
   keyExtensions,
   tempoExtensions,
   partExtensions,
@@ -37,6 +38,7 @@ import {
 type ExtensionDefinition =
   | "root-extensions"
   | "measure-global-extensions"
+  | "time-extensions"
   | "key-extensions"
   | "tempo-extensions"
   | "part-extensions"
@@ -57,6 +59,7 @@ type StandaloneValidateFunction = ((data: unknown) => boolean) & Pick<ValidateFu
 const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunction> = {
   "root-extensions": rootExtensions,
   "measure-global-extensions": measureGlobalExtensions,
+  "time-extensions": timeExtensions,
   "key-extensions": keyExtensions,
   "tempo-extensions": tempoExtensions,
   "part-extensions": partExtensions,
@@ -99,7 +102,11 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
     const value = json as RawScore;
     const extensionErrors = validateVirituraExtensions(json);
     if (extensionErrors.length > 0) return { ok: false, errors: extensionErrors };
-    const semanticErrors = [...validateDynamicGroups(value), ...validateKitReferences(value)];
+    const semanticErrors = [
+      ...validateDynamicGroups(value),
+      ...validateKitReferences(value),
+      ...validateBeatStructures(value),
+    ];
     if (semanticErrors.length > 0) return { ok: false, errors: semanticErrors };
     return { ok: true, value };
   }
@@ -184,6 +191,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
   asObjects(global?.["measures"]).forEach((measure, measureIndex) => {
     const measurePointer = `/global/measures/${measureIndex}`;
     validateAt(measure, measurePointer, "measure-global-extensions");
+    validateAt(asObject(measure["time"]), `${measurePointer}/time`, "time-extensions");
     validateAt(asObject(measure["key"]), `${measurePointer}/key`, "key-extensions");
     asObjects(measure["tempos"]).forEach((tempo, tempoIndex) =>
       validateAt(tempo, `${measurePointer}/tempos/${tempoIndex}`, "tempo-extensions"),
@@ -197,6 +205,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     for (const [componentId, component] of Object.entries(kit ?? {})) {
       validateAt(asObject(component), `${partPointer}/kit/${pointerToken(componentId)}`, "kit-component-extensions");
     }
+
     asObjects(part["measures"]).forEach((measure, measureIndex) => {
       const measurePointer = `${partPointer}/measures/${measureIndex}`;
       validateAt(measure, measurePointer, "part-measure-extensions");
@@ -241,6 +250,28 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     }
   };
   findUnsupported(root, "");
+  return errors;
+}
+
+function validateBeatStructures(score: RawScore): RawScoreValidationError[] {
+  const errors: RawScoreValidationError[] = [];
+  score.global.measures.forEach((measure, measureIndex) => {
+    const time = measure.time;
+    if (!time) return;
+    const extension = time._x?.["viritura"] as { beatStructure?: unknown } | undefined;
+    if (!Array.isArray(extension?.beatStructure)) return;
+    const total = extension.beatStructure.reduce(
+      (sum: number, group: unknown) => sum + (typeof group === "number" ? group : 0),
+      0,
+    );
+    if (total !== time.count) {
+      errors.push({
+        pointer: `/global/measures/${measureIndex}/time/_x/viritura/beatStructure`,
+        message: `beatStructure values must sum to time.count (${time.count})`,
+        keyword: "sum",
+      });
+    }
+  });
   return errors;
 }
 

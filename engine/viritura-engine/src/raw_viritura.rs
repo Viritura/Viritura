@@ -7016,6 +7016,51 @@ impl ::std::default::Default for TextStyles {
         }
     }
 }
+///Viritura semantic extensions on an MNX time signature.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura semantic extensions on an MNX time signature.",
+///  "type": "object",
+///  "properties": {
+///    "beatStructure": {
+///      "description": "Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count.",
+///      "type": "array",
+///      "items": {
+///        "type": "integer"
+///      },
+///      "minItems": 1
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TimeExtensions {
+    ///Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count.
+    #[serde(
+        rename = "beatStructure",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub beat_structure: ::std::vec::Vec<i64>,
+}
+impl ::std::convert::From<&TimeExtensions> for TimeExtensions {
+    fn from(value: &TimeExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for TimeExtensions {
+    fn default() -> Self {
+        Self {
+            beat_structure: Default::default(),
+        }
+    }
+}
 ///Whether a meter is engraved once on every staff or once for each staff group.
 ///
 /// <details><summary>JSON schema</summary>
@@ -8462,6 +8507,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "text-styles": {
 ///      "$ref": "#/$defs/text-styles"
 ///    },
+///    "time-extensions": {
+///      "$ref": "#/$defs/time-extensions"
+///    },
 ///    "time-signature-distribution": {
 ///      "$ref": "#/$defs/time-signature-distribution"
 ///    },
@@ -8842,6 +8890,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub text_styles: ::std::option::Option<TextStyles>,
     #[serde(
+        rename = "time-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub time_extensions: ::std::option::Option<TimeExtensions>,
+    #[serde(
         rename = "time-signature-distribution",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -8975,6 +9029,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             text_expression: Default::default(),
             text_style: Default::default(),
             text_styles: Default::default(),
+            time_extensions: Default::default(),
             time_signature_distribution: Default::default(),
             time_signature_grand_staff: Default::default(),
             time_signature_legacy_style: Default::default(),

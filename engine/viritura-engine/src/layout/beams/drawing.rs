@@ -130,7 +130,6 @@ pub(super) fn render_between_staff_beam(
 #[allow(clippy::too_many_arguments)] // rendering boundary: authored and inferred break inputs are independent
 pub(super) fn draw_beam_levels(
     dl: &mut DisplayList,
-    ml: &MeasureLayout,
     beam_events: &[&EventLayout],
     stem_tips: &[(f64, f64)],
     first: (f64, f64),
@@ -141,8 +140,6 @@ pub(super) fn draw_beam_levels(
     beam_gap: f64,
     explicit_hooks: &HashMap<String, bool>,
     explicit_beam_groups: &[Vec<HashSet<String>>],
-    voice_onset_times: &HashMap<String, f64>,
-    within_single_tuplet: bool,
     tuplet_boundary_breaks: &HashSet<usize>,
     sp: f64,
     config: &LayoutConfig,
@@ -160,19 +157,8 @@ pub(super) fn draw_beam_levels(
                 let breaks =
                     compute_beam_break_indices(beam_events, &explicit_beam_groups[group_index]);
                 segments = split_segments_at_breaks(segments, &breaks);
-            } else {
-                if !tuplet_boundary_breaks.is_empty() {
-                    segments = split_segments_at_breaks(segments, tuplet_boundary_breaks);
-                }
-                if level > 1 && !within_single_tuplet {
-                    let breaks = compute_implied_beam_breaks(
-                        beam_events,
-                        voice_onset_times,
-                        &ml.resolved.active_time,
-                        level,
-                    );
-                    segments = split_segments_at_breaks(segments, &breaks);
-                }
+            } else if !tuplet_boundary_breaks.is_empty() {
+                segments = split_segments_at_breaks(segments, tuplet_boundary_breaks);
             }
         }
         let hook_length = 0.875 * sp;
