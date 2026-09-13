@@ -22,6 +22,7 @@ function groupingScoreJson(options: {
   houseStyle?: "standard" | "additive" | "annotation";
   staffOverrides?: { staff: number; groupingDisplay: "standard" | "additive" | "annotation" }[];
   staves?: number;
+  tempo?: boolean;
 }): string {
   const timeExt: Record<string, unknown> = {};
   if (options.beatStructure) timeExt["beatStructure"] = options.beatStructure;
@@ -58,6 +59,17 @@ function groupingScoreJson(options: {
             unit: options.unit,
             ...(Object.keys(timeExt).length > 0 ? { _x: { viritura: timeExt } } : {}),
           },
+          ...(options.tempo
+            ? {
+                tempos: [
+                  {
+                    bpm: 120,
+                    value: { base: "quarter" },
+                    _x: { viritura: { text: "Allegro" } },
+                  },
+                ],
+              }
+            : {}),
         },
       ],
     },
@@ -107,8 +119,8 @@ export const HouseStyleAdditive: StoryObj = {
 
 /**
  * The same non-default 7/8 under an "annotation" house style: the ordinary
- * "7/8" numeral is unchanged, with a generated "3+2+2" grouping annotation
- * engraved above it.
+ * "7/8" numeral is unchanged, with generated bold "3+2+2" system text
+ * engraved above it in the style of a tempo marking.
  */
 export const HouseStyleAnnotation: StoryObj = {
   render: () => (
@@ -118,10 +130,28 @@ export const HouseStyleAnnotation: StoryObj = {
         unit: 8,
         beatStructure: [3, 2, 2],
         houseStyle: "annotation",
+        staves: 2,
       })}
     />
   ),
   name: "House style: grouping annotation",
+};
+
+/** A tempo marking shares the same horizontal column and stacks above the grouping text. */
+export const AnnotationWithTempo: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={groupingScoreJson({
+        count: 7,
+        unit: 8,
+        beatStructure: [3, 2, 2],
+        houseStyle: "annotation",
+        staves: 2,
+        tempo: true,
+      })}
+    />
+  ),
+  name: "Grouping annotation with tempo above",
 };
 
 /**

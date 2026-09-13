@@ -90,11 +90,11 @@ How a meter's beat grouping is _presented_ is independent of its semantic
 conventional default), while `groupingDisplay` only controls what is drawn.
 Schema def: `grouping-display`.
 
-| Value        | Effect                                                                                            |
-| ------------ | ------------------------------------------------------------------------------------------------- |
-| `standard`   | Ordinary numeric (or symbolic) meter — no grouping decoration.                                    |
-| `additive`   | Numerator written as its beat groups joined by `+` (e.g. `3+2+2` over `8`), replacing the count.  |
-| `annotation` | Ordinary numeral engraved as usual, plus a generated grouping annotation (e.g. `3+2+2`) above it. |
+| Value        | Effect                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `standard`   | Ordinary numeric (or symbolic) meter — no grouping decoration.                                                               |
+| `additive`   | Numerator written as its beat groups joined by `+` (e.g. `3+2+2` over `8`), replacing the count.                             |
+| `annotation` | Ordinary numeral engraved as usual, plus generated bold system text (e.g. `3+2+2`) above it in the style of a tempo marking. |
 
 Resolution precedence, highest first:
 

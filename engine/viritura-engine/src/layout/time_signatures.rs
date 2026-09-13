@@ -11,6 +11,7 @@
 pub(crate) mod spanning;
 
 use crate::layout::render_annotations::AboveGlyphBox;
+use crate::layout::text_styles::{self, FontFamily};
 use crate::layout::types::MeasureLayout;
 use crate::model::measure::PartMeasure;
 use crate::model::time::{
@@ -20,7 +21,7 @@ use crate::model::time::{
 };
 use crate::model::NoteValueBase;
 use crate::render::smufl::smufl;
-use crate::render::{DisplayList, RenderCommand};
+use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
 /// Nominal font size of a staff-size music glyph: one em spans four spaces.
 const NOMINAL_SIZE_SP: f64 = 4.0;
@@ -32,10 +33,10 @@ const ABOVE_STAFF_GAP_SP: f64 = 1.0;
 /// Scale of a generated grouping-annotation row (e.g. `2+3+2+2`) relative to
 /// the ordinary meter's digit size — smaller so it reads as a decoration
 /// rather than a second time signature.
-const ANNOTATION_SCALE: f64 = 0.55;
+const ANNOTATION_SCALE: f64 = 0.6;
 /// Clearance between the grouping-annotation row and the ordinary meter's
 /// ink above which it is engraved.
-const ANNOTATION_GAP_SP: f64 = 0.4;
+const ANNOTATION_GAP_SP: f64 = 0.8;
 /// Optical lift for plus signs embedded in an in-staff additive numerator.
 /// Standard engraving practice avoids coinciding a thin horizontal glyph
 /// stroke with a staff line; annotation rows above the staff need no lift.
@@ -69,10 +70,19 @@ pub(crate) struct TimeSignatureGlyph {
     pub size: f64,
 }
 
+pub(crate) struct TimeSignatureAnnotation {
+    pub x: f64,
+    pub y: f64,
+    pub text: String,
+    pub size: f64,
+    pub width: f64,
+}
+
 /// Everything a time signature engraves, plus the extents the rest of the
 /// layout needs to keep clear of it.
 pub(crate) struct TimeSignatureLayout {
     pub glyphs: Vec<TimeSignatureGlyph>,
+    pub annotation: Option<TimeSignatureAnnotation>,
     /// Ink width of the widest row, in pixels.
     pub width: f64,
     /// Topmost ink (smallest y, +Y down) in absolute pixels.
@@ -255,6 +265,7 @@ pub(crate) fn time_signature_layout(
     {
         return TimeSignatureLayout {
             glyphs: Vec::new(),
+            annotation: None,
             width: 0.0,
             top_y: target_top,
             bottom_y: target_top,
@@ -276,6 +287,11 @@ pub(crate) fn time_signature_layout(
         Err(_) => (GroupingDisplay::Standard, vec![ts.count]),
     };
 
+    let numeric_mode = if mode == GroupingDisplay::Annotation {
+        GroupingDisplay::Standard
+    } else {
+        mode
+    };
     let layout = if let Some(display) = ts.display.as_ref() {
         if let Some((codepoint, extra_reach_sp)) = symbol_codepoint(display, digits) {
             symbol_layout(codepoint, extra_reach_sp, x, center_y, sp, size, digits)
@@ -284,7 +300,7 @@ pub(crate) fn time_signature_layout(
                 settings.render_style,
                 ts,
                 &groups,
-                mode,
+                numeric_mode,
                 x,
                 center_y,
                 sp,
@@ -297,7 +313,7 @@ pub(crate) fn time_signature_layout(
             settings.render_style,
             ts,
             &groups,
-            mode,
+            numeric_mode,
             x,
             center_y,
             sp,
@@ -305,7 +321,11 @@ pub(crate) fn time_signature_layout(
             digits,
         )
     };
-    align_layout(layout, settings.position, target_top, target_bottom, sp)
+    let mut layout = align_layout(layout, settings.position, target_top, target_bottom, sp);
+    if mode == GroupingDisplay::Annotation {
+        apply_grouping_annotation(&mut layout, digits, &groups, x, size, sp);
+    }
+    layout
 }
 
 /// The staff-targeted grouping-display occurrence override in force for the
@@ -364,6 +384,9 @@ fn align_layout(
     for glyph in &mut layout.glyphs {
         glyph.y += dy;
     }
+    if let Some(annotation) = &mut layout.annotation {
+        annotation.y += dy;
+    }
     layout.top_y += dy;
     layout.bottom_y += dy;
     layout
@@ -388,6 +411,7 @@ fn symbol_layout(
             codepoint,
             size,
         }],
+        annotation: None,
         width,
         top_y: center_y - reach,
         bottom_y: center_y + reach,
@@ -444,52 +468,41 @@ fn stacked_layout(
         sp,
     );
 
-    let mut layout = TimeSignatureLayout {
+    TimeSignatureLayout {
         glyphs,
+        annotation: None,
         width,
         top_y: geometry.numerator_y - geometry.half_height,
         bottom_y: geometry.denominator_y + geometry.half_height,
-    };
-    if mode == GroupingDisplay::Annotation {
-        apply_grouping_annotation(&mut layout, digits, groups, x, size, sp);
     }
-    layout
 }
 
-/// Add a generated grouping-annotation row (e.g. `2+3+2+2`) above a meter's
-/// already-laid-out ink, widening `layout` and recentering its existing
-/// glyphs if the annotation is wider than the ordinary meter.
+/// Add generated grouping text (e.g. `2+3+2+2`) above the meter using the
+/// score's tempo-marking visual language rather than music-font glyphs.
 fn apply_grouping_annotation(
     layout: &mut TimeSignatureLayout,
-    digits: smufl::TimeSigDigits,
+    _digits: smufl::TimeSigDigits,
     groups: &[u32],
     x: f64,
     size: f64,
     sp: f64,
 ) {
     let annotation_size = size * ANNOTATION_SCALE;
-    let annotation_width = additive_row_width(digits, groups, annotation_size, sp);
-    if annotation_width > layout.width {
-        let shift = (annotation_width - layout.width) * 0.5;
-        for glyph in &mut layout.glyphs {
-            glyph.x += shift;
-        }
-        layout.width = annotation_width;
-    }
-    let center_x = x + layout.width * 0.5;
-    let annotation_half_height = scaled(1.0, annotation_size, sp);
-    let annotation_y = layout.top_y - ANNOTATION_GAP_SP * sp - annotation_half_height;
-    push_additive_row(
-        &mut layout.glyphs,
-        digits,
-        groups,
-        center_x,
-        annotation_y,
-        annotation_size,
-        sp,
-        0.0,
-    );
-    layout.top_y = annotation_y - annotation_half_height;
+    let annotation_y = layout.top_y - ANNOTATION_GAP_SP * sp;
+    let text = groups
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join("+");
+    let width = text_styles::text_width(&text, annotation_size, FontFamily::Serif, true);
+    layout.annotation = Some(TimeSignatureAnnotation {
+        x,
+        y: annotation_y,
+        text,
+        size: annotation_size,
+        width,
+    });
+    layout.top_y = annotation_y - annotation_size * 0.8;
 }
 
 fn single_number_layout(
@@ -527,16 +540,13 @@ fn single_number_layout(
         },
     );
 
-    let mut layout = TimeSignatureLayout {
+    TimeSignatureLayout {
         glyphs,
+        annotation: None,
         width,
         top_y: center_y - half_height,
         bottom_y: center_y + half_height,
-    };
-    if mode == GroupingDisplay::Annotation {
-        apply_grouping_annotation(&mut layout, digits, groups, x, size, sp);
     }
-    layout
 }
 
 /// A note-value meter sets the beat count over the note the denominator
@@ -600,6 +610,7 @@ fn note_value_layout(
 
     TimeSignatureLayout {
         glyphs,
+        annotation: None,
         width,
         top_y: geometry.numerator_y - geometry.half_height,
         bottom_y: (note_y + note_top + note_ink_height).max(geometry.denominator_y),
@@ -645,6 +656,18 @@ pub(crate) fn render_time_signature_layout(dl: &mut DisplayList, layout: &TimeSi
             rotation: 0.0,
         });
     }
+    if let Some(annotation) = &layout.annotation {
+        dl.push(RenderCommand::DrawText {
+            x: annotation.x,
+            y: annotation.y,
+            text: annotation.text.clone(),
+            font: "serif bold".into(),
+            size: annotation.size,
+            color: "#000000".into(),
+            align: TextAlign::Left,
+            baseline: TextBaseline::Alphabetic,
+        });
+    }
 }
 
 /// Padding the measure prefix keeps between its last element and the first
@@ -683,9 +706,6 @@ pub(crate) fn above_staff_extent(
     sp: f64,
     settings: TimeSignatureSettings,
 ) -> Option<AboveGlyphBox> {
-    if settings.position != TimeSignaturePosition::Above {
-        return None;
-    }
     let ts = ml.resolved.global.time.as_ref()?;
     let x = meter_origin_x(ml, ts, settings, sp);
     let staff_override = staff_grouping_override(&ml.resolved.part);
@@ -698,10 +718,27 @@ pub(crate) fn above_staff_extent(
         sp,
         staff_override,
     );
-    if layout.glyphs.is_empty() {
-        return None;
+    let annotation_extent = layout.annotation.as_ref().map(|annotation| {
+        (
+            annotation.x,
+            annotation.x + annotation.width,
+            annotation.y - annotation.size * 0.82,
+        )
+    });
+    if settings.position != TimeSignaturePosition::Above {
+        return annotation_extent;
     }
-    Some((x, x + layout.width, layout.top_y))
+    if layout.glyphs.is_empty() {
+        return annotation_extent;
+    }
+    match annotation_extent {
+        Some((left, right, top)) => Some((
+            left.min(x),
+            right.max(x + layout.width),
+            top.min(layout.top_y),
+        )),
+        None => Some((x, x + layout.width, layout.top_y)),
+    }
 }
 
 /// Conservative inter-staff room required when each lower staff owns an

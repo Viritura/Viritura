@@ -24,6 +24,7 @@ describe("GroupingDisplay storybook fixtures", () => {
         "Standard",
         "HouseStyleAdditive",
         "HouseStyleAnnotation",
+        "AnnotationWithTempo",
         "DefaultMeterStaysStandard",
         "OccurrenceOverride",
         "PerStaffOverridePrecedence",

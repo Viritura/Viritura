@@ -187,6 +187,7 @@ fn render_measure_prefix(
         Some(AlignedPrefix {
             width: ml.prefix_width,
             first_onset_padding: ml.first_onset_padding,
+            time_signature_reserve: 0.0,
         }),
         Some(measure_leading_gap),
         PrefixContext::MeasureLayout,

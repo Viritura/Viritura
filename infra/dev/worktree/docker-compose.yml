@@ -254,6 +254,7 @@ services:
     environment:
       <<: *public-environment
       CI: "true"
+      VIRITURA_CONTAINER_HOST: mnx.${VIRITURA_SLUG}.localhost
       VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
     networks: *proxy-networks
     labels:

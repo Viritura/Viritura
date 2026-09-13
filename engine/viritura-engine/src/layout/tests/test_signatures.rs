@@ -2479,20 +2479,100 @@ fn grouping_annotation_adds_a_row_above_the_ordinary_meter() {
         .filter(|g| g.codepoint == smufl::TIME_SIG_7)
         .count();
     assert_eq!(plain_numerator, 1, "the ordinary numerator 7 is unchanged");
-    // ...plus a generated "3+2+2" annotation above it.
-    let plus_glyphs = annotated
-        .glyphs
-        .iter()
-        .filter(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
-        .count();
-    assert_eq!(plus_glyphs, 2, "the annotation joins 3+2+2 with two pluses");
+    // ...plus generated bold system text above it.
+    let annotation = annotated.annotation.as_ref().unwrap();
+    assert_eq!(annotation.text, "3+2+2");
+    assert!(
+        annotation.y < standard.top_y,
+        "the annotation baseline should sit above the ordinary meter"
+    );
     assert!(
         annotated.top_y < standard.top_y,
         "the annotation extends the layout's ink upward"
     );
     assert!(
-        annotated.glyphs.len() > standard.glyphs.len(),
-        "annotation adds glyphs on top of the ordinary meter"
+        annotated.glyphs.len() == standard.glyphs.len(),
+        "annotation must not add glyphs inside the time signature"
+    );
+}
+
+#[test]
+fn tempo_stacks_above_grouping_annotation_text() {
+    let events = (0..7)
+        .map(|_| r#"{"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":5}}]}"#)
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{
+          "mnx": {{"version": 1}},
+          "global": {{"measures": [{{
+            "time": {{"count":7,"unit":8,"_x":{{"viritura":{{
+              "beatStructure":[3,2,2],"groupingDisplay":"annotation"
+            }}}}}},
+            "tempos": [{{"bpm":120,"value":{{"base":"quarter"}},"_x":{{"viritura":{{"text":"Allegro"}}}}}}]
+          }}]}},
+          "parts": [{{"measures":[{{"sequences":[{{"content":[{events}]}}]}}]}}]
+        }}"#
+    );
+    let score = parse_mnx(&json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let annotation_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawText { text, y, .. } if text == "3+2+2" => Some(*y),
+        _ => None,
+    });
+    let tempo_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawText { text, y, .. } if text.contains("Allegro") => Some(*y),
+        _ => None,
+    });
+    assert!(
+        tempo_y.expect("tempo text command")
+            < annotation_y.expect("grouping annotation text command"),
+        "tempo text must stack above grouping annotation text"
+    );
+}
+
+#[test]
+fn staff_time_signatures_center_in_the_widest_shared_slot() {
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {
+        "count": 7, "unit": 8,
+        "_x": {"viritura": {
+          "beatStructure": [3,2,2], "groupingDisplay": "additive"
+        }}
+      }}]},
+      "parts": [
+        {"measures": [{"sequences": [], "_x": {"viritura": {
+          "groupingDisplayOverrides": [{"staff": 1, "groupingDisplay": "standard"}]
+        }}}]},
+        {"measures": [{"sequences": []}]}
+      ]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let upper = resolve_measures(&score, 0);
+    let lower = resolve_measures(&score, 1);
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    let aligned = compute_max_prefix_width([&upper[0], &lower[0]], sp, true, &config);
+    let layout = |measure: &ResolvedMeasure| {
+        prefix_layout(
+            measure,
+            sp,
+            true,
+            Some(aligned),
+            None,
+            PrefixContext::Alignment,
+            &config,
+        )
+    };
+    let upper_layout = layout(&upper[0]);
+    let lower_layout = layout(&lower[0]);
+    let center = |prefix: &PrefixLayout| {
+        prefix.time_signature_x_offset.unwrap() + prefix.time_signature_reserve.unwrap() * 0.5
+    };
+    assert!(
+        (center(&upper_layout) - center(&lower_layout)).abs() < 0.001,
+        "staff-local meters must share one horizontal center"
     );
 }
 
@@ -2616,8 +2696,11 @@ fn time_occurrence_override_forces_annotation_without_house_style() {
     let plain_numerator = glyphs_in_range(&dl, smufl::TIME_SIG_7..=smufl::TIME_SIG_7);
     assert_eq!(plain_numerator.len(), 1, "the ordinary 7/8 numeral remains");
     assert!(
-        !glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
-        "the occurrence override forces the grouping annotation with no house style set"
+        dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawText { text, font, .. }
+                if text == "3+2+2" && font == "serif bold")
+        ),
+        "the occurrence override forces bold grouping text with no house style set"
     );
 }
 
