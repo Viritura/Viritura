@@ -14,7 +14,8 @@ Launch the editor from the landing page (**Open Editor**) or go straight to
 - **Open Project Folder…** is the recommended option for ongoing work. It keeps
   the MNX document, Git history, source files, and exports together in one project
   folder.
-- **Import…** converts a MusicXML or MXL file into an MNX document.
+- **Import…** converts a MusicXML, compressed MXL, or Finale MUSX file into an
+  MNX document.
 - **Open MNX file** opens a standalone `.mnx` document for quick edits or viewing,
   without the project folder, source files, exports, or Git history.
 

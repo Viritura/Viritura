@@ -30,10 +30,26 @@ toggles the side panels for a distraction‑free view.
 
 ## Review version history
 
-In a versioned project, Review reads the Git log. Pick a _from_ and _to_
-revision and the Original / Modified panes render the score at each, with
-changed measures highlighted and a semantic diff tree on the side. Standalone
-files can opt into a project folder before they gain revision history.
+> [!NOTE]
+> **Availability: Project folders only**
+>
+> Review reads Git history from a versioned project folder. A standalone file
+> can choose **Set up version history** and move into a project folder before
+> revisions become available.
+
+Review opens with a **Before** and **After** score. The **Changes** tab
+summarizes added, removed, and modified musical items and provides a semantic
+diff tree. Select a node in that tree to focus the affected measure in both
+scores.
+
+Use the **Versions** tab to choose the comparison:
+
+- selecting a saved version compares it with its parent;
+- **Working tree** compares unsaved changes;
+- **Change** on either endpoint lets you choose an explicit Before or After
+  revision;
+- versions are grouped into dated editing sessions, with older history loaded
+  in batches.
 
 A few things to know:
 
@@ -42,10 +58,12 @@ A few things to know:
 - A concert/written‑pitch toggle re‑renders both panes without touching the
   document.
 - Click a changed measure to focus it in both panes.
-- Switch between musical snippets and the full MNX file when you need different
-  levels of detail.
-- Connect a GitHub repository from the history panel when the project should
-  have a remote backup or shared repository.
+- **Scores only** keeps the visual comparison full-height. **Scores and MNX
+  source** adds either changed snippets or the full file; full-file source can
+  render side by side or inline.
+- When a GitHub remote is connected, the history footer can check for new
+  versions, push local commits, and open the repository. Projects without a
+  remote can create and connect one there after GitHub sign-in.
 
 The semantic diff identifies musical changes such as a revised slur or dynamic.
 

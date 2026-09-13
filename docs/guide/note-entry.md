@@ -33,6 +33,23 @@ In note input, `Alt+↑` / `Alt+↓` moves the just-entered note by a diatonic
 step, `Alt+Shift+↑` / `Alt+Shift+↓` by a chromatic semitone, and
 `Mod+Alt+↑` / `Mod+Alt+↓` by an octave.
 
+## MIDI keyboard input
+
+> [!NOTE]
+> **Availability: Chromium web / desktop app**
+>
+> MIDI note entry requires Web MIDI support, permission to access the device,
+> and a selected performance input.
+
+Open **Settings → MIDI Input**, enable access, and select your keyboard as the
+**Performance input**. Playing it outside note input auditions the selected
+sound. In note input, hold one or more keys and release them to enter a note or
+chord at the cursor; the editor previews the held pitches through the current
+instrument while you play.
+
+The selected toolbar duration controls the entered rhythm. MIDI velocity is
+used for audition but does not replace the document's notated dynamics.
+
 ## Ruler and click snapping
 
 Move the pointer over a staff in note input mode to show the insertion preview:
@@ -69,6 +86,29 @@ To stack notes into a chord:
 - **Chord‑lock:** press `Q` to lock chord mode so plain `A`–`G` add to the chord
   without advancing. Press `Q` again to release. From normal mode, `Q` jumps
   straight into note input with chord‑lock on.
+
+## Chord symbols
+
+Select a note or rest, then press `Shift+K` or choose **Chord symbol** in
+**Palettes → Text**. Enter a symbol such as `C`, `Dm7`, `F#maj7/A#`, `Gsus4`,
+or `C5`. Viritura stores the chord in the part's harmony lane at the selected
+rhythmic position rather than attaching it to the selected note.
+
+Use these keys to continue entering a progression:
+
+| Key             | Action                                     |
+| --------------- | ------------------------------------------ |
+| `Enter`         | Commit and exit                            |
+| `Space`         | Commit and move to the next note or rest   |
+| `Shift+Space`   | Commit and move to the previous event      |
+| `;` / `Shift+;` | Commit and move by one beat                |
+| `Mod+→` / `←`   | Commit and move to the next / previous bar |
+| `Esc`           | Cancel and exit                            |
+
+Select an existing chord symbol to edit its semantic root, accidental, quality,
+extension, slash bass, display staff, or display override in **Properties**.
+Document-wide chord-symbol spelling is controlled in
+[Engraving & Layout](/docs/engraving-and-layout#chord-symbols).
 
 ## Rests
 

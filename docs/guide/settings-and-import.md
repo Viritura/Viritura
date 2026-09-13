@@ -26,11 +26,47 @@ Instrument Profiles choose the sound sources available for document playback.
 > Audio Output, VST3 profile management, and Default Reverb settings appear only
 > when the native audio host is available.
 
+## MIDI input
+
+Open **Audio → MIDI Input** to connect a MIDI keyboard or control surface.
+
+> [!NOTE]
+> **Availability: Chromium web / desktop app**
+>
+> MIDI input requires Web MIDI support and permission to access connected
+> devices. Firefox and Safari do not currently expose Web MIDI to the editor.
+
+Select inputs separately by role:
+
+- **Performance input** sends keyboard notes for audition and note entry.
+- **Control input** sends transport and editor commands from a recognized
+  controller profile.
+
+Choose **Enable** the first time to grant access. Later visits reconnect to
+previously selected inputs when the browser retains permission. A recognized
+profile shows its port roles and fixed mappings; custom profile editing is not
+yet available.
+
+Use **MIDI diagnostics** to inspect incoming bytes, channels, note messages,
+control changes, pressure, program changes, and pitch bend. This is useful when
+a device appears but a key, pad, knob, or pedal does not perform the expected
+action.
+
 ## Import
 
-Import settings control how MNX and MusicXML files are interpreted when opened,
-including vendor extensions and import behavior that cannot be inferred
-unambiguously from the source file.
+Choose **File → Import**, the Start Center's **Import** tile, or drag a supported
+file into the editor. Viritura accepts MusicXML (`.musicxml` or `.xml`),
+compressed MusicXML (`.mxl`), and Finale (`.musx`) files and opens the converted
+result as a standalone MNX document.
+
+Finale MUSX conversion runs in a dedicated worker using the bundled Denigma
+converter. MUSX files are limited to 64 MiB, and the resulting MNX is validated
+before it opens. The editor reports conversion warnings when Finale-specific
+details cannot be carried across.
+
+Import settings control vendor extensions and MusicXML behavior that cannot be
+inferred unambiguously from the source file. Finale import currently uses the
+converter's standard settings, including Tempo Tool data.
 
 MusicXML import may request review when percussion sounds cannot be identified
 reliably. See

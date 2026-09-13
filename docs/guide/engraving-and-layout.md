@@ -19,6 +19,18 @@ vertical position, scale, and numeral design.
 Changes are previewed on the live score. Check several systems and any
 single-line percussion staves before settling on a score-wide treatment.
 
+### Chord symbols
+
+Choose a chord-symbol preset for conventional notation, jazz symbols, plain
+text, or lowercase minor roots. The live preview applies the choice across the
+document without changing the semantic chord data.
+
+Open **Advanced** to control root-letter case, major-seventh, minor,
+diminished, half-diminished, and augmented spellings, plus superscript or
+baseline extensions. Per-symbol display text remains available in
+**Properties** for an exception that should not change the document-wide house
+style.
+
 ### Text styles
 
 Text styles keep repeated roles consistent across the document. Edit the style
