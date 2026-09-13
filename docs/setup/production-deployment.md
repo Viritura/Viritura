@@ -17,10 +17,10 @@ api.viritura.com    -> Cloudflare DNS -> host nginx -> API container on 127.0.0.
 assets.viritura.com -> Cloudflare R2  -> public SoundFont and future large assets
 ```
 
-Cloudflare Pages projects are configured for GitHub App based builds from
-`main`; those builds are the website and editor production deployment path. The
-API runs in Docker Compose with host-managed SQLite, backups, Data Protection
-keys, and a root-owned environment file.
+GitHub Actions builds the website and editor and uploads pre-production and
+production artifacts to Cloudflare Pages with Wrangler. The API runs in Docker
+Compose with host-managed SQLite, backups, Data Protection keys, and a
+root-owned environment file.
 
 Cloudflare static setup is documented in [cloudflare.md](cloudflare.md).
 Railway remains a possible future API migration, not the active API production
@@ -29,11 +29,28 @@ commands.
 
 ## Deploy the website or editor
 
-Pushes to `main` deploy the website and editor through the two Cloudflare Pages
+Pushes to `main` start the **Deploy Pages** workflow for the two Cloudflare Pages
 projects:
 
 - `viritura-website` publishes `viritura.com` and `www.viritura.com`.
 - `viritura-app` publishes `app.viritura.com`.
+
+The workflow:
+
+1. builds the editor and website once;
+2. uploads both build directories to `preprod-<commit>.pages.dev` branch
+   aliases;
+3. runs the minimal editor and website Playwright smoke suites against those
+   deployed previews;
+4. stops before production if either preview or smoke test fails;
+5. uploads the same build directories to each project's `main` production
+   branch; and
+6. repeats the static smoke checks against the custom production domains.
+
+Cloudflare cannot atomically update two Pages projects. If one production
+upload or the final smoke check fails, use each project's deployment history to
+roll `viritura-app` and `viritura-website` back to their previous successful
+deployments before retrying the workflow.
 
 The public MNX Storybook is part of the website Pages artifact even though its
 producer lives in `apps/editor`.
@@ -43,9 +60,13 @@ Changing a guide or `docs/spec/keyboard-shortcuts.md` therefore requires a new
 static deployment. The editor imports the same keyboard reference into its Help
 dialog, so shortcut changes also require redeploying the editor bundle.
 
-If a manual production promotion gate becomes necessary, use a protected Pages
-production branch such as `production` or `release` rather than reintroducing
-long-lived Cloudflare API tokens in GitHub Actions.
+The workflow uses the protected GitHub `cloudflare-pages-production`
+Environment, separate from the API deployment's SSH-bearing `production`
+Environment. Its `CLOUDFLARE_API_TOKEN` secret is exposed only to the Wrangler
+upload steps, not to build or Playwright commands. `CLOUDFLARE_ACCOUNT_ID` is an
+Environment variable. Restrict the Environment to `main`, disable administrator
+bypass, and add required reviewers when a manual approval before preview upload
+is desired.
 
 ## Deploy the API
 

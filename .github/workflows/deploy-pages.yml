@@ -1,0 +1,173 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-pages.yml"
+      - "apps/editor/**"
+      - "apps/website/**"
+      - "packages/**"
+      - "engine/**"
+      - "e2e/**"
+      - "scripts/**"
+      - "docs/**"
+      - "assets/**"
+      - "build-site.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "playwright.config.ts"
+      - "playwright.deployed.config.ts"
+      - "turbo.json"
+      - "tsconfig.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-pages-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Preview, smoke, and deploy
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: cloudflare-pages-production
+      url: https://app.viritura.com
+    env:
+      VITE_VIRITURA_API_BASE_URL: https://api.viritura.com
+      VITE_VIRITURA_ASSET_BASE_URL: https://assets.viritura.com
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build Pages artifacts
+        run: |
+          bash scripts/build-cloudflare-pages.sh website
+          printf '%s\n' "$GITHUB_SHA" > "dist/viritura-build-${GITHUB_SHA}.txt"
+          printf '%s\n' "$GITHUB_SHA" > "apps/editor/dist/viritura-build-${GITHUB_SHA}.txt"
+      - id: preview
+        name: Select preview URLs
+        shell: bash
+        run: |
+          preview_branch="preprod-${GITHUB_SHA::12}"
+          {
+            echo "branch=$preview_branch"
+            echo "editor_url=https://${preview_branch}.viritura-app.pages.dev"
+            echo "website_url=https://${preview_branch}.viritura-website.pages.dev"
+          } >> "$GITHUB_OUTPUT"
+      - name: Deploy editor preview
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy apps/editor/dist
+          --project-name viritura-app
+          --branch "${{ steps.preview.outputs.branch }}"
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Deploy website preview
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy dist
+          --project-name viritura-website
+          --branch "${{ steps.preview.outputs.branch }}"
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Wait for Pages previews
+        env:
+          EDITOR_PREVIEW_URL: ${{ steps.preview.outputs.editor_url }}
+          WEBSITE_PREVIEW_URL: ${{ steps.preview.outputs.website_url }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "$EDITOR_PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "$WEBSITE_PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+      - name: Smoke-test Pages previews
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ steps.preview.outputs.editor_url }}
+          VIRITURA_WEBSITE_URL: ${{ steps.preview.outputs.website_url }}
+        run: |
+          pnpm e2e:smoke
+          pnpm e2e:deployed
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pages-preview-smoke-failures
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Deploy editor production
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy apps/editor/dist
+          --project-name viritura-app
+          --branch main
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Deploy website production
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy dist
+          --project-name viritura-website
+          --branch main
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Wait for production Pages
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "https://app.viritura.com/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "https://viritura.com/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+      - name: Verify production Pages
+        env:
+          PLAYWRIGHT_BASE_URL: https://app.viritura.com
+          VIRITURA_WEBSITE_URL: https://viritura.com
+        run: |
+          pnpm e2e:smoke
+          pnpm e2e:deployed
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pages-production-smoke-failures
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 7

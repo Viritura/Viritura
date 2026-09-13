@@ -23,6 +23,7 @@ jobs:
       desktop: ${{ steps.classify.outputs.desktop }}
       vst_probe: ${{ steps.classify.outputs.vst_probe }}
       dev_stack: ${{ steps.classify.outputs.dev_stack }}
+      browser: ${{ steps.classify.outputs.browser }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,6 +44,7 @@ jobs:
           desktop=false
           vst_probe=false
           dev_stack=false
+          browser=false
 
           while IFS= read -r path; do
             case "$path" in
@@ -55,10 +57,15 @@ jobs:
                 desktop=true
                 vst_probe=true
                 dev_stack=true
+                browser=true
                 ;;
-              apps/editor/*|apps/website/*|apps/server-ui/*|apps/vscode-mnx-viewer/*|packages/*|examples/*|assets/*|build-site.ts)
-                pnpm=true
-                ;;
+                apps/editor/*|apps/website/*|apps/server-ui/*|apps/vscode-mnx-viewer/*|packages/*|examples/*|assets/*|build-site.ts)
+                  pnpm=true
+                  ;;
+                e2e/*|playwright*.config.ts)
+                  pnpm=true
+                  browser=true
+                  ;;
               scripts/*)
                 pnpm=true
                 root_tests=true
@@ -90,6 +97,9 @@ jobs:
               apps/server-ui/*|packages/ui/*)
                 dotnet=true
                 ;;
+              apps/editor/*|packages/core/*|packages/crdt/*|packages/format/*|packages/musicxml/*|packages/renderer/*)
+                browser=true
+                ;;
               packages/format/fixtures/mnx/*|packages/format/schemas/*|packages/core/src/placementDefaults.json|packages/core/src/textStyleDefaults.json|assets/fonts/*)
                 engine=true
                 engine_consumers=true
@@ -113,6 +123,7 @@ jobs:
             echo "desktop=$desktop"
             echo "vst_probe=$vst_probe"
             echo "dev_stack=$dev_stack"
+            echo "browser=$browser"
           } | tee -a "$GITHUB_OUTPUT"
 
   dev-stack:
@@ -201,6 +212,44 @@ jobs:
       - if: needs.changes.outputs.root_tests == 'true'
         name: Run repository script tests
         run: pnpm tsx --test scripts/check-application-boundaries.test.ts
+
+  browser:
+    name: Browser smoke
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build WASM
+        run: pnpm wasm:build
+      - name: Run required browser smoke tests
+        run: pnpm e2e:smoke
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-smoke-failures
+          path: test-results/functional
+          if-no-files-found: warn
+          retention-days: 7
 
   engine:
     name: Rust engine and WASM
@@ -316,6 +365,7 @@ jobs:
     needs:
       - changes
       - pnpm
+      - browser
       - engine
       - dotnet
       - desktop

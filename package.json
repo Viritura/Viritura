@@ -33,6 +33,8 @@
     "test:perf:browser:build": "pnpm wasm:build && pnpm --filter @viritura/editor build",
     "test:perf:browser": "playwright test --config playwright.performance.config.ts",
     "e2e": "playwright test",
+    "e2e:smoke": "playwright test --grep @smoke",
+    "e2e:deployed": "playwright test --config playwright.deployed.config.ts",
     "e2e:ui": "playwright test --ui",
     "validate": "pnpm lint && pnpm lint:rust && pnpm lint:dotnet && pnpm build:dotnet:check && pnpm test && pnpm test:rust && pnpm test:rust:wasm && pnpm test:desktop && pnpm test:vst-probe && pnpm test:dotnet && pnpm audit:deps && pnpm wasm:build && pnpm build:site",
     "lint": "pnpm mnx:schema:check && tsx scripts/check-application-boundaries.ts && tsx --test scripts/check-application-boundaries.test.ts && pnpm notationref:test && pnpm test:dev-stack && tsx scripts/check-no-grabbag-filenames.ts && tsx scripts/check-missing-barrels.ts && tsx scripts/check-ui-public-styles.ts && pnpm lint:rust:size && prettier --check . && eslint . && knip --no-config-hints && pnpm --filter @viritura/format gen:raw:check && pnpm --filter @viritura/format gen:raw-viritura:check && pnpm --filter @viritura/format gen:validators:check",
@@ -89,7 +91,8 @@
     "tsx": "^4.22.3",
     "turbo": "^2.9.14",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.59.4"
+    "typescript-eslint": "^8.59.4",
+    "wrangler": "4.131.1"
   },
   "engines": {
     "node": ">=24.0.0",
