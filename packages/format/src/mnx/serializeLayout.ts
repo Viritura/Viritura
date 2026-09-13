@@ -84,6 +84,9 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.instrumentNameDisplay) {
     viritura["instrumentNameDisplay"] = { ...sd.instrumentNameDisplay };
   }
+  if (sd.layoutBreaks && sd.layoutBreaks.length > 0) {
+    viritura["layoutBreaks"] = sd.layoutBreaks.map((entry) => ({ ...entry }));
+  }
 
   // Vendor extension: _x.viritura.pageSetup — only write non-default values
   if (sd.pageSetup) {

@@ -92,4 +92,45 @@ describe("Engrave-mode rest selection", () => {
     expect(selectElement).not.toHaveBeenCalled();
     expect(clearSelection).toHaveBeenCalledOnce();
   });
+
+  it("selects a barline without requiring a modifier", () => {
+    const { ctx, clearSelection } = context("p0/m0/s0/note1");
+    const onBarlineClick = vi.fn();
+    ctx.displayListRef.current = {
+      width: 800,
+      height: 600,
+      commands: [],
+      measureBounds: [
+        {
+          index: 0,
+          partIndex: 0,
+          staffIndex: 0,
+          x: 100,
+          y: 100,
+          width: 200,
+          height: 48,
+          prefixWidth: 0,
+          totalBeats: 4,
+          beatAnchors: [],
+        },
+      ],
+    };
+    ctx.onEngraveBarlineClickRef = { current: onBarlineClick };
+
+    handleCanvasClickImpl(
+      {
+        ...click,
+        clientX: 300,
+        clientY: 124,
+        altKey: false,
+      } as React.MouseEvent<HTMLCanvasElement>,
+      ctx,
+    );
+
+    expect(onBarlineClick).toHaveBeenCalledWith(
+      expect.objectContaining({ measureIndex: 0 }),
+      expect.objectContaining({ ctrlKey: false, shiftKey: false }),
+    );
+    expect(clearSelection).not.toHaveBeenCalled();
+  });
 });

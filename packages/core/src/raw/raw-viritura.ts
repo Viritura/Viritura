@@ -412,6 +412,13 @@ export interface components {
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
+            layoutBreaks?: components["schemas"]["layout-break"][];
+        };
+        /** @description A forced system or page start within otherwise automatic score flow. */
+        "layout-break": {
+            measure: string;
+            /** @enum {string} */
+            kind: "system" | "page";
         };
         /** @enum {string} */
         "instrument-name-display-policy": "full" | "short" | "hidden";
@@ -737,6 +744,7 @@ export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
+export type LayoutBreak = components["schemas"]["layout-break"];
 export type InstrumentNameDisplayPolicy = components["schemas"]["instrument-name-display-policy"];
 export type InstrumentNameDisplay = components["schemas"]["instrument-name-display"];
 export type FontFamily = components["schemas"]["font-family"];

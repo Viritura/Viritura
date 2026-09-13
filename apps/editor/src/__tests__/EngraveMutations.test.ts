@@ -36,48 +36,77 @@ function asStarts(measureIds: string[]): { measure: string; pageBreak: boolean }
 }
 
 describe("insertBreakInScore", () => {
-  it("seeds full pagination on first break and applies the new break", () => {
+  it("stores only the authored system lock", () => {
     const score = makeScore("flute", "violin");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[2]!, ids[4]!, ids[6]!]);
-    const next = insertBreakInScore(score, 0, ids[3]!, "system", computed);
+    const next = insertBreakInScore(score, 0, ids[3]!, "system");
     const sd = next.scores![0]!;
-    const sysCount = sd.pages!.flatMap((p) => p.systems).length;
-    expect(sysCount).toBe(5);
-    expect(sd.pages!.flatMap((p) => p.systems).some((s) => s.measure === ids[3])).toBe(true);
+    expect(sd.pages).toBeUndefined();
+    expect(sd.layoutBreaks).toEqual([{ measure: ids[3], kind: "system" }]);
   });
 
   it("converts a system break to a page break (idempotent insert)", () => {
     const score = makeScore("flute");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[2]!, ids[4]!, ids[6]!]);
-    let next = insertBreakInScore(score, 0, ids[4]!, "system", computed);
-    next = insertBreakInScore(next, 0, ids[4]!, "page", computed);
+    let next = insertBreakInScore(score, 0, ids[4]!, "system");
+    next = insertBreakInScore(next, 0, ids[4]!, "page");
     const sd = next.scores![0]!;
-    expect(sd.pages!.length).toBe(2);
-    expect(sd.pages![1]!.systems[0]!.measure).toBe(ids[4]);
+    expect(sd.pages).toBeUndefined();
+    expect(sd.layoutBreaks).toEqual([{ measure: ids[4], kind: "page" }]);
+  });
+
+  it("migrates break-only pages from the previous control model", () => {
+    const score = makeScore("flute");
+    const ids = measureIds(score);
+    const legacy: Score = {
+      ...score,
+      scores: score.scores!.map((definition, index) =>
+        index === 0
+          ? {
+              ...definition,
+              pages: [{ systems: [{ measure: ids[0]! }, { measure: ids[2]! }] }, { systems: [{ measure: ids[5]! }] }],
+            }
+          : definition,
+      ),
+    };
+
+    const next = insertBreakInScore(legacy, 0, ids[4]!, "system");
+    expect(next.scores![0]!.pages).toBeUndefined();
+    expect(next.scores![0]!.layoutBreaks).toEqual([
+      { measure: ids[2], kind: "system" },
+      { measure: ids[4], kind: "system" },
+      { measure: ids[5], kind: "page" },
+    ]);
   });
 });
 
 describe("clearBreakInScore / clearAllBreaksInScore", () => {
-  it("removes a single break, leaving snapshot otherwise intact", () => {
+  it("removes the final break and restores automatic pagination", () => {
     const score = makeScore("flute");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[2]!, ids[4]!, ids[6]!]);
-    let next = insertBreakInScore(score, 0, ids[3]!, "system", computed);
+    let next = insertBreakInScore(score, 0, ids[3]!, "system");
     next = clearBreakInScore(next, 0, ids[3]!);
-    const sd = next.scores![0]!;
-    const measures = sd.pages!.flatMap((p) => p.systems).map((s) => s.measure);
-    expect(measures).not.toContain(ids[3]);
-    expect(measures.length).toBe(4);
+    expect(next.scores![0]!.pages).toBeUndefined();
+    expect(next.scores![0]!.layoutBreaks).toBeUndefined();
+  });
+
+  it("removes one break without resetting other authored breaks", () => {
+    const score = makeScore("flute");
+    const ids = measureIds(score);
+    let next = insertBreakInScore(score, 0, ids[2]!, "system");
+    next = insertBreakInScore(next, 0, ids[5]!, "page");
+    next = clearBreakInScore(next, 0, ids[2]!);
+
+    expect(next.scores![0]!.layoutBreaks).toEqual([{ measure: ids[5], kind: "page" }]);
   });
 
   it("wipeAll reverts to automatic pagination", () => {
     const score = makeScore("flute");
     const ids = measureIds(score);
-    let next = insertBreakInScore(score, 0, ids[3]!, "system", asStarts([ids[0]!]));
+    let next = insertBreakInScore(score, 0, ids[3]!, "system");
     next = clearAllBreaksInScore(next, 0);
     expect(next.scores![0]!.pages).toBeUndefined();
+    expect(next.scores![0]!.layoutBreaks).toBeUndefined();
   });
 });
 
@@ -85,11 +114,8 @@ describe("setStaffVisibilityInScore", () => {
   it("hides a part on a specific system via derived layout", () => {
     const score = makeScore("flute", "violin", "cello");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[4]!]);
-    let next = insertBreakInScore(score, 0, ids[4]!, "system", computed);
-
-    const partIdToHide = next.parts[1]!.id;
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, partIdToHide, false);
+    const partIdToHide = score.parts[1]!.id;
+    const next = applyStaffVisibilityFromSystem(score, 0, ids[4]!, partIdToHide, false, []);
 
     const hidden = hiddenPartsOnSystem(next, 0, ids[4]!);
     expect(hidden.has(partIdToHide)).toBe(true);
@@ -107,11 +133,9 @@ describe("setStaffVisibilityInScore", () => {
     // derived layout is minted in the first place.
     const score = makeScore("flute", "violin", "cello");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[4]!]);
-    let next = insertBreakInScore(score, 0, ids[4]!, "system", computed);
-    const partIdToHide = next.parts[1]!.id;
+    const partIdToHide = score.parts[1]!.id;
 
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, partIdToHide, false);
+    let next = applyStaffVisibilityFromSystem(score, 0, ids[4]!, partIdToHide, false, []);
     const layoutsWithDerived = next.layouts!.length;
     expect(next.layouts!.some((l) => l._x?.viritura?.derived === true)).toBe(true);
 
@@ -123,12 +147,9 @@ describe("setStaffVisibilityInScore", () => {
   it("refuses to hide every staff in a system (no-op)", () => {
     const score = makeScore("flute", "violin");
     const ids = measureIds(score);
-    const computed = asStarts([ids[0]!, ids[4]!]);
-    let next = insertBreakInScore(score, 0, ids[4]!, "system", computed);
-
-    const part1 = next.parts[0]!.id;
-    const part2 = next.parts[1]!.id;
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, part1, false);
+    const part1 = score.parts[0]!.id;
+    const part2 = score.parts[1]!.id;
+    let next = applyStaffVisibilityFromSystem(score, 0, ids[4]!, part1, false, []);
     expect(hiddenPartsOnSystem(next, 0, ids[4]!).has(part1)).toBe(true);
 
     // Attempting to hide the last visible staff should be a no-op.
@@ -140,7 +161,7 @@ describe("setStaffVisibilityInScore", () => {
 });
 
 describe("applyStaffVisibilityFromSystem", () => {
-  it("only materialises the target system (no forced page breaks elsewhere)", () => {
+  it("materialises the opening and target systems without forced page breaks elsewhere", () => {
     // Regression: prior behaviour seeded the full engine-computed
     // pagination — including pageBreak flags — on the first hide,
     // which locked auto-flow and prevented later reflow.
@@ -159,15 +180,12 @@ describe("applyStaffVisibilityFromSystem", () => {
 
     const pages = next.scores![0]!.pages ?? [];
     const allSystems = pages.flatMap((p) => p.systems);
-    // Only the target system should be materialised — every other
-    // system stays on engine auto-flow so the page geometry remains
-    // reflowable. (Previously this would have been 4 systems.)
-    expect(allSystems.length).toBe(1);
-    expect(allSystems[0]!.measure).toBe(ids[4]);
+    // Only the opening and target anchors are materialised — intermediate
+    // systems remain on auto-flow. (Previously this would have been 4 systems.)
+    expect(allSystems.map((system) => system.measure)).toEqual([ids[0], ids[4]]);
     // Critically: the engine-computed page break at m5 must NOT have
     // been promoted to a forced page boundary in pages[]. Since we
-    // only have one materialised system, it lives on the first (and
-    // only) page in the authored snapshot.
+    // Both sparse anchors remain on one authored page.
     expect(pages.length).toBe(1);
     // And the hide actually took effect on that system.
     expect(hiddenPartsOnSystem(next, 0, ids[4]!).has(partIdToHide)).toBe(true);
@@ -177,27 +195,29 @@ describe("applyStaffVisibilityFromSystem", () => {
     const score = makeScore("flute", "violin");
     const ids = measureIds(score);
     const computed = asStarts([ids[0]!, ids[2]!, ids[4]!, ids[6]!]);
-    // User first inserts a page break at m3. PageBreak is encoded
-    // structurally: m3 should be the first system of a separate page.
-    const withBreak = insertBreakInScore(score, 0, ids[2]!, "page", computed);
-    const pagesBefore = withBreak.scores![0]!.pages ?? [];
-    const m3PageIdx = pagesBefore.findIndex((p) => p.systems.some((s) => s.measure === ids[2]));
-    const m1PageIdx = pagesBefore.findIndex((p) => p.systems.some((s) => s.measure === ids[0]));
-    expect(m3PageIdx).toBeGreaterThan(m1PageIdx);
+    // User first inserts a page lock at m3.
+    const withBreak = insertBreakInScore(score, 0, ids[2]!, "page");
+    expect(withBreak.scores![0]!.layoutBreaks).toEqual([{ measure: ids[2], kind: "page" }]);
 
     // Then hides a part on m5.
     const partIdToHide = withBreak.parts[1]!.id;
     const next = applyStaffVisibilityFromSystem(withBreak, 0, ids[4]!, partIdToHide, false, computed);
 
     const pagesAfter = next.scores![0]!.pages ?? [];
-    // The earlier user-authored page break must still be structurally
-    // present (m3 still on its own page after m1's page).
-    const m3PageIdxAfter = pagesAfter.findIndex((p) => p.systems.some((s) => s.measure === ids[2]));
-    const m1PageIdxAfter = pagesAfter.findIndex((p) => p.systems.some((s) => s.measure === ids[0]));
-    expect(m3PageIdxAfter).toBeGreaterThan(m1PageIdxAfter);
+    expect(next.scores![0]!.layoutBreaks).toEqual([{ measure: ids[2], kind: "page" }]);
     // And the hide target was materialised somewhere in pages[].
     const allSystems = pagesAfter.flatMap((p) => p.systems);
     expect(allSystems.some((s) => s.measure === ids[4])).toBe(true);
+  });
+
+  it("preserves a new break when a staff layout override already exists", () => {
+    const score = makeScore("flute", "violin");
+    const ids = measureIds(score);
+    const hidden = applyStaffVisibilityFromSystem(score, 0, ids[4]!, score.parts[1]!.id, false, []);
+    const next = insertBreakInScore(hidden, 0, ids[2]!, "page");
+
+    expect(next.scores![0]!.pages?.flatMap((page) => page.systems).some((system) => system.layout)).toBe(true);
+    expect(next.scores![0]!.layoutBreaks).toEqual([{ measure: ids[2], kind: "page" }]);
   });
 });
 
@@ -226,10 +246,8 @@ describe("setStaffVisibilityInScore — condensed staves", () => {
       ),
     };
 
-    const computed = asStarts([ids[0]!, ids[4]!]);
-    let next = insertBreakInScore(condensedScore, 0, ids[4]!, "system", computed);
     // Hide via p1 — p2 (its condensed staff-mate) must hide too.
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, p1, false);
+    const next = applyStaffVisibilityFromSystem(condensedScore, 0, ids[4]!, p1, false, []);
 
     const hidden = hiddenPartsOnSystem(next, 0, ids[4]!);
     expect(hidden.has(p1)).toBe(true);
@@ -257,9 +275,7 @@ describe("setStaffVisibilityInScore — condensed staves", () => {
       ),
     };
 
-    const computed = asStarts([ids[0]!, ids[4]!]);
-    let next = insertBreakInScore(condensedScore, 0, ids[4]!, "system", computed);
-    next = setStaffVisibilityInScore(next, 0, ids[4]!, p1, false);
+    const next = applyStaffVisibilityFromSystem(condensedScore, 0, ids[4]!, p1, false, []);
 
     const groups = ghostRailGroupsOnSystem(next, 0, ids[4]!);
     expect(groups.length).toBe(1);

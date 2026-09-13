@@ -9,10 +9,11 @@
  * score list moved to Setup mode, so none of those callbacks are threaded here
  * any more.
  */
-import type { CSSProperties, ReactNode, RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Panel, WriteStatusBar, type WriteViewMode as ViewMode } from "@viritura/ui";
 import { TransportBar } from "@viritura/playback";
 import { Toolbar } from "../components/Toolbar";
+import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
 import { LeftPanel, type WriteLeftTab } from "../components/LeftPanel";
 import { NotationInspector } from "../components/NotationInspector";
@@ -27,8 +28,6 @@ import type { useSelection } from "../store/selectionStore";
 
 type FloatingPanel = ReturnType<typeof useFloatingPanel>;
 type SelectionState = ReturnType<typeof useSelection>;
-
-const TOOLBAR_CENTER_STYLE: CSSProperties = { flex: 1, display: "flex", justifyContent: "center" };
 
 export interface BuildWriteModeArgs {
   canvasRef: RefObject<ScoreCanvasHandle | null>;
@@ -110,13 +109,11 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
     },
     panels,
     toolbar: (
-      <>
-        <ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />
-        <div style={TOOLBAR_CENTER_STYLE}>
-          <Toolbar lyricMode={args.lyricMode} onToggleLyrics={args.onToggleLyrics} />
-        </div>
-        <TransportBar />
-      </>
+      <WorkspaceToolbar
+        left={<ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />}
+        center={<Toolbar lyricMode={args.lyricMode} onToggleLyrics={args.onToggleLyrics} />}
+        right={<TransportBar />}
+      />
     ),
     statusBar: (
       <WriteStatusBar

@@ -41,6 +41,8 @@ function WithScore({ children }: { readonly children: ReactNode }) {
 }
 
 function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onInstrumentNameDisplayChange = vi.fn()) {
+  const onRemoveSelectedBreak = vi.fn();
+  const onResetAll = vi.fn();
   return {
     ...render(
       <TooltipPrimitives.Provider delayDuration={0}>
@@ -52,6 +54,11 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
               onApplyPageSetup={onApplyPageSetup}
               onResetPageSetup={onResetPageSetup}
               onInstrumentNameDisplayChange={onInstrumentNameDisplayChange}
+              selectedBreakKind="page"
+              selectedAfterMeasureNumber={12}
+              hasLayoutOverrides
+              onRemoveSelectedBreak={onRemoveSelectedBreak}
+              onResetAll={onResetAll}
             />
           </WithScore>
         </DocumentProvider>
@@ -60,6 +67,8 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
     onApplyPageSetup,
     onResetPageSetup,
     onInstrumentNameDisplayChange,
+    onRemoveSelectedBreak,
+    onResetAll,
   };
 }
 
@@ -96,6 +105,22 @@ describe("EngraveLeftPanel", () => {
     );
     expect(screen.queryByRole("button", { name: "Flute" })).toBeNull();
     expect(screen.queryByText("297 mm × 420 mm · 5 mm staff")).toBeNull();
+  });
+
+  it("manages forced breaks from the Layouts tab", async () => {
+    const user = userEvent.setup();
+    const { onRemoveSelectedBreak, onResetAll } = renderPanel();
+
+    await user.click(await screen.findByRole("tab", { name: "Layouts" }));
+    expect(screen.getByText("Page break after measure 12.")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Remove selected break" }));
+    expect(onRemoveSelectedBreak).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole("button", { name: "Reset all layout overrides" }));
+    expect(screen.getByText("Reset all layout overrides?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Reset all" }));
+    expect(onResetAll).toHaveBeenCalledOnce();
   });
 
   it("edits instrument label display for the active layout", async () => {

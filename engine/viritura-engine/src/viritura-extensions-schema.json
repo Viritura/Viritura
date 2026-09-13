@@ -792,7 +792,22 @@
       "description": "Viritura extensions on a standard MNX score definition.",
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
-        "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" }
+        "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
+        "layoutBreaks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layout-break" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "layout-break": {
+      "type": "object",
+      "description": "A forced system or page start within otherwise automatic score flow.",
+      "required": ["measure", "kind"],
+      "properties": {
+        "measure": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["system", "page"] }
       },
       "additionalProperties": false
     },

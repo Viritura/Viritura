@@ -130,6 +130,16 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
       subsequentSystems: labelsRaw["subsequentSystems"] as InstrumentNameDisplaySettings["subsequentSystems"],
     };
   }
+  const layoutBreaksRaw = viritura?.["layoutBreaks"];
+  if (Array.isArray(layoutBreaksRaw)) {
+    sd.layoutBreaks = layoutBreaksRaw.flatMap((value) => {
+      if (!value || typeof value !== "object") return [];
+      const entry = value as Record<string, unknown>;
+      if (typeof entry["measure"] !== "string") return [];
+      if (entry["kind"] !== "system" && entry["kind"] !== "page") return [];
+      return [{ measure: entry["measure"], kind: entry["kind"] }];
+    });
+  }
   const psRaw = viritura?.["pageSetup"] as Record<string, unknown> | undefined;
   if (psRaw) {
     const pageSetup: Partial<PageSetup> = {};

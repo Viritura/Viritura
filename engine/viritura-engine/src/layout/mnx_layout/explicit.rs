@@ -32,6 +32,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
+use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
@@ -44,8 +45,6 @@ use super::system_connectors::{
     render_system_connectors, render_system_start_barline, SystemConnectorPlacement,
 };
 
-/// Flat staves plus their group ranges for a single system.
-type StaffGroupLayout = (Vec<FlatStaff>, Vec<GroupRange>);
 /// Layout a score using MNX layout definitions and score definitions.
 ///
 /// Uses the first score definition (or falls back to `layout_full_score`
@@ -56,94 +55,6 @@ pub fn layout_with_mnx_scores(
     score_index: usize,
 ) -> DisplayList {
     layout_with_mnx_scores_cached(score, config, score_index, None)
-}
-
-/// Resolve per-system measure ranges + flattened staff layouts + per-system
-/// layout-change maps for the explicit-pages path.
-///
-/// MNX semantics: `system.layout` overrides apply from that system onward
-/// until the next system that sets its own `layout`. The inherited override
-/// is carried forward; without this, every system after the first would
-/// silently fall back to the score-level base layout.
-#[allow(clippy::too_many_arguments)] // pipeline boundary ΓÇö all inputs are required
-fn resolve_explicit_systems_and_layouts(
-    score: &Score,
-    score_def: &ScoreDefinition,
-    all_systems: &[&SystemDefinition],
-    measure_id_map: &HashMap<String, usize>,
-    part_id_map: &HashMap<String, usize>,
-    layout_map: &HashMap<String, &LayoutDefinition>,
-    measure_count: usize,
-) -> (
-    Vec<(usize, usize)>,
-    Vec<StaffGroupLayout>,
-    SystemLayoutChanges,
-) {
-    let mut system_measure_ranges: Vec<(usize, usize)> = Vec::new();
-    for (i, sys) in all_systems.iter().enumerate() {
-        let start = measure_id_map.get(&sys.measure).copied().unwrap_or(0);
-        let end = if i + 1 < all_systems.len() {
-            measure_id_map
-                .get(&all_systems[i + 1].measure)
-                .copied()
-                .unwrap_or(measure_count)
-        } else {
-            measure_count
-        };
-        system_measure_ranges.push((start, end.max(start)));
-    }
-
-    let mut system_flat_staves: Vec<(Vec<FlatStaff>, Vec<GroupRange>)> = Vec::new();
-    let mut system_layout_changes: SystemLayoutChanges = Vec::new();
-    let mut inherited_layout_id: Option<&str> = None;
-    for sys in all_systems {
-        let explicit = sys.layout.as_deref();
-        if let Some(id) = explicit {
-            inherited_layout_id = Some(id);
-        }
-        let layout_id = explicit
-            .or(inherited_layout_id)
-            .or(score_def.layout.as_deref())
-            .unwrap_or("");
-        if let Some(layout_def) = layout_map.get(layout_id) {
-            system_flat_staves.push(flatten_layout(&layout_def.content, part_id_map, score));
-        } else {
-            // No layout found ΓÇö create one staff per part
-            let display_names = resolve_part_display_names(&score.parts);
-            let mut staves = Vec::new();
-            for (i, _part) in score.parts.iter().enumerate() {
-                let full = display_names[i].display_name.clone();
-                let short = display_names[i].display_short_name.clone();
-                staves.push(FlatStaff {
-                    sources: vec![FlatSource::whole_part(i)],
-                    label: Some(full),
-                    short_label: Some(short),
-                    resolved_full_label: Some(display_names[i].display_name.clone()),
-                    resolved_short_label: Some(display_names[i].display_short_name.clone()),
-                    expansion: false,
-                    condensed_numbers: Vec::new(),
-                    chord_symbols_visible: None,
-                });
-            }
-            system_flat_staves.push((staves, Vec::new()));
-        }
-
-        let mut changes_map = HashMap::new();
-        for lc in &sys.layout_changes {
-            if let Some(&mi) = measure_id_map.get(&lc.location.measure) {
-                if let Some(lc_layout) = layout_map.get(&lc.layout) {
-                    changes_map.insert(mi, flatten_layout(&lc_layout.content, part_id_map, score));
-                }
-            }
-        }
-        system_layout_changes.push(changes_map);
-    }
-
-    (
-        system_measure_ranges,
-        system_flat_staves,
-        system_layout_changes,
-    )
 }
 
 /// Render the page-1 title block, the part-score instrument name (when only
@@ -602,19 +513,52 @@ pub fn layout_with_mnx_scores_cached(
     let layout_map: HashMap<String, &LayoutDefinition> =
         score.layouts.iter().map(|l| (l.id.clone(), l)).collect();
 
-    // Collect all systems across all pages, AND track which system index
-    // starts each page (system 0 implicitly starts page 0; subsequent
-    // entries become forced page breaks for the page-break computation).
-    let mut all_systems: Vec<&SystemDefinition> = Vec::new();
-    let mut forced_page_starts: Vec<usize> = Vec::new();
+    // Collect explicit systems and their authored page starts. Layout locks
+    // remain automatic-flow constraints, but when a system layout override
+    // requires this explicit path they are merged as additional anchors.
+    let mut all_systems: Vec<SystemDefinition> = Vec::new();
+    let mut forced_page_measures = HashSet::new();
     for page in &score_def.pages {
         if !all_systems.is_empty() {
-            forced_page_starts.push(all_systems.len());
+            if let Some(system) = page.systems.first() {
+                forced_page_measures.insert(system.measure.clone());
+            }
         }
-        for sys in &page.systems {
-            all_systems.push(sys);
-        }
+        all_systems.extend(page.systems.iter().cloned());
     }
+    if !all_systems.is_empty() {
+        for layout_break in &score_def.layout_breaks {
+            if !measure_id_map.contains_key(&layout_break.measure) {
+                continue;
+            }
+            if layout_break.kind == LayoutBreakKind::Page {
+                forced_page_measures.insert(layout_break.measure.clone());
+            }
+            if !all_systems
+                .iter()
+                .any(|system| system.measure == layout_break.measure)
+            {
+                all_systems.push(SystemDefinition {
+                    layout: None,
+                    measure: layout_break.measure.clone(),
+                    layout_changes: Vec::new(),
+                });
+            }
+        }
+        all_systems.sort_by_key(|system| {
+            measure_id_map
+                .get(&system.measure)
+                .copied()
+                .unwrap_or_default()
+        });
+        all_systems.dedup_by(|left, right| left.measure == right.measure);
+    }
+    let mut forced_page_starts: Vec<usize> = all_systems
+        .iter()
+        .enumerate()
+        .filter(|(_, system)| forced_page_measures.contains(&system.measure))
+        .map(|(index, _)| index)
+        .collect();
 
     // Build MMR skip/start maps from score definition's multimeasureRests
     let mut skip_measures: HashSet<usize> = HashSet::new();
@@ -658,6 +602,7 @@ pub fn layout_with_mnx_scores_cached(
             &skip_measures,
             &mmr_label_map,
             use_written,
+            &score_def.layout_breaks,
             score_def.instrument_name_display.as_ref(),
             dirty_region,
             cache.as_deref_mut(),
@@ -807,7 +752,7 @@ pub fn layout_with_mnx_scores_cached(
     if let (Some(first_width), Some(subsequent_width)) =
         (first_content_width, subsequent_content_width)
     {
-        expand_oversized_systems_explicit(
+        let expanded_system_starts = expand_oversized_systems_explicit(
             first_width,
             subsequent_width,
             &max_widths,
@@ -816,6 +761,10 @@ pub fn layout_with_mnx_scores_cached(
             &mut system_flat_staves,
             &mut system_layout_changes,
         );
+        forced_page_starts = forced_page_starts
+            .into_iter()
+            .filter_map(|index| expanded_system_starts.get(index).copied())
+            .collect();
     }
 
     let inter_system_gap = 10.0 * sp;

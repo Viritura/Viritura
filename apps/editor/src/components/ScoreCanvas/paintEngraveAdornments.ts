@@ -228,6 +228,32 @@ export function paintEngraveAdornments(args: EngraveAdornmentsPaintArgs): void {
     ctx.restore();
   }
 
+  // A selected boundary stays blue after the pointer leaves, including when
+  // the boundary has no lock yet and therefore has no marker pill.
+  const selectedBoundaryMeasureIndex = adornments?.selectedBoundaryMeasureIndex;
+  if (selectedBoundaryMeasureIndex !== undefined) {
+    const selectedBounds = measureBounds.filter((bounds) => bounds.index === selectedBoundaryMeasureIndex);
+    const top = selectedBounds.reduce<MeasureBounds | null>(
+      (best, bounds) => (!best || bounds.y < best.y ? bounds : best),
+      null,
+    );
+    if (top) {
+      const x = top.x + top.width;
+      const bottom = selectedBounds.reduce(
+        (maximum, bounds) => Math.max(maximum, bounds.y + bounds.height),
+        top.y + top.height,
+      );
+      ctx.save();
+      ctx.strokeStyle = "rgba(56, 132, 255, 1)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, top.y - 3);
+      ctx.lineTo(x, bottom + 3);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // Staff-eye pills (left margin, per-staff per-system) — always painted.
   // Sized and styled to match the break markers for visual parity.
   // Eyes, the staff-measure index, and ghost rails are derived once per layout

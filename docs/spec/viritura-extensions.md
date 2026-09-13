@@ -14,7 +14,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | MNX Object                                   | JSON Path                                       | Extensions                                                                                     |
 | -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                                               |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure                                                                                  |
@@ -59,6 +59,26 @@ When omitted, Viritura resolves a conventional structure for the meter.
 ## Score Definition Extensions
 
 `_x.viritura` on an entry in `scores[]`. Schema def: `score-extensions`.
+
+### `layoutBreaks`
+
+Stores forced starts within otherwise automatic layout flow. Each entry names
+the measure that must begin a new `system` or `page`; a page start also implies
+a system start. Measures before, between, and after entries continue to use
+automatic casting and pagination.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "layoutBreaks": [
+        { "measure": "m17", "kind": "system" },
+        { "measure": "m41", "kind": "page" }
+      ]
+    }
+  }
+}
+```
 
 ### `instrumentNameDisplay`
 

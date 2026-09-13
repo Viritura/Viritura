@@ -1,7 +1,7 @@
 //! Promote the `ScoreDefinition` (MNX `score`) into the engine model.
 
 use crate::model::layout::{
-    InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings,
+    InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings, LayoutBreak, LayoutBreakKind,
     MultimeasureRestRange as ModelMultimeasureRestRange, ScoreDefinition as ModelScoreDefinition,
 };
 use crate::promote::layout::promote_page;
@@ -17,7 +17,8 @@ fn promote_multimeasure_rest(r: raw::MultimeasureRest) -> ModelMultimeasureRestR
 }
 
 pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
-    let instrument_name_display = read_viritura_ext(r.x.as_ref())
+    let viritura = read_viritura_ext(r.x.as_ref());
+    let instrument_name_display = viritura
         .and_then(|ext| ext.get("instrumentNameDisplay"))
         .and_then(serde_json::Value::as_object)
         .and_then(|settings| {
@@ -28,6 +29,25 @@ pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
                 )?,
             })
         });
+    let layout_breaks = viritura
+        .and_then(|ext| ext.get("layoutBreaks"))
+        .and_then(serde_json::Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    let entry = entry.as_object()?;
+                    let measure = entry.get("measure")?.as_str()?.to_owned();
+                    let kind = match entry.get("kind")?.as_str()? {
+                        "system" => LayoutBreakKind::System,
+                        "page" => LayoutBreakKind::Page,
+                        _ => return None,
+                    };
+                    Some(LayoutBreak { measure, kind })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     ModelScoreDefinition {
         name: Some(r.name.0),
         layout: r.layout.map(String::from),
@@ -39,6 +59,7 @@ pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
         use_written: r.use_written,
         pages: r.pages.into_iter().map(promote_page).collect(),
         instrument_name_display,
+        layout_breaks,
     }
 }
 

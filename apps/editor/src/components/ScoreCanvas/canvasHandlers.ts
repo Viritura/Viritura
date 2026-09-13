@@ -275,18 +275,17 @@ function handleEngraveClick(
       return true;
     }
   }
-  // 3. Barline (only with modifiers)
-  if (e.ctrlKey || e.metaKey || e.shiftKey) {
-    const bhit = pointerToBarline(scoreX, scoreY, dl?.measureBounds);
-    if (bhit) {
-      ctx.onEngraveBarlineClickRef.current?.(bhit, {
-        ctrlKey: e.ctrlKey,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-        metaKey: e.metaKey,
-      });
-      return true;
-    }
+  // 3. Barline. A plain click selects the boundary for toolbar actions;
+  // modifier-clicks remain direct break accelerators.
+  const bhit = pointerToBarline(scoreX, scoreY, dl?.measureBounds);
+  if (bhit) {
+    ctx.onEngraveBarlineClickRef.current?.(bhit, {
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey,
+      altKey: e.altKey,
+      metaKey: e.metaKey,
+    });
+    return true;
   }
   // 3b. Slur handle of already-selected slur — keep selection
   const slurHandleHit = dl?.slurGeometries

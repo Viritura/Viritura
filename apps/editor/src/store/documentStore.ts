@@ -243,6 +243,19 @@ export function createDocumentStore() {
       performance.mark("viritura:serialize-end");
       performance.measure("viritura:serialize", "viritura:serialize-start", "viritura:serialize-end");
 
+      // Structural edits can take a full WASM relayout before publication.
+      // Publish their serialized state immediately so Undo can restore them
+      // even if invoked while that relayout is still in flight. The visible
+      // score tree remains latest-painted until the layout promise resolves.
+      if (result.structuralChange) {
+        set({
+          mnxJson: publishedJson(),
+          dirty: true,
+          lastEditCursorBefore: cursorBeforeEdit,
+          lastCommittedPatches: patches ?? [],
+        });
+      }
+
       let layoutDone: Promise<void> | null = null;
       if (perf.fastLayoutCallback) {
         const hasMeasureChanges = result.changedGlobalMeasures.length > 0 || result.changedPartMeasures.size > 0;

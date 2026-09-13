@@ -426,6 +426,14 @@ export interface InstrumentNameDisplaySettings {
   subsequentSystems: InstrumentNameDisplayPolicy;
 }
 
+/** A user-authored constraint on otherwise automatic score flow. */
+export interface LayoutBreak {
+  /** Measure that must begin the next system or page. */
+  measure: string;
+  /** A page lock also implies a system start. */
+  kind: "system" | "page";
+}
+
 /** A staff node in the layout tree. */
 export interface LayoutStaff {
   type: "staff";
@@ -463,6 +471,8 @@ export interface ScoreDefinition {
   pageSetup?: PageSetup;
   /** Independent instrument-name policies for the first and later systems. */
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
+  /** Forced starts consumed by automatic system and page flow. */
+  layoutBreaks?: LayoutBreak[];
 }
 
 /** A page within a score definition. */
