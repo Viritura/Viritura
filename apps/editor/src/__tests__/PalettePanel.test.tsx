@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
@@ -77,7 +77,6 @@ describe("PalettePanel", () => {
     useSelectionStore.setState({
       selection: { kind: "single", elementId: "p0/m1/s0/first-note/n0", elementType: "note" },
     });
-    const user = userEvent.setup();
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
         <DocumentProvider>
@@ -88,7 +87,7 @@ describe("PalettePanel", () => {
       </TooltipPrimitives.Provider>,
     );
 
-    await user.click(await screen.findByRole("button", { name: /Chord symbol/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Chord symbol/ }));
 
     expect(useOverlayStore.getState().chordSymbolPopover).toMatchObject({
       partIndex: 0,
