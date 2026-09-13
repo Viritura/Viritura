@@ -80,10 +80,10 @@ function renderScoreDisplayList(mnxJson: string, scoreIndex: number, pageSetup: 
   if (info.scoreCount > 1) {
     return wasmComputeMnxScoreLayout(mnxJson, sp, pageWidthPx, scoreIndex, pageSetupJson);
   }
-  if (info.partCount > 1) {
-    return wasmComputeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson);
+  if (info.partCount === 1) {
+    return wasmComputeLayout(mnxJson, 0, sp, pageWidthPx, pageSetupJson);
   }
-  return wasmComputeLayout(mnxJson, 0, sp, pageWidthPx, pageSetupJson);
+  return wasmComputeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson);
 }
 
 // ─── PDF batch export ─────────────────────────────────────────────

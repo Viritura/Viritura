@@ -396,6 +396,17 @@ fn build_config(spatium: f64, page_width: f64, page_setup_json: Option<&str>) ->
     config
 }
 
+fn validate_requested_part_index(score: &Score, part_index: usize) -> Result<(), String> {
+    if score.parts.is_empty() || part_index < score.parts.len() {
+        return Ok(());
+    }
+
+    Err(format!(
+        "Part index {part_index} is out of range for {} part(s).",
+        score.parts.len()
+    ))
+}
+
 /// Returns the engine version string.
 #[wasm_bindgen]
 pub fn engine_version() -> String {
@@ -426,6 +437,7 @@ pub fn compute_layout(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
+    validate_requested_part_index(&score, part_index).map_err(|e| JsValue::from_str(&e))?;
     let display_list = layout_score(&score, part_index, &config);
 
     serde_json::to_string(&display_list)
@@ -447,6 +459,7 @@ pub fn compute_layout_binary(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
+    validate_requested_part_index(&score, part_index).map_err(|e| JsValue::from_str(&e))?;
     let display_list = layout_score(&score, part_index, &config);
     let binary = display_list.to_binary();
 
@@ -968,6 +981,7 @@ impl LayoutEngine {
         reconcile_score(&mut score);
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
+        validate_requested_part_index(&score, part_index).map_err(|e| JsValue::from_str(&e))?;
         let display_list = layout_score_cached(&score, part_index, &config, Some(&mut self.cache));
         self.score = Some(score);
 
@@ -1276,5 +1290,79 @@ impl LayoutEngine {
     /// Check if a score is retained (patch API is available).
     pub fn has_retained_score(&self) -> bool {
         self.score.is_some()
+    }
+}
+
+#[cfg(test)]
+mod empty_score_layout_tests {
+    use super::*;
+
+    fn blank_score_json() -> &'static str {
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": []},
+            "parts": [],
+            "layouts": [{"id": "blank", "content": []}],
+            "scores": [{"name": "Blank", "layout": "blank"}]
+        }"#
+    }
+
+    fn single_part_score_json() -> &'static str {
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{
+                "id": "P1",
+                "name": "Flute",
+                "measures": [{
+                    "sequences": [{"content": [{
+                        "duration": {"base": "whole"},
+                        "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                    }]}]
+                }]
+            }],
+            "layouts": [{"id": "full", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+            "scores": [{"name": "Full Score", "layout": "full"}]
+        }"#
+    }
+
+    fn assert_empty_display_list(display_list: &DisplayList) {
+        assert!(display_list.width.is_finite());
+        assert!(display_list.height.is_finite());
+        assert!(display_list.commands.is_empty());
+    }
+
+    #[test]
+    fn empty_cached_score_survives_relayout_and_patch() {
+        let mut engine = LayoutEngine::default();
+
+        let initial = engine
+            .compute_layout_cached(blank_score_json(), 0, 10.0, 0.0, None)
+            .expect("initial empty-score layout");
+        let initial: DisplayList =
+            serde_json::from_str(&initial).expect("empty-score layout JSON should deserialize");
+        assert_empty_display_list(&initial);
+
+        let relayout = engine
+            .relayout_retained_score_display_list(10.0, 0.0, None, Some(0))
+            .expect("retained relayout should stay empty");
+        assert_empty_display_list(&relayout);
+
+        let patched = engine
+            .apply_patch_and_layout_display_list("{}", 10.0, 0.0, None, Some(0))
+            .expect("empty-score patch should stay empty");
+        assert_empty_display_list(&patched);
+    }
+
+    #[test]
+    fn requested_part_index_validation() {
+        let score = parse_mnx(single_part_score_json()).unwrap();
+        assert_eq!(validate_requested_part_index(&score, 0), Ok(()));
+        assert_eq!(
+            validate_requested_part_index(&score, 2),
+            Err("Part index 2 is out of range for 1 part(s).".to_string())
+        );
+        let empty = parse_mnx(blank_score_json()).unwrap();
+        assert_eq!(validate_requested_part_index(&empty, 0), Ok(()));
     }
 }

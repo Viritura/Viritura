@@ -160,7 +160,7 @@ async function runCachedFullLayout(args: {
   const result =
     info.scoreCount > 1
       ? await engine.computeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson, scoreIdx)
-      : info.partCount > 1
+      : info.partCount !== 1
         ? await engine.computeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson)
         : await engine.computeLayout(mnxJson, partIndex, sp, pageWidthPx, pageSetupJson);
   const [hits, misses] = engine.cacheStats();

@@ -121,7 +121,9 @@ pub fn layout_score_cached(
     let merged_config = config_with_document_overrides(score, config, LayoutContext::Score);
     let config = merged_config.as_ref().unwrap_or(config);
 
-    let part = &score.parts[part_index];
+    let Some(part) = score.parts.get(part_index) else {
+        return DisplayList::new(0.0, 0.0);
+    };
 
     // Grand staff: delegate to multi-staff renderer
     if part.staves >= 2 {

@@ -6,7 +6,7 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::measure::*;
 use crate::layout::render_geometry::*;
 use crate::layout::resolve::*;
-use crate::layout::{layout_score, layout_with_mnx_scores};
+use crate::layout::{layout_score, layout_score_cached, layout_with_mnx_scores};
 use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
@@ -31,6 +31,41 @@ fn test_layout_hello_world() {
     );
     assert!(dl.width > 0.0);
     assert!(dl.height > 0.0);
+}
+
+#[test]
+fn test_layout_score_cached_returns_empty_display_list_for_missing_part() {
+    let empty_score = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": []},
+            "parts": []
+        }"#,
+    )
+    .unwrap();
+    let invalid_part_score = parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+            "parts": [{
+                "measures": [{
+                    "sequences": [{"content": [{
+                        "duration": {"base": "whole"},
+                        "notes": [{"pitch": {"step": "C", "octave": 4}}]
+                    }]}]
+                }]
+            }]
+        }"#,
+    )
+    .unwrap();
+
+    for score in [&empty_score, &invalid_part_score] {
+        let dl = layout_score_cached(score, 3, &LayoutConfig::default(), None);
+        assert_eq!(dl.width, 0.0);
+        assert_eq!(dl.height, 0.0);
+        assert!(dl.commands.is_empty());
+        assert!(dl.pages.is_empty());
+    }
 }
 
 #[test]

@@ -1,12 +1,34 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, beforeEach, vi } from "vitest";
 import type { Score } from "@viritura/core";
 import { DEFAULT_PAGE_SETUP, DEFAULT_PART_PAGE_SETUP } from "@viritura/core";
 import {
   formatFilename,
+  exportScoresToPdf,
   resolvePageSetupForScore,
   getScoreDisplayName,
   isDirectoryPickerSupported,
 } from "../publish/batchRender";
+
+const { exportPdf, getScoreInfo, wasmComputeMnxScoreLayout, wasmComputeFullScoreLayout, wasmComputeLayout } =
+  vi.hoisted(() => ({
+    exportPdf: vi.fn(),
+    getScoreInfo: vi.fn(),
+    wasmComputeMnxScoreLayout: vi.fn(() => ({ width: 1, height: 1, commands: [] })),
+    wasmComputeFullScoreLayout: vi.fn(() => ({ width: 1, height: 1, commands: [] })),
+    wasmComputeLayout: vi.fn(() => ({ width: 1, height: 1, commands: [] })),
+  }));
+
+vi.mock("@viritura/renderer", () => ({
+  exportPdf,
+  getScoreInfo,
+  wasmComputeMnxScoreLayout,
+  wasmComputeFullScoreLayout,
+  wasmComputeLayout,
+}));
+
+vi.mock("@viritura/format", () => ({
+  serializeMnx: vi.fn(() => "{}"),
+}));
 
 const baseScore = (): Score =>
   ({
@@ -24,7 +46,43 @@ const baseScore = (): Score =>
     layouts: [],
   }) as unknown as Score;
 
+const exportScore = (scoreCount: number, partCount: number): Score =>
+  ({
+    metadata: { title: "Export Test" },
+    parts: Array.from({ length: partCount }, (_, index) => ({ id: `p${index + 1}` })) as never,
+    scores: Array.from({ length: scoreCount }, (_, index) => ({ id: `s${index + 1}` })) as never,
+    layouts: [],
+  }) as unknown as Score;
+
+const testFonts = {
+  bravuraFont: "https://example.invalid/font.otf",
+  serifFont: "https://example.invalid/font.otf",
+  pdfTextFont: "https://example.invalid/font.otf",
+  pdfTextFontBold: "https://example.invalid/font.otf",
+  pdfTextFontItalic: "https://example.invalid/font.otf",
+  pdfTextFontBoldItalic: "https://example.invalid/font.otf",
+};
+
 describe("publish/batchRender helpers", () => {
+  beforeEach(() => {
+    exportPdf.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]));
+    getScoreInfo.mockReset();
+    wasmComputeMnxScoreLayout.mockClear();
+    wasmComputeFullScoreLayout.mockClear();
+    wasmComputeLayout.mockClear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+      })),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   describe("formatFilename", () => {
     it("substitutes %TITLE% and %PART%", () => {
       const out = formatFilename("%TITLE% — %PART%", { title: "Sonata", part: "Violin I" });
@@ -114,6 +172,45 @@ describe("publish/batchRender helpers", () => {
     it("returns false when window.showDirectoryPicker is missing", () => {
       delete w.showDirectoryPicker;
       expect(isDirectoryPickerSupported()).toBe(false);
+    });
+  });
+
+  describe("exportScoresToPdf routing", () => {
+    it("routes a zero-part score through full-score layout", async () => {
+      getScoreInfo.mockReturnValue({ scoreCount: 1, partCount: 0 } as never);
+
+      await exportScoresToPdf(exportScore(1, 0), { scoreIndices: [0], fonts: testFonts });
+
+      expect(wasmComputeFullScoreLayout).toHaveBeenCalledTimes(1);
+      expect(wasmComputeLayout).not.toHaveBeenCalled();
+      expect(wasmComputeMnxScoreLayout).not.toHaveBeenCalled();
+    });
+
+    it("routes a single-part score through single-layout", async () => {
+      getScoreInfo.mockReturnValue({ scoreCount: 1, partCount: 1 } as never);
+
+      await exportScoresToPdf(exportScore(1, 1), { scoreIndices: [0], fonts: testFonts });
+
+      expect(wasmComputeLayout).toHaveBeenCalledTimes(1);
+      expect(wasmComputeFullScoreLayout).not.toHaveBeenCalled();
+      expect(wasmComputeMnxScoreLayout).not.toHaveBeenCalled();
+    });
+
+    it("keeps multi-score export on the score-specific route", async () => {
+      getScoreInfo.mockReturnValue({ scoreCount: 2, partCount: 0 } as never);
+
+      await exportScoresToPdf(exportScore(2, 0), { scoreIndices: [1], fonts: testFonts });
+
+      expect(wasmComputeMnxScoreLayout).toHaveBeenCalledTimes(1);
+      expect(wasmComputeMnxScoreLayout).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Number),
+        expect.any(Number),
+        1,
+        expect.any(String),
+      );
+      expect(wasmComputeFullScoreLayout).not.toHaveBeenCalled();
+      expect(wasmComputeLayout).not.toHaveBeenCalled();
     });
   });
 });
