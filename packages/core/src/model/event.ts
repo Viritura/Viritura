@@ -269,9 +269,13 @@ export interface Slur {
 /** Glissando line style. */
 export type GlissandoStyle = "straight" | "wavy";
 
+/** Musical meaning of a glissando-family line, independent of its label. */
+export type GlissandoKind = "glissando" | "portamento";
+
 /** Glissando line connecting two notes at different pitches. */
 export interface Glissando {
   target: string;
+  kind?: GlissandoKind;
   style?: GlissandoStyle;
   text?: string;
 }

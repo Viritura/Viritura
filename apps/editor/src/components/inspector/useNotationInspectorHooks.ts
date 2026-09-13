@@ -2,12 +2,13 @@
  * Helper hooks for NotationInspector — auto-scroll + tie/slur form bindings.
  */
 import { useCallback, useEffect, useState, type RefObject } from "react";
-import type { Score } from "@viritura/core";
+import type { Glissando, Score } from "@viritura/core";
 import type { SelectableElementType } from "../../score/elementTypes";
 import { sectionForElementType, type InspectorSection } from "./notationInspectorMeta";
 import {
   setPrimarySlurProperties,
   setPrimaryTieProperties,
+  setPrimaryGlissandoProperties,
   type NotationSelectionTarget,
 } from "../../commands/notationInspectorCommands";
 import {
@@ -84,12 +85,14 @@ export function useInspectorAutoScroll({
 interface TieSlurHandlersArgs {
   score: Score | null;
   target: NotationSelectionTarget | null;
+  glissando: Glissando | null;
   updateScore: (s: Score) => void;
 }
 
 export interface TieSlurHandlers {
   tieError: string | null;
   slurError: string | null;
+  glissandoError: string | null;
   handleTieTargetChange: (v: string) => void;
   handleTieTargetTypeChange: (v: string) => void;
   handleTieSideChange: (v: string) => void;
@@ -100,6 +103,11 @@ export interface TieSlurHandlers {
   handleSlurLineTypeChange: (v: string) => void;
   handleSlurStartNoteChange: (v: string) => void;
   handleSlurEndNoteChange: (v: string) => void;
+  handleGlissandoTargetChange: (v: string) => void;
+  handleGlissandoKindChange: (v: string) => void;
+  handleGlissandoStyleChange: (v: string) => void;
+  handleGlissandoTextVisibleChange: (visible: boolean) => void;
+  handleGlissandoTextChange: (v: string) => void;
 }
 
 function parseSide(value: string): "up" | "down" | null {
@@ -110,9 +118,10 @@ function parseLineType(value: string): "solid" | "dashed" | "dotted" | null {
   return value === "solid" || value === "dashed" || value === "dotted" ? value : null;
 }
 
-export function useTieSlurHandlers({ score, target, updateScore }: TieSlurHandlersArgs): TieSlurHandlers {
+export function useTieSlurHandlers({ score, target, glissando, updateScore }: TieSlurHandlersArgs): TieSlurHandlers {
   const [tieError, setTieError] = useState<string | null>(null);
   const [slurError, setSlurError] = useState<string | null>(null);
+  const [glissandoError, setGlissandoError] = useState<string | null>(null);
 
   const applyTie = useCallback(
     (patch: Parameters<typeof setPrimaryTieProperties>[2], errorMsg: string) => {
@@ -142,9 +151,24 @@ export function useTieSlurHandlers({ score, target, updateScore }: TieSlurHandle
     [score, target, updateScore],
   );
 
+  const applyGlissando = useCallback(
+    (patch: Parameters<typeof setPrimaryGlissandoProperties>[2], errorMsg: string) => {
+      if (!score || !target) return;
+      const result = setPrimaryGlissandoProperties(score, target, patch);
+      if (!result.ok || !result.score) {
+        setGlissandoError(result.error ?? errorMsg);
+        return;
+      }
+      setGlissandoError(null);
+      updateScore(result.score);
+    },
+    [score, target, updateScore],
+  );
+
   return {
     tieError,
     slurError,
+    glissandoError,
     handleTieTargetChange: (v: string) =>
       applyTie({ target: v.trim() === "" ? null : v.trim() }, "Unable to update tie target."),
     handleTieTargetTypeChange: (v: string) =>
@@ -169,6 +193,33 @@ export function useTieSlurHandlers({ score, target, updateScore }: TieSlurHandle
       applySlur({ startNote: v.trim() === "" ? null : v.trim() }, "Unable to update slur start note."),
     handleSlurEndNoteChange: (v: string) =>
       applySlur({ endNote: v.trim() === "" ? null : v.trim() }, "Unable to update slur end note."),
+    handleGlissandoTargetChange: (v: string) => {
+      const trimmed = v.trim();
+      if (!trimmed) {
+        setGlissandoError("Glissando target is required.");
+        return;
+      }
+      applyGlissando({ target: trimmed }, "Unable to update glissando target.");
+    },
+    handleGlissandoKindChange: (v: string) => {
+      if (v !== "glissando" && v !== "portamento") return;
+      const oldDefault = glissando?.kind === "portamento" ? "port." : "gliss.";
+      const patch: Parameters<typeof setPrimaryGlissandoProperties>[2] = { kind: v };
+      if (glissando?.text === oldDefault) patch.text = v === "portamento" ? "port." : "gliss.";
+      applyGlissando(patch, "Unable to update glissando type.");
+    },
+    handleGlissandoStyleChange: (v: string) => {
+      if (v === "straight" || v === "wavy") {
+        applyGlissando({ style: v }, "Unable to update glissando line style.");
+      }
+    },
+    handleGlissandoTextVisibleChange: (visible: boolean) =>
+      applyGlissando(
+        { text: visible ? (glissando?.kind === "portamento" ? "port." : "gliss.") : null },
+        "Unable to update glissando text display.",
+      ),
+    handleGlissandoTextChange: (v: string) =>
+      applyGlissando({ text: v === "" ? null : v }, "Unable to update glissando text."),
   };
 }
 

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Score, NoteEvent, Note, Tie, Slur, Sequence, SequenceContent, Fermata } from "@viritura/core";
+import type { Score, NoteEvent, Note, Tie, Slur, Glissando, Sequence, SequenceContent, Fermata } from "@viritura/core";
 import type { SelectionState } from "../../store/selectionStore";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import { extractNoteIndex } from "../../score/ElementPath";
@@ -10,6 +10,7 @@ export interface NotationInspectorSelection {
   selectedNote: Note | null;
   selectedTie: Tie | null;
   selectedSlur: Slur | null;
+  selectedGlissando: Glissando | null;
   selectedTrill: NonNullable<NoteEvent["markings"]>["trill"] | null;
   selectedFermata: Fermata | null;
   selectedSequence: Sequence | null;
@@ -76,6 +77,9 @@ function buildSelection(
   const selectedNote: Note | null = eventNode ? (eventNode.notes?.[noteIndex] ?? eventNode.notes?.[0] ?? null) : null;
   const selectedTie: Tie | null = selectedNote?.ties?.[target?.tieIndex ?? 0] ?? null;
   const selectedSlur: Slur | null = eventNode ? (eventNode.slurs?.[target?.slurIndex ?? 0] ?? null) : null;
+  const selectedGlissando: Glissando | null = eventNode
+    ? (eventNode.glissandos?.[target?.glissandoIndex ?? 0] ?? null)
+    : null;
   const selectedTrill = eventNode ? (eventNode.markings?.trill ?? null) : null;
   const selectedFermata = resolveSelectedFermata(eventNode);
   const selectedSequence = resolveSelectedSequence(score, target);
@@ -87,6 +91,7 @@ function buildSelection(
     selectedNote,
     selectedTie,
     selectedSlur,
+    selectedGlissando,
     selectedTrill,
     selectedFermata,
     selectedSequence,

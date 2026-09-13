@@ -201,10 +201,17 @@ export interface components {
          * @enum {string}
          */
         "glissando-style": "straight" | "wavy";
+        /**
+         * @description Semantic kind of a glissando-family line.
+         * @enum {string}
+         */
+        "glissando-kind": "glissando" | "portamento";
         /** @description A glissando or portamento connecting this event to a target event. */
         glissando: {
             /** @description ID of the target event. */
             target: string;
+            /** @description Semantic kind. Default: 'glissando'. */
+            kind?: components["schemas"]["glissando-kind"];
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
@@ -720,6 +727,7 @@ export type Trill = components["schemas"]["trill"];
 export type OrnamentType = components["schemas"]["ornament-type"];
 export type Fingering = components["schemas"]["fingering"];
 export type GlissandoStyle = components["schemas"]["glissando-style"];
+export type GlissandoKind = components["schemas"]["glissando-kind"];
 export type Glissando = components["schemas"]["glissando"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];

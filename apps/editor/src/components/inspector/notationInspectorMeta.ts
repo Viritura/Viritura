@@ -8,7 +8,16 @@
 import type { SelectableElementType } from "../../score/elementTypes";
 
 /** Inspector section names that can be auto-scrolled to. */
-export type InspectorSection = "measure" | "event" | "note" | "tie" | "slur" | "markings" | "directions" | "layout";
+export type InspectorSection =
+  | "measure"
+  | "event"
+  | "note"
+  | "tie"
+  | "slur"
+  | "glissando"
+  | "markings"
+  | "directions"
+  | "layout";
 
 const SECTION_BY_TYPE: Partial<Record<SelectableElementType, InspectorSection>> = {
   event: "event",
@@ -36,6 +45,7 @@ const SECTION_BY_TYPE: Partial<Record<SelectableElementType, InspectorSection>> 
   "chord-symbol": "directions",
   tie: "tie",
   slur: "slur",
+  glissando: "glissando",
   barline: "measure",
   clef: "measure",
   "key-signature": "measure",

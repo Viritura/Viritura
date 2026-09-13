@@ -64,6 +64,7 @@ import {
   applyBreathFermata,
 } from "../radialMenu/radialMenuActions";
 import { createTuplet, createTupletFromEvent, parseTupletRatio } from "../commands/tupletCommands";
+import { addGlissando, type GlissandoKind } from "../commands/glissandoCommands";
 import {
   durationToBeats,
   sequenceContentBeats,
@@ -358,6 +359,45 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     });
     if (newScore !== score) updateScore(newScore);
   }, [active, selectedScoreIndex, store, toggleSlur, updateScore]);
+
+  const handleGlissandoClick = useCallback(
+    (kind: GlissandoKind) => {
+      if (active) {
+        toast.error("Finish note input before adding a glissando or portamento.");
+        return;
+      }
+      const score = store.getState().score;
+      const selected = useSelectionStore.getState().selection;
+      if (!score) return;
+      const events = resolveCondensedSelectionEvents(score, selected, selectedScoreIndex);
+      if (events.length !== 2) {
+        toast.error("Select exactly two notes or chords for this line.");
+        return;
+      }
+      try {
+        const nextScore = produce(score, (draft) => {
+          const source = getEventAtLocation(draft, events[0]!);
+          const target = getEventAtLocation(draft, events[1]!);
+          if (source?.type !== "event" || target?.type !== "event") {
+            throw new Error("Both endpoints must be notes or chords.");
+          }
+          if (!source.id) source.id = generateEventId();
+          if (!target.id) target.id = generateEventId();
+          addGlissando(draft, {
+            sourceEventId: source.id,
+            targetEventId: target.id,
+            kind,
+            style: "straight",
+            text: kind === "portamento" ? "port." : "gliss.",
+          });
+        });
+        if (nextScore !== score) updateScore(nextScore);
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Unable to add the line.");
+      }
+    },
+    [active, selectedScoreIndex, store, updateScore],
+  );
 
   const handleLvTie = useCallback(() => {
     const sel = useSelectionStore.getState().selection;
@@ -1610,6 +1650,8 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           <PaletteButton label="⌢" title="Tie (T)" shortcut="T" active={tieActive} onClick={handleTieClick} />
           <PaletteButton label="⌒" title="Slur (S)" shortcut="S" active={slurActive} onClick={handleSlurClick} />
           <PaletteButton label="l.v." title="Laissez vibrer tie" active={lvActive} onClick={handleLvTie} />
+          <PaletteButton label="gliss." title="Glissando" onClick={() => handleGlissandoClick("glissando")} />
+          <PaletteButton label="port." title="Portamento" onClick={() => handleGlissandoClick("portamento")} />
         </div>
       ),
     },

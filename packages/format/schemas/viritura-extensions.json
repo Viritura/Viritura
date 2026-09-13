@@ -409,6 +409,12 @@
       "description": "Glissando/portamento line style."
     },
 
+    "glissando-kind": {
+      "type": "string",
+      "enum": ["glissando", "portamento"],
+      "description": "Semantic kind of a glissando-family line."
+    },
+
     "glissando": {
       "type": "object",
       "description": "A glissando or portamento connecting this event to a target event.",
@@ -417,6 +423,10 @@
         "target": {
           "type": "string",
           "description": "ID of the target event."
+        },
+        "kind": {
+          "$ref": "#/$defs/glissando-kind",
+          "description": "Semantic kind. Default: 'glissando'."
         },
         "style": {
           "$ref": "#/$defs/glissando-style",

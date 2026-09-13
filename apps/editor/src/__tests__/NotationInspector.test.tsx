@@ -84,6 +84,7 @@ function buildScore(): Score {
                       { id: "n1b", pitch: { step: "E", octave: 4 } },
                     ],
                     slurs: [{ target: "ev2", lineType: "solid" }],
+                    glissandos: [{ target: "ev2", kind: "portamento", style: "straight", text: "port." }],
                     fermata: { symbol: "normal" },
                     markings: {
                       breath: { symbol: "comma" },
@@ -897,6 +898,27 @@ describe("NotationInspector", () => {
     await waitFor(() => {
       expect((screen.getByTestId("notation-slur-line-type") as HTMLSelectElement).value).toBe("dashed");
     });
+  });
+
+  it("edits a selected portamento's style and text visibility", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+
+    const kind = await screen.findByTestId("notation-glissando-kind");
+    expect(kind.textContent).toContain("Portamento");
+
+    await user.click(screen.getByTestId("notation-glissando-style"));
+    await user.click(await screen.findByRole("option", { name: "Wavy" }));
+    await user.click(screen.getByTestId("notation-glissando-show-text"));
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy" }],
+      });
+    });
+    expect(screen.queryByTestId("notation-glissando-text")).toBeNull();
+    expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
+    expect(JSON.stringify(currentMnx())).not.toContain('"text":"port."');
   });
 
   it("shows the grace note's own slur when the grace note is selected directly", async () => {
