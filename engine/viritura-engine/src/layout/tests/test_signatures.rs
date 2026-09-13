@@ -2423,6 +2423,22 @@ fn additive_numerator_joins_beat_groups_with_the_small_plus_glyph() {
         plus_glyphs, 2,
         "3+2+2 has two plus signs joining its three groups"
     );
+    let plus_y = additive
+        .glyphs
+        .iter()
+        .find(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
+        .unwrap()
+        .y;
+    let numerator_y = additive
+        .glyphs
+        .iter()
+        .filter(|g| (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(&g.codepoint))
+        .map(|g| g.y)
+        .fold(f64::INFINITY, f64::min);
+    assert!(
+        plus_y < numerator_y,
+        "the plus crossbar should be lifted clear of the numerator staff line"
+    );
     let numerator_digits = additive
         .glyphs
         .iter()

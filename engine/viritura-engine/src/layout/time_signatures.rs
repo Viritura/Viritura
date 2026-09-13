@@ -36,6 +36,10 @@ const ANNOTATION_SCALE: f64 = 0.55;
 /// Clearance between the grouping-annotation row and the ordinary meter's
 /// ink above which it is engraved.
 const ANNOTATION_GAP_SP: f64 = 0.4;
+/// Optical lift for plus signs embedded in an in-staff additive numerator.
+/// Standard engraving practice avoids coinciding a thin horizontal glyph
+/// stroke with a staff line; annotation rows above the staff need no lift.
+const ADDITIVE_PLUS_LIFT_SP: f64 = 0.18;
 
 /// Left bearing between the prefix cursor and the meter's ink. Preserved from
 /// the engraving this module replaced so ordinary meters land where they
@@ -183,6 +187,7 @@ fn push_additive_row(
     center_y: f64,
     size: f64,
     sp: f64,
+    plus_lift_sp: f64,
 ) {
     let width = additive_row_width(digits, groups, size, sp);
     let mut x = center_x - width * 0.5;
@@ -190,7 +195,7 @@ fn push_additive_row(
         if index > 0 {
             out.push(TimeSignatureGlyph {
                 x,
-                y: center_y,
+                y: center_y - scaled(plus_lift_sp, size, sp),
                 codepoint: smufl::TIME_SIG_PLUS_SMALL,
                 size,
             });
@@ -423,6 +428,11 @@ fn stacked_layout(
         geometry.numerator_y,
         size,
         sp,
+        if mode == GroupingDisplay::Additive {
+            ADDITIVE_PLUS_LIFT_SP
+        } else {
+            0.0
+        },
     );
     push_row(
         &mut glyphs,
@@ -477,6 +487,7 @@ fn apply_grouping_annotation(
         annotation_y,
         annotation_size,
         sp,
+        0.0,
     );
     layout.top_y = annotation_y - annotation_half_height;
 }
@@ -509,6 +520,11 @@ fn single_number_layout(
         center_y,
         size,
         sp,
+        if mode == GroupingDisplay::Additive {
+            ADDITIVE_PLUS_LIFT_SP
+        } else {
+            0.0
+        },
     );
 
     let mut layout = TimeSignatureLayout {
