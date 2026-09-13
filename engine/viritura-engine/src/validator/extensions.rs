@@ -10,6 +10,7 @@ const EXTENSIONS_SCHEMA_JSON: &str = include_str!("../viritura-extensions-schema
 const DEFINITIONS: &[&str] = &[
     "root-extensions",
     "measure-global-extensions",
+    "time-extensions",
     "key-extensions",
     "tempo-extensions",
     "part-extensions",
@@ -208,6 +209,13 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
                 Some(measure),
                 &pointer,
                 "measure-global-extensions",
+                &mut consumed,
+                &mut errors,
+            );
+            validate_at(
+                measure.get("time"),
+                &format!("{pointer}/time"),
+                "time-extensions",
                 &mut consumed,
                 &mut errors,
             );

@@ -1,13 +1,31 @@
 //! Promote [`crate::raw::Time`] → [`crate::model::time::TimeSignature`].
 
 use crate::model::time::{TimeSignature, TimeSignatureDisplay};
+use crate::promote::vendor_ext::read_viritura_ext;
 use crate::raw;
 
 pub(crate) fn promote_time(raw: raw::Time) -> TimeSignature {
+    let beat_structure = read_viritura_ext(raw.x.as_ref())
+        .and_then(|value| {
+            serde_json::from_value::<crate::raw_viritura::TimeExtensions>(
+                serde_json::Value::Object(value.clone()),
+            )
+            .ok()
+        })
+        .and_then(|extension| {
+            extension
+                .beat_structure
+                .into_iter()
+                .map(u32::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .ok()
+        })
+        .filter(|groups| !groups.is_empty());
     TimeSignature {
         count: u32::try_from(raw.count.0).unwrap_or(4),
         unit: time_signature_unit_to_u32(&raw.unit),
         display: raw.display.map(promote_time_signature_display),
+        beat_structure,
     }
 }
 
@@ -43,5 +61,16 @@ mod tests {
         let raw: raw::Time = serde_json::from_str(json).unwrap();
         let direct: TimeSignature = serde_json::from_str(json).unwrap();
         assert_eq!(direct, promote_time(raw));
+    }
+
+    #[test]
+    fn promotes_authored_beat_structure() {
+        let json = r#"{
+            "count":9,
+            "unit":8,
+            "_x":{"viritura":{"beatStructure":[2,3,2,2]}}
+        }"#;
+        let raw: raw::Time = serde_json::from_str(json).unwrap();
+        assert_eq!(promote_time(raw).beat_structure, Some(vec![2, 3, 2, 2]));
     }
 }

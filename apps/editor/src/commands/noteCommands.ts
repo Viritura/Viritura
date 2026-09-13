@@ -1,4 +1,4 @@
-import type { Score } from "@viritura/core";
+import type { Score, TimeSignature } from "@viritura/core";
 import type { Pitch } from "@viritura/core";
 import type { Duration, Note, NoteEvent, Sequence, SequenceContent } from "@viritura/core";
 import { applyPatchesToScore, isRest, measureBeats, patch } from "@viritura/core";
@@ -1030,13 +1030,13 @@ export {
 // off the score reference (which is immutable per edit thanks to
 // `produce()`) lets us pay the full forward scan once and answer every later
 // query in O(1) — without holding the score alive after it's replaced.
-const TIME_SIG_CACHE = new WeakMap<Score, ({ count: number; unit: number } | null)[]>();
+const TIME_SIG_CACHE = new WeakMap<Score, (TimeSignature | null)[]>();
 const DEFAULT_TIME_SIG = { count: 4, unit: 4 } as const;
 
-function buildTimeSigTable(score: Score): ({ count: number; unit: number } | null)[] {
+function buildTimeSigTable(score: Score): (TimeSignature | null)[] {
   const measures = score.global.measures;
-  const table: ({ count: number; unit: number } | null)[] = new Array(measures.length);
-  let active: { count: number; unit: number } | null = null;
+  const table: (TimeSignature | null)[] = new Array(measures.length);
+  let active: TimeSignature | null = null;
   for (let i = 0; i < measures.length; i++) {
     const gm = measures[i];
     if (gm?.time) active = gm.time;
@@ -1050,7 +1050,7 @@ function buildTimeSigTable(score: Score): ({ count: number; unit: number } | nul
  * Walks backwards through global measures to find the most recent
  * time signature declaration. Defaults to 4/4 if none found.
  */
-export function getEffectiveTimeSignature(score: Score, measureIndex: number): { count: number; unit: number } {
+export function getEffectiveTimeSignature(score: Score, measureIndex: number): TimeSignature {
   let table = TIME_SIG_CACHE.get(score);
   if (!table) {
     table = buildTimeSigTable(score);

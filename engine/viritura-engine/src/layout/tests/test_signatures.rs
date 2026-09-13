@@ -121,7 +121,8 @@ fn test_time_signature_changes() {
         TimeSignature {
             count: 4,
             unit: 4,
-            display: None
+            display: None,
+            beat_structure: None
         }
     );
     assert_eq!(
@@ -129,7 +130,8 @@ fn test_time_signature_changes() {
         TimeSignature {
             count: 4,
             unit: 4,
-            display: None
+            display: None,
+            beat_structure: None
         }
     );
     assert_eq!(
@@ -137,7 +139,8 @@ fn test_time_signature_changes() {
         TimeSignature {
             count: 2,
             unit: 4,
-            display: None
+            display: None,
+            beat_structure: None
         }
     );
 
@@ -209,6 +212,32 @@ fn test_time_signature_changes() {
         "2/4 measure ({:.1}) should be narrower than 4/4 measure ({:.1})",
         measure_widths[2],
         measure_widths[0]
+    );
+}
+
+#[test]
+fn test_beat_structure_inherits_with_time_signature() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"time": {
+                "count": 9,
+                "unit": 8,
+                "_x": {"viritura": {"beatStructure": [2, 3, 2, 2]}}
+            }},
+            {}
+        ]},
+        "parts": [{"measures": [
+            {"sequences": [{"content": []}]},
+            {"sequences": [{"content": []}]}
+        ]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+    assert_eq!(
+        resolved[1].active_time.beat_structure,
+        Some(vec![2, 3, 2, 2])
     );
 }
 
@@ -419,6 +448,7 @@ fn hidden_senza_misura_reserves_no_prefix_or_glyph() {
         count: 2,
         unit: 4,
         display: Some(TimeSignatureDisplay::SenzaMisura),
+        beat_structure: None,
     };
     let settings = TimeSignatureSettings {
         senza_misura: SenzaMisuraDisplay::Hidden,
@@ -1997,6 +2027,7 @@ fn large_style_overflows_the_staff_and_reserves_more_room() {
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     let large = TimeSignatureSettings {
         scale: 1.5,
@@ -2032,6 +2063,7 @@ fn narrow_style_uses_the_condensed_cut_and_reserves_less_room() {
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     assert!(
         prefix_reserve(
@@ -2063,6 +2095,7 @@ fn above_staff_style_engraves_over_the_staff_and_reserves_no_slot() {
         count: 4,
         unit: 4,
         display: None,
+        beat_structure: None,
     };
     assert_eq!(
         prefix_reserve(
@@ -2085,6 +2118,7 @@ fn scale_and_vertical_position_are_independent_of_render_style() {
         count: 12,
         unit: 8,
         display: None,
+        beat_structure: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::Narrow,
@@ -2114,6 +2148,7 @@ fn outside_staff_render_style_is_independent_of_distribution_and_scale() {
         count: 12,
         unit: 8,
         display: None,
+        beat_structure: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::OutsideStaff,

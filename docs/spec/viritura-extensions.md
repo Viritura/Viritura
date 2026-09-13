@@ -17,6 +17,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay                                                               |
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure                                                                                  |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                                          |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
@@ -26,6 +27,34 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                       |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
+
+## Time Signature Extensions
+
+Extensions on an MNX `time` object. Schema def: `time-extensions`.
+
+### `beatStructure`
+
+An ordered array of positive integers describing the meter's beat groups in
+units of `time.unit`. The values must sum to `time.count`.
+
+```json
+{
+  "time": {
+    "count": 9,
+    "unit": 8,
+    "_x": {
+      "viritura": {
+        "beatStructure": [2, 3, 2, 2]
+      }
+    }
+  }
+}
+```
+
+This example remains a 9/8 measure but establishes beat boundaries after 2,
+5, and 7 eighth notes. The extension records metric meaning only; additive
+numerator and grouping-annotation display controls are separate future work.
+When omitted, Viritura resolves a conventional structure for the meter.
 
 ## Score Definition Extensions
 

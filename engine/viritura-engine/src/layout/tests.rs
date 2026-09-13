@@ -2,6 +2,7 @@ mod test_accidentals;
 mod test_amalgamate_unison_repro;
 mod test_arpeggios;
 mod test_articulations;
+mod test_auto_beaming;
 mod test_barlines;
 mod test_bbox;
 mod test_beam_quanting;

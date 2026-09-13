@@ -120,6 +120,32 @@ describe("breakBeamAfterSelection", () => {
     ]);
   });
 
+  it("materializes and splits an implicit group beside an explicit group", () => {
+    const value = score();
+    value.parts[0]!.measures[0]!.beams = [{ events: ["e1", "e2", "e3", "e4"] }];
+
+    expect(canBreakBeamAfterSelection(value, single("e6"))).toBe(true);
+    expect(breakBeamAfterSelection(value, single("e6"))).toBe(true);
+    expect(value.parts[0]!.measures[0]!.beams).toEqual([
+      { events: ["e1", "e2", "e3", "e4"] },
+      { events: ["e5", "e6"] },
+      { events: ["e7", "e8"] },
+    ]);
+  });
+
+  it("materializes implicit groups when the explicit beam list is empty", () => {
+    const value = score();
+    value.parts[0]!.measures[0]!.beams = [];
+
+    expect(canBreakBeamAfterSelection(value, single("e2"))).toBe(true);
+    expect(breakBeamAfterSelection(value, single("e2"))).toBe(true);
+    expect(value.parts[0]!.measures[0]!.beams).toEqual([
+      { events: ["e1", "e2"] },
+      { events: ["e3", "e4"] },
+      { events: ["e5", "e6", "e7", "e8"] },
+    ]);
+  });
+
   it("writes an empty beam list when breaking a two-note group", () => {
     const value = score({ count: 2, unit: 4 });
     value.parts[0]!.measures[0]!.sequences[0]!.content.splice(4);

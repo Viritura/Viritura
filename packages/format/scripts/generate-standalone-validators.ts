@@ -12,6 +12,7 @@ interface JsonSchema {
 const extensionDefinitions = [
   "root-extensions",
   "measure-global-extensions",
+  "time-extensions",
   "key-extensions",
   "tempo-extensions",
   "part-extensions",

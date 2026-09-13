@@ -1,38 +1,10 @@
-import type { Beam, NoteEvent, Score, SequenceContent, TimeSignature } from "@viritura/core";
-import { walkSequenceEvents } from "@viritura/core";
+import type { Beam, NoteEvent, Score } from "@viritura/core";
 import type { EventLocation } from "../score/ElementPath";
 import type { Selection } from "../store/selectionStore";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import { planSelectionWriteback, resolveCondensedEventTargets } from "../score/condensedWriteback";
-import { generateEventId, getEffectiveTimeSignature, sequenceContentBeats } from "./noteCommands";
-
-interface BeamEvent {
-  event: NoteEvent;
-  beat: number;
-}
-
-function flagCount(event: NoteEvent): number {
-  switch (event.duration.base) {
-    case "eighth":
-      return 1;
-    case "16th":
-      return 2;
-    case "32nd":
-      return 3;
-    case "64th":
-      return 4;
-    case "128th":
-      return 5;
-    case "256th":
-      return 6;
-    case "512th":
-      return 7;
-    case "1024th":
-      return 8;
-    default:
-      return 0;
-  }
-}
+import { beamFlagCount, ensureBeamEventId, resolveAutomaticBeamGroups } from "./autoBeaming";
+import { getEffectiveTimeSignature } from "./noteCommands";
 
 function eventAtLocation(score: Score, loc: EventLocation): NoteEvent | null {
   const content = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.content;
@@ -85,7 +57,7 @@ function beamableEventSelection(score: Score, locations: readonly EventLocation[
   for (const loc of orderedLocations) {
     if (loc.eventIndex !== previousEventIndex + 1) return null;
     const event = eventAtLocation(score, loc);
-    if (!event?.notes?.length || flagCount(event) === 0) return null;
+    if (!event?.notes?.length || beamFlagCount(event) === 0) return null;
     previousEventIndex = loc.eventIndex;
   }
 
@@ -108,7 +80,7 @@ function beamSelectionIds(score: Score, selection: BeamSelection, createMissingI
   for (const loc of selection.locations) {
     const event = eventAtLocation(score, loc);
     if (!event) return null;
-    const eventId = createMissingIds ? ensureEventId(event) : event.id;
+    const eventId = createMissingIds ? ensureBeamEventId(event) : event.id;
     if (!eventId) return null;
     ids.push(eventId);
   }
@@ -164,156 +136,16 @@ export function canBeamTogetherSelection(
 export function canBreakBeamAfterSelection(score: Score | null, selection: Selection): boolean {
   if (!score) return false;
   const target = selectedTarget(score, selection);
-  if (!target || flagCount(target.event) === 0) return false;
+  if (!target || beamFlagCount(target.event) === 0) return false;
   const targetId = target.event.id;
   if (!targetId) return true;
 
   const explicitOwner = findExplicitBeamOwner(score, target.loc.partIndex, targetId);
   if (explicitOwner) return splitBeamGroup(explicitOwner.beams, targetId) !== null;
 
-  const measure = score.parts[target.loc.partIndex]?.measures[target.loc.measureIndex];
-  if (!measure || measure.beams !== undefined || score.mnx.support?.useBeams === true) return false;
-  const time = getEffectiveTimeSignature(score, target.loc.measureIndex);
-  const excludedIds = explicitBeamIds(score, target.loc.partIndex);
-  const sequences = structuredClone(measure.sequences);
-  const materialized = sequences.flatMap((sequence) => autoBeamSequence(sequence.content, time, excludedIds));
+  if (score.mnx.support?.useBeams === true) return false;
+  const materialized = automaticBeamsForMeasure(score, target.loc.partIndex, target.loc.measureIndex, false);
   return splitBeamGroup(materialized, targetId) !== null;
-}
-
-function beamGroupDuration(time: TimeSignature, flags: number): number {
-  const compound = time.unit === 8 && time.count % 3 === 0;
-  if (compound) return (3 * 4) / time.unit;
-  if (time.unit === 8) return 1;
-  const beat = 4 / time.unit;
-  if (flags === 1 && time.count === 4 && time.unit === 4) return 2;
-  if (flags === 1 && time.count === 6 && time.unit === 4) return 3;
-  return beat;
-}
-
-function isBoundary(beat: number, groupDuration: number): boolean {
-  if (groupDuration <= 0) return false;
-  const ratio = beat / groupDuration;
-  return Math.abs(ratio - Math.round(ratio)) < 0.01;
-}
-
-function ensureEventId(event: NoteEvent): string {
-  event.id ??= generateEventId();
-  return event.id;
-}
-
-function flush(group: string[], beams: Beam[]): void {
-  if (group.length >= 2) beams.push({ events: [...group] });
-  group.length = 0;
-}
-
-function autoBeamRun(
-  events: BeamEvent[],
-  time: TimeSignature,
-  voiceMaxFlags: number,
-  excludeIds: ReadonlySet<string>,
-): Beam[] {
-  const beams: Beam[] = [];
-  const group: string[] = [];
-  let groupMaxFlags = 0;
-  let pendingRest = false;
-
-  for (const item of events) {
-    const event = item.event;
-    const flags = flagCount(event);
-    const isRest = !event.notes?.length;
-
-    if (flags > 0 && !isRest) {
-      const eventId = ensureEventId(event);
-      if (excludeIds.has(eventId)) {
-        flush(group, beams);
-        groupMaxFlags = 0;
-        pendingRest = false;
-        continue;
-      }
-      const effectiveFlags = Math.max(voiceMaxFlags, groupMaxFlags, flags);
-      const atGroupBoundary = isBoundary(item.beat, beamGroupDuration(time, effectiveFlags));
-      const atBeatAfterRest = pendingRest && isBoundary(item.beat, 4 / time.unit);
-      if (group.length > 0 && (atGroupBoundary || atBeatAfterRest)) {
-        flush(group, beams);
-        groupMaxFlags = 0;
-      }
-      group.push(eventId);
-      groupMaxFlags = Math.max(groupMaxFlags, flags);
-      pendingRest = false;
-      if (event.markings?.caesura) {
-        flush(group, beams);
-        groupMaxFlags = 0;
-      }
-      continue;
-    }
-
-    if (flags > 0 && isRest) {
-      if (group.length > 0 && isBoundary(item.beat, 4 / time.unit)) {
-        flush(group, beams);
-        groupMaxFlags = 0;
-      }
-      groupMaxFlags = Math.max(groupMaxFlags, flags);
-      pendingRest = true;
-      continue;
-    }
-
-    flush(group, beams);
-    groupMaxFlags = 0;
-    pendingRest = false;
-  }
-
-  flush(group, beams);
-  return beams;
-}
-
-function collectTimedEvents(content: SequenceContent[], startBeat: number, scale: number, output: BeamEvent[]): void {
-  let beat = startBeat;
-  for (const item of content) {
-    if (item.type === "event") {
-      output.push({ event: item, beat });
-      beat += sequenceContentBeats(item) * scale;
-      continue;
-    }
-    if (item.type === "tuplet") {
-      const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
-      const outerBeats = sequenceContentBeats(item);
-      collectTimedEvents(item.content, beat, innerBeats > 0 ? (scale * outerBeats) / innerBeats : scale, output);
-    }
-    beat += sequenceContentBeats(item) * scale;
-  }
-}
-
-function autoBeamSequence(content: SequenceContent[], time: TimeSignature, excludeIds: ReadonlySet<string>): Beam[] {
-  const beams: Beam[] = [];
-  let run: BeamEvent[] = [];
-  let beat = 0;
-  const voiceMaxFlags = Array.from(walkSequenceEvents(content)).reduce((max, item) => {
-    return item.event.notes?.length ? Math.max(max, flagCount(item.event)) : max;
-  }, 0);
-
-  const flushRun = (): void => {
-    beams.push(...autoBeamRun(run, time, voiceMaxFlags, excludeIds));
-    run = [];
-  };
-
-  for (const item of content) {
-    if (item.type === "event") {
-      run.push({ event: item, beat });
-      beat += sequenceContentBeats(item);
-      continue;
-    }
-    flushRun();
-    if (item.type === "tuplet") {
-      const tupletEvents: BeamEvent[] = [];
-      const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
-      const outerBeats = sequenceContentBeats(item);
-      collectTimedEvents(item.content, beat, innerBeats > 0 ? outerBeats / innerBeats : 1, tupletEvents);
-      beams.push(...autoBeamRun(tupletEvents, time, voiceMaxFlags, excludeIds));
-    }
-    beat += sequenceContentBeats(item);
-  }
-  flushRun();
-  return beams;
 }
 
 function filterNestedBeam(beam: Beam, allowed: Set<string>): Beam | null {
@@ -378,6 +210,20 @@ function explicitBeamIds(score: Score, partIndex: number): Set<string> {
   return ids;
 }
 
+function automaticBeamsForMeasure(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  createMissingIds: boolean,
+): Beam[] {
+  const measure = score.parts[partIndex]?.measures[measureIndex];
+  if (!measure) return [];
+  const sequences = createMissingIds ? measure.sequences : structuredClone(measure.sequences);
+  const time = getEffectiveTimeSignature(score, measureIndex);
+  const excludedIds = explicitBeamIds(score, partIndex);
+  return sequences.flatMap((sequence) => resolveAutomaticBeamGroups(sequence.content, time, excludedIds));
+}
+
 function findExplicitBeamOwner(
   score: Score,
   partIndex: number,
@@ -398,12 +244,12 @@ function findExplicitBeamOwner(
  * callers can apply the command inside their existing Immer transaction.
  */
 function breakBeamAfterLocation(score: Score, target: { loc: EventLocation; event: NoteEvent }): boolean {
-  if (!target || flagCount(target.event) === 0) return false;
+  if (!target || beamFlagCount(target.event) === 0) return false;
 
   const measure = score.parts[target.loc.partIndex]?.measures[target.loc.measureIndex];
   if (!measure) return false;
 
-  const targetId = ensureEventId(target.event);
+  const targetId = ensureBeamEventId(target.event);
   const explicitOwner = findExplicitBeamOwner(score, target.loc.partIndex, targetId);
   if (explicitOwner) {
     const split = splitBeamGroup(explicitOwner.beams, targetId);
@@ -412,14 +258,11 @@ function breakBeamAfterLocation(score: Score, target: { loc: EventLocation; even
     return true;
   }
 
-  if (measure.beams !== undefined) return false;
   if (score.mnx.support?.useBeams === true) return false;
-  const time = getEffectiveTimeSignature(score, target.loc.measureIndex);
-  const excludedIds = explicitBeamIds(score, target.loc.partIndex);
-  const materialized = measure.sequences.flatMap((sequence) => autoBeamSequence(sequence.content, time, excludedIds));
+  const materialized = automaticBeamsForMeasure(score, target.loc.partIndex, target.loc.measureIndex, true);
   const split = splitBeamGroup(materialized, targetId);
   if (!split) return false;
-  measure.beams = split;
+  measure.beams = [...(measure.beams ?? []), ...split];
   return true;
 }
 

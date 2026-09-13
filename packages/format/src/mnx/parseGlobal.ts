@@ -69,6 +69,7 @@ import type {
 import type {
   DynamicGroupExtensions as RawDynamicGroupExt,
   MeasureGlobalExtensions as RawMeasureGlobalExt,
+  TimeExtensions as RawTimeExtensions,
   Pedal as RawPedal,
   ChordSymbol as RawChordSymbol,
   ChordRoot as RawChordRoot,
@@ -451,6 +452,8 @@ function parseTimeSignature(raw: RawTime): TimeSignature {
   if (raw.display === "common" || raw.display === "cut") {
     ts.display = raw.display;
   }
+  const viritura = raw._x?.["viritura"] as RawTimeExtensions | undefined;
+  if (viritura?.beatStructure) ts.beatStructure = [...viritura.beatStructure];
   return ts;
 }
 

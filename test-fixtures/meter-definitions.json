@@ -1,0 +1,20 @@
+{
+  "defaults": [
+    { "count": 2, "unit": 4, "beatStructure": [1, 1] },
+    { "count": 3, "unit": 4, "beatStructure": [1, 1, 1] },
+    { "count": 4, "unit": 4, "beatStructure": [1, 1, 1, 1] },
+    { "count": 3, "unit": 8, "beatStructure": [3] },
+    { "count": 6, "unit": 4, "beatStructure": [3, 3] },
+    { "count": 6, "unit": 8, "beatStructure": [3, 3] },
+    { "count": 9, "unit": 8, "beatStructure": [3, 3, 3] },
+    { "count": 5, "unit": 8, "beatStructure": [3, 2] },
+    { "count": 7, "unit": 8, "beatStructure": [2, 2, 3] },
+    { "count": 8, "unit": 8, "beatStructure": [3, 3, 2] }
+  ],
+  "authored": {
+    "count": 9,
+    "unit": 8,
+    "beatStructure": [2, 3, 2, 2],
+    "beatBoundaries": [0, 1, 2.5, 3.5, 4.5]
+  }
+}

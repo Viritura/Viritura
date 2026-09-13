@@ -278,6 +278,7 @@ function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
 function serializeTimeSignature(time: NonNullable<GlobalMeasure["time"]>): Obj {
   const out: Obj = { count: time.count, unit: time.unit };
   if (time.display === "common" || time.display === "cut") out["display"] = time.display;
+  if (time.beatStructure) out["_x"] = { viritura: { beatStructure: time.beatStructure } };
   return out;
 }
 
