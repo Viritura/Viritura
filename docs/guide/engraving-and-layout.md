@@ -29,7 +29,8 @@ Open **Advanced** to control root-letter case, major-seventh, minor,
 diminished, half-diminished, and augmented spellings, plus superscript or
 baseline extensions. Per-symbol display text remains available in
 **Properties** for an exception that should not change the document-wide house
-style.
+style. See [Chord Symbols](/docs/chord-symbols) for entry, progression
+navigation, semantic editing, and layout visibility.
 
 ### Text styles
 

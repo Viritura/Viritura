@@ -50,6 +50,13 @@ export const DOC_PAGE_META: readonly DocPageMeta[] = [
     file: "docs/guide/note-entry.md",
   },
   {
+    slug: "chord-symbols",
+    path: "/docs/chord-symbols",
+    title: "Chord Symbols",
+    group: "Create",
+    file: "docs/guide/chord-symbols.md",
+  },
+  {
     slug: "lyrics",
     path: "/docs/lyrics",
     title: "Lyrics",

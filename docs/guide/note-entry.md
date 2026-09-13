@@ -87,29 +87,6 @@ To stack notes into a chord:
   without advancing. Press `Q` again to release. From normal mode, `Q` jumps
   straight into note input with chord‑lock on.
 
-## Chord symbols
-
-Select a note or rest, then press `Shift+K` or choose **Chord symbol** in
-**Palettes → Text**. Enter a symbol such as `C`, `Dm7`, `F#maj7/A#`, `Gsus4`,
-or `C5`. Viritura stores the chord in the part's harmony lane at the selected
-rhythmic position rather than attaching it to the selected note.
-
-Use these keys to continue entering a progression:
-
-| Key             | Action                                     |
-| --------------- | ------------------------------------------ |
-| `Enter`         | Commit and exit                            |
-| `Space`         | Commit and move to the next note or rest   |
-| `Shift+Space`   | Commit and move to the previous event      |
-| `;` / `Shift+;` | Commit and move by one beat                |
-| `Mod+→` / `←`   | Commit and move to the next / previous bar |
-| `Esc`           | Cancel and exit                            |
-
-Select an existing chord symbol to edit its semantic root, accidental, quality,
-extension, slash bass, display staff, or display override in **Properties**.
-Document-wide chord-symbol spelling is controlled in
-[Engraving & Layout](/docs/engraving-and-layout#chord-symbols).
-
 ## Rests
 
 Press `0` in note input to insert a rest of the current duration. In normal
@@ -181,3 +158,6 @@ For selection, palettes, the inspector, and clipboard history, see
 
 For syllable entry, melismas, translations, and lyric-line metadata, see
 [Lyrics](/docs/lyrics).
+
+For entering and styling harmonic labels above the staff, see
+[Chord Symbols](/docs/chord-symbols).

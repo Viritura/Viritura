@@ -85,8 +85,15 @@ const publicRoutes: readonly SeoRoute[] = [
   {
     path: "/docs/note-entry",
     title: "Note Entry | Viritura Documentation",
-    description: "Enter notes, rests, chords, tuplets, and other musical events efficiently in Viritura.",
+    description: "Enter notes, rests, note chords, tuplets, and other musical events efficiently in Viritura.",
     canonicalPath: "/docs/note-entry",
+    indexable: true,
+  },
+  {
+    path: "/docs/chord-symbols",
+    title: "Chord Symbols | Viritura Documentation",
+    description: "Enter, edit, place, and style chord symbols and harmonic progressions in Viritura.",
+    canonicalPath: "/docs/chord-symbols",
     indexable: true,
   },
   {
