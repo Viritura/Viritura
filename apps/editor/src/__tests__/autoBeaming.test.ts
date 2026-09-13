@@ -20,6 +20,7 @@ interface IrregularAutoBeamingCase {
   count: number;
   unit: number;
   eventCount?: number;
+  eventBase?: "eighth" | "16th";
   beatStructure?: number[];
   expectedGroupSizes: number[];
 }
@@ -59,7 +60,7 @@ describe("irregular meter automatic beaming", () => {
       };
       const content = Array.from({ length: testCase.eventCount ?? testCase.count }, (_, index) => ({
         id: `e${index + 1}`,
-        duration: { base: "eighth" },
+        duration: { base: testCase.eventBase ?? "eighth" },
         notes: [{ pitch: { step: "C", octave: 4 } }],
       }));
       const score = parseMnx({

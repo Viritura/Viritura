@@ -1,6 +1,18 @@
 {
   "cases": [
     {
+      "name": "2/8 retains quarter-note-equivalent grouping",
+      "count": 2,
+      "unit": 8,
+      "expectedGroupSizes": [2]
+    },
+    {
+      "name": "4/8 retains quarter-note-equivalent grouping",
+      "count": 4,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2]
+    },
+    {
       "name": "5/8 uses the conventional 3+2 default",
       "count": 5,
       "unit": 8,
@@ -44,6 +56,25 @@
       "unit": 8,
       "beatStructure": [2, 3, 2, 2],
       "expectedGroupSizes": [2, 3, 2, 2]
+    },
+    {
+      "name": "10/8 retains quarter-note-equivalent fallback grouping",
+      "count": 10,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2, 2, 2, 2]
+    },
+    {
+      "name": "11/8 leaves only the final unmatched eighth unbeamed",
+      "count": 11,
+      "unit": 8,
+      "expectedGroupSizes": [2, 2, 2, 2, 2]
+    },
+    {
+      "name": "4/16 groups sixteenths through the quarter-note beat",
+      "count": 4,
+      "unit": 16,
+      "eventBase": "16th",
+      "expectedGroupSizes": [4]
     },
     {
       "name": "authored 4/4 grouping is interpreted literally",

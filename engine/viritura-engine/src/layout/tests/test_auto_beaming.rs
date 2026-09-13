@@ -27,6 +27,7 @@ struct IrregularAutoBeamingCase {
     count: u32,
     unit: u32,
     event_count: Option<u32>,
+    event_base: Option<String>,
     beat_structure: Option<Vec<u32>>,
     expected_group_sizes: Vec<usize>,
 }
@@ -77,11 +78,12 @@ fn irregular_meter_beaming_matches_shared_editor_contract() {
     let config = LayoutConfig::default();
 
     for test_case in fixture.cases {
+        let event_base = test_case.event_base.as_deref().unwrap_or("eighth");
         let events = (1..=test_case.event_count.unwrap_or(test_case.count))
             .map(|index| {
                 serde_json::json!({
                     "id": format!("e{index}"),
-                    "duration": { "base": "eighth" },
+                    "duration": { "base": event_base },
                     "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
                 })
             })
