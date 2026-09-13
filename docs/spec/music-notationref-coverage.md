@@ -1,6 +1,6 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"252062733f58677eb6cb0b30047fa097fe6c80e2","virituraCommit":"b29216653cf662011653318de1b895cba89863eb","upstreamSyncedAt":"2026-09-13","virituraAuditedAt":"2026-09-13"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"252062733f58677eb6cb0b30047fa097fe6c80e2","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-13","virituraAuditedAt":"2026-09-13"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
 > · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
