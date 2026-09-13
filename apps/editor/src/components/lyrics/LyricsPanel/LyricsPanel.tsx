@@ -15,6 +15,7 @@ import { useOverlayStore } from "../../../store/overlayStore";
 import { useSelection } from "../../../store/selectionStore";
 import { toggleNoteInputMode, useNoteInputStore } from "../../../store/noteInputStore";
 import styles from "./LyricsPanel.module.css";
+import { LyricWorkflowControls } from "./LyricWorkflowControls";
 
 type MetadataField = keyof LyricLineMetadataEntry;
 
@@ -230,6 +231,16 @@ export function LyricsPanel({ embedded = false }: LyricsPanelProps) {
         score={score}
         updateScore={updateScore}
         ariaLabel="Active lyric line language"
+      />
+
+      <LyricWorkflowControls
+        score={score}
+        selection={selection}
+        lineId={activeLyricLineId}
+        lineLabel={getLyricLineDisplay(score, activeLyricLineId)}
+        {...(activeMetadata?.lang && { language: activeMetadata.lang })}
+        updateScore={updateScore}
+        setStatus={setStatus}
       />
 
       <Collapsible title="Manage lines">

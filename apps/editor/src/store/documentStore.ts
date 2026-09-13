@@ -42,7 +42,7 @@ export interface DocumentStoreState {
 
   // ── Actions ──
   loadScoreFromUrl: (url: string) => Promise<void>;
-  loadScore: (score: Score, fileName?: string, mnxJson?: string) => void;
+  loadScore: (score: Score, fileName?: string, mnxJson?: string, preserveDocumentGeneration?: boolean) => void;
   updateScore: (
     score: Score,
     affectedMeasures?: { start: number; end: number },
@@ -143,7 +143,7 @@ export function createDocumentStore() {
       coalescer.reset();
     },
 
-    loadScore: (newScore: Score, name?: string, preSerializedJson?: string) => {
+    loadScore: (newScore: Score, name?: string, preSerializedJson?: string, preserveDocumentGeneration = false) => {
       publishSequence += 1;
       // Auto-repair on load so subsequent edits don't surface a spurious
       // "27 changes across 22 parts" history entry the moment a user touches
@@ -191,7 +191,7 @@ export function createDocumentStore() {
         mnxJson: json,
         dirty: false,
         fileName: name ?? "",
-        documentGeneration: get().documentGeneration + 1,
+        documentGeneration: get().documentGeneration + (preserveDocumentGeneration ? 0 : 1),
         beatCountIssues: [],
         lastCommittedPatches: [],
       });

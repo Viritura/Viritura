@@ -31,6 +31,7 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     }
     rm.transposition.hash(&mut hasher);
     rm.written_diatonic_adjustment.hash(&mut hasher);
+    rm.staff_has_lyrics.hash(&mut hasher);
     if let Some(ref kit) = rm.kit {
         if let Ok(json) = serde_json::to_string(kit) {
             json.hash(&mut hasher);

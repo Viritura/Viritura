@@ -53,4 +53,32 @@ describe("useMnxChangeReporter", () => {
       expect(pushState).toHaveBeenCalledWith(expect.any(String), "Edit", before, after);
     });
   });
+
+  it("resets history when a different document is opened", async () => {
+    const store = createDocumentStore();
+    const pushState = vi.fn();
+    const resetHistory = vi.fn();
+    renderHook(() => useMnxChangeReporter({ store, pushState, resetHistory }));
+
+    act(() => store.getState().loadScore(makeScore("C"), "opened.mnx"));
+
+    await waitFor(() => expect(resetHistory).toHaveBeenCalledWith(store.getState().mnxJson));
+    expect(pushState).not.toHaveBeenCalled();
+  });
+
+  it("does not reset or push history while restoring an undo snapshot", async () => {
+    const store = createDocumentStore();
+    store.getState().loadScore(makeScore("C"), "opened.mnx");
+    const generation = store.getState().documentGeneration;
+    const pushState = vi.fn();
+    const resetHistory = vi.fn();
+    renderHook(() => useMnxChangeReporter({ store, pushState, resetHistory }));
+
+    act(() => store.getState().loadScore(makeScore("D"), undefined, undefined, true));
+
+    await waitFor(() => expect(store.getState().mnxJson).toContain('"step":"D"'));
+    expect(store.getState().documentGeneration).toBe(generation);
+    expect(resetHistory).not.toHaveBeenCalled();
+    expect(pushState).not.toHaveBeenCalled();
+  });
 });

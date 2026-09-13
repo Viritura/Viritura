@@ -14,7 +14,7 @@ export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement
  * is a sibling `<span>` toggled via `:checked + .box` CSS.
  */
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
-  { label, id, className, disabled, ...rest },
+  { label, id, className, disabled, onKeyDown, ...rest },
   ref,
 ) {
   const autoId = useId();
@@ -25,7 +25,22 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
       data-disabled={disabled ? "true" : undefined}
       htmlFor={inputId}
     >
-      <input ref={ref} id={inputId} type="checkbox" className={styles.input} disabled={disabled} {...rest} />
+      <input
+        ref={ref}
+        id={inputId}
+        type="checkbox"
+        className={styles.input}
+        disabled={disabled}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (!event.defaultPrevented && event.key === " ") {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.click();
+          }
+        }}
+        {...rest}
+      />
       <span className={styles.box} aria-hidden="true">
         <svg
           className={styles.check}

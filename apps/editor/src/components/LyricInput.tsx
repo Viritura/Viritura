@@ -14,8 +14,9 @@
 import { useEffect, useRef, useCallback, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { FormInput } from "@viritura/ui";
+import { toast } from "sonner";
 import type { LyricLineType } from "@viritura/core";
-import { findNextInVoice, findPrevInVoice } from "../navigation/NavigationIndex";
+import { findNextNoteInVoice, findPrevNoteInVoice } from "../navigation/NavigationIndex";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
 import { useDocumentStore, useDocumentStoreApi } from "../store/DocumentContext";
@@ -212,13 +213,19 @@ export function LyricInput({
       }
       // Set continuing state for next syllable
       continuingWordRef.current = action === "hyphen";
-      // Find next event
-      const nextId = findNextInVoice(navIndex, state.elementId);
+      // Lyrics attach to notes, so pass over rests (including collapsed
+      // multi-measure rests) to the next valid note in this voice.
+      const nextId = findNextNoteInVoice(navIndex, state.elementId);
       if (nextId) {
         onNavigate({ elementId: nextId, lineId: state.lineId });
+      } else {
+        setValue("");
+        continuingWordRef.current = false;
+        onExit();
+        toast.info("End of voice.");
       }
     },
-    [state, navIndex, value, getSyllableType, onCommitSyllable, onNavigate],
+    [state, navIndex, value, getSyllableType, onCommitSyllable, onNavigate, onExit],
   );
 
   // Handle melisma (underscore) — skip current note, advance
@@ -232,11 +239,16 @@ export function LyricInput({
       continuingWordRef.current = false;
     }
     // Advance without adding lyric
-    const nextId = findNextInVoice(navIndex, state.elementId);
+    const nextId = findNextNoteInVoice(navIndex, state.elementId);
     if (nextId) {
       onNavigate({ elementId: nextId, lineId: state.lineId });
+    } else {
+      setValue("");
+      continuingWordRef.current = false;
+      onExit();
+      toast.info("End of voice.");
     }
-  }, [state, navIndex, value, onCommitSyllable, onNavigate]);
+  }, [state, navIndex, value, onCommitSyllable, onNavigate, onExit]);
 
   // Commit current input text as a terminal syllable (end/whole), then
   // reset the continuing-word flag. Used by Escape, arrows, and verse switching.
@@ -255,7 +267,9 @@ export function LyricInput({
       if (!state || !navIndex) return;
       commitPendingSyllable();
       const nextId =
-        direction === "next" ? findNextInVoice(navIndex, state.elementId) : findPrevInVoice(navIndex, state.elementId);
+        direction === "next"
+          ? findNextNoteInVoice(navIndex, state.elementId)
+          : findPrevNoteInVoice(navIndex, state.elementId);
       if (nextId) onNavigate({ elementId: nextId, lineId: state.lineId });
     },
     [state, navIndex, commitPendingSyllable, onNavigate],

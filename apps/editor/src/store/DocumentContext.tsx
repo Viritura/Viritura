@@ -45,7 +45,7 @@ export interface DocumentActions {
   /** Load a score from a URL (fetch → parse → store). */
   loadScoreFromUrl: (url: string) => Promise<void>;
   /** Load a pre-parsed Score model directly. */
-  loadScore: (score: Score, fileName?: string, mnxJson?: string) => void;
+  loadScore: (score: Score, fileName?: string, mnxJson?: string, preserveDocumentGeneration?: boolean) => void;
   /** Replace the current Score (marks dirty, auto-serializes MNX). */
   updateScore: (score: Score, affectedMeasures?: { start: number; end: number }) => void;
   /**

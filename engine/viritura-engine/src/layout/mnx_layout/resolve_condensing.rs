@@ -545,6 +545,14 @@ pub(super) fn resolve_one_measure_phase1(
             .first()
             .and_then(|s| score.parts.get(s.part_index))
             .and_then(|p| p.kit.clone()),
+        staff_has_lyrics: flat_staff.sources.iter().any(|source| {
+            score.parts.get(source.part_index).is_some_and(|part| {
+                crate::layout::resolve::part_staff_has_lyrics(
+                    part,
+                    source.staff_number.unwrap_or(1),
+                )
+            })
+        }),
     };
     state.prev_display_key = display_key;
     (rm, condensing_mode)

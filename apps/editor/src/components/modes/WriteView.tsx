@@ -129,8 +129,7 @@ function HistoryBridge({
     (restoredJson: string, cursorPosition?: CursorPosition | null) => {
       try {
         const score = parseMnx(JSON.parse(restoredJson));
-        // Pass the pre-serialized JSON to skip redundant serializeMnx()
-        loadScore(score, undefined, restoredJson);
+        loadScore(score, undefined, restoredJson, true);
         // Restore cursor position from history entry
         if (cursorPosition === null) {
           clearCursor();
@@ -279,7 +278,7 @@ function AppInner({
   useSelectionPruner();
 
   // Report MNX changes to parent + push history via store subscription.
-  useMnxChangeReporter({ store, onMnxChange, onFirstLoad, pushState });
+  useMnxChangeReporter({ store, onMnxChange, onFirstLoad, pushState, resetHistory });
 
   // Floating overlays — radial menu, tempo/staff-text popovers, jump bar,
   // and lyric-input mode. Single store keeps all of these out of the

@@ -316,6 +316,14 @@ pub(super) fn build_explicit_system_layouts(
                     .first()
                     .and_then(|source| score.parts.get(source.part_index))
                     .and_then(|part| part.kit.clone()),
+                staff_has_lyrics: effective_staff.sources.iter().any(|source| {
+                    score.parts.get(source.part_index).is_some_and(|part| {
+                        crate::layout::resolve::part_staff_has_lyrics(
+                            part,
+                            source.staff_number.unwrap_or(1),
+                        )
+                    })
+                }),
             });
             previous_display_key = display_key;
         }

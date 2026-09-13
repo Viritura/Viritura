@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 import { Button, TooltipPrimitives } from "@viritura/ui";
@@ -210,5 +210,49 @@ describe("Lyrics palette controls", () => {
     await waitFor(() => expect(currentScore().global.lyrics?.lineMetadata?.["line-a"]?.label).toBe("Solo"));
     await user.click(screen.getByRole("button", { name: "Redo lyric settings" }));
     await waitFor(() => expect(currentScore().global.lyrics?.lineMetadata?.["line-a"]?.label).toBe("Chorus"));
+  });
+
+  it("previews and commits a whole distribution as one keyboard-driven history edit", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    const pasteVerse = await screen.findByRole("button", { name: "Paste verse" });
+    pasteVerse.focus();
+    await user.keyboard("{Enter}");
+    const source = await screen.findByRole("textbox", { name: "Verse text" });
+    await user.type(source, "Welcome");
+
+    expect(screen.getByRole("region", { name: "Token assignment preview" }).textContent).toContain(
+      "1 token over 1 selected event",
+    );
+    expect(screen.getByRole("region", { name: "Mapping diagnostics" }).textContent).toContain(
+      "already contains “Hello”",
+    );
+    expect(screen.getByRole("button", { name: "Distribute Verse" }).hasAttribute("disabled")).toBe(true);
+
+    const replace = screen.getByRole("checkbox", { name: "Replace existing lyrics in mapped destinations" });
+    const leakedSpace = vi.fn();
+    window.addEventListener("keydown", leakedSpace);
+    replace.focus();
+    await user.keyboard(" ");
+    expect((replace as HTMLInputElement).checked).toBe(true);
+    expect(leakedSpace).not.toHaveBeenCalled();
+    window.removeEventListener("keydown", leakedSpace);
+    const distribute = screen.getByRole("button", { name: "Distribute Verse" });
+    distribute.focus();
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      expect(event.type === "event" && event.lyrics?.lines?.["line-a"]?.text).toBe("Welcome");
+      expect(currentScore().lyricWorkflow).toBeDefined();
+    });
+
+    await user.click(screen.getByRole("button", { name: "Undo lyric settings" }));
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      expect(event.type === "event" && event.lyrics?.lines?.["line-a"]?.text).toBe("Hello");
+      expect(currentScore().lyricWorkflow).toBeUndefined();
+    });
   });
 });

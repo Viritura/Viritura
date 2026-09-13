@@ -71,6 +71,7 @@ export class DeltaSerializer {
   private textStylesRef: unknown = undefined;
   private timeSignaturesRef: unknown = undefined;
   private soundProfileRef: unknown = undefined;
+  private lyricWorkflowRef: unknown = undefined;
   private globalLyricsRef: unknown = undefined;
   private mnxRef: unknown = undefined;
   private partsHeaderRefs: Part[] = [];
@@ -83,6 +84,7 @@ export class DeltaSerializer {
   private textStylesCache = "";
   private timeSignaturesCache = "";
   private soundProfileCache = "";
+  private lyricWorkflowCache = "";
   private globalLyricsCache = "";
   private mnxCache = "";
 
@@ -266,6 +268,11 @@ export class DeltaSerializer {
         refKey: "soundProfileRef" as const,
         cacheKey: "soundProfileCache" as const,
       },
+      {
+        value: score.lyricWorkflow,
+        refKey: "lyricWorkflowRef" as const,
+        cacheKey: "lyricWorkflowCache" as const,
+      },
     ];
     for (const slot of slots) {
       const value = slot.value;
@@ -400,6 +407,8 @@ export class DeltaSerializer {
     this.timeSignaturesRef = undefined;
     this.soundProfileCache = "";
     this.soundProfileRef = undefined;
+    this.lyricWorkflowCache = "";
+    this.lyricWorkflowRef = undefined;
     this.globalLyricsCache = "";
     this.globalLyricsRef = undefined;
     this.mnxCache = "";

@@ -582,6 +582,45 @@ export interface components {
             /** @description Spotted moments in the picture, in no guaranteed order. Kept alongside the picture identity because they describe the film rather than the score, and so must survive any amount of rewriting of the music. */
             hitPoints?: components["schemas"]["hit-point"][];
         };
+        /** @description A stable token from a paste-and-distribute lyric source. */
+        "lyric-workflow-token": {
+            /** @description Stable identity used by reflow and collaborative repair. */
+            id: string;
+            /** @description Authored syllable text. Omitted for an explicit melisma skip. */
+            text?: string;
+            /**
+             * @description MNX syllabic role for a visible token.
+             * @enum {string}
+             */
+            type?: "start" | "middle" | "end" | "whole";
+            /**
+             * @description Marks an explicit underscore in the original source.
+             * @constant
+             */
+            skip?: true;
+            /** @description Stable MNX event ID currently anchoring this token; absent when detached. */
+            eventId?: string;
+            /** @description Part ID at the time the token was assigned. */
+            partId?: string;
+            /** @description Voice index at the time the token was assigned. */
+            sequenceIndex?: number;
+        };
+        /** @description Original source and stable token identities for one atomic lyric distribution. */
+        "lyric-workflow-source": {
+            id: string;
+            lineId: string;
+            /** @description Verbatim pasted text retained for non-destructive re-syllabification. */
+            text: string;
+            /** @description BCP 47 language used for optional generated syllabification. */
+            language?: string;
+            tokens: components["schemas"]["lyric-workflow-token"][];
+        };
+        /** @description Source text and stable anchors for previewed lyric distribution and repair. */
+        "lyric-workflow": {
+            sources: {
+                [key: string]: components["schemas"]["lyric-workflow-source"];
+            };
+        };
         /** @description Viritura vendor extensions on the MNX document root (the `_x.viritura` dict on the top-level score object). */
         "root-extensions": {
             /** @description Score-level bibliographic metadata. */
@@ -596,6 +635,8 @@ export interface components {
             soundProfile?: components["schemas"]["sound-profile-assignment"];
             /** @description Score-to-picture synchronization settings. */
             videoSync?: components["schemas"]["video-sync"];
+            /** @description Original lyric source text and stable token anchors for distribution and repair. */
+            lyricWorkflow?: components["schemas"]["lyric-workflow"];
         };
     };
     responses: never;
@@ -675,4 +716,7 @@ export type SoundProfileAssignment = components["schemas"]["sound-profile-assign
 export type HitPoint = components["schemas"]["hit-point"];
 export type VideoMediaIdentity = components["schemas"]["video-media-identity"];
 export type VideoSync = components["schemas"]["video-sync"];
+export type LyricWorkflowToken = components["schemas"]["lyric-workflow-token"];
+export type LyricWorkflowSource = components["schemas"]["lyric-workflow-source"];
+export type LyricWorkflow = components["schemas"]["lyric-workflow"];
 export type RootExtensions = components["schemas"]["root-extensions"];

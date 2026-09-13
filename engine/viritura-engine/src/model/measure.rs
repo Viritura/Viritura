@@ -256,6 +256,9 @@ pub struct ResolvedMeasure {
     /// Kit components for percussion parts (cloned from Part.kit during resolve).
     /// Used by layout to look up staffPosition + notehead shape for kit-notes.
     pub kit: Option<HashMap<String, KitComponent>>,
+    /// Whether this visual staff has lyrics anywhere in the document.
+    /// Automatic dynamics use the conventional above-staff side on vocal staves.
+    pub staff_has_lyrics: bool,
 }
 
 impl ResolvedMeasure {
