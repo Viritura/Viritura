@@ -54,7 +54,40 @@ describe("hidden rest mutations", () => {
 
   it("resolves the synthetic selectable placeholder to its source space", () => {
     const hidden = scoreWith([{ type: "space", duration: [1, 4] }]);
-    expect(resolveEventLocation(hiddenRestPlaceholderId(target), hidden)).toEqual(target);
+    expect(resolveEventLocation(hiddenRestPlaceholderId(target), hidden)).toMatchObject(target);
+  });
+
+  it("resolves and unhides a space inside nested tuplets", () => {
+    const tupletDuration = { duration: { base: "eighth" as const }, multiple: 3 };
+    const hidden = scoreWith([
+      {
+        type: "tuplet",
+        inner: tupletDuration,
+        outer: { duration: { base: "eighth" }, multiple: 2 },
+        content: [
+          {
+            type: "tuplet",
+            inner: tupletDuration,
+            outer: { duration: { base: "eighth" }, multiple: 2 },
+            content: [{ type: "space", duration: [1, 8] }],
+          },
+        ],
+      },
+    ]);
+    const nestedTarget = { ...target, contentPath: [0, 0, 0] };
+    const placeholderId = hiddenRestPlaceholderId(nestedTarget);
+
+    expect(resolveEventLocation(placeholderId, hidden)).toMatchObject({
+      ...target,
+      tupletIndex: 0,
+      contentPath: [0, 0, 0],
+    });
+    const visible = setRestHiddenInScore(hidden, nestedTarget, false);
+    const outer = visible.parts[0]!.measures[0]!.sequences[0]!.content[0];
+    expect(outer.type === "tuplet" ? outer.content[0] : null).toMatchObject({
+      type: "tuplet",
+      content: [{ type: "event", duration: { base: "eighth" }, rest: {} }],
+    });
   });
 
   it("does not invent a rest spelling for an unsupported space duration", () => {

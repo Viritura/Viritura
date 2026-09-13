@@ -8,7 +8,6 @@ import { runFastLayoutAndPaint } from "./fastLayout";
 import { contentSizeForMode } from "./initialLoad";
 import type { LayoutBackend } from "./layoutBackend";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
-import { scoreHasHiddenRests } from "./hiddenRestProjection";
 
 interface FastLayoutCallbackArgs {
   wasmReady: boolean;
@@ -68,7 +67,6 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
       // (which runs ~32 ms later, before the worker resolves) skips it instead
       // of laying out — and patching — the same edit a second time.
       pendingFastJsonRef.current = json;
-      const effectivePatchInfo = scoreHasHiddenRests(docScoreRef.current) ? undefined : patchInfo;
       performance.mark("viritura:fast-effect-start");
       try {
         performance.measure("viritura:react-schedule", "viritura:setState-done", "viritura:fast-effect-start");
@@ -83,7 +81,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
           await runFastLayoutAndPaint({
             json,
             computeDisplayList: (j, pi) => computeDisplayList(j, cachedScoreInfoRef.current!, selectedScoreIndex, pi),
-            patchInfo: effectivePatchInfo,
+            patchInfo,
             shouldCommit: () => requestId === latestRequestId && pendingFastJsonRef.current === json,
             displayListRef,
             displayListVersionRef,

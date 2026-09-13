@@ -32,6 +32,34 @@ describe("hidden rest Write-mode projection", () => {
     expect(JSON.parse(source).parts[0].measures[0].sequences[0].content[0].type).toBe("space");
   });
 
+  it("projects nested-tuplet spaces and incremental measure patches", () => {
+    const patch = JSON.stringify({
+      partMeasures: {
+        0: {
+          0: {
+            sequences: [
+              {
+                content: [
+                  {
+                    type: "tuplet",
+                    content: [{ type: "tuplet", content: [{ type: "space", duration: [1, 8] }] }],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    const projected = JSON.parse(projectHiddenRestsForWrite(patch));
+    expect(projected.partMeasures[0][0].sequences[0].content[0].content[0].content[0]).toEqual({
+      id: "__viritura_hidden_space_t0_i0_i0",
+      duration: { base: "eighth" },
+      rest: {},
+    });
+  });
+
   it("tints only commands belonging to hidden-rest placeholders", () => {
     const displayList: DisplayList = {
       width: 100,

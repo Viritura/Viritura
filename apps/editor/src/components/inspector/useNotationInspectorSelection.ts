@@ -22,6 +22,15 @@ function resolveSelectedEvent(score: Score, target: NotationSelectionTarget): Se
   if (target.sequenceIndex === undefined || target.eventIndex === undefined) return null;
   const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
   if (!sequence) return null;
+  if (target.contentPath) {
+    let content = sequence.content;
+    for (let depth = 0; depth < target.contentPath.length - 1; depth++) {
+      const container = content[target.contentPath[depth]!];
+      if (container?.type !== "tuplet") return null;
+      content = container.content;
+    }
+    return content[target.contentPath[target.contentPath.length - 1]!] ?? null;
+  }
   if (target.graceContainerIndex !== undefined) {
     const grace = sequence.content[target.graceContainerIndex];
     if (grace?.type === "grace") {

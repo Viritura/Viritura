@@ -10,11 +10,21 @@ export interface HiddenRestTarget {
   sequenceIndex: number;
   eventIndex: number;
   tupletIndex?: number;
+  contentPath?: readonly number[];
 }
 
 function selectedContent(score: Score, target: HiddenRestTarget) {
   const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
   if (!sequence) return undefined;
+  if (target.contentPath) {
+    let content = sequence.content;
+    for (let depth = 0; depth < target.contentPath.length - 1; depth++) {
+      const container = content[target.contentPath[depth]!];
+      if (container?.type !== "tuplet") return undefined;
+      content = container.content;
+    }
+    return content[target.contentPath[target.contentPath.length - 1]!];
+  }
   if (target.tupletIndex !== undefined) {
     const container = sequence.content[target.tupletIndex];
     return container?.type === "tuplet" ? container.content[target.eventIndex] : undefined;
@@ -26,6 +36,16 @@ function replaceSelectedContent(score: Score, target: HiddenRestTarget, replacem
   return produce(score, (draft) => {
     const sequence = draft.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
     if (!sequence) return;
+    if (target.contentPath) {
+      let content = sequence.content;
+      for (let depth = 0; depth < target.contentPath.length - 1; depth++) {
+        const container = content[target.contentPath[depth]!];
+        if (container?.type !== "tuplet") return;
+        content = container.content;
+      }
+      content[target.contentPath[target.contentPath.length - 1]!] = replacement;
+      return;
+    }
     if (target.tupletIndex !== undefined) {
       const container = sequence.content[target.tupletIndex];
       if (container?.type === "tuplet") container.content[target.eventIndex] = replacement;
@@ -72,10 +92,16 @@ export function restMetadataLosses(event: NoteEvent): string[] {
   return losses;
 }
 
-export function hiddenRestPlaceholderSuffix(target: Pick<HiddenRestTarget, "eventIndex" | "tupletIndex">): string {
-  return target.tupletIndex === undefined
-    ? `${HIDDEN_REST_ID_PREFIX}t${target.eventIndex}`
-    : `${HIDDEN_REST_ID_PREFIX}t${target.tupletIndex}_i${target.eventIndex}`;
+export function hiddenRestPlaceholderSuffix(
+  target: Pick<HiddenRestTarget, "eventIndex" | "tupletIndex" | "contentPath">,
+): string {
+  const path =
+    "contentPath" in target && target.contentPath
+      ? target.contentPath
+      : target.tupletIndex === undefined
+        ? [target.eventIndex]
+        : [target.tupletIndex, target.eventIndex];
+  return `${HIDDEN_REST_ID_PREFIX}t${path.join("_i")}`;
 }
 
 export function hiddenRestPlaceholderId(target: HiddenRestTarget): string {

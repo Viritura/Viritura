@@ -16,16 +16,17 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function projectContent(content: unknown[]): boolean {
+function projectContent(content: unknown[], parentPath: readonly number[] = []): boolean {
   let changed = false;
   for (let index = 0; index < content.length; index++) {
     const item = content[index];
+    const path = [...parentPath, index];
     if (!isObject(item)) continue;
     if (item["type"] === "space" && Array.isArray(item["duration"]) && item["duration"].length === 2) {
       const duration = fractionToDuration(item["duration"] as [number, number]);
       if (!duration) continue;
       content[index] = {
-        id: hiddenRestPlaceholderSuffix({ eventIndex: index }),
+        id: hiddenRestPlaceholderSuffix({ contentPath: path, eventIndex: index }),
         duration,
         rest: {},
       };
@@ -33,36 +34,32 @@ function projectContent(content: unknown[]): boolean {
       continue;
     }
     if (item["type"] !== "tuplet" || !Array.isArray(item["content"])) continue;
-    const inner = item["content"];
-    for (let innerIndex = 0; innerIndex < inner.length; innerIndex++) {
-      const child = inner[innerIndex];
-      if (!isObject(child) || child["type"] !== "space" || !Array.isArray(child["duration"])) continue;
-      const duration = fractionToDuration(child["duration"] as [number, number]);
-      if (!duration) continue;
-      inner[innerIndex] = {
-        id: hiddenRestPlaceholderSuffix({ tupletIndex: index, eventIndex: innerIndex }),
-        duration,
-        rest: {},
-      };
-      changed = true;
-    }
+    changed = projectContent(item["content"], path) || changed;
   }
   return changed;
 }
 
 export function projectHiddenRestsForWrite(mnxJson: string): string {
+  if (!mnxJson) return mnxJson;
   const root: unknown = JSON.parse(mnxJson);
-  if (!isObject(root) || !Array.isArray(root["parts"])) return mnxJson;
+  if (!isObject(root)) return mnxJson;
   let changed = false;
-  for (const part of root["parts"]) {
-    if (!isObject(part) || !Array.isArray(part["measures"])) continue;
-    for (const measure of part["measures"]) {
-      if (!isObject(measure) || !Array.isArray(measure["sequences"])) continue;
-      for (const sequence of measure["sequences"]) {
-        if (isObject(sequence) && Array.isArray(sequence["content"])) {
-          changed = projectContent(sequence["content"]) || changed;
-        }
+  const projectMeasure = (measure: unknown) => {
+    if (!isObject(measure) || !Array.isArray(measure["sequences"])) return;
+    for (const sequence of measure["sequences"]) {
+      if (isObject(sequence) && Array.isArray(sequence["content"])) {
+        changed = projectContent(sequence["content"]) || changed;
       }
+    }
+  };
+  for (const part of Array.isArray(root["parts"]) ? root["parts"] : []) {
+    if (!isObject(part) || !Array.isArray(part["measures"])) continue;
+    for (const measure of part["measures"]) projectMeasure(measure);
+  }
+  if (isObject(root["partMeasures"])) {
+    for (const measures of Object.values(root["partMeasures"])) {
+      if (!isObject(measures)) continue;
+      for (const measure of Object.values(measures)) projectMeasure(measure);
     }
   }
   return changed ? JSON.stringify(root) : mnxJson;

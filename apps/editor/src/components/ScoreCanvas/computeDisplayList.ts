@@ -176,9 +176,24 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
   // complete immutable document. Projection rewrites (selection filtering and
   // condensed expansion) need that complete document before they can inject
   // synthetic layout content.
-  const sourceJson = patchInfo?.fallbackJson?.() ?? mnxJson;
+  const needsFullJson =
+    (selectedPartIds?.length ?? 0) > 0 ||
+    (expandedCondensingStaves?.size ?? 0) > 0 ||
+    (patchInfo !== undefined && patchInfo.prebuiltPatchJson === undefined);
+  const sourceJson = needsFullJson ? (patchInfo?.fallbackJson?.() ?? mnxJson) : mnxJson;
   const layoutJson = showHiddenRests ? projectHiddenRestsForWrite(sourceJson) : sourceJson;
-  const projected = layoutJson !== sourceJson;
+  const layoutPatchInfo =
+    showHiddenRests && patchInfo
+      ? {
+          ...patchInfo,
+          prebuiltPatchJson: patchInfo.prebuiltPatchJson
+            ? projectHiddenRestsForWrite(patchInfo.prebuiltPatchJson)
+            : undefined,
+          fallbackJson: patchInfo.fallbackJson
+            ? () => projectHiddenRestsForWrite(patchInfo.fallbackJson!())
+            : undefined,
+        }
+      : patchInfo;
   const finish = (promise: Promise<DisplayList>) =>
     showHiddenRests ? promise.then(tintHiddenRestPlaceholders) : promise;
 
@@ -212,7 +227,7 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
       sp,
       pageWidthPx,
       pageSetupJson,
-      patchInfo: projected ? undefined : patchInfo,
+      patchInfo: layoutPatchInfo,
       perfTracker,
       setLayoutPerfDebug,
     }),

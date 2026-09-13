@@ -105,6 +105,7 @@ export function useRestVisibilityHandler({ score, target, updateScore }: Selecti
         sequenceIndex: target.sequenceIndex,
         eventIndex: target.eventIndex,
         tupletIndex: target.tupletIndex,
+        contentPath: target.contentPath,
       };
       if (hidden) {
         const event = selectedContent(score, target);
@@ -130,6 +131,15 @@ function selectedContent(score: Score, target: NotationSelectionTarget) {
   if (target.sequenceIndex === undefined || target.eventIndex === undefined) return undefined;
   const sequence = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences[target.sequenceIndex];
   if (!sequence) return undefined;
+  if (target.contentPath) {
+    let content = sequence.content;
+    for (let depth = 0; depth < target.contentPath.length - 1; depth++) {
+      const container = content[target.contentPath[depth]!];
+      if (container?.type !== "tuplet") return undefined;
+      content = container.content;
+    }
+    return content[target.contentPath[target.contentPath.length - 1]!];
+  }
   if (target.tupletIndex !== undefined) {
     const container = sequence.content[target.tupletIndex];
     return container?.type === "tuplet" || container?.type === "tremolo"
