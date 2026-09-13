@@ -1,4 +1,11 @@
-import type { Beam, NoteEvent, SequenceContent, TimeSignature } from "@viritura/core";
+import {
+  resolveMeter,
+  type Beam,
+  type NoteEvent,
+  type ResolvedMeter,
+  type SequenceContent,
+  type TimeSignature,
+} from "@viritura/core";
 import { generateEventId, sequenceContentBeats } from "./noteCommands";
 
 interface BeamEvent {
@@ -34,29 +41,35 @@ export function ensureBeamEventId(event: NoteEvent): string {
   return event.id;
 }
 
-function beamGroupDuration(time: TimeSignature, flags: number): number {
-  const compound = time.unit === 8 && time.count % 3 === 0;
-  if (compound) return (3 * 4) / time.unit;
-  if (time.unit === 8) return 1;
-  const beat = 4 / time.unit;
-  if (flags === 1 && time.count === 4 && time.unit === 4) return 2;
-  if (flags === 1 && time.count === 6 && time.unit === 4) return 3;
-  return beat;
+function uniformBoundaries(count: number, duration: number): number[] {
+  return Array.from({ length: count + 1 }, (_, index) => index * duration);
 }
 
-function sensitivityRegionDuration(time: TimeSignature): number {
-  const measureDuration = (time.count * 4) / time.unit;
-  return time.count % 2 === 0 ? measureDuration / 2 : measureDuration;
+function automaticBeamBoundaries(meter: ResolvedMeter, flags: number): readonly number[] {
+  if (meter.source === "authored") return meter.beatBoundaries;
+  if (flags === 1 && meter.count === 4 && meter.unit === 4) return [0, 2, 4];
+  if (flags === 1 && meter.count === 6 && meter.unit === 4) return [0, 3, 6];
+  if (flags > 1 && meter.unit === 4 && (meter.count === 4 || meter.count === 6)) {
+    return uniformBoundaries(meter.count, 1);
+  }
+  return meter.beatBoundaries;
 }
 
-function sensitivityRegion(beat: number, time: TimeSignature): number {
-  return Math.floor((beat + 0.0001) / sensitivityRegionDuration(time));
+function boundaryIndex(beat: number, boundaries: readonly number[]): number {
+  for (let index = 1; index < boundaries.length; index++) {
+    if (beat < boundaries[index]! - 0.01) return index - 1;
+  }
+  return Math.max(0, boundaries.length - 2);
 }
 
-function isBoundary(beat: number, groupDuration: number): boolean {
-  if (groupDuration <= 0) return false;
-  const ratio = beat / groupDuration;
-  return Math.abs(ratio - Math.round(ratio)) < 0.01;
+function sensitivityBoundaries(meter: ResolvedMeter): readonly number[] {
+  if (meter.source === "authored") return meter.beatBoundaries;
+  const measureDuration = (meter.count * 4) / meter.unit;
+  return meter.count % 2 === 0 ? [0, measureDuration / 2, measureDuration] : [0, measureDuration];
+}
+
+function isBoundary(beat: number, boundaries: readonly number[]): boolean {
+  return boundaries.some((boundary) => Math.abs(beat - boundary) < 0.01);
 }
 
 function flush(group: string[], beams: Beam[]): void {
@@ -66,7 +79,7 @@ function flush(group: string[], beams: Beam[]): void {
 
 function autoBeamRun(
   events: BeamEvent[],
-  time: TimeSignature,
+  meter: ResolvedMeter,
   regionMaxFlags: ReadonlyMap<number, number>,
   excludeIds: ReadonlySet<string>,
 ): Beam[] {
@@ -89,12 +102,12 @@ function autoBeamRun(
         continue;
       }
       const effectiveFlags = Math.max(
-        regionMaxFlags.get(sensitivityRegion(item.beat, time)) ?? 0,
+        regionMaxFlags.get(boundaryIndex(item.beat, sensitivityBoundaries(meter))) ?? 0,
         groupMaxFlags,
         flags,
       );
-      const atGroupBoundary = isBoundary(item.beat, beamGroupDuration(time, effectiveFlags));
-      const atBeatAfterRest = pendingRest && isBoundary(item.beat, 4 / time.unit);
+      const atGroupBoundary = isBoundary(item.beat, automaticBeamBoundaries(meter, effectiveFlags));
+      const atBeatAfterRest = pendingRest && isBoundary(item.beat, meter.beatBoundaries);
       if (group.length > 0 && (atGroupBoundary || atBeatAfterRest)) {
         flush(group, beams);
         groupMaxFlags = 0;
@@ -110,7 +123,7 @@ function autoBeamRun(
     }
 
     if (flags > 0 && isRest) {
-      if (group.length > 0 && isBoundary(item.beat, 4 / time.unit)) {
+      if (group.length > 0 && isBoundary(item.beat, meter.beatBoundaries)) {
         flush(group, beams);
         groupMaxFlags = 0;
       }
@@ -154,21 +167,23 @@ export function resolveAutomaticBeamGroups(
   time: TimeSignature,
   excludeIds: ReadonlySet<string>,
 ): Beam[] {
+  const meter = resolveMeter(time);
   const beams: Beam[] = [];
   let run: BeamEvent[] = [];
   let beat = 0;
   const timedEvents: BeamEvent[] = [];
   collectTimedEvents(content, 0, 1, timedEvents);
   const regionMaxFlags = new Map<number, number>();
+  const regionBoundaries = sensitivityBoundaries(meter);
   for (const item of timedEvents) {
     if (!item.event.notes?.length) continue;
     if (item.event.id && excludeIds.has(item.event.id)) continue;
-    const region = sensitivityRegion(item.beat, time);
+    const region = boundaryIndex(item.beat, regionBoundaries);
     regionMaxFlags.set(region, Math.max(regionMaxFlags.get(region) ?? 0, beamFlagCount(item.event)));
   }
 
   const flushRun = (): void => {
-    beams.push(...autoBeamRun(run, time, regionMaxFlags, excludeIds));
+    beams.push(...autoBeamRun(run, meter, regionMaxFlags, excludeIds));
     run = [];
   };
 
@@ -184,7 +199,7 @@ export function resolveAutomaticBeamGroups(
       const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
       const outerBeats = sequenceContentBeats(item);
       collectTimedEvents(item.content, beat, innerBeats > 0 ? outerBeats / innerBeats : 1, tupletEvents);
-      beams.push(...autoBeamRun(tupletEvents, time, regionMaxFlags, excludeIds));
+      beams.push(...autoBeamRun(tupletEvents, meter, regionMaxFlags, excludeIds));
     }
     beat += sequenceContentBeats(item);
   }

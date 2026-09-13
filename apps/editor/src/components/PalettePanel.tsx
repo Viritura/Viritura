@@ -126,7 +126,7 @@ import {
   ClefGlyph,
   TimeSigGlyph,
   KeySigGlyph,
-  parseTimeSignatureInput,
+  parseTimeSignatureInputWithError,
   panelStyle,
   panelScrollStyle,
   gridStyle,
@@ -432,13 +432,13 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       type: "text",
       allowEmpty: false,
       onSubmit: (input) => {
-        const time = parseTimeSignatureInput(input);
-        if (!time) {
-          toast.warning("Use n/d with denominator 1, 2, 4, 8, 16, 32, 64, or 128");
+        const result = parseTimeSignatureInputWithError(input);
+        if (!result.time) {
+          toast.warning(result.error);
           return false;
         }
         const latestScore = store.getState().score;
-        if (latestScore) updateScore(setTimeSignature(latestScore, targetMeasureIndex, time));
+        if (latestScore) updateScore(setTimeSignature(latestScore, targetMeasureIndex, result.time));
         return true;
       },
     });

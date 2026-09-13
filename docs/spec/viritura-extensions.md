@@ -52,9 +52,12 @@ units of `time.unit`. The values must sum to `time.count`.
 ```
 
 This example remains a 9/8 measure but establishes beat boundaries after 2,
-5, and 7 eighth notes. The extension records metric meaning only; additive
-numerator and grouping-annotation display controls are separate future work.
-When omitted, Viritura resolves a conventional structure for the meter.
+5, and 7 eighth notes. Automatic beaming consumes these boundaries. The
+extension records metric meaning only; additive numerator and
+grouping-annotation display controls are separate future work. When omitted,
+Viritura resolves a conventional structure for the meter. When present, the
+authored structure is interpreted literally, even if its values match the
+meter's conventional beat structure.
 
 ## Score Definition Extensions
 

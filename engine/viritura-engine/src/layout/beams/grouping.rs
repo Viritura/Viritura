@@ -14,61 +14,47 @@ use std::collections::{HashMap, HashSet};
 // Beam layout
 // ═══════════════════════════════════════════
 
-/// Compute the beam group break duration for a given time signature and note flag level.
-/// Returns the duration in quarter-note beats at which beam groups should break.
-///
-/// Standard engraving approach.
-/// Key rules:
-/// - 4/4: eighths beam by half-measure (groups of 4), 16ths+ beam by beat
-/// - 6/4: eighths beam by half-measure (groups of 6), 16ths+ beam by beat
-/// - Compound meters (6/8, 9/8, 12/8): all beam by dotted quarter
-/// - Simple meters (2/4, 3/4): all beam by beat
-pub(crate) fn beam_group_duration(time_sig: &TimeSignature, flag_count: u32) -> f64 {
-    let is_compound = time_sig.unit == 8 && time_sig.count.is_multiple_of(3);
+fn uniform_boundaries(count: u32, duration: f64) -> Vec<f64> {
+    (0..=count).map(|index| index as f64 * duration).collect()
+}
 
-    if is_compound {
-        // Compound meters (3/8, 6/8, 9/8, 12/8): group by dotted quarter
-        3.0 * 4.0 / time_sig.unit as f64 // 1.5 for x/8
-    } else if time_sig.unit == 8 {
-        // Non-compound x/8 (5/8, 7/8): group by quarter note as fallback
-        1.0
+fn automatic_beam_boundaries(meter: &ResolvedMeter, flag_count: u32) -> Vec<f64> {
+    if meter.source == MeterStructureSource::Authored {
+        return meter.beat_boundaries.clone();
+    }
+    match (meter.count, meter.unit, flag_count) {
+        (4, 4, 1) => vec![0.0, 2.0, 4.0],
+        (6, 4, 1) => vec![0.0, 3.0, 6.0],
+        (4 | 6, 4, 2..) => uniform_boundaries(meter.count, 1.0),
+        _ => meter.beat_boundaries.clone(),
+    }
+}
+
+fn sensitivity_boundaries(meter: &ResolvedMeter) -> Vec<f64> {
+    if meter.source == MeterStructureSource::Authored {
+        return meter.beat_boundaries.clone();
+    }
+    let measure_duration = meter.count as f64 * 4.0 / meter.unit as f64;
+    if meter.count.is_multiple_of(2) {
+        vec![0.0, measure_duration / 2.0, measure_duration]
     } else {
-        let beat_dur = 4.0 / time_sig.unit as f64;
+        vec![0.0, measure_duration]
+    }
+}
 
-        if flag_count == 1 {
-            // Eighth notes: wider grouping for quadruple/sextuple meters
-            match (time_sig.count, time_sig.unit) {
-                (4, 4) => 2.0, // half-measure
-                (6, 4) => 3.0, // half-measure (3+3)
-                _ => beat_dur,
-            }
-        } else {
-            // 16ths and shorter: always beat-level
-            beat_dur
+fn boundary_index(beat_position: f64, boundaries: &[f64]) -> usize {
+    for (index, boundary) in boundaries.iter().enumerate().skip(1) {
+        if beat_position < *boundary - 0.01 {
+            return index - 1;
         }
     }
+    boundaries.len().saturating_sub(2)
 }
 
-fn sensitivity_region_duration(time_sig: &TimeSignature) -> f64 {
-    let measure_duration = time_sig.count as f64 * 4.0 / time_sig.unit as f64;
-    if time_sig.count.is_multiple_of(2) {
-        measure_duration / 2.0
-    } else {
-        measure_duration
-    }
-}
-
-fn sensitivity_region(beat_position: f64, time_sig: &TimeSignature) -> i64 {
-    ((beat_position + 0.0001) / sensitivity_region_duration(time_sig)).floor() as i64
-}
-
-/// Check if a beat position falls on a beam group boundary for the given group duration.
-pub(super) fn is_at_group_boundary(beat_position: f64, group_dur: f64) -> bool {
-    if group_dur <= 0.0 {
-        return false;
-    }
-    let frac = beat_position / group_dur;
-    (frac - frac.round()).abs() < 0.01
+fn is_at_group_boundary(beat_position: f64, boundaries: &[f64]) -> bool {
+    boundaries
+        .iter()
+        .any(|boundary| (beat_position - boundary).abs() < 0.01)
 }
 
 /// Whether an event carries a caesura marking. A caesura forces a beam break
@@ -88,6 +74,10 @@ pub(crate) fn auto_beam_groups(
     exclude_ids: &HashSet<String>,
 ) -> Vec<Beam> {
     let mut beams = Vec::new();
+    let meter = time_sig
+        .resolve_meter()
+        .expect("layout requires a valid time-signature beat structure");
+    let sensitivity_boundaries = sensitivity_boundaries(&meter);
 
     for vl in voice_layouts {
         let event_count = vl.events.len();
@@ -107,10 +97,10 @@ pub(crate) fn auto_beam_groups(
         }
         // Tuplet membership of the last note added to the current beam group.
         let mut current_tuplet: Option<usize> = None;
-        // Duration sensitivity is local to each half of an evenly divisible
-        // measure. Short values in one half therefore do not force unrelated
-        // eighth-note groups in the other half to break at beat boundaries.
-        let mut region_max_flags: HashMap<i64, u32> = HashMap::new();
+        // Duration sensitivity follows authored beat groups. Without an
+        // authored structure, even meters use independent half-measure regions
+        // so short values in one half do not affect the other half.
+        let mut region_max_flags: HashMap<usize, u32> = HashMap::new();
         for i in 0..event_count {
             let event = vl.events.event(i);
             let flag_count = event.duration.base.flag_count();
@@ -118,7 +108,7 @@ pub(crate) fn auto_beam_groups(
                 && !event.is_rest()
                 && vl.events.id(i).is_some_and(|id| !exclude_ids.contains(id))
             {
-                let region = sensitivity_region(vl.events.beat_position(i), time_sig);
+                let region = boundary_index(vl.events.beat_position(i), &sensitivity_boundaries);
                 region_max_flags
                     .entry(region)
                     .and_modify(|value| *value = (*value).max(flag_count))
@@ -127,7 +117,10 @@ pub(crate) fn auto_beam_groups(
         }
 
         let region_max_flags_for_event = |event_index: usize| {
-            let region = sensitivity_region(vl.events.beat_position(event_index), time_sig);
+            let region = boundary_index(
+                vl.events.beat_position(event_index),
+                &sensitivity_boundaries,
+            );
             region_max_flags.get(&region).copied().unwrap_or(0)
         };
         let mut group_max_flags: u32 = 0;
@@ -168,13 +161,12 @@ pub(crate) fn auto_beam_groups(
                         let effective_flags = region_max_flags_for_event(event_idx)
                             .max(group_max_flags)
                             .max(flag_count);
-                        let group_dur = beam_group_duration(time_sig, effective_flags);
+                        let beam_boundaries = automatic_beam_boundaries(&meter, effective_flags);
                         // If a rest was skipped, also check beat-level boundary.
                         // Beam-over-rest only applies within the same beat.
-                        let beat_dur = 4.0 / time_sig.unit as f64;
-                        let at_group_boundary = is_at_group_boundary(beat_cursor, group_dur);
-                        let at_beat_after_rest =
-                            has_pending_rest && is_at_group_boundary(beat_cursor, beat_dur);
+                        let at_group_boundary = is_at_group_boundary(beat_cursor, &beam_boundaries);
+                        let at_beat_after_rest = has_pending_rest
+                            && is_at_group_boundary(beat_cursor, &meter.beat_boundaries);
                         // Break when crossing into a different tuplet group (or
                         // between a tuplet and a non-tuplet run): each tuplet is
                         // beamed independently.
@@ -219,8 +211,9 @@ pub(crate) fn auto_beam_groups(
                 // Rests always break at beat boundaries — unlike notes which may use
                 // wider grouping (e.g. half-measure for 8ths in 4/4).
                 // Ref: standard engraving practice — beam over rest applies within a single beat.
-                let beat_dur = 4.0 / time_sig.unit as f64;
-                if !current_group.is_empty() && is_at_group_boundary(beat_cursor, beat_dur) {
+                if !current_group.is_empty()
+                    && is_at_group_boundary(beat_cursor, &meter.beat_boundaries)
+                {
                     if current_group.len() >= 2 {
                         beams.push(Beam {
                             events: current_group.clone(),

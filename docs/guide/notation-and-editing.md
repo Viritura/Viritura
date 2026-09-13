@@ -69,6 +69,13 @@ Choose an item from a radial menu to apply it to the current selection. The
 same commands remain available from the palettes when you prefer a persistent
 visual list.
 
+The time-signature menu accepts an optional beat grouping after the meter.
+Enter `5/8 32`, `5/8 3+2`, or `5/8 3,2` for 5/8 grouped 3+2. Compact
+groupings use one digit per group; use `+` or `,` when a group has more than
+one digit. Beat groups must add up to the meter numerator. Entering only `5/8`
+uses the document's automatic grouping, and entering the current conventional
+grouping also normalizes back to Automatic.
+
 The **Text** palette also contains chord-symbol entry and lyric-line controls.
 See [Chord Symbols](/docs/chord-symbols) for entering harmony and
 [Lyrics](/docs/lyrics) for syllable entry, melismas, labels, languages, and

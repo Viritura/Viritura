@@ -419,6 +419,63 @@
       },
       "excludedEventIds": ["e1", "e2"],
       "expected": [["e3", "e4", "e5"]]
+    },
+    {
+      "name": "short rests remain inside an authored irregular beat",
+      "score": {
+        "mnx": { "version": 1 },
+        "global": {
+          "measures": [
+            {
+              "time": {
+                "count": 5,
+                "unit": 8,
+                "_x": { "viritura": { "beatStructure": [3, 2] } }
+              }
+            }
+          ]
+        },
+        "parts": [
+          {
+            "measures": [
+              {
+                "sequences": [
+                  {
+                    "content": [
+                      {
+                        "id": "e1",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                      },
+                      { "duration": { "base": "eighth" } },
+                      {
+                        "id": "e2",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "D", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e3",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "E", "octave": 4 } }]
+                      },
+                      {
+                        "id": "e4",
+                        "duration": { "base": "eighth" },
+                        "notes": [{ "pitch": { "step": "F", "octave": 4 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "excludedEventIds": [],
+      "expected": [
+        ["e1", "e2"],
+        ["e3", "e4"]
+      ]
     }
   ]
 }
