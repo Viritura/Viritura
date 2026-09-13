@@ -98,10 +98,6 @@ export function chordSymbolId(part: number, measure: number, index: number): str
   return `p${part}/m${measure}/chord${index}`;
 }
 
-export function tupletSpanId(part: number, spanId: string): string {
-  return `p${part}/tuplet-span-${sanitize(spanId)}`;
-}
-
 // ── Global measure elements ────────────────────────────────────────
 
 export function timeSigId(measure: number): string {
