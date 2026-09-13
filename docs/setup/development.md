@@ -37,6 +37,14 @@ git config --get core.hooksPath
 
 The expected hook path is `.githooks`.
 
+After the hooks are active, creating or checking out a fresh Git worktree
+automatically runs a frozen pnpm install when its dependency links are missing
+or stale. pnpm reuses its machine-wide content-addressed store, so packages are
+not downloaded separately for every worktree. This host installation is for
+local agents, tests, and build commands; development service containers
+separately reuse the content-addressed Docker dependency volumes described
+below.
+
 ## Daily commands
 
 | Task                                                | Command                               |
