@@ -44,10 +44,11 @@ describe("convertMusicXmlToMnx — tuplets", () => {
     });
     expect(first.inner).toEqual(second.inner);
     expect(first.outer).toEqual(second.outer);
-    expect(measures[1]!.beams?.[0]?.events).toEqual([
+    expect(measures[0]!.beams?.[0]?.events).toEqual([
       (first.content[0] as { id: string }).id,
       (second.content[0] as { id: string }).id,
     ]);
+    expect(measures[1]!.beams).toBeUndefined();
   });
 
   it("uses the metric unit (normal-type) for a uniform eighth triplet", () => {

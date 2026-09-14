@@ -173,6 +173,33 @@ function StaffConfigHarness() {
   );
 }
 
+function BeamHarness({ selectionKind }: { selectionKind: "single" | "range" | "multi" }) {
+  const { loadScore } = useDocumentActions();
+  const { score } = useDocument();
+  const { selectElement, selectRange, toggleSelection } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    for (const item of initial.parts[0]!.measures[0]!.sequences[0]!.content) {
+      if (item.type === "event") item.duration = { base: "16th" };
+    }
+    loadScore(initial, "beams.mnx");
+    if (selectionKind === "single") selectElement("p0/m0/s0/ev1");
+    else if (selectionKind === "range") selectRange("p0/m0/s0/ev1", "p0/m0/s0/ev2");
+    else {
+      selectElement("p0/m0/s0/ev1");
+      toggleSelection("p0/m0/s0/ev2");
+    }
+  }, [loadScore, selectElement, selectRange, selectionKind, toggleSelection]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+    </>
+  );
+}
+
 function currentScore(): Score {
   return JSON.parse(screen.getByTestId("score-snapshot").textContent ?? "null") as Score;
 }
@@ -287,6 +314,38 @@ describe("NotationInspector", () => {
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("No current selection")).toBeTruthy();
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
+  });
+
+  it.each(["range", "multi"] as const)("shows beam controls for a %s-event selection and joins it", async (kind) => {
+    const user = userEvent.setup();
+    render(withProviders(<BeamHarness selectionKind={kind} />));
+
+    expect(await screen.findByText("Beam")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Join selected notes" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.beams).toEqual([{ events: ["ev1", "ev2"] }]);
+    });
+  });
+
+  it("shows and edits a selected event's secondary beamlet direction", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<BeamHarness selectionKind="single" />));
+
+    await user.click(await screen.findByRole("combobox", { name: "Beam level" }));
+    await user.click(await screen.findByRole("option", { name: "Secondary (2)" }));
+    expect(screen.getByText("Current: Full beam")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Full beam" }).hasAttribute("disabled")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Forward" }));
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.beams).toEqual([
+        {
+          events: ["ev1", "ev2", "ev3"],
+          beams: [{ events: ["ev1"], direction: "right" }, { events: ["ev2", "ev3"] }],
+        },
+      ]);
+    });
+    expect(screen.getByText("Current: Forward")).toBeTruthy();
   });
 
   it("edits a selected lyric syllable without changing its note", async () => {
