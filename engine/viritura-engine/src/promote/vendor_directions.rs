@@ -20,6 +20,7 @@ use crate::model::direction::{
     RehearsalMark as ModelRehearsalMark, TextExpression as ModelTextExpression,
 };
 use crate::model::event::{Glissando as ModelGlissando, GlissandoStyle as ModelGlissandoStyle};
+use crate::model::measure::StaffGroupingDisplayOverride as ModelStaffGroupingDisplayOverride;
 use crate::promote::vendor_ext::read_viritura_ext;
 use crate::{raw, raw_viritura};
 
@@ -32,6 +33,7 @@ pub(crate) struct PartMeasureVendor {
     pub chord_symbols: Option<Vec<ModelChordSymbol>>,
     pub expressions: Option<Vec<ModelTextExpression>>,
     pub condensing_override: Option<String>,
+    pub grouping_display_overrides: Option<Vec<ModelStaffGroupingDisplayOverride>>,
 }
 
 #[cfg(test)]
@@ -72,6 +74,13 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
                 .expressions
                 .into_iter()
                 .map(promote_text_expression)
+                .collect(),
+        ),
+        grouping_display_overrides: vec_or_none(
+            raw_ext
+                .grouping_display_overrides
+                .into_iter()
+                .map(promote_grouping_display_override)
                 .collect(),
         ),
         condensing_override: raw_ext.condensing_override.map(|o| o.to_string()),
@@ -126,6 +135,15 @@ pub(crate) fn extract_event_glissandos(
 }
 
 // ─── Type-by-type promote functions ────────────────────────────────────
+
+fn promote_grouping_display_override(
+    r: raw_viritura::StaffGroupingDisplayOverride,
+) -> ModelStaffGroupingDisplayOverride {
+    ModelStaffGroupingDisplayOverride {
+        staff: u32::try_from(r.staff).unwrap_or(1),
+        grouping_display: crate::promote::time::promote_grouping_display(r.grouping_display),
+    }
+}
 
 fn promote_pedal(r: raw_viritura::Pedal) -> ModelPedal {
     ModelPedal {

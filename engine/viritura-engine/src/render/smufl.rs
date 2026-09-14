@@ -332,6 +332,13 @@ pub mod smufl {
     pub const TIME_SIG_9: u32 = 0xE089;
     pub const TIME_SIG_COMMON: u32 = 0xE08A;
     pub const TIME_SIG_CUT: u32 = 0xE08B;
+    /// Additive-numerator plus sign, sized to match a full-size time
+    /// signature digit (SMuFL `timeSigPlus`).
+    pub const TIME_SIG_PLUS: u32 = 0xE08C;
+    /// Additive-numerator plus sign scaled for stringing between digits
+    /// within one numerator (SMuFL `timeSigPlusSmall`). Used to compose
+    /// beat-group breakdowns such as `2+3+2`.
+    pub const TIME_SIG_PLUS_SMALL: u32 = 0xE08D;
     pub const TIME_SIG_OPEN_PENDERECKI: u32 = 0xE09C;
 
     // ═══════════════════════════════════════
@@ -789,6 +796,13 @@ pub mod smufl {
             8 => 1.744,
             _ => 1.736, // 9
         }
+    }
+
+    /// Horizontal advance (staff spaces at nominal size) of the small plus
+    /// glyph used between additive-numerator beat groups (Bravura
+    /// `timeSigPlusSmall`), from Bravura `glyphAdvanceWidths` metadata.
+    pub const fn time_sig_plus_small_advance() -> f64 {
+        1.016
     }
 
     /// Advance width of an `ss04` (large/condensed) digit, in staff spaces at
@@ -1651,6 +1665,8 @@ pub mod smufl {
             TIME_SIG_COMMON => (0.0, -1.0, 1.69, 2.0),
             TIME_SIG_CUT => (0.0, -1.5, 1.69, 3.0),
             TIME_SIG_0..=TIME_SIG_9 => (0.0, -1.0, 1.38, 2.0),
+            TIME_SIG_PLUS => (-0.004, -1.0, 2.0, 2.0),
+            TIME_SIG_PLUS_SMALL => (-0.002, -0.49, 1.02, 1.02),
             // Bravura stylistic-set cuts: same 2sp height, condensed widths.
             TIME_SIG_LARGE_0..=TIME_SIG_LARGE_9 => (0.02, -1.03, 0.51, 2.06),
             TIME_SIG_LARGE_COMMON => (0.02, -1.036, 0.528, 2.07),

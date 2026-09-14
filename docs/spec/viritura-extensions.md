@@ -17,8 +17,8 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure                                                                                  |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                                          |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay                                                                 |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides                |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
@@ -53,11 +53,66 @@ units of `time.unit`. The values must sum to `time.count`.
 
 This example remains a 9/8 measure but establishes beat boundaries after 2,
 5, and 7 eighth notes. Automatic beaming consumes these boundaries. The
-extension records metric meaning only; additive numerator and
-grouping-annotation display controls are separate future work. When omitted,
-Viritura resolves a conventional structure for the meter. When present, the
-authored structure is interpreted literally, even if its values match the
-meter's conventional beat structure.
+extension records metric meaning only — `groupingDisplay` below and the
+house-style `nonDefaultGroupingDisplay` control how (or whether) that
+grouping is shown. When omitted, Viritura resolves a conventional structure
+for the meter. When present, the authored structure is interpreted
+literally, even if its values match the meter's conventional beat structure.
+
+### `groupingDisplay`
+
+Explicit per-occurrence override of how this time signature's beat grouping
+is presented. One of `standard`, `additive`, or `annotation` (see
+[Grouping Display](#grouping-display) below). Forces the named mode
+regardless of the document's house style — subject only to the safety
+fallback that keeps a symbolic display (`common`/`cut`/`senzaMisura`/`note`)
+or a single-group structure engraving as `standard` even when forced.
+
+```json
+{
+  "time": {
+    "count": 7,
+    "unit": 8,
+    "_x": {
+      "viritura": {
+        "beatStructure": [3, 2, 2],
+        "groupingDisplay": "annotation"
+      }
+    }
+  }
+}
+```
+
+## Grouping Display
+
+How a meter's beat grouping is _presented_ is independent of its semantic
+`beatStructure`: automatic beaming always follows `beatStructure` (or the
+conventional default), while `groupingDisplay` only controls what is drawn.
+Schema def: `grouping-display`.
+
+| Value        | Effect                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `standard`   | Ordinary numeric (or symbolic) meter — no grouping decoration.                                                               |
+| `additive`   | Numerator written as its beat groups joined by `+` (e.g. `3+2+2` over `8`), replacing the count.                             |
+| `annotation` | Ordinary numeral engraved as usual, plus generated bold system text (e.g. `3+2+2`) above it in the style of a tempo marking. |
+
+Resolution precedence, highest first:
+
+1. A per-staff occurrence override (`groupingDisplayOverrides` on the part
+   measure — see [`groupingDisplayOverrides`](#groupingdisplayoverrides)).
+2. The time signature's own occurrence override (`groupingDisplay` above).
+3. The document's house style (`nonDefaultGroupingDisplay` under
+   [`timeSignatures`](#timesignatures)) — applied **only** when the meter's
+   resolved beat structure is structurally non-default for its count/unit.
+   An ordinary 4/4 (or any meter whose authored structure merely duplicates
+   the automatic default) always stays `standard` under the house style, so
+   it never engraves `1+1+1+1`.
+4. `standard`.
+
+A symbolic display (`common`/`cut`/`senzaMisura`/`note`) or a resolved beat
+structure of a single group has nothing for `additive`/`annotation` to show,
+so both fall back to `standard` unconditionally — even under an explicit
+occurrence or staff override.
 
 ## Score Definition Extensions
 
@@ -228,14 +283,15 @@ staff, vertically centered, at 1× scale.
 
 #### `time-signature-settings`
 
-| Field          | Values                                                            | Default    | Effect                                                                                                                                      |
-| -------------- | ----------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `renderStyle`  | `standard`, `narrow`, `outsideStaff`, `singleNumber`, `noteValue` | `standard` | Selects glyph treatment only. `outsideStaff` uses the music font's tall, tightly condensed digits intended for enlargement outside a staff. |
-| `distribution` | `perStaff`, `perGroup`                                            | `perStaff` | Engraves one meter on every staff or one per top-level staff group.                                                                         |
-| `grandStaff`   | `include`, `exclude`                                              | `include`  | Under `perGroup`, treats brace groups as one grand staff or splits them into its staves.                                                    |
-| `position`     | `center`, `top`, `bottom`, `above`                                | `center`   | Aligns final meter ink to the target staff/group; `above` is distribution-independent.                                                      |
-| `scale`        | number from 0.25 through 12                                       | `1`        | Multiplier over the render style's normal optical size. Outside-staff film-score meters commonly use 6–10×.                                 |
-| `senzaMisura`  | `open`, `hidden`                                                  | `open`     | Whether standard MNX `display: "senzaMisura"` engraves its open-meter X glyph or remains unprinted.                                         |
+| Field                       | Values                                                            | Default    | Effect                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renderStyle`               | `standard`, `narrow`, `outsideStaff`, `singleNumber`, `noteValue` | `standard` | Selects glyph treatment only. `outsideStaff` uses the music font's tall, tightly condensed digits intended for enlargement outside a staff.                                         |
+| `distribution`              | `perStaff`, `perGroup`                                            | `perStaff` | Engraves one meter on every staff or one per top-level staff group.                                                                                                                 |
+| `grandStaff`                | `include`, `exclude`                                              | `include`  | Under `perGroup`, treats brace groups as one grand staff or splits them into its staves.                                                                                            |
+| `position`                  | `center`, `top`, `bottom`, `above`                                | `center`   | Aligns final meter ink to the target staff/group; `above` is distribution-independent.                                                                                              |
+| `scale`                     | number from 0.25 through 12                                       | `1`        | Multiplier over the render style's normal optical size. Outside-staff film-score meters commonly use 6–10×.                                                                         |
+| `senzaMisura`               | `open`, `hidden`                                                  | `open`     | Whether standard MNX `display: "senzaMisura"` engraves its open-meter X glyph or remains unprinted.                                                                                 |
+| `nonDefaultGroupingDisplay` | `standard`, `additive`, `annotation`                              | `standard` | House-style [grouping display](#grouping-display), applied only when a meter's resolved beat structure is structurally non-default. Ordinary/default meters always stay `standard`. |
 
 This separation allows, for example, standard digits at 1.5× on every staff,
 narrow digits centered once per bracket group, or single-number meters above
@@ -677,6 +733,34 @@ User-specified condensing-mode override for a part-measure on a condensed staff.
 | `solo2`      | Render only source 2 ("2." label)                                               |
 | `amalgamate` | Force chord amalgamation even if markings differ                                |
 | `divisi`     | Force split-stem divisi even if pitches/markings would amalgamate               |
+
+### `groupingDisplayOverrides`
+
+Array of per-staff grouping-display occurrence overrides for this part
+measure. Each entry targets one staff and forces that staff's meter to the
+named mode — presentation only, never the semantic `beatStructure`. This is
+the highest-precedence input to the [Grouping Display](#grouping-display)
+cascade.
+
+| Property          | Type                                     | Required | Description                            |
+| ----------------- | ---------------------------------------- | -------- | -------------------------------------- |
+| `staff`           | integer (≥1)                             | **Yes**  | 1-based staff number within this part. |
+| `groupingDisplay` | `standard` \| `additive` \| `annotation` | **Yes**  | Forced grouping-display mode.          |
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "groupingDisplayOverrides": [{ "staff": 1, "groupingDisplay": "standard" }]
+    }
+  }
+}
+```
+
+A grand-staff piano part might author its own irregular grouping globally
+(via `time._x.viritura.groupingDisplay`) but want only the upper staff to
+show the annotation — this override lets one staff opt out (or in)
+independently of its sibling staves.
 
 ---
 

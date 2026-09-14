@@ -10,7 +10,7 @@ use super::event::{ArpeggioDirection, Sequence};
 use super::key::KeySignature;
 use super::kit::KitComponent;
 use super::repeat::{Ending, RepeatEnd, RepeatStart};
-use super::time::TimeSignature;
+use super::time::{GroupingDisplay, TimeSignature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -140,6 +140,27 @@ pub struct PartMeasure {
     /// Values: "unison", "solo1", "solo2", "amalgamate", "divisi"
     #[serde(skip_serializing_if = "Option::is_none", rename = "condensingOverride")]
     pub condensing_override: Option<String>,
+    /// Per-staff grouping-display occurrence overrides for this measure
+    /// (Viritura extension `_x.viritura.groupingDisplayOverrides[]`). Targets
+    /// a specific staff of this part measure and forces that staff's meter to
+    /// the named mode, taking precedence over the time signature's own
+    /// occurrence override and the document house style.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "groupingDisplayOverrides"
+    )]
+    pub grouping_display_overrides: Option<Vec<StaffGroupingDisplayOverride>>,
+}
+
+/// One staff-targeted grouping-display override
+/// (`_x.viritura.groupingDisplayOverrides[]` on a part measure).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StaffGroupingDisplayOverride {
+    /// 1-based staff number within this part.
+    pub staff: u32,
+    /// Forced grouping-display mode for this staff's meter.
+    pub grouping_display: GroupingDisplay,
 }
 
 /// MNX `staff-config`.

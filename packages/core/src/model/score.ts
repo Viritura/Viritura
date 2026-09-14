@@ -2,6 +2,7 @@ import type { GlobalMeasure } from "./measure";
 import type { Part } from "./part";
 import type { LayoutDefinition, ScoreDefinition } from "./layout";
 import type { Sound } from "./kit";
+import type { GroupingDisplay } from "./time";
 
 /** Score-level metadata (title, composer, etc.) — stored in root _x.viritura.metadata. */
 export interface ScoreMetadata {
@@ -70,6 +71,12 @@ export interface TimeSignatureSettings {
   scale?: number;
   /** Whether open-meter cadenza signs render as an X or are suppressed. */
   senzaMisura?: SenzaMisuraDisplay;
+  /**
+   * House-style grouping display, applied only when a meter's resolved beat
+   * structure is structurally non-default for its count/unit. Ordinary/
+   * default meters always stay `"standard"` regardless of this setting.
+   */
+  nonDefaultGroupingDisplay?: GroupingDisplay;
 }
 
 /**

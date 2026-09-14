@@ -52,6 +52,16 @@ const config: StorybookConfig = {
     config.optimizeDeps = config.optimizeDeps || {};
     config.optimizeDeps.exclude = [...(config.optimizeDeps.exclude || []), "viritura-wasm"];
     config.optimizeDeps.include = [...(config.optimizeDeps.include || []), "spessasynth_core", "spessasynth_lib"];
+    const containerHost = process.env.VIRITURA_CONTAINER_HOST;
+    if (containerHost) {
+      config.server = {
+        ...config.server,
+        allowedHosts: [".localhost"],
+        // Use the browser's routed hostname; resolving that *.localhost name
+        // inside the container makes Vite's WebSocket server fail DNS lookup.
+        hmr: { clientPort: 80, protocol: "ws" },
+      };
+    }
     return config;
   },
 };

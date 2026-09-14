@@ -4,9 +4,17 @@
  */
 
 import type { Score } from "../model/score";
-import type { GlobalMeasure, PartMeasure, RepeatStart, RepeatEnd, Ending, MeasureRepeat } from "../model/measure";
+import type {
+  GlobalMeasure,
+  PartMeasure,
+  RepeatStart,
+  RepeatEnd,
+  Ending,
+  MeasureRepeat,
+  StaffGroupingDisplayOverride,
+} from "../model/measure";
 import type { Part } from "../model/part";
-import type { TimeSignature } from "../model/time";
+import type { GroupingDisplay, TimeSignature } from "../model/time";
 import type { KeySignature } from "../model/key";
 import type { Barline } from "../model/barline";
 import type { Clef, PositionedClef } from "../model/clef";
@@ -483,5 +491,64 @@ export function setClef(
   return {
     ...score,
     parts: newParts,
+  };
+}
+
+/**
+ * Set (or clear) a per-staff grouping-display occurrence override on a part
+ * measure. Pass `groupingDisplay: null` to remove any existing override for
+ * that staff — the measure then falls back to the time signature's own
+ * occurrence override and the document house style.
+ *
+ * This is presentation-only: it never touches the semantic
+ * `TimeSignature.beatStructure` automatic beaming reads.
+ */
+export function setGroupingDisplayOverride(
+  score: Score,
+  measureIndex: number,
+  partIndex: number,
+  staff: number,
+  groupingDisplay: GroupingDisplay | null,
+): Score {
+  const partCount = score.parts.length;
+  if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= partCount) {
+    throw new RangeError(`setGroupingDisplayOverride: partIndex ${partIndex} out of range [0, ${partCount - 1}]`);
+  }
+  const measureCount = score.global.measures.length;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0 || measureIndex >= measureCount) {
+    throw new RangeError(
+      `setGroupingDisplayOverride: measureIndex ${measureIndex} out of range [0, ${measureCount - 1}]`,
+    );
+  }
+  if (!Number.isInteger(staff) || staff < 1) {
+    throw new RangeError("setGroupingDisplayOverride: staff must be a positive integer");
+  }
+
+  const targetPart = score.parts[partIndex]!;
+  const oldMeasure = targetPart.measures[measureIndex]!;
+  const remaining = (oldMeasure.groupingDisplayOverrides ?? []).filter((entry) => entry.staff !== staff);
+  const nextOverrides: StaffGroupingDisplayOverride[] =
+    groupingDisplay === null ? remaining : [...remaining, { staff, groupingDisplay }];
+  nextOverrides.sort((a, b) => a.staff - b.staff);
+
+  const newMeasure: PartMeasure = { ...oldMeasure };
+  if (nextOverrides.length > 0) {
+    newMeasure.groupingDisplayOverrides = nextOverrides;
+  } else {
+    delete newMeasure.groupingDisplayOverrides;
+  }
+
+  const newPart: Part = {
+    ...targetPart,
+    measures: [
+      ...targetPart.measures.slice(0, measureIndex),
+      newMeasure,
+      ...targetPart.measures.slice(measureIndex + 1),
+    ],
+  };
+
+  return {
+    ...score,
+    parts: [...score.parts.slice(0, partIndex), newPart, ...score.parts.slice(partIndex + 1)],
   };
 }
