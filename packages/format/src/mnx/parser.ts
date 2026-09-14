@@ -10,6 +10,7 @@ import type {
   ScoreMetadata,
   TextStyles,
   ChordSymbolStyle,
+  GroupingDisplay,
   TimeSignatureDistribution,
   TimeSignatureGrandStaff,
   TimeSignaturePosition,
@@ -212,6 +213,7 @@ const DISTRIBUTIONS: readonly TimeSignatureDistribution[] = ["perStaff", "perGro
 const GRAND_STAFF_OPTIONS: readonly TimeSignatureGrandStaff[] = ["include", "exclude"];
 const POSITIONS: readonly TimeSignaturePosition[] = ["center", "top", "bottom", "above"];
 const SENZA_MISURA_DISPLAYS = ["open", "hidden"] as const;
+const GROUPING_DISPLAYS: readonly GroupingDisplay[] = ["standard", "additive", "annotation"];
 
 const LEGACY_TIME_SIGNATURE_SETTINGS: Readonly<Record<string, TimeSignatureSettings>> = {
   normal: {},
@@ -238,6 +240,7 @@ function parseTimeSignatureSettings(value: unknown): TimeSignatureSettings | und
   const position = enumValue(POSITIONS, raw["position"]);
   const scale = raw["scale"];
   const senzaMisura = enumValue(SENZA_MISURA_DISPLAYS, raw["senzaMisura"]);
+  const nonDefaultGroupingDisplay = enumValue(GROUPING_DISPLAYS, raw["nonDefaultGroupingDisplay"]);
   if (renderStyle) settings.renderStyle = renderStyle;
   if (distribution) settings.distribution = distribution;
   if (grandStaff) settings.grandStaff = grandStaff;
@@ -246,6 +249,7 @@ function parseTimeSignatureSettings(value: unknown): TimeSignatureSettings | und
     settings.scale = Math.min(12, Math.max(0.25, scale));
   }
   if (senzaMisura) settings.senzaMisura = senzaMisura;
+  if (nonDefaultGroupingDisplay) settings.nonDefaultGroupingDisplay = nonDefaultGroupingDisplay;
   return settings;
 }
 

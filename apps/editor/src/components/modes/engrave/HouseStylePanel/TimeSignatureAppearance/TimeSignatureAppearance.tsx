@@ -5,6 +5,7 @@ import type {
   TimeSignatureGrandStaff,
   TimeSignaturePosition,
   SenzaMisuraDisplay,
+  GroupingDisplay,
   TimeSignatureSettings,
 } from "@viritura/core";
 import { useDocumentStore, useDocumentStoreApi } from "../../../../../store/DocumentContext";
@@ -12,6 +13,7 @@ import {
   DISTRIBUTION_OPTIONS,
   descriptionForPreset,
   GRAND_STAFF_OPTIONS,
+  GROUPING_DISPLAY_OPTIONS,
   POSITION_OPTIONS,
   presetFor,
   RENDER_STYLE_OPTIONS,
@@ -218,6 +220,18 @@ export function TimeSignatureAppearance() {
               options={SENZA_MISURA_OPTIONS}
               onValueChange={(value) => commitField("senzaMisura", value as SenzaMisuraDisplay)}
             />
+          </FormField>
+          <FormField label="Non-default meter grouping">
+            <Select
+              aria-label="House-style grouping display"
+              value={settings.nonDefaultGroupingDisplay}
+              options={GROUPING_DISPLAY_OPTIONS}
+              onValueChange={(value) => commitField("nonDefaultGroupingDisplay", value as GroupingDisplay)}
+            />
+            <span className={styles.scaleHint}>
+              Applies only to meters whose beat grouping differs from the automatic default — an ordinary 4/4 always
+              stays standard.
+            </span>
           </FormField>
         </div>
       </Collapsible>

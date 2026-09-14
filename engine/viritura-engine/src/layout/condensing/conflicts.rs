@@ -329,6 +329,7 @@ mod tests {
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         }
     }
 
@@ -498,6 +499,7 @@ mod tests {
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         };
         let pm_b = PartMeasure {
             sequences: vec![Sequence {
@@ -526,6 +528,7 @@ mod tests {
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         };
         assert_eq!(analyze_merge_mode(&[&pm_a, &pm_b]), MergeMode::Divisi);
     }
@@ -927,6 +930,7 @@ mod tests {
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         }
     }
 

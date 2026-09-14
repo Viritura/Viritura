@@ -304,6 +304,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             chord_symbols: None,
             expressions: None,
             condensing_override: None,
+            grouping_display_overrides: None,
         });
 
         if let Some(ref t) = global.time {
@@ -799,6 +800,17 @@ fn split_part_measure_by_staff_count(
             None
         },
         condensing_override: pm.condensing_override.clone(),
+        grouping_display_overrides: pm
+            .grouping_display_overrides
+            .as_ref()
+            .and_then(|overrides| {
+                let filtered: Vec<_> = overrides
+                    .iter()
+                    .filter(|o| o.staff == staff_num)
+                    .cloned()
+                    .collect();
+                (!filtered.is_empty()).then_some(filtered)
+            }),
     }
 }
 

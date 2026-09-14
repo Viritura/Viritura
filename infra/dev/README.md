@@ -46,6 +46,7 @@ files do not reliably deliver Linux filesystem events. For example:
 
 ```bash
 pnpm dev:stack watch full
+pnpm dev:stack watch storybook-mnx # MNX stories plus continuous Rust/WASM rebuilds
 ```
 
 Examples:

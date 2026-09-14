@@ -187,6 +187,7 @@ fn render_measure_prefix(
         Some(AlignedPrefix {
             width: ml.prefix_width,
             first_onset_padding: ml.first_onset_padding,
+            time_signature_reserve: 0.0,
         }),
         Some(measure_leading_gap),
         PrefixContext::MeasureLayout,
@@ -365,7 +366,8 @@ fn render_measure_prefix(
     // still lines up vertically. standard engraving practice aligns time sigs across staves.
     if let Some(ref ts) = rm.global.time {
         let settings = config.time_signature_settings;
-        let time_sig_reserve = time_signatures::prefix_reserve(settings, ts, sp);
+        let staff_override = time_signatures::staff_grouping_override(&rm.part);
+        let time_sig_reserve = time_signatures::prefix_reserve(settings, ts, sp, staff_override);
         let time_sig_x = ml.x
             + ml.time_signature_x_offset
                 .expect("time signature prefix offset");
@@ -381,6 +383,7 @@ fn render_measure_prefix(
                 sp,
                 ts,
                 settings,
+                staff_override,
             );
             for ci in cmd_idx..dl.commands.len() {
                 dl.tag_command(ci, element_id::time_sig(rm.index));

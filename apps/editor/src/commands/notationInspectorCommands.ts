@@ -1,10 +1,20 @@
-import type { Fermata, Score, NoteEvent, SequenceContent, TupletBracket, TupletDisplaySetting } from "@viritura/core";
+import type {
+  Fermata,
+  Glissando,
+  GlissandoStyle,
+  Score,
+  NoteEvent,
+  SequenceContent,
+  TupletBracket,
+  TupletDisplaySetting,
+} from "@viritura/core";
 import type { NoteValueBase, Octave, StemDirection, Step } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 import { resolveEventLocation, resolveEventFromSubElement, resolveGraceLocation } from "../score/ElementPath";
 import { parseElementType } from "../score/elementTypes";
 import { setSlurProperties, setTieProperties } from "./noteCommands";
+import { setGlissandoProperties } from "./glissandoCommands";
 
 import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
 import { produce } from "../score/scoreClone";
@@ -21,12 +31,16 @@ export interface NotationSelectionTarget {
   tupletIndex?: number;
   /** If the event is a grace note, the index of its grace container in seq.content. */
   graceContainerIndex?: number;
+  /** Full sequence-content index path for recursively nested tuplets. */
+  contentPath?: number[];
   /** For tie selections: index of the note in the source event holding the tie. */
   noteIndex?: number;
   /** For tie selections: index into the note's `ties` array. */
   tieIndex?: number;
   /** For slur selections: index into the source event's `slurs` array. */
   slurIndex?: number;
+  /** For glissando selections: index into the source event's `glissandos` array. */
+  glissandoIndex?: number;
 }
 
 interface EditResult {
@@ -49,8 +63,38 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
     return resolveSlurSelectionTarget(elementId, score);
   }
 
+  if (elementId.startsWith("gliss/")) {
+    return resolveGlissandoSelectionTarget(elementId, score);
+  }
+
   if (elementId.startsWith("tie/")) {
     return resolveTieSelectionTarget(elementId, score);
+  }
+
+  function resolveGlissandoSelectionTarget(elementId: string, score: Score): NotationSelectionTarget | null {
+    const parts = elementId.split("/");
+    const sourceEventId = parts[1];
+    const targetEventId = parts[2];
+    if (!sourceEventId || !targetEventId) return null;
+    const loc = locateEventByModelId(score, sourceEventId);
+    if (!loc) return null;
+    const event = getEventAtLoc(score, loc);
+    const glissandoIndex =
+      event?.glissandos?.findIndex(
+        (glissando) => glissando.target === targetEventId || glissando.target.replaceAll("/", "_") === targetEventId,
+      ) ?? -1;
+    if (glissandoIndex < 0) return null;
+    return {
+      elementId,
+      elementType: "glissando",
+      partIndex: loc.partIndex,
+      measureIndex: loc.measureIndex,
+      sequenceIndex: loc.sequenceIndex,
+      eventIndex: loc.eventIndex,
+      tupletIndex: loc.tupletIndex,
+      graceContainerIndex: loc.graceContainerIndex,
+      glissandoIndex,
+    };
   }
 
   // A grace-note element id (`…/{ev}/grace/{g}`) would otherwise resolve to its
@@ -80,6 +124,7 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
       sequenceIndex: eventLoc.sequenceIndex,
       eventIndex: eventLoc.eventIndex,
       tupletIndex: eventLoc.tupletIndex,
+      contentPath: eventLoc.contentPath,
       noteIndex: eventLoc.noteIndex,
     };
   }
@@ -211,10 +256,12 @@ function pathToEventLoc(
 }
 
 function locateEventByModelId(score: Score, eventId: string): EventLoc | null {
+  let sanitizedMatch: EventLoc | null = null;
   for (const { event, loc } of iterScoreEvents(score)) {
     if (event.id === eventId) return loc;
+    if (event.id?.replaceAll("/", "_") === eventId) sanitizedMatch ??= loc;
   }
-  return null;
+  return sanitizedMatch;
 }
 
 function locateNoteByModelId(score: Score, noteId: string): EventLoc | null {
@@ -434,6 +481,46 @@ export function setPrimarySlurProperties(
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Unable to update slur properties.",
+    };
+  }
+}
+
+export interface GlissandoInspectorPatch {
+  target?: string;
+  kind?: NonNullable<Glissando["kind"]>;
+  style?: GlissandoStyle;
+  text?: string | null;
+  showText?: boolean;
+}
+
+export function setPrimaryGlissandoProperties(
+  score: Score,
+  target: NotationSelectionTarget,
+  patch: GlissandoInspectorPatch,
+): EditResult {
+  if (target.sequenceIndex === undefined || target.eventIndex === undefined) {
+    return { ok: false, error: "Selection is not a note event." };
+  }
+
+  try {
+    const nextScore = produce(score, (draft) => {
+      const result = setGlissandoProperties(draft, {
+        partIndex: target.partIndex,
+        measureIndex: target.measureIndex,
+        sequenceIndex: target.sequenceIndex!,
+        eventIndex: target.eventIndex!,
+        tupletIndex: target.tupletIndex,
+        graceContainerIndex: target.graceContainerIndex,
+        glissandoIndex: target.glissandoIndex,
+        ...patch,
+      });
+      if (!result) throw new Error("Selected glissando was not found.");
+    });
+    return { ok: true, score: nextScore };
+  } catch (error: unknown) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to update glissando properties.",
     };
   }
 }

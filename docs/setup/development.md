@@ -63,6 +63,9 @@ volumes described below.
 | Run the complete lint gate                          | `pnpm lint`                           |
 | Run all non-browser release checks                  | `pnpm validate`                       |
 | Run functional browser tests                        | `pnpm e2e`                            |
+| Run the required browser smoke subset               | `pnpm e2e:smoke`                      |
+| Smoke-test a deployed Pages website                 | `pnpm e2e:deployed`                   |
+| Run headed browser performance scenarios            | `pnpm test:perf:browser`              |
 | Build the TypeScript workspace                      | `pnpm build` / `pnpm build:ts`        |
 | Build the Rust workspace                            | `pnpm build:rust`                     |
 | Build WASM when inputs changed                      | `pnpm build:wasm` / `pnpm wasm:build` |
@@ -77,9 +80,28 @@ volumes described below.
 `pnpm test` covers the JavaScript and TypeScript workspace only. Run
 `pnpm validate` before opening a pull request to include strict Rust and .NET
 gates, every unit-test graph, all dependency lockfile audits, the generated
-WASM build, and the deployable site build. Browser E2E tests remain a separate
-`pnpm e2e` step because they require the worktree services to be running; their
-CI profile is tracked separately from the non-browser gate.
+WASM build, and the deployable site build. Browser tests remain separate:
+
+- `pnpm e2e:smoke` runs the tagged, deterministic Chromium subset used by the
+  Pages release gate. It checks editor boot, rendering, Help, a metadata edit,
+  and Undo. Account requests are held at an unauthenticated test boundary; the
+  suite does not exercise API behavior or filesystem import, save, or download
+  flows. Browser tests do not run on pull requests.
+- `pnpm e2e` runs every functional browser test, including the longer
+  collaboration lifecycle scenario. Run it locally when changing the broader
+  browser workflows; scheduled production monitoring is intentionally deferred.
+- `pnpm e2e:deployed` checks the deployed website homepage and documentation
+  route. The Pages release workflow runs it first against a SHA-specific
+  Cloudflare preview and then against the production custom domain.
+- `pnpm test:perf:browser` exclusively owns `e2e/performance/`. It requires an
+  installed Chrome browser and an interactive desktop because measurements run
+  headed; it is not a required PR or deployment gate.
+
+For local functional runs, start the worktree UI with `pnpm dev:stack up ui`,
+copy the editor URL from `pnpm dev:stack url`, and set `PLAYWRIGHT_BASE_URL` to
+that URL before invoking Playwright. When `PLAYWRIGHT_BASE_URL` is absent, the
+Playwright configuration starts a standalone editor server, which is intended
+for CI.
 
 `pnpm test:rust` owns an atomic PID lock under `engine/target`. A second full
 suite exits instead of competing for Cargo artifacts or process-global test
@@ -212,10 +234,11 @@ part of the normal workflow.
 
 ## Production deployments
 
-Static production deployments run through Cloudflare Pages' GitHub App
-integration for the website and editor. Pushes to `main` produce production
-Pages deployments for the affected static project; preview deployments are
-controlled in each Pages project's branch and path filters.
+Static production deployments run through the **Deploy Pages** GitHub Actions
+workflow. Start it manually from `main` and choose `website`, `editor`, or
+`all`; website-only releases do not deploy `viritura-app`. Each selected target
+is uploaded to a SHA-specific Cloudflare Pages preview, smoke-tested there, and
+promoted to production only if its preview passes.
 
 The API still deploys through the manual **Deploy API** workflow in GitHub
 Actions. It builds and validates the API without deployment credentials, then
@@ -225,5 +248,5 @@ is no local production upload command.
 See [production-deployment.md](production-deployment.md) for the complete
 topology, API deployment, configuration, verification, and rollback runbook.
 
-`scripts/build-cloudflare-pages.sh` is the Cloudflare Pages build entrypoint for
-the configured website and editor Pages projects.
+`scripts/build-cloudflare-pages.sh` is the shared build entrypoint used by the
+workflow for the configured website and editor Pages projects.

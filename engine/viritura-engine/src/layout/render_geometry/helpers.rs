@@ -316,6 +316,8 @@ pub(crate) fn compute_measure_bboxes(
         let settings = config.time_signature_settings;
         if settings.distribution == crate::model::time::TimeSignatureDistribution::PerStaff {
             let ts_x = crate::layout::time_signatures::meter_origin_x(ml, ts, settings, sp);
+            let staff_override =
+                crate::layout::time_signatures::staff_grouping_override(&ml.resolved.part);
             let layout = crate::layout::time_signatures::time_signature_layout(
                 settings,
                 ts,
@@ -323,6 +325,7 @@ pub(crate) fn compute_measure_bboxes(
                 staff_y,
                 staff_y + staff_height,
                 sp,
+                staff_override,
             );
             bboxes.push(ElementBBox {
                 element_id: element_id::time_sig(measure_idx),

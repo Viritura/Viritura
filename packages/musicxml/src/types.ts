@@ -187,6 +187,7 @@ export interface MnxEvent {
 
 export interface MnxGlissando {
   target: string;
+  kind?: "glissando" | "portamento";
   style?: "straight" | "wavy";
   text?: string;
 }

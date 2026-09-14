@@ -35,7 +35,10 @@ pub(crate) fn render_span_meters(
             continue;
         };
         let x = super::meter_origin_x(ml, ts, settings, sp);
-        let layout = super::time_signature_layout(settings, ts, x, top_y, bottom_y, sp);
+        // Per-group meters are not staff-specific, so no per-staff grouping
+        // override applies here — only the house style and the time
+        // signature's own occurrence override are consulted.
+        let layout = super::time_signature_layout(settings, ts, x, top_y, bottom_y, sp, None);
         let cmd_idx = dl.commands.len();
         super::render_time_signature_layout(dl, &layout);
         for ci in cmd_idx..dl.commands.len() {

@@ -12,6 +12,7 @@ import {
   setRepeatEnd,
   setClef,
   setEnding,
+  setGroupingDisplayOverride,
 } from "../operations";
 
 /** Helper: minimal 2-measure score with one part */
@@ -639,6 +640,51 @@ describe("setClef", () => {
         staff: 1,
       },
     ]);
+  });
+});
+
+describe("setGroupingDisplayOverride", () => {
+  it("adds a per-staff override to a part measure", () => {
+    const score = twoMeasureScore();
+    const result = setGroupingDisplayOverride(score, 1, 0, 1, "additive");
+
+    expect(result.parts[0]!.measures[1]!.groupingDisplayOverrides).toEqual([{ staff: 1, groupingDisplay: "additive" }]);
+  });
+
+  it("replaces an existing override for the same staff rather than duplicating it", () => {
+    const score = setGroupingDisplayOverride(twoMeasureScore(), 1, 0, 1, "additive");
+    const result = setGroupingDisplayOverride(score, 1, 0, 1, "annotation");
+
+    expect(result.parts[0]!.measures[1]!.groupingDisplayOverrides).toEqual([
+      { staff: 1, groupingDisplay: "annotation" },
+    ]);
+  });
+
+  it("keeps overrides for other staves untouched and sorts by staff number", () => {
+    const withStaff2 = setGroupingDisplayOverride(twoMeasureScore(), 1, 0, 2, "standard");
+    const result = setGroupingDisplayOverride(withStaff2, 1, 0, 1, "additive");
+
+    expect(result.parts[0]!.measures[1]!.groupingDisplayOverrides).toEqual([
+      { staff: 1, groupingDisplay: "additive" },
+      { staff: 2, groupingDisplay: "standard" },
+    ]);
+  });
+
+  it("removes the override for a staff when passed null", () => {
+    const withOverride = setGroupingDisplayOverride(twoMeasureScore(), 1, 0, 1, "additive");
+    const result = setGroupingDisplayOverride(withOverride, 1, 0, 1, null);
+
+    expect(result.parts[0]!.measures[1]!.groupingDisplayOverrides).toBeUndefined();
+  });
+
+  it("throws on out-of-range part index", () => {
+    const score = twoMeasureScore();
+    expect(() => setGroupingDisplayOverride(score, 0, 9, 1, "additive")).toThrow(RangeError);
+  });
+
+  it("throws on a non-positive staff number", () => {
+    const score = twoMeasureScore();
+    expect(() => setGroupingDisplayOverride(score, 0, 0, 0, "additive")).toThrow(RangeError);
   });
 });
 

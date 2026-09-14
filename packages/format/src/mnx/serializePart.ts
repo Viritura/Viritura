@@ -233,5 +233,11 @@ function collectPartMeasureVendorExt(pm: PartMeasure, helpers: PartSerializerHel
     ext["expressions"] = pm.expressions.map(helpers.serializeTextExpression);
   }
   if (pm.condensingOverride) ext["condensingOverride"] = pm.condensingOverride;
+  if (pm.groupingDisplayOverrides && pm.groupingDisplayOverrides.length > 0) {
+    ext["groupingDisplayOverrides"] = pm.groupingDisplayOverrides.map((override) => ({
+      staff: override.staff,
+      groupingDisplay: override.groupingDisplay,
+    }));
+  }
   return ext;
 }

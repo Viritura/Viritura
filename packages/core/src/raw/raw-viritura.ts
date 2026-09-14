@@ -23,6 +23,20 @@ export interface components {
         "time-extensions": {
             /** @description Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count. */
             beatStructure?: number[];
+            /** @description Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback. */
+            groupingDisplay?: components["schemas"]["grouping-display"];
+        };
+        /**
+         * @description How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.
+         * @enum {string}
+         */
+        "grouping-display": "standard" | "additive" | "annotation";
+        /** @description A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure. */
+        "staff-grouping-display-override": {
+            /** @description 1-based staff number within this part. */
+            staff: number;
+            /** @description Forced grouping-display mode for this staff's meter. */
+            groupingDisplay: components["schemas"]["grouping-display"];
         };
         /** @description A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle. */
         "rehearsal-mark": {
@@ -201,14 +215,23 @@ export interface components {
          * @enum {string}
          */
         "glissando-style": "straight" | "wavy";
+        /**
+         * @description Semantic kind of a glissando-family line.
+         * @enum {string}
+         */
+        "glissando-kind": "glissando" | "portamento";
         /** @description A glissando or portamento connecting this event to a target event. */
         glissando: {
             /** @description ID of the target event. */
             target: string;
+            /** @description Semantic kind. Default: 'glissando'. */
+            kind?: components["schemas"]["glissando-kind"];
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
+            /** @description Whether to display the text label. Default: true. */
+            showText?: boolean;
         };
         /** @description A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point. */
         "sp-delta": number[];
@@ -278,6 +301,8 @@ export interface components {
              * @enum {string}
              */
             condensingOverride?: "unison" | "solo1" | "solo2" | "amalgamate" | "divisi";
+            /** @description Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style. */
+            groupingDisplayOverrides?: components["schemas"]["staff-grouping-display-override"][];
         };
         /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
         "tuplet-span": {
@@ -547,6 +572,8 @@ export interface components {
             /** @description Scale multiplier over the selected render style's normal optical size. */
             scale?: number;
             senzaMisura?: components["schemas"]["senza-misura-display"];
+            /** @description House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting. */
+            nonDefaultGroupingDisplay?: components["schemas"]["grouping-display"];
         };
         /** @description Time signature engraving settings. Legacy preset strings remain readable; new documents use the object form. */
         "time-signature-settings": components["schemas"]["time-signature-settings-object"] | components["schemas"]["time-signature-legacy-style"];
@@ -715,6 +742,8 @@ export type operations = Record<string, never>;
 export type RhythmicPosition = components["schemas"]["rhythmic-position"];
 export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-position"];
 export type TimeExtensions = components["schemas"]["time-extensions"];
+export type GroupingDisplay = components["schemas"]["grouping-display"];
+export type StaffGroupingDisplayOverride = components["schemas"]["staff-grouping-display-override"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
 export type Coda = components["schemas"]["coda"];
 export type Caesura = components["schemas"]["caesura"];
@@ -734,6 +763,7 @@ export type Trill = components["schemas"]["trill"];
 export type OrnamentType = components["schemas"]["ornament-type"];
 export type Fingering = components["schemas"]["fingering"];
 export type GlissandoStyle = components["schemas"]["glissando-style"];
+export type GlissandoKind = components["schemas"]["glissando-kind"];
 export type Glissando = components["schemas"]["glissando"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];

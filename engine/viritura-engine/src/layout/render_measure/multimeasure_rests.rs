@@ -115,10 +115,12 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
     }
 
     if let Some(time) = rm.global.time.as_ref() {
+        let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         w += crate::layout::time_signatures::prefix_reserve(
             LayoutConfig::default().time_signature_settings,
             time,
             sp,
+            staff_override,
         );
     }
 
@@ -243,6 +245,8 @@ pub(crate) fn render_multimeasure_rest(
         let settings = config.time_signature_settings;
         if settings.distribution == crate::model::time::TimeSignatureDistribution::PerStaff {
             let cmd_idx = dl.commands.len();
+            let staff_override =
+                crate::layout::time_signatures::staff_grouping_override(&ml.resolved.part);
             render_time_signature(
                 dl,
                 x_cursor + crate::layout::time_signatures::left_bearing(settings, sp),
@@ -250,6 +254,7 @@ pub(crate) fn render_multimeasure_rest(
                 sp,
                 ts,
                 settings,
+                staff_override,
             );
             for ci in cmd_idx..dl.commands.len() {
                 dl.tag_command(ci, element_id::time_sig(ml.resolved.index));

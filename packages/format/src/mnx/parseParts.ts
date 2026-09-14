@@ -171,6 +171,12 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
     if (viritura.condensingOverride) {
       pm.condensingOverride = viritura.condensingOverride;
     }
+    if (viritura.groupingDisplayOverrides && viritura.groupingDisplayOverrides.length > 0) {
+      pm.groupingDisplayOverrides = viritura.groupingDisplayOverrides.map((override) => ({
+        staff: override.staff,
+        groupingDisplay: override.groupingDisplay,
+      }));
+    }
   }
   return pm;
 }

@@ -30,7 +30,7 @@ import {
   type EventLocation,
 } from "../score/ElementPath";
 import { resolveCapabilityTargets, EVENT_ACTION } from "../store/selectionCapabilities";
-import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
+import { groupEventsByVoice } from "../store/selectionUtils";
 import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
@@ -70,6 +70,7 @@ import {
   createTupletFromRange,
   parseTupletRatio,
 } from "../commands/tupletCommands";
+import { addGlissando, type GlissandoKind } from "../commands/glissandoCommands";
 import {
   durationToBeats,
   sequenceContentBeats,
@@ -108,6 +109,7 @@ import {
   measureRangeFromElementId,
   partIndexFromElementId,
   resolveInsertMeasureIndex,
+  timeSignatureMeasureIndexFromSelection,
   ENDING_PRESETS,
 } from "../commands/signatureCommands";
 import { produce } from "../score/scoreClone";
@@ -157,18 +159,6 @@ import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
-}
-
-function measureStartIndexForSelection(selection: SelectionState, score: Score): number | null {
-  if (selection.kind === "single") {
-    const barlineMatch = selection.elementId.match(/^m(\d+)\/barline$/);
-    if (barlineMatch) {
-      const index = Number.parseInt(barlineMatch[1]!, 10);
-      return index < score.global.measures.length ? index : null;
-    }
-  }
-  const scope = resolveSelectionScope(selection, score);
-  return scope?.startMeasure ?? measureIndexFromElementId(resolveSelectionAnchor(selection), score);
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- component body holds prompt-dialog state, ~30 handler useCallback declarations (one per palette toggle), derived selection state, and JSX layout for sortable sections. Sub-handlers and sortable section primitives are already extracted to ./palette/*; the remaining body is one-line handler wrappers + JSX wiring.
@@ -365,6 +355,45 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     if (newScore !== score) updateScore(newScore);
   }, [active, selectedScoreIndex, store, toggleSlur, updateScore]);
 
+  const handleGlissandoClick = useCallback(
+    (kind: GlissandoKind) => {
+      if (active) {
+        toast.error("Finish note input before adding a glissando or portamento.");
+        return;
+      }
+      const score = store.getState().score;
+      const selected = useSelectionStore.getState().selection;
+      if (!score) return;
+      const events = resolveCondensedSelectionEvents(score, selected, selectedScoreIndex);
+      if (events.length !== 2) {
+        toast.error("Select exactly two notes or chords for this line.");
+        return;
+      }
+      try {
+        const nextScore = produce(score, (draft) => {
+          const source = getEventAtLocation(draft, events[0]!);
+          const target = getEventAtLocation(draft, events[1]!);
+          if (source?.type !== "event" || target?.type !== "event") {
+            throw new Error("Both endpoints must be notes or chords.");
+          }
+          if (!source.id) source.id = generateEventId();
+          if (!target.id) target.id = generateEventId();
+          addGlissando(draft, {
+            sourceEventId: source.id,
+            targetEventId: target.id,
+            kind,
+            style: "straight",
+            text: kind === "portamento" ? "port." : "gliss.",
+          });
+        });
+        if (nextScore !== score) updateScore(nextScore);
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Unable to add the line.");
+      }
+    },
+    [active, selectedScoreIndex, store, updateScore],
+  );
+
   const handleLvTie = useCallback(() => {
     const sel = useSelectionStore.getState().selection;
     const score = store.getState().score;
@@ -420,7 +449,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       const score = store.getState().score;
       if (!score) return;
       const selection = useSelectionStore.getState().selection;
-      const measureIndex = measureStartIndexForSelection(selection, score) ?? 0;
+      const measureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, measureIndex, time));
     },
     [store, updateScore],
@@ -430,7 +459,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     if (!score) return;
     const selection = useSelectionStore.getState().selection;
-    const targetMeasureIndex = measureStartIndexForSelection(selection, score) ?? 0;
+    const targetMeasureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
     setPromptState({
       open: true,
       title: "Custom time signature",
@@ -830,7 +859,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     const sel = useSelectionStore.getState().selection;
     if (!score) return;
-    const measureIndex = measureStartIndexForSelection(sel, score);
+    const measureIndex = timeSignatureMeasureIndexFromSelection(sel, score);
     if (measureIndex === null) return;
     const current = (score.global.measures[measureIndex] as Record<string, unknown>)?.rehearsalMark as
       | { text?: string }
@@ -1642,6 +1671,8 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           <PaletteButton label="⌢" title="Tie (T)" shortcut="T" active={tieActive} onClick={handleTieClick} />
           <PaletteButton label="⌒" title="Slur (S)" shortcut="S" active={slurActive} onClick={handleSlurClick} />
           <PaletteButton label="l.v." title="Laissez vibrer tie" active={lvActive} onClick={handleLvTie} />
+          <PaletteButton label="gliss." title="Glissando" onClick={() => handleGlissandoClick("glissando")} />
+          <PaletteButton label="port." title="Portamento" onClick={() => handleGlissandoClick("portamento")} />
         </div>
       ),
     },

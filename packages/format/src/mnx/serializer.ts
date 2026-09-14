@@ -278,7 +278,10 @@ function serializeGlobalMeasure(gm: GlobalMeasure): Obj {
 function serializeTimeSignature(time: NonNullable<GlobalMeasure["time"]>): Obj {
   const out: Obj = { count: time.count, unit: time.unit };
   if (time.display === "common" || time.display === "cut") out["display"] = time.display;
-  if (time.beatStructure) out["_x"] = { viritura: { beatStructure: time.beatStructure } };
+  const viritura: Obj = {};
+  if (time.beatStructure) viritura["beatStructure"] = time.beatStructure;
+  if (time.groupingDisplay) viritura["groupingDisplay"] = time.groupingDisplay;
+  if (Object.keys(viritura).length > 0) out["_x"] = { viritura };
   return out;
 }
 
@@ -554,8 +557,10 @@ export function serializeEvent(ev: NoteEvent): Obj {
   if (ev.glissandos && ev.glissandos.length > 0) {
     evViritura["glissandos"] = ev.glissandos.map((g) => {
       const gObj: Obj = { target: g.target };
+      if (g.kind) gObj["kind"] = g.kind;
       if (g.style) gObj["style"] = g.style;
       if (g.text) gObj["text"] = g.text;
+      if (g.showText !== undefined) gObj["showText"] = g.showText;
       return gObj;
     });
   }

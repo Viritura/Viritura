@@ -84,6 +84,7 @@ function buildScore(): Score {
                       { id: "n1b", pitch: { step: "E", octave: 4 } },
                     ],
                     slurs: [{ target: "ev2", lineType: "solid" }],
+                    glissandos: [{ target: "ev2", kind: "portamento", style: "straight", text: "port." }],
                     fermata: { symbol: "normal" },
                     markings: {
                       breath: { symbol: "comma" },
@@ -100,6 +101,12 @@ function buildScore(): Score {
                     id: "ev2",
                     duration: { base: "quarter" },
                     notes: [{ id: "n2", pitch: { step: "C", octave: 4 } }],
+                  },
+                  {
+                    type: "event",
+                    id: "ev3",
+                    duration: { base: "quarter" },
+                    notes: [{ id: "n3", pitch: { step: "G", octave: 4 } }],
                   },
                 ],
               },
@@ -878,6 +885,65 @@ describe("NotationInspector", () => {
     expect(screen.getByRole("radio", { name: "Automatic" }).getAttribute("aria-checked")).toBe("true");
   });
 
+  it("hides and unhides a selected rest through an accessible standard-space control", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
+
+    const hidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(hidden.checked).toBe(false);
+    await user.click(hidden);
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toEqual({
+        type: "space",
+        duration: [1, 1],
+      });
+      expect(
+        (
+          currentMnx() as {
+            parts: { measures: { sequences: { content: unknown[] }[] }[] }[];
+          }
+        ).parts[0]!.measures[0]!.sequences[1]!.content[0],
+      ).toEqual({ type: "space", duration: [1, 1] });
+    });
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("identifier"));
+
+    const shownHidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(shownHidden.checked).toBe(true);
+    await user.click(shownHidden);
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toMatchObject({
+        type: "event",
+        duration: { base: "whole" },
+        rest: {},
+      });
+    });
+  });
+
+  it("records hidden-rest conversion in undo and redo history", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    render(withProviders(<HistoryHarness elementId="p0/m0/s1/rest1" />));
+
+    await user.click(await screen.findByRole("checkbox", { name: "Hidden" }));
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("event"));
+
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+    await user.click(redo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+  });
+
   it("opens the panel and shows the slur section for a grace-note slur", async () => {
     render(withProviders(<GraceSlurHarness elementId="slur/g1/ev1" />));
 
@@ -897,6 +963,49 @@ describe("NotationInspector", () => {
     await waitFor(() => {
       expect((screen.getByTestId("notation-slur-line-type") as HTMLSelectElement).value).toBe("dashed");
     });
+  });
+
+  it("edits a selected portamento's style and text visibility", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+
+    const kind = await screen.findByTestId("notation-glissando-kind");
+    expect(kind.textContent).toContain("Portamento");
+
+    await user.click(screen.getByTestId("notation-glissando-style"));
+    await user.click(await screen.findByRole("option", { name: "Wavy" }));
+    await user.click(screen.getByTestId("notation-glissando-show-text"));
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy", text: "port.", showText: false }],
+      });
+    });
+    expect(screen.queryByTestId("notation-glissando-text")).toBeNull();
+    expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
+    expect(JSON.stringify(currentMnx())).toContain('"text":"port."');
+    expect(JSON.stringify(currentMnx())).toContain('"showText":false');
+  });
+
+  it("commits an edited glissando endpoint after the field loses focus", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+    const target = await screen.findByTestId("notation-glissando-target");
+
+    await user.clear(target);
+    await user.type(target, "ev3");
+    expect(
+      (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+        .glissandos?.[0]?.target,
+    ).toBe("ev2");
+
+    await user.tab();
+    await waitFor(() =>
+      expect(
+        (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+          .glissandos?.[0]?.target,
+      ).toBe("ev3"),
+    );
   });
 
   it("shows the grace note's own slur when the grace note is selected directly", async () => {

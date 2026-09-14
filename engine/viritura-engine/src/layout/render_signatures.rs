@@ -3,7 +3,7 @@
 use super::types::MeasureLayout;
 use crate::layout::time_signatures::{render_time_signature_layout, time_signature_layout};
 use crate::model::clef::Clef;
-use crate::model::time::TimeSignatureSettings;
+use crate::model::time::{GroupingDisplay, TimeSignatureSettings};
 use crate::model::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -347,7 +347,16 @@ pub(crate) fn render_time_signature(
     sp: f64,
     ts: &TimeSignature,
     settings: TimeSignatureSettings,
+    staff_override: Option<GroupingDisplay>,
 ) {
-    let layout = time_signature_layout(settings, ts, x, staff_y, staff_y + 4.0 * sp, sp);
+    let layout = time_signature_layout(
+        settings,
+        ts,
+        x,
+        staff_y,
+        staff_y + 4.0 * sp,
+        sp,
+        staff_override,
+    );
     render_time_signature_layout(dl, &layout);
 }

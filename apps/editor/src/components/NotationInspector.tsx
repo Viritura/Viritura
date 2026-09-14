@@ -7,6 +7,7 @@ import { LayoutSection } from "./inspector/LayoutSection";
 import { TempoSection } from "./inspector/TempoSection";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
+import { GlissandoSection } from "./inspector/GlissandoSection";
 import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspector/BarlineSections";
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
@@ -14,6 +15,8 @@ import { NoteheadSection } from "./inspector/NoteheadSection";
 import { FermataSection } from "./inspector/FermataSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
 import { LyricSection } from "./inspector/LyricSection";
+import { GroupingDisplaySection } from "./inspector/GroupingDisplaySection";
+import { useGroupingDisplayInspector } from "./inspector/useGroupingDisplayInspector";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -72,6 +75,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selectedNote,
     selectedTie,
     selectedSlur,
+    selectedGlissando,
     selectedTrill,
     selectedSequence,
     selectedContent,
@@ -83,6 +87,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const staffConfig = useStaffConfigInspector({ score, selection, commitPatches });
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
+  const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
 
   const {
     currentBarlineType,
@@ -130,7 +135,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleSlurLineTypeChange,
     handleSlurStartNoteChange,
     handleSlurEndNoteChange,
-  } = useTieSlurHandlers({ score, target, updateScore });
+    glissandoError,
+    handleGlissandoTargetChange,
+    handleGlissandoKindChange,
+    handleGlissandoStyleChange,
+    handleGlissandoTextVisibleChange,
+    handleGlissandoTextChange,
+  } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
   if (!target && !staffConfig.target) return <NotationInspectorEmptyState />;
 
@@ -205,6 +216,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
+        {selectedElementType === "time-signature" && <GroupingDisplaySection state={groupingDisplay} />}
+
         {staffConfig.target && (
           <StaffConfigSection
             key={`${staffConfig.target.partId}:${staffConfig.target.measureIndex}:${staffConfig.target.endMeasureIndex}:${staffConfig.target.staff}:${staffConfig.lines}`}
@@ -254,6 +267,20 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onLineTypeChange={handleSlurLineTypeChange}
             onStartNoteChange={handleSlurStartNoteChange}
             onEndNoteChange={handleSlurEndNoteChange}
+          />
+        )}
+
+        {!isLyricSelected && selectedGlissando && (
+          <GlissandoSection
+            key={`${target?.elementId}:${selectedGlissando.target}`}
+            glissando={selectedGlissando}
+            focusedSection={focusedSection}
+            error={glissandoError}
+            onTargetChange={handleGlissandoTargetChange}
+            onKindChange={handleGlissandoKindChange}
+            onStyleChange={handleGlissandoStyleChange}
+            onTextVisibleChange={handleGlissandoTextVisibleChange}
+            onTextChange={handleGlissandoTextChange}
           />
         )}
 

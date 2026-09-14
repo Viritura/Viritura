@@ -876,7 +876,29 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
     const start = content[0]! as { _x?: { viritura: { glissandos?: unknown[] } } };
     const end = content[1]! as { id?: string };
 
-    expect(start._x?.viritura.glissandos).toEqual([{ target: end.id, style: "wavy", text: "gliss." }]);
+    expect(start._x?.viritura.glissandos).toEqual([
+      { target: end.id, kind: "glissando", style: "wavy", text: "gliss." },
+    ]);
+  });
+
+  it("preserves MusicXML slide semantics as portamento", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <notations><slide type="start" number="1"/></notations>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <notations><slide type="stop" number="1"/></notations>
+      </note>
+    `);
+
+    const content = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
+      .content;
+    const start = content[0]! as { _x?: { viritura: { glissandos?: unknown[] } } };
+    const end = content[1]! as { id?: string };
+
+    expect(start._x?.viritura.glissandos).toEqual([{ target: end.id, kind: "portamento" }]);
   });
 
   it("reports glissando loss when Viritura extensions are disabled", () => {
