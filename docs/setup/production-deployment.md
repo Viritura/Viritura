@@ -35,17 +35,27 @@ projects:
 - `viritura-website` publishes `viritura.com` and `www.viritura.com`.
 - `viritura-app` publishes `app.viritura.com`.
 
-The workflow:
+The workflow classifies changed paths and creates an independent release job for
+each affected target:
 
-1. builds the editor and website once;
-2. uploads both build directories to `preprod-<commit>.pages.dev` branch
-   aliases;
-3. runs the minimal editor and website Playwright smoke suites against those
-   deployed previews;
-4. stops before production if either preview or smoke test fails;
-5. uploads the same build directories to each project's `main` production
-   branch; and
-6. repeats the static smoke checks against the custom production domains.
+- website-only copy, route, and documentation changes release only
+  `viritura-website`, except `docs/spec/keyboard-shortcuts.md`, which also feeds
+  the editor Help dialog;
+- editor changes release `viritura-app` and, because the public website artifact
+  embeds editor surfaces and the MNX Storybook, also release
+  `viritura-website`;
+- shared engine, package, asset, script, dependency, and build-configuration
+  changes release both.
+
+Each target job:
+
+1. builds only its target artifact;
+2. uploads it to a `preprod-<commit>.pages.dev` branch alias;
+3. runs that target's minimal Playwright smoke suite against the deployed
+   preview;
+4. stops before production if the preview or smoke test fails;
+5. uploads the same directory to the project's `main` production branch; and
+6. repeats the target smoke check against its custom production domain.
 
 Cloudflare cannot atomically update two Pages projects. If one production
 upload or the final smoke check fails, use each project's deployment history to

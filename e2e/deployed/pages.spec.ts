@@ -16,3 +16,11 @@ test("website documentation is available", async ({ page }) => {
   await expect(page).toHaveTitle(/Viritura/);
   await expect(page.getByRole("navigation", { name: "Documentation" }).first()).toBeVisible();
 });
+
+test("website MNX playground loads its engraving surface", async ({ page }) => {
+  const response = await page.goto(`${WEBSITE_URL}/mnx/playground`);
+  expect(response?.ok()).toBe(true);
+  await expect(page.getByRole("heading", { level: 1, name: "Edit MNX and inspect the engraving" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Editor content" })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole("region", { name: "Live score preview" })).toBeVisible();
+});

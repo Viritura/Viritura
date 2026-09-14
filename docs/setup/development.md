@@ -235,10 +235,13 @@ part of the normal workflow.
 ## Production deployments
 
 Static production deployments run through the **Deploy Pages** GitHub Actions
-workflow. A push to `main` builds the website and editor once, uploads both to
-SHA-specific Cloudflare Pages preview branches, runs browser smoke tests against
-the deployed previews, and uploads those same build directories to production
-only if every preview check passes.
+workflow. It classifies each push to `main` and independently releases only the
+affected Pages target. Website-only copy and documentation changes do not deploy
+`viritura-app`, except that the shared keyboard-shortcut specification also
+feeds the editor Help dialog. Shared engine, package, asset, and build changes
+release both. Each target is uploaded to a SHA-specific Cloudflare Pages
+preview, smoke-tested there, and promoted to production only if its preview
+passes.
 
 The API still deploys through the manual **Deploy API** workflow in GitHub
 Actions. It builds and validates the API without deployment credentials, then
