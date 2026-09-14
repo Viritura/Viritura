@@ -67,7 +67,7 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 437 |  83 | 332 |   0 |   0 |
+| Viritura MNX pipeline          | 437 |  85 | 330 |   0 |   0 |
 | Viritura MusicXML/MXL importer | 275 |  91 | 436 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
@@ -77,7 +77,7 @@ or round-trip support unless a row note says so.
 | Notes             |  344 |         186/29/129/0 |       102/56/152/34/0 |
 | Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
-| Measures          |  104 |            65/3/36/0 |           52/0/46/6/0 |
+| Measures          |  104 |            65/5/34/0 |           52/0/46/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
 | Structure         |  117 |           63/21/33/0 |          24/24/67/2/0 |
 | Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
@@ -612,9 +612,9 @@ or round-trip support unless a row note says so.
 | Time signatures &gt; Alternating and interchangeable time signatures | Alternating meters (e.g., 3/4 + 4/4 shown together, bars alternate)         | `timesig-alternating`                 |  N  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Alternating and interchangeable time signatures | Interchangeable meters (e.g., 2/4 ≈ 6/8, bars may use either)               | `timesig-interchangeable`             |  N  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Alternating and interchangeable time signatures | Dual time signatures stacked (e.g., 6/8 over 3/4)                           | `timesig-dual-stacked`                |  N  |    S     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Different time signatures on different staves simultaneously                | `timesig-polymeter`                   |  N  |    S     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Barline alignment in polymetric passages                                    | `timesig-polymeter-barline`           |  N  |    P     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Local time signature (applies to one staff only, not full score)            | `timesig-polymeter-local`             |  N  |    S     |      N       |      N       | -                                                                                        |
+| Time signatures &gt; Multiple simultaneous time signatures           | Different time signatures on different staves simultaneously                | `timesig-polymeter`                   |  N  |    S     |      P       |      N       | Synchronous staff meters only; see [staffMeters](viritura-extensions.md#staffmeters)     |
+| Time signatures &gt; Multiple simultaneous time signatures           | Barline alignment in polymetric passages                                    | `timesig-polymeter-barline`           |  N  |    P     |      N       |      N       | Synchronous barlines align; independent cycles remain unsupported                        |
+| Time signatures &gt; Multiple simultaneous time signatures           | Local time signature (applies to one staff only, not full score)            | `timesig-polymeter-local`             |  N  |    S     |      P       |      N       | Local meters print; see [staffMeters](viritura-extensions.md#staffmeters)                |
 | Time signatures &gt; Time signature changes                          | Time signature change at barline                                            | `timesig-change-barline`              |  S  |    S     |      S       |      S       | -                                                                                        |
 | Time signatures &gt; Time signature changes                          | Mid-measure time signature change                                           | `timesig-change-mid-measure`          |  P  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Time signature changes                          | Courtesy time signature at end of system (warning before break)             | `timesig-change-courtesy`             |  N  |    P     |      N       |      NA      | -                                                                                        |

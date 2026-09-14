@@ -12,8 +12,10 @@
 //   2 = Condensed (no stems) — chord merge fallback
 //   3 = Condensed (auto) — multiple sources, uses merge mode analysis
 
+use crate::layout::cache::LayoutCache;
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_with_mnx_scores;
+use crate::layout::{layout_with_mnx_scores, layout_with_mnx_scores_cached};
+use crate::model::{StaffMeter, StaffMeterChange, StaffMeterSynchronization};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -185,6 +187,132 @@ fn test_condensed_auto_has_noteheads() {
         "Auto condensing should have at least 14 noteheads, got {}",
         nh
     );
+}
+
+#[test]
+fn incompatible_staff_local_meters_render_on_distinct_staves_with_their_own_timing() {
+    let mut score = load_condensing_test();
+    let config = default_config();
+    score.parts[0].measures[0].staff_meters = Some(vec![StaffMeterChange::Set {
+        staff: 1,
+        meter: StaffMeter {
+            count: 6,
+            unit: 8,
+            beat_structure: None,
+        },
+        synchronization: StaffMeterSynchronization::FitMeasure,
+    }]);
+    score.scores[3].layout = Some(score.layouts[3].id.clone());
+    score.scores[3].pages.clear();
+
+    let mut cache = LayoutCache::new();
+    cache.set_range_scope(crate::layout::cache::RangeScope {
+        scoped_resolve: true,
+        ..Default::default()
+    });
+    let with_local_meter = layout_with_mnx_scores_cached(&score, &config, 3, Some(&mut cache));
+    let glyphs: Vec<(u32, f64)> = with_local_meter
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, y, .. } => Some((*codepoint, *y)),
+            _ => None,
+        })
+        .collect();
+    let six_y = glyphs
+        .iter()
+        .find_map(|(codepoint, y)| (*codepoint == smufl::TIME_SIG_6).then_some(*y))
+        .expect("the local 6/8 signature must be retained");
+    let eight_y = glyphs
+        .iter()
+        .find_map(|(codepoint, y)| (*codepoint == smufl::TIME_SIG_8).then_some(*y))
+        .expect("the local 6/8 signature denominator must be retained");
+    assert!(
+        (six_y - eight_y).abs() > 1.0,
+        "6/8 numerator and denominator must occupy one staff's stacked signature"
+    );
+    assert_eq!(
+        cache.resolved_staff_count(),
+        2,
+        "incompatible source meters must produce separate layout staves"
+    );
+    let local_meter = cache
+        .resolved_staff_meter(0, 0)
+        .expect("the first source retains its local meter");
+    assert_eq!(local_meter.time_signature.count, 6);
+    assert_eq!(local_meter.time_signature.unit, 8);
+    assert_eq!(
+        local_meter.ratio_to_global,
+        crate::model::staff_meter::Fraction::new(4, 3),
+        "the local source must retain its fitMeasure timing ratio"
+    );
+    assert!(cache.resolved_staff_meter(1, 0).is_none());
+}
+
+#[test]
+fn manual_divisi_with_incompatible_staff_meters_uses_distinct_layout_staves() {
+    let mut score = load_condensing_test();
+    let config = default_config();
+    score.parts[0].measures[0].staff_meters = Some(vec![StaffMeterChange::Set {
+        staff: 1,
+        meter: StaffMeter {
+            count: 6,
+            unit: 8,
+            beat_structure: None,
+        },
+        synchronization: StaffMeterSynchronization::FitMeasure,
+    }]);
+
+    let display_list = layout_with_mnx_scores(&score, &config, 1);
+    let time_signature_y = |codepoint| {
+        display_list
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawGlyph {
+                    codepoint: actual,
+                    y,
+                    ..
+                } if *actual == codepoint => Some(*y),
+                _ => None,
+            })
+    };
+    let local_y = time_signature_y(smufl::TIME_SIG_6)
+        .expect("the first manual-divisi source retains its local 6/8 signature");
+    let global_y = time_signature_y(smufl::TIME_SIG_4)
+        .expect("the second manual-divisi source retains the global 4/4 signature");
+    assert!(
+        (local_y - global_y).abs() > 4.0 * config.sp,
+        "incompatible manual-divisi meters must render on distinct layout staves"
+    );
+}
+
+#[test]
+fn identical_staff_local_meters_remain_condensable_and_render_the_common_signature() {
+    let mut score = load_condensing_test();
+    for part in &mut score.parts {
+        part.measures[0].staff_meters = Some(vec![StaffMeterChange::Set {
+            staff: 1,
+            meter: StaffMeter {
+                count: 6,
+                unit: 8,
+                beat_structure: None,
+            },
+            synchronization: StaffMeterSynchronization::FitMeasure,
+        }]);
+    }
+
+    let display_list = layout_with_mnx_scores(&score, &default_config(), 3);
+    let glyphs: Vec<u32> = display_list
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawGlyph { codepoint, .. } => Some(*codepoint),
+            _ => None,
+        })
+        .collect();
+    assert!(glyphs.contains(&smufl::TIME_SIG_6));
+    assert!(glyphs.contains(&smufl::TIME_SIG_8));
 }
 
 #[test]

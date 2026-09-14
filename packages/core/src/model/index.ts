@@ -17,6 +17,7 @@ export * from "./pitch";
 export * from "./clef";
 export * from "./key";
 export * from "./time";
+export * from "./staffMeter";
 export * from "./barline";
 export * from "./layout";
 export * from "./pagination";

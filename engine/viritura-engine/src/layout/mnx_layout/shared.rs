@@ -329,6 +329,7 @@ pub(super) fn build_virtual_part_measure(
     flat_staff: &FlatStaff,
     measure_index: usize,
     score: &Score,
+    force_divisi: bool,
 ) -> (PartMeasure, Option<MergeMode>) {
     let mut all_sequences = Vec::new();
     let mut clefs: Option<Vec<PositionedClef>> = None;
@@ -345,7 +346,9 @@ pub(super) fn build_virtual_part_measure(
 
     // --- Condensing merge mode analysis ---
     // When condensing with multiple sources, analyze parts to determine rendering mode.
-    let condensing_mode = if flat_staff.is_condensing() {
+    let condensing_mode = if flat_staff.is_condensing() && force_divisi {
+        Some(MergeMode::Divisi)
+    } else if flat_staff.is_condensing() {
         // Transposition constraint: sources with different transpositions cannot condense
         // (they produce different key signatures in written pitch mode).
         // Ref: docs/plans/condensing-and-doubling.md ┬º8.5
@@ -367,21 +370,11 @@ pub(super) fn build_virtual_part_measure(
             // Different transpositions ΓåÆ force divisi (each source keeps its own voice)
             Some(MergeMode::Divisi)
         } else {
-            // Collect part measures for each source
-            let source_pms: Vec<Option<&PartMeasure>> = flat_staff
+            let available: Vec<&PartMeasure> = flat_staff
                 .sources
                 .iter()
-                .map(|src| {
-                    let part = &score.parts[src.part_index];
-                    if measure_index < part.measures.len() {
-                        Some(&part.measures[measure_index])
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|source| score.parts[source.part_index].measures.get(measure_index))
                 .collect();
-
-            let available: Vec<&PartMeasure> = source_pms.iter().filter_map(|pm| *pm).collect();
             if available.len() > 1 {
                 // Check for user-specified condensing override on the first source's part measure
                 let user_override =
@@ -657,6 +650,7 @@ pub(super) fn build_virtual_part_measure(
             expressions,
             condensing_override: None,
             grouping_display_overrides: None,
+            staff_meters: None,
         },
         condensing_mode,
     )

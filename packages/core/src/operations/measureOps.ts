@@ -15,6 +15,7 @@ import type {
 } from "../model/measure";
 import type { Part } from "../model/part";
 import type { GroupingDisplay, TimeSignature } from "../model/time";
+import type { StaffMeter, StaffMeterChange, StaffMeterSynchronization } from "../model/staffMeter";
 import type { KeySignature } from "../model/key";
 import type { Barline } from "../model/barline";
 import type { Clef, PositionedClef } from "../model/clef";
@@ -536,6 +537,117 @@ export function setGroupingDisplayOverride(
     newMeasure.groupingDisplayOverrides = nextOverrides;
   } else {
     delete newMeasure.groupingDisplayOverrides;
+  }
+
+  const newPart: Part = {
+    ...targetPart,
+    measures: [
+      ...targetPart.measures.slice(0, measureIndex),
+      newMeasure,
+      ...targetPart.measures.slice(measureIndex + 1),
+    ],
+  };
+
+  return {
+    ...score,
+    parts: [...score.parts.slice(0, partIndex), newPart, ...score.parts.slice(partIndex + 1)],
+  };
+}
+
+/**
+ * Set a staff-local synchronous meter on a part measure, effective from
+ * this measure onward until changed or reset (see
+ * `setStaffMeterToGlobal`). Replaces any existing `staffMeters` entry for
+ * this staff at this measure.
+ *
+ * This is a pure authoring operation: it does not validate `synchronization`
+ * against the score's effective global meter at this point (that requires
+ * walking global measure history — see `resolveStaffMeterChange` in
+ * `../model/staffMeter`). Callers that need to surface a validation error to
+ * the user before applying the edit should call `resolveStaffMeterChange`
+ * themselves first.
+ */
+export function setStaffMeter(
+  score: Score,
+  measureIndex: number,
+  partIndex: number,
+  staff: number,
+  meter: StaffMeter,
+  synchronization: StaffMeterSynchronization,
+): Score {
+  const partCount = score.parts.length;
+  if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= partCount) {
+    throw new RangeError(`setStaffMeter: partIndex ${partIndex} out of range [0, ${partCount - 1}]`);
+  }
+  const measureCount = score.global.measures.length;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0 || measureIndex >= measureCount) {
+    throw new RangeError(`setStaffMeter: measureIndex ${measureIndex} out of range [0, ${measureCount - 1}]`);
+  }
+  if (!Number.isInteger(staff) || staff < 1) {
+    throw new RangeError("setStaffMeter: staff must be a positive integer");
+  }
+
+  const targetPart = score.parts[partIndex]!;
+  const oldMeasure = targetPart.measures[measureIndex]!;
+  const remaining = (oldMeasure.staffMeters ?? []).filter((entry) => entry.staff !== staff);
+  const nextChanges: StaffMeterChange[] = [...remaining, { staff, meter, synchronization }];
+  nextChanges.sort((a, b) => a.staff - b.staff);
+
+  const newMeasure: PartMeasure = { ...oldMeasure, staffMeters: nextChanges };
+
+  const newPart: Part = {
+    ...targetPart,
+    measures: [
+      ...targetPart.measures.slice(0, measureIndex),
+      newMeasure,
+      ...targetPart.measures.slice(measureIndex + 1),
+    ],
+  };
+
+  return {
+    ...score,
+    parts: [...score.parts.slice(0, partIndex), newPart, ...score.parts.slice(partIndex + 1)],
+  };
+}
+
+/**
+ * Reset a staff back to following the global meter from this part measure
+ * onward, ending a prior `setStaffMeter` declaration for this staff. Pass
+ * `remove: true` to instead delete any `staffMeters` entry for this staff at
+ * this measure outright (used when clearing a reset that was authored on a
+ * measure with no other staff-meter activity, so the measure stops carrying
+ * an empty vendor-extension array).
+ */
+export function setStaffMeterToGlobal(
+  score: Score,
+  measureIndex: number,
+  partIndex: number,
+  staff: number,
+  options?: { remove?: boolean },
+): Score {
+  const partCount = score.parts.length;
+  if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= partCount) {
+    throw new RangeError(`setStaffMeterToGlobal: partIndex ${partIndex} out of range [0, ${partCount - 1}]`);
+  }
+  const measureCount = score.global.measures.length;
+  if (!Number.isInteger(measureIndex) || measureIndex < 0 || measureIndex >= measureCount) {
+    throw new RangeError(`setStaffMeterToGlobal: measureIndex ${measureIndex} out of range [0, ${measureCount - 1}]`);
+  }
+  if (!Number.isInteger(staff) || staff < 1) {
+    throw new RangeError("setStaffMeterToGlobal: staff must be a positive integer");
+  }
+
+  const targetPart = score.parts[partIndex]!;
+  const oldMeasure = targetPart.measures[measureIndex]!;
+  const remaining = (oldMeasure.staffMeters ?? []).filter((entry) => entry.staff !== staff);
+  const nextChanges: StaffMeterChange[] = options?.remove ? remaining : [...remaining, { staff, useGlobal: true }];
+  nextChanges.sort((a, b) => a.staff - b.staff);
+
+  const newMeasure: PartMeasure = { ...oldMeasure };
+  if (nextChanges.length > 0) {
+    newMeasure.staffMeters = nextChanges;
+  } else {
+    delete newMeasure.staffMeters;
   }
 
   const newPart: Part = {

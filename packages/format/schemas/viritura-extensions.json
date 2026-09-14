@@ -82,6 +82,83 @@
       "additionalProperties": false
     },
 
+    "staff-meter": {
+      "type": "object",
+      "description": "A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself.",
+      "required": ["count", "unit"],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Numerator (beats per measure) of the staff-local meter."
+        },
+        "unit": {
+          "type": "integer",
+          "enum": [1, 2, 4, 8, 16, 32, 64, 128],
+          "description": "Denominator (beat unit) of the staff-local meter."
+        },
+        "beatStructure": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1,
+          "description": "Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "staff-meter-synchronization": {
+      "type": "string",
+      "enum": ["sharedDuration", "fitMeasure"],
+      "description": "How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values."
+    },
+
+    "staff-meter-set": {
+      "type": "object",
+      "description": "Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle.",
+      "required": ["staff", "meter", "synchronization"],
+      "properties": {
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based staff number within this part."
+        },
+        "meter": {
+          "$ref": "#/$defs/staff-meter",
+          "description": "The staff-local meter to apply from this measure onward."
+        },
+        "synchronization": {
+          "$ref": "#/$defs/staff-meter-synchronization",
+          "description": "How this staff's measure duration relates to the global measure it shares a barline with."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "staff-meter-reset": {
+      "type": "object",
+      "description": "Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff.",
+      "required": ["staff", "useGlobal"],
+      "properties": {
+        "staff": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based staff number within this part."
+        },
+        "useGlobal": {
+          "type": "boolean",
+          "const": true,
+          "description": "Always true. Marks this entry as a reset rather than a meter declaration."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "staff-meter-change": {
+      "description": "One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter.",
+      "oneOf": [{ "$ref": "#/$defs/staff-meter-set" }, { "$ref": "#/$defs/staff-meter-reset" }]
+    },
+
     "rehearsal-mark": {
       "type": "object",
       "description": "A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle.",
@@ -596,6 +673,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/staff-grouping-display-override" },
           "description": "Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style."
+        },
+        "staffMeters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/staff-meter-change" },
+          "description": "Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope."
         }
       },
       "additionalProperties": false

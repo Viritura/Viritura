@@ -61,6 +61,7 @@ pub(crate) fn build_log_spacing_for_part_measure(
     let suppressed_note_ids = HashSet::new();
     build_log_spacing_with_arpeggios(
         &part_measure.sequences,
+        1.0,
         total_beats,
         common_shortest_beats,
         config,
@@ -89,8 +90,14 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
     } else {
         measure.tie_continuation_ids.iter().cloned().collect()
     };
+    let ratio = measure
+        .effective_staff_meter
+        .as_ref()
+        .map(|effective| effective.ratio_to_global.as_f64())
+        .unwrap_or(1.0);
     build_log_spacing_with_arpeggios(
         &measure.part.sequences,
+        ratio,
         total_beats,
         common_shortest_beats,
         config,
@@ -106,6 +113,7 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
 
 pub(super) fn build_log_spacing_with_arpeggios(
     sequences: &[Sequence],
+    ratio: f64,
     total_beats: f64,
     common_shortest_beats: f64,
     config: &LayoutConfig,
@@ -118,6 +126,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
     trailing_barline_buffer_sp: f64,
 ) -> LogSpacing {
     let all_sequences: Vec<&[Sequence]> = vec![sequences];
+    let staff_ratios = [ratio];
     let active_keys = [active_key];
     let transpositions = [transposition];
     let clef_changes = [clef_changes];
@@ -125,6 +134,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
     let suppressed_note_ids = [suppressed_note_ids.clone()];
     build_spacing_from_sequences(
         &all_sequences,
+        &staff_ratios,
         total_beats,
         common_shortest_beats,
         config,
@@ -165,8 +175,10 @@ pub(crate) fn build_merged_log_spacing_for_part_measures(
         .collect();
     let suppressed_note_ids = vec![HashSet::new(); part_measures.len()];
     let transpositions = vec![None; part_measures.len()];
+    let staff_ratios = vec![1.0; part_measures.len()];
     build_merged_log_spacing_with_arpeggios(
         &all_sequences,
+        &staff_ratios,
         total_beats,
         common_shortest_beats,
         config,
@@ -191,6 +203,16 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
     let all_sequences: Vec<&[Sequence]> = measures
         .iter()
         .map(|measure| measure.part.sequences.as_slice())
+        .collect();
+    let staff_ratios: Vec<f64> = measures
+        .iter()
+        .map(|measure| {
+            measure
+                .effective_staff_meter
+                .as_ref()
+                .map(|effective| effective.ratio_to_global.as_f64())
+                .unwrap_or(1.0)
+        })
         .collect();
     let active_keys: Vec<&KeySignature> =
         measures.iter().map(|measure| &measure.active_key).collect();
@@ -223,6 +245,7 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         .collect();
     build_merged_log_spacing_with_arpeggios(
         &all_sequences,
+        &staff_ratios,
         total_beats,
         common_shortest_beats,
         config,
@@ -246,6 +269,7 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
 
 pub(super) fn build_merged_log_spacing_with_arpeggios(
     all_sequences: &[&[Sequence]],
+    staff_ratios: &[f64],
     total_beats: f64,
     common_shortest_beats: f64,
     config: &LayoutConfig,
@@ -259,6 +283,7 @@ pub(super) fn build_merged_log_spacing_with_arpeggios(
 ) -> LogSpacing {
     build_spacing_from_sequences(
         all_sequences,
+        staff_ratios,
         total_beats,
         common_shortest_beats,
         config,
@@ -306,6 +331,7 @@ fn collect_mid_clef_columns(
 
 fn build_spacing_from_sequences(
     all_sequences: &[&[Sequence]],
+    staff_ratios: &[f64],
     total_beats: f64,
     common_shortest_beats: f64,
     config: &LayoutConfig,
@@ -319,6 +345,7 @@ fn build_spacing_from_sequences(
 ) -> LogSpacing {
     let snapshot = build_spacing_snapshot(
         all_sequences,
+        staff_ratios,
         active_keys,
         transpositions,
         clef_changes,

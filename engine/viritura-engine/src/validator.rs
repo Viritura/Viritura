@@ -346,6 +346,122 @@ fn semantic_beat_structure_errors(value: &Value) -> Vec<RawScoreValidationError>
     errors
 }
 
+/// Effective global (count, unit) at every measure index, computed in a
+/// single forward pass over `/global/measures` (each measure inherits the
+/// prior explicit `time` until a new one is authored). Defaults to 4/4.
+fn global_effective_time_signatures(value: &Value) -> Vec<(f64, f64)> {
+    let Some(measures) = value.pointer("/global/measures").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let mut current = (4.0, 4.0);
+    measures
+        .iter()
+        .map(|measure| {
+            if let Some(time) = measure.get("time") {
+                let count = time.get("count").and_then(Value::as_f64);
+                let unit = time.get("unit").and_then(Value::as_f64);
+                if let (Some(count), Some(unit)) = (count, unit) {
+                    current = (count, unit);
+                }
+            }
+            current
+        })
+        .collect()
+}
+
+/// Semantic checks for `_x.viritura.staffMeters` on part measures:
+/// a staff-local meter's own `beatStructure` must sum to its `count` (same
+/// rule as a global time signature's), and a `sharedDuration` declaration's
+/// measure duration must equal the global measure's duration at that point
+/// — `fitMeasure` has no duration constraint since it derives its own ratio.
+fn semantic_staff_meter_errors(value: &Value) -> Vec<RawScoreValidationError> {
+    let mut errors = Vec::new();
+    let global_time_at = global_effective_time_signatures(value);
+    let Some(parts) = value.get("parts").and_then(Value::as_array) else {
+        return errors;
+    };
+    for (part_index, part) in parts.iter().enumerate() {
+        let Some(measures) = part.get("measures").and_then(Value::as_array) else {
+            continue;
+        };
+        let mut inherited_shared_durations: std::collections::HashMap<u64, (f64, String)> =
+            std::collections::HashMap::new();
+        for (measure_index, measure) in measures.iter().enumerate() {
+            let staff_meters = measure
+                .pointer("/_x/viritura/staffMeters")
+                .and_then(Value::as_array);
+            let (global_count, global_unit) = global_time_at
+                .get(measure_index)
+                .copied()
+                .unwrap_or((4.0, 4.0));
+            let global_beats = global_count * 4.0 / global_unit;
+            let mut changed_staves = std::collections::HashSet::new();
+            if let Some(staff_meters) = staff_meters {
+                for (entry_index, entry) in staff_meters.iter().enumerate() {
+                    let pointer_base = format!(
+                        "/parts/{part_index}/measures/{measure_index}/_x/viritura/staffMeters/{entry_index}"
+                    );
+                    let staff = entry.get("staff").and_then(Value::as_u64).unwrap_or(1);
+                    changed_staves.insert(staff);
+                    let Some(meter) = entry.get("meter") else {
+                        // A reset entry (`useGlobal: true`) ends inheritance.
+                        inherited_shared_durations.remove(&staff);
+                        continue;
+                    };
+                    let count = meter.get("count").and_then(Value::as_f64).unwrap_or(0.0);
+                    let unit = meter.get("unit").and_then(Value::as_f64).unwrap_or(4.0);
+                    if let Some(groups) = meter.get("beatStructure").and_then(Value::as_array) {
+                        let total = groups.iter().filter_map(Value::as_f64).sum::<f64>();
+                        if (total - count).abs() > f64::EPSILON {
+                            errors.push(dynamic_error(
+                                format!("{pointer_base}/meter/beatStructure"),
+                                format!("beatStructure values must sum to meter.count ({count})"),
+                                "sum",
+                            ));
+                        }
+                    }
+                    if entry.get("synchronization").and_then(Value::as_str)
+                        == Some("sharedDuration")
+                    {
+                        let local_beats = count * 4.0 / unit;
+                        if (local_beats - global_beats).abs() > f64::EPSILON {
+                            errors.push(dynamic_error(
+                                format!("{pointer_base}/synchronization"),
+                                format!(
+                                    "sharedDuration requires equal measure durations at measure {measure_index}: staff-local meter is {local_beats} quarter-note beats, global measure is {global_beats}"
+                                ),
+                                "duration",
+                            ));
+                        } else {
+                            inherited_shared_durations.insert(
+                                staff,
+                                (local_beats, format!("{pointer_base}/synchronization")),
+                            );
+                        }
+                    } else {
+                        inherited_shared_durations.remove(&staff);
+                    }
+                }
+            }
+            for (staff, (local_beats, declaration_pointer)) in &inherited_shared_durations {
+                if changed_staves.contains(staff) {
+                    continue;
+                }
+                if (local_beats - global_beats).abs() > f64::EPSILON {
+                    errors.push(dynamic_error(
+                        declaration_pointer.clone(),
+                        format!(
+                            "sharedDuration requires equal measure durations at measure {measure_index}: staff-local meter is {local_beats} quarter-note beats, global measure is {global_beats}"
+                        ),
+                        "duration",
+                    ));
+                }
+            }
+        }
+    }
+    errors
+}
+
 /// Validate a JSON value against the MNX schema, returning a structured
 /// result. Does not throw.
 #[must_use]
@@ -358,6 +474,7 @@ pub fn validate_raw_score(value: &Value) -> RawScoreValidationResult {
     errors.extend(semantic_dynamic_errors(value));
     errors.extend(semantic_kit_errors(value));
     errors.extend(semantic_beat_structure_errors(value));
+    errors.extend(semantic_staff_meter_errors(value));
     errors.extend(extensions::extension_errors(value));
     if errors.is_empty() {
         RawScoreValidationResult::Ok
@@ -375,6 +492,7 @@ pub fn is_raw_score(value: &Value) -> bool {
         && semantic_dynamic_errors(value).is_empty()
         && semantic_kit_errors(value).is_empty()
         && semantic_beat_structure_errors(value).is_empty()
+        && semantic_staff_meter_errors(value).is_empty()
         && extensions::extension_errors(value).is_empty()
 }
 
@@ -399,6 +517,7 @@ pub fn assert_raw_score(value: &Value) -> Result<RawScore, RawScoreValidationFai
     errors.extend(semantic_dynamic_errors(value));
     errors.extend(semantic_kit_errors(value));
     errors.extend(semantic_beat_structure_errors(value));
+    errors.extend(semantic_staff_meter_errors(value));
     errors.extend(extensions::extension_errors(value));
     if !errors.is_empty() {
         return Err(RawScoreValidationFailure { errors });
@@ -533,6 +652,133 @@ mod tests {
             error.pointer == "/global/measures/0/time/_x/viritura/beatStructure"
                 && error.keyword == "sum"
         }));
+    }
+
+    #[test]
+    fn accepts_shared_duration_staff_meter_with_equal_measure_duration() {
+        // Global 3/4 (3 beats) vs staff-local 6/8 (6*4/8 = 3 beats): equal.
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "time": { "count": 3, "unit": 4 } }] },
+            "parts": [{ "measures": [{
+                "sequences": [],
+                "_x": { "viritura": { "staffMeters": [
+                    { "staff": 1, "meter": { "count": 6, "unit": 8 }, "synchronization": "sharedDuration" }
+                ] } }
+            }] }]
+        });
+        assert!(is_raw_score(&value));
+    }
+
+    #[test]
+    fn rejects_shared_duration_staff_meter_with_unequal_measure_duration() {
+        // Global 4/4 (4 beats) vs staff-local 6/8 (3 beats): not equal.
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+            "parts": [{ "measures": [{
+                "sequences": [],
+                "_x": { "viritura": { "staffMeters": [
+                    { "staff": 1, "meter": { "count": 6, "unit": 8 }, "synchronization": "sharedDuration" }
+                ] } }
+            }] }]
+        });
+        let RawScoreValidationResult::Err(errors) = validate_raw_score(&value) else {
+            panic!("sharedDuration with unequal durations should fail validation");
+        };
+        assert!(errors.iter().any(|error| {
+            error.pointer == "/parts/0/measures/0/_x/viritura/staffMeters/0/synchronization"
+                && error.keyword == "duration"
+        }));
+    }
+
+    #[test]
+    fn rejects_inherited_shared_duration_broken_by_a_later_global_meter_change() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [
+                { "time": { "count": 3, "unit": 4 } },
+                { "time": { "count": 4, "unit": 4 } }
+            ] },
+            "parts": [{ "measures": [
+                {
+                    "sequences": [],
+                    "_x": { "viritura": { "staffMeters": [
+                        {
+                            "staff": 1,
+                            "meter": { "count": 6, "unit": 8 },
+                            "synchronization": "sharedDuration"
+                        }
+                    ] } }
+                },
+                { "sequences": [] }
+            ] }]
+        });
+        let RawScoreValidationResult::Err(errors) = validate_raw_score(&value) else {
+            panic!("later global meter change must invalidate inherited sharedDuration");
+        };
+        assert!(errors.iter().any(|error| {
+            error.pointer == "/parts/0/measures/0/_x/viritura/staffMeters/0/synchronization"
+                && error.keyword == "duration"
+                && error.message.contains("measure 1")
+        }));
+    }
+
+    #[test]
+    fn accepts_fit_measure_staff_meter_with_any_ratio() {
+        // Global 2/4 (2 beats) vs staff-local 6/8 (3 beats): unequal, but
+        // fitMeasure derives a ratio instead of requiring equal durations.
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "time": { "count": 2, "unit": 4 } }] },
+            "parts": [{ "measures": [{
+                "sequences": [],
+                "_x": { "viritura": { "staffMeters": [
+                    { "staff": 1, "meter": { "count": 6, "unit": 8 }, "synchronization": "fitMeasure" }
+                ] } }
+            }] }]
+        });
+        assert!(is_raw_score(&value));
+    }
+
+    #[test]
+    fn rejects_staff_meter_beat_structure_with_wrong_sum() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+            "parts": [{ "measures": [{
+                "sequences": [],
+                "_x": { "viritura": { "staffMeters": [
+                    {
+                        "staff": 1,
+                        "meter": { "count": 9, "unit": 8, "beatStructure": [2, 3, 2] },
+                        "synchronization": "fitMeasure"
+                    }
+                ] } }
+            }] }]
+        });
+        let RawScoreValidationResult::Err(errors) = validate_raw_score(&value) else {
+            panic!("invalid staff-meter beatStructure should fail validation");
+        };
+        assert!(errors.iter().any(|error| {
+            error.pointer == "/parts/0/measures/0/_x/viritura/staffMeters/0/meter/beatStructure"
+                && error.keyword == "sum"
+        }));
+    }
+
+    #[test]
+    fn accepts_staff_meter_reset_without_a_meter() {
+        let value = serde_json::json!({
+            "mnx": { "version": 1 },
+            "global": { "measures": [{ "time": { "count": 4, "unit": 4 } }] },
+            "parts": [{ "measures": [{
+                "sequences": [],
+                "_x": { "viritura": { "staffMeters": [
+                    { "staff": 1, "useGlobal": true }
+                ] } }
+            }] }]
+        });
+        assert!(is_raw_score(&value));
     }
 
     #[test]

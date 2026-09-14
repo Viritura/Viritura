@@ -2577,6 +2577,214 @@ fn staff_time_signatures_center_in_the_widest_shared_slot() {
 }
 
 #[test]
+fn staff_local_meter_prints_its_own_glyph_at_the_global_time_signature_occurrence() {
+    // Global 3/4 with staff 1 declaring a synchronous sharedDuration 6/8
+    // staff-local meter from measure 1 onward — both have equal measure
+    // durations (3 quarter-note beats), so `sharedDuration` validates.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 3, "unit": 4}}]},
+      "parts": [{"measures": [{
+        "sequences": [],
+        "_x": {"viritura": {"staffMeters": [
+          {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "sharedDuration"}
+        ]}}
+      }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let rm = &resolved[0];
+
+    assert!(
+        rm.effective_staff_meter.is_some(),
+        "staff 1 should resolve an effective staff-local meter"
+    );
+    let effective = rm.effective_staff_meter.as_ref().unwrap();
+    assert_eq!(effective.time_signature.count, 6);
+    assert_eq!(effective.time_signature.unit, 8);
+
+    // The global measure authors a time signature at index 0, so a glyph is
+    // due — but it must show the staff-local 6/8, not the global 3/4.
+    let displayed = rm.displayed_time_signature().expect("time sig is due");
+    assert_eq!(displayed.count, 6);
+    assert_eq!(displayed.unit, 8);
+    assert_eq!(
+        rm.global.time.as_ref().unwrap().count,
+        3,
+        "global itself is untouched"
+    );
+
+    // Automatic beaming keys off the same effective meter.
+    assert_eq!(rm.effective_beat_meter().count, 6);
+    assert_eq!(rm.effective_beat_meter().unit, 8);
+}
+
+#[test]
+fn staff_meter_set_prints_a_glyph_even_with_no_global_time_change() {
+    // Global 4/4 declared once at measure 0; no further global `time` change.
+    // Staff 1 declares a fitMeasure 12/8 staff-local meter starting at
+    // measure 1 (mid-piece), where `global.time` is None. A staff beginning
+    // a staff-local meter is itself a printed occurrence for that staff,
+    // independent of any global change.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+      "parts": [{"measures": [
+        {"sequences": []},
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 12, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        }
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    // Measure 0: no staffMeters entry, global.time is Some (the piece's
+    // initial signature) -> the global 4/4 prints, as always.
+    let m0_displayed = resolved[0]
+        .displayed_time_signature()
+        .expect("initial time sig prints");
+    assert_eq!((m0_displayed.count, m0_displayed.unit), (4, 4));
+
+    // Measure 1: global.time is None here, but staff 1 authors a fresh Set
+    // -> a glyph is still due, showing the new staff-local 12/8.
+    assert!(
+        resolved[1].global.time.is_none(),
+        "no global time change at measure 1"
+    );
+    let m1_displayed = resolved[1]
+        .displayed_time_signature()
+        .expect("a staff-local Set must print even with no global time change");
+    assert_eq!((m1_displayed.count, m1_displayed.unit), (12, 8));
+}
+
+#[test]
+fn staff_meter_reset_prints_the_global_meter_even_with_no_global_time_change() {
+    // Staff 1 declares a fitMeasure 6/8 at measure 0 (alongside the global
+    // 2/4), then resets back to the global meter at measure 1, where
+    // `global.time` is None. The reset must still print — showing the
+    // global meter the staff just returned to.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 2, "unit": 4}}, {}]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [{"staff": 1, "useGlobal": true}]}}
+        }
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert!(
+        resolved[1].global.time.is_none(),
+        "no global time change at measure 1"
+    );
+    assert!(
+        resolved[1].effective_staff_meter.is_none(),
+        "staff 1 has reset back to following the global meter"
+    );
+    let m1_displayed = resolved[1]
+        .displayed_time_signature()
+        .expect("a staff-local Reset must print even with no global time change");
+    assert_eq!(
+        (m1_displayed.count, m1_displayed.unit),
+        (2, 4),
+        "reset measure shows the global meter the staff returned to"
+    );
+}
+
+#[test]
+fn unchanged_inherited_staff_meter_does_not_reprint() {
+    // Staff 1 declares a fitMeasure 6/8 at measure 0; measures 1 and 2 carry
+    // no staffMeters entry at all (they simply inherit) and no global time
+    // change either -> neither should print a time signature, even though
+    // both still have an effective staff-local meter in force.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 2, "unit": 4}}, {}, {}]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {"sequences": []},
+        {"sequences": []}
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert!(
+        resolved[0].displayed_time_signature().is_some(),
+        "the initial declaration prints"
+    );
+    assert!(
+        resolved[1].effective_staff_meter.is_some(),
+        "measure 1 still inherits the fitMeasure 6/8"
+    );
+    assert!(
+        resolved[1].displayed_time_signature().is_none(),
+        "measure 1 has no fresh staffMeters entry and no global change -> no reprint"
+    );
+    assert!(
+        resolved[2].effective_staff_meter.is_some(),
+        "measure 2 still inherits the fitMeasure 6/8"
+    );
+    assert!(
+        resolved[2].displayed_time_signature().is_none(),
+        "measure 2 has no fresh staffMeters entry and no global change -> no reprint"
+    );
+}
+
+#[test]
+fn inherited_staff_meter_does_not_reprint_for_a_global_only_change() {
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [
+        {"time": {"count": 2, "unit": 4}},
+        {"time": {"count": 4, "unit": 4}}
+      ]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {"sequences": []}
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert_eq!(
+        resolved[1]
+            .effective_staff_meter
+            .as_ref()
+            .expect("local meter remains active")
+            .ratio_to_global,
+        crate::model::staff_meter::Fraction::new(4, 3)
+    );
+    assert!(
+        resolved[1].displayed_time_signature().is_none(),
+        "an inherited local meter must ignore a global-only signature change"
+    );
+}
+
+#[test]
 fn single_group_structure_never_engraves_additive_or_annotation_glyphs() {
     // An authored beatStructure of one all-encompassing group has nothing to
     // add, even when a mode is explicitly forced.

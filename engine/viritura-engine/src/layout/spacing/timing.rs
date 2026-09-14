@@ -45,10 +45,19 @@ pub(super) struct SequenceTimeline<'a> {
 /// Tuplet scaling, tremolo subdivision, spaces, inherited orientation, and
 /// grace attachment are centralized here so every spacing fact observes the
 /// same rhythmic timeline.
+///
+/// `ratio` scales every written beat position and duration into "global
+/// measure"-equivalent units before spacing sees them. It is `1.0` for an
+/// ordinary staff (or a `sharedDuration` staff-local meter, whose measure
+/// duration already equals the global measure's by construction) and the
+/// staff's `EffectiveStaffMeter::ratio_to_global` for a `fitMeasure`
+/// staff-local meter, so a differently-noted but duration-mapped staff still
+/// lands its onsets in the shared spacing columns other staves use.
 pub(super) fn sequence_timeline(
     sequence: &Sequence,
     sequence_index: usize,
     sequence_count: usize,
+    ratio: f64,
 ) -> SequenceTimeline<'_> {
     let mut timeline = SequenceTimeline {
         events: Vec::new(),
@@ -64,7 +73,7 @@ pub(super) fn sequence_timeline(
     walk_content(
         &sequence.content,
         &mut beat,
-        1.0,
+        ratio,
         forced_stem_up,
         sequence_index,
         sequence_count,

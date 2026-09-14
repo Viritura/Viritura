@@ -21,7 +21,9 @@
 use crate::layout::cache::{LayoutCache, PatchFrame, SystemPlacement};
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_with_mnx_scores_cached;
-use crate::model::{Score, SequenceContent};
+use crate::model::{
+    Score, SequenceContent, StaffMeter, StaffMeterChange, StaffMeterSynchronization,
+};
 use crate::parse::parse_mnx;
 use crate::reconcile::reconcile_score;
 use crate::render::DisplayList;
@@ -50,6 +52,64 @@ fn fixture_path(name: &str) -> std::path::PathBuf {
 /// Bit-exact fingerprint (NaN-safe vs. raw `f32` equality).
 fn binary_bits(dl: &DisplayList) -> Vec<u32> {
     dl.to_binary().iter().map(|f| f.to_bits()).collect()
+}
+
+#[test]
+fn scoped_resolve_propagates_an_edited_staff_meter_through_inherited_measures() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/condensing-test.mnx");
+    let mut score = parse_mnx(json).expect("fixture parses");
+    score.scores[0].layout = Some(score.layouts[0].id.clone());
+    score.scores[0].pages.clear();
+    score.parts[0].measures[0].staff_meters = Some(vec![StaffMeterChange::Set {
+        staff: 1,
+        meter: StaffMeter {
+            count: 6,
+            unit: 8,
+            beat_structure: None,
+        },
+        synchronization: StaffMeterSynchronization::FitMeasure,
+    }]);
+
+    let config = LayoutConfig {
+        page_width: Some(3_000.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    cache.set_range_scope(crate::layout::cache::RangeScope {
+        scoped_resolve: true,
+        ..Default::default()
+    });
+    let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+
+    score.parts[0].measures[1].staff_meters = Some(vec![StaffMeterChange::Set {
+        staff: 1,
+        meter: StaffMeter {
+            count: 5,
+            unit: 8,
+            beat_structure: None,
+        },
+        synchronization: StaffMeterSynchronization::FitMeasure,
+    }]);
+    let mut affected_parts = vec![false; score.parts.len()];
+    affected_parts[0] = true;
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(1, 1, affected_parts),
+    ));
+
+    let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let inherited = cache
+        .resolved_staff_meter(0, 2)
+        .expect("measure after the edit must retain an effective staff meter");
+    assert_eq!(inherited.time_signature.count, 5);
+    assert_eq!(inherited.time_signature.unit, 8);
+    assert_eq!(
+        inherited.ratio_to_global,
+        crate::model::staff_meter::Fraction::new(8, 5)
+    );
+    assert!(
+        cache.last_resolved_span() >= 3,
+        "staff-meter state must prevent convergence before later inherited measures are refreshed"
+    );
 }
 
 /// Bump the octave of the first pitched note found, to change exactly one

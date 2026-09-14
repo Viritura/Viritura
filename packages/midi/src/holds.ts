@@ -29,6 +29,7 @@
 
 import type { GlobalMeasure, Score, SequenceContent, Fermata, Duration, TimeSignature } from "@viritura/core";
 import { DURATION_BEATS } from "@viritura/core";
+import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 
 /** What inserted a hold — determines whether carriers sustain (fermata) or the
  *  gap is pure silence (caesura). */
@@ -184,13 +185,16 @@ function collectFromContent(
  */
 function collectPartMeasureHolds(
   partMeasure: Score["parts"][number]["measures"][number] | undefined,
+  originalMeasureIndex: number,
+  staffMeterTable: ReturnType<typeof resolvePartStaffMeterTable>,
   spans: FermataSpan[],
   caesuraByBeat: Map<number, number>,
 ): void {
   if (!partMeasure) return;
   for (const seq of partMeasure.sequences) {
     if (seq.fullMeasure) continue;
-    collectFromContent(seq.content, 0, 1, spans, caesuraByBeat);
+    const ratio = staffMeterRatioAt(staffMeterTable, originalMeasureIndex, seq.staff ?? 1);
+    collectFromContent(seq.content, 0, ratio, spans, caesuraByBeat);
   }
 }
 
@@ -272,14 +276,22 @@ export function buildHoldSchedule(
   globalMeasures: readonly GlobalMeasure[],
 ): HoldSchedule {
   const schedule: HoldSchedule = [];
+  const staffMeterTables = score.parts.map((part) => resolvePartStaffMeterTable(part, globalMeasures));
 
   for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
     const origIdx = measureOrder[expandedIdx]!;
     const fermataSpans: FermataSpan[] = [];
     const caesuraByBeat = new Map<number, number>();
 
-    for (const part of score.parts) {
-      collectPartMeasureHolds(part.measures[origIdx], fermataSpans, caesuraByBeat);
+    for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
+      const part = score.parts[partIndex]!;
+      collectPartMeasureHolds(
+        part.measures[origIdx],
+        origIdx,
+        staffMeterTables[partIndex]!,
+        fermataSpans,
+        caesuraByBeat,
+      );
     }
 
     // Global caesura on the measure → grand pause at the measure end.

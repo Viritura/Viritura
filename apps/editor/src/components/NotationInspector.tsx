@@ -17,6 +17,8 @@ import { RestPositionSection } from "./inspector/RestPositionSection";
 import { LyricSection } from "./inspector/LyricSection";
 import { GroupingDisplaySection } from "./inspector/GroupingDisplaySection";
 import { useGroupingDisplayInspector } from "./inspector/useGroupingDisplayInspector";
+import { StaffMeterSection } from "./inspector/StaffMeterSection";
+import { useStaffMeterInspector } from "./inspector/useStaffMeterInspector";
 import { type InspectorSection } from "./inspector/notationInspectorMeta";
 import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./inspector/useNotationInspectorHooks";
 import {
@@ -88,6 +90,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const lyric = useLyricInspector({ score, selection, updateScore });
   const isLyricSelected = lyric.selected !== null;
   const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
+  const staffMeter = useStaffMeterInspector({ score, target, selection, updateScore });
 
   const {
     currentBarlineType,
@@ -217,6 +220,12 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {selectedElementType === "time-signature" && <GroupingDisplaySection state={groupingDisplay} />}
+        {selectedElementType === "time-signature" && (
+          <StaffMeterSection
+            key={`${staffMeter.partIndex}:${staffMeter.measureIndex}:${staffMeter.staff}:${staffMeter.effective?.timeSignature.count}:${staffMeter.effective?.timeSignature.unit}:${staffMeter.effective?.synchronization}`}
+            state={staffMeter}
+          />
+        )}
 
         {staffConfig.target && (
           <StaffConfigSection

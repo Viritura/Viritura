@@ -50,6 +50,56 @@ function onsetTimes(tl: ReturnType<typeof generateTimeline>) {
 }
 
 describe("generateTimeline — fermata holds", () => {
+  it("scales a fitMeasure staff's fermata span and carrier matching to the global axis", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
+          },
+        ],
+      },
+      parts: [
+        {
+          id: "piano",
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
+              sequences: [
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      duration: { base: "quarter", dots: 1 },
+                      notes: [{ pitch: { step: "C", octave: 5 } }],
+                      fermata: {},
+                    },
+                    {
+                      type: "event",
+                      duration: { base: "quarter", dots: 1 },
+                      notes: [{ pitch: { step: "D", octave: 5 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as never,
+      ],
+    };
+
+    const tl = generateTimeline(score);
+    const firstOff = noteOffs(tl).find((event) => event.midiNote === 72)!;
+    const secondOn = noteOns(tl).find((event) => event.midiNote === 74)!;
+    expect(firstOff.time).toBeCloseTo(1, PREC);
+    expect(secondOn.time).toBeCloseTo(1, PREC);
+  });
+
   it("extends the held note's noteOff by the fermata multiplier", () => {
     // Whole-note C5 with a normal fermata (×2) → sounds ~2 whole notes.
     const tl = generateTimeline(buildScore([[note("C", 5, "whole", { fermata: {} })]]));
@@ -134,6 +184,54 @@ describe("generateTimeline — fermata holds", () => {
 });
 
 describe("generateTimeline — caesura pauses", () => {
+  it("scales a fitMeasure staff's caesura position to the global axis", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
+          },
+        ],
+      },
+      parts: [
+        {
+          id: "piano",
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
+              sequences: [
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      duration: { base: "quarter", dots: 1 },
+                      notes: [{ pitch: { step: "C", octave: 5 } }],
+                      markings: { caesura: {} },
+                    },
+                    {
+                      type: "event",
+                      duration: { base: "quarter", dots: 1 },
+                      notes: [{ pitch: { step: "D", octave: 5 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as never,
+      ],
+    };
+
+    const tl = generateTimeline(score);
+    const secondOn = noteOns(tl).find((event) => event.midiNote === 74)!;
+    expect(secondOn.time).toBeCloseTo(1, PREC);
+  });
+
   it("inserts silence after the carrier without extending it", () => {
     // Quarter C5 with caesura, then quarter D5. Caesura = 1 beat = 0.5s.
     const tl = generateTimeline(

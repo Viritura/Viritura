@@ -19,6 +19,7 @@ import type { PositionedClef } from "./clef";
 import type { Caesura, Sequence } from "./event";
 import type { KeySignature } from "./key";
 import type { GroupingDisplay, TimeSignature } from "./time";
+import type { StaffMeterChange } from "./staffMeter";
 import type { Barline } from "./barline";
 import type { Narrow, WithVendor } from "./_derive";
 
@@ -408,6 +409,15 @@ export interface PartMeasure {
    * time signature's own occurrence override and the document house style.
    */
   groupingDisplayOverrides?: StaffGroupingDisplayOverride[];
+  /**
+   * Per-staff synchronous local meter changes/resets for this measure
+   * onward (Viritura extension). Each entry sets a staff-local meter
+   * distinct from the global meter (still synchronized to the shared
+   * barline grid via `sharedDuration` or `fitMeasure`), or resets the staff
+   * back to following the global meter. Declarations inherit until changed
+   * or reset; see `./staffMeter`.
+   */
+  staffMeters?: StaffMeterChange[];
 }
 
 /**

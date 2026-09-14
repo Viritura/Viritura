@@ -2,16 +2,27 @@ use super::timing::sequence_timeline;
 use crate::model::ResolvedMeasure;
 
 /// Collect all event durations from all measures in a part.
+///
+/// Durations are scaled into global-measure-equivalent beats by each
+/// measure's effective staff-local meter ratio (`1.0` for an ordinary staff
+/// or `sharedDuration`), so a `fitMeasure` staff's shorter/longer written
+/// values still contribute correctly to the shared "common shortest
+/// duration" spacing profile.
 pub(crate) fn collect_all_event_durations(measures: &[ResolvedMeasure]) -> Vec<f64> {
     let mut durations = Vec::new();
     for resolved_measure in measures {
         let sequence_count = resolved_measure.part.sequences.len();
+        let ratio = resolved_measure
+            .effective_staff_meter
+            .as_ref()
+            .map(|effective| effective.ratio_to_global.as_f64())
+            .unwrap_or(1.0);
         for (sequence_index, sequence) in resolved_measure.part.sequences.iter().enumerate() {
             if sequence.full_measure.is_some() {
                 continue;
             }
             durations.extend(
-                sequence_timeline(sequence, sequence_index, sequence_count)
+                sequence_timeline(sequence, sequence_index, sequence_count, ratio)
                     .events
                     .into_iter()
                     .map(|event| event.duration_beats),
