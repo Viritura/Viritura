@@ -15,22 +15,37 @@ the rest of the Cloudflare security boundary.
 
 ## Pages projects
 
-Create two Pages projects from the same Git repository. Use the v3 build image,
-enable build caching, and set the production branch to `main`. Cloudflare's
-GitHub App integration is the deployment identity; do not add a long-lived
-Cloudflare API token to GitHub just to deploy Pages.
+The existing Pages projects remain connected to the GitHub repository, with
+their production branch set to `main`, but automatic production deployments
+must be disabled under **Settings → Builds → Branch control**. The **Deploy
+Pages** GitHub Actions workflow is the deployment identity and uploads prebuilt
+directories with Wrangler after smoke-testing SHA-specific Pages previews.
 
-Production deployments are automatic from the configured production branch.
-Monorepo build watch paths prevent unrelated server-only changes from building
-the static projects.
+Create a custom Cloudflare Account API token named, for example,
+`Viritura GitHub Actions Pages Production` with only:
 
-Cloudflare Pages does not provide a per-pull-request manual approval button for
-GitHub App previews. Automatic preview deployments are disabled with **Preview
-branch control** set to **None**. Create ad hoc preview deployments from a
-trusted workstation with Wrangler instead. Wrangler can upload a prebuilt
-artifact to the existing Git-integrated project and attach it to a synthetic
-preview branch:
+```text
+Account → Cloudflare Pages → Edit
+Account resources → Include → the Viritura account
+```
 
+Do not grant DNS, Workers, R2, zone, SSL, or account-administration permissions.
+Store the token as `CLOUDFLARE_API_TOKEN` in the repository's protected GitHub
+`cloudflare-pages-production` Environment. Store the non-secret account
+identifier there as the `CLOUDFLARE_ACCOUNT_ID` Environment variable. Restrict
+the Environment's deployment branches to `main`, disable administrator bypass,
+and optionally require reviewer approval. Keep this separate from the existing
+`production` Environment, which owns API-host SSH credentials. Never put the
+token in repository files, Cloudflare build variables, or repository-wide
+Actions variables.
+
+Automatic preview deployments remain disabled with **Preview branch control**
+set to **None**. The release workflow creates `preprod-<commit>` preview branch
+aliases before every production upload. For an exceptional ad hoc preview from
+a trusted workstation, Wrangler can still upload a prebuilt artifact to a
+synthetic preview branch:
+
+```bash
 VITE_VIRITURA_API_BASE_URL=https://api.viritura.com \
 VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com \
 bash scripts/build-cloudflare-pages.sh editor
@@ -38,8 +53,7 @@ npx wrangler pages deploy apps/editor/dist \
  --project-name viritura-app \
  --branch cf-preview-my-pr-or-topic \
  --commit-dirty=false
-
-````
+```
 
 The resulting branch alias is
 `https://cf-preview-my-pr-or-topic.viritura-app.pages.dev`. Use the same
@@ -53,27 +67,17 @@ npx wrangler pages deploy dist \
   --project-name viritura-website \
   --branch cf-preview-my-pr-or-topic \
   --commit-dirty=false
-````
+```
 
-This keeps routine PRs from consuming Pages build queue time. The tradeoff is
-that Wrangler previews are manual artifacts: they do not automatically update
-when the PR changes and they do not post the normal Cloudflare Pages GitHub
-check/comment. Keep the path filters below even when automatic preview branch
-deployments are disabled so production builds remain monorepo-aware.
-
-If production needs a manual promotion gate later, prefer changing the Pages
-production branch to a protected `production` or `release` branch instead of
-storing Cloudflare deployment credentials in GitHub Actions.
+Routine pull requests do not consume Pages build queue time. The release
+workflow is path-filtered to static application, engine, package, documentation,
+asset, browser-test, and build-configuration changes.
 
 ### `viritura-website`
 
-- Root directory: repository root
-- Build command: `bash scripts/build-cloudflare-pages.sh website`
+- Project name: `viritura-website`
 - Build output: `dist`
 - Custom domains: `viritura.com`, `www.viritura.com`
-- Build watch paths: `apps/website/*`, `apps/editor/*`, `packages/*`,
-  `engine/*`, `scripts/*`, `docs/*`, `assets/*`, `build-site.ts`, and root
-  package/build configuration files
 
 The website build publishes the MNX project hub at `/mnx`, the playground at
 `/mnx/playground`, and the public MNX Storybook at `/mnx/examples`. If the
@@ -82,32 +86,29 @@ canonical hostname should be apex-only, add a Cloudflare Redirect Rule from
 
 ### `viritura-app`
 
-- Root directory: repository root
-- Build command: `bash scripts/build-cloudflare-pages.sh editor`
+- Project name: `viritura-app`
 - Build output: `apps/editor/dist`
 - Custom domain: `app.viritura.com`
-- Build watch paths: `apps/editor/*`, `packages/*`, `engine/*`,
-  `scripts/*`, `docs/spec/keyboard-shortcuts.md`, `assets/*`, and root
-  package/build configuration files
 
-Both projects require these production build variables:
+The workflow sets the two public Vite build values directly:
 
 ```text
-NODE_VERSION=24.21.0
-PNPM_VERSION=9.15.4
 VITE_VIRITURA_API_BASE_URL=https://api.viritura.com
 VITE_VIRITURA_ASSET_BASE_URL=https://assets.viritura.com
 ```
 
-Cloudflare's build image does not include Rust or `wasm-pack`. The repository
-build script installs the pinned Rust toolchain from `engine/rust-toolchain.toml`
-and `wasm-pack` 0.14.0 before rebuilding WASM. Pages builds time out after 20
-minutes, so verify the first uncached build before switching DNS.
+Node 24 and pnpm 9.15.4 are pinned by the workflow and root package metadata.
+The GitHub `cloudflare-pages-production` Environment supplies only the
+Cloudflare account ID and API token. The runner installs the pinned Rust
+toolchain and `wasm-pack` 0.14.0 before rebuilding WASM.
 
 Configure preview builds with a staging API URL or leave authentication disabled
-in previews. Do not point arbitrary preview origins at production auth: the API
-uses an explicit CORS allow-list and production OAuth callbacks use canonical
-origins.
+in previews that are built independently. The release workflow deliberately
+uploads the exact production-configured bytes to its pre-production aliases so
+the tested artifact and promoted artifact are identical. Its Playwright gate
+holds account requests at an unauthenticated test boundary and does not test
+API or OAuth behavior from preview origins; production CORS and OAuth callbacks
+remain limited to canonical origins.
 
 The `_headers` and `_redirects` files under each application's `public`
 directory provide security headers, immutable caching for fingerprinted assets,

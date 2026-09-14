@@ -1,0 +1,263 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/deploy-pages.yml"
+      - "apps/editor/**"
+      - "apps/website/**"
+      - "packages/**"
+      - "engine/**"
+      - "e2e/deployed/**"
+      - "e2e/editor-smoke.spec.ts"
+      - "e2e/live-collaboration.spec.ts"
+      - "scripts/**"
+      - "docs/**"
+      - "assets/**"
+      - "build-site.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "playwright.config.ts"
+      - "playwright.deployed.config.ts"
+      - "turbo.json"
+      - "tsconfig.json"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Pages project to deploy
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - website
+          - editor
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-pages-production
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Select Pages targets
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.classify.outputs.targets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: classify
+        name: Classify static changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          MANUAL_TARGET: ${{ inputs.target }}
+        shell: bash
+        run: |
+          website=false
+          editor=false
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            case "$MANUAL_TARGET" in
+              all) website=true; editor=true ;;
+              website) website=true ;;
+              editor) editor=true ;;
+              *) echo "Unknown target: $MANUAL_TARGET" >&2; exit 2 ;;
+            esac
+          elif [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+            website=true
+            editor=true
+          else
+            if ! changed_paths="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"; then
+              echo "Could not classify $BEFORE_SHA..$GITHUB_SHA; releasing both targets." >&2
+              website=true
+              editor=true
+            fi
+
+            while IFS= read -r path; do
+              case "$path" in
+                apps/website/*|docs/*|build-site.ts|playwright.deployed.config.ts|e2e/deployed/*)
+                  website=true
+                  ;;
+                apps/editor/*)
+                  website=true
+                  editor=true
+                  ;;
+                playwright.config.ts|e2e/editor-smoke.spec.ts|e2e/live-collaboration.spec.ts)
+                  editor=true
+                  ;;
+                .github/workflows/deploy-pages.yml|packages/*|engine/*|scripts/*|assets/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json)
+                  website=true
+                  editor=true
+                  ;;
+              esac
+
+              if [[ "$path" == "docs/spec/keyboard-shortcuts.md" ]]; then
+                editor=true
+              fi
+            done <<<"$changed_paths"
+          fi
+
+          if [[ "$website" == "true" && "$editor" == "true" ]]; then
+            targets='["website","editor"]'
+          elif [[ "$website" == "true" ]]; then
+            targets='["website"]'
+          elif [[ "$editor" == "true" ]]; then
+            targets='["editor"]'
+          else
+            echo "No Pages target matched the changed paths." >&2
+            exit 1
+          fi
+
+          echo "targets=$targets" | tee -a "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Preview, smoke, and deploy ${{ matrix.target }}
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.changes.outputs.targets) }}
+    environment:
+      name: cloudflare-pages-production
+      url: ${{ matrix.target == 'website' && 'https://viritura.com' || 'https://app.viritura.com' }}
+    env:
+      VITE_VIRITURA_API_BASE_URL: https://api.viritura.com
+      VITE_VIRITURA_ASSET_BASE_URL: https://assets.viritura.com
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - id: target
+        name: Configure target
+        env:
+          TARGET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          preview_branch="preprod-${GITHUB_SHA::12}"
+          if [[ "$TARGET" == "website" ]]; then
+            project="viritura-website"
+            directory="dist"
+            preview_url="https://${preview_branch}.viritura-website.pages.dev"
+            production_url="https://viritura.com"
+          else
+            project="viritura-app"
+            directory="apps/editor/dist"
+            preview_url="https://${preview_branch}.viritura-app.pages.dev"
+            production_url="https://app.viritura.com"
+          fi
+          {
+            echo "branch=$preview_branch"
+            echo "project=$project"
+            echo "directory=$directory"
+            echo "preview_url=$preview_url"
+            echo "production_url=$production_url"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build ${{ matrix.target }} Pages artifact
+        env:
+          TARGET: ${{ matrix.target }}
+          OUTPUT_DIRECTORY: ${{ steps.target.outputs.directory }}
+        shell: bash
+        run: |
+          bash scripts/build-cloudflare-pages.sh "$TARGET"
+          printf '%s\n' "$GITHUB_SHA" > "$OUTPUT_DIRECTORY/viritura-build-${GITHUB_SHA}.txt"
+      - name: Deploy ${{ matrix.target }} preview
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy "${{ steps.target.outputs.directory }}"
+          --project-name "${{ steps.target.outputs.project }}"
+          --branch "${{ steps.target.outputs.branch }}"
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Wait for ${{ matrix.target }} preview
+        env:
+          PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "$PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+      - name: Smoke-test ${{ matrix.target }} preview
+        env:
+          PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
+          TARGET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [[ "$TARGET" == "website" ]]; then
+            VIRITURA_WEBSITE_URL="$PREVIEW_URL" pnpm e2e:deployed
+          else
+            PLAYWRIGHT_BASE_URL="$PREVIEW_URL" pnpm e2e:smoke
+          fi
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pages-${{ matrix.target }}-preview-smoke-failures
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Deploy ${{ matrix.target }} production
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: >-
+          pnpm exec wrangler pages deploy "${{ steps.target.outputs.directory }}"
+          --project-name "${{ steps.target.outputs.project }}"
+          --branch main
+          --commit-hash "$GITHUB_SHA"
+          --commit-dirty=false
+      - name: Wait for ${{ matrix.target }} production
+        env:
+          PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --retry 12 --retry-all-errors --retry-delay 5 \
+            "$PRODUCTION_URL/viritura-build-${GITHUB_SHA}.txt" |
+            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+      - name: Verify ${{ matrix.target }} production
+        env:
+          PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
+          TARGET: ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [[ "$TARGET" == "website" ]]; then
+            VIRITURA_WEBSITE_URL="$PRODUCTION_URL" pnpm e2e:deployed
+          else
+            PLAYWRIGHT_BASE_URL="$PRODUCTION_URL" pnpm e2e:smoke
+          fi
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pages-${{ matrix.target }}-production-smoke-failures
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 7
