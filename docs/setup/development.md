@@ -82,11 +82,11 @@ volumes described below.
 gates, every unit-test graph, all dependency lockfile audits, the generated
 WASM build, and the deployable site build. Browser tests remain separate:
 
-- `pnpm e2e:smoke` runs the tagged, deterministic Chromium subset required on
-  relevant pull requests and Pages releases. It checks editor boot, rendering,
-  Help, a metadata edit, and Undo. Account requests are held at an unauthenticated
-  test boundary; the suite does not exercise API behavior or filesystem import,
-  save, or download flows.
+- `pnpm e2e:smoke` runs the tagged, deterministic Chromium subset used by the
+  Pages release gate. It checks editor boot, rendering, Help, a metadata edit,
+  and Undo. Account requests are held at an unauthenticated test boundary; the
+  suite does not exercise API behavior or filesystem import, save, or download
+  flows. Browser tests do not run on pull requests.
 - `pnpm e2e` runs every functional browser test, including the longer
   collaboration lifecycle scenario. Run it locally when changing the broader
   browser workflows; scheduled production monitoring is intentionally deferred.
