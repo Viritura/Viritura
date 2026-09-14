@@ -24,6 +24,7 @@ import { resolveEventLocation } from "../score/ElementPath";
 import { resolveSelectionScope, type MeasureRange } from "../store/selectionUtils";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
+import { timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
 
 function gcd(a: number, b: number): number {
   let x = Math.abs(a);
@@ -103,10 +104,10 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
     (time: TimeSignature) => {
       const { score } = store.getState();
       if (!score) return;
-      const idx = selectedScope()?.startMeasure ?? 0;
+      const idx = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, idx, time));
     },
-    [store, selectedScope, updateScore],
+    [store, selection, updateScore],
   );
 
   const handleSetKeySignature = useCallback(

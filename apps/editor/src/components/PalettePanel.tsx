@@ -29,7 +29,7 @@ import {
   type EventLocation,
 } from "../score/ElementPath";
 import { resolveCapabilityTargets, EVENT_ACTION } from "../store/selectionCapabilities";
-import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
+import { groupEventsByVoice } from "../store/selectionUtils";
 import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
@@ -103,6 +103,7 @@ import {
   measureRangeFromElementId,
   partIndexFromElementId,
   resolveInsertMeasureIndex,
+  timeSignatureMeasureIndexFromSelection,
   ENDING_PRESETS,
 } from "../commands/signatureCommands";
 import { produce } from "../score/scoreClone";
@@ -152,18 +153,6 @@ import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
-}
-
-function measureStartIndexForSelection(selection: SelectionState, score: Score): number | null {
-  if (selection.kind === "single") {
-    const barlineMatch = selection.elementId.match(/^m(\d+)\/barline$/);
-    if (barlineMatch) {
-      const index = Number.parseInt(barlineMatch[1]!, 10);
-      return index < score.global.measures.length ? index : null;
-    }
-  }
-  const scope = resolveSelectionScope(selection, score);
-  return scope?.startMeasure ?? measureIndexFromElementId(resolveSelectionAnchor(selection), score);
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- component body holds prompt-dialog state, ~30 handler useCallback declarations (one per palette toggle), derived selection state, and JSX layout for sortable sections. Sub-handlers and sortable section primitives are already extracted to ./palette/*; the remaining body is one-line handler wrappers + JSX wiring.
@@ -454,7 +443,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       const score = store.getState().score;
       if (!score) return;
       const selection = useSelectionStore.getState().selection;
-      const measureIndex = measureStartIndexForSelection(selection, score) ?? 0;
+      const measureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, measureIndex, time));
     },
     [store, updateScore],
@@ -464,7 +453,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     if (!score) return;
     const selection = useSelectionStore.getState().selection;
-    const targetMeasureIndex = measureStartIndexForSelection(selection, score) ?? 0;
+    const targetMeasureIndex = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
     setPromptState({
       open: true,
       title: "Custom time signature",
@@ -864,7 +853,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const score = store.getState().score;
     const sel = useSelectionStore.getState().selection;
     if (!score) return;
-    const measureIndex = measureStartIndexForSelection(sel, score);
+    const measureIndex = timeSignatureMeasureIndexFromSelection(sel, score);
     if (measureIndex === null) return;
     const current = (score.global.measures[measureIndex] as Record<string, unknown>)?.rehearsalMark as
       | { text?: string }

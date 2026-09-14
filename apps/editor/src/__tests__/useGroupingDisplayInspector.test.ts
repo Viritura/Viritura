@@ -135,4 +135,33 @@ describe("useGroupingDisplayInspector", () => {
     expect(result.current.staff).toBeUndefined();
     expect(result.current.staffOverride).toBeUndefined();
   });
+
+  it("uses the clicked visual staff's part instead of the global time target's default part", () => {
+    const score = makeScore();
+    score.parts.push({
+      name: "Oboe",
+      measures: score.parts[0]!.measures.map(() => ({ sequences: [{ content: [] }] })),
+    });
+    const selection: SelectionState = {
+      kind: "single",
+      elementId: "m0/time",
+      elementType: "time-signature",
+      measureAnchor: {
+        partIndex: 1,
+        measureIndex: 0,
+        staffIndex: 2,
+        localStaffIndex: 0,
+      },
+    };
+    const { result, updateScore } = setup(score, timeSignatureTarget, selection);
+
+    expect(result.current.staffLabel).toBe("Oboe");
+    result.current.handleSetStaffOverride("annotation");
+
+    const updated = updateScore.mock.calls[0]![0] as Score;
+    expect(updated.parts[0]!.measures[0]!.groupingDisplayOverrides).toBeUndefined();
+    expect(updated.parts[1]!.measures[0]!.groupingDisplayOverrides).toEqual([
+      { staff: 1, groupingDisplay: "annotation" },
+    ]);
+  });
 });

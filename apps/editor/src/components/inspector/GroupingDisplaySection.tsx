@@ -46,7 +46,7 @@ export function GroupingDisplaySection({ state }: GroupingDisplaySectionProps) {
       </label>
       {state.staff !== undefined && (
         <label style={labelStyle}>
-          {`Staff ${state.staff} only`}
+          {`${state.staffLabel ?? `Staff ${state.staff}`} only`}
           <ButtonGroup<OverrideValue>
             options={OPTIONS}
             value={toOverrideValue(state.staffOverride)}

@@ -9,6 +9,8 @@
 
 import type { Ending, Score } from "@viritura/core";
 import { setKeySignature } from "@viritura/core";
+import type { Selection } from "../store/selectionStore";
+import { resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
 
 /**
  * Extract the measure index referenced by an element ID.
@@ -79,6 +81,23 @@ export function measureRangeFromElementId(
   const idx = measureIndexFromElementId(elementId, score);
   if (idx === null) return null;
   return { start: idx, end: idx };
+}
+
+/**
+ * Measure where a time-signature change starts for the current selection.
+ * A selected barline `mN/barline` is the boundary that starts measure N,
+ * unlike editing that barline itself, which belongs to measure N-1.
+ */
+export function timeSignatureMeasureIndexFromSelection(selection: Selection, score: Score): number | null {
+  if (selection.kind === "single") {
+    const barlineMatch = selection.elementId.match(/^m(\d+)\/barline$/);
+    if (barlineMatch) {
+      const index = Number.parseInt(barlineMatch[1]!, 10);
+      return index < score.global.measures.length ? index : null;
+    }
+  }
+  const scope = resolveSelectionScope(selection, score);
+  return scope?.startMeasure ?? measureIndexFromElementId(resolveSelectionAnchor(selection), score);
 }
 
 /**

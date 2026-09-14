@@ -37,10 +37,28 @@ export interface GroupingDisplayInspectorState {
   occurrenceOverride: GroupingDisplay | undefined;
   /** 1-based staff number a per-staff override would target, if resolvable from the selection. */
   staff: number | undefined;
+  /** Musician-facing label for the selected staff/part. */
+  staffLabel: string | undefined;
   /** The per-staff override for `staff`, or `undefined` when unset ("Auto"). */
   staffOverride: GroupingDisplay | undefined;
   handleSetOccurrenceOverride: (mode: GroupingDisplay | null) => void;
   handleSetStaffOverride: (mode: GroupingDisplay | null) => void;
+}
+
+function selectionMeasureAnchor(selection: SelectionState) {
+  return selection.kind === "single" || selection.kind === "range" ? selection.measureAnchor : undefined;
+}
+
+function selectedPartIndex(selection: SelectionState): number | undefined {
+  if (selection.kind !== "measure") return selectionMeasureAnchor(selection)?.partIndex;
+  return Math.min(selection.startPartIndex, selection.endPartIndex);
+}
+
+function staffDisplayLabel(score: Score | null, partIndex: number, staff: number | undefined, staffIndex?: number) {
+  if (staff === undefined) return undefined;
+  const part = score?.parts[partIndex];
+  if ((part?.staves ?? 1) > 1) return `${part?.name || `Part ${partIndex + 1}`}, staff ${staff}`;
+  return part?.name || `Staff ${(staffIndex ?? partIndex) + 1}`;
 }
 
 /**
@@ -57,8 +75,10 @@ export function useGroupingDisplayInspector({
   updateScore,
 }: GroupingDisplayInspectorDeps): GroupingDisplayInspectorState {
   const measureIndex = target?.measureIndex ?? 0;
-  const partIndex = target?.partIndex ?? 0;
+  const measureAnchor = selectionMeasureAnchor(selection);
+  const partIndex = selectedPartIndex(selection) ?? target?.partIndex ?? 0;
   const staff = staffFromSelection(selection);
+  const staffLabel = staffDisplayLabel(score, partIndex, staff, measureAnchor?.staffIndex);
 
   const occurrenceOverride =
     score && target ? effectiveTimeSignatureAt(score, measureIndex).groupingDisplay : undefined;
@@ -92,6 +112,7 @@ export function useGroupingDisplayInspector({
     isAvailable: target !== null,
     occurrenceOverride,
     staff,
+    staffLabel,
     staffOverride,
     handleSetOccurrenceOverride,
     handleSetStaffOverride,

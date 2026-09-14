@@ -52,6 +52,32 @@ describe("useSignatureActions — scope derivation via resolveSelectionScope", (
     expect(updateScore).toHaveBeenCalledWith(setTimeSignature(score, 1, { count: 3, unit: 4 }));
   });
 
+  it("applies a time signature at the measure starting after a selected barline", () => {
+    const score = makeScore();
+    const { actions, updateScore } = setup(score, {
+      kind: "single",
+      elementId: "m2/barline",
+      elementType: "barline",
+    });
+
+    actions.handleSetTimeSignature({ count: 5, unit: 8 });
+
+    expect(updateScore).toHaveBeenCalledWith(setTimeSignature(score, 2, { count: 5, unit: 8 }));
+  });
+
+  it("applies a time signature at a selected structural signature", () => {
+    const score = makeScore();
+    const { actions, updateScore } = setup(score, {
+      kind: "single",
+      elementId: "m1/time",
+      elementType: "time-signature",
+    });
+
+    actions.handleSetTimeSignature({ count: 6, unit: 8 });
+
+    expect(updateScore).toHaveBeenCalledWith(setTimeSignature(score, 1, { count: 6, unit: 8 }));
+  });
+
   it("creates an explicit grouped time signature at the selected inherited measure", () => {
     const score = makeScore();
     score.global.measures[0]!.time = { count: 7, unit: 8 };
