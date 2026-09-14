@@ -196,6 +196,17 @@ describe("sequenceContentBeats", () => {
     };
     expect(sequenceContentBeats(tuplet)).toBe(1);
   });
+
+  it("returns the proportional duration of a cross-barline tuplet fragment", () => {
+    const fragment: Tuplet = {
+      type: "tuplet",
+      inner: { multiple: 3, duration: { base: "eighth" } },
+      outer: { multiple: 2, duration: { base: "eighth" } },
+      content: [{ type: "event", duration: { base: "eighth" }, rest: {} }],
+      span: { id: "triplet", type: "start" },
+    };
+    expect(sequenceContentBeats(fragment)).toBeCloseTo(1 / 3);
+  });
 });
 
 // ═══════════════════════════════════════════
