@@ -1,28 +1,6 @@
 name: Deploy Pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/deploy-pages.yml"
-      - "apps/editor/**"
-      - "apps/website/**"
-      - "packages/**"
-      - "engine/**"
-      - "e2e/deployed/**"
-      - "e2e/editor-smoke.spec.ts"
-      - "e2e/live-collaboration.spec.ts"
-      - "scripts/**"
-      - "docs/**"
-      - "assets/**"
-      - "build-site.ts"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "playwright.config.ts"
-      - "playwright.deployed.config.ts"
-      - "turbo.json"
-      - "tsconfig.json"
   workflow_dispatch:
     inputs:
       target:
@@ -48,75 +26,20 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      targets: ${{ steps.classify.outputs.targets }}
+      targets: ${{ steps.select.outputs.targets }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - id: classify
-        name: Classify static changes
+      - id: select
+        name: Select requested targets
         env:
-          BEFORE_SHA: ${{ github.event.before }}
-          MANUAL_TARGET: ${{ inputs.target }}
+          TARGET: ${{ inputs.target }}
         shell: bash
         run: |
-          website=false
-          editor=false
-
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            case "$MANUAL_TARGET" in
-              all) website=true; editor=true ;;
-              website) website=true ;;
-              editor) editor=true ;;
-              *) echo "Unknown target: $MANUAL_TARGET" >&2; exit 2 ;;
-            esac
-          elif [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
-            website=true
-            editor=true
-          else
-            if ! changed_paths="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"; then
-              echo "Could not classify $BEFORE_SHA..$GITHUB_SHA; releasing both targets." >&2
-              website=true
-              editor=true
-            fi
-
-            while IFS= read -r path; do
-              case "$path" in
-                apps/website/*|docs/*|build-site.ts|playwright.deployed.config.ts|e2e/deployed/*)
-                  website=true
-                  ;;
-                apps/editor/*)
-                  website=true
-                  editor=true
-                  ;;
-                playwright.config.ts|e2e/editor-smoke.spec.ts|e2e/live-collaboration.spec.ts)
-                  editor=true
-                  ;;
-                .github/workflows/deploy-pages.yml|packages/*|engine/*|scripts/*|assets/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json)
-                  website=true
-                  editor=true
-                  ;;
-              esac
-
-              if [[ "$path" == "docs/spec/keyboard-shortcuts.md" ]]; then
-                editor=true
-              fi
-            done <<<"$changed_paths"
-          fi
-
-          if [[ "$website" == "true" && "$editor" == "true" ]]; then
-            targets='["website","editor"]'
-          elif [[ "$website" == "true" ]]; then
-            targets='["website"]'
-          elif [[ "$editor" == "true" ]]; then
-            targets='["editor"]'
-          else
-            echo "No Pages target matched the changed paths." >&2
-            exit 1
-          fi
-
-          echo "targets=$targets" | tee -a "$GITHUB_OUTPUT"
+          case "$TARGET" in
+            all) echo 'targets=["website","editor"]' >> "$GITHUB_OUTPUT" ;;
+            website) echo 'targets=["website"]' >> "$GITHUB_OUTPUT" ;;
+            editor) echo 'targets=["editor"]' >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
+          esac
 
   deploy:
     name: Preview, smoke, and deploy ${{ matrix.target }}

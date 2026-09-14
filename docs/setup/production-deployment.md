@@ -29,23 +29,21 @@ commands.
 
 ## Deploy the website or editor
 
-Pushes to `main` start the **Deploy Pages** workflow for the two Cloudflare Pages
-projects:
+Open the repository's **Actions** tab, choose **Deploy Pages**, select `main`,
+and choose which Cloudflare Pages target to release:
 
 - `viritura-website` publishes `viritura.com` and `www.viritura.com`.
 - `viritura-app` publishes `app.viritura.com`.
 
-The workflow classifies changed paths and creates an independent release job for
-each affected target:
+- `website` releases only `viritura-website`;
+- `editor` releases only `viritura-app`;
+- `all` releases both projects in independent jobs.
 
-- website-only copy, route, and documentation changes release only
-  `viritura-website`, except `docs/spec/keyboard-shortcuts.md`, which also feeds
-  the editor Help dialog;
-- editor changes release `viritura-app` and, because the public website artifact
-  embeds editor surfaces and the MNX Storybook, also release
-  `viritura-website`;
-- shared engine, package, asset, script, dependency, and build-configuration
-  changes release both.
+Choose `all` when shared engine, package, asset, script, dependency, or build
+changes affect both artifacts. Editor changes can also affect the public MNX
+Storybook embedded in the website artifact, and
+`docs/spec/keyboard-shortcuts.md` feeds both public documentation and the editor
+Help dialog, so include the website target for those changes when applicable.
 
 Each target job:
 
