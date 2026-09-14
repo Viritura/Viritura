@@ -202,10 +202,17 @@ jobs:
           PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
         shell: bash
         run: |
-          curl --fail --silent --show-error \
-            --retry 12 --retry-all-errors --retry-delay 5 \
-            "$PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" |
-            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+          for attempt in {1..12}; do
+            content="$(curl --fail --silent --show-error \
+              "$PREVIEW_URL/viritura-build-${GITHUB_SHA}.txt" || true)"
+            if [[ "$content" == "$GITHUB_SHA" ]]; then
+              exit 0
+            fi
+            echo "Preview has not published build $GITHUB_SHA yet (attempt $attempt/12)."
+            sleep 5
+          done
+          echo "Preview did not publish build $GITHUB_SHA within 60 seconds." >&2
+          exit 1
       - name: Smoke-test ${{ matrix.target }} preview
         env:
           PREVIEW_URL: ${{ steps.target.outputs.preview_url }}
@@ -239,10 +246,17 @@ jobs:
           PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
         shell: bash
         run: |
-          curl --fail --silent --show-error \
-            --retry 12 --retry-all-errors --retry-delay 5 \
-            "$PRODUCTION_URL/viritura-build-${GITHUB_SHA}.txt" |
-            grep --fixed-strings --line-regexp "$GITHUB_SHA"
+          for attempt in {1..12}; do
+            content="$(curl --fail --silent --show-error \
+              "$PRODUCTION_URL/viritura-build-${GITHUB_SHA}.txt" || true)"
+            if [[ "$content" == "$GITHUB_SHA" ]]; then
+              exit 0
+            fi
+            echo "Production has not published build $GITHUB_SHA yet (attempt $attempt/12)."
+            sleep 5
+          done
+          echo "Production did not publish build $GITHUB_SHA within 60 seconds." >&2
+          exit 1
       - name: Verify ${{ matrix.target }} production
         env:
           PRODUCTION_URL: ${{ steps.target.outputs.production_url }}
