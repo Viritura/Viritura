@@ -281,6 +281,7 @@ function serializeTimeSignature(time: NonNullable<GlobalMeasure["time"]>): Obj {
   const viritura: Obj = {};
   if (time.beatStructure) viritura["beatStructure"] = time.beatStructure;
   if (time.groupingDisplay) viritura["groupingDisplay"] = time.groupingDisplay;
+  if (time.display === "note") viritura["display"] = "note";
   if (Object.keys(viritura).length > 0) out["_x"] = { viritura };
   return out;
 }

@@ -493,7 +493,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     (barline: { type: string }) => {
       const es = getEditorState();
       if (!es) return;
-      const idx = measureIndexFromElementId(es.elementId, es.score) ?? 0;
+      const selection = useSelectionStore.getState().selection;
+      const idx =
+        selection.kind === "measure"
+          ? Math.min(selection.startMeasure, selection.endMeasure)
+          : (measureIndexFromElementId(es.elementId, es.score) ?? 0);
       updateScore(setBarline(es.score, idx, barline as Barline));
     },
     [getEditorState, updateScore],
@@ -1450,7 +1454,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             }
             return (
               <PaletteButton shape="tall" key={p.id} title={p.label} onClick={() => handleSetTimeSignature(p.time)}>
-                <TimeSigGlyph count={p.time.count} unit={p.time.unit} />
+                <TimeSigGlyph
+                  count={p.time.count}
+                  unit={p.time.unit}
+                  {...(p.time.display === "note" ? { numeralStyle: "noteValue" as const } : {})}
+                />
               </PaletteButton>
             );
           })}

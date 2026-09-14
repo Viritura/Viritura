@@ -17,7 +17,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay                                                                 |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
@@ -83,6 +83,12 @@ or a single-group structure engraving as `standard` even when forced.
   }
 }
 ```
+
+### `display`
+
+Set to `note` to engrave the denominator as its note value instead of a
+numeral. This presentation is stored in the time signature's vendor dictionary
+because MNX currently standardizes only `common` and `cut` symbolic displays.
 
 ## Grouping Display
 

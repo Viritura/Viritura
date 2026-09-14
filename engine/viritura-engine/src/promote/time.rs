@@ -34,12 +34,22 @@ pub(crate) fn promote_time(raw: raw::Time) -> TimeSignature {
         })
         .filter(|groups| !groups.is_empty());
     let grouping_display = extension
+        .as_ref()
         .and_then(|extension| extension.grouping_display)
         .map(promote_grouping_display);
+    let display = if extension
+        .as_ref()
+        .and_then(|extension| extension.display.as_deref())
+        == Some("note")
+    {
+        Some(TimeSignatureDisplay::Note)
+    } else {
+        raw.display.map(promote_time_signature_display)
+    };
     TimeSignature {
         count: u32::try_from(raw.count.0).unwrap_or(4),
         unit: time_signature_unit_to_u32(&raw.unit),
-        display: raw.display.map(promote_time_signature_display),
+        display,
         beat_structure,
         grouping_display,
     }
@@ -88,5 +98,16 @@ mod tests {
         }"#;
         let raw: raw::Time = serde_json::from_str(json).unwrap();
         assert_eq!(promote_time(raw).beat_structure, Some(vec![2, 3, 2, 2]));
+    }
+
+    #[test]
+    fn promotes_note_value_display_extension() {
+        let json = r#"{
+            "count":6,
+            "unit":8,
+            "_x":{"viritura":{"display":"note"}}
+        }"#;
+        let raw: raw::Time = serde_json::from_str(json).unwrap();
+        assert_eq!(promote_time(raw).display, Some(TimeSignatureDisplay::Note));
     }
 }

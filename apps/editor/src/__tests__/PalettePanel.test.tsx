@@ -86,6 +86,7 @@ function WithScore({ children }: { readonly children: ReactNode }) {
       </output>
       <output data-testid="time-0">{JSON.stringify(score.global.measures[0]?.time ?? null)}</output>
       <output data-testid="time-1">{JSON.stringify(score.global.measures[1]?.time ?? null)}</output>
+      <output data-testid="barline-1">{JSON.stringify(score.global.measures[1]?.barline ?? null)}</output>
       <output data-testid="arpeggios-1">{JSON.stringify(score.parts[0]?.measures[1]?.arpeggios ?? null)}</output>
       <output data-testid="tuplet-spans">
         {JSON.stringify(
@@ -263,6 +264,69 @@ describe("PalettePanel", () => {
 
     expect(screen.getByTestId("time-0").textContent).toBe("null");
     expect(screen.getByTestId("time-1").textContent).toBe('{"count":5,"unit":4}');
+  });
+
+  it.each([
+    ["Open meter", "senzaMisura"],
+    ["Note-value denominator", "note"],
+  ] as const)("authors %s from the palette", async (label, display) => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: label }));
+
+    expect(screen.getByTestId("time-1").textContent).toBe(`{"count":4,"unit":4,"display":"${display}"}`);
+  });
+
+  it.each([
+    ["Heavy-light", "heavyLight"],
+    ["Heavy-heavy", "heavyHeavy"],
+    ["No barline", "noBarline"],
+  ] as const)("authors a %s barline from the palette", async (label, type) => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: label }));
+
+    expect(screen.getByTestId("barline-1").textContent).toBe(`{"type":"${type}"}`);
   });
 
   it.each([

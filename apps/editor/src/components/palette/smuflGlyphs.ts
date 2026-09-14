@@ -109,6 +109,7 @@ export const SMUFL = {
   barlineSingle: String.fromCodePoint(0xe030),
   barlineDouble: String.fromCodePoint(0xe031),
   barlineFinal: String.fromCodePoint(0xe032),
+  barlineReverseFinal: String.fromCodePoint(0xe033),
   barlineHeavy: String.fromCodePoint(0xe034),
   barlineHeavyHeavy: String.fromCodePoint(0xe035),
   barlineDotted: String.fromCodePoint(0xe037),

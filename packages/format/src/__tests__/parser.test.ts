@@ -69,6 +69,21 @@ describe("parseMnx", () => {
     });
   });
 
+  it("round-trips note-value denominator display through the time extension", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      global: { measures: Array<Record<string, unknown>> };
+    };
+    mnx.global.measures[0] = {
+      time: { count: 6, unit: 8, _x: { viritura: { display: "note" } } },
+    };
+
+    const score = parseMnx(mnx);
+    expect(score.global.measures[0]?.time?.display).toBe("note");
+    expect(serializeMnx(score).global.measures[0]).toMatchObject({
+      time: { count: 6, unit: 8, _x: { viritura: { display: "note" } } },
+    });
+  });
+
   it("should parse barline correctly", () => {
     const score = parseMnx(helloWorldMnx);
     const measure = score.global.measures[0];
