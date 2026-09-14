@@ -175,16 +175,10 @@ describe("Toolbar", () => {
     expect(getByTestId(c, "toolbar-rest")).toBeDefined();
   });
 
-  it("renders a disabled beam-break button without a note selection", () => {
+  it("keeps beam editing out of the note-input toolbar", () => {
     const c = renderToolbar();
-    const beamBreak = getByTestId(c, "toolbar-beam-break");
-    expect(beamBreak.hasAttribute("disabled")).toBe(true);
-    expect(beamBreak.textContent).toBe(String.fromCodePoint(0xeca7).repeat(2));
-  });
-
-  it("renders a disabled beam-together button without a note range", () => {
-    const c = renderToolbar();
-    expect(getByTestId(c, "toolbar-beam-together").hasAttribute("disabled")).toBe(true);
+    expect(c.querySelector('[data-testid="toolbar-beam-break"]')).toBeNull();
+    expect(c.querySelector('[data-testid="toolbar-beam-together"]')).toBeNull();
   });
 
   it("toggles rest on click", () => {

@@ -33,6 +33,8 @@ import { StaffConfigSection } from "./inspector/StaffConfigSection";
 import { useStaffConfigInspector } from "./inspector/useStaffConfigInspector";
 import { MAX_STAFF_LINES } from "../commands/staffConfigCommands";
 import { useLyricInspector } from "./inspector/useLyricInspector";
+import { BeamSection } from "./inspector/BeamSection";
+import { useBeamInspector } from "./inspector/useBeamInspector";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -91,6 +93,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const isLyricSelected = lyric.selected !== null;
   const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
   const staffMeter = useStaffMeterInspector({ score, target, selection, updateScore });
+  const beam = useBeamInspector({ score, selection, updateScore });
 
   const {
     currentBarlineType,
@@ -146,18 +149,22 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleGlissandoTextChange,
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
-  if (!target && !staffConfig.target) return <NotationInspectorEmptyState />;
+  if (!target && !staffConfig.target && !beam.isAvailable) return <NotationInspectorEmptyState />;
 
   const selectionSubtitle = target
     ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
-    : staffConfig.target!.endMeasureIndex > staffConfig.target!.measureIndex
-      ? `Selected: bars ${staffConfig.target!.measureIndex + 1}-${staffConfig.target!.endMeasureIndex + 1}, staff ${staffConfig.target!.staff}`
-      : `Selected: bar ${staffConfig.target!.measureIndex + 1}, staff ${staffConfig.target!.staff}`;
+    : staffConfig.target
+      ? staffConfig.target.endMeasureIndex > staffConfig.target.measureIndex
+        ? `Selected: bars ${staffConfig.target!.measureIndex + 1}-${staffConfig.target!.endMeasureIndex + 1}, staff ${staffConfig.target!.staff}`
+        : `Selected: bar ${staffConfig.target.measureIndex + 1}, staff ${staffConfig.target.staff}`
+      : `Selected: ${beam.selectedEventCount} events`;
 
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" subtitle={selectionSubtitle} />
       <div className="viritura-scroll" style={bodyStyle}>
+        <BeamSection state={beam} />
+
         {target && tempo.isTempoSelected && tempo.selectedTempo && (
           <TempoSection
             key={target.elementId}
