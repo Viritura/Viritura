@@ -157,6 +157,7 @@ mod tests {
             expressions: None,
             condensing_override: None,
             grouping_display_overrides: None,
+            staff_meters: None,
         }
     }
 

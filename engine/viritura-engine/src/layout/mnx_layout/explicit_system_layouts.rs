@@ -8,6 +8,7 @@ use super::super::measure::{
 };
 use super::super::resolve::resolve_all_ottavas;
 use super::super::types::MeasureLayout;
+use super::resolve_condensing::flat_staff_meter_states;
 use super::shared::{
     append_partial_unison_label, build_virtual_part_measure, compute_flat_staff_transposition,
 };
@@ -47,7 +48,7 @@ impl PersistentStaffState {
         }
         let mut lines = super::super::staff_lines::DEFAULT_STAFF_LINES;
         for measure_index in 0..before_measure {
-            let prior_measure = build_virtual_part_measure(staff, measure_index, score).0;
+            let prior_measure = build_virtual_part_measure(staff, measure_index, score, false).0;
             super::super::staff_lines::resolve_measure_staff_lines(
                 &mut lines,
                 prior_measure.staff_configs.as_deref(),
@@ -127,6 +128,8 @@ pub(super) fn build_explicit_system_layouts(
 
     for (staff_index, flat_staff) in flat_staves.iter().enumerate() {
         let use_written = score_def.use_written.unwrap_or(false);
+        let default_meter_states =
+            flat_staff_meter_states(flat_staff, score, score.global.measures.len());
         let staff_key = (
             flat_staff
                 .sources
@@ -212,8 +215,21 @@ pub(super) fn build_explicit_system_layouts(
             if let Some(key) = &global.key {
                 active_key = key.clone();
             }
-            let (mut virtual_part, condensing_mode) =
-                build_virtual_part_measure(effective_staff, measure_index, score);
+            let meter_state = if std::ptr::eq(effective_staff, flat_staff) {
+                default_meter_states[measure_index].clone()
+            } else {
+                flat_staff_meter_states(effective_staff, score, score.global.measures.len())
+                    .into_iter()
+                    .nth(measure_index)
+                    .expect("global measure has a staff-meter state")
+            };
+            let (mut virtual_part, condensing_mode) = build_virtual_part_measure(
+                effective_staff,
+                measure_index,
+                score,
+                !meter_state.compatible,
+            );
+            meter_state.apply_authored_change(&mut virtual_part);
             let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
                 &mut active_staff_lines,
                 virtual_part.staff_configs.as_deref(),
@@ -324,6 +340,7 @@ pub(super) fn build_explicit_system_layouts(
                         )
                     })
                 }),
+                effective_staff_meter: meter_state.effective,
             });
             previous_display_key = display_key;
         }

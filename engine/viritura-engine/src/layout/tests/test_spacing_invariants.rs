@@ -1,8 +1,10 @@
 use super::test_helpers::{is_accidental_glyph, is_notehead_glyph, minimal_spacing_score};
 use crate::layout::config::LayoutConfig;
 use crate::layout::mnx_layout::layout_with_mnx_scores;
+use crate::layout::resolve::resolve_measures;
 use crate::layout::spacing::{
-    build_log_spacing_for_part_measure, build_merged_log_spacing_for_part_measures, LogSpacing,
+    build_log_spacing_for_part_measure, build_log_spacing_for_resolved_measure,
+    build_merged_log_spacing_for_part_measures, LogSpacing,
 };
 use crate::layout::{layout_full_score, layout_score};
 use crate::model::KeySignature;
@@ -616,4 +618,67 @@ fn beethoven_5_1_boundary_after_m93_clears_ink_without_misalignment() {
         checked_staves >= 8,
         "expected pitched first-onset ink across the orchestra"
     );
+}
+
+#[test]
+fn fit_measure_staff_meter_scales_onsets_into_global_equivalent_beats() {
+    // Global 2/4 (2 quarter-note beats). Staff 1's own part has no local
+    // meter and writes two ordinary quarter notes, giving onsets at beat 0
+    // and beat 1. Staff 2 declares a fitMeasure 6/8 staff-local meter (two
+    // dotted-quarter pulses = 3 written beats) and writes the same two-pulse
+    // rhythm as two dotted quarters. The derived ratio (2/3) must scale
+    // those onsets into the same global-equivalent beat 0 and beat 1 so the
+    // two staves' onset columns still align for spacing purposes, even
+    // though the written durations differ.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"staff": 1, "content": [
+                {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+                {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]}
+            ]}]
+        }]}, {"measures": [{
+            "sequences": [{"staff": 1, "content": [
+                {"duration": {"base": "quarter", "dots": 1}, "notes": [{"pitch": {"step": "C", "octave": 3}}]},
+                {"duration": {"base": "quarter", "dots": 1}, "notes": [{"pitch": {"step": "D", "octave": 3}}]}
+            ]}],
+            "_x": {"viritura": {"staffMeters": [
+                {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+            ]}}
+        }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+
+    let ordinary = resolve_measures(&score, 0);
+    let ordinary_spacing =
+        build_log_spacing_for_resolved_measure(&ordinary[0], 2.0, 0.5, &config, false);
+    let ordinary_beats: Vec<f64> = ordinary_spacing.mapping.iter().map(|(b, _)| *b).collect();
+
+    let fit_measure = resolve_measures(&score, 1);
+    assert!(
+        fit_measure[0].effective_staff_meter.is_some(),
+        "staff should resolve its fitMeasure staff-local meter"
+    );
+    // 2 written beats/measure * ratio must equal the global 2 beats.
+    let fit_measure_spacing =
+        build_log_spacing_for_resolved_measure(&fit_measure[0], 2.0, 0.5, &config, false);
+    let fit_measure_beats: Vec<f64> = fit_measure_spacing
+        .mapping
+        .iter()
+        .map(|(b, _)| *b)
+        .collect();
+
+    assert_eq!(
+        fit_measure_beats.len(),
+        ordinary_beats.len(),
+        "same number of onsets"
+    );
+    for (fit_beat, ordinary_beat) in fit_measure_beats.iter().zip(ordinary_beats.iter()) {
+        assert!(
+            (fit_beat - ordinary_beat).abs() < 1e-6,
+            "fitMeasure onset {fit_beat} should land on the same global-equivalent beat as {ordinary_beat}"
+        );
+    }
 }

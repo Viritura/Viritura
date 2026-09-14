@@ -467,8 +467,11 @@ pub(super) fn normalize_beam_group_stem_directions(
     let beams: &[Beam] = if let Some(b) = rm.part.beams.as_ref() {
         b.as_slice()
     } else {
-        beams_owned =
-            super::super::beams::auto_beam_groups(voice_layouts, &rm.active_time, &HashSet::new());
+        beams_owned = super::super::beams::auto_beam_groups(
+            voice_layouts,
+            rm.effective_beat_meter(),
+            &HashSet::new(),
+        );
         &beams_owned
     };
     let beamed_ids: HashSet<String> = beams

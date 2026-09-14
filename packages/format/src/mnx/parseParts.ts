@@ -14,6 +14,8 @@ import type {
   NonArpeggio,
   MeasureRepeat,
   MeasureRepeatCounter,
+  StaffMeter,
+  StaffMeterChange,
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
 import type { PositionedClef, Clef } from "@viritura/core";
@@ -37,6 +39,7 @@ import type {
   PartExtensions as RawPartExt,
   PartMeasureExtensions as RawPartMeasureExt,
   KitComponentExtensions as RawKitComponentExt,
+  StaffMeterChange as RawStaffMeterChange,
 } from "@viritura/core/raw-viritura";
 
 import {
@@ -177,8 +180,22 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
         groupingDisplay: override.groupingDisplay,
       }));
     }
+    if (viritura.staffMeters && viritura.staffMeters.length > 0) {
+      pm.staffMeters = viritura.staffMeters.map(parseStaffMeterChange);
+    }
   }
   return pm;
+}
+
+function parseStaffMeterChange(raw: RawStaffMeterChange): StaffMeterChange {
+  if ("useGlobal" in raw) {
+    return { staff: raw.staff, useGlobal: true };
+  }
+  const meter: StaffMeter = { count: raw.meter.count, unit: raw.meter.unit };
+  if (raw.meter.beatStructure && raw.meter.beatStructure.length > 0) {
+    meter.beatStructure = [...raw.meter.beatStructure];
+  }
+  return { staff: raw.staff, meter, synchronization: raw.synchronization };
 }
 
 function parseMeasureRepeat(raw: RawMeasureRepeat): MeasureRepeat {

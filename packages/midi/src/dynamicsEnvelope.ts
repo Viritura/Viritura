@@ -45,6 +45,7 @@ import {
 import type { ImpliedSectionDynamicAnchor } from "./sectionDynamics";
 import type { MidiEvent } from "./types";
 import type { TempoModel } from "./tempoModel";
+import { resolvePartStaffMeterTable, staffMeterRatioAt, type StaffMeterTable } from "./staffMeterTiming";
 
 /** CC 11 (expression). The coupled dynamics system is its sole owner. */
 const CC_EXPRESSION = 11;
@@ -241,15 +242,18 @@ function gradualTextDirection(text: string): 1 | -1 | undefined {
 
 function collectMeasureDynamicGroups(
   pm: Part["measures"][number],
+  originalMeasureIndex: number,
   measureStartBeat: number,
   model: TempoModel,
   expandedIdx: number,
   groups: TimedDynamicGroup[],
+  staffMeterTable: StaffMeterTable,
 ): void {
   for (const group of pm.dynamics ?? []) {
+    const ratio = staffMeterRatioAt(staffMeterTable, originalMeasureIndex, group.staff);
     groups.push({
       group,
-      time: model.timeAtBeat(measureStartBeat + fractionToBeats(group.position.fraction)),
+      time: model.timeAtBeat(measureStartBeat + fractionToBeats(group.position.fraction) * ratio),
       expandedIdx,
     });
   }
@@ -257,10 +261,12 @@ function collectMeasureDynamicGroups(
 
 function collectMeasureGradualTexts(
   pm: Part["measures"][number],
+  originalMeasureIndex: number,
   measureStartBeat: number,
   model: TempoModel,
   expandedIdx: number,
   gradualTexts: TimedGradualText[],
+  staffMeterTable: StaffMeterTable,
 ): void {
   for (let index = 0; index < (pm.expressions?.length ?? 0); index++) {
     const expression = pm.expressions![index]!;
@@ -268,7 +274,11 @@ function collectMeasureGradualTexts(
     if (!dir) continue;
     gradualTexts.push({
       id: `text-gradual-${expandedIdx}-${index}`,
-      startTime: model.timeAtBeat(measureStartBeat + fractionToBeats(expression.position.fraction)),
+      startTime: model.timeAtBeat(
+        measureStartBeat +
+          fractionToBeats(expression.position.fraction) *
+            staffMeterRatioAt(staffMeterTable, originalMeasureIndex, expression.staff),
+      ),
       dir,
       expandedIdx,
     });
@@ -276,13 +286,13 @@ function collectMeasureGradualTexts(
 }
 
 /** Resolve a hairpin's end-measure start beat (nearest forward occurrence). */
-function resolveEndMeasureBeat(
+function resolveEndMeasureLocation(
   endMeasureId: string,
   fromExpandedIdx: number,
   measureOrder: readonly number[],
   measureStartBeats: readonly number[],
   idToOrig: ReadonlyMap<string, number>,
-): number | undefined {
+): { measureStartBeat: number; originalMeasureIndex: number } | undefined {
   let targetOrig = idToOrig.get(endMeasureId);
   if (targetOrig === undefined) {
     // Fallback: some scores use the numeric measure index as the id.
@@ -291,10 +301,14 @@ function resolveEndMeasureBeat(
   }
   if (targetOrig === undefined) return undefined;
   for (let j = fromExpandedIdx; j < measureOrder.length; j++) {
-    if (measureOrder[j] === targetOrig) return measureStartBeats[j];
+    if (measureOrder[j] === targetOrig) {
+      return { measureStartBeat: measureStartBeats[j]!, originalMeasureIndex: targetOrig };
+    }
   }
   for (let j = 0; j < measureOrder.length; j++) {
-    if (measureOrder[j] === targetOrig) return measureStartBeats[j];
+    if (measureOrder[j] === targetOrig) {
+      return { measureStartBeat: measureStartBeats[j]!, originalMeasureIndex: targetOrig };
+    }
   }
   return undefined;
 }
@@ -380,6 +394,41 @@ function resolveRamps(timed: readonly TimedHairpin[], anchors: readonly DynamicA
   return ramps;
 }
 
+function collectExpandedDynamics(
+  part: Part,
+  measureOrder: readonly number[],
+  measureStartBeats: readonly number[],
+  model: TempoModel,
+  staffMeterTable: StaffMeterTable,
+  timedGroups: TimedDynamicGroup[],
+  gradualTexts: TimedGradualText[],
+): void {
+  for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
+    const originalMeasureIndex = measureOrder[expandedIdx]!;
+    const measure = part.measures[originalMeasureIndex];
+    if (!measure) continue;
+    const measureStartBeat = measureStartBeats[expandedIdx]!;
+    collectMeasureDynamicGroups(
+      measure,
+      originalMeasureIndex,
+      measureStartBeat,
+      model,
+      expandedIdx,
+      timedGroups,
+      staffMeterTable,
+    );
+    collectMeasureGradualTexts(
+      measure,
+      originalMeasureIndex,
+      measureStartBeat,
+      model,
+      expandedIdx,
+      gradualTexts,
+      staffMeterTable,
+    );
+  }
+}
+
 /**
  * Build a part's dynamics envelope from standard dynamic groups. Walks the
  * expanded measure order, so repeated material yields one instance per pass.
@@ -391,21 +440,17 @@ export function buildDynamicsEnvelope(
   model: TempoModel,
   globalMeasures: readonly GlobalMeasure[],
   impliedAnchors: readonly ImpliedSectionDynamicAnchor[] = [],
+  resolvedStaffMeters?: StaffMeterTable,
 ): DynamicsEnvelope {
   const anchors: DynamicAnchor[] = [];
   const attacks: DynamicAttack[] = [];
   const timedGroups: TimedDynamicGroup[] = [];
   const gradualTexts: TimedGradualText[] = [];
   const idToOrig = buildMeasureIdToOrig(globalMeasures);
+  const staffMeterTable = resolvedStaffMeters ?? resolvePartStaffMeterTable(part, globalMeasures);
 
   // Pass 1: collect and order every dynamic group on the expanded timeline.
-  for (let i = 0; i < measureOrder.length; i++) {
-    const pm = part.measures[measureOrder[i]!];
-    if (!pm) continue;
-    const measureStartBeat = measureStartBeats[i]!;
-    collectMeasureDynamicGroups(pm, measureStartBeat, model, i, timedGroups);
-    collectMeasureGradualTexts(pm, measureStartBeat, model, i, gradualTexts);
-  }
+  collectExpandedDynamics(part, measureOrder, measureStartBeats, model, staffMeterTable, timedGroups, gradualTexts);
   const typeRank: Record<DynamicGroup["type"], number> = { immediate: 0, relative: 1, accent: 2, gradual: 3 };
   timedGroups.sort(
     (a, b) =>
@@ -448,15 +493,22 @@ export function buildDynamicsEnvelope(
   for (const { group, time: startTime, expandedIdx } of timedGroups) {
     if (group.type !== "gradual") continue;
     const gradual: GradualDynamicGroup = group;
-    const endMeasureBeat = resolveEndMeasureBeat(
+    const endMeasure = resolveEndMeasureLocation(
       gradual.end.measure,
       expandedIdx,
       measureOrder,
       measureStartBeats,
       idToOrig,
     );
-    if (endMeasureBeat === undefined) continue;
-    const endTime = model.timeAtBeat(endMeasureBeat + fractionToBeats(gradual.end.position.fraction));
+    if (endMeasure === undefined) continue;
+    const endRatio = staffMeterRatioAt(
+      staffMeterTable,
+      endMeasure.originalMeasureIndex,
+      gradual.staffEnd ?? gradual.staff,
+    );
+    const endTime = model.timeAtBeat(
+      endMeasure.measureStartBeat + fractionToBeats(gradual.end.position.fraction) * endRatio,
+    );
     timed.push({
       groupId: gradual.id,
       startTime,

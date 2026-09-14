@@ -5109,6 +5109,13 @@ impl ::std::default::Default for PartExtensions {
 ///      "items": {
 ///        "$ref": "#/$defs/pedal"
 ///      }
+///    },
+///    "staffMeters": {
+///      "description": "Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/staff-meter-change"
+///      }
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -5147,6 +5154,13 @@ pub struct PartMeasureExtensions {
     ///Piano pedal markings.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub pedals: ::std::vec::Vec<Pedal>,
+    ///Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope.
+    #[serde(
+        rename = "staffMeters",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub staff_meters: ::std::vec::Vec<StaffMeterChange>,
 }
 impl ::std::convert::From<&PartMeasureExtensions> for PartMeasureExtensions {
     fn from(value: &PartMeasureExtensions) -> Self {
@@ -5161,6 +5175,7 @@ impl ::std::default::Default for PartMeasureExtensions {
             expressions: Default::default(),
             grouping_display_overrides: Default::default(),
             pedals: Default::default(),
+            staff_meters: Default::default(),
         }
     }
 }
@@ -6905,6 +6920,341 @@ impl ::std::convert::From<&StaffGroupingDisplayOverride>
 for StaffGroupingDisplayOverride {
     fn from(value: &StaffGroupingDisplayOverride) -> Self {
         value.clone()
+    }
+}
+///A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself.",
+///  "type": "object",
+///  "required": [
+///    "count",
+///    "unit"
+///  ],
+///  "properties": {
+///    "beatStructure": {
+///      "description": "Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature.",
+///      "type": "array",
+///      "items": {
+///        "type": "integer"
+///      },
+///      "minItems": 1
+///    },
+///    "count": {
+///      "description": "Numerator (beats per measure) of the staff-local meter.",
+///      "type": "integer"
+///    },
+///    "unit": {
+///      "description": "Denominator (beat unit) of the staff-local meter.",
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2,
+///        4,
+///        8,
+///        16,
+///        32,
+///        64,
+///        128
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeter {
+    ///Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature.
+    #[serde(
+        rename = "beatStructure",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub beat_structure: ::std::vec::Vec<i64>,
+    ///Numerator (beats per measure) of the staff-local meter.
+    pub count: i64,
+    ///Denominator (beat unit) of the staff-local meter.
+    pub unit: StaffMeterUnit,
+}
+impl ::std::convert::From<&StaffMeter> for StaffMeter {
+    fn from(value: &StaffMeter) -> Self {
+        value.clone()
+    }
+}
+///One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter.",
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/staff-meter-set"
+///    },
+///    {
+///      "$ref": "#/$defs/staff-meter-reset"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum StaffMeterChange {
+    Set(StaffMeterSet),
+    Reset(StaffMeterReset),
+}
+impl ::std::convert::From<&Self> for StaffMeterChange {
+    fn from(value: &StaffMeterChange) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<StaffMeterSet> for StaffMeterChange {
+    fn from(value: StaffMeterSet) -> Self {
+        Self::Set(value)
+    }
+}
+impl ::std::convert::From<StaffMeterReset> for StaffMeterChange {
+    fn from(value: StaffMeterReset) -> Self {
+        Self::Reset(value)
+    }
+}
+///Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff.",
+///  "type": "object",
+///  "required": [
+///    "staff",
+///    "useGlobal"
+///  ],
+///  "properties": {
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    },
+///    "useGlobal": {
+///      "description": "Always true. Marks this entry as a reset rather than a meter declaration.",
+///      "type": "boolean",
+///      "const": true
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeterReset {
+    ///1-based staff number within this part.
+    pub staff: i64,
+    ///Always true. Marks this entry as a reset rather than a meter declaration.
+    #[serde(rename = "useGlobal")]
+    pub use_global: bool,
+}
+impl ::std::convert::From<&StaffMeterReset> for StaffMeterReset {
+    fn from(value: &StaffMeterReset) -> Self {
+        value.clone()
+    }
+}
+///Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle.",
+///  "type": "object",
+///  "required": [
+///    "meter",
+///    "staff",
+///    "synchronization"
+///  ],
+///  "properties": {
+///    "meter": {
+///      "description": "The staff-local meter to apply from this measure onward.",
+///      "$ref": "#/$defs/staff-meter"
+///    },
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    },
+///    "synchronization": {
+///      "description": "How this staff's measure duration relates to the global measure it shares a barline with.",
+///      "$ref": "#/$defs/staff-meter-synchronization"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeterSet {
+    ///The staff-local meter to apply from this measure onward.
+    pub meter: StaffMeter,
+    ///1-based staff number within this part.
+    pub staff: i64,
+    ///How this staff's measure duration relates to the global measure it shares a barline with.
+    pub synchronization: StaffMeterSynchronization,
+}
+impl ::std::convert::From<&StaffMeterSet> for StaffMeterSet {
+    fn from(value: &StaffMeterSet) -> Self {
+        value.clone()
+    }
+}
+///How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values.",
+///  "type": "string",
+///  "enum": [
+///    "sharedDuration",
+///    "fitMeasure"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum StaffMeterSynchronization {
+    #[serde(rename = "sharedDuration")]
+    SharedDuration,
+    #[serde(rename = "fitMeasure")]
+    FitMeasure,
+}
+impl ::std::convert::From<&Self> for StaffMeterSynchronization {
+    fn from(value: &StaffMeterSynchronization) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for StaffMeterSynchronization {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::SharedDuration => f.write_str("sharedDuration"),
+            Self::FitMeasure => f.write_str("fitMeasure"),
+        }
+    }
+}
+impl ::std::str::FromStr for StaffMeterSynchronization {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "sharedDuration" => Ok(Self::SharedDuration),
+            "fitMeasure" => Ok(Self::FitMeasure),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Denominator (beat unit) of the staff-local meter.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Denominator (beat unit) of the staff-local meter.",
+///  "type": "integer",
+///  "enum": [
+///    1,
+///    2,
+///    4,
+///    8,
+///    16,
+///    32,
+///    64,
+///    128
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct StaffMeterUnit(i64);
+impl ::std::ops::Deref for StaffMeterUnit {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<StaffMeterUnit> for i64 {
+    fn from(value: StaffMeterUnit) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&StaffMeterUnit> for StaffMeterUnit {
+    fn from(value: &StaffMeterUnit) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::TryFrom<i64> for StaffMeterUnit {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64, 2_i64, 4_i64, 8_i64, 16_i64, 32_i64, 64_i64, 128_i64]
+            .contains(&value)
+        {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
 ///A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive).
@@ -9220,6 +9570,21 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "staff-grouping-display-override": {
 ///      "$ref": "#/$defs/staff-grouping-display-override"
 ///    },
+///    "staff-meter": {
+///      "$ref": "#/$defs/staff-meter"
+///    },
+///    "staff-meter-change": {
+///      "$ref": "#/$defs/staff-meter-change"
+///    },
+///    "staff-meter-reset": {
+///      "$ref": "#/$defs/staff-meter-reset"
+///    },
+///    "staff-meter-set": {
+///      "$ref": "#/$defs/staff-meter-set"
+///    },
+///    "staff-meter-synchronization": {
+///      "$ref": "#/$defs/staff-meter-synchronization"
+///    },
 ///    "stage-position": {
 ///      "$ref": "#/$defs/stage-position"
 ///    },
@@ -9614,6 +9979,36 @@ pub struct VirituraExtensionsRoot {
         StaffGroupingDisplayOverride,
     >,
     #[serde(
+        rename = "staff-meter",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter: ::std::option::Option<StaffMeter>,
+    #[serde(
+        rename = "staff-meter-change",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_change: ::std::option::Option<StaffMeterChange>,
+    #[serde(
+        rename = "staff-meter-reset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_reset: ::std::option::Option<StaffMeterReset>,
+    #[serde(
+        rename = "staff-meter-set",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_set: ::std::option::Option<StaffMeterSet>,
+    #[serde(
+        rename = "staff-meter-synchronization",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_synchronization: ::std::option::Option<StaffMeterSynchronization>,
+    #[serde(
         rename = "stage-position",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9804,6 +10199,11 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             sound_profile_assignment: Default::default(),
             sp_delta: Default::default(),
             staff_grouping_display_override: Default::default(),
+            staff_meter: Default::default(),
+            staff_meter_change: Default::default(),
+            staff_meter_reset: Default::default(),
+            staff_meter_set: Default::default(),
+            staff_meter_synchronization: Default::default(),
             stage_position: Default::default(),
             system_layout_extensions: Default::default(),
             tempo_extensions: Default::default(),

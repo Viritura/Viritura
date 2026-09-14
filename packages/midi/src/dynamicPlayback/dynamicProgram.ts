@@ -4,6 +4,7 @@ import type { TempoModel } from "../tempoModel";
 import { realizeDynamicsEnvelope, selectDynamicResponseProfile } from "./dynamicRealization";
 import type { DynamicPlaybackDiagnostic, DynamicProgram, PlaybackLane, PlaybackLaneId } from "./types";
 import type { ImpliedSectionDynamicAnchor } from "../sectionDynamics";
+import type { StaffMeterTable } from "../staffMeterTiming";
 
 interface LaneScope {
   staff: number;
@@ -142,6 +143,7 @@ export function compileDynamicProgram(
   globalMeasures: readonly GlobalMeasure[],
   gmProgram = -1,
   impliedAnchors: readonly ImpliedSectionDynamicAnchor[] = [],
+  staffMeterTable?: StaffMeterTable,
 ): DynamicProgram {
   const scoped = part.measures.some((measure) =>
     measure.dynamics?.some((group) => group.staff !== undefined || group.voice !== undefined),
@@ -155,7 +157,15 @@ export function compileDynamicProgram(
     const id = scoped ? playbackLaneId(partIndex, scope.staff, scope.voice) : playbackLaneId(partIndex);
     const lanePart = scoped ? withLaneDynamics(part, scope) : part;
     const envelope = realizeDynamicsEnvelope(
-      buildDynamicsEnvelope(lanePart, measureOrder, measureStartBeats, model, globalMeasures, impliedAnchors),
+      buildDynamicsEnvelope(
+        lanePart,
+        measureOrder,
+        measureStartBeats,
+        model,
+        globalMeasures,
+        impliedAnchors,
+        staffMeterTable,
+      ),
       profile,
     );
     lanes.set(id, { id, partIndex, staff: scope.staff, voice: scope.voice, envelope });

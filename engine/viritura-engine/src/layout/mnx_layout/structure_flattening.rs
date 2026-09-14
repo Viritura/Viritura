@@ -74,6 +74,7 @@ pub(super) fn flatten_layout(
         content,
         part_id_map,
         &display_names,
+        score,
         &mut staves,
         &mut groups,
         0,
@@ -86,6 +87,7 @@ fn flatten_content_recursive(
     content: &[LayoutContent],
     part_id_map: &HashMap<String, usize>,
     display_names: &[PartDisplayInfo],
+    score: &Score,
     staves: &mut Vec<FlatStaff>,
     groups: &mut Vec<GroupRange>,
     bracket_depth: usize,
@@ -103,6 +105,7 @@ fn flatten_content_recursive(
                     &group.content,
                     part_id_map,
                     display_names,
+                    score,
                     staves,
                     groups,
                     child_depth,
@@ -143,7 +146,7 @@ fn flatten_content_recursive(
                 } else {
                     regular_labels(staff, part_id_map, display_names)
                 };
-                staves.push(FlatStaff {
+                let flat_staff = FlatStaff {
                     sources,
                     label: labels.label,
                     short_label: labels.short_label,
@@ -156,7 +159,22 @@ fn flatten_content_recursive(
                         Some(ChordSymbolVisibility::Hide) => Some(false),
                         Some(ChordSymbolVisibility::Auto) | None => None,
                     },
-                });
+                };
+                if super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score) {
+                    for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {
+                        let mut split_staff = flat_staff.clone();
+                        split_staff.sources = vec![source];
+                        split_staff.condensed_numbers = flat_staff
+                            .condensed_numbers
+                            .get(source_index)
+                            .copied()
+                            .into_iter()
+                            .collect();
+                        staves.push(split_staff);
+                    }
+                } else {
+                    staves.push(flat_staff);
+                }
             }
         }
     }

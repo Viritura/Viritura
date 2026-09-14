@@ -134,13 +134,17 @@ export function applyMeasureTechniques(
   ctx: PartCtx,
   state: TechniqueState,
   caps: { bow: boolean; mute: MuteFamily | null },
+  ratioForStaff: (staff: number | undefined) => number = () => 1,
 ): TechniqueState {
   if (!expressions || expressions.length === 0) return state;
 
   // Resolve technique markings and sort by beat so transitions within the
   // measure resolve in playing order.
   const marks = expressions
-    .map((e) => ({ action: classifyTechniqueText(e.text), beat: fractionToBeats(e.position.fraction) }))
+    .map((e) => ({
+      action: classifyTechniqueText(e.text),
+      beat: fractionToBeats(e.position.fraction) * ratioForStaff(e.staff),
+    }))
     .filter((m): m is { action: TechniqueAction; beat: number } => m.action !== null)
     .sort((a, b) => a.beat - b.beat);
 

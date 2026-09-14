@@ -18,7 +18,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay                                                                 |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides                |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
@@ -801,6 +801,71 @@ A grand-staff piano part might author its own irregular grouping globally
 (via `time._x.viritura.groupingDisplay`) but want only the upper staff to
 show the annotation — this override lets one staff opt out (or in)
 independently of its sibling staves.
+
+### `staffMeters`
+
+Array of per-staff synchronous local meter changes/resets, effective from
+this measure onward until changed or reset again — declarations inherit
+exactly like `time` on a global measure. A staff-local meter lets one staff
+of a part notate its own time signature while every staff's barlines stay
+locked to the shared global measure grid; **non-aligning/independent
+polymeter is explicitly out of scope**. Each entry is a union: either sets a
+staff-local meter and its synchronization mode, or resets the staff back to
+following the global meter.
+
+**Set** (`{staff, meter, synchronization}`):
+
+| Property          | Type                             | Required | Description                                                             |
+| ----------------- | -------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `staff`           | integer (≥1)                     | **Yes**  | 1-based staff number within this part.                                  |
+| `meter`           | `{count, unit, beatStructure?}`  | **Yes**  | The staff-local meter. Same shape/rules as an MNX `time` signature.     |
+| `synchronization` | `sharedDuration` \| `fitMeasure` | **Yes**  | How this staff's measure duration relates to the shared global measure. |
+
+**Reset** (`{staff, useGlobal: true}`):
+
+| Property    | Type         | Required | Description                                            |
+| ----------- | ------------ | -------- | ------------------------------------------------------ |
+| `staff`     | integer (≥1) | **Yes**  | 1-based staff number within this part.                 |
+| `useGlobal` | `true`       | **Yes**  | Marks this entry as a reset rather than a declaration. |
+
+**Synchronization modes:**
+
+- `sharedDuration` — the staff-local meter's measure duration
+  (`count * 4 / unit` quarter-note-equivalent beats) must equal the global
+  measure's duration exactly. Ordinary written note durations need no
+  scaling; e.g. local 6/8 (6·4/8 = 3 beats) over global 3/4 (3·4/4 = 3 beats).
+  Validated strictly — an unequal duration is a semantic error, not merely a
+  presentation choice.
+- `fitMeasure` — one complete staff-local measure maps onto one complete
+  global measure by a derived exact ratio (`global measure duration / local
+measure duration`, kept as an exact rational fraction). E.g. local 6/8 (two
+  dotted-quarter pulses, 3 beats) over global 2/4 (two quarter-note pulses,
+  2 beats) derives ratio 2/3; local 12/8 (4 beats × 3, 6 beats) over global
+  4/4 (4 beats) derives the same 2/3 ratio. The staff's own conventional note
+  values and beat structure are unaffected — only spacing and playback
+  positions are scaled by the ratio so the staff's pulses land under the
+  correct global beat columns.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "staffMeters": [{ "staff": 2, "meter": { "count": 6, "unit": 8 }, "synchronization": "fitMeasure" }]
+    }
+  }
+}
+```
+
+Resetting staff 2 back to the global meter on a later measure:
+
+```json
+{ "_x": { "viritura": { "staffMeters": [{ "staff": 2, "useGlobal": true }] } } }
+```
+
+Declarations inherit per staff independently: setting staff 2's meter does
+not disturb staff 1, and a later measure with no `staffMeters` entry for
+staff 2 keeps that staff's most recently declared meter (or the global meter,
+if never declared or already reset).
 
 ---
 

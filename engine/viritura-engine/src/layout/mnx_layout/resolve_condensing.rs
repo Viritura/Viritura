@@ -15,6 +15,153 @@ pub(super) struct ResolvedStaffSet {
     pub(super) duration_histogram: DurationHistogram,
 }
 
+#[derive(Clone)]
+pub(super) struct FlatStaffMeterState {
+    pub(super) compatible: bool,
+    pub(super) effective: Option<EffectiveStaffMeter>,
+    authored_here: bool,
+}
+
+impl FlatStaffMeterState {
+    pub(super) fn apply_authored_change(&self, measure: &mut PartMeasure) {
+        if !self.authored_here {
+            return;
+        }
+        measure.staff_meters = Some(vec![match self.effective.as_ref() {
+            Some(effective) => StaffMeterChange::Set {
+                staff: 1,
+                meter: StaffMeter {
+                    count: effective.time_signature.count,
+                    unit: effective.time_signature.unit,
+                    beat_structure: effective.time_signature.beat_structure.clone(),
+                },
+                synchronization: effective.synchronization,
+            },
+            None => StaffMeterChange::Reset { staff: 1 },
+        }]);
+    }
+}
+
+fn same_effective_meter(
+    left: Option<&EffectiveStaffMeter>,
+    right: Option<&EffectiveStaffMeter>,
+) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(left), Some(right)) => {
+            left.time_signature == right.time_signature
+                && left.synchronization == right.synchronization
+                && left.ratio_to_global == right.ratio_to_global
+        }
+        _ => false,
+    }
+}
+
+pub(super) fn flat_staff_meter_states(
+    flat_staff: &FlatStaff,
+    score: &Score,
+    measure_count: usize,
+) -> Vec<FlatStaffMeterState> {
+    let global_time_at = crate::model::effective_time_signature_table(&score.global.measures);
+    let source_tables: Vec<_> = flat_staff
+        .sources
+        .iter()
+        .map(|source| {
+            let part = &score.parts[source.part_index];
+            (
+                source.staff_number.unwrap_or(1),
+                &part.measures,
+                crate::model::staff_meter::resolve_staff_meter_table(
+                    &part.measures,
+                    &global_time_at,
+                )
+                .0,
+            )
+        })
+        .collect();
+
+    (0..measure_count)
+        .map(|measure_index| {
+            let mut first_effective: Option<EffectiveStaffMeter> = None;
+            let mut first_displayed: Option<TimeSignature> = None;
+            let mut first = true;
+            let mut compatible = true;
+
+            for (staff, measures, table) in &source_tables {
+                let effective = table
+                    .get(measure_index)
+                    .and_then(|meters| meters.get(staff));
+                let authored_here = measures
+                    .get(measure_index)
+                    .and_then(|measure| measure.staff_meters.as_ref())
+                    .is_some_and(|changes| changes.iter().any(|change| change.staff() == *staff));
+                let displayed = if authored_here {
+                    effective
+                        .map(|meter| meter.time_signature.clone())
+                        .or_else(|| global_time_at.get(measure_index).cloned())
+                } else if effective.is_some() {
+                    None
+                } else {
+                    score
+                        .global
+                        .measures
+                        .get(measure_index)
+                        .and_then(|measure| measure.time.clone())
+                };
+
+                if first {
+                    first_effective = effective.cloned();
+                    first_displayed = displayed;
+                    first = false;
+                } else if !same_effective_meter(first_effective.as_ref(), effective)
+                    || first_displayed != displayed
+                {
+                    compatible = false;
+                }
+            }
+
+            if let Some(effective) = first_effective.as_mut() {
+                effective.staff = 1;
+            }
+            let authored_here = compatible
+                && first_displayed.is_some()
+                && (first_effective.is_some()
+                    || score
+                        .global
+                        .measures
+                        .get(measure_index)
+                        .is_none_or(|measure| measure.time.is_none()));
+            FlatStaffMeterState {
+                compatible,
+                effective: compatible.then_some(first_effective).flatten(),
+                authored_here,
+            }
+        })
+        .collect()
+}
+
+pub(super) fn has_incompatible_staff_meters(flat_staff: &FlatStaff, score: &Score) -> bool {
+    if flat_staff.sources.len() < 2 {
+        return false;
+    }
+    let has_staff_meter_declaration = flat_staff.sources.iter().any(|source| {
+        let staff = source.staff_number.unwrap_or(1);
+        score.parts[source.part_index]
+            .measures
+            .iter()
+            .any(|measure| {
+                measure
+                    .staff_meters
+                    .as_ref()
+                    .is_some_and(|changes| changes.iter().any(|change| change.staff() == staff))
+            })
+    });
+    has_staff_meter_declaration
+        && flat_staff_meter_states(flat_staff, score, score.global.measures.len())
+            .iter()
+            .any(|state| !state.compatible)
+}
+
 pub(super) fn build_resolved_staff_aux(
     resolved: &[ResolvedMeasure],
 ) -> (Arc<[ResolvedOttavaRange]>, DurationHistogram) {
@@ -137,6 +284,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
             last_clef: None,
             prev_display_key: KeySignature::default(),
             active_staff_lines: super::super::staff_lines::DEFAULT_STAFF_LINES,
+            effective_staff_meter: None,
         };
 
         // Affected non-condensing staff: restart at the dirty boundary and stop
@@ -293,6 +441,7 @@ pub(super) fn resolve_staff_full(
     Vec<u64>,
     Vec<Option<MergeMode>>,
 ) {
+    let meter_states = flat_staff_meter_states(flat_staff, score, measure_count);
     let mut state = initial.clone();
     let mut resolved = Vec::with_capacity(measure_count);
     let mut condensing_modes: Vec<Option<MergeMode>> = Vec::with_capacity(measure_count);
@@ -306,7 +455,7 @@ pub(super) fn resolve_staff_full(
     } else {
         Vec::new()
     };
-    for mi in 0..measure_count {
+    for (mi, meter_state) in meter_states.iter().enumerate() {
         let (rm, mode) = resolve_one_measure_phase1(
             mi,
             score,
@@ -314,6 +463,7 @@ pub(super) fn resolve_staff_full(
             transposition,
             key_fifths_flip_at,
             &mut state,
+            meter_state,
         );
         resolved.push(rm);
         condensing_modes.push(mode);
@@ -365,6 +515,7 @@ pub(super) fn resolve_staff_scoped(
     measure_count: usize,
     prior: cache::CachedResolvedStaff,
 ) -> ScopedResolveResult {
+    let meter_states = flat_staff_meter_states(flat_staff, score, measure_count);
     let retained_ottavas = Arc::clone(&prior.ottavas);
     let mut duration_histogram = prior.duration_histogram;
     let mut ottavas_unchanged = true;
@@ -397,6 +548,7 @@ pub(super) fn resolve_staff_scoped(
             transposition,
             key_fifths_flip_at,
             &mut state,
+            &meter_states[mi],
         );
         let old_duration = collect_duration_histogram(std::slice::from_ref(&resolved_mut[mi]));
         let new_duration = collect_duration_histogram(std::slice::from_ref(&rm));
@@ -458,6 +610,7 @@ pub(super) fn resolve_one_measure_phase1(
     transposition: Option<(i32, i32)>,
     key_fifths_flip_at: Option<i32>,
     state: &mut cache::BoundaryState,
+    meter_state: &FlatStaffMeterState,
 ) -> (ResolvedMeasure, Option<MergeMode>) {
     let global = score
         .global
@@ -485,7 +638,10 @@ pub(super) fn resolve_one_measure_phase1(
     if let Some(ref k) = global.key {
         state.active_key = k.clone();
     }
-    let (mut virtual_pm, condensing_mode) = build_virtual_part_measure(flat_staff, mi, score);
+    state.effective_staff_meter = meter_state.effective.clone();
+    let (mut virtual_pm, condensing_mode) =
+        build_virtual_part_measure(flat_staff, mi, score, !meter_state.compatible);
+    meter_state.apply_authored_change(&mut virtual_pm);
     let measure_staff_lines = super::super::staff_lines::resolve_measure_staff_lines(
         &mut state.active_staff_lines,
         virtual_pm.staff_configs.as_deref(),
@@ -553,6 +709,7 @@ pub(super) fn resolve_one_measure_phase1(
                 )
             })
         }),
+        effective_staff_meter: meter_state.effective.clone(),
     };
     state.prev_display_key = display_key;
     (rm, condensing_mode)

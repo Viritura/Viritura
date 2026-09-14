@@ -364,7 +364,7 @@ fn render_measure_prefix(
     // (possibly forced) prefix boundary. This ensures that when different staves
     // have different key sig widths (e.g., transposing instruments), the time sig
     // still lines up vertically. standard engraving practice aligns time sigs across staves.
-    if let Some(ref ts) = rm.global.time {
+    if let Some(ts) = rm.displayed_time_signature() {
         let settings = config.time_signature_settings;
         let staff_override = time_signatures::staff_grouping_override(&rm.part);
         let time_sig_reserve = time_signatures::prefix_reserve(settings, ts, sp, staff_override);

@@ -226,6 +226,7 @@ pub(crate) fn promote_part_measure(
         expressions: vendor.expressions,
         condensing_override: vendor.condensing_override,
         grouping_display_overrides: vendor.grouping_display_overrides,
+        staff_meters: vendor.staff_meters,
     })
 }
 

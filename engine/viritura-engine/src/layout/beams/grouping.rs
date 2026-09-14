@@ -362,8 +362,11 @@ pub(crate) fn collect_all_beamed_event_ids(
             // Explicit groups claim only their own events. Auto-beam every
             // remaining eligible run so newly entered notes still receive
             // default beaming in a measure that already has manual beams.
-            let auto_beams =
-                auto_beam_groups(&ml.voice_layouts, &ml.resolved.active_time, &explicit_ids);
+            let auto_beams = auto_beam_groups(
+                &ml.voice_layouts,
+                ml.resolved.effective_beat_meter(),
+                &explicit_ids,
+            );
             for beam in &auto_beams {
                 for id in &beam.events {
                     ids.insert(id.clone());

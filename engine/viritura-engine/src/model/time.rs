@@ -240,6 +240,26 @@ pub(crate) fn default_beat_structure(count: u32, unit: u32) -> Vec<u32> {
     vec![1; count as usize]
 }
 
+/// Effective time signature at every measure index of a global measure
+/// sequence, computed in a single forward pass — each measure inherits the
+/// prior explicit `time` until a new one is authored. Shared by reconcile
+/// and per-staff measure resolution so both agree on "the global meter in
+/// force at measure N" without duplicating the inheritance walk.
+pub fn effective_time_signature_table(
+    measures: &[super::measure::GlobalMeasure],
+) -> Vec<TimeSignature> {
+    let mut current = TimeSignature::default();
+    measures
+        .iter()
+        .map(|measure| {
+            if let Some(ref ts) = measure.time {
+                current = ts.clone();
+            }
+            current.clone()
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod meter_tests {
     use super::*;
