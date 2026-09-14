@@ -37,6 +37,8 @@ import { MeasureNumberSection } from "./inspector/MeasureNumberSection";
 import { useMeasureNumberInspector } from "./inspector/useMeasureNumberInspector";
 import { TimeSignatureSection } from "./inspector/TimeSignatureSection";
 import { useTimeSignatureInspector } from "./inspector/useTimeSignatureInspector";
+import { BeamSection } from "./inspector/BeamSection";
+import { useBeamInspector } from "./inspector/useBeamInspector";
 
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
@@ -102,6 +104,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     isTimeSignatureSelected: selectedElementType === "time-signature",
     updateScore,
   });
+  const beam = useBeamInspector({ score, selection, updateScore });
 
   const {
     currentBarlineType,
@@ -157,7 +160,9 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleGlissandoTextChange,
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
-  if (!target && !staffConfig.target && !measureNumber.isAvailable) return <NotationInspectorEmptyState />;
+  if (!target && !staffConfig.target && !measureNumber.isAvailable && !beam.isAvailable) {
+    return <NotationInspectorEmptyState />;
+  }
 
   const selectionSubtitle = target
     ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
@@ -165,12 +170,16 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
       ? staffConfig.target.endMeasureIndex > staffConfig.target.measureIndex
         ? `Selected: bars ${staffConfig.target.measureIndex + 1}-${staffConfig.target.endMeasureIndex + 1}, staff ${staffConfig.target.staff}`
         : `Selected: bar ${staffConfig.target.measureIndex + 1}, staff ${staffConfig.target.staff}`
-      : `Selected: bar ${measureNumber.measureIndex! + 1}`;
+      : measureNumber.isAvailable
+        ? `Selected: bar ${measureNumber.measureIndex! + 1}`
+        : `Selected: ${beam.selectedEventCount} events`;
 
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" subtitle={selectionSubtitle} />
       <div className="viritura-scroll" style={bodyStyle}>
+        <BeamSection state={beam} />
+
         {target && tempo.isTempoSelected && tempo.selectedTempo && (
           <TempoSection
             key={target.elementId}

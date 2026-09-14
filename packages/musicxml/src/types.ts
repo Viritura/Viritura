@@ -149,7 +149,7 @@ export interface MnxOttava {
 export interface MnxBeam {
   events: string[];
   beams?: MnxBeam[];
-  hookDirection?: string;
+  direction?: "left" | "right" | "auto";
 }
 
 export interface MnxSequence {

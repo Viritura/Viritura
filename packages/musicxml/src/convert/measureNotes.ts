@@ -3,7 +3,6 @@ import { createDynamicGroup, type ChordSymbol } from "@viritura/core";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren, notationChildren } from "../xmlHelpers";
 import type {
-  MnxBeam,
   MnxDuration,
   MnxClef,
   MnxDynamic,
@@ -39,6 +38,7 @@ import {
   makePosition,
   type TransposeInterval,
 } from "./pitchDuration";
+import { processBeamMarks, type ActiveBeam, type CompletedBeam } from "./beamImport";
 
 /** Per-note conversion flags resolved from `ConvertOptions`. Distinct from
  *  `vendorExt` (which gates `_x.viritura` output) — these toggle how authored
@@ -87,7 +87,7 @@ export interface MeasureResult {
   clefs: MnxPositionedClef[];
   dynamics: MnxDynamic[];
   ottavaEvents: OttavaEvent[];
-  beamGroups: MnxBeam[];
+  beamGroups: CompletedBeam[];
   rehearsals: { text: string; position: MnxRhythmicPosition }[];
   expressions: { text: string; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
   hairpinEvents: HairpinEvent[];
@@ -108,11 +108,6 @@ export interface TupletAccumulator {
   showValue?: "noValue" | "inner" | "both";
   spanId?: string;
   continued?: boolean;
-}
-
-export interface ActiveBeam {
-  eventIds: string[];
-  level: number;
 }
 
 // MNX note-value base → fraction of a whole note.
@@ -309,7 +304,7 @@ export function processMeasureNotes(
   const clefs: MnxPositionedClef[] = [];
   const dynamics: MnxDynamic[] = [];
   const ottavaEvents: OttavaEvent[] = [];
-  const beamGroups: MnxBeam[] = [];
+  const beamGroups: CompletedBeam[] = [];
   const rehearsals: MeasureResult["rehearsals"] = [];
   const expressions: MeasureResult["expressions"] = [];
   const hairpinEvents: MeasureResult["hairpinEvents"] = [];
@@ -650,32 +645,8 @@ export function processMeasureNotes(
       // Beam tracking. Skipped while a multi-note tremolo is open for this
       // voice — the tremolo slashes stand in for the connecting beam, so the
       // two notes must not also form a regular beam group.
-      const beamEls = activeTremolos.has(voiceNum) ? [] : findChildren(el, "beam");
-      for (const beamEl of beamEls) {
-        const beamNum = parseInt(beamEl.getAttribute("number") ?? "1", 10);
-        const beamValue = beamEl.textContent ?? "";
-
-        if (beamValue === "begin") {
-          if (!activeBeams.has(voiceNum)) activeBeams.set(voiceNum, []);
-          const voiceBeams = activeBeams.get(voiceNum)!;
-          // Start a new beam at this level
-          voiceBeams.push({ eventIds: [eventId], level: beamNum });
-        } else if (beamValue === "continue" || beamValue === "end") {
-          const voiceBeams = activeBeams.get(voiceNum);
-          if (voiceBeams) {
-            const beam = voiceBeams.find((b) => b.level === beamNum);
-            if (beam) beam.eventIds.push(eventId);
-
-            if (beamValue === "end" && beamNum === 1) {
-              // Primary beam ended — emit beam group
-              const primaryBeam = voiceBeams.find((b) => b.level === 1);
-              if (primaryBeam && primaryBeam.eventIds.length >= 2) {
-                beamGroups.push({ events: [...primaryBeam.eventIds] });
-              }
-              activeBeams.delete(voiceNum);
-            }
-          }
-        }
+      if (!activeTremolos.has(voiceNum)) {
+        beamGroups.push(...processBeamMarks(el, eventId, voiceNum, staffNum, _globalMeasureIndex, activeBeams));
       }
 
       // Add event to tremolo, tuplet, or voice (tremolo is the innermost

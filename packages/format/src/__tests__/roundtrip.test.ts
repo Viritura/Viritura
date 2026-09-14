@@ -21,6 +21,36 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves recursive beams and beamlet directions", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [
+        {
+          measures: [
+            {
+              beams: [
+                {
+                  events: ["e1", "e2", "e3"],
+                  beams: [
+                    {
+                      events: ["e1", "e2"],
+                      beams: [{ events: ["e2"], direction: "left" }],
+                    },
+                    { events: ["e3"], direction: "right" },
+                  ],
+                },
+              ],
+              sequences: [{ content: [] }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).parts[0]!.measures[0]!.beams).toEqual(source.parts[0]!.measures[0]!.beams);
+  });
+
   it("preserves linked cross-barline tuplet fragments", () => {
     const fragment = (type: "start" | "stop") => ({
       type: "tuplet",
