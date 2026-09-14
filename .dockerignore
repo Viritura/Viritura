@@ -67,6 +67,7 @@ examples/*/**
 !packages/score-engine/package.json
 !packages/score-viewer-react/package.json
 !packages/sound-profiles/package.json
+!packages/stb-vorbis-shim/package.json
 !packages/ui/package.json
 !packages/video-sync/package.json
 
