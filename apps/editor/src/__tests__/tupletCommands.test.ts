@@ -4,6 +4,7 @@ import { isRest } from "@viritura/core";
 import {
   createTuplet,
   createTupletFromEvent,
+  createTupletFromRange,
   getTupletOuterMultiple,
   parseTupletRatio,
   tupletTotalBeats,
@@ -240,6 +241,84 @@ describe("createTuplet", () => {
       totalBeats += sequenceContentBeats(item);
     }
     expect(totalBeats).toBeCloseTo(4);
+  });
+
+  describe("createTupletFromRange", () => {
+    beforeEach(() => resetIdCounter());
+
+    function crossBarScore(): Score {
+      const event = (id: string): NoteEvent => ({
+        type: "event",
+        id,
+        duration: { base: "eighth" },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      });
+      return {
+        mnx: { version: 1 },
+        global: { measures: [{}, {}] },
+        parts: [
+          {
+            name: "Piano",
+            measures: [
+              { sequences: [{ content: [event("before"), event("a")] }] },
+              { sequences: [{ content: [event("b"), event("c"), event("after")] }] },
+            ],
+          },
+        ],
+      };
+    }
+
+    it("wraps a contiguous cross-barline selection as linked fragments", () => {
+      const score = crossBarScore();
+      createTupletFromRange(score, {
+        locations: [
+          { partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex: 1 },
+          { partIndex: 0, measureIndex: 1, sequenceIndex: 0, eventIndex: 0 },
+          { partIndex: 0, measureIndex: 1, sequenceIndex: 0, eventIndex: 1 },
+        ],
+        tupletNumber: 3,
+        outerMultiple: 2,
+      });
+
+      const start = score.parts[0]!.measures[0]!.sequences[0]!.content[1] as Tuplet;
+      const stop = score.parts[0]!.measures[1]!.sequences[0]!.content[0] as Tuplet;
+      expect(start.type).toBe("tuplet");
+      expect(stop.type).toBe("tuplet");
+      expect(start.content.map((event) => (event as NoteEvent).id)).toEqual(["a"]);
+      expect(stop.content.map((event) => (event as NoteEvent).id)).toEqual(["b", "c"]);
+      expect(start.span).toEqual({ id: stop.span?.id, type: "start" });
+      expect(stop.span?.type).toBe("stop");
+      expect(start.inner).toEqual({ multiple: 3, duration: { base: "eighth" } });
+      expect(start.outer).toEqual({ multiple: 2, duration: { base: "eighth" } });
+      expect(score.parts[0]!.measures[1]!.sequences[0]!.content[1]).toMatchObject({ id: "after" });
+    });
+
+    it("includes intervening events through the crossed barline", () => {
+      const score = crossBarScore();
+      createTupletFromRange(score, {
+        locations: [
+          { partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex: 0 },
+          { partIndex: 0, measureIndex: 1, sequenceIndex: 0, eventIndex: 0 },
+        ],
+        tupletNumber: 3,
+      });
+
+      const start = score.parts[0]!.measures[0]!.sequences[0]!.content[0] as Tuplet;
+      expect(start.content.map((event) => (event as NoteEvent).id)).toEqual(["before", "a"]);
+    });
+
+    it("rejects ranges spanning different voices", () => {
+      const score = crossBarScore();
+      expect(() =>
+        createTupletFromRange(score, {
+          locations: [
+            { partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex: 1 },
+            { partIndex: 0, measureIndex: 1, sequenceIndex: 1, eventIndex: 0 },
+          ],
+          tupletNumber: 3,
+        }),
+      ).toThrow("must stay in one part and voice");
+    });
   });
 
   it("creates a triplet of quarters at beat 0, replacing whole rest", () => {

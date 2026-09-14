@@ -24,6 +24,7 @@ import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
 import {
   resolveEventLocation,
+  resolveEventFromSubElement,
   resolveFullMeasureRestLocation,
   getEventAtLocation,
   type EventLocation,
@@ -63,7 +64,12 @@ import {
   addMixedExpression,
   applyBreathFermata,
 } from "../radialMenu/radialMenuActions";
-import { createTuplet, createTupletFromEvent, parseTupletRatio } from "../commands/tupletCommands";
+import {
+  createTuplet,
+  createTupletFromEvent,
+  createTupletFromRange,
+  parseTupletRatio,
+} from "../commands/tupletCommands";
 import {
   durationToBeats,
   sequenceContentBeats,
@@ -1090,13 +1096,39 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       if (!score) return;
 
       const ni = useNoteInputStore.getState();
-      if (sel.kind !== "single" && (!ni.active || !ni.cursorPosition)) {
-        toast.warning("Select a note or activate note input before creating a tuplet");
+      if (sel.kind !== "single" && sel.kind !== "range" && (!ni.active || !ni.cursorPosition)) {
+        toast.warning("Select a note range or activate note input before creating a tuplet");
         return;
+      }
+      let rangeLocations: EventLocation[] = [];
+      if (sel.kind === "range") {
+        const start =
+          resolveEventLocation(sel.startElementId, score) ?? resolveEventFromSubElement(sel.startElementId, score);
+        const end =
+          resolveEventLocation(sel.endElementId, score) ?? resolveEventFromSubElement(sel.endElementId, score);
+        if (start && end) {
+          rangeLocations = [start, end];
+        }
       }
 
       const newScore = produce(score, (draft) => {
-        // Mode 1: Selection — convert the selected event into a tuplet.
+        // Mode 1: Range selection — preserve the selected events and link one
+        // measure-local tuplet fragment on each side of the barline.
+        if (sel.kind === "range") {
+          try {
+            createTupletFromRange(draft, {
+              locations: rangeLocations,
+              tupletNumber,
+              outerMultiple,
+            });
+          } catch (err) {
+            console.warn("[Tuplet]", (err as Error).message);
+            toast.warning((err as Error).message || "Failed to create cross-barline tuplet");
+          }
+          return;
+        }
+
+        // Mode 2: Single selection — convert the selected event into a tuplet.
         if (sel.kind === "single") {
           const loc = resolveEventLocation(sel.elementId, draft);
           if (!loc) return;
@@ -1120,7 +1152,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           return;
         }
 
-        // Mode 2: Note input mode — create a tuplet at the cursor position.
+        // Mode 3: Note input mode — create a tuplet at the cursor position.
         if (ni.active && ni.cursorPosition) {
           const cursor = ni.cursorPosition;
           const voice = ni.currentVoice - 1;
