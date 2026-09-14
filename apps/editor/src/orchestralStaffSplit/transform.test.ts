@@ -179,7 +179,7 @@ describe("splitOrchestralParts", () => {
                     type: "tremolo",
                     content: [second, event("e3", [pitch("E", 4)])],
                     marks: 1,
-                    outer: { duration: { base: "quarter" }, multiple: 1 },
+                    outer: { duration: { base: "eighth" }, multiple: 3 },
                   },
                 ],
               },
