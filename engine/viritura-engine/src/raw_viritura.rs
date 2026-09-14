@@ -7837,6 +7837,11 @@ impl ::std::default::Default for TextStyles {
 ///      },
 ///      "minItems": 1
 ///    },
+///    "display": {
+///      "description": "Engraves the denominator as its note value instead of a numeral.",
+///      "type": "string",
+///      "const": "note"
+///    },
 ///    "groupingDisplay": {
 ///      "description": "Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.",
 ///      "$ref": "#/$defs/grouping-display"
@@ -7856,6 +7861,9 @@ pub struct TimeExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub beat_structure: ::std::vec::Vec<i64>,
+    ///Engraves the denominator as its note value instead of a numeral.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub display: ::std::option::Option<::std::string::String>,
     ///Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.
     #[serde(
         rename = "groupingDisplay",
@@ -7873,6 +7881,7 @@ impl ::std::default::Default for TimeExtensions {
     fn default() -> Self {
         Self {
             beat_structure: Default::default(),
+            display: Default::default(),
             grouping_display: Default::default(),
         }
     }

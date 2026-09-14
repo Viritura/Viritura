@@ -25,6 +25,11 @@ export interface components {
             beatStructure?: number[];
             /** @description Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback. */
             groupingDisplay?: components["schemas"]["grouping-display"];
+            /**
+             * @description Engraves the denominator as its note value instead of a numeral.
+             * @constant
+             */
+            display?: "note";
         };
         /**
          * @description How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.

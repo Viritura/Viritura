@@ -21,6 +21,8 @@ const TIME_SIG_SEARCH: Record<string, string[]> = {
   "12/8": ["twelve eight"],
   common: ["4/4", "C"],
   cut: ["2/2", "alla breve"],
+  "senza-misura": ["open meter", "free time"],
+  "note-denominator": ["note value", "denominator"],
   custom: ["other", "custom", "numerator", "denominator"],
 };
 
@@ -32,6 +34,10 @@ export const TIME_SIGNATURE_ITEMS: RadialMenuItem[] = [
         SMUFL.timeSigCommon
       ) : p.time.display === "cut" ? (
         SMUFL.timeSigCut
+      ) : p.time.display === "senzaMisura" ? (
+        SMUFL.timeSigOpenPenderecki
+      ) : p.time.display === "note" ? (
+        <TimeSigGlyph count={p.time.count} unit={p.time.unit} numeralStyle="noteValue" />
       ) : (
         <TimeSigGlyph count={p.time.count} unit={p.time.unit} />
       ),

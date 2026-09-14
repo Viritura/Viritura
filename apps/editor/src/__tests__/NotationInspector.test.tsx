@@ -173,6 +173,45 @@ function StaffConfigHarness() {
   );
 }
 
+function TimeSignatureHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
+  const { selectElement } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    initial.global.measures[0]!.time = { count: 4, unit: 4 };
+    loadScore(initial, "time-signature.mnx");
+    selectElement("m0/time");
+  }, [loadScore, selectElement]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
+function MeasureSelectionHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score } = useDocument();
+  const { selectMeasure } = useSelectionActions();
+
+  useEffect(() => {
+    loadScore(buildScore(), "measure-selection.mnx");
+    selectMeasure(0, 0, 0);
+  }, [loadScore, selectMeasure]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+    </>
+  );
+}
+
 function BeamHarness({ selectionKind }: { selectionKind: "single" | "range" | "multi" }) {
   const { loadScore } = useDocumentActions();
   const { score } = useDocument();
@@ -314,6 +353,87 @@ describe("NotationInspector", () => {
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("No current selection")).toBeTruthy();
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
+  });
+
+  it("sets and clears a measure-number override from a selected measure", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<MeasureSelectionHarness />));
+
+    const input = await screen.findByRole("spinbutton", { name: "Measure 1 number override" });
+    await user.type(input, "12");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(12));
+
+    await user.click(screen.getByRole("button", { name: "Clear override" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBeUndefined());
+  });
+
+  it("validates measure-number overrides from a selected barline", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="m0/barline" />));
+
+    const input = await screen.findByRole("spinbutton", { name: "Measure 1 number override" });
+    await user.type(input, "0");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(await screen.findByText("Measure number must be at least 1.")).toBeTruthy();
+    expect(currentScore().global.measures[0]!.number).toBeUndefined();
+  });
+
+  it.each([
+    ["Heavy-light", "heavyLight"],
+    ["Heavy-heavy", "heavyHeavy"],
+    ["No barline", "noBarline"],
+  ] as const)("edits the selected barline to %s", async (label, type) => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="m0/barline" />));
+
+    await user.click(await screen.findByRole("radio", { name: label }));
+
+    await waitFor(() => expect(currentScore().global.measures[0]!.barline?.type).toBe(type));
+  });
+
+  it("edits symbolic meter display and removes the selected time signature", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<TimeSignatureHarness />));
+
+    const display = await screen.findByRole("combobox", { name: "Time signature display" });
+    await user.click(display);
+    expect((await screen.findByRole("option", { name: "Cut time" })).hasAttribute("data-disabled")).toBe(true);
+    await user.click(await screen.findByRole("option", { name: "Open meter" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time?.display).toBe("senzaMisura"));
+    expect(currentMnx().global).toMatchObject({
+      measures: [{ time: { count: 4, unit: 4 }, _x: { viritura: { senzaMisura: true } } }],
+    });
+
+    await user.click(display);
+    await user.click(await screen.findByRole("option", { name: "Note-value denominator" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time?.display).toBe("note"));
+    expect(currentMnx().global).toMatchObject({
+      measures: [{ time: { count: 4, unit: 4, _x: { viritura: { display: "note" } } } }],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Remove time signature" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time).toBeUndefined());
+  });
+
+  it("records measure-number overrides in undo and redo history", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<HistoryHarness elementId="m0/barline" />));
+
+    await user.type(await screen.findByRole("spinbutton", { name: "Measure 1 number override" }), "8");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(8));
+
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBeUndefined());
+
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+    await user.click(redo);
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(8));
   });
 
   it.each(["range", "multi"] as const)("shows beam controls for a %s-event selection and joins it", async (kind) => {

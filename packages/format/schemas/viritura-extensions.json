@@ -53,6 +53,11 @@
         "groupingDisplay": {
           "$ref": "#/$defs/grouping-display",
           "description": "Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback."
+        },
+        "display": {
+          "type": "string",
+          "const": "note",
+          "description": "Engraves the denominator as its note value instead of a numeral."
         }
       },
       "additionalProperties": false

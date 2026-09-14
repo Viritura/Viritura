@@ -33,6 +33,10 @@ import { StaffConfigSection } from "./inspector/StaffConfigSection";
 import { useStaffConfigInspector } from "./inspector/useStaffConfigInspector";
 import { MAX_STAFF_LINES } from "../commands/staffConfigCommands";
 import { useLyricInspector } from "./inspector/useLyricInspector";
+import { MeasureNumberSection } from "./inspector/MeasureNumberSection";
+import { useMeasureNumberInspector } from "./inspector/useMeasureNumberInspector";
+import { TimeSignatureSection } from "./inspector/TimeSignatureSection";
+import { useTimeSignatureInspector } from "./inspector/useTimeSignatureInspector";
 import { BeamSection } from "./inspector/BeamSection";
 import { useBeamInspector } from "./inspector/useBeamInspector";
 
@@ -93,6 +97,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   const isLyricSelected = lyric.selected !== null;
   const groupingDisplay = useGroupingDisplayInspector({ score, target, selection, updateScore });
   const staffMeter = useStaffMeterInspector({ score, target, selection, updateScore });
+  const measureNumber = useMeasureNumberInspector({ score, target, selection, updateScore });
+  const timeSignature = useTimeSignatureInspector({
+    score,
+    target,
+    isTimeSignatureSelected: selectedElementType === "time-signature",
+    updateScore,
+  });
   const beam = useBeamInspector({ score, selection, updateScore });
 
   const {
@@ -149,15 +160,19 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleGlissandoTextChange,
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
-  if (!target && !staffConfig.target && !beam.isAvailable) return <NotationInspectorEmptyState />;
+  if (!target && !staffConfig.target && !measureNumber.isAvailable && !beam.isAvailable) {
+    return <NotationInspectorEmptyState />;
+  }
 
   const selectionSubtitle = target
     ? `Selected: ${selectedElementType ?? target.elementType} (${target.elementId})`
     : staffConfig.target
       ? staffConfig.target.endMeasureIndex > staffConfig.target.measureIndex
-        ? `Selected: bars ${staffConfig.target!.measureIndex + 1}-${staffConfig.target!.endMeasureIndex + 1}, staff ${staffConfig.target!.staff}`
+        ? `Selected: bars ${staffConfig.target.measureIndex + 1}-${staffConfig.target.endMeasureIndex + 1}, staff ${staffConfig.target.staff}`
         : `Selected: bar ${staffConfig.target.measureIndex + 1}, staff ${staffConfig.target.staff}`
-      : `Selected: ${beam.selectedEventCount} events`;
+      : measureNumber.isAvailable
+        ? `Selected: bar ${measureNumber.measureIndex! + 1}`
+        : `Selected: ${beam.selectedEventCount} events`;
 
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
@@ -223,6 +238,26 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onToggleRepeatEnd={handleToggleRepeatEnd}
             onToggleRepeatStart={handleToggleRepeatStart}
             onRepeatEndTimesChange={handleRepeatEndTimesChange}
+          />
+        )}
+
+        {measureNumber.isAvailable && measureNumber.measureIndex !== null && (
+          <MeasureNumberSection
+            key={`${measureNumber.measureIndex}:${measureNumber.value ?? "auto"}`}
+            measureIndex={measureNumber.measureIndex}
+            value={measureNumber.value}
+            error={measureNumber.error}
+            onChange={measureNumber.setValue}
+          />
+        )}
+
+        {timeSignature.isAvailable && timeSignature.time && (
+          <TimeSignatureSection
+            count={timeSignature.time.count}
+            unit={timeSignature.time.unit}
+            display={timeSignature.display}
+            onDisplayChange={timeSignature.setDisplay}
+            onRemove={timeSignature.remove}
           />
         )}
 
