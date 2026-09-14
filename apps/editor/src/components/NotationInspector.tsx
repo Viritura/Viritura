@@ -7,6 +7,7 @@ import { LayoutSection } from "./inspector/LayoutSection";
 import { TempoSection } from "./inspector/TempoSection";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
+import { GlissandoSection } from "./inspector/GlissandoSection";
 import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspector/BarlineSections";
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
@@ -72,6 +73,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selectedNote,
     selectedTie,
     selectedSlur,
+    selectedGlissando,
     selectedTrill,
     selectedSequence,
     selectedContent,
@@ -130,7 +132,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleSlurLineTypeChange,
     handleSlurStartNoteChange,
     handleSlurEndNoteChange,
-  } = useTieSlurHandlers({ score, target, updateScore });
+    glissandoError,
+    handleGlissandoTargetChange,
+    handleGlissandoKindChange,
+    handleGlissandoStyleChange,
+    handleGlissandoTextVisibleChange,
+    handleGlissandoTextChange,
+  } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
   if (!target && !staffConfig.target) return <NotationInspectorEmptyState />;
 
@@ -254,6 +262,20 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onLineTypeChange={handleSlurLineTypeChange}
             onStartNoteChange={handleSlurStartNoteChange}
             onEndNoteChange={handleSlurEndNoteChange}
+          />
+        )}
+
+        {!isLyricSelected && selectedGlissando && (
+          <GlissandoSection
+            key={`${target?.elementId}:${selectedGlissando.target}`}
+            glissando={selectedGlissando}
+            focusedSection={focusedSection}
+            error={glissandoError}
+            onTargetChange={handleGlissandoTargetChange}
+            onKindChange={handleGlissandoKindChange}
+            onStyleChange={handleGlissandoStyleChange}
+            onTextVisibleChange={handleGlissandoTextVisibleChange}
+            onTextChange={handleGlissandoTextChange}
           />
         )}
 

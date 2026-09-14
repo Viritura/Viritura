@@ -27,7 +27,9 @@ export function processGlissandoBoundaries(
       const key = `${tag}:${element.getAttribute("number") ?? "1"}`;
       const boundary = element.getAttribute("type") ?? "start";
       if (boundary === "start") {
-        const glissando: Omit<MnxGlissando, "target"> = {};
+        const glissando: Omit<MnxGlissando, "target"> = {
+          kind: tag === "slide" ? "portamento" : "glissando",
+        };
         const lineType = element.getAttribute("line-type");
         if (lineType === "straight" || lineType === "wavy") glissando.style = lineType;
         const text = element.textContent?.trim();

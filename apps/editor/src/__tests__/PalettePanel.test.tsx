@@ -30,6 +30,12 @@ const SCORE: Score = {
                     { id: "first-note-high", pitch: { step: "E", octave: 4 } },
                   ],
                 },
+                {
+                  type: "event",
+                  id: "second-note",
+                  duration: { base: "quarter" },
+                  notes: [{ id: "second-note-id", pitch: { step: "G", octave: 4 } }],
+                },
               ],
             },
             {
@@ -68,11 +74,41 @@ function WithScore({ children }: { readonly children: ReactNode }) {
       <output data-testid="time-0">{JSON.stringify(score.global.measures[0]?.time ?? null)}</output>
       <output data-testid="time-1">{JSON.stringify(score.global.measures[1]?.time ?? null)}</output>
       <output data-testid="arpeggios-1">{JSON.stringify(score.parts[0]?.measures[1]?.arpeggios ?? null)}</output>
+      <output data-testid="glissandos-1">
+        {JSON.stringify(
+          (score.parts[0]?.measures[1]?.sequences[0]?.content[0] as { glissandos?: unknown[] })?.glissandos ?? null,
+        )}
+      </output>
     </>
   ) : null;
 }
 
 describe("PalettePanel", () => {
+  it("authors a semantic portamento between two selected notes", async () => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "multi",
+        elementIds: ["p0/m1/s0/first-note", "p0/m1/s0/second-note"],
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Portamento" }));
+
+    expect(screen.getByTestId("glissandos-1").textContent).toBe(
+      '[{"target":"second-note","kind":"portamento","style":"straight","text":"port."}]',
+    );
+  });
+
   it("opens chord-symbol entry from the Text palette", async () => {
     useSelectionStore.setState({
       selection: { kind: "single", elementId: "p0/m1/s0/first-note/n0", elementType: "note" },

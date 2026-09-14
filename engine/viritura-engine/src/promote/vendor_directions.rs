@@ -221,7 +221,11 @@ fn promote_glissando(r: raw_viritura::Glissando) -> ModelGlissando {
             Some(raw_viritura::GlissandoStyle::Straight) | None => ModelGlissandoStyle::Straight,
             Some(raw_viritura::GlissandoStyle::Wavy) => ModelGlissandoStyle::Wavy,
         },
-        text: r.text,
+        text: if r.show_text == Some(false) {
+            None
+        } else {
+            r.text
+        },
     }
 }
 

@@ -2023,6 +2023,14 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///    "target"
 ///  ],
 ///  "properties": {
+///    "kind": {
+///      "description": "Semantic kind. Default: 'glissando'.",
+///      "$ref": "#/$defs/glissando-kind"
+///    },
+///    "showText": {
+///      "description": "Whether to display the text label. Default: true.",
+///      "type": "boolean"
+///    },
 ///    "style": {
 ///      "description": "Line style. Default: 'straight'.",
 ///      "$ref": "#/$defs/glissando-style"
@@ -2043,6 +2051,16 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Glissando {
+    ///Semantic kind. Default: 'glissando'.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<GlissandoKind>,
+    ///Whether to display the text label. Default: true.
+    #[serde(
+        rename = "showText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_text: ::std::option::Option<bool>,
     ///Line style. Default: 'straight'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub style: ::std::option::Option<GlissandoStyle>,
@@ -2055,6 +2073,88 @@ pub struct Glissando {
 impl ::std::convert::From<&Glissando> for Glissando {
     fn from(value: &Glissando) -> Self {
         value.clone()
+    }
+}
+///Semantic kind of a glissando-family line.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Semantic kind of a glissando-family line.",
+///  "type": "string",
+///  "enum": [
+///    "glissando",
+///    "portamento"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GlissandoKind {
+    #[serde(rename = "glissando")]
+    Glissando,
+    #[serde(rename = "portamento")]
+    Portamento,
+}
+impl ::std::convert::From<&Self> for GlissandoKind {
+    fn from(value: &GlissandoKind) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GlissandoKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Glissando => f.write_str("glissando"),
+            Self::Portamento => f.write_str("portamento"),
+        }
+    }
+}
+impl ::std::str::FromStr for GlissandoKind {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "glissando" => Ok(Self::Glissando),
+            "portamento" => Ok(Self::Portamento),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Glissando/portamento line style.
@@ -8577,6 +8677,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "glissando": {
 ///      "$ref": "#/$defs/glissando"
 ///    },
+///    "glissando-kind": {
+///      "$ref": "#/$defs/glissando-kind"
+///    },
 ///    "glissando-style": {
 ///      "$ref": "#/$defs/glissando-style"
 ///    },
@@ -8829,6 +8932,12 @@ pub struct VirituraExtensionsRoot {
     pub font_family: ::std::option::Option<FontFamily>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub glissando: ::std::option::Option<Glissando>,
+    #[serde(
+        rename = "glissando-kind",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub glissando_kind: ::std::option::Option<GlissandoKind>,
     #[serde(
         rename = "glissando-style",
         default,
@@ -9202,6 +9311,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             fingering: Default::default(),
             font_family: Default::default(),
             glissando: Default::default(),
+            glissando_kind: Default::default(),
             glissando_style: Default::default(),
             gradual_tempo: Default::default(),
             hit_point: Default::default(),

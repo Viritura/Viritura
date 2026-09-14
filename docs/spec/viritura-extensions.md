@@ -777,11 +777,13 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
-| Property | Type                     | Required | Description                                  |
-| -------- | ------------------------ | -------- | -------------------------------------------- |
-| `target` | string                   | **Yes**  | ID of the target event                       |
-| `style`  | `"straight"` \| `"wavy"` | No       | Line style. Default: `"straight"`            |
-| `text`   | string                   | No       | Optional text label (e.g. "gliss.", "port.") |
+| Property   | Type                            | Required | Description                                                 |
+| ---------- | ------------------------------- | -------- | ----------------------------------------------------------- |
+| `target`   | string                          | **Yes**  | ID of the target event                                      |
+| `kind`     | `"glissando"` \| `"portamento"` | No       | Semantic kind, independent of its label. Default: glissando |
+| `style`    | `"straight"` \| `"wavy"`        | No       | Line style. Default: `"straight"`                           |
+| `text`     | string                          | No       | Optional text label (e.g. "gliss.", "port.")                |
+| `showText` | boolean                         | No       | Whether to display the label. Default: `true`               |
 
 ```json
 {

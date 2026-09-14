@@ -40,6 +40,23 @@ function contentAt(score: Score, i: number): NoteEvent {
 }
 
 describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
+  it("deletes a selected glissando without deleting its notes", () => {
+    const score = makeScore();
+    contentAt(score, 0).glissandos = [{ target: "ev1", kind: "portamento", text: "port." }];
+
+    const result = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: "gliss/ev0/ev1",
+      elementType: "glissando",
+    });
+
+    expect(result.kind).toBe("single");
+    if (result.kind !== "single") return;
+    expect(contentAt(result.score, 0).glissandos).toBeUndefined();
+    expect(contentAt(result.score, 0).notes).toHaveLength(3);
+    expect(contentAt(result.score, 1).notes).toHaveLength(1);
+  });
+
   it("removes only the selected noteheads when part of a chord is selected", () => {
     const sel: Selection = { kind: "multi", elementIds: ["p0/m0/s0/ev0/n0", "p0/m0/s0/ev0/n2"] };
     const result = computeDeleteSelection(makeScore(), sel);

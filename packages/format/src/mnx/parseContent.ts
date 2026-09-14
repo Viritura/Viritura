@@ -419,8 +419,10 @@ function parseSlur(raw: RawSlur): Slur {
 
 function parseGlissando(raw: RawGlissando): Glissando {
   const gliss: Glissando = { target: raw.target };
+  if (raw.kind) gliss.kind = raw.kind;
   if (raw.style) gliss.style = raw.style as GlissandoStyle;
   if (raw.text) gliss.text = raw.text;
+  if (raw.showText !== undefined) gliss.showText = raw.showText;
   return gliss;
 }
 

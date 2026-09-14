@@ -180,6 +180,28 @@ fn test_glissando_with_text_produces_draw_text() {
 }
 
 #[test]
+fn test_glissando_hidden_text_omits_draw_text() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"id": "t1", "duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 4}}], "_x": {"viritura": {"glissandos": [{"target": "t2", "text": "port.", "showText": false}]}}},
+                {"id": "t2", "duration": {"base": "half"}, "notes": [{"pitch": {"step": "A", "octave": 5}}]}
+            ]}]
+        }]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    assert!(!dl
+        .commands
+        .iter()
+        .any(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "port.")));
+}
+
+#[test]
 fn test_glissando_default_style_is_straight() {
     // No style specified should default to straight
     let json = r#"{
