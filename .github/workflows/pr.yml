@@ -56,7 +56,7 @@ jobs:
                 vst_probe=true
                 dev_stack=true
                 ;;
-              apps/editor/*|apps/website/*|apps/server-ui/*|apps/vscode-mnx-viewer/*|packages/*|examples/*|assets/*|e2e/*|build-site.ts|playwright*.config.ts)
+              apps/editor/*|apps/website/*|apps/server-ui/*|apps/vscode-mnx-viewer/*|packages/*|examples/*|assets/*|build-site.ts)
                 pnpm=true
                 ;;
               scripts/*)
