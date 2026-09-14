@@ -1,5 +1,5 @@
 // Auto-generated from tests.rs — test_tuplets
-// 5 test(s)
+// 6 test(s)
 
 use super::test_helpers::*;
 use crate::layout::build_beat_anchors;
@@ -12,6 +12,88 @@ use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+const CROSS_BARLINE_TUPLET: &str = r#"{
+    "mnx": {"version": 1},
+    "global": {"measures": [{"id":"m1"}, {"id":"m2"}]},
+    "parts": [{"measures": [
+      {"sequences": [{"content": [{
+        "type": "tuplet",
+        "inner": {"multiple": 3, "duration": {"base": "eighth"}},
+        "outer": {"multiple": 2, "duration": {"base": "eighth"}},
+        "content": [{"id":"a","duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":5}}]}],
+        "_x": {"viritura": {"span": {"id":"cross-bar-triplet","type":"start"}}}
+      }]}]},
+      {"sequences": [{"content": [{
+        "type": "tuplet",
+        "inner": {"multiple": 3, "duration": {"base": "eighth"}},
+        "outer": {"multiple": 2, "duration": {"base": "eighth"}},
+        "content": [{"id":"b","duration":{"base":"eighth"},"notes":[{"pitch":{"step":"D","octave":5}}]}],
+        "_x": {"viritura": {"span": {"id":"cross-bar-triplet","type":"stop"}}}
+      }]}]}
+    ]}]
+}"#;
+
+#[test]
+fn test_cross_barline_tuplet_fragments_share_identity_and_number() {
+    let score = parse_mnx(CROSS_BARLINE_TUPLET).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let span_id = "p0/tuplet-span-cross-bar-triplet";
+
+    let tagged_commands = dl
+        .element_ids
+        .iter()
+        .filter(|id| id.as_deref() == Some(span_id))
+        .count();
+    assert!(
+        tagged_commands >= 3,
+        "both bracket fragments should share one selectable identity"
+    );
+    assert_eq!(
+        dl.commands
+            .iter()
+            .filter(|command| is_tuplet_number_glyph(command))
+            .count(),
+        1,
+        "only the first fragment should render the logical tuplet number"
+    );
+}
+
+#[test]
+fn test_cross_barline_tuplet_continues_across_system_break() {
+    let score = parse_mnx(CROSS_BARLINE_TUPLET).unwrap();
+    let mut config = LayoutConfig::default();
+    config.page_width = Some(30.0 * config.sp);
+    let dl = layout_score(&score, 0, &config);
+    let span_id = "p0/tuplet-span-cross-bar-triplet";
+    let mut bracket_y_positions = dl
+        .commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter_map(|(command, id)| match (command, id.as_deref()) {
+            (RenderCommand::DrawLine { y1, .. }, Some(id)) if id == span_id => {
+                Some(y1.round() as i64)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    bracket_y_positions.sort_unstable();
+    bracket_y_positions.dedup();
+
+    assert!(
+        bracket_y_positions.len() >= 2,
+        "tuplet continuation brackets should render on both systems"
+    );
+    assert_eq!(
+        dl.commands
+            .iter()
+            .filter(|command| is_tuplet_number_glyph(command))
+            .count(),
+        1,
+        "the continued logical tuplet should keep one number across systems"
+    );
+}
 
 #[test]
 fn test_tuplets_mnx_correct_event_count() {

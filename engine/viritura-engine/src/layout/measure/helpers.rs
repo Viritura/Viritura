@@ -347,6 +347,7 @@ pub(crate) fn layout_sequence_content(
                         show_bracket,
                         show_number,
                         orient: tuplet.orient,
+                        span: tuplet.span.clone(),
                     });
                 }
             }

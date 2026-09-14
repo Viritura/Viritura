@@ -213,8 +213,15 @@ export function sequenceContentBeats(content: SequenceContent): number {
   switch (content.type) {
     case "event":
       return durationToBeats(content.duration);
-    case "tuplet":
+    case "tuplet": {
+      if (content.span) {
+        const innerBeats = content.inner.multiple * durationToBeats(content.inner.duration);
+        const outerBeats = content.outer.multiple * durationToBeats(content.outer.duration);
+        const fragmentInnerBeats = content.content.reduce((sum, item) => sum + sequenceContentBeats(item), 0);
+        return innerBeats > 0 ? fragmentInnerBeats * (outerBeats / innerBeats) : 0;
+      }
       return content.outer.multiple * durationToBeats(content.outer.duration);
+    }
     case "tremolo":
       return content.outer.multiple * durationToBeats(content.outer.duration);
     case "grace":

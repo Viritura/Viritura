@@ -908,6 +908,7 @@ mod tests {
                     show_value: None,
                     orient: None,
                     staff: None,
+                    span: None,
                 })],
                 full_measure: None,
                 staff: None,

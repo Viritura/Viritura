@@ -159,6 +159,7 @@ describe("parseElementType", () => {
     it("returns 'tuplet' for tuplet-prefixed segments", () => {
       expect(parseElementType("p0/m0/s0/tuplet0")).toBe("tuplet");
       expect(parseElementType("p0/m0/tuplet1")).toBe("tuplet");
+      expect(parseElementType("p0/tuplet-span-cross-bar-triplet")).toBe("tuplet");
     });
 
     it("returns 'grace-note' for grace-prefixed segments", () => {

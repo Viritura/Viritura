@@ -18,6 +18,7 @@ const extensionDefinitions = [
   "part-extensions",
   "kit-component-extensions",
   "part-measure-extensions",
+  "tuplet-extensions",
   "positioned-staff-config-extensions",
   "dynamic-group-extensions",
   "event-extensions",

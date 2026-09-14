@@ -96,7 +96,7 @@ export interface MeasureResult {
   chordSymbols: ChordSymbol[];
 }
 
-interface TupletAccumulator {
+export interface TupletAccumulator {
   actualNotes: number;
   normalNotes: number;
   normalType: string;
@@ -106,6 +106,13 @@ interface TupletAccumulator {
   showNumber?: "noNumber" | "inner" | "both";
   /** From MusicXML <tuplet show-type="none|actual|both"> — maps to MNX `showValue`. */
   showValue?: "noValue" | "inner" | "both";
+  spanId?: string;
+  continued?: boolean;
+}
+
+export interface ActiveBeam {
+  eventIds: string[];
+  level: number;
 }
 
 // MNX note-value base → fraction of a whole note.
@@ -191,13 +198,13 @@ function writtenContentBeats(content: MnxSequenceContent[]): Fraction | undefine
  * inner and outer share the tuplet's metric unit (the `normal-type`); using
  * the first note's written value breaks mixed-duration tuplets.
  */
-function finalizeTuplet(acc: TupletAccumulator): MnxTuplet {
+function finalizeTuplet(acc: TupletAccumulator, spanType?: "start" | "continue" | "stop"): MnxTuplet {
   let innerMultiple = acc.actualNotes;
   let outerMultiple = acc.normalNotes;
 
   const unit = baseToFraction(acc.normalType);
   const total = writtenContentBeats(acc.events);
-  if (unit && total && acc.actualNotes > 0 && unit.n > 0) {
+  if (!spanType && unit && total && acc.actualNotes > 0 && unit.n > 0) {
     // units = total / unit, exact when the content tiles the metric unit.
     const unitsN = total.n * unit.d;
     const unitsD = total.d * unit.n;
@@ -220,6 +227,9 @@ function finalizeTuplet(acc: TupletAccumulator): MnxTuplet {
   else if (acc.bracket === false) tuplet.bracket = "no";
   if (acc.showNumber) tuplet.showNumber = acc.showNumber;
   if (acc.showValue) tuplet.showValue = acc.showValue;
+  if (spanType && acc.spanId) {
+    tuplet._x = { viritura: { span: { id: acc.spanId, type: spanType } } };
+  }
   return tuplet;
 }
 
@@ -291,6 +301,8 @@ export function processMeasureNotes(
   transpose?: TransposeInterval,
   flags: ConvertFlags = {},
   activeClefs: Map<number, MnxClef> = new Map(),
+  activeTuplets: Map<string, TupletAccumulator> = new Map(),
+  activeBeams: Map<string, ActiveBeam[]> = new Map(),
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
@@ -335,12 +347,6 @@ export function processMeasureNotes(
 
   // Slur end IDs: maps slur number to the ID the stop event should have
   const pendingSlurEndIds = new Map<string, string>();
-
-  // Beam tracking: map voice → list of {beamLevel, eventIds}
-  const activeBeams = new Map<string, { eventIds: string[]; level: number }[]>();
-
-  // Tuplet tracking per voice
-  const activeTuplets = new Map<string, TupletAccumulator>();
 
   // Multi-note (two-note) tremolo tracking per voice
   const activeTremolos = new Map<string, TremoloAccumulator>();
@@ -689,7 +695,7 @@ export function processMeasureNotes(
         tupletAcc.events.push(event);
 
         if (tupletStop) {
-          getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+          getVoice(voiceNum).push(finalizeTuplet(tupletAcc, tupletAcc.continued ? "stop" : undefined));
           activeTuplets.delete(voiceNum);
         }
       } else {
@@ -910,10 +916,21 @@ export function processMeasureNotes(
     i++;
   }
 
-  // Flush any unclosed tuplets
+  // Emit a measure-local fragment while retaining the accumulator for a stop
+  // in a later measure. Current MNX cannot contain one tuplet across measures,
+  // so Viritura links timing-equivalent fragments with `_x.viritura.span`.
   for (const [voiceNum, tupletAcc] of activeTuplets) {
     if (tupletAcc.events.length > 0) {
-      getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+      const isLastMeasure = _globalMeasureIndex + 1 >= _totalMeasures;
+      if (isLastMeasure) {
+        getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+        activeTuplets.delete(voiceNum);
+      } else {
+        tupletAcc.spanId ??= ids.next("tuplet-span");
+        getVoice(voiceNum).push(finalizeTuplet(tupletAcc, tupletAcc.continued ? "continue" : "start"));
+        tupletAcc.events = [];
+        tupletAcc.continued = true;
+      }
     }
   }
 

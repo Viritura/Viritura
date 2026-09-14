@@ -20,6 +20,36 @@ function firstTuplet(measureBody: string): MnxTuplet {
 const ATTRS = `<attributes><divisions>6</divisions></attributes>`;
 
 describe("convertMusicXmlToMnx — tuplets", () => {
+  it("links tuplet fragments when MusicXML start and stop are in different measures", () => {
+    const note = (step: string, position: "start" | "stop", beam: "begin" | "end"): string =>
+      `<note><pitch><step>${step}</step><octave>4</octave></pitch><duration>2</duration><type>eighth</type>` +
+      `<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification>` +
+      `<beam number="1">${beam}</beam><notations><tuplet type="${position}"/></notations></note>`;
+    const xml = `<?xml version="1.0"?>
+      <score-partwise version="4.0">
+        <part-list><score-part id="P1"><part-name>P</part-name></score-part></part-list>
+        <part id="P1">
+          <measure number="1">${ATTRS}${note("C", "start", "begin")}</measure>
+          <measure number="2">${note("D", "stop", "end")}</measure>
+        </part>
+      </score-partwise>`;
+
+    const measures = convertMusicXmlToMnx(xml).parts[0]!.measures;
+    const first = measures[0]!.sequences![0]!.content[0] as MnxTuplet;
+    const second = measures[1]!.sequences![0]!.content[0] as MnxTuplet;
+    expect(first._x?.viritura.span.type).toBe("start");
+    expect(second._x?.viritura.span).toEqual({
+      id: first._x?.viritura.span.id,
+      type: "stop",
+    });
+    expect(first.inner).toEqual(second.inner);
+    expect(first.outer).toEqual(second.outer);
+    expect(measures[1]!.beams?.[0]?.events).toEqual([
+      (first.content[0] as { id: string }).id,
+      (second.content[0] as { id: string }).id,
+    ]);
+  });
+
   it("uses the metric unit (normal-type) for a uniform eighth triplet", () => {
     // 3 eighths in the time of 2: durations 2 each at divisions=6 (eighth=3,
     // triplet-eighth=2).

@@ -75,6 +75,7 @@ fn test_count_leaf_events() {
             show_value: None,
             orient: None,
             staff: None,
+            span: None,
         }),
         make_event(),
     ];

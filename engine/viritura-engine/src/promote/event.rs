@@ -16,7 +16,8 @@ use crate::model::event::{
     Rest as ModelRest, Sequence as ModelSequence, SequenceContent as ModelSequenceContent,
     Space as ModelSpace, StemDirection as ModelStemDirection, Tuplet as ModelTuplet,
     TupletBracket as ModelTupletBracket, TupletDisplaySetting as ModelTupletDisplaySetting,
-    TupletDuration as ModelTupletDuration,
+    TupletDuration as ModelTupletDuration, TupletSpan as ModelTupletSpan,
+    TupletSpanType as ModelTupletSpanType,
 };
 use crate::promote::articulation::{promote_fermata, promote_markings, promote_orientation};
 use crate::promote::duration::promote_duration;
@@ -174,6 +175,22 @@ pub(crate) fn promote_tuplet(
     r: raw::Tuplet,
     content_json: serde_json::Value,
 ) -> Result<ModelTuplet, PromoteError> {
+    let span = crate::promote::vendor_ext::read_viritura_ext(r.x.as_ref())
+        .and_then(|json| {
+            serde_json::from_value::<crate::raw_viritura::TupletExtensions>(
+                serde_json::Value::Object(json.clone()),
+            )
+            .ok()
+        })
+        .and_then(|extension| extension.span)
+        .map(|span| ModelTupletSpan {
+            id: String::from(span.id),
+            type_: match span.type_ {
+                crate::raw_viritura::TupletSpanType::Start => ModelTupletSpanType::Start,
+                crate::raw_viritura::TupletSpanType::Continue => ModelTupletSpanType::Continue,
+                crate::raw_viritura::TupletSpanType::Stop => ModelTupletSpanType::Stop,
+            },
+        });
     let items = match content_json {
         serde_json::Value::Array(a) => a,
         _ => Vec::new(),
@@ -191,6 +208,7 @@ pub(crate) fn promote_tuplet(
         show_value: r.show_value.map(promote_tuplet_display_setting),
         orient: r.orient.map(promote_orientation),
         staff: r.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
+        span,
     })
 }
 

@@ -59,8 +59,22 @@ pub(crate) fn render_tuplet_brackets(
                 continue;
             }
 
+            let is_span_start = tg
+                .span
+                .as_ref()
+                .is_none_or(|span| span.type_ == crate::model::TupletSpanType::Start);
+            let is_span_end = tg
+                .span
+                .as_ref()
+                .is_none_or(|span| span.type_ == crate::model::TupletSpanType::Stop);
+            let show_number = if is_span_start {
+                tg.show_number
+            } else {
+                TupletShowNumber::None
+            };
+
             // Skip entirely if both bracket and number are hidden
-            if !tg.show_bracket && tg.show_number == TupletShowNumber::None {
+            if !tg.show_bracket && show_number == TupletShowNumber::None {
                 continue;
             }
 
@@ -145,8 +159,18 @@ pub(crate) fn render_tuplet_brackets(
             );
 
             // Bracket horizontal span (also bounds the articulation scan below).
-            let x_left = first_ev.x;
-            let x_right = last_ev.x + notehead_w;
+            let x_left = if is_span_start {
+                first_ev.x
+            } else if ml.is_first_on_system {
+                ml.x + ml.prefix_width
+            } else {
+                ml.x
+            };
+            let x_right = if is_span_end {
+                last_ev.x + notehead_w
+            } else {
+                ml.x + ml.width
+            };
 
             // Fold in articulation glyphs on the bracket side. Standard
             // engraving practice: the tuplet bracket clears articulations
@@ -195,7 +219,7 @@ pub(crate) fn render_tuplet_brackets(
             // breaks around the number, so the gap must scale with the actual
             // composed width — a multi-digit figure like "17" is wider than a
             // single digit and would otherwise be crossed by the bracket line.
-            let number_glyphs = match tg.show_number {
+            let number_glyphs = match show_number {
                 TupletShowNumber::Inner => tuplet_digits(tg.display_number),
                 TupletShowNumber::Both => tuplet_ratio_glyphs(tg.display_number, tg.outer_number),
                 TupletShowNumber::None => Vec::new(),
@@ -233,26 +257,28 @@ pub(crate) fn render_tuplet_brackets(
 
             // Draw bracket lines only if bracket is shown
             if tg.show_bracket {
-                // Draw left hook (short vertical line)
                 let hook_dir = if bracket_above { 1.0 } else { -1.0 };
-                dl.push(RenderCommand::DrawLine {
-                    x1: x_left,
-                    y1: bracket_y,
-                    x2: x_left,
-                    y2: bracket_y + hook_dir * hook_length,
-                    width: bracket_line_width,
-                    color: "#000000".into(),
-                });
+                if is_span_start {
+                    dl.push(RenderCommand::DrawLine {
+                        x1: x_left,
+                        y1: bracket_y,
+                        x2: x_left,
+                        y2: bracket_y + hook_dir * hook_length,
+                        width: bracket_line_width,
+                        color: "#000000".into(),
+                    });
+                }
 
-                // Draw right hook
-                dl.push(RenderCommand::DrawLine {
-                    x1: x_right,
-                    y1: bracket_y,
-                    x2: x_right,
-                    y2: bracket_y + hook_dir * hook_length,
-                    width: bracket_line_width,
-                    color: "#000000".into(),
-                });
+                if is_span_end {
+                    dl.push(RenderCommand::DrawLine {
+                        x1: x_right,
+                        y1: bracket_y,
+                        x2: x_right,
+                        y2: bracket_y + hook_dir * hook_length,
+                        width: bracket_line_width,
+                        color: "#000000".into(),
+                    });
+                }
 
                 // Draw horizontal line (left segment, stopping before number gap)
                 if has_number {
@@ -297,11 +323,17 @@ pub(crate) fn render_tuplet_brackets(
             // Tag all commands produced by this tuplet with a structured element ID
             let cmd_end = dl.commands.len();
             if cmd_end > cmd_start {
-                let eid = element_id::tuplet(
-                    vl.part_index_override.unwrap_or(ml.part_index),
-                    ml.resolved.index,
-                    vl.seq_index_override.unwrap_or(vl.voice_index),
-                    tuplet_idx,
+                let part_index = vl.part_index_override.unwrap_or(ml.part_index);
+                let eid = tg.span.as_ref().map_or_else(
+                    || {
+                        element_id::tuplet(
+                            part_index,
+                            ml.resolved.index,
+                            vl.seq_index_override.unwrap_or(vl.voice_index),
+                            tuplet_idx,
+                        )
+                    },
+                    |span| element_id::tuplet_span(part_index, &span.id),
                 );
                 for ci in cmd_start..cmd_end {
                     dl.tag_command(ci, eid.clone());

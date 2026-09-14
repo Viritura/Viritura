@@ -24,6 +24,7 @@ import {
   partExtensions,
   kitComponentExtensions,
   partMeasureExtensions,
+  tupletExtensions,
   positionedStaffConfigExtensions,
   dynamicGroupExtensions,
   eventExtensions,
@@ -44,6 +45,7 @@ type ExtensionDefinition =
   | "part-extensions"
   | "kit-component-extensions"
   | "part-measure-extensions"
+  | "tuplet-extensions"
   | "positioned-staff-config-extensions"
   | "dynamic-group-extensions"
   | "event-extensions"
@@ -65,6 +67,7 @@ const extensionValidators: Record<ExtensionDefinition, StandaloneValidateFunctio
   "part-extensions": partExtensions,
   "kit-component-extensions": kitComponentExtensions,
   "part-measure-extensions": partMeasureExtensions,
+  "tuplet-extensions": tupletExtensions,
   "positioned-staff-config-extensions": positionedStaffConfigExtensions,
   "dynamic-group-extensions": dynamicGroupExtensions,
   "event-extensions": eventExtensions,
@@ -106,6 +109,8 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
       ...validateBeatStructures(value),
+      ...validateTupletSpans(json),
+      ...validateTupletDurations(json),
     ];
     if (semanticErrors.length > 0) return { ok: false, errors: semanticErrors };
     return { ok: true, value };
@@ -168,6 +173,7 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
           validateAt(slur, `${itemPointer}/slurs/${slurIndex}`, "slur-extensions"),
         );
       }
+      if (type === "tuplet") validateAt(object, itemPointer, "tuplet-extensions");
       visitContent(object["content"], `${itemPointer}/content`);
     });
   };
@@ -250,6 +256,180 @@ function validateVirituraExtensions(document: unknown): RawScoreValidationError[
     }
   };
   findUnsupported(root, "");
+  return errors;
+}
+
+function validateTupletSpans(document: unknown): RawScoreValidationError[] {
+  interface Fragment {
+    measure: number;
+    sequence: number;
+    type: string;
+    signature: string;
+    pointer: string;
+  }
+
+  const errors: RawScoreValidationError[] = [];
+  const root = asObject(document);
+  const parts = asObjects(root?.["parts"]);
+
+  parts.forEach((part, partIndex) => {
+    const spans = new Map<string, Fragment[]>();
+    asObjects(part["measures"]).forEach((measure, measureIndex) => {
+      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        const visit = (content: unknown, pointer: string): void => {
+          if (!Array.isArray(content)) return;
+          content.forEach((item, itemIndex) => {
+            const object = asObject(item);
+            if (!object) return;
+            const itemPointer = `${pointer}/${itemIndex}`;
+            if (object["type"] === "tuplet") {
+              const viritura = asObject(asObject(object["_x"])?.["viritura"]);
+              const span = asObject(viritura?.["span"]);
+              if (span && typeof span["id"] === "string" && typeof span["type"] === "string") {
+                const fragment: Fragment = {
+                  measure: measureIndex,
+                  sequence: sequenceIndex,
+                  type: span["type"],
+                  signature: JSON.stringify({
+                    inner: object["inner"],
+                    outer: object["outer"],
+                    bracket: object["bracket"],
+                    showNumber: object["showNumber"],
+                    showValue: object["showValue"],
+                    orient: object["orient"],
+                    staff: object["staff"],
+                  }),
+                  pointer: `${itemPointer}/_x/viritura/span`,
+                };
+                const group = spans.get(span["id"]);
+                if (group) group.push(fragment);
+                else spans.set(span["id"], [fragment]);
+              }
+            }
+            visit(object["content"], `${itemPointer}/content`);
+          });
+        };
+        visit(sequence["content"], `/parts/${partIndex}/measures/${measureIndex}/sequences/${sequenceIndex}/content`);
+      });
+    });
+
+    for (const [id, fragments] of spans) {
+      const valid =
+        fragments.length >= 2 &&
+        fragments[0]?.type === "start" &&
+        fragments.at(-1)?.type === "stop" &&
+        fragments.slice(1, -1).every((fragment) => fragment.type === "continue") &&
+        fragments.every((fragment, index) => {
+          const first = fragments[0]!;
+          return (
+            fragment.sequence === first.sequence &&
+            fragment.signature === first.signature &&
+            (index === 0 || fragment.measure === fragments[index - 1]!.measure + 1)
+          );
+        });
+      if (!valid) {
+        errors.push({
+          pointer: fragments[0]?.pointer ?? `/parts/${partIndex}`,
+          message: `tuplet span "${id}" must contain start, contiguous continue fragments, and stop in one sequence with identical tuplet settings`,
+          keyword: "tupletSpan",
+        });
+      }
+    }
+  });
+
+  return errors;
+}
+
+const NOTE_VALUE_WHOLES: Readonly<Record<string, number>> = {
+  maxima: 8,
+  longa: 4,
+  breve: 2,
+  whole: 1,
+  half: 1 / 2,
+  quarter: 1 / 4,
+  eighth: 1 / 8,
+  "16th": 1 / 16,
+  "32nd": 1 / 32,
+  "64th": 1 / 64,
+  "128th": 1 / 128,
+  "256th": 1 / 256,
+  "512th": 1 / 512,
+  "1024th": 1 / 1024,
+};
+
+function noteValueWholes(value: unknown): number | undefined {
+  const duration = asObject(value);
+  if (!duration) return undefined;
+  const base = duration["base"];
+  if (typeof base !== "string") return undefined;
+  const baseValue = NOTE_VALUE_WHOLES[base];
+  if (baseValue === undefined) return undefined;
+  const dots = typeof duration["dots"] === "number" ? duration["dots"] : 0;
+  return baseValue * (2 - 1 / 2 ** dots);
+}
+
+function quantityWholes(value: unknown): number | undefined {
+  const quantity = asObject(value);
+  const duration = noteValueWholes(quantity?.["duration"]);
+  const multiple = quantity?.["multiple"];
+  return duration !== undefined && typeof multiple === "number" ? duration * multiple : undefined;
+}
+
+function contentWholes(content: unknown): number | undefined {
+  if (!Array.isArray(content)) return undefined;
+  let total = 0;
+  for (const item of content) {
+    const object = asObject(item);
+    if (!object) return undefined;
+    const type = object["type"];
+    let duration: number | undefined;
+    if (type === "grace") duration = 0;
+    else if (type === "space") {
+      const fraction = object["duration"];
+      duration =
+        Array.isArray(fraction) && typeof fraction[0] === "number" && typeof fraction[1] === "number"
+          ? fraction[0] / fraction[1]
+          : undefined;
+    } else if (type === "tuplet" || type === "tremolo") duration = quantityWholes(object["outer"]);
+    else duration = noteValueWholes(object["duration"]);
+    if (duration === undefined) return undefined;
+    total += duration;
+  }
+  return total;
+}
+
+function validateTupletDurations(document: unknown): RawScoreValidationError[] {
+  const errors: RawScoreValidationError[] = [];
+  const root = asObject(document);
+  asObjects(root?.["parts"]).forEach((part, partIndex) => {
+    asObjects(part["measures"]).forEach((measure, measureIndex) => {
+      asObjects(measure["sequences"]).forEach((sequence, sequenceIndex) => {
+        const visit = (content: unknown, pointer: string): void => {
+          if (!Array.isArray(content)) return;
+          content.forEach((item, itemIndex) => {
+            const object = asObject(item);
+            if (!object) return;
+            const itemPointer = `${pointer}/${itemIndex}`;
+            if (object["type"] === "tuplet") {
+              const span = asObject(asObject(asObject(object["_x"])?.["viritura"])?.["span"]);
+              const expected = quantityWholes(object["inner"]);
+              const actual = contentWholes(object["content"]);
+              if (!span && expected !== undefined && actual !== undefined && Math.abs(expected - actual) > 1e-9) {
+                errors.push({
+                  pointer: `${itemPointer}/content`,
+                  message:
+                    "tuplet content duration must equal its inner duration; use linked Viritura span fragments for a cross-barline tuplet",
+                  keyword: "tupletDuration",
+                });
+              }
+            }
+            visit(object["content"], `${itemPointer}/content`);
+          });
+        };
+        visit(sequence["content"], `/parts/${partIndex}/measures/${measureIndex}/sequences/${sequenceIndex}/content`);
+      });
+    });
+  });
   return errors;
 }
 

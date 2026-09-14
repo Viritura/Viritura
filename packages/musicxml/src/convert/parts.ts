@@ -16,7 +16,13 @@ import type {
   PartInfo,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
-import { type ConvertFlags, type OttavaEvent, processMeasureNotes } from "./measureNotes";
+import {
+  type ConvertFlags,
+  type ActiveBeam,
+  type OttavaEvent,
+  type TupletAccumulator,
+  processMeasureNotes,
+} from "./measureNotes";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 
@@ -217,6 +223,8 @@ export function buildParts(
 
     let divisions = 4;
     const activeClefs = new Map<number, MnxClef>();
+    const activeTuplets = new Map<string, TupletAccumulator>();
+    const activeBeams = new Map<string, ActiveBeam[]>();
     openSlurs.clear();
     openGlissandos.clear();
     tieIds.clear();
@@ -286,6 +294,8 @@ export function buildParts(
         partTranspose,
         flags,
         activeClefs,
+        activeTuplets,
+        activeBeams,
       );
 
       if (result.clefs.length > 0) {

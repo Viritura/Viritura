@@ -235,6 +235,11 @@ pub fn tuplet(part: usize, measure: usize, seq: usize, index: usize) -> String {
     format!("p{}/m{}/s{}/tuplet{}", part, measure, seq, index)
 }
 
+/// Cross-barline tuplet: `p{part}/tuplet-span-{id}`.
+pub fn tuplet_span(part: usize, id: &str) -> String {
+    format!("p{}/tuplet-span-{}", part, sanitize(id))
+}
+
 /// Slur: `slur/{source}/{target}`
 pub fn slur(source: &str, target: &str) -> String {
     format!("slur/{}/{}", sanitize(source), sanitize(target))

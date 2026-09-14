@@ -601,6 +601,34 @@
       "additionalProperties": false
     },
 
+    "tuplet-span": {
+      "type": "object",
+      "description": "Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments.",
+      "required": ["id", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identity shared by every fragment of the logical tuplet."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "continue", "stop"],
+          "description": "The fragment's position within the logical tuplet."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "tuplet-extensions": {
+      "type": "object",
+      "description": "Viritura extensions on an MNX tuplet object.",
+      "properties": {
+        "span": { "$ref": "#/$defs/tuplet-span" }
+      },
+      "additionalProperties": false
+    },
+
     "positioned-staff-config-extensions": {
       "type": "object",
       "description": "Viritura editor bookkeeping on an MNX positioned-staff-config object.",
