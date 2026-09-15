@@ -156,6 +156,35 @@ describe("computeDeleteSelection — articulations", () => {
     expect(ev.notes).toHaveLength(1);
   });
 
+  describe("computeDeleteSelection — caesura", () => {
+    it("removes the caesura without deleting its event", () => {
+      const result = computeDeleteSelection(makeScore({ caesura: {} }), {
+        kind: "single",
+        elementId: "p0/m0/s0/e1/caesura",
+        elementType: "caesura",
+      });
+
+      expect(result.kind).toBe("single");
+      if (result.kind !== "single") return;
+      expect(eventOf(result.score).markings).toBeUndefined();
+      expect(eventOf(result.score).notes).toHaveLength(1);
+      expect(result.nextSelection).toEqual({ kind: "clear" });
+    });
+
+    it("removes caesuras in a multi-selection without deleting notes", () => {
+      const score = makeScore({ caesura: {} });
+      const result = computeDeleteSelection(score, {
+        kind: "multi",
+        elementIds: ["p0/m0/s0/e1/caesura"],
+      });
+
+      expect(result.kind).toBe("multi");
+      if (result.kind !== "multi") return;
+      expect(eventOf(result.score).markings).toBeUndefined();
+      expect(eventOf(result.score).notes).toHaveLength(1);
+    });
+  });
+
   it("clears the selection, since the articulation it pointed at is gone", () => {
     const result = computeDeleteSelection(makeScore({ accent: {} }), {
       kind: "single",
@@ -201,6 +230,21 @@ function makeCtx(
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
 describe("handleDelete — articulations", () => {
+  it("deletes a selected caesura without deleting its note", () => {
+    const selection: Selection = {
+      kind: "single",
+      elementId: "p0/m0/s0/e1/caesura",
+      elementType: "caesura",
+    };
+    const { ctx, latest, selectionCalls } = makeCtx(makeScore({ caesura: {} }), selection);
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(eventOf(latest()).markings).toBeUndefined();
+    expect(eventOf(latest()).notes).toHaveLength(1);
+    expect(selectionCalls()).toEqual(["clear"]);
+  });
+
   it("deletes a selected arpeggio sign without deleting its chord", () => {
     const score = makeScore({});
     const chord = eventOf(score);

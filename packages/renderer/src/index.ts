@@ -19,24 +19,18 @@ export type { GlyphAtlasConfig } from "./glyphAtlas";
 export { PageCache, splitCommandsByPage } from "./pageCache";
 export {
   SpatialIndex,
-  buildHitRegions,
-  hitTest,
   paintSelectionOverlay,
   paintMeasureSelectionOverlay,
   paintHitboxDebug,
+  paintHitboxDebugLegend,
   getElementType,
   hitTestSpannerHandle,
   paintSpannerDragPreview,
 } from "./hitTest";
-export type {
-  HitRegion,
-  LegacyHitTestResult,
-  ElementBBox,
-  ScoreElementType,
-  SpannerHandleHit,
-  SpannerHandleEnd,
-  DragSnapPoint,
-} from "./hitTest";
+export { getHitboxDebugKind, HITBOX_DEBUG_STYLES } from "./hitboxDebug";
+export type { HitboxDebugBounds, HitboxDebugKind, HitboxDebugOptions } from "./hitboxDebug";
+export { hitTestBeamInk, isBeamElementId, selectionGroupMembers } from "./beamHitTest";
+export type { ElementBBox, ScoreElementType, SpannerHandleHit, SpannerHandleEnd, DragSnapPoint } from "./hitTest";
 export { paintBeatRuler } from "./beatRuler";
 export type { RulerTick, RulerConfig } from "./beatRuler";
 export {
@@ -65,6 +59,7 @@ export type {
   PageLayout,
   BoundingBox,
   MeasureBounds,
+  SelectionGroup,
   SlurGeometry,
   SlurPreview,
   SlurPreviewInput,

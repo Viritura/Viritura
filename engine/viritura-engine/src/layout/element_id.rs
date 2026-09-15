@@ -100,6 +100,11 @@ pub fn fermata(event_id: &str) -> String {
     format!("{}/ferm", event_id)
 }
 
+/// Caesura: `{event_id}/caesura`
+pub fn caesura(event_id: &str) -> String {
+    format!("{}/caesura", event_id)
+}
+
 /// Lyric syllable for one line: `{event_id}/lyric-{utf8_hex_line_id}`.
 ///
 /// Hex encoding keeps arbitrary MNX line IDs reversible without allowing `/`
@@ -265,13 +270,6 @@ pub fn glissando(source: &str, target: &str) -> String {
 /// Articulation bbox (combined): `{base_id}/artic`
 pub fn artic_bbox(base_id: &str) -> String {
     format!("{}/artic", base_id)
-}
-
-/// Fermata bbox: `{base_id}/fermata`  
-/// Note: command tag uses `/ferm`, bbox uses `/fermata` for historical reasons.
-/// Both are recognized by the TS parser.
-pub fn fermata_bbox(base_id: &str) -> String {
-    format!("{}/fermata", base_id)
 }
 
 /// Breath mark: `{base_id}/breath`

@@ -429,7 +429,7 @@ fn shift_fermata(dl: &mut DisplayList, command_idx: usize, original: &BoundingBo
         *y -= dy;
     }
     for element_bbox in &mut dl.element_bboxes {
-        if element_bbox.element_id.ends_with("/fermata")
+        if element_bbox.element_id.ends_with("/ferm")
             && element_bbox.bbox.x == original.x
             && element_bbox.bbox.y == original.y
             && element_bbox.bbox.width == original.width
@@ -438,19 +438,7 @@ fn shift_fermata(dl: &mut DisplayList, command_idx: usize, original: &BoundingBo
             element_bbox.bbox.y -= dy;
         }
     }
-    for shape in &mut dl.element_shapes {
-        if shape.element_id.ends_with("/fermata") {
-            if let crate::render::ShapeGeom::Rect { bbox } = &mut shape.geom {
-                if bbox.x == original.x
-                    && bbox.y == original.y
-                    && bbox.width == original.width
-                    && bbox.height == original.height
-                {
-                    bbox.y -= dy;
-                }
-            }
-        }
-    }
+    // The command-backed ElementShape follows the command automatically.
 }
 
 /// Push below-staff dynamic glyphs down so they clear any slur that arches

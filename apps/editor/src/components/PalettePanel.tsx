@@ -29,8 +29,8 @@ import {
   getEventAtLocation,
   type EventLocation,
 } from "../score/ElementPath";
-import { resolveCapabilityTargets, EVENT_ACTION } from "../store/selectionCapabilities";
-import { groupEventsByVoice } from "../store/selectionUtils";
+import { resolveCapabilityTargets, selectionSupports, EVENT_ACTION } from "../store/selectionCapabilities";
+import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
 import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
@@ -156,6 +156,7 @@ import {
 import { LyricsPanel } from "./lyrics/LyricsPanel";
 import { setChordSymbolPopover } from "../store/overlayStore";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
+import { useDebugSettingsStore } from "../store/debugSettingsStore";
 
 interface PalettePanelProps {
   openSectionRequest?: { id: string; requestId: number } | null;
@@ -240,7 +241,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     // group: if any covered note is untied, add ties to all; otherwise remove.
     const events = resolveCondensedSelectionEvents(score, sel, selectedScoreIndex);
     if (events.length === 0) return;
-    if (new URLSearchParams(window.location.search).get("hitbox") === "1") {
+    if (useDebugSettingsStore.getState().hitboxOverlay) {
       console.log(
         "[Viritura tie debug] Palette action JSON\n" +
           JSON.stringify(
@@ -613,7 +614,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     (editFn: (score: Score, loc: EventLocation) => Score | null): boolean => {
       const sel = useSelectionStore.getState().selection;
       const score = store.getState().score;
-      if (!score || sel.kind === "none" || active) return false;
+      if (!score || !selectionSupports(EVENT_ACTION, sel) || active) return false;
 
       // Resolve every event the selection covers through the declared
       // capability contract (EVENT_ACTION: single / multi / range / measure,
@@ -648,7 +649,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     (run: (score: Score, sel: SelectionState) => Score | null) => {
       const sel = useSelectionStore.getState().selection;
       const score = store.getState().score;
-      if (!score || sel.kind === "none" || active) {
+      if (!score || !selectionSupports(EVENT_ACTION, sel) || active) {
         toast.warning(active ? "Finish note entry or select existing notes first" : "Select one or more notes first");
         return;
       }
@@ -933,7 +934,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const handleAddExpression = useCallback(() => {
     const score = store.getState().score;
     const sel = useSelectionStore.getState().selection;
-    if (!score || sel.kind === "none") return;
+    if (!score || !selectionSupports(EVENT_ACTION, sel)) return;
     setPromptState({
       open: true,
       title: "Expression text",

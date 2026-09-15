@@ -33,6 +33,53 @@ fn test_tremolo_marks_parsed() {
 }
 
 #[test]
+fn test_single_note_tremolo_hitbox_matches_rendered_glyph() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": [{
+                "id": "trem-note",
+                "duration": {"base": "quarter"},
+                "markings": {"tremolo": {"marks": 2}},
+                "notes": [{"pitch": {"step": "E", "octave": 5}}]
+            }]}]
+        }]}]
+    }"#;
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
+    let tremolo_id = "p0/m0/s0/trem-note/trem";
+    let (command_index, command) = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find(|(index, _)| dl.element_ids[*index].as_deref() == Some(tremolo_id))
+        .expect("tagged tremolo glyph");
+    let command_bbox = command.bbox().expect("tremolo glyph has exact bounds");
+    let hitbox = dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == tremolo_id)
+        .expect("tremolo hitbox");
+
+    assert_eq!(hitbox.bbox, command_bbox);
+    assert_eq!(
+        dl.element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == tremolo_id)
+            .count(),
+        1,
+        "single-note tremolo must publish one hitbox"
+    );
+    assert!(matches!(
+        dl.element_shapes
+            .iter()
+            .find(|shape| shape.element_id == tremolo_id)
+            .map(|shape| &shape.geom),
+        Some(ShapeGeom::Cmd { cmd_idx }) if *cmd_idx == command_index as u32
+    ));
+}
+
+#[test]
 fn test_multi_note_tremolos() {
     // Load tremolos-multi-note.mnx: two measures with multi-note tremolos.
     // Measure 1: two 2-mark tremolos (half notes), Measure 2: one 3-mark tremolo (whole notes).

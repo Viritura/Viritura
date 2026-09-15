@@ -7,7 +7,7 @@ import type { SlurShape } from "@viritura/core";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
 
-interface ViewportInfo {
+export interface ViewportInfo {
   zoom: number;
   scrollX: number;
   scrollY: number;

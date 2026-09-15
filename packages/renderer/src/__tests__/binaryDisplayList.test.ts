@@ -30,6 +30,7 @@ function buildBinaryBuffer(
   elementIds?: { stringTable: string[]; indices: number[] },
   bboxes: number[][] = [],
   measureBounds: number[][] = [],
+  selectionGroups: Array<{ elementId: string; memberIds: string[] }> = [],
 ): Float32Array {
   const data: number[] = [];
   const numStrings = elementIds?.stringTable.length ?? 0;
@@ -71,11 +72,22 @@ function buildBinaryBuffer(
       data.push(-1);
     }
   }
-  if (measureBounds.length > 0) {
+  if (measureBounds.length > 0 || selectionGroups.length > 0) {
     data.push(measureBounds.length);
     for (const bounds of measureBounds) {
       for (const val of bounds) {
         data.push(val);
+      }
+    }
+  }
+  if (selectionGroups.length > 0) {
+    data.push(selectionGroups.length);
+    for (const group of selectionGroups) {
+      const groupCodepoints = [...group.elementId].map((char) => char.codePointAt(0)!);
+      data.push(groupCodepoints.length, ...groupCodepoints, group.memberIds.length);
+      for (const memberId of group.memberIds) {
+        const memberCodepoints = [...memberId].map((char) => char.codePointAt(0)!);
+        data.push(memberCodepoints.length, ...memberCodepoints);
       }
     }
   }
@@ -649,6 +661,33 @@ describe("measure bounds decoding", () => {
       isExpansion: true,
     });
     expect(dl.measureBounds?.[0]?.hasMusicHidden).toBeUndefined();
+  });
+});
+
+describe("selection group decoding", () => {
+  it("decodes beam membership after an empty measure-bounds trailer", () => {
+    const data = buildBinaryBuffer(
+      100,
+      50,
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      [
+        {
+          elementId: "p0/m0/beam0",
+          memberIds: ["p0/m0/s0/a", "p0/m0/s0/b"],
+        },
+      ],
+    );
+
+    expect(decodeBinaryDisplayList(data).selectionGroups).toEqual([
+      {
+        elementId: "p0/m0/beam0",
+        memberIds: ["p0/m0/s0/a", "p0/m0/s0/b"],
+      },
+    ]);
   });
 });
 

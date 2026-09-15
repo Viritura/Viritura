@@ -2,7 +2,7 @@
 // 5 test(s)
 
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_score, layout_with_mnx_scores};
 use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::*;
@@ -828,27 +828,20 @@ fn test_rehearsal_mark_bbox_tracks_dodge_over_direction() {
     let config = LayoutConfig::default();
     let dl = layout_score(&score, 0, &config);
 
-    // Outer extent of the four drawn border strokes (the visible box).
-    let (mut min_x, mut max_x, mut min_y, mut max_y) = (
-        f64::INFINITY,
-        f64::NEG_INFINITY,
-        f64::INFINITY,
-        f64::NEG_INFINITY,
-    );
-    for (cmd, id) in dl.commands.iter().zip(dl.element_ids.iter()) {
-        if let (RenderCommand::DrawLine { x1, y1, x2, y2, .. }, Some("m1/rehearsal")) =
-            (cmd, id.as_deref())
-        {
-            min_x = min_x.min(x1.min(*x2));
-            max_x = max_x.max(x1.max(*x2));
-            min_y = min_y.min(y1.min(*y2));
-            max_y = max_y.max(y1.max(*y2));
-        }
-    }
-    assert!(
-        min_x.is_finite(),
-        "boxed rehearsal mark should draw a border"
-    );
+    // Exact command extent, including the border stroke width and text ink.
+    let rendered = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter(|(_, id)| id.as_deref() == Some("m1/rehearsal"))
+        .filter_map(|(command, _)| match command {
+            RenderCommand::DrawText { .. } => {
+                super::super::render_annotations::substrate_obstacles::text_command_bbox(command)
+            }
+            _ => command.bbox(),
+        })
+        .reduce(|left, right| left.union(&right))
+        .expect("boxed rehearsal mark should draw tagged ink");
 
     let rb = dl
         .element_bboxes
@@ -857,20 +850,105 @@ fn test_rehearsal_mark_bbox_tracks_dodge_over_direction() {
         .expect("rehearsal selection bbox");
     let eps = 1e-6;
     assert!(
-        (rb.bbox.x - min_x).abs() < eps
-            && (rb.bbox.y - min_y).abs() < eps
-            && ((rb.bbox.x + rb.bbox.width) - max_x).abs() < eps
-            && ((rb.bbox.y + rb.bbox.height) - max_y).abs() < eps,
+        (rb.bbox.x - rendered.x).abs() < eps
+            && (rb.bbox.y - rendered.y).abs() < eps
+            && (rb.bbox.width - rendered.width).abs() < eps
+            && (rb.bbox.height - rendered.height).abs() < eps,
         "bbox [{:.2},{:.2},{:.2},{:.2}] should equal drawn border [{:.2},{:.2},{:.2},{:.2}] after the dodge",
         rb.bbox.x,
         rb.bbox.y,
         rb.bbox.x + rb.bbox.width,
         rb.bbox.y + rb.bbox.height,
-        min_x,
-        min_y,
-        max_x,
-        max_y
+        rendered.x,
+        rendered.y,
+        rendered.x + rendered.width,
+        rendered.y + rendered.height
     );
+}
+
+#[test]
+fn test_rhapsody_tempo_and_rehearsal_hitboxes_match_final_commands() {
+    let json = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../packages/format/fixtures/mnx/Rhapsody in Blue.mnx"
+    ))
+    .unwrap();
+    let score = parse_mnx(&json).unwrap();
+    for score_index in 0..score.scores.len().max(1) {
+        assert_text_mark_hitboxes_match(&layout_with_mnx_scores(
+            &score,
+            &LayoutConfig::default(),
+            score_index,
+        ));
+    }
+}
+
+fn assert_text_mark_hitboxes_match(dl: &DisplayList) {
+    let mut ids: Vec<&str> = dl
+        .element_ids
+        .iter()
+        .filter_map(Option::as_deref)
+        .filter(|id| id.ends_with("/rehearsal") || id.contains("/tempo"))
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    assert!(
+        !ids.is_empty(),
+        "fixture should contain tempo or rehearsal marks"
+    );
+
+    for id in ids {
+        let rendered = marking_command_runs(dl, id);
+        let mut hitboxes: Vec<_> = dl
+            .element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id == id)
+            .map(|bbox| bbox.bbox.clone())
+            .collect();
+        assert_eq!(
+            hitboxes.len(),
+            rendered.len(),
+            "{id} must publish one hitbox per rendered occurrence"
+        );
+        hitboxes.sort_by(|left, right| left.y.total_cmp(&right.y).then(left.x.total_cmp(&right.x)));
+        for (actual, expected) in hitboxes.iter().zip(rendered.iter()) {
+            let epsilon = 1.0e-9;
+            assert!(
+                (actual.x - expected.x).abs() < epsilon
+                    && (actual.y - expected.y).abs() < epsilon
+                    && (actual.width - expected.width).abs() < epsilon
+                    && (actual.height - expected.height).abs() < epsilon,
+                "{id} hitbox {actual:?} must match its local tagged commands {expected:?}"
+            );
+        }
+    }
+}
+
+fn marking_command_runs(dl: &DisplayList, id: &str) -> Vec<BoundingBox> {
+    let mut runs = Vec::new();
+    let mut current: Option<BoundingBox> = None;
+    for (command, command_id) in dl.commands.iter().zip(dl.element_ids.iter()) {
+        if command_id.as_deref() != Some(id) {
+            if let Some(bbox) = current.take() {
+                runs.push(bbox);
+            }
+            continue;
+        }
+        let bbox = match command {
+            RenderCommand::DrawText { .. } => {
+                super::super::render_annotations::substrate_obstacles::text_command_bbox(command)
+            }
+            _ => command.bbox(),
+        };
+        if let Some(bbox) = bbox {
+            current = Some(current.map_or(bbox.clone(), |existing| existing.union(&bbox)));
+        }
+    }
+    if let Some(bbox) = current {
+        runs.push(bbox);
+    }
+    runs.sort_by(|left, right| left.y.total_cmp(&right.y).then(left.x.total_cmp(&right.x)));
+    runs
 }
 
 #[test]

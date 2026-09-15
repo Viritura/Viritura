@@ -33,22 +33,8 @@ pub(super) fn bbox_event_notes_or_rest(
     let event = &el.event;
     let x = el.x;
     if event.is_rest() {
-        if el.shared_rest {
-            return;
-        }
-        let rest_codepoint = smufl::rest_glyph(&event.duration.base);
-        let rest_y = match event.rest.as_ref().and_then(|r| r.staff_position) {
-            Some(pos) => staff_y + (4.0 - pos as f64) * 0.5 * sp,
-            None => match event.duration.base {
-                NoteValueBase::Whole => staff_y + 1.0 * sp,
-                _ => staff_y + 2.0 * sp,
-            },
-        };
-        let bbox = glyph_pixel_bbox(x + 0.2 * sp, rest_y, rest_codepoint, glyph_size);
-        bboxes.push(ElementBBox {
-            element_id: element_id_str.to_string(),
-            bbox,
-        });
+        // Rest rendering publishes its command-backed shape and compatibility
+        // bbox atomically through DisplayList::push_selectable_command.
         return;
     }
 
@@ -296,8 +282,8 @@ pub(super) fn collect_articulation_codepoints(
         .collect()
 }
 
-#[allow(clippy::too_many_arguments)] // bundles articulation + fermata + ornament + trill
-pub(super) fn bbox_event_articulations(
+#[allow(clippy::too_many_arguments)] // bundles ornament + trill geometry
+pub(super) fn bbox_event_ornaments_and_trills(
     bboxes: &mut Vec<ElementBBox>,
     el: &EventLayout,
     event_idx: usize,
@@ -308,11 +294,9 @@ pub(super) fn bbox_event_articulations(
     sp: f64,
     config: &LayoutConfig,
     notehead_w: f64,
-    staff_height: f64,
     glyph_size: f64,
-    slur_map: Option<&super::super::slurs::SlurParticipationMap>,
 ) {
-    if el.event.markings.is_none() && el.event.fermata.is_none() {
+    if el.event.markings.is_none() {
         return;
     }
     let markings_opt = el.event.markings.as_ref();
@@ -320,57 +304,6 @@ pub(super) fn bbox_event_articulations(
         let suffix = el.id.clone().unwrap_or_else(|| format!("e{}", event_idx));
         element_id::event(voice_part_idx, measure_idx, voice_seq_idx, &suffix)
     };
-
-    // **Slur side override**: when this event participates in a slur,
-    // articulations follow the slur side, not the stem side.
-    let slur_role = el
-        .id
-        .as_deref()
-        .and_then(|id| slur_map.and_then(|m| m.get(id).copied()));
-    let place_below = match slur_role {
-        Some(r) if !r.mixed_stems => matches!(r.side, super::super::slurs::SlurSide::Below),
-        _ => {
-            if el.num_voices > 1 {
-                !el.stem_up
-            } else {
-                el.stem_up
-            }
-        }
-    };
-
-    if let Some(markings) = markings_opt {
-        let artic_cps = collect_articulation_codepoints(markings, place_below);
-        if !artic_cps.is_empty() && !el.note_positions.is_empty() {
-            stack_articulations(
-                bboxes,
-                el,
-                &artic_cps,
-                slur_role,
-                place_below,
-                &base_id,
-                staff_y,
-                sp,
-                config,
-                notehead_w,
-                glyph_size,
-            );
-        }
-    }
-
-    if let Some(ref fermata) = el.event.fermata {
-        push_fermata_bbox(
-            bboxes,
-            el,
-            fermata,
-            &base_id,
-            staff_y,
-            sp,
-            config,
-            notehead_w,
-            staff_height,
-            glyph_size,
-        );
-    }
 
     if let Some(markings) = markings_opt {
         push_ornament_and_trill_bboxes(

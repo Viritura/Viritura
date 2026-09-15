@@ -60,7 +60,7 @@ const ANNOTATION_PREFIXES = [
 /** Classify an element ID into a rendering category for the selection overlay. */
 export function classifyElement(id: string): ElementCategory {
   // Top-level slur/tie connectors live under their own namespaces.
-  if (id.startsWith("slur/") || id.startsWith("tie/")) return "spanner";
+  if (id.startsWith("slur/") || id.startsWith("tie/") || id.startsWith("gliss/")) return "spanner";
 
   const last = id.split("/").pop() ?? "";
 
@@ -374,27 +374,5 @@ export function paintMeasureSelectionOverlay(
   }
 
   ctx.setLineDash([]);
-  ctx.restore();
-}
-
-/**
- * Debug overlay: draw all hitboxes in the spatial index.
- * Slur/tie entries are highlighted in red; others in semi-transparent blue.
- */
-export function paintHitboxDebug(ctx: CanvasRenderingContext2D, spatialIndex: SpatialIndex): void {
-  ctx.save();
-  for (const entry of spatialIndex.all) {
-    const isConnector = entry.id.startsWith("slur/") || entry.id.startsWith("tie/");
-    ctx.strokeStyle = isConnector ? "rgba(255,0,0,0.7)" : "rgba(0,100,255,0.15)";
-    ctx.lineWidth = isConnector ? 1.5 : 0.5;
-    ctx.strokeRect(entry.x, entry.y, entry.width, entry.height);
-    if (isConnector) {
-      ctx.fillStyle = "rgba(255,0,0,0.08)";
-      ctx.fillRect(entry.x, entry.y, entry.width, entry.height);
-      ctx.fillStyle = "rgba(255,0,0,0.9)";
-      ctx.font = "8px sans-serif";
-      ctx.fillText(entry.id, entry.x + 2, entry.y - 2);
-    }
-  }
   ctx.restore();
 }

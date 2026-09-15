@@ -21,7 +21,8 @@ import {
 } from "@viritura/core";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { resolveEventLocation } from "../score/ElementPath";
-import { resolveSelectionScope, type MeasureRange } from "../store/selectionUtils";
+import type { MeasureRange } from "../store/selectionUtils";
+import { resolveCapabilityTargets, SCOPE_ACTION } from "../store/selectionCapabilities";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import { timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
@@ -97,7 +98,8 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
   const selectedScope = useCallback((): MeasureRange | null => {
     const { score } = store.getState();
     if (!score) return null;
-    return resolveSelectionScope(selection, score);
+    const targets = resolveCapabilityTargets(SCOPE_ACTION, selection, score);
+    return targets?.mode === "scope" ? targets.scope : null;
   }, [store, selection]);
 
   const handleSetTimeSignature = useCallback(

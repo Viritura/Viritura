@@ -1176,6 +1176,48 @@ fn test_beam_commands_tagged_with_element_ids() {
         "Should have beam1 element ID, got: {:?}",
         beam_ids
     );
+    assert_eq!(
+        dl.selection_groups,
+        vec![
+            SelectionGroup {
+                element_id: "p0/m0/beam0".into(),
+                member_ids: ["ev1", "ev2", "ev3", "ev4"]
+                    .map(|id| format!("p0/m0/s0/{id}"))
+                    .to_vec(),
+            },
+            SelectionGroup {
+                element_id: "p0/m0/beam1".into(),
+                member_ids: ["ev5", "ev6", "ev7", "ev8"]
+                    .map(|id| format!("p0/m0/s0/{id}"))
+                    .to_vec(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn test_auto_beam_exports_exact_selection_members() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"id": "a", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+            {"id": "b", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]},
+            {"id": "c", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]},
+            {"id": "d", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "F", "octave": 5}}]}
+        ]}]}]}]
+    }"#;
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
+
+    assert_eq!(
+        dl.selection_groups,
+        vec![SelectionGroup {
+            element_id: "p0/m0/beam0".into(),
+            member_ids: ["a", "b", "c", "d"]
+                .map(|id| format!("p0/m0/s0/{id}"))
+                .to_vec(),
+        }]
+    );
 }
 
 // ═══════════════════════════════════════════

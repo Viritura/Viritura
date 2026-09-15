@@ -20,7 +20,7 @@ mod measure_numbers;
 #[path = "render_annotations/rehearsal_marks.rs"]
 mod rehearsal_marks;
 #[path = "render_annotations/substrate_obstacles.rs"]
-mod substrate_obstacles;
+pub(crate) mod substrate_obstacles;
 #[path = "render_annotations/tempo.rs"]
 mod tempo;
 
@@ -144,11 +144,10 @@ fn marking_extent(
                 let bbox = substrate_obstacles::text_command_bbox(command)?;
                 (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
             }
-            RenderCommand::DrawGlyph { .. } => {
-                let bbox = dl.commands[idx].bbox()?;
+            command => {
+                let bbox = command.bbox()?;
                 (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
             }
-            _ => continue,
         };
         left = left.min(l);
         right = right.max(r);
@@ -158,10 +157,69 @@ fn marking_extent(
     (left.is_finite() && right.is_finite()).then_some((left, right, top, bottom))
 }
 
-/// Shift every command, explicit bbox, and shape of marking `eid` up by `dy`
-/// (positive = move up, so canvas `y` decreases). Command-referenced shapes
-/// track their command automatically; explicit bbox/shape stores are patched
-/// here so selection geometry stays in sync.
+pub(super) fn publish_marking_geometry(
+    dl: &mut DisplayList,
+    staff_cmd_start: usize,
+    eid: &str,
+    kind: ElementKind,
+) {
+    let Some((left, right, top, bottom)) = marking_extent(dl, staff_cmd_start, eid) else {
+        return;
+    };
+    let bbox = BoundingBox::new(left, top, right - left, bottom - top);
+    dl.push_element_bbox_with_shape(ElementBBox {
+        element_id: eid.to_string(),
+        bbox,
+    });
+    if let Some(shape) = dl.element_shapes.last_mut() {
+        shape.kind = kind;
+    }
+}
+
+fn sync_marking_geometry(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str) {
+    let Some((left, right, top, bottom)) = marking_extent(dl, staff_cmd_start, eid) else {
+        return;
+    };
+    let bbox = BoundingBox::new(left, top, right - left, bottom - top);
+    let center = (bbox.x + bbox.width * 0.5, bbox.y + bbox.height * 0.5);
+    let nearest_bbox = dl
+        .element_bboxes
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| candidate.element_id == eid)
+        .min_by(|(_, left), (_, right)| {
+            bbox_center_distance_squared(&left.bbox, center)
+                .total_cmp(&bbox_center_distance_squared(&right.bbox, center))
+        })
+        .map(|(index, _)| index);
+    if let Some(index) = nearest_bbox {
+        dl.element_bboxes[index].bbox = bbox.clone();
+    }
+    let nearest_shape = dl
+        .element_shapes
+        .iter()
+        .enumerate()
+        .filter(|(_, shape)| shape.element_id == eid)
+        .filter_map(|(index, shape)| {
+            let candidate = shape.bbox(&dl.commands)?;
+            Some((index, bbox_center_distance_squared(&candidate, center)))
+        })
+        .min_by(|(_, left), (_, right)| left.total_cmp(right))
+        .map(|(index, _)| index);
+    if let Some(index) = nearest_shape {
+        dl.element_shapes[index].geom = ShapeGeom::Rect { bbox };
+    }
+}
+
+fn bbox_center_distance_squared(bbox: &BoundingBox, center: (f64, f64)) -> f64 {
+    let dx = bbox.x + bbox.width * 0.5 - center.0;
+    let dy = bbox.y + bbox.height * 0.5 - center.1;
+    dx * dx + dy * dy
+}
+
+/// Shift every command of marking `eid` up by `dy` (positive = move up, so
+/// canvas `y` decreases), then re-derive its interaction geometry from the
+/// final commands.
 pub(super) fn shift_marking(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str, dy: f64) {
     if dy == 0.0 {
         return;
@@ -190,18 +248,7 @@ pub(super) fn shift_marking(dl: &mut DisplayList, staff_cmd_start: usize, eid: &
             _ => {}
         }
     }
-    for eb in dl.element_bboxes.iter_mut() {
-        if eb.element_id == eid {
-            eb.bbox.y -= dy;
-        }
-    }
-    for shape in dl.element_shapes.iter_mut() {
-        if shape.element_id == eid {
-            if let crate::render::ShapeGeom::Rect { bbox } = &mut shape.geom {
-                bbox.y -= dy;
-            }
-        }
-    }
+    sync_marking_geometry(dl, staff_cmd_start, eid);
 }
 
 /// Highest (smallest-y) above-arching slur edge over `[left, right]`, or `None`.
@@ -537,23 +584,19 @@ fn shift_marking_x(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str, dx: 
             continue;
         }
         match &mut dl.commands[idx] {
-            RenderCommand::DrawText { x, .. } => *x += dx,
-            RenderCommand::DrawGlyph { x, .. } => *x += dx,
+            RenderCommand::DrawText { x, .. } | RenderCommand::DrawGlyph { x, .. } => *x += dx,
+            RenderCommand::DrawLine { x1, x2, .. } => {
+                *x1 += dx;
+                *x2 += dx;
+            }
+            RenderCommand::DrawRect { x, .. } => *x += dx,
+            RenderCommand::DrawCircle { cx, .. } | RenderCommand::DrawEllipse { cx, .. } => {
+                *cx += dx;
+            }
             _ => {}
         }
     }
-    for eb in dl.element_bboxes.iter_mut() {
-        if eb.element_id == eid {
-            eb.bbox.x += dx;
-        }
-    }
-    for shape in dl.element_shapes.iter_mut() {
-        if shape.element_id == eid {
-            if let crate::render::ShapeGeom::Rect { bbox } = &mut shape.geom {
-                bbox.x += dx;
-            }
-        }
-    }
+    sync_marking_geometry(dl, staff_cmd_start, eid);
 }
 
 /// sweep that replaces the former chain of pairwise `lift_*_over_*` passes.

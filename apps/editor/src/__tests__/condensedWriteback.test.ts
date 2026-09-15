@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
+import type { DisplayList } from "@viritura/renderer";
 import {
   applySelectionWriteback,
   expandCondensedSpannerIds,
+  expandCondensedEventElementIds,
   expandCondensedSubElementIds,
   resolveCondensedFullMeasureRestTargets,
   resolveCondensedSelectionEvents,
@@ -15,6 +17,7 @@ import { applyStaffTextEdit } from "../app/popoverHandlers";
 import { handleDelete } from "../keyboard/normalModeDelete";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 import type { Selection } from "../store/selectionStore";
+import { selectBeamAtPoint } from "../components/ScoreCanvas/beamSelection";
 
 function condensedScore(sourceCount: number, divisi = false): Score {
   const parts = Array.from({ length: sourceCount }, (_, index) => ({
@@ -79,6 +82,15 @@ function deleteSelection(score: Score, selection: Selection): Score {
 }
 
 describe("condensed projection write-back", () => {
+  it("expands visual beam members to every condensed source voice", () => {
+    const score = condensedScore(2);
+
+    expect(expandCondensedEventElementIds(score, ["p0/m0/s0/event-0"], 0)).toEqual([
+      "p0/m0/s0/event-0",
+      "p1/m0/s0/event-1",
+    ]);
+  });
+
   it("keeps staff text on the selected lower staff of a full-measure rest", () => {
     const score = condensedScore(1);
     score.parts[0]!.staves = 2;
@@ -302,6 +314,70 @@ describe("condensed projection write-back", () => {
 
     expect(plan.events[0]?.strategy).toBe("direct");
     expect(plan.sourceEvents.map((event) => event.partIndex)).toEqual([1]);
+  });
+
+  it("keeps an expanded source-staff beam group on that source only", () => {
+    const score = condensedScore(2);
+    const selection = {
+      kind: "multi",
+      elementIds: ["p1/m0/s0/event-1"],
+      measureAnchor: {
+        partIndex: 1,
+        staffIndex: 2,
+        measureIndex: 0,
+        isExpansion: true,
+      },
+    } as const;
+
+    const plan = planCondensedSelectionWriteback(score, selection, 0);
+
+    expect(plan.events[0]?.strategy).toBe("direct");
+    expect(plan.sourceEvents.map((event) => event.partIndex)).toEqual([1]);
+  });
+
+  it("does not expand beam members clicked on an expanded source staff", () => {
+    const score = condensedScore(2);
+    const selectElements = vi.fn();
+    const displayList: DisplayList = {
+      commands: [
+        {
+          type: "DrawPolygon",
+          points: [
+            [0, 0],
+            [20, 0],
+            [20, 4],
+            [0, 4],
+          ],
+          color: "#000000",
+        },
+      ],
+      width: 100,
+      height: 100,
+      elementIds: ["p1/m0/beam0"],
+      selectionGroups: [{ elementId: "p1/m0/beam0", memberIds: ["p1/m0/s0/event-1"] }],
+    };
+    const measureAnchor = {
+      partIndex: 1,
+      staffIndex: 2,
+      measureIndex: 0,
+      isExpansion: true,
+    };
+
+    expect(
+      selectBeamAtPoint({
+        displayList,
+        score,
+        selectedScoreIndex: 0,
+        x: 10,
+        y: 2,
+        zoom: 1,
+        toggle: false,
+        measureAnchor,
+        selectElements,
+        toggleSelection: vi.fn(),
+      }),
+    ).toBe(true);
+    expect(selectElements).toHaveBeenCalledWith(["p1/m0/s0/event-1"], measureAnchor);
   });
 
   it("deletes only the selected source note from an amalgamated chord", () => {

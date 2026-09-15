@@ -19,6 +19,7 @@ import type {
   BoundingBox,
   SlurGeometry,
   MeasureBounds,
+  SelectionGroup,
 } from "./wasm";
 import { BinaryReader, DECODERS, PAINTERS } from "./binaryDisplayListCommands";
 
@@ -111,6 +112,7 @@ function readMeasureBounds(r: BinaryReader, n: number): MeasureBounds[] {
     for (let j = 0; j < beatAnchorCount; j++) {
       beatAnchors.push([r.f32(), r.f32()]);
     }
+
     const ghostStaff = r.f32() !== 0;
     const isHidden = r.f32() !== 0;
     const hasMusicHidden = r.f32() !== 0;
@@ -135,6 +137,20 @@ function readMeasureBounds(r: BinaryReader, n: number): MeasureBounds[] {
     });
   }
   return out;
+}
+
+function readSelectionGroups(r: BinaryReader, count: number): SelectionGroup[] {
+  const groups: SelectionGroup[] = [];
+  for (let index = 0; index < count; index++) {
+    const elementId = readCodepointString(r, r.f32());
+    const memberCount = r.f32();
+    const memberIds: string[] = [];
+    for (let member = 0; member < memberCount; member++) {
+      memberIds.push(readCodepointString(r, r.f32()));
+    }
+    groups.push({ elementId, memberIds });
+  }
+  return groups;
 }
 
 function readElementIds(r: BinaryReader, numCommands: number, numStrings: number): (string | null)[] | undefined {
@@ -191,6 +207,7 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
 
   const elementIds = readElementIds(r, numCommands, numStrings);
   const measureBounds = r.pos < data.length ? readMeasureBounds(r, r.f32()) : [];
+  const selectionGroups = r.pos < data.length ? readSelectionGroups(r, r.f32()) : [];
 
   const result: DisplayList = { commands, width, height };
   if (pages.length > 0) result.pages = pages;
@@ -198,6 +215,7 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
   if (elementBboxes.length > 0) result.elementBboxes = elementBboxes;
   if (slurGeometries.length > 0) result.slurGeometries = slurGeometries;
   if (measureBounds.length > 0) result.measureBounds = measureBounds;
+  if (selectionGroups.length > 0) result.selectionGroups = selectionGroups;
   return result;
 }
 

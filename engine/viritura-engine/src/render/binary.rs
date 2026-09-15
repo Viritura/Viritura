@@ -250,9 +250,10 @@ impl DisplayList {
             buf.push(idx);
         }
 
-        // Optional measure-bounds trailer: [count, bounds...]. Kept after the
-        // command payload so existing binary command offsets remain stable.
-        if !self.measure_bounds.is_empty() {
+        // Optional trailers are kept after the command payload so existing
+        // command offsets remain stable. Selection groups require an explicit
+        // zero measure count when no measure bounds are present.
+        if !self.measure_bounds.is_empty() || !self.selection_groups.is_empty() {
             buf.push(self.measure_bounds.len() as f32);
             for mb in &self.measure_bounds {
                 if let Some(measure_id) = &mb.measure_id {
@@ -283,6 +284,24 @@ impl DisplayList {
                 buf.push(if mb.is_hidden { 1.0 } else { 0.0 });
                 buf.push(if mb.has_music_hidden { 1.0 } else { 0.0 });
                 buf.push(if mb.is_expansion { 1.0 } else { 0.0 });
+            }
+        }
+        if !self.selection_groups.is_empty() {
+            buf.push(self.selection_groups.len() as f32);
+            for group in &self.selection_groups {
+                let id: Vec<u32> = group.element_id.chars().map(|c| c as u32).collect();
+                buf.push(id.len() as f32);
+                for cp in id {
+                    buf.push(cp as f32);
+                }
+                buf.push(group.member_ids.len() as f32);
+                for member in &group.member_ids {
+                    let codepoints: Vec<u32> = member.chars().map(|c| c as u32).collect();
+                    buf.push(codepoints.len() as f32);
+                    for cp in codepoints {
+                        buf.push(cp as f32);
+                    }
+                }
             }
         }
 

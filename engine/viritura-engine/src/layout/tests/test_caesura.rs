@@ -72,6 +72,42 @@ fn test_caesura_renders_from_mnx() {
 }
 
 #[test]
+fn test_caesura_is_selectable_with_exact_glyph_bounds() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"id": "pause", "duration": {"base": "whole"},
+             "notes": [{"pitch": {"step": "C", "octave": 5}}],
+             "markings": {"_x": {"viritura": {"caesura": {}}}}}
+        ]}]}]}]
+    }"#;
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
+    let caesura_id = "p0/m0/s0/pause/caesura";
+    let (command_index, command) = dl
+        .commands
+        .iter()
+        .enumerate()
+        .find(|(index, _)| dl.element_ids[*index].as_deref() == Some(caesura_id))
+        .expect("tagged caesura glyph");
+    let command_bbox = command.bbox().expect("caesura glyph has exact bounds");
+    let hitbox = dl
+        .element_bboxes
+        .iter()
+        .find(|bbox| bbox.element_id == caesura_id)
+        .expect("caesura hitbox");
+
+    assert_eq!(hitbox.bbox, command_bbox);
+    assert!(matches!(
+        dl.element_shapes
+            .iter()
+            .find(|shape| shape.element_id == caesura_id)
+            .map(|shape| &shape.geom),
+        Some(ShapeGeom::Cmd { cmd_idx }) if *cmd_idx == command_index as u32
+    ));
+}
+
+#[test]
 fn test_caesura_above_staff() {
     // Caesura glyph strokes should span from second staff line to first ledger line above.
     let json = r#"{
