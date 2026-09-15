@@ -796,6 +796,7 @@ pub(crate) fn render_beams(
             beam_thickness,
             beam_gap,
             max_beam_level,
+            &explicit_hooks,
             beam_idx,
             cmd_start,
         ) {

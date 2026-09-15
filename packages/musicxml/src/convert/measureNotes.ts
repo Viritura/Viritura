@@ -646,7 +646,7 @@ export function processMeasureNotes(
       // voice — the tremolo slashes stand in for the connecting beam, so the
       // two notes must not also form a regular beam group.
       if (!activeTremolos.has(voiceNum)) {
-        beamGroups.push(...processBeamMarks(el, eventId, voiceNum, staffNum, _globalMeasureIndex, activeBeams));
+        beamGroups.push(...processBeamMarks(el, eventId, voiceNum, _globalMeasureIndex, activeBeams));
       }
 
       // Add event to tremolo, tuplet, or voice (tremolo is the innermost

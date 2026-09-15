@@ -323,7 +323,7 @@ function containingParentAtLevel(
   for (let childLevel = 2; childLevel < level; childLevel++) {
     const children = materializeChildren(parent, childLevel, eventMap);
     const child = children.find((candidate) => eventIds.every((id) => candidate.events.includes(id)));
-    if (!child || child.direction !== undefined) return null;
+    if (!child) return null;
     parent = child;
   }
   return parent;
