@@ -166,6 +166,13 @@ function normalizeDisplayList(raw: Record<string, unknown>): DisplayList {
       bbox: (b["bbox"] ?? b) as BoundingBox,
     }));
   }
+  if (!dl.selectionGroups && (raw as Record<string, unknown>)["selection_groups"]) {
+    const rawGroups = (raw as Record<string, unknown>)["selection_groups"] as Record<string, unknown>[];
+    dl.selectionGroups = rawGroups.map((group) => ({
+      elementId: (group["elementId"] ?? group["element_id"]) as string,
+      memberIds: (group["memberIds"] ?? group["member_ids"]) as string[],
+    }));
+  }
   // Normalize measure_bounds → measureBounds
   if (!dl.measureBounds && (raw as Record<string, unknown>)["measure_bounds"]) {
     const rawBounds = (raw as Record<string, unknown>)["measure_bounds"] as Record<string, unknown>[];

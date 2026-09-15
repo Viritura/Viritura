@@ -24,7 +24,7 @@ pub fn classify_element_kind(element_id: &str) -> ElementKind {
         ElementKind::Fermata
     } else if element_id.ends_with("/ornament") {
         ElementKind::Ornament
-    } else if element_id.ends_with("/tremolo") {
+    } else if element_id.ends_with("/trem") || element_id.ends_with("/tremolo") {
         ElementKind::Tremolo
     } else if element_id.ends_with("/clef") {
         ElementKind::Clef

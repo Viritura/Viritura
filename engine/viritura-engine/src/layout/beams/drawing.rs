@@ -124,6 +124,16 @@ pub(super) fn render_between_staff_beam(
             );
         }
     }
+    dl.push_selection_group(
+        beam_id,
+        super::beam_member_element_ids(
+            std::slice::from_ref(ml),
+            &beam_events
+                .iter()
+                .filter_map(|event| event.id.clone())
+                .collect::<Vec<_>>(),
+        ),
+    );
     true
 }
 

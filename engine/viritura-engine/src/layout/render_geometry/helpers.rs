@@ -271,7 +271,6 @@ pub(crate) fn compute_measure_bboxes(
     sp: f64,
     config: &LayoutConfig,
     part_idx: usize,
-    slur_map: Option<&super::super::slurs::SlurParticipationMap>,
     beamed_ids: &HashSet<String>,
     // Leading-clef gap reserved before this measure's start barline (a mid-
     // system start-of-measure clef change shifts the barline right by this
@@ -462,7 +461,7 @@ pub(crate) fn compute_measure_bboxes(
                 config,
                 measure_idx,
             );
-            bbox_event_articulations(
+            bbox_event_ornaments_and_trills(
                 &mut bboxes,
                 el,
                 event_idx,
@@ -473,9 +472,7 @@ pub(crate) fn compute_measure_bboxes(
                 sp,
                 config,
                 notehead_w,
-                staff_height,
                 glyph_size,
-                slur_map,
             );
         }
     }

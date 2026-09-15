@@ -303,7 +303,7 @@ pub(crate) fn render_fermatas(
                 &event_id,
             );
             let ferm_id = element_id::fermata(&ferm_event);
-            dl.push_tagged(
+            dl.push_selectable_command(
                 RenderCommand::DrawGlyph {
                     x: fx,
                     y: fy,
@@ -314,6 +314,8 @@ pub(crate) fn render_fermatas(
                     rotation: 0.0,
                 },
                 ferm_id,
+                ElementKind::Fermata,
+                HitPolicy::Ink,
             );
         }
     }

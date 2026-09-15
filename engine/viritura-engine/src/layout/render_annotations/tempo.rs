@@ -425,13 +425,6 @@ pub(crate) fn render_tempo_markings(
                     }
                 }
             }
-            let glyph_ascent = 2.1 * sp;
-            let block_top = baseline_y - glyph_ascent;
-            let block_h = baseline_y - block_top;
-            dl.push_element_bbox_with_shape(ElementBBox {
-                element_id: element_id::tempo(mi, i),
-                bbox: BoundingBox::new(place_x, block_top, total_w, block_h),
-            });
         } else if show_text {
             let full_text = tempo.text.as_deref().unwrap_or("").to_string();
             let n_chars = full_text.chars().count();
@@ -461,13 +454,6 @@ pub(crate) fn render_tempo_markings(
                 align: TextAlign::Left,
                 baseline: TextBaseline::Alphabetic,
             });
-            let text_w = text_styles::text_width(&full_text, text_size, tempo_family, tempo_bold);
-            let block_h = text_size * 0.82;
-            let block_top = baseline_y - block_h;
-            dl.push_element_bbox_with_shape(ElementBBox {
-                element_id: element_id::tempo(mi, i),
-                bbox: BoundingBox::new(place_x, block_top, text_w, block_h),
-            });
         } else {
             continue;
         }
@@ -477,6 +463,7 @@ pub(crate) fn render_tempo_markings(
         for ci in cmd_idx..cmd_end {
             dl.tag_command(ci, eid.clone());
         }
+        super::publish_marking_geometry(dl, cmd_idx, &eid, ElementKind::Tempo);
     }
 }
 

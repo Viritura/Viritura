@@ -8,7 +8,7 @@ import { deleteAnnotation, deleteArpeggioByElementId, deleteGraceNote } from "./
 import { deleteNote } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
-import { partitionMarkingIds, removeMarkings } from "./markingSelection";
+import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from "./markingSelection";
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "./chordNoteDeletion";
 import { resolveSelectionEvents } from "../store/selectionUtils";
 import {
@@ -159,6 +159,10 @@ function deleteStandaloneElement(score: Score, elementId: string): DeleteSelecti
     const stripped = removeArticulation(score, elementId);
     if (!stripped) return { kind: "noop" };
     return { kind: "single", score: stripped, nextSelection: { kind: "clear" } };
+  }
+  if (isCaesuraId(elementId)) {
+    const stripped = removeCaesura(score, elementId);
+    return stripped ? { kind: "single", score: stripped, nextSelection: { kind: "clear" } } : { kind: "noop" };
   }
 
   // MNX key signatures are global-measure properties even though the renderer

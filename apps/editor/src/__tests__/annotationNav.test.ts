@@ -156,7 +156,7 @@ describe("isAnnotationId", () => {
   });
 
   it("returns true for event-attached annotations", () => {
-    expect(isAnnotationId("p0/m0/s0/e0/fermata")).toBe(true);
+    expect(isAnnotationId("p0/m0/s0/e0/ferm")).toBe(true);
     expect(isAnnotationId("p0/m0/s0/e0/trill")).toBe(true);
     expect(isAnnotationId("p0/m0/s0/e0/orn0")).toBe(true);
     expect(isAnnotationId("p0/m0/s0/e0/art1")).toBe(true);
@@ -194,7 +194,7 @@ describe("isAnnotationId", () => {
 
 describe("getParentEventId", () => {
   it("returns parent event ID for event-attached annotations", () => {
-    expect(getParentEventId("p0/m0/s0/e0/fermata")).toBe("p0/m0/s0/e0");
+    expect(getParentEventId("p0/m0/s0/e0/ferm")).toBe("p0/m0/s0/e0");
     expect(getParentEventId("p0/m1/s0/note1/trill")).toBe("p0/m1/s0/note1");
     expect(getParentEventId("p0/m0/s0/e0/art2")).toBe("p0/m0/s0/e0");
   });
@@ -240,6 +240,7 @@ describe("findAnnotationsForEvent", () => {
 
     const types = annotations.map((a) => a.type);
     expect(types).toContain("fermata");
+    expect(annotations.some((annotation) => annotation.elementId === "p0/m0/s0/e0/ferm")).toBe(true);
     expect(types).toContain("trill");
     expect(types).toContain("articulation"); // staccato + stress
   });
@@ -326,7 +327,7 @@ describe("findAnnotationOtherSide", () => {
   it("moves from above to below", () => {
     const score = makeAnnotatedScore();
     // fermata is above → should find something below
-    const target = findAnnotationOtherSide(score, "p0/m0/s0/e0/fermata");
+    const target = findAnnotationOtherSide(score, "p0/m0/s0/e0/ferm");
     expect(target).toBeDefined();
     expect(target).toMatch(/dyn|hairpin|pedal|expr/);
   });
@@ -360,7 +361,7 @@ describe("findAnnotationOtherSide", () => {
       ],
     } as unknown as Score;
 
-    const target = findAnnotationOtherSide(score, "p0/m0/s0/e0/fermata");
+    const target = findAnnotationOtherSide(score, "p0/m0/s0/e0/ferm");
     expect(target).toBeUndefined();
   });
 });

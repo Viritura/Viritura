@@ -39,6 +39,7 @@ describe("ScoreCanvas printPreview", () => {
 
   it("suppresses selection overlay when printPreview is set", () => {
     expect(SOURCE).toMatch(/!printPreview\s*&&\s*spatialIndex(Ref\.current)?\s*&&\s*selectedIds/);
+    expect(SOURCE).toMatch(/!printPreview\s*&&\s*spatialIndex\s*&&\s*hitboxOverlayEnabled/);
   });
 
   it("conditionally renders InputCursor only when not printPreview", () => {
@@ -51,8 +52,8 @@ describe("ScoreCanvas printPreview", () => {
 
   it("strips canvas pointer handlers when printPreview is set", () => {
     expect(SOURCE).toMatch(/onClick=\{printPreview\s*\?\s*undefined/);
-    expect(SOURCE).toMatch(/onMouseDown=\{printPreview\s*\?\s*undefined/);
-    expect(SOURCE).toMatch(/onMouseUp=\{printPreview\s*\?\s*undefined/);
-    expect(SOURCE).toMatch(/onDoubleClick=\{printPreview\s*\?\s*undefined/);
+    expect(SOURCE).toMatch(/onPointerDown=\{printPreview\s*\?\s*undefined/);
+    expect(SOURCE).toMatch(/onPointerUp=\{printPreview\s*\?\s*undefined/);
+    expect(SOURCE).toMatch(/onPointerCancel=\{printPreview\s*\?\s*undefined/);
   });
 });

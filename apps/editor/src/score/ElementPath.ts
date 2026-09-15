@@ -64,6 +64,10 @@ export function fermataId(parentEventId: string): string {
   return `${parentEventId}/ferm`;
 }
 
+export function caesuraId(parentEventId: string): string {
+  return `${parentEventId}/caesura`;
+}
+
 // ── Part-scoped measure elements ────────────────────────────────────
 
 export function clefId(part: number, measure: number): string {

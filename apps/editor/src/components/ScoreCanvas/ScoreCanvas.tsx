@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- component shell after 25+ sibling extractions (canvasHandlers, paintScoreFrame, paintEngraveAdornments, repaintCanvas, computeDisplayList, hitTesting, layoutHelpers, viewportGeometry, ...). The remainder is React glue that does not decompose cleanly: state/ref declarations, useImperativeHandle, prop-mirror refs for engrave callbacks, effect orchestration coordinating WASM/fast-layout/relayout, and JSX. Splitting further would scatter cross-effect dependencies into argument bundles. */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   GlyphAtlas,
   PageCache,
@@ -59,6 +59,7 @@ import {
   SCORE_ERROR_STYLE,
   SCORE_LOADING_STYLE,
   SCORE_ROOT_STYLE,
+  SCREEN_READER_ONLY_STYLE,
   scoreCanvasElementStyle,
 } from "./constants";
 
@@ -86,14 +87,15 @@ import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
 import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
 import {
   handleCanvasClickImpl,
-  handleCanvasDoubleClickImpl,
   handleCanvasMouseDownImpl,
   handleCanvasMouseUpImpl,
   handleCanvasMouseMoveImpl,
   handleCanvasMouseLeaveImpl,
+  handleCanvasPointerCancelImpl,
   handleCanvasContextMenuImpl,
   type CanvasHandlerCtx,
 } from "./canvasHandlers";
+import { selectionAnnouncement } from "./selectionAnnouncement";
 import { produce } from "../../score/scoreClone";
 import { reanchoredSlurElementId, reanchorSlurInScore } from "../../score/ScoreMutations";
 
@@ -136,6 +138,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     ref,
   ) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const selectionStatusId = useId();
     const displayListRef = useRef<DisplayList | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -236,8 +239,15 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // selection overlay tracks edited geometry instead of lagging one edit
     // behind (e.g. transposing a selected note).
     const selectionActions = useSelectionActions();
-    const { selectElement, extendSelection, toggleSelection, selectMeasure, extendMeasure, clearSelection } =
-      selectionActions;
+    const {
+      selectElement,
+      selectElements,
+      extendSelection,
+      toggleSelection,
+      selectMeasure,
+      extendMeasure,
+      clearSelection,
+    } = selectionActions;
 
     const {
       state: noteInputState,
@@ -546,6 +556,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
 
     // Repaint debounce/rAF refs (used by fast-layout path + paintNow scheduling).
     const rafRef = useRef(0);
+    const handleDisplayListCommit = useCallback(() => {
+      setDisplayListVersion((version) => version + 1);
+    }, []);
     // Register synchronous fast-layout callback on the global perf tracker.
     // DocumentContext calls this from updateScore BEFORE React state updates,
     // eliminating the ~32ms react-schedule gap.
@@ -560,6 +573,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       spatialIndexRef,
       docScoreRef,
       paintNowRef,
+      onDisplayListCommit: handleDisplayListCommit,
       lastFastPaintedJsonRef,
       pendingFastJsonRef,
     });
@@ -619,6 +633,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           docScoreRef,
           paintNowRef,
           perfTracker: perfTrackerRef.current,
+          onDisplayListCommit: handleDisplayListCommit,
         })
           .then(() => {
             lastFastPaintedJsonRef.current = mnxJson;
@@ -722,6 +737,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       viewMode,
       containerWidth,
       debugEnabled,
+      handleDisplayListCommit,
     ]);
 
     useScoreViewRelayout({
@@ -807,10 +823,11 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     }, [debugEnabled, wasmReady, mnxJson, computeDisplayList, selectedScoreIndex, scoreDefinitions.length, viewMode]);
 
     // Build set of selected element IDs for the overlay
-    const selectedIds = useMemo(
-      () => computeSelectedIds(selection, spatialIndexRef.current, docScoreRef.current),
-      [selection],
-    );
+    const selectedIds = useMemo(() => {
+      const index = displayListVersion > 0 ? spatialIndexRef.current : null;
+      return computeSelectedIds(selection, index, docScore);
+    }, [selection, displayListVersion, docScore]);
+    const selectionStatus = useMemo(() => selectionAnnouncement(selection), [selection]);
 
     // ─── Spanner handle drag state ─────────────────
     const spannerDragRef = useRef<{
@@ -1094,6 +1111,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       () => ({
         viewport,
         viewMode,
+        selectedScoreIndex,
         selectedIds,
         performanceOverlayEnabled,
         canvasRef,
@@ -1131,6 +1149,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         commitSlurReanchor,
         setSelectedSlurId,
         selectElement,
+        selectElements,
         extendSelection,
         toggleSelection,
         clearSelection,
@@ -1146,6 +1165,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       [
         viewport,
         viewMode,
+        selectedScoreIndex,
         selectedIds,
         performanceOverlayEnabled,
         canvasRef,
@@ -1154,6 +1174,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         commitSlurReanchor,
         setSelectedSlurId,
         selectElement,
+        selectElements,
         extendSelection,
         toggleSelection,
         clearSelection,
@@ -1170,23 +1191,23 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasClickImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
     );
-    const handleCanvasDoubleClick = useCallback(
-      (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasDoubleClickImpl(e, canvasHandlerCtx),
-      [canvasHandlerCtx],
-    );
     const handleCanvasMouseDown = useCallback(
-      (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasMouseDownImpl(e, canvasHandlerCtx),
+      (e: React.PointerEvent<HTMLCanvasElement>) => handleCanvasMouseDownImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
     );
     const handleCanvasMouseUp = useCallback(
-      (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasMouseUpImpl(e, canvasHandlerCtx),
+      (e: React.PointerEvent<HTMLCanvasElement>) => handleCanvasMouseUpImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
     );
     const handleCanvasMouseMove = useCallback(
-      (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasMouseMoveImpl(e, canvasHandlerCtx),
+      (e: React.PointerEvent<HTMLCanvasElement>) => handleCanvasMouseMoveImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
     );
     const handleCanvasMouseLeave = useCallback(() => handleCanvasMouseLeaveImpl(canvasHandlerCtx), [canvasHandlerCtx]);
+    const handleCanvasPointerCancel = useCallback(
+      () => handleCanvasPointerCancelImpl(canvasHandlerCtx),
+      [canvasHandlerCtx],
+    );
     const handleCanvasContextMenu = useCallback(
       (e: React.MouseEvent<HTMLCanvasElement>) => handleCanvasContextMenuImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
@@ -1219,12 +1240,15 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           <canvas
             ref={canvasRef}
             tabIndex={0}
+            role="application"
+            aria-label="Interactive music score"
+            aria-describedby={selectionStatusId}
             onClick={printPreview ? undefined : handleCanvasClick}
-            onDoubleClick={printPreview ? undefined : handleCanvasDoubleClick}
-            onMouseDown={printPreview ? undefined : handleCanvasMouseDown}
-            onMouseUp={printPreview ? undefined : handleCanvasMouseUp}
-            onMouseMove={printPreview ? undefined : handleCanvasMouseMove}
-            onMouseLeave={printPreview ? undefined : handleCanvasMouseLeave}
+            onPointerDown={printPreview ? undefined : handleCanvasMouseDown}
+            onPointerUp={printPreview ? undefined : handleCanvasMouseUp}
+            onPointerMove={printPreview ? undefined : handleCanvasMouseMove}
+            onPointerLeave={printPreview ? undefined : handleCanvasMouseLeave}
+            onPointerCancel={printPreview ? undefined : handleCanvasPointerCancel}
             onContextMenu={printPreview ? undefined : handleCanvasContextMenu}
             onAuxClick={(e) => {
               if (e.button === 1) e.preventDefault();
@@ -1245,7 +1269,12 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               printPreview,
               theme,
             )}
-          />
+          >
+            Interactive music score
+          </canvas>
+          <span id={selectionStatusId} aria-live="polite" style={SCREEN_READER_ONLY_STYLE}>
+            {selectionStatus}
+          </span>
           {!printPreview && (
             <InputCursor
               displayList={displayListRef.current}

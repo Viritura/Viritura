@@ -19,7 +19,7 @@ import {
 } from "../commands/deleteCommands";
 import { isAccidentalId, removeAccidental } from "../commands/accidentalCommands";
 import { isArticulationId, removeArticulation } from "../commands/articulationDeletion";
-import { partitionMarkingIds, removeMarkings } from "../commands/markingSelection";
+import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from "../commands/markingSelection";
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "../commands/chordNoteDeletion";
 import {
   resolveEventLocation,
@@ -115,6 +115,14 @@ function deleteCondensedAccidental(score: Score, elementId: string, selectedScor
   return removed ? next : null;
 }
 
+function deleteCondensedCaesura(score: Score, elementId: string, selectedScoreIndex: number): Score | null {
+  const next = cloneScore(score);
+  const ids = expandCondensedSubElementIds(score, [elementId], selectedScoreIndex);
+  let removed = false;
+  for (const id of ids) removed = removeCaesura(next, id) !== null || removed;
+  return removed ? next : null;
+}
+
 function deleteCondensedSpanner(
   score: Score,
   elementId: string,
@@ -178,6 +186,7 @@ function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreInde
   if (elementId.endsWith("/arp")) return deleteArpeggioByElementId(score, elementId);
   if (isAccidentalId(elementId)) return deleteCondensedAccidental(score, elementId, selectedScoreIndex);
   if (isArticulationId(elementId)) return deleteCondensedArticulation(score, elementId, selectedScoreIndex);
+  if (isCaesuraId(elementId)) return deleteCondensedCaesura(score, elementId, selectedScoreIndex);
   return undefined;
 }
 

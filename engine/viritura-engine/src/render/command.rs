@@ -174,10 +174,9 @@ pub enum TextBaseline {
 
 impl RenderCommand {
     /// Tight-ish axis-aligned bbox for this command, or `None` if the command
-    /// has no spatial extent (`SetOpacity`) or its geometry isn't yet derivable
-    /// without external metadata (`DrawGlyph` / `DrawText` — return `None`
-    /// today; callers should publish those via `ShapeGeom::Rect` with a
-    /// glyph-metrics-derived rect at emit time).
+    /// has no spatial extent (`SetOpacity`) or its geometry isn't derivable
+    /// without external metadata (`DrawText`). SMuFL glyph commands use the
+    /// engine's canonical Bravura metadata.
     ///
     /// Used by the shape registry to derive geometry on demand for primitives
     /// whose draw-command coordinates ARE the geometry.

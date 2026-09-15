@@ -49,6 +49,25 @@ pub struct ElementBBox {
     pub bbox: BoundingBox,
 }
 
+/// Logical selection represented by one rendered group such as a beam.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectionGroup {
+    pub element_id: String,
+    pub member_ids: Vec<String>,
+}
+
+/// How a selectable render command expands its exact ink into an interaction
+/// target. The display-list emitter applies this policy while it still owns the
+/// command, so rendering and hit geometry cannot use different coordinates.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HitPolicy {
+    /// Use the command's exact ink bounds.
+    Ink,
+    /// Expand the exact ink bounds by fixed layout-space padding.
+    Padded { x: f64, y: f64 },
+}
+
 /// Coarse classification of a rendered element used by the collision / shape
 /// registry. Lets consumers (slur scorer, hairpin clearance, etc.) filter the
 /// shape list by kind without parsing element-id suffixes.
@@ -59,6 +78,8 @@ pub struct ElementBBox {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ElementKind {
+    Event,
+    Rest,
     Notehead,
     Stem,
     Beam,
@@ -164,8 +185,10 @@ impl ElementKind {
     pub fn field_role(self) -> Option<FieldRole> {
         use ElementKind::*;
         match self {
-            Notehead | Stem | Beam | Tuplet | Flag | LedgerLine | Accidental | AugmentationDot
-            | Tremolo | Clef | KeySig | TimeSig | Barline => Some(FieldRole::Substrate),
+            Event | Rest | Notehead | Stem | Beam | Tuplet | Flag | LedgerLine | Accidental
+            | AugmentationDot | Tremolo | Clef | KeySig | TimeSig | Barline => {
+                Some(FieldRole::Substrate)
+            }
             Slur | Tie | Hairpin | Pedal | Volta | Ottava | Glissando => Some(FieldRole::Connector),
             Articulation | Fermata | Lyric | Dynamic | Tempo | RehearsalMark | MeasureNumber
             | Expression | ChordSymbol | Segno | Coda | Fine | Jump | Ornament | Trill

@@ -1,6 +1,6 @@
 # Selection Behavior Matrix
 
-The single, human-readable description of "what does editing action _X_ do for
+The shared baseline for "what does a generic editing action _X_ do for
 selection kind _Y_". It is the prose companion to the **declarative capability
 contract** in [`apps/editor/src/store/selectionCapabilities.ts`](../../apps/editor/src/store/selectionCapabilities.ts)
 and the resolution primitives in [`apps/editor/src/store/selectionUtils.ts`](../../apps/editor/src/store/selectionUtils.ts).
@@ -10,10 +10,13 @@ Before this contract existed, every action hand-rolled its own
 silently ignored multi/range selections while articulation didn't; transpose
 was dead for ranges entirely; clipboard, delete, and the radial menu each
 de-duplicated and ordered events differently. The capability contract collapses
-all of that into one declaration per action plus three shared resolvers.
+all of that into one declaration per action plus four shared resolvers.
 
 The target behaviors below follow established notation-editing conventions.
-Where Viritura intentionally differs, it is called out.
+Structural operations that need information outside the four generic target
+modes—such as clipboard shape, condensed writeback, deletion, and
+staff-specific markings—use explicit specialized resolvers. Where Viritura
+intentionally differs, it is called out.
 
 ## The five selection kinds
 
@@ -31,7 +34,7 @@ Defined as a discriminated union in
 `single` is the only kind that carries `elementType`; the others are resolved
 to concrete events/scope on demand.
 
-## The three targeting modes
+## The four targeting modes
 
 Every action declares one **mode** (see `SelectionTargetMode`). The mode picks
 which resolver in `selectionUtils.ts` turns the abstract selection into concrete
@@ -113,8 +116,9 @@ Returns one primary element ID for single-target property edits.
 
 ## Action registry
 
-Declared in `SELECTION_CAPABILITIES`. Adding an editing action means adding one
-line here — never another `selection.kind` ladder.
+Declared in `SELECTION_CAPABILITIES`. Adding a generic event, note, scope, or
+anchor action means adding one line here; specialized structural behavior
+belongs in an explicitly named resolver documented below.
 
 | Action         | Mode     | Accepts                       | Behavior across kinds                                                                                                                                                                                                                                                                                                                            |
 | -------------- | -------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -132,6 +136,10 @@ line here — never another `selection.kind` ladder.
 
 ### Behaviors that live outside the registry (by design)
 
+- **Beam selection** — clicking the painted beam polygon selects the exact
+  member events exported by the layout engine. Beam ink wins over overlapping
+  stem/event rectangles. In condensed layouts, visual members expand through
+  the standard writeback provenance to every represented source voice.
 - **Slur / tie** — _span_ actions: they consult the `events` capability to find
   the covered notes, then apply a connection rather than a per-event mark. A
   bar (measure) or multi/range selection behaves as if every covered note were

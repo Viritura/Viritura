@@ -109,6 +109,7 @@ impl DisplayList {
         }
 
         self.element_bboxes.extend(other.element_bboxes);
+        self.selection_groups.extend(other.selection_groups);
 
         for mut shape in other.element_shapes {
             if let ShapeGeom::Cmd { cmd_idx } = &mut shape.geom {

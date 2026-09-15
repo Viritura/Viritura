@@ -316,14 +316,5 @@ pub(crate) fn render_rehearsal_marks(
     for ci in cmd_idx..cmd_end {
         dl.tag_command(ci, eid.clone());
     }
-    let half = border_width * 0.5;
-    dl.push_element_bbox_with_shape(ElementBBox {
-        element_id: eid,
-        bbox: BoundingBox::new(
-            frame.left - half,
-            frame.top - half,
-            frame.width + 2.0 * half,
-            frame.height + 2.0 * half,
-        ),
-    });
+    super::publish_marking_geometry(dl, cmd_idx, &eid, ElementKind::RehearsalMark);
 }

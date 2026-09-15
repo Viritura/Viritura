@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { NoteEvent, Score } from "@viritura/core";
 import type { DisplayList, RenderCommand, SlurGeometry } from "@viritura/renderer";
-import { handleCanvasClickImpl, handleCanvasMouseDownImpl, type CanvasHandlerCtx } from "../canvasHandlers";
+import {
+  handleCanvasClickImpl,
+  handleCanvasMouseDownImpl,
+  handleCanvasPointerCancelImpl,
+  type CanvasHandlerCtx,
+} from "../canvasHandlers";
 import { snappedSlurAnchorDelta } from "../slurAnchorSnap";
 import { suppressElementCommands } from "../dragPreviewSuppression";
 
@@ -69,9 +74,16 @@ const slurCommand: Extract<RenderCommand, { type: "DrawFilledBezier" }> = {
   line_style: 0,
 };
 
+function dispatchPointer(type: "pointermove" | "pointerup" | "pointercancel", pointerId: number, x = 0, y = 0): void {
+  const event = new MouseEvent(type, { clientX: x, clientY: y });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  window.dispatchEvent(event);
+}
+
 function context() {
   const selectedSlurIdRef = { current: null as string | null };
   const selectElement = vi.fn();
+  const selectElements = vi.fn();
   const commitSlurReanchor = vi.fn();
   const onEngraveSlurShapeEdit = vi.fn();
   const bboxes = new Map([
@@ -92,6 +104,7 @@ function context() {
   const ctx = {
     viewport: { zoom: 1, scrollX: 0, scrollY: 0 },
     viewMode: "horizon",
+    selectedScoreIndex: 0,
     selectedIds: new Set(["slur/source/target"]),
     performanceOverlayEnabled: false,
     canvasRef: { current: canvas },
@@ -120,15 +133,56 @@ function context() {
       selectedSlurIdRef.current = id;
     },
     selectElement,
+    selectElements,
     commitSlurReanchor,
     onEngraveSlurShapeEditRef: { current: onEngraveSlurShapeEdit },
     setEngraveHoverCursor: vi.fn(),
     toggleNoteInput: vi.fn(),
   } as unknown as CanvasHandlerCtx;
-  return { ctx, selectedSlurIdRef, selectElement, commitSlurReanchor, onEngraveSlurShapeEdit };
+  return { ctx, selectedSlurIdRef, selectElement, selectElements, commitSlurReanchor, onEngraveSlurShapeEdit };
 }
 
 describe("Write-mode slur endpoint dragging", () => {
+  it("prioritizes beam ink and selects the beam's exact member events", () => {
+    const { ctx, selectElement, selectElements } = context();
+    ctx.displayListRef.current = {
+      width: 800,
+      height: 600,
+      commands: [
+        {
+          type: "DrawPolygon",
+          points: [
+            [40, 40],
+            [160, 40],
+            [160, 46],
+            [40, 46],
+          ],
+          color: "#000000",
+        },
+      ],
+      elementIds: ["p0/m0/beam0"],
+      selectionGroups: [{ elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/source", "p0/m0/s0/target"] }],
+    };
+    ctx.spatialIndexRef.current = {
+      hitTest: () => "p0/m0/s0/source",
+      findNearest: () => "p0/m0/s0/source",
+    } as unknown as CanvasHandlerCtx["spatialIndexRef"]["current"];
+
+    handleCanvasClickImpl(
+      {
+        clientX: 100,
+        clientY: 43,
+        shiftKey: false,
+        ctrlKey: false,
+        metaKey: false,
+      } as React.MouseEvent<HTMLCanvasElement>,
+      ctx,
+    );
+
+    expect(selectElements).toHaveBeenCalledWith(["p0/m0/s0/source", "p0/m0/s0/target"], undefined);
+    expect(selectElement).not.toHaveBeenCalled();
+  });
+
   it("suppresses only the engine-rendered slur while its preview is active", () => {
     const noteCommand = { ...slurCommand, x1: 300, x2: 380 };
     const displayList = {
@@ -182,6 +236,7 @@ describe("Write-mode slur endpoint dragging", () => {
     handleCanvasMouseDownImpl(
       {
         button: 0,
+        pointerId: 1,
         clientX: 100,
         clientY: 20,
         altKey: false,
@@ -189,8 +244,8 @@ describe("Write-mode slur endpoint dragging", () => {
       } as unknown as React.MouseEvent<HTMLCanvasElement>,
       ctx,
     );
-    window.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 80 }));
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: 200, clientY: 80 }));
+    dispatchPointer("pointermove", 1, 200, 80);
+    dispatchPointer("pointerup", 1, 200, 80);
 
     expect(commitSlurReanchor).toHaveBeenCalledWith("slur/source/target", "end", "new-target");
   });
@@ -202,6 +257,7 @@ describe("Write-mode slur endpoint dragging", () => {
     handleCanvasMouseDownImpl(
       {
         button: 0,
+        pointerId: 1,
         clientX: 100,
         clientY: 20,
         altKey: false,
@@ -214,7 +270,7 @@ describe("Write-mode slur endpoint dragging", () => {
       "target",
       "new-target",
     ]);
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: 100, clientY: 20 }));
+    dispatchPointer("pointerup", 1, 100, 20);
   });
 
   it("does not offer the target event as a start-handle snap target", () => {
@@ -224,6 +280,7 @@ describe("Write-mode slur endpoint dragging", () => {
     handleCanvasMouseDownImpl(
       {
         button: 0,
+        pointerId: 1,
         clientX: 20,
         clientY: 20,
         altKey: false,
@@ -236,7 +293,7 @@ describe("Write-mode slur endpoint dragging", () => {
       "source",
       "new-target",
     ]);
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: 20, clientY: 20 }));
+    dispatchPointer("pointerup", 1, 20, 20);
   });
 
   it("uses endpoint drags only to reshape the slur in Engrave mode", () => {
@@ -247,6 +304,7 @@ describe("Write-mode slur endpoint dragging", () => {
     handleCanvasMouseDownImpl(
       {
         button: 0,
+        pointerId: 1,
         clientX: 100,
         clientY: 20,
         altKey: false,
@@ -256,10 +314,77 @@ describe("Write-mode slur endpoint dragging", () => {
     );
     expect(ctx.slurHandleDragRef.current?.anchor).toBeUndefined();
 
-    window.dispatchEvent(new MouseEvent("mousemove", { clientX: 110, clientY: 26 }));
-    window.dispatchEvent(new MouseEvent("mouseup", { clientX: 110, clientY: 26 }));
+    dispatchPointer("pointermove", 1, 110, 26);
+    dispatchPointer("pointerup", 1, 110, 26);
 
     expect(commitSlurReanchor).not.toHaveBeenCalled();
     expect(onEngraveSlurShapeEdit).toHaveBeenCalledWith("slur/source/target", { p3: [1, 0.6] });
+  });
+
+  it("does not start an edit drag from a secondary-button press", () => {
+    const { ctx, selectedSlurIdRef, commitSlurReanchor } = context();
+    selectedSlurIdRef.current = "slur/source/target";
+
+    handleCanvasMouseDownImpl(
+      {
+        button: 2,
+        clientX: 100,
+        clientY: 20,
+        pointerId: 1,
+        preventDefault: vi.fn(),
+      } as unknown as React.PointerEvent<HTMLCanvasElement>,
+      ctx,
+    );
+    dispatchPointer("pointermove", 1, 200, 80);
+    dispatchPointer("pointerup", 1, 200, 80);
+
+    expect(ctx.slurHandleDragRef.current).toBeNull();
+    expect(commitSlurReanchor).not.toHaveBeenCalled();
+  });
+
+  it("cancels an active pointer drag without committing", () => {
+    const { ctx, selectedSlurIdRef, commitSlurReanchor } = context();
+    selectedSlurIdRef.current = "slur/source/target";
+
+    handleCanvasMouseDownImpl(
+      {
+        button: 0,
+        clientX: 100,
+        clientY: 20,
+        pointerId: 4,
+        pointerType: "pen",
+        preventDefault: vi.fn(),
+      } as unknown as React.PointerEvent<HTMLCanvasElement>,
+      ctx,
+    );
+    dispatchPointer("pointermove", 4, 200, 80);
+    dispatchPointer("pointercancel", 4);
+
+    expect(ctx.slurHandleDragRef.current).toBeNull();
+    expect(ctx.dragLockRef.current).toBe(false);
+    expect(commitSlurReanchor).not.toHaveBeenCalled();
+    handleCanvasPointerCancelImpl(ctx);
+    expect(ctx.mouseDownPosRef.current).toBeNull();
+    expect(ctx.dragOccurredRef.current).toBe(false);
+  });
+
+  it("does not start edit drags from touch contacts", () => {
+    const { ctx, selectedSlurIdRef } = context();
+    selectedSlurIdRef.current = "slur/source/target";
+
+    handleCanvasMouseDownImpl(
+      {
+        button: 0,
+        clientX: 100,
+        clientY: 20,
+        pointerId: 7,
+        pointerType: "touch",
+        preventDefault: vi.fn(),
+      } as unknown as React.PointerEvent<HTMLCanvasElement>,
+      ctx,
+    );
+
+    expect(ctx.slurHandleDragRef.current).toBeNull();
+    expect(ctx.dragLockRef.current).toBe(false);
   });
 });

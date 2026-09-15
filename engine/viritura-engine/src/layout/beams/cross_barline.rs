@@ -446,6 +446,10 @@ pub(crate) fn render_cross_barline_beams(
                         dl.push_shape_cmd(ci, eid.clone(), ElementKind::Beam, None, None);
                     }
                 }
+                dl.push_selection_group(
+                    eid,
+                    super::beam_member_element_ids(measure_layouts, &beam.events),
+                );
             }
         }
     }
@@ -788,6 +792,7 @@ pub(crate) fn render_grace_beams(
 
 pub(crate) fn render_rest(
     dl: &mut DisplayList,
+    element_id: &str,
     x: f64,
     staff_y: f64,
     sp: f64,
@@ -813,15 +818,20 @@ pub(crate) fn render_rest(
     };
 
     let glyph_x = rest_glyph_origin_x(x, rest_codepoint, sp, centered_on_anchor);
-    dl.push(RenderCommand::DrawGlyph {
-        x: glyph_x,
-        y,
-        codepoint: rest_codepoint,
-        font: "Bravura".into(),
-        size: 4.0 * sp,
-        color: "#000000".into(),
-        rotation: 0.0,
-    });
+    dl.push_selectable_command(
+        RenderCommand::DrawGlyph {
+            x: glyph_x,
+            y,
+            codepoint: rest_codepoint,
+            font: "Bravura".into(),
+            size: 4.0 * sp,
+            color: "#000000".into(),
+            rotation: 0.0,
+        },
+        element_id.to_string(),
+        ElementKind::Rest,
+        HitPolicy::Ink,
+    );
 
     // Augmentation dots. Standard engraving practice: the dot sits in the
     // space just above the rest's vertical reference (never on a staff

@@ -121,7 +121,7 @@ pub(crate) fn render_tremolo(
 
     let glyph_size = 4.0 * sp;
 
-    dl.push_tagged(
+    dl.push_selectable_command(
         RenderCommand::DrawGlyph {
             x: trem_x,
             y: mid_y,
@@ -132,6 +132,8 @@ pub(crate) fn render_tremolo(
             rotation: 0.0,
         },
         element_id::tremolo(element_id),
+        ElementKind::Tremolo,
+        HitPolicy::Ink,
     );
 }
 
@@ -271,15 +273,28 @@ pub(crate) fn render_caesuras(
             let target_center_y = staff_y;
             let cy = target_center_y - (glyph_yoff + glyph_h * 0.5) * sp;
 
-            dl.push(RenderCommand::DrawGlyph {
-                x: cx,
-                y: cy,
-                codepoint,
-                font: "Bravura".into(),
-                size: glyph_size,
-                color: "#000000".into(),
-                rotation: 0.0,
-            });
+            let event = vl.events.event(i);
+            let event_suffix = element_id::event_suffix(event.id.as_deref(), i);
+            let base_id = element_id::event(
+                vl.part_index_override.unwrap_or(ml.part_index),
+                ml.resolved.index,
+                vl.seq_index_override.unwrap_or(vl.voice_index),
+                &event_suffix,
+            );
+            dl.push_selectable_command(
+                RenderCommand::DrawGlyph {
+                    x: cx,
+                    y: cy,
+                    codepoint,
+                    font: "Bravura".into(),
+                    size: glyph_size,
+                    color: "#000000".into(),
+                    rotation: 0.0,
+                },
+                element_id::caesura(&base_id),
+                ElementKind::Caesura,
+                HitPolicy::Ink,
+            );
         }
     }
 }
