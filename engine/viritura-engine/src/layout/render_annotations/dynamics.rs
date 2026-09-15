@@ -618,10 +618,7 @@ pub(crate) fn grand_staff_between_y(
     staff_y_offsets: Option<&[f64]>,
     dynamic: &DynamicGroup,
 ) -> Option<f64> {
-    if matches!(
-        dynamic.orient,
-        Some(MultiStaffOrientation::Above | MultiStaffOrientation::Below)
-    ) {
+    if dynamic.orient != Some(MultiStaffOrientation::Between) {
         return None;
     }
     grand_staff_gap_center(staff_y, sp, staff_y_offsets)
