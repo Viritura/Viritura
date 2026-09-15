@@ -51,9 +51,12 @@ for (const definition of extensionDefinitions) {
 }
 
 const generated = standaloneCode(ajv, schemaRefs);
+// AJV's CommonJS helper is either unwrapped by the bundler or exposed as
+// { default: fn } by native ESM interop. Preserve the callable in both cases.
 const esmGenerated = generated.replace(
   /const (\w+) = require\("ajv\/dist\/runtime\/ucs2length"\)\.default;/,
-  'import $1 from "ajv/dist/runtime/ucs2length.js";',
+  'import $1Module from "ajv/dist/runtime/ucs2length.js";' +
+    'const $1 = typeof $1Module === "function" ? $1Module : $1Module.default;',
 );
 if (esmGenerated === generated || esmGenerated.includes("require(")) {
   throw new Error("AJV standalone output no longer contains the expected Unicode-length helper.");
