@@ -1785,28 +1785,26 @@ describe("convertMusicXmlToMnx — beams", () => {
     ]);
   });
 
-  it("isolates open beam state by voice and staff", () => {
+  it("preserves cross-staff beams while isolating independent voices", () => {
     const xml = wrapScore(
       `
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>1</staff><beam number="1">begin</beam></note>
-      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>2</staff><beam number="1">begin</beam></note>
       <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>2</voice><staff>1</staff><beam number="1">begin</beam></note>
-      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>1</staff><beam number="1">end</beam></note>
-      <note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>2</staff><beam number="1">end</beam></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>2</staff><beam number="1">continue</beam></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>1</staff><beam number="1">end</beam></note>
       <note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>2</voice><staff>1</staff><beam number="1">end</beam></note>
     `,
       { divisions: 1 },
     );
     const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
-    const ids = measure
-      .sequences!.flatMap((sequence) => sequence.content.map((item) => ("id" in item ? item.id : undefined)))
-      .filter((id): id is string => id !== undefined);
+    const eventIds = (sequenceIndex: number): string[] =>
+      measure
+        .sequences![sequenceIndex]!.content.map((item) => ("id" in item ? item.id : undefined))
+        .filter((id): id is string => id !== undefined);
+    const voice1Ids = eventIds(0);
+    const voice2Ids = eventIds(1);
 
-    expect(measure.beams).toEqual([
-      { events: [ids[0], ids[2]] },
-      { events: [ids[1], ids[3]] },
-      { events: [ids[4], ids[5]] },
-    ]);
+    expect(measure.beams).toEqual([{ events: voice1Ids }, { events: voice2Ids }]);
   });
 
   it("does not duplicate event IDs when chord notes repeat beam marks", () => {

@@ -138,6 +138,28 @@ describe("breakBeamAfterSelection", () => {
       ]);
     });
 
+    it("edits a deeper beamlet nested beneath a directed beamlet", () => {
+      const value = flaggedScore("32nd");
+      value.parts[0]!.measures[0]!.beams = [
+        {
+          events: ["e1", "e2"],
+          beams: [
+            {
+              events: ["e1"],
+              direction: "right",
+              beams: [{ events: ["e1"], direction: "left" }],
+            },
+          ],
+        },
+      ];
+
+      expect(canSetBeamletDirection(value, single("e1"), 3, "right")).toBe(true);
+      expect(setBeamletDirection(value, single("e1"), 3, "right")).toBe(true);
+      expect(value.parts[0]!.measures[0]!.beams?.[0]?.beams?.[0]?.beams).toEqual([
+        { events: ["e1"], direction: "right" },
+      ]);
+    });
+
     it("rejects ineligible, non-contiguous, and cross-parent inner joins", () => {
       const value = flaggedScore();
       const first = value.parts[0]!.measures[0]!.sequences[0]!.content[1];

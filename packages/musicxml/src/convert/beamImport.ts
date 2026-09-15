@@ -31,15 +31,16 @@ function finishBeam(active: ActiveBeam): MnxBeam {
 
 /**
  * Fold one MusicXML note's numbered beam marks into recursive MNX beams.
- * State is keyed by voice and staff and persists across measures.
+ * State is keyed by logical voice and persists across measures. Staff is not
+ * part of the key because a cross-staff beam keeps one MusicXML voice while
+ * its notes move between staves.
  */
 export function processBeamMarks(
   note: Element,
   eventId: string,
   voice: string,
-  staff: number,
   measureIndex: number,
-  activeByVoiceStaff: Map<string, ActiveBeam[]>,
+  activeByVoice: Map<string, ActiveBeam[]>,
 ): CompletedBeam[] {
   const marks: BeamMark[] = findChildren(note, "beam")
     .map((beam) => ({
@@ -49,9 +50,8 @@ export function processBeamMarks(
     .filter((mark) => Number.isSafeInteger(mark.level) && mark.level >= 1);
   if (marks.length === 0) return [];
 
-  const key = `${voice}/${staff}`;
-  const active = activeByVoiceStaff.get(key) ?? [];
-  activeByVoiceStaff.set(key, active);
+  const active = activeByVoice.get(voice) ?? [];
+  activeByVoice.set(voice, active);
 
   for (const mark of marks.filter((item) => item.value === "begin").sort((a, b) => a.level - b.level)) {
     const previous = active.findIndex((beam) => beam.level === mark.level);
@@ -95,6 +95,6 @@ export function processBeamMarks(
     }
   }
 
-  if (active.length === 0) activeByVoiceStaff.delete(key);
+  if (active.length === 0) activeByVoice.delete(voice);
   return completed;
 }

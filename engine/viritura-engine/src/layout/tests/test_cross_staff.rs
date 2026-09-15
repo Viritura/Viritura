@@ -437,6 +437,66 @@ fn test_cross_staff_beam_anchors_to_own_staves() {
     );
 }
 
+#[test]
+fn test_cross_staff_beam_hooks_keep_per_level_directions() {
+    use crate::layout::layout_full_score;
+
+    let json = r#"{
+        "mnx": { "version": 1, "support": { "useBeams": true } },
+        "global": { "measures": [{ "time": { "count": 1, "unit": 4 } }] },
+        "parts": [{
+            "name": "Piano", "id": "P1", "staves": 2,
+            "measures": [{
+                "clefs": [
+                    { "clef": { "sign": "G", "staffPosition": -2 }, "staff": 1 },
+                    { "clef": { "sign": "F", "staffPosition": 2 }, "staff": 2 }
+                ],
+                "beams": [{
+                    "events": ["cb1", "cb2"],
+                    "beams": [{
+                        "direction": "right",
+                        "events": ["cb1"],
+                        "beams": [{ "direction": "left", "events": ["cb1"] }]
+                    }]
+                }],
+                "sequences": [{ "staff": 1, "content": [
+                    { "duration": { "base": "32nd" }, "id": "cb1",
+                      "notes": [{ "pitch": { "step": "C", "octave": 5 } }] },
+                    { "duration": { "base": "eighth" }, "id": "cb2", "staff": 2,
+                      "notes": [{ "pitch": { "step": "C", "octave": 3 } }] }
+                ] }]
+            }]
+        }]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+    let hook_width = 0.875 * config.sp;
+    let dl = layout_full_score(&score, &config);
+    let mut hooks: Vec<(f64, f64)> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            crate::render::RenderCommand::DrawPolygon { points, .. }
+                if points.len() == 4
+                    && ((points[1].0 - points[0].0).abs() - hook_width).abs() < 1.5 =>
+            {
+                let center_x = (points[0].0 + points[1].0) * 0.5;
+                let center_y = points.iter().map(|point| point.1).sum::<f64>() / 4.0;
+                Some((center_x, center_y))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(hooks.len(), 2, "expected secondary and tertiary hooks");
+    hooks.sort_by(|left, right| right.1.total_cmp(&left.1));
+
+    assert!(
+        hooks[0].0 > hooks[1].0,
+        "secondary right hook must extend farther right than tertiary left hook"
+    );
+}
+
 /// Mirror of the real Rhapsody data: a beam whose HOME staff is the top staff
 /// (staff 1) and whose later events dip DOWN to staff 2 via `event.staff`
 /// overrides. The beam must sit in the gap between the staves, not hug staff 1.
