@@ -343,9 +343,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     usePlayPauseShortcut({
       playback,
       playbackActions,
-      selection,
       noteInputActiveRef,
-      docScoreRef,
     });
 
     useImperativeHandle(
@@ -675,6 +673,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         }),
       )
         .then(() => {
+          // Initial/remounted layouts must notify the same consumers as relayouts.
+          displayListVersionRef.current += 1;
+          setDisplayListVersion(displayListVersionRef.current);
           setLoading(false);
           // Pre-warm the patch chain off the critical path: fire one throwaway
           // empty-patch re-seed so the user's first edit isn't the one paying
@@ -1261,7 +1262,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             />
           )}
           <PlayheadOverlay
-            playheadPosition={playback.playheadPosition}
+            playheadPosition={
+              playback.status === "playing" && !loading && wasmReady && !error ? playback.playheadPosition : null
+            }
             displayList={displayListRef.current}
             scrollX={viewport.scrollX}
             scrollY={viewport.scrollY}
@@ -1269,7 +1272,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             viewMode={viewMode}
             onPlayheadRect={follow.onPlayheadRect}
           />
-          <FollowPlayheadButton visible={follow.detached} onClick={follow.reengage} />
+          <FollowPlayheadButton visible={playback.status === "playing" && follow.detached} onClick={follow.reengage} />
           {!printPreview && onToggleCondensedStaff && (
             <CondensedStaffToggles
               score={docScore}

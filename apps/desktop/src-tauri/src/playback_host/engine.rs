@@ -174,6 +174,11 @@ pub(super) enum HostCommand {
         gain: f32,
         reply: Sender<Result<(), String>>,
     },
+    SetPan {
+        slot_key: String,
+        pan: f32,
+        reply: Sender<Result<(), String>>,
+    },
     /// Open the editor of one plugin in a channel's FX chain, in a modeless
     /// host-thread window pumped non-blocking from the tick loop so playback and
     /// the Viritura UI keep running while it is open. The chain must already be
@@ -376,6 +381,14 @@ impl Engine {
                 self.mixer.set_gain(&slot_key, gain);
                 let _ = reply.send(Ok(()));
             }
+            HostCommand::SetPan {
+                slot_key,
+                pan,
+                reply,
+            } => {
+                self.mixer.set_pan(&slot_key, pan);
+                let _ = reply.send(Ok(()));
+            }
             HostCommand::ShowFxEditor {
                 channel,
                 index,
@@ -426,7 +439,7 @@ impl Engine {
                     existing.cursor = 0;
                     existing.active.clear();
                     if let Some(strip) = self.mixer.lock().strip_mut(&spec.slot_key) {
-                        strip.set_mix(spec.gain, spec.reverb_send);
+                        strip.set_mix(spec.gain, spec.pan, spec.reverb_send);
                     }
                     continue;
                 }
@@ -484,8 +497,13 @@ impl Engine {
             SlotKind::Vst => StripSource::Vst(Box::new(self.create_plugin(spec)?)),
             SlotKind::Sf2 => StripSource::Sf2(Box::new(self.create_sf2_voice(spec)?)),
         };
-        self.mixer
-            .insert(spec.slot_key.clone(), source, spec.gain, spec.reverb_send);
+        self.mixer.insert(
+            spec.slot_key.clone(),
+            source,
+            spec.gain,
+            spec.pan,
+            spec.reverb_send,
+        );
         Ok(SlotSeq {
             identity: spec.reuse_identity(),
             schedule: resolve_schedule(&spec.events),

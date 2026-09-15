@@ -33,6 +33,7 @@ import {
   type PlaybackState,
 } from "./playbackReducer";
 import { applyPartLevel, applySectionLevels, recomputeSectionGain, type PartLevelRefs } from "./partLevels";
+import { applyNativeMixer, applySamplerSettings, createMixerSettings } from "./mixerSettings";
 import {
   applyDetuneSpread,
   buildEqColorBuses,
@@ -75,6 +76,7 @@ import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
+import { resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -220,6 +222,7 @@ export function PlaybackProvider({
   const mixerPanRef = useRef<Map<number, number>>(new Map());
   /** Per-part mixer volume (0..1) from the mixer knob (mute folds in as 0). */
   const mixerVolumeRef = useRef<Map<number, number>>(new Map());
+  const mixerSettingsRef = useRef(createMixerSettings());
   /** Whether each part uses stage-derived depth; stereo mode still follows stage X for pan. */
   const stageDepthEnabledRef = useRef<Map<number, boolean>>(new Map());
   /** Per-part reference distance (instrument projection). */
@@ -235,6 +238,9 @@ export function PlaybackProvider({
   // multiple overlapping transports before the first play() finishes its async
   // preparation (AudioContext resume, sampler build, VST host prepare).
   const playStartInFlightRef = useRef(false);
+  /** A seek made before the engine/timeline exists still owns the next start. */
+  const pendingStartRef = useRef<PendingPlaybackStart | null>(null);
+  const stopGenerationRef = useRef(0);
 
   // Bundle the refs that level-recompute helpers read from. Built once
   // (all underlying ref objects are stable for the provider's lifetime),
@@ -272,12 +278,12 @@ export function PlaybackProvider({
       const airEQ = ctx.createBiquadFilter();
       airEQ.type = "highshelf";
       airEQ.frequency.value = 8000;
-      airEQ.gain.value = 2.5; // +2.5 dB above 8 kHz
+      airEQ.gain.value = mixerSettingsRef.current.airEQGain;
 
       // Limiter: prevent clipping, gentle glue compression
       const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -8;
-      limiter.ratio.value = 12;
+      limiter.threshold.value = mixerSettingsRef.current.limiterThreshold;
+      limiter.ratio.value = mixerSettingsRef.current.limiterRatio;
       limiter.knee.value = 6;
       limiter.attack.value = 0.002;
       limiter.release.value = 0.18;
@@ -299,14 +305,17 @@ export function PlaybackProvider({
     if (!reverbEngineRef.current) {
       const reverb = new ReverbEngine(audioCtxRef.current, masterOutRef.current!);
       reverbEngineRef.current = reverb;
-      // Eagerly load the default reverb preset (Musikverein). Reverb is
+      // Eagerly load the saved reverb preset (Musikverein by default). Reverb is
       // supplemental, so playback must not wait for this network resource.
       void (async () => {
-        const preset = REVERB_PRESETS.find((p: ReverbPreset) => p.id === "musikvereinsaal");
+        const preset = REVERB_PRESETS.find((p: ReverbPreset) => p.id === mixerSettingsRef.current.reverbPreset);
         if (preset) await reverb.loadPreset(preset);
       })().catch((err: unknown) => {
         console.warn("[Audio] Reverb preset failed to load; continuing dry:", err);
       });
+      // loadPreset synchronously sets its default wet level before fetching.
+      const wet = mixerSettingsRef.current.reverbWet;
+      if (wet !== undefined) reverb.setWetLevel(wet);
     }
     if (!metronomeRef.current) {
       metronomeRef.current = new Metronome({ audioContext: audioCtxRef.current });
@@ -550,7 +559,12 @@ export function PlaybackProvider({
       sf2AssignmentsRef.current = collectSf2Assignments(resolvedParts);
 
       // Group parts by orchestra section for SF2 synth sharing
-      const sectionParts = groupPartsBySection(resolvedParts);
+      const sectionParts = groupPartsBySection(
+        resolvedParts.map((part) => ({
+          ...part,
+          position: mixerSettingsRef.current.positions.get(part.index) ?? part.position,
+        })),
+      );
 
       // ── EQ color buses ─────────────────────────────────────────────
       // 4 shared buses with slightly different EQ curves so that sections
@@ -610,15 +624,18 @@ export function PlaybackProvider({
           patches,
         });
       }
-      setSpatialListener(ctx, DEFAULT_LISTENER_POSITION.x, DEFAULT_LISTENER_POSITION.y);
+      setSpatialListener(ctx, listenerPosRef.current.x, listenerPosRef.current.y);
 
       // Stash the freshly-built samplers so applyPartLevel can find them when
       // we run the initial proximity / pan-compensation pass below. (The
       // outer caller also assigns samplersRef, but the section/level
       // recompute needs it now.)
-      for (const [i, s] of samplers) samplersRef.current.set(i, s);
-      // Initialize section gains and per-part CC7/CC10 from the default
-      // listener position so the engine starts in a self-consistent state.
+      for (const [i, s] of samplers) {
+        samplersRef.current.set(i, s);
+        applySamplerSettings(i, s, spatialNodesRef.current.get(i), mixerSettingsRef.current);
+      }
+      // Initialize section gains and per-part CC7/CC10 from the saved
+      // listener and mixer state before any notes are scheduled.
       for (const section of sectionSynthsRef.current.keys()) {
         recomputeSectionGain(section, levelRefs);
       }
@@ -666,17 +683,17 @@ export function PlaybackProvider({
         vstParts: vstAssignmentsRef.current,
         sf2Parts: sf2AssignmentsRef.current,
       };
+      const syncMixer = () =>
+        applyNativeMixer(vstTransport, score.parts.length, {
+          gains: mixerSettingsRef.current.nativeGains,
+          pans: mixerPanRef.current,
+          mutedParts: vstMutedPartsRef.current,
+        });
+      await syncMixer();
       vstOwnedPartsRef.current = await prepareVstOwnedParts(vstTransport, score, plan);
       applyViewPartFilter();
-      // The host resets its mute set on release/reload, so re-apply the current
-      // mixer mute/solo state now that this play's slots are loaded.
-      void vstTransport.setMutedParts(vstMutedPartsRef.current);
-      // Sync each owned part's current fader level to its native slot so the
-      // initial mix reflects saved mixer state, not just later live drags.
-      for (const partIndex of vstOwnedPartsRef.current) {
-        const gain = mixerVolumeRef.current.get(partIndex);
-        if (gain !== undefined) void vstTransport.setPartGain(partIndex, gain);
-      }
+      // Read again after asynchronous loading: mixer edits during preparation win.
+      await syncMixer();
     } else if (vstOwnedPartsRef.current.size > 0) {
       // Left native mode (or nothing to host): un-silence every browser voice.
       vstOwnedPartsRef.current = new Set<number>();
@@ -691,6 +708,8 @@ export function PlaybackProvider({
   }, []);
 
   const stop = useCallback(() => {
+    stopGenerationRef.current++;
+    pendingStartRef.current = null;
     engineRef.current?.stop();
     void vstTransportRef.current?.stop();
     disposeAllSamplers();
@@ -698,6 +717,11 @@ export function PlaybackProvider({
   }, [disposeAllSamplers]);
 
   const seek = useCallback((seconds: number) => {
+    if (engineRef.current?.getState() !== "playing") {
+      pendingStartRef.current = {
+        seconds: Math.max(0, Math.min(seconds, timelineRef.current?.duration ?? Infinity)),
+      };
+    }
     // Publish the requested position first. PlaybackEngine emits the precise
     // measure/beat synchronously when available, and that resolved update must
     // come after—not be overwritten by—the optimistic one.
@@ -761,12 +785,16 @@ export function PlaybackProvider({
       // when the samplers are (re)built — which is what makes mute/solo honored
       // when playback is started from any view, not just the mixer page.
       mixerVolumeRef.current.set(partIndex, effectiveVolume);
+      mixerSettingsRef.current.nativeGains.delete(partIndex);
+      mixerSettingsRef.current.nativeGains.set(partIndex, volume);
+      mixerPanRef.current.delete(partIndex);
       mixerPanRef.current.set(partIndex, pan);
       stageDepthEnabledRef.current.set(partIndex, stageDepthEnabled);
-      // In native mode this part may be voiced by the native mixer; push its gain
-      // live so a fader drag is immediately audible. A no-op for unowned parts.
+      // Native faders retain their level independently of the per-part mute set;
+      // muting one part must not zero the shared output of a multitimbral VST.
       if (audioRenderModeRef.current === "native") {
-        void vstTransportRef.current?.setPartGain(partIndex, effectiveVolume);
+        void vstTransportRef.current?.setPartGain(partIndex, volume);
+        void vstTransportRef.current?.setPartPan?.(partIndex, pan);
       }
       const sampler = samplersRef.current.get(partIndex);
       if (!sampler) return;
@@ -786,6 +814,7 @@ export function PlaybackProvider({
   }, []);
 
   const setEnsembleLayer = useCallback((partIndex: number, enabled: boolean) => {
+    mixerSettingsRef.current.ensembleEnabled.set(partIndex, enabled);
     const sampler = samplersRef.current.get(partIndex);
     if (sampler && "setLayerEnabled" in sampler) {
       const controls = sampler as { setLayerEnabled(index: number, enabled: boolean): void };
@@ -795,21 +824,27 @@ export function PlaybackProvider({
   }, []);
 
   const setAirEQGain = useCallback((gainDb: number) => {
+    mixerSettingsRef.current.airEQGain = gainDb;
     const eq = airEQRef.current;
     if (eq) eq.gain.setValueAtTime(gainDb, eq.context.currentTime);
   }, []);
 
   const setLimiterThreshold = useCallback((thresholdDb: number) => {
+    mixerSettingsRef.current.limiterThreshold = thresholdDb;
     const lim = limiterRef.current;
     if (lim) lim.threshold.setValueAtTime(thresholdDb, lim.context.currentTime);
   }, []);
 
   const setLimiterRatio = useCallback((ratio: number) => {
+    mixerSettingsRef.current.limiterRatio = ratio;
     const lim = limiterRef.current;
     if (lim) lim.ratio.setValueAtTime(ratio, lim.context.currentTime);
   }, []);
 
   const applyLayerPan = useCallback((partIndex: number, layerIndex: number, pan: number) => {
+    const pans = mixerSettingsRef.current.layerPans.get(partIndex) ?? new Map<number, number>();
+    pans.set(layerIndex, pan);
+    mixerSettingsRef.current.layerPans.set(partIndex, pans);
     const sampler = samplersRef.current.get(partIndex);
     if (sampler && "setLayerPan" in sampler) {
       (sampler as { setLayerPan(index: number, pan: number): void }).setLayerPan(layerIndex, pan);
@@ -845,6 +880,7 @@ export function PlaybackProvider({
 
   const applySpatialPosition = useCallback(
     (partIndex: number, x: number, y: number) => {
+      mixerSettingsRef.current.positions.set(partIndex, { x, y });
       const node = spatialNodesRef.current.get(partIndex);
       if (node) node.setPosition(x, y);
       updateReverbSend(partIndex, x, y);
@@ -891,13 +927,15 @@ export function PlaybackProvider({
   );
 
   const setReverbPreset = useCallback(async (presetId: string) => {
-    const reverb = reverbEngineRef.current;
-    if (!reverb) return;
     const preset = REVERB_PRESETS.find((p: ReverbPreset) => p.id === presetId);
-    if (preset) await reverb.loadPreset(preset);
+    if (!preset) return;
+    mixerSettingsRef.current.reverbPreset = presetId;
+    mixerSettingsRef.current.reverbWet = undefined;
+    await reverbEngineRef.current?.loadPreset(preset);
   }, []);
 
   const setReverbWet = useCallback((level: number) => {
+    mixerSettingsRef.current.reverbWet = level;
     reverbEngineRef.current?.setWetLevel(level);
   }, []);
 
@@ -953,9 +991,6 @@ export function PlaybackProvider({
             routingSamplersRef.current = result.routingSamplers;
             samplerPartSignatureRef.current = samplerSignature(score, timelineRef.current);
             dispatchPlayback({ type: "SET_PART_PATCHES", patches: result.patches });
-            for (const [, s] of samplersRef.current) {
-              if ("setVolume" in s) (s as { setVolume(v: number): void }).setVolume(0.9);
-            }
             // Now try again
             sampler =
               (partIndex !== undefined ? samplersRef.current.get(partIndex) : undefined) ??
@@ -1006,6 +1041,12 @@ export function PlaybackProvider({
       playStartInFlightRef.current = true;
       try {
         const engine = ensureEngine();
+        // Capture before loadTimeline can reset a paused transport during a
+        // sampler rebuild. Both native and browser engines use this origin.
+        const pendingStart = pendingStartRef.current;
+        const stopGeneration = stopGenerationRef.current;
+        const resumeAt = engine.getScoreTimeSeconds();
+        const wasStopped = engine.getState() === "stopped";
         const ctx = audioCtxRef.current!;
         const bus = mixBusRef.current!;
 
@@ -1013,6 +1054,7 @@ export function PlaybackProvider({
         if (ctx.state === "suspended") {
           await ctx.resume();
         }
+        if (stopGenerationRef.current !== stopGeneration) return;
 
         // If samplers haven't been built yet (or were cleared), build them now
         if (samplersRef.current.size === 0 && score && timelineRef.current) {
@@ -1060,23 +1102,23 @@ export function PlaybackProvider({
         // Prepare the native host (native mode) or clear ownership (web mode),
         // then start both players from the same origin.
         const vstTransport = vstTransportRef.current;
-        // Capture the VST origin before the transport starts (a resume without an
-        // explicit position starts from the engine's paused score-time, never the
-        // negative count-in lead, which is a metronome-only affordance).
-        const vstOrigin = fromSeconds ?? engine.getScoreTimeSeconds();
         await prepareNativeHost();
+        if (stopGenerationRef.current !== stopGeneration) return;
+        // A newer seek accepted during preparation wins; otherwise preserve
+        // explicit-start precedence and the exact pre-rebuild resume position.
+        const startAt = resolveTransportStart(fromSeconds, resumeAt, pendingStart, pendingStartRef.current);
+        const vstOrigin = startAt;
 
         // Count-in: when enabled and starting fresh from the top (not resuming a
         // pause), begin the transport before score time 0 so the prepended
         // (negative-time) count-in clicks play into the downbeat.
-        const startAt = fromSeconds ?? 0;
-        const freshFromTop = engine.getState() === "stopped" && startAt <= 1e-6;
-        if (countInEnabledRef.current && clickSourceRef.current && freshFromTop) {
+        if (countInEnabledRef.current && clickSourceRef.current && wasStopped && startAt <= 1e-6) {
           const lead = countInLeadSeconds(clickSourceRef.current, countInBeatsForScore());
           engine.play(-lead);
         } else {
-          engine.play(fromSeconds);
+          engine.play(startAt);
         }
+        pendingStartRef.current = null;
         if (vstTransport && vstOwnedPartsRef.current.size > 0) {
           void vstTransport.start(vstOrigin);
         }

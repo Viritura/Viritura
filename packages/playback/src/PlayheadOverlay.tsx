@@ -88,8 +88,6 @@ export function PlayheadOverlay({
 }: PlayheadOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stavesRef = useRef<StaffInfo[]>([]);
-  const rafRef = useRef(0);
-  const runningRef = useRef(false);
 
   // Detect staves whenever the display list changes
   useEffect(() => {
@@ -106,15 +104,22 @@ export function PlayheadOverlay({
   // See https://react.dev/reference/react/useEffectEvent#using-a-timer-with-latest-values
   const onPaintFrame = useEffectEvent(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
+    if (!canvas) {
+      onPlayheadRect?.(null);
+      return;
+    }
     const dpr = window.devicePixelRatio || 1;
+    if (playheadPosition && displayList) syncPlayheadCanvasSize(canvas, dpr);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      onPlayheadRect?.(null);
+      return;
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!playheadPosition || !displayList) {
+    if (!playheadPosition || !displayList || canvas.width === 0 || canvas.height === 0) {
       onPlayheadRect?.(null);
       return;
     }
@@ -137,59 +142,42 @@ export function PlayheadOverlay({
   const playheadActive = playheadPosition !== null;
   useEffect(() => {
     if (!playheadActive) {
-      runningRef.current = false;
-      // Clear canvas when playhead disappears
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-      }
+      onPaintFrame();
       return;
     }
 
-    runningRef.current = true;
+    let running = true;
+    let rafId: number;
     const loop = () => {
-      if (!runningRef.current) return;
+      if (!running) return;
       onPaintFrame();
-      rafRef.current = requestAnimationFrame(loop);
+      if (running) rafId = requestAnimationFrame(loop);
     };
-    rafRef.current = requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
 
     return () => {
-      runningRef.current = false;
-      cancelAnimationFrame(rafRef.current);
+      running = false;
+      cancelAnimationFrame(rafId);
     };
   }, [playheadActive]);
 
-  // Resize overlay canvas to match the sibling score canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const resize = () => {
-      const scoreCanvas = canvas.parentElement?.querySelector("canvas:not([data-testid])") as HTMLCanvasElement | null;
-      if (!scoreCanvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      const vw = scoreCanvas.clientWidth;
-      const vh = scoreCanvas.clientHeight;
-      canvas.width = vw * dpr;
-      canvas.height = vh * dpr;
-      canvas.style.width = `${vw}px`;
-      canvas.style.height = `${vh}px`;
-    };
-
-    resize();
-    const parent = canvas.parentElement;
-    if (!parent) return;
-    const observer = new ResizeObserver(resize);
-    observer.observe(parent);
-    return () => observer.disconnect();
-  }, [displayList, zoom]);
-
   return <canvas ref={canvasRef} data-testid="playhead-overlay" style={PLAYHEAD_CANVAS_STYLE} />;
+}
+
+function syncPlayheadCanvasSize(canvas: HTMLCanvasElement, dpr: number) {
+  // Score painting can size or reveal the sibling after mount without resizing
+  // its parent. Read geometry before each active frame, including after remount.
+  const scoreCanvas = canvas.parentElement?.querySelector<HTMLCanvasElement>(
+    ':scope > canvas:not([data-testid="playhead-overlay"])',
+  );
+  const width = scoreCanvas?.clientWidth ?? 0;
+  const height = scoreCanvas?.clientHeight ?? 0;
+  const pixelWidth = Math.floor(width * dpr);
+  const pixelHeight = Math.floor(height * dpr);
+  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+  if (canvas.style.width !== `${width}px`) canvas.style.width = `${width}px`;
+  if (canvas.style.height !== `${height}px`) canvas.style.height = `${height}px`;
 }
 
 /**

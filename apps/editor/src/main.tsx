@@ -20,6 +20,7 @@ import { PlayView } from "./components/modes/PlayView";
 import { PictureView } from "./components/modes/PictureView";
 import { MixerSyncBridge } from "./components/MixerSyncBridge";
 import { VideoSyncBridge } from "./components/VideoSyncBridge";
+import { SelectionPlaybackBridge } from "./components/playbackSelection";
 import { RollView } from "./components/modes/RollView";
 import { ReviewView } from "./components/modes/ReviewView";
 import {
@@ -237,6 +238,7 @@ function AppWithActivityBar() {
         >
           <MixerSyncBridge score={currentScore} />
           <VideoSyncBridge />
+          <SelectionPlaybackBridge />
           <AppShell>
             <PersistentJumpBarHost />
             {/* Activity bar + content */}

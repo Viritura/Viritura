@@ -54,6 +54,30 @@ describe("Sf2Sampler", () => {
     expect(panicCalls.at(-1)).toEqual([3, 123, 0, { time: 12.5 }]);
   });
 
+  it("reapplies mixer volume and pan to primary and borrowed drum-kit channels", () => {
+    const { synth, sf2Synth } = createMockSf2Synth();
+    const sampler = new Sf2Sampler(sf2Synth, 3, 0, {
+      isDrum: true,
+      altKitChannels: new Map([[48, 4]]),
+    });
+    sampler.setVolume(0);
+    sampler.setPan(-1);
+    sampler.allNotesOff();
+    sampler.resetTechniqueState();
+    for (const channel of [3, 4]) {
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 7, 0);
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 39, 0);
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 10, 0);
+    }
+    sampler.setVolume(0.5);
+    sampler.setPan(0.5);
+    for (const channel of [3, 4]) {
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 7, 64);
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 39, 0);
+      expect(synth.controllerChange).toHaveBeenCalledWith(channel, 10, 95);
+    }
+  });
+
   it("sends future noteOn events directly to the synth audio queue", () => {
     const { synth, sf2Synth } = createMockSf2Synth(10);
     const sampler = new Sf2Sampler(sf2Synth, 3, 0);

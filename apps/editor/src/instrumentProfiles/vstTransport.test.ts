@@ -1,0 +1,278 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Score } from "@viritura/core";
+import type { VstPreparePlan } from "@viritura/playback";
+import type { FxChainsConfig } from "./fxChainStore";
+
+const mocks = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  fx: vi.fn<() => FxChainsConfig>(),
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
+vi.mock("./profileHostBridge", () => ({ isDesktopHost: () => true }));
+vi.mock("./instrumentProfileStore", () => ({
+  readInstrumentProfileState: vi.fn(),
+  useInstrumentProfileStore: {
+    getState: () => ({
+      profiles: [
+        {
+          id: "profile",
+          slots: [
+            {
+              slotId: "piano",
+              label: "Piano",
+              binding: { pluginPath: "F:\\plugins\\piano.vst3", luaScriptPath: "F:\\mappers\\piano.lua" },
+            },
+          ],
+        },
+      ],
+    }),
+  },
+}));
+vi.mock("./fxChainStore", () => ({
+  readFxChains: mocks.fx,
+  useFxChainStore: { getState: () => ({ ensureReverbSeeded() {} }) },
+}));
+vi.mock("./fxChainState", () => ({ readFxPluginState: vi.fn() }));
+vi.mock("../store/backgroundTaskStore", () => ({
+  beginBackgroundTask: () => "load",
+  updateBackgroundTask() {},
+  endBackgroundTask() {},
+}));
+
+interface StripControls {
+  gain: number;
+  pan: number;
+  reverbSend: number;
+}
+
+interface LoadSlot extends StripControls {
+  slotKey: string;
+}
+
+function score(step: "C" | "D" = "C"): Score {
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [
+      {
+        name: "Piano",
+        measures: [
+          {
+            sequences: [
+              {
+                content: [
+                  {
+                    type: "event",
+                    id: "note",
+                    duration: { base: "whole" },
+                    notes: [{ pitch: { step, octave: 4 } }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function plan(kind: "vst" | "sf2"): VstPreparePlan {
+  return kind === "sf2"
+    ? { vstParts: [], sf2Parts: [{ partIndex: 0, program: 0, isDrum: false }] }
+    : {
+        vstParts: [
+          {
+            partIndex: 0,
+            vst: { id: "piano", kind: "vst", hostProfileId: "profile", instrumentSlot: "piano", midiChannel: 0 },
+          },
+        ],
+        sf2Parts: [],
+      };
+}
+
+describe("native mixer reconciliation", () => {
+  let strips: Map<string, StripControls>;
+  let muted: Set<number>;
+  let fx: FxChainsConfig;
+  let duringLoad: (() => Promise<void>) | undefined;
+  let wet: number;
+
+  beforeEach(() => {
+    vi.resetModules();
+    mocks.invoke.mockReset();
+    vi.stubGlobal("__TAURI_INTERNALS__", { invoke: mocks.invoke });
+    strips = new Map();
+    muted = new Set();
+    duringLoad = undefined;
+    wet = 0;
+    fx = {
+      reverb: {
+        plugins: [{ id: "reverb", pluginPath: "F:\\plugins\\reverb.vst3", pluginName: "Reverb", stateVersion: 0 }],
+        send: 0.25,
+        wet: 0.3,
+      },
+      master: { plugins: [] },
+    };
+    mocks.fx.mockImplementation(() => fx);
+    // Model the host's important behavior: absent strips ignore live setters,
+    // and loading either a new or reused strip overwrites its load-time controls.
+    mocks.invoke.mockImplementation(async (command: string, args: Record<string, unknown>) => {
+      switch (command) {
+        case "vst_soundfont_path":
+          return "F:\\fonts\\piano.sf2";
+        case "vst_compile_mapper":
+          return [];
+        case "vst_playback_load":
+          await duringLoad?.();
+          for (const slot of args.slots as LoadSlot[]) {
+            strips.set(slot.slotKey, {
+              gain: slot.gain ?? 1,
+              pan: slot.pan ?? 0,
+              reverbSend: slot.reverbSend ?? 0,
+            });
+          }
+          break;
+        case "vst_playback_set_gain": {
+          const strip = strips.get(args.slotKey as string);
+          if (strip) strip.gain = args.gain as number;
+          break;
+        }
+        case "vst_playback_set_pan": {
+          const strip = strips.get(args.slotKey as string);
+          if (strip) strip.pan = args.pan as number;
+          break;
+        }
+        case "vst_playback_set_muted":
+          if (strips.size) muted = new Set(args.parts as number[]);
+          break;
+        case "vst_playback_set_reverb_levels":
+          for (const strip of strips.values()) strip.reverbSend = args.send as number;
+          wet = args.wet as number;
+          break;
+        case "vst_playback_retain":
+          for (const key of strips.keys()) if (!(args.keys as string[]).includes(key)) strips.delete(key);
+          break;
+        case "vst_playback_release":
+          strips.clear();
+          break;
+      }
+    });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(["vst", "sf2"] as const)("reapplies %s controls on cold load, reload and restart", async (kind) => {
+    const { createVstTransport, invalidateVstHostMirror } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    await transport.setPartGain(0, 0.35);
+    await transport.setPartPan(0, -0.6);
+    await transport.setMutedParts(new Set([0, 1]));
+    expect(strips.size).toBe(0);
+
+    const assertMix = () => {
+      expect([...strips.values()]).toEqual([{ gain: 0.35, pan: -0.6, reverbSend: 0.25 }]);
+      expect(muted).toEqual(new Set([0, 1]));
+      expect(wet).toBe(0.3);
+    };
+    await transport.prepare(score(), plan(kind));
+    const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
+    expect(load?.[1]).toMatchObject({ slots: [{ gain: 0.35, pan: -0.6 }] });
+    assertMix();
+    await transport.start(0);
+    await transport.stop();
+    await transport.prepare(score("D"), plan(kind));
+    await transport.start(0);
+    assertMix();
+
+    const loadCount = mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_load").length;
+    await transport.prepare(score("D"), plan(kind));
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_load")).toHaveLength(loadCount);
+    assertMix();
+
+    strips.clear();
+    muted.clear();
+    invalidateVstHostMirror();
+    await transport.prepare(score(), plan(kind));
+    assertMix();
+    await transport.release();
+    await transport.prepare(score(), plan(kind));
+    assertMix();
+  });
+
+  it.each(["vst", "sf2"] as const)("uses the latest %s controls changed during slow loading", async (kind) => {
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    await transport.setPartGain(0, 0.8);
+    await transport.setPartPan(0, 0.5);
+    await transport.setMutedParts(new Set([0]));
+    duringLoad = async () => {
+      await transport.setPartGain(0, 0.2);
+      await transport.setPartPan(0, -0.75);
+      await transport.setMutedParts(new Set([1]));
+      fx = { ...fx, reverb: { ...fx.reverb, send: 0.6, wet: 0.7 } };
+    };
+    await transport.prepare(score(), plan(kind));
+    expect([...strips.values()]).toEqual([{ gain: 0.2, pan: -0.75, reverbSend: 0.6 }]);
+    expect(muted).toEqual(new Set([1]));
+    expect(wet).toBe(0.7);
+  });
+
+  it.each(["vst", "sf2"] as const)("suppresses muted and solo-excluded %s previews after reload", async (kind) => {
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    await transport.setPartGain(0, 0.35);
+    await transport.prepare(score(), plan(kind));
+    await transport.start(0);
+    await transport.stop();
+    // The provider represents both a muted strip and a solo-excluded strip in this set.
+    await transport.setMutedParts(new Set([0]));
+    await transport.prepare(score("D"), plan(kind));
+    mocks.invoke.mockClear();
+    expect(await transport.previewNote(0, 60, 100, 200)).toBe(true);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_preview")).toHaveLength(0);
+    await transport.setMutedParts(new Set());
+    expect(await transport.previewNote(0, 60, 100, 200)).toBe(true);
+    expect(mocks.invoke).toHaveBeenCalledWith("vst_playback_preview", expect.objectContaining({ note: 60 }), undefined);
+  });
+
+  it("carries live controls across SF2/VST replacement and permits explicit defaults", async () => {
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    await transport.prepare(score(), plan("sf2"));
+    await transport.setPartGain(0, 0);
+    await transport.setPartPan(0, 1);
+    await transport.setMutedParts(new Set([0]));
+    await transport.prepare(score(), plan("vst"));
+    expect([...strips.keys()]).toEqual(["profile:piano"]);
+    expect([...strips.values()]).toEqual([{ gain: 0, pan: 1, reverbSend: 0.25 }]);
+    expect(muted).toEqual(new Set([0]));
+
+    await transport.setPartGain(0, 1);
+    await transport.setPartPan(0, 0);
+    await transport.setMutedParts(new Set());
+    fx.reverb.plugins = [];
+    await transport.prepare(score(), plan("sf2"));
+    expect([...strips.values()]).toEqual([{ gain: 1, pan: 0, reverbSend: 0 }]);
+    expect(muted.size).toBe(0);
+  });
+
+  it("keeps the last live gain and pan for a shared VST strip on replay", async () => {
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    const sharedScore = score();
+    sharedScore.parts.push(structuredClone(sharedScore.parts[0]!));
+    const assignment = plan("vst").vstParts[0]!;
+    const sharedPlan = { vstParts: [assignment, { ...assignment, partIndex: 1 }], sf2Parts: [] };
+    await transport.prepare(sharedScore, sharedPlan);
+    await transport.setPartGain(0, 0.8);
+    await transport.setPartGain(1, 0.4);
+    await transport.setPartGain(0, 0.6);
+    await transport.setPartPan(1, -0.5);
+    await transport.setPartPan(0, 0.5);
+    await transport.setPartPan(1, -1);
+    await transport.prepare(sharedScore, sharedPlan);
+    expect([...strips.values()]).toEqual([{ gain: 0.6, pan: -1, reverbSend: 0.25 }]);
+  });
+});

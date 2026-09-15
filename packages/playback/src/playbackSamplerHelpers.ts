@@ -633,7 +633,7 @@ export async function createPartSampler(args: {
   sectionEntry.parts.push({ index: i });
   refs.partSection.set(i, section);
   refs.partRefDist.set(i, sound.routing.projectionRefDistance);
-  refs.mixerVolume.set(i, 1);
+  if (!refs.mixerVolume.has(i)) refs.mixerVolume.set(i, 1);
   const basePan = Math.max(-1, Math.min(1, defaultPos.x / PAN_RANGE));
   refs.basePan.set(i, basePan);
   if ("setPan" in partSampler) (partSampler as { setPan(pan: number): void }).setPan(basePan);

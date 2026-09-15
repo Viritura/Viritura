@@ -429,15 +429,19 @@ export class Sf2Sampler implements ISampler {
   /** Set volume via 14-bit CC 7/39 (Channel Volume MSB/LSB). */
   setVolume(volume: number): void {
     const value = Math.round(Math.max(0, Math.min(1, volume)) * 0x3fff);
-    this.synth.controllerChange(this.channel, 7, value >> 7);
-    this.synth.controllerChange(this.channel, 39, value & 0x7f);
+    for (const channel of [this.channel, ...this.altKitChannels.values()]) {
+      this.synth.controllerChange(channel, 7, value >> 7);
+      this.synth.controllerChange(channel, 39, value & 0x7f);
+    }
   }
 
   /** Set pan via CC 10 (Pan). */
   setPan(pan: number): void {
     // MIDI pan: 0=left, 64=center, 127=right
     const midiPan = Math.round((pan + 1) * 63.5);
-    this.synth.controllerChange(this.channel, 10, midiPan);
+    for (const channel of [this.channel, ...this.altKitChannels.values()]) {
+      this.synth.controllerChange(channel, 10, midiPan);
+    }
   }
 
   /** Change the GM program for this channel. */

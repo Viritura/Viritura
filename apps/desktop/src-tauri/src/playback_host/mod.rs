@@ -91,6 +91,9 @@ pub struct SlotSpec {
     /// Linear output gain for this slot's strip (1.0 = unity).
     #[serde(default = "unit_gain")]
     pub gain: f32,
+    /// Stereo pan (-1.0 = left, 0.0 = center, 1.0 = right).
+    #[serde(default)]
+    pub pan: f32,
     /// Post-fader amount of this slot's signal sent to the shared reverb bus
     /// (0.0 = fully dry).
     #[serde(default)]
@@ -358,6 +361,27 @@ pub fn set_gain(host: &PlaybackHost, slot_key: String, gain: f32) -> Result<(), 
     rx.recv().map_err(|_| DEAD.to_owned())?
 }
 
+/// Live-update one slot's stereo pan without reloading. Like [`set_gain`], no-op
+/// before the host starts: the next `load` spec carries the current value.
+pub fn set_pan(host: &PlaybackHost, slot_key: String, pan: f32) -> Result<(), String> {
+    let sender = {
+        let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
+        match guard.as_ref() {
+            Some(sender) => sender.clone(),
+            None => return Ok(()),
+        }
+    };
+    let (reply, rx) = mpsc::channel();
+    sender
+        .send(HostCommand::SetPan {
+            slot_key,
+            pan,
+            reply,
+        })
+        .map_err(|_| DEAD.to_owned())?;
+    rx.recv().map_err(|_| DEAD.to_owned())?
+}
+
 /// Play one note immediately on a loaded slot (click-to-hear preview), releasing
 /// it after `duration_ms`. No-op when the host thread has not started yet.
 pub fn preview(
@@ -408,4 +432,23 @@ pub fn release_if_running(host: &PlaybackHost) -> Result<(), String> {
         .send(HostCommand::ReleaseAll { reply })
         .map_err(|_| DEAD.to_owned())?;
     rx.recv().map_err(|_| DEAD.to_owned())?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_spec_defaults_pan_to_center() {
+        let spec: SlotSpec = serde_json::from_str(r#"{"slotKey":"piano"}"#).unwrap();
+        assert_eq!(spec.pan, 0.0);
+        assert_eq!(spec.gain, 1.0);
+        assert_eq!(spec.reverb_send, 0.0);
+    }
+
+    #[test]
+    fn slot_spec_deserializes_pan() {
+        let spec: SlotSpec = serde_json::from_str(r#"{"slotKey":"piano","pan":-0.5}"#).unwrap();
+        assert_eq!(spec.pan, -0.5);
+    }
 }

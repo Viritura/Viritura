@@ -4,7 +4,7 @@
 //! them; that left no point in the graph where all instruments meet, so there
 //! was nowhere to hang a master gain or a shared reverb. This module opens **one**
 //! device stream whose callback pulls every loaded plugin's audio in lock-step,
-//! folds each through its channel strip (gain + reverb send), sums the dry signal
+//! folds each through its channel strip (gain + pan + reverb send), sums the dry signal
 //! to a stereo master, runs the summed sends through one shared reverb effect and
 //! returns its wet output into the master, applies the master gain, and writes the
 //! interleaved result to the device.
@@ -27,6 +27,9 @@ use vst3_host::plugin::Plugin;
 use super::fx_chain::{FxChain, FxChannel};
 use super::sf2::Sf2Voice;
 use super::{BLOCK_SIZE, OUTPUT_CHANNELS, SAMPLE_RATE};
+
+#[cfg(test)]
+mod tests;
 
 /// The concrete stream type the cpal backend produces. Held on the host thread to
 /// keep audio alive; dropping it stops the stream.
@@ -52,6 +55,8 @@ pub(super) struct Strip {
     source: StripSource,
     /// Linear output gain (1.0 = unity).
     gain: f32,
+    /// Stereo pan (-1.0 = left, 0.0 = unchanged stereo, 1.0 = right).
+    pan: f32,
     /// Post-fader amount of this strip's signal fed to the shared reverb bus
     /// (0.0 = fully dry, 1.0 = the strip's post-gain signal sent at unity).
     reverb_send: f32,
@@ -63,15 +68,24 @@ pub(super) struct Strip {
 
 impl Strip {
     /// Update the mix controls the callback applies to this strip (used when a
-    /// slot is reloaded with new send/gain without re-instantiating the source).
-    pub(super) fn set_mix(&mut self, gain: f32, reverb_send: f32) {
+    /// slot is reloaded without re-instantiating the source).
+    pub(super) fn set_mix(&mut self, gain: f32, pan: f32, reverb_send: f32) {
         self.gain = gain;
+        self.set_pan(pan);
         self.reverb_send = reverb_send;
     }
 
     /// Set only this strip's output gain (live fader move; leaves the send intact).
     pub(super) fn set_gain(&mut self, gain: f32) {
         self.gain = gain;
+    }
+
+    pub(super) fn set_pan(&mut self, pan: f32) {
+        self.pan = if pan.is_finite() {
+            pan.clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
     }
 
     /// Queue a MIDI event for this strip's source at a sample offset within the
@@ -197,6 +211,30 @@ impl MixerCore {
         }
     }
 
+    fn insert(&mut self, key: String, source: StripSource, gain: f32, pan: f32, reverb_send: f32) {
+        let mut strip = Strip {
+            source,
+            gain,
+            pan: 0.0,
+            reverb_send,
+            scratch: AudioBuffers::new(0, OUTPUT_CHANNELS, BLOCK_SIZE, SAMPLE_RATE),
+        };
+        strip.set_pan(pan);
+        self.strips.insert(key, strip);
+    }
+
+    fn set_gain(&mut self, key: &str, gain: f32) {
+        if let Some(strip) = self.strip_mut(key) {
+            strip.set_gain(gain);
+        }
+    }
+
+    fn set_pan(&mut self, key: &str, pan: f32) {
+        if let Some(strip) = self.strip_mut(key) {
+            strip.set_pan(pan);
+        }
+    }
+
     /// Borrow a loaded strip mutably (for MIDI injection / transport).
     pub(super) fn strip_mut(&mut self, key: &str) -> Option<&mut Strip> {
         self.strips.get_mut(key)
@@ -275,14 +313,35 @@ impl MixerCore {
         for strip in strips.values() {
             let limit = channels.min(strip.scratch.outputs.len());
             let send = strip.gain * strip.reverb_send;
+            // StereoPannerNode's stereo law folds the opposite channel toward
+            // the panned side, rather than attenuating both channels at center.
+            let (direct, cross) = stereo_pan_gains(strip.pan);
             for ch in 0..limit {
                 let src = &strip.scratch.outputs[ch];
                 let n = frames.min(src.len());
                 for f in 0..n {
-                    master[ch][f] += src[f] * strip.gain;
-                    send_bus[ch][f] += src[f] * send;
+                    let sample = if limit == 2 && strip.pan != 0.0 {
+                        let toward = usize::from(strip.pan > 0.0);
+                        if ch == toward {
+                            src[f] + strip.scratch.outputs[1 - ch][f] * cross
+                        } else {
+                            src[f] * direct
+                        }
+                    } else {
+                        src[f]
+                    };
+                    master[ch][f] += sample * strip.gain;
+                    send_bus[ch][f] += sample * send;
                 }
             }
+        }
+
+        fn stereo_pan_gains(pan: f32) -> (f32, f32) {
+            if pan.abs() == 1.0 {
+                return (0.0, 1.0);
+            }
+            let (cross, direct) = (pan.abs() * std::f32::consts::FRAC_PI_2).sin_cos();
+            (direct, cross)
         }
 
         // 2) Run the reverb chain over the summed send bus and fold its processed
@@ -386,16 +445,15 @@ impl Mixer {
 
     /// Insert (or replace) a strip for `key`. The source must already be
     /// configured and processing; the running callback picks it up next block.
-    pub(super) fn insert(&self, key: String, source: StripSource, gain: f32, reverb_send: f32) {
-        self.lock().strips.insert(
-            key,
-            Strip {
-                source,
-                gain,
-                reverb_send,
-                scratch: AudioBuffers::new(0, OUTPUT_CHANNELS, BLOCK_SIZE, SAMPLE_RATE),
-            },
-        );
+    pub(super) fn insert(
+        &self,
+        key: String,
+        source: StripSource,
+        gain: f32,
+        pan: f32,
+        reverb_send: f32,
+    ) {
+        self.lock().insert(key, source, gain, pan, reverb_send);
     }
 
     /// Install the reverb aux chain. The plugins must already be configured and
@@ -472,9 +530,12 @@ impl Mixer {
     /// Live-update one strip's output gain (a fader move while playing). No-op if
     /// the slot isn't loaded.
     pub(super) fn set_gain(&self, key: &str, gain: f32) {
-        if let Some(strip) = self.lock().strip_mut(key) {
-            strip.set_gain(gain);
-        }
+        self.lock().set_gain(key, gain);
+    }
+
+    /// Live-update one strip's pan. No-op if the slot isn't loaded.
+    pub(super) fn set_pan(&self, key: &str, pan: f32) {
+        self.lock().set_pan(key, pan);
     }
 
     /// Remove a strip, returning true if one was present.
