@@ -4,6 +4,7 @@ import type {
   TimeSignaturePosition,
   TimeSignatureRenderStyle,
   SenzaMisuraDisplay,
+  GroupingDisplay,
   TimeSignatureSettings,
   TimeSignatureStyles,
 } from "@viritura/core";
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: Required<TimeSignatureSettings> = {
   position: "center",
   scale: 1,
   senzaMisura: "open",
+  nonDefaultGroupingDisplay: "standard",
 };
 
 export type TimeSignaturePresetId = "standard" | "largePerStaff" | "filmScore" | "aboveGroup" | "custom";
@@ -92,6 +94,12 @@ export const SENZA_MISURA_OPTIONS: readonly { value: SenzaMisuraDisplay; label: 
   { value: "hidden", label: "Hidden" },
 ];
 
+export const GROUPING_DISPLAY_OPTIONS: readonly { value: GroupingDisplay; label: string }[] = [
+  { value: "standard", label: "Standard" },
+  { value: "additive", label: "Additive numerator" },
+  { value: "annotation", label: "Grouping annotation" },
+];
+
 export type TimeSignatureScope = "score" | "parts";
 
 export function presetFor(settings: Required<TimeSignatureSettings>): TimeSignaturePresetId {
@@ -135,6 +143,9 @@ function compactSettings(settings: Required<TimeSignatureSettings>): TimeSignatu
   if (settings.position !== DEFAULT_SETTINGS.position) compact.position = settings.position;
   if (settings.scale !== DEFAULT_SETTINGS.scale) compact.scale = settings.scale;
   if (settings.senzaMisura !== DEFAULT_SETTINGS.senzaMisura) compact.senzaMisura = settings.senzaMisura;
+  if (settings.nonDefaultGroupingDisplay !== DEFAULT_SETTINGS.nonDefaultGroupingDisplay) {
+    compact.nonDefaultGroupingDisplay = settings.nonDefaultGroupingDisplay;
+  }
   return compact;
 }
 
@@ -145,6 +156,7 @@ function settingsEqual(left: Required<TimeSignatureSettings>, right: Required<Ti
     left.grandStaff === right.grandStaff &&
     left.position === right.position &&
     left.scale === right.scale &&
-    left.senzaMisura === right.senzaMisura
+    left.senzaMisura === right.senzaMisura &&
+    left.nonDefaultGroupingDisplay === right.nonDefaultGroupingDisplay
   );
 }

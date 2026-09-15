@@ -1,5 +1,6 @@
 import type { Score, Duration, NoteEvent, Tuplet, SequenceContent, TupletDuration } from "@viritura/core";
 import { isRest, measureBeats } from "@viritura/core";
+import type { EventLocation } from "../score/ElementPath";
 import {
   durationToBeats,
   beatsToDuration,
@@ -331,6 +332,101 @@ export function createTupletFromEvent(score: Score, params: CreateTupletFromEven
 
   if (sequence.fullMeasure) {
     delete sequence.fullMeasure;
+  }
+
+  return score;
+}
+
+export interface CreateTupletFromRangeParams {
+  locations: readonly EventLocation[];
+  tupletNumber: number;
+  /** M in N:M. Defaults to the conventional value for N. */
+  outerMultiple?: number;
+}
+
+interface TupletRangeFragment {
+  measureIndex: number;
+  startIndex: number;
+  endIndex: number;
+  content: NoteEvent[];
+}
+
+function collectTupletRangeFragments(score: Score, locations: readonly EventLocation[]): TupletRangeFragment[] {
+  if (locations.length < 2) {
+    throw new Error("Select a contiguous range of notes and rests across a barline");
+  }
+
+  const ordered = [...locations].sort(
+    (a, b) => a.measureIndex - b.measureIndex || a.sequenceIndex - b.sequenceIndex || a.eventIndex - b.eventIndex,
+  );
+  const first = ordered[0]!;
+  if (ordered.some((loc) => loc.partIndex !== first.partIndex || loc.sequenceIndex !== first.sequenceIndex)) {
+    throw new Error("Cross-barline tuplets must stay in one part and voice");
+  }
+  if (ordered.some((loc) => loc.tupletIndex !== undefined)) {
+    throw new Error("Nested cross-barline tuplets are not supported");
+  }
+  const last = ordered.at(-1)!;
+  if (first.measureIndex === last.measureIndex) {
+    throw new Error("Select notes and rests on both sides of a barline");
+  }
+
+  const fragments: TupletRangeFragment[] = [];
+  for (let measureIndex = first.measureIndex; measureIndex <= last.measureIndex; measureIndex++) {
+    const sequence = score.parts[first.partIndex]?.measures[measureIndex]?.sequences[first.sequenceIndex];
+    if (!sequence) throw new Error("The selected voice is missing from one of the measures");
+    const startIndex = measureIndex === first.measureIndex ? first.eventIndex : 0;
+    const endIndex = measureIndex === last.measureIndex ? last.eventIndex : sequence.content.length - 1;
+    const content = sequence.content.slice(startIndex, endIndex + 1);
+    if (content.length === 0 || content.some((item) => item.type !== "event")) {
+      throw new Error("Cross-barline tuplets can only contain unnested notes and rests");
+    }
+    fragments.push({ measureIndex, startIndex, endIndex, content: content as NoteEvent[] });
+  }
+  return fragments;
+}
+
+/**
+ * Wrap a contiguous event range spanning measures as one linked tuplet.
+ * Existing events and their measure ownership are preserved.
+ */
+export function createTupletFromRange(score: Score, params: CreateTupletFromRangeParams): Score {
+  const { locations, tupletNumber } = params;
+  const outerMultiple = params.outerMultiple ?? getTupletOuterMultiple(tupletNumber);
+  if (tupletNumber < 2 || tupletNumber > 32 || outerMultiple < 1 || outerMultiple > 32) {
+    throw new Error(`Invalid tuplet number: ${tupletNumber}`);
+  }
+
+  const fragments = collectTupletRangeFragments(score, locations);
+  const totalInnerBeats = fragments.reduce(
+    (total, fragment) => total + fragment.content.reduce((sum, event) => sum + durationToBeats(event.duration), 0),
+    0,
+  );
+  const baseDuration = beatsToDuration(totalInnerBeats / tupletNumber);
+  if (!baseDuration) {
+    throw new Error(
+      `${tupletNumber}:${outerMultiple} does not evenly fit the selected note values (${totalInnerBeats} beats)`,
+    );
+  }
+
+  const first = locations[0]!;
+  const spanId = generateEventId();
+  for (let index = 0; index < fragments.length; index++) {
+    const fragment = fragments[index]!;
+    const measure = score.parts[first.partIndex]!.measures[fragment.measureIndex]!;
+    const sequence = measure.sequences[first.sequenceIndex]!;
+    const tuplet: Tuplet = {
+      type: "tuplet",
+      inner: { multiple: tupletNumber, duration: { ...baseDuration } },
+      outer: { multiple: outerMultiple, duration: { ...baseDuration } },
+      content: fragment.content,
+      span: {
+        id: spanId,
+        type: index === 0 ? "start" : index === fragments.length - 1 ? "stop" : "continue",
+      },
+    };
+    sequence.content.splice(fragment.startIndex, fragment.endIndex - fragment.startIndex + 1, tuplet);
+    if (sequence.fullMeasure) delete sequence.fullMeasure;
   }
 
   return score;

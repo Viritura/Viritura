@@ -16,7 +16,8 @@ import type {
   PartInfo,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
-import { type ConvertFlags, type OttavaEvent, processMeasureNotes } from "./measureNotes";
+import { type ConvertFlags, type OttavaEvent, type TupletAccumulator, processMeasureNotes } from "./measureNotes";
+import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
 
@@ -217,6 +218,9 @@ export function buildParts(
 
     let divisions = 4;
     const activeClefs = new Map<number, MnxClef>();
+    const activeTuplets = new Map<string, TupletAccumulator>();
+    const activeBeams = new Map<string, ActiveBeam[]>();
+    const beamsByMeasure = new Map<number, NonNullable<MnxPartMeasure["beams"]>>();
     openSlurs.clear();
     openGlissandos.clear();
     tieIds.clear();
@@ -286,6 +290,8 @@ export function buildParts(
         partTranspose,
         flags,
         activeClefs,
+        activeTuplets,
+        activeBeams,
       );
 
       if (result.clefs.length > 0) {
@@ -297,7 +303,11 @@ export function buildParts(
       }
 
       if (result.beamGroups.length > 0) {
-        mnxMeasure.beams = result.beamGroups;
+        for (const completed of result.beamGroups) {
+          const groups = beamsByMeasure.get(completed.startMeasureIndex);
+          if (groups) groups.push(completed.beam);
+          else beamsByMeasure.set(completed.startMeasureIndex, [completed.beam]);
+        }
       }
 
       if (result.nonArpeggios.length > 0) {
@@ -450,6 +460,10 @@ export function buildParts(
     // Write buffered octave-shift spans onto their start measures (first-class
     // MNX `ottavas`, paired across measures above).
     writeOttavaSpans(mnxPart.measures, ottavasByMeasure);
+    for (const [measureIndex, beams] of beamsByMeasure) {
+      const measure = mnxPart.measures[measureIndex];
+      if (measure) measure.beams = beams;
+    }
 
     // Append standard gradual groups to each start measure's dynamics array.
     for (const [measureIndex, groups] of hairpinsByMeasure) {

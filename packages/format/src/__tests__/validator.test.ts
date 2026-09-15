@@ -62,6 +62,53 @@ describe("MNX percussion semantic validation", () => {
   });
 
   describe("Viritura extension validation", () => {
+    it("rejects an incomplete cross-barline tuplet span", () => {
+      const score = percussionScore();
+      score.parts[0]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: [{ duration: { base: "eighth" }, kitNotes: [{ kitComponent: "snare" }] }],
+          _x: { viritura: { span: { id: "unfinished", type: "start" } } },
+        } as never,
+      ];
+
+      const result = validateRawScore(score);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            pointer: expect.stringContaining("/_x/viritura/span"),
+            keyword: "tupletSpan",
+          }),
+        );
+      }
+    });
+
+    it("diagnoses a measure-local tuplet with incomplete content", () => {
+      const score = percussionScore();
+      score.parts[0]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: [{ duration: { base: "eighth" }, kitNotes: [{ kitComponent: "snare" }] }],
+        } as never,
+      ];
+
+      const result = validateRawScore(score);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContainEqual(
+          expect.objectContaining({
+            message: expect.stringContaining("linked Viritura span fragments"),
+            keyword: "tupletDuration",
+          }),
+        );
+      }
+    });
+
     it("validates a part-ID-keyed sound assignment and rejects malformed source choices", () => {
       const score = percussionScore() as ReturnType<typeof percussionScore> & {
         _x?: { viritura?: Record<string, unknown> };

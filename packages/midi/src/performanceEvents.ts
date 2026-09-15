@@ -19,6 +19,7 @@ import { buildTempoMap, buildTempoModel } from "./tempoMap";
 import { durationBeats, expandMeasureOrder, fractionToBeats, type TimelineOptions } from "./timeline";
 import { detectToCodaMeasureIndex } from "./repeatExpansion";
 import type { TempoModel } from "./tempoModel";
+import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 
 export interface Articulations {
   staccato: boolean;
@@ -65,6 +66,7 @@ interface TimedEvent {
 interface TimingContext {
   readonly model: TempoModel;
   readonly measureStartBeat: number;
+  readonly staffMeterRatio: number;
 }
 
 interface TraversalContext extends TimingContext {
@@ -120,11 +122,14 @@ function pushEvent(ctx: { events: TimedEvent[]; order: number }, event: Performa
 }
 
 function timeAt(ctx: TimingContext, beatOffset: number): number {
-  return ctx.model.timeAtBeat(ctx.measureStartBeat + beatOffset);
+  return ctx.model.timeAtBeat(ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio);
 }
 
 function secondsForBeats(ctx: TimingContext, beatOffset: number, beats: number): number {
-  return ctx.model.secondsForBeats(ctx.measureStartBeat + beatOffset, beats);
+  return ctx.model.secondsForBeats(
+    ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+    beats * ctx.staffMeterRatio,
+  );
 }
 
 function noteDynamics(ctx: TraversalContext, startTime: number): number {
@@ -231,11 +236,14 @@ interface TechniqueMark {
   action: TechniqueAction;
 }
 
-function measureTechniqueMarks(expressions: readonly TextExpression[] | undefined): TechniqueMark[] {
+function measureTechniqueMarks(
+  expressions: readonly TextExpression[] | undefined,
+  ratioForStaff: (staff: number | undefined) => number,
+): TechniqueMark[] {
   return (expressions ?? [])
     .map((expression) => ({
       action: classifyTechniqueText(expression.text),
-      beat: fractionToBeats(expression.position.fraction),
+      beat: fractionToBeats(expression.position.fraction) * ratioForStaff(expression.staff),
     }))
     .filter((mark): mark is TechniqueMark => mark.action !== null)
     .sort((a, b) => a.beat - b.beat);
@@ -280,7 +288,7 @@ function stateAtBeat(initialState: PlayingState, marks: readonly TechniqueMark[]
 }
 
 function stateForEvent(ctx: TraversalContext, beatOffset: number): PlayingState {
-  return stateAtBeat(ctx.measureInitialState, ctx.techniqueMarks, beatOffset);
+  return stateAtBeat(ctx.measureInitialState, ctx.techniqueMarks, beatOffset * ctx.staffMeterRatio);
 }
 
 function emitDynamicsEvents(
@@ -444,7 +452,16 @@ export function generatePerformanceEvents(
   const holdSchedule = buildHoldSchedule(score, measureOrder, globalMeasures);
   buildTempoMap(expandedGlobal, holdSchedule);
   const { model, measureStartBeats } = buildTempoModel(expandedGlobal, holdSchedule);
-  const dynamicsEnvelope = buildDynamicsEnvelope(part, measureOrder, measureStartBeats, model, globalMeasures);
+  const staffMeterTable = resolvePartStaffMeterTable(part, globalMeasures);
+  const dynamicsEnvelope = buildDynamicsEnvelope(
+    part,
+    measureOrder,
+    measureStartBeats,
+    model,
+    globalMeasures,
+    [],
+    staffMeterTable,
+  );
   const tieTargets = collectPartTieTargets(part, measureOrder);
   const pendingTies = new Map<string, PerformanceNote>();
   const events: TimedEvent[] = [{ event: { kind: "reset", time: 0 }, order: 0 }];
@@ -457,8 +474,10 @@ export function generatePerformanceEvents(
     if (!measure) continue;
 
     const measureStartBeat = measureStartBeats[expandedMeasureIndex]!;
-    const marks = measureTechniqueMarks(measure.expressions);
-    const timing: TimingContext = { model, measureStartBeat };
+    const ratioForStaff = (staff: number | undefined): number =>
+      staffMeterRatioAt(staffMeterTable, originalMeasureIndex, staff);
+    const marks = measureTechniqueMarks(measure.expressions, ratioForStaff);
+    const timing: TimingContext = { model, measureStartBeat, staffMeterRatio: 1 };
     const techniqueResult = emitMeasureTechniques({ events, order }, timing, persistentState, marks);
     order = techniqueResult.order;
 
@@ -467,6 +486,7 @@ export function generatePerformanceEvents(
       const ctx: TraversalContext = {
         model,
         measureStartBeat,
+        staffMeterRatio: ratioForStaff(sequence.staff ?? 1),
         partIndex,
         expandedMeasureIndex,
         originalMeasureIndex,

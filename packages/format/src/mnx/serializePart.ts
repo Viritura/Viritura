@@ -18,7 +18,9 @@ import type {
   TextExpression,
   Sequence,
   Beam,
+  StaffMeterChange,
 } from "@viritura/core";
+import { isStaffMeterReset } from "@viritura/core";
 
 type Obj = Record<string, unknown>;
 
@@ -233,5 +235,25 @@ function collectPartMeasureVendorExt(pm: PartMeasure, helpers: PartSerializerHel
     ext["expressions"] = pm.expressions.map(helpers.serializeTextExpression);
   }
   if (pm.condensingOverride) ext["condensingOverride"] = pm.condensingOverride;
+  if (pm.groupingDisplayOverrides && pm.groupingDisplayOverrides.length > 0) {
+    ext["groupingDisplayOverrides"] = pm.groupingDisplayOverrides.map((override) => ({
+      staff: override.staff,
+      groupingDisplay: override.groupingDisplay,
+    }));
+  }
+  if (pm.staffMeters && pm.staffMeters.length > 0) {
+    ext["staffMeters"] = pm.staffMeters.map(serializeStaffMeterChange);
+  }
   return ext;
+}
+
+function serializeStaffMeterChange(change: StaffMeterChange): Obj {
+  if (isStaffMeterReset(change)) {
+    return { staff: change.staff, useGlobal: true };
+  }
+  const meterObj: Obj = { count: change.meter.count, unit: change.meter.unit };
+  if (change.meter.beatStructure && change.meter.beatStructure.length > 0) {
+    meterObj["beatStructure"] = [...change.meter.beatStructure];
+  }
+  return { staff: change.staff, meter: meterObj, synchronization: change.synchronization };
 }

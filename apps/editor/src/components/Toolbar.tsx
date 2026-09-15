@@ -17,13 +17,6 @@ import type { Score, NoteEvent } from "@viritura/core";
 import { Separator } from "@viritura/ui";
 import styles from "./Toolbar.module.css";
 import { produce } from "../score/scoreClone";
-import {
-  beamTogetherSelection,
-  breakBeamAfterSelection,
-  canBeamTogetherSelection,
-  canBreakBeamAfterSelection,
-} from "../commands/beamCommands";
-import { useViewStateStore } from "../store/viewStateStore";
 
 const TUPLET_GLYPH_STACK_STYLE: CSSProperties = {
   display: "inline-flex",
@@ -41,19 +34,6 @@ const TUPLET_GLYPH_STACK_STYLE: CSSProperties = {
 };
 const AUG_DOT_ROW_STYLE: CSSProperties = { display: "inline-flex", alignItems: "center", gap: "3px" };
 const AUG_DOT_SPAN_STYLE: CSSProperties = { letterSpacing: "2px" };
-const BEAM_ICON_STYLE: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "18px",
-  whiteSpace: "nowrap",
-  fontFamily: "Bravura",
-  fontSize: "18px",
-  lineHeight: 1,
-  transform: "scale(0.72)",
-};
-const BROKEN_BEAM_ICON_STYLE: CSSProperties = { ...BEAM_ICON_STYLE, gap: "3px" };
-
 /**
  * SMuFL codepoints for toolbar icons (from Bravura font).
  * Metronome note glyphs for duration buttons, accidental glyphs for accidentals.
@@ -78,9 +58,6 @@ const SMUFL = {
   tripleSharp: String.fromCodePoint(0xe265),
   graceNoteAcciaccatura: String.fromCodePoint(0xe560),
   graceNoteAppoggiatura: String.fromCodePoint(0xe562),
-  textBlackNoteShortStem: String.fromCodePoint(0xe1f0),
-  textBlackNoteFrac8thShortStem: String.fromCodePoint(0xe1f2),
-  textCont8thBeamShortStem: String.fromCodePoint(0xe1f7),
 };
 
 interface DurationButtonDef {
@@ -181,9 +158,8 @@ interface ToolbarProps {
   readonly onToggleLyrics?: () => void;
 }
 
-// eslint-disable-next-line max-lines-per-function -- toolbar render: pulls ~12 fields from the note-input store and emits one button group per (duration, rests, dots, accidentals, voice, modes, beaming, playback, history, view). Each group is 5-10 lines of JSX; splitting per group would force re-passing the store slice into every sub-component.
+// eslint-disable-next-line max-lines-per-function -- toolbar render: pulls note-input state and emits one compact button group per editing task.
 export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}) {
-  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
   const {
     state,
     toggleNoteInput,
@@ -199,8 +175,6 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
   } = useNoteInput();
   const store = useDocumentStoreApi();
   const updateScore = useDocumentStore((s) => s.updateScore);
-  const score = useDocumentStore((s) => s.score);
-  const selection = useSelectionStore((s) => s.selection);
 
   const activeVoice = state.currentVoice;
   const [showExtendedDurations, setShowExtendedDurations] = useState(false);
@@ -308,31 +282,6 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
     },
     [setVoice],
   );
-
-  const handleBeamBreak = useCallback(() => {
-    const currentScore = store.getState().score;
-    if (!currentScore) return;
-    const currentSelection = useSelectionStore.getState().selection;
-    let changed = false;
-    const nextScore = produce(currentScore, (draft) => {
-      changed = breakBeamAfterSelection(draft, currentSelection, selectedScoreIndex);
-    });
-    if (changed && nextScore !== currentScore) updateScore(nextScore);
-  }, [selectedScoreIndex, store, updateScore]);
-
-  const handleBeamTogether = useCallback(() => {
-    const currentScore = store.getState().score;
-    if (!currentScore) return;
-    const currentSelection = useSelectionStore.getState().selection;
-    let changed = false;
-    const nextScore = produce(currentScore, (draft) => {
-      changed = beamTogetherSelection(draft, currentSelection, selectedScoreIndex);
-    });
-    if (changed && nextScore !== currentScore) updateScore(nextScore);
-  }, [selectedScoreIndex, store, updateScore]);
-
-  const beamBreakEnabled = !state.active && canBreakBeamAfterSelection(score, selection);
-  const beamTogetherEnabled = !state.active && canBeamTogetherSelection(score, selection, selectedScoreIndex);
 
   return (
     <div
@@ -449,35 +398,6 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
         data-testid="toolbar-voice"
         fullWidth={false}
       />
-
-      <Separator />
-
-      <Button
-        onClick={handleBeamTogether}
-        disabled={!beamTogetherEnabled}
-        testId="toolbar-beam-together"
-        ariaLabel="Beam selected notes"
-        tooltip="Beam selected notes together"
-      >
-        <span style={BEAM_ICON_STYLE} aria-hidden="true">
-          {SMUFL.textBlackNoteShortStem}
-          {SMUFL.textCont8thBeamShortStem}
-          {SMUFL.textBlackNoteFrac8thShortStem}
-        </span>
-      </Button>
-
-      <Button
-        onClick={handleBeamBreak}
-        disabled={!beamBreakEnabled}
-        testId="toolbar-beam-break"
-        ariaLabel="Break beam after selection"
-        tooltip="Break beam after the last selected note"
-      >
-        <span style={BROKEN_BEAM_ICON_STYLE} aria-hidden="true">
-          <span>{SMUFL.metNote8th}</span>
-          <span>{SMUFL.metNote8th}</span>
-        </span>
-      </Button>
     </div>
   );
 }

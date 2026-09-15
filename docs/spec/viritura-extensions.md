@@ -17,12 +17,13 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
 | layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure                                                                                  |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride                                          |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
 | [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
 | [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                          |
 | [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                       |
 
@@ -53,11 +54,111 @@ units of `time.unit`. The values must sum to `time.count`.
 
 This example remains a 9/8 measure but establishes beat boundaries after 2,
 5, and 7 eighth notes. Automatic beaming consumes these boundaries. The
-extension records metric meaning only; additive numerator and
-grouping-annotation display controls are separate future work. When omitted,
-Viritura resolves a conventional structure for the meter. When present, the
-authored structure is interpreted literally, even if its values match the
-meter's conventional beat structure.
+extension records metric meaning only — `groupingDisplay` below and the
+house-style `nonDefaultGroupingDisplay` control how (or whether) that
+grouping is shown. When omitted, Viritura resolves a conventional structure
+for the meter. When present, the authored structure is interpreted
+literally, even if its values match the meter's conventional beat structure.
+
+### `groupingDisplay`
+
+Explicit per-occurrence override of how this time signature's beat grouping
+is presented. One of `standard`, `additive`, or `annotation` (see
+[Grouping Display](#grouping-display) below). Forces the named mode
+regardless of the document's house style — subject only to the safety
+fallback that keeps a symbolic display (`common`/`cut`/`senzaMisura`/`note`)
+or a single-group structure engraving as `standard` even when forced.
+
+```json
+{
+  "time": {
+    "count": 7,
+    "unit": 8,
+    "_x": {
+      "viritura": {
+        "beatStructure": [3, 2, 2],
+        "groupingDisplay": "annotation"
+      }
+    }
+  }
+}
+```
+
+### `display`
+
+Set to `note` to engrave the denominator as its note value instead of a
+numeral. This presentation is stored in the time signature's vendor dictionary
+because MNX currently standardizes only `common` and `cut` symbolic displays.
+
+## Grouping Display
+
+How a meter's beat grouping is _presented_ is independent of its semantic
+`beatStructure`: automatic beaming always follows `beatStructure` (or the
+conventional default), while `groupingDisplay` only controls what is drawn.
+Schema def: `grouping-display`.
+
+| Value        | Effect                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `standard`   | Ordinary numeric (or symbolic) meter — no grouping decoration.                                                               |
+| `additive`   | Numerator written as its beat groups joined by `+` (e.g. `3+2+2` over `8`), replacing the count.                             |
+| `annotation` | Ordinary numeral engraved as usual, plus generated bold system text (e.g. `3+2+2`) above it in the style of a tempo marking. |
+
+Resolution precedence, highest first:
+
+1. A per-staff occurrence override (`groupingDisplayOverrides` on the part
+   measure — see [`groupingDisplayOverrides`](#groupingdisplayoverrides)).
+2. The time signature's own occurrence override (`groupingDisplay` above).
+3. The document's house style (`nonDefaultGroupingDisplay` under
+   [`timeSignatures`](#timesignatures)) — applied **only** when the meter's
+   resolved beat structure is structurally non-default for its count/unit.
+   An ordinary 4/4 (or any meter whose authored structure merely duplicates
+   the automatic default) always stays `standard` under the house style, so
+   it never engraves `1+1+1+1`.
+4. `standard`.
+
+A symbolic display (`common`/`cut`/`senzaMisura`/`note`) or a resolved beat
+structure of a single group has nothing for `additive`/`annotation` to show,
+so both fall back to `standard` unconditionally — even under an explicit
+occurrence or staff override.
+
+## Cross-barline Tuplet Fragments
+
+MNX tuplets are sequence-content containers and therefore cannot cross a
+part-measure boundary. The upstream notationref matrix currently calls the
+feature supported, but [MNX issue 173](https://github.com/w3c-cg/mnx/issues/173)
+remains open and the sequencing rules require both tuplets and measures to end
+at their declared durations. Viritura consequently stores each measure's notes
+in a normal tuplet fragment and links the fragments with `_x.viritura.span`.
+
+```json
+{
+  "type": "tuplet",
+  "inner": { "duration": { "base": "eighth" }, "multiple": 3 },
+  "outer": { "duration": { "base": "eighth" }, "multiple": 2 },
+  "content": [{ "id": "note-a", "duration": { "base": "eighth" }, "rest": {} }],
+  "_x": {
+    "viritura": {
+      "span": { "id": "cross-bar-triplet", "type": "start" }
+    }
+  }
+}
+```
+
+Every logical span has at least a `start` and `stop` fragment. Intermediate
+measures use `continue`. Fragments must occupy contiguous measures in the same
+sequence and repeat identical ratio and display settings. Each fragment applies
+the shared `outer / inner` timing ratio to its own content, so events remain
+owned by the measure in which they appear. The renderer draws one number, joins
+fragments to barlines, and uses the shared span ID for selection. Invalid or
+incomplete chains fail semantic validation instead of being flattened.
+
+This representation follows the practical distinction exposed by current
+notation applications: Dorico models a native spanning tuplet and controls
+cross-barline beaming separately, while Sibelius and MuseScore use split or
+simulated measure-local tuplets. See the
+[Dorico spanning-tuplet documentation](https://www.steinberg.help/r/dorico-se/6.1/en/dorico/topics/notation_reference/notation_reference_tuplets/notation_reference_tuplets_span_barline_allow_disallow_t.html),
+[Sibelius plug-in documentation](https://www.sibelius.com/download/plugins/index.html?plugin=597),
+and [MuseScore feature request](https://github.com/musescore/MuseScore/issues/19234).
 
 ## Score Definition Extensions
 
@@ -228,14 +329,15 @@ staff, vertically centered, at 1× scale.
 
 #### `time-signature-settings`
 
-| Field          | Values                                                            | Default    | Effect                                                                                                                                      |
-| -------------- | ----------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `renderStyle`  | `standard`, `narrow`, `outsideStaff`, `singleNumber`, `noteValue` | `standard` | Selects glyph treatment only. `outsideStaff` uses the music font's tall, tightly condensed digits intended for enlargement outside a staff. |
-| `distribution` | `perStaff`, `perGroup`                                            | `perStaff` | Engraves one meter on every staff or one per top-level staff group.                                                                         |
-| `grandStaff`   | `include`, `exclude`                                              | `include`  | Under `perGroup`, treats brace groups as one grand staff or splits them into its staves.                                                    |
-| `position`     | `center`, `top`, `bottom`, `above`                                | `center`   | Aligns final meter ink to the target staff/group; `above` is distribution-independent.                                                      |
-| `scale`        | number from 0.25 through 12                                       | `1`        | Multiplier over the render style's normal optical size. Outside-staff film-score meters commonly use 6–10×.                                 |
-| `senzaMisura`  | `open`, `hidden`                                                  | `open`     | Whether standard MNX `display: "senzaMisura"` engraves its open-meter X glyph or remains unprinted.                                         |
+| Field                       | Values                                                            | Default    | Effect                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `renderStyle`               | `standard`, `narrow`, `outsideStaff`, `singleNumber`, `noteValue` | `standard` | Selects glyph treatment only. `outsideStaff` uses the music font's tall, tightly condensed digits intended for enlargement outside a staff.                                         |
+| `distribution`              | `perStaff`, `perGroup`                                            | `perStaff` | Engraves one meter on every staff or one per top-level staff group.                                                                                                                 |
+| `grandStaff`                | `include`, `exclude`                                              | `include`  | Under `perGroup`, treats brace groups as one grand staff or splits them into its staves.                                                                                            |
+| `position`                  | `center`, `top`, `bottom`, `above`                                | `center`   | Aligns final meter ink to the target staff/group; `above` is distribution-independent.                                                                                              |
+| `scale`                     | number from 0.25 through 12                                       | `1`        | Multiplier over the render style's normal optical size. Outside-staff film-score meters commonly use 6–10×.                                                                         |
+| `senzaMisura`               | `open`, `hidden`                                                  | `open`     | Whether standard MNX `display: "senzaMisura"` engraves its open-meter X glyph or remains unprinted.                                                                                 |
+| `nonDefaultGroupingDisplay` | `standard`, `additive`, `annotation`                              | `standard` | House-style [grouping display](#grouping-display), applied only when a meter's resolved beat structure is structurally non-default. Ordinary/default meters always stay `standard`. |
 
 This separation allows, for example, standard digits at 1.5× on every staff,
 narrow digits centered once per bracket group, or single-number meters above
@@ -678,6 +780,99 @@ User-specified condensing-mode override for a part-measure on a condensed staff.
 | `amalgamate` | Force chord amalgamation even if markings differ                                |
 | `divisi`     | Force split-stem divisi even if pitches/markings would amalgamate               |
 
+### `groupingDisplayOverrides`
+
+Array of per-staff grouping-display occurrence overrides for this part
+measure. Each entry targets one staff and forces that staff's meter to the
+named mode — presentation only, never the semantic `beatStructure`. This is
+the highest-precedence input to the [Grouping Display](#grouping-display)
+cascade.
+
+| Property          | Type                                     | Required | Description                            |
+| ----------------- | ---------------------------------------- | -------- | -------------------------------------- |
+| `staff`           | integer (≥1)                             | **Yes**  | 1-based staff number within this part. |
+| `groupingDisplay` | `standard` \| `additive` \| `annotation` | **Yes**  | Forced grouping-display mode.          |
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "groupingDisplayOverrides": [{ "staff": 1, "groupingDisplay": "standard" }]
+    }
+  }
+}
+```
+
+A grand-staff piano part might author its own irregular grouping globally
+(via `time._x.viritura.groupingDisplay`) but want only the upper staff to
+show the annotation — this override lets one staff opt out (or in)
+independently of its sibling staves.
+
+### `staffMeters`
+
+Array of per-staff synchronous local meter changes/resets, effective from
+this measure onward until changed or reset again — declarations inherit
+exactly like `time` on a global measure. A staff-local meter lets one staff
+of a part notate its own time signature while every staff's barlines stay
+locked to the shared global measure grid; **non-aligning/independent
+polymeter is explicitly out of scope**. Each entry is a union: either sets a
+staff-local meter and its synchronization mode, or resets the staff back to
+following the global meter.
+
+**Set** (`{staff, meter, synchronization}`):
+
+| Property          | Type                             | Required | Description                                                             |
+| ----------------- | -------------------------------- | -------- | ----------------------------------------------------------------------- |
+| `staff`           | integer (≥1)                     | **Yes**  | 1-based staff number within this part.                                  |
+| `meter`           | `{count, unit, beatStructure?}`  | **Yes**  | The staff-local meter. Same shape/rules as an MNX `time` signature.     |
+| `synchronization` | `sharedDuration` \| `fitMeasure` | **Yes**  | How this staff's measure duration relates to the shared global measure. |
+
+**Reset** (`{staff, useGlobal: true}`):
+
+| Property    | Type         | Required | Description                                            |
+| ----------- | ------------ | -------- | ------------------------------------------------------ |
+| `staff`     | integer (≥1) | **Yes**  | 1-based staff number within this part.                 |
+| `useGlobal` | `true`       | **Yes**  | Marks this entry as a reset rather than a declaration. |
+
+**Synchronization modes:**
+
+- `sharedDuration` — the staff-local meter's measure duration
+  (`count * 4 / unit` quarter-note-equivalent beats) must equal the global
+  measure's duration exactly. Ordinary written note durations need no
+  scaling; e.g. local 6/8 (6·4/8 = 3 beats) over global 3/4 (3·4/4 = 3 beats).
+  Validated strictly — an unequal duration is a semantic error, not merely a
+  presentation choice.
+- `fitMeasure` — one complete staff-local measure maps onto one complete
+  global measure by a derived exact ratio (`global measure duration / local
+measure duration`, kept as an exact rational fraction). E.g. local 6/8 (two
+  dotted-quarter pulses, 3 beats) over global 2/4 (two quarter-note pulses,
+  2 beats) derives ratio 2/3; local 12/8 (4 beats × 3, 6 beats) over global
+  4/4 (4 beats) derives the same 2/3 ratio. The staff's own conventional note
+  values and beat structure are unaffected — only spacing and playback
+  positions are scaled by the ratio so the staff's pulses land under the
+  correct global beat columns.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "staffMeters": [{ "staff": 2, "meter": { "count": 6, "unit": 8 }, "synchronization": "fitMeasure" }]
+    }
+  }
+}
+```
+
+Resetting staff 2 back to the global meter on a later measure:
+
+```json
+{ "_x": { "viritura": { "staffMeters": [{ "staff": 2, "useGlobal": true }] } } }
+```
+
+Declarations inherit per staff independently: setting staff 2's meter does
+not disturb staff 1, and a later measure with no `staffMeters` entry for
+staff 2 keeps that staff's most recently declared meter (or the global meter,
+if never declared or already reset).
+
 ---
 
 ## Event Markings Extensions
@@ -777,11 +972,13 @@ Extensions on `event._x.viritura` (on the event object itself, not inside markin
 
 Array of glissando/portamento lines connecting this event to target events.
 
-| Property | Type                     | Required | Description                                  |
-| -------- | ------------------------ | -------- | -------------------------------------------- |
-| `target` | string                   | **Yes**  | ID of the target event                       |
-| `style`  | `"straight"` \| `"wavy"` | No       | Line style. Default: `"straight"`            |
-| `text`   | string                   | No       | Optional text label (e.g. "gliss.", "port.") |
+| Property   | Type                            | Required | Description                                                 |
+| ---------- | ------------------------------- | -------- | ----------------------------------------------------------- |
+| `target`   | string                          | **Yes**  | ID of the target event                                      |
+| `kind`     | `"glissando"` \| `"portamento"` | No       | Semantic kind, independent of its label. Default: glissando |
+| `style`    | `"straight"` \| `"wavy"`        | No       | Line style. Default: `"straight"`                           |
+| `text`     | string                          | No       | Optional text label (e.g. "gliss.", "port.")                |
+| `showText` | boolean                         | No       | Whether to display the label. Default: `true`               |
 
 ```json
 {

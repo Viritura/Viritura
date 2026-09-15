@@ -115,6 +115,8 @@ pub(crate) struct TupletGroup {
     /// Vertical orientation override (MNX `orient`, above/below/auto) —
     /// forces bracket placement.
     pub(crate) orient: Option<crate::model::Orientation>,
+    /// Shared identity and fragment position for a cross-barline tuplet.
+    pub(crate) span: Option<crate::model::TupletSpan>,
 }
 
 /// Resolved tuplet number display mode.

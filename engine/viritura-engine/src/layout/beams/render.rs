@@ -668,7 +668,7 @@ pub(crate) fn render_beams(
         // supply default meter-based beams for newly entered, unclaimed notes.
         beams_to_use.extend(auto_beam_groups(
             &ml.voice_layouts,
-            &ml.resolved.active_time,
+            ml.resolved.effective_beat_meter(),
             explicit_beamed_ids,
         ));
     }
@@ -796,6 +796,7 @@ pub(crate) fn render_beams(
             beam_thickness,
             beam_gap,
             max_beam_level,
+            &explicit_hooks,
             beam_idx,
             cmd_start,
         ) {

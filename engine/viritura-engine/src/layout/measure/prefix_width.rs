@@ -26,6 +26,7 @@ pub(crate) const KEY_TO_TIME_GAP_SP: f64 = 0.3;
 pub(crate) struct AlignedPrefix {
     pub(crate) width: f64,
     pub(crate) first_onset_padding: f64,
+    pub(crate) time_signature_reserve: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -35,6 +36,7 @@ pub(crate) struct PrefixLayout {
     pub(crate) first_onset_padding: f64,
     pub(crate) defer_repeat_start: bool,
     pub(crate) time_signature_x_offset: Option<f64>,
+    pub(crate) time_signature_reserve: Option<f64>,
 }
 
 fn first_onset_ink_padding_sp(
@@ -200,11 +202,13 @@ pub(crate) fn prefix_layout(
         }
     }
 
-    if let Some(ref time) = rm.global.time {
+    if let Some(time) = rm.displayed_time_signature() {
+        let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
         prefix_width += crate::layout::time_signatures::prefix_reserve(
             config.time_signature_settings,
             time,
             sp,
+            staff_override,
         );
     }
 
@@ -236,10 +240,20 @@ pub(crate) fn prefix_layout(
     };
     prefix_width = prefix_width.max(min_clearance);
     let defer_repeat_start = (is_first || is_system_start) && has_repeat_start;
-    let time_reserve = rm.global.time.as_ref().map(|time| {
-        crate::layout::time_signatures::prefix_reserve(config.time_signature_settings, time, sp)
+    let time_reserve = rm.displayed_time_signature().map(|time| {
+        let staff_override = crate::layout::time_signatures::staff_grouping_override(&rm.part);
+        crate::layout::time_signatures::prefix_reserve(
+            config.time_signature_settings,
+            time,
+            sp,
+            staff_override,
+        )
     });
     let repeat_reserve = if defer_repeat_start { 1.5 * sp } else { 0.0 };
+    let aligned_time_reserve = forced_prefix
+        .map(|forced| forced.time_signature_reserve)
+        .unwrap_or(0.0)
+        .max(time_reserve.unwrap_or(0.0));
 
     PrefixLayout {
         width: prefix_width,
@@ -247,8 +261,10 @@ pub(crate) fn prefix_layout(
         first_onset_padding,
         defer_repeat_start,
         time_signature_x_offset: time_reserve.map(|reserve| {
-            prefix_width - first_onset_padding - repeat_reserve - reserve - 1.2 * sp
+            prefix_width - first_onset_padding - repeat_reserve - aligned_time_reserve - 1.2 * sp
+                + (aligned_time_reserve - reserve) * 0.5
         }),
+        time_signature_reserve: time_reserve,
     }
 }
 
@@ -263,7 +279,7 @@ pub(crate) fn compute_max_prefix_width<'a>(
     is_system_start: bool,
     config: &LayoutConfig,
 ) -> AlignedPrefix {
-    let (leading_gap, furniture_width, first_onset_padding) = measures
+    let (leading_gap, furniture_width, first_onset_padding, time_signature_reserve) = measures
         .into_iter()
         .map(|measure| {
             prefix_layout(
@@ -277,8 +293,8 @@ pub(crate) fn compute_max_prefix_width<'a>(
             )
         })
         .fold(
-            (0.0_f64, 0.0_f64, 0.0_f64),
-            |(max_leading, max_furniture, max_onset), layout| {
+            (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64),
+            |(max_leading, max_furniture, max_onset, max_time), layout| {
                 (
                     max_leading.max(layout.leading_clef_gap),
                     max_furniture.max(
@@ -286,12 +302,14 @@ pub(crate) fn compute_max_prefix_width<'a>(
                             .max(0.0),
                     ),
                     max_onset.max(layout.first_onset_padding),
+                    max_time.max(layout.time_signature_reserve.unwrap_or(0.0)),
                 )
             },
         );
     AlignedPrefix {
         width: leading_gap + furniture_width + first_onset_padding,
         first_onset_padding,
+        time_signature_reserve,
     }
 }
 

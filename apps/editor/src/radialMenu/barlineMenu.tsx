@@ -14,7 +14,10 @@ const BARLINE_SEARCH: Record<string, string[]> = {
   double: ["thin-thin"],
   final: ["end", "thin-thick"],
   heavy: ["thick"],
+  heavyLight: ["thick-thin", "reverse final"],
+  heavyHeavy: ["thick-thick"],
   dashed: ["dotted"],
+  noBarline: ["none", "hidden"],
 };
 
 export const BARLINE_ITEMS: RadialMenuItem[] = BARLINE_PALETTE_ITEMS.map((p) => ({

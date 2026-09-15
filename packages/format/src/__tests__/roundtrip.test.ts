@@ -21,6 +21,64 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves recursive beams and beamlet directions", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      parts: [
+        {
+          measures: [
+            {
+              beams: [
+                {
+                  events: ["e1", "e2", "e3"],
+                  beams: [
+                    {
+                      events: ["e1", "e2"],
+                      beams: [{ events: ["e2"], direction: "left" }],
+                    },
+                    { events: ["e3"], direction: "right" },
+                  ],
+                },
+              ],
+              sequences: [{ content: [] }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(serializeMnx(parseMnx(source)).parts[0]!.measures[0]!.beams).toEqual(source.parts[0]!.measures[0]!.beams);
+  });
+
+  it("preserves linked cross-barline tuplet fragments", () => {
+    const fragment = (type: "start" | "stop") => ({
+      type: "tuplet",
+      inner: { duration: { base: "eighth" }, multiple: 3 },
+      outer: { duration: { base: "eighth" }, multiple: 2 },
+      content: [{ id: `${type}-event`, duration: { base: "eighth" }, rest: {} }],
+      _x: { viritura: { span: { id: "cross-bar-triplet", type } } },
+    });
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{}, {}] },
+      parts: [
+        {
+          measures: [
+            { sequences: [{ content: [fragment("start")] }] },
+            { sequences: [{ content: [fragment("stop")] }] },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parseMnx(source);
+    expect(parsed.parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      span: { id: "cross-bar-triplet", type: "start" },
+    });
+    expect(serializeMnx(parsed).parts[0]!.measures).toEqual(source.parts[0]!.measures);
+  });
+
   it("preserves a fermata on a full-measure rest without creating events", () => {
     const source = {
       mnx: { version: 1 },

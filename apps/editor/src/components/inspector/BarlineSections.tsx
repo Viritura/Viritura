@@ -35,13 +35,36 @@ const PARENS_RIGHT = String.fromCodePoint(0xe26b);
 const BRACKET_LEFT = String.fromCodePoint(0xe26c);
 const BRACKET_RIGHT = String.fromCodePoint(0xe26d);
 
-const BARLINE_TYPES = ["regular", "double", "final", "heavy", "dashed", "dotted", "tick", "short"] as const;
+const BARLINE_TYPES = [
+  "regular",
+  "double",
+  "final",
+  "heavy",
+  "heavyLight",
+  "heavyHeavy",
+  "dashed",
+  "dotted",
+  "tick",
+  "short",
+  "noBarline",
+] as const;
 type BarlineTypeValue = (typeof BARLINE_TYPES)[number];
 
-const BARLINE_TYPE_OPTIONS = BARLINE_TYPES.map((t) => ({
-  value: t,
-  label: t.charAt(0).toUpperCase() + t.slice(1),
-}));
+const BARLINE_TYPE_LABELS: Record<BarlineTypeValue, string> = {
+  regular: "Regular",
+  double: "Double",
+  final: "Final",
+  heavy: "Heavy",
+  heavyLight: "Heavy-light",
+  heavyHeavy: "Heavy-heavy",
+  dashed: "Dashed",
+  dotted: "Dotted",
+  tick: "Tick",
+  short: "Short",
+  noBarline: "No barline",
+};
+
+const BARLINE_TYPE_OPTIONS = BARLINE_TYPES.map((value) => ({ value, label: BARLINE_TYPE_LABELS[value] }));
 
 const DISPLAY_NUMBER_OPTIONS: { value: MeasureRepeatDisplayNumber; label: string; tooltip: string }[] = [
   { value: "auto", label: "Auto", tooltip: "Auto" },
@@ -101,23 +124,24 @@ export function BarlineSection({
   return (
     <fieldset style={mergeFocusedSectionStyle("measure", focusedSection)}>
       <legend style={legendStyle}>Barline</legend>
-      <label style={labelStyle}>
-        Type
+      <div style={labelStyle}>
+        <span>Type</span>
         <div style={PILL_ROW_WRAP_STYLE}>
           <ButtonGroup<BarlineTypeValue>
             options={BARLINE_TYPE_OPTIONS}
             value={currentType}
             onChange={onBarlineTypeChange}
+            ariaLabel="Barline type"
           />
         </div>
-      </label>
-      <label style={labelStyle}>
-        Repeats
+      </div>
+      <div style={labelStyle}>
+        <span>Repeats</span>
         <div style={PILL_ROW_STYLE}>
           <Button size="sm" active={hasRepeatEnd} onClick={onToggleRepeatEnd} label="Repeat End" />
           <Button size="sm" active={hasRepeatStart} onClick={onToggleRepeatStart} label="Repeat Start" />
         </div>
-      </label>
+      </div>
       {hasRepeatEnd && (
         <label style={labelStyle}>
           Repeat Count

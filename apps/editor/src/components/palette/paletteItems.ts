@@ -56,7 +56,20 @@ export const BARLINE_PALETTE_ITEMS: BarlinePaletteItem[] = [
   { id: "double", label: "Double", barline: { type: "double" }, glyph: SMUFL.barlineDouble },
   { id: "final", label: "Final", barline: { type: "final" }, glyph: SMUFL.barlineFinal },
   { id: "heavy", label: "Heavy", barline: { type: "heavy" }, glyph: SMUFL.barlineHeavy },
+  {
+    id: "heavyLight",
+    label: "Heavy-light",
+    barline: { type: "heavyLight" },
+    glyph: SMUFL.barlineReverseFinal,
+  },
+  {
+    id: "heavyHeavy",
+    label: "Heavy-heavy",
+    barline: { type: "heavyHeavy" },
+    glyph: SMUFL.barlineHeavyHeavy,
+  },
   { id: "dashed", label: "Dashed", barline: { type: "dashed" }, glyph: SMUFL.barlineDotted },
+  { id: "noBarline", label: "No barline", barline: { type: "noBarline" }, glyph: "" },
 ];
 
 export const MEASURE_REPEAT_PALETTE_ITEMS: (PaletteItem & { number: 1 | 2 | 4 })[] = [
@@ -151,6 +164,8 @@ export const TIME_SIG_PALETTE_ITEMS: TimeSigPaletteItem[] = [
   { id: "12/8", label: "12/8", time: { count: 12, unit: 8 } },
   { id: "common", label: "Common (C)", time: { count: 4, unit: 4, display: "common" } },
   { id: "cut", label: "Cut (\u20B5)", time: { count: 2, unit: 2, display: "cut" } },
+  { id: "senza-misura", label: "Open meter", time: { count: 4, unit: 4, display: "senzaMisura" } },
+  { id: "note-denominator", label: "Note-value denominator", time: { count: 4, unit: 4, display: "note" } },
 ];
 
 export interface OrnamentPaletteItem {

@@ -153,6 +153,62 @@ fn test_vocal_staff_defaults_dynamics_above_across_measures() {
 }
 
 #[test]
+fn test_unoriented_dynamic_on_bottom_part_defaults_below() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [
+            {"staves": 2, "measures": [{
+                "dynamics": [
+                    {"id": "automatic", "type": "immediate", "position": {"fraction": [0, 1]},
+                     "value": "mf", "staff": 2},
+                    {"id": "explicit-below", "type": "immediate", "position": {"fraction": [1, 2]},
+                     "value": "mf", "staff": 2, "orient": "below"}
+                ],
+                "sequences": [
+                    {"staff": 1, "content": [
+                        {"duration": {"base": "whole"}, "rest": {}}
+                    ]},
+                    {"staff": 2, "content": [
+                        {"duration": {"base": "half"}, "rest": {}},
+                        {"duration": {"base": "half"}, "rest": {}}
+                    ]}
+                ]
+            }]}
+        ]
+    }"#;
+    let dl = layout_score(
+        &parse_mnx(json).expect("parse multi-part score"),
+        0,
+        &LayoutConfig::default(),
+    );
+    let dynamic_y = |id: &str| {
+        dl.commands
+            .iter()
+            .zip(dl.element_ids.iter())
+            .find_map(|(command, element_id)| {
+                if element_id.as_deref() != Some(id) {
+                    return None;
+                }
+                match command {
+                    RenderCommand::DrawGlyph { y, .. } => Some(*y),
+                    _ => None,
+                }
+            })
+            .expect("dynamic glyph")
+    };
+    let automatic_y = dynamic_y("p0/m0/dynautomatic");
+    let explicit_below_y = dynamic_y("p0/m0/dynexplicit-below");
+
+    assert!(
+        (automatic_y - explicit_below_y).abs() < 0.01,
+        "an unoriented dynamic on the bottom part should use the normal below-staff \
+         position, not the inter-staff gap: automatic={automatic_y:.1}, \
+         explicit below={explicit_below_y:.1}"
+    );
+}
+
+#[test]
 fn test_voice_linked_dynamics_use_separate_voice_sides() {
     let json = r#"{
         "mnx": {"version": 1},

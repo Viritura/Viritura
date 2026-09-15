@@ -8,19 +8,34 @@
 //! It should be called from the WASM entry points before layout, so that
 //! the layout engine always receives valid input regardless of how the
 //! score was modified (note entry, AI generation, direct MNX edit, etc.).
+//!
+//! A sequence's expected duration ordinarily comes from the global measure's
+//! time signature. When a sequence's staff carries an effective staff-local
+//! meter (`_x.viritura.staffMeters`, resolved via
+//! [`crate::model::staff_meter::resolve_staff_meter_table`]), its written
+//! content is instead reconciled against that staff-local meter's own
+//! duration — both `sharedDuration` and `fitMeasure` synchronization always
+//! require a staff's written notation to sum to its own meter's count/unit,
+//! never the global measure's.
 
+use std::collections::HashMap;
+
+use crate::model::staff_meter::{resolve_staff_meter_table, EffectiveStaffMeter};
 use crate::model::*;
 
 /// Reconcile all measures in the score.
 ///
 /// Ensures every sequence in every part-measure has the correct number
-/// of beats for its time signature.
+/// of beats for its time signature (or, for a staff carrying an effective
+/// staff-local meter, that meter's own duration).
 pub fn reconcile_score(score: &mut Score) {
     let num_measures = score.global.measures.len();
     let covered = measure_repeat_coverage(score);
+    let global_time_at = effective_time_signature_table(&score.global.measures);
+    let staff_meter_tables = staff_meter_tables_for_parts(&score.parts, &global_time_at);
 
     for m in 0..num_measures {
-        reconcile_measure(score, m, &covered);
+        reconcile_measure(score, m, &covered, &global_time_at, &staff_meter_tables);
     }
 }
 
@@ -35,9 +50,24 @@ pub fn reconcile_score_range(score: &mut Score, start: usize, end: usize) {
     }
     let end = end.min(score.global.measures.len() - 1);
     let covered = measure_repeat_coverage(score);
+    // Staff-local meters inherit until changed/reset, so the table must be
+    // built from measure 0 even when only reconciling a later range.
+    let global_time_at = effective_time_signature_table(&score.global.measures);
+    let staff_meter_tables = staff_meter_tables_for_parts(&score.parts, &global_time_at);
     for m in start..=end {
-        reconcile_measure(score, m, &covered);
+        reconcile_measure(score, m, &covered, &global_time_at, &staff_meter_tables);
     }
+}
+
+/// Resolve the per-measure effective staff-meter table for every part.
+fn staff_meter_tables_for_parts(
+    parts: &[Part],
+    global_time_at: &[TimeSignature],
+) -> Vec<Vec<HashMap<u32, EffectiveStaffMeter>>> {
+    parts
+        .iter()
+        .map(|part| resolve_staff_meter_table(&part.measures, global_time_at).0)
+        .collect()
 }
 
 /// Per-part flags marking every measure that a simile sign stands in for.
@@ -64,9 +94,14 @@ fn measure_repeat_coverage(score: &Score) -> Vec<Vec<bool>> {
         .collect()
 }
 
-fn reconcile_measure(score: &mut Score, m: usize, covered: &[Vec<bool>]) {
-    let ts = effective_time_signature(&score.global.measures, m);
-    let expected = ts.measure_beats();
+fn reconcile_measure(
+    score: &mut Score,
+    m: usize,
+    covered: &[Vec<bool>],
+    global_time_at: &[TimeSignature],
+    staff_meter_tables: &[Vec<HashMap<u32, EffectiveStaffMeter>>],
+) {
+    let expected = global_time_at[m].measure_beats();
     let is_pickup_measure = m == 0 && matches!(score.global.measures[m].number, Some(0));
     let is_senza_misura = score.global.measures[m]
         .time
@@ -88,26 +123,16 @@ fn reconcile_measure(score: &mut Score, m: usize, covered: &[Vec<bool>]) {
         if covered.get(part_index).and_then(|f| f.get(m)) == Some(&true) {
             continue;
         }
+        let staff_meters_at_measure = staff_meter_tables.get(part_index).and_then(|t| t.get(m));
         let pm = &mut part.measures[m];
         for seq in &mut pm.sequences {
-            reconcile_sequence(seq, expected, is_pickup_measure);
+            let staff = seq.staff.unwrap_or(1);
+            let seq_expected = staff_meters_at_measure
+                .and_then(|staves| staves.get(&staff))
+                .map(|effective| effective.time_signature.measure_beats())
+                .unwrap_or(expected);
+            reconcile_sequence(seq, seq_expected, is_pickup_measure);
         }
-    }
-}
-
-/// Resolve the effective time signature at a given measure index.
-fn effective_time_signature(measures: &[GlobalMeasure], measure_idx: usize) -> TimeSignature {
-    for i in (0..=measure_idx).rev() {
-        if let Some(ref ts) = measures[i].time {
-            return ts.clone();
-        }
-    }
-    // Default: 4/4
-    TimeSignature {
-        count: 4,
-        unit: 4,
-        display: None,
-        beat_structure: None,
     }
 }
 
@@ -394,5 +419,70 @@ mod tests {
             "Expected 1 beat pickup content, got {}",
             total
         );
+    }
+
+    /// A staff carrying an effective `fitMeasure` staff-local meter must be
+    /// reconciled against its own meter's duration, not the global measure's
+    /// — otherwise `reconcile_score` would corrupt a correctly-written
+    /// staff-local measure by padding/trimming it to the wrong length.
+    #[test]
+    fn test_reconcile_score_uses_staff_local_meter_duration() {
+        let json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 2, "unit": 4}}]},
+            "parts": [{
+                "measures": [{
+                    "sequences": [
+                        {
+                            "staff": 1,
+                            "content": [
+                                {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+                                {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]}
+                            ]
+                        },
+                        {
+                            "staff": 2,
+                            "content": [
+                                {"duration": {"base": "quarter", "dots": 1}, "notes": [{"pitch": {"step": "C", "octave": 3}}]},
+                                {"duration": {"base": "quarter", "dots": 1}, "notes": [{"pitch": {"step": "D", "octave": 3}}]}
+                            ]
+                        }
+                    ],
+                    "_x": {"viritura": {"staffMeters": [
+                        {"staff": 2, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+                    ]}}
+                }]
+            }]
+        }"#;
+        let mut score = crate::parse::parse_mnx(json).expect("fixture parses");
+        reconcile_score(&mut score);
+
+        let measure = &score.parts[0].measures[0];
+        let staff1 = measure
+            .sequences
+            .iter()
+            .find(|s| s.staff == Some(1))
+            .unwrap();
+        let staff2 = measure
+            .sequences
+            .iter()
+            .find(|s| s.staff == Some(2))
+            .unwrap();
+
+        // Staff 1 already matches the global 2/4 duration (2 beats) — untouched.
+        assert_eq!(staff1.content.len(), 2, "staff 1 should be unchanged");
+        let staff1_beats: f64 = staff1.content.iter().map(content_beats).sum();
+        assert!((staff1_beats - 2.0).abs() < 1e-9);
+
+        // Staff 2 writes 2 dotted quarters (3 beats), matching its own 6/8
+        // meter's duration exactly, not the global 2/4 measure's 2 beats.
+        // A global-duration reconcile would incorrectly trim this staff.
+        assert_eq!(
+            staff2.content.len(),
+            2,
+            "staff 2 should stay at its own meter's duration, not be trimmed to global"
+        );
+        let staff2_beats: f64 = staff2.content.iter().map(content_beats).sum();
+        assert!((staff2_beats - 3.0).abs() < 1e-9);
     }
 }

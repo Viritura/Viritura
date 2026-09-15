@@ -158,6 +158,8 @@ export interface ScoreCanvasProps {
    * preview surface.
    */
   printPreview?: boolean;
+  /** Show standard MNX spaces as subdued, selectable rest placeholders. Write mode only. */
+  showHiddenRests?: boolean;
   /**
    * Override how content is anchored within the viewport when it fits along
    * an axis. Pass a single value to apply to both axes, or a per-axis object

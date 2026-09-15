@@ -41,6 +41,7 @@ import type {
   Tuplet,
   TupletBracket,
   TupletDisplaySetting,
+  TupletSpan,
   MultiNoteTremolo,
   Space,
   AccidentalDisplay,
@@ -72,6 +73,7 @@ import type {
   EventMarkingsExtensions as RawEventMarkingsExt,
   SlurExtensions as RawSlurExt,
   NoteExtensions as RawNoteExt,
+  TupletExtensions as RawTupletExt,
   Glissando as RawGlissando,
 } from "@viritura/core/raw-viritura";
 
@@ -161,6 +163,8 @@ function parseTuplet(raw: RawTuplet): Tuplet {
     t.showValue = raw.showValue as TupletDisplaySetting;
   }
   if (raw.orient !== undefined) t.orient = raw.orient;
+  const span = (raw._x?.["viritura"] as RawTupletExt | undefined)?.span;
+  if (span) t.span = { id: span.id, type: span.type as TupletSpan["type"] };
   return t;
 }
 
@@ -419,8 +423,10 @@ function parseSlur(raw: RawSlur): Slur {
 
 function parseGlissando(raw: RawGlissando): Glissando {
   const gliss: Glissando = { target: raw.target };
+  if (raw.kind) gliss.kind = raw.kind;
   if (raw.style) gliss.style = raw.style as GlissandoStyle;
   if (raw.text) gliss.text = raw.text;
+  if (raw.showText !== undefined) gliss.showText = raw.showText;
   return gliss;
 }
 

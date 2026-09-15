@@ -2023,6 +2023,14 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 ///    "target"
 ///  ],
 ///  "properties": {
+///    "kind": {
+///      "description": "Semantic kind. Default: 'glissando'.",
+///      "$ref": "#/$defs/glissando-kind"
+///    },
+///    "showText": {
+///      "description": "Whether to display the text label. Default: true.",
+///      "type": "boolean"
+///    },
 ///    "style": {
 ///      "description": "Line style. Default: 'straight'.",
 ///      "$ref": "#/$defs/glissando-style"
@@ -2043,6 +2051,16 @@ impl ::std::convert::TryFrom<::std::string::String> for FontFamily {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Glissando {
+    ///Semantic kind. Default: 'glissando'.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub kind: ::std::option::Option<GlissandoKind>,
+    ///Whether to display the text label. Default: true.
+    #[serde(
+        rename = "showText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_text: ::std::option::Option<bool>,
     ///Line style. Default: 'straight'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub style: ::std::option::Option<GlissandoStyle>,
@@ -2055,6 +2073,88 @@ pub struct Glissando {
 impl ::std::convert::From<&Glissando> for Glissando {
     fn from(value: &Glissando) -> Self {
         value.clone()
+    }
+}
+///Semantic kind of a glissando-family line.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Semantic kind of a glissando-family line.",
+///  "type": "string",
+///  "enum": [
+///    "glissando",
+///    "portamento"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GlissandoKind {
+    #[serde(rename = "glissando")]
+    Glissando,
+    #[serde(rename = "portamento")]
+    Portamento,
+}
+impl ::std::convert::From<&Self> for GlissandoKind {
+    fn from(value: &GlissandoKind) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GlissandoKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Glissando => f.write_str("glissando"),
+            Self::Portamento => f.write_str("portamento"),
+        }
+    }
+}
+impl ::std::str::FromStr for GlissandoKind {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "glissando" => Ok(Self::Glissando),
+            "portamento" => Ok(Self::Portamento),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlissandoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Glissando/portamento line style.
@@ -2281,6 +2381,93 @@ impl ::std::convert::TryFrom<&::std::string::String> for GradualTempoKind {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for GradualTempoKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.",
+///  "type": "string",
+///  "enum": [
+///    "standard",
+///    "additive",
+///    "annotation"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum GroupingDisplay {
+    #[serde(rename = "standard")]
+    Standard,
+    #[serde(rename = "additive")]
+    Additive,
+    #[serde(rename = "annotation")]
+    Annotation,
+}
+impl ::std::convert::From<&Self> for GroupingDisplay {
+    fn from(value: &GroupingDisplay) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for GroupingDisplay {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Standard => f.write_str("standard"),
+            Self::Additive => f.write_str("additive"),
+            Self::Annotation => f.write_str("annotation"),
+        }
+    }
+}
+impl ::std::str::FromStr for GroupingDisplay {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "standard" => Ok(Self::Standard),
+            "additive" => Ok(Self::Additive),
+            "annotation" => Ok(Self::Annotation),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for GroupingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GroupingDisplay {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GroupingDisplay {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -4909,11 +5096,25 @@ impl ::std::default::Default for PartExtensions {
 ///        "$ref": "#/$defs/text-expression"
 ///      }
 ///    },
+///    "groupingDisplayOverrides": {
+///      "description": "Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/staff-grouping-display-override"
+///      }
+///    },
 ///    "pedals": {
 ///      "description": "Piano pedal markings.",
 ///      "type": "array",
 ///      "items": {
 ///        "$ref": "#/$defs/pedal"
+///      }
+///    },
+///    "staffMeters": {
+///      "description": "Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/staff-meter-change"
 ///      }
 ///    }
 ///  },
@@ -4943,9 +5144,23 @@ pub struct PartMeasureExtensions {
     ///Text expressions and performance directions.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub expressions: ::std::vec::Vec<TextExpression>,
+    ///Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style.
+    #[serde(
+        rename = "groupingDisplayOverrides",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub grouping_display_overrides: ::std::vec::Vec<StaffGroupingDisplayOverride>,
     ///Piano pedal markings.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub pedals: ::std::vec::Vec<Pedal>,
+    ///Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope.
+    #[serde(
+        rename = "staffMeters",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub staff_meters: ::std::vec::Vec<StaffMeterChange>,
 }
 impl ::std::convert::From<&PartMeasureExtensions> for PartMeasureExtensions {
     fn from(value: &PartMeasureExtensions) -> Self {
@@ -4958,7 +5173,9 @@ impl ::std::default::Default for PartMeasureExtensions {
             chord_symbols: Default::default(),
             condensing_override: Default::default(),
             expressions: Default::default(),
+            grouping_display_overrides: Default::default(),
             pedals: Default::default(),
+            staff_meters: Default::default(),
         }
     }
 }
@@ -6664,6 +6881,382 @@ impl ::std::convert::From<[f64; 2usize]> for SpDelta {
         Self(value)
     }
 }
+///A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure.",
+///  "type": "object",
+///  "required": [
+///    "groupingDisplay",
+///    "staff"
+///  ],
+///  "properties": {
+///    "groupingDisplay": {
+///      "description": "Forced grouping-display mode for this staff's meter.",
+///      "$ref": "#/$defs/grouping-display"
+///    },
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffGroupingDisplayOverride {
+    ///Forced grouping-display mode for this staff's meter.
+    #[serde(rename = "groupingDisplay")]
+    pub grouping_display: GroupingDisplay,
+    ///1-based staff number within this part.
+    pub staff: i64,
+}
+impl ::std::convert::From<&StaffGroupingDisplayOverride>
+for StaffGroupingDisplayOverride {
+    fn from(value: &StaffGroupingDisplayOverride) -> Self {
+        value.clone()
+    }
+}
+///A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself.",
+///  "type": "object",
+///  "required": [
+///    "count",
+///    "unit"
+///  ],
+///  "properties": {
+///    "beatStructure": {
+///      "description": "Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature.",
+///      "type": "array",
+///      "items": {
+///        "type": "integer"
+///      },
+///      "minItems": 1
+///    },
+///    "count": {
+///      "description": "Numerator (beats per measure) of the staff-local meter.",
+///      "type": "integer"
+///    },
+///    "unit": {
+///      "description": "Denominator (beat unit) of the staff-local meter.",
+///      "type": "integer",
+///      "enum": [
+///        1,
+///        2,
+///        4,
+///        8,
+///        16,
+///        32,
+///        64,
+///        128
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeter {
+    ///Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature.
+    #[serde(
+        rename = "beatStructure",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub beat_structure: ::std::vec::Vec<i64>,
+    ///Numerator (beats per measure) of the staff-local meter.
+    pub count: i64,
+    ///Denominator (beat unit) of the staff-local meter.
+    pub unit: StaffMeterUnit,
+}
+impl ::std::convert::From<&StaffMeter> for StaffMeter {
+    fn from(value: &StaffMeter) -> Self {
+        value.clone()
+    }
+}
+///One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter.",
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/staff-meter-set"
+///    },
+///    {
+///      "$ref": "#/$defs/staff-meter-reset"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum StaffMeterChange {
+    Set(StaffMeterSet),
+    Reset(StaffMeterReset),
+}
+impl ::std::convert::From<&Self> for StaffMeterChange {
+    fn from(value: &StaffMeterChange) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<StaffMeterSet> for StaffMeterChange {
+    fn from(value: StaffMeterSet) -> Self {
+        Self::Set(value)
+    }
+}
+impl ::std::convert::From<StaffMeterReset> for StaffMeterChange {
+    fn from(value: StaffMeterReset) -> Self {
+        Self::Reset(value)
+    }
+}
+///Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff.",
+///  "type": "object",
+///  "required": [
+///    "staff",
+///    "useGlobal"
+///  ],
+///  "properties": {
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    },
+///    "useGlobal": {
+///      "description": "Always true. Marks this entry as a reset rather than a meter declaration.",
+///      "type": "boolean",
+///      "const": true
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeterReset {
+    ///1-based staff number within this part.
+    pub staff: i64,
+    ///Always true. Marks this entry as a reset rather than a meter declaration.
+    #[serde(rename = "useGlobal")]
+    pub use_global: bool,
+}
+impl ::std::convert::From<&StaffMeterReset> for StaffMeterReset {
+    fn from(value: &StaffMeterReset) -> Self {
+        value.clone()
+    }
+}
+///Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle.",
+///  "type": "object",
+///  "required": [
+///    "meter",
+///    "staff",
+///    "synchronization"
+///  ],
+///  "properties": {
+///    "meter": {
+///      "description": "The staff-local meter to apply from this measure onward.",
+///      "$ref": "#/$defs/staff-meter"
+///    },
+///    "staff": {
+///      "description": "1-based staff number within this part.",
+///      "type": "integer"
+///    },
+///    "synchronization": {
+///      "description": "How this staff's measure duration relates to the global measure it shares a barline with.",
+///      "$ref": "#/$defs/staff-meter-synchronization"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffMeterSet {
+    ///The staff-local meter to apply from this measure onward.
+    pub meter: StaffMeter,
+    ///1-based staff number within this part.
+    pub staff: i64,
+    ///How this staff's measure duration relates to the global measure it shares a barline with.
+    pub synchronization: StaffMeterSynchronization,
+}
+impl ::std::convert::From<&StaffMeterSet> for StaffMeterSet {
+    fn from(value: &StaffMeterSet) -> Self {
+        value.clone()
+    }
+}
+///How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values.",
+///  "type": "string",
+///  "enum": [
+///    "sharedDuration",
+///    "fitMeasure"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum StaffMeterSynchronization {
+    #[serde(rename = "sharedDuration")]
+    SharedDuration,
+    #[serde(rename = "fitMeasure")]
+    FitMeasure,
+}
+impl ::std::convert::From<&Self> for StaffMeterSynchronization {
+    fn from(value: &StaffMeterSynchronization) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for StaffMeterSynchronization {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::SharedDuration => f.write_str("sharedDuration"),
+            Self::FitMeasure => f.write_str("fitMeasure"),
+        }
+    }
+}
+impl ::std::str::FromStr for StaffMeterSynchronization {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "sharedDuration" => Ok(Self::SharedDuration),
+            "fitMeasure" => Ok(Self::FitMeasure),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for StaffMeterSynchronization {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Denominator (beat unit) of the staff-local meter.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Denominator (beat unit) of the staff-local meter.",
+///  "type": "integer",
+///  "enum": [
+///    1,
+///    2,
+///    4,
+///    8,
+///    16,
+///    32,
+///    64,
+///    128
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct StaffMeterUnit(i64);
+impl ::std::ops::Deref for StaffMeterUnit {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<StaffMeterUnit> for i64 {
+    fn from(value: StaffMeterUnit) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&StaffMeterUnit> for StaffMeterUnit {
+    fn from(value: &StaffMeterUnit) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::TryFrom<i64> for StaffMeterUnit {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![1_i64, 2_i64, 4_i64, 8_i64, 16_i64, 32_i64, 64_i64, 128_i64]
+            .contains(&value)
+        {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
 ///A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive).
 ///
 /// <details><summary>JSON schema</summary>
@@ -7243,6 +7836,15 @@ impl ::std::default::Default for TextStyles {
 ///        "type": "integer"
 ///      },
 ///      "minItems": 1
+///    },
+///    "display": {
+///      "description": "Engraves the denominator as its note value instead of a numeral.",
+///      "type": "string",
+///      "const": "note"
+///    },
+///    "groupingDisplay": {
+///      "description": "Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.",
+///      "$ref": "#/$defs/grouping-display"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -7259,6 +7861,16 @@ pub struct TimeExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub beat_structure: ::std::vec::Vec<i64>,
+    ///Engraves the denominator as its note value instead of a numeral.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub display: ::std::option::Option<::std::string::String>,
+    ///Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback.
+    #[serde(
+        rename = "groupingDisplay",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub grouping_display: ::std::option::Option<GroupingDisplay>,
 }
 impl ::std::convert::From<&TimeExtensions> for TimeExtensions {
     fn from(value: &TimeExtensions) -> Self {
@@ -7269,6 +7881,8 @@ impl ::std::default::Default for TimeExtensions {
     fn default() -> Self {
         Self {
             beat_structure: Default::default(),
+            display: Default::default(),
+            grouping_display: Default::default(),
         }
     }
 }
@@ -7786,6 +8400,10 @@ impl ::std::convert::From<TimeSignatureLegacyStyle> for TimeSignatureSettings {
 ///    "grandStaff": {
 ///      "$ref": "#/$defs/time-signature-grand-staff"
 ///    },
+///    "nonDefaultGroupingDisplay": {
+///      "description": "House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting.",
+///      "$ref": "#/$defs/grouping-display"
+///    },
 ///    "position": {
 ///      "$ref": "#/$defs/time-signature-position"
 ///    },
@@ -7815,6 +8433,13 @@ pub struct TimeSignatureSettingsObject {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub grand_staff: ::std::option::Option<TimeSignatureGrandStaff>,
+    ///House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting.
+    #[serde(
+        rename = "nonDefaultGroupingDisplay",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub non_default_grouping_display: ::std::option::Option<GroupingDisplay>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub position: ::std::option::Option<TimeSignaturePosition>,
     #[serde(
@@ -7842,6 +8467,7 @@ impl ::std::default::Default for TimeSignatureSettingsObject {
         Self {
             distribution: Default::default(),
             grand_staff: Default::default(),
+            non_default_grouping_display: Default::default(),
             position: Default::default(),
             render_style: Default::default(),
             scale: Default::default(),
@@ -7990,6 +8616,250 @@ impl<'de> ::serde::Deserialize<'de> for TrillAccidental {
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
             .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
+///Viritura extensions on an MNX tuplet object.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Viritura extensions on an MNX tuplet object.",
+///  "type": "object",
+///  "properties": {
+///    "span": {
+///      "$ref": "#/$defs/tuplet-span"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TupletExtensions {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub span: ::std::option::Option<TupletSpan>,
+}
+impl ::std::convert::From<&TupletExtensions> for TupletExtensions {
+    fn from(value: &TupletExtensions) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for TupletExtensions {
+    fn default() -> Self {
+        Self { span: Default::default() }
+    }
+}
+///Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments.",
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "type"
+///  ],
+///  "properties": {
+///    "id": {
+///      "description": "Stable identity shared by every fragment of the logical tuplet.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "type": {
+///      "description": "The fragment's position within the logical tuplet.",
+///      "type": "string",
+///      "enum": [
+///        "start",
+///        "continue",
+///        "stop"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TupletSpan {
+    ///Stable identity shared by every fragment of the logical tuplet.
+    pub id: TupletSpanId,
+    ///The fragment's position within the logical tuplet.
+    #[serde(rename = "type")]
+    pub type_: TupletSpanType,
+}
+impl ::std::convert::From<&TupletSpan> for TupletSpan {
+    fn from(value: &TupletSpan) -> Self {
+        value.clone()
+    }
+}
+///Stable identity shared by every fragment of the logical tuplet.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stable identity shared by every fragment of the logical tuplet.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TupletSpanId(::std::string::String);
+impl ::std::ops::Deref for TupletSpanId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TupletSpanId> for ::std::string::String {
+    fn from(value: TupletSpanId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TupletSpanId> for TupletSpanId {
+    fn from(value: &TupletSpanId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TupletSpanId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TupletSpanId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TupletSpanId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///The fragment's position within the logical tuplet.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "The fragment's position within the logical tuplet.",
+///  "type": "string",
+///  "enum": [
+///    "start",
+///    "continue",
+///    "stop"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TupletSpanType {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "continue")]
+    Continue,
+    #[serde(rename = "stop")]
+    Stop,
+}
+impl ::std::convert::From<&Self> for TupletSpanType {
+    fn from(value: &TupletSpanType) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TupletSpanType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::Continue => f.write_str("continue"),
+            Self::Stop => f.write_str("stop"),
+        }
+    }
+}
+impl ::std::str::FromStr for TupletSpanType {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "continue" => Ok(Self::Continue),
+            "stop" => Ok(Self::Stop),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TupletSpanType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Portable identity of an attached picture. Deliberately carries no filesystem path and no media bytes: a score must open on another machine (and round-trip through any MNX reader) without dragging a multi-hundred-megabyte video along, so a local file stays a device-local binding the user relinks.
@@ -8577,11 +9447,17 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "glissando": {
 ///      "$ref": "#/$defs/glissando"
 ///    },
+///    "glissando-kind": {
+///      "$ref": "#/$defs/glissando-kind"
+///    },
 ///    "glissando-style": {
 ///      "$ref": "#/$defs/glissando-style"
 ///    },
 ///    "gradual-tempo": {
 ///      "$ref": "#/$defs/gradual-tempo"
+///    },
+///    "grouping-display": {
+///      "$ref": "#/$defs/grouping-display"
 ///    },
 ///    "hit-point": {
 ///      "$ref": "#/$defs/hit-point"
@@ -8700,6 +9576,24 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "sp-delta": {
 ///      "$ref": "#/$defs/sp-delta"
 ///    },
+///    "staff-grouping-display-override": {
+///      "$ref": "#/$defs/staff-grouping-display-override"
+///    },
+///    "staff-meter": {
+///      "$ref": "#/$defs/staff-meter"
+///    },
+///    "staff-meter-change": {
+///      "$ref": "#/$defs/staff-meter-change"
+///    },
+///    "staff-meter-reset": {
+///      "$ref": "#/$defs/staff-meter-reset"
+///    },
+///    "staff-meter-set": {
+///      "$ref": "#/$defs/staff-meter-set"
+///    },
+///    "staff-meter-synchronization": {
+///      "$ref": "#/$defs/staff-meter-synchronization"
+///    },
 ///    "stage-position": {
 ///      "$ref": "#/$defs/stage-position"
 ///    },
@@ -8750,6 +9644,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    },
 ///    "trill": {
 ///      "$ref": "#/$defs/trill"
+///    },
+///    "tuplet-extensions": {
+///      "$ref": "#/$defs/tuplet-extensions"
+///    },
+///    "tuplet-span": {
+///      "$ref": "#/$defs/tuplet-span"
 ///    },
 ///    "video-media-identity": {
 ///      "$ref": "#/$defs/video-media-identity"
@@ -8830,6 +9730,12 @@ pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub glissando: ::std::option::Option<Glissando>,
     #[serde(
+        rename = "glissando-kind",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub glissando_kind: ::std::option::Option<GlissandoKind>,
+    #[serde(
         rename = "glissando-style",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -8841,6 +9747,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub gradual_tempo: ::std::option::Option<GradualTempo>,
+    #[serde(
+        rename = "grouping-display",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub grouping_display: ::std::option::Option<GroupingDisplay>,
     #[serde(
         rename = "hit-point",
         default,
@@ -9068,6 +9980,44 @@ pub struct VirituraExtensionsRoot {
     )]
     pub sp_delta: ::std::option::Option<SpDelta>,
     #[serde(
+        rename = "staff-grouping-display-override",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_grouping_display_override: ::std::option::Option<
+        StaffGroupingDisplayOverride,
+    >,
+    #[serde(
+        rename = "staff-meter",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter: ::std::option::Option<StaffMeter>,
+    #[serde(
+        rename = "staff-meter-change",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_change: ::std::option::Option<StaffMeterChange>,
+    #[serde(
+        rename = "staff-meter-reset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_reset: ::std::option::Option<StaffMeterReset>,
+    #[serde(
+        rename = "staff-meter-set",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_set: ::std::option::Option<StaffMeterSet>,
+    #[serde(
+        rename = "staff-meter-synchronization",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_meter_synchronization: ::std::option::Option<StaffMeterSynchronization>,
+    #[serde(
         rename = "stage-position",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9168,6 +10118,18 @@ pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub trill: ::std::option::Option<Trill>,
     #[serde(
+        rename = "tuplet-extensions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub tuplet_extensions: ::std::option::Option<TupletExtensions>,
+    #[serde(
+        rename = "tuplet-span",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub tuplet_span: ::std::option::Option<TupletSpan>,
+    #[serde(
         rename = "video-media-identity",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -9202,8 +10164,10 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             fingering: Default::default(),
             font_family: Default::default(),
             glissando: Default::default(),
+            glissando_kind: Default::default(),
             glissando_style: Default::default(),
             gradual_tempo: Default::default(),
+            grouping_display: Default::default(),
             hit_point: Default::default(),
             instrument_name_display: Default::default(),
             instrument_name_display_policy: Default::default(),
@@ -9243,6 +10207,12 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             slur_shape: Default::default(),
             sound_profile_assignment: Default::default(),
             sp_delta: Default::default(),
+            staff_grouping_display_override: Default::default(),
+            staff_meter: Default::default(),
+            staff_meter_change: Default::default(),
+            staff_meter_reset: Default::default(),
+            staff_meter_set: Default::default(),
+            staff_meter_synchronization: Default::default(),
             stage_position: Default::default(),
             system_layout_extensions: Default::default(),
             tempo_extensions: Default::default(),
@@ -9260,6 +10230,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             time_signature_settings_object: Default::default(),
             time_signature_styles: Default::default(),
             trill: Default::default(),
+            tuplet_extensions: Default::default(),
+            tuplet_span: Default::default(),
             video_media_identity: Default::default(),
             video_sync: Default::default(),
         }

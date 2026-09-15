@@ -37,7 +37,12 @@ function freshRoomId(): string {
   return id;
 }
 
-async function openPeer(context: BrowserContext, roomId: string, guestName: string): Promise<Page> {
+async function openPeer(
+  context: BrowserContext,
+  roomId: string,
+  guestName: string,
+  transportQuery = "live-transport=broadcast-channel",
+): Promise<Page> {
   const page = await context.newPage();
   page.on("console", (msg) => {
     if (msg.type() === "error" || msg.type() === "warning") {
@@ -57,7 +62,7 @@ async function openPeer(context: BrowserContext, roomId: string, guestName: stri
     },
     { name: guestName },
   );
-  await page.goto(`/?live=${roomId}&live-transport=broadcast-channel`);
+  await page.goto(`/?live=${roomId}&${transportQuery}`);
   // Wait for the editor to boot and the local presence chip to mount.
   // The participant list only appears after a session is active, which
   // requires the default score to have loaded.

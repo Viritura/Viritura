@@ -122,7 +122,8 @@ fn test_time_signature_changes() {
             count: 4,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
     assert_eq!(
@@ -131,7 +132,8 @@ fn test_time_signature_changes() {
             count: 4,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
     assert_eq!(
@@ -140,7 +142,8 @@ fn test_time_signature_changes() {
             count: 2,
             unit: 4,
             display: None,
-            beat_structure: None
+            beat_structure: None,
+            grouping_display: None,
         }
     );
 
@@ -449,16 +452,17 @@ fn hidden_senza_misura_reserves_no_prefix_or_glyph() {
         unit: 4,
         display: Some(TimeSignatureDisplay::SenzaMisura),
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         senza_misura: SenzaMisuraDisplay::Hidden,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0);
+    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
 
     assert!(layout.glyphs.is_empty());
     assert_eq!(layout.width, 0.0);
-    assert_eq!(prefix_reserve(settings, &ts, 1.0), 0.0);
+    assert_eq!(prefix_reserve(settings, &ts, 1.0, None), 0.0);
 }
 
 #[test]
@@ -2028,12 +2032,13 @@ fn large_style_overflows_the_staff_and_reserves_more_room() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let large = TimeSignatureSettings {
         scale: 1.5,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(large, &ts, 0.0, 0.0, 4.0 * sp, sp);
+    let layout = time_signature_layout(large, &ts, 0.0, 0.0, 4.0 * sp, sp, None);
     assert!(
         layout.top_y < 0.0,
         "the pair reaches above the top staff line"
@@ -2043,7 +2048,8 @@ fn large_style_overflows_the_staff_and_reserves_more_room() {
         "and below the bottom staff line"
     );
     assert!(
-        prefix_reserve(large, &ts, sp) > prefix_reserve(TimeSignatureSettings::default(), &ts, sp),
+        prefix_reserve(large, &ts, sp, None)
+            > prefix_reserve(TimeSignatureSettings::default(), &ts, sp, None),
         "a large meter reserves more horizontal room than a normal one"
     );
 }
@@ -2064,6 +2070,7 @@ fn narrow_style_uses_the_condensed_cut_and_reserves_less_room() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     assert!(
         prefix_reserve(
@@ -2073,7 +2080,8 @@ fn narrow_style_uses_the_condensed_cut_and_reserves_less_room() {
             },
             &ts,
             sp,
-        ) < prefix_reserve(TimeSignatureSettings::default(), &ts, sp),
+            None,
+        ) < prefix_reserve(TimeSignatureSettings::default(), &ts, sp, None),
         "condensed digits are what buys the horizontal room back"
     );
 }
@@ -2096,6 +2104,7 @@ fn above_staff_style_engraves_over_the_staff_and_reserves_no_slot() {
         unit: 4,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     assert_eq!(
         prefix_reserve(
@@ -2105,6 +2114,7 @@ fn above_staff_style_engraves_over_the_staff_and_reserves_no_slot() {
             },
             &ts,
             sp,
+            None,
         ),
         0.0,
         "an above-staff meter takes no room inside the staff"
@@ -2119,6 +2129,7 @@ fn scale_and_vertical_position_are_independent_of_render_style() {
         unit: 8,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::Narrow,
@@ -2126,7 +2137,7 @@ fn scale_and_vertical_position_are_independent_of_render_style() {
         scale: 1.7,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 10.0, 10.0 + 4.0 * sp, sp);
+    let layout = time_signature_layout(settings, &ts, 0.0, 10.0, 10.0 + 4.0 * sp, sp, None);
 
     assert!(layout.glyphs.iter().all(|glyph| (smufl::TIME_SIG_NARROW_0
         ..=smufl::TIME_SIG_NARROW_9)
@@ -2149,6 +2160,7 @@ fn outside_staff_render_style_is_independent_of_distribution_and_scale() {
         unit: 8,
         display: None,
         beat_structure: None,
+        grouping_display: None,
     };
     let settings = TimeSignatureSettings {
         render_style: TimeSignatureRenderStyle::OutsideStaff,
@@ -2156,7 +2168,7 @@ fn outside_staff_render_style_is_independent_of_distribution_and_scale() {
         scale: 1.3,
         ..TimeSignatureSettings::default()
     };
-    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0 * sp, sp);
+    let layout = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0 * sp, sp, None);
 
     assert!(layout.glyphs.iter().all(|glyph| {
         (smufl::TIME_SIG_LARGE_0..=smufl::TIME_SIG_LARGE_9).contains(&glyph.codepoint)
@@ -2365,4 +2377,579 @@ fn per_group_distribution_draws_one_meter_for_a_bracket_group() {
         "one 4/4 meter is shared by the two-staff bracket group"
     );
     assert!(digits.iter().all(|digit| (digit.3 - 60.0).abs() < 0.01));
+}
+
+// ── Grouping display (additive numerator / grouping annotation) ───────────
+//
+// These exercise `time_signature_layout`'s grouping-display axis directly
+// (unit-level geometry) and the cascade through a full score layout
+// (house style, per-occurrence, and per-staff overrides).
+
+use crate::model::time::GroupingDisplay;
+
+fn irregular_ts() -> TimeSignature {
+    // 7/8 grouped 3+2+2 — structurally non-default (the automatic default
+    // for 7/8 is 2+2+3).
+    TimeSignature {
+        count: 7,
+        unit: 8,
+        display: None,
+        beat_structure: Some(vec![3, 2, 2]),
+        grouping_display: None,
+    }
+}
+
+#[test]
+fn additive_numerator_joins_beat_groups_with_the_small_plus_glyph() {
+    let ts = irregular_ts();
+    let settings = TimeSignatureSettings::default();
+    let standard = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
+    let additive = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Additive),
+    );
+
+    let plus_glyphs = additive
+        .glyphs
+        .iter()
+        .filter(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
+        .count();
+    assert_eq!(
+        plus_glyphs, 2,
+        "3+2+2 has two plus signs joining its three groups"
+    );
+    let plus_y = additive
+        .glyphs
+        .iter()
+        .find(|g| g.codepoint == smufl::TIME_SIG_PLUS_SMALL)
+        .unwrap()
+        .y;
+    let numerator_y = additive
+        .glyphs
+        .iter()
+        .filter(|g| (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(&g.codepoint))
+        .map(|g| g.y)
+        .fold(f64::INFINITY, f64::min);
+    assert!(
+        plus_y < numerator_y,
+        "the plus crossbar should be lifted clear of the numerator staff line"
+    );
+    let numerator_digits = additive
+        .glyphs
+        .iter()
+        .filter(|g| (smufl::TIME_SIG_0..=smufl::TIME_SIG_9).contains(&g.codepoint))
+        .count();
+    // Three numerator digits (3, 2, 2) plus one denominator digit (8).
+    assert_eq!(numerator_digits, 4);
+    assert!(
+        additive.width > standard.width,
+        "an additive numerator reserves more width than the plain count"
+    );
+    // Reserving the correct width: prefix_reserve must grow the same way.
+    assert!(
+        prefix_reserve(settings, &ts, 1.0, Some(GroupingDisplay::Additive))
+            > prefix_reserve(settings, &ts, 1.0, None)
+    );
+}
+
+#[test]
+fn grouping_annotation_adds_a_row_above_the_ordinary_meter() {
+    let ts = irregular_ts();
+    let settings = TimeSignatureSettings::default();
+    let standard = time_signature_layout(settings, &ts, 0.0, 0.0, 4.0, 1.0, None);
+    let annotated = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+
+    // The ordinary "7/8" numeral pair is still present...
+    let plain_numerator = annotated
+        .glyphs
+        .iter()
+        .filter(|g| g.codepoint == smufl::TIME_SIG_7)
+        .count();
+    assert_eq!(plain_numerator, 1, "the ordinary numerator 7 is unchanged");
+    // ...plus generated bold system text above it.
+    let annotation = annotated.annotation.as_ref().unwrap();
+    assert_eq!(annotation.text, "3+2+2");
+    assert!(
+        annotation.y < standard.top_y,
+        "the annotation baseline should sit above the ordinary meter"
+    );
+    assert!(
+        annotated.top_y < standard.top_y,
+        "the annotation extends the layout's ink upward"
+    );
+    assert!(
+        annotated.glyphs.len() == standard.glyphs.len(),
+        "annotation must not add glyphs inside the time signature"
+    );
+}
+
+#[test]
+fn tempo_stacks_above_grouping_annotation_text() {
+    let events = (0..7)
+        .map(|_| r#"{"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":5}}]}"#)
+        .collect::<Vec<_>>()
+        .join(",");
+    let json = format!(
+        r#"{{
+          "mnx": {{"version": 1}},
+          "global": {{"measures": [{{
+            "time": {{"count":7,"unit":8,"_x":{{"viritura":{{
+              "beatStructure":[3,2,2],"groupingDisplay":"annotation"
+            }}}}}},
+            "tempos": [{{"bpm":120,"value":{{"base":"quarter"}},"_x":{{"viritura":{{"text":"Allegro"}}}}}}]
+          }}]}},
+          "parts": [{{"measures":[{{"sequences":[{{"content":[{events}]}}]}}]}}]
+        }}"#
+    );
+    let score = parse_mnx(&json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let annotation_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawText { text, y, .. } if text == "3+2+2" => Some(*y),
+        _ => None,
+    });
+    let tempo_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawText { text, y, .. } if text.contains("Allegro") => Some(*y),
+        _ => None,
+    });
+    assert!(
+        tempo_y.expect("tempo text command")
+            < annotation_y.expect("grouping annotation text command"),
+        "tempo text must stack above grouping annotation text"
+    );
+}
+
+#[test]
+fn staff_time_signatures_center_in_the_widest_shared_slot() {
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {
+        "count": 7, "unit": 8,
+        "_x": {"viritura": {
+          "beatStructure": [3,2,2], "groupingDisplay": "additive"
+        }}
+      }}]},
+      "parts": [
+        {"measures": [{"sequences": [], "_x": {"viritura": {
+          "groupingDisplayOverrides": [{"staff": 1, "groupingDisplay": "standard"}]
+        }}}]},
+        {"measures": [{"sequences": []}]}
+      ]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let upper = resolve_measures(&score, 0);
+    let lower = resolve_measures(&score, 1);
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    let aligned = compute_max_prefix_width([&upper[0], &lower[0]], sp, true, &config);
+    let layout = |measure: &ResolvedMeasure| {
+        prefix_layout(
+            measure,
+            sp,
+            true,
+            Some(aligned),
+            None,
+            PrefixContext::Alignment,
+            &config,
+        )
+    };
+    let upper_layout = layout(&upper[0]);
+    let lower_layout = layout(&lower[0]);
+    let center = |prefix: &PrefixLayout| {
+        prefix.time_signature_x_offset.unwrap() + prefix.time_signature_reserve.unwrap() * 0.5
+    };
+    assert!(
+        (center(&upper_layout) - center(&lower_layout)).abs() < 0.001,
+        "staff-local meters must share one horizontal center"
+    );
+}
+
+#[test]
+fn staff_local_meter_prints_its_own_glyph_at_the_global_time_signature_occurrence() {
+    // Global 3/4 with staff 1 declaring a synchronous sharedDuration 6/8
+    // staff-local meter from measure 1 onward — both have equal measure
+    // durations (3 quarter-note beats), so `sharedDuration` validates.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 3, "unit": 4}}]},
+      "parts": [{"measures": [{
+        "sequences": [],
+        "_x": {"viritura": {"staffMeters": [
+          {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "sharedDuration"}
+        ]}}
+      }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let rm = &resolved[0];
+
+    assert!(
+        rm.effective_staff_meter.is_some(),
+        "staff 1 should resolve an effective staff-local meter"
+    );
+    let effective = rm.effective_staff_meter.as_ref().unwrap();
+    assert_eq!(effective.time_signature.count, 6);
+    assert_eq!(effective.time_signature.unit, 8);
+
+    // The global measure authors a time signature at index 0, so a glyph is
+    // due — but it must show the staff-local 6/8, not the global 3/4.
+    let displayed = rm.displayed_time_signature().expect("time sig is due");
+    assert_eq!(displayed.count, 6);
+    assert_eq!(displayed.unit, 8);
+    assert_eq!(
+        rm.global.time.as_ref().unwrap().count,
+        3,
+        "global itself is untouched"
+    );
+
+    // Automatic beaming keys off the same effective meter.
+    assert_eq!(rm.effective_beat_meter().count, 6);
+    assert_eq!(rm.effective_beat_meter().unit, 8);
+}
+
+#[test]
+fn staff_meter_set_prints_a_glyph_even_with_no_global_time_change() {
+    // Global 4/4 declared once at measure 0; no further global `time` change.
+    // Staff 1 declares a fitMeasure 12/8 staff-local meter starting at
+    // measure 1 (mid-piece), where `global.time` is None. A staff beginning
+    // a staff-local meter is itself a printed occurrence for that staff,
+    // independent of any global change.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+      "parts": [{"measures": [
+        {"sequences": []},
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 12, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        }
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    // Measure 0: no staffMeters entry, global.time is Some (the piece's
+    // initial signature) -> the global 4/4 prints, as always.
+    let m0_displayed = resolved[0]
+        .displayed_time_signature()
+        .expect("initial time sig prints");
+    assert_eq!((m0_displayed.count, m0_displayed.unit), (4, 4));
+
+    // Measure 1: global.time is None here, but staff 1 authors a fresh Set
+    // -> a glyph is still due, showing the new staff-local 12/8.
+    assert!(
+        resolved[1].global.time.is_none(),
+        "no global time change at measure 1"
+    );
+    let m1_displayed = resolved[1]
+        .displayed_time_signature()
+        .expect("a staff-local Set must print even with no global time change");
+    assert_eq!((m1_displayed.count, m1_displayed.unit), (12, 8));
+}
+
+#[test]
+fn staff_meter_reset_prints_the_global_meter_even_with_no_global_time_change() {
+    // Staff 1 declares a fitMeasure 6/8 at measure 0 (alongside the global
+    // 2/4), then resets back to the global meter at measure 1, where
+    // `global.time` is None. The reset must still print — showing the
+    // global meter the staff just returned to.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 2, "unit": 4}}, {}]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [{"staff": 1, "useGlobal": true}]}}
+        }
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert!(
+        resolved[1].global.time.is_none(),
+        "no global time change at measure 1"
+    );
+    assert!(
+        resolved[1].effective_staff_meter.is_none(),
+        "staff 1 has reset back to following the global meter"
+    );
+    let m1_displayed = resolved[1]
+        .displayed_time_signature()
+        .expect("a staff-local Reset must print even with no global time change");
+    assert_eq!(
+        (m1_displayed.count, m1_displayed.unit),
+        (2, 4),
+        "reset measure shows the global meter the staff returned to"
+    );
+}
+
+#[test]
+fn unchanged_inherited_staff_meter_does_not_reprint() {
+    // Staff 1 declares a fitMeasure 6/8 at measure 0; measures 1 and 2 carry
+    // no staffMeters entry at all (they simply inherit) and no global time
+    // change either -> neither should print a time signature, even though
+    // both still have an effective staff-local meter in force.
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [{"time": {"count": 2, "unit": 4}}, {}, {}]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {"sequences": []},
+        {"sequences": []}
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert!(
+        resolved[0].displayed_time_signature().is_some(),
+        "the initial declaration prints"
+    );
+    assert!(
+        resolved[1].effective_staff_meter.is_some(),
+        "measure 1 still inherits the fitMeasure 6/8"
+    );
+    assert!(
+        resolved[1].displayed_time_signature().is_none(),
+        "measure 1 has no fresh staffMeters entry and no global change -> no reprint"
+    );
+    assert!(
+        resolved[2].effective_staff_meter.is_some(),
+        "measure 2 still inherits the fitMeasure 6/8"
+    );
+    assert!(
+        resolved[2].displayed_time_signature().is_none(),
+        "measure 2 has no fresh staffMeters entry and no global change -> no reprint"
+    );
+}
+
+#[test]
+fn inherited_staff_meter_does_not_reprint_for_a_global_only_change() {
+    let json = r#"{
+      "mnx": {"version": 1},
+      "global": {"measures": [
+        {"time": {"count": 2, "unit": 4}},
+        {"time": {"count": 4, "unit": 4}}
+      ]},
+      "parts": [{"measures": [
+        {
+          "sequences": [],
+          "_x": {"viritura": {"staffMeters": [
+            {"staff": 1, "meter": {"count": 6, "unit": 8}, "synchronization": "fitMeasure"}
+          ]}}
+        },
+        {"sequences": []}
+      ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+
+    assert_eq!(
+        resolved[1]
+            .effective_staff_meter
+            .as_ref()
+            .expect("local meter remains active")
+            .ratio_to_global,
+        crate::model::staff_meter::Fraction::new(4, 3)
+    );
+    assert!(
+        resolved[1].displayed_time_signature().is_none(),
+        "an inherited local meter must ignore a global-only signature change"
+    );
+}
+
+#[test]
+fn single_group_structure_never_engraves_additive_or_annotation_glyphs() {
+    // An authored beatStructure of one all-encompassing group has nothing to
+    // add, even when a mode is explicitly forced.
+    let ts = TimeSignature {
+        count: 4,
+        unit: 4,
+        display: None,
+        beat_structure: Some(vec![4]),
+        grouping_display: Some(GroupingDisplay::Additive),
+    };
+    let settings = TimeSignatureSettings::default();
+    let layout = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+    assert!(
+        layout
+            .glyphs
+            .iter()
+            .all(|g| g.codepoint != smufl::TIME_SIG_PLUS_SMALL),
+        "a single-group structure falls back to a standard meter"
+    );
+}
+
+#[test]
+fn common_time_display_ignores_grouping_display_entirely() {
+    let ts = TimeSignature {
+        count: 4,
+        unit: 4,
+        display: Some(TimeSignatureDisplay::Common),
+        beat_structure: Some(vec![2, 2]),
+        grouping_display: Some(GroupingDisplay::Additive),
+    };
+    let settings = TimeSignatureSettings::default();
+    let layout = time_signature_layout(
+        settings,
+        &ts,
+        0.0,
+        0.0,
+        4.0,
+        1.0,
+        Some(GroupingDisplay::Annotation),
+    );
+    assert_eq!(layout.glyphs.len(), 1, "still just the common-time symbol");
+    assert_eq!(layout.glyphs[0].codepoint, smufl::TIME_SIG_COMMON);
+}
+
+fn score_with_house_style_and_time(global_time_json: &str, house_style_json: &str) -> Score {
+    let json = format!(
+        r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{{"time": {global_time_json}}}]}},
+            "parts": [{{"measures": [
+                {{
+                    "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2}}}}],
+                    "sequences": [{{"content": [
+                        {{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "C", "octave": 5}}}}]}}
+                    ]}}]
+                }}
+            ]}}],
+            "_x": {{"viritura": {{"timeSignatures": {{"score": {house_style_json}}}}}}}
+        }}"#
+    );
+    parse_mnx(&json).expect("fixture parses")
+}
+
+#[test]
+fn house_style_additive_applies_only_to_non_default_meters() {
+    // A 7/8 authored 3+2+2 is non-default: the house style applies.
+    let irregular = score_with_house_style_and_time(
+        r#"{"count": 7, "unit": 8, "_x": {"viritura": {"beatStructure": [3, 2, 2]}}}"#,
+        r#"{"nonDefaultGroupingDisplay": "additive"}"#,
+    );
+    let dl = layout_score(&irregular, 0, &LayoutConfig::default());
+    assert!(
+        !glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
+        "the non-default 7/8 grouping is engraved additively"
+    );
+
+    // An ordinary 4/4 with no authored beatStructure must stay standard —
+    // never "1+1+1+1" — under the very same house style.
+    let ordinary = score_with_house_style_and_time(
+        r#"{"count": 4, "unit": 4}"#,
+        r#"{"nonDefaultGroupingDisplay": "additive"}"#,
+    );
+    let dl = layout_score(&ordinary, 0, &LayoutConfig::default());
+    assert!(
+        glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL).is_empty(),
+        "an ordinary default meter never engraves additive/annotation glyphs"
+    );
+}
+
+#[test]
+fn time_occurrence_override_forces_annotation_without_house_style() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {
+            "count": 7, "unit": 8,
+            "_x": {"viritura": {"beatStructure": [3, 2, 2], "groupingDisplay": "annotation"}}
+        }}]},
+        "parts": [{"measures": [
+            {
+                "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+                "sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                ]}]
+            }
+        ]}]
+    }"#;
+    let score = parse_mnx(json).expect("fixture parses");
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let plain_numerator = glyphs_in_range(&dl, smufl::TIME_SIG_7..=smufl::TIME_SIG_7);
+    assert_eq!(plain_numerator.len(), 1, "the ordinary 7/8 numeral remains");
+    assert!(
+        dl.commands.iter().any(
+            |command| matches!(command, RenderCommand::DrawText { text, font, .. }
+                if text == "3+2+2" && font == "serif bold")
+        ),
+        "the occurrence override forces bold grouping text with no house style set"
+    );
+}
+
+#[test]
+fn staff_occurrence_override_wins_over_time_occurrence_and_house_style() {
+    // Two-staff grand-staff-style part: staff 1 forces standard, staff 2
+    // takes the time signature's own "additive" occurrence override. The
+    // document house style (also additive) never gets a chance to apply.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {
+            "count": 7, "unit": 8,
+            "_x": {"viritura": {"beatStructure": [3, 2, 2], "groupingDisplay": "additive"}}
+        }}]},
+        "parts": [{"staves": 2, "measures": [
+            {
+                "clefs": [
+                    {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                    {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+                ],
+                "sequences": [
+                    {"staff": 1, "content": [
+                        {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                    ]},
+                    {"staff": 2, "content": [
+                        {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                    ]}
+                ],
+                "_x": {"viritura": {"groupingDisplayOverrides": [
+                    {"staff": 1, "groupingDisplay": "standard"}
+                ]}}
+            }
+        ]}],
+        "_x": {"viritura": {"timeSignatures": {"score": {"nonDefaultGroupingDisplay": "additive"}}}}
+    }"#;
+    let score = parse_mnx(json).expect("fixture parses");
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let plus_glyphs = glyphs_in_range(&dl, smufl::TIME_SIG_PLUS_SMALL..=smufl::TIME_SIG_PLUS_SMALL);
+    assert_eq!(
+        plus_glyphs.len(),
+        2,
+        "only staff 2's meter is additive (3+2+2 has two pluses); staff 1's override forces standard"
+    );
 }

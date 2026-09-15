@@ -18,7 +18,8 @@ import type {
 import type { PositionedClef } from "./clef";
 import type { Caesura, Sequence } from "./event";
 import type { KeySignature } from "./key";
-import type { TimeSignature } from "./time";
+import type { GroupingDisplay, TimeSignature } from "./time";
+import type { StaffMeterChange } from "./staffMeter";
 import type { Barline } from "./barline";
 import type { Narrow, WithVendor } from "./_derive";
 
@@ -401,6 +402,33 @@ export interface PartMeasure {
   /** User-specified condensing override for this measure (Viritura extension).
    *  Values: "unison", "solo1", "solo2", "amalgamate", "divisi" */
   condensingOverride?: string;
+  /**
+   * Per-staff grouping-display occurrence overrides for this measure
+   * (Viritura extension). Targets a specific staff of this part measure and
+   * forces that staff's meter to the named mode, taking precedence over the
+   * time signature's own occurrence override and the document house style.
+   */
+  groupingDisplayOverrides?: StaffGroupingDisplayOverride[];
+  /**
+   * Per-staff synchronous local meter changes/resets for this measure
+   * onward (Viritura extension). Each entry sets a staff-local meter
+   * distinct from the global meter (still synchronized to the shared
+   * barline grid via `sharedDuration` or `fitMeasure`), or resets the staff
+   * back to following the global meter. Declarations inherit until changed
+   * or reset; see `./staffMeter`.
+   */
+  staffMeters?: StaffMeterChange[];
+}
+
+/**
+ * One staff-targeted grouping-display override
+ * (`_x.viritura.groupingDisplayOverrides[]` on a part measure).
+ */
+export interface StaffGroupingDisplayOverride {
+  /** 1-based staff number within this part. */
+  staff: number;
+  /** Forced grouping-display mode for this staff's meter. */
+  groupingDisplay: GroupingDisplay;
 }
 
 /** Staff configuration payload (MNX `staff-config`). */

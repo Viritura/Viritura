@@ -1,9 +1,27 @@
 import type { Time as RawTime } from "../raw";
 import type { HoistVendor, Narrow } from "./_derive";
 
+/**
+ * How a meter's beat grouping is presented, independent of the semantic
+ * {@link TimeSignatureExtensions.beatStructure} it is derived from.
+ *
+ * `"standard"` engraves an ordinary numeric (or symbolic) meter with no
+ * grouping decoration. `"additive"` and `"annotation"` are only ever
+ * engraved for a meter whose resolved beat structure is structurally
+ * non-default and has more than one group; see {@link resolveGroupingDisplay}.
+ */
+export type GroupingDisplay = "standard" | "additive" | "annotation";
+
 export interface TimeSignatureExtensions {
   /** Ordered beat-group lengths in units of the time-signature denominator. */
   beatStructure?: number[];
+  /**
+   * Explicit per-occurrence grouping-display override for this time
+   * signature. Forces the named mode regardless of the document's house
+   * style, subject only to the symbolic-display/single-group safety
+   * fallback in {@link resolveGroupingDisplay}.
+   */
+  groupingDisplay?: GroupingDisplay;
 }
 
 /**
@@ -102,4 +120,51 @@ function assertValidTimeSignature(count: number, unit: number): void {
   if (![1, 2, 4, 8, 16, 32, 64, 128].includes(unit)) {
     throw new RangeError("Time-signature unit must be a supported power-of-two denominator");
   }
+}
+
+/**
+ * Whether a resolved beat structure differs from the meter's conventional
+ * default — i.e. whether it is worth decorating at all. An authored
+ * structure that happens to match the automatic default (a "redundant"
+ * structure) does not count as non-default.
+ */
+function isNonDefaultGrouping(resolved: ResolvedMeter): boolean {
+  const defaults = defaultBeatStructure(resolved.count, resolved.unit);
+  return (
+    resolved.beatStructure.length !== defaults.length ||
+    resolved.beatStructure.some((group, index) => group !== defaults[index])
+  );
+}
+
+/**
+ * Resolve which {@link GroupingDisplay} mode a rendered meter should
+ * actually engrave.
+ *
+ * Precedence: an explicit staff occurrence override wins outright, then the
+ * time signature's own occurrence override (`time.groupingDisplay`), then
+ * the document's non-default house style — but only when `resolved` is
+ * structurally non-default (its beat structure differs from the meter's
+ * conventional default). Ordinary/default meters always stay `"standard"`
+ * under the house style, so a plain 4/4 never engraves `"1+1+1+1"`.
+ *
+ * A symbolic display (`common`/`cut`/`senzaMisura`/`note`) or a resolved
+ * beat structure of one group has nothing for additive/annotation to show,
+ * so both fall back to `"standard"` unconditionally — even under an
+ * explicit occurrence or staff override.
+ */
+export function resolveGroupingDisplay(
+  time: TimeSignature,
+  resolved: ResolvedMeter,
+  houseStyle: GroupingDisplay,
+  staffOverride?: GroupingDisplay,
+): GroupingDisplay {
+  if (time.display || resolved.beatStructure.length <= 1) {
+    return "standard";
+  }
+  if (staffOverride) return staffOverride;
+  if (time.groupingDisplay) return time.groupingDisplay;
+  if (houseStyle !== "standard" && isNonDefaultGrouping(resolved)) {
+    return houseStyle;
+  }
+  return "standard";
 }

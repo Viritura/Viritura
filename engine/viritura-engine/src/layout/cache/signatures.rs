@@ -5,6 +5,7 @@ use crate::model::clef::PositionedClef;
 use crate::model::event::{Event, SequenceContent};
 use crate::model::key::KeySignature;
 use crate::model::measure::{PartMeasure, ResolvedMeasure};
+use crate::model::staff_meter::{EffectiveStaffMeter, StaffMeterSynchronization};
 use crate::model::time::TimeSignature;
 
 /// Compute a content fingerprint for a ResolvedMeasure.
@@ -92,6 +93,7 @@ pub(crate) struct BoundaryState {
     pub last_clef: Option<PositionedClef>,
     pub prev_display_key: KeySignature,
     pub active_staff_lines: u32,
+    pub effective_staff_meter: Option<EffectiveStaffMeter>,
 }
 
 /// Compute a fingerprint over carried resolve state and staff transposition.
@@ -124,6 +126,22 @@ pub(crate) fn boundary_state_fingerprint(
         }
     }
     state.active_staff_lines.hash(&mut h);
+    match &state.effective_staff_meter {
+        None => 0u8.hash(&mut h),
+        Some(meter) => {
+            1u8.hash(&mut h);
+            meter.staff.hash(&mut h);
+            meter.time_signature.count.hash(&mut h);
+            meter.time_signature.unit.hash(&mut h);
+            meter.time_signature.beat_structure.hash(&mut h);
+            match meter.synchronization {
+                StaffMeterSynchronization::SharedDuration => 0u8.hash(&mut h),
+                StaffMeterSynchronization::FitMeasure => 1u8.hash(&mut h),
+            }
+            meter.ratio_to_global.num.hash(&mut h);
+            meter.ratio_to_global.den.hash(&mut h);
+        }
+    }
     transposition.hash(&mut h);
     key_fifths_flip_at.hash(&mut h);
     h.finish()

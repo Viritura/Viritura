@@ -25,6 +25,7 @@ import type { MeasureRange } from "../store/selectionUtils";
 import { resolveCapabilityTargets, SCOPE_ACTION } from "../store/selectionCapabilities";
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
+import { timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
 
 function gcd(a: number, b: number): number {
   let x = Math.abs(a);
@@ -46,6 +47,29 @@ function toReducedFraction(numerator: number, denominator: number): [number, num
   n /= g;
   d /= g;
   return [n, d];
+}
+
+/**
+ * The 1-based staff number a selection resolves to, if any — the same
+ * derivation `handleSetClef` uses for a measure-start clef override. Grouping
+ * display's per-staff occurrence override reuses it so both controls agree on
+ * "which staff" a selection targets.
+ */
+export function staffFromSelection(selection: SelectionState): number | undefined {
+  if (
+    selection.kind === "measure" &&
+    selection.startLocalStaffIndex !== undefined &&
+    (selection.endLocalStaffIndex === undefined || selection.startLocalStaffIndex === selection.endLocalStaffIndex)
+  ) {
+    return selection.startLocalStaffIndex + 1;
+  }
+  if (
+    (selection.kind === "single" || selection.kind === "range") &&
+    selection.measureAnchor?.localStaffIndex !== undefined
+  ) {
+    return selection.measureAnchor.localStaffIndex + 1;
+  }
+  return undefined;
 }
 
 export interface SignatureActionsDeps {
@@ -82,10 +106,10 @@ export function useSignatureActions(deps: SignatureActionsDeps): SignatureAction
     (time: TimeSignature) => {
       const { score } = store.getState();
       if (!score) return;
-      const idx = selectedScope()?.startMeasure ?? 0;
+      const idx = timeSignatureMeasureIndexFromSelection(selection, score) ?? 0;
       updateScore(setTimeSignature(score, idx, time));
     },
-    [store, selectedScope, updateScore],
+    [store, selection, updateScore],
   );
 
   const handleSetKeySignature = useCallback(

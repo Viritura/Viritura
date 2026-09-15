@@ -149,7 +149,7 @@ export interface MnxOttava {
 export interface MnxBeam {
   events: string[];
   beams?: MnxBeam[];
-  hookDirection?: string;
+  direction?: "left" | "right" | "auto";
 }
 
 export interface MnxSequence {
@@ -187,6 +187,7 @@ export interface MnxEvent {
 
 export interface MnxGlissando {
   target: string;
+  kind?: "glissando" | "portamento";
   style?: "straight" | "wavy";
   text?: string;
 }
@@ -213,6 +214,7 @@ export interface MnxTuplet {
   showValue?: string;
   orient?: string;
   staff?: number;
+  _x?: { viritura: { span: { id: string; type: "start" | "continue" | "stop" } } };
 }
 
 export interface MnxNoteValueQuantity {

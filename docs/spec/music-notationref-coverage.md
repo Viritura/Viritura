@@ -1,11 +1,11 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"252062733f58677eb6cb0b30047fa097fe6c80e2","virituraCommit":"b29216653cf662011653318de1b895cba89863eb","upstreamSyncedAt":"2026-09-13","virituraAuditedAt":"2026-09-13"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"252062733f58677eb6cb0b30047fa097fe6c80e2","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-13","virituraAuditedAt":"2026-09-13"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
 > · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
 > · MusicXML matrix: [`musicxml@2520627`](https://github.com/w3c-cg/musicxml/commit/252062733f58677eb6cb0b30047fa097fe6c80e2)
-> · Viritura source: [`b292166`](https://github.com/Viritura/Viritura/commit/b29216653cf662011653318de1b895cba89863eb)
+> · Viritura source: [`e75616c`](https://github.com/Viritura/Viritura/commit/e75616c4c65eeffd62134e54e729c0f978f6b5e3)
 > · Upstream synced 2026-09-13; Viritura audited 2026-09-13.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
@@ -67,17 +67,17 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 436 |  83 | 333 |   0 |   0 |
-| Viritura MusicXML/MXL importer | 274 |  91 | 437 |  50 |   0 |
+| Viritura MNX pipeline          | 437 |  85 | 330 |   0 |   0 |
+| Viritura MusicXML/MXL importer | 275 |  91 | 436 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
 
 | Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
 | ----------------- | ---: | -------------------: | --------------------: |
 | Notes             |  344 |         186/29/129/0 |       102/56/152/34/0 |
-| Rhythms           |   46 |             37/5/4/0 |           30/2/13/1/0 |
+| Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
-| Measures          |  104 |            65/3/36/0 |           52/0/46/6/0 |
+| Measures          |  104 |            65/5/34/0 |           52/0/46/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
 | Structure         |  117 |           63/21/33/0 |          24/24/67/2/0 |
 | Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
@@ -496,7 +496,7 @@ or round-trip support unless a row note says so.
 | Tuplets &gt; Tuplet contents           | Tuplet containing dotted notes                                      | `rhythm-tuplet-with-dots`         |  S  |    S     |      S       |      S       | -                                                                                                                                                                         |
 | Tuplets &gt; Tuplet contents           | Tuplet containing tied notes                                        | `rhythm-tuplet-with-ties`         |  S  |    S     |      S       |      S       | -                                                                                                                                                                         |
 | Tuplets &gt; Complex tuplet structures | Nested tuplets (tuplet within a tuplet)                             | `rhythm-tuplet-nested`            |  S  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: activeTuplets is a Map allowing multiple concurrently open tuplets (by number), but visual nested-bracket layering is not distinctly modeled |
-| Tuplets &gt; Complex tuplet structures | Tuplet spanning across barlines                                     | `rhythm-tuplet-cross-barline`     |  S  |    S     |      N       |      N       | -                                                                                                                                                                         |
+| Tuplets &gt; Complex tuplet structures | Tuplet spanning across barlines                                     | `rhythm-tuplet-cross-barline`     |  S  |    S     |      S       |      S       | -                                                                                                                                                                         |
 | Tuplets &gt; Complex tuplet structures | Tuplet split across separate beam groups                            | `rhythm-tuplet-cross-beam`        |  S  |    S     |      S       |      S       | -                                                                                                                                                                         |
 | Tuplets &gt; Complex tuplet structures | Tuplet with notes in different voices                               | `rhythm-tuplet-cross-voice`       |  N  |    N     |      N       |      N       | -                                                                                                                                                                         |
 | Tuplets &gt; Tuplet display            | Tuplet number display (e.g., "3")                                   | `rhythm-tuplet-number`            |  S  |    S     |      S       |      S       | -                                                                                                                                                                         |
@@ -612,9 +612,9 @@ or round-trip support unless a row note says so.
 | Time signatures &gt; Alternating and interchangeable time signatures | Alternating meters (e.g., 3/4 + 4/4 shown together, bars alternate)         | `timesig-alternating`                 |  N  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Alternating and interchangeable time signatures | Interchangeable meters (e.g., 2/4 ≈ 6/8, bars may use either)               | `timesig-interchangeable`             |  N  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Alternating and interchangeable time signatures | Dual time signatures stacked (e.g., 6/8 over 3/4)                           | `timesig-dual-stacked`                |  N  |    S     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Different time signatures on different staves simultaneously                | `timesig-polymeter`                   |  N  |    S     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Barline alignment in polymetric passages                                    | `timesig-polymeter-barline`           |  N  |    P     |      N       |      N       | -                                                                                        |
-| Time signatures &gt; Multiple simultaneous time signatures           | Local time signature (applies to one staff only, not full score)            | `timesig-polymeter-local`             |  N  |    S     |      N       |      N       | -                                                                                        |
+| Time signatures &gt; Multiple simultaneous time signatures           | Different time signatures on different staves simultaneously                | `timesig-polymeter`                   |  N  |    S     |      P       |      N       | Viritura MNX [Semantic gap]: synchronous staff meters only                               |
+| Time signatures &gt; Multiple simultaneous time signatures           | Barline alignment in polymetric passages                                    | `timesig-polymeter-barline`           |  N  |    P     |      N       |      N       | Synchronous barlines align; independent cycles remain unsupported                        |
+| Time signatures &gt; Multiple simultaneous time signatures           | Local time signature (applies to one staff only, not full score)            | `timesig-polymeter-local`             |  N  |    S     |      P       |      N       | Viritura MNX [Semantic gap]: local meters share global barlines                          |
 | Time signatures &gt; Time signature changes                          | Time signature change at barline                                            | `timesig-change-barline`              |  S  |    S     |      S       |      S       | -                                                                                        |
 | Time signatures &gt; Time signature changes                          | Mid-measure time signature change                                           | `timesig-change-mid-measure`          |  P  |    S     |      N       |      N       | -                                                                                        |
 | Time signatures &gt; Time signature changes                          | Courtesy time signature at end of system (warning before break)             | `timesig-change-courtesy`             |  N  |    P     |      N       |      NA      | -                                                                                        |

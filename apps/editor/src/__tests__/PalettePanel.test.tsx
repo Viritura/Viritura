@@ -16,7 +16,20 @@ const SCORE: Score = {
     {
       name: "Piano",
       measures: [
-        { sequences: [{ content: [] }] },
+        {
+          sequences: [
+            {
+              content: [
+                {
+                  type: "event",
+                  id: "cross-bar-start",
+                  duration: { base: "half" },
+                  notes: [{ pitch: { step: "B", octave: 3 } }],
+                },
+              ],
+            },
+          ],
+        },
         {
           sequences: [
             {
@@ -24,11 +37,17 @@ const SCORE: Score = {
                 {
                   type: "event",
                   id: "first-note",
-                  duration: { base: "quarter" },
+                  duration: { base: "half" },
                   notes: [
                     { id: "first-note-low", pitch: { step: "C", octave: 4 } },
                     { id: "first-note-high", pitch: { step: "E", octave: 4 } },
                   ],
+                },
+                {
+                  type: "event",
+                  id: "second-note",
+                  duration: { base: "quarter" },
+                  notes: [{ id: "second-note-id", pitch: { step: "G", octave: 4 } }],
                 },
               ],
             },
@@ -67,12 +86,83 @@ function WithScore({ children }: { readonly children: ReactNode }) {
       </output>
       <output data-testid="time-0">{JSON.stringify(score.global.measures[0]?.time ?? null)}</output>
       <output data-testid="time-1">{JSON.stringify(score.global.measures[1]?.time ?? null)}</output>
+      <output data-testid="barline-1">{JSON.stringify(score.global.measures[1]?.barline ?? null)}</output>
       <output data-testid="arpeggios-1">{JSON.stringify(score.parts[0]?.measures[1]?.arpeggios ?? null)}</output>
+      <output data-testid="tuplet-spans">
+        {JSON.stringify(
+          score.parts[0]?.measures.flatMap(
+            (measure) =>
+              measure.sequences[0]?.content
+                .filter((item) => item.type === "tuplet")
+                .map((item) => (item.type === "tuplet" ? item.span : null)) ?? [],
+          ),
+        )}
+      </output>
+      <output data-testid="glissandos-1">
+        {JSON.stringify(
+          (score.parts[0]?.measures[1]?.sequences[0]?.content[0] as { glissandos?: unknown[] })?.glissandos ?? null,
+        )}
+      </output>
     </>
   ) : null;
 }
 
 describe("PalettePanel", () => {
+  it("creates one linked tuplet from a range crossing a barline", async () => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "range",
+        startElementId: "p0/m0/s0/cross-bar-start",
+        endElementId: "p0/m1/s0/first-note",
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: /^Triplet/ }));
+
+    const spans = JSON.parse(screen.getByTestId("tuplet-spans").textContent ?? "[]") as Array<{
+      id: string;
+      type: string;
+    }>;
+    expect(spans).toHaveLength(2);
+    expect(spans.map((span) => span.type)).toEqual(["start", "stop"]);
+    expect(spans[0]!.id).toBe(spans[1]!.id);
+  });
+
+  it("authors a semantic portamento between two selected notes", async () => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "multi",
+        elementIds: ["p0/m1/s0/first-note", "p0/m1/s0/second-note"],
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Portamento" }));
+
+    expect(screen.getByTestId("glissandos-1").textContent).toBe(
+      '[{"target":"second-note","kind":"portamento","style":"straight","text":"port."}]',
+    );
+  });
+
   it("opens chord-symbol entry from the Text palette", async () => {
     useSelectionStore.setState({
       selection: { kind: "single", elementId: "p0/m1/s0/first-note/n0", elementType: "note" },
@@ -174,6 +264,69 @@ describe("PalettePanel", () => {
 
     expect(screen.getByTestId("time-0").textContent).toBe("null");
     expect(screen.getByTestId("time-1").textContent).toBe('{"count":5,"unit":4}');
+  });
+
+  it.each([
+    ["Open meter", "senzaMisura"],
+    ["Note-value denominator", "note"],
+  ] as const)("authors %s from the palette", async (label, display) => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: label }));
+
+    expect(screen.getByTestId("time-1").textContent).toBe(`{"count":4,"unit":4,"display":"${display}"}`);
+  });
+
+  it.each([
+    ["Heavy-light", "heavyLight"],
+    ["Heavy-heavy", "heavyHeavy"],
+    ["No barline", "noBarline"],
+  ] as const)("authors a %s barline from the palette", async (label, type) => {
+    useSelectionStore.setState({
+      selection: {
+        kind: "measure",
+        startPartIndex: 0,
+        endPartIndex: 0,
+        startStaffIndex: 0,
+        endStaffIndex: 0,
+        startMeasure: 1,
+        endMeasure: 1,
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: label }));
+
+    expect(screen.getByTestId("barline-1").textContent).toBe(`{"type":"${type}"}`);
   });
 
   it.each([

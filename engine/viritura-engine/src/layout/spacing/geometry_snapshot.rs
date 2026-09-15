@@ -27,6 +27,7 @@ pub(super) struct SpacingSnapshot<'a> {
 #[allow(clippy::too_many_arguments)] // snapshot construction receives the complete spacing context once
 pub(super) fn build_spacing_snapshot<'a>(
     all_sequences: &[&'a [Sequence]],
+    staff_ratios: &[f64],
     active_keys: &[&KeySignature],
     transpositions: &[Option<(i32, i32)>],
     clef_changes: &[Option<&[(f64, Clef)]>],
@@ -62,12 +63,13 @@ pub(super) fn build_spacing_snapshot<'a>(
             .unwrap_or(&default_key);
         let changes = clef_changes.get(staff_index).copied().flatten();
         let sequence_count = sequences.len();
+        let ratio = staff_ratios.get(staff_index).copied().unwrap_or(1.0);
 
         for (sequence_index, sequence) in sequences.iter().enumerate() {
             if sequence.full_measure.is_some() {
                 continue;
             }
-            let timeline = sequence_timeline(sequence, sequence_index, sequence_count);
+            let timeline = sequence_timeline(sequence, sequence_index, sequence_count, ratio);
             for (key, count) in timeline.grace_before {
                 snapshot
                     .grace_counts

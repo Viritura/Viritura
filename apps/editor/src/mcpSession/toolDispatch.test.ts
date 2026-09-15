@@ -130,7 +130,7 @@ describe("MCP editor tool dispatch", () => {
         {
           type: "event",
           id: "nested-event",
-          duration: { base: "half" },
+          duration: { base: "half", dots: 1 },
           stemDirection: "down",
           notes: [{ id: "nested-note", pitch: { step: "D", octave: 4 } }],
         },

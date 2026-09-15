@@ -69,6 +69,21 @@ describe("parseMnx", () => {
     });
   });
 
+  it("round-trips note-value denominator display through the time extension", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      global: { measures: Array<Record<string, unknown>> };
+    };
+    mnx.global.measures[0] = {
+      time: { count: 6, unit: 8, _x: { viritura: { display: "note" } } },
+    };
+
+    const score = parseMnx(mnx);
+    expect(score.global.measures[0]?.time?.display).toBe("note");
+    expect(serializeMnx(score).global.measures[0]).toMatchObject({
+      time: { count: 6, unit: 8, _x: { viritura: { display: "note" } } },
+    });
+  });
+
   it("should parse barline correctly", () => {
     const score = parseMnx(helloWorldMnx);
     const measure = score.global.measures[0];
@@ -985,7 +1000,15 @@ describe("parseMnx _x.viritura extensions", () => {
                       notes: [{ pitch: { step: "C", octave: 4 } }],
                       _x: {
                         viritura: {
-                          glissandos: [{ target: "ev2", style: "straight", text: "gliss." }],
+                          glissandos: [
+                            {
+                              target: "ev2",
+                              kind: "portamento",
+                              style: "straight",
+                              text: "port.",
+                              showText: false,
+                            },
+                          ],
                         },
                       },
                     },
@@ -1007,9 +1030,15 @@ describe("parseMnx _x.viritura extensions", () => {
     if (ev?.type === "event") {
       expect(ev.glissandos).toHaveLength(1);
       expect(ev.glissandos?.[0]?.target).toBe("ev2");
+      expect(ev.glissandos?.[0]?.kind).toBe("portamento");
       expect(ev.glissandos?.[0]?.style).toBe("straight");
-      expect(ev.glissandos?.[0]?.text).toBe("gliss.");
+      expect(ev.glissandos?.[0]?.text).toBe("port.");
+      expect(ev.glissandos?.[0]?.showText).toBe(false);
     }
+    const reparsed = parseMnx(serializeMnx(score));
+    const reparsedEvent = reparsed.parts[0]?.measures[0]?.sequences[0]?.content[0];
+    expect(reparsedEvent?.type === "event" ? reparsedEvent.glissandos?.[0]?.kind : undefined).toBe("portamento");
+    expect(reparsedEvent?.type === "event" ? reparsedEvent.glissandos?.[0]?.showText : undefined).toBe(false);
   });
 
   it("should parse arpeggio from markings._x.viritura", () => {

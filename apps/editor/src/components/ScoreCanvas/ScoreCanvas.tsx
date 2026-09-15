@@ -118,6 +118,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       viewMode = "horizon",
       initialZoom,
       printPreview = false,
+      showHiddenRests = false,
       scrollAnchor,
       safeArea,
       fitToWidth = false,
@@ -508,8 +509,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           perfTracker: perfTrackerRef.current,
           setLayoutPerfDebug,
           pageSetupRef,
+          showHiddenRests,
         }),
-      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves],
+      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, showHiddenRests],
     );
 
     // Cached ScoreInfo to avoid re-calling WASM getScoreInfo on every edit

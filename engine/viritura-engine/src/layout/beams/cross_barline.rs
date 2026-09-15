@@ -68,34 +68,52 @@ pub(crate) fn find_beam_sub_groups(
     groups
 }
 
+/// Explicit beamlet directions keyed by event ID, then one-based beam level.
+pub(crate) type ExplicitHookDirections = HashMap<String, HashMap<u32, bool>>;
+
 /// Collect explicit beam hook directions from MNX inner beams.
-/// Returns a map of event ID → is_right for each explicitly directed beamlet.
 /// `BeamHookDirection::Auto` is treated as "no explicit override" so the
 /// engraver can decide based on rhythmic context (per MNX spec).
-pub(crate) fn collect_explicit_hooks(beam: &Beam) -> HashMap<String, bool> {
+pub(crate) fn collect_explicit_hooks(beam: &Beam) -> ExplicitHookDirections {
     let mut hooks = HashMap::new();
-    for inner in &beam.beams {
+    collect_explicit_hooks_recursive(&beam.beams, 2, &mut hooks);
+    hooks
+}
+
+fn collect_explicit_hooks_recursive(
+    beams: &[Beam],
+    level: u32,
+    hooks: &mut ExplicitHookDirections,
+) {
+    for inner in beams {
         if let Some(ref dir) = inner.direction {
-            match dir {
-                BeamHookDirection::Right => {
-                    for event_id in &inner.events {
-                        hooks.insert(event_id.clone(), true);
-                    }
-                }
-                BeamHookDirection::Left => {
-                    for event_id in &inner.events {
-                        hooks.insert(event_id.clone(), false);
-                    }
-                }
-                BeamHookDirection::Auto => {
-                    // intentional: skip — let the engraver's auto-detect run
+            let points_right = match dir {
+                BeamHookDirection::Right => Some(true),
+                BeamHookDirection::Left => Some(false),
+                BeamHookDirection::Auto => None,
+            };
+            if let Some(points_right) = points_right {
+                for event_id in &inner.events {
+                    hooks
+                        .entry(event_id.clone())
+                        .or_default()
+                        .insert(level, points_right);
                 }
             }
         }
-        // Recurse for deeper nested beams
-        hooks.extend(collect_explicit_hooks(inner));
+        collect_explicit_hooks_recursive(&inner.beams, level + 1, hooks);
     }
+}
+
+pub(crate) fn explicit_hook_direction(
+    hooks: &ExplicitHookDirections,
+    event_id: &str,
+    level: u32,
+) -> Option<bool> {
     hooks
+        .get(event_id)
+        .and_then(|levels| levels.get(&level))
+        .copied()
 }
 
 /// Extract explicit sub-beam groups per level from the MNX beam hierarchy.
@@ -411,7 +429,8 @@ pub(crate) fn render_cross_barline_beams(
                         BeamSegment::Hook { index, right } => {
                             let event_id = beam_events[index].id.as_deref().unwrap_or("");
                             let actual_right =
-                                explicit_hooks.get(event_id).copied().unwrap_or(right);
+                                explicit_hook_direction(&explicit_hooks, event_id, level + 1)
+                                    .unwrap_or(right);
                             let (x, _) = stem_tips[index];
                             let (hx1, hx2) = if actual_right {
                                 (x - stem_half_w, x + hook_len)
@@ -533,7 +552,7 @@ pub(super) fn draw_grace_beam_levels(
     beam_thickness: f64,
     beam_gap: f64,
     max_beam_level: u32,
-    explicit_hooks: &std::collections::HashMap<String, bool>,
+    explicit_hooks: &ExplicitHookDirections,
 ) {
     // Build temporary EventLayout wrappers for sub-group finding.
     // find_beam_sub_groups operates on EventLayouts, but grace notes use a
@@ -597,7 +616,8 @@ pub(super) fn draw_grace_beam_levels(
                 }
                 BeamSegment::Hook { index, right } => {
                     let event_id = beam_graces[index].id.as_deref().unwrap_or("");
-                    let actual_right = explicit_hooks.get(event_id).copied().unwrap_or(right);
+                    let actual_right = explicit_hook_direction(explicit_hooks, event_id, level + 1)
+                        .unwrap_or(right);
 
                     let (x, _) = stem_tips[index];
                     let (hx1, hx2) = if actual_right {

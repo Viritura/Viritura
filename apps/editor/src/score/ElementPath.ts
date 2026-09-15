@@ -158,6 +158,8 @@ export interface EventLocation {
    * appear here — grace ids fail closed in `parseEventPathSegments`.)
    */
   tupletIndex?: number;
+  /** Full sequence-content index path for recursively nested tuplets. */
+  contentPath?: number[];
   /** If a specific note in a chord is targeted, its index. Undefined = all notes. */
   noteIndex?: number;
 }
@@ -290,6 +292,26 @@ function findEventByModelId(sequence: Sequence, base: EventBase, evSuffix: strin
   return null;
 }
 
+function findHiddenSpaceByPlaceholderId(sequence: Sequence, base: EventBase, evSuffix: string): EventLocation | null {
+  const match = evSuffix.match(/^__viritura_hidden_space_t(\d+(?:_i\d+)*)$/);
+  if (!match) return null;
+  const path = match[1]!.split("_i").map((value) => Number.parseInt(value, 10));
+  let content = sequence.content;
+  for (let depth = 0; depth < path.length - 1; depth++) {
+    const container = content[path[depth]!];
+    if (container?.type !== "tuplet") return null;
+    content = container.content;
+  }
+  const eventIndex = path[path.length - 1]!;
+  if (content[eventIndex]?.type !== "space") return null;
+  return {
+    ...base,
+    eventIndex,
+    ...(path.length > 1 && { tupletIndex: path[0] }),
+    contentPath: path,
+  };
+}
+
 function parseFlatEventIndex(evSuffix: string): number {
   const indexMatch = evSuffix.match(/^e(\d+)$/);
   if (indexMatch) return parseInt(indexMatch[1]!, 10);
@@ -341,6 +363,8 @@ export function resolveEventLocation(elementId: string, score: Score): EventLoca
 
   const byId = findEventByModelId(sequence, base, evSuffix);
   if (byId) return byId;
+  const hiddenSpace = findHiddenSpaceByPlaceholderId(sequence, base, evSuffix);
+  if (hiddenSpace) return hiddenSpace;
 
   const flatIdx = parseFlatEventIndex(evSuffix);
   if (flatIdx >= 0) return findEventByFlatIndex(sequence, base, flatIdx);

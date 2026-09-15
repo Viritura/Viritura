@@ -4,7 +4,7 @@ use super::super::types::{EventLayout, MeasureLayout};
 use super::cross_barline::*;
 use crate::render::smufl::smufl;
 use crate::render::{DisplayList, ElementKind, RenderCommand};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[allow(clippy::too_many_arguments)] // rendering boundary: beam geometry and tagging inputs are independent
 pub(super) fn render_between_staff_beam(
@@ -19,6 +19,7 @@ pub(super) fn render_between_staff_beam(
     beam_thickness: f64,
     beam_gap: f64,
     max_beam_level: u32,
+    explicit_hooks: &ExplicitHookDirections,
     beam_idx: usize,
     cmd_start: usize,
 ) -> bool {
@@ -94,9 +95,12 @@ pub(super) fn render_between_staff_beam(
                     beam_thickness,
                 ),
                 BeamSegment::Hook { index, right } => {
+                    let event_id = beam_events[index].id.as_deref().unwrap_or("");
+                    let points_right = explicit_hook_direction(explicit_hooks, event_id, level + 1)
+                        .unwrap_or(right);
                     let x = stems[index].0;
                     let hook_length = 0.875 * sp;
-                    let (x1, x2) = if right {
+                    let (x1, x2) = if points_right {
                         (x - stem_half_width, x + hook_length)
                     } else {
                         (x - hook_length, x + stem_half_width)
@@ -148,7 +152,7 @@ pub(super) fn draw_beam_levels(
     max_beam_level: u32,
     beam_thickness: f64,
     beam_gap: f64,
-    explicit_hooks: &HashMap<String, bool>,
+    explicit_hooks: &ExplicitHookDirections,
     explicit_beam_groups: &[Vec<HashSet<String>>],
     tuplet_boundary_breaks: &HashSet<usize>,
     sp: f64,
@@ -180,10 +184,12 @@ pub(super) fn draw_beam_levels(
                     stem_tips[end].0 + stem_half_width,
                 ),
                 BeamSegment::Hook { index, right } => {
-                    let points_right = explicit_hooks
-                        .get(beam_events[index].id.as_deref().unwrap_or(""))
-                        .copied()
-                        .unwrap_or(right);
+                    let points_right = explicit_hook_direction(
+                        explicit_hooks,
+                        beam_events[index].id.as_deref().unwrap_or(""),
+                        level + 1,
+                    )
+                    .unwrap_or(right);
                     let x = stem_tips[index].0;
                     if points_right {
                         (x - stem_half_width, x + hook_length)

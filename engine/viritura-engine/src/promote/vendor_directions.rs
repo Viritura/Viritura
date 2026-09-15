@@ -20,6 +20,11 @@ use crate::model::direction::{
     RehearsalMark as ModelRehearsalMark, TextExpression as ModelTextExpression,
 };
 use crate::model::event::{Glissando as ModelGlissando, GlissandoStyle as ModelGlissandoStyle};
+use crate::model::measure::StaffGroupingDisplayOverride as ModelStaffGroupingDisplayOverride;
+use crate::model::staff_meter::{
+    StaffMeter as ModelStaffMeter, StaffMeterChange as ModelStaffMeterChange,
+    StaffMeterSynchronization as ModelStaffMeterSynchronization,
+};
 use crate::promote::vendor_ext::read_viritura_ext;
 use crate::{raw, raw_viritura};
 
@@ -32,6 +37,8 @@ pub(crate) struct PartMeasureVendor {
     pub chord_symbols: Option<Vec<ModelChordSymbol>>,
     pub expressions: Option<Vec<ModelTextExpression>>,
     pub condensing_override: Option<String>,
+    pub grouping_display_overrides: Option<Vec<ModelStaffGroupingDisplayOverride>>,
+    pub staff_meters: Option<Vec<ModelStaffMeterChange>>,
 }
 
 #[cfg(test)]
@@ -74,7 +81,21 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
                 .map(promote_text_expression)
                 .collect(),
         ),
+        grouping_display_overrides: vec_or_none(
+            raw_ext
+                .grouping_display_overrides
+                .into_iter()
+                .map(promote_grouping_display_override)
+                .collect(),
+        ),
         condensing_override: raw_ext.condensing_override.map(|o| o.to_string()),
+        staff_meters: vec_or_none(
+            raw_ext
+                .staff_meters
+                .into_iter()
+                .map(promote_staff_meter_change)
+                .collect(),
+        ),
     }
 }
 
@@ -126,6 +147,54 @@ pub(crate) fn extract_event_glissandos(
 }
 
 // ─── Type-by-type promote functions ────────────────────────────────────
+
+fn promote_staff_meter(r: raw_viritura::StaffMeter) -> ModelStaffMeter {
+    ModelStaffMeter {
+        count: u32::try_from(r.count).unwrap_or(4),
+        unit: u32::try_from(*r.unit).unwrap_or(4),
+        beat_structure: (!r.beat_structure.is_empty()).then(|| {
+            r.beat_structure
+                .into_iter()
+                .filter_map(|group| u32::try_from(group).ok())
+                .collect()
+        }),
+    }
+}
+
+fn promote_staff_meter_synchronization(
+    r: raw_viritura::StaffMeterSynchronization,
+) -> ModelStaffMeterSynchronization {
+    match r {
+        raw_viritura::StaffMeterSynchronization::SharedDuration => {
+            ModelStaffMeterSynchronization::SharedDuration
+        }
+        raw_viritura::StaffMeterSynchronization::FitMeasure => {
+            ModelStaffMeterSynchronization::FitMeasure
+        }
+    }
+}
+
+fn promote_staff_meter_change(r: raw_viritura::StaffMeterChange) -> ModelStaffMeterChange {
+    match r {
+        raw_viritura::StaffMeterChange::Set(set) => ModelStaffMeterChange::Set {
+            staff: u32::try_from(set.staff).unwrap_or(1),
+            meter: promote_staff_meter(set.meter),
+            synchronization: promote_staff_meter_synchronization(set.synchronization),
+        },
+        raw_viritura::StaffMeterChange::Reset(reset) => ModelStaffMeterChange::Reset {
+            staff: u32::try_from(reset.staff).unwrap_or(1),
+        },
+    }
+}
+
+fn promote_grouping_display_override(
+    r: raw_viritura::StaffGroupingDisplayOverride,
+) -> ModelStaffGroupingDisplayOverride {
+    ModelStaffGroupingDisplayOverride {
+        staff: u32::try_from(r.staff).unwrap_or(1),
+        grouping_display: crate::promote::time::promote_grouping_display(r.grouping_display),
+    }
+}
 
 fn promote_pedal(r: raw_viritura::Pedal) -> ModelPedal {
     ModelPedal {
@@ -221,7 +290,11 @@ fn promote_glissando(r: raw_viritura::Glissando) -> ModelGlissando {
             Some(raw_viritura::GlissandoStyle::Straight) | None => ModelGlissandoStyle::Straight,
             Some(raw_viritura::GlissandoStyle::Wavy) => ModelGlissandoStyle::Wavy,
         },
-        text: r.text,
+        text: if r.show_text == Some(false) {
+            None
+        } else {
+            r.text
+        },
     }
 }
 
@@ -298,6 +371,36 @@ mod tests {
         let x = vendor_ext_from_json(r#"{"viritura":{"condensingOverride":"divisi"}}"#);
         let v = extract_part_measure_vendor(Some(&x));
         assert_eq!(v.condensing_override.as_deref(), Some("divisi"));
+    }
+
+    #[test]
+    fn extracts_staff_meter_set_and_reset() {
+        let x = vendor_ext_from_json(
+            r#"{"viritura":{"staffMeters":[
+                {"staff":2,"meter":{"count":6,"unit":8},"synchronization":"fitMeasure"},
+                {"staff":3,"useGlobal":true}
+            ]}}"#,
+        );
+        let v = extract_part_measure_vendor(Some(&x));
+        let changes = v.staff_meters.expect("staff meters decoded");
+        assert_eq!(changes.len(), 2);
+        match &changes[0] {
+            ModelStaffMeterChange::Set {
+                staff,
+                meter,
+                synchronization,
+            } => {
+                assert_eq!(*staff, 2);
+                assert_eq!(meter.count, 6);
+                assert_eq!(meter.unit, 8);
+                assert_eq!(*synchronization, ModelStaffMeterSynchronization::FitMeasure);
+            }
+            ModelStaffMeterChange::Reset { .. } => panic!("expected a Set change"),
+        }
+        match &changes[1] {
+            ModelStaffMeterChange::Reset { staff } => assert_eq!(*staff, 3),
+            ModelStaffMeterChange::Set { .. } => panic!("expected a Reset change"),
+        }
     }
 
     #[test]

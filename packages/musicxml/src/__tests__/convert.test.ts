@@ -876,7 +876,29 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
     const start = content[0]! as { _x?: { viritura: { glissandos?: unknown[] } } };
     const end = content[1]! as { id?: string };
 
-    expect(start._x?.viritura.glissandos).toEqual([{ target: end.id, style: "wavy", text: "gliss." }]);
+    expect(start._x?.viritura.glissandos).toEqual([
+      { target: end.id, kind: "glissando", style: "wavy", text: "gliss." },
+    ]);
+  });
+
+  it("preserves MusicXML slide semantics as portamento", () => {
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <notations><slide type="start" number="1"/></notations>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <notations><slide type="stop" number="1"/></notations>
+      </note>
+    `);
+
+    const content = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
+      .content;
+    const start = content[0]! as { _x?: { viritura: { glissandos?: unknown[] } } };
+    const end = content[1]! as { id?: string };
+
+    expect(start._x?.viritura.glissandos).toEqual([{ target: end.id, kind: "portamento" }]);
   });
 
   it("reports glissando loss when Viritura extensions are disabled", () => {
@@ -1710,6 +1732,123 @@ describe("convertMusicXmlToMnx — beams", () => {
     const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
     expect(measure.beams).toBeDefined();
     expect(measure.beams![0]!.events).toHaveLength(3);
+  });
+
+  it("preserves numbered inner beams and directed hooks recursively", () => {
+    const xml = wrapScore(
+      `
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">begin</beam><beam number="2">begin</beam><beam number="3">begin</beam></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">continue</beam><beam number="2">end</beam><beam number="3">end</beam></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">continue</beam><beam number="2">forward hook</beam></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">end</beam><beam number="2">backward hook</beam></note>
+    `,
+      { divisions: 4 },
+    );
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const ids = measure.sequences![0]!.content.map((item) => ("id" in item ? item.id : undefined));
+
+    expect(measure.beams).toEqual([
+      {
+        events: ids,
+        beams: [
+          { events: ids.slice(0, 2), beams: [{ events: ids.slice(0, 2) }] },
+          { events: [ids[2]], direction: "right" },
+          { events: [ids[3]], direction: "left" },
+        ],
+      },
+    ]);
+  });
+
+  it("nests deeper hooks beneath a hook on the same note", () => {
+    const xml = wrapScore(
+      `
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">begin</beam><beam number="2">forward hook</beam><beam number="3">forward hook</beam></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>32nd</type><beam number="1">end</beam></note>
+    `,
+      { divisions: 4 },
+    );
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const firstId = measure.sequences![0]!.content[0]!;
+    const secondId = measure.sequences![0]!.content[1]!;
+
+    expect(measure.beams).toEqual([
+      {
+        events: ["id" in firstId ? firstId.id : undefined, "id" in secondId ? secondId.id : undefined],
+        beams: [
+          {
+            events: ["id" in firstId ? firstId.id : undefined],
+            direction: "right",
+            beams: [{ events: ["id" in firstId ? firstId.id : undefined], direction: "right" }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("preserves cross-staff beams while isolating independent voices", () => {
+    const xml = wrapScore(
+      `
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>1</staff><beam number="1">begin</beam></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>2</voice><staff>1</staff><beam number="1">begin</beam></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>2</staff><beam number="1">continue</beam></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>1</voice><staff>1</staff><beam number="1">end</beam></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><voice>2</voice><staff>1</staff><beam number="1">end</beam></note>
+    `,
+      { divisions: 1 },
+    );
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const eventIds = (sequenceIndex: number): string[] =>
+      measure
+        .sequences![sequenceIndex]!.content.map((item) => ("id" in item ? item.id : undefined))
+        .filter((id): id is string => id !== undefined);
+    const voice1Ids = eventIds(0);
+    const voice2Ids = eventIds(1);
+
+    expect(measure.beams).toEqual([{ events: voice1Ids }, { events: voice2Ids }]);
+  });
+
+  it("does not duplicate event IDs when chord notes repeat beam marks", () => {
+    const xml = wrapScore(
+      `
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">begin</beam></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">begin</beam></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">end</beam></note>
+      <note><chord/><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">end</beam></note>
+    `,
+      { divisions: 1 },
+    );
+    const measure = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!;
+    const events = measure.sequences![0]!.content;
+
+    expect(events).toHaveLength(2);
+    expect(measure.beams?.[0]?.events).toEqual(events.map((item) => ("id" in item ? item.id : undefined)));
+    expect(new Set(measure.beams?.[0]?.events).size).toBe(2);
+  });
+
+  it("stores a cross-measure beam on the measure where it begins", () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>1</divisions><time><beats>1</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">begin</beam></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>1</duration><type>eighth</type><beam number="1">end</beam></note>
+    </measure>
+  </part>
+</score-partwise>`;
+    const result = convertMusicXmlToMnx(xml);
+    const first = result.parts[0]!.measures[0]!;
+    const second = result.parts[0]!.measures[1]!;
+    const firstId = first.sequences![0]!.content[0]!;
+    const secondId = second.sequences![0]!.content[0]!;
+
+    expect(first.beams).toEqual([
+      { events: ["id" in firstId ? firstId.id : undefined, "id" in secondId ? secondId.id : undefined] },
+    ]);
+    expect(second.beams).toBeUndefined();
   });
 });
 

@@ -386,8 +386,16 @@ export function TimeSignatureStaffPreview({
   );
 }
 
-export function TimeSigGlyph({ count, unit }: { count: number; unit: number }) {
-  return <TimeSignatureStaffPreview count={count} unit={unit} />;
+export function TimeSigGlyph({
+  count,
+  unit,
+  numeralStyle,
+}: {
+  count: number;
+  unit: number;
+  numeralStyle?: TimeSignatureRenderStyle;
+}) {
+  return <TimeSignatureStaffPreview count={count} unit={unit} numeralStyle={numeralStyle} />;
 }
 
 const KEY_SIG_SHARP_POSITIONS = [0.0, 3.0, -0.5, 2.5, 5.5, 1.5, 4.5];

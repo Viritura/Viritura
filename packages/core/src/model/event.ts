@@ -269,11 +269,16 @@ export interface Slur {
 /** Glissando line style. */
 export type GlissandoStyle = "straight" | "wavy";
 
+/** Musical meaning of a glissando-family line, independent of its label. */
+export type GlissandoKind = "glissando" | "portamento";
+
 /** Glissando line connecting two notes at different pitches. */
 export interface Glissando {
   target: string;
+  kind?: GlissandoKind;
   style?: GlissandoStyle;
   text?: string;
+  showText?: boolean;
 }
 
 /**
@@ -338,6 +343,12 @@ export type TupletBracket = "yes" | "no" | "auto";
 /** MNX `tuplet-display-setting` for showNumber / showValue. */
 export type TupletDisplaySetting = "noNumber" | "inner" | "both";
 
+/** Links measure-local tuplet fragments into one cross-barline tuplet. */
+export interface TupletSpan {
+  id: string;
+  type: "start" | "continue" | "stop";
+}
+
 /** A tuplet container (MNX tuplet). */
 export interface Tuplet {
   type: "tuplet";
@@ -357,6 +368,8 @@ export interface Tuplet {
   orient?: Orientation;
   /** Cross-staff tuplet: render on the specified staff number (1-indexed). */
   staff?: number;
+  /** Cross-barline relationship (Viritura extension `_x.viritura.span`). */
+  span?: TupletSpan;
 }
 
 /** Multi-note tremolo container (MNX tremolo). */

@@ -394,6 +394,41 @@ fn test_beam_hooks_mnx_explicit_directions() {
 }
 
 #[test]
+fn explicit_hook_directions_are_scoped_to_beam_level() {
+    let json = r#"{
+        "mnx": {"version": 1, "support": {"useBeams": true}},
+        "global": {"measures": [{"time": {"count": 1, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "beams": [{
+                "events": ["ev1", "ev2"],
+                "beams": [{
+                    "direction": "right",
+                    "events": ["ev1"],
+                    "beams": [{"direction": "left", "events": ["ev1"]}]
+                }]
+            }],
+            "sequences": [{"content": [
+                {"id": "ev1", "duration": {"base": "32nd"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
+                {"id": "ev2", "duration": {"base": "32nd"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}
+            ]}]
+        }]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let beam = &score.parts[0].measures[0].beams.as_ref().unwrap()[0];
+    let hooks = crate::layout::beams::collect_explicit_hooks(beam);
+
+    assert_eq!(
+        crate::layout::beams::explicit_hook_direction(&hooks, "ev1", 2),
+        Some(true)
+    );
+    assert_eq!(
+        crate::layout::beams::explicit_hook_direction(&hooks, "ev1", 3),
+        Some(false)
+    );
+}
+
+#[test]
 fn test_secondary_beam_breaks_explicit() {
     // Load the beams-secondary-beam-breaks.mnx fixture.
     // This has 32nd notes grouped in two top-level beams with explicit sub-beam

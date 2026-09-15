@@ -23,7 +23,64 @@ export interface components {
         "time-extensions": {
             /** @description Ordered beat-group lengths in units of the time signature denominator. Values must sum to time.count. */
             beatStructure?: number[];
+            /** @description Explicit per-occurrence grouping-display override for this time signature. Forces the named mode regardless of the document's house style, subject only to the symbolic-display/single-group safety fallback. */
+            groupingDisplay?: components["schemas"]["grouping-display"];
+            /**
+             * @description Engraves the denominator as its note value instead of a numeral.
+             * @constant
+             */
+            display?: "note";
         };
+        /**
+         * @description How a meter's beat grouping is presented, independent of its semantic beatStructure. `standard` shows an ordinary numeric (or symbolic) meter. `additive` writes the numerator as its beat groups joined by `+` (e.g. `2+3+2` over `8`). `annotation` engraves the ordinary meter plus a generated grouping annotation (e.g. `2+3+2+2`) above it.
+         * @enum {string}
+         */
+        "grouping-display": "standard" | "additive" | "annotation";
+        /** @description A per-staff grouping-display occurrence override on a part measure. Targets one staff and forces that staff's meter to the named mode, affecting presentation only — never the semantic beatStructure. */
+        "staff-grouping-display-override": {
+            /** @description 1-based staff number within this part. */
+            staff: number;
+            /** @description Forced grouping-display mode for this staff's meter. */
+            groupingDisplay: components["schemas"]["grouping-display"];
+        };
+        /** @description A staff-local meter distinct from the global (`global.measures[].time`) meter. Semantically identical in shape to a time signature, but never engraved on other staves and never establishes the score's barline duration by itself. */
+        "staff-meter": {
+            /** @description Numerator (beats per measure) of the staff-local meter. */
+            count: number;
+            /**
+             * @description Denominator (beat unit) of the staff-local meter.
+             * @enum {integer}
+             */
+            unit: 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128;
+            /** @description Ordered beat-group lengths in units of the staff-local meter's denominator. Values must sum to count. When omitted, Viritura resolves the conventional default structure for this count/unit, same as a global time signature. */
+            beatStructure?: number[];
+        };
+        /**
+         * @description How a staff-local meter's measure duration relates to the global measure it shares a barline with. `sharedDuration` requires the staff-local meter's measure duration to equal the global measure's duration exactly, so ordinary written note durations already line up — no scaling. `fitMeasure` maps one complete staff-local measure onto one complete global measure by a derived exact ratio (e.g. a local 6/8 measure of two dotted-quarter pulses onto a global 2/4 measure of two quarter-note pulses), so the staff's written durations are proportionally scaled for spacing and playback while the notated meter keeps its own conventional note values.
+         * @enum {string}
+         */
+        "staff-meter-synchronization": "sharedDuration" | "fitMeasure";
+        /** @description Establishes (or re-establishes) a staff-local synchronous meter from this part measure onward, until changed or reset. Barlines always remain synchronized with the global measure grid — this never authors an independent, non-aligning polymetric cycle. */
+        "staff-meter-set": {
+            /** @description 1-based staff number within this part. */
+            staff: number;
+            /** @description The staff-local meter to apply from this measure onward. */
+            meter: components["schemas"]["staff-meter"];
+            /** @description How this staff's measure duration relates to the global measure it shares a barline with. */
+            synchronization: components["schemas"]["staff-meter-synchronization"];
+        };
+        /** @description Resets a staff back to following the global meter from this part measure onward, ending a prior staff-meter-set declaration for this staff. */
+        "staff-meter-reset": {
+            /** @description 1-based staff number within this part. */
+            staff: number;
+            /**
+             * @description Always true. Marks this entry as a reset rather than a meter declaration.
+             * @constant
+             */
+            useGlobal: true;
+        };
+        /** @description One per-staff synchronous meter declaration or reset for this part measure, effective from this measure onward until changed or reset again. A union: either sets a staff-local meter and its synchronization mode, or resets the staff back to the global meter. */
+        "staff-meter-change": components["schemas"]["staff-meter-set"] | components["schemas"]["staff-meter-reset"];
         /** @description A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle. */
         "rehearsal-mark": {
             /** @description The rehearsal mark label text. */
@@ -201,14 +258,23 @@ export interface components {
          * @enum {string}
          */
         "glissando-style": "straight" | "wavy";
+        /**
+         * @description Semantic kind of a glissando-family line.
+         * @enum {string}
+         */
+        "glissando-kind": "glissando" | "portamento";
         /** @description A glissando or portamento connecting this event to a target event. */
         glissando: {
             /** @description ID of the target event. */
             target: string;
+            /** @description Semantic kind. Default: 'glissando'. */
+            kind?: components["schemas"]["glissando-kind"];
             /** @description Line style. Default: 'straight'. */
             style?: components["schemas"]["glissando-style"];
             /** @description Optional text label (e.g. 'gliss.', 'port.'). */
             text?: string;
+            /** @description Whether to display the text label. Default: true. */
+            showText?: boolean;
         };
         /** @description A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point. */
         "sp-delta": number[];
@@ -278,6 +344,24 @@ export interface components {
              * @enum {string}
              */
             condensingOverride?: "unison" | "solo1" | "solo2" | "amalgamate" | "divisi";
+            /** @description Per-staff grouping-display occurrence overrides, presentation-only and taking precedence over the time signature's own occurrence override and the document house style. */
+            groupingDisplayOverrides?: components["schemas"]["staff-grouping-display-override"][];
+            /** @description Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope. */
+            staffMeters?: components["schemas"]["staff-meter-change"][];
+        };
+        /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
+        "tuplet-span": {
+            /** @description Stable identity shared by every fragment of the logical tuplet. */
+            id: string;
+            /**
+             * @description The fragment's position within the logical tuplet.
+             * @enum {string}
+             */
+            type: "start" | "continue" | "stop";
+        };
+        /** @description Viritura extensions on an MNX tuplet object. */
+        "tuplet-extensions": {
+            span?: components["schemas"]["tuplet-span"];
         };
         /** @description Viritura editor bookkeeping on an MNX positioned-staff-config object. */
         "positioned-staff-config-extensions": {
@@ -533,6 +617,8 @@ export interface components {
             /** @description Scale multiplier over the selected render style's normal optical size. */
             scale?: number;
             senzaMisura?: components["schemas"]["senza-misura-display"];
+            /** @description House-style grouping display, applied only when a meter's resolved beat structure is structurally non-default for its count/unit. Ordinary/default meters always stay standard regardless of this setting. */
+            nonDefaultGroupingDisplay?: components["schemas"]["grouping-display"];
         };
         /** @description Time signature engraving settings. Legacy preset strings remain readable; new documents use the object form. */
         "time-signature-settings": components["schemas"]["time-signature-settings-object"] | components["schemas"]["time-signature-legacy-style"];
@@ -701,6 +787,13 @@ export type operations = Record<string, never>;
 export type RhythmicPosition = components["schemas"]["rhythmic-position"];
 export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-position"];
 export type TimeExtensions = components["schemas"]["time-extensions"];
+export type GroupingDisplay = components["schemas"]["grouping-display"];
+export type StaffGroupingDisplayOverride = components["schemas"]["staff-grouping-display-override"];
+export type StaffMeter = components["schemas"]["staff-meter"];
+export type StaffMeterSynchronization = components["schemas"]["staff-meter-synchronization"];
+export type StaffMeterSet = components["schemas"]["staff-meter-set"];
+export type StaffMeterReset = components["schemas"]["staff-meter-reset"];
+export type StaffMeterChange = components["schemas"]["staff-meter-change"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
 export type Coda = components["schemas"]["coda"];
 export type Caesura = components["schemas"]["caesura"];
@@ -720,6 +813,7 @@ export type Trill = components["schemas"]["trill"];
 export type OrnamentType = components["schemas"]["ornament-type"];
 export type Fingering = components["schemas"]["fingering"];
 export type GlissandoStyle = components["schemas"]["glissando-style"];
+export type GlissandoKind = components["schemas"]["glissando-kind"];
 export type Glissando = components["schemas"]["glissando"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];
@@ -728,6 +822,8 @@ export type Jump = components["schemas"]["jump"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
+export type TupletSpan = components["schemas"]["tuplet-span"];
+export type TupletExtensions = components["schemas"]["tuplet-extensions"];
 export type PositionedStaffConfigExtensions = components["schemas"]["positioned-staff-config-extensions"];
 export type EventMarkingsExtensions = components["schemas"]["event-markings-extensions"];
 export type Arpeggio = components["schemas"]["arpeggio"];

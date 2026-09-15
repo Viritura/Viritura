@@ -1023,6 +1023,26 @@ impl LayoutCache {
         self.last_resolved_span
     }
 
+    #[cfg(test)]
+    pub(crate) fn resolved_staff_meter(
+        &self,
+        staff_index: usize,
+        measure_index: usize,
+    ) -> Option<&crate::model::staff_meter::EffectiveStaffMeter> {
+        self.resolved_staves
+            .as_ref()?
+            .get(staff_index)?
+            .resolved
+            .get(measure_index)?
+            .effective_staff_meter
+            .as_ref()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn resolved_staff_count(&self) -> usize {
+        self.resolved_staves.as_ref().map_or(0, Vec::len)
+    }
+
     /// (test) Full span the most recent resolve pass could have touched.
     pub fn last_resolved_full_span(&self) -> usize {
         self.last_resolved_full_span

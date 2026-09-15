@@ -44,6 +44,7 @@ import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds"
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 import { collectPartLegatoOut, flushVoiceLegato, flushAllLegato, pushVoiceLegato, resolveVoiceLegato } from "./legato";
 import { ARCO_CAPABLE_PROGRAMS, muteFamilyForProgram, applyMeasureTechniques, type TechniqueState } from "./technique";
+import { resolveActiveTime, resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
 export { expandMeasureOrder };
 
 /** GM percussion channel (0-based; channel 10 in 1-based MIDI numbering). */
@@ -147,7 +148,20 @@ export interface PartCtx {
   voiceKey: string;
   readonly out: MidiEvent[];
   readonly gmProgram: number;
-  readonly timeSig: TimeSignature;
+  /** Meter driving beat semantics (metric accent) for the sequence currently
+   *  being processed: the global measure's time signature, or a staff-local
+   *  meter's own time signature when the current sequence's staff carries an
+   *  effective `_x.viritura.staffMeters` declaration. Mutated per sequence in
+   *  `processPart`, mirroring `sequenceStaff`. */
+  timeSig: TimeSignature;
+  /** Exact ratio scaling this staff's written beats into global-measure-
+   *  equivalent beats for absolute playback timing (`1` for an ordinary staff
+   *  or a `sharedDuration` staff-local meter; the derived mapping ratio for
+   *  `fitMeasure`). Applied in `eventTime`/`eventSeconds` so a `fitMeasure`
+   *  staff's notes land at the same wall-clock position other staves'
+   *  corresponding beats do, even though its written durations differ.
+   *  Mutated per sequence, alongside `timeSig`. */
+  staffMeterRatio: number;
   /** Active key signature (circle-of-fifths) at this measure; drives trill auxiliaries. */
   readonly keyFifths: number;
   readonly kitMidiMap: ReadonlyMap<string, number> | undefined;
@@ -479,6 +493,11 @@ function processPart(
   const legatoOutIds = collectPartLegatoOut(part);
   const pendingLegato = new Map<string, MidiEvent[]>();
 
+  // Staff-local synchronous meters (`_x.viritura.staffMeters`), resolved once
+  // per part against the (unexpanded) measure order so repeat/jump expansion
+  // in `measureOrder` doesn't need to recompute inherited state.
+  const staffMeterTable = resolvePartStaffMeterTable(part, globalMeasures);
+
   // Coupled dynamics: a single source of truth for velocity (sampled per note)
   // and CC11 (emitted up front so it spans note boundaries for held-note shaping).
   const dynamicProgram = compileDynamicProgram(
@@ -490,6 +509,7 @@ function processPart(
     globalMeasures,
     gmProgram,
     impliedDynamics,
+    staffMeterTable,
   );
   for (const lane of dynamicProgram.lanes.values()) {
     emitDynamicsCc11(lane.envelope, partIdx, channel, allEvents, lane.id);
@@ -540,6 +560,7 @@ function processPart(
       out: allEvents,
       gmProgram,
       timeSig: activeTime,
+      staffMeterRatio: 1,
       keyFifths: activeKeyFifths,
       kitMidiMap,
       kitAltProgramMap,
@@ -553,10 +574,16 @@ function processPart(
     };
 
     if (techniqueEnabled) {
-      techniqueState = applyMeasureTechniques(partMeasure.expressions, ctx, techniqueState, {
-        bow: bowCapable,
-        mute: muteFamily,
-      });
+      techniqueState = applyMeasureTechniques(
+        partMeasure.expressions,
+        ctx,
+        techniqueState,
+        {
+          bow: bowCapable,
+          mute: muteFamily,
+        },
+        (staff) => staffMeterRatioAt(staffMeterTable, origMeasureIdx, staff),
+      );
     }
 
     partMeasure.sequences.forEach((seq, seqIdx) => {
@@ -568,6 +595,9 @@ function processPart(
       ctx.sequenceVoice = lane.voice;
       ctx.dynamicsEnvelope = lane.envelope;
       ctx.playbackLaneId = lane.id;
+      const effectiveStaffMeter = staffMeterTable[origMeasureIdx]?.get(ctx.sequenceStaff);
+      ctx.timeSig = effectiveStaffMeter ? effectiveStaffMeter.timeSignature : activeTime;
+      ctx.staffMeterRatio = staffMeterRatioAt(staffMeterTable, origMeasureIdx, ctx.sequenceStaff);
       const firstNewEvent = allEvents.length;
       processSequence(ctx, seq, measureStartTime, measureHolds, measureSpq);
       stampPlaybackLane(allEvents, firstNewEvent, lane.id);
@@ -598,12 +628,15 @@ function stampPendingLane(ctx: PartCtx, laneId: string): void {
 
 /** Absolute time (s) of a measure-relative beat, via the continuous model. */
 function eventTime(ctx: PartCtx, beatOffset: number): number {
-  return ctx.model.timeAtBeat(ctx.measureStartBeat + beatOffset);
+  return ctx.model.timeAtBeat(ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio);
 }
 
 /** Seconds spanned by `beats` starting at a measure-relative beat. */
 function eventSeconds(ctx: PartCtx, beatOffset: number, beats: number): number {
-  return ctx.model.secondsForBeats(ctx.measureStartBeat + beatOffset, beats);
+  return ctx.model.secondsForBeats(
+    ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+    beats * ctx.staffMeterRatio,
+  );
 }
 
 /** Sample the part's coupled dynamic velocity (the noteOn level) at a measure beat. */
@@ -720,8 +753,12 @@ function resolveFermataDuration(
   beatOffset: number,
 ): { durationSec: number; durationScale: number; held: boolean } {
   if (event.fermata && event.fermata.duration !== "none" && ctx.fermataGroups.length > 0) {
-    // Match the carrier to the group whose span contains its onset beat.
-    const group = ctx.fermataGroups.find((g) => beatOffset >= g.startBeat - 1e-9 && beatOffset < g.spanEndBeat - 1e-9);
+    // Hold groups are expressed on the shared global axis. Convert this
+    // staff's written onset before matching it to its ensemble group.
+    const globalBeatOffset = beatOffset * ctx.staffMeterRatio;
+    const group = ctx.fermataGroups.find(
+      (g) => globalBeatOffset >= g.startBeat - 1e-9 && globalBeatOffset < g.spanEndBeat - 1e-9,
+    );
     if (group) {
       // Resume time = model time at the (post-insertion) driver-end beat. For
       // the driver and any member ending at/after it, naturalDurationSec already
@@ -1393,16 +1430,6 @@ function processTremolo(
 // ═══════════════════════════════════════════
 // Active time signature resolution
 // ═══════════════════════════════════════════
-
-/** Resolve the active time signature at a given measure index. */
-function resolveActiveTime(globalMeasures: readonly GlobalMeasure[], measureIdx: number): TimeSignature {
-  for (let m = measureIdx; m >= 0; m--) {
-    if (globalMeasures[m]!.time) {
-      return globalMeasures[m]!.time!;
-    }
-  }
-  return { count: 4, unit: 4 };
-}
 
 /** Resolve the active key signature (circle-of-fifths) at a given measure index. */
 function resolveActiveKeyFifths(globalMeasures: readonly GlobalMeasure[], measureIdx: number): number {

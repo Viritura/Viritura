@@ -10,7 +10,8 @@ use super::event::{ArpeggioDirection, Sequence};
 use super::key::KeySignature;
 use super::kit::KitComponent;
 use super::repeat::{Ending, RepeatEnd, RepeatStart};
-use super::time::TimeSignature;
+use super::staff_meter::StaffMeterChange;
+use super::time::{GroupingDisplay, TimeSignature};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -100,7 +101,7 @@ impl GlobalMeasure {
 }
 
 /// A part-specific measure (MNX parts[n].measures[m]).
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct PartMeasure {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clefs: Option<Vec<PositionedClef>>,
@@ -140,6 +141,36 @@ pub struct PartMeasure {
     /// Values: "unison", "solo1", "solo2", "amalgamate", "divisi"
     #[serde(skip_serializing_if = "Option::is_none", rename = "condensingOverride")]
     pub condensing_override: Option<String>,
+    /// Per-staff grouping-display occurrence overrides for this measure
+    /// (Viritura extension `_x.viritura.groupingDisplayOverrides[]`). Targets
+    /// a specific staff of this part measure and forces that staff's meter to
+    /// the named mode, taking precedence over the time signature's own
+    /// occurrence override and the document house style.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "groupingDisplayOverrides"
+    )]
+    pub grouping_display_overrides: Option<Vec<StaffGroupingDisplayOverride>>,
+    /// Per-staff synchronous local meter changes/resets for this measure
+    /// onward (Viritura extension `_x.viritura.staffMeters[]`). Each entry
+    /// sets a staff-local meter distinct from the global meter (still
+    /// synchronized to the shared barline grid via `sharedDuration` or
+    /// `fitMeasure`), or resets the staff back to following the global
+    /// meter. Declarations inherit until changed or reset; see
+    /// [`crate::model::staff_meter`].
+    #[serde(skip_serializing_if = "Option::is_none", rename = "staffMeters")]
+    pub staff_meters: Option<Vec<StaffMeterChange>>,
+}
+
+/// One staff-targeted grouping-display override
+/// (`_x.viritura.groupingDisplayOverrides[]` on a part measure).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StaffGroupingDisplayOverride {
+    /// 1-based staff number within this part.
+    pub staff: u32,
+    /// Forced grouping-display mode for this staff's meter.
+    pub grouping_display: GroupingDisplay,
 }
 
 /// MNX `staff-config`.
@@ -259,6 +290,13 @@ pub struct ResolvedMeasure {
     /// Whether this visual staff has lyrics anywhere in the document.
     /// Automatic dynamics use the conventional above-staff side on vocal staves.
     pub staff_has_lyrics: bool,
+    /// The staff-local synchronous meter in effect for this staff at this
+    /// measure (`_x.viritura.staffMeters`, inherited until changed/reset),
+    /// or `None` when this staff follows the global meter. Only populated by
+    /// per-staff resolution (`resolve_measures_for_staff`); whole-part
+    /// resolution leaves this `None` since a single `PartMeasure` can carry
+    /// several staves with different effective meters.
+    pub effective_staff_meter: Option<crate::model::staff_meter::EffectiveStaffMeter>,
 }
 
 impl ResolvedMeasure {
@@ -270,5 +308,45 @@ impl ResolvedMeasure {
                 half_steps,
             )
         })
+    }
+
+    /// The meter that should drive beat semantics for this staff at this
+    /// measure: an effective staff-local meter when one is in force
+    /// (`_x.viritura.staffMeters`), otherwise the global `active_time`.
+    /// Automatic beaming and displayed time signatures both key off this —
+    /// never `active_time` directly — so a staff-local meter's own beat
+    /// structure and glyph are used wherever the global meter would
+    /// otherwise apply.
+    pub fn effective_beat_meter(&self) -> &TimeSignature {
+        self.effective_staff_meter
+            .as_ref()
+            .map(|effective| &effective.time_signature)
+            .unwrap_or(&self.active_time)
+    }
+
+    /// The time signature to print for this staff, if any is due at this
+    /// measure. Triggers on either of two independent conditions: the
+    /// staff's own `_x.viritura.staffMeters` authors a `Set` or `Reset` entry
+    /// at this exact measure, or the global measure authors a fresh `time`
+    /// while this staff follows global. A staff carrying an inherited local
+    /// meter does not reprint merely because the global meter changed.
+    pub fn displayed_time_signature(&self) -> Option<&TimeSignature> {
+        let staff_meter_authored_here = self
+            .part
+            .staff_meters
+            .as_ref()
+            .is_some_and(|changes| !changes.is_empty());
+        if staff_meter_authored_here {
+            return Some(
+                self.effective_staff_meter
+                    .as_ref()
+                    .map(|effective| &effective.time_signature)
+                    .unwrap_or(&self.active_time),
+            );
+        }
+        if self.effective_staff_meter.is_some() {
+            return None;
+        }
+        self.global.time.as_ref().map(|_| &self.active_time)
     }
 }

@@ -15,6 +15,7 @@ interface NoteSpec {
   id?: string;
   eventId?: string;
   base?: "quarter" | "half" | "whole" | "eighth";
+  dots?: number;
   markings?: Markings;
   tieTo?: string;
 }
@@ -29,7 +30,7 @@ function note(spec: NoteSpec): NoteEvent {
   return {
     type: "event",
     id: spec.eventId,
-    duration: { base: spec.base ?? "quarter" },
+    duration: { base: spec.base ?? "quarter", ...(spec.dots ? { dots: spec.dots } : {}) },
     notes: [
       {
         id: spec.id,
@@ -181,5 +182,102 @@ describe("generatePerformanceEvents", () => {
     const off = noteOffs(events)[0]!;
 
     expect(off.time).toBeCloseTo(off.note.startTime + off.note.duration);
+  });
+
+  it("scales notes, staff-scoped dynamics, and staff-scoped techniques onto the global axis", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
+          },
+        ],
+      },
+      parts: [
+        {
+          id: "piano",
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
+              dynamics: [{ ...createDynamicGroup("f", { fraction: [3, 8] }, "staff-2-f"), staff: 2 }],
+              expressions: [{ text: "pizz.", position: { fraction: [3, 8] }, staff: 2 }],
+              sequences: [
+                {
+                  staff: 2,
+                  content: [
+                    note({ id: "local-a", base: "quarter", dots: 1 }),
+                    note({ id: "local-b", step: "D", base: "quarter", dots: 1 }),
+                  ],
+                },
+              ],
+            },
+          ],
+        } as never,
+      ],
+    };
+
+    const events = generatePerformanceEvents(score, 0);
+    const ons = noteOns(events);
+    expect(ons[1]!.time).toBeCloseTo(0.5);
+    expect(ons[0]!.note.duration).toBeCloseTo(0.5);
+    expect(dynamics(events).find((event) => event.value === 112 / 127)?.time).toBeCloseTo(0.5);
+    expect(techniques(events)).toContainEqual(
+      expect.objectContaining({ time: 0.5, state: expect.objectContaining({ pizzicato: true }) }),
+    );
+    expect(ons[0]!.note.state.pizzicato).toBe(false);
+    expect(ons[1]!.note.state.pizzicato).toBe(true);
+  });
+
+  it("re-resolves scoped marking positions after inherited global changes and a reset", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            time: { count: 2, unit: 4 },
+            tempos: [{ bpm: 120, value: { base: "quarter" } } as never],
+          },
+          { time: { count: 4, unit: 4 } },
+          { time: { count: 2, unit: 4 } },
+        ],
+      },
+      parts: [
+        {
+          id: "piano",
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
+              sequences: [],
+            },
+            {
+              sequences: [],
+              dynamics: [{ ...createDynamicGroup("f", { fraction: [3, 8] }, "inherited-f"), staff: 2 }],
+              expressions: [{ text: "pizz.", position: { fraction: [3, 8] }, staff: 2 }],
+            },
+            {
+              staffMeters: [{ staff: 2, useGlobal: true }],
+              sequences: [],
+              dynamics: [{ ...createDynamicGroup("p", { fraction: [1, 4] }, "reset-p"), staff: 2 }],
+              expressions: [{ text: "arco", position: { fraction: [1, 4] }, staff: 2 }],
+            },
+          ],
+        } as never,
+      ],
+    };
+
+    const events = generatePerformanceEvents(score, 0);
+    const dynamicEvents = dynamics(events);
+    expect(dynamicEvents.find((event) => event.value === 112 / 127)?.time).toBeCloseTo(2);
+    expect(dynamicEvents.find((event) => event.value === 66 / 127)?.time).toBeCloseTo(3.5);
+    expect(techniques(events).map((event) => ({ time: event.time, pizzicato: event.state.pizzicato }))).toEqual([
+      { time: 2, pizzicato: true },
+      { time: 3.5, pizzicato: false },
+    ]);
   });
 });

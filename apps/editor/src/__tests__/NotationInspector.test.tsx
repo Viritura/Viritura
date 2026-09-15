@@ -84,6 +84,7 @@ function buildScore(): Score {
                       { id: "n1b", pitch: { step: "E", octave: 4 } },
                     ],
                     slurs: [{ target: "ev2", lineType: "solid" }],
+                    glissandos: [{ target: "ev2", kind: "portamento", style: "straight", text: "port." }],
                     fermata: { symbol: "normal" },
                     markings: {
                       breath: { symbol: "comma" },
@@ -100,6 +101,12 @@ function buildScore(): Score {
                     id: "ev2",
                     duration: { base: "quarter" },
                     notes: [{ id: "n2", pitch: { step: "C", octave: 4 } }],
+                  },
+                  {
+                    type: "event",
+                    id: "ev3",
+                    duration: { base: "quarter" },
+                    notes: [{ id: "n3", pitch: { step: "G", octave: 4 } }],
                   },
                 ],
               },
@@ -162,6 +169,72 @@ function StaffConfigHarness() {
       <NotationInspector />
       <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
       <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
+function TimeSignatureHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
+  const { selectElement } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    initial.global.measures[0]!.time = { count: 4, unit: 4 };
+    loadScore(initial, "time-signature.mnx");
+    selectElement("m0/time");
+  }, [loadScore, selectElement]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
+function MeasureSelectionHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score } = useDocument();
+  const { selectMeasure } = useSelectionActions();
+
+  useEffect(() => {
+    loadScore(buildScore(), "measure-selection.mnx");
+    selectMeasure(0, 0, 0);
+  }, [loadScore, selectMeasure]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+    </>
+  );
+}
+
+function BeamHarness({ selectionKind }: { selectionKind: "single" | "range" | "multi" }) {
+  const { loadScore } = useDocumentActions();
+  const { score } = useDocument();
+  const { selectElement, selectRange, toggleSelection } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    for (const item of initial.parts[0]!.measures[0]!.sequences[0]!.content) {
+      if (item.type === "event") item.duration = { base: "16th" };
+    }
+    loadScore(initial, "beams.mnx");
+    if (selectionKind === "single") selectElement("p0/m0/s0/ev1");
+    else if (selectionKind === "range") selectRange("p0/m0/s0/ev1", "p0/m0/s0/ev2");
+    else {
+      selectElement("p0/m0/s0/ev1");
+      toggleSelection("p0/m0/s0/ev2");
+    }
+  }, [loadScore, selectElement, selectRange, selectionKind, toggleSelection]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
     </>
   );
 }
@@ -280,6 +353,119 @@ describe("NotationInspector", () => {
     expect(await screen.findByTestId("notation-inspector")).toBeTruthy();
     expect(screen.getByText("No current selection")).toBeTruthy();
     expect(screen.getByText(/Select a note, marking, barline/)).toBeTruthy();
+  });
+
+  it("sets and clears a measure-number override from a selected measure", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<MeasureSelectionHarness />));
+
+    const input = await screen.findByRole("spinbutton", { name: "Measure 1 number override" });
+    await user.type(input, "12");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(12));
+
+    await user.click(screen.getByRole("button", { name: "Clear override" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBeUndefined());
+  });
+
+  it("validates measure-number overrides from a selected barline", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="m0/barline" />));
+
+    const input = await screen.findByRole("spinbutton", { name: "Measure 1 number override" });
+    await user.type(input, "0");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(await screen.findByText("Measure number must be at least 1.")).toBeTruthy();
+    expect(currentScore().global.measures[0]!.number).toBeUndefined();
+  });
+
+  it.each([
+    ["Heavy-light", "heavyLight"],
+    ["Heavy-heavy", "heavyHeavy"],
+    ["No barline", "noBarline"],
+  ] as const)("edits the selected barline to %s", async (label, type) => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="m0/barline" />));
+
+    await user.click(await screen.findByRole("radio", { name: label }));
+
+    await waitFor(() => expect(currentScore().global.measures[0]!.barline?.type).toBe(type));
+  });
+
+  it("edits symbolic meter display and removes the selected time signature", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<TimeSignatureHarness />));
+
+    const display = await screen.findByRole("combobox", { name: "Time signature display" });
+    await user.click(display);
+    expect((await screen.findByRole("option", { name: "Cut time" })).hasAttribute("data-disabled")).toBe(true);
+    await user.click(await screen.findByRole("option", { name: "Open meter" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time?.display).toBe("senzaMisura"));
+    expect(currentMnx().global).toMatchObject({
+      measures: [{ time: { count: 4, unit: 4 }, _x: { viritura: { senzaMisura: true } } }],
+    });
+
+    await user.click(display);
+    await user.click(await screen.findByRole("option", { name: "Note-value denominator" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time?.display).toBe("note"));
+    expect(currentMnx().global).toMatchObject({
+      measures: [{ time: { count: 4, unit: 4, _x: { viritura: { display: "note" } } } }],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Remove time signature" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.time).toBeUndefined());
+  });
+
+  it("records measure-number overrides in undo and redo history", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<HistoryHarness elementId="m0/barline" />));
+
+    await user.type(await screen.findByRole("spinbutton", { name: "Measure 1 number override" }), "8");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(8));
+
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBeUndefined());
+
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+    await user.click(redo);
+    await waitFor(() => expect(currentScore().global.measures[0]!.number).toBe(8));
+  });
+
+  it.each(["range", "multi"] as const)("shows beam controls for a %s-event selection and joins it", async (kind) => {
+    const user = userEvent.setup();
+    render(withProviders(<BeamHarness selectionKind={kind} />));
+
+    expect(await screen.findByText("Beam")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Join selected notes" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.beams).toEqual([{ events: ["ev1", "ev2"] }]);
+    });
+  });
+
+  it("shows and edits a selected event's secondary beamlet direction", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<BeamHarness selectionKind="single" />));
+
+    await user.click(await screen.findByRole("combobox", { name: "Beam level" }));
+    await user.click(await screen.findByRole("option", { name: "Secondary (2)" }));
+    expect(screen.getByText("Current: Full beam")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Full beam" }).hasAttribute("disabled")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Forward" }));
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.beams).toEqual([
+        {
+          events: ["ev1", "ev2", "ev3"],
+          beams: [{ events: ["ev1"], direction: "right" }, { events: ["ev2", "ev3"] }],
+        },
+      ]);
+    });
+    expect(screen.getByText("Current: Forward")).toBeTruthy();
   });
 
   it("edits a selected lyric syllable without changing its note", async () => {
@@ -878,6 +1064,65 @@ describe("NotationInspector", () => {
     expect(screen.getByRole("radio", { name: "Automatic" }).getAttribute("aria-checked")).toBe("true");
   });
 
+  it("hides and unhides a selected rest through an accessible standard-space control", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    render(withProviders(<Harness elementId="p0/m0/s1/rest1" />));
+
+    const hidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(hidden.checked).toBe(false);
+    await user.click(hidden);
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toEqual({
+        type: "space",
+        duration: [1, 1],
+      });
+      expect(
+        (
+          currentMnx() as {
+            parts: { measures: { sequences: { content: unknown[] }[] }[] }[];
+          }
+        ).parts[0]!.measures[0]!.sequences[1]!.content[0],
+      ).toEqual({ type: "space", duration: [1, 1] });
+    });
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("identifier"));
+
+    const shownHidden = (await screen.findByRole("checkbox", { name: "Hidden" })) as HTMLInputElement;
+    expect(shownHidden.checked).toBe(true);
+    await user.click(shownHidden);
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]).toMatchObject({
+        type: "event",
+        duration: { base: "whole" },
+        rest: {},
+      });
+    });
+  });
+
+  it("records hidden-rest conversion in undo and redo history", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    render(withProviders(<HistoryHarness elementId="p0/m0/s1/rest1" />));
+
+    await user.click(await screen.findByRole("checkbox", { name: "Hidden" }));
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+
+    const undo = screen.getByRole("button", { name: "Undo inspector edit" });
+    await waitFor(() => expect(undo.hasAttribute("disabled")).toBe(false));
+    await user.click(undo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("event"));
+
+    const redo = screen.getByRole("button", { name: "Redo inspector edit" });
+    await waitFor(() => expect(redo.hasAttribute("disabled")).toBe(false));
+    await user.click(redo);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.sequences[1]!.content[0]?.type).toBe("space"));
+  });
+
   it("opens the panel and shows the slur section for a grace-note slur", async () => {
     render(withProviders(<GraceSlurHarness elementId="slur/g1/ev1" />));
 
@@ -897,6 +1142,49 @@ describe("NotationInspector", () => {
     await waitFor(() => {
       expect((screen.getByTestId("notation-slur-line-type") as HTMLSelectElement).value).toBe("dashed");
     });
+  });
+
+  it("edits a selected portamento's style and text visibility", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+
+    const kind = await screen.findByTestId("notation-glissando-kind");
+    expect(kind.textContent).toContain("Portamento");
+
+    await user.click(screen.getByTestId("notation-glissando-style"));
+    await user.click(await screen.findByRole("option", { name: "Wavy" }));
+    await user.click(screen.getByTestId("notation-glissando-show-text"));
+
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        glissandos: [{ target: "ev2", kind: "portamento", style: "wavy", text: "port.", showText: false }],
+      });
+    });
+    expect(screen.queryByTestId("notation-glissando-text")).toBeNull();
+    expect(JSON.stringify(currentMnx())).toContain('"kind":"portamento"');
+    expect(JSON.stringify(currentMnx())).toContain('"text":"port."');
+    expect(JSON.stringify(currentMnx())).toContain('"showText":false');
+  });
+
+  it("commits an edited glissando endpoint after the field loses focus", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="gliss/ev1/ev2" />));
+    const target = await screen.findByTestId("notation-glissando-target");
+
+    await user.clear(target);
+    await user.type(target, "ev3");
+    expect(
+      (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+        .glissandos?.[0]?.target,
+    ).toBe("ev2");
+
+    await user.tab();
+    await waitFor(() =>
+      expect(
+        (currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0] as { glissandos?: { target: string }[] })
+          .glissandos?.[0]?.target,
+      ).toBe("ev3"),
+    );
   });
 
   it("shows the grace note's own slur when the grace note is selected directly", async () => {

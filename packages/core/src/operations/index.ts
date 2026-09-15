@@ -10,6 +10,9 @@ export {
   setRepeatEnd,
   setClef,
   setEnding,
+  setGroupingDisplayOverride,
+  setStaffMeter,
+  setStaffMeterToGlobal,
 } from "./measureOps";
 export {
   accentSpelling,

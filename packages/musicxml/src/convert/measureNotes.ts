@@ -3,7 +3,6 @@ import { createDynamicGroup, type ChordSymbol } from "@viritura/core";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren, notationChildren } from "../xmlHelpers";
 import type {
-  MnxBeam,
   MnxDuration,
   MnxClef,
   MnxDynamic,
@@ -39,6 +38,7 @@ import {
   makePosition,
   type TransposeInterval,
 } from "./pitchDuration";
+import { processBeamMarks, type ActiveBeam, type CompletedBeam } from "./beamImport";
 
 /** Per-note conversion flags resolved from `ConvertOptions`. Distinct from
  *  `vendorExt` (which gates `_x.viritura` output) — these toggle how authored
@@ -87,7 +87,7 @@ export interface MeasureResult {
   clefs: MnxPositionedClef[];
   dynamics: MnxDynamic[];
   ottavaEvents: OttavaEvent[];
-  beamGroups: MnxBeam[];
+  beamGroups: CompletedBeam[];
   rehearsals: { text: string; position: MnxRhythmicPosition }[];
   expressions: { text: string; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
   hairpinEvents: HairpinEvent[];
@@ -96,7 +96,7 @@ export interface MeasureResult {
   chordSymbols: ChordSymbol[];
 }
 
-interface TupletAccumulator {
+export interface TupletAccumulator {
   actualNotes: number;
   normalNotes: number;
   normalType: string;
@@ -106,6 +106,8 @@ interface TupletAccumulator {
   showNumber?: "noNumber" | "inner" | "both";
   /** From MusicXML <tuplet show-type="none|actual|both"> — maps to MNX `showValue`. */
   showValue?: "noValue" | "inner" | "both";
+  spanId?: string;
+  continued?: boolean;
 }
 
 // MNX note-value base → fraction of a whole note.
@@ -191,13 +193,13 @@ function writtenContentBeats(content: MnxSequenceContent[]): Fraction | undefine
  * inner and outer share the tuplet's metric unit (the `normal-type`); using
  * the first note's written value breaks mixed-duration tuplets.
  */
-function finalizeTuplet(acc: TupletAccumulator): MnxTuplet {
+function finalizeTuplet(acc: TupletAccumulator, spanType?: "start" | "continue" | "stop"): MnxTuplet {
   let innerMultiple = acc.actualNotes;
   let outerMultiple = acc.normalNotes;
 
   const unit = baseToFraction(acc.normalType);
   const total = writtenContentBeats(acc.events);
-  if (unit && total && acc.actualNotes > 0 && unit.n > 0) {
+  if (!spanType && unit && total && acc.actualNotes > 0 && unit.n > 0) {
     // units = total / unit, exact when the content tiles the metric unit.
     const unitsN = total.n * unit.d;
     const unitsD = total.d * unit.n;
@@ -220,6 +222,9 @@ function finalizeTuplet(acc: TupletAccumulator): MnxTuplet {
   else if (acc.bracket === false) tuplet.bracket = "no";
   if (acc.showNumber) tuplet.showNumber = acc.showNumber;
   if (acc.showValue) tuplet.showValue = acc.showValue;
+  if (spanType && acc.spanId) {
+    tuplet._x = { viritura: { span: { id: acc.spanId, type: spanType } } };
+  }
   return tuplet;
 }
 
@@ -291,13 +296,15 @@ export function processMeasureNotes(
   transpose?: TransposeInterval,
   flags: ConvertFlags = {},
   activeClefs: Map<number, MnxClef> = new Map(),
+  activeTuplets: Map<string, TupletAccumulator> = new Map(),
+  activeBeams: Map<string, ActiveBeam[]> = new Map(),
 ): MeasureResult {
   const voices = new Map<string, MnxSequenceContent[]>();
   const voiceStaves = new Map<string, number>();
   const clefs: MnxPositionedClef[] = [];
   const dynamics: MnxDynamic[] = [];
   const ottavaEvents: OttavaEvent[] = [];
-  const beamGroups: MnxBeam[] = [];
+  const beamGroups: CompletedBeam[] = [];
   const rehearsals: MeasureResult["rehearsals"] = [];
   const expressions: MeasureResult["expressions"] = [];
   const hairpinEvents: MeasureResult["hairpinEvents"] = [];
@@ -335,12 +342,6 @@ export function processMeasureNotes(
 
   // Slur end IDs: maps slur number to the ID the stop event should have
   const pendingSlurEndIds = new Map<string, string>();
-
-  // Beam tracking: map voice → list of {beamLevel, eventIds}
-  const activeBeams = new Map<string, { eventIds: string[]; level: number }[]>();
-
-  // Tuplet tracking per voice
-  const activeTuplets = new Map<string, TupletAccumulator>();
 
   // Multi-note (two-note) tremolo tracking per voice
   const activeTremolos = new Map<string, TremoloAccumulator>();
@@ -644,32 +645,8 @@ export function processMeasureNotes(
       // Beam tracking. Skipped while a multi-note tremolo is open for this
       // voice — the tremolo slashes stand in for the connecting beam, so the
       // two notes must not also form a regular beam group.
-      const beamEls = activeTremolos.has(voiceNum) ? [] : findChildren(el, "beam");
-      for (const beamEl of beamEls) {
-        const beamNum = parseInt(beamEl.getAttribute("number") ?? "1", 10);
-        const beamValue = beamEl.textContent ?? "";
-
-        if (beamValue === "begin") {
-          if (!activeBeams.has(voiceNum)) activeBeams.set(voiceNum, []);
-          const voiceBeams = activeBeams.get(voiceNum)!;
-          // Start a new beam at this level
-          voiceBeams.push({ eventIds: [eventId], level: beamNum });
-        } else if (beamValue === "continue" || beamValue === "end") {
-          const voiceBeams = activeBeams.get(voiceNum);
-          if (voiceBeams) {
-            const beam = voiceBeams.find((b) => b.level === beamNum);
-            if (beam) beam.eventIds.push(eventId);
-
-            if (beamValue === "end" && beamNum === 1) {
-              // Primary beam ended — emit beam group
-              const primaryBeam = voiceBeams.find((b) => b.level === 1);
-              if (primaryBeam && primaryBeam.eventIds.length >= 2) {
-                beamGroups.push({ events: [...primaryBeam.eventIds] });
-              }
-              activeBeams.delete(voiceNum);
-            }
-          }
-        }
+      if (!activeTremolos.has(voiceNum)) {
+        beamGroups.push(...processBeamMarks(el, eventId, voiceNum, _globalMeasureIndex, activeBeams));
       }
 
       // Add event to tremolo, tuplet, or voice (tremolo is the innermost
@@ -689,7 +666,7 @@ export function processMeasureNotes(
         tupletAcc.events.push(event);
 
         if (tupletStop) {
-          getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+          getVoice(voiceNum).push(finalizeTuplet(tupletAcc, tupletAcc.continued ? "stop" : undefined));
           activeTuplets.delete(voiceNum);
         }
       } else {
@@ -910,10 +887,21 @@ export function processMeasureNotes(
     i++;
   }
 
-  // Flush any unclosed tuplets
+  // Emit a measure-local fragment while retaining the accumulator for a stop
+  // in a later measure. Current MNX cannot contain one tuplet across measures,
+  // so Viritura links timing-equivalent fragments with `_x.viritura.span`.
   for (const [voiceNum, tupletAcc] of activeTuplets) {
     if (tupletAcc.events.length > 0) {
-      getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+      const isLastMeasure = _globalMeasureIndex + 1 >= _totalMeasures;
+      if (isLastMeasure) {
+        getVoice(voiceNum).push(finalizeTuplet(tupletAcc));
+        activeTuplets.delete(voiceNum);
+      } else {
+        tupletAcc.spanId ??= ids.next("tuplet-span");
+        getVoice(voiceNum).push(finalizeTuplet(tupletAcc, tupletAcc.continued ? "continue" : "start"));
+        tupletAcc.events = [];
+        tupletAcc.continued = true;
+      }
     }
   }
 
