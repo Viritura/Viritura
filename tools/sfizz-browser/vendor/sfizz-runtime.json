@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "artifact": "sfizz.wasm.min.js",
+  "artifactBytes": 1514822,
+  "artifactSha256": "B5C95D2E396D23F1B7F6176C9564F41D88793551DD534A402C69269E2FD3388B",
+  "sfizzWebaudioRepository": "https://github.com/sfztools/sfizz-webaudio.git",
+  "sfizzWebaudioCommit": "41f08e6974c48f3f424509d37cd78631596cacfb",
+  "sfizzRepository": "https://github.com/paulfd/sfizz.git",
+  "sfizzCommit": "0b3aaa8cedb0d732fb15820db7eda2c841657d2d",
+  "emsdkVersion": "3.1.31",
+  "emsdkCommit": "974d5c096bd56e42045d052a47b28198ce75e2a8",
+  "ninjaVersion": "1.11.1",
+  "ninjaWindowsUrl": "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-win.zip",
+  "ninjaWindowsSha256": "524B344A1A9A55005EAF868D991E090AB8CE07FA109F1820D40E74642E289ABC"
+}

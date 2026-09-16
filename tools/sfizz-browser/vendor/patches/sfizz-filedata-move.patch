@@ -1,0 +1,20 @@
+diff --git a/src/sfizz/FilePool.h b/src/sfizz/FilePool.h
+index a5c8181..f63d011 100644
+--- a/src/sfizz/FilePool.h
++++ b/src/sfizz/FilePool.h
+@@ -84,6 +84,7 @@ struct FileData
+         information = std::move(other.information);
+         preloadedData = std::move(other.preloadedData);
+         fileData = std::move(other.fileData);
++        preloadCallCount = other.preloadCallCount;
+         availableFrames = other.availableFrames.load();
+         lastViewerLeftAt = other.lastViewerLeftAt;
+         status = other.status.load();
+@@ -94,6 +95,7 @@ struct FileData
+         information = std::move(other.information);
+         preloadedData = std::move(other.preloadedData);
+         fileData = std::move(other.fileData);
++        preloadCallCount = other.preloadCallCount;
+         availableFrames = other.availableFrames.load();
+         lastViewerLeftAt = other.lastViewerLeftAt;
+         status = other.status.load();

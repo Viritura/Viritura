@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Viritura sfizz VSCO browser proof</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Experimental standalone proof of concept</p>
+        <h1>sfizz + VSCO in the browser</h1>
+        <p>
+          Select a local VSCO Community Edition folder. The app reads only the selected patch and referenced WAV files
+          through browser local-file APIs, transfers those bytes into an sfizz AudioWorklet, writes them into sfizz's
+          in-memory Emscripten filesystem, and plays with upstream sfizz WebAssembly. No files are uploaded and no
+          sample library files are copied into this repository.
+        </p>
+      </header>
+
+      <section class="card">
+        <h2>1. Choose local library</h2>
+        <div class="button-row">
+          <button id="directoryButton" type="button">Choose VSCO folder</button>
+          <label class="file-label">
+            Fallback directory input
+            <input id="folderInput" type="file" webkitdirectory multiple />
+          </label>
+        </div>
+        <p class="hint">
+          Browser support: Chromium/Edge can use the folder picker. Automated checks use the fallback directory input.
+        </p>
+        <output id="libraryStatus" class="status">No folder selected.</output>
+      </section>
+
+      <section class="card">
+        <h2>2. Load one SFZ patch</h2>
+        <div class="grid">
+          <label>
+            Patch
+            <select id="patchSelect" disabled></select>
+          </label>
+          <label>
+            Raw WAV byte cap
+            <select id="memoryLimitSelect">
+              <option value="134217728">128 MiB</option>
+              <option value="268435456">256 MiB</option>
+              <option value="402653184" selected>384 MiB</option>
+              <option value="536870912">512 MiB</option>
+            </select>
+          </label>
+        </div>
+        <button id="loadPatchButton" type="button" disabled>Load selected patch</button>
+        <p class="hint">
+          sfizz-webaudio is built without disk streaming. The cap above covers raw selected WAV bytes before transfer;
+          it is not a total browser or WASM heap cap. Patch loading happens inside the audio thread, so switching is
+          experimental and not seamless.
+        </p>
+        <output id="patchStatus" class="status">Select a library folder first.</output>
+      </section>
+
+      <section class="card">
+        <h2>3. Play notes / real-time AudioWorklet</h2>
+        <div class="grid">
+          <label>
+            Articulation
+            <select id="articulationSelect" disabled>
+              <option value="">Patch default</option>
+            </select>
+          </label>
+          <label>
+            MIDI note
+            <input id="noteInput" type="number" min="0" max="127" value="72" />
+          </label>
+          <label>
+            Velocity
+            <input id="velocityInput" type="number" min="1" max="127" value="90" />
+          </label>
+          <label>
+            Tone length
+            <input id="durationInput" type="number" min="0.1" max="5" step="0.1" value="0.8" />
+          </label>
+          <label>
+            CC1
+            <input id="cc1Input" type="range" min="0" max="127" value="96" />
+          </label>
+          <label>
+            CC11
+            <input id="cc11Input" type="range" min="0" max="127" value="112" />
+          </label>
+          <label>
+            Master gain
+            <input id="gainInput" type="range" min="0" max="0.6" step="0.01" value="0.25" />
+          </label>
+        </div>
+        <p class="hint">
+          CC11 changes expression during playback. CC1 behavior depends on the patch; VSCO's supplied mappings do not
+          define dynamic-layer crossfades. Each Play replaces the previous phrase. MIDI note names use C4 = 60.
+        </p>
+        <div class="button-row">
+          <button id="playNoteButton" type="button" disabled>Play note</button>
+          <button id="playPhraseButton" type="button" disabled>Play phrase</button>
+          <button id="panicButton" type="button">Panic</button>
+        </div>
+        <div class="meter" aria-label="Output peak meter">
+          <span id="meterFill"></span>
+        </div>
+        <output id="renderStatus" class="status">Load a patch before playback.</output>
+      </section>
+
+      <section class="card">
+        <h2>Provenance</h2>
+        <p>
+          sfizz source: <code>sfztools/sfizz-webaudio</code> <code>41f08e6974c48f3f424509d37cd78631596cacfb</code> with
+          engine <code>0b3aaa8cedb0d732fb15820db7eda2c841657d2d</code>, built locally using pinned Emscripten 3.1.31.
+          See <a href="./THIRD_PARTY_NOTICES.txt">THIRD_PARTY_NOTICES.txt</a>.
+        </p>
+        <p>
+          Launch from this folder with <code>node server.mjs 4399</code>, then open <code>http://127.0.0.1:4399/</code>.
+          First launch builds the pinned engine and downloads its source toolchain if missing. Samples always stay in
+          your selected folder. To build explicitly, run <code>pwsh vendor\build-sfizz.ps1</code>.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

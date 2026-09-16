@@ -1,0 +1,2 @@
+# Locally source-built experiment; not a redistributable production build.
+vendor/sfizz.wasm.min.js

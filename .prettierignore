@@ -35,6 +35,8 @@ packages/format/src/mnx/standaloneValidators.ts
 packages/audio/src/soundfonts/*.capabilities.json
 # Canonical third-party worklet bundle (staged byte-for-byte)
 packages/audio/assets/sounds/spessasynth_processor.min.js
+# Source-built sfizz Emscripten bundle (generated/minified; provenance in tools/sfizz-browser/THIRD_PARTY_NOTICES.txt)
+tools/sfizz-browser/vendor/sfizz.wasm.min.js
 
 # Rust / WASM toolchain
 engine/target/

@@ -1,0 +1,63 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 66ea905..231ae13 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,3 +1,5 @@
++cmake_minimum_required(VERSION 3.15)
++
+ project(sfizz-webaudio)
+ 
+ set(SFIZZ_TESTS OFF CACHE BOOL "" FORCE)
+@@ -5,6 +7,7 @@ set(SFIZZ_LV2_UI OFF CACHE BOOL "" FORCE)
+ set(SFIZZ_VST OFF CACHE BOOL "" FORCE)
+ set(SFIZZ_RENDER OFF CACHE BOOL "" FORCE)
+ set(SFIZZ_JACK OFF CACHE BOOL "" FORCE)
++set(SFIZZ_SHARED OFF CACHE BOOL "" FORCE)
+ add_subdirectory(sfizz)
+ 
+ add_executable(sfizz-webaudio)
+@@ -12,7 +15,7 @@ add_executable(sfizz-webaudio)
+ target_sources(sfizz-webaudio PRIVATE sfizz_webaudio.cpp)
+ target_link_libraries(sfizz-webaudio PRIVATE sfizz::sfizz)
+ set_target_properties(sfizz-webaudio PROPERTIES 
+-    LINK_FLAGS "--bind -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s SINGLE_FILE=1 -s WASM=1 -s WASM_ASYNC_COMPILATION=0"
++    LINK_FLAGS "--bind -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s SINGLE_FILE=1 -s WASM=1 -s WASM_ASYNC_COMPILATION=0 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORT_NAME=createSfizzModule -s EXPORTED_FUNCTIONS=['_malloc','_free'] -s EXPORTED_RUNTIME_METHODS=['FS','HEAPF32','HEAPU8']"
+     OUTPUT_NAME sfizz.wasm
+ )
+ 
+diff --git a/sfizz_webaudio.cpp b/sfizz_webaudio.cpp
+index f968416..e3500ac 100644
+--- a/sfizz_webaudio.cpp
++++ b/sfizz_webaudio.cpp
+@@ -34,13 +34,19 @@ public:
+     {
+         synth.setReceiveCallback(*client, &SfizzWrapper::staticCallback);
+         synth.setSampleRate(static_cast<float>(sampleRate));
+-        load("<region> sample=*saw");
+     }
+ 
+-    void load(std::string file)
++    bool load(std::string file)
++    {
++        return loadAtPath("file.sfz", file);
++    }
++
++    bool loadAtPath(std::string path, std::string file)
+     {
+-        synth.loadSfzString("file.sfz", file);
+-        synth.getCCLabels();
++        const bool loaded = synth.loadSfzString(path, file);
++        if (loaded)
++            synth.getCCLabels();
++        return loaded;
+     }
+ 
+     void noteOn(int delay, uint8_t number, float value) { synth.hdNoteOn(delay, number, value); }
+@@ -181,6 +187,7 @@ EMSCRIPTEN_BINDINGS(CLASS_Synthesizer)
+     class_<SfizzWrapper>("SfizzWrapper")
+         .constructor<int32_t>()
+         .function("load", &SfizzWrapper::load)
++        .function("loadAtPath", &SfizzWrapper::loadAtPath)
+         .function("noteOff", &SfizzWrapper::noteOff)
+         .function("noteOn", &SfizzWrapper::noteOn)
+         .function("cc", &SfizzWrapper::cc)
