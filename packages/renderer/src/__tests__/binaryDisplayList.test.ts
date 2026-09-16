@@ -7,6 +7,7 @@ import {
   getBinaryDisplayListBboxes,
 } from "../binaryDisplayList";
 import { SpatialIndex } from "../hitTest";
+import { decodeFrame, PatchReconstructor } from "../patchFrame";
 
 /**
  * Helper: encode a color string "#RRGGBB" into a u32, then pack as f32 bits.
@@ -649,6 +650,30 @@ describe("measure bounds decoding", () => {
       isExpansion: true,
     });
     expect(dl.measureBounds?.[0]?.hasMusicHidden).toBeUndefined();
+    expect(dl.measureBounds?.[0]?.sourcePartIndices).toBeUndefined();
+  });
+
+  it("preserves sparse source identities through full, fresh, reused and replaced patch frames", () => {
+    const bounds = (part: number, staff: number) => [-1, 0, part, staff, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
+    const legacy = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds(2, 0), bounds(7, 1)]);
+    // One source-identity entry for bounds 0; bounds 1 keeps its sole-source fallback.
+    const segment = new Float32Array([...legacy, 1, 0, 3, 2, 5, 9]);
+    const reconstructor = new PatchReconstructor();
+    const full = reconstructor.apply(decodeFrame(new Float32Array([0, ...segment])));
+    expect(full.measureBounds?.map((b) => b.sourcePartIndices ?? [b.partIndex])).toEqual([[2, 5, 9], [7]]);
+
+    const empty = buildBinaryBuffer(100, 50, []);
+    const patchHeader = [1, 3, 100, 50, 0, 0, empty.length, ...empty, empty.length, ...empty, 1];
+    const fresh = reconstructor.apply(decodeFrame(new Float32Array([...patchHeader, 1, segment.length, ...segment])));
+    expect(fresh.measureBounds?.[0]?.sourcePartIndices).toEqual([2, 5, 9]);
+    expect(fresh.measureBounds?.[1]?.sourcePartIndices).toBeUndefined();
+
+    const reused = reconstructor.apply(decodeFrame(new Float32Array([...patchHeader, 0, 0, 10, 20])));
+    expect(reused.measureBounds?.[0]).toMatchObject({ x: 20, y: 70, sourcePartIndices: [2, 5, 9] });
+    expect(reused.measureBounds?.[1]?.partIndex).toBe(7);
+
+    const replaced = reconstructor.apply(decodeFrame(new Float32Array([...patchHeader, 1, legacy.length, ...legacy])));
+    expect(replaced.measureBounds?.map((b) => b.sourcePartIndices ?? [b.partIndex])).toEqual([[2], [7]]);
   });
 });
 

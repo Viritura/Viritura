@@ -1,4 +1,5 @@
 import { Scheduler } from "./Scheduler";
+import { FilterContinuity } from "./filterContinuity";
 import type {
   ISampler,
   MidiEvent,
@@ -38,6 +39,7 @@ export class PlaybackEngine {
   private samplers: ReadonlyMap<number | string, ISampler> = new Map();
   private lanePartIndices: ReadonlyMap<string, number> = new Map();
   private scheduler: Scheduler | null = null;
+  private filterContinuity = new FilterContinuity([]);
   /** True when the timeline contains any programChange/controlChange events,
    *  so playback start can skip the sticky-state chase when there's nothing
    *  to chase (the common, technique-free case). */
@@ -55,7 +57,7 @@ export class PlaybackEngine {
   private clickCallback: ClickCallback | null = null;
 
   /**
-   * When non-null, only events for part indices in this set are played.
+   * When non-null, only note-ons for part indices in this set are played.
    * Parts not in the filter are silenced (noteOn skipped, pending notes released).
    */
   private viewPartFilter: ReadonlySet<number> | null = null;
@@ -105,6 +107,7 @@ export class PlaybackEngine {
   loadTimeline(timeline: MidiTimeline, samplers: ReadonlyMap<number | string, ISampler>): void {
     if (this.state !== "stopped" || this.scheduler) this.stop();
     this.timeline = timeline;
+    this.filterContinuity = new FilterContinuity(timeline.events);
     this.samplers = samplers;
     this.lanePartIndices = new Map(
       timeline.events
@@ -188,6 +191,7 @@ export class PlaybackEngine {
     }
 
     const startTime = fromSeconds !== undefined ? fromSeconds : this.pausedAtScoreTime;
+    this.prepareFilterPlayback();
 
     this.scheduler = new Scheduler(
       this.timeline.events,
@@ -245,6 +249,7 @@ export class PlaybackEngine {
 
     if (this.state === "playing") {
       this.silenceAll();
+      this.prepareFilterPlayback();
       if (this.scheduler) {
         this.scheduler.stop();
       }
@@ -285,6 +290,20 @@ export class PlaybackEngine {
     this.tempoScale = bpm / originalBpm;
 
     if (this.scheduler) {
+      const audioTime = this.audioContext.currentTime;
+      // Events at the current quantum may already have sounded. Leave those
+      // deliveries intact; only strictly future notes belong to the new clock.
+      const cutoff = audioTime + Number.EPSILON * Math.max(1, audioTime);
+      const cancelled = new Set<ISampler>();
+      for (const sampler of new Set(this.samplers.values())) {
+        if (!sampler.cancelScheduledNotes) continue;
+        sampler.cancelScheduledNotes(cutoff);
+        cancelled.add(sampler);
+      }
+      this.filterContinuity.rescheduleFrom(this.scheduler.currentScoreTime(), cutoff, (event) => {
+        const sampler = this.samplerForEvent(event);
+        return !!sampler && cancelled.has(sampler);
+      });
       this.scheduler.setTempoScale(this.tempoScale);
     }
   }
@@ -372,20 +391,58 @@ export class PlaybackEngine {
   }
 
   /**
-   * Set a view-based part filter. When set, only events for parts in the
-   * filter are played. Pass null to clear (play all parts).
+   * Set a view-based part filter. When set, only note-ons for parts in the
+   * filter are played. Controls and note-offs continue for every part.
+   * Newly visible parts resume logically held notes without seeking or
+   * resetting controller state. Pass null to clear (play all parts).
    */
   setViewPartFilter(partIndices: ReadonlySet<number> | null): void {
     const prev = this.viewPartFilter;
-    this.viewPartFilter = partIndices;
+    this.viewPartFilter = partIndices ? new Set(partIndices) : null;
 
-    // Silence parts that just became hidden
-    if (partIndices && this.state === "playing") {
-      for (const [partIndex, sampler] of this.partControlSamplers()) {
-        if (partIndex !== undefined && !partIndices.has(partIndex) && (!prev || prev.has(partIndex))) {
-          sampler.allNotesOff();
-        }
+    if (this.state !== "playing" || !this.scheduler) return;
+    const restored = new Set<number>();
+    const hidden = new Set<number>();
+    const cancelled = new Set<ISampler>();
+    const retainsQueuedNotes = (event: MidiEvent): boolean => {
+      const controlSampler =
+        this.samplers.get(event.partIndex) ?? this.samplers.get(event.playbackLaneId ?? event.partIndex);
+      return !!controlSampler?.setPlaybackMuted && !cancelled.has(controlSampler);
+    };
+    for (const [partIndex, sampler] of this.partControlSamplers()) {
+      const wasVisible = !prev || prev.has(partIndex);
+      const isVisible = !partIndices || partIndices.has(partIndex);
+      if (wasVisible === isVisible) continue;
+      if (isVisible && sampler.cancelScheduledNotes) {
+        // An onset at this exact quantum may still be queued while muted.
+        // Cancel before unmuting, then recover notes and releases once, rather
+        // than guessing whether the worklet has consumed the old attack.
+        sampler.cancelScheduledNotes(-Infinity);
+        cancelled.add(sampler);
       }
+      if (sampler.setPlaybackMuted) {
+        sampler.setPlaybackMuted(!isVisible);
+      } else if (!isVisible) {
+        sampler.allNotesOff();
+      }
+      if (isVisible) restored.add(partIndex);
+      else hidden.add(partIndex);
+    }
+    for (const partIndex of hidden) this.filterContinuity.silence(partIndex, retainsQueuedNotes);
+    for (const partIndex of restored) this.filterContinuity.silence(partIndex, retainsQueuedNotes);
+    this.filterContinuity.restore(
+      restored,
+      this.scheduler.currentScoreTime(),
+      this.audioContext.currentTime,
+      retainsQueuedNotes,
+      this.dispatchEvent,
+    );
+  }
+
+  private prepareFilterPlayback(): void {
+    this.filterContinuity.reset();
+    for (const [partIndex, sampler] of this.partControlSamplers()) {
+      sampler.setPlaybackMuted?.(!!this.viewPartFilter && !this.viewPartFilter.has(partIndex));
     }
   }
 
@@ -445,10 +502,21 @@ export class PlaybackEngine {
 
   /** Route a scheduled MIDI event to the appropriate part sampler. */
   private handleScheduledEvent = (event: MidiEvent, audioTime: number): void => {
-    // Skip events for parts hidden by the view filter.
-    if (this.viewPartFilter && !this.viewPartFilter.has(event.partIndex)) return;
+    if (this.filterContinuity.shouldSchedule(event)) this.dispatchEvent(event, audioTime);
+  };
 
-    const sampler = this.samplers.get(event.playbackLaneId ?? event.partIndex) ?? this.samplers.get(event.partIndex);
+  private samplerForEvent(event: MidiEvent): ISampler | undefined {
+    return this.samplers.get(event.playbackLaneId ?? event.partIndex) ?? this.samplers.get(event.partIndex);
+  }
+
+  private dispatchEvent = (event: MidiEvent, audioTime: number): void => {
+    // Keep hidden parts' technique state current for live filter changes, and
+    // always deliver releases for notes dispatched before a part was hidden.
+    const hidden = event.type === "noteOn" && !!this.viewPartFilter && !this.viewPartFilter.has(event.partIndex);
+    this.filterContinuity.record(event, audioTime, false);
+    if (hidden) return;
+
+    const sampler = this.samplerForEvent(event);
     if (!sampler) return;
 
     try {
@@ -465,6 +533,7 @@ export class PlaybackEngine {
       } else {
         sampler.noteOff(event.midiNote, audioTime, event.drumKitProgram);
       }
+      this.filterContinuity.record(event, audioTime, true);
     } catch (err) {
       this.emit("error", {
         message: err instanceof Error ? err.message : String(err),
@@ -488,11 +557,11 @@ export class PlaybackEngine {
     for (const [key, sampler] of this.samplers) {
       if (typeof key === "number") facades.push([key, sampler]);
     }
-    if (facades.length > 0) return facades;
+    const facadeParts = new Set(facades.map(([partIndex]) => partIndex));
     for (const [key, sampler] of this.samplers) {
       if (typeof key !== "string") continue;
       const partIndex = this.lanePartIndices.get(key);
-      if (partIndex !== undefined) facades.push([partIndex, sampler]);
+      if (partIndex !== undefined && !facadeParts.has(partIndex)) facades.push([partIndex, sampler]);
     }
     return facades;
   }

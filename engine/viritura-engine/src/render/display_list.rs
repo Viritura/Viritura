@@ -556,6 +556,7 @@ mod translate_tests {
             index: 0,
             measure_id: None,
             part_index: 0,
+            source_part_indices: vec![0, 2],
             staff_index: 0,
             system_index: 0,
             x: 10.0,
@@ -639,6 +640,7 @@ mod translate_tests {
         assert_eq!(mb.beat_anchors[0], (0.0, 22.0));
         assert_eq!(mb.beat_anchors[1], (1.0, 34.0));
         assert_eq!(mb.beat_anchors[2], (2.0, 46.0));
+        assert_eq!(mb.source_part_indices, vec![0, 2]);
 
         // pages: y_offset shifted, height unchanged
         assert_eq!(dl.pages[0].y_offset, 27.0);

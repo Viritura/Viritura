@@ -168,6 +168,9 @@ export function PlaybackProvider({
   }, [audioRenderMode]);
   /** Latest effective mute set from the mixer, re-applied to the host on each play. */
   const vstMutedPartsRef = useRef<ReadonlySet<number>>(new Set<number>());
+  const selectionPartIdsRef = useRef<readonly string[] | null>(null);
+  const partFilterSourceRef = useRef({ score, visiblePartIds });
+  const nativeControlRevisionRef = useRef(0);
 
   // --- Audio engine refs (persist across renders) ---
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -660,15 +663,48 @@ export function PlaybackProvider({
 
   // --- Actions (play defined later, after createSamplersForScore) ---
 
-  // Apply the engine's view-based part filter, combining the visible-part
-  // selection with VST ownership (see computeViewPartFilter).
+  // Eligibility gates events without changing the mixer or its saved gains.
   const applyViewPartFilter = useCallback(() => {
     const engine = engineRef.current;
+    const { score, visiblePartIds } = partFilterSourceRef.current;
     if (!engine || !score) return;
     engine.setViewPartFilter(
-      computeViewPartFilter({ parts: score.parts, visiblePartIds, vstOwnedParts: vstOwnedPartsRef.current }),
+      computeViewPartFilter({
+        parts: score.parts,
+        visiblePartIds,
+        selectionPartIds: selectionPartIdsRef.current,
+        vstOwnedParts: vstOwnedPartsRef.current,
+      }),
     );
-  }, [visiblePartIds, score]);
+  }, []);
+
+  const nativeMutedParts = useCallback(() => {
+    const { score, visiblePartIds } = partFilterSourceRef.current;
+    const muted = new Set(vstMutedPartsRef.current);
+    if (!score) return muted;
+    const allowed = computeViewPartFilter({
+      parts: score.parts,
+      visiblePartIds,
+      selectionPartIds: selectionPartIdsRef.current,
+      vstOwnedParts: new Set(),
+    });
+    if (allowed) {
+      for (let index = 0; index < score.parts.length; index++) {
+        if (!allowed.has(index)) muted.add(index);
+      }
+    }
+    return muted;
+  }, []);
+
+  const setSelectionPartIds = useCallback(
+    (partIds: readonly string[] | null) => {
+      selectionPartIdsRef.current = partIds === null ? null : [...partIds];
+      nativeControlRevisionRef.current++;
+      applyViewPartFilter();
+      void vstTransportRef.current?.setMutedParts(nativeMutedParts());
+    },
+    [applyViewPartFilter, nativeMutedParts],
+  );
 
   // Prepare the native host for a play and silence the browser voices it owns.
   // In web mode (default) the host is skipped so every part plays in the browser;
@@ -683,12 +719,19 @@ export function PlaybackProvider({
         vstParts: vstAssignmentsRef.current,
         sf2Parts: sf2AssignmentsRef.current,
       };
-      const syncMixer = () =>
-        applyNativeMixer(vstTransport, score.parts.length, {
-          gains: mixerSettingsRef.current.nativeGains,
-          pans: mixerPanRef.current,
-          mutedParts: vstMutedPartsRef.current,
-        });
+      const syncMixer = async () => {
+        let revision: number;
+        do {
+          revision = nativeControlRevisionRef.current;
+          await applyNativeMixer(vstTransport, score.parts.length, {
+            gains: mixerSettingsRef.current.nativeGains,
+            pans: mixerPanRef.current,
+            mutedParts: nativeMutedParts(),
+          });
+          // A write can finish after newer live edits. Reapply and await the
+          // latest intent before the first note, not a captured mute snapshot.
+        } while (revision !== nativeControlRevisionRef.current);
+      };
       await syncMixer();
       vstOwnedPartsRef.current = await prepareVstOwnedParts(vstTransport, score, plan);
       applyViewPartFilter();
@@ -699,7 +742,7 @@ export function PlaybackProvider({
       vstOwnedPartsRef.current = new Set<number>();
       applyViewPartFilter();
     }
-  }, [score, applyViewPartFilter]);
+  }, [score, applyViewPartFilter, nativeMutedParts]);
 
   const pause = useCallback(() => {
     engineRef.current?.pause();
@@ -789,6 +832,7 @@ export function PlaybackProvider({
       mixerSettingsRef.current.nativeGains.set(partIndex, volume);
       mixerPanRef.current.delete(partIndex);
       mixerPanRef.current.set(partIndex, pan);
+      nativeControlRevisionRef.current++;
       stageDepthEnabledRef.current.set(partIndex, stageDepthEnabled);
       // Native faders retain their level independently of the per-part mute set;
       // muting one part must not zero the shared output of a multitimbral VST.
@@ -808,10 +852,14 @@ export function PlaybackProvider({
     [levelRefs],
   );
 
-  const setVstMutedParts = useCallback((mutedParts: ReadonlySet<number>) => {
-    vstMutedPartsRef.current = mutedParts;
-    void vstTransportRef.current?.setMutedParts(mutedParts);
-  }, []);
+  const setVstMutedParts = useCallback(
+    (mutedParts: ReadonlySet<number>) => {
+      vstMutedPartsRef.current = new Set(mutedParts);
+      nativeControlRevisionRef.current++;
+      void vstTransportRef.current?.setMutedParts(nativeMutedParts());
+    },
+    [nativeMutedParts],
+  );
 
   const setEnsembleLayer = useCallback((partIndex: number, enabled: boolean) => {
     mixerSettingsRef.current.ensembleEnabled.set(partIndex, enabled);
@@ -1104,10 +1152,10 @@ export function PlaybackProvider({
         const vstTransport = vstTransportRef.current;
         await prepareNativeHost();
         if (stopGenerationRef.current !== stopGeneration) return;
+        applyViewPartFilter();
         // A newer seek accepted during preparation wins; otherwise preserve
         // explicit-start precedence and the exact pre-rebuild resume position.
         const startAt = resolveTransportStart(fromSeconds, resumeAt, pendingStart, pendingStartRef.current);
-        const vstOrigin = startAt;
 
         // Count-in: when enabled and starting fresh from the top (not resuming a
         // pause), begin the transport before score time 0 so the prepended
@@ -1120,7 +1168,7 @@ export function PlaybackProvider({
         }
         pendingStartRef.current = null;
         if (vstTransport && vstOwnedPartsRef.current.size > 0) {
-          void vstTransport.start(vstOrigin);
+          void vstTransport.start(startAt);
         }
         dispatchPlayback({ type: "PLAY" });
       } catch (err) {
@@ -1133,7 +1181,7 @@ export function PlaybackProvider({
         playStartInFlightRef.current = false;
       }
     },
-    [ensureEngine, score, createSamplersForScore, countInBeatsForScore, prepareNativeHost],
+    [ensureEngine, score, createSamplersForScore, countInBeatsForScore, prepareNativeHost, applyViewPartFilter],
   );
 
   // --- Score change → regenerate timeline only ---
@@ -1209,8 +1257,11 @@ export function PlaybackProvider({
 
   // --- Sync view-based part filter to the engine ---
   useEffect(() => {
+    partFilterSourceRef.current = { score, visiblePartIds };
+    nativeControlRevisionRef.current++;
     applyViewPartFilter();
-  }, [applyViewPartFilter]);
+    void vstTransportRef.current?.setMutedParts(nativeMutedParts());
+  }, [score, visiblePartIds, applyViewPartFilter, nativeMutedParts]);
 
   // --- Memoized context values ---
 
@@ -1220,6 +1271,7 @@ export function PlaybackProvider({
       pause,
       stop,
       seek,
+      setSelectionPartIds,
       setTempo,
       setVolume,
       toggleMetronome,
@@ -1250,6 +1302,7 @@ export function PlaybackProvider({
       pause,
       stop,
       seek,
+      setSelectionPartIds,
       setTempo,
       setVolume,
       toggleMetronome,

@@ -28,8 +28,11 @@ use super::fx_chain::{FxChain, FxChannel};
 use super::sf2::Sf2Voice;
 use super::{BLOCK_SIZE, OUTPUT_CHANNELS, SAMPLE_RATE};
 
+mod midi_queue;
+use midi_queue::MidiQueue;
+
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 /// The concrete stream type the cpal backend produces. Held on the host thread to
 /// keep audio alive; dropping it stops the stream.
@@ -53,6 +56,9 @@ pub(super) enum StripSource {
 /// applies to that source's output before summing into the master.
 pub(super) struct Strip {
     source: StripSource,
+    pending_midi: MidiQueue,
+    #[cfg(test)]
+    pub(super) midi_events: Vec<(vst3_host::MidiEvent, i32)>,
     /// Linear output gain (1.0 = unity).
     gain: f32,
     /// Stereo pan (-1.0 = left, 0.0 = unchanged stereo, 1.0 = right).
@@ -90,23 +96,27 @@ impl Strip {
 
     /// Queue a MIDI event for this strip's source at a sample offset within the
     /// next processed block (mirrors the old `AudioHandle::send_midi_at`). A
-    /// SoundFont voice applies it immediately (block-boundary timing).
+    /// Events are submitted under the render lock, preserving command order
+    /// across look-ahead attacks and intervening live exclusion changes.
     pub(super) fn send_midi_at(&mut self, event: vst3_host::midi::MidiEvent, offset: i32) {
-        match &mut self.source {
-            StripSource::Vst(plugin) => {
-                let _ = plugin.send_midi_event_at(event, offset);
-            }
-            StripSource::Sf2(voice) => apply_sf2_event(voice, event),
-        }
+        self.pending_midi.push(event, offset);
     }
 
-    /// Queue a MIDI event applied at the start of the next block.
+    /// Queue a live event after any look-ahead MIDI pending for the next block.
     pub(super) fn send_midi(&mut self, event: vst3_host::midi::MidiEvent) {
-        match &mut self.source {
-            StripSource::Vst(plugin) => {
-                let _ = plugin.send_midi_event(event);
+        self.pending_midi.push(event, 0);
+    }
+
+    fn flush_midi(&mut self) {
+        for (event, offset) in self.pending_midi.drain() {
+            #[cfg(test)]
+            self.midi_events.push((event, offset));
+            match &mut self.source {
+                StripSource::Vst(plugin) => {
+                    let _ = plugin.send_midi_event_at(event, offset);
+                }
+                StripSource::Sf2(voice) => apply_sf2_event(voice, event),
             }
-            StripSource::Sf2(voice) => apply_sf2_event(voice, event),
         }
     }
 
@@ -120,6 +130,7 @@ impl Strip {
 
     /// All-notes-off / reset for this source.
     pub(super) fn panic(&mut self) {
+        self.pending_midi.clear();
         match &mut self.source {
             StripSource::Vst(plugin) => {
                 let _ = plugin.midi_panic();
@@ -136,6 +147,7 @@ impl Strip {
     /// Render one block into this strip's scratch: clear it, then let the source
     /// fill it. Called from the parallel render phase.
     fn render_block(&mut self, frames: usize) {
+        self.flush_midi();
         let Self {
             source, scratch, ..
         } = self;
@@ -214,6 +226,9 @@ impl MixerCore {
     fn insert(&mut self, key: String, source: StripSource, gain: f32, pan: f32, reverb_send: f32) {
         let mut strip = Strip {
             source,
+            pending_midi: MidiQueue::default(),
+            #[cfg(test)]
+            midi_events: Vec::new(),
             gain,
             pan: 0.0,
             reverb_send,
@@ -505,7 +520,9 @@ impl Mixer {
             .chain_mut(channel)
             .and_then(|c| c.plugin_mut(index))
             .ok_or("no plugin at that chain position")?;
-        plugin.open_editor(parent).map_err(|error| error.to_string())
+        plugin
+            .open_editor(parent)
+            .map_err(|error| error.to_string())
     }
 
     /// Detach the editor of the plugin at `index` in `channel`'s chain and return

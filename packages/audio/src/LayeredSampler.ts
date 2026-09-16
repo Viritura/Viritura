@@ -25,11 +25,24 @@ export class LayeredSampler implements ISampler {
   private readonly layers: Layer[];
   private readonly primaryRatio: number;
   private currentPan = 0;
+  readonly setPlaybackMuted?: (muted: boolean) => void;
+  readonly cancelScheduledNotes?: (fromAudioTime: number) => void;
 
   constructor(primary: ISampler, layers: LayerConfig[], primaryRatio = 1.0) {
     this.primary = primary;
     this.primaryRatio = primaryRatio;
     this.layers = layers.map((l) => ({ ...l, enabled: true }));
+    const samplers = [primary, ...layers.map((layer) => layer.sampler)];
+    if (samplers.every((sampler) => sampler.setPlaybackMuted)) {
+      this.setPlaybackMuted = (muted) => {
+        for (const sampler of samplers) sampler.setPlaybackMuted?.(muted);
+      };
+    }
+    if (samplers.every((sampler) => sampler.cancelScheduledNotes)) {
+      this.cancelScheduledNotes = (fromAudioTime) => {
+        for (const sampler of samplers) sampler.cancelScheduledNotes?.(fromAudioTime);
+      };
+    }
   }
 
   noteOn(midiNote: number, velocity: number, time?: number, altKitProgram?: number): void {

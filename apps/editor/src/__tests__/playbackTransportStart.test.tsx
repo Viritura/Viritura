@@ -8,7 +8,7 @@ import { eventId, noteheadId } from "../score/ElementPath";
 import { resetSelectionStore, useSelectionActions, useSelectionStore } from "../store/selectionStore";
 
 vi.mock("../store/DocumentContext", () => {
-  const store = { getState: () => ({ score: makeScore() }) };
+  const store = { getState: () => ({ score: makeScore() }), subscribe: () => () => {} };
   return { useDocumentStoreApi: () => store };
 });
 

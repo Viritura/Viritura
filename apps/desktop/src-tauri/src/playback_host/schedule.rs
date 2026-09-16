@@ -54,6 +54,10 @@ pub enum ResolvedMidi {
     },
 }
 
+/// Schedule-local note-on identity, independent of part-local mapper IDs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct ResolvedNoteId(pub(super) usize);
+
 /// One precompiled event ready to route, tagged with the timeline second it fires
 /// and — for note-ons — when the matching note-off falls (used by [`plan_seek`]).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -62,6 +66,8 @@ pub struct ResolvedEvent {
     /// The source part index, carried through so the transport can mute/solo it.
     pub part: u32,
     pub midi: ResolvedMidi,
+    /// Shared by a paired note-on/off; absent only for controllers.
+    pub(super) note_id: Option<ResolvedNoteId>,
     /// For a `NoteOn`, the `at_seconds` of its paired `NoteOff`. `None` when the
     /// note never ends within the schedule (treated as sounding indefinitely).
     pub note_off_at: Option<f64>,
@@ -100,9 +106,10 @@ pub struct SeekPlan {
 pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
     // First pass: where does each note id's note-off fall, and what channel/key
     // did its note-on use. Both are needed before we can emit in time order.
-    let mut note_off_at: HashMap<&str, f64> = HashMap::new();
-    let mut note_key: HashMap<&str, (u8, u8)> = HashMap::new();
-    for event in events {
+    // Mapper note IDs are local to each part, including within a shared slot.
+    let mut note_off_at: HashMap<(u32, &str), f64> = HashMap::new();
+    let mut note_key: HashMap<(u32, &str), (ResolvedNoteId, u8, u8)> = HashMap::new();
+    for (index, event) in events.iter().enumerate() {
         match &event.midi.message {
             MidiMessage::NoteOn {
                 note_id,
@@ -110,10 +117,13 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
                 note,
                 ..
             } => {
-                note_key.insert(note_id.as_str(), (*channel, *note));
+                note_key.insert(
+                    (event.part, note_id.as_str()),
+                    (ResolvedNoteId(index), *channel, *note),
+                );
             }
             MidiMessage::NoteOff { note_id } => {
-                note_off_at.insert(note_id.as_str(), event.midi.at_seconds);
+                note_off_at.insert((event.part, note_id.as_str()), event.midi.at_seconds);
             }
             MidiMessage::ControlChange { .. } => {}
         }
@@ -128,7 +138,7 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
     });
 
     let mut resolved = Vec::with_capacity(indexed.len());
-    for (_, event) in indexed {
+    for (index, event) in indexed {
         let part = event.part;
         let at_seconds = event.midi.at_seconds;
         match &event.midi.message {
@@ -145,14 +155,16 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
                     note: *note,
                     velocity: *velocity,
                 },
-                note_off_at: note_off_at.get(note_id.as_str()).copied(),
+                note_id: Some(ResolvedNoteId(index)),
+                note_off_at: note_off_at.get(&(part, note_id.as_str())).copied(),
             }),
             MidiMessage::NoteOff { note_id } => {
-                if let Some(&(channel, note)) = note_key.get(note_id.as_str()) {
+                if let Some(&(note_id, channel, note)) = note_key.get(&(part, note_id.as_str())) {
                     resolved.push(ResolvedEvent {
                         at_seconds,
                         part,
                         midi: ResolvedMidi::NoteOff { channel, note },
+                        note_id: Some(note_id),
                         note_off_at: None,
                     });
                 }
@@ -169,6 +181,7 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
                     controller: *controller,
                     value: *value,
                 },
+                note_id: None,
                 note_off_at: None,
             }),
         }

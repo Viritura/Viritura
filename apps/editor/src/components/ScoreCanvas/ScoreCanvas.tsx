@@ -84,6 +84,7 @@ import { useEngraveHoverFade } from "./useEngraveHoverFade";
 import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } from "./relayoutEffects";
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
 import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
+import { useRenderedStaffSources } from "./renderedStaffSources";
 import {
   handleCanvasClickImpl,
   handleCanvasDoubleClickImpl,
@@ -151,6 +152,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [displayListVersion, setDisplayListVersion] = useState(0);
     const displayListVersionRef = useRef(0);
+    const publishStaffSources = useRenderedStaffSources(displayListRef, displayListVersion, printPreview);
     const spatialIndexRef = useRef<SpatialIndex | null>(null);
     const perfTrackerRef = useRef(getGlobalPerfTracker());
     const tileCacheRef = useRef(new TileCache());
@@ -928,6 +930,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const canvas = canvasRef.current;
         const dl = displayListRef.current;
         if (!canvas || !dl) return;
+        publishStaffSources();
         const firstSelectedId = selectedIds?.values().next().value;
         performance.mark("viritura:paint-callback-ready");
         paintScoreFrame({
@@ -976,6 +979,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         hitboxOverlayEnabled,
         performanceOverlayEnabled,
         printPreview,
+        publishStaffSources,
         safeArea?.left,
       ],
     );

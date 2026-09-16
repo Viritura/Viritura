@@ -7,6 +7,7 @@ import { runLayoutEnginePath } from "./layoutEnginePath";
 import { PX_PER_MM } from "./constants";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import { projectHiddenRestsForWrite, scoreHasHiddenRests, tintHiddenRestPlaceholders } from "./hiddenRestProjection";
+import { recordRenderedStaffSources } from "./renderedStaffSources";
 
 interface ComputeDisplayListArgs {
   mnxJson: string;
@@ -99,7 +100,9 @@ export function tryRelayoutScoreView(args: {
   if (selectedPartIds && selectedPartIds.length >= 1) return Promise.resolve(null);
   if (expandedCondensingStaves && expandedCondensingStaves.size > 0) return Promise.resolve(null);
   const { sp, pageWidthPx, pageSetupJson } = resolvePageSetup(score, scoreIdx, viewMode, pageSetupRef);
-  return engine.relayoutRetainedScore(sp, pageWidthPx, pageSetupJson, scoreIdx);
+  return engine
+    .relayoutRetainedScore(sp, pageWidthPx, pageSetupJson, scoreIdx)
+    .then((displayList) => (displayList ? recordRenderedStaffSources(displayList, score) : null));
 }
 
 /**
@@ -195,7 +198,9 @@ export function computeDisplayListImpl(args: ComputeDisplayListArgs): Promise<Di
         }
       : patchInfo;
   const finish = (promise: Promise<DisplayList>) =>
-    showHiddenRests ? promise.then(tintHiddenRestPlaceholders) : promise;
+    promise.then((displayList) =>
+      recordRenderedStaffSources(showHiddenRests ? tintHiddenRestPlaceholders(displayList) : displayList, score),
+    );
 
   // Staff filter: inject synthetic layout when staves are ctrl/shift-selected
   if (selectedPartIds && selectedPartIds.length >= 1) {

@@ -288,6 +288,61 @@ fn reconstruct(patch: &PatchFrame, prev: &[DisplayList]) -> (DisplayList, Vec<Di
 }
 
 #[test]
+fn patch_frames_preserve_resolved_sources_when_condensing_splits_for_meter() {
+    let json = include_str!("../../../../../packages/format/fixtures/mnx/condensing-test.mnx");
+    let mut score = parse_mnx(json).unwrap();
+    score.scores[3].layout = Some(score.layouts[3].id.clone());
+    score.scores[3].pages.clear();
+    let config = LayoutConfig {
+        page_width: Some(816.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = LayoutCache::new();
+    cache.set_patch_frame_enabled(true);
+    let mut truth_cache = LayoutCache::new();
+    let mut segments = Vec::new();
+    for split in [false, true, false] {
+        score.parts[0].measures[0].staff_meters = split.then(|| {
+            vec![StaffMeterChange::Set {
+                staff: 1,
+                meter: StaffMeter {
+                    count: 6,
+                    unit: 8,
+                    beat_structure: None,
+                },
+                synchronization: StaffMeterSynchronization::FitMeasure,
+            }]
+        });
+        for warm in [false, true] {
+            let truth = layout_with_mnx_scores_cached(&score, &config, 3, Some(&mut truth_cache));
+            let _ = layout_with_mnx_scores_cached(&score, &config, 3, Some(&mut cache));
+            let patch = cache.take_pending_patch().expect("auto-flow emits patch");
+            if warm {
+                assert!(patch
+                    .placements
+                    .iter()
+                    .all(|placement| { matches!(placement, SystemPlacement::Reuse { .. }) }));
+            }
+            let (reconstructed, next) = reconstruct(&patch, &segments);
+            segments = next;
+            assert!(
+                binary_bits(&truth) == binary_bits(&reconstructed),
+                "patch reconstruction diverged: split={split}, warm={warm}"
+            );
+            assert!(!reconstructed.measure_bounds.is_empty());
+            for bounds in &reconstructed.measure_bounds {
+                if split {
+                    assert!(bounds.source_part_indices.is_empty());
+                    assert_eq!(bounds.part_index, bounds.staff_index);
+                } else {
+                    assert_eq!(bounds.source_part_indices, vec![0, 1]);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn patch_frame_reconstruction_is_byte_identical() {
     // Paged only: the patch frame is gated on `page_width.is_some()` (the
     // unpaged `fit_unpaged_bounds` global translate is incompatible with

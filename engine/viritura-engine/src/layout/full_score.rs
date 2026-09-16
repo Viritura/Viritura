@@ -637,6 +637,7 @@ fn render_one_staff_for_system(
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
                 part_index: vi,
+                source_part_indices: Vec::new(),
                 staff_index: vi,
                 system_index: sys_idx,
                 x: bounds_x,

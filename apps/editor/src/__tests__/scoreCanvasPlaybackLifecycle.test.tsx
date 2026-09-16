@@ -62,7 +62,8 @@ vi.mock("../store/DocumentContext", () => ({
   useDocumentActions: () => mocks.documentActions,
   useDocumentStoreApi: () => mocks.documentStore,
 }));
-vi.mock("../store/selectionStore", () => ({
+vi.mock("../store/selectionStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../store/selectionStore")>()),
   useSelection: () => mocks.selection,
   useSelectionActions: () => mocks.selectionActions,
 }));

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildSchedulingWorklet } from "./sf2Scheduling";
 
 const audioRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = dirname(fileURLToPath(import.meta.resolve("spessasynth_lib/package.json")));
@@ -31,6 +32,12 @@ export function syncSoundAssets(destination: string): void {
     }
     for (const asset of WORKLET_ASSETS) {
       copyIfChanged(resolve(packageRoot, "dist", asset), resolve(destinationRoot, asset));
+    }
+    const vendorSource = readFileSync(resolve(packageRoot, "dist", "spessasynth_processor.min.js"), "utf8");
+    const workletSource = buildSchedulingWorklet(vendorSource);
+    const workletPath = resolve(destinationRoot, "viritura-sf2-processor.js");
+    if (!existsSync(workletPath) || readFileSync(workletPath, "utf8") !== workletSource) {
+      writeFileSync(workletPath, workletSource, "utf8");
     }
   });
 }

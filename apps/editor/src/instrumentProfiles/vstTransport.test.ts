@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
+import type { PerformanceEvent } from "@viritura/midi";
 import type { VstPreparePlan } from "@viritura/playback";
 import type { FxChainsConfig } from "./fxChainStore";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
+  compileMapper: vi.fn<(events: PerformanceEvent[]) => ScheduledEvent[]>(),
   fx: vi.fn<() => FxChainsConfig>(),
 }));
 
@@ -17,13 +19,11 @@ vi.mock("./instrumentProfileStore", () => ({
       profiles: [
         {
           id: "profile",
-          slots: [
-            {
-              slotId: "piano",
-              label: "Piano",
-              binding: { pluginPath: "F:\\plugins\\piano.vst3", luaScriptPath: "F:\\mappers\\piano.lua" },
-            },
-          ],
+          slots: ["piano", "strings", "winds"].map((slotId) => ({
+            slotId,
+            label: slotId,
+            binding: { pluginPath: `F:\\plugins\\${slotId}.vst3`, luaScriptPath: "F:\\mappers\\piano.lua" },
+          })),
         },
       ],
     }),
@@ -48,9 +48,19 @@ interface StripControls {
 
 interface LoadSlot extends StripControls {
   slotKey: string;
+  events: (ScheduledEvent & { part: number })[];
 }
 
-function score(step: "C" | "D" = "C"): Score {
+interface ScheduledEvent {
+  atSeconds: number;
+  type: string;
+  note_id: string;
+  channel: number;
+  note: number;
+  velocity: number;
+}
+
+function score(step: "C" | "D" = "C", octave = 4): Score {
   return {
     mnx: { version: 1 },
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
@@ -66,7 +76,7 @@ function score(step: "C" | "D" = "C"): Score {
                     type: "event",
                     id: "note",
                     duration: { base: "whole" },
-                    notes: [{ pitch: { step, octave: 4 } }],
+                    notes: [{ pitch: { step, octave } }],
                   },
                 ],
               },
@@ -92,6 +102,48 @@ function plan(kind: "vst" | "sf2"): VstPreparePlan {
       };
 }
 
+function selectionFixture(kind: "vst" | "sf2" | "shared vst", step: "C" | "D" = "C") {
+  const document = score(step);
+  document.parts = [0, 1, 2].map((partIndex) => ({
+    ...score(step, 4 + partIndex).parts[0]!,
+    id: `part-${partIndex}`,
+  }));
+  const slotIds = kind === "shared vst" ? ["piano", "piano", "piano"] : ["piano", "strings", "winds"];
+  const preparation: VstPreparePlan =
+    kind === "sf2"
+      ? { vstParts: [], sf2Parts: [0, 1, 2].map((partIndex) => ({ partIndex, program: 0, isDrum: false })) }
+      : {
+          vstParts: slotIds.map((instrumentSlot, partIndex) => ({
+            partIndex,
+            vst: { ...plan("vst").vstParts[0]!.vst, instrumentSlot, midiChannel: partIndex },
+          })),
+          sf2Parts: [],
+        };
+  const slotKeys = slotIds.map((slotId, partIndex) => (kind === "sf2" ? `sf2:${partIndex}` : `profile:${slotId}`));
+  return { document, preparation, slotKeys };
+}
+
+function mockMultitimbralMapper() {
+  // Channels come from this mapper stub, not the transport. Only the native
+  // invocation payloads are tested here; no plugin or native dispatch runs.
+  mocks.compileMapper.mockImplementation((events) =>
+    events.flatMap((event) =>
+      event.kind === "noteOn" || event.kind === "noteOff"
+        ? [
+            {
+              atSeconds: event.time,
+              type: event.kind === "noteOn" ? "note_on" : "note_off",
+              note_id: event.note.id,
+              channel: Math.floor(event.note.pitch / 12) - 5,
+              note: event.note.pitch,
+              velocity: 100,
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
 describe("native mixer reconciliation", () => {
   let strips: Map<string, StripControls>;
   let muted: Set<number>;
@@ -102,6 +154,7 @@ describe("native mixer reconciliation", () => {
   beforeEach(() => {
     vi.resetModules();
     mocks.invoke.mockReset();
+    mocks.compileMapper.mockReset().mockReturnValue([]);
     vi.stubGlobal("__TAURI_INTERNALS__", { invoke: mocks.invoke });
     strips = new Map();
     muted = new Set();
@@ -123,7 +176,7 @@ describe("native mixer reconciliation", () => {
         case "vst_soundfont_path":
           return "F:\\fonts\\piano.sf2";
         case "vst_compile_mapper":
-          return [];
+          return mocks.compileMapper(args.events as PerformanceEvent[]);
         case "vst_playback_load":
           await duringLoad?.();
           for (const slot of args.slots as LoadSlot[]) {
@@ -275,4 +328,139 @@ describe("native mixer reconciliation", () => {
     await transport.prepare(sharedScore, sharedPlan);
     expect([...strips.values()]).toEqual([{ gain: 0.6, pan: -1, reverbSend: 0.25 }]);
   });
+
+  it.each(["vst", "sf2", "shared vst"] as const)(
+    "sends effective per-part %s mutes before starts after prepare, reload and host invalidation",
+    async (kind) => {
+      const { createVstTransport, invalidateVstHostMirror } = await import("./vstTransport");
+      const transport = createVstTransport()!;
+      mockMultitimbralMapper();
+      const { document, preparation, slotKeys } = selectionFixture(kind);
+      // Provider output for raw mixer mute {1} and selectionPartIds {"part-0"}.
+      // Union derivation belongs to provider tests, not this transport seam.
+      await transport.setMutedParts(new Set([1, 2]));
+      expect(strips.size).toBe(0);
+
+      const prepareAndStart = async (nextScore: Score, reload: boolean) => {
+        mocks.invoke.mockClear();
+        expect(await transport.prepare(nextScore, preparation)).toEqual(new Set([0, 1, 2]));
+        await transport.start(0.5);
+        const loads = mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_load");
+        expect(loads).toHaveLength(reload ? 1 : 0);
+        if (reload) {
+          expect(
+            mocks.invoke.mock.calls.findIndex(([command]) => command === "vst_playback_set_muted"),
+          ).toBeGreaterThan(mocks.invoke.mock.calls.findIndex(([command]) => command === "vst_playback_load"));
+          const slots = loads[0]![1].slots as LoadSlot[];
+          expect(slots.map((slot) => slot.slotKey)).toEqual([...new Set(slotKeys)]);
+          // Excluded parts stay scheduled so a live selection clear needs no reload.
+          for (const partIndex of [0, 1, 2]) {
+            const slot = slots.find((entry) => entry.slotKey === slotKeys[partIndex])!;
+            expect(slot.events).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  part: partIndex,
+                  type: "note_on",
+                  channel: kind === "sf2" ? 0 : partIndex,
+                }),
+                expect.objectContaining({ part: partIndex, type: "note_off" }),
+              ]),
+            );
+          }
+        }
+        expect(
+          mocks.invoke.mock.calls.filter(([command]) =>
+            ["vst_playback_set_muted", "vst_playback_start", "vst_playback_stop", "vst_playback_seek"].includes(
+              command,
+            ),
+          ),
+        ).toEqual([
+          ["vst_playback_set_muted", { parts: [1, 2] }, undefined],
+          ["vst_playback_start", { originSeconds: 0.5 }, undefined],
+        ]);
+      };
+
+      await prepareAndStart(document, true);
+      await transport.stop();
+      const revised = selectionFixture(kind, "D").document;
+      await prepareAndStart(revised, true);
+      await transport.stop();
+      await prepareAndStart(revised, false);
+      await transport.stop();
+      strips.clear();
+      muted.clear();
+      invalidateVstHostMirror();
+      await prepareAndStart(revised, true);
+    },
+  );
+
+  it.each(["vst", "sf2", "shared vst"] as const)(
+    "restores the latest raw %s mixer mutes on live selection clear without transport commands",
+    async (kind) => {
+      const { createVstTransport } = await import("./vstTransport");
+      const transport = createVstTransport()!;
+      const { document, preparation, slotKeys } = selectionFixture(kind);
+      mockMultitimbralMapper();
+      await transport.setMutedParts(new Set([1, 2]));
+      await transport.prepare(document, preparation);
+      await transport.start(0.5);
+      mocks.invoke.mockClear();
+      expect(await transport.previewNote(0, 60, 100, 200)).toBe(true);
+      expect(await transport.previewNote(1, 72, 100, 200)).toBe(true);
+      expect(await transport.previewNote(2, 84, 100, 200)).toBe(true);
+      expect(mocks.invoke.mock.calls).toEqual([
+        ["vst_playback_preview", { slotKey: slotKeys[0], note: 60, velocity: 100, durationMs: 200 }, undefined],
+      ]);
+
+      mocks.invoke.mockClear();
+      // Raw mixer mute changes to {0, 1} while selection still excludes {1, 2}.
+      await transport.setMutedParts(new Set([0, 1, 2]));
+      // Clearing selection supplies the latest raw mixer set, not an empty set.
+      await transport.setMutedParts(new Set([0, 1]));
+      expect(mocks.invoke.mock.calls).toEqual([
+        ["vst_playback_set_muted", { parts: [0, 1, 2] }, undefined],
+        ["vst_playback_set_muted", { parts: [0, 1] }, undefined],
+      ]);
+
+      mocks.invoke.mockClear();
+      expect(await transport.previewNote(0, 60, 100, 200)).toBe(true);
+      expect(await transport.previewNote(1, 72, 100, 200)).toBe(true);
+      expect(await transport.previewNote(2, 84, 100, 200)).toBe(true);
+      expect(mocks.invoke.mock.calls).toEqual([
+        ["vst_playback_preview", { slotKey: slotKeys[2], note: 84, velocity: 100, durationMs: 200 }, undefined],
+      ]);
+
+      mocks.invoke.mockClear();
+      await transport.setMutedParts(new Set());
+      expect(mocks.invoke.mock.calls).toEqual([["vst_playback_set_muted", { parts: [] }, undefined]]);
+    },
+  );
+
+  it.each(["vst", "sf2", "shared vst"] as const)(
+    "reapplies the latest %s raw mixer mute when selection clears during loading",
+    async (kind) => {
+      const { createVstTransport } = await import("./vstTransport");
+      const transport = createVstTransport()!;
+      const { document, preparation } = selectionFixture(kind);
+      mockMultitimbralMapper();
+      await transport.setMutedParts(new Set([1, 2]));
+      duringLoad = async () => {
+        await transport.setMutedParts(new Set([0, 1, 2]));
+        await transport.setMutedParts(new Set([0, 1]));
+      };
+      mocks.invoke.mockClear();
+      await transport.prepare(document, preparation);
+      await transport.start(0.5);
+      expect(
+        mocks.invoke.mock.calls.filter(([command]) =>
+          ["vst_playback_set_muted", "vst_playback_start", "vst_playback_stop", "vst_playback_seek"].includes(command),
+        ),
+      ).toEqual([
+        ["vst_playback_set_muted", { parts: [0, 1, 2] }, undefined],
+        ["vst_playback_set_muted", { parts: [0, 1] }, undefined],
+        ["vst_playback_set_muted", { parts: [0, 1] }, undefined],
+        ["vst_playback_start", { originSeconds: 0.5 }, undefined],
+      ]);
+    },
+  );
 });

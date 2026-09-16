@@ -887,11 +887,8 @@ pub(crate) fn render_system_contents(
     };
 
     for (i, ml) in measure_layouts.iter().enumerate() {
-        let prev_has_repeat_end = if i > 0 {
-            measure_layouts[i - 1].resolved.global.repeat_end.is_some()
-        } else {
-            false
-        };
+        let prev_has_repeat_end =
+            i > 0 && measure_layouts[i - 1].resolved.global.repeat_end.is_some();
         let prev_barline_type = if i > 0 {
             measure_layouts[i - 1]
                 .resolved
@@ -956,6 +953,7 @@ pub(crate) fn render_system_contents(
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
                 part_index: part_idx,
+                source_part_indices: Vec::new(),
                 staff_index: staff_idx.unwrap_or(part_idx),
                 system_index,
                 x: bounds_x,

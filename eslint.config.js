@@ -26,6 +26,7 @@ export default tseslint.config(
       "**/storybook-mnx-static/**",
       "**/public/wasm/**",
       "**/public/denigma/**",
+      "**/public/sounds/viritura-sf2-processor.js",
       "engine/viritura-wasm/pkg-browser/**",
       "packages/musx-import/assets/**",
       "engine/target/**",

@@ -284,6 +284,23 @@ impl DisplayList {
                 buf.push(if mb.has_music_hidden { 1.0 } else { 0.0 });
                 buf.push(if mb.is_expansion { 1.0 } else { 0.0 });
             }
+            // Optional source-identity trailer, after ALL measure bounds:
+            // [entry_count, (bounds_index, source_count, ...part_indices)...].
+            // Older decoders ignore it; older payloads have no such trailer.
+            let sources: Vec<_> = self
+                .measure_bounds
+                .iter()
+                .enumerate()
+                .filter(|(_, mb)| !mb.source_part_indices.is_empty())
+                .collect();
+            if !sources.is_empty() {
+                buf.push(sources.len() as f32);
+                for (index, mb) in sources {
+                    buf.push(index as f32);
+                    buf.push(mb.source_part_indices.len() as f32);
+                    buf.extend(mb.source_part_indices.iter().map(|&part| part as f32));
+                }
+            }
         }
 
         buf

@@ -12,6 +12,7 @@
  */
 
 import type { ISampler } from "./types";
+import { cancelScheduledNotes, registerSchedulingWorklet } from "./sf2Scheduling";
 
 // spessasynth_lib types — imported dynamically to avoid bundling issues
 // The actual WorkletSynthesizer is loaded at runtime
@@ -31,7 +32,10 @@ interface SpessaSynthLike {
   /** Per-channel handles. Drum-mode is toggled via `midiChannels[ch].setDrums(isDrum)`
    *  in spessasynth_lib >=4.3 — there is no synth-level `setDrums`. Spessasynth does
    *  NOT auto-set channel 9 to drums, so we flip it explicitly. */
-  midiChannels: { setDrums(isDrum: boolean): void }[];
+  midiChannels: {
+    setDrums(isDrum: boolean): void;
+    setSystemParameter(parameter: "isMuted", value: boolean): void;
+  }[];
   connect(node: AudioNode): AudioNode;
   isReady: Promise<unknown>;
   soundBankManager: {
@@ -64,6 +68,7 @@ export class Sf2Synth {
     public readonly synth: SpessaSynthLike,
     public readonly context: AudioContext,
     outputNode: GainNode,
+    private readonly schedulingPort: MessagePort,
   ) {
     this.outputNode = outputNode;
   }
@@ -74,8 +79,6 @@ export class Sf2Synth {
    * @param sf2Buffer The SF2 file data as ArrayBuffer
    * @param outputNode Optional output node (defaults to destination)
    */
-  private static workletRegistered = new WeakSet<BaseAudioContext>();
-
   static async create(audioContext: AudioContext, sf2Buffer: ArrayBuffer, _outputNode?: AudioNode): Promise<Sf2Synth> {
     const spessasynth = await import("spessasynth_lib");
 
@@ -83,43 +86,20 @@ export class Sf2Synth {
     // ("/") and the deployed site (e.g. "/app/"). Vite replaces
     // `import.meta.env.BASE_URL` at build time; fall back to "/" elsewhere.
     const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
-    const workletUrl = `${baseUrl}sounds/spessasynth_processor.min.js`;
+    const workletUrl = `${baseUrl}sounds/viritura-sf2-processor.js`;
 
-    // Detect Chromium (Chrome, Edge, Opera) vs Firefox
-    const isChromium = "chrome" in window;
-
-    let synth: InstanceType<typeof spessasynth.WorkletSynthesizer>;
-
-    if (!isChromium) {
-      // Firefox: use AudioWorklet directly
-      if (!Sf2Synth.workletRegistered.has(audioContext)) {
-        try {
-          await audioContext.audioWorklet.addModule(workletUrl);
-        } catch (err) {
-          throw new Error(
-            `Failed to load ${workletUrl}: ${err instanceof Error ? err.message : String(err)}. ` +
-              `Check that the file is deployed and reachable.`,
-          );
-        }
-        Sf2Synth.workletRegistered.add(audioContext);
-      }
-      synth = new spessasynth.WorkletSynthesizer(audioContext);
-    } else {
-      // Chromium: still use WorkletSynthesizer but register the module first
-      // SpessaSynth's WorkletSynthesizer handles Chromium fine
-      if (!Sf2Synth.workletRegistered.has(audioContext)) {
-        try {
-          await audioContext.audioWorklet.addModule(workletUrl);
-        } catch (err) {
-          throw new Error(
-            `Failed to load ${workletUrl}: ${err instanceof Error ? err.message : String(err)}. ` +
-              `Check that the file is deployed and reachable.`,
-          );
-        }
-        Sf2Synth.workletRegistered.add(audioContext);
-      }
-      synth = new spessasynth.WorkletSynthesizer(audioContext);
-    }
+    await registerSchedulingWorklet(audioContext, workletUrl);
+    let schedulingPort: MessagePort | undefined;
+    const synth = new spessasynth.WorkletSynthesizer(audioContext, {
+      audioNodeCreators: {
+        worklet(context, name, options) {
+          const node = new AudioWorkletNode(context, name, options);
+          schedulingPort = node.port;
+          return node;
+        },
+      },
+    });
+    if (!schedulingPort) throw new Error("SF2 worklet did not expose its scheduling port");
 
     // Route synth through an intermediate GainNode for flexible routing.
     // The caller connects sf2.outputNode to PannerNode / reverb / destination.
@@ -135,7 +115,12 @@ export class Sf2Synth {
     await synth.soundBankManager.addSoundBank(bufferCopy, "default");
     console.log("[Sf2Synth] SoundBank loaded with", synth.presetList.length, "presets");
 
-    return new Sf2Synth(synth as unknown as SpessaSynthLike, audioContext, outputGain);
+    return new Sf2Synth(synth as unknown as SpessaSynthLike, audioContext, outputGain, schedulingPort);
+  }
+
+  /** Cancel only adapter-owned note events; active voices and other MIDI are untouched. */
+  cancelScheduledNotes(channels: readonly number[], fromAudioTime: number): void {
+    cancelScheduledNotes(this.schedulingPort, channels, fromAudioTime);
   }
 
   /**
@@ -407,22 +392,27 @@ export class Sf2Sampler implements ISampler {
   }
 
   allNotesOff(): void {
-    // Send a channel-local panic burst. The playback scheduler intentionally
-    // pre-sends events into the worklet, so a noteOn can still be queued for
-    // the next few audio quanta after Stop/Pause has killed current voices.
-    // Repeating All Sound Off + All Notes Off catches those queued starts
-    // without killing unrelated lanes that share this synth instance.
-    const now = this.sf2Synth.context.currentTime;
-    for (const offset of [0, 0.05, 0.15, 0.3, 0.5]) {
-      const time = now + offset;
-      const options = offset === 0 ? undefined : { time };
-      this.synth.controllerChange(this.channel, 120, 0, options);
-      this.synth.controllerChange(this.channel, 123, 0, options);
-      // Also silence any secondary alt-kit drum channels owned by this part.
-      for (const altChannel of this.altKitChannels.values()) {
-        this.synth.controllerChange(altChannel, 120, 0, options);
-        this.synth.controllerChange(altChannel, 123, 0, options);
-      }
+    // Include overdue, undrained events. Port FIFO ordering cancels old notes
+    // before silencing voices and releasing the transport-only mute for previews.
+    this.cancelScheduledNotes(-Infinity);
+    for (const channel of new Set([this.channel, ...this.altKitChannels.values()])) {
+      this.synth.controllerChange(channel, 120, 0);
+      this.synth.controllerChange(channel, 123, 0);
+    }
+    this.setPlaybackMuted(false);
+  }
+
+  /** Remove queued attacks/releases at or after the audio-clock cutoff without
+   * changing active voices, playback mute, programs, or controller queues. */
+  cancelScheduledNotes(fromAudioTime: number): void {
+    this.sf2Synth.cancelScheduledNotes([...new Set([this.channel, ...this.altKitChannels.values()])], fromAudioTime);
+  }
+
+  setPlaybackMuted(muted: boolean): void {
+    for (const channel of [this.channel, ...this.altKitChannels.values()]) {
+      this.synth.midiChannels[channel]?.setSystemParameter("isMuted", muted);
+      // Filter toggles retain queued MIDI; only transport exit cancels it.
+      if (muted) this.synth.controllerChange(channel, 120, 0);
     }
   }
 

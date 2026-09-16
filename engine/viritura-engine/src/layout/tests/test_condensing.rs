@@ -176,6 +176,216 @@ fn test_condensed_auto_renders_without_panic() {
 }
 
 #[test]
+fn condensed_measure_bounds_include_silent_sources_in_explicit_and_auto_layouts() {
+    let mut score = load_condensing_test();
+    let rests = score.parts[1].measures[3].sequences.clone();
+    for measure in &mut score.parts[1].measures {
+        measure.sequences.clone_from(&rests);
+    }
+    for auto_flow in [false, true] {
+        for score_index in 1..4 {
+            if auto_flow {
+                score.scores[score_index].layout = Some(score.layouts[score_index].id.clone());
+                score.scores[score_index].pages.clear();
+            }
+            let dl = layout_with_mnx_scores(&score, &default_config(), score_index);
+            assert!(!dl.measure_bounds.is_empty());
+            assert!(dl.measure_bounds.iter().any(|bounds| bounds.index == 3));
+            for bounds in &dl.measure_bounds {
+                assert_eq!(bounds.part_index, 0);
+                assert_eq!(bounds.source_part_indices, vec![0, 1]);
+            }
+        }
+    }
+}
+
+#[test]
+fn condensed_source_identity_survives_json_and_binary_transport() {
+    let score = load_condensing_test();
+    let dl = layout_with_mnx_scores(&score, &default_config(), 3);
+    assert!(!dl.measure_bounds.is_empty());
+    let json = serde_json::to_value(&dl).unwrap();
+    assert_eq!(
+        json["measure_bounds"][0]["source_part_indices"],
+        serde_json::json!([0, 1])
+    );
+    let roundtrip: DisplayList = serde_json::from_value(json).unwrap();
+    assert_eq!(roundtrip.measure_bounds[0].source_part_indices, vec![0, 1]);
+
+    let mut legacy = dl.clone();
+    for bounds in &mut legacy.measure_bounds {
+        bounds.source_part_indices.clear();
+    }
+    let legacy_json = serde_json::to_value(&legacy).unwrap();
+    assert!(legacy_json["measure_bounds"][0]
+        .get("source_part_indices")
+        .is_none());
+    let legacy_roundtrip: DisplayList = serde_json::from_value(legacy_json).unwrap();
+    assert!(legacy_roundtrip.measure_bounds[0]
+        .source_part_indices
+        .is_empty());
+
+    let binary = dl.to_binary();
+    let legacy_binary = legacy.to_binary();
+    assert_eq!(
+        binary[..legacy_binary.len()]
+            .iter()
+            .map(|f| f.to_bits())
+            .collect::<Vec<_>>(),
+        legacy_binary
+            .iter()
+            .map(|f| f.to_bits())
+            .collect::<Vec<_>>()
+    );
+    let mut expected = vec![dl.measure_bounds.len() as f32];
+    for index in 0..dl.measure_bounds.len() {
+        expected.extend([index as f32, 2.0, 0.0, 1.0]);
+    }
+    assert_eq!(&binary[legacy_binary.len()..], expected);
+}
+
+#[test]
+fn explicit_layout_changes_preserve_per_measure_source_identity() {
+    use serde_json::json;
+
+    for (initial_sources, changed_sources) in [
+        (vec![0, 1], vec![0, 2]),
+        (vec![0], vec![2]),
+        (vec![0, 1], vec![2]),
+        (vec![0], vec![2, 1]),
+    ] {
+        let part_ids = ["flute", "cello", "oboe"];
+        let layout = |id: &str, sources: &[usize]| {
+            json!({
+                "id": id,
+                "content": [{
+                    "type": "staff",
+                    "sources": sources.iter().map(|&index| json!({
+                        "part": part_ids[index]
+                    })).collect::<Vec<_>>()
+                }]
+            })
+        };
+        let parts: Vec<_> = part_ids
+            .iter()
+            .enumerate()
+            .map(|(index, id)| {
+                json!({
+                    "id": id,
+                    "measures": (0..3).map(|_| json!({
+                        "sequences": [{"content": [{
+                            "type": "event",
+                            "duration": {"base": "whole"},
+                            "notes": [{"pitch": {
+                                "step": (["C", "E", "G"][index]), "octave": 4
+                            }}]
+                        }]}]
+                    })).collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let score = parse_mnx(
+            &json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [
+                    {"id": "m0", "time": {"count": 4, "unit": 4}},
+                    {"id": "m1"}, {"id": "m2"}
+                ]},
+                "parts": parts,
+                "layouts": [
+                    layout("initial", &initial_sources),
+                    layout("changed", &changed_sources)
+                ],
+                "scores": [{"name": "Changing sources", "pages": [{"systems": [{
+                    "measure": "m0",
+                    "layout": "initial",
+                    "layoutChanges": [{
+                        "layout": "changed",
+                        "location": {"measure": "m1", "position": {"fraction": [0, 1]}}
+                    }]
+                }]}]}]
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let config = LayoutConfig {
+            page_width: Some(3_000.0),
+            ..default_config()
+        };
+        let stateless = layout_with_mnx_scores(&score, &config, 0);
+        let mut cache = LayoutCache::new();
+        cache.set_patch_frame_enabled(true);
+        for dl in [
+            stateless.clone(),
+            layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+            layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache)),
+        ] {
+            assert!(
+                dl.element_ids
+                    .iter()
+                    .flatten()
+                    .any(|id| id.starts_with("p2/m1/s0/") && id.ends_with("/n0")),
+                "{initial_sources:?} -> {changed_sources:?}"
+            );
+            if changed_sources == [0, 2] {
+                assert!(dl
+                    .element_ids
+                    .iter()
+                    .any(|id| id.as_deref() == Some("p2/m1/s0/e0/n0")));
+            }
+            assert_eq!(dl.measure_bounds.len(), 3);
+            for bounds in &dl.measure_bounds {
+                let sources = if bounds.index == 0 {
+                    &initial_sources
+                } else {
+                    &changed_sources
+                };
+                assert_eq!(bounds.system_index, 0);
+                assert_eq!(bounds.staff_index, 0);
+                assert_eq!(bounds.part_index, sources[0]);
+                assert_eq!(
+                    bounds.source_part_indices,
+                    if sources.len() > 1 { &sources[..] } else { &[] }
+                );
+            }
+            let roundtrip: DisplayList =
+                serde_json::from_value(serde_json::to_value(&dl).unwrap()).unwrap();
+            assert_eq!(
+                serde_json::to_value(&roundtrip.measure_bounds).unwrap(),
+                serde_json::to_value(&dl.measure_bounds).unwrap()
+            );
+            let bits = |display_list: &DisplayList| {
+                display_list
+                    .to_binary()
+                    .iter()
+                    .map(|value| value.to_bits())
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(bits(&dl), bits(&stateless));
+            let mut legacy = dl.clone();
+            let mut expected = Vec::new();
+            let mut count = 0;
+            for (index, bounds) in legacy.measure_bounds.iter_mut().enumerate() {
+                if !bounds.source_part_indices.is_empty() {
+                    count += 1;
+                    expected.extend([index as f32, bounds.source_part_indices.len() as f32]);
+                    expected.extend(bounds.source_part_indices.iter().map(|&part| part as f32));
+                    bounds.source_part_indices.clear();
+                }
+            }
+            if count > 0 {
+                expected.insert(0, count as f32);
+            }
+            assert_eq!(&dl.to_binary()[legacy.to_binary().len()..], expected);
+        }
+        assert!(
+            cache.take_pending_patch().is_none(),
+            "explicit pages use full frames"
+        );
+    }
+}
+
+#[test]
 fn test_condensed_auto_has_noteheads() {
     let score = load_condensing_test();
     let config = default_config();
@@ -247,6 +457,17 @@ fn incompatible_staff_local_meters_render_on_distinct_staves_with_their_own_timi
         "the local source must retain its fitMeasure timing ratio"
     );
     assert!(cache.resolved_staff_meter(1, 0).is_none());
+    for part_index in 0..2 {
+        let bounds: Vec<_> = with_local_meter
+            .measure_bounds
+            .iter()
+            .filter(|bounds| bounds.staff_index == part_index)
+            .collect();
+        assert!(!bounds.is_empty());
+        assert!(bounds.iter().all(|bounds| {
+            bounds.part_index == part_index && bounds.source_part_indices.is_empty()
+        }));
+    }
 }
 
 #[test]

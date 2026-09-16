@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Sf2Sampler } from "./Sf2Sampler";
+import { createSamplerWorkletHarness } from "./sf2Scheduling/workletHarness.spec";
 
 function createMockSf2Synth(currentTime = 10) {
   const synth = {
@@ -9,7 +10,7 @@ function createMockSf2Synth(currentTime = 10) {
     stopAll: vi.fn(),
     controllerChange: vi.fn(),
     sendMessage: vi.fn(),
-    midiChannels: Array.from({ length: 16 }, () => ({ setDrums: vi.fn() })),
+    midiChannels: Array.from({ length: 16 }, () => ({ setDrums: vi.fn(), setSystemParameter: vi.fn() })),
     connect: vi.fn(),
     isReady: Promise.resolve(),
     soundBankManager: { addSoundBank: vi.fn() },
@@ -22,11 +23,34 @@ function createMockSf2Synth(currentTime = 10) {
   };
   return {
     synth,
-    sf2Synth: { synth, context } as unknown as ConstructorParameters<typeof Sf2Sampler>[0],
+    sf2Synth: { synth, context, cancelScheduledNotes: vi.fn() } as unknown as ConstructorParameters<
+      typeof Sf2Sampler
+    >[0],
   };
 }
 
 describe("Sf2Sampler", () => {
+  it("reversibly mutes primary and borrowed channels without delayed panic or mixer resets", () => {
+    const { synth, sf2Synth } = createMockSf2Synth();
+    const sampler = new Sf2Sampler(sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });
+    synth.programChange.mockClear();
+    sampler.setPlaybackMuted(true);
+    sampler.setPlaybackMuted(false);
+    for (const channel of [3, 4]) {
+      expect(synth.midiChannels[channel]!.setSystemParameter.mock.calls).toEqual([
+        ["isMuted", true],
+        ["isMuted", false],
+      ]);
+    }
+    expect(synth.controllerChange.mock.calls).toEqual([
+      [3, 120, 0],
+      [4, 120, 0],
+    ]);
+    expect(synth.programChange).not.toHaveBeenCalled();
+    expect(synth.stopAll).not.toHaveBeenCalled();
+    expect(synth.midiChannels[0]!.setSystemParameter).not.toHaveBeenCalled();
+  });
+
   it("sends 14-bit channel volume through CC7 and CC39", () => {
     const { synth, sf2Synth } = createMockSf2Synth();
     const sampler = new Sf2Sampler(sf2Synth, 3, 0);
@@ -37,21 +61,26 @@ describe("Sf2Sampler", () => {
     expect(synth.controllerChange).toHaveBeenNthCalledWith(2, 3, 39, 0);
   });
 
-  it("sends repeated panic controllers on allNotesOff", () => {
+  it("cancels all owned queued notes before immediate panic and unmuting", () => {
     const { synth, sf2Synth } = createMockSf2Synth(12);
-    const sampler = new Sf2Sampler(sf2Synth, 3, 0);
+    const sampler = new Sf2Sampler(sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });
+    const unmute = vi.spyOn(sampler, "setPlaybackMuted");
 
     sampler.allNotesOff();
 
     expect(synth.stopAll).not.toHaveBeenCalled();
-    const panicCalls = synth.controllerChange.mock.calls.filter(
-      ([channel, cc]) => channel === 3 && (cc === 120 || cc === 123),
+    expect(sf2Synth.cancelScheduledNotes).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity);
+    expect(synth.controllerChange.mock.calls).toEqual([
+      [3, 120, 0],
+      [3, 123, 0],
+      [4, 120, 0],
+      [4, 123, 0],
+    ]);
+    expect(unmute).toHaveBeenCalledExactlyOnceWith(false);
+    expect(vi.mocked(sf2Synth.cancelScheduledNotes).mock.invocationCallOrder[0]).toBeLessThan(
+      synth.controllerChange.mock.invocationCallOrder[0]!,
     );
-    expect(panicCalls).toHaveLength(10);
-    expect(panicCalls[0]).toEqual([3, 120, 0, undefined]);
-    expect(panicCalls[1]).toEqual([3, 123, 0, undefined]);
-    expect(panicCalls.at(-2)).toEqual([3, 120, 0, { time: 12.5 }]);
-    expect(panicCalls.at(-1)).toEqual([3, 123, 0, { time: 12.5 }]);
+    expect(synth.controllerChange.mock.invocationCallOrder.at(-1)).toBeLessThan(unmute.mock.invocationCallOrder[0]!);
   });
 
   it("reapplies mixer volume and pan to primary and borrowed drum-kit channels", () => {
@@ -114,5 +143,158 @@ describe("Sf2Sampler", () => {
 
     sampler.setProgram(41);
     expect(synth.programChange).not.toHaveBeenCalledWith(4, 41);
+  });
+
+  it("cancels only owned notes at the cutoff, preserving active voices and timed setup", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0, {
+      altKitChannels: new Map([
+        [48, 4],
+        [49, 4],
+        [50, 3],
+      ]),
+    });
+    sampler.noteOn(60, 90);
+    sampler.noteOn(64, 90, undefined, 48);
+    sampler.noteOn(61, 90, 10.5);
+    sampler.noteOff(61, 10.75);
+    sampler.noteOn(62, 90, 11);
+    sampler.noteOff(60, 11);
+    sampler.noteOn(63, 90, 11.5, 48);
+    sampler.noteOff(63, 12, 48);
+    sampler.noteOff(64, 11, 48);
+    sampler.sendControl(74, 32, 11);
+    sampler.setProgram(41, 11);
+    h.synth.controllerChange(4, 10, 95, { time: 11 });
+    h.synth.noteOn(5, 70, 90, { time: 11 });
+    h.synth.noteOff(5, 70, { time: 12 });
+
+    sampler.cancelScheduledNotes(11);
+
+    expect(h.cancel).toHaveBeenCalledExactlyOnceWith([3, 4], 11);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    h.advance(10.5);
+    expect(h.channels[3]!.voices).toEqual(new Set([60, 61]));
+    h.advance(10.75);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    h.advance(11);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    expect(h.channels[3]!.controllers.get(74)).toBe(32);
+    expect(h.channels[3]!.program).toBe(41);
+    expect(h.channels[4]!.controllers.get(10)).toBe(95);
+    expect(h.channels[5]!.voices).toEqual(new Set([70]));
+    h.advance(12);
+    expect(h.channels[4]!.voices).toEqual(new Set([64]));
+    expect(h.channels[5]!.voices.size).toBe(0);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    expect(h.attacks.map(({ note }) => note)).toEqual([60, 64, 61, 70]);
+  });
+
+  it("stops hidden playback without ghost attacks or a delayed panic killing immediate preview", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });
+    sampler.setVolume(0.5);
+    sampler.setPan(-0.5);
+    sampler.noteOn(60, 90);
+    sampler.setPlaybackMuted(true);
+    sampler.noteOn(61, 90, 12);
+    sampler.noteOff(61, 13);
+    sampler.noteOn(62, 90, 12, 48);
+    sampler.noteOff(62, 13, 48);
+    sampler.sendControl(74, 32, 12);
+    sampler.setProgram(41, 12);
+    h.synth.noteOn(5, 71, 90);
+    h.synth.programChange(5, 12);
+    h.synth.controllerChange(5, 7, 45);
+    h.synth.noteOn(5, 70, 90, { time: 12 });
+    h.synth.noteOff(5, 70, { time: 13 });
+    sampler.allNotesOff();
+    sampler.noteOn(72, 100);
+    sampler.noteOn(73, 100, undefined, 48);
+
+    expect(h.cancel).toHaveBeenCalledExactlyOnceWith([3, 4], -Infinity);
+    for (const time of [10.05, 10.15, 10.3, 10.5, 12, 13, 20]) h.advance(time);
+    expect(h.channels[3]!.voices).toEqual(new Set([72]));
+    expect(h.channels[4]!.voices).toEqual(new Set([73]));
+    expect(h.channels[5]!.voices).toEqual(new Set([71]));
+    expect(h.channels[5]!.program).toBe(12);
+    expect(h.channels[5]!.controllers.get(7)).toBe(45);
+    expect(h.attacks.map(({ note }) => note)).toEqual([60, 71, 72, 73, 70]);
+    for (const channel of [3, 4]) {
+      expect(h.channels[channel]!.muted).toBe(false);
+      expect(h.channels[channel]!.controllers.get(7)).toBe(64);
+      expect(h.channels[channel]!.controllers.get(39)).toBe(0);
+      expect(h.channels[channel]!.controllers.get(10)).toBe(32);
+    }
+    expect(h.channels[3]!.controllers.get(74)).toBe(32);
+    expect(h.channels[3]!.program).toBe(41);
+    expect(h.outputNode.gain.value).toBe(0.35);
+  });
+
+  it("removes overdue undrained notes as well as far-future notes on allNotesOff", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0);
+    sampler.noteOn(60, 90, 10.2);
+    sampler.noteOff(60, 10.4);
+    sampler.noteOn(61, 90, 30);
+    // The audio clock can advance before the next render quantum drains overdue notes.
+    h.setClock(11);
+
+    sampler.allNotesOff();
+    h.advance(11);
+    h.advance(30);
+
+    expect(h.attacks).toEqual([]);
+  });
+
+  it("cancels and requeues a tempo edit without old attacks or releases affecting the replacement", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0);
+    sampler.noteOn(60, 90, 12);
+    sampler.noteOff(60, 13);
+
+    sampler.cancelScheduledNotes(11);
+    sampler.noteOn(60, 90, 11.5);
+    sampler.noteOff(60, 14);
+
+    h.advance(11.5);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    h.advance(12);
+    expect(h.attacks).toEqual([{ channel: 3, note: 60, time: 11.5 }]);
+    h.advance(13);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    h.advance(14);
+    expect(h.channels[3]!.voices.size).toBe(0);
+    expect(h.received.filter((message) => (message.data.messageData[0]! & 0xf0) === 0x80)).toHaveLength(1);
+  });
+
+  it("retains queued primary and borrowed notes through normal mute and unmute", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });
+    sampler.setVolume(0.5);
+    sampler.setPan(0.5);
+    sampler.noteOn(60, 90, 12);
+    sampler.noteOff(60, 13);
+    sampler.noteOn(61, 90, 12, 48);
+    sampler.noteOff(61, 13, 48);
+    sampler.setProgram(41, 12);
+
+    sampler.setPlaybackMuted(true);
+    h.advance(11);
+    sampler.setPlaybackMuted(false);
+    h.advance(12);
+
+    expect(h.cancel).not.toHaveBeenCalled();
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    expect(h.channels[4]!.voices).toEqual(new Set([61]));
+    expect(h.channels[3]!.program).toBe(41);
+    for (const channel of [3, 4]) {
+      expect(h.channels[channel]!.controllers.get(7)).toBe(64);
+      expect(h.channels[channel]!.controllers.get(10)).toBe(95);
+    }
+    h.advance(13);
+    expect(h.channels[3]!.voices.size).toBe(0);
+    expect(h.channels[4]!.voices.size).toBe(0);
+    expect(h.outputNode.gain.value).toBe(0.35);
   });
 });

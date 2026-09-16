@@ -27,6 +27,31 @@ function sampler() {
 }
 
 describe("SamplerGroup", () => {
+  it("cancels queued notes only when every lane supports cancellation", () => {
+    const first = { ...sampler(), cancelScheduledNotes: vi.fn() };
+    const second = { ...sampler(), cancelScheduledNotes: vi.fn() };
+    new SamplerGroup([first, second]).cancelScheduledNotes?.(0.46);
+    for (const lane of [first, second]) {
+      expect(lane.cancelScheduledNotes).toHaveBeenCalledExactlyOnceWith(0.46);
+      expect(lane.allNotesOff).not.toHaveBeenCalled();
+    }
+    expect(new SamplerGroup([first, sampler()]).cancelScheduledNotes).toBeUndefined();
+  });
+
+  it("fans reversible playback mute across capable lanes only", () => {
+    const first = { ...sampler(), setPlaybackMuted: vi.fn() };
+    const second = { ...sampler(), setPlaybackMuted: vi.fn() };
+    const group = new SamplerGroup([first, second]);
+    group.setPlaybackMuted?.(true);
+    group.setPlaybackMuted?.(false);
+    for (const lane of [first, second]) {
+      expect(lane.setPlaybackMuted.mock.calls).toEqual([[true], [false]]);
+      expect(lane.allNotesOff).not.toHaveBeenCalled();
+      expect(lane.setVolume).not.toHaveBeenCalled();
+    }
+    expect(new SamplerGroup([first, sampler()]).setPlaybackMuted).toBeUndefined();
+  });
+
   it("uses only the primary lane for preview notes", () => {
     const first = sampler();
     const second = sampler();

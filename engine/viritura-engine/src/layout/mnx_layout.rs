@@ -35,6 +35,7 @@ mod shared;
 mod slur_tie_collection;
 mod staff_grouping;
 mod staff_placement;
+mod staff_sources;
 mod structure_flattening;
 mod system_connectors;
 

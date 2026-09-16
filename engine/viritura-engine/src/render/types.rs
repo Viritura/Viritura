@@ -402,6 +402,10 @@ pub struct MeasureBounds {
     pub measure_id: Option<String>,
     /// Part index (0-based) — identifies the source part for note entry.
     pub part_index: usize,
+    /// Distinct source part indices in resolved visual-staff order, including
+    /// silent sources. Empty means the sole source is `part_index`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_part_indices: Vec<usize>,
     /// Visual staff index (0-based) — unique per staff in the layout, used for
     /// selection and overlay painting. Differs from part_index when expansion
     /// staves duplicate the same part.

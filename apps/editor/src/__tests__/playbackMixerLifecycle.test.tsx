@@ -3,7 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReverbEngine, Sf2Synth } from "@viritura/audio";
 import type { Score } from "@viritura/core";
 import { getPlaybackSnapshot, PlaybackProvider, SCORE_CHANGE_DEBOUNCE_MS, type VstTransport } from "@viritura/playback";
-import { VIRITURA_SOUNDS_PROFILE_ID, virituraSoundsSourceId } from "@viritura/sound-profiles";
+import {
+  createSoundProfileRegistry,
+  VIRITURA_SOUNDS_PROFILE_ID,
+  virituraSoundsProfile,
+  virituraSoundsSourceId,
+  type SoundProfile,
+  type SoundProfileRegistry,
+} from "@viritura/sound-profiles";
 
 vi.mock("@viritura/audio", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@viritura/audio")>();
@@ -89,6 +96,7 @@ function recordingSynth(context: AudioContext) {
     context,
     outputNode: context.createGain(),
     warmUp: vi.fn<Sf2Synth["warmUp"]>().mockResolvedValue(undefined),
+    cancelScheduledNotes: vi.fn<Sf2Synth["cancelScheduledNotes"]>(),
     destroy: vi.fn(),
     synth: {
       controllerChange: vi.fn<Sf2Synth["synth"]["controllerChange"]>(),
@@ -97,7 +105,10 @@ function recordingSynth(context: AudioContext) {
       noteOff: vi.fn<Sf2Synth["synth"]["noteOff"]>(),
       sendMessage: vi.fn(),
       stopAll: vi.fn(),
-      midiChannels: Array.from({ length: 16 }, () => ({ setDrums: vi.fn() })),
+      midiChannels: Array.from({ length: 16 }, () => ({
+        setDrums: vi.fn<Sf2Synth["synth"]["midiChannels"][number]["setDrums"]>(),
+        setSystemParameter: vi.fn<Sf2Synth["synth"]["midiChannels"][number]["setSystemParameter"]>(),
+      })),
       connect: vi.fn<(node: AudioNode) => AudioNode>((node) => node),
       isReady: Promise.resolve(),
       soundBankManager: { addSoundBank: vi.fn().mockResolvedValue(undefined) },
@@ -143,9 +154,14 @@ async function flush(milliseconds = 0) {
   });
 }
 
-async function mount(score = makeScore(), host?: VstTransport) {
+async function mount(score = makeScore(), host?: VstTransport, soundProfileRegistry?: SoundProfileRegistry) {
   const view = render(
-    <PlaybackProvider score={score} vstTransport={host} audioRenderMode={host ? "native" : "web"}>
+    <PlaybackProvider
+      score={score}
+      vstTransport={host}
+      audioRenderMode={host ? "native" : "web"}
+      soundProfileRegistry={soundProfileRegistry}
+    >
       {null}
     </PlaybackProvider>,
   );
@@ -183,6 +199,10 @@ function expectChannel(synth: ReturnType<typeof recordingSynth>, channel: number
   expect(latest(7)).toBe(volume14 >> 7);
   expect(latest(39)).toBe(volume14 & 0x7f);
   expect(latest(10)).toBe(pan);
+}
+
+function noteChannels(synth: ReturnType<typeof recordingSynth>) {
+  return synth.synth.noteOn.mock.calls.map(([channel]) => channel);
 }
 
 function deferred<T>() {
@@ -385,6 +405,281 @@ describe("PlaybackProvider web mixer lifecycle", () => {
   });
 });
 
+describe.each(["web", "native"] as const)("PlaybackProvider %s selection eligibility", (mode) => {
+  it.each([
+    { selected: null, allowed: [0, 1, 2] },
+    { selected: ["part-1"], allowed: [1] },
+    { selected: ["part-0", "part-2"], allowed: [0, 2] },
+    { selected: [], allowed: [] },
+    { selected: ["missing"], allowed: [] },
+  ])("routes $selected on stopped startup and restart without changing gains", async ({ selected, allowed }) => {
+    const host = mode === "native" ? nativeTransport() : undefined;
+    await mount(makeScore(), host);
+    setWebMix();
+    act(() => {
+      actions().setVstMutedParts(new Set([2]));
+      actions().setSelectionPartIds(selected);
+    });
+    for (let generation = 0; generation < 2; generation++) {
+      await play();
+      const synth = synths[generation]!;
+      expect(noteChannels(synth)).toEqual(host ? [] : allowed);
+      expectChannel(synth, 0, 8192, 32);
+      expectChannel(synth, 1, 16383, 95);
+      expectChannel(synth, 2, 0, 64);
+      if (host) {
+        expect(host.setMutedParts).toHaveBeenLastCalledWith(
+          new Set([2, ...[0, 1, 2].filter((i) => !allowed.includes(i))]),
+        );
+        expect(host.setPartGain).toHaveBeenCalledWith(2, 0.8);
+      }
+      act(() => actions().stop());
+    }
+  });
+
+  it("keeps live selection changes separate from mute, solo and independent mixer edits", async () => {
+    const host = mode === "native" ? nativeTransport() : undefined;
+    await mount(makeScore(), host);
+    setWebMix();
+    act(() => actions().setVstMutedParts(new Set([2])));
+    await play();
+    const synth = synths[0]!;
+    const state = getPlaybackSnapshot().state;
+    synth.cancelScheduledNotes.mockClear();
+    act(() => actions().setSelectionPartIds(["part-0", "part-2"]));
+    expect(getPlaybackSnapshot().state).toBe(state);
+    if (!host) {
+      expect(synth.synth.midiChannels[1]!.setSystemParameter).toHaveBeenLastCalledWith("isMuted", true);
+      expect(synth.synth.controllerChange).toHaveBeenCalledWith(1, 120, 0);
+      expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    }
+    const check = (allowed: number[], muted: number[]) => {
+      synth.synth.noteOn.mockClear();
+      act(() => actions().seek(0));
+      expect(noteChannels(synth)).toEqual(host ? [] : allowed);
+      if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set(muted));
+    };
+    check([0, 2], [1, 2]);
+    // Solo part 1 in the mixer while the selection excludes it: neither
+    // selected part may become audible, and selection must not override solo.
+    act(() => {
+      actions().applyMix(0, 0.25, -0.5, true, false);
+      actions().setVstMutedParts(new Set([0, 2]));
+    });
+    check([0, 2], [0, 1, 2]);
+    expectChannel(synth, 0, 0, 32);
+    expectChannel(synth, 2, 0, 64);
+    act(() => actions().setSelectionPartIds(["part-1", "part-2"]));
+    check([1, 2], [0, 2]);
+    // Edit an excluded part's fader/pan and remove solo; retain part 2's mute.
+    act(() => {
+      actions().applyMix(0, 1, -0.5, false, false);
+      actions().setVstMutedParts(new Set([2]));
+      actions().setSelectionPartIds(null);
+    });
+    check([0, 1, 2], [2]);
+    expectChannel(synth, 0, 16383, 32);
+    expectChannel(synth, 2, 0, 64);
+    act(() => actions().stop());
+    await play();
+    expect(noteChannels(synths[1]!)).toEqual(host ? [] : [0, 1, 2]);
+    expectChannel(synths[1]!, 0, 16383, 32);
+    expectChannel(synths[1]!, 2, 0, 64);
+    if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([2]));
+  });
+
+  it("intersects live visibility with selection before lazy engine creation", async () => {
+    const host = mode === "native" ? nativeTransport() : undefined;
+    const score = makeScore();
+    const view = await mount(score, host);
+    const show = (visiblePartIds: string[]) =>
+      view.rerender(
+        <PlaybackProvider score={score} vstTransport={host} audioRenderMode={mode} visiblePartIds={visiblePartIds}>
+          {null}
+        </PlaybackProvider>,
+      );
+    show(["part-0", "part-1"]);
+    act(() => actions().setSelectionPartIds(["part-1", "part-2"]));
+    await play();
+    expect(noteChannels(synths[0]!)).toEqual(host ? [] : [1]);
+    if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([0, 2]));
+    show(["part-2"]);
+    act(() => actions().setSelectionPartIds(null));
+    synths[0]!.synth.noteOn.mockClear();
+    act(() => actions().seek(0));
+    expect(noteChannels(synths[0]!)).toEqual(host ? [] : [2]);
+    if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([0, 1]));
+  });
+
+  it("uses live selection and mixer edits during SF2 creation on each restart", async () => {
+    const host = mode === "native" ? nativeTransport() : undefined;
+    await mount(makeScore(), host);
+    setWebMix();
+    for (let generation = 0; generation < 2; generation++) {
+      const ready = deferred<void>();
+      vi.mocked(Sf2Synth.create).mockImplementationOnce(async (context) => {
+        const synth = recordingSynth(context);
+        synths.push(synth);
+        await ready.promise;
+        return synth;
+      });
+      let pending!: Promise<void>;
+      act(() => {
+        actions().setSelectionPartIds(["part-0"]);
+        pending = actions().play();
+      });
+      await flush();
+      expect(getPlaybackSnapshot().state.status).toBe("loading");
+      expect(noteChannels(synths[generation]!)).toEqual([]);
+      act(() => {
+        actions().setSelectionPartIds(generation === 0 ? ["part-1", "part-2"] : null);
+        actions().applyMix(1, 1, 0.5, true, false);
+        actions().setVstMutedParts(new Set([1, 2]));
+      });
+      ready.resolve();
+      await act(async () => pending);
+      expect(noteChannels(synths[generation]!)).toEqual(host ? [] : generation === 0 ? [1, 2] : [0, 1, 2]);
+      expectChannel(synths[generation]!, 1, 0, 95);
+      if (host) expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set(generation === 0 ? [0, 1, 2] : [1, 2]));
+      act(() => actions().stop());
+    }
+  });
+});
+
+describe("PlaybackProvider native selection preparation", () => {
+  it.each([true, false])("gates assigned VST parts with native ownership=%s and SF2 fallback", async (owned) => {
+    const profile: SoundProfile = {
+      ...virituraSoundsProfile,
+      id: "test-vst",
+      resolve(input) {
+        const fallback = virituraSoundsProfile.resolve({ ...input, selectedSourceId: undefined });
+        if (!fallback) return null;
+        return {
+          ...fallback,
+          profileId: "test-vst",
+          sources: [{ id: "slot", kind: "vst", hostProfileId: "test-vst", instrumentSlot: "slot", midiChannel: 0 }],
+        };
+      },
+    };
+    const score = makeScore();
+    score.soundProfile = {
+      profileId: profile.id,
+      profileVersion: profile.version,
+      parts: { "part-0": { sourceId: "slot" } },
+    };
+    const host = nativeTransport();
+    host.prepare.mockResolvedValue(new Set(owned ? [0, 1, 2] : [1, 2]));
+    await mount(score, host, createSoundProfileRegistry([virituraSoundsProfile, profile]));
+    act(() => actions().setSelectionPartIds(["part-0"]));
+    for (let generation = 0; generation < 2; generation++) {
+      await play();
+      expect(host.prepare.mock.calls.at(-1)![1].vstParts.map(({ partIndex }) => partIndex)).toEqual([0]);
+      expect(noteChannels(synths[generation]!)).toEqual(owned ? [] : [0]);
+      expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([1, 2]));
+      act(() => actions().stop());
+    }
+    await play();
+    synths[2]!.synth.noteOn.mockClear();
+    act(() => {
+      actions().setSelectionPartIds(["part-1"]);
+      actions().seek(0);
+    });
+    expect(noteChannels(synths[2]!)).toEqual([]);
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([0, 2]));
+  });
+
+  it("awaits the latest selection and mixer after stale post-prepare writes finish", async () => {
+    const host = nativeTransport();
+    let appliedMuted: ReadonlySet<number> = new Set();
+    host.setMutedParts.mockImplementation(async (parts) => {
+      appliedMuted = parts;
+    });
+    await mount(makeScore(), host);
+    const prepared = deferred<ReadonlySet<number>>();
+    host.prepare.mockReturnValueOnce(prepared.promise);
+    let pending!: Promise<void>;
+    act(() => {
+      actions().setSelectionPartIds(["part-0"]);
+      pending = actions().play();
+    });
+    await flush();
+    expect(host.prepare).toHaveBeenCalledOnce();
+    act(() => {
+      actions().setSelectionPartIds(["part-1"]);
+      actions().setVstMutedParts(new Set([1]));
+    });
+    const stale = deferred<void>();
+    host.setMutedParts.mockImplementationOnce(async (parts) => {
+      await stale.promise;
+      appliedMuted = parts;
+    });
+    prepared.resolve(new Set([0, 1, 2]));
+    await flush();
+    expect(host.start).not.toHaveBeenCalled();
+    act(() => {
+      actions().setSelectionPartIds(["part-0", "part-2"]);
+      actions().applyMix(2, 0.4, 0.5, true, false);
+      actions().setVstMutedParts(new Set([2]));
+    });
+    const latest = deferred<void>();
+    host.setMutedParts.mockImplementationOnce(async (parts) => {
+      await latest.promise;
+      appliedMuted = parts;
+    });
+    stale.resolve();
+    await flush();
+    expect(host.start).not.toHaveBeenCalled();
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([1, 2]));
+    expect(host.setPartGain.mock.calls.filter(([part]) => part === 2).at(-1)).toEqual([2, 0.4]);
+    latest.resolve();
+    await act(async () => pending);
+    expect(appliedMuted).toEqual(new Set([1, 2]));
+    expect(host.start).toHaveBeenCalledOnce();
+    act(() => actions().stop());
+    await play();
+    expect(appliedMuted).toEqual(new Set([1, 2]));
+    act(() => actions().setSelectionPartIds(null));
+    expect(appliedMuted).toEqual(new Set([2]));
+  });
+
+  it("filters native pitched parts and browser percussion fallback independently", async () => {
+    const score = makeScore();
+    score.parts[2]!.name = "Snare Drum";
+    const host = nativeTransport();
+    await mount(score, host);
+    act(() => actions().setSelectionPartIds(["part-2"]));
+    await play();
+    expect(host.prepare.mock.calls[0]![1].sf2Parts.map(({ partIndex }) => partIndex)).toEqual([0, 1]);
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([0, 1]));
+    expect(synths.flatMap((synth) => synth.synth.noteOn.mock.calls.map(([, note]) => note))).toEqual([38]);
+    for (const synth of synths) synth.synth.noteOn.mockClear();
+    act(() => {
+      actions().setSelectionPartIds(["part-0"]);
+      actions().seek(0);
+    });
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set([1, 2]));
+    expect(synths.flatMap(noteChannels)).toEqual([]);
+    // Clearing selection restores the held percussion note without a seek.
+    act(() => actions().setSelectionPartIds(null));
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set());
+    expect(synths.flatMap((synth) => synth.synth.noteOn.mock.calls.map(([, note]) => note))).toEqual([38]);
+    const percussion = synths.find((synth) => synth.synth.noteOn.mock.calls.length > 0)!;
+    const channel = percussion.synth.noteOn.mock.calls[0]![0];
+    expect(percussion.synth.midiChannels[channel]!.setSystemParameter).toHaveBeenLastCalledWith("isMuted", false);
+    for (const synth of synths) {
+      synth.synth.noteOn.mockClear();
+      synth.cancelScheduledNotes.mockClear();
+    }
+    // Seeking cancels that restored attack before scheduling its replacement.
+    act(() => actions().seek(0));
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set());
+    expect(synths.flatMap((synth) => synth.synth.noteOn.mock.calls.map(([, note]) => note))).toEqual([38]);
+    expect(percussion.cancelScheduledNotes).toHaveBeenCalledWith([channel], -Infinity);
+    expect(percussion.cancelScheduledNotes.mock.invocationCallOrder[0]).toBeLessThan(
+      percussion.synth.noteOn.mock.invocationCallOrder[0]!,
+    );
+  });
+});
 describe("PlaybackProvider native mixer lifecycle", () => {
   it("preserves last live controls on shared native strips instead of replaying in part order", async () => {
     const host = nativeTransport();

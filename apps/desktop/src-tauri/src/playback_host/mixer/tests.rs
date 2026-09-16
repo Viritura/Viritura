@@ -34,6 +34,31 @@ fn source(program: u8) -> StripSource {
     StripSource::Sf2(Box::new(Sf2Voice::new(font, program, false).unwrap()))
 }
 
+pub(in crate::playback_host) fn routing_strip() -> Strip {
+    let mut core = MixerCore::new();
+    core.insert(KEY.to_owned(), source(0), 0.4, -0.5, 0.25);
+    core.strips.remove(KEY).unwrap()
+}
+
+pub(in crate::playback_host) fn routing_peak(strip: &mut Strip) -> f32 {
+    assert_eq!(
+        (strip.gain, strip.pan, strip.reverb_send),
+        (0.4, -0.5, 0.25)
+    );
+    strip.render_block(BLOCK_SIZE);
+    strip
+        .scratch
+        .outputs
+        .iter()
+        .flatten()
+        .fold(0.0f32, |peak, sample| peak.max(sample.abs()))
+}
+
+pub(in crate::playback_host) fn routing_midi(strip: &mut Strip) -> Vec<(MidiEvent, i32)> {
+    strip.flush_midi();
+    std::mem::take(&mut strip.midi_events)
+}
+
 fn strike(mixer: &mut MixerCore) {
     let strip = mixer.strip_mut(KEY).unwrap();
     // An asymmetric source distinguishes stereo folding from mono panning or
