@@ -472,7 +472,10 @@ describe("PlaybackEngine", () => {
         tickIntervalMs: 25,
       });
       const sampler = createMockSampler();
-      const samplers = new Map<number, ISampler>([[0, sampler]]);
+      const samplers = new Map<number, ISampler>([
+        [0, sampler],
+        [1, sampler],
+      ]);
 
       engine.loadTimeline(createTestTimeline(), samplers);
       engine.play();
@@ -485,6 +488,8 @@ describe("PlaybackEngine", () => {
 
       // Sampler should have been silenced and new events scheduled
       expect(sampler.allNotesOffCalls).toBeGreaterThan(0);
+      expect(sampler.noteOnCalls.map((call) => call.midiNote)).toEqual([67]);
+      expect(sampler.noteOffCalls.map((call) => call.midiNote)).toEqual([64, 67]);
       expect(engine.getState()).toBe("playing");
 
       engine.stop();

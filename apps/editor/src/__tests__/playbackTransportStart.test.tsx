@@ -5,7 +5,7 @@ import type { Score } from "@viritura/core";
 import { getPlaybackSnapshot, PlaybackProvider, SCORE_CHANGE_DEBOUNCE_MS, type VstTransport } from "@viritura/playback";
 import { SelectionPlaybackBridge } from "../components/playbackSelection";
 import { eventId, noteheadId } from "../score/ElementPath";
-import { resetSelectionStore, useSelectionActions } from "../store/selectionStore";
+import { resetSelectionStore, useSelectionActions, useSelectionStore } from "../store/selectionStore";
 
 vi.mock("../store/DocumentContext", () => {
   const store = { getState: () => ({ score: makeScore() }) };
@@ -139,6 +139,8 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
   let host: ReturnType<typeof nativeTransport>;
   let createDevice: ReturnType<typeof vi.fn>;
   let selection: ReturnType<typeof useSelectionActions>;
+  let provider: ReturnType<typeof render>;
+  let score: Score;
 
   beforeEach(async () => {
     resetSelectionStore();
@@ -154,9 +156,10 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     vi.spyOn(console, "error").mockImplementation(() => {});
     engine = observeEngine();
     host = nativeTransport();
-    render(
+    score = makeScore();
+    provider = render(
       <PlaybackProvider
-        score={makeScore()}
+        score={score}
         audioRenderMode={audioRenderMode}
         vstTransport={audioRenderMode === "native" ? host : undefined}
       >
@@ -370,38 +373,160 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     await expectStartedAt(4);
   });
 
-  it("does not seek running playback for note, measure, or deselection changes, even after pausing", async () => {
+  it.each([
+    { kind: "note", seconds: 4.5, measureIndex: 2, beat: 1 },
+    { kind: "measure", seconds: 6, measureIndex: 3, beat: 0 },
+  ])("seeks a selected $kind during playback and keeps both transports running", async (target) => {
     await play(1);
     await expectStartedAt(1);
     const seek = vi.spyOn(PlaybackEngine.prototype, "seek");
     host.seek.mockClear();
+    host.stop.mockClear();
+    const loads = engine.load.mock.calls.length;
+    const starts = engine.play.mock.calls.length;
+    const nativeStarts = host.start.mock.calls.length;
     act(() => {
-      selection.selectElement(noteheadId(eventId(0, 2, 0, "event-1"), 0));
-      selection.clearSelection();
-      selection.selectMeasure(0, 0, 3);
+      if (target.kind === "note") selection.selectElement(noteheadId(eventId(0, 2, 0, "event-1"), 0));
+      else selection.selectMeasure(0, 0, 3);
     });
-    expect(seek).not.toHaveBeenCalled();
-    expect(host.seek).not.toHaveBeenCalled();
+    expect(seek).toHaveBeenCalledExactlyOnceWith(target.seconds);
+    expect(engine.instance.getState()).toBe("playing");
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+    expect(getPlaybackSnapshot().state.playheadPosition).toMatchObject({
+      timeSeconds: target.seconds,
+      measureIndex: target.measureIndex,
+      beat: target.beat,
+    });
+    if (audioRenderMode === "native") expect(host.seek).toHaveBeenCalledExactlyOnceWith(target.seconds);
+    else expect(host.seek).not.toHaveBeenCalled();
+
+    act(() => selection.clearSelection());
+    expect(seek).toHaveBeenCalledTimes(1);
+    expect(host.seek).toHaveBeenCalledTimes(audioRenderMode === "native" ? 1 : 0);
+    device.currentTime += DEFAULT_ENGINE_OPTIONS.leadInTime + 0.25;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(engine.instance.getScoreTimeSeconds()).toBeCloseTo(target.seconds + 0.25, 10);
+    expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBeCloseTo(target.seconds + 0.25, 10);
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+    expect(engine.load).toHaveBeenCalledTimes(loads);
+    expect(engine.play).toHaveBeenCalledTimes(starts);
+    expect(host.start).toHaveBeenCalledTimes(nativeStarts);
+    expect(host.stop).not.toHaveBeenCalled();
+
     device.currentTime += 0.137;
     act(() => actions().pause());
-
     await play();
-
-    await expectStartedAt(1.137);
+    await expectStartedAt(target.seconds + 0.387);
   });
 
-  it("a new selection while paused replaces the resume position and survives deselection", async () => {
+  it("does not replay an unchanged active selection on store notifications, rerenders, or bridge remount", async () => {
     await play(1);
-    act(() => actions().pause());
     act(() => selection.selectMeasure(0, 0, 2));
-    expect(getPlaybackSnapshot().state.status).toBe("paused");
-    expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBe(4);
-    act(() => selection.clearSelection());
+    const seek = vi.spyOn(PlaybackEngine.prototype, "seek");
+    host.seek.mockClear();
+    device.currentTime += DEFAULT_ENGINE_OPTIONS.leadInTime + 0.25;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    act(() => {
+      useSelectionStore.setState({ selection: useSelectionStore.getState().selection });
+      actions().setVolume(0.7);
+    });
+    const props = { score, audioRenderMode, vstTransport: audioRenderMode === "native" ? host : undefined };
+    provider.rerender(
+      <PlaybackProvider {...props} visiblePartIds={["piano"]}>
+        <SelectionPlaybackBridge />
+      </PlaybackProvider>,
+    );
+    provider.rerender(<PlaybackProvider {...props}>{null}</PlaybackProvider>);
+    provider.rerender(
+      <PlaybackProvider {...props}>
+        <SelectionPlaybackBridge />
+      </PlaybackProvider>,
+    );
+    expect(seek).not.toHaveBeenCalled();
+    expect(host.seek).not.toHaveBeenCalled();
+    expect(engine.instance.getScoreTimeSeconds()).toBeCloseTo(4.25, 10);
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+  });
+
+  it("keeps the latest of rapid active selections without waiting for native seek replies", async () => {
+    await play(1);
+    const seek = vi.spyOn(PlaybackEngine.prototype, "seek");
+    const replies: (() => void)[] = [];
+    host.seek.mockClear().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          replies.push(resolve);
+        }),
+    );
+    act(() => {
+      selection.selectElement(noteheadId(eventId(0, 2, 0, "event-1"), 0));
+      selection.selectMeasure(0, 0, 1);
+      selection.clearSelection();
+    });
+    expect(seek.mock.calls).toEqual([[4.5], [2]]);
+    expect(host.seek.mock.calls).toEqual(audioRenderMode === "native" ? [[4.5], [2]] : []);
+    expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBe(2);
+    await act(async () => {
+      for (const reply of replies.reverse()) reply();
+    });
+    device.currentTime += DEFAULT_ENGINE_OPTIONS.leadInTime + 0.25;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(engine.instance.getScoreTimeSeconds()).toBeCloseTo(2.25, 10);
+    expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBeCloseTo(2.25, 10);
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+  });
+
+  it.each(["pause", "stop"] as const)("a late native seek reply cannot undo %s", async (command) => {
+    await play(1);
+    let reply = () => {};
+    host.seek.mockReturnValue(
+      new Promise<void>((resolve) => {
+        reply = resolve;
+      }),
+    );
+    act(() => selection.selectMeasure(0, 0, 2));
+    device.currentTime += DEFAULT_ENGINE_OPTIONS.leadInTime + 0.25;
+    act(() => actions()[command]());
+    const position = getPlaybackSnapshot().state.playheadPosition;
+    const starts = engine.play.mock.calls.length;
+    const nativeStarts = host.start.mock.calls.length;
+    await act(async () => reply());
+    expect(engine.instance.getState()).toBe(command === "pause" ? "paused" : "stopped");
+    expect(getPlaybackSnapshot().state.status).toBe(command === "pause" ? "paused" : "stopped");
+    expect(getPlaybackSnapshot().state.playheadPosition).toBe(position);
+    expect(engine.play).toHaveBeenCalledTimes(starts);
+    expect(host.start).toHaveBeenCalledTimes(nativeStarts);
 
     await play();
-
-    await expectStartedAt(4);
+    await expectStartedAt(command === "pause" ? 4.25 : 0);
   });
+
+  it.each(["note", "measure"])(
+    "a new %s selection while paused replaces the resume position and survives deselection",
+    async (kind) => {
+      await play(1);
+      act(() => actions().pause());
+      const seconds = kind === "note" ? 4.5 : 4;
+      act(() => {
+        if (kind === "note") selection.selectElement(noteheadId(eventId(0, 2, 0, "event-1"), 0));
+        else selection.selectMeasure(0, 0, 2);
+      });
+      expect(engine.instance.getState()).toBe("paused");
+      expect(getPlaybackSnapshot().state.status).toBe("paused");
+      expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBe(seconds);
+      act(() => selection.clearSelection());
+
+      await play();
+
+      await expectStartedAt(seconds);
+    },
+  );
 
   it("explicit stop wins over an unchanged selection and bridge remount does not replay it", async () => {
     act(() => selection.selectMeasure(0, 0, 2));
