@@ -12,6 +12,7 @@
  */
 
 export { PlaybackProvider } from "./PlaybackContext";
+export type { SoundfontLoader } from "./soundfont";
 export { getPlaybackSnapshot, usePlaybackActions, usePlaybackState } from "./usePlayback";
 export {
   PAN_RANGE,

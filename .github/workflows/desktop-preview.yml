@@ -21,10 +21,6 @@ jobs:
     timeout-minutes: 90
     env:
       RUSTUP_TOOLCHAIN: 1.93.1
-      VITE_VIRITURA_API_BASE_URL: https://api.viritura.com
-      VITE_VIRITURA_ASSET_BASE_URL: https://assets.viritura.com
-      # Native playback uses the separately bundled SF2 resource.
-      VIRITURA_EXTERNAL_SOUNDFONT: "true"
     defaults:
       run:
         shell: pwsh

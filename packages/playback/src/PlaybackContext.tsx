@@ -77,6 +77,8 @@ import { generateTimeline, type MidiTimeline as ScoreMidiTimeline } from "@virit
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
 import { resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
+import type { SoundfontLoader } from "./soundfont";
+import { useSoundfontBuffer } from "./useSoundfontBuffer";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -108,6 +110,8 @@ interface PlaybackProviderProps {
    * (default) the native host is unused and everything plays in the browser.
    */
   audioRenderMode?: "web" | "native";
+  /** Host-owned built-in SoundFont source. Omit for the configured browser asset URL. */
+  soundfontLoader?: SoundfontLoader;
   children: ReactNode;
 }
 
@@ -141,6 +145,7 @@ export function PlaybackProvider({
   soundProfileRegistry,
   vstTransport,
   audioRenderMode = "web",
+  soundfontLoader,
   children,
 }: PlaybackProviderProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -415,9 +420,8 @@ export function PlaybackProvider({
     };
   }, [disposeAllSamplers]);
 
-  // --- Pre-fetch SF2 data on mount (no AudioContext needed) ---
-  const sf2BufferRef = useRef<ArrayBuffer | null>(null);
-  const sf2FetchPromiseRef = useRef<Promise<ArrayBuffer | null> | null>(null);
+  // Both playback and note previews reuse one buffer (no AudioContext needed to load it).
+  const { sf2BufferRef, sf2FetchPromiseRef } = useSoundfontBuffer(soundfontLoader);
   const previewPercussion = usePercussionPreview({
     ensureEngine,
     audioContextRef: audioCtxRef,
@@ -442,79 +446,6 @@ export function PlaybackProvider({
   );
 
   useEffect(() => {
-    if (sf2BufferRef.current || sf2FetchPromiseRef.current) return;
-
-    // Pre-fetch SF2 SoundFont buffer
-    const promise = (async (): Promise<ArrayBuffer | null> => {
-      // Cloudflare Pages caps individual assets at 25 MiB, so production can
-      // serve the 119 MiB SoundFont from an R2 custom domain. Local development
-      // keeps using the app-relative public directory.
-      const env = (
-        import.meta as {
-          env?: { BASE_URL?: string; VITE_VIRITURA_ASSET_BASE_URL?: string };
-        }
-      ).env;
-      const configuredAssetBaseUrl = env?.VITE_VIRITURA_ASSET_BASE_URL?.trim();
-      const baseUrl = configuredAssetBaseUrl
-        ? `${configuredAssetBaseUrl.replace(/\/+$/, "")}/`
-        : (env?.BASE_URL ?? "/");
-      const sf2Url = `${baseUrl}sounds/Shan-SGM-Pro-15.sf2`;
-      try {
-        const response = await fetch(sf2Url);
-        if (!response.ok) {
-          console.warn("SF2 SoundFont not available — playback will be silent");
-          toast.warning("Sound library unavailable", {
-            description: `Couldn't load SoundFont (${response.status}). Playback will be silent until ${sf2Url} is reachable.`,
-          });
-          return null;
-        }
-        // Validate by content, not by Content-Type. SPA hosts (Vite dev
-        // server, most static hosts) return index.html with HTTP 200 for any
-        // unknown path, and some hosts serve the SoundFont with a wrong MIME:
-        // Tauri's asset protocol sniffs the body with the `infer` crate, which
-        // doesn't recognise the `RIFF…sfbk` SF2 form and then falls back to
-        // `text/html` for the unknown `.sf2` extension. So the only reliable
-        // signal is the leading "RIFF" magic — trust the bytes, not the label.
-        const contentType = response.headers.get("Content-Type") ?? "";
-        const buffer = await response.arrayBuffer();
-        if (buffer.byteLength < 4) {
-          console.warn("[Audio] SF2 fetch returned an empty buffer");
-          return null;
-        }
-        const magic = new Uint8Array(buffer, 0, 4);
-        const isRiff = magic[0] === 0x52 && magic[1] === 0x49 && magic[2] === 0x46 && magic[3] === 0x46;
-        if (!isRiff) {
-          // Not a SoundFont. Distinguish an SPA index.html fallback (host isn't
-          // serving the asset at all) from other invalid payloads so the toast
-          // is actionable.
-          if (contentType.startsWith("text/html")) {
-            console.warn(
-              `[Audio] ${sf2Url} returned an HTML page instead of the SoundFont — the host is serving an SPA fallback.`,
-            );
-            toast.warning("Sound library not deployed at this origin", {
-              description: `${sf2Url} returned HTML. Playback will be silent until the SoundFont is served from this origin.`,
-            });
-            return null;
-          }
-          console.warn("[Audio] SF2 fetch returned a non-RIFF payload — not a SoundFont");
-          toast.warning("Sound library data is invalid", {
-            description: `The file at ${sf2Url} is not a valid SoundFont. Playback will be silent.`,
-          });
-          return null;
-        }
-        sf2BufferRef.current = buffer;
-        console.log("SF2 SoundFont data pre-fetched");
-        return buffer;
-      } catch (err) {
-        console.warn("[Audio] SF2 fetch failed:", err);
-        toast.warning("Sound library failed to load", {
-          description: `Playback will be silent. Check your network connection or that ${sf2Url} is deployed.`,
-        });
-        return null;
-      }
-    })();
-    sf2FetchPromiseRef.current = promise;
-
     // Pre-fetch the AudioWorklet processor script (cached by browser)
     const baseUrl2 = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
     fetch(`${baseUrl2}sounds/spessasynth_processor.min.js`).catch(() => {});
@@ -658,7 +589,7 @@ export function PlaybackProvider({
 
       return { samplers, routingSamplers, patches };
     },
-    [levelRefs, score],
+    [levelRefs, score, sf2BufferRef, sf2FetchPromiseRef],
   );
 
   // --- Actions (play defined later, after createSamplersForScore) ---

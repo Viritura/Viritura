@@ -1,4 +1,5 @@
 import { act, cleanup, render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReverbEngine, Sf2Synth } from "@viritura/audio";
 import type { Score } from "@viritura/core";
@@ -237,7 +238,7 @@ beforeEach(() => {
   vi.stubGlobal("AudioContext", AudioDevice);
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockImplementation(async () => new Response(new Uint8Array([0x52, 0x49, 0x46, 0x46]))),
+    vi.fn().mockImplementation(async () => new Response(new TextEncoder().encode("RIFF0000sfbk"))),
   );
   vi.spyOn(Sf2Synth, "create").mockImplementation(async (context) => {
     const synth = recordingSynth(context);
@@ -264,6 +265,54 @@ afterEach(() => {
 });
 
 describe("PlaybackProvider web mixer lifecycle", () => {
+  it("builds WebAudio samplers from the injected local buffer without downloading SF2", async () => {
+    const buffer = new TextEncoder().encode("RIFF0000sfbk").buffer;
+    const loader = { load: vi.fn().mockResolvedValue(buffer) };
+    render(
+      <StrictMode>
+        <PlaybackProvider score={makeScore()} soundfontLoader={loader}>
+          {null}
+        </PlaybackProvider>
+      </StrictMode>,
+    );
+    await flush(SCORE_CHANGE_DEBOUNCE_MS);
+    await act(async () => {
+      await actions().previewInstrumentNoteOn(60);
+    });
+    act(() => actions().previewInstrumentNoteOff(60));
+    await play();
+    expect(loader.load).toHaveBeenCalledOnce();
+    expect(Sf2Synth.create).toHaveBeenCalled();
+    expect(vi.mocked(Sf2Synth.create).mock.calls.every(([, data]) => data === buffer)).toBe(true);
+    expect(vi.mocked(fetch).mock.calls.every(([url]) => url === "/sounds/spessasynth_processor.min.js")).toBe(true);
+  });
+
+  it("ignores an obsolete preload completion when a host source is replaced", async () => {
+    const pending = deferred<ArrayBuffer>();
+    const oldLoader = { load: vi.fn(() => pending.promise) };
+    const currentBuffer = new TextEncoder().encode("RIFF1111sfbk").buffer;
+    const currentLoader = { load: vi.fn().mockResolvedValue(currentBuffer) };
+    const score = makeScore();
+    const view = render(
+      <PlaybackProvider score={score} soundfontLoader={oldLoader}>
+        {null}
+      </PlaybackProvider>,
+    );
+    view.rerender(
+      <PlaybackProvider score={score} soundfontLoader={currentLoader}>
+        {null}
+      </PlaybackProvider>,
+    );
+    await flush(SCORE_CHANGE_DEBOUNCE_MS);
+    await act(async () => {
+      pending.resolve(new TextEncoder().encode("RIFF0000sfbk").buffer);
+    });
+    await play();
+    expect(vi.mocked(Sf2Synth.create).mock.calls.every(([, data]) => data === currentBuffer)).toBe(true);
+    expect(oldLoader.load).toHaveBeenCalledOnce();
+    expect(currentLoader.load).toHaveBeenCalledOnce();
+  });
+
   it("applies pre-initialization master FX and retains them across sampler reloads", async () => {
     await mount();
     await act(async () => {

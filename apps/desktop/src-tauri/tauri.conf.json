@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm -w run wasm:build && pnpm --filter @viritura/editor dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm -w run wasm:build && pnpm --filter @viritura/editor build",
+    "beforeBuildCommand": "pnpm -w run build:desktop:frontend",
     "frontendDist": "../../editor/dist"
   },
   "app": {

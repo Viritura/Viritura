@@ -55,8 +55,8 @@ pnpm build:desktop
 
 The root command prepares WASM and the editor once, then calls the package-local
 `build:prebuilt` Tauri command to bundle `apps/editor/dist` into a native
-installer. Do not call `build:prebuilt` directly unless those outputs already
-exist.
+installer. Do not call `build:prebuilt` directly unless those outputs were already
+prepared with `pnpm build:desktop:frontend`.
 
 The direct package command remains self-contained:
 
@@ -64,8 +64,14 @@ The direct package command remains self-contained:
 pnpm --filter @viritura/desktop build
 ```
 
-It runs Tauri's normal `beforeBuildCommand` (`pnpm -w run wasm:build && pnpm
---filter @viritura/editor build`) before bundling.
+It runs Tauri's normal `beforeBuildCommand` (`pnpm -w run build:desktop:frontend`)
+before bundling. Both entry points use the same repository script to prepare WASM
+and build the editor and its dependencies through Turbo. The script sets
+`VIRITURA_EXTERNAL_SOUNDFONT=true` only in its child environment, before Turbo
+computes the editor cache key. No CI-only environment setup is needed, and the
+prebuilt path skips the hook rather than preparing the frontend twice.
+Preparation also removes any frontend SF2 left by an earlier browser build after
+Turbo completes, including cache hits where Vite's output hook does not run.
 
 For direct package `dev` and `build`, the engine is compiled to WASM (canonically into
 `engine/viritura-wasm/pkg-browser/`, then staged in
@@ -73,6 +79,26 @@ For direct package `dev` and `build`, the engine is compiled to WASM (canonicall
 gitignored generated artifact) as part of both commands, so a clean checkout
 builds and runs without a separate `pnpm wasm:build` step. The build is
 content-hash cached — it recompiles only when the Rust engine sources change.
+
+### Offline soundfont
+
+Desktop installers bundle `Shan-SGM-Pro-15.sf2` once as a native resource, not a
+second copy in the editor's `dist/sounds`. Native playback and WebAudio playback
+share that resource: WebAudio receives its bytes through the fixed, binary
+`desktop_soundfont_bytes` Tauri command. The command accepts no caller-supplied
+path and does not expose a general asset protocol or broaden filesystem access.
+Soundfont loading works offline without an asset CDN.
+
+The native path command (`vst_soundfont_path`) and binary command use the same
+resolver: the installed resource is preferred, with a repository soundfont fallback
+only in debug builds when the resource is absent. Missing or invalid data produces
+an explicit sound-library warning, never a CDN fallback. WebAudio retains one
+binary buffer for playback and previews across audio-mode changes; transferring
+the font does not serialize it as a JSON array or base64.
+
+Browser builds retain their existing local soundfont behavior,
+and hosted browser builds retain their separately configured CDN externalization.
+Desktop preview CI does not inject hosted API or asset URLs.
 
 ## Windows preview downloads
 
