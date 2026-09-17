@@ -1,24 +1,24 @@
-name: Desktop Preview
+name: Desktop Release
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
-# Never cancel a publisher while it is replacing the rolling release.
+# Serialize reruns for the same release without interrupting an active upload.
 concurrency:
-  group: desktop-preview
+  group: desktop-release-${{ github.event.release.id }}
   cancel-in-progress: false
 
 jobs:
   build:
     name: Build Windows x64 installers
-    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 90
+    outputs:
+      artifact-id: ${{ steps.installers.outputs.artifact-id }}
     env:
       RUSTUP_TOOLCHAIN: 1.93.1
     defaults:
@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # For release events this is the tagged commit, including on reruns.
+          ref: ${{ github.sha }}
           lfs: true
           persist-credentials: false
 
@@ -47,7 +49,7 @@ jobs:
           workspaces: |
             engine
             apps\desktop\src-tauri
-          key: desktop-preview-wasm-pack-0.14.0
+          key: desktop-release-wasm-pack-0.14.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -83,17 +85,18 @@ jobs:
           Copy-Item $nsis[0].FullName desktop-installers\Viritura-windows-x64.exe
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: installers
         with:
-          name: desktop-windows-x64
+          name: desktop-windows-x64-${{ github.sha }}
           path: desktop-installers
+          overwrite: true
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
 
   publish:
-    name: Publish rolling desktop prerelease
+    name: Attach installers to published release
     needs: build
-    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 20
     permissions:
@@ -102,23 +105,25 @@ jobs:
       # Only download this run's installers; never execute the build in a write job.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: desktop-windows-x64
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
           path: desktop-installers
+          merge-multiple: true
 
-      - name: Replace rolling prerelease
+      - name: Upload release installers
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const fs = require('node:fs/promises');
             const path = require('node:path');
+            const { createHash } = require('node:crypto');
             const repo = context.repo;
-            const tag = 'desktop-preview';
-            const title = 'Viritura Desktop Preview (Windows x64)';
-            const { data: main } = await github.rest.git.getRef({ ...repo, ref: 'heads/main' });
-            if (main.object.sha !== context.sha) {
-              core.notice('Skipping superseded build: main has advanced. Run this workflow on main to recover.');
-              return;
+            const eventRelease = context.payload.release;
+            if (context.eventName !== 'release' || context.payload.action !== 'published' ||
+                !Number.isSafeInteger(eventRelease?.id) || eventRelease.id <= 0 ||
+                typeof eventRelease.tag_name !== 'string' || !eventRelease.tag_name) {
+              throw new Error('Expected a published release event with an explicit release ID and tag.');
             }
+            const release_id = eventRelease.id;
 
             const directory = path.join(process.env.GITHUB_WORKSPACE, 'desktop-installers');
             const names = ['Viritura-windows-x64.exe', 'Viritura-windows-x64.msi'];
@@ -126,83 +131,70 @@ jobs:
             if (files.length !== names.length || names.some(name => !files.includes(name))) {
               throw new Error('Expected only the two Windows x64 installers from this build.');
             }
-            const sizes = new Map();
+            const installers = new Map();
             for (const name of names) {
-              const stat = await fs.stat(path.join(directory, name));
+              const stat = await fs.lstat(path.join(directory, name));
               if (!stat.isFile() || stat.size === 0 || stat.size >= 2 ** 31) {
                 throw new Error(`Invalid release asset: ${name}`);
               }
-              sizes.set(name, stat.size);
+              const data = await fs.readFile(path.join(directory, name));
+              if (data.length !== stat.size) {
+                throw new Error(`Release asset size changed during validation: ${name}`);
+              }
+              const peOffset = data.length >= 64 ? data.readUInt32LE(60) : 0;
+              const validHeader = name.endsWith('.msi')
+                ? data.length >= 512 && data.subarray(0, 8).equals(Buffer.from('d0cf11e0a1b11ae1', 'hex'))
+                : data.length >= 64 && data[0] === 0x4d && data[1] === 0x5a &&
+                  peOffset >= 64 && peOffset <= data.length - 4 &&
+                  data.readUInt32LE(peOffset) === 0x00004550;
+              if (!validHeader) {
+                throw new Error(`Invalid installer header: ${name}`);
+              }
+              installers.set(name, {
+                data,
+                size: stat.size,
+                digest: `sha256:${createHash('sha256').update(data).digest('hex')}`,
+              });
             }
 
-            const releases = await github.paginate(github.rest.repos.listReleases, { ...repo, per_page: 100 });
-            const existing = releases.find(release => release.tag_name === tag);
-            if (existing && (existing.name !== title || !existing.prerelease || existing.immutable)) {
-              throw new Error('Refusing to replace an unrelated or immutable release at desktop-preview.');
+            // Read the original release by ID; never create or edit release metadata.
+            const { data: release } = await github.rest.repos.getRelease({ ...repo, release_id });
+            if (release.id !== release_id || release.tag_name !== eventRelease.tag_name || release.draft) {
+              throw new Error('The published release was changed; refusing to upload installers.');
             }
-            let tagExists = false;
-            try {
-              await github.rest.git.getRef({ ...repo, ref: `tags/${tag}` });
-              tagExists = true;
-            } catch (error) {
-              if (error.status !== 404) throw error;
+            if (release.immutable) {
+              throw new Error('Cannot attach installers after publication to an immutable release. No release assets were changed.');
             }
-            if (tagExists && !existing) {
-              throw new Error('Refusing to move desktop-preview: the tag exists without its managed release.');
+            // target_commitish can be a branch. Resolve the actual tag to a commit instead.
+            const { data: commit } = await github.rest.repos.getCommit({
+              ...repo, ref: `refs/tags/${eventRelease.tag_name}`,
+            });
+            if (commit.sha !== context.sha) {
+              throw new Error('The release tag no longer points to the built commit; refusing to upload installers.');
             }
 
-            const body = [
-              'Rolling **unsigned Windows x64 preview** built from `main`. Not a stable release.',
-              '',
-              `Commit: [${context.sha}](${context.serverUrl}/${repo.owner}/${repo.repo}/commit/${context.sha})`,
-              `Build: ${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`,
-              '',
-              'Download either the NSIS `.exe` installer or the `.msi` installer (not both).',
-              'These installers are not code-signed; Windows SmartScreen may warn or your organization may block installation.',
-              'Preview builds retain the app version in source; uninstall an older preview first if Windows refuses replacement.',
-              'Install updates manually; this workflow does not enable automatic updates.',
-              '',
-              'This prerelease and its assets are replaced after successful main builds. Only Windows x64 is published.',
-            ].join('\n');
-            // Hide the release before replacing assets so partial/mixed uploads are never public.
-            // A failed publish remains a draft and can be recovered by a main workflow dispatch.
-            const { data: release } = existing
-              ? await github.rest.repos.updateRelease({ ...repo, release_id: existing.id, tag_name: tag, draft: true })
-              : await github.rest.repos.createRelease({
-                  ...repo, tag_name: tag, target_commitish: context.sha,
-                  name: title, body, draft: true, prerelease: true, make_latest: 'false',
-                });
-            const release_id = release.id;
             const oldAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
               ...repo, release_id, per_page: 100,
             });
-            for (const asset of oldAssets) {
+            // Reruns replace only these two names, leaving all user-supplied assets intact.
+            for (const asset of oldAssets.filter(asset => names.includes(asset.name))) {
               await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: asset.id });
             }
             for (const name of names) {
               await github.rest.repos.uploadReleaseAsset({
                 ...repo, release_id, name,
-                data: await fs.readFile(path.join(directory, name)),
+                data: installers.get(name).data,
                 headers: { 'content-type': 'application/octet-stream' },
               });
             }
             const uploaded = await github.paginate(github.rest.repos.listReleaseAssets, {
               ...repo, release_id, per_page: 100,
             });
-            if (uploaded.length !== names.length || names.some(name =>
-              !uploaded.some(asset => asset.name === name && asset.state === 'uploaded' && asset.size === sizes.get(name))
+            if (names.some(name =>
+              !uploaded.some(asset => asset.name === name && asset.state === 'uploaded' &&
+                asset.size === installers.get(name).size && asset.digest === installers.get(name).digest)
             )) {
-              throw new Error('Release asset verification failed; leaving the release as a draft.');
+              throw new Error('Release asset verification failed. Rerun the failed publishing job to replace both installers.');
             }
 
-            // Move the tag only after both installers are uploaded and verified.
-            if (tagExists) {
-              await github.rest.git.updateRef({ ...repo, ref: `tags/${tag}`, sha: context.sha, force: true });
-            } else {
-              await github.rest.git.createRef({ ...repo, ref: `refs/tags/${tag}`, sha: context.sha });
-            }
-            await github.rest.repos.updateRelease({
-              ...repo, release_id, tag_name: tag, target_commitish: context.sha,
-              name: title, body, draft: false, prerelease: true, make_latest: 'false',
-            });
-            core.notice(`Published ${context.serverUrl}/${repo.owner}/${repo.repo}/releases/tag/${tag}`);
+            core.notice(`Attached Windows x64 installers built from ${context.sha} to release ${release_id}: ${release.html_url}`);

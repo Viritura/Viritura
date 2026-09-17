@@ -98,43 +98,60 @@ the font does not serialize it as a JSON array or base64.
 
 Browser builds retain their existing local soundfont behavior,
 and hosted browser builds retain their separately configured CDN externalization.
-Desktop preview CI does not inject hosted API or asset URLs.
+Desktop release CI does not inject hosted API or asset URLs.
 
-## Windows preview downloads
+## Windows release downloads
 
-The [rolling desktop preview](https://github.com/Viritura/Viritura/releases/tag/desktop-preview)
-provides **Windows x64 only** installers: `Viritura-windows-x64.exe` (NSIS)
-and `Viritura-windows-x64.msi`. Install either one, not both.
-These are **unsigned prereleases**, not stable releases. Windows SmartScreen may
-warn, and organization policies may block installation. Updates are manual; this
-workflow does not configure an automatic updater. Preview builds keep the app
-version in source, so uninstall an older preview first if Windows refuses replacement.
+Publishing a [GitHub Release](https://github.com/Viritura/Viritura/releases)
+starts a build of **that release's tagged commit**, then attaches **Windows x64
+only** installers to **the same release**: `Viritura-windows-x64.exe` (NSIS)
+and `Viritura-windows-x64.msi`. Install either one, not both. Both stable releases
+and prereleases trigger the build; installers appear after the workflow succeeds.
+These installers are **unsigned**. Windows SmartScreen may warn, and organization
+policies may block installation. Updates are manual; this workflow does not
+configure an automatic updater.
 
-`.github/workflows/desktop-preview.yml` runs after every push to `main`, including
-PR merges and direct pushes. It uses Node 24, the repository-pinned pnpm version,
-Rust 1.93.1, and wasm-pack 0.14.0, hydrates Git LFS resources, tests the desktop
-crate, and runs the canonical `pnpm build:desktop`. The soundfont is bundled once
-as a native resource rather than duplicated in the web assets.
+`.github/workflows/desktop-release.yml` runs only on `release: published`, not
+on pushes, PR merges, or manual dispatch. Merge the workflow first, then publish
+a new release whose tag contains it; older tagged revisions do not pick up a
+workflow added later. Publication through another workflow's `GITHUB_TOKEN`
+normally does not trigger release workflows; publish through the GitHub UI
+instead.
+
+The build checks out the release event's immutable commit SHA, not `main` or
+`target_commitish` (which can be a branch name). It uses Node 24, the
+repository-pinned pnpm version, Rust 1.93.1, and wasm-pack 0.14.0, hydrates Git LFS
+resources, tests the desktop crate, and runs the canonical `pnpm build:desktop`.
+The soundfont is bundled once as a native resource rather than duplicated in
+the web assets. Installers retain the app version committed in source; set the
+desired application version before tagging. The workflow does not derive a
+version from arbitrary tag text. If Windows refuses to replace an older build
+with the same app version, uninstall it first.
 
 Only the separate publishing job receives `contents: write` through the built-in
-`GITHUB_TOKEN`; no signing credentials or additional secrets are required.
-The `desktop-preview` tag points to the built commit, also recorded in the release
-notes. Both installers replace the previous assets; this does not create a
-versioned release for each merge or change the stable “latest release.”
+`GITHUB_TOKEN`; it does not check out or execute the tagged source. The build has
+read-only repository permission and does not persist checkout credentials.
+Publication targets the event's release ID and fails if its tag changed, the tag
+no longer resolves to the built commit, or the release is draft or immutable.
+It never moves tags, creates/deletes releases, hides a published release, or
+changes the title, notes, stable/prerelease designation, or latest status.
 
-Runs are serialized without cancelling an active publisher. GitHub may coalesce
-pending runs, and a build is skipped at publication if `main` has already advanced,
-so an older rerun cannot overwrite a newer preview. The release is temporarily
-hidden as a draft during replacement and stays a draft if publishing fails;
-partial or mixed installer sets are not published. A failed build leaves the
-previous release untouched. Installers are also retained as workflow artifacts
-for seven days.
+Runs for the same release ID are serialized without cancelling an active
+publisher; different releases can build independently. Both installer files,
+sizes (nonzero and below 2 GiB), and format headers are validated before any
+release write, and uploaded sizes and SHA-256 digests are verified. Reruns
+deliberately overwrite only the two named installers, never unrelated assets.
+Replacement is not atomic: the release stays public, so a failed upload can
+leave missing or partial installers. Recover using **Re-run failed jobs** on
+the original **Desktop Release** run (or rerun all jobs if artifacts expired),
+not by publishing a different release. A failed build leaves release assets
+untouched. Build artifacts include the source SHA in their name, are selected by
+artifact ID from the same run, and are retained for seven days.
 
-For recovery, run **Desktop Preview** using **Run workflow** with branch `main`
-(other branches are ignored). Repository policy must allow Actions to write
-releases and move the `desktop-preview` tag; release immutability must not apply
-to this rolling prerelease. The workflow deliberately fails rather than replacing
-an unrelated release or an orphaned tag with that name.
+Repository policy must allow Actions to write release assets. **Immutable
+releases cannot accept assets after publication**, so this publish-triggered
+workflow fails explicitly for them without modifying the release or changing
+repository policy. No signing credentials or additional secrets are required.
 
 ## Notes
 
