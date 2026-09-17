@@ -538,6 +538,7 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
                 &mut seg,
                 all_staff_layouts,
                 flat_staves,
+                None,
                 &staff_y_offsets,
                 &next_sys_clef_per_staff,
                 score,

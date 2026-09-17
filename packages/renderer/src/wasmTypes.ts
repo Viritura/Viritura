@@ -408,6 +408,9 @@ export interface MeasureBounds {
   measureId?: string;
   /** Part index (0-based). */
   partIndex: number;
+  /** Distinct 0-based Score part indices from the resolved visual staff, in source
+   * order, including silent sources. Absent for a sole source: use [partIndex]. */
+  sourcePartIndices?: number[];
   /** Visual staff index (unique per rendered staff line). */
   staffIndex: number;
   /** 0-based index of the system this measure belongs to. */

@@ -85,6 +85,7 @@ import { useEngraveHoverFade } from "./useEngraveHoverFade";
 import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } from "./relayoutEffects";
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
 import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
+import { useRenderedStaffSources } from "./renderedStaffSources";
 import {
   handleCanvasClickImpl,
   handleCanvasMouseDownImpl,
@@ -154,6 +155,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const [displayListVersion, setDisplayListVersion] = useState(0);
     const displayListVersionRef = useRef(0);
+    const publishStaffSources = useRenderedStaffSources(displayListRef, displayListVersion, printPreview);
     const spatialIndexRef = useRef<SpatialIndex | null>(null);
     const perfTrackerRef = useRef(getGlobalPerfTracker());
     const tileCacheRef = useRef(new TileCache());
@@ -353,9 +355,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     usePlayPauseShortcut({
       playback,
       playbackActions,
-      selection,
       noteInputActiveRef,
-      docScoreRef,
     });
 
     useImperativeHandle(
@@ -690,6 +690,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         }),
       )
         .then(() => {
+          // Initial/remounted layouts must notify the same consumers as relayouts.
+          displayListVersionRef.current += 1;
+          setDisplayListVersion(displayListVersionRef.current);
           setLoading(false);
           // Pre-warm the patch chain off the critical path: fire one throwaway
           // empty-patch re-seed so the user's first edit isn't the one paying
@@ -944,6 +947,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const canvas = canvasRef.current;
         const dl = displayListRef.current;
         if (!canvas || !dl) return;
+        publishStaffSources();
         const firstSelectedId = selectedIds?.values().next().value;
         performance.mark("viritura:paint-callback-ready");
         paintScoreFrame({
@@ -992,6 +996,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         hitboxOverlayEnabled,
         performanceOverlayEnabled,
         printPreview,
+        publishStaffSources,
         safeArea?.left,
       ],
     );
@@ -1290,7 +1295,9 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             />
           )}
           <PlayheadOverlay
-            playheadPosition={playback.playheadPosition}
+            playheadPosition={
+              playback.status === "playing" && !loading && wasmReady && !error ? playback.playheadPosition : null
+            }
             displayList={displayListRef.current}
             scrollX={viewport.scrollX}
             scrollY={viewport.scrollY}
@@ -1298,7 +1305,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             viewMode={viewMode}
             onPlayheadRect={follow.onPlayheadRect}
           />
-          <FollowPlayheadButton visible={follow.detached} onClick={follow.reengage} />
+          <FollowPlayheadButton visible={playback.status === "playing" && follow.detached} onClick={follow.reengage} />
           {!printPreview && onToggleCondensedStaff && (
             <CondensedStaffToggles
               score={docScore}

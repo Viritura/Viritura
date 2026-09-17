@@ -197,6 +197,7 @@ export function useFollowPlayhead({
 
   const applyFollow = useCallback(
     (rect: PlayheadRect) => {
+      if (statusRef.current !== "playing" || !enabledRef.current) return;
       const vp = viewportRef.current;
       const el = containerRef.current;
       if (!vp || !el) return;
@@ -222,6 +223,10 @@ export function useFollowPlayhead({
 
   const onPlayheadRect = useCallback(
     (rect: PlayheadRect | null) => {
+      if (statusRef.current !== "playing") {
+        lastRectRef.current = null;
+        return;
+      }
       lastRectRef.current = rect;
       if (!rect || !engagedRef.current || !enabledRef.current) return;
       const vp = viewportRef.current;
@@ -266,13 +271,14 @@ export function useFollowPlayhead({
     // While engaged with an active playhead, defer the decision to the next
     // painted frame (re-anchor if still visible, detach if not). Don't detach
     // here — a small scroll that keeps the playhead on-screen should re-anchor.
-    if (engagedRef.current && (statusRef.current === "playing" || statusRef.current === "paused")) {
+    if (engagedRef.current && statusRef.current === "playing") {
       interactViewportRef.current = viewportRef.current;
       interactDirtyRef.current = true;
     }
   }, [viewportRef]);
 
   const reengage = useCallback(() => {
+    if (statusRef.current !== "playing" || !enabledRef.current) return;
     engagedRef.current = true;
     interactDirtyRef.current = false;
     interactViewportRef.current = null;
@@ -286,11 +292,12 @@ export function useFollowPlayhead({
   // detached affordance when playback stops or the pref is turned off. Reads
   // `detached` via a ref so the effect only re-runs on transport/pref changes.
   useEffect(() => {
-    if (!enabled || status === "stopped") {
+    if (!enabled || status !== "playing") {
       engagedRef.current = false;
       interactDirtyRef.current = false;
       interactViewportRef.current = null;
       lastBandRef.current = null;
+      lastRectRef.current = null;
       if (detachedRef.current) setDetached(false);
       return;
     }

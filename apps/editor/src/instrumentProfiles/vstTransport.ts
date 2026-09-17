@@ -50,6 +50,8 @@ interface SlotSpec {
   isDrum?: boolean;
   state?: readonly number[];
   events: PartScheduledMidiWire[];
+  readonly gain: number;
+  readonly pan: number;
   /** Post-fader amount of this slot's signal sent to the shared reverb bus. */
   reverbSend?: number;
 }
@@ -148,6 +150,42 @@ let lastMasterChainKey: string | null = null;
 /** Which native slot voices each owned part, so the mixer can push per-part gain. */
 let ownedSlotByPart = new Map<number, string>();
 
+interface DesiredMixer {
+  readonly gains: Map<number, number>;
+  readonly pans: Map<number, number>;
+  mutedParts: ReadonlySet<number>;
+}
+
+interface DesktopVstTransport extends VstTransport {
+  setPartPan(partIndex: number, pan: number): Promise<void>;
+}
+
+/** A shared VST slot has one output strip: the last change to each control wins. */
+function slotMix(mixer: DesiredMixer, slotKey: string): { gain: number; pan: number } {
+  let gain = 1;
+  let pan = 0;
+  for (const [part, value] of mixer.gains) {
+    if (ownedSlotByPart.get(part) === slotKey) gain = value;
+  }
+  for (const [part, value] of mixer.pans) {
+    if (ownedSlotByPart.get(part) === slotKey) pan = value;
+  }
+  return { gain, pan };
+}
+
+async function reapplyMixer(mixer: DesiredMixer): Promise<void> {
+  await Promise.all([
+    tauriInvoke("vst_playback_set_muted", { parts: [...mixer.mutedParts] }),
+    ...[...new Set(ownedSlotByPart.values())].flatMap((slotKey) => {
+      const { gain, pan } = slotMix(mixer, slotKey);
+      return [
+        tauriInvoke("vst_playback_set_gain", { slotKey, gain }),
+        tauriInvoke("vst_playback_set_pan", { slotKey, pan }),
+      ];
+    }),
+  ]);
+}
+
 /** All host-mirroring caches back to "nothing loaded" (call when the host is released). */
 function resetHostMirror(): void {
   lastSentSlotSigs = new Map();
@@ -241,8 +279,13 @@ interface SlotBuild {
   partSigs: string[];
 }
 
-async function slotToSpec(build: SlotBuild): Promise<SlotSpec> {
-  const base = { slotKey: build.slotKey, events: build.events, reverbSend: build.reverbSend };
+async function slotToSpec(build: SlotBuild, mixer: DesiredMixer): Promise<SlotSpec> {
+  const base = {
+    slotKey: build.slotKey,
+    events: build.events,
+    reverbSend: build.reverbSend,
+    ...slotMix(mixer, build.slotKey),
+  };
   if (build.source.kind === "sf2") {
     return {
       ...base,
@@ -333,7 +376,7 @@ async function soundfontPath(): Promise<string> {
 async function reconcileHost(
   builds: ReadonlyMap<string, SlotBuild>,
   sigs: ReadonlyMap<string, string>,
-  fx: FxChainsConfig,
+  mixer: DesiredMixer,
 ): Promise<{ mode: string; sent: number; fxChanged: boolean }> {
   const changedKeys = [...builds.keys()].filter((key) => sigs.get(key) !== lastSentSlotSigs.get(key));
   const keysUnchanged = sameKeys(sigs, lastSentSlotSigs);
@@ -352,7 +395,7 @@ async function reconcileHost(
   }
 
   if (mode !== "skip") {
-    const specs = await Promise.all(toSend.map(slotToSpec));
+    const specs = await Promise.all(toSend.map((build) => slotToSpec(build, mixer)));
     const labels = new Map([...builds.values()].map((b) => [b.slotKey, b.label]));
     await loadWithProgress(specs, labels);
     // `load` only adds/refreshes slots, so prune the host to exactly the slots
@@ -363,7 +406,15 @@ async function reconcileHost(
   }
   lastSentSlotSigs = new Map(sigs);
 
-  const fxChanged = await reconcileFxChains(fx);
+  const fxChanged = await reconcileFxChains(readFxChains());
+  const fx = readFxChains();
+  await tauriInvoke("vst_playback_set_reverb_levels", {
+    send: fx.reverb.plugins.length > 0 ? fx.reverb.send : 0,
+    wet: fx.reverb.wet,
+  });
+  // Loading may take seconds. Replay the latest controls, including edits made
+  // during loading and controls sent before the host or its slots existed.
+  await reapplyMixer(mixer);
   return { mode, sent: toSend.length, fxChanged };
 }
 
@@ -502,7 +553,7 @@ async function buildSf2Slots(
   }
 }
 
-async function prepareSlots(score: Score, plan: VstPreparePlan): Promise<ReadonlySet<number>> {
+async function prepareSlots(score: Score, plan: VstPreparePlan, mixer: DesiredMixer): Promise<ReadonlySet<number>> {
   const t0 = performance.now();
   const owned = new Set<number>();
   const builds = new Map<string, SlotBuild>();
@@ -525,7 +576,7 @@ async function prepareSlots(score: Score, plan: VstPreparePlan): Promise<Readonl
     sigs.set(build.slotKey, signature(slotSignatureMaterial(build)));
   }
 
-  const result = await reconcileHost(builds, sigs, fx);
+  const result = await reconcileHost(builds, sigs, mixer);
   console.info(
     `[vst-prepare] total=${Math.round(performance.now() - t0)}ms load=${result.mode} ` +
       `slots=${sigs.size} sent=${result.sent} fx=${result.fxChanged ? "pushed" : "skip"}`,
@@ -537,12 +588,15 @@ async function prepareSlots(score: Score, plan: VstPreparePlan): Promise<Readonl
  * Create the desktop VST transport, or `undefined` when not running under the
  * Tauri shell (the web build plays every part through SoundFont).
  */
-export function createVstTransport(): VstTransport | undefined {
+export function createVstTransport(): DesktopVstTransport | undefined {
   if (!isDesktopHost()) return undefined;
 
+  // Desired controls outlive the loaded slots, but not this transport instance.
+  // The conductor seeds each score's controls before preparing its native parts.
+  const mixer: DesiredMixer = { gains: new Map(), pans: new Map(), mutedParts: new Set() };
   return {
     prepare(score, plan) {
-      return prepareSlots(score, plan);
+      return prepareSlots(score, plan, mixer);
     },
     async start(originSeconds) {
       await tauriInvoke("vst_playback_start", { originSeconds });
@@ -554,11 +608,22 @@ export function createVstTransport(): VstTransport | undefined {
       await tauriInvoke("vst_playback_seek", { seconds });
     },
     async setPartGain(partIndex, gain) {
+      mixer.gains.delete(partIndex);
+      mixer.gains.set(partIndex, gain);
       const slotKey = ownedSlotByPart.get(partIndex);
       if (!slotKey) return;
       await tauriInvoke("vst_playback_set_gain", { slotKey, gain });
     },
+    async setPartPan(partIndex, pan) {
+      mixer.pans.delete(partIndex);
+      mixer.pans.set(partIndex, pan);
+      const slotKey = ownedSlotByPart.get(partIndex);
+      if (!slotKey) return;
+      await tauriInvoke("vst_playback_set_pan", { slotKey, pan });
+    },
     async previewNote(partIndex, note, velocity, durationMs) {
+      // Treat muted previews as handled so they cannot fall back to browser audio.
+      if (mixer.mutedParts.has(partIndex)) return true;
       const slotKey = ownedSlotByPart.get(partIndex);
       if (!slotKey) return false;
       await tauriInvoke("vst_playback_preview", {
@@ -570,7 +635,8 @@ export function createVstTransport(): VstTransport | undefined {
       return true;
     },
     async setMutedParts(parts) {
-      await tauriInvoke("vst_playback_set_muted", { parts: [...parts] });
+      mixer.mutedParts = new Set(parts);
+      await tauriInvoke("vst_playback_set_muted", { parts: [...mixer.mutedParts] });
     },
     async release() {
       // The host is being torn down: forget what we thought it held so the next

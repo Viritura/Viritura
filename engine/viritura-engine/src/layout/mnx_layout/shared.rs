@@ -783,6 +783,7 @@ pub(super) fn render_system_staves_and_contents(
     dl: &mut DisplayList,
     all_staff_layouts: &[Vec<MeasureLayout>],
     flat_staves: &[FlatStaff],
+    measure_staves: &[HashMap<usize, &FlatStaff>],
     staff_y_offsets: &[f64],
     next_sys_clef_per_staff: &[Option<&Clef>],
     score: &Score,
@@ -830,6 +831,7 @@ pub(super) fn render_system_staves_and_contents(
             dl,
             all_staff_layouts,
             flat_staves,
+            measure_staves.get(staff_idx),
             staff_y_offsets,
             next_sys_clef_per_staff,
             score,
@@ -905,6 +907,7 @@ pub(super) fn render_system_staff_content(
     dl: &mut DisplayList,
     all_staff_layouts: &[Vec<MeasureLayout>],
     flat_staves: &[FlatStaff],
+    measure_staves: Option<&HashMap<usize, &FlatStaff>>,
     staff_y_offsets: &[f64],
     next_sys_clef_per_staff: &[Option<&Clef>],
     score: &Score,
@@ -928,21 +931,16 @@ pub(super) fn render_system_staff_content(
         .get(staff_idx)
         .and_then(|fs| fs.sources.first())
         .map_or(staff_idx, |s| s.part_index);
-    let shared_lane_staff_y_offsets: Vec<f64> = flat_staves
-        .iter()
-        .enumerate()
-        .filter(|(_, staff)| {
-            staff
-                .sources
-                .first()
-                .is_some_and(|source| source.part_index == staff_part_idx)
-        })
-        .map(|(index, _)| staff_y_offsets[index])
-        .collect();
+    let shared_lane_staff_y_offsets = super::staff_sources::shared_lane_staff_offsets(
+        flat_staves,
+        staff_y_offsets,
+        staff_part_idx,
+    );
     let is_expansion = flat_staves.get(staff_idx).is_some_and(|fs| fs.expansion);
     let recolor_start = dl.commands.len();
     let next_sys_clef = next_sys_clef_per_staff.get(staff_idx).copied().flatten();
     let tie_override = tie_maps_per_staff.and_then(|maps| maps.get(staff_idx));
+    let bounds_start = dl.measure_bounds.len();
     render_system_contents(
         dl,
         measure_layouts,
@@ -963,6 +961,11 @@ pub(super) fn render_system_staff_content(
         clef_change_measures,
         acc_obstacles,
         tie_override,
+    );
+    super::staff_sources::assign_measure_sources(
+        &mut dl.measure_bounds[bounds_start..],
+        flat_staves.get(staff_idx),
+        measure_staves,
     );
     if is_expansion {
         dl.recolor_range(recolor_start, EXPANSION_COLOR);

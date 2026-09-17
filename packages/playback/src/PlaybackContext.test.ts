@@ -10,6 +10,44 @@ import {
 import type { Score } from "@viritura/core";
 import { generateTimeline } from "@viritura/midi";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
+import { computeViewPartFilter } from "./vstCoordination";
+
+describe("source-part playback eligibility", () => {
+  const parts: Score["parts"] = ["a", "b", "c"].map((id) => ({ id, name: id, measures: [] }));
+  it.each([
+    { selectionPartIds: null, expected: null },
+    { selectionPartIds: [], expected: new Set() },
+    { selectionPartIds: ["missing"], expected: new Set() },
+    { selectionPartIds: ["b"], expected: new Set([1]) },
+    { selectionPartIds: ["c", "a", "c"], expected: new Set([0, 2]) },
+  ])("resolves $selectionPartIds without widening an empty selection", ({ selectionPartIds, expected }) => {
+    expect(
+      computeViewPartFilter({ parts, visiblePartIds: undefined, vstOwnedParts: new Set(), selectionPartIds }),
+    ).toEqual(expected);
+  });
+
+  it("intersects visibility, selection and native ownership", () => {
+    expect(
+      computeViewPartFilter({
+        parts,
+        visiblePartIds: ["a", "b"],
+        selectionPartIds: ["b", "c"],
+        vstOwnedParts: new Set([1]),
+      }),
+    ).toEqual(new Set());
+  });
+
+  it.each([undefined, [], ["missing"]])("preserves unfiltered view semantics for %j", (visiblePartIds) => {
+    expect(
+      computeViewPartFilter({
+        parts,
+        visiblePartIds,
+        selectionPartIds: ["b"],
+        vstOwnedParts: new Set(),
+      }),
+    ).toEqual(new Set([1]));
+  });
+});
 
 function defaultState(): PlaybackState {
   return initialPlaybackState();

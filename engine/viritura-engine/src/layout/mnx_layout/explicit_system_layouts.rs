@@ -18,6 +18,11 @@ use std::collections::{HashMap, HashSet};
 
 type StaffKey = (usize, u32);
 
+pub(super) struct ExplicitSystemLayouts<'a> {
+    pub(super) layouts: Vec<Vec<MeasureLayout>>,
+    pub(super) measure_staves: Vec<HashMap<usize, &'a FlatStaff>>,
+}
+
 /// Per-physical-staff state carried across explicit system boundaries.
 #[derive(Default)]
 pub(super) struct PersistentStaffState {
@@ -91,16 +96,16 @@ impl PersistentStaffState {
 /// Build all measure layouts for one explicit system.
 #[allow(clippy::too_many_arguments)] // Explicit system construction consumes authored layout, spacing, MMR, and carry state.
 #[allow(clippy::too_many_lines)] // One stateful staff-by-measure carry pass; inner policies remain named operations.
-pub(super) fn build_explicit_system_layouts(
+pub(super) fn build_explicit_system_layouts<'a>(
     score: &Score,
     score_def: &ScoreDefinition,
     config: &LayoutConfig,
     sp: f64,
-    flat_staves: &[FlatStaff],
+    flat_staves: &'a [FlatStaff],
     group_ranges: &[GroupRange],
     sys_measure_indices: &[usize],
     m_start: usize,
-    lc_map: &HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>,
+    lc_map: &'a HashMap<usize, (Vec<FlatStaff>, Vec<GroupRange>)>,
     all_resolved: &[Vec<ResolvedMeasure>],
     max_widths: &[f64],
     scale: f64,
@@ -109,8 +114,9 @@ pub(super) fn build_explicit_system_layouts(
     mmr_start_map: &HashMap<usize, u32>,
     mmr_label_map: &HashMap<usize, String>,
     state: &mut PersistentStaffState,
-) -> Vec<Vec<MeasureLayout>> {
+) -> ExplicitSystemLayouts<'a> {
     let mut all_staff_layouts = Vec::new();
+    let mut all_measure_staves = Vec::new();
     let system_object_staves = compute_system_object_staves(group_ranges, flat_staves.len());
     let shown_parts: HashSet<usize> = flat_staves
         .iter()
@@ -142,6 +148,7 @@ pub(super) fn build_explicit_system_layouts(
                 .unwrap_or(1),
         );
         let mut virtual_resolved = Vec::new();
+        let mut measure_staves = HashMap::new();
         let mut active_time = state
             .active_time
             .get(&staff_key)
@@ -186,6 +193,7 @@ pub(super) fn build_explicit_system_layouts(
             let effective_staff = active_layout_staves
                 .and_then(|staves| staves.get(staff_index))
                 .unwrap_or(flat_staff);
+            measure_staves.insert(measure_index, effective_staff);
             let (transposition, key_fifths_flip_at) =
                 compute_flat_staff_transposition(effective_staff, score, use_written);
             let global =
@@ -378,7 +386,7 @@ pub(super) fn build_explicit_system_layouts(
                 local_index == 0,
             );
             system_x += layout.width;
-            layout.part_index = flat_staff
+            layout.part_index = measure_staves[&measure_index]
                 .sources
                 .first()
                 .map_or(0, |source| source.part_index);
@@ -392,6 +400,7 @@ pub(super) fn build_explicit_system_layouts(
             measure_layouts.push(layout);
         }
         all_staff_layouts.push(measure_layouts);
+        all_measure_staves.push(measure_staves);
     }
 
     let visual_staves = flat_staves
@@ -407,5 +416,8 @@ pub(super) fn build_explicit_system_layouts(
         })
         .collect::<Vec<_>>();
     fix_cross_staff_note_positions(&mut all_staff_layouts, &visual_staves, sp, config);
-    all_staff_layouts
+    ExplicitSystemLayouts {
+        layouts: all_staff_layouts,
+        measure_staves: all_measure_staves,
+    }
 }

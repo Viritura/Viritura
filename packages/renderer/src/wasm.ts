@@ -180,6 +180,7 @@ function normalizeDisplayList(raw: Record<string, unknown>): DisplayList {
       index: b["index"] as number,
       measureId: (b["measureId"] ?? b["measure_id"]) as string | undefined,
       partIndex: (b["partIndex"] ?? b["part_index"]) as number,
+      sourcePartIndices: (b["sourcePartIndices"] ?? b["source_part_indices"]) as number[] | undefined,
       staffIndex: (b["staffIndex"] ?? b["staff_index"] ?? b["partIndex"] ?? b["part_index"]) as number,
       systemIndex: (b["systemIndex"] ?? b["system_index"]) as number | undefined,
       x: b["x"] as number,

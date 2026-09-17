@@ -353,13 +353,26 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
 
 const INITIAL_SELECTION: Selection = { kind: "none" };
 
+/** Source instruments for one visual measure in the committed canvas. */
+interface RenderedMeasureSources {
+  readonly staffIndex: number;
+  readonly measureIndex: number;
+  readonly partIds: readonly string[];
+}
+
+export type RenderedStaffSources = readonly RenderedMeasureSources[] | undefined;
+
 interface SelectionStore {
   selection: Selection;
+  renderedStaffSources: RenderedStaffSources;
+  renderedStaffSourcesGetter: (() => RenderedStaffSources) | null;
   _dispatch: (action: SelectionAction) => void;
 }
 
 export const useSelectionStore = create<SelectionStore>()((set) => ({
   selection: INITIAL_SELECTION,
+  renderedStaffSources: undefined,
+  renderedStaffSourcesGetter: null,
   _dispatch: (action) =>
     set((s) => {
       const next = selectionReducer(s.selection, action);
@@ -377,6 +390,8 @@ export function resetSelectionStore(): void {
   useSelectionStore.setState(
     {
       selection: INITIAL_SELECTION,
+      renderedStaffSources: undefined,
+      renderedStaffSourcesGetter: null,
       _dispatch: (action) =>
         useSelectionStore.setState((s) => {
           const next = selectionReducer(s.selection, action);

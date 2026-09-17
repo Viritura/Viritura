@@ -31,6 +31,34 @@ function mockSampler(): ISampler & {
 }
 
 describe("LayeredSampler", () => {
+  it("cancels every layer queue, including disabled layers, only when all support it", () => {
+    const primary = { ...mockSampler(), cancelScheduledNotes: vi.fn() };
+    const layer = { ...mockSampler(), cancelScheduledNotes: vi.fn() };
+    const sampler = new LayeredSampler(primary, [{ sampler: layer, volumeRatio: 0.5 }]);
+    sampler.setLayerEnabled(0, false);
+    sampler.cancelScheduledNotes?.(0.46);
+    for (const target of [primary, layer]) {
+      expect(target.cancelScheduledNotes).toHaveBeenCalledExactlyOnceWith(0.46);
+      expect(target.setVolume).not.toHaveBeenCalled();
+    }
+    expect(
+      new LayeredSampler(primary, [{ sampler: mockSampler(), volumeRatio: 1 }]).cancelScheduledNotes,
+    ).toBeUndefined();
+  });
+
+  it("forwards reversible playback mute without changing layer gains", () => {
+    const primary = { ...mockSampler(), setPlaybackMuted: vi.fn() };
+    const layer = { ...mockSampler(), setPlaybackMuted: vi.fn() };
+    const sampler = new LayeredSampler(primary, [{ sampler: layer, volumeRatio: 0.5 }]);
+    sampler.setPlaybackMuted?.(true);
+    sampler.setPlaybackMuted?.(false);
+    for (const target of [primary, layer]) {
+      expect(target.setPlaybackMuted.mock.calls).toEqual([[true], [false]]);
+      expect(target.setVolume).not.toHaveBeenCalled();
+    }
+    expect(new LayeredSampler(primary, [{ sampler: mockSampler(), volumeRatio: 1 }]).setPlaybackMuted).toBeUndefined();
+  });
+
   describe("noteOn / noteOff forwarding", () => {
     it("forwards noteOn to primary and all enabled layers", () => {
       const primary = mockSampler();

@@ -25,12 +25,15 @@ use vst3_host::plugin::Plugin;
 use vst3_host::{MidiChannel, MidiEvent, Vst3Host};
 
 use super::fx_chain::{configure_effect, EffectSpec, FxChannel};
-use super::mixer::{Mixer, Strip, StripSource};
+use super::mixer::{Mixer, StripSource};
 use super::reverb_editor::ReverbEditorWindow;
-use super::schedule::{plan_seek, resolve_schedule, ResolvedEvent, ResolvedMidi};
+use super::schedule::resolve_schedule;
 use super::sf2::{load_soundfont, Sf2Voice};
 use super::SlotSpec;
 use super::{SlotKind, BLOCK_SIZE, OUTPUT_CHANNELS, SAMPLE_RATE};
+
+mod part_routing;
+use part_routing::{dispatch_event, seek_slot, SlotSeq};
 
 /// How often the host thread wakes to dispatch due MIDI when no command arrives.
 const TICK: Duration = Duration::from_millis(2);
@@ -141,7 +144,7 @@ pub(super) enum HostCommand {
         reply: Sender<Result<(), String>>,
     },
     /// Replace the set of muted part indices, silencing any now-muted note that
-    /// is currently sounding and dropping their future events until unmuted.
+    /// is currently sounding, while retaining controller and held-note state.
     SetMuted {
         parts: Vec<u32>,
         reply: Sender<Result<(), String>>,
@@ -174,6 +177,11 @@ pub(super) enum HostCommand {
         gain: f32,
         reply: Sender<Result<(), String>>,
     },
+    SetPan {
+        slot_key: String,
+        pan: f32,
+        reply: Sender<Result<(), String>>,
+    },
     /// Open the editor of one plugin in a channel's FX chain, in a modeless
     /// host-thread window pumped non-blocking from the tick loop so playback and
     /// the Viritura UI keep running while it is open. The chain must already be
@@ -198,29 +206,6 @@ pub(super) enum HostCommand {
     },
 }
 
-/// One note the host has sent a note-on for and not yet a note-off, tracked per
-/// slot so muting a part mid-note can send an immediate note-off for it.
-#[derive(Clone, Copy)]
-struct ActiveNote {
-    part: u32,
-    channel: u8,
-    note: u8,
-}
-
-/// One loaded plugin's *sequencing* state, kept on the host thread. The source
-/// itself lives in the [`Mixer`] (keyed by the same slot id); this tracks where
-/// the transport is in that slot's schedule and which of its notes are sounding.
-struct SlotSeq {
-    /// Reuse identity of the loaded source (see [`SlotSpec::reuse_identity`]) —
-    /// the plugin path for a VST, or font+program+kit for a SoundFont voice.
-    identity: String,
-    schedule: Vec<ResolvedEvent>,
-    /// Index of the next event to dispatch in the current transport epoch.
-    cursor: usize,
-    /// Notes currently sounding (note-on sent, note-off not yet), for instant mute.
-    active: Vec<ActiveNote>,
-}
-
 /// A preview note-off the host owes a strip at `due`, so a click-to-hear note
 /// released after its duration even while the transport is stopped.
 struct PreviewOff {
@@ -237,8 +222,8 @@ struct Engine {
     playing: bool,
     origin_seconds: f64,
     start_instant: Option<Instant>,
-    /// Part indices the mixer has muted (or soloed-out); their events are dropped
-    /// at dispatch. Kept across loads/plays until the frontend replaces it.
+    /// Effective mixer/selection exclusions at the native MIDI boundary.
+    /// Kept across loads/plays until the frontend replaces it.
     muted_parts: HashSet<u32>,
     /// Monotonic transport-epoch id (play/stop/seek). Returned to the frontend so
     /// it can discard stale replies (§3.5).
@@ -376,6 +361,14 @@ impl Engine {
                 self.mixer.set_gain(&slot_key, gain);
                 let _ = reply.send(Ok(()));
             }
+            HostCommand::SetPan {
+                slot_key,
+                pan,
+                reply,
+            } => {
+                self.mixer.set_pan(&slot_key, pan);
+                let _ = reply.send(Ok(()));
+            }
             HostCommand::ShowFxEditor {
                 channel,
                 index,
@@ -424,9 +417,9 @@ impl Engine {
                 if existing.identity == spec.reuse_identity() {
                     existing.schedule = resolve_schedule(&spec.events);
                     existing.cursor = 0;
-                    existing.active.clear();
+                    existing.clear_notes();
                     if let Some(strip) = self.mixer.lock().strip_mut(&spec.slot_key) {
-                        strip.set_mix(spec.gain, spec.reverb_send);
+                        strip.set_mix(spec.gain, spec.pan, spec.reverb_send);
                     }
                     continue;
                 }
@@ -484,13 +477,21 @@ impl Engine {
             SlotKind::Vst => StripSource::Vst(Box::new(self.create_plugin(spec)?)),
             SlotKind::Sf2 => StripSource::Sf2(Box::new(self.create_sf2_voice(spec)?)),
         };
-        self.mixer
-            .insert(spec.slot_key.clone(), source, spec.gain, spec.reverb_send);
+        self.mixer.insert(
+            spec.slot_key.clone(),
+            source,
+            spec.gain,
+            spec.pan,
+            spec.reverb_send,
+        );
         Ok(SlotSeq {
             identity: spec.reuse_identity(),
             schedule: resolve_schedule(&spec.events),
             cursor: 0,
             active: Vec::new(),
+            sustain: HashSet::new(),
+            attacks: Default::default(),
+            controllers: Default::default(),
         })
     }
 
@@ -663,7 +664,9 @@ impl Engine {
     /// state and hand it to the frontend to persist; a host-driven teardown
     /// (reload/release) passes `false` since there is nothing to save.
     fn finish_one_fx_editor(&mut self, open: OpenFxEditor, emit: bool) {
-        let state = self.mixer.close_fx_editor_and_save(open.channel, open.index);
+        let state = self
+            .mixer
+            .close_fx_editor_and_save(open.channel, open.index);
         open.window.destroy();
         if emit {
             if let (Some(app), Some(bytes)) = (&self.app, state) {
@@ -785,6 +788,9 @@ impl Engine {
     /// loaded for the next play.
     fn stop(&mut self) {
         self.mixer.lock().for_each_strip(|strip| strip.panic());
+        for seq in self.slots.values_mut() {
+            seq.clear_notes();
+        }
         self.playing = false;
         self.start_instant = None;
         self.generation += 1;
@@ -794,6 +800,9 @@ impl Engine {
     /// playing — restarts the clock at the new point; otherwise just records it.
     fn seek(&mut self, seconds: f64) -> u64 {
         self.mixer.lock().for_each_strip(|strip| strip.panic());
+        for seq in self.slots.values_mut() {
+            seq.clear_notes();
+        }
         self.generation += 1;
         if self.playing {
             let muted = &self.muted_parts;
@@ -819,148 +828,5 @@ impl Engine {
         self.mixer.shutdown();
         self.playing = false;
         self.start_instant = None;
-    }
-
-    /// Replace the muted-part set. Any note currently sounding for a part that is
-    /// now muted gets an immediate note-off so muting is heard at once (matching
-    /// the SF2 path's instant gain cut); future events are dropped in `pump`.
-    fn set_muted(&mut self, parts: Vec<u32>) {
-        self.muted_parts = parts.into_iter().collect();
-        let muted = &self.muted_parts;
-        let mut core = self.mixer.lock();
-        for (key, seq) in self.slots.iter_mut() {
-            let Some(strip) = core.strip_mut(key) else {
-                continue;
-            };
-            let mut i = 0;
-            while i < seq.active.len() {
-                let active = seq.active[i];
-                if muted.contains(&active.part) {
-                    if let Some(channel) = MidiChannel::from_index(active.channel) {
-                        strip.send_midi(MidiEvent::NoteOff {
-                            channel,
-                            note: active.note,
-                            velocity: 0,
-                        });
-                    }
-                    seq.active.swap_remove(i);
-                } else {
-                    i += 1;
-                }
-            }
-        }
-    }
-}
-
-/// Reconstruct one slot's playing state at `t` and point its cursor past the
-/// catch-up region (§3.5). Muted parts' held notes are not re-attacked; their
-/// controllers still replay (silent on their own) to keep plugin state coherent.
-fn seek_slot(seq: &mut SlotSeq, strip: &mut Strip, t: f64, muted: &HashSet<u32>) {
-    let plan = plan_seek(&seq.schedule, t);
-    seq.active.clear();
-    for controller in plan.controllers {
-        if let Some(event) = to_midi_event(controller) {
-            strip.send_midi(event);
-        }
-    }
-    for held in plan.held_notes {
-        if muted.contains(&held.part) {
-            continue;
-        }
-        if let Some(event) = to_midi_event(held.midi) {
-            strip.send_midi(event);
-            if let ResolvedMidi::NoteOn { channel, note, .. } = held.midi {
-                seq.active.push(ActiveNote {
-                    part: held.part,
-                    channel,
-                    note,
-                });
-            }
-        }
-    }
-    seq.cursor = plan.resume_index;
-}
-
-/// Route one scheduled event onto a slot's plugin, honoring the muted-part set.
-///
-/// Note-ons and control changes for a muted part are dropped so the part stays
-/// silent; note-offs are always delivered so a note in flight when its part was
-/// muted (or that started before the mute) can never get stuck on.
-fn dispatch_event(
-    seq: &mut SlotSeq,
-    strip: &mut Strip,
-    event: ResolvedEvent,
-    offset: i32,
-    muted: &HashSet<u32>,
-) {
-    let is_muted = muted.contains(&event.part);
-    match event.midi {
-        ResolvedMidi::NoteOn { channel, note, .. } => {
-            if is_muted {
-                return;
-            }
-            if let Some(midi) = to_midi_event(event.midi) {
-                strip.send_midi_at(midi, offset);
-                seq.active.push(ActiveNote {
-                    part: event.part,
-                    channel,
-                    note,
-                });
-            }
-        }
-        ResolvedMidi::NoteOff { channel, note } => {
-            if let Some(midi) = to_midi_event(event.midi) {
-                strip.send_midi_at(midi, offset);
-            }
-            remove_active(&mut seq.active, event.part, channel, note);
-        }
-        ResolvedMidi::ControlChange { .. } => {
-            if is_muted {
-                return;
-            }
-            if let Some(midi) = to_midi_event(event.midi) {
-                strip.send_midi_at(midi, offset);
-            }
-        }
-    }
-}
-
-/// Drop the first active note matching `(part, channel, note)`, if present.
-fn remove_active(active: &mut Vec<ActiveNote>, part: u32, channel: u8, note: u8) {
-    if let Some(index) = active
-        .iter()
-        .position(|a| a.part == part && a.channel == channel && a.note == note)
-    {
-        active.swap_remove(index);
-    }
-}
-
-fn to_midi_event(midi: ResolvedMidi) -> Option<MidiEvent> {
-    match midi {
-        ResolvedMidi::NoteOn {
-            channel,
-            note,
-            velocity,
-        } => MidiChannel::from_index(channel).map(|channel| MidiEvent::NoteOn {
-            channel,
-            note,
-            velocity,
-        }),
-        ResolvedMidi::NoteOff { channel, note } => {
-            MidiChannel::from_index(channel).map(|channel| MidiEvent::NoteOff {
-                channel,
-                note,
-                velocity: 0,
-            })
-        }
-        ResolvedMidi::ControlChange {
-            channel,
-            controller,
-            value,
-        } => MidiChannel::from_index(channel).map(|channel| MidiEvent::ControlChange {
-            channel,
-            controller,
-            value,
-        }),
     }
 }

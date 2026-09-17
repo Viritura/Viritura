@@ -74,6 +74,8 @@ export interface PlaybackActions {
   stop(): void;
   /** Seek to an absolute score time in seconds. */
   seek(seconds: number): void;
+  /** Temporary source-part eligibility, independent of mixer state. Null clears; [] silences all parts. */
+  setSelectionPartIds(partIds: readonly string[] | null): void;
   /** Override the tempo (BPM). */
   setTempo(bpm: number): void;
   /** Set master volume (0–1, clamped). */

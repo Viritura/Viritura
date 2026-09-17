@@ -36,7 +36,9 @@ use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
 use super::explicit_system_breaks::{expand_oversized_systems_explicit, SystemLayoutChanges};
-use super::explicit_system_layouts::{build_explicit_system_layouts, PersistentStaffState};
+use super::explicit_system_layouts::{
+    build_explicit_system_layouts, ExplicitSystemLayouts, PersistentStaffState,
+};
 use super::explicit_widths::compute_explicit_max_widths;
 use super::instrument_labels::{explicit_label_margins, policy_for_system};
 use super::page_turn_planning::single_source_part_index;
@@ -288,7 +290,10 @@ fn render_explicit_system(
         };
 
         // ΓöÇΓöÇ Phase 1: Build measure layouts for all staves ΓöÇΓöÇ
-        let all_staff_layouts = build_explicit_system_layouts(
+        let ExplicitSystemLayouts {
+            layouts: all_staff_layouts,
+            measure_staves,
+        } = build_explicit_system_layouts(
             ctx.score,
             ctx.score_def,
             ctx.config,
@@ -384,6 +389,7 @@ fn render_explicit_system(
             dl,
             &all_staff_layouts,
             flat_staves,
+            &measure_staves,
             &staff_y_offsets,
             &next_sys_clef_per_staff,
             ctx.score,

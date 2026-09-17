@@ -21,8 +21,21 @@ interface MixerControls {
  * UI remains coherent after one part is split into staff/voice lanes.
  */
 export class SamplerGroup implements ISampler {
+  readonly setPlaybackMuted?: (muted: boolean) => void;
+  readonly cancelScheduledNotes?: (fromAudioTime: number) => void;
+
   constructor(private readonly samplers: readonly ISampler[]) {
     if (samplers.length === 0) throw new Error("SamplerGroup requires at least one sampler");
+    if (samplers.every((sampler) => sampler.setPlaybackMuted)) {
+      this.setPlaybackMuted = (muted) => {
+        for (const sampler of samplers) sampler.setPlaybackMuted?.(muted);
+      };
+    }
+    if (samplers.every((sampler) => sampler.cancelScheduledNotes)) {
+      this.cancelScheduledNotes = (fromAudioTime) => {
+        for (const sampler of samplers) sampler.cancelScheduledNotes?.(fromAudioTime);
+      };
+    }
   }
 
   private get primary(): ISampler {

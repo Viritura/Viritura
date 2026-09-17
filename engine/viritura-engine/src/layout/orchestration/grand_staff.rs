@@ -191,6 +191,7 @@ fn push_grand_staff_measure_bounds(
         index: ml.resolved.index,
         measure_id: ml.resolved.global.id.clone(),
         part_index,
+        source_part_indices: Vec::new(),
         staff_index,
         system_index,
         x,

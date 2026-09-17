@@ -196,6 +196,16 @@ fn vst_playback_set_gain(
     playback_host::set_gain(&host, slot_key, gain)
 }
 
+/// Live-adjust one slot's stereo pan without reloading or starting the host.
+#[tauri::command]
+fn vst_playback_set_pan(
+    host: tauri::State<'_, PlaybackHost>,
+    slot_key: String,
+    pan: f32,
+) -> Result<(), String> {
+    playback_host::set_pan(&host, slot_key, pan)
+}
+
 /// Play one note immediately on a loaded slot (click-to-hear preview), releasing
 /// it after `duration_ms`. Lets native-mode preview sound like real playback.
 #[tauri::command]
@@ -253,6 +263,7 @@ pub fn run() {
             vst_playback_close_fx_editor,
             vst_playback_set_reverb_levels,
             vst_playback_set_gain,
+            vst_playback_set_pan,
             vst_playback_preview,
             vst_soundfont_path,
             profile_fs::profile_fs_read_text,

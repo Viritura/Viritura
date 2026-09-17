@@ -208,6 +208,17 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
   const elementIds = readElementIds(r, numCommands, numStrings);
   const measureBounds = r.pos < data.length ? readMeasureBounds(r, r.f32()) : [];
   const selectionGroups = r.pos < data.length ? readSelectionGroups(r, r.f32()) : [];
+  if (r.pos < data.length) {
+    const entryCount = r.f32();
+    for (let i = 0; i < entryCount; i++) {
+      const boundsIndex = r.f32();
+      const sourceCount = r.f32();
+      const sources: number[] = [];
+      for (let j = 0; j < sourceCount; j++) sources.push(r.f32());
+      const bounds = measureBounds[boundsIndex];
+      if (bounds && sources.length > 0) bounds.sourcePartIndices = sources;
+    }
+  }
 
   const result: DisplayList = { commands, width, height };
   if (pages.length > 0) result.pages = pages;

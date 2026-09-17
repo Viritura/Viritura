@@ -72,6 +72,16 @@ export interface ISampler {
   noteOff(midiNote: number, time?: number, altKitProgram?: number): void;
   /** Immediately release all sounding notes. */
   allNotesOff(): void;
+  /** Reversible playback-only mute, independent of mixer gain and controllers.
+   * Silences current voices but retains queued note events at their original
+   * times; attacks reached while muted are ignored. Implementations without
+   * this capability use allNotesOff and have their cancelled notes requeued.
+   * allNotesOff must cancel remaining notes before releasing this playback-only
+   * mute, so stopped/paused preview notes can use the same sampler safely. */
+  setPlaybackMuted?(muted: boolean): void;
+  /** Cancel queued note attacks/releases at or after an audio-clock cutoff,
+   * without changing sounding voices, controllers, programs, or mixer state. */
+  cancelScheduledNotes?(fromAudioTime: number): void;
   /** Change the GM program (instrument sound). Optional — not all samplers support it. */
   setProgram?(program: number, time?: number): void;
   /** Send a raw MIDI control change (CC) on this part's channel. Optional. */

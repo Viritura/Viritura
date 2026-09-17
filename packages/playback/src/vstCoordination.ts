@@ -12,8 +12,8 @@ import type { ResolvedPlaybackPart } from "./soundProfileRuntime";
 import type { Sf2PartAssignment, VstPartAssignment, VstPreparePlan, VstTransport } from "./vstTransport";
 
 /**
- * Compute the engine's view-based part filter, combining the visible-part
- * selection with VST ownership.
+ * Compute the engine's part filter, combining view visibility and temporary
+ * source-part selection with VST ownership.
  *
  * The base filter is the visible parts (or `null` = every part audible when the
  * view isn't filtered). Parts the native VST host plays are then subtracted so
@@ -25,8 +25,9 @@ export function computeViewPartFilter(args: {
   parts: readonly Part[];
   visiblePartIds: readonly string[] | undefined;
   vstOwnedParts: ReadonlySet<number>;
+  selectionPartIds?: readonly string[] | null;
 }): ReadonlySet<number> | null {
-  const { parts, visiblePartIds, vstOwnedParts } = args;
+  const { parts, visiblePartIds, vstOwnedParts, selectionPartIds } = args;
 
   let base: Set<number> | null = null;
   if (visiblePartIds && visiblePartIds.length > 0) {
@@ -36,6 +37,14 @@ export function computeViewPartFilter(args: {
       if (idx >= 0) base.add(idx);
     }
     if (base.size === 0) base = null;
+  }
+
+  // Unlike an empty view, an explicit empty selection allows no source parts.
+  if (selectionPartIds != null) {
+    const selected = new Set(selectionPartIds);
+    base = new Set(
+      parts.flatMap((part, index) => (part.id && selected.has(part.id) && (!base || base.has(index)) ? [index] : [])),
+    );
   }
 
   if (vstOwnedParts.size === 0) return base;

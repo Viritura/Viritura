@@ -1,29 +1,28 @@
 import type { Score, Tuplet } from "@viritura/core";
-import { resolveEventLocation } from "../../score/ElementPath";
+import { extractMeasureIndex, resolveEventLocation } from "../../score/ElementPath";
 import { durationToBeats } from "../../commands/noteCommands";
+import type { SelectionState } from "../../store/selectionStore";
 
 interface PlaybackActionsLike {
   measureBeatToSeconds: (measureIndex: number, beat: number) => number | null;
 }
 
-interface SelectionLike {
-  kind: string;
-  elementId?: string;
-}
-
 /**
  * Compute the playback start time (seconds) for the current selection, or
- * `undefined` if the selection doesn't pinpoint an event.
+ * `undefined` if the selection doesn't pinpoint an event or measure.
  */
 export function computeSelectionStartTime(
-  sel: SelectionLike,
+  sel: SelectionState,
   score: Score | null,
   acts: PlaybackActionsLike,
 ): number | undefined {
-  if (sel.kind !== "single" || !score || !sel.elementId) return undefined;
-  const mMatch = sel.elementId.match(/m(\d+)/);
-  if (!mMatch) return undefined;
-  const measureIndex = parseInt(mMatch[1]!, 10);
+  if (!score) return undefined;
+  if (sel.kind === "measure") {
+    return acts.measureBeatToSeconds(Math.min(sel.startMeasure, sel.endMeasure), 0) ?? undefined;
+  }
+  if (sel.kind !== "single") return undefined;
+  const measureIndex = extractMeasureIndex(sel.elementId);
+  if (measureIndex === undefined) return undefined;
   const loc = resolveEventLocation(sel.elementId, score);
   const beat = loc ? computeBeatOffset(score, loc.partIndex, loc.measureIndex, loc.sequenceIndex, loc.eventIndex) : 0;
   const t = acts.measureBeatToSeconds(measureIndex, beat);

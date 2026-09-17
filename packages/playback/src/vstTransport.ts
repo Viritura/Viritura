@@ -67,10 +67,12 @@ export interface VstTransport {
   seek(seconds: number): Promise<void>;
   /**
    * Set the live output gain (linear, 1.0 = unity) of the native slot voicing
-   * the given part. Applies immediately while playing; a no-op for parts the host
-   * does not own. Mixer mute/solo is handled separately via {@link setMutedParts}.
+   * the given part. Retained before ownership and across host reloads, and
+   * applied immediately while playing. Mute/solo uses {@link setMutedParts}.
    */
   setPartGain(partIndex: number, gain: number): Promise<void>;
+  /** Persistent stereo balance, -1 (left) to +1 (right), when supported by the host. */
+  setPartPan?(partIndex: number, pan: number): Promise<void>;
   /**
    * Play a single note immediately on the native slot voicing the given part
    * (click-to-hear preview), releasing it after `durationMs`. Resolves to `true`
