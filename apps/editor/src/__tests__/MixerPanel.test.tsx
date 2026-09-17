@@ -62,7 +62,7 @@ describe("MixerPanel sound profiles", () => {
         name: new RegExp(`^Sound for ${name}:`),
       })) as HTMLButtonElement;
       expect(picker.disabled).toBe(false);
-      expect(picker.textContent).toBe("VirituraSounds");
+      expect(picker.textContent).toBe("VirituraSounds — Notation default: B-flat Clarinet");
     }
 
     const picker = screen.getByRole("button", { name: /^Sound for Clarinet in B♭ 1:/ });
@@ -190,7 +190,9 @@ describe("MixerPanel sound profiles", () => {
     expect((await screen.findByRole("tooltip")).textContent).toContain(`Volume ${name}:`);
     expect(screen.getByRole("button", { name: `Mute ${name}` })).toBeTruthy();
     expect(screen.getByRole("button", { name: `Solo ${name}` })).toBeTruthy();
-    expect(screen.getByRole("button", { name: new RegExp(`^Sound for ${name}:`) }).textContent).toBe("VirituraSounds");
+    expect(screen.getByRole("button", { name: new RegExp(`^Sound for ${name}:`) }).textContent).toBe(
+      "VirituraSounds — Notation default: Double Bass",
+    );
   });
 });
 

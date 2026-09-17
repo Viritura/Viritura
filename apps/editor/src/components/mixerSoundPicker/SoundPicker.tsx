@@ -66,7 +66,7 @@ export function SoundPicker({ part, score, partDisplayName, onSoundSourceChange 
       ariaLabel={`Sound for ${partDisplayName}: ${view.selectedLabel}`}
       tooltip={`Sound for ${partDisplayName}: ${view.selectedLabel}`}
       className={styles.button}
-      label={view.selectedProfileLabel}
+      label={view.selectedLabel}
       items={menuItems}
       triggerSize="sm"
     />
