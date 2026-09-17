@@ -823,6 +823,7 @@ pub(super) fn layout_auto_flow_mnx_score(
             dl.element_ids.len(),
             dl.element_bboxes.len(),
             dl.element_shapes.len(),
+            dl.selection_groups.len(),
             dl.slur_geometries.len(),
             dl.measure_bounds.len(),
         ))

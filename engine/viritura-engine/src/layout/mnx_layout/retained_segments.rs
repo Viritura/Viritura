@@ -141,11 +141,11 @@ pub(super) fn compact_cross_system_dependencies(
 /// even though the binary protocol omits them.
 pub(super) fn extract_overlay_segment(
     dl: &DisplayList,
-    marker: (usize, usize, usize, usize, usize, usize),
+    marker: (usize, usize, usize, usize, usize, usize, usize),
     width: f64,
     height: f64,
 ) -> DisplayList {
-    let (nc, _neid, nbb, nshape, nslur, nmb) = marker;
+    let (nc, _neid, nbb, nshape, ngroup, nslur, nmb) = marker;
     let mut overlay = DisplayList::new(width, height);
     overlay.commands = dl.commands[nc..].to_vec();
     // `element_ids` obeys the invariant: empty, or length == commands.len().
@@ -155,6 +155,7 @@ pub(super) fn extract_overlay_segment(
         overlay.element_ids = dl.element_ids[nc..].to_vec();
     }
     overlay.element_bboxes = dl.element_bboxes[nbb..].to_vec();
+    overlay.selection_groups = dl.selection_groups[ngroup..].to_vec();
     overlay.slur_geometries = dl.slur_geometries[nslur..].to_vec();
     overlay.measure_bounds = dl.measure_bounds[nmb..].to_vec();
     for sh in &dl.element_shapes[nshape..] {
@@ -172,6 +173,7 @@ pub(super) fn display_list_store_marker(dl: &DisplayList) -> cache::DisplayListS
         commands: dl.commands.len(),
         element_bboxes: dl.element_bboxes.len(),
         element_shapes: dl.element_shapes.len(),
+        selection_groups: dl.selection_groups.len(),
         slur_geometries: dl.slur_geometries.len(),
         measure_bounds: dl.measure_bounds.len(),
     }
@@ -192,6 +194,10 @@ pub(super) fn remap_store_marker(
             + marker
                 .element_shapes
                 .saturating_sub(source_origin.element_shapes),
+        selection_groups: destination.selection_groups
+            + marker
+                .selection_groups
+                .saturating_sub(source_origin.selection_groups),
         slur_geometries: destination.slur_geometries
             + marker
                 .slur_geometries
@@ -216,6 +222,8 @@ pub(super) fn extract_display_list_range(
         || end.element_bboxes > dl.element_bboxes.len()
         || start.element_shapes > end.element_shapes
         || end.element_shapes > dl.element_shapes.len()
+        || start.selection_groups > end.selection_groups
+        || end.selection_groups > dl.selection_groups.len()
         || start.slur_geometries > end.slur_geometries
         || end.slur_geometries > dl.slur_geometries.len()
         || start.measure_bounds > end.measure_bounds
@@ -230,6 +238,8 @@ pub(super) fn extract_display_list_range(
         segment.element_ids = dl.element_ids[start.commands..end.commands].to_vec();
     }
     segment.element_bboxes = dl.element_bboxes[start.element_bboxes..end.element_bboxes].to_vec();
+    segment.selection_groups =
+        dl.selection_groups[start.selection_groups..end.selection_groups].to_vec();
     segment.slur_geometries =
         dl.slur_geometries[start.slur_geometries..end.slur_geometries].to_vec();
     segment.measure_bounds = dl.measure_bounds[start.measure_bounds..end.measure_bounds].to_vec();

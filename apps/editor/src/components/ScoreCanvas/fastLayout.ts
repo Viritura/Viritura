@@ -10,6 +10,7 @@ export interface FastLayoutRefs {
   docScoreRef: { current: Score | null };
   paintNowRef: { current: (forceDirect?: boolean) => void };
   perfTracker: PerfTracker;
+  onDisplayListCommit?: () => void;
 }
 
 /**
@@ -43,6 +44,7 @@ export async function runFastLayoutAndPaint(
     docScoreRef,
     paintNowRef,
     perfTracker,
+    onDisplayListCommit,
   } = args;
 
   performance.mark("viritura:wasm-layout-start");
@@ -96,6 +98,7 @@ export async function runFastLayoutAndPaint(
   spatialIndexRef.current = spatialIndex;
   perfTracker.wasmLayoutMs = t1 - t0;
   displayListVersionRef.current += 1;
+  onDisplayListCommit?.();
   performance.mark("viritura:raf-callback");
   performance.mark("viritura:repaint-call");
   paintNowRef.current(true);

@@ -929,7 +929,6 @@ pub(crate) fn render_system_contents(
             sp,
             config,
             part_idx,
-            Some(&slur_map),
             &global_beamed_ids,
             render_measure::measure_leading_clef_gap(ml, sp, clef_change_measures),
             if ml.multimeasure_rest_count.is_some() && shared_lane.center_y.is_some() {

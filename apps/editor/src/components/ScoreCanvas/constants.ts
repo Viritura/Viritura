@@ -23,6 +23,17 @@ export const SCORE_ERROR_STYLE: CSSProperties = {
   color: "var(--warning)",
 };
 export const SCORE_CANVAS_WRAP_STYLE: CSSProperties = { position: "relative", flex: 1 };
+export const SCREEN_READER_ONLY_STYLE: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
 
 export function scoreCanvasElementStyle(
   visible: boolean,

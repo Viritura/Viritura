@@ -944,6 +944,10 @@ pub(crate) fn render_beams(
                     dl.push_shape_cmd(ci, eid.clone(), ElementKind::Beam, None, None);
                 }
             }
+            dl.push_selection_group(
+                eid,
+                super::beam_member_element_ids(std::slice::from_ref(ml), &beam.events),
+            );
         }
     }
 }

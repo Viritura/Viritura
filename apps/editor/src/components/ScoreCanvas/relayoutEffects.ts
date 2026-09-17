@@ -25,6 +25,7 @@ interface FastLayoutCallbackArgs {
   spatialIndexRef: { current: SpatialIndex | null };
   docScoreRef: { current: Score | null };
   paintNowRef: { current: (forceDirect?: boolean) => void };
+  onDisplayListCommit: () => void;
   lastFastPaintedJsonRef: { current: string };
   /** JSON currently being laid out off-thread. Set synchronously so the
    *  mnxJson useEffect doesn't double-apply the same edit while the worker
@@ -50,6 +51,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
     spatialIndexRef,
     docScoreRef,
     paintNowRef,
+    onDisplayListCommit,
     lastFastPaintedJsonRef,
     pendingFastJsonRef,
   } = args;
@@ -89,6 +91,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
             docScoreRef,
             paintNowRef,
             perfTracker: perf,
+            onDisplayListCommit,
           });
           lastFastPaintedJsonRef.current = json;
         } catch (err) {
@@ -104,7 +107,7 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
       latestRequestId += 1;
       perf.fastLayoutCallback = null;
     };
-  }, [wasmReady, computeDisplayList, selectedScoreIndex]);
+  }, [wasmReady, computeDisplayList, selectedScoreIndex, onDisplayListCommit]);
 }
 
 interface SecondaryRelayoutArgs {

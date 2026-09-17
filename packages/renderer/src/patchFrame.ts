@@ -251,6 +251,9 @@ function appendSegment(target: DisplayList, other: DisplayList): void {
   if (other.measureBounds && other.measureBounds.length > 0) {
     (target.measureBounds ??= []).push(...other.measureBounds);
   }
+  if (other.selectionGroups && other.selectionGroups.length > 0) {
+    (target.selectionGroups ??= []).push(...other.selectionGroups);
+  }
 }
 
 /**
@@ -451,6 +454,7 @@ export class PatchReconstructor {
         assembled.elementBboxes = rebuilt.elementBboxes;
         assembled.slurGeometries = rebuilt.slurGeometries;
         assembled.measureBounds = rebuilt.measureBounds;
+        assembled.selectionGroups = rebuilt.selectionGroups;
       }
       assembled.width = patch.width;
       assembled.height = patch.height;
@@ -497,6 +501,7 @@ interface StoreShape {
   bboxes: number;
   slurs: number;
   measures: number;
+  selectionGroups: number;
 }
 
 function storeShape(displayList: DisplayList): StoreShape {
@@ -505,13 +510,22 @@ function storeShape(displayList: DisplayList): StoreShape {
     bboxes: displayList.elementBboxes?.length ?? 0,
     slurs: displayList.slurGeometries?.length ?? 0,
     measures: displayList.measureBounds?.length ?? 0,
+    selectionGroups: displayList.selectionGroups?.length ?? 0,
   };
 }
 
+function equalStoreShapes(left: StoreShape, right: StoreShape): boolean {
+  return (
+    left.commands === right.commands &&
+    left.bboxes === right.bboxes &&
+    left.slurs === right.slurs &&
+    left.measures === right.measures &&
+    left.selectionGroups === right.selectionGroups
+  );
+}
+
 function equalStoreShape(left: DisplayList, right: DisplayList): boolean {
-  const a = storeShape(left);
-  const b = storeShape(right);
-  return a.commands === b.commands && a.bboxes === b.bboxes && a.slurs === b.slurs && a.measures === b.measures;
+  return equalStoreShapes(storeShape(left), storeShape(right));
 }
 
 function sameStoreShapeAtRanges(
@@ -526,16 +540,7 @@ function sameStoreShapeAtRanges(
   if (!previousPrefixShape || !previousOverlayShape) return false;
   const prefixShape = storeShape(prefix);
   const overlayShape = storeShape(overlay);
-  if (
-    prefixShape.commands !== previousPrefixShape.commands ||
-    prefixShape.bboxes !== previousPrefixShape.bboxes ||
-    prefixShape.slurs !== previousPrefixShape.slurs ||
-    prefixShape.measures !== previousPrefixShape.measures ||
-    overlayShape.commands !== previousOverlayShape.commands ||
-    overlayShape.bboxes !== previousOverlayShape.bboxes ||
-    overlayShape.slurs !== previousOverlayShape.slurs ||
-    overlayShape.measures !== previousOverlayShape.measures
-  ) {
+  if (!equalStoreShapes(prefixShape, previousPrefixShape) || !equalStoreShapes(overlayShape, previousOverlayShape)) {
     return false;
   }
   if (nextSegments.length !== previousSegments.length) return false;
@@ -547,15 +552,17 @@ function sameStoreShapeAtRanges(
       sum.bboxes += shape.bboxes;
       sum.slurs += shape.slurs;
       sum.measures += shape.measures;
+      sum.selectionGroups += shape.selectionGroups;
       return sum;
     },
-    { commands: 0, bboxes: 0, slurs: 0, measures: 0 },
+    { commands: 0, bboxes: 0, slurs: 0, measures: 0, selectionGroups: 0 },
   );
   return (
     assembled.commands.length === expected.commands &&
     (assembled.elementBboxes?.length ?? 0) === expected.bboxes &&
     (assembled.slurGeometries?.length ?? 0) === expected.slurs &&
-    (assembled.measureBounds?.length ?? 0) === expected.measures
+    (assembled.measureBounds?.length ?? 0) === expected.measures &&
+    (assembled.selectionGroups?.length ?? 0) === expected.selectionGroups
   );
 }
 
@@ -564,6 +571,7 @@ interface StoreOffsets {
   bboxes: number;
   slurs: number;
   measures: number;
+  selectionGroups: number;
 }
 
 function advanceOffsets(offsets: StoreOffsets, displayList: DisplayList): void {
@@ -572,6 +580,7 @@ function advanceOffsets(offsets: StoreOffsets, displayList: DisplayList): void {
   offsets.bboxes += shape.bboxes;
   offsets.slurs += shape.slurs;
   offsets.measures += shape.measures;
+  offsets.selectionGroups += shape.selectionGroups;
 }
 
 function normalizedIds(displayList: DisplayList): Array<string | null> {
@@ -596,6 +605,9 @@ function replaceStoresAt(target: DisplayList, source: DisplayList, offsets: Stor
   if (shape.measures > 0) {
     target.measureBounds!.splice(offsets.measures, shape.measures, ...source.measureBounds!);
   }
+  if (shape.selectionGroups > 0) {
+    target.selectionGroups!.splice(offsets.selectionGroups, shape.selectionGroups, ...source.selectionGroups!);
+  }
 }
 
 function updateFlattenedStoresInPlace(
@@ -605,7 +617,7 @@ function updateFlattenedStoresInPlace(
   segments: readonly DisplayList[],
   overlay: DisplayList,
 ): void {
-  const offsets: StoreOffsets = { commands: 0, bboxes: 0, slurs: 0, measures: 0 };
+  const offsets: StoreOffsets = { commands: 0, bboxes: 0, slurs: 0, measures: 0, selectionGroups: 0 };
   replaceStoresAt(target, prefix, offsets);
   advanceOffsets(offsets, prefix);
   for (let index = 0; index < segments.length; index++) {

@@ -75,7 +75,7 @@ const persisted = loadPersistedSettings();
 
 const initialSettings = {
   performanceOverlay: getSearchFlag("perf") || isPerfEnabled() || persisted.performanceOverlay === true,
-  hitboxOverlay: getSearchFlag("hitbox") || persisted.hitboxOverlay === true,
+  hitboxOverlay: persisted.hitboxOverlay === true,
   tileCacheDisabled: isTileCacheDisabled() || persisted.tileCacheDisabled === true,
 };
 

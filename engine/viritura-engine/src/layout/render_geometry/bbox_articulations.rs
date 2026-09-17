@@ -261,46 +261,6 @@ pub(super) fn stack_articulations(
     }
 }
 
-#[allow(clippy::too_many_arguments)] // fermata placement needs the full geometry context
-pub(super) fn push_fermata_bbox(
-    bboxes: &mut Vec<ElementBBox>,
-    el: &EventLayout,
-    fermata: &crate::model::Fermata,
-    base_id: &str,
-    staff_y: f64,
-    sp: f64,
-    config: &LayoutConfig,
-    notehead_w: f64,
-    staff_height: f64,
-    glyph_size: f64,
-) {
-    let (above_cp, below_cp) = smufl::fermata_glyph(
-        fermata
-            .symbol
-            .as_ref()
-            .unwrap_or(&crate::model::FermataSymbol::Normal),
-    );
-    let is_multi = el.num_voices > 1;
-    let ferm_below = match fermata.orient {
-        Some(crate::model::Orientation::Above) => false,
-        Some(crate::model::Orientation::Below) => true,
-        _ => is_multi && !el.stem_up,
-    };
-    let codepoint = if ferm_below { below_cp } else { above_cp };
-    let (_, _, gw, _) = smufl::glyph_bbox(codepoint);
-    let fx = el.x + notehead_w * 0.5 - gw * sp * 0.5;
-    let fy = if ferm_below {
-        staff_y + staff_height + config.fermata_above_staff * sp
-    } else {
-        staff_y - config.fermata_above_staff * sp
-    };
-    let bbox = glyph_pixel_bbox(fx, fy, codepoint, glyph_size);
-    bboxes.push(ElementBBox {
-        element_id: element_id::fermata_bbox(base_id),
-        bbox,
-    });
-}
-
 #[allow(clippy::too_many_arguments)] // ornaments and trill share the same anchor geometry
 pub(super) fn push_ornament_and_trill_bboxes(
     bboxes: &mut Vec<ElementBBox>,

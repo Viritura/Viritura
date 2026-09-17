@@ -346,7 +346,6 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
                 sp,
                 config,
                 part_index,
-                Some(&slur_map),
                 &global_beamed_ids,
                 render_measure::measure_leading_clef_gap(ml, sp, &clef_change_measures),
                 shared_lane.is_bottom,

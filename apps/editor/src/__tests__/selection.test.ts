@@ -199,6 +199,38 @@ describe("selectionReducer", () => {
       });
     });
 
+    describe("SELECT_ELEMENTS", () => {
+      it("selects an exact non-contiguous group and removes duplicates", () => {
+        const result = selectionReducer(none, {
+          type: "SELECT_ELEMENTS",
+          elementIds: ["p0/m0/s0/a", "p0/m0/s0/b", "p0/m0/s0/a"],
+        });
+        expect(result).toEqual({ kind: "multi", elementIds: ["p0/m0/s0/a", "p0/m0/s0/b"] });
+      });
+
+      it("normalizes a one-member group to a single selection", () => {
+        const result = selectionReducer(none, {
+          type: "SELECT_ELEMENTS",
+          elementIds: ["p0/m0/s0/a"],
+        });
+        expect(result).toEqual({ kind: "single", elementId: "p0/m0/s0/a", elementType: "event" });
+      });
+
+      it("preserves the visual expansion anchor for grouped selection", () => {
+        const measureAnchor = { partIndex: 1, staffIndex: 2, measureIndex: 0, isExpansion: true };
+        const result = selectionReducer(none, {
+          type: "SELECT_ELEMENTS",
+          elementIds: ["p1/m0/s0/a", "p1/m0/s0/b"],
+          measureAnchor,
+        });
+        expect(result).toEqual({
+          kind: "multi",
+          elementIds: ["p1/m0/s0/a", "p1/m0/s0/b"],
+          measureAnchor,
+        });
+      });
+    });
+
     it("replaces a single selection with range", () => {
       const action: SelectionAction = {
         type: "SELECT_RANGE",

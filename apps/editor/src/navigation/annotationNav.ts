@@ -6,7 +6,7 @@
  * They have synthetic element IDs derived from their parent context:
  *
  * Event-attached (above staff):
- *   {eventId}/fermata, {eventId}/trill, {eventId}/orn{i}
+ *   {eventId}/ferm, {eventId}/trill, {eventId}/orn{i}
  *
  * Event-attached (below or positional):
  *   {eventId}/breath, {eventId}/arp, {eventId}/fing{i}
@@ -40,6 +40,7 @@ import {
   codaId,
   eventId as buildEventId,
   eventSuffix,
+  fermataId,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { parseElementType, isEventAttached, isMeasureLevel, isGlobalLevel } from "../score/elementTypes";
@@ -65,7 +66,7 @@ export interface AnnotationInfo {
 
 /**
  * Check if an element ID represents an annotation rather than an event.
- * Annotations have suffixes like /fermata, /trill, /dyn0, /tempo0, etc.
+ * Annotations have suffixes like /ferm, /trill, /dyn0, /tempo0, etc.
  */
 export function isAnnotationId(elementId: string): boolean {
   const type = parseElementType(elementId);
@@ -133,7 +134,7 @@ export function findAnnotationsForEvent(score: Score, eventId: string): Annotati
   // Native MNX fermata (event-level since v15).
   if (event?.fermata) {
     annotations.push({
-      elementId: `${eventId}/fermata`,
+      elementId: fermataId(eventId),
       type: "fermata",
       position: "above",
       parentEventId: eventId,

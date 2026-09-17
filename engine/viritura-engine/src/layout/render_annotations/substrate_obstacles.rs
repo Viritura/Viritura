@@ -140,7 +140,7 @@ pub(crate) fn collect_above_glyph_boxes(
     boxes
 }
 
-pub(super) fn text_command_bbox(command: &RenderCommand) -> Option<BoundingBox> {
+pub(crate) fn text_command_bbox(command: &RenderCommand) -> Option<BoundingBox> {
     let RenderCommand::DrawText {
         x,
         y,

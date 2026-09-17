@@ -14,10 +14,27 @@
 import type { Score } from "@viritura/core";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
+import { getEventAtLocation, getEventAncestorId, resolveEventLocation } from "../score/ElementPath";
+
+const CAESURA_SUFFIX = "/caesura";
+
+export function isCaesuraId(elementId: string): boolean {
+  return elementId.endsWith(CAESURA_SUFFIX);
+}
+
+export function removeCaesura(score: Score, elementId: string): Score | null {
+  if (!isCaesuraId(elementId)) return null;
+  const location = resolveEventLocation(getEventAncestorId(elementId), score);
+  const event = location ? getEventAtLocation(score, location) : null;
+  if (!event || event.type !== "event" || !event.markings?.caesura) return null;
+  delete event.markings.caesura;
+  if (Object.keys(event.markings).length === 0) delete event.markings;
+  return score;
+}
 
 /** True when `elementId` names a marking that deletes on its own. */
 function isMarkingId(elementId: string): boolean {
-  return isAccidentalId(elementId) || isArticulationId(elementId);
+  return isAccidentalId(elementId) || isArticulationId(elementId) || isCaesuraId(elementId);
 }
 
 /**
@@ -27,6 +44,7 @@ function isMarkingId(elementId: string): boolean {
 function removeMarking(score: Score, elementId: string): Score | null {
   if (isAccidentalId(elementId)) return removeAccidental(score, elementId);
   if (isArticulationId(elementId)) return removeArticulation(score, elementId);
+  if (isCaesuraId(elementId)) return removeCaesura(score, elementId);
   return null;
 }
 

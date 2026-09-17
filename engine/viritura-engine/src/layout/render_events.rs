@@ -720,6 +720,33 @@ fn render_accidentals_stacked(
     }
 }
 
+fn render_event_rest(
+    dl: &mut DisplayList,
+    events: &EventArena,
+    event_index: usize,
+    element_id: &str,
+    staff_y: f64,
+    sp: f64,
+    measure_beats: f64,
+) {
+    if events.shared_rest(event_index) {
+        return;
+    }
+    let event = events.event(event_index);
+    let staff_position = event.rest.as_ref().and_then(|rest| rest.staff_position);
+    let centered = events.is_centered_bar_rest(event_index, measure_beats);
+    render_rest(
+        dl,
+        element_id,
+        events.x(event_index),
+        staff_y,
+        sp,
+        &event.duration,
+        staff_position,
+        centered,
+    );
+}
+
 pub(crate) fn render_event(
     dl: &mut DisplayList,
     events: &EventArena,
@@ -759,13 +786,7 @@ pub(crate) fn render_event(
     let display_pitches = events.display_pitches(ei);
 
     if event.is_rest() {
-        // Skip shared rests — the other voice renders this rest
-        if events.shared_rest(ei) {
-            return;
-        }
-        let staff_pos = event.rest.as_ref().and_then(|r| r.staff_position);
-        let centered = events.is_centered_bar_rest(ei, measure_beats);
-        render_rest(dl, x, staff_y, sp, &event.duration, staff_pos, centered);
+        render_event_rest(dl, events, ei, element_id, staff_y, sp, measure_beats);
         return;
     }
 

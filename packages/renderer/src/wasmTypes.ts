@@ -26,6 +26,8 @@ export interface DisplayList {
   /** Element IDs parallel to commands. Maps render commands to model paths for hit-testing. */
   elementIds?: (string | null)[];
   elementBboxes?: ElementBBox[];
+  /** Rendered group IDs mapped to the exact logical events they select. */
+  selectionGroups?: SelectionGroup[];
   /** Bezier spine geometry for each slur, keyed by element_id. Engrave mode
    * paints drag handles and hit-tests against this without decoding render commands. */
   slurGeometries?: SlurGeometry[];
@@ -41,6 +43,11 @@ export interface DisplayList {
   /** Transient one-shot hook that updates flattened compatibility stores after
    * retained-layer Horizon paint. Never serialized or exported. */
   finalizeRetainedFrame?: () => void;
+}
+
+export interface SelectionGroup {
+  elementId: string;
+  memberIds: string[];
 }
 
 /**

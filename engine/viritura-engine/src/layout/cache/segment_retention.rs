@@ -18,6 +18,7 @@ pub(crate) struct DisplayListStoreMarker {
     pub commands: usize,
     pub element_bboxes: usize,
     pub element_shapes: usize,
+    pub selection_groups: usize,
     pub slur_geometries: usize,
     pub measure_bounds: usize,
 }

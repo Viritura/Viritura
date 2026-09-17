@@ -11,6 +11,7 @@ import {
   SCOPE_ACTION,
   ANCHOR_ACTION,
   SELECTION_CAPABILITIES,
+  NOTE_ACTION,
   selectionSupports,
   resolveCapabilityTargets,
 } from "../store/selectionCapabilities";
@@ -349,5 +350,15 @@ describe("selection capabilities", () => {
 
   it("resolveCapabilityTargets returns null when there are no events", () => {
     expect(resolveCapabilityTargets(EVENT_ACTION, { kind: "none" }, makeScore())).toBeNull();
+  });
+
+  it("preserves notehead granularity for note capabilities", () => {
+    const targets = resolveCapabilityTargets(
+      NOTE_ACTION,
+      { kind: "single", elementId: "p0/m0/s0/e0/n0", elementType: "note" },
+      makeScore(),
+    );
+    expect(targets?.mode).toBe("notes");
+    if (targets?.mode === "notes") expect(targets.notes[0]?.notes).toEqual([0]);
   });
 });

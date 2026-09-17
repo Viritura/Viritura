@@ -172,19 +172,10 @@ fn sync_fermata_geometry(display_list: &mut DisplayList, element_ids: &[String])
         return;
     };
     for bbox in &mut display_list.element_bboxes {
-        if bbox.element_id.ends_with("/fermata")
-            && element_ids.iter().any(|id| id == &bbox.element_id)
+        if bbox.element_id.ends_with("/ferm") && element_ids.iter().any(|id| id == &bbox.element_id)
         {
             bbox.bbox = command_bbox.clone();
         }
     }
-    for shape in &mut display_list.element_shapes {
-        if shape.element_id.ends_with("/fermata")
-            && element_ids.iter().any(|id| id == &shape.element_id)
-        {
-            shape.geom = ShapeGeom::Rect {
-                bbox: command_bbox.clone(),
-            };
-        }
-    }
+    // The command-backed ElementShape follows the command automatically.
 }
