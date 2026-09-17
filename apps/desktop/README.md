@@ -139,26 +139,50 @@ changes the title, notes, stable/prerelease designation, or latest status.
 Runs for the same release ID are serialized without cancelling an active
 publisher; different releases can build independently. Both installer files,
 sizes (nonzero and below 2 GiB), and format headers are validated before any
-release write, and uploaded sizes and SHA-256 digests are verified. Reruns
-preserve an installer whose name, `uploaded` state, size, and SHA-256 digest
-already match. Only a stale completed installer with valid size/digest metadata
-unchanged since the initial listing or an empty `starter` without a digest is
-replaced, one name immediately before its upload, never by deleting both
-installers up front. Unrelated assets are untouched; duplicate names or
-unexpected state/data fail safely.
+release write. Reruns preserve matching `uploaded` installers; uploaded assets
+with different data are **never deleted**, including older builds. GitHub's
+SHA-256 digest is preferred. If it is null or absent, the publisher streams the
+asset by ID and verifies its actual byte count and SHA-256, never size alone.
+Successful download verification is cached by asset identity and metadata, with
+at most two downloads per installer, each limited to the expected bytes and
+60 seconds. Malformed metadata, duplicate names, or mismatched bytes fail safely.
+Unrelated assets are untouched.
 
-Each asset gets at most three upload attempts, with one- and two-second backoff,
-only for HTTP 5xx responses. After a 5xx, the publisher re-lists assets and accepts
-a matching completed upload even if the response failed. Before a retry it checks
-again, deletes only an empty `starter` without a digest, and refuses to overwrite
-unexpected data. HTTP 4xx and errors without an HTTP status are not retried.
-Release/tag/commit guards are rechecked before mutations and retries; a final
-listing must verify both installers. Uploads explicitly supply the API-required
-`Content-Length`, normally supplied automatically by clients. This is a defensive
-contract, not evidence that missing framing caused a server storage failure.
+Each installer gets at most three uploads using `gh api --input` against the
+event's release ID. The CLI streams the file with `Content-Length`; each process
+is limited to 90 seconds and 64 KiB of response output. The token is scoped to
+the upload step, with no shell or implicit upload retries. Allowlisted HTTP
+status, request ID, retry delay, content length, and a bounded, redacted API
+message are logged before reconciliation. Asset observations then log only the
+two expected installer names with ID, bounded safe state, size, and validated
+SHA-256 digest (including null/missing/invalid markers), or an explicit missing
+asset marker. Listings are deterministic and recorded before match validation,
+including nonzero starters; ID rechecks are also observed. Raw assets, uploader
+details, email, headers, tokens, and stderr are not logged. Stdout read errors
+stop the child and clear its timer; interrupted uploads reconcile before retrying,
+while an already-read valid success response retains its acknowledged asset ID.
+A failed download stream never verifies an asset, even if all expected bytes
+arrived before the error.
 
-Replacement is not atomic: the release stays public, so a failed upload can leave
-its installer missing or partial, but does not remove another matching installer.
+HTTP 5xx, ambiguous network failures, and HTTP 422 conflicts trigger bounded
+reconciliation, including after the last attempt. Settling uses four observations
+with one-, two-, and four-second waits; further upload attempts have one- and
+two-second backoff. Other HTTP failures stop without retrying the upload.
+Acknowledged success binds verification to its returned asset ID, using an
+ID lookup if the listing is delayed; it never causes another POST.
+Only a digest-less `starter` may be cleaned up after settling, including a
+nonzero-size starter. Its release membership, ID, name, and current state are
+rechecked before deletion. Unknown states may settle but are never deleted.
+Release/tag/commit guards are rechecked before mutations and retries; the final
+listing must verify both installer identities and contents. None of this implies
+that missing framing caused a particular upstream failure or that nullable
+digests become available on a documented schedule.
+
+Starter cleanup and upload are not atomic: the release stays public, so a failed
+upload can leave its installer missing or partial, but preserves completed
+installers. GitHub provides no conditional state-checked delete, so the immediate
+ID recheck cannot eliminate concurrent external changes; avoid other publishers
+or manual edits during a run.
 Recover using **Re-run failed jobs** on the original **Desktop Release** run
 (or rerun all jobs if artifacts expired), not by publishing a different release.
 Reruns use the original workflow revision; fixes merged later do not change an
