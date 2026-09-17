@@ -74,6 +74,42 @@ gitignored generated artifact) as part of both commands, so a clean checkout
 builds and runs without a separate `pnpm wasm:build` step. The build is
 content-hash cached — it recompiles only when the Rust engine sources change.
 
+## Windows preview downloads
+
+The [rolling desktop preview](https://github.com/Viritura/Viritura/releases/tag/desktop-preview)
+provides **Windows x64 only** installers: `Viritura-windows-x64.exe` (NSIS)
+and `Viritura-windows-x64.msi`. Install either one, not both.
+These are **unsigned prereleases**, not stable releases. Windows SmartScreen may
+warn, and organization policies may block installation. Updates are manual; this
+workflow does not configure an automatic updater. Preview builds keep the app
+version in source, so uninstall an older preview first if Windows refuses replacement.
+
+`.github/workflows/desktop-preview.yml` runs after every push to `main`, including
+PR merges and direct pushes. It uses Node 24, the repository-pinned pnpm version,
+Rust 1.93.1, and wasm-pack 0.14.0, hydrates Git LFS resources, tests the desktop
+crate, and runs the canonical `pnpm build:desktop`. The soundfont is bundled once
+as a native resource rather than duplicated in the web assets.
+
+Only the separate publishing job receives `contents: write` through the built-in
+`GITHUB_TOKEN`; no signing credentials or additional secrets are required.
+The `desktop-preview` tag points to the built commit, also recorded in the release
+notes. Both installers replace the previous assets; this does not create a
+versioned release for each merge or change the stable “latest release.”
+
+Runs are serialized without cancelling an active publisher. GitHub may coalesce
+pending runs, and a build is skipped at publication if `main` has already advanced,
+so an older rerun cannot overwrite a newer preview. The release is temporarily
+hidden as a draft during replacement and stays a draft if publishing fails;
+partial or mixed installer sets are not published. A failed build leaves the
+previous release untouched. Installers are also retained as workflow artifacts
+for seven days.
+
+For recovery, run **Desktop Preview** using **Run workflow** with branch `main`
+(other branches are ignored). Repository policy must allow Actions to write
+releases and move the `desktop-preview` tag; release immutability must not apply
+to this rolling prerelease. The workflow deliberately fails rather than replacing
+an unrelated release or an orphaned tag with that name.
+
 ## Notes
 
 - **`src-tauri` is a standalone Cargo crate** (its own `[workspace]`), kept out
