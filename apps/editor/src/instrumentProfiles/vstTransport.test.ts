@@ -216,6 +216,32 @@ describe("native mixer reconciliation", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
+  it("sends repeated score IDs as separate SF2 lifetimes without the VST mapper", async () => {
+    const document = score();
+    document.global.measures[0]!.repeatStart = {};
+    document.global.measures[0]!.repeatEnd = { times: 2 };
+    const { createVstTransport } = await import("./vstTransport");
+    await createVstTransport()!.prepare(document, plan("sf2"));
+
+    const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
+    const slots = load?.[1]?.slots as LoadSlot[];
+    expect(slots).toHaveLength(1);
+    expect(slots[0]!.slotKey).toBe("sf2:0");
+    const notes = slots[0]!.events.filter((event) => event.type === "note_on" || event.type === "note_off");
+    // The native resolver must pair occurrences, not overwrite by score ID.
+    // Rust sf2_lifetimes tests render this repeated-ID shape with the bundled font.
+    expect(notes.map(({ type, note_id, part }) => ({ type, note_id, part }))).toEqual([
+      { type: "note_on", note_id: "note", part: 0 },
+      { type: "note_off", note_id: "note", part: 0 },
+      { type: "note_on", note_id: "note", part: 0 },
+      { type: "note_off", note_id: "note", part: 0 },
+    ]);
+    expect(notes[1]!.atSeconds).toBeGreaterThan(notes[0]!.atSeconds);
+    expect(notes[2]!.atSeconds).toBeGreaterThanOrEqual(notes[1]!.atSeconds);
+    expect(notes[3]!.atSeconds).toBeGreaterThan(notes[2]!.atSeconds);
+    expect(mocks.compileMapper).not.toHaveBeenCalled();
+  });
+
   it.each(["vst", "sf2"] as const)("reapplies %s controls on cold load, reload and restart", async (kind) => {
     const { createVstTransport, invalidateVstHostMirror } = await import("./vstTransport");
     const transport = createVstTransport()!;

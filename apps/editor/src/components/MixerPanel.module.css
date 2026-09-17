@@ -162,15 +162,36 @@
 
 .channelControls {
   grid-column: 1 / -1;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-1);
-  justify-self: end;
+  min-width: 0;
   padding: 0 var(--space-1);
 }
 
-.channelFader {
+.faderBar.channelFader {
   grid-column: 1 / -1;
+  height: auto;
+  min-height: 28px;
+}
+
+.channelFader .faderLabel {
+  position: relative;
+  padding-block: var(--space-1);
+  font-size: var(--type-small-size);
+}
+
+.channelFader .faderName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.channelFader .readout {
+  flex-shrink: 0;
 }
 
 /* ── FaderBar (full-row volume bar) ───────────────────── */

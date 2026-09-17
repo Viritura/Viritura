@@ -38,6 +38,8 @@ export interface SoundProfilePickerView {
   readonly profileVersion: number;
   /** Empty means use the notation-derived profile default. */
   readonly selectedSourceId: string;
+  /** Assigned profile display name, independent of the selected source label. */
+  readonly selectedProfileLabel: string;
   /** Human-readable summary for the picker trigger. */
   readonly selectedLabel: string;
   /** Available sound packs, arranged for cascading menu presentation. */
@@ -102,8 +104,11 @@ function pickerPackFor(
   };
 }
 
-function selectedSourceLabel(profile: SoundProfile, selectedSourceId: string): string | undefined {
-  return profile.sourceCatalog?.().find((entry) => entry.sourceId === selectedSourceId)?.label;
+function selectedSourceLabel(
+  profile: SoundProfile | undefined,
+  selectedSourceId: string | undefined,
+): string | undefined {
+  return profile?.sourceCatalog?.().find((entry) => entry.sourceId === selectedSourceId)?.label;
 }
 
 /**
@@ -130,11 +135,14 @@ export function resolveSoundProfilePickerView(
   // Prefer the part's own override profile (per-part profiles), falling back to
   // the assignment-level profile for scores authored before per-part profiles.
   const overrideProfileId = override?.profileId ?? soundProfile?.profileId;
-  const assignedProfile = overrideProfileId ? registry.get(overrideProfileId) : undefined;
-  const selectedLabel =
-    assignedProfile && selectedSourceId
-      ? `${assignedProfile.displayName} — ${selectedSourceLabel(assignedProfile, selectedSourceId) ?? selectedSourceId}`
-      : `${virituraSounds.displayName} — ${notationDefault.label}`;
+  const assignedProfile = selectedSourceId && overrideProfileId ? registry.get(overrideProfileId) : undefined;
+  const selectedProfileLabel = selectedSourceId
+    ? (assignedProfile?.displayName ?? `Unavailable profile: ${overrideProfileId}`)
+    : virituraSounds.displayName;
+  const sourceLabel = selectedSourceLabel(assignedProfile, selectedSourceId);
+  const selectedLabel = `${selectedProfileLabel} — ${
+    selectedSourceId ? (sourceLabel ?? selectedSourceId) : notationDefault.label
+  }`;
 
   const packs = registry.list().flatMap((profile) => {
     const pack = pickerPackFor(profile, resolved, partDisplayName);
@@ -145,6 +153,7 @@ export function resolveSoundProfilePickerView(
     profileId: assignedProfile?.id ?? resolved.profileId,
     profileVersion: assignedProfile?.version ?? resolved.profileVersion,
     selectedSourceId: selectedSourceId ?? "",
+    selectedProfileLabel,
     selectedLabel,
     packs,
     options: [

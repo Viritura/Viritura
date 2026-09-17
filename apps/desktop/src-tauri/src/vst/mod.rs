@@ -29,7 +29,7 @@ const OUTPUT_CHANNELS: usize = 2;
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VstIdentity {
-    /// Human-readable plugin name (used for a default slot label / window match).
+    /// Human-readable plugin name (used for a default slot label).
     pub name: String,
     /// VST3 class UID — the stable per-plugin identifier.
     pub plugin_id: String,

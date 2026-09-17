@@ -8,6 +8,12 @@ use super::protocol::{
     PlaybackEvent, PlaybackEventValidationError, PlayingState, ScheduledMidi,
 };
 
+#[cfg(test)]
+mod note_identity_tests;
+mod output_note_ids;
+
+use output_note_ids::OutputNoteIds;
+
 /// Resource limits and defaults for a single Lua mapper instance.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LuaMapperConfig {
@@ -82,10 +88,10 @@ pub enum LuaMapperError {
     Lua(#[from] mlua::Error),
 }
 
-/// Shared state the sandboxed `midi.*` builders read and write during one dispatch.
+/// Shared state the sandboxed `midi.*` builders retain for the mapper's lifetime.
 struct MidiApiState {
     actions: Rc<RefCell<Vec<ScheduledMidi>>>,
-    generated_ids: Rc<Cell<u64>>,
+    output_ids: Rc<RefCell<OutputNoteIds>>,
     default_channel: u8,
     keyswitch_hold_seconds: f64,
 }
@@ -112,6 +118,10 @@ struct MapperCallbacks {
 /// per-timeline data in the global `state` table. Every callback runs ahead of playback, so a
 /// script may schedule MIDI at a negative time to compensate for plugin latency; such events are
 /// clamped to the timeline origin.
+///
+/// Notation `note.id` stays unchanged in callbacks. Each emitted MIDI voice gets a unique paired
+/// output ID before sorting: a requested ID is preserved only if unused, otherwise generated.
+/// Automatic notes and keyswitches use the same namespace, which is not cleared by script reset.
 pub struct LuaMapper {
     lua: Lua,
     callbacks: MapperCallbacks,
@@ -150,7 +160,7 @@ impl LuaMapper {
             &lua,
             MidiApiState {
                 actions: actions.clone(),
-                generated_ids: Rc::new(Cell::new(0)),
+                output_ids: Rc::new(RefCell::new(OutputNoteIds::default())),
                 default_channel: config.default_channel,
                 keyswitch_hold_seconds: config.keyswitch_hold_seconds,
             },
@@ -341,20 +351,20 @@ fn install_midi_api(lua: &Lua, state: MidiApiState) -> Result<(), mlua::Error> {
     let midi = lua.create_table()?;
     let MidiApiState {
         actions,
-        generated_ids,
+        output_ids,
         default_channel,
         keyswitch_hold_seconds,
     } = state;
 
     let keyswitch_actions = actions.clone();
-    let keyswitch_ids = generated_ids.clone();
+    let keyswitch_ids = output_ids.clone();
     midi.set(
         "keyswitch",
         lua.create_function(move |_, (time, value, channel): (f64, u8, Option<u8>)| {
             let channel = channel.unwrap_or(default_channel);
             validate_channel(channel).map_err(mlua::Error::external)?;
             validate_data("note", value).map_err(mlua::Error::external)?;
-            let note_id = next_generated_note_id(&keyswitch_ids)?;
+            let note_id = keyswitch_ids.borrow_mut().allocate(None)?;
             let mut actions = keyswitch_actions.borrow_mut();
             actions.push(ScheduledMidi::clamped(
                 time,
@@ -374,7 +384,7 @@ fn install_midi_api(lua: &Lua, state: MidiApiState) -> Result<(), mlua::Error> {
     )?;
 
     let note_actions = actions.clone();
-    let note_ids = generated_ids;
+    let note_ids = output_ids;
     midi.set(
         "note",
         lua.create_function(move |_, note: Table| {
@@ -434,16 +444,16 @@ struct ParsedMidiNote {
     channel: u8,
 }
 
-fn parse_midi_note(note: &Table, generated_ids: &Cell<u64>) -> Result<ParsedMidiNote, mlua::Error> {
+fn parse_midi_note(
+    note: &Table,
+    output_ids: &RefCell<OutputNoteIds>,
+) -> Result<ParsedMidiNote, mlua::Error> {
     let start_time: f64 = note.get("startTime")?;
     let end_time: f64 = note.get("endTime")?;
     let pitch: u8 = note.get("pitch")?;
     let velocity: u8 = note.get("velocity")?;
     let channel: u8 = note.get("channel")?;
-    let note_id = match note.get::<Option<String>>("id")? {
-        Some(id) if !id.is_empty() => id,
-        _ => next_generated_note_id(generated_ids)?,
-    };
+    let requested_id = note.get::<Option<String>>("id")?;
     if !start_time.is_finite() || !end_time.is_finite() {
         return Err(mlua::Error::external(LuaMapperError::Contract(
             "midi.note startTime and endTime must be finite".to_owned(),
@@ -452,6 +462,7 @@ fn parse_midi_note(note: &Table, generated_ids: &Cell<u64>) -> Result<ParsedMidi
     validate_channel(channel).map_err(mlua::Error::external)?;
     validate_data("pitch", pitch).map_err(mlua::Error::external)?;
     validate_data("velocity", velocity).map_err(mlua::Error::external)?;
+    let note_id = output_ids.borrow_mut().allocate(requested_id)?;
     Ok(ParsedMidiNote {
         note_id,
         start_time,
@@ -470,17 +481,6 @@ fn optional_callback(lua: &Lua, name: &str) -> Result<Option<Function>, LuaMappe
             "global `{name}` must be a function or nil"
         ))),
     }
-}
-
-fn next_generated_note_id(generated_ids: &Cell<u64>) -> Result<String, mlua::Error> {
-    let next = generated_ids.get();
-    let updated = next.checked_add(1).ok_or_else(|| {
-        mlua::Error::external(LuaMapperError::Contract(
-            "generated note id counter overflowed".to_owned(),
-        ))
-    })?;
-    generated_ids.set(updated);
-    Ok(format!("generated-note-{next}"))
 }
 
 fn notation_note_table(lua: &Lua, note: &NotationNote) -> Result<Table, mlua::Error> {

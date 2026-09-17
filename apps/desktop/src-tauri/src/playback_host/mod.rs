@@ -13,6 +13,7 @@
 //! Desktop-only. Web builds never invoke these commands (the VST path is no-op
 //! and falls back to SoundFont, §3.8).
 
+mod capture;
 mod engine;
 mod fx_chain;
 mod mixer;
@@ -22,13 +23,15 @@ mod schedule;
 mod sf2;
 
 use std::sync::mpsc::{self, Sender};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 
 use serde::Deserialize;
 use tauri::AppHandle;
 
 use engine::HostCommand;
 use schedule::PartScheduledMidi;
+
+pub use capture::capture_state;
 
 /// Output stream sample rate. Every plugin is reconfigured to this so samplers
 /// don't play detuned against the device clock.
@@ -130,12 +133,15 @@ fn unit_gain() -> f32 {
 /// The thread is spawned on first use and owns every plugin; this struct holds
 /// only the command sender (which is `Send + Sync`), so it can live in shared
 /// state while the plugins stay pinned to their thread.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PlaybackHost {
-    sender: Mutex<Option<Sender<HostCommand>>>,
+    sender: Arc<Mutex<Option<Sender<HostCommand>>>>,
+    /// Readers span sender lookup through reply; capture excludes all readers
+    /// until playback release and the complete native editor lifecycle finish.
+    gate: Arc<RwLock<()>>,
     /// App handle used by the host worker to emit load-progress events. Set once
     /// during Tauri setup, before any playback command can run.
-    app_handle: OnceLock<AppHandle>,
+    app_handle: Arc<OnceLock<AppHandle>>,
 }
 
 impl PlaybackHost {
@@ -168,6 +174,7 @@ const DEAD: &str = "the VST playback host is not running";
 
 /// Instantiate/refresh the referenced slots and load their precompiled MIDI.
 pub fn load(host: &PlaybackHost, slots: Vec<SlotSpec>) -> Result<(), String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::Load { slots, reply })
@@ -180,6 +187,7 @@ pub fn load(host: &PlaybackHost, slots: Vec<SlotSpec>) -> Result<(), String> {
 /// is nothing to prune). Sent after `load` to drop a slot whose part changed
 /// voicing, which would otherwise keep sounding as a doubled voice.
 pub fn retain(host: &PlaybackHost, keys: Vec<String>) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -196,6 +204,7 @@ pub fn retain(host: &PlaybackHost, keys: Vec<String>) -> Result<(), String> {
 
 /// Begin transport at `origin_seconds`; returns the new transport generation id.
 pub fn start(host: &PlaybackHost, origin_seconds: f64) -> Result<u64, String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::Start {
@@ -208,6 +217,7 @@ pub fn start(host: &PlaybackHost, origin_seconds: f64) -> Result<u64, String> {
 
 /// Halt transport and flush all notes; instances stay loaded for the next play.
 pub fn stop(host: &PlaybackHost) -> Result<(), String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::Stop { reply })
@@ -217,6 +227,7 @@ pub fn stop(host: &PlaybackHost) -> Result<(), String> {
 
 /// Move the transport to `seconds`; returns the new transport generation id.
 pub fn seek(host: &PlaybackHost, seconds: f64) -> Result<u64, String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::Seek { seconds, reply })
@@ -226,6 +237,7 @@ pub fn seek(host: &PlaybackHost, seconds: f64) -> Result<u64, String> {
 
 /// Unload every plugin instance (e.g. on score close or profile change).
 pub fn release_all(host: &PlaybackHost) -> Result<(), String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::ReleaseAll { reply })
@@ -238,6 +250,7 @@ pub fn release_all(host: &PlaybackHost) -> Result<(), String> {
 /// the current mute set on the next `start`, so a mute toggled before anything
 /// plays needn't spin up the audio host.
 pub fn set_muted(host: &PlaybackHost, parts: Vec<u32>) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -260,6 +273,7 @@ pub fn set_reverb_chain(
     plugins: Vec<PluginSpec>,
     wet: f32,
 ) -> Result<(), String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::SetReverbChain {
@@ -274,6 +288,7 @@ pub fn set_reverb_chain(
 /// Install or clear the master insert chain (an empty list is a passthrough).
 /// Spawns the host thread if needed so the chain can be configured before play.
 pub fn set_master_chain(host: &PlaybackHost, plugins: Vec<PluginSpec>) -> Result<(), String> {
+    let _operation = host.operation()?;
     let (reply, rx) = mpsc::channel();
     host.sender()?
         .send(HostCommand::SetMasterChain { plugins, reply })
@@ -287,6 +302,7 @@ pub fn set_master_chain(host: &PlaybackHost, plugins: Vec<PluginSpec>) -> Result
 /// is nothing to adjust — the next `prepare`/`set_reverb_chain` applies the stored
 /// values). This keeps a slider drag from spinning up the audio host.
 pub fn set_reverb_levels(host: &PlaybackHost, send: f32, wet: f32) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -306,6 +322,7 @@ pub fn set_reverb_levels(host: &PlaybackHost, send: f32, wet: f32) -> Result<(),
 /// UI. The chain must already be loaded (the frontend installs it first). Errs on
 /// an unknown channel tag or when the host thread has not started.
 pub fn show_fx_editor(host: &PlaybackHost, channel: &str, index: usize) -> Result<(), String> {
+    let _operation = host.operation()?;
     let channel = fx_chain::FxChannel::from_tag(channel)
         .ok_or_else(|| format!("unknown FX channel '{channel}'"))?;
     let (reply, rx) = mpsc::channel();
@@ -323,6 +340,7 @@ pub fn show_fx_editor(host: &PlaybackHost, channel: &str, index: usize) -> Resul
 /// close event carrying the state bytes is emitted from the host thread). No-op
 /// when the host thread has not started yet (nothing is open).
 pub fn close_fx_editor(host: &PlaybackHost) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -343,6 +361,7 @@ pub fn close_fx_editor(host: &PlaybackHost) -> Result<(), String> {
 /// [`set_reverb_levels`]: the gain is baked into the next `load` spec anyway, so a
 /// fader nudged before playback needn't spin up the audio host.
 pub fn set_gain(host: &PlaybackHost, slot_key: String, gain: f32) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -364,6 +383,7 @@ pub fn set_gain(host: &PlaybackHost, slot_key: String, gain: f32) -> Result<(), 
 /// Live-update one slot's stereo pan without reloading. Like [`set_gain`], no-op
 /// before the host starts: the next `load` spec carries the current value.
 pub fn set_pan(host: &PlaybackHost, slot_key: String, pan: f32) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -391,6 +411,7 @@ pub fn preview(
     velocity: u8,
     duration_ms: u64,
 ) -> Result<(), String> {
+    let _operation = host.operation()?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -418,8 +439,8 @@ pub fn preview(
 /// at once deadlocks (device + plugin-global contention), so playback must free
 /// the device and unload its plugins first. Unlike [`release_all`] this never
 /// spawns the host thread just to tear it down — it is a no-op when nothing has
-/// played yet.
-pub fn release_if_running(host: &PlaybackHost) -> Result<(), String> {
+/// played yet. Called only under capture's exclusive gate; must not reacquire it.
+fn release_if_running(host: &PlaybackHost) -> Result<(), String> {
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {

@@ -24,30 +24,28 @@ const SOUNDFONT_RESOURCE: &str = "sounds/Shan-SGM-Pro-15.sf2";
 /// Load a VST3 plugin once and return its identity (class UID, vendor, version)
 /// and whether it exposes an editor. Used by the plugin picker.
 #[tauri::command]
-fn vst_load_identity(plugin_path: String) -> Result<vst::VstIdentity, String> {
+fn vst_load_identity(
+    host: tauri::State<'_, PlaybackHost>,
+    plugin_path: String,
+) -> Result<vst::VstIdentity, String> {
+    let _operation = host.operation()?;
     vst::load_identity(&PathBuf::from(plugin_path)).map_err(|error| error.to_string())
 }
 
 /// Open the plugin's editor with live audio (edit-and-listen) and return the
-/// serialized plugin state once the user closes the window. Runs on a dedicated
-/// OS thread because it pumps the editor's native message loop until close.
+/// serialized plugin state once the user closes the window. The native lifecycle
+/// stays on one blocking worker while the async command leaves the UI responsive.
 #[tauri::command]
-fn vst_capture_state(
+async fn vst_capture_state(
     host: tauri::State<'_, PlaybackHost>,
     plugin_path: String,
     existing_state: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, String> {
-    // Edit-and-listen and score playback both host the plugin in-process and open
-    // the audio device; running them at once deadlocks (audio-device and
-    // plugin-global contention — e.g. a second in-process Opus instance), which
-    // froze the app when the user opened the editor after playing. Release any
-    // live playback first so the editor opens onto a clean slate.
-    playback_host::release_if_running(&host)?;
     let path = PathBuf::from(plugin_path);
-    std::thread::spawn(move || vst::capture_state(&path, existing_state))
-        .join()
-        .map_err(|_| vst::HostError::HostThreadPanicked.to_string())?
-        .map_err(|error| error.to_string())
+    playback_host::capture_state(host.inner().clone(), move || {
+        vst::capture_state(&path, existing_state)
+    })
+    .await
 }
 
 /// Compile a Lua articulation-mapper script and run a part's notation-level

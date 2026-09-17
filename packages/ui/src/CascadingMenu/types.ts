@@ -12,6 +12,8 @@ export interface CascadingMenuProps {
   readonly ariaLabel: string;
   /** Text shown in the menu trigger. */
   readonly label: string;
+  /** Full trigger description, including details omitted from its visible label. */
+  readonly tooltip?: string;
   /** Hierarchical choices presented by the menu. */
   readonly items: readonly CascadingMenuItem[];
   /** Additional class for the trigger. */

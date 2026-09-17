@@ -39,7 +39,7 @@ function menuItemsFor(
   }));
 }
 
-/** Select a persisted VirituraSounds source without changing the part's notation identity. */
+/** Select a persisted profile source without changing the part's notation identity. */
 export function SoundPicker({ part, score, partDisplayName, onSoundSourceChange }: SoundPickerProps) {
   const partId = part?.id;
   const registry = useComposedSoundProfileRegistry();
@@ -64,10 +64,10 @@ export function SoundPicker({ part, score, partDisplayName, onSoundSourceChange 
   return (
     <CascadingMenu
       ariaLabel={`Sound for ${partDisplayName}: ${view.selectedLabel}`}
+      tooltip={`Sound for ${partDisplayName}: ${view.selectedLabel}`}
       className={styles.button}
-      label="Sound"
+      label={view.selectedLabel}
       items={menuItems}
-      triggerFullWidth={false}
       triggerSize="sm"
     />
   );
