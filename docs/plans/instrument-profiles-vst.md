@@ -24,6 +24,7 @@ The sound-source ownership model is specified in [sound-profiles.md](../spec/sou
 
 - Lua mappings run through a sandboxed `mlua` runtime.
 - Mappers translate notation-level performance events into MIDI/keyswitch/controller output.
+- Callback `note.id` identifies the score note and can recur on repeat passes. Each emitted `midi.note` voice gets a distinct output ID shared by its attack and release, before time sorting. An explicit ID is preserved only when unused; generated notes and keyswitches share the same collision-free namespace for the mapper's lifetime.
 - Script failures are isolated to the slot and surface diagnostics.
 
 ### Playback fallback
