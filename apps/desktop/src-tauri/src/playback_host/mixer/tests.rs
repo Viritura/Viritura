@@ -27,16 +27,30 @@ fn bundled_soundfont_path() -> PathBuf {
 }
 
 fn source(program: u8) -> StripSource {
+    sf2_source(program, false)
+}
+
+fn sf2_source(program: u8, is_drum: bool) -> StripSource {
     static FONT: OnceLock<Arc<SoundFont>> = OnceLock::new();
     let font = FONT.get_or_init(|| {
         load_soundfont(bundled_soundfont_path().to_str().unwrap()).expect("load bundled SoundFont")
     });
-    StripSource::Sf2(Box::new(Sf2Voice::new(font, program, false).unwrap()))
+    StripSource::Sf2(Box::new(Sf2Voice::new(font, program, is_drum).unwrap()))
 }
 
 pub(in crate::playback_host) fn routing_strip() -> Strip {
+    routing_sf2_strip(0, false)
+}
+
+pub(in crate::playback_host) fn routing_sf2_strip(program: u8, is_drum: bool) -> Strip {
     let mut core = MixerCore::new();
-    core.insert(KEY.to_owned(), source(0), 0.4, -0.5, 0.25);
+    core.insert(
+        KEY.to_owned(),
+        sf2_source(program, is_drum),
+        0.4,
+        -0.5,
+        0.25,
+    );
     core.strips.remove(KEY).unwrap()
 }
 

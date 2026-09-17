@@ -6,6 +6,7 @@ use crate::playback_host::schedule::{resolve_schedule, PartScheduledMidi};
 mod controller_routing;
 mod mapper_lifetimes;
 mod note_identity;
+mod sf2_lifetimes;
 
 fn sequence() -> SlotSeq {
     SlotSeq {

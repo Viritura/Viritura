@@ -13,7 +13,7 @@
 //!   (and latching keyswitches) that are sounding across `T`, then resumes normal
 //!   scheduling at the first event with `at_seconds >= T`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use serde::Deserialize;
 
@@ -102,33 +102,9 @@ pub struct SeekPlan {
 /// in original order (a stable sort), matching the mapper's own ordering. A
 /// `NoteOff` whose `NoteOn` is missing is dropped rather than erroring, so a
 /// malformed script degrades to silence on that note instead of stalling
-/// playback.
+/// playback. Reused part-local IDs pair in chronological FIFO order; each attack
+/// retains its own schedule-local identity and release time.
 pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
-    // First pass: where does each note id's note-off fall, and what channel/key
-    // did its note-on use. Both are needed before we can emit in time order.
-    // Mapper note IDs are local to each part, including within a shared slot.
-    let mut note_off_at: HashMap<(u32, &str), f64> = HashMap::new();
-    let mut note_key: HashMap<(u32, &str), (ResolvedNoteId, u8, u8)> = HashMap::new();
-    for (index, event) in events.iter().enumerate() {
-        match &event.midi.message {
-            MidiMessage::NoteOn {
-                note_id,
-                channel,
-                note,
-                ..
-            } => {
-                note_key.insert(
-                    (event.part, note_id.as_str()),
-                    (ResolvedNoteId(index), *channel, *note),
-                );
-            }
-            MidiMessage::NoteOff { note_id } => {
-                note_off_at.insert((event.part, note_id.as_str()), event.midi.at_seconds);
-            }
-            MidiMessage::ControlChange { .. } => {}
-        }
-    }
-
     let mut indexed: Vec<(usize, &PartScheduledMidi)> = events.iter().enumerate().collect();
     indexed.sort_by(|(ai, a), (bi, b)| {
         a.midi
@@ -137,7 +113,8 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
             .then_with(|| ai.cmp(bi))
     });
 
-    let mut resolved = Vec::with_capacity(indexed.len());
+    let mut resolved: Vec<ResolvedEvent> = Vec::with_capacity(indexed.len());
+    let mut pending: HashMap<(u32, &str), VecDeque<usize>> = HashMap::new();
     for (index, event) in indexed {
         let part = event.part;
         let at_seconds = event.midi.at_seconds;
@@ -147,24 +124,39 @@ pub fn resolve_schedule(events: &[PartScheduledMidi]) -> Vec<ResolvedEvent> {
                 channel,
                 note,
                 velocity,
-            } => resolved.push(ResolvedEvent {
-                at_seconds,
-                part,
-                midi: ResolvedMidi::NoteOn {
-                    channel: *channel,
-                    note: *note,
-                    velocity: *velocity,
-                },
-                note_id: Some(ResolvedNoteId(index)),
-                note_off_at: note_off_at.get(&(part, note_id.as_str())).copied(),
-            }),
+            } => {
+                pending
+                    .entry((part, note_id.as_str()))
+                    .or_default()
+                    .push_back(resolved.len());
+                resolved.push(ResolvedEvent {
+                    at_seconds,
+                    part,
+                    midi: ResolvedMidi::NoteOn {
+                        channel: *channel,
+                        note: *note,
+                        velocity: *velocity,
+                    },
+                    note_id: Some(ResolvedNoteId(index)),
+                    note_off_at: None,
+                });
+            }
             MidiMessage::NoteOff { note_id } => {
-                if let Some(&(note_id, channel, note)) = note_key.get(&(part, note_id.as_str())) {
+                if let Some(on_index) = pending
+                    .get_mut(&(part, note_id.as_str()))
+                    .and_then(VecDeque::pop_front)
+                {
+                    let attack = &mut resolved[on_index];
+                    attack.note_off_at = Some(at_seconds);
+                    let ResolvedMidi::NoteOn { channel, note, .. } = attack.midi else {
+                        unreachable!("pending indices refer only to note-ons");
+                    };
+                    let note_id = attack.note_id;
                     resolved.push(ResolvedEvent {
                         at_seconds,
                         part,
                         midi: ResolvedMidi::NoteOff { channel, note },
-                        note_id: Some(note_id),
+                        note_id,
                         note_off_at: None,
                     });
                 }
@@ -306,6 +298,76 @@ mod tests {
                 value,
             },
         )
+    }
+
+    #[test]
+    fn reused_ids_pair_chronologically_with_each_attacks_channel_key_and_seek_lifetime() {
+        let resolved = resolve_schedule(&[
+            note_off(4.0, "a"),
+            note_on(2.0, "a", 9, 46, 100),
+            note_off(1.0, "a"),
+            note_on(0.0, "a", 3, 60, 90),
+            note_off(5.0, "a"),
+        ]);
+        assert_eq!(resolved.len(), 4, "unmatched duplicate release is ignored");
+        assert_eq!(resolved[0].note_id, resolved[1].note_id);
+        assert_eq!(resolved[2].note_id, resolved[3].note_id);
+        assert_ne!(resolved[0].note_id, resolved[2].note_id);
+        assert_eq!(resolved[0].note_off_at, Some(1.0));
+        assert_eq!(resolved[2].note_off_at, Some(4.0));
+        assert_eq!(
+            resolved[1].midi,
+            ResolvedMidi::NoteOff {
+                channel: 3,
+                note: 60
+            }
+        );
+        assert_eq!(
+            resolved[3].midi,
+            ResolvedMidi::NoteOff {
+                channel: 9,
+                note: 46
+            }
+        );
+        assert!(plan_seek(&resolved, 1.5).held_notes.is_empty());
+        assert_eq!(
+            plan_seek(&resolved, 3.0).held_notes,
+            vec![HeldNote {
+                part: 0,
+                midi: resolved[2].midi,
+            }]
+        );
+    }
+
+    #[test]
+    fn overlapping_reused_ids_pair_fifo_without_crossing_parts() {
+        let resolved = resolve_schedule(&[
+            note_on(0.0, "a", 0, 60, 90),
+            note_on(0.1, "a", 1, 64, 100),
+            part(
+                1,
+                0.2,
+                MidiMessage::NoteOn {
+                    note_id: "a".to_owned(),
+                    channel: 2,
+                    note: 67,
+                    velocity: 80,
+                },
+            ),
+            part(
+                1,
+                0.3,
+                MidiMessage::NoteOff {
+                    note_id: "a".to_owned(),
+                },
+            ),
+            note_off(0.4, "a"),
+            note_off(0.5, "a"),
+        ]);
+        for (on, off) in [(0, 4), (1, 5), (2, 3)] {
+            assert_eq!(resolved[on].note_id, resolved[off].note_id);
+            assert_eq!(resolved[on].note_off_at, Some(resolved[off].at_seconds));
+        }
     }
 
     #[test]
