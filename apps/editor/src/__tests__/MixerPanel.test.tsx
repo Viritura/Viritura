@@ -62,7 +62,7 @@ describe("MixerPanel sound profiles", () => {
         name: new RegExp(`^Sound for ${name}:`),
       })) as HTMLButtonElement;
       expect(picker.disabled).toBe(false);
-      expect(picker.textContent).toBe("Sound");
+      expect(picker.textContent).toBe("VirituraSounds");
     }
 
     const picker = screen.getByRole("button", { name: /^Sound for Clarinet in B♭ 1:/ });
@@ -131,7 +131,7 @@ describe("MixerPanel sound profiles", () => {
     });
   });
 
-  it("shows dB faders and compact Mute, Solo, Sound, and spatial-mode controls", async () => {
+  it("shows dB faders, profile names, and compact Mute, Solo, and spatial-mode controls", async () => {
     const user = userEvent.setup();
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
@@ -145,7 +145,7 @@ describe("MixerPanel sound profiles", () => {
     fader.focus();
     await user.keyboard("{ArrowDown}");
     expect(fader.getAttribute("aria-valuetext")).toBe("-6.5 dB");
-    expect(channel.textContent).toContain("Sound");
+    expect(channel.textContent).toContain("VirituraSounds");
     expect(screen.getByRole("button", { name: "Mute Clarinet in B♭ 1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Solo Clarinet in B♭ 1" })).toBeTruthy();
 
@@ -175,6 +175,22 @@ describe("MixerPanel sound profiles", () => {
       profileVersion: 1,
     });
     expect(reset.soundProfile).toBeUndefined();
+  });
+
+  it("preserves full long instrument names in the fader tooltip and accessible controls", async () => {
+    const name = "Contrabass Clarinet in B♭ — very long orchestral instrument name";
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <MixerHarness score={{ ...score, parts: [{ id: "long-name", name, measures: [] }] }} />
+      </TooltipPrimitives.Provider>,
+    );
+    const fader = screen.getByRole("slider", { name: `Volume ${name}` });
+    expect(fader.textContent).toContain(name);
+    await userEvent.setup().hover(fader);
+    expect((await screen.findByRole("tooltip")).textContent).toContain(`Volume ${name}:`);
+    expect(screen.getByRole("button", { name: `Mute ${name}` })).toBeTruthy();
+    expect(screen.getByRole("button", { name: `Solo ${name}` })).toBeTruthy();
+    expect(screen.getByRole("button", { name: new RegExp(`^Sound for ${name}:`) }).textContent).toBe("VirituraSounds");
   });
 });
 

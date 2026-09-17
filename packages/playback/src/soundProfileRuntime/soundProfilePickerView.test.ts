@@ -35,6 +35,7 @@ describe("resolveSoundProfilePickerView", () => {
       profileId: VIRITURA_SOUNDS_PROFILE_ID,
       profileVersion: 1,
       selectedSourceId: "",
+      selectedProfileLabel: "VirituraSounds",
       selectedLabel: "VirituraSounds — Notation default: B-flat Clarinet",
     });
     expect(view.packs).toHaveLength(1);
@@ -100,7 +101,53 @@ describe("resolveSoundProfilePickerView", () => {
     );
 
     expect(view.selectedSourceId).toBe("vln-slot");
+    expect(view.selectedProfileLabel).toBe("My Orchestra");
     expect(view.selectedLabel).toBe("My Orchestra — Custom Violin");
     expect(view.profileId).toBe("user-1");
   });
+
+  it("keeps unassigned parts on VirituraSounds even when the score assignment uses a VST profile", () => {
+    const view = resolveSoundProfilePickerView(
+      { id: "vln-2", name: "Violin", measures: [] },
+      "Violin 2",
+      { profileId: vstProfile.id, profileVersion: 1, parts: { "vln-1": { sourceId: "vln-slot" } } },
+      createSoundProfileRegistry([virituraSoundsProfile, vstProfile]),
+    );
+    expect(view.selectedProfileLabel).toBe("VirituraSounds");
+    expect(view.profileId).toBe(VIRITURA_SOUNDS_PROFILE_ID);
+    expect(view.selectedLabel).toContain("Notation default:");
+  });
+
+  it("uses the per-part profile name even if the source no longer exists in its catalog", () => {
+    const view = resolveSoundProfilePickerView(
+      { id: "vln-1", name: "Violin", measures: [] },
+      "Violin 1",
+      {
+        profileId: VIRITURA_SOUNDS_PROFILE_ID,
+        profileVersion: 1,
+        parts: { "vln-1": { sourceId: "removed-slot", profileId: vstProfile.id, profileVersion: 1 } },
+      },
+      createSoundProfileRegistry([virituraSoundsProfile, { ...vstProfile, sourceCatalog: () => [] }]),
+    );
+    expect(view.selectedProfileLabel).toBe("My Orchestra");
+    expect(view.selectedLabel).toBe("My Orchestra — removed-slot");
+  });
+
+  it.each([false, true])(
+    "identifies a missing profile without claiming a notation default (per-part: %s)",
+    (perPart) => {
+      const view = resolveSoundProfilePickerView({ id: "vln-1", name: "Violin", measures: [] }, "Violin 1", {
+        profileId: perPart ? VIRITURA_SOUNDS_PROFILE_ID : "missing-orchestra",
+        profileVersion: 1,
+        parts: {
+          "vln-1": {
+            sourceId: "vln-slot",
+            ...(perPart ? { profileId: "missing-orchestra", profileVersion: 1 } : {}),
+          },
+        },
+      });
+      expect(view.selectedProfileLabel).toBe("Unavailable profile: missing-orchestra");
+      expect(view.selectedLabel).toBe("Unavailable profile: missing-orchestra — vln-slot");
+    },
+  );
 });

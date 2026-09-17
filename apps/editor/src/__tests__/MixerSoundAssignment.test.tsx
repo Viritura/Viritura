@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { build } from "esbuild";
 import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { resolvePartDisplayNames, type Score } from "@viritura/core";
 import type { VstInstrumentProfile } from "@viritura/instrument-profiles";
@@ -211,7 +211,16 @@ async function mountMixer() {
   screen.getByRole("slider", { name: "Volume Clarinet in B♭ 1" }).focus();
   await user.keyboard("{ArrowDown}");
   expectPreserved(initial);
+  expectProfileLabels("VirituraSounds", "VirituraSounds");
   return { initial, user };
+}
+
+function expectProfileLabels(...labels: string[]) {
+  labels.forEach((label, index) => {
+    expect(
+      screen.getByRole("button", { name: new RegExp(`^Sound for Clarinet in B♭ ${index + 1}:`) }).textContent,
+    ).toBe(label);
+  });
 }
 
 async function selectSound(user: ReturnType<typeof userEvent.setup>, number: number, reset = false) {
@@ -247,8 +256,10 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
       profileVersion: 1,
       parts: { "clarinet-1": { sourceId: "tuba-primary" } },
     });
+    expectProfileLabels("VirituraSounds", "VirituraSounds");
     await selectSound(user, 1, true);
     expect(expectPreserved(initial).soundProfile).toBeUndefined();
+    expectProfileLabels("VirituraSounds", "VirituraSounds");
   });
 
   it("keeps every channel when a single instrument switches to a VST slot", async () => {
@@ -265,14 +276,17 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
       profileVersion: profile.version,
       parts: { "clarinet-1": { sourceId: "clarinet-slot-1" } },
     });
+    expectProfileLabels(profile.displayName, "VirituraSounds");
     await selectSound(user, 1, true);
     expect(expectPreserved(initial).soundProfile).toBeUndefined();
+    expectProfileLabels("VirituraSounds", "VirituraSounds");
   });
 
   it("keeps all channels through bulk assignment, mixed profiles and partial/final reset", async () => {
     const { initial, user } = await mountMixer();
     await user.click(screen.getByRole("button", { name: "Assign all instruments to a profile" }));
     await user.click(await screen.findByRole("menuitem", { name: profile.displayName }));
+    expectProfileLabels(profile.displayName, profile.displayName);
     expect(expectPreserved(initial).soundProfile).toEqual({
       profileId: profile.id,
       profileVersion: profile.version,
@@ -282,6 +296,7 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
       },
     });
     await selectSound(user, 1);
+    expectProfileLabels("VirituraSounds", profile.displayName);
     const mixed = expectPreserved(initial).soundProfile;
     expect(mixed).toEqual({
       profileId: "viritura-sounds",
@@ -292,9 +307,31 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
       },
     });
     await selectSound(user, 1, true);
+    expectProfileLabels("VirituraSounds", profile.displayName);
     expect(expectPreserved(initial).soundProfile?.parts).toEqual({ "clarinet-2": mixed!.parts["clarinet-2"] });
     await selectSound(user, 2, true);
     expect(expectPreserved(initial).soundProfile).toBeUndefined();
+    expectProfileLabels("VirituraSounds", "VirituraSounds");
+  });
+
+  it("updates missing, loaded, and renamed profile labels without changing assignments", async () => {
+    const initial = assignAllPartsToProfile(browserCall<Score>({ operation: "parse", value: rawScore() }), profile);
+    useInstrumentProfileStore.setState({ profiles: [] });
+    render(<MixerHarness initialScore={initial} />);
+    expectProfileLabels(`Unavailable profile: ${profile.id}`, `Unavailable profile: ${profile.id}`);
+
+    act(() => useInstrumentProfileStore.setState({ profiles: [profile] }));
+    expectProfileLabels(profile.displayName, profile.displayName);
+
+    const displayName = "My very long orchestral instrument profile — Studio — September";
+    act(() => useInstrumentProfileStore.setState({ profiles: [{ ...profile, displayName }] }));
+    expectProfileLabels(displayName, displayName);
+    const picker = screen.getByRole("button", { name: /^Sound for Clarinet in B♭ 1:/ });
+    const description = `Sound for Clarinet in B♭ 1: ${displayName} — Clarinet slot 1`;
+    expect(picker.getAttribute("aria-label")).toBe(description);
+    await userEvent.setup().hover(picker);
+    expect((await screen.findByRole("tooltip")).textContent).toBe(description);
+    expect(JSON.parse(screen.getByTestId("parsed-score").textContent!).soundProfile).toEqual(initial.soundProfile);
   });
 
   it.each(["viritura-sounds", "𝄞"])("accepts nonempty profile and source IDs: %s", (id) => {

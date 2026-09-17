@@ -45,6 +45,7 @@ function RenderItem({ item, container }: { readonly item: CascadingMenuItem; rea
 export function CascadingMenu({
   ariaLabel,
   label,
+  tooltip,
   items,
   className,
   triggerFullWidth = true,
@@ -73,6 +74,7 @@ export function CascadingMenu({
         <Button
           ref={setTriggerRef}
           ariaLabel={ariaLabel}
+          tooltip={tooltip}
           className={triggerClass}
           fullWidth={triggerFullWidth}
           size={triggerSize}
