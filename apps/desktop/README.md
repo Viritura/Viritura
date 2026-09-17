@@ -140,13 +140,32 @@ Runs for the same release ID are serialized without cancelling an active
 publisher; different releases can build independently. Both installer files,
 sizes (nonzero and below 2 GiB), and format headers are validated before any
 release write, and uploaded sizes and SHA-256 digests are verified. Reruns
-deliberately overwrite only the two named installers, never unrelated assets.
-Replacement is not atomic: the release stays public, so a failed upload can
-leave missing or partial installers. Recover using **Re-run failed jobs** on
-the original **Desktop Release** run (or rerun all jobs if artifacts expired),
-not by publishing a different release. A failed build leaves release assets
-untouched. Build artifacts include the source SHA in their name, are selected by
-artifact ID from the same run, and are retained for seven days.
+preserve an installer whose name, `uploaded` state, size, and SHA-256 digest
+already match. Only a stale completed installer with valid size/digest metadata
+unchanged since the initial listing or an empty `starter` without a digest is
+replaced, one name immediately before its upload, never by deleting both
+installers up front. Unrelated assets are untouched; duplicate names or
+unexpected state/data fail safely.
+
+Each asset gets at most three upload attempts, with one- and two-second backoff,
+only for HTTP 5xx responses. After a 5xx, the publisher re-lists assets and accepts
+a matching completed upload even if the response failed. Before a retry it checks
+again, deletes only an empty `starter` without a digest, and refuses to overwrite
+unexpected data. HTTP 4xx and errors without an HTTP status are not retried.
+Release/tag/commit guards are rechecked before mutations and retries; a final
+listing must verify both installers. Uploads explicitly supply the API-required
+`Content-Length`, normally supplied automatically by clients. This is a defensive
+contract, not evidence that missing framing caused a server storage failure.
+
+Replacement is not atomic: the release stays public, so a failed upload can leave
+its installer missing or partial, but does not remove another matching installer.
+Recover using **Re-run failed jobs** on the original **Desktop Release** run
+(or rerun all jobs if artifacts expired), not by publishing a different release.
+Reruns use the original workflow revision; fixes merged later do not change an
+older run's publisher. Persistent storage errors or unexpected asset metadata
+require investigation rather than repeated destructive retries. A failed build
+leaves release assets untouched. Build artifacts include the source SHA in their
+name, are selected by artifact ID from the same run, and are retained for seven days.
 
 Repository policy must allow Actions to write release assets. **Immutable
 releases cannot accept assets after publication**, so this publish-triggered

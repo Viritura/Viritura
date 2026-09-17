@@ -112,6 +112,8 @@ jobs:
       - name: Upload release installers
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
+          # Retry uploads explicitly below so every attempt reconciles server-side state.
+          retries: 0
           script: |
             const fs = require('node:fs/promises');
             const path = require('node:path');
@@ -157,44 +159,115 @@ jobs:
               });
             }
 
-            // Read the original release by ID; never create or edit release metadata.
-            const { data: release } = await github.rest.repos.getRelease({ ...repo, release_id });
-            if (release.id !== release_id || release.tag_name !== eventRelease.tag_name || release.draft) {
-              throw new Error('The published release was changed; refusing to upload installers.');
-            }
-            if (release.immutable) {
-              throw new Error('Cannot attach installers after publication to an immutable release. No release assets were changed.');
-            }
-            // target_commitish can be a branch. Resolve the actual tag to a commit instead.
-            const { data: commit } = await github.rest.repos.getCommit({
-              ...repo, ref: `refs/tags/${eventRelease.tag_name}`,
-            });
-            if (commit.sha !== context.sha) {
-              throw new Error('The release tag no longer points to the built commit; refusing to upload installers.');
+            async function validateRelease() {
+              // Read the original release by ID; never create or edit release metadata.
+              const { data: release } = await github.rest.repos.getRelease({ ...repo, release_id });
+              if (release.id !== release_id || release.tag_name !== eventRelease.tag_name || release.draft) {
+                throw new Error('The published release was changed; refusing to upload installers.');
+              }
+              if (release.immutable) {
+                throw new Error('Cannot attach installers after publication to an immutable release. No further release assets will be changed.');
+              }
+              // target_commitish can be a branch. Resolve the actual tag to a commit instead.
+              const { data: commit } = await github.rest.repos.getCommit({
+                ...repo, ref: `refs/tags/${eventRelease.tag_name}`,
+              });
+              if (commit.sha !== context.sha) {
+                throw new Error('The release tag no longer points to the built commit; refusing to upload installers.');
+              }
+              return release;
             }
 
-            const oldAssets = await github.paginate(github.rest.repos.listReleaseAssets, {
+            const listAssets = () => github.paginate(github.rest.repos.listReleaseAssets, {
               ...repo, release_id, per_page: 100,
             });
-            // Reruns replace only these two names, leaving all user-supplied assets intact.
-            for (const asset of oldAssets.filter(asset => names.includes(asset.name))) {
-              await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: asset.id });
+            const matches = (asset, name) => asset.name === name && asset.state === 'uploaded' &&
+              asset.size === installers.get(name).size && asset.digest === installers.get(name).digest;
+            const emptyStarter = asset => asset.state === 'starter' && asset.size === 0 &&
+              asset.digest == null;
+            function selectAsset(list, name) {
+              const assets = list.filter(asset => asset.name === name);
+              if (assets.length > 1) {
+                throw new Error(`Multiple release assets named ${name}; refusing to change them.`);
+              }
+              const asset = assets[0];
+              if (asset && (!Number.isSafeInteger(asset.id) || asset.id <= 0)) {
+                throw new Error(`Invalid release asset ID: ${name}`);
+              }
+              return asset;
+            }
+            const namedAsset = async name => selectAsset(await listAssets(), name);
+            function checkReplaceable(asset, name, retry) {
+              if (!asset || matches(asset, name) || emptyStarter(asset)) return;
+              // A rerun can replace a known completed older build, but a retry must
+              // never destroy unexpected data that appeared after an ambiguous failure.
+              if (!retry && asset.state === 'uploaded' &&
+                  Number.isSafeInteger(asset.size) && asset.size > 0 && asset.size < 2 ** 31 &&
+                  typeof asset.digest === 'string' && /^sha256:[0-9a-f]{64}$/.test(asset.digest)) return;
+              throw new Error(`Unexpected release asset state or data: ${name}; refusing to replace it.`);
+            }
+
+            await validateRelease();
+            const initialAssets = await listAssets();
+            for (const name of names) {
+              checkReplaceable(selectAsset(initialAssets, name), name, false);
             }
             for (const name of names) {
-              await github.rest.repos.uploadReleaseAsset({
-                ...repo, release_id, name,
-                data: installers.get(name).data,
-                headers: { 'content-type': 'application/octet-stream' },
-              });
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                await validateRelease();
+                const asset = await namedAsset(name);
+                if (asset && matches(asset, name)) {
+                  core.info(`Keeping verified release asset: ${name}`);
+                  break;
+                }
+                checkReplaceable(asset, name, attempt > 1);
+                if (asset) {
+                  const initial = selectAsset(initialAssets, name);
+                  if (!emptyStarter(asset) && (!initial || asset.id !== initial.id ||
+                      asset.state !== initial.state || asset.size !== initial.size || asset.digest !== initial.digest)) {
+                    throw new Error(`Release asset changed since initial validation: ${name}; refusing to replace it.`);
+                  }
+                  await validateRelease();
+                  await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: asset.id });
+                }
+                await validateRelease();
+                try {
+                  await github.rest.repos.uploadReleaseAsset({
+                    ...repo, release_id, name,
+                    data: installers.get(name).data,
+                    // GitHub requires Content-Length (normally supplied by the client).
+                    // Explicit framing is defensive, not a diagnosis of storage HTTP 5xx.
+                    headers: {
+                      'content-type': 'application/octet-stream',
+                      'content-length': installers.get(name).size,
+                    },
+                  });
+                  break;
+                } catch (error) {
+                  if (!Number.isInteger(error.status) || error.status < 500 || error.status > 599) throw error;
+                  // A 5xx can hide a completed upload. Reconcile even on the last attempt.
+                  await validateRelease();
+                  const pending = await namedAsset(name);
+                  if (pending && matches(pending, name)) {
+                    core.info(`Verified completed upload after HTTP ${error.status}: ${name}`);
+                    break;
+                  }
+                  checkReplaceable(pending, name, true);
+                  if (attempt === 3) {
+                    throw new Error(`Release asset upload failed after ${attempt} attempts: ${name}`, { cause: error });
+                  }
+                  core.warning(`HTTP ${error.status} uploading ${name}; retrying attempt ${attempt + 1}/3.`);
+                  await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** (attempt - 1)));
+                }
+              }
             }
-            const uploaded = await github.paginate(github.rest.repos.listReleaseAssets, {
-              ...repo, release_id, per_page: 100,
-            });
+            const uploaded = await listAssets();
+            const release = await validateRelease();
             if (names.some(name =>
-              !uploaded.some(asset => asset.name === name && asset.state === 'uploaded' &&
-                asset.size === installers.get(name).size && asset.digest === installers.get(name).digest)
+              uploaded.filter(asset => asset.name === name).length !== 1 ||
+              !uploaded.some(asset => matches(asset, name))
             )) {
-              throw new Error('Release asset verification failed. Rerun the failed publishing job to replace both installers.');
+              throw new Error('Release asset verification failed. Rerun the failed publishing job to reconcile installers; matching uploads will be preserved.');
             }
 
             core.notice(`Attached Windows x64 installers built from ${context.sha} to release ${release_id}: ${release.html_url}`);
