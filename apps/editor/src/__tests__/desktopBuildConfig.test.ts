@@ -103,7 +103,7 @@ describe("desktop frontend build orchestration", () => {
   });
 
   it("keeps hosted environment overrides out of desktop CI", () => {
-    const workflow = readFileSync(resolve(root, ".github", "workflows", "desktop-preview.yml"), "utf8");
+    const workflow = readFileSync(resolve(root, ".github", "workflows", "desktop-release.yml"), "utf8");
     expect(workflow).not.toMatch(/VITE_VIRITURA_(?:API|ASSET)_BASE_URL|VIRITURA_EXTERNAL_SOUNDFONT/);
     expect(workflow).toContain("pnpm build:desktop");
     const tauri = readJson<{ bundle: { resources: Record<string, string> } }>(
