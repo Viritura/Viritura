@@ -238,6 +238,9 @@ fn condensed_source_identity_survives_json_and_binary_transport() {
             .collect::<Vec<_>>()
     );
     let mut expected = vec![dl.measure_bounds.len() as f32];
+    if dl.selection_groups.is_empty() {
+        expected.insert(0, 0.0);
+    }
     for index in 0..dl.measure_bounds.len() {
         expected.extend([index as f32, 2.0, 0.0, 1.0]);
     }
@@ -375,6 +378,9 @@ fn explicit_layout_changes_preserve_per_measure_source_identity() {
             }
             if count > 0 {
                 expected.insert(0, count as f32);
+                if dl.selection_groups.is_empty() {
+                    expected.insert(0, 0.0);
+                }
             }
             assert_eq!(&dl.to_binary()[legacy.to_binary().len()..], expected);
         }

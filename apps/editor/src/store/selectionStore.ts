@@ -49,6 +49,8 @@ interface SelectionRange {
 interface SelectionMulti {
   readonly kind: "multi";
   readonly elementIds: readonly string[];
+  /** Visual staff location that produced this group selection. */
+  readonly measureAnchor?: MeasureSelectionPoint;
 }
 
 /** A measure (or range of measures) is selected by clicking empty space. */
@@ -78,6 +80,12 @@ interface SelectRangeAction {
   readonly type: "SELECT_RANGE";
   readonly startElementId: string;
   readonly endElementId: string;
+}
+
+interface SelectElementsAction {
+  readonly type: "SELECT_ELEMENTS";
+  readonly elementIds: readonly string[];
+  readonly measureAnchor?: MeasureSelectionPoint;
 }
 
 interface ExtendSelectionAction {
@@ -113,6 +121,7 @@ interface ExtendMeasureAction {
 type SelectionAction =
   | SelectElementAction
   | SelectRangeAction
+  | SelectElementsAction
   | ExtendSelectionAction
   | ClearSelectionAction
   | ToggleSelectionAction
@@ -283,6 +292,23 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
         endElementId: action.endElementId,
       };
 
+    case "SELECT_ELEMENTS": {
+      const elementIds = [...new Set(action.elementIds.filter((id) => id.includes("/")))];
+      if (elementIds.length === 0) return { kind: "none" };
+      if (elementIds.length === 1) {
+        return {
+          kind: "single",
+          elementId: elementIds[0]!,
+          elementType: parseElementType(elementIds[0]!),
+        };
+      }
+      return {
+        kind: "multi",
+        elementIds,
+        ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
+      };
+    }
+
     case "EXTEND_SELECTION":
       // Guard: reject bare element IDs
       if (action.elementId && !action.elementId.includes("/")) {
@@ -381,6 +407,7 @@ export function resetSelectionStore(): void {
 interface SelectionActionsValue {
   selectElement: (elementId: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectRange: (startElementId: string, endElementId: string) => void;
+  selectElements: (elementIds: readonly string[], measureAnchor?: MeasureSelectionPoint) => void;
   extendSelection: (elementId: string) => void;
   toggleSelection: (elementId: string) => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
@@ -393,6 +420,8 @@ const actions: SelectionActionsValue = {
     dispatchSelection({ type: "SELECT_ELEMENT", elementId, ...(measureAnchor && { measureAnchor }) }),
   selectRange: (startElementId, endElementId) =>
     dispatchSelection({ type: "SELECT_RANGE", startElementId, endElementId }),
+  selectElements: (elementIds, measureAnchor) =>
+    dispatchSelection({ type: "SELECT_ELEMENTS", elementIds, ...(measureAnchor && { measureAnchor }) }),
   extendSelection: (elementId) => dispatchSelection({ type: "EXTEND_SELECTION", elementId }),
   toggleSelection: (elementId) => dispatchSelection({ type: "TOGGLE_SELECTION", elementId }),
   selectMeasure: (partIndex, staffIndex, measureIndex, localStaffIndex) =>

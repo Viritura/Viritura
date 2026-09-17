@@ -2,6 +2,7 @@ import {
   paintSelectionOverlay,
   paintMeasureSelectionOverlay,
   paintHitboxDebug,
+  paintHitboxDebugLegend,
   paintSpannerDragPreview,
   isTileCacheDisabled,
   TileCache,
@@ -383,7 +384,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
     }
 
     const pageMultiStacked = viewMode === "page" && dl.pages && dl.pages.length > 1 && PAGE_STACK_GAP > 0;
-    const paintEngineOverlays = (): void => {
+    const paintEngineOverlays = (hitboxBounds?: { minX: number; minY: number; maxX: number; maxY: number }): void => {
       if (usedTileCache && !printPreview && spatialIndex && selectedIds && selectedIds.size > 0) {
         if (selection.kind === "measure" && dl.measureBounds) {
           paintMeasureSelectionOverlay(
@@ -399,8 +400,13 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
         }
       }
 
-      if (spatialIndex && hitboxOverlayEnabled) {
-        paintHitboxDebug(ctx, spatialIndex);
+      if (!printPreview && spatialIndex && hitboxOverlayEnabled) {
+        paintHitboxDebug(ctx, spatialIndex, {
+          measureBounds: dl.measureBounds,
+          zoom: viewport.zoom,
+          bounds: hitboxBounds,
+          displayList: dl,
+        });
       }
 
       if (interactionMode === "engrave" && dl?.measureBounds) {
@@ -489,11 +495,24 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
         ctx.rect(pos.x, pos.y, PAGE_W_OV, page.height);
         ctx.clip();
         ctx.translate(dx, dy);
-        paintEngineOverlays();
+        paintEngineOverlays({
+          minX: Math.max(0, ovMinXc - dx),
+          minY: Math.max(page.yOffset, ovMinYc - dy),
+          maxX: Math.min(PAGE_W_OV, ovMaxXc - dx),
+          maxY: Math.min(page.yOffset + page.height, ovMaxYc - dy),
+        });
         ctx.restore();
       }
     } else {
-      paintEngineOverlays();
+      paintEngineOverlays({
+        minX: viewport.scrollX,
+        minY: viewport.scrollY,
+        maxX: viewport.scrollX + vw / viewport.zoom,
+        maxY: viewport.scrollY + vh / viewport.zoom,
+      });
+    }
+    if (!printPreview && spatialIndex && hitboxOverlayEnabled) {
+      paintHitboxDebugLegend(ctx, spatialIndex, dl.measureBounds?.length ?? 0, dpr);
     }
     performance.mark("viritura:engine-overlays-end");
     try {

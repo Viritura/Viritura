@@ -398,7 +398,7 @@ pub(super) fn render_close_to_note_articulations(
         let artic_w = smufl::articulation_width(codepoint) * sp;
         let artic_x = notehead_center_x - artic_w * 0.5;
         let y = staff_y + cur_pos * sp * 0.5;
-        dl.push_tagged(
+        dl.push_selectable_command(
             RenderCommand::DrawGlyph {
                 x: artic_x,
                 y,
@@ -409,6 +409,8 @@ pub(super) fn render_close_to_note_articulations(
                 rotation: 0.0,
             },
             element_id::articulation(element_id_str, g.name),
+            ElementKind::Articulation,
+            HitPolicy::Ink,
         );
 
         if place_below {
@@ -507,7 +509,7 @@ pub(super) fn render_staff_anchored_articulations(
 
         let artic_x = notehead_center_x - artic_w * 0.5;
         let y = staff_y + cur_pos * sp * 0.5;
-        dl.push_tagged(
+        dl.push_selectable_command(
             RenderCommand::DrawGlyph {
                 x: artic_x,
                 y,
@@ -518,6 +520,8 @@ pub(super) fn render_staff_anchored_articulations(
                 rotation: 0.0,
             },
             element_id::articulation(element_id_str, g.name),
+            ElementKind::Articulation,
+            HitPolicy::Ink,
         );
 
         if place_below {
@@ -597,7 +601,7 @@ pub(super) fn render_bow_direction(
     let artic_w = smufl::articulation_width(glyph) * sp;
     let artic_x = notehead_center_x - artic_w * 0.5;
     let y = staff_y + bow_pos * sp * 0.5;
-    dl.push_tagged(
+    dl.push_selectable_command(
         RenderCommand::DrawGlyph {
             x: artic_x,
             y,
@@ -608,6 +612,8 @@ pub(super) fn render_bow_direction(
             rotation: 0.0,
         },
         element_id::articulation(element_id_str, "bowDirection"),
+        ElementKind::Articulation,
+        HitPolicy::Ink,
     );
 }
 

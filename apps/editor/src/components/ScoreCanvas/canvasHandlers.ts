@@ -36,17 +36,13 @@ import type { BarlineHit, EngraveAdornments, EngraveClickModifiers, StaffEyeHit 
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
 import type { SpannerDragState, SlurHandleDragState, TextExpressionDragState } from "./paintScoreFrame";
 import type { MeasureSelectionPoint } from "../../store/selectionStore";
+import { listenForPointerDrag } from "./pointerDrag";
+import { selectBeamAtPoint } from "./beamSelection";
+import type { ViewportInfo } from "./types";
 
-/** Pixels per millimetre — canonical rendering density for the layout canvas. */
 const PX_PER_MM = 12;
 
 type Ref<T> = { current: T };
-
-interface Viewport {
-  zoom: number;
-  scrollX: number;
-  scrollY: number;
-}
 
 interface SpannerSnapPoint {
   x: number;
@@ -56,9 +52,10 @@ interface SpannerSnapPoint {
 
 export interface CanvasHandlerCtx {
   // Display-time values
-  viewport: Viewport;
+  viewport: ViewportInfo;
   viewMode: ViewMode;
   selectedIds: Set<string> | null;
+  selectedScoreIndex: number;
   performanceOverlayEnabled: boolean;
 
   // Refs (live containers)
@@ -103,6 +100,7 @@ export interface CanvasHandlerCtx {
   commitSlurReanchor: (slurElementId: string, end: "start" | "end", newEventId: string) => void;
   setSelectedSlurId: (id: string | null) => void;
   selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
+  selectElements: (ids: readonly string[]) => void;
   extendSelection: (id: string) => void;
   toggleSelection: (id: string) => void;
   clearSelection: () => void;
@@ -158,8 +156,7 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
     }
   }
 
-  if (ctx.dragOccurredRef.current) return;
-  if (ctx.spannerDragRef.current) return;
+  if (ctx.dragOccurredRef.current || ctx.spannerDragRef.current) return;
 
   const canvas = ctx.canvasRef.current;
   const si = ctx.spatialIndexRef.current;
@@ -182,10 +179,25 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   // first: its spatial-index entry is a loose rectangle that any overlapping
   // notehead/stem box would win, so only the spine cubic can tell whether the
   // user actually clicked the curve.
-  const curveHit = hitTestSlurCurve(ctx.displayListRef.current?.slurGeometries, scoreX, scoreY);
-  const exactHit = curveHit ?? si.hitTest(scoreX, scoreY);
   const measureBounds = ctx.displayListRef.current?.measureBounds;
   const measureAnchor = pointerToMeasure(scoreX, scoreY, measureBounds);
+  if (
+    selectBeamAtPoint({
+      displayList: ctx.displayListRef.current,
+      score: ctx.docScoreRef.current,
+      selectedScoreIndex: ctx.selectedScoreIndex,
+      x: scoreX,
+      y: scoreY,
+      zoom: ctx.viewport.zoom,
+      toggle: e.ctrlKey || e.metaKey,
+      measureAnchor,
+      selectElements: ctx.selectElements,
+      toggleSelection: ctx.toggleSelection,
+    })
+  )
+    return;
+  const curveHit = hitTestSlurCurve(ctx.displayListRef.current?.slurGeometries, scoreX, scoreY);
+  const exactHit = curveHit ?? si.hitTest(scoreX, scoreY);
   // Keep direct clicks near ink forgiving without letting rests or barlines
   // magnetically consume broad areas of otherwise selectable bar space.
   const nearestHit = findNearbyElement(si, scoreX, scoreY, measureBounds);
@@ -379,17 +391,7 @@ function selectMeasureOrClear(
   }
 }
 
-export function handleCanvasDoubleClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
-  const canvas = ctx.canvasRef.current;
-  const si = ctx.spatialIndexRef.current;
-  if (!canvas || !si) return;
-  const pt = screenToEngine(e, canvas, ctx);
-  if (!pt) return;
-  const hitId = si.hitTest(pt.scoreX, pt.scoreY);
-  if (hitId) ctx.selectElement(hitId);
-}
-
-export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
   // Middle-click: let viewport pan handle it
   if (e.button === 1) {
     e.preventDefault();
@@ -401,6 +403,7 @@ export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>
     ctx.toggleNoteInput();
     return;
   }
+  if (e.button !== 0) return;
 
   ctx.dragOccurredRef.current = false;
   ctx.mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
@@ -413,6 +416,7 @@ export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>
   const { scoreX, scoreY } = pt;
 
   const dl = ctx.displayListRef.current;
+  if (e.pointerType === "touch") return;
   // Write endpoints re-anchor to notes. In Engrave, every slur handle changes
   // only the drawn shape; movable text also remains Engrave-only.
   if (dl?.slurGeometries && beginSlurHandleDrag(e, ctx, dl, scoreX, scoreY)) return;
@@ -432,9 +436,10 @@ export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>
   );
   if (handleHit) {
     e.preventDefault();
-    ctx.dragLockRef.current = true;
     const bbox = si.getBBox(handleHit.elementId);
     if (!bbox) return;
+    capturePointer(e);
+    ctx.dragLockRef.current = true;
     const partIdx = resolveAnnotationLocation(handleHit.elementId)?.partIndex ?? 0;
     const initialSnaps = ctx.buildDragSnapPoints(partIdx, e.altKey);
     ctx.spannerDragRef.current = {
@@ -445,7 +450,7 @@ export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>
       altKey: e.altKey,
     };
 
-    const onMouseMove = (ev: MouseEvent): void => {
+    const onMouseMove = (ev: PointerEvent): void => {
       const r = canvas.getBoundingClientRect();
       const sx = (ev.clientX - r.left) / ctx.viewport.zoom + ctx.viewport.scrollX;
       if (ctx.spannerDragRef.current) {
@@ -457,24 +462,20 @@ export function handleCanvasMouseDownImpl(e: React.MouseEvent<HTMLCanvasElement>
         ctx.repaint();
       }
     };
-    const onMouseUp = (): void => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+    listenForPointerDrag(e.pointerId, onMouseMove, (cancelled) => {
       ctx.dragLockRef.current = false;
       const drag = ctx.spannerDragRef.current;
-      if (drag) {
+      if (drag && !cancelled) {
         ctx.commitSpannerDrag(drag.hit, drag.dragX);
-        ctx.spannerDragRef.current = null;
-        ctx.repaint();
       }
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
+      ctx.spannerDragRef.current = null;
+      ctx.repaint();
+    });
   }
 }
 
 function beginTextExpressionDrag(
-  e: React.MouseEvent<HTMLCanvasElement>,
+  e: React.PointerEvent<HTMLCanvasElement>,
   ctx: CanvasHandlerCtx,
   dl: DisplayList,
   si: SpatialIndex,
@@ -504,6 +505,7 @@ function beginTextExpressionDrag(
   }
 
   e.preventDefault();
+  capturePointer(e);
   ctx.dragLockRef.current = true;
 
   const expressionId = hitId;
@@ -518,7 +520,7 @@ function beginTextExpressionDrag(
   /** Resulting committed delta (sp) for the pointer event, snapped to a 0.5sp
    *  absolute grid when Ctrl/Cmd is held. Screen y grows downward while stored
    *  y is +up, so dy is negated. */
-  const computeDelta = (ev: MouseEvent): { dxSp: number; dySp: number } => {
+  const computeDelta = (ev: PointerEvent): { dxSp: number; dySp: number } => {
     const rawDxSp = (ev.clientX - startClientX) / ctx.viewport.zoom / sp;
     const rawDySp = -((ev.clientY - startClientY) / ctx.viewport.zoom) / sp;
     if (ev.ctrlKey || ev.metaKey) {
@@ -531,7 +533,7 @@ function beginTextExpressionDrag(
     return { dxSp: rawDxSp, dySp: rawDySp };
   };
 
-  const onMove = (ev: MouseEvent): void => {
+  const onMove = (ev: PointerEvent): void => {
     if (!ctx.dragLockRef.current) return;
     if (Math.abs(ev.clientX - startClientX) > 2 || Math.abs(ev.clientY - startClientY) > 2) {
       ctx.dragOccurredRef.current = true;
@@ -553,11 +555,13 @@ function beginTextExpressionDrag(
     }
   };
 
-  const onUp = (ev: MouseEvent): void => {
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onUp);
+  listenForPointerDrag(e.pointerId, onMove, (cancelled, ev) => {
     ctx.dragLockRef.current = false;
     ctx.textExpressionDragRef.current = null;
+    if (cancelled) {
+      ctx.repaintRef.current?.();
+      return;
+    }
     const { dxSp, dySp } = computeDelta(ev);
     if (Math.abs(dxSp) > 1e-4 || Math.abs(dySp) > 1e-4) {
       ctx.onEngraveTextExpressionOffsetEditRef.current?.(expressionId, [dxSp, dySp]);
@@ -566,15 +570,12 @@ function beginTextExpressionDrag(
       // No commit (a click, not a drag) — still clear the ghost.
       ctx.repaintRef.current?.();
     }
-  };
-
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onUp);
+  });
   return true;
 }
 
 function beginSlurHandleDrag(
-  e: React.MouseEvent<HTMLCanvasElement>,
+  e: React.PointerEvent<HTMLCanvasElement>,
   ctx: CanvasHandlerCtx,
   dl: DisplayList,
   scoreX: number,
@@ -587,6 +588,7 @@ function beginSlurHandleDrag(
   const sourceCommand = findSlurRenderCommand(dl, slurHit.elementId, slurHit.geom);
   if (!sourceCommand) return false;
   e.preventDefault();
+  capturePointer(e);
   ctx.dragLockRef.current = true;
   const startEngineX =
     slurHit.handle === "p0"
@@ -626,7 +628,7 @@ function beginSlurHandleDrag(
 
   const startClientX = e.clientX;
   const startClientY = e.clientY;
-  const onSlurMove = (ev: MouseEvent): void => {
+  const onSlurMove = (ev: PointerEvent): void => {
     const drag = ctx.slurHandleDragRef.current;
     if (!drag) return;
     drag.dxPx = (ev.clientX - startClientX) / ctx.viewport.zoom;
@@ -640,20 +642,16 @@ function beginSlurHandleDrag(
     }
     ctx.repaint();
   };
-  const onSlurUp = (): void => {
-    window.removeEventListener("mousemove", onSlurMove);
-    window.removeEventListener("mouseup", onSlurUp);
+  listenForPointerDrag(e.pointerId, onSlurMove, (cancelled) => {
     ctx.dragLockRef.current = false;
     const drag = ctx.slurHandleDragRef.current;
     ctx.slurHandleDragRef.current = null;
-    if (drag) {
+    if (drag && !cancelled) {
       if (drag.anchor) commitSlurAnchorDrag(ctx, drag, drag.anchor);
       else commitSlurShapeDrag(ctx, drag);
-      ctx.repaint();
     }
-  };
-  window.addEventListener("mousemove", onSlurMove);
-  window.addEventListener("mouseup", onSlurUp);
+    ctx.repaint();
+  });
   return true;
 }
 
@@ -735,16 +733,30 @@ function commitSlurShapeDrag(ctx: CanvasHandlerCtx, drag: SlurHandleDragState): 
   ctx.onEngraveSlurShapeEditRef.current?.(drag.elementId, shape);
 }
 
-export function handleCanvasMouseUpImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (e.button !== 0) return;
   const start = ctx.mouseDownPosRef.current;
   if (start) {
     const dx = Math.abs(e.clientX - start.x);
     const dy = Math.abs(e.clientY - start.y);
     ctx.dragOccurredRef.current = dx > 3 || dy > 3;
   }
+  if (e.currentTarget?.hasPointerCapture?.(e.pointerId)) {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+  ctx.mouseDownPosRef.current = null;
 }
 
-export function handleCanvasMouseMoveImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+export function handleCanvasPointerCancelImpl(ctx: CanvasHandlerCtx): void {
+  ctx.mouseDownPosRef.current = null;
+  ctx.dragOccurredRef.current = false;
+}
+
+function capturePointer(e: React.PointerEvent<HTMLCanvasElement>): void {
+  e.currentTarget?.setPointerCapture?.(e.pointerId);
+}
+
+export function handleCanvasMouseMoveImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
   const canvas = ctx.canvasRef.current;
   if (!canvas) return;
   const dl = ctx.displayListRef.current;

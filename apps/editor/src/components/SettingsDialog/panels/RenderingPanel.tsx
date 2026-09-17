@@ -25,7 +25,10 @@ export function RenderingPanel() {
         )}
       </SettingsRow>
 
-      <SettingsRow label="Hitbox overlay" description="Outline the region each element responds to when clicked.">
+      <SettingsRow
+        label="Hitbox overlay"
+        description="Show categorized element bounds, measure targets, centers, and a count legend."
+      >
         {({ controlId, descriptionId }) => (
           <Switch
             id={controlId}

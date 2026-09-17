@@ -100,6 +100,63 @@ fn test_bbox_rest_event() {
 }
 
 #[test]
+fn test_centered_bar_rest_bbox_matches_rendered_ink() {
+    for sequence in [
+        r#"{"content": [{"id": "bar-rest", "duration": {"base": "whole"}, "rest": {}}]}"#,
+        r#"{"content": [], "fullMeasure": {"visualDuration": {"base": "whole"}}}"#,
+    ] {
+        let json = format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "parts": [{{"measures": [{{"sequences": [{sequence}]}}]}}]
+            }}"#
+        );
+        let config = LayoutConfig::default();
+        let dl = layout_score(&parse_mnx(&json).unwrap(), 0, &config);
+        let (glyph_x, glyph_y, glyph_size) = dl
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                RenderCommand::DrawGlyph {
+                    x,
+                    y,
+                    codepoint,
+                    size,
+                    ..
+                } if *codepoint == smufl::REST_WHOLE => Some((*x, *y, *size)),
+                _ => None,
+            })
+            .expect("expected centered whole-rest glyph");
+        let expected = super::super::render_geometry::glyph_pixel_bbox(
+            glyph_x,
+            glyph_y,
+            smufl::REST_WHOLE,
+            glyph_size,
+        );
+        let actual = dl
+            .element_bboxes
+            .iter()
+            .find(|entry| entry.element_id.contains("/s0/"))
+            .map(|entry| entry.bbox.clone())
+            .expect("expected centered whole-rest bbox");
+        let sp = glyph_size / 4.0;
+
+        assert!(
+            (actual.x - expected.x).abs() < 1.0e-9
+                && (actual.y - expected.y).abs() < 1.0e-9
+                && (actual.width - expected.width).abs() < 1.0e-9
+                && (actual.height - expected.height).abs() < 1.0e-9,
+            "bar-rest bbox {actual:?} must match rendered ink {expected:?}"
+        );
+        assert!(
+            (actual.y - (glyph_y - 0.036 * sp)).abs() < 1.0e-9,
+            "whole-rest bbox top must use Bravura's north-east metric"
+        );
+    }
+}
+
+#[test]
 fn test_bbox_union() {
     let a = BoundingBox::new(10.0, 20.0, 30.0, 40.0);
     let b = BoundingBox::new(25.0, 15.0, 20.0, 50.0);
@@ -272,50 +329,44 @@ fn test_bbox_rehearsal_mark() {
         "Rehearsal mark bbox should have positive height"
     );
 
-    // The selection box must BE the drawn border, not a separately-estimated
-    // rectangle. Collect the four border strokes tagged with the rehearsal id
-    // and assert their outer extent matches the bbox on every edge.
-    let mut min_x = f64::INFINITY;
-    let mut max_x = f64::NEG_INFINITY;
-    let mut min_y = f64::INFINITY;
-    let mut max_y = f64::NEG_INFINITY;
-    for (cmd, id) in dl.commands.iter().zip(dl.element_ids.iter()) {
-        let is_reh = id.as_deref().is_some_and(|s| s.contains("/rehearsal"));
-        if let (RenderCommand::DrawLine { x1, y1, x2, y2, .. }, true) = (cmd, is_reh) {
-            min_x = min_x.min(x1.min(*x2));
-            max_x = max_x.max(x1.max(*x2));
-            min_y = min_y.min(y1.min(*y2));
-            max_y = max_y.max(y1.max(*y2));
-        }
-    }
-    assert!(
-        min_x.is_finite(),
-        "boxed rehearsal mark should draw border strokes"
-    );
+    // The selection box is the exact union of tagged border and text ink.
+    let rendered = dl
+        .commands
+        .iter()
+        .zip(dl.element_ids.iter())
+        .filter(|(_, id)| id.as_deref().is_some_and(|s| s.contains("/rehearsal")))
+        .filter_map(|(command, _)| match command {
+            RenderCommand::DrawText { .. } => {
+                super::super::render_annotations::substrate_obstacles::text_command_bbox(command)
+            }
+            _ => command.bbox(),
+        })
+        .reduce(|left, right| left.union(&right))
+        .expect("boxed rehearsal mark should draw tagged ink");
     let eps = 1e-6;
     assert!(
-        (rb.bbox.x - min_x).abs() < eps,
-        "bbox left {} should match border left {}",
+        (rb.bbox.x - rendered.x).abs() < eps,
+        "bbox left {} should match rendered left {}",
         rb.bbox.x,
-        min_x
+        rendered.x
     );
     assert!(
-        (rb.bbox.y - min_y).abs() < eps,
-        "bbox top {} should match border top {}",
+        (rb.bbox.y - rendered.y).abs() < eps,
+        "bbox top {} should match rendered top {}",
         rb.bbox.y,
-        min_y
+        rendered.y
     );
     assert!(
-        ((rb.bbox.x + rb.bbox.width) - max_x).abs() < eps,
-        "bbox right {} should match border right {}",
+        ((rb.bbox.x + rb.bbox.width) - (rendered.x + rendered.width)).abs() < eps,
+        "bbox right {} should match rendered right {}",
         rb.bbox.x + rb.bbox.width,
-        max_x
+        rendered.x + rendered.width
     );
     assert!(
-        ((rb.bbox.y + rb.bbox.height) - max_y).abs() < eps,
-        "bbox bottom {} should match border bottom {}",
+        ((rb.bbox.y + rb.bbox.height) - (rendered.y + rendered.height)).abs() < eps,
+        "bbox bottom {} should match rendered bottom {}",
         rb.bbox.y + rb.bbox.height,
-        max_y
+        rendered.y + rendered.height
     );
 }
 
@@ -877,7 +928,7 @@ fn test_bbox_articulation_staccato() {
     let artic_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/artic"));
+        .find(|eb| eb.element_id.ends_with("/art-staccato"));
     assert!(
         artic_bbox.is_some(),
         "Should have an articulation bounding box"
@@ -894,8 +945,8 @@ fn test_bbox_articulation_staccato() {
 }
 
 #[test]
-fn test_bbox_articulation_stacked() {
-    // Staccato + accent: two stacked articulations should produce a taller bbox
+fn test_bbox_articulation_combo_uses_rendered_glyph() {
+    // Staccato + accent render as one named combo glyph and one hitbox.
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
@@ -911,10 +962,10 @@ fn test_bbox_articulation_stacked() {
     let artic_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/artic"));
+        .find(|eb| eb.element_id.ends_with("/art-accent.staccato"));
     assert!(
         artic_bbox.is_some(),
-        "Stacked articulations should have a bounding box"
+        "Combined articulation should have a bounding box"
     );
     let bb = &artic_bbox.unwrap().bbox;
     assert!(bb.width > 0.0);
@@ -940,9 +991,9 @@ fn test_bbox_articulation_id_format() {
     let artic_bboxes: Vec<_> = dl
         .element_bboxes
         .iter()
-        .filter(|eb| eb.element_id.ends_with("/artic"))
+        .filter(|eb| eb.element_id.contains("/art-"))
         .collect();
-    // Two notes have articulations, so we should get 2 artic bboxes
+    // Two notes have articulations, so we should get 2 named glyph bboxes.
     assert_eq!(
         artic_bboxes.len(),
         2,
@@ -971,7 +1022,7 @@ fn test_bbox_fermata() {
     let fermata_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/fermata"));
+        .find(|eb| eb.element_id.ends_with("/ferm"));
     assert!(fermata_bbox.is_some(), "Should have a fermata bounding box");
     let bb = &fermata_bbox.unwrap().bbox;
     assert!(bb.width > 0.0, "Fermata bbox should have positive width");
@@ -997,7 +1048,7 @@ fn test_bbox_fermata_above_staff() {
     let fermata_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/fermata"))
+        .find(|eb| eb.element_id.ends_with("/ferm"))
         .unwrap();
     let staff_y = config.margin_top * config.sp;
     // Default placement above: fermata bbox y should be above or near the staff top
@@ -1112,11 +1163,11 @@ fn test_bbox_mixed_markings() {
     let artic = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.ends_with("/artic"));
+        .find(|eb| eb.element_id.contains("/art-"));
     let fermata = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.ends_with("/fermata"));
+        .find(|eb| eb.element_id.ends_with("/ferm"));
     assert!(artic.is_some(), "Should have articulation bbox");
     assert!(fermata.is_some(), "Should have fermata bbox");
     // They should not overlap (fermata is above, staccato is near note)
@@ -1588,8 +1639,8 @@ fn test_bbox_grace_note_left_of_main_event() {
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
             {"type": "grace", "content": [{"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]}]},
-            {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
-            {"duration": {"base": "dotted half"}, "rest": {}}
+            {"id": "main", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+            {"id": "bar-rest", "duration": {"base": "dotted half"}, "rest": {}}
         ]}]}]}]
     }"#;
 
@@ -1607,7 +1658,7 @@ fn test_bbox_grace_note_left_of_main_event() {
     let main_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/s0/") && !eb.element_id.contains("/grace/"))
+        .find(|eb| eb.element_id.ends_with("/main"))
         .expect("Should have a main event bbox");
 
     // Grace note should be positioned to the left of the main event
@@ -1626,8 +1677,8 @@ fn test_bbox_grace_note_smaller_than_main() {
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
             {"type": "grace", "content": [{"duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 4}}]}]},
-            {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
-            {"duration": {"base": "dotted half"}, "rest": {}}
+            {"id": "main", "duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
+            {"id": "bar-rest", "duration": {"base": "dotted half"}, "rest": {}}
         ]}]}]}]
     }"#;
 
@@ -1644,7 +1695,7 @@ fn test_bbox_grace_note_smaller_than_main() {
     let main_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/s0/") && !eb.element_id.contains("/grace/"))
+        .find(|eb| eb.element_id.ends_with("/main"))
         .expect("Should have a main event bbox");
 
     // Grace note rendered at 0.65× scale — its bbox height should be shorter

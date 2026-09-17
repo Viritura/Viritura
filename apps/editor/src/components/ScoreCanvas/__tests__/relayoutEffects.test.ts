@@ -49,6 +49,7 @@ describe("runFastLayoutAndPaint", () => {
     const nextDisplayList = displayList("next", 240);
     const spatialIndexRef = { current: {} as SpatialIndex | null };
     const paintNow = vi.fn();
+    const onDisplayListCommit = vi.fn();
 
     await runFastLayoutAndPaint({
       json: "{}",
@@ -59,11 +60,13 @@ describe("runFastLayoutAndPaint", () => {
       docScoreRef: { current: null },
       paintNowRef: { current: paintNow },
       perfTracker: new PerfTracker(),
+      onDisplayListCommit,
     });
 
     expect(spatialIndexRef.current?.hitTest(245, 105)).toBe("next");
     expect(spatialIndexRef.current?.hitTest(85, 105)).toBeNull();
     expect(paintNow).toHaveBeenCalledTimes(1);
+    expect(onDisplayListCommit).toHaveBeenCalledOnce();
   });
 
   it("replaces stale targets without an intermediate empty index", async () => {

@@ -90,8 +90,16 @@ fn test_endpoint_fermata_clears_full_slur_span() {
     let fermata_bbox = dl
         .element_bboxes
         .iter()
-        .find(|bbox| bbox.element_id.ends_with("/fermata"))
+        .find(|bbox| bbox.element_id.ends_with("/ferm"))
         .expect("fermata selection bbox");
+    assert_eq!(
+        dl.element_bboxes
+            .iter()
+            .filter(|bbox| bbox.element_id.ends_with("/ferm"))
+            .count(),
+        1,
+        "rendering must publish exactly one canonical fermata hitbox"
+    );
     assert!(
         (fermata_bbox.bbox.y + fermata_bbox.bbox.height - fermata_bottom).abs() < 1.0e-6,
         "selection bbox must follow the shifted fermata command"
@@ -99,9 +107,16 @@ fn test_endpoint_fermata_clears_full_slur_span() {
     let fermata_shape = dl
         .element_shapes
         .iter()
-        .find(|shape| shape.element_id.ends_with("/fermata"))
+        .find(|shape| shape.element_id.ends_with("/ferm"))
         .and_then(|shape| shape.bbox(&dl.commands))
         .expect("fermata collision shape");
+    assert!(matches!(
+        dl.element_shapes
+            .iter()
+            .find(|shape| shape.element_id.ends_with("/ferm"))
+            .map(|shape| &shape.geom),
+        Some(ShapeGeom::Cmd { .. })
+    ));
     assert!(
         (fermata_shape.y + fermata_shape.height - fermata_bottom).abs() < 1.0e-6,
         "collision shape must follow the shifted fermata command"

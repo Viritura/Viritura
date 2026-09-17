@@ -29,6 +29,9 @@ pub struct DisplayList {
     /// this instead of parsing render commands. See `ElementShape`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub element_shapes: Vec<ElementShape>,
+    /// Rendered group IDs mapped to the exact logical events they select.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub selection_groups: Vec<SelectionGroup>,
     /// Bezier spine geometry for each emitted slur, keyed by element_id.
     /// Consumed by engrave mode to render drag handles without parsing
     /// `DrawFilledBezier` commands. See `SlurGeometry`.
@@ -71,6 +74,7 @@ impl DisplayList {
             element_ids: Vec::new(),
             element_bboxes: Vec::new(),
             element_shapes: Vec::new(),
+            selection_groups: Vec::new(),
             slur_geometries: Vec::new(),
             measure_bounds: Vec::new(),
             layout_debug: None,
@@ -93,6 +97,62 @@ impl DisplayList {
         }
         self.commands.push(cmd);
         self.element_ids.push(Some(element_id));
+    }
+
+    /// Emit one selectable command and derive every geometry store from that
+    /// exact command. Prefer this over separately calling `push_tagged` and
+    /// reconstructing an `ElementBBox` in a later layout pass.
+    pub fn push_selectable_command(
+        &mut self,
+        cmd: RenderCommand,
+        element_id: String,
+        kind: ElementKind,
+        hit_policy: HitPolicy,
+    ) {
+        let bbox = cmd
+            .bbox()
+            .expect("selectable render commands must expose exact bounds");
+        let hit_bbox = match hit_policy {
+            HitPolicy::Ink => bbox,
+            HitPolicy::Padded { x, y } => BoundingBox::new(
+                bbox.x - x,
+                bbox.y - y,
+                bbox.width + x * 2.0,
+                bbox.height + y * 2.0,
+            ),
+        };
+        let command_index = self.commands.len();
+        self.push_tagged(cmd, element_id.clone());
+        match hit_policy {
+            HitPolicy::Ink => {
+                self.push_shape_cmd(command_index, element_id.clone(), kind, None, None);
+            }
+            HitPolicy::Padded { .. } => {
+                self.push_shape_rect(hit_bbox.clone(), element_id.clone(), kind, None, None);
+            }
+        }
+        self.element_bboxes.push(ElementBBox {
+            element_id,
+            bbox: hit_bbox,
+        });
+    }
+
+    pub fn push_selection_group(&mut self, element_id: String, member_ids: Vec<String>) {
+        if member_ids.is_empty() {
+            return;
+        }
+        if let Some(existing) = self
+            .selection_groups
+            .iter_mut()
+            .find(|group| group.element_id == element_id)
+        {
+            existing.member_ids = member_ids;
+            return;
+        }
+        self.selection_groups.push(SelectionGroup {
+            element_id,
+            member_ids,
+        });
     }
 
     /// Tag an existing command at `idx` with an element ID (for post-hoc tagging).
@@ -121,6 +181,35 @@ impl DisplayList {
 #[cfg(test)]
 mod translate_tests {
     use super::*;
+
+    #[test]
+    fn selectable_command_keeps_tag_shape_and_bbox_on_one_geometry() {
+        let mut dl = DisplayList::new(100.0, 100.0);
+        let command = RenderCommand::DrawGlyph {
+            x: 20.0,
+            y: 30.0,
+            codepoint: crate::render::smufl::smufl::REST_WHOLE,
+            font: "Bravura".into(),
+            size: 48.0,
+            color: "#000".into(),
+            rotation: 0.0,
+        };
+        let expected = command.bbox().expect("whole rest has exact metrics");
+
+        dl.push_selectable_command(
+            command,
+            "p0/m0/s0/rest".into(),
+            ElementKind::Rest,
+            HitPolicy::Ink,
+        );
+
+        assert_eq!(dl.element_ids, vec![Some("p0/m0/s0/rest".into())]);
+        assert_eq!(dl.element_bboxes[0].bbox, expected);
+        assert!(matches!(
+            dl.element_shapes[0].geom,
+            ShapeGeom::Cmd { cmd_idx: 0 }
+        ));
+    }
 
     #[test]
     fn classify_element_kind_covers_known_suffixes() {

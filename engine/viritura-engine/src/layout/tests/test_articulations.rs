@@ -116,22 +116,42 @@ fn test_accent_moves_outward_from_same_side_tie() {
     let plain = tied.replace(r#""ties": [{"target": "target"}]"#, r#""ties": []"#);
     assert_ne!(plain, tied, "plain fixture must remove the tie");
     let config = LayoutConfig::default();
-    let accent_y = |json: &str| {
-        layout_score(&parse_mnx(json).unwrap(), 0, &config)
+    let accent_geometry = |json: &str| {
+        let display_list = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+        let (command_index, command) = display_list
             .commands
             .iter()
-            .find_map(|command| match command {
-                RenderCommand::DrawGlyph { y, codepoint, .. }
-                    if *codepoint == smufl::ARTIC_ACCENT_BELOW =>
-                {
-                    Some(*y)
-                }
-                _ => None,
+            .enumerate()
+            .find(|(_, command)| {
+                matches!(
+                    command,
+                    RenderCommand::DrawGlyph {
+                        codepoint: smufl::ARTIC_ACCENT_BELOW,
+                        ..
+                    }
+                )
             })
-            .expect("accent below")
+            .expect("accent below");
+        let command_bbox = command.bbox().expect("accent has exact glyph bounds");
+        let element_id = display_list.element_ids[command_index]
+            .as_ref()
+            .expect("accent command is tagged");
+        let selection_bbox = display_list
+            .element_bboxes
+            .iter()
+            .find(|bbox| &bbox.element_id == element_id)
+            .expect("accent selection bbox");
+        assert_eq!(
+            selection_bbox.bbox, command_bbox,
+            "tie-shifted articulation hitbox must derive from its final command"
+        );
+        match command {
+            RenderCommand::DrawGlyph { y, .. } => *y,
+            _ => unreachable!(),
+        }
     };
-    let plain_y = accent_y(&plain);
-    let tied_y = accent_y(tied);
+    let plain_y = accent_geometry(&plain);
+    let tied_y = accent_geometry(tied);
 
     assert!(
         tied_y - plain_y >= 0.45 * config.sp,

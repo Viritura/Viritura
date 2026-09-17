@@ -31,6 +31,8 @@ function buildBinaryBuffer(
   elementIds?: { stringTable: string[]; indices: number[] },
   bboxes: number[][] = [],
   measureBounds: number[][] = [],
+  selectionGroups: Array<{ elementId: string; memberIds: string[] }> = [],
+  sourceMappings: Array<{ boundsIndex: number; sourcePartIndices: number[] }> = [],
 ): Float32Array {
   const data: number[] = [];
   const numStrings = elementIds?.stringTable.length ?? 0;
@@ -72,12 +74,29 @@ function buildBinaryBuffer(
       data.push(-1);
     }
   }
-  if (measureBounds.length > 0) {
+  if (measureBounds.length > 0 || selectionGroups.length > 0 || sourceMappings.length > 0) {
     data.push(measureBounds.length);
     for (const bounds of measureBounds) {
       for (const val of bounds) {
         data.push(val);
       }
+    }
+  }
+  if (selectionGroups.length > 0 || sourceMappings.length > 0) {
+    data.push(selectionGroups.length);
+    for (const group of selectionGroups) {
+      const groupCodepoints = [...group.elementId].map((char) => char.codePointAt(0)!);
+      data.push(groupCodepoints.length, ...groupCodepoints, group.memberIds.length);
+      for (const memberId of group.memberIds) {
+        const memberCodepoints = [...memberId].map((char) => char.codePointAt(0)!);
+        data.push(memberCodepoints.length, ...memberCodepoints);
+      }
+    }
+  }
+  if (sourceMappings.length > 0) {
+    data.push(sourceMappings.length);
+    for (const { boundsIndex, sourcePartIndices } of sourceMappings) {
+      data.push(boundsIndex, sourcePartIndices.length, ...sourcePartIndices);
     }
   }
   return new Float32Array(data);
@@ -154,6 +173,9 @@ describe("decodeBinaryDisplayList", () => {
     expect(dl.width).toBe(400);
     expect(dl.height).toBe(300);
     expect(dl.commands).toHaveLength(0);
+    expect(data).toHaveLength(7);
+    expect(dl.measureBounds).toBeUndefined();
+    expect(dl.selectionGroups).toBeUndefined();
   });
 
   it("should decode DrawLine command", () => {
@@ -651,16 +673,29 @@ describe("measure bounds decoding", () => {
     });
     expect(dl.measureBounds?.[0]?.hasMusicHidden).toBeUndefined();
     expect(dl.measureBounds?.[0]?.sourcePartIndices).toBeUndefined();
+    expect(dl.selectionGroups).toBeUndefined();
   });
 
   it("preserves sparse source identities through full, fresh, reused and replaced patch frames", () => {
     const bounds = (part: number, staff: number) => [-1, 0, part, staff, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
     const legacy = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds(2, 0), bounds(7, 1)]);
     // One source-identity entry for bounds 0; bounds 1 keeps its sole-source fallback.
-    const segment = new Float32Array([...legacy, 1, 0, 3, 2, 5, 9]);
+    const segment = buildBinaryBuffer(
+      100,
+      50,
+      [],
+      [],
+      undefined,
+      [],
+      [bounds(2, 0), bounds(7, 1)],
+      [],
+      [{ boundsIndex: 0, sourcePartIndices: [2, 5, 9] }],
+    );
+    expect([...segment.slice(legacy.length)]).toEqual([0, 1, 0, 3, 2, 5, 9]);
     const reconstructor = new PatchReconstructor();
     const full = reconstructor.apply(decodeFrame(new Float32Array([0, ...segment])));
     expect(full.measureBounds?.map((b) => b.sourcePartIndices ?? [b.partIndex])).toEqual([[2, 5, 9], [7]]);
+    expect(full.selectionGroups).toBeUndefined();
 
     const empty = buildBinaryBuffer(100, 50, []);
     const patchHeader = [1, 3, 100, 50, 0, 0, empty.length, ...empty, empty.length, ...empty, 1];
@@ -674,6 +709,60 @@ describe("measure bounds decoding", () => {
 
     const replaced = reconstructor.apply(decodeFrame(new Float32Array([...patchHeader, 1, legacy.length, ...legacy])));
     expect(replaced.measureBounds?.map((b) => b.sourcePartIndices ?? [b.partIndex])).toEqual([[2], [7]]);
+  });
+});
+
+describe("selection group decoding", () => {
+  it.each([false, true])("decodes bounds and groups with source mappings present: %s", (withSources) => {
+    const bounds = [-1, 0, 2, 0, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
+    const groups = [
+      { elementId: "beam𝄞", memberIds: ["a", "b"] },
+      { elementId: "beam2", memberIds: ["c"] },
+    ];
+    const data = buildBinaryBuffer(
+      100,
+      50,
+      [],
+      [],
+      undefined,
+      [],
+      [bounds, bounds],
+      groups,
+      withSources ? [{ boundsIndex: 1, sourcePartIndices: [2, 5, 9] }] : [],
+    );
+    const dl = decodeBinaryDisplayList(data);
+    expect(dl.selectionGroups).toEqual(groups);
+    expect(dl.measureBounds).toHaveLength(2);
+    expect(dl.measureBounds?.[0]?.sourcePartIndices).toBeUndefined();
+    expect(dl.measureBounds?.[1]?.sourcePartIndices).toEqual(withSources ? [2, 5, 9] : undefined);
+    expect(dl.measureBounds?.[1]).toMatchObject({ partIndex: 2, x: 10, y: 50 });
+  });
+
+  it("decodes beam membership after an empty measure-bounds trailer", () => {
+    const data = buildBinaryBuffer(
+      100,
+      50,
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      [
+        {
+          elementId: "p0/m0/beam0",
+          memberIds: ["p0/m0/s0/a", "p0/m0/s0/b"],
+        },
+      ],
+    );
+
+    const dl = decodeBinaryDisplayList(data);
+    expect(dl.measureBounds).toBeUndefined();
+    expect(dl.selectionGroups).toEqual([
+      {
+        elementId: "p0/m0/beam0",
+        memberIds: ["p0/m0/s0/a", "p0/m0/s0/b"],
+      },
+    ]);
   });
 });
 

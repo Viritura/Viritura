@@ -1,11 +1,13 @@
 /**
  * Selection capability contract.
  *
- * Every score-editing action that consumes the current selection declares a
- * `SelectionCapability`: which selection kinds it accepts and how it maps the
- * selection to concrete targets. This is the single, declarative source of
- * truth for "what does action X do for selection kind Y" — replacing the
- * per-action, hand-rolled `selection.kind === ...` ladders that drifted apart
+ * Generic score-editing actions declare a `SelectionCapability`: which
+ * selection kinds they accept and how they map the selection to concrete
+ * targets. Specialized structural operations may still inspect the selection
+ * directly when they need information outside these target modes
+ * (for example clipboard shape, condensed writeback, or staff-specific marks).
+ * Keeping generic action policy here replaces the hand-rolled
+ * `selection.kind === ...` ladders that drifted apart
  * (e.g. fingering silently ignored multi/range while articulation didn't;
  * transpose was dead for ranges entirely).
  *
@@ -22,7 +24,13 @@
 
 import type { Score } from "@viritura/core";
 import type { Selection } from "./selectionStore";
-import { resolveSelection, type ResolvedSelection, type MeasureRange } from "./selectionUtils";
+import {
+  resolveSelection,
+  resolveSelectionNotes,
+  type ResolvedSelection,
+  type MeasureRange,
+  type NoteSelectionTarget,
+} from "./selectionUtils";
 import type { EventLocation } from "../score/ElementPath";
 
 /** All selection kinds (mirrors the `Selection` union discriminant). */
@@ -35,11 +43,12 @@ const EVENT_SELECTION_KINDS: ReadonlySet<Selection["kind"]> = new Set(["single",
  * How an action maps a selection to its targets:
  *  - `events`: apply to every event the selection covers (articulations,
  *    tremolo, fingering, transpose, note deletion).
+ *  - `notes`: apply to individual selected noteheads (accidentals).
  *  - `scope`: apply across the measure/part rectangle the selection touches
  *    (clef / key / time signature, measure operations).
  *  - `anchor`: act on a single primary element (editing one element's props).
  */
-type SelectionTargetMode = "events" | "scope" | "anchor";
+type SelectionTargetMode = "events" | "notes" | "scope" | "anchor";
 
 /** A declared selection capability for one action. */
 export interface SelectionCapability {
@@ -50,6 +59,7 @@ export interface SelectionCapability {
 /** Resolved targets for a capability, discriminated by the capability's mode. */
 export type CapabilityTargets =
   | { readonly mode: "events"; readonly events: readonly EventLocation[] }
+  | { readonly mode: "notes"; readonly notes: readonly NoteSelectionTarget[] }
   | { readonly mode: "scope"; readonly scope: MeasureRange }
   | { readonly mode: "anchor"; readonly anchor: string };
 
@@ -68,6 +78,10 @@ export function resolveCapabilityTargets(
   score: Score,
 ): CapabilityTargets | null {
   if (!cap.accepts.has(selection.kind)) return null;
+  if (cap.mode === "notes") {
+    const notes = resolveSelectionNotes(selection, score);
+    return notes.length > 0 ? { mode: "notes", notes } : null;
+  }
   const resolved: ResolvedSelection = resolveSelection(selection, score);
   switch (cap.mode) {
     case "events":
@@ -84,6 +98,9 @@ export function resolveCapabilityTargets(
 
 /** Applies to every covered event, for any non-empty selection. */
 export const EVENT_ACTION: SelectionCapability = { mode: "events", accepts: EVENT_SELECTION_KINDS };
+
+/** Applies to each covered notehead, preserving chord-member granularity. */
+export const NOTE_ACTION: SelectionCapability = { mode: "notes", accepts: EVENT_SELECTION_KINDS };
 
 /** Applies across the measure/part rectangle, for any non-empty selection. */
 export const SCOPE_ACTION: SelectionCapability = { mode: "scope", accepts: ALL_SELECTION_KINDS };
@@ -103,6 +120,7 @@ export const SELECTION_CAPABILITIES = {
   breath: EVENT_ACTION,
   transpose: EVENT_ACTION,
   deleteNotes: EVENT_ACTION,
+  accidental: NOTE_ACTION,
   clef: SCOPE_ACTION,
   keySignature: SCOPE_ACTION,
   timeSignature: SCOPE_ACTION,

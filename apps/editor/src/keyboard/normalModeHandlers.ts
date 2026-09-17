@@ -33,6 +33,7 @@ import {
   type GraceLocation,
 } from "../score/ElementPath";
 import { resolveRangeGraceElementIds, resolveSelectionNotes, groupEventsByVoice } from "../store/selectionUtils";
+import { resolveCapabilityTargets, SELECTION_CAPABILITIES } from "../store/selectionCapabilities";
 import { resolveCondensedSelectionEvents, resolveCondensedSelectionNotes } from "../score/condensedWriteback";
 import { isAnnotationId, findAnnotationOtherSide } from "../navigation/annotationNav";
 import { cloneScore } from "../score/scoreClone";
@@ -149,8 +150,9 @@ function mutateSelectedNoteAlters(ctx: KeyboardHandlerContext, transform: (curre
   const sel = ctx.getSelection();
   if (!currentScore || sel.kind === "none") return false;
 
-  const targets = resolveSelectionNotes(sel, currentScore);
-  if (targets.length === 0) return false;
+  const resolved = resolveCapabilityTargets(SELECTION_CAPABILITIES.accidental, sel, currentScore);
+  if (!resolved || resolved.mode !== "notes") return false;
+  const targets = [...resolved.notes];
 
   const patches = planAccidentalPatches(currentScore, targets, transform);
   if (patches) {

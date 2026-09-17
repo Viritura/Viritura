@@ -137,8 +137,17 @@ impl DisplayList {
     /// ### Header (7 floats)
     /// `[width, height, num_commands, num_pages, num_strings, num_element_bboxes, num_slur_geometries]`
     ///
-    /// If measure bounds are present, they are appended as an optional trailer
-    /// after the per-command element ID indices.
+    /// Optional trailers follow the per-command element ID indices in this order:
+    /// 1. Measure bounds: `[count, ...bounds]`.
+    /// 2. Selection groups: `[count, (id_len, ...id_codepoints, member_count,
+    ///    (member_id_len, ...member_id_codepoints)...)...]`.
+    /// 3. Sparse source mappings: `[entry_count,
+    ///    (bounds_index, source_count, ...part_indices)...]`.
+    ///
+    /// A later trailer requires all earlier counts, including explicit zeros.
+    /// Trailing empty sections are omitted. Thus main's pre-source buffers remain
+    /// unchanged, and its decoders can ignore the new final source trailer.
+    /// The unreleased source-before-groups format is not supported.
     pub fn to_binary(&self) -> Vec<f32> {
         let estimated_size = 7
             + self.pages.len() * 8
@@ -250,9 +259,10 @@ impl DisplayList {
             buf.push(idx);
         }
 
-        // Optional measure-bounds trailer: [count, bounds...]. Kept after the
-        // command payload so existing binary command offsets remain stable.
-        if !self.measure_bounds.is_empty() {
+        // Optional trailers are kept after the command payload so existing
+        // command offsets remain stable. Selection groups require an explicit
+        // zero measure count when no measure bounds are present.
+        if !self.measure_bounds.is_empty() || !self.selection_groups.is_empty() {
             buf.push(self.measure_bounds.len() as f32);
             for mb in &self.measure_bounds {
                 if let Some(measure_id) = &mb.measure_id {
@@ -284,22 +294,39 @@ impl DisplayList {
                 buf.push(if mb.has_music_hidden { 1.0 } else { 0.0 });
                 buf.push(if mb.is_expansion { 1.0 } else { 0.0 });
             }
-            // Optional source-identity trailer, after ALL measure bounds:
-            // [entry_count, (bounds_index, source_count, ...part_indices)...].
-            // Older decoders ignore it; older payloads have no such trailer.
-            let sources: Vec<_> = self
-                .measure_bounds
-                .iter()
-                .enumerate()
-                .filter(|(_, mb)| !mb.source_part_indices.is_empty())
-                .collect();
-            if !sources.is_empty() {
-                buf.push(sources.len() as f32);
-                for (index, mb) in sources {
-                    buf.push(index as f32);
-                    buf.push(mb.source_part_indices.len() as f32);
-                    buf.extend(mb.source_part_indices.iter().map(|&part| part as f32));
+        }
+        let sources: Vec<_> = self
+            .measure_bounds
+            .iter()
+            .enumerate()
+            .filter(|(_, mb)| !mb.source_part_indices.is_empty())
+            .collect();
+        // Sources require a group count even when there are no selection groups.
+        if !self.selection_groups.is_empty() || !sources.is_empty() {
+            buf.push(self.selection_groups.len() as f32);
+            for group in &self.selection_groups {
+                let id: Vec<u32> = group.element_id.chars().map(|c| c as u32).collect();
+                buf.push(id.len() as f32);
+                for cp in id {
+                    buf.push(cp as f32);
                 }
+                buf.push(group.member_ids.len() as f32);
+                for member in &group.member_ids {
+                    let codepoints: Vec<u32> = member.chars().map(|c| c as u32).collect();
+                    buf.push(codepoints.len() as f32);
+                    for cp in codepoints {
+                        buf.push(cp as f32);
+                    }
+                }
+            }
+        }
+
+        if !sources.is_empty() {
+            buf.push(sources.len() as f32);
+            for (index, mb) in sources {
+                buf.push(index as f32);
+                buf.push(mb.source_part_indices.len() as f32);
+                buf.extend(mb.source_part_indices.iter().map(|&part| part as f32));
             }
         }
 
@@ -525,7 +552,7 @@ fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::PageLayout;
+    use crate::render::{MeasureBounds, PageLayout, SelectionGroup};
 
     #[test]
     fn test_encode_decode_color() {
@@ -578,6 +605,81 @@ mod tests {
         assert_eq!(buf[3], 0.0); // num_pages
         assert_eq!(buf[4], 0.0); // num_strings
         assert_eq!(buf[5], 0.0); // num_element_bboxes
+    }
+
+    #[test]
+    fn test_optional_trailer_order_and_empty_counts() {
+        for (has_bounds, has_groups, has_sources) in [
+            (false, false, false),
+            (false, true, false),
+            (true, false, false),
+            (true, true, false),
+            (true, false, true),
+            (true, true, true),
+        ] {
+            let mut dl = DisplayList::new(100.0, 50.0);
+            let mut expected = vec![100.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+            if has_bounds {
+                let bounds = MeasureBounds {
+                    index: 0,
+                    measure_id: None,
+                    part_index: 2,
+                    source_part_indices: vec![],
+                    staff_index: 0,
+                    system_index: 0,
+                    x: 10.0,
+                    width: 200.0,
+                    y: 50.0,
+                    height: 40.0,
+                    prefix_width: 25.0,
+                    total_beats: 4.0,
+                    beat_anchors: vec![],
+                    ghost_staff: false,
+                    is_hidden: false,
+                    has_music_hidden: false,
+                    is_expansion: false,
+                };
+                dl.measure_bounds = vec![bounds.clone(), bounds];
+                if has_sources {
+                    dl.measure_bounds[1].source_part_indices = vec![2, 5, 9];
+                }
+                expected.push(2.0);
+                for _ in 0..2 {
+                    expected.extend([
+                        -1.0, 0.0, 2.0, 0.0, 0.0, 10.0, 200.0, 50.0, 40.0, 25.0, 4.0, 0.0, 0.0,
+                        0.0, 0.0, 0.0,
+                    ]);
+                }
+            } else if has_groups {
+                expected.push(0.0);
+            }
+            if has_groups {
+                dl.selection_groups = vec![
+                    SelectionGroup {
+                        element_id: "beam𝄞".into(),
+                        member_ids: vec!["a".into(), "b".into()],
+                    },
+                    SelectionGroup {
+                        element_id: "beam2".into(),
+                        member_ids: vec!["c".into()],
+                    },
+                ];
+                expected.extend([
+                    2.0, 5.0, 98.0, 101.0, 97.0, 109.0, 119070.0, 2.0, 1.0, 97.0, 1.0, 98.0, 5.0,
+                    98.0, 101.0, 97.0, 109.0, 50.0, 1.0, 1.0, 99.0,
+                ]);
+            } else if has_sources {
+                expected.push(0.0);
+            }
+            if has_sources {
+                expected.extend([1.0, 1.0, 3.0, 2.0, 5.0, 9.0]);
+            }
+            assert_eq!(
+                dl.to_binary(),
+                expected,
+                "bounds={has_bounds}, groups={has_groups}, sources={has_sources}"
+            );
+        }
     }
 
     #[test]

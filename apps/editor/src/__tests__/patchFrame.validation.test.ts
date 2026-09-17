@@ -242,6 +242,57 @@ const FIXTURES = ["multimeasure-rests"];
 
 const suite = WASM_AVAILABLE && !SKIPPED ? describe : describe.skip;
 
+describe("patch-frame selection groups", () => {
+  const emptyDisplayList = (): DisplayList => ({ commands: [], width: 100, height: 100 });
+  const segmentWithGroups = (memberIds: string[], extraGroup = false): DisplayList => ({
+    commands: [],
+    width: 100,
+    height: 100,
+    selectionGroups: [
+      { elementId: "p0/m0/beam0", memberIds },
+      ...(extraGroup ? [{ elementId: "p0/m0/beam1", memberIds: ["p0/m0/s0/e2"] }] : []),
+    ],
+  });
+  const patchFrame = (
+    placement: { kind: "fresh"; segment: DisplayList } | { kind: "reuse"; prevIndex: number; dx: number; dy: number },
+  ) =>
+    ({
+      kind: "patch",
+      patch: {
+        width: 100,
+        height: 100,
+        galleyOffsetY: 0,
+        pages: [],
+        prefix: emptyDisplayList(),
+        overlay: emptyDisplayList(),
+        placements: [placement],
+      },
+    }) as const;
+
+  it("preserves and refreshes selection groups through retained reconstruction", () => {
+    const reconstructor = new PatchReconstructor();
+
+    let actual = reconstructor.apply(
+      patchFrame({ kind: "fresh", segment: segmentWithGroups(["p0/m0/s0/e0", "p0/m0/s0/e1"]) }),
+    );
+    expect(actual.selectionGroups).toEqual([{ elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/e0", "p0/m0/s0/e1"] }]);
+
+    actual = reconstructor.apply(patchFrame({ kind: "reuse", prevIndex: 0, dx: 0, dy: 0 }));
+    expect(actual.selectionGroups).toEqual([{ elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/e0", "p0/m0/s0/e1"] }]);
+
+    actual = reconstructor.apply(
+      patchFrame({ kind: "fresh", segment: segmentWithGroups(["p0/m0/s0/e0", "p0/m0/s0/e3"]) }),
+    );
+    expect(actual.selectionGroups).toEqual([{ elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/e0", "p0/m0/s0/e3"] }]);
+
+    actual = reconstructor.apply(patchFrame({ kind: "fresh", segment: segmentWithGroups(["p0/m0/s0/e0"], true) }));
+    expect(actual.selectionGroups).toEqual([
+      { elementId: "p0/m0/beam0", memberIds: ["p0/m0/s0/e0"] },
+      { elementId: "p0/m0/beam1", memberIds: ["p0/m0/s0/e2"] },
+    ]);
+  });
+});
+
 // Counts Reuse placements reconstructed across the whole suite, so we can prove
 // the JS reuse+translate path was genuinely exercised (not just all-Fresh).
 let totalReuseSeen = 0;

@@ -129,7 +129,8 @@ export function planCondensedSelectionWriteback(
   selectedScoreIndex: number,
 ): CondensedSelectionWritebackPlan {
   const forceDirect =
-    (selection.kind === "single" || selection.kind === "range") && selection.measureAnchor?.isExpansion === true;
+    (selection.kind === "single" || selection.kind === "range" || selection.kind === "multi") &&
+    selection.measureAnchor?.isExpansion === true;
   const visualNotes = resolveSelectionNotes(selection, score).flatMap((target) =>
     target.notes === "all" ? [target.loc] : target.notes.map((noteIndex) => ({ ...target.loc, noteIndex })),
   );
@@ -227,6 +228,26 @@ function eventElementId(score: Score, location: EventLocation): string | undefin
   if (event?.type !== "event") return undefined;
   const suffix = event.id ?? `e${location.eventIndex}`;
   return `p${location.partIndex}/m${location.measureIndex}/s${location.sequenceIndex}/${suffix}`;
+}
+
+/** Expand visual event IDs to every canonical source event represented by the active condensed staff. */
+export function expandCondensedEventElementIds(
+  score: Score,
+  elementIds: readonly string[],
+  selectedScoreIndex: number,
+): string[] {
+  if (elementIds.length === 0) return [];
+  const selection: SelectionState =
+    elementIds.length === 1
+      ? { kind: "single", elementId: elementIds[0]!, elementType: "event" }
+      : { kind: "multi", elementIds };
+  return [
+    ...new Set(
+      planCondensedSelectionWriteback(score, selection, selectedScoreIndex)
+        .sourceEvents.map((location) => eventElementId(score, location))
+        .filter((id): id is string => id !== undefined),
+    ),
+  ];
 }
 
 /**
