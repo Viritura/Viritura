@@ -67,9 +67,8 @@ pub(super) fn warm_up_editor(
     let our_pid = unsafe { GetCurrentProcessId() };
     let mut cursor = ptr::null_mut();
     loop {
-        let candidate = unsafe {
-            FindWindowExW(ptr::null_mut(), cursor, class_name.as_ptr(), title.as_ptr())
-        };
+        let candidate =
+            unsafe { FindWindowExW(ptr::null_mut(), cursor, class_name.as_ptr(), title.as_ptr()) };
         if candidate.is_null() {
             eprintln!("[reverb] warm-up: editor window not found; pumping without hiding");
             break;

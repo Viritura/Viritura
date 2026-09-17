@@ -61,7 +61,9 @@ pub(super) struct EffectSpec {
 /// the single shared reverb used to do inline; it is now shared by every plugin
 /// in every chain. See the extended rationale in [`super::engine`]'s history.
 pub(super) fn configure_effect(host: &mut Vst3Host, spec: &EffectSpec) -> Result<Plugin, String> {
-    let mut plugin = host.load_plugin(&spec.path).map_err(|error| error.to_string())?;
+    let mut plugin = host
+        .load_plugin(&spec.path)
+        .map_err(|error| error.to_string())?;
     plugin
         .reconfigure(SAMPLE_RATE, BLOCK_SIZE)
         .map_err(|error| error.to_string())?;
@@ -101,7 +103,11 @@ pub(super) fn configure_effect(host: &mut Vst3Host, spec: &EffectSpec) -> Result
         info.audio_inputs,
         info.audio_outputs,
         plugin.latency_samples(),
-        if spec.state.is_some() { "applied" } else { "default" },
+        if spec.state.is_some() {
+            "applied"
+        } else {
+            "default"
+        },
     );
     // Trigger any editor-gated content load before the effect goes live (see
     // reverb_warmup). Harmless no-op for effects that don't need it.

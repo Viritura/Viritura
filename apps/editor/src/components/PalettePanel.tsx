@@ -30,7 +30,7 @@ import {
   type EventLocation,
 } from "../score/ElementPath";
 import { resolveCapabilityTargets, selectionSupports, EVENT_ACTION } from "../store/selectionCapabilities";
-import { groupEventsByVoice, resolveSelectionAnchor, resolveSelectionScope } from "../store/selectionUtils";
+import { groupEventsByVoice } from "../store/selectionUtils";
 import {
   resolveCondensedEventTargets,
   resolveCondensedFullMeasureRestTargets,
