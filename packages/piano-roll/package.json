@@ -12,10 +12,10 @@
   "dependencies": {
     "@viritura/core": "workspace:*",
     "@viritura/midi": "workspace:*",
-    "react": "^19.2.8"
+    "react": "^19.3.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
+    "@types/react": "^19.3.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   }
