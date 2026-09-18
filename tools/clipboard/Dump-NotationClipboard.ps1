@@ -24,36 +24,138 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function ConvertTo-NotationBytes {
-    param([Parameter(Mandatory = $true)][object]$Payload)
-
-    $maximumBytes = 8 * 1024 * 1024
-    if ($Payload -is [System.IO.MemoryStream]) {
-        if ($Payload.Length -gt $maximumBytes) {
-            throw 'Clipboard payload exceeds the 8 MiB limit.'
-        }
-        return ,$Payload.ToArray()
-    }
-    if ($Payload -is [byte[]]) {
-        if ($Payload.Length -gt $maximumBytes) {
-            throw 'Clipboard payload exceeds the 8 MiB limit.'
-        }
-        return ,$Payload
-    }
-    if ($Payload -is [string]) {
-        $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
-        if ($utf8.GetByteCount($Payload) -gt $maximumBytes) {
-            throw 'Clipboard payload exceeds the 8 MiB limit.'
-        }
-        return ,$utf8.GetBytes($Payload)
-    }
-    throw "Unsupported clipboard payload type: $($Payload.GetType().FullName)"
-}
-
 if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
     throw 'Run with powershell.exe -NoProfile -STA -File <script-path>.'
 }
-Add-Type -AssemblyName System.Windows.Forms
+
+if (-not ('Viritura.NotationClipboardCapture' -as [type])) {
+    # Read native storage only: managed clipboard APIs may deserialize untrusted objects.
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace Viritura {
+    public sealed class NotationClipboardCapture {
+        public readonly string[] Formats;
+        public readonly Dictionary<string, byte[]> Payloads;
+        private static readonly string[] AllowedFormats = {
+            "application/musescore/stafflist",
+            "application/musescore/symbol",
+            "application/musescore/symbollist"
+        };
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool OpenClipboard(IntPtr owner);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool CloseClipboard();
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint EnumClipboardFormats(uint format);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+        private static extern int GetClipboardFormatNameW(uint format, StringBuilder name, int capacity);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+        private static extern uint RegisterClipboardFormatW(string name);
+        [DllImport("user32.dll")]
+        private static extern bool IsClipboardFormatAvailable(uint format);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr GetClipboardData(uint format);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern UIntPtr GlobalSize(IntPtr handle);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GlobalLock(IntPtr handle);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GlobalUnlock(IntPtr handle);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern void SetLastError(uint error);
+
+        private NotationClipboardCapture(string[] formats, Dictionary<string, byte[]> payloads) {
+            Formats = formats;
+            Payloads = payloads;
+        }
+
+        private static string FormatName(uint format) {
+            if (format >= 0xC000) {
+                var name = new StringBuilder(256);
+                if (GetClipboardFormatNameW(format, name, name.Capacity) == 0)
+                    throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot read clipboard format name.");
+                return name.ToString();
+            }
+            switch (format) {
+                case 1: return "Text";
+                case 2: return "Bitmap";
+                case 3: return "MetaFilePict";
+                case 7: return "OEMText";
+                case 8: return "DeviceIndependentBitmap";
+                case 13: return "UnicodeText";
+                case 14: return "EnhancedMetafile";
+                case 15: return "FileDrop";
+                case 16: return "Locale";
+                default: return "CF_" + format;
+            }
+        }
+
+        private static byte[] ReadBlock(IntPtr handle) {
+            ulong length = GlobalSize(handle).ToUInt64();
+            if (length == 0)
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Clipboard payload is empty or unreadable.");
+            if (length > 8UL * 1024 * 1024)
+                throw new InvalidOperationException("Clipboard payload exceeds the 8 MiB limit.");
+            var bytes = new byte[checked((int)length)];
+            IntPtr pointer = GlobalLock(handle);
+            if (pointer == IntPtr.Zero)
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot lock clipboard payload.");
+            try {
+                Marshal.Copy(pointer, bytes, 0, bytes.Length);
+                return bytes;
+            } finally {
+                // The clipboard owns this handle: unlock it, but never free it.
+                GlobalUnlock(handle);
+            }
+        }
+
+        public static NotationClipboardCapture Capture() {
+            if (!OpenClipboard(IntPtr.Zero))
+                throw new Win32Exception(Marshal.GetLastWin32Error(),
+                    "Cannot open clipboard; it may be locked by another application. Try again later.");
+            try {
+                var formats = new List<string>();
+                uint format = 0;
+                while (true) {
+                    SetLastError(0);
+                    format = EnumClipboardFormats(format);
+                    if (format == 0) {
+                        int error = Marshal.GetLastWin32Error();
+                        if (error != 0)
+                            throw new Win32Exception(error, "Cannot enumerate clipboard formats.");
+                        break;
+                    }
+                    if (formats.Count >= 4096)
+                        throw new InvalidOperationException("Clipboard exceeds the 4096 format limit.");
+                    formats.Add(FormatName(format));
+                }
+                var payloads = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                foreach (string name in AllowedFormats) {
+                    uint id = RegisterClipboardFormatW(name);
+                    if (id == 0)
+                        throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot identify notation format.");
+                    if (!IsClipboardFormatAvailable(id)) continue;
+                    IntPtr handle = GetClipboardData(id);
+                    if (handle == IntPtr.Zero)
+                        throw new Win32Exception(Marshal.GetLastWin32Error(),
+                            "Clipboard advertised '" + name + "' but returned no data. Copy again and rerun.");
+                    payloads.Add(name, ReadBlock(handle));
+                }
+                return new NotationClipboardCapture(formats.ToArray(), payloads);
+            } finally {
+                CloseClipboard();
+            }
+        }
+    }
+}
+'@
+}
 
 if (-not $NoPrompt) {
     if (-not $PSBoundParameters.ContainsKey('Tags')) {
@@ -66,12 +168,8 @@ if (-not $NoPrompt) {
     [void](Read-Host 'Return here and press Enter to capture it (do not copy anything else)')
 }
 
-$clipboard = [System.Windows.Forms.Clipboard]::GetDataObject()
-if ($null -eq $clipboard) {
-    throw 'Clipboard is empty. Copy a passage in MuseScore and run again.'
-}
-
-$formats = @($clipboard.GetFormats($false))
+$clipboard = [Viritura.NotationClipboardCapture]::Capture()
+$formats = @($clipboard.Formats)
 $capturedAt = [DateTimeOffset]::Now
 $captureTags = @($Tags.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
 $notationFormats = @(
@@ -98,12 +196,8 @@ $metadataPath = Join-Path $captureDirectory 'capture.json'
 [System.IO.File]::WriteAllText($metadataPath, ($metadata | ConvertTo-Json -Depth 5), $utf8)
 
 foreach ($format in $notationFormats) {
-    if ($formats -cnotcontains $format) { continue }
-    $payload = $clipboard.GetData($format, $false)
-    if ($null -eq $payload) {
-        throw "Clipboard advertised '$format' but returned no data. Copy again and rerun."
-    }
-    $bytes = ConvertTo-NotationBytes -Payload $payload
+    if (-not $clipboard.Payloads.ContainsKey($format)) { continue }
+    $bytes = $clipboard.Payloads[$format]
     $name = $format.Substring($format.LastIndexOf('/') + 1)
     $binaryPath = Join-Path $captureDirectory "$name.bin"
     [System.IO.File]::WriteAllBytes($binaryPath, $bytes)
