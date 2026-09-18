@@ -1,11 +1,13 @@
-import type { GlobalLyrics, MeasureRepeat, SequenceContent } from "@viritura/core";
+import type { ChordSymbol, GlobalLyrics, MeasureRepeat, SequenceContent } from "@viritura/core";
 import type { TimeSignature, KeySignature, Clef, Transposition, DynamicGroup } from "@viritura/core";
 
 /** Internal marker to identify Viritura clipboard data in plain text */
 export const VIRITURA_FRAGMENT_TYPE = "viritura/fragment" as const;
 
 /** Current fragment format version */
-export const FRAGMENT_VERSION = 4;
+export const FRAGMENT_VERSION = 5;
+
+type WholeNoteFraction = [number, number];
 
 /**
  * A measure-level decoration captured at copy time. `measureOffset` is the
@@ -14,10 +16,27 @@ export const FRAGMENT_VERSION = 4;
 export interface CapturedDynamic {
   /** Relative source part for structural multi-part clipboard fragments. */
   partOffset?: number;
+  /** Physical staff relative to the selection anchor, independent of source part layout. */
+  staffOffset?: number;
   measureOffset: number;
   /** End-measure offset for a gradual group, relative to the selection start. */
   endMeasureOffset?: number;
   dynamic: DynamicGroup;
+  /** Absolute delay from the fragment start, used when source measure boundaries are unavailable. */
+  offset?: WholeNoteFraction;
+  /** Gradual-dynamic endpoint on the same timeline as offset. */
+  endOffset?: WholeNoteFraction;
+}
+
+export interface CapturedChordSymbol {
+  /** Relative destination part for native Viritura fragments. */
+  partOffset?: number;
+  /** Physical staff relative to the selection anchor, independent of source part layout. */
+  staffOffset?: number;
+  measureOffset: number;
+  chordSymbol: ChordSymbol;
+  /** Absolute delay from the fragment start, used for MuseScore StaffList annotations. */
+  offset?: WholeNoteFraction;
 }
 
 export interface CapturedMeasureRepeat {
@@ -34,6 +53,12 @@ export interface ClipboardTrack {
   partOffset: number;
   /** Voice/sequence index within the part */
   voiceIndex: number;
+  /** Relative physical staff, independent of Viritura's part/sequence layout. */
+  staffOffset?: number;
+  /** Original one-based staff within the source part; never a destination staff. */
+  sourceStaff?: number;
+  /** Delay before this voice begins; unlike a rest, destination content before it is retained. */
+  leadIn?: WholeNoteFraction;
   /** The copied events for this track */
   content: SequenceContent[];
   /**
@@ -64,6 +89,7 @@ export interface ClipboardTrack {
  * Version 2 adds multi-track support for cross-staff copy/paste.
  * Version 3 adds structural measure repeats and part-relative dynamics.
  * Version 4 adds metadata for lyric lines referenced by copied events.
+ * Version 5 adds chord symbols and physical-staff/voice timing metadata.
  * Version 1 fragments (flat `content` array) are still supported on read.
  */
 export interface ClipboardFragment {
@@ -94,6 +120,8 @@ export interface ClipboardFragment {
    * inside the captured beat range. See `CapturedDynamic`.
    */
   dynamics?: CapturedDynamic[];
+  /** Harmony annotations captured relative to the fragment start. */
+  chordSymbols?: CapturedChordSymbol[];
   /** Measure-repeat structures captured relative to the fragment's first part and measure. */
   measureRepeats?: CapturedMeasureRepeat[];
   /** Multi-track content for cross-staff copy/paste (v2+). If present, takes precedence over `content`. */

@@ -1,6 +1,13 @@
-import type { Score, SequenceContent } from "@viritura/core";
-import { resolveEventLocation, eventId as buildEventId, eventSuffix as buildEventSuffix } from "../score/ElementPath";
-import type { SelectionState } from "../store/selectionStore";
+import { measureBeats, walkSequenceEvents, type Score, type SequenceContent } from "@viritura/core";
+import {
+  resolveEventLocation,
+  eventId as buildEventId,
+  eventSuffix as buildEventSuffix,
+  graceId,
+} from "../score/ElementPath";
+import type { SelectionRhythmicRange, SelectionState, SelectionTrackRhythmicRange } from "../store/selectionStore";
+import { parseElementType } from "../score/elementTypes";
+import { voiceIndexWithinStaff } from "./clipboardTrackMapping";
 import type { CursorPosition } from "../store/noteInputStore";
 import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
@@ -33,65 +40,246 @@ function eventIndexAtBeat(content: readonly SequenceContent[], targetBeat: numbe
   return content.length;
 }
 
-/**
- * Scan the target sequence for the IDs that paste content brought in, so the
- * caller can re-select the just-pasted region.
- */
+interface PlacedSelectionEvent {
+  elementId: string;
+  partIndex: number;
+  measureIndex: number;
+  sequenceIndex: number;
+  staff: number;
+  beat: number;
+  beats: number;
+  inContainer?: boolean;
+}
+
+function placedRangeCorners(matches: PlacedSelectionEvent[]): { start: string; end: string } | null {
+  const first = matches[0];
+  const last = matches.at(-1);
+  if (!first || !last) return null;
+  const simultaneous = (a: PlacedSelectionEvent, b: PlacedSelectionEvent) =>
+    a.measureIndex === b.measureIndex && Math.abs(a.beat - b.beat) < 1e-9;
+  const firstOnsets = matches.filter((event) => simultaneous(event, first));
+  const lastOnsets = matches.filter((event) => simultaneous(event, last));
+  const breadth = (a: PlacedSelectionEvent, b: PlacedSelectionEvent) => [
+    Math.abs(a.partIndex - b.partIndex),
+    Number(a.sequenceIndex !== b.sequenceIndex),
+    Math.abs(a.staff - b.staff),
+  ];
+  let start = first;
+  let end = last;
+  // Long notes have fewer onsets. Use opposite physical corners at the temporal
+  // boundaries so a sustained lower voice is not excluded by two upper endpoints.
+  for (const a of [firstOnsets[0]!, firstOnsets.at(-1)!]) {
+    for (const b of [lastOnsets[0]!, lastOnsets.at(-1)!]) {
+      const current = breadth(start, end);
+      const candidate = breadth(a, b);
+      const difference = candidate.map((value, index) => value - current[index]!).find((value) => value !== 0);
+      if (difference !== undefined && difference > 0) {
+        start = a;
+        end = b;
+      }
+    }
+  }
+  return { start: start.elementId, end: end.elementId };
+}
+
+function collectPlacedGraceEvents(
+  content: SequenceContent[],
+  index: number,
+  ids: ReadonlySet<string>,
+  location: Omit<PlacedSelectionEvent, "elementId" | "beats">,
+  matches: PlacedSelectionEvent[],
+): void {
+  const grace = content[index];
+  const parentIndex = index === content.length - 1 ? index - 1 : index + 1;
+  const parent = content[parentIndex];
+  if (grace?.type !== "grace" || parent?.type !== "event") return;
+  const parentSuffix = buildEventSuffix(parent.id, parentIndex, location.measureIndex, location.sequenceIndex);
+  for (const [graceIndex, event] of grace.content.entries()) {
+    if (!event.id || !ids.has(event.id)) continue;
+    matches.push({
+      ...location,
+      beats: 0,
+      inContainer: true,
+      elementId: graceId(
+        location.partIndex,
+        location.measureIndex,
+        location.sequenceIndex,
+        parentSuffix,
+        buildEventSuffix(event.id, graceIndex),
+      ),
+    });
+  }
+}
+
+function collectPlacedSelectionEvents(
+  content: SequenceContent[],
+  ids: ReadonlySet<string>,
+  location: Omit<PlacedSelectionEvent, "elementId" | "beat" | "beats">,
+  matches: PlacedSelectionEvent[],
+  startBeat = 0,
+  scale = 1,
+): void {
+  let beat = startBeat;
+  for (const [index, item] of content.entries()) {
+    const beats = sequenceContentBeats(item);
+    if (item.type === "event" && item.id && ids.has(item.id)) {
+      const suffix = buildEventSuffix(item.id, index, location.measureIndex, location.sequenceIndex);
+      matches.push({
+        ...location,
+        beat,
+        beats: beats * scale,
+        elementId: buildEventId(location.partIndex, location.measureIndex, location.sequenceIndex, suffix),
+      });
+    } else if (item.type === "tuplet" || item.type === "tremolo") {
+      const innerBeats = item.content.reduce((sum, child) => sum + sequenceContentBeats(child), 0);
+      collectPlacedSelectionEvents(
+        item.content,
+        ids,
+        { ...location, inContainer: true },
+        matches,
+        beat,
+        innerBeats > 0 ? (scale * beats) / innerBeats : scale,
+      );
+    } else if (item.type === "grace") {
+      collectPlacedGraceEvents(content, index, ids, { ...location, beat }, matches);
+    }
+    beat += beats * scale;
+  }
+}
+
+/** Find actual placed event IDs across all destination staves, preserving container structure. */
 export function findPastedSelection(
   newScore: Score,
   pasteContent: SequenceContent[],
-  partIndex: number,
+  _partIndex: number,
   measureIndex: number,
-  sequenceIndex: number,
+  _sequenceIndex: number,
 ): { start: string; end: string } | null {
-  const ids = new Set<string>();
-  for (const ev of pasteContent) {
-    const id = (ev as { id?: string }).id;
-    if (id) ids.add(id);
-    if (ev.type === "tuplet" && ev.content) {
-      for (const inner of ev.content) {
-        const iid = (inner as { id?: string }).id;
-        if (iid) ids.add(iid);
-      }
-    }
+  return findPlacedSelection(newScore, pasteContent, measureIndex).range;
+}
+
+function normalizePlacedStart(score: Score, start: SelectionRhythmicRange["start"]): SelectionRhythmicRange["start"] {
+  let time = { count: 4, unit: 4 };
+  for (let m = 0; m < score.global.measures.length; m++) {
+    time = score.global.measures[m]?.time ?? time;
+    if (m !== start.measureIndex) continue;
+    const capacity = measureBeats(time);
+    if (capacity <= 0 || start.beat < capacity - 1e-9) break;
+    start = { measureIndex: m + 1, beat: Math.max(0, start.beat - capacity) };
   }
-  if (ids.size === 0) return null;
+  return start;
+}
 
-  const part = newScore.parts[partIndex];
-  if (!part) return null;
+function placedSelectionState(matches: PlacedSelectionEvent[], rhythmicRange: SelectionRhythmicRange): SelectionState {
+  const first = matches[0]!;
+  const { start, end } = rhythmicRange;
+  const onlyEvent =
+    matches.length === 1 &&
+    !first.inContainer &&
+    rhythmicRange.tracks?.length === 1 &&
+    start.measureIndex === first.measureIndex &&
+    Math.abs(start.beat - first.beat) < 1e-9 &&
+    end.measureIndex === first.measureIndex &&
+    Math.abs(end.beat - first.beat - first.beats) < 1e-9;
+  return onlyEvent
+    ? { kind: "single", elementId: first.elementId, elementType: parseElementType(first.elementId) }
+    : { kind: "multi", elementIds: matches.map((event) => event.elementId), rhythmicRange };
+}
 
-  let firstId: string | null = null;
-  let lastId: string | null = null;
-  for (let m = measureIndex; m < part.measures.length; m++) {
-    const seq = part.measures[m]?.sequences[sequenceIndex];
-    if (!seq) continue;
-    for (let i = 0; i < seq.content.length; i++) {
-      const item = seq.content[i]!;
-      const checkEvent = (ev: { id?: string }, idx: number): string | null => {
-        if (!ev.id || !ids.has(ev.id)) return null;
-        const suf = buildEventSuffix(ev.id, idx, m, sequenceIndex);
-        return buildEventId(partIndex, m, sequenceIndex, suf);
-      };
-      if (item.type === "tuplet" && item.content) {
-        for (let j = 0; j < item.content.length; j++) {
-          const eid = checkEvent(item.content[j] as { id?: string }, j);
-          if (eid) {
-            if (!firstId) firstId = eid;
-            lastId = eid;
+function before(a: SelectionRhythmicRange["start"], b: SelectionRhythmicRange["start"]): boolean {
+  return a.measureIndex < b.measureIndex || (a.measureIndex === b.measureIndex && a.beat < b.beat - 1e-9);
+}
+
+function placedTrackRanges(
+  score: Score,
+  placed: Set<SequenceContent>,
+  startMeasure: number,
+): SelectionTrackRhythmicRange[] {
+  const tracks = new Map<string, SelectionTrackRhythmicRange>();
+  for (const [partIndex, part] of score.parts.entries()) {
+    for (let measureIndex = startMeasure; measureIndex < part.measures.length; measureIndex++) {
+      for (const [sequenceIndex, sequence] of part.measures[measureIndex]!.sequences.entries()) {
+        const staff = sequence.staff ?? 1;
+        const voice = voiceIndexWithinStaff(score, partIndex, measureIndex, sequenceIndex);
+        const key = `${partIndex}/${staff}/${voice}`;
+        let beat = 0;
+        for (const item of sequence.content) {
+          const beats = sequenceContentBeats(item);
+          if (placed.has(item)) {
+            tracks.set(key, {
+              partIndex,
+              staff,
+              voice,
+              start: tracks.get(key)?.start ?? { measureIndex, beat },
+              end: { measureIndex, beat: beat + beats },
+            });
           }
-        }
-      } else {
-        const eid = checkEvent(item as { id?: string }, i);
-        if (eid) {
-          if (!firstId) firstId = eid;
-          lastId = eid;
+          beat += beats;
         }
       }
     }
   }
+  return [...tracks.values()];
+}
 
-  if (!firstId || !lastId) return null;
-  return { start: firstId, end: lastId };
+/**
+ * IDs describe the complete placement; the rhythmic range also retains spaces
+ * that have no selectable IDs. Two onset corners cannot describe interior voices.
+ */
+export function findPlacedSelection(
+  newScore: Score,
+  pasteContent: SequenceContent[],
+  measureIndex: number,
+  startBeat?: number,
+): { range: { start: string; end: string } | null; selection: SelectionState | null } {
+  const ids = new Set<string>();
+  for (const { event } of walkSequenceEvents(pasteContent)) {
+    if (event.id) ids.add(event.id);
+  }
+  if (ids.size === 0) return { range: null, selection: null };
+
+  const matches: PlacedSelectionEvent[] = [];
+  const tracks = placedTrackRanges(newScore, new Set(pasteContent), measureIndex);
+  let start: SelectionRhythmicRange["start"] | undefined =
+    startBeat === undefined ? undefined : { measureIndex, beat: startBeat };
+  let end: SelectionRhythmicRange["end"] | undefined;
+  for (const track of tracks) {
+    if (!start || before(track.start, start)) start = track.start;
+    if (!end || before(end, track.end)) end = track.end;
+  }
+  for (const [partIndex, part] of newScore.parts.entries()) {
+    for (let m = measureIndex; m < part.measures.length; m++) {
+      for (const [sequenceIndex, sequence] of part.measures[m]!.sequences.entries()) {
+        collectPlacedSelectionEvents(
+          sequence.content,
+          ids,
+          { partIndex, measureIndex: m, sequenceIndex, staff: sequence.staff ?? 1 },
+          matches,
+        );
+      }
+    }
+  }
+
+  matches.sort((a, b) => {
+    const beatOrder = Math.abs(a.beat - b.beat) > 1e-9 ? a.beat - b.beat : 0;
+    return (
+      a.measureIndex - b.measureIndex ||
+      beatOrder ||
+      a.partIndex - b.partIndex ||
+      a.staff - b.staff ||
+      a.sequenceIndex - b.sequenceIndex
+    );
+  });
+  const range = placedRangeCorners(matches);
+  if (!range) return { range, selection: null };
+  const first = matches[0]!;
+  start ??= { measureIndex: first.measureIndex, beat: first.beat };
+  for (const match of matches) {
+    const itemEnd = { measureIndex: match.measureIndex, beat: match.beat + match.beats };
+    if (!end || before(end, itemEnd)) end = itemEnd;
+  }
+  const selection = placedSelectionState(matches, { start: normalizePlacedStart(newScore, start), end: end!, tracks });
+  return { range, selection };
 }
 
 /**
@@ -175,8 +363,8 @@ function resolvePasteAnchor(
 
 /**
  * Apply a paste at the anchor derived from the current selection. Returns the
- * new score and the elementId range covering the pasted content (for
- * re-selection), or null if the selection can't anchor a paste.
+ * new score and complete placed selection (with a legacy range), or null if
+ * the selection can't anchor a paste.
  */
 export function computePasteResult(
   score: Score,
@@ -186,10 +374,12 @@ export function computePasteResult(
 ): {
   newScore: Score;
   range: { start: string; end: string } | null;
+  selection: SelectionState | null;
   cursorAfterPaste?: CursorPosition;
 } | null {
   const anchor = resolvePasteAnchor(score, selection, cursor);
   if (!anchor) return null;
+  const placedContent: SequenceContent[] = [];
   const newScore = applyPaste(
     score,
     paste,
@@ -197,15 +387,14 @@ export function computePasteResult(
     anchor.measureIndex,
     anchor.sequenceIndex,
     anchor.eventIndex,
+    placedContent,
   );
-  const range = findPastedSelection(
-    newScore,
-    paste.content,
-    anchor.partIndex,
-    anchor.measureIndex,
-    anchor.sequenceIndex,
-  );
+  const startBeat =
+    score.parts[anchor.partIndex]?.measures[anchor.measureIndex]?.sequences[anchor.sequenceIndex]?.content
+      .slice(0, anchor.eventIndex)
+      .reduce((sum, item) => sum + sequenceContentBeats(item), 0) ?? 0;
+  const placed = findPlacedSelection(newScore, placedContent, anchor.measureIndex, startBeat);
   const pastedBeats = paste.content.reduce((beats, item) => beats + sequenceContentBeats(item), 0);
   const cursorAfterPaste = cursor && pastedBeats > 0 ? advanceCursor(newScore, cursor, pastedBeats) : undefined;
-  return { newScore, range, cursorAfterPaste };
+  return { newScore, ...placed, cursorAfterPaste };
 }

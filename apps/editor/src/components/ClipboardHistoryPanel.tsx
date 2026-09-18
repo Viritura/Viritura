@@ -12,6 +12,10 @@ import { UndoHistorySection } from "./UndoHistorySection";
 import { useHistoryStore } from "../store/historyStore";
 import { Check } from "lucide-react";
 import styles from "./ClipboardHistoryPanel.module.css";
+import { writeNotationClipboard } from "../clipboard/notationClipboard";
+import { MUSESCORE_STAFF_LIST_MIME, writeMuseScoreStaffList } from "../clipboard/museScore";
+import type { ClipboardSelection } from "../commands/clipboardCommands";
+import { toast } from "sonner";
 
 /**
  * Combined "Clips" panel:
@@ -93,12 +97,37 @@ function ClipboardHistoryItem({ entry }: ClipboardHistoryItemProps) {
       entry.fragment.timeSignature,
       entry.fragment.keySignature,
       entry.fragment.tracks,
+      entry.fragment.clef,
+      entry.fragment.transposition,
+      entry.fragment.dynamics,
+      entry.fragment.measureRepeats,
+      entry.fragment.lyrics,
+      entry.fragment.chordSymbols,
     );
     try {
-      await navigator.clipboard.writeText(json);
+      const selection: ClipboardSelection = {
+        events: entry.fragment.content,
+        timeSignature: entry.fragment.timeSignature,
+        keySignature: entry.fragment.keySignature,
+        tracks: entry.fragment.tracks,
+        dynamics: entry.fragment.dynamics,
+        chordSymbols: entry.fragment.chordSymbols,
+        measureRepeats: entry.fragment.measureRepeats,
+        lyrics: entry.fragment.lyrics,
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+      };
+      const museScore = writeMuseScoreStaffList(selection);
+      if (museScore.warning) toast.warning(museScore.warning);
+      await writeNotationClipboard({
+        text: json,
+        museScore: museScore.xml ? { mime: MUSESCORE_STAFF_LIST_MIME, xml: museScore.xml } : null,
+      });
       setCopied(true);
     } catch {
-      // Clipboard write may fail (insecure context, permissions). Silent for now.
+      toast.error("Could not restore this clipboard entry.");
     }
   }, [entry.fragment]);
 

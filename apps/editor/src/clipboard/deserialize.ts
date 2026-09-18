@@ -1,5 +1,10 @@
-import { generateId, type SequenceContent, type NoteEvent } from "@viritura/core";
-import { VIRITURA_FRAGMENT_TYPE, FRAGMENT_VERSION, type ClipboardFragment } from "./ClipboardFragment";
+import { generateId, walkSequenceEvents, type SequenceContent, type NoteEvent } from "@viritura/core";
+import {
+  VIRITURA_FRAGMENT_TYPE,
+  FRAGMENT_VERSION,
+  type ClipboardFragment,
+  type ClipboardTrack,
+} from "./ClipboardFragment";
 
 /**
  * Attempt to deserialize a clipboard text string into a ClipboardFragment.
@@ -102,8 +107,7 @@ function isSequenceContent(value: unknown): boolean {
     return Array.isArray(obj["content"]);
   }
   if (type === "space") {
-    // Visual space — must have a duration
-    return isDuration(obj["duration"]);
+    return isSpaceDuration(obj["duration"]);
   }
   return false;
 }
@@ -112,6 +116,17 @@ function isDuration(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   return typeof obj["base"] === "string";
+}
+
+function isSpaceDuration(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    Number.isInteger(value[0]) &&
+    value[0] >= 0 &&
+    Number.isInteger(value[1]) &&
+    value[1] > 0
+  );
 }
 
 /**
@@ -124,56 +139,68 @@ function isDuration(value: unknown): boolean {
  * duplicate IDs in the score.
  */
 export function assignFreshIds(content: SequenceContent[]): SequenceContent[] {
-  // First pass: clone the whole tree and assign new IDs to every NoteEvent,
-  // collecting old→new mappings for slur/tie remapping in pass 2.
+  const clone = structuredClone(content);
+  freshenEvents([...walkSequenceEvents(clone)].map(({ event }) => event));
+  return clone;
+}
+
+/**
+ * Freshen the authoritative tracks together so internal connectors can cross
+ * tracks. The returned content aliases the fresh primary track, not a second
+ * independently freshened copy. Without tracks, preserve the flat API behavior.
+ */
+export function assignFreshTrackIds(
+  content: SequenceContent[],
+  tracks?: ClipboardTrack[],
+): { content: SequenceContent[]; tracks?: ClipboardTrack[] } {
+  if (!tracks?.length) {
+    return { content: assignFreshIds(content), ...(tracks ? { tracks: [] } : {}) };
+  }
+
+  const primaryIndex = findPrimaryTrackIndex(content, tracks);
+  const clones = structuredClone(tracks);
+  freshenEvents(clones.flatMap((track) => [...walkSequenceEvents(track.content)].map(({ event }) => event)));
+  return { content: clones[primaryIndex]!.content, tracks: clones };
+}
+
+function findPrimaryTrackIndex(content: SequenceContent[], tracks: ClipboardTrack[]): number {
+  const referenceIndex = tracks.findIndex((track) => track.content === content);
+  if (referenceIndex >= 0) return referenceIndex;
+
+  // Serialization clones primary content separately. Legacy measure selections
+  // can also aggregate several tracks; their first identifiable event anchors
+  // the primary rather than the track's position in the array.
+  const trackEventIds = tracks.map(
+    (track) => new Set([...walkSequenceEvents(track.content)].map(({ event }) => event.id).filter(Boolean)),
+  );
+  for (const { event } of walkSequenceEvents(content)) {
+    if (!event.id) continue;
+    const eventIndex = trackEventIds.findIndex((ids) => ids.has(event.id));
+    if (eventIndex >= 0) return eventIndex;
+  }
+
+  const serializedContent = JSON.stringify(content);
+  const contentIndex = tracks.findIndex((track) => JSON.stringify(track.content) === serializedContent);
+  // Tracks take precedence when old payloads have no matching primary content.
+  return contentIndex >= 0 ? contentIndex : 0;
+}
+
+function freshenEvents(events: NoteEvent[]): void {
+  // Assign every ID before remapping any connector, including forward references.
   const eventIdMap = new Map<string, string>();
   const noteIdMap = new Map<string, string>();
 
-  /** Mutates a cloned NoteEvent in place: assigns new id and note ids. */
-  function freshenEvent(ev: NoteEvent): void {
+  for (const ev of events) {
     const newEventId = generateId();
     if (ev.id) eventIdMap.set(ev.id, newEventId);
     ev.id = newEventId;
-    if (ev.notes) {
-      for (const note of ev.notes) {
-        const newNoteId = generateId();
-        if (note.id) noteIdMap.set(note.id, newNoteId);
-        note.id = newNoteId;
-      }
+    for (const note of [...(ev.notes ?? []), ...(ev.kitNotes ?? [])]) {
+      const newNoteId = generateId();
+      if (note.id) noteIdMap.set(note.id, newNoteId);
+      note.id = newNoteId;
     }
   }
 
-  /** Recursively walk any SequenceContent and freshen all NoteEvents. */
-  function freshenItem(item: SequenceContent): SequenceContent {
-    const clone = structuredClone(item);
-    switch (clone.type) {
-      case "event":
-        freshenEvent(clone as NoteEvent);
-        break;
-      case "grace": {
-        const g = clone as import("@viritura/core").Grace;
-        for (const ev of g.content) freshenEvent(ev);
-        break;
-      }
-      case "tuplet": {
-        const t = clone as import("@viritura/core").Tuplet;
-        t.content = t.content.map((inner) => freshenItem(inner));
-        break;
-      }
-      case "tremolo": {
-        const tr = clone as import("@viritura/core").MultiNoteTremolo;
-        for (const ev of tr.content) freshenEvent(ev);
-        break;
-      }
-      // "space" has no events — nothing to freshen
-    }
-    return clone;
-  }
-
-  const clones = content.map(freshenItem);
-
-  // Second pass: remap slur and tie targets throughout the whole tree.
-  // Slurs from grace events to main events (or vice versa) are also covered.
   function remapEvent(ev: NoteEvent): void {
     if (ev.slurs) {
       ev.slurs = ev.slurs.filter((slur: { target: string; startNote?: string; endNote?: string }) => {
@@ -194,46 +221,19 @@ export function assignFreshIds(content: SequenceContent[]): SequenceContent[] {
       });
       if (ev.slurs.length === 0) delete ev.slurs;
     }
-    if (ev.notes) {
-      for (const note of ev.notes) {
-        if (note.ties) {
-          note.ties = note.ties.filter((tie: { target?: string }) => {
-            if (!tie.target) return true; // lv ties have no target
-            const mappedNote = noteIdMap.get(tie.target);
-            if (!mappedNote) return false; // target not in fragment — drop
-            tie.target = mappedNote;
-            return true;
-          });
-          if (note.ties.length === 0) delete note.ties;
-        }
+    for (const note of [...(ev.notes ?? []), ...(ev.kitNotes ?? [])]) {
+      if (note.ties) {
+        note.ties = note.ties.filter((tie: { target?: string }) => {
+          if (!tie.target) return true; // lv ties have no target
+          const mappedNote = noteIdMap.get(tie.target);
+          if (!mappedNote) return false; // target not in fragment — drop
+          tie.target = mappedNote;
+          return true;
+        });
+        if (note.ties.length === 0) delete note.ties;
       }
     }
   }
 
-  function remapItem(item: SequenceContent): void {
-    switch (item.type) {
-      case "event":
-        remapEvent(item as NoteEvent);
-        break;
-      case "grace": {
-        const g = item as import("@viritura/core").Grace;
-        for (const ev of g.content) remapEvent(ev);
-        break;
-      }
-      case "tuplet": {
-        const t = item as import("@viritura/core").Tuplet;
-        for (const inner of t.content) remapItem(inner);
-        break;
-      }
-      case "tremolo": {
-        const tr = item as import("@viritura/core").MultiNoteTremolo;
-        for (const ev of tr.content) remapEvent(ev);
-        break;
-      }
-    }
-  }
-
-  for (const clone of clones) remapItem(clone);
-
-  return clones;
+  for (const event of events) remapEvent(event);
 }

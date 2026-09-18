@@ -11,10 +11,35 @@ are unavailable in a browser:
   `SharedArrayBuffer` (WASM threads) works under the Tauri asset protocol;
 - VST3 plugin scanning and hosting;
 - native SF2/VST playback, mixing, and convolution reverb;
+- MuseScore notation clipboard interchange on Windows;
 - sandboxed Lua articulation mapping; and
 - filesystem-backed instrument profiles.
 
 The web build continues to ship in parallel; nothing here changes the editor.
+
+## MuseScore clipboard
+
+On Windows desktop, normal Copy, Cut, and Paste exchange notation with MuseScore
+4.7 (`StaffList` clipboard version `4.70`). Select a passage in MuseScore, copy
+it, then paste at the desired Viritura score position. Copy from Viritura and
+paste onto a MuseScore note or rest for the reverse direction.
+
+Supported notation includes pitched notes, chords, rests, dotted durations,
+complete tuplets, grace notes, multiple staves and voices, and common
+articulations. Chord symbols and dynamics on the primary copied staff are
+supported, including explicit MIDI attack-velocity overrides. Single-note
+MuseScore clipboard selections are also accepted.
+
+This is not complete MuseScore format support. Ties and slurs, percussion-kit
+interchange, annotation-only selections, secondary-staff annotations, and other
+unsupported constructs produce a diagnostic rather than silently losing
+notation. Unsupported MuseScore exports still copy the complete Viritura
+fragment and display a warning. Viritura-to-Viritura paste prefers that fragment.
+
+Native MuseScore formats are Windows-desktop-only. Browsers and other desktop
+platforms retain the existing text/JSON clipboard path; explicitly copied
+StaffList XML text can also be imported. No clipboard polling or external
+service is involved.
 
 ## Layout
 

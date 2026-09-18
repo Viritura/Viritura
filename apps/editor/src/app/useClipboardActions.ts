@@ -17,7 +17,7 @@ import { computePasteResult } from "../clipboard/computePasteResult";
 import { computeRepeatResult } from "../clipboard/computeRepeatResult";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { useHistoryStoreInstance } from "../store/historyStore";
-import type { useSelection } from "../store/selectionStore";
+import { useSelectionActions, type SelectionState } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
 import { useViewStateStore } from "../store/viewStateStore";
 import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
@@ -29,8 +29,8 @@ import {
   selectedLyricText,
 } from "../commands/lyricCommands";
 import { toast } from "sonner";
-
-type SelectionState = ReturnType<typeof useSelection>;
+import { readNotationClipboard, writeNotationClipboard, NotationClipboardError } from "../clipboard/notationClipboard";
+import { looksLikeMuseScoreXml, MuseScoreConversionError } from "../clipboard/museScore";
 
 interface UseClipboardActionsArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
@@ -61,6 +61,15 @@ export function useClipboardActions({
   clearSelection,
 }: UseClipboardActionsArgs): ClipboardActions {
   const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
+  const { selectElements } = useSelectionActions();
+  const applyResultSelection = useCallback(
+    (next: SelectionState | null) => {
+      if (next?.kind === "single") selectElement(next.elementId);
+      else if (next?.kind === "range") selectRange(next.startElementId, next.endElementId);
+      else if (next?.kind === "multi") selectElements(next.elementIds, next.measureAnchor, next.rhythmicRange);
+    },
+    [selectElement, selectRange, selectElements],
+  );
   const getClipboardSelection = useCallback((): ClipboardSelection | null => {
     return buildClipboardSelection(store.getState().score, selection, selectedScoreIndex);
   }, [store, selection, selectedScoreIndex]);
@@ -74,7 +83,7 @@ export function useClipboardActions({
     const lyricText = score ? selectedLyricText(score, selection) : null;
     if (lyricText !== null) {
       try {
-        await navigator.clipboard.writeText(lyricText);
+        await writeNotationClipboard({ text: lyricText, museScore: null });
       } catch {
         toast.error("Could not copy the selected lyric.");
       }
@@ -82,7 +91,12 @@ export function useClipboardActions({
     }
     const sel = getClipboardSelection();
     if (!sel) return;
-    const copied = await copyToClipboard(sel);
+    let copied = false;
+    try {
+      copied = await copyToClipboard(sel, (message) => toast.warning(message));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not copy notation.");
+    }
     if (copied) {
       const source = buildClipboardSourceRef();
       addClipboardEntry(
@@ -95,6 +109,7 @@ export function useClipboardActions({
           ...(sel.clef ? { clef: sel.clef } : {}),
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
+          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
           ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
@@ -111,7 +126,7 @@ export function useClipboardActions({
     const lyric = lyricElementId ? resolveSelectedLyric(score, lyricElementId) : null;
     if (lyric && lyricElementId) {
       try {
-        await navigator.clipboard.writeText(lyric.line.text);
+        await writeNotationClipboard({ text: lyric.line.text, museScore: null });
       } catch {
         toast.error("Could not cut the selected lyric.");
         return;
@@ -125,7 +140,7 @@ export function useClipboardActions({
     }
     const sel = getClipboardSelection();
     if (!sel) return;
-    const result = await cutToClipboard(sel);
+    const result = await cutToClipboard(sel, (message) => toast.warning(message));
     if (result) {
       addClipboardEntry(
         {
@@ -137,6 +152,7 @@ export function useClipboardActions({
           ...(sel.clef ? { clef: sel.clef } : {}),
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
+          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
           ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
@@ -153,20 +169,29 @@ export function useClipboardActions({
     if (!score) return;
     if (selection.kind === "single" && resolveSelectedLyric(score, selection.elementId)) {
       try {
-        const text = await navigator.clipboard.readText();
-        if (deserializeFragment(text)) {
+        const clipboard = await readNotationClipboard();
+        if (clipboard.museScore || looksLikeMuseScoreXml(clipboard.text) || deserializeFragment(clipboard.text)) {
           toast.info("Select a note or rhythmic position to paste notation.");
           return;
         }
-        const next = pasteTextIntoSelectedLyric(score, selection, text);
+        const next = pasteTextIntoSelectedLyric(score, selection, clipboard.text);
         if (next) updateScore(next);
       } catch {
         toast.error("Could not paste into the selected lyric.");
       }
       return;
     }
+    let systemPaste: Awaited<ReturnType<typeof pasteFromClipboard>>;
+    try {
+      systemPaste = await pasteFromClipboard((message) => toast.warning(message));
+    } catch (error) {
+      if (error instanceof MuseScoreConversionError) toast.error(error.userMessage());
+      else if (error instanceof NotationClipboardError) toast.error(error.message);
+      else toast.error("Could not read notation from the clipboard.");
+      return;
+    }
     const paste =
-      (await pasteFromClipboard()) ??
+      systemPaste ??
       (() => {
         const latest = useClipboardHistoryStore.getState().entries[0];
         return latest ? pasteResultFromFragment(latest.fragment) : null;
@@ -182,14 +207,12 @@ export function useClipboardActions({
       if (!result) return;
       updateScore(result.newScore);
       if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
-      if (result.range) {
-        if (result.range.start === result.range.end) selectElement(result.range.start);
-        else selectRange(result.range.start, result.range.end);
-      }
+      applyResultSelection(result.selection);
     } catch (error) {
       console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor });
+      toast.error(error instanceof Error ? error.message : "Could not paste notation.");
     }
-  }, [store, selection, updateScore, selectRange, selectElement]);
+  }, [store, selection, updateScore, applyResultSelection]);
 
   const handleRepeat = useCallback(() => {
     const sel = getClipboardSelection();
@@ -198,11 +221,8 @@ export function useClipboardActions({
     const result = computeRepeatResult(score, sel);
     if (!result) return;
     updateScore(result.newScore);
-    if (result.range) {
-      if (result.range.start === result.range.end) selectElement(result.range.start);
-      else selectRange(result.range.start, result.range.end);
-    }
-  }, [store, getClipboardSelection, updateScore, selectRange, selectElement]);
+    applyResultSelection(result.selection);
+  }, [store, getClipboardSelection, updateScore, applyResultSelection]);
 
   return {
     getClipboardSelection,

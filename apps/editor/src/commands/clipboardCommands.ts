@@ -3,21 +3,35 @@ import type {
   TimeSignature,
   KeySignature,
   Score,
-  Duration,
   NoteEvent,
   Clef,
   Transposition,
   DynamicGroup,
   GlobalLyrics,
+  ChordSymbol,
 } from "@viritura/core";
-import { generateId, isRest, measureBeats } from "@viritura/core";
+import { generateId, measureBeats } from "@viritura/core";
 import { serializeFragment } from "../clipboard/serialize";
-import { deserializeFragment, assignFreshIds } from "../clipboard/deserialize";
-import type { CapturedMeasureRepeat, ClipboardTrack, CapturedDynamic } from "../clipboard/ClipboardFragment";
+import { deserializeFragment, assignFreshTrackIds } from "../clipboard/deserialize";
+import type {
+  CapturedMeasureRepeat,
+  ClipboardTrack,
+  CapturedDynamic,
+  CapturedChordSymbol,
+} from "../clipboard/ClipboardFragment";
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
-import { sequenceContentBeats, decomposeDuration, generateEventId } from "./noteCommands";
+import { sequenceContentBeats } from "./noteCommands";
+import { writeNotationClipboard, readNotationClipboard, NotationClipboardError } from "../clipboard/notationClipboard";
+import {
+  looksLikeMuseScoreXml,
+  MUSESCORE_STAFF_LIST_MIME,
+  readMuseScoreClipboard,
+  writeMuseScoreStaffList,
+} from "../clipboard/museScore";
+import { ensureSequencePosition, splitSequenceAtBeat } from "../clipboard/clipboardTrackPlacement";
+import { ensurePasteMeasure, pasteTrackIntoScore, sequenceForStaffVoice } from "../clipboard/pasteContent";
 
 /**
  * Selection info needed for clipboard operations.
@@ -38,6 +52,7 @@ export interface ClipboardSelection {
   tracks?: ClipboardTrack[];
   /** Dynamics in the primary track's spanned measures, filtered to selection */
   dynamics?: CapturedDynamic[];
+  chordSymbols?: CapturedChordSymbol[];
   measureRepeats?: CapturedMeasureRepeat[];
   /** Metadata and ordering for lyric lines referenced by copied events. */
   lyrics?: GlobalLyrics;
@@ -46,6 +61,8 @@ export interface ClipboardSelection {
   measureIndex: number;
   sequenceIndex: number;
   eventIndex: number;
+  /** Rhythmic origin shared by captured tracks, including synthesized measure rests. */
+  captureOrigin?: CaptureOrigin;
   /** Exact source-model events to replace when cutting multi-track/range content. */
   cutLocations?: ClipboardCutLocation[];
   cutAnnotationLocations?: AnnotationLocation[];
@@ -64,8 +81,17 @@ interface ClipboardCutLocation {
  * Copy selected events to the system clipboard.
  * Serializes the selection as a Viritura MNX fragment JSON string.
  */
-export async function copyToClipboard(selection: ClipboardSelection): Promise<boolean> {
-  if (selection.events.length === 0 && !selection.measureRepeats?.length && !selection.dynamics?.length) return false;
+export async function copyToClipboard(
+  selection: ClipboardSelection,
+  onConversionWarning?: (message: string) => void,
+): Promise<boolean> {
+  if (
+    selection.events.length === 0 &&
+    !selection.measureRepeats?.length &&
+    !selection.dynamics?.length &&
+    !selection.chordSymbols?.length
+  )
+    return false;
 
   const json = serializeFragment(
     selection.events,
@@ -77,12 +103,27 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
     selection.dynamics,
     selection.measureRepeats,
     selection.lyrics,
+    selection.chordSymbols,
   );
 
+  let museScore: ReturnType<typeof writeMuseScoreStaffList>;
   try {
-    await navigator.clipboard.writeText(json);
-    return true;
+    museScore = writeMuseScoreStaffList(selection);
   } catch {
+    museScore = {
+      xml: null,
+      warning: "This selection cannot be exported to MuseScore. Viritura clipboard content is still available.",
+    };
+  }
+  if (museScore.warning) onConversionWarning?.(museScore.warning);
+  try {
+    await writeNotationClipboard({
+      text: json,
+      museScore: museScore.xml ? { mime: MUSESCORE_STAFF_LIST_MIME, xml: museScore.xml } : null,
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof NotationClipboardError && error.backend === "native") throw error;
     return false;
   }
 }
@@ -91,11 +132,18 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
  * Cut selected events: copy to clipboard and return events replaced with rests.
  * The caller is responsible for applying the returned score mutation.
  */
-export async function cutToClipboard(selection: ClipboardSelection): Promise<CutResult | null> {
+export async function cutToClipboard(
+  selection: ClipboardSelection,
+  onConversionWarning?: (message: string) => void,
+): Promise<CutResult | null> {
   // System clipboard is best-effort. The editor's internal clipboard history
   // still receives the fragment, so a denied browser clipboard must not turn
   // Cut into a no-op.
-  await copyToClipboard(selection);
+  try {
+    await copyToClipboard(selection, onConversionWarning);
+  } catch (error) {
+    onConversionWarning?.(error instanceof Error ? error.message : "Could not copy to the system clipboard.");
+  }
 
   // Build rest replacements for each cut event
   const replacements: SequenceContent[] = selection.events.map((event) => ({
@@ -132,29 +180,51 @@ export interface CutResult {
  * Read from the system clipboard and parse as a Viritura fragment.
  * Returns the deserialized content with fresh IDs, or null if invalid.
  */
-export async function pasteFromClipboard(): Promise<PasteResult | null> {
+export async function pasteFromClipboard(onReadWarning?: (message: string) => void): Promise<PasteResult | null> {
+  let clipboard;
   try {
-    const text = await navigator.clipboard.readText();
-    const fragment = deserializeFragment(text);
-    if (!fragment) return null;
-
-    return pasteResultFromFragment(fragment);
-  } catch {
-    return null;
+    clipboard = await readNotationClipboard();
+  } catch (error) {
+    if (error instanceof NotationClipboardError && error.canUseHistory) {
+      onReadWarning?.(error.message);
+      return null;
+    }
+    throw error;
   }
+  const fragment = deserializeFragment(clipboard.text);
+  if (fragment) return pasteResultFromFragment(fragment);
+  if (clipboard.museScore) {
+    return pasteResultFromMuseScore(readMuseScoreClipboard(clipboard.museScore.xml, clipboard.museScore.mime));
+  }
+  if (looksLikeMuseScoreXml(clipboard.text)) {
+    return pasteResultFromMuseScore(readMuseScoreClipboard(clipboard.text));
+  }
+  return null;
+}
+
+import {
+  capturedAnnotationDestination,
+  resolvePhysicalStaffDestination,
+  unassignedDynamics,
+  type CaptureOrigin,
+} from "../clipboard/annotations";
+
+function pasteResultFromMuseScore(data: ReturnType<typeof readMuseScoreClipboard>): PasteResult {
+  return {
+    ...assignFreshTrackIds(data.content, data.tracks),
+    dynamics: data.dynamics?.map((item) => ({ ...structuredClone(item), staffOffset: 0 })),
+    chordSymbols: data.chordSymbols?.map((item) => ({ ...structuredClone(item), staffOffset: 0 })),
+  };
 }
 
 export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResult {
   return {
-    content: assignFreshIds(fragment.content),
+    ...assignFreshTrackIds(fragment.content, fragment.tracks),
     sourceTimeSignature: fragment.timeSignature,
     sourceKeySignature: fragment.keySignature,
     dynamics: fragment.dynamics,
+    chordSymbols: fragment.chordSymbols,
     measureRepeats: fragment.measureRepeats,
-    tracks: fragment.tracks?.map((track) => ({
-      ...track,
-      content: assignFreshIds(track.content),
-    })),
     lyrics: fragment.lyrics ? structuredClone(fragment.lyrics) : undefined,
   };
 }
@@ -164,11 +234,12 @@ export interface PasteResult {
   /** Events to insert, with fresh IDs assigned (primary track) */
   content: SequenceContent[];
   /** Time signature from the source context */
-  sourceTimeSignature: TimeSignature;
+  sourceTimeSignature?: TimeSignature;
   /** Key signature from the source context */
-  sourceKeySignature: KeySignature;
+  sourceKeySignature?: KeySignature;
   /** Dynamics captured at copy time, to be replayed at the paste site */
   dynamics?: CapturedDynamic[];
+  chordSymbols?: CapturedChordSymbol[];
   /** Multi-track content for cross-staff paste */
   tracks?: ClipboardTrack[];
   measureRepeats?: CapturedMeasureRepeat[];
@@ -194,6 +265,9 @@ export function applyPaste(
   measureIndex: number,
   sequenceIndex: number,
   eventIndex: number,
+  placedContent?: SequenceContent[],
+  /** Rhythmic origin for physical tracks, before their individual lead-ins. */
+  physicalTrackStartBeat?: number,
 ): Score {
   const part = score.parts[partIndex];
   if (!part) return score;
@@ -209,8 +283,8 @@ export function applyPaste(
   // Compute paste start beat (quarter-note beats from measure start, primary staff)
   // — needed for both event placement and dynamic-position remapping.
   const primarySeqForBeat = newScore.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
-  let pasteStartBeat = 0;
-  if (primarySeqForBeat) {
+  let pasteStartBeat = physicalTrackStartBeat ?? 0;
+  if (primarySeqForBeat && physicalTrackStartBeat === undefined) {
     for (let i = 0; i < eventIndex && i < primarySeqForBeat.content.length; i++) {
       pasteStartBeat += sequenceContentBeats(primarySeqForBeat.content[i]!);
     }
@@ -219,53 +293,237 @@ export function applyPaste(
 
   // Multi-track paste: apply each track at its relative part offset
   if (paste.tracks && paste.tracks.length > 0) {
-    for (const track of paste.tracks) {
-      const targetPartIdx = partIndex + track.partOffset;
-      const targetVoice = track.voiceIndex;
-
-      if (targetPartIdx < 0 || targetPartIdx >= newScore.parts.length) continue;
-      const targetPart = newScore.parts[targetPartIdx]!;
-      const targetMeasure = targetPart.measures[measureIndex];
-      if (!targetMeasure) continue;
-
-      // Ensure the sequence exists
-      while (targetMeasure.sequences.length <= targetVoice) {
-        targetMeasure.sequences.push({ content: [] });
-      }
-
-      // Find the event index on the target staff that corresponds to the
-      // same beat position as the primary track's paste point.
-      // This maintains vertical alignment across staves.
-      let targetEventIdx: number;
-      if (track.partOffset === 0 && targetVoice === sequenceIndex) {
-        targetEventIdx = eventIndex;
-      } else {
-        const targetSeq = targetMeasure.sequences[targetVoice]!;
-        targetEventIdx = 0;
-        let beatPos = 0;
-        for (let i = 0; i < targetSeq.content.length; i++) {
-          if (beatPos >= pasteStartBeat - 1e-9) break;
-          beatPos += sequenceContentBeats(targetSeq.content[i]!);
-          targetEventIdx = i + 1;
-        }
-      }
-
-      pasteTrackIntoScore(newScore, targetPartIdx, measureIndex, targetVoice, targetEventIdx, track.content);
-
-      if (track.dynamics && track.dynamics.length > 0) {
-        applyCapturedDynamics(newScore, targetPartIdx, measureIndex, pasteStartBeat, track.dynamics);
-      }
-    }
+    applyClipboardTracks(newScore, paste.tracks, partIndex, measureIndex, sequenceIndex, eventIndex, pasteStartBeat);
+    applyCapturedDynamicsByPart(
+      newScore,
+      partIndex,
+      measureIndex,
+      pasteStartBeat,
+      unassignedDynamics(paste.dynamics, paste.tracks),
+      paste.tracks,
+      (sequence.staff ?? 1) - 1,
+    );
+    applyCapturedChordSymbols(
+      newScore,
+      partIndex,
+      measureIndex,
+      pasteStartBeat,
+      paste.chordSymbols,
+      paste.tracks,
+      (sequence.staff ?? 1) - 1,
+    );
     return newScore;
   }
 
+  function applyClipboardTracks(
+    score: Score,
+    tracks: ClipboardTrack[],
+    partIndex: number,
+    measureIndex: number,
+    sequenceIndex: number,
+    eventIndex: number,
+    pasteStartBeat: number,
+  ): void {
+    for (const track of tracks) {
+      if (track.staffOffset !== undefined) {
+        applyPhysicalClipboardTrack(score, track, partIndex, measureIndex, sequenceIndex, pasteStartBeat);
+      } else {
+        applyLegacyClipboardTrack(score, track, partIndex, measureIndex, sequenceIndex, eventIndex, pasteStartBeat);
+      }
+    }
+  }
+
+  function applyPhysicalClipboardTrack(
+    score: Score,
+    track: ClipboardTrack,
+    partIndex: number,
+    measureIndex: number,
+    sequenceIndex: number,
+    pasteStartBeat: number,
+  ): void {
+    const anchorStaff = (score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex]?.staff ?? 1) - 1;
+    const destination = resolvePhysicalStaffDestination(score, partIndex, anchorStaff, track.staffOffset ?? 0);
+    if (track.content.length > 0) {
+      const targetPosition = resolveOffsetPosition(score, measureIndex, pasteStartBeat, track.leadIn);
+      ensurePasteMeasure(score, targetPosition.measureIndex);
+      const targetMeasure = score.parts[destination.partIndex]?.measures[targetPosition.measureIndex];
+      if (!targetMeasure) throw new Error("MuseScore clipboard staff has no destination measure.");
+      const targetSequence = sequenceForStaffVoice(
+        targetMeasure.sequences,
+        destination.staffIndex + 1,
+        track.voiceIndex,
+      );
+      ensureSequencePosition(targetSequence.content, targetPosition.beat);
+      splitSequenceAtBeat(targetSequence.content, targetPosition.beat);
+      const inserted = pasteTrackIntoScore(
+        score,
+        destination.partIndex,
+        targetPosition.measureIndex,
+        targetMeasure.sequences.indexOf(targetSequence),
+        eventIndexAtBeat(targetSequence.content, targetPosition.beat),
+        track.content,
+      );
+      placedContent?.push(...inserted);
+    }
+    if (track.dynamics?.length) {
+      applyCapturedDynamics(
+        score,
+        destination.partIndex,
+        measureIndex,
+        pasteStartBeat,
+        track.dynamics.map((captured) => ({
+          ...captured,
+          dynamic: { ...captured.dynamic, staff: destination.staffIndex + 1 },
+        })),
+      );
+    }
+  }
+
+  function applyLegacyClipboardTrack(
+    score: Score,
+    track: ClipboardTrack,
+    partIndex: number,
+    measureIndex: number,
+    sequenceIndex: number,
+    eventIndex: number,
+    pasteStartBeat: number,
+  ): void {
+    const targetPartIndex = partIndex + track.partOffset;
+    const targetPart = score.parts[targetPartIndex];
+    const targetMeasure = targetPart?.measures[measureIndex];
+    if (!targetPart || !targetMeasure) return;
+    if (track.content.length > 0) {
+      while (targetMeasure.sequences.length <= track.voiceIndex) targetMeasure.sequences.push({ content: [] });
+      const targetSequence = targetMeasure.sequences[track.voiceIndex]!;
+      const targetEventIndex =
+        track.partOffset === 0 && track.voiceIndex === sequenceIndex
+          ? eventIndex
+          : eventIndexAtBeat(targetSequence.content, pasteStartBeat);
+      const inserted = pasteTrackIntoScore(
+        score,
+        targetPartIndex,
+        measureIndex,
+        track.voiceIndex,
+        targetEventIndex,
+        track.content,
+      );
+      placedContent?.push(...inserted);
+    }
+    if (track.dynamics?.length) {
+      applyCapturedDynamics(score, targetPartIndex, measureIndex, pasteStartBeat, track.dynamics);
+    }
+  }
+
   // Single-track paste (backward compatible)
-  pasteTrackIntoScore(newScore, partIndex, measureIndex, sequenceIndex, eventIndex, paste.content);
+  const inserted = pasteTrackIntoScore(newScore, partIndex, measureIndex, sequenceIndex, eventIndex, paste.content);
+  placedContent?.push(...inserted);
 
   if (paste.dynamics && paste.dynamics.length > 0) {
-    applyCapturedDynamicsByPart(newScore, partIndex, measureIndex, pasteStartBeat, paste.dynamics);
+    applyCapturedDynamicsByPart(
+      newScore,
+      partIndex,
+      measureIndex,
+      pasteStartBeat,
+      paste.dynamics,
+      undefined,
+      (sequence.staff ?? 1) - 1,
+    );
   }
+  applyCapturedChordSymbols(
+    newScore,
+    partIndex,
+    measureIndex,
+    pasteStartBeat,
+    paste.chordSymbols,
+    undefined,
+    (sequence.staff ?? 1) - 1,
+  );
   return newScore;
+}
+
+function eventIndexAtBeat(content: readonly SequenceContent[], targetBeat: number): number {
+  let beat = 0;
+  for (let index = 0; index < content.length; index++) {
+    if (beat >= targetBeat - 1e-9) return index;
+    beat += sequenceContentBeats(content[index]!);
+  }
+  return content.length;
+}
+
+function resolveOffsetPosition(
+  score: Score,
+  measureIndex: number,
+  startBeat: number,
+  offset: readonly [number, number] | undefined,
+  allowMeasureEnd = false,
+): { measureIndex: number; beat: number } {
+  let targetMeasure = measureIndex;
+  let beat = startBeat + (offset ? (offset[0] / offset[1]) * 4 : 0);
+  if (!Number.isFinite(beat) || beat < 0) throw new Error("Invalid clipboard timing offset.");
+  while (true) {
+    const capacity = measureBeats(activeTimeSignature(score, targetMeasure));
+    if (!Number.isFinite(capacity) || capacity <= 1e-9) throw new Error("Invalid destination measure duration.");
+    if (beat < capacity - 1e-9 || (allowMeasureEnd && Math.abs(beat - capacity) < 1e-9)) {
+      return { measureIndex: targetMeasure, beat };
+    }
+    const nextBeat = Math.max(0, beat - capacity);
+    if (nextBeat >= beat) throw new Error("Clipboard offset made no rhythmic progress.");
+    beat = nextBeat;
+    targetMeasure++;
+  }
+}
+
+function activeTimeSignature(score: Score, measureIndex: number): TimeSignature {
+  let time: TimeSignature = { count: 4, unit: 4 };
+  for (let index = 0; index <= measureIndex && index < score.global.measures.length; index++) {
+    if (score.global.measures[index]?.time) time = score.global.measures[index]!.time!;
+  }
+  return time;
+}
+
+function applyCapturedChordSymbols(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  pasteStartBeat: number,
+  captured: CapturedChordSymbol[] | undefined,
+  tracks?: ClipboardTrack[],
+  anchorStaffIndex = 0,
+): void {
+  for (const item of captured ?? []) {
+    const destination = capturedAnnotationDestination(
+      score,
+      partIndex,
+      anchorStaffIndex,
+      tracks,
+      item.partOffset ?? 0,
+      item.chordSymbol.displayStaff ?? 1,
+      item.staffOffset,
+    );
+    const position = item.offset
+      ? resolveOffsetPosition(score, measureIndex, pasteStartBeat, item.offset)
+      : {
+          measureIndex: measureIndex + item.measureOffset,
+          beat:
+            (item.measureOffset === 0 ? pasteStartBeat : 0) +
+            (item.chordSymbol.position.fraction[0] / item.chordSymbol.position.fraction[1]) * 4,
+        };
+    const measure = score.parts[destination.partIndex]?.measures[position.measureIndex];
+    if (!measure) continue;
+    const chordSymbol: ChordSymbol = {
+      ...structuredClone(item.chordSymbol),
+      ...(destination.staff === undefined ? {} : { displayStaff: destination.staff }),
+      position: { fraction: [Math.round(position.beat * 4), 16] },
+    };
+    measure.chordSymbols ??= [];
+    measure.chordSymbols = measure.chordSymbols.filter(
+      (existing) =>
+        (existing.displayStaff ?? 1) !== (chordSymbol.displayStaff ?? 1) ||
+        existing.position.fraction[0] / existing.position.fraction[1] !==
+          chordSymbol.position.fraction[0] / chordSymbol.position.fraction[1],
+    );
+    measure.chordSymbols.push(chordSymbol);
+  }
 }
 
 function mergeClipboardLyrics(score: Score, lyrics: GlobalLyrics | undefined): void {
@@ -288,17 +546,23 @@ function applyCapturedDynamicsByPart(
   partIndex: number,
   measureIndex: number,
   pasteStartBeat: number,
-  captured: CapturedDynamic[],
+  captured: CapturedDynamic[] | undefined,
+  tracks?: ClipboardTrack[],
+  anchorStaffIndex = 0,
 ): void {
-  const offsets = new Set(captured.map((dynamic) => dynamic.partOffset ?? 0));
-  for (const partOffset of offsets) {
-    applyCapturedDynamics(
+  for (const item of captured ?? []) {
+    const destination = capturedAnnotationDestination(
       score,
-      partIndex + partOffset,
-      measureIndex,
-      pasteStartBeat,
-      captured.filter((dynamic) => (dynamic.partOffset ?? 0) === partOffset),
+      partIndex,
+      anchorStaffIndex,
+      tracks,
+      item.partOffset ?? 0,
+      item.dynamic.staff ?? 1,
+      item.staffOffset,
     );
+    applyCapturedDynamics(score, destination.partIndex, measureIndex, pasteStartBeat, [
+      destination.staff === undefined ? item : { ...item, dynamic: { ...item.dynamic, staff: destination.staff } },
+    ]);
   }
 }
 
@@ -361,7 +625,31 @@ function applyCapturedDynamics(
     return [num, denom];
   }
 
+  function applyOffsetDynamic(c: CapturedDynamic): void {
+    const target = resolveOffsetPosition(score, measureIndex, pasteStartBeat, c.offset);
+    const targetMeasure = score.parts[partIndex]?.measures[target.measureIndex];
+    if (!targetMeasure) return;
+    const newDynamic: DynamicGroup = {
+      ...structuredClone(c.dynamic),
+      id: generateId(),
+      position: { fraction: quarterBeatsToFraction(target.beat) },
+    };
+    if (newDynamic.type === "gradual") {
+      if (!c.endOffset) return;
+      const end = resolveOffsetPosition(score, measureIndex, pasteStartBeat, c.endOffset, true);
+      const endMeasure = score.global.measures[end.measureIndex];
+      if (!endMeasure?.id || !score.parts[partIndex]?.measures[end.measureIndex]) return;
+      newDynamic.end = { measure: endMeasure.id, position: { fraction: quarterBeatsToFraction(end.beat) } };
+    }
+    targetMeasure.dynamics ??= [];
+    targetMeasure.dynamics.push(newDynamic);
+  }
+
   for (const c of captured) {
+    if (c.offset) {
+      applyOffsetDynamic(c);
+      continue;
+    }
     const targetMeasureIdx = measureIndex + c.measureOffset;
     if (targetMeasureIdx < 0 || targetMeasureIdx >= part.measures.length) continue;
     const targetMeasure = part.measures[targetMeasureIdx]!;
@@ -395,249 +683,6 @@ function applyCapturedDynamics(
 
     if (!targetMeasure.dynamics) targetMeasure.dynamics = [];
     targetMeasure.dynamics.push(newDyn);
-  }
-}
-
-/**
- * Paste a single track of content into a score at the specified location.
- * Handles duration-aware replacement and cross-measure distribution.
- */
-function pasteTrackIntoScore(
-  score: Score,
-  partIndex: number,
-  measureIndex: number,
-  sequenceIndex: number,
-  eventIndex: number,
-  content: SequenceContent[],
-): void {
-  const part = score.parts[partIndex];
-  if (!part) return;
-
-  function getTimeSigAt(mIdx: number): TimeSignature {
-    let ts: TimeSignature = { count: 4, unit: 4 };
-    for (let i = 0; i <= mIdx && i < score.global.measures.length; i++) {
-      const gm = score.global.measures[i];
-      if (gm?.time) ts = gm.time;
-    }
-    return ts;
-  }
-
-  // Ensure starting sequence exists
-  const startMeasure = part.measures[measureIndex];
-  if (!startMeasure) return;
-  while (startMeasure.sequences.length <= sequenceIndex) {
-    startMeasure.sequences.push({ content: [] });
-  }
-
-  const startSeq = startMeasure.sequences[sequenceIndex]!;
-  let pasteStartBeat = 0;
-  for (let i = 0; i < eventIndex && i < startSeq.content.length; i++) {
-    pasteStartBeat += sequenceContentBeats(startSeq.content[i]!);
-  }
-
-  const pasteBeats = content.reduce((sum, ev) => sum + sequenceContentBeats(ev), 0);
-  // Grace-only content has 0 beats but should still be inserted (the grace
-  // notes display before whatever note is at the cursor position).
-  if (pasteBeats <= 0 && content.length === 0) return;
-  if (pasteBeats <= 0) {
-    insertGraceOnly(startSeq, content, pasteStartBeat);
-    return;
-  }
-
-  clearTargetRegion(part, sequenceIndex, measureIndex, eventIndex, pasteBeats, pasteStartBeat, getTimeSigAt);
-
-  insertPasteContent(score, part, sequenceIndex, measureIndex, pasteStartBeat, content, getTimeSigAt);
-}
-
-/**
- * Pure grace-note paste: splice directly at the insert index, no clearing.
- */
-function insertGraceOnly(
-  startSeq: { content: SequenceContent[] },
-  content: SequenceContent[],
-  pasteStartBeat: number,
-): void {
-  let insertIdx = 0;
-  let beatPos = 0;
-  for (let i = 0; i < startSeq.content.length; i++) {
-    if (beatPos >= pasteStartBeat - 1e-9) break;
-    beatPos += sequenceContentBeats(startSeq.content[i]!);
-    insertIdx = i + 1;
-  }
-  startSeq.content.splice(insertIdx, 0, ...content);
-}
-
-/**
- * Phase 1: clear the target region, respecting measure capacity.
- * Each measure can absorb up to `(measureBeats - startBeat)` of paste
- * content, so we only clear events within that capacity — never leaking
- * into unrelated measures.
- */
-function clearTargetRegion(
-  part: { measures: { sequences: { content: SequenceContent[]; fullMeasure?: unknown }[] }[] },
-  sequenceIndex: number,
-  measureIndex: number,
-  eventIndex: number,
-  pasteBeats: number,
-  pasteStartBeat: number,
-  getTimeSigAt: (mIdx: number) => TimeSignature,
-): void {
-  let remainingClearBeats = pasteBeats;
-  let curMeasure = measureIndex;
-  let curEventIdx = eventIndex;
-
-  while (remainingClearBeats > 1e-9 && curMeasure < part.measures.length) {
-    const measure = part.measures[curMeasure]!;
-    while (measure.sequences.length <= sequenceIndex) {
-      measure.sequences.push({ content: [] });
-    }
-    const seq = measure.sequences[sequenceIndex]!;
-
-    if (seq.fullMeasure) delete seq.fullMeasure;
-
-    const mBeats = measureBeats(getTimeSigAt(curMeasure));
-    const startBeat = curMeasure === measureIndex ? pasteStartBeat : 0;
-    const measureCapacity = mBeats - startBeat;
-    const clearBudget = Math.min(remainingClearBeats, measureCapacity);
-
-    clearEventsInMeasure(seq, curEventIdx, clearBudget);
-
-    // Deduct the full measure capacity (not just cleared events) since
-    // Phase 2 will fill this space. Handles underfull/fullMeasure measures.
-    remainingClearBeats -= measureCapacity;
-
-    if (remainingClearBeats > 1e-9) {
-      curMeasure++;
-      curEventIdx = 0;
-    }
-  }
-}
-
-function clearEventsInMeasure(seq: { content: SequenceContent[] }, startEventIdx: number, clearBudget: number): void {
-  let clearedBeats = 0;
-  const curEventIdx = startEventIdx;
-
-  while (curEventIdx < seq.content.length && clearedBeats < clearBudget - 1e-9) {
-    const ev = seq.content[curEventIdx]!;
-    const evBeats = sequenceContentBeats(ev);
-
-    if (evBeats <= clearBudget - clearedBeats + 1e-9) {
-      seq.content.splice(curEventIdx, 1);
-      clearedBeats += evBeats;
-      continue;
-    }
-    // Partial: split into leftover rests
-    const leftoverBeats = evBeats - (clearBudget - clearedBeats);
-    const leftoverDurations = decomposeDuration(leftoverBeats);
-    const leftoverRests: NoteEvent[] = leftoverDurations.map((d) => ({
-      type: "event" as const,
-      id: generateEventId(),
-      duration: d,
-      rest: {},
-    }));
-    seq.content.splice(curEventIdx, 1, ...leftoverRests);
-    return;
-  }
-}
-
-/**
- * Phase 2: insert content measure by measure.
- * Auto-appends measures if paste overflows past the end of the score.
- */
-function insertPasteContent(
-  score: Score,
-  part: { measures: { sequences: { content: SequenceContent[]; fullMeasure?: unknown }[] }[] },
-  sequenceIndex: number,
-  startMeasureIndex: number,
-  pasteStartBeat: number,
-  content: SequenceContent[],
-  getTimeSigAt: (mIdx: number) => TimeSignature,
-): void {
-  let insertMeasure = startMeasureIndex;
-  let insertBeat = pasteStartBeat;
-  let contentIdx = 0;
-
-  while (contentIdx < content.length) {
-    if (insertMeasure >= part.measures.length) {
-      score.global.measures.push({});
-      for (const p of score.parts) {
-        p.measures.push({ sequences: [{ content: [] }] });
-      }
-    }
-
-    const measure = part.measures[insertMeasure]!;
-    while (measure.sequences.length <= sequenceIndex) {
-      measure.sequences.push({ content: [] });
-    }
-    const seq = measure.sequences[sequenceIndex]!;
-
-    if (seq.fullMeasure) delete seq.fullMeasure;
-
-    const mBeats = measureBeats(getTimeSigAt(insertMeasure));
-    const availableBeats = mBeats - insertBeat;
-
-    const eventsForThisMeasure = takeEventsFitting(content, contentIdx, availableBeats);
-    contentIdx += eventsForThisMeasure.length;
-
-    spliceAtBeat(seq, insertBeat, eventsForThisMeasure);
-    mergeRests(seq);
-
-    insertMeasure++;
-    insertBeat = 0;
-  }
-}
-
-/** Take as many events from `content` starting at `startIdx` as fit in `availableBeats`. */
-function takeEventsFitting(content: SequenceContent[], startIdx: number, availableBeats: number): SequenceContent[] {
-  const taken: SequenceContent[] = [];
-  let usedBeats = 0;
-  let idx = startIdx;
-  while (idx < content.length && usedBeats < availableBeats - 1e-9) {
-    const ev = content[idx]!;
-    const evBeats = sequenceContentBeats(ev);
-    if (usedBeats + evBeats > availableBeats + 1e-9) break;
-    taken.push(ev);
-    usedBeats += evBeats;
-    idx++;
-  }
-  return taken;
-}
-
-/** Splice `events` into the sequence at the given beat offset. */
-function spliceAtBeat(seq: { content: SequenceContent[] }, insertBeat: number, events: SequenceContent[]): void {
-  let insertIdx = 0;
-  let beatPos = 0;
-  for (let i = 0; i < seq.content.length; i++) {
-    if (beatPos >= insertBeat - 1e-9) break;
-    beatPos += sequenceContentBeats(seq.content[i]!);
-    insertIdx = i + 1;
-  }
-  seq.content.splice(insertIdx, 0, ...events);
-}
-
-/** Merge adjacent rests in a sequence when they form a clean duration. */
-function mergeRests(seq: { content: SequenceContent[] }): void {
-  let i = 0;
-  while (i < seq.content.length - 1) {
-    const curr = seq.content[i]!;
-    const next = seq.content[i + 1]!;
-    if (curr.type === "event" && next.type === "event" && isRest(curr) && isRest(next)) {
-      const totalBeats = sequenceContentBeats(curr) + sequenceContentBeats(next);
-      const merged = decomposeDuration(totalBeats);
-      if (merged.length === 1) {
-        const rest: NoteEvent = {
-          type: "event",
-          id: generateEventId(),
-          duration: merged[0]! as Duration,
-          rest: {},
-        };
-        seq.content.splice(i, 2, rest);
-      } else {
-        i++;
-      }
-    } else {
-      i++;
-    }
   }
 }
 
