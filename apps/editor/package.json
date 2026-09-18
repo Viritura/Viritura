@@ -67,7 +67,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "happy-dom": "^20.8.9",
     "parse5": "8.0.0",
     "storybook": "^10.3.3",
