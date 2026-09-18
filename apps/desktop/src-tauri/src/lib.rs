@@ -9,6 +9,7 @@ mod mapper;
 mod playback_host;
 mod plugin_scan;
 mod profile_fs;
+mod soundfont_resource;
 mod vst;
 
 use std::path::PathBuf;
@@ -16,10 +17,6 @@ use std::path::PathBuf;
 use mapper::{PlaybackEvent, ScheduledMidi};
 use playback_host::{PlaybackHost, SlotSpec};
 use tauri::Manager;
-
-/// Bundled GM SoundFont, resolved relative to the app's resource dir. Native SF2
-/// slots (desktop "native" render mode) voice non-VST parts from this font.
-const SOUNDFONT_RESOURCE: &str = "sounds/Shan-SGM-Pro-15.sf2";
 
 /// Load a VST3 plugin once and return its identity (class UID, vendor, version)
 /// and whether it exposes an editor. Used by the plugin picker.
@@ -218,17 +215,24 @@ fn vst_playback_preview(
 }
 
 /// Resolve the absolute filesystem path of the bundled GM SoundFont, so the
-/// frontend can hand it to native SF2 slots. Resolved from the app's resource
-/// dir; in dev Tauri copies the resource there.
+/// frontend can hand it to native SF2 slots.
 #[tauri::command]
 fn vst_soundfont_path(app: tauri::AppHandle) -> Result<String, String> {
-    let path = app
-        .path()
-        .resolve(SOUNDFONT_RESOURCE, tauri::path::BaseDirectory::Resource)
-        .map_err(|error| error.to_string())?;
+    let path = soundfont_resource::resolve(&app)?;
     path.to_str()
         .map(str::to_owned)
         .ok_or_else(|| "soundfont path is not valid UTF-8".to_owned())
+}
+
+/// Return the fixed bundled font as binary IPC, without accepting a client path.
+#[tauri::command]
+async fn desktop_soundfont_bytes(app: tauri::AppHandle) -> Result<tauri::ipc::Response, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = soundfont_resource::resolve(&app)?;
+        soundfont_resource::read_response(&path)
+    })
+    .await
+    .map_err(|error| format!("SoundFont resource worker failed: {error}"))?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -264,6 +268,7 @@ pub fn run() {
             vst_playback_set_pan,
             vst_playback_preview,
             vst_soundfont_path,
+            desktop_soundfont_bytes,
             profile_fs::profile_fs_read_text,
             profile_fs::profile_fs_write_text,
             profile_fs::profile_fs_read_binary,

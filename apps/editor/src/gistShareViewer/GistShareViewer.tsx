@@ -6,6 +6,7 @@ import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer
 import { Button, TooltipPrimitives } from "@viritura/ui";
 import { Toaster } from "sonner";
 import { loadGistMnx, readGistShareLocation, type LoadedGistMnx } from "../gistShare";
+import { getDesktopSoundfontLoader } from "../desktopAudio";
 import styles from "./GistShareViewer.module.css";
 
 type ViewerState =
@@ -68,7 +69,7 @@ function LoadedShare({ publication }: { readonly publication: LoadedGistMnx }) {
 
   return (
     <TooltipPrimitives.Provider delayDuration={400} skipDelayDuration={100}>
-      <PlaybackProvider score={publication.score}>
+      <PlaybackProvider score={publication.score} soundfontLoader={getDesktopSoundfontLoader()}>
         <main className={styles.root}>
           <header className={styles.header}>
             <div className={styles.identity}>

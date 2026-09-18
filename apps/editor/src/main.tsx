@@ -33,6 +33,7 @@ import {
 import { parseMnx } from "@viritura/format";
 import { setStartCenterOpen } from "./store/onboardingStore";
 import { PlaybackProvider } from "@viritura/playback";
+import { getDesktopSoundfontLoader } from "./desktopAudio";
 import {
   useComposedSoundProfileRegistry,
   createVstTransport,
@@ -235,6 +236,7 @@ function AppWithActivityBar() {
           soundProfileRegistry={soundProfileRegistry}
           vstTransport={vstTransport}
           audioRenderMode={audioRenderMode}
+          soundfontLoader={getDesktopSoundfontLoader()}
         >
           <MixerSyncBridge score={currentScore} />
           <VideoSyncBridge />

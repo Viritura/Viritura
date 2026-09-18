@@ -1,0 +1,480 @@
+name: Desktop Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+# Serialize reruns for the same release without interrupting an active upload.
+concurrency:
+  group: desktop-release-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Windows x64 installers
+    runs-on: windows-latest
+    timeout-minutes: 90
+    outputs:
+      artifact-id: ${{ steps.installers.outputs.artifact-id }}
+    env:
+      RUSTUP_TOOLCHAIN: 1.93.1
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # For release events this is the tagged commit, including on reruns.
+          ref: ${{ github.sha }}
+          lfs: true
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: |
+            engine
+            apps\desktop\src-tauri
+          key: desktop-release-wasm-pack-0.14.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+
+      - name: Test desktop
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
+        run: pnpm test:desktop
+
+      - name: Build desktop
+        run: |
+          # A restored Cargo target cache may contain installers from an older version.
+          $bundle = 'apps\desktop\src-tauri\target\release\bundle'
+          if (Test-Path $bundle) {
+            Remove-Item $bundle -Recurse -Force
+          }
+          pnpm build:desktop
+
+      - name: Collect installers
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundle = 'apps\desktop\src-tauri\target\release\bundle'
+          $msi = @(Get-ChildItem "$bundle\msi\*_x64_*.msi" -File)
+          $nsis = @(Get-ChildItem "$bundle\nsis\*_x64-setup.exe" -File)
+          if ($msi.Count -ne 1 -or $nsis.Count -ne 1) {
+            throw 'Expected exactly one Windows x64 MSI and one NSIS installer.'
+          }
+          New-Item -ItemType Directory -Path desktop-installers | Out-Null
+          Copy-Item $msi[0].FullName desktop-installers\Viritura-windows-x64.msi
+          Copy-Item $nsis[0].FullName desktop-installers\Viritura-windows-x64.exe
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: installers
+        with:
+          name: desktop-windows-x64-${{ github.sha }}
+          path: desktop-installers
+          overwrite: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    name: Attach installers to published release
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      # Only download this run's installers; never execute the build in a write job.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: desktop-installers
+          merge-multiple: true
+
+      - name: Upload release installers
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_HOST: github.com
+        with:
+          # Retry uploads explicitly below so every attempt reconciles server-side state.
+          retries: 0
+          script: |
+            const fs = require('node:fs/promises');
+            const path = require('node:path');
+            const { createHash } = require('node:crypto');
+            const { spawn } = require('node:child_process');
+            const repo = context.repo;
+            const eventRelease = context.payload.release;
+            if (context.eventName !== 'release' || context.payload.action !== 'published' ||
+                !Number.isSafeInteger(eventRelease?.id) || eventRelease.id <= 0 ||
+                typeof eventRelease.tag_name !== 'string' || !eventRelease.tag_name) {
+              throw new Error('Expected a published release event with an explicit release ID and tag.');
+            }
+            const release_id = eventRelease.id;
+
+            const directory = path.join(process.env.GITHUB_WORKSPACE, 'desktop-installers');
+            const names = ['Viritura-windows-x64.exe', 'Viritura-windows-x64.msi'];
+            const files = await fs.readdir(directory);
+            if (files.length !== names.length || names.some(name => !files.includes(name))) {
+              throw new Error('Expected only the two Windows x64 installers from this build.');
+            }
+            const installers = new Map();
+            for (const name of names) {
+              const stat = await fs.lstat(path.join(directory, name));
+              if (!stat.isFile() || stat.size === 0 || stat.size >= 2 ** 31) {
+                throw new Error(`Invalid release asset: ${name}`);
+              }
+              const data = await fs.readFile(path.join(directory, name));
+              if (data.length !== stat.size) {
+                throw new Error(`Release asset size changed during validation: ${name}`);
+              }
+              const peOffset = data.length >= 64 ? data.readUInt32LE(60) : 0;
+              const validHeader = name.endsWith('.msi')
+                ? data.length >= 512 && data.subarray(0, 8).equals(Buffer.from('d0cf11e0a1b11ae1', 'hex'))
+                : data.length >= 64 && data[0] === 0x4d && data[1] === 0x5a &&
+                  peOffset >= 64 && peOffset <= data.length - 4 &&
+                  data.readUInt32LE(peOffset) === 0x00004550;
+              if (!validHeader) {
+                throw new Error(`Invalid installer header: ${name}`);
+              }
+              installers.set(name, {
+                filename: path.join(directory, name),
+                size: stat.size,
+                digest: `sha256:${createHash('sha256').update(data).digest('hex')}`,
+              });
+            }
+
+            async function validateRelease() {
+              // Read the original release by ID; never create or edit release metadata.
+              const { data: release } = await github.rest.repos.getRelease({
+                ...repo, release_id, request: { timeout: 15000 },
+              });
+              if (release.id !== release_id || release.tag_name !== eventRelease.tag_name || release.draft) {
+                throw new Error('The published release was changed; refusing to upload installers.');
+              }
+              if (release.immutable) {
+                throw new Error('Cannot attach installers after publication to an immutable release. No further release assets will be changed.');
+              }
+              // target_commitish can be a branch. Resolve the actual tag to a commit instead.
+              const { data: commit } = await github.rest.repos.getCommit({
+                ...repo, ref: `refs/tags/${eventRelease.tag_name}`, request: { timeout: 15000 },
+              });
+              if (commit.sha !== context.sha) {
+                throw new Error('The release tag no longer points to the built commit; refusing to upload installers.');
+              }
+              return release;
+            }
+
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const transient = error => error.status == null || error.status === 429 ||
+              (Number.isInteger(error.status) && error.status >= 500 && error.status <= 599);
+            async function readRemote(read) {
+              for (let attempt = 0; ; attempt++) {
+                try {
+                  return await read();
+                } catch (error) {
+                  if (!transient(error) || attempt === 2) {
+                    throw new Error('Release asset metadata could not be read safely.');
+                  }
+                  await sleep(500 * 2 ** attempt);
+                }
+              }
+            }
+            function observeAssets(list, source, expectedNames = names) {
+              for (const name of expectedNames) {
+                const observations = list.filter(asset => asset?.name === name).map(asset => JSON.stringify({
+                  id: Number.isSafeInteger(asset.id) && asset.id > 0 ? asset.id : 'invalid',
+                  name,
+                  state: typeof asset.state === 'string' && /^[a-z][a-z0-9_-]{0,63}$/i.test(asset.state)
+                    ? safeMessage(asset.state) : 'invalid',
+                  size: Number.isSafeInteger(asset.size) && asset.size >= 0 && asset.size < 2 ** 31
+                    ? asset.size : 'invalid',
+                  digest: asset.digest === undefined ? 'missing' : asset.digest === null ? null :
+                    typeof asset.digest === 'string' && asset.digest.length === 71 &&
+                      /^sha256:[0-9a-f]{64}$/.test(asset.digest)
+                      ? asset.digest : 'invalid',
+                })).sort();
+                if (!observations.length) observations.push(JSON.stringify({ name, missing: true }));
+                for (const observation of observations) core.info(`Observed release asset (${source}): ${observation}`);
+              }
+            }
+            async function listAssets() {
+              const list = await readRemote(() => github.paginate(github.rest.repos.listReleaseAssets, {
+                ...repo, release_id, per_page: 100, request: { timeout: 15000 },
+              }));
+              // Observe both expected names before selection or validation can reject either.
+              observeAssets(list, 'list');
+              return list;
+            }
+            function validateAsset(asset, name) {
+              if (!asset || asset.name !== name || !Number.isSafeInteger(asset.id) || asset.id <= 0 ||
+                  !Number.isSafeInteger(asset.size) || asset.size < 0 || asset.size >= 2 ** 31 ||
+                  typeof asset.state !== 'string' || !asset.state ||
+                  (asset.digest != null && (typeof asset.digest !== 'string' ||
+                    !/^sha256:[0-9a-f]{64}$/.test(asset.digest))) ||
+                  (asset.state === 'starter' && asset.digest != null) ||
+                  (asset.state === 'uploaded' && asset.size === 0)) {
+                throw new Error(`Invalid release asset metadata: ${name}; refusing to change it.`);
+              }
+              return asset;
+            }
+            function selectAsset(list, name) {
+              const assets = list.filter(asset => asset.name === name);
+              if (assets.length > 1) {
+                throw new Error(`Multiple release assets named ${name}; refusing to change them.`);
+              }
+              return assets[0] && validateAsset(assets[0], name);
+            }
+            async function assetById(id, name) {
+              const asset = await readRemote(async () => {
+                try {
+                  return (await github.rest.repos.getReleaseAsset({
+                    ...repo, asset_id: id, request: { timeout: 15000 },
+                  })).data;
+                } catch (error) {
+                  if (error.status === 404) return undefined;
+                  throw error;
+                }
+              });
+              observeAssets(asset ? [asset] : [], 'get-by-id', [name]);
+              if (!asset) return undefined;
+              validateAsset(asset, name);
+              if (asset.id !== id) throw new Error(`Release asset identity changed: ${name}`);
+              return asset;
+            }
+
+            // gh streams --input files with Content-Length and safely follows download
+            // redirects. No shell, tag lookup, implicit upload retry, or stderr logging.
+            function runGh(args, maxBytes, timeout, consume) {
+              return new Promise(resolve => {
+                let child;
+                let timer;
+                let done = false;
+                let size = 0;
+                const chunks = [];
+                const finish = failure => {
+                  if (done) return;
+                  done = true;
+                  clearTimeout(timer);
+                  resolve({ failure, text: Buffer.concat(chunks).toString('utf8') });
+                };
+                const interrupt = failure => {
+                  if (done) return;
+                  finish(failure);
+                  child.kill();
+                };
+                try {
+                  child = spawn('gh', args, {
+                    shell: false,
+                    windowsHide: true,
+                    stdio: ['ignore', 'pipe', 'ignore'],
+                    env: { ...process.env, GH_HOST: 'github.com', GH_DEBUG: '', GH_PROMPT_DISABLED: '1' },
+                  });
+                } catch {
+                  finish('spawn');
+                  return;
+                }
+                timer = setTimeout(() => interrupt('timeout'), timeout);
+                child.on('error', () => finish('process'));
+                // Keep the listener after completion to absorb late errors from a killed pipe.
+                child.stdout.on('error', () => interrupt('stream'));
+                child.stdout.on('data', chunk => {
+                  if (done) return;
+                  size += chunk.length;
+                  if (size > maxBytes) {
+                    interrupt('byte limit');
+                  } else if (consume) {
+                    consume(chunk);
+                  } else {
+                    chunks.push(chunk);
+                  }
+                });
+                child.on('close', code => finish(code === 0 ? undefined : 'exit'));
+              });
+            }
+            function safeMessage(message) {
+              if (typeof message !== 'string') return '';
+              for (const token of [process.env.GH_TOKEN, process.env.GITHUB_TOKEN]) {
+                if (token) message = message.split(token).join('[redacted]');
+              }
+              return message.replace(/(?:Bearer|Basic)\s+\S+|(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/gi, '[redacted]')
+                .replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 240);
+            }
+            async function upload(name) {
+              const result = await runGh([
+                'api', '--method', 'POST',
+                `https://uploads.github.com/repos/${repo.owner}/${repo.repo}/releases/${release_id}/assets`,
+                '--raw-field', `name=${name}`, '--input', installers.get(name).filename,
+                '--header', 'Content-Type:application/octet-stream', '--include',
+              ], 65536, 90000);
+              const response = result.text.match(/^HTTP\/[\d.]+ (\d{3})[^\r\n]*\r?\n([\s\S]*?)\r?\n\r?\n([\s\S]*)$/);
+              const status = response ? Number(response[1]) : undefined;
+              let data;
+              try { data = JSON.parse(response?.[3] ?? ''); } catch { /* Non-JSON upstream errors are expected. */ }
+              const diagnostics = [`status=${status ?? 'unknown'}`, `transport=${result.failure ?? 'ok'}`];
+              for (const [header, pattern] of [
+                ['x-github-request-id', /^[a-z0-9:-]{1,128}$/i],
+                ['retry-after', /^\d{1,6}$/],
+                ['content-length', /^\d{1,16}$/],
+              ]) {
+                const value = response?.[2].split(/\r?\n/)
+                  .find(line => line.toLowerCase().startsWith(`${header}:`))?.split(':').slice(1).join(':').trim();
+                if (value && pattern.test(value)) diagnostics.push(`${header}=${value}`);
+              }
+              if (data?.message) diagnostics.push(`message=${safeMessage(data.message)}`);
+              const detail = diagnostics.join('; ');
+              // Record the original allowlisted diagnostics before any reconciliation can fail.
+              if (status !== 201 || result.failure) core.warning(`Upload ${name}: ${detail}`);
+              if (status >= 200 && status < 300) {
+                // An acknowledged write must never trigger another POST, even if its
+                // response is malformed or its asset has not reached the listing yet.
+                validateAsset(data, name);
+                return data.id;
+              }
+              const error = new Error(`Release asset upload failed: ${name}; ${detail}`);
+              error.retryable = status === 422 || (status >= 500 && status <= 599) ||
+                (status == null && ['exit', 'process', 'timeout', 'stream'].includes(result.failure));
+              throw error;
+            }
+
+            const verifiedDownloads = new Set();
+            const downloadCounts = new Map();
+            async function matches(asset, name) {
+              if (!asset || asset.state !== 'uploaded') return false;
+              validateAsset(asset, name);
+              const installer = installers.get(name);
+              const mismatch = () => new Error(`Unexpected release asset data: ${name}; refusing to replace it.`);
+              if (asset.size !== installer.size) throw mismatch();
+              if (asset.digest != null) {
+                if (asset.digest !== installer.digest) throw mismatch();
+                return true;
+              }
+              const key = JSON.stringify([asset.id, asset.name, asset.size, asset.digest ?? null]);
+              if (verifiedDownloads.has(key)) return true;
+              const count = downloadCounts.get(name) ?? 0;
+              if (count >= 2) throw new Error(`Release asset download verification budget exhausted: ${name}`);
+              downloadCounts.set(name, count + 1);
+              const hash = createHash('sha256');
+              let size = 0;
+              const result = await runGh([
+                'api', '--method', 'GET', `repos/${repo.owner}/${repo.repo}/releases/assets/${asset.id}`,
+                '--header', 'Accept:application/octet-stream',
+              ], installer.size, 60000, chunk => {
+                size += chunk.length;
+                hash.update(chunk);
+              });
+              if (result.failure) throw new Error(`Release asset download verification failed: ${name}; ${result.failure}`);
+              if (size !== installer.size || `sha256:${hash.digest('hex')}` !== installer.digest) throw mismatch();
+              verifiedDownloads.add(key);
+              return true;
+            }
+            async function settle(name, acknowledgedId, waitForMissing = true) {
+              for (let poll = 0; poll < 4; poll++) {
+                await validateRelease();
+                let asset = selectAsset(await listAssets(), name);
+                if (acknowledgedId != null) {
+                  if (asset && asset.id !== acknowledgedId) throw new Error(`Release asset identity changed: ${name}`);
+                  asset = await assetById(acknowledgedId, name);
+                }
+                if (await matches(asset, name)) return asset;
+                if (!asset && !waitForMissing) return undefined;
+                if (poll < 3) {
+                  await sleep(1000 * 2 ** poll);
+                  continue;
+                }
+                if (acknowledgedId != null || (asset && asset.state !== 'starter')) {
+                  throw new Error(`Release asset did not settle: ${name}; refusing to change it.`);
+                }
+                return asset;
+              }
+            }
+            async function cleanStarter(asset, name) {
+              // GitHub documents starter assets left by upstream failures as safe to
+              // delete, without requiring size zero. Never delete an uploaded asset.
+              const member = selectAsset(await listAssets(), name);
+              if (!member) throw new Error(`Release asset disappeared before cleanup: ${name}`);
+              if (member.id !== asset.id) throw new Error(`Release asset identity changed: ${name}`);
+              await validateRelease();
+              const current = await assetById(asset.id, name);
+              if (!current) return undefined;
+              if (await matches(current, name)) return current;
+              if (current.state !== 'starter') throw new Error(`Release asset is no longer a starter: ${name}`);
+              await github.rest.repos.deleteReleaseAsset({
+                ...repo, asset_id: current.id, request: { timeout: 15000 },
+              });
+              return undefined;
+            }
+
+            await validateRelease();
+            const initialAssets = await listAssets();
+            for (const name of names) {
+              await matches(selectAsset(initialAssets, name), name);
+            }
+            const verifiedIds = new Map();
+            for (const name of names) {
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                let asset = await settle(name, undefined, false);
+                if (asset?.state === 'starter') asset = await cleanStarter(asset, name);
+                if (asset) {
+                  verifiedIds.set(name, asset.id);
+                  core.info(`Keeping verified release asset: ${name}`);
+                  break;
+                }
+                await validateRelease();
+                let acknowledgedId;
+                try {
+                  acknowledgedId = await upload(name);
+                } catch (error) {
+                  if (!error.retryable) throw error;
+                  // Reconcile even on the last attempt. Original diagnostics are already logged.
+                  const pending = await settle(name);
+                  if (pending?.state === 'uploaded') {
+                    verifiedIds.set(name, pending.id);
+                    break;
+                  }
+                  if (attempt === 3) {
+                    throw new Error(`Release asset upload failed after ${attempt} attempts: ${name}`, { cause: error });
+                  }
+                  await sleep(1000 * 2 ** (attempt - 1));
+                  continue;
+                }
+                const completed = await settle(name, acknowledgedId);
+                verifiedIds.set(name, completed.id);
+                break;
+              }
+            }
+            let release;
+            for (let poll = 0; poll < 4; poll++) {
+              const uploaded = await listAssets();
+              release = await validateRelease();
+              let complete = true;
+              for (const name of names) {
+                const asset = selectAsset(uploaded, name);
+                if (asset && asset.id !== verifiedIds.get(name)) throw new Error(`Release asset identity changed: ${name}`);
+                if (!await matches(asset, name)) complete = false;
+              }
+              if (complete) break;
+              if (poll === 3) throw new Error('Release asset verification failed; verified uploads will be preserved.');
+              await sleep(1000 * 2 ** poll);
+            }
+
+            core.notice(`Attached Windows x64 installers built from ${context.sha} to release ${release_id}: ${release.html_url}`);
