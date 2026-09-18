@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
-use jsonschema::JSONSchema;
+use jsonschema::Validator;
 use serde_json::Value;
 
 use super::RawScoreValidationError;
@@ -25,8 +25,8 @@ const DEFINITIONS: &[&str] = &[
     "score-extensions",
 ];
 
-fn schemas() -> &'static HashMap<&'static str, JSONSchema> {
-    static COMPILED: OnceLock<HashMap<&'static str, JSONSchema>> = OnceLock::new();
+fn schemas() -> &'static HashMap<&'static str, Validator> {
+    static COMPILED: OnceLock<HashMap<&'static str, Validator>> = OnceLock::new();
     COMPILED.get_or_init(|| {
         let source: Value = serde_json::from_str(EXTENSIONS_SCHEMA_JSON)
             .expect("embedded Viritura extensions schema is valid JSON");
@@ -41,9 +41,9 @@ fn schemas() -> &'static HashMap<&'static str, JSONSchema> {
                         "$ref".into(),
                         Value::String(format!("#/$defs/{definition}")),
                     );
-                let compiled = JSONSchema::options()
+                let compiled = Validator::options()
                     .with_draft(jsonschema::Draft::Draft202012)
-                    .compile(&schema)
+                    .build(&schema)
                     .unwrap_or_else(|error| {
                         panic!("Viritura extension definition '{definition}' compiles: {error}")
                     });
