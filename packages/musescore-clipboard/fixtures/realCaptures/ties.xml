@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StaffList version="4.70" tick="5/1" len="6/8" staff="24" staves="1">
+  <Staff id="24">
+    <voiceOffset>
+      <voice id="0">0</voice>
+      </voiceOffset>
+    <location>
+      <fractions>5/1</fractions>
+      </location>
+    <Chord>
+      <dots>1</dots>
+      <durationType>eighth</durationType>
+      <Note>
+        <pitch>63</pitch>
+        <tpc>11</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>16th</durationType>
+      <Note>
+        <pitch>62</pitch>
+        <tpc>16</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>eighth</durationType>
+      <Note>
+        <pitch>63</pitch>
+        <tpc>11</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>eighth</durationType>
+      <Note>
+        <Spanner type="Tie">
+          <Tie>
+            <ticks_f>1/8</ticks_f>
+            </Tie>
+          <next>
+            <location>
+              <fractions>1/8</fractions>
+              </location>
+            </next>
+          </Spanner>
+        <pitch>65</pitch>
+        <tpc>13</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>16th</durationType>
+      <Note>
+        <Spanner type="Tie">
+          <prev>
+            <location>
+              <fractions>-1/8</fractions>
+              </location>
+            </prev>
+          </Spanner>
+        <pitch>65</pitch>
+        <tpc>13</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>16th</durationType>
+      <Note>
+        <Spanner type="Tie">
+          <Tie>
+            <ticks_f>1/16</ticks_f>
+            </Tie>
+          <next>
+            <location>
+              <fractions>1/16</fractions>
+              </location>
+            </next>
+          </Spanner>
+        <pitch>63</pitch>
+        <tpc>11</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>eighth</durationType>
+      <Note>
+        <Spanner type="Tie">
+          <prev>
+            <location>
+              <fractions>-1/16</fractions>
+              </location>
+            </prev>
+          </Spanner>
+        <pitch>63</pitch>
+        <tpc>11</tpc>
+        </Note>
+      </Chord>
+    </Staff>
+  </StaffList>

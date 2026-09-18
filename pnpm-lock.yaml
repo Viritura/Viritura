@@ -151,6 +151,9 @@ importers:
       '@viritura/monaco-react':
         specifier: workspace:*
         version: link:../../packages/monaco-react
+      '@viritura/musescore-clipboard':
+        specifier: workspace:*
+        version: link:../../packages/musescore-clipboard
       '@viritura/musicxml':
         specifier: workspace:*
         version: link:../../packages/musicxml
@@ -579,6 +582,25 @@ importers:
       vite:
         specifier: ^8.2.0
         version: 8.2.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@25.9.0)(happy-dom@20.9.0)(jsdom@28.1.0)(vite@8.2.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/musescore-clipboard:
+    dependencies:
+      '@viritura/core':
+        specifier: workspace:*
+        version: link:../core
+      '@xmldom/xmldom':
+        specifier: ^0.9.12
+        version: 0.9.12
+    devDependencies:
+      happy-dom:
+        specifier: ^20.8.9
+        version: 20.9.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@25.9.0)(happy-dom@20.9.0)(jsdom@28.1.0)(vite@8.2.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))

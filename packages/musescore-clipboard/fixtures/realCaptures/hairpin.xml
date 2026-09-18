@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StaffList version="4.70" tick="2/1" len="6/8" staff="24" staves="1">
+  <Staff id="24">
+    <voiceOffset>
+      <voice id="0">0</voice>
+      </voiceOffset>
+    <location>
+      <fractions>2/1</fractions>
+      </location>
+    <Dynamic>
+      <subtype>mf</subtype>
+      <velocity>80</velocity>
+      </Dynamic>
+    <Spanner type="HairPin">
+      <HairPin>
+        <subtype>0</subtype>
+        <ticks_f>3/4</ticks_f>
+        </HairPin>
+      <next>
+        <location>
+          <fractions>3/4</fractions>
+          </location>
+        </next>
+      </Spanner>
+    <Chord>
+      <durationType>quarter</durationType>
+      <Note>
+        <pitch>63</pitch>
+        <tpc>11</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <durationType>eighth</durationType>
+      <Note>
+        <pitch>65</pitch>
+        <tpc>13</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <dots>1</dots>
+      <durationType>quarter</durationType>
+      <Note>
+        <pitch>67</pitch>
+        <tpc>15</tpc>
+        </Note>
+      </Chord>
+    <Spanner type="HairPin">
+      <prev>
+        <location>
+          <fractions>-3/4</fractions>
+          </location>
+        </prev>
+      </Spanner>
+    </Staff>
+  </StaffList>

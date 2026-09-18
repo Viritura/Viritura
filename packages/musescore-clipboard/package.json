@@ -1,0 +1,28 @@
+{
+  "name": "@viritura/musescore-clipboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@viritura/core": "workspace:*",
+    "@xmldom/xmldom": "^0.9.12"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.8.9",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11"
+  }
+}
