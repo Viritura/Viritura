@@ -1,5 +1,12 @@
-import { isRest, type Duration, type SequenceContent, type Space } from "@viritura/core";
-import { decomposeDuration, durationToBeats, generateEventId, sequenceContentBeats } from "../commands/noteCommands";
+import {
+  DURATION_BEATS,
+  isRest,
+  type Duration,
+  type SequenceContent,
+  type Space,
+  type TupletDuration,
+} from "@viritura/core";
+import { decomposeDuration, generateEventId, sequenceContentBeats } from "../commands/noteCommands";
 
 function checkedFraction([numerator, denominator]: Space["duration"]): [bigint, bigint] {
   if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator < 0 || denominator <= 0) {
@@ -37,10 +44,53 @@ export function compareWholeFractions(left: Space["duration"], right: Space["dur
   return difference < 0n ? -1 : Number(difference > 0n);
 }
 
+function multiplyWholeFractions(left: Space["duration"], right: Space["duration"]): Space["duration"] {
+  const [a, b] = checkedFraction(left);
+  const [c, d] = checkedFraction(right);
+  return reducedFraction(a * c, b * d);
+}
+
+function durationWholeFraction(duration: Duration): Space["duration"] {
+  let total = exactWholeFraction(DURATION_BEATS[duration.base]);
+  let dot = total;
+  const dots = duration.dots ?? 0;
+  checkedFraction([dots, 1]);
+  for (let index = 0; index < dots; index++) {
+    dot = multiplyWholeFractions(dot, [1, 2]);
+    total = addWholeFractions(total, dot);
+  }
+  return total;
+}
+
+function tupletDurationWholeFraction(duration: TupletDuration): Space["duration"] {
+  return multiplyWholeFractions(durationWholeFraction(duration.duration), [duration.multiple, 1]);
+}
+
 export function contentWholeFraction(item: SequenceContent): Space["duration"] {
-  if (item.type !== "space") return exactWholeFraction(sequenceContentBeats(item));
-  checkedFraction(item.duration);
-  return item.duration;
+  switch (item.type) {
+    case "event":
+      return durationWholeFraction(item.duration);
+    case "tuplet": {
+      const outer = tupletDurationWholeFraction(item.outer);
+      if (!item.span) return outer;
+      const inner = tupletDurationWholeFraction(item.inner);
+      const local = item.content.reduce<Space["duration"]>(
+        (sum, child) => addWholeFractions(sum, contentWholeFraction(child)),
+        [0, 1],
+      );
+      // A spanning fragment occupies only its local content scaled by the full ratio.
+      // Keep both exact: float accumulation would turn roundoff into new notation.
+      const ratio = multiplyWholeFractions(outer, [inner[1], inner[0]]);
+      return multiplyWholeFractions(local, ratio);
+    }
+    case "tremolo":
+      return tupletDurationWholeFraction(item.outer);
+    case "grace":
+      return [0, 1];
+    case "space":
+      checkedFraction(item.duration);
+      return item.duration;
+  }
 }
 
 function binaryFraction(value: number): [bigint, bigint] {
@@ -163,7 +213,7 @@ export function ensureSequencePosition(
 function exactRestDurations(fraction: Space["duration"]): Duration[] {
   const durations = decomposeDuration((fraction[0] / fraction[1]) * 4);
   const actual = durations.reduce<Space["duration"]>(
-    (sum, duration) => addWholeFractions(sum, exactWholeFraction(durationToBeats(duration))),
+    (sum, duration) => addWholeFractions(sum, durationWholeFraction(duration)),
     [0, 1],
   );
   if (compareWholeFractions(fraction, actual) !== 0) {
