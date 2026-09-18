@@ -15,7 +15,7 @@
 
 import type { Score } from "@viritura/core";
 import type { Sf2PartAssignment, VstPartAssignment, VstPreparePlan, VstTransport } from "@viritura/playback";
-import { generatePerformanceEvents } from "@viritura/midi";
+import { generatePerformanceEvents, performanceNoteVelocity } from "@viritura/midi";
 import type { SlotBinding, ProfileSlot, VstInstrumentProfile } from "@viritura/instrument-profiles";
 import { isDesktopHost } from "./profileHostBridge";
 import { readInstrumentProfileState, useInstrumentProfileStore } from "./instrumentProfileStore";
@@ -337,7 +337,7 @@ function sf2Schedule(score: Score, partIndex: number): PartScheduledMidiWire[] {
         note_id: ev.note.id,
         channel: 0,
         note: ev.note.pitch,
-        velocity: Math.max(1, clampByte(ev.note.dynamics * 127)),
+        velocity: performanceNoteVelocity(ev.note, (dynamics) => Math.max(1, clampByte(dynamics * 127))),
       });
     } else if (ev.kind === "noteOff") {
       out.push({ atSeconds, part: partIndex, type: "note_off", note_id: ev.note.id });

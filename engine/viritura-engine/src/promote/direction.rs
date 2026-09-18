@@ -97,8 +97,20 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
 
 pub(crate) fn promote_dynamic_group(raw: raw::DynamicGroup) -> DynamicGroup {
     let ext = read_viritura_ext(raw.x.as_ref());
-    let dynamic_ext: Option<crate::raw_viritura::DynamicGroupExtensions> =
-        ext.and_then(|value| serde_json::from_value(serde_json::Value::Object(value.clone())).ok());
+    let dynamic_ext: Option<crate::raw_viritura::DynamicGroupExtensions> = ext.and_then(|value| {
+        let mut value = value.clone();
+        // JSON Schema integers include 96.0 and 9.6e1; serde's i64 does not.
+        // Normalize only integral MIDI velocities, whose bounded range is exact in f64.
+        if let Some(velocity) = value.get_mut("playbackVelocity") {
+            if let Some(number) = velocity
+                .as_f64()
+                .filter(|number| (1.0..=127.0).contains(number) && number.fract() == 0.0)
+            {
+                *velocity = serde_json::Value::from(number as i64);
+            }
+        }
+        serde_json::from_value(serde_json::Value::Object(value)).ok()
+    });
     let glyphs = raw
         .glyphs
         .into_iter()
@@ -112,6 +124,9 @@ pub(crate) fn promote_dynamic_group(raw: raw::DynamicGroup) -> DynamicGroup {
         group_type: raw.type_,
         position: promote_rhythmic_position(raw.position),
         value: raw.value,
+        playback_velocity: dynamic_ext
+            .as_ref()
+            .and_then(|value| value.playback_velocity),
         residual_value: raw.residual_value,
         accent_prefix: raw.accent_prefix,
         accent_suffix: raw.accent_suffix,

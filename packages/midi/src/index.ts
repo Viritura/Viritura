@@ -14,8 +14,15 @@ export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeat
 export type { TimelineOptions } from "./timeline";
 
 // Notation-level performance events for VST articulation mapping
-export { generatePerformanceEvents } from "./performanceEvents";
-export type { PerformanceEvent, PerformanceNote, Articulations, PlayingState } from "./performanceEvents";
+export { generatePerformanceEvents, performanceNoteVelocity } from "./performanceEvents";
+export type {
+  PerformanceEvent,
+  PerformanceNote,
+  Articulations,
+  PlayingState,
+  PlaybackVelocityEndpoint,
+  PlaybackVelocityInterpolation,
+} from "./performanceEvents";
 
 // Tempo map
 export { buildTempoMap, measureBeatsFromTime, tempoNoteBeats, effectiveQpm, spqAtTime, DEFAULT_BPM } from "./tempoMap";
@@ -31,6 +38,7 @@ export {
   buildDynamicsEnvelope,
   sampleDynamics,
   noteVelocityAt,
+  playbackVelocityAt,
   hasAnyDynamics,
   cc11Events,
 } from "./dynamicsEnvelope";

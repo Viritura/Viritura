@@ -1493,13 +1493,13 @@ impl ::std::convert::From<&Coda> for Coda {
         value.clone()
     }
 }
-///Viritura engraving placement extensions on a standard MNX dynamic-group object.
+///Viritura engraving placement and playback extensions on a standard MNX dynamic-group object.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Viritura engraving placement extensions on a standard MNX dynamic-group object.",
+///  "description": "Viritura engraving placement and playback extensions on a standard MNX dynamic-group object.",
 ///  "type": "object",
 ///  "properties": {
 ///    "avoidCollisions": {
@@ -1509,6 +1509,10 @@ impl ::std::convert::From<&Coda> for Coda {
 ///    "manualOffset": {
 ///      "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement.",
 ///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "playbackVelocity": {
+///      "description": "Explicit MIDI attack velocity, independent of the written dynamic value and expression. Immediate/relative groups set a persistent attack level; accents override their onset; gradual groups set the starting attack level of the ramp. Absent: normal dynamic response.",
+///      "type": "integer"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -1532,6 +1536,13 @@ pub struct DynamicGroupExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub manual_offset: ::std::option::Option<SpDelta>,
+    ///Explicit MIDI attack velocity, independent of the written dynamic value and expression. Immediate/relative groups set a persistent attack level; accents override their onset; gradual groups set the starting attack level of the ramp. Absent: normal dynamic response.
+    #[serde(
+        rename = "playbackVelocity",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub playback_velocity: ::std::option::Option<i64>,
 }
 impl ::std::convert::From<&DynamicGroupExtensions> for DynamicGroupExtensions {
     fn from(value: &DynamicGroupExtensions) -> Self {
@@ -1543,6 +1554,7 @@ impl ::std::default::Default for DynamicGroupExtensions {
         Self {
             avoid_collisions: Default::default(),
             manual_offset: Default::default(),
+            playback_velocity: Default::default(),
         }
     }
 }

@@ -33,8 +33,8 @@ export function realizeDynamicsEnvelope(envelope: DynamicsEnvelope, profile: Dyn
     anchors: envelope.anchors.map((anchor) => ({ ...anchor, ...realizeAxes(anchor, profile) })),
     ramps: envelope.ramps.map((ramp) => ({
       ...ramp,
-      start: realizeAxes(ramp.start, profile),
-      end: realizeAxes(ramp.end, profile),
+      start: { ...ramp.start, ...realizeAxes(ramp.start, profile) },
+      end: { ...ramp.end, ...realizeAxes(ramp.end, profile) },
     })),
     attacks: envelope.attacks.map((attack) => ({
       ...attack,

@@ -12,7 +12,8 @@ import type {
   Tuplet,
 } from "@viritura/core";
 import { isRest, pitchToMidi } from "@viritura/core";
-import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
+import { buildDynamicsEnvelope, cc11Events, samplePlaybackVelocity, sampleDynamics } from "./dynamicsEnvelope";
+import { compileDynamicProgram, laneForScope } from "./dynamicPlayback";
 import { buildHoldSchedule } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
 import { buildTempoMap, buildTempoModel } from "./tempoMap";
@@ -41,12 +42,28 @@ export interface PlayingState {
   harmonic: boolean;
 }
 
+export interface PlaybackVelocityEndpoint {
+  /** Semantic dynamic scalar (0..1), interpreted by the consumer's attack mapping. */
+  dynamics: number;
+  playbackVelocity?: number;
+}
+
+export interface PlaybackVelocityInterpolation {
+  from: PlaybackVelocityEndpoint;
+  to: PlaybackVelocityEndpoint;
+  progress: number;
+}
+
 export interface PerformanceNote {
   id: string;
   startTime: number;
   duration: number;
   pitch: number;
   dynamics: number;
+  /** Explicit MIDI attack velocity (1..127), independent of semantic dynamics. */
+  playbackVelocity?: number;
+  /** Partially calibrated ramp; resolve missing endpoints using the consumer's mapping. */
+  playbackVelocityInterpolation?: PlaybackVelocityInterpolation;
   articulations: Articulations;
   state: PlayingState;
 }
@@ -79,12 +96,48 @@ interface TraversalContext extends TimingContext {
   readonly pendingTies: Map<string, PerformanceNote>;
   readonly events: TimedEvent[];
   readonly dynamicsEnvelope: ReturnType<typeof buildDynamicsEnvelope>;
+  readonly attackCalibrationAt: (event: NoteEvent, startTime: number) => AttackCalibration;
   readonly measureInitialState: PlayingState;
   readonly techniqueMarks: readonly TechniqueMark[];
   order: number;
 }
 
 const EPS = 1e-9;
+
+type AttackCalibration = Pick<PerformanceNote, "playbackVelocity" | "playbackVelocityInterpolation">;
+
+function attackCalibrationAt(envelope: ReturnType<typeof buildDynamicsEnvelope>, time: number): AttackCalibration {
+  const sample = samplePlaybackVelocity(envelope, time);
+  if (sample === undefined) return {};
+  if (typeof sample === "number") return { playbackVelocity: sample };
+  const { from, to, progress } = sample;
+  if (from.playbackVelocity !== undefined && to.playbackVelocity !== undefined) {
+    return { playbackVelocity: Math.round(from.playbackVelocity * (1 - progress) + to.playbackVelocity * progress) };
+  }
+  return {
+    playbackVelocityInterpolation: {
+      from: {
+        dynamics: from.cc11 / 127,
+        ...(from.playbackVelocity === undefined ? {} : { playbackVelocity: from.playbackVelocity }),
+      },
+      to: {
+        dynamics: to.cc11 / 127,
+        ...(to.playbackVelocity === undefined ? {} : { playbackVelocity: to.playbackVelocity }),
+      },
+      progress,
+    },
+  };
+}
+
+/** Resolve attack calibration only once the consumer's native mapping is known. */
+export function performanceNoteVelocity(note: PerformanceNote, defaultVelocity: (dynamics: number) => number): number {
+  if (note.playbackVelocity !== undefined) return note.playbackVelocity;
+  const interpolation = note.playbackVelocityInterpolation;
+  if (!interpolation) return defaultVelocity(note.dynamics);
+  const from = interpolation.from.playbackVelocity ?? defaultVelocity(interpolation.from.dynamics);
+  const to = interpolation.to.playbackVelocity ?? defaultVelocity(interpolation.to.dynamics);
+  return Math.round(from * (1 - interpolation.progress) + to * interpolation.progress);
+}
 
 const DEFAULT_ARTICULATIONS: Articulations = {
   staccato: false,
@@ -319,6 +372,7 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
   const segmentSeconds = secondsForBeats(ctx, beatOffset, beats);
   const articulations = emptyArticulations(event);
   const playingState = noteState(stateForEvent(ctx, beatOffset), event);
+  const attackCalibration = ctx.attackCalibrationAt(event, startTime);
 
   for (const [noteIndex, note] of (event.notes ?? []).entries()) {
     const pitch = pitchToMidi(note.pitch);
@@ -345,6 +399,7 @@ function processNoteEvent(ctx: TraversalContext, event: NoteEvent, beatOffset: n
       duration: segmentSeconds,
       pitch,
       dynamics: noteDynamics(ctx, startTime),
+      ...attackCalibration,
       articulations: { ...articulations },
       state: playingState,
     };
@@ -462,6 +517,22 @@ export function generatePerformanceEvents(
     [],
     staffMeterTable,
   );
+  // Keep the legacy part-wide CC11 signal; scope only explicit attack overrides.
+  const playbackProgram = part.measures.some((measure) =>
+    measure.dynamics?.some((group) => group.playbackVelocity !== undefined),
+  )
+    ? compileDynamicProgram(
+        part,
+        partIndex,
+        measureOrder,
+        measureStartBeats,
+        model,
+        globalMeasures,
+        -1,
+        [],
+        staffMeterTable,
+      )
+    : undefined;
   const tieTargets = collectPartTieTargets(part, measureOrder);
   const pendingTies = new Map<string, PerformanceNote>();
   const events: TimedEvent[] = [{ event: { kind: "reset", time: 0 }, order: 0 }];
@@ -496,6 +567,17 @@ export function generatePerformanceEvents(
         pendingTies,
         events,
         dynamicsEnvelope,
+        attackCalibrationAt: (event, startTime) => {
+          const envelope = playbackProgram
+            ? laneForScope(
+                playbackProgram,
+                partIndex,
+                event.staff ?? sequence.staff ?? 1,
+                sequence.voice ?? `sequence:${sequenceIndex}`,
+              ).envelope
+            : dynamicsEnvelope;
+          return attackCalibrationAt(envelope, startTime);
+        },
         measureInitialState: persistentState,
         techniqueMarks: marks,
         order,

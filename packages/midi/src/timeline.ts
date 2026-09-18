@@ -72,7 +72,13 @@ import {
   velocityHumanize,
   timingHumanize,
 } from "./dynamics";
-import { noteVelocityAt, emitDynamicsCc11, type DynamicsEnvelope } from "./dynamicsEnvelope";
+import {
+  noteVelocityAt,
+  playbackVelocityAt,
+  hasPlaybackVelocityBetween,
+  emitDynamicsCc11,
+  type DynamicsEnvelope,
+} from "./dynamicsEnvelope";
 import { compileDynamicProgram, laneForScope, laneForSequence } from "./dynamicPlayback";
 import type { DynamicProgram } from "./dynamicPlayback";
 
@@ -645,6 +651,37 @@ function dynamicVelocityAt(ctx: PartCtx, measureStartTime: number, beatOffset: n
   return noteVelocityAt(ctx.dynamicsEnvelope, eventTime(ctx, beatOffset));
 }
 
+/** Authored attacks bypass automatic shaping, but retain explicit articulations. */
+function noteAttackVelocity(
+  ctx: PartCtx,
+  event: NoteEvent,
+  measureStartTime: number,
+  beatOffset: number,
+  baseVelocity: number,
+  attackBeatOffset = beatOffset,
+): number {
+  const attackTime = eventTime(ctx, attackBeatOffset);
+  const authoredVelocity = playbackVelocityAt(ctx.dynamicsEnvelope, attackTime);
+  if (authoredVelocity !== undefined) return applyArticulationVelocity(authoredVelocity, event.markings);
+
+  // Repeated ornaments retain their original onset-based shaping until an
+  // explicit calibration intervenes; after it expires, use the current level.
+  const fallbackVelocity =
+    attackBeatOffset !== beatOffset &&
+    hasPlaybackVelocityBetween(ctx.dynamicsEnvelope, eventTime(ctx, beatOffset), attackTime)
+      ? noteVelocityAt(ctx.dynamicsEnvelope, attackTime)
+      : baseVelocity;
+  return Math.min(
+    127,
+    Math.max(
+      1,
+      applyArticulationVelocity(fallbackVelocity, event.markings) +
+        metricAccentOffset(beatOffset, ctx.timeSig) +
+        velocityHumanize(measureStartTime, beatOffset),
+    ),
+  );
+}
+
 /** Run one note event against its effective staff/voice dynamics lane and tag
  *  every emitted or deferred MIDI event with that lane identity. */
 function processScopedNoteEvent(
@@ -829,7 +866,7 @@ function processNoteEvent(
   baseVelocity: number,
   tupletRatio: number,
 ): number {
-  const { partIndex, channel, tieTargets, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
+  const { partIndex, channel, tieTargets, out, kitMidiMap, kitAltProgramMap } = ctx;
   const beats = durationBeats(event.duration) * tupletRatio;
 
   if (isRest(event)) {
@@ -870,15 +907,7 @@ function processNoteEvent(
     durationScale,
     held: fermataHeld,
   } = resolveFermataDuration(ctx, event, naturalDurationSec, beatOffset);
-  const velocity = Math.min(
-    127,
-    Math.max(
-      1,
-      applyArticulationVelocity(baseVelocity, event.markings) +
-        metricAccentOffset(beatOffset, timeSig) +
-        velocityHumanize(measureStartTime, beatOffset),
-    ),
-  );
+  const velocity = noteAttackVelocity(ctx, event, measureStartTime, beatOffset, baseVelocity);
 
   // Interior slur note: defer its release so it overlaps the next note (legato).
   // A fermata-held note is exempt: it must ring through its hold rather than be
@@ -1070,22 +1099,14 @@ function processKitRoll(
   baseVelocity: number,
   beats: number,
 ): number {
-  const { partIndex, channel, out, kitMidiMap, kitAltProgramMap, timeSig } = ctx;
+  const { partIndex, channel, out, kitMidiMap, kitAltProgramMap } = ctx;
   if (!kitMidiMap) return beats;
 
   const startTime = eventTime(ctx, beatOffset);
   const timingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
   const jitteredStart = Math.max(0, startTime + timingOffset);
   const durationSec = eventSeconds(ctx, beatOffset, beats);
-  const velocity = Math.min(
-    127,
-    Math.max(
-      1,
-      applyArticulationVelocity(baseVelocity, event.markings) +
-        metricAccentOffset(beatOffset, timeSig) +
-        velocityHumanize(measureStartTime, beatOffset),
-    ),
-  );
+  const velocity = noteAttackVelocity(ctx, event, measureStartTime, beatOffset, baseVelocity);
 
   for (const kn of event.kitNotes ?? []) {
     const baseMidi = kitNoteToMidi(kn, kitMidiMap);
@@ -1124,20 +1145,12 @@ function processSingleNoteTremolo(
   totalBeats: number,
   marks: number,
 ): number {
-  const { partIndex, channel, out, gmProgram, timeSig } = ctx;
-  const velocity = Math.min(
-    127,
-    Math.max(
-      1,
-      applyArticulationVelocity(baseVelocity, event.markings) +
-        metricAccentOffset(beatOffset, timeSig) +
-        velocityHumanize(measureStartTime, beatOffset),
-    ),
-  );
+  const { partIndex, channel, out, gmProgram } = ctx;
   const notes = event.notes ?? [];
 
   // 3-slash tremolo on solo strings: use Tremolo Strings GM patch
   if (marks === 3 && gmProgram >= STRING_SOLO_RANGE_LO && gmProgram <= STRING_SOLO_RANGE_HI) {
+    const velocity = noteAttackVelocity(ctx, event, measureStartTime, beatOffset, baseVelocity);
     const startTime = eventTime(ctx, beatOffset);
     const tremTimingOffset = timingHumanize(measureStartTime, beatOffset, partIndex);
     const jitteredTremStart = Math.max(0, startTime + tremTimingOffset);
@@ -1182,6 +1195,7 @@ function processSingleNoteTremolo(
 
   for (let s = 0; s < numSubdivisions; s++) {
     const subBeatOffset = beatOffset + s * actualSubdivBeats;
+    const velocity = noteAttackVelocity(ctx, event, measureStartTime, beatOffset, baseVelocity, subBeatOffset);
     const subStartTime = eventTime(ctx, subBeatOffset);
     const subTimingOffset = timingHumanize(measureStartTime, subBeatOffset, partIndex);
     const jitteredSubStart = Math.max(0, subStartTime + subTimingOffset);
@@ -1261,7 +1275,7 @@ function tryProcessTrill(
   baseVelocity: number,
   totalBeats: number,
 ): boolean {
-  const { partIndex, channel, out, timeSig, keyFifths } = ctx;
+  const { partIndex, channel, out, keyFifths } = ctx;
   const notes = event.notes ?? [];
   if (notes.length === 0) return false;
 
@@ -1274,15 +1288,6 @@ function tryProcessTrill(
   if (n < 2) return false;
 
   const subBeats = totalBeats / n;
-  const velocity = Math.min(
-    127,
-    Math.max(
-      1,
-      applyArticulationVelocity(baseVelocity, event.markings) +
-        metricAccentOffset(beatOffset, timeSig) +
-        velocityHumanize(measureStartTime, beatOffset),
-    ),
-  );
   const trillAccidental = event.markings?.trill?.accidental;
 
   // Principal + upper auxiliary MIDI for each note in the (possibly chord) event.
@@ -1298,6 +1303,7 @@ function tryProcessTrill(
     // Start on the principal (lower) note: even steps lower, odd steps upper.
     const useUpper = s % 2 === 1;
     const subBeatOffset = beatOffset + s * subBeats;
+    const velocity = noteAttackVelocity(ctx, event, measureStartTime, beatOffset, baseVelocity, subBeatOffset);
     const subStartTime = eventTime(ctx, subBeatOffset);
     const subTimingOffset = timingHumanize(measureStartTime, subBeatOffset, partIndex);
     const jitteredStart = Math.max(0, subStartTime + subTimingOffset);
