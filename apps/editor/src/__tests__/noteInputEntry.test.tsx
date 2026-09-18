@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Duration, NoteEvent, Score, SequenceContent } from "@viritura/core";
+import type { Duration, NoteEvent, Score, SequenceContent, TimeSignature } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { Toolbar } from "../components/Toolbar";
 import { buildEditorBindings, type EditorBindingConfig } from "../keyboard/editorBindings";
@@ -14,6 +14,10 @@ function note(id: string, duration: Duration): NoteEvent {
   return { type: "event", id, duration, notes: [{ pitch: { step: "C", octave: 4 } }] };
 }
 
+function rest(id: string, duration: Duration): NoteEvent {
+  return { type: "event", id, duration, rest: {} };
+}
+
 function makeScore(content: SequenceContent[]): Score {
   return {
     mnx: { version: 1 },
@@ -24,6 +28,19 @@ function makeScore(content: SequenceContent[]): Score {
 
 function single(suffix: string): Selection {
   return { kind: "single", elementId: `p0/m0/s0/${suffix}`, elementType: "event" };
+}
+
+function selectedRest(suffix = "rest"): Selection {
+  return { kind: "single", elementId: `p0/m0/s0/${suffix}`, elementType: "rest" };
+}
+
+function fullMeasureScore(time: TimeSignature): Score {
+  const score = makeScore([]);
+  score.global.measures = [{ time }, {}];
+  score.parts[0]!.measures = Array.from({ length: 2 }, () => ({
+    sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
+  }));
+  return score;
 }
 
 const ordinaryContent = [note("quarter", { base: "quarter" }), note("half", { base: "half", dots: 1 })];
@@ -48,6 +65,48 @@ interface EntryCase {
 const entryCases: EntryCase[] = [
   { name: "quarter clears previously chosen dots", selection: single("quarter"), duration: { base: "quarter" } },
   { name: "dotted half", selection: single("half"), duration: { base: "half", dots: 1 } },
+  {
+    name: "quarter rest clears previously chosen dots",
+    selection: selectedRest(),
+    content: [rest("rest", { base: "quarter" })],
+    duration: { base: "quarter" },
+  },
+  {
+    name: "dotted rest",
+    selection: selectedRest(),
+    content: [rest("rest", { base: "half", dots: 1 })],
+    duration: { base: "half", dots: 1 },
+  },
+  {
+    name: "rest with four dots",
+    selection: selectedRest(),
+    content: [rest("rest", { base: "eighth", dots: 4 })],
+    duration: { base: "eighth", dots: 4 },
+  },
+  {
+    name: "flattened rest ID",
+    selection: selectedRest("e0"),
+    content: [rest("rest", { base: "eighth" })],
+    duration: { base: "eighth" },
+  },
+  {
+    name: "tuplet rest uses its written rhythm",
+    selection: selectedRest(),
+    content: [{ ...tuplet, content: [rest("rest", { base: "eighth" })] }],
+    duration: { base: "eighth" },
+  },
+  {
+    name: "range anchored on a rest",
+    selection: { kind: "range", startElementId: "p0/m0/s0/rest", endElementId: "p0/m0/s0/quarter" },
+    content: [rest("rest", { base: "half", dots: 1 }), ...ordinaryContent],
+    duration: { base: "half", dots: 1 },
+  },
+  {
+    name: "multi anchored on a rest",
+    selection: { kind: "multi", elementIds: ["p0/m0/s0/rest", "p0/m0/s0/quarter"] },
+    content: [rest("rest", { base: "half", dots: 1 }), ...ordinaryContent],
+    duration: { base: "half", dots: 1 },
+  },
   {
     name: "event ID with an annotation-like prefix",
     selection: single("chord-note"),
@@ -124,7 +183,7 @@ const preserveCases: { name: string; selection: Selection }[] = [
   },
   { name: "stale note ID", selection: single("missing") },
   { name: "stale grace ID does not fall back to principal", selection: single("half/grace/missing") },
-  { name: "selected rest", selection: single("rest") },
+  { name: "rest-attached annotation", selection: selectedRest("rest/ferm") },
   { name: "note-attached annotation is not a selected note", selection: single("half/art0") },
   {
     name: "non-note multi anchor does not scan for another note",
@@ -194,6 +253,7 @@ describe.each(["N", "toolbar"] as const)("Add Note entry via %s", (entry) => {
 
     expect(useNoteInputStore.getState()).toMatchObject({
       active: true,
+      isRest: false,
       currentDuration: duration.base,
       dotCount: duration.dots ?? 0,
       selectedDotCount: duration.dots || 2,
@@ -203,6 +263,82 @@ describe.each(["N", "toolbar"] as const)("Add Note entry via %s", (entry) => {
     expect(score).toEqual(original);
     expect(store.getState().dirty).toBe(false);
     expect(useSelectionStore.getState().selection).toEqual(selection);
+  });
+
+  it.each([
+    { count: 4, unit: 4, duration: { base: "whole" } },
+    { count: 6, unit: 8, duration: { base: "half", dots: 1 } },
+    { count: 7, unit: 8, duration: { base: "half", dots: 2 } },
+    { count: 15, unit: 16, duration: { base: "half", dots: 3 } },
+    { count: 31, unit: 32, duration: { base: "half", dots: 4 } },
+  ] as const)("inherits the actual full-measure rest length in $count/$unit", ({ count, unit, duration }) => {
+    const score = fullMeasureScore({ count, unit });
+    const original = structuredClone(score);
+    // The second bar inherits its meter; use the synthetic render ID.
+    const selection: Selection = { kind: "single", elementId: "p0/m1/s0/__auto_m1_v0_e0", elementType: "rest" };
+    const { store, toggle } = setup(entry, score, selection);
+    toggle();
+    expect(useNoteInputStore.getState()).toMatchObject({
+      active: true,
+      isRest: false,
+      currentDuration: duration.base,
+      dotCount: "dots" in duration ? duration.dots : 0,
+    });
+    expect(store.getState().workingScore).toBe(score);
+    expect(store.getState().dirty).toBe(false);
+    expect(score).toEqual(original);
+  });
+
+  it.each([
+    { count: 5, unit: 8 },
+    { count: 5, unit: 2 },
+    { count: 63, unit: 64 },
+  ])("preserves chosen rhythm for an unrepresentable full-measure rest in $count/$unit", (time) => {
+    const score = fullMeasureScore(time);
+    const original = structuredClone(score);
+    const { toggle } = setup(entry, score, selectedRest("e0"));
+    toggle();
+    expect(useNoteInputStore.getState()).toMatchObject({
+      active: true,
+      currentDuration: "16th",
+      dotCount: 2,
+      isRest: false,
+    });
+    expect(score).toEqual(original);
+  });
+
+  it("inherits a full-measure rest selected with the legacy event ID", () => {
+    const { toggle } = setup(entry, fullMeasureScore({ count: 6, unit: 8 }), selectedRest("e0"));
+    toggle();
+    expect(useNoteInputStore.getState()).toMatchObject({
+      active: true,
+      currentDuration: "half",
+      dotCount: 1,
+      isRest: false,
+    });
+  });
+
+  it.each([-1, 0.5, 5])("preserves chosen rhythm for an unsupported rest dot count: %s", (dots) => {
+    const { toggle } = setup(entry, makeScore([rest("rest", { base: "quarter", dots })]), selectedRest());
+    toggle();
+    expect(useNoteInputStore.getState()).toMatchObject({
+      active: true,
+      currentDuration: "16th",
+      dotCount: 2,
+      isRest: false,
+    });
+  });
+
+  it("keeps the default note rhythm without a selection", () => {
+    const { toggle } = setup(entry, makeScore(ordinaryContent), { kind: "none" });
+    act(() => resetNoteInputStore());
+    toggle();
+    expect(useNoteInputStore.getState()).toMatchObject({
+      active: true,
+      currentDuration: "quarter",
+      dotCount: 0,
+      isRest: false,
+    });
   });
 
   it.each(preserveCases)("preserves chosen rhythm: $name", ({ selection }) => {
@@ -235,13 +371,14 @@ describe.each(["N", "toolbar"] as const)("Add Note entry via %s", (entry) => {
     expect(useNoteInputStore.getState()).toMatchObject({ active: true, currentDuration: "whole", dotCount: 3 });
   });
 
-  it("does not overwrite chosen rhythm on selection changes or exit, and inherits again on reentry", () => {
-    const { toggle } = setup(entry, makeScore(ordinaryContent), single("half"));
+  it.each(["note", "rest"])("does not overwrite chosen rhythm on %s selection changes or exit", (kind) => {
+    const nextSelection = kind === "rest" ? selectedRest() : single("quarter");
+    const { toggle } = setup(entry, makeScore([...ordinaryContent, rest("rest", { base: "quarter" })]), single("half"));
     toggle();
     act(() => {
       noteInputActions.setDuration("whole");
       noteInputActions.setDotCount(3);
-      useSelectionStore.setState({ selection: single("quarter") });
+      useSelectionStore.setState({ selection: nextSelection });
     });
     expect(useNoteInputStore.getState()).toMatchObject({ active: true, currentDuration: "whole", dotCount: 3 });
 
@@ -251,8 +388,13 @@ describe.each(["N", "toolbar"] as const)("Add Note entry via %s", (entry) => {
     expect(useNoteInputStore.getState()).toMatchObject({ active: true, currentDuration: "quarter", dotCount: 0 });
   });
 
-  it("updates dot picker memory without inheriting unrelated input modes", () => {
-    const { toggle } = setup(entry, makeScore(ordinaryContent), single("half"));
+  it.each(["note", "rest"])("updates %s dot picker memory without inheriting unrelated input modes", (kind) => {
+    const selection = kind === "rest" ? selectedRest() : single("half");
+    const { toggle } = setup(
+      entry,
+      makeScore([...ordinaryContent, rest("rest", { base: "half", dots: 1 })]),
+      selection,
+    );
     act(() => {
       noteInputActions.setAccidental("sharp");
       noteInputActions.setVoice(2);
@@ -266,6 +408,7 @@ describe.each(["N", "toolbar"] as const)("Add Note entry via %s", (entry) => {
       currentVoice: 2,
       currentGraceType: "appoggiatura",
       chordLock: true,
+      isRest: false,
       dotCount: 1,
       selectedDotCount: 1,
     });

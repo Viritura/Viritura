@@ -16,11 +16,14 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 import type { NoteValueBase, AccidentalType, Pitch, Duration, Score } from "@viritura/core";
+import { DURATION_BEATS, measureBeats } from "@viritura/core";
 import type { CondensingMode } from "../components/CondensingPopover";
+import { beatsToDuration, getEffectiveTimeSignature } from "../commands/noteCommands";
 import {
   getContentArrayForLocation,
   getNoteEventAtLocation,
   resolveEventFromSubElement,
+  resolveFullMeasureRestLocation,
   resolveGraceLocation,
 } from "../score/ElementPath";
 import type { Selection } from "./selectionStore";
@@ -323,7 +326,12 @@ interface NoteInputEntryContext {
   selection: Selection;
 }
 
-function selectedNoteDuration({ score, selection }: NoteInputEntryContext): Duration | undefined {
+function supportedRestDuration(duration: Duration): Duration | undefined {
+  const dots = duration.dots ?? 0;
+  return DURATION_BEATS[duration.base] > 0 && Number.isInteger(dots) && dots >= 0 && dots <= 4 ? duration : undefined;
+}
+
+function selectedEventDuration({ score, selection }: NoteInputEntryContext): Duration | undefined {
   const anchor = resolveSelectionAnchor(selection);
   if (!score || !anchor) return undefined;
 
@@ -339,7 +347,13 @@ function selectedNoteDuration({ score, selection }: NoteInputEntryContext): Dura
   if (!/^p\d+\/m\d+\/s\d+\/[^/]+(?:\/n\d+)?$/.test(anchor)) return undefined;
   const loc = resolveEventFromSubElement(anchor, score);
   const event = loc ? getNoteEventAtLocation(score, loc) : undefined;
-  return event?.notes?.length || event?.kitNotes?.length ? event.duration : undefined;
+  if (event?.notes?.length || event?.kitNotes?.length) return event.duration;
+  if (event?.rest) return supportedRestDuration(event.duration);
+
+  const barRest = resolveFullMeasureRestLocation(anchor, score);
+  if (!barRest) return undefined;
+  // A full-measure rest's visual glyph need not match the bar's actual length.
+  return beatsToDuration(measureBeats(getEffectiveTimeSignature(score, barRest.measureIndex))) ?? undefined;
 }
 
 export function toggleNoteInputMode(context?: NoteInputEntryContext): void {
@@ -347,7 +361,7 @@ export function toggleNoteInputMode(context?: NoteInputEntryContext): void {
   if (!useNoteInputStore.getState().active) {
     setLyricMode(false);
     setLyricState(null);
-    duration = context ? selectedNoteDuration(context) : undefined;
+    duration = context ? selectedEventDuration(context) : undefined;
   }
   dispatchNoteInput({ type: "TOGGLE_NOTE_INPUT", duration });
 }
