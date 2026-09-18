@@ -7,11 +7,12 @@ import {
   type ClipboardHistoryEntry,
 } from "../store/clipboardHistoryStore";
 import { ClipboardPreview } from "./ClipboardPreview";
-import { serializeFragment } from "../clipboard/serialize";
+import { writeClipboardFragment } from "../clipboard/notationClipboard";
 import { UndoHistorySection } from "./UndoHistorySection";
 import { useHistoryStore } from "../store/historyStore";
 import { Check } from "lucide-react";
 import styles from "./ClipboardHistoryPanel.module.css";
+import { toast } from "sonner";
 
 /**
  * Combined "Clips" panel:
@@ -88,23 +89,11 @@ function ClipboardHistoryItem({ entry }: ClipboardHistoryItemProps) {
   }, [copied]);
 
   const handleRestore = useCallback(async () => {
-    const json = serializeFragment(
-      entry.fragment.content,
-      entry.fragment.timeSignature,
-      entry.fragment.keySignature,
-      entry.fragment.tracks,
-      entry.fragment.clef,
-      entry.fragment.transposition,
-      entry.fragment.dynamics,
-      entry.fragment.measureRepeats,
-      entry.fragment.lyrics,
-      entry.fragment.chordSymbols,
-    );
     try {
-      await navigator.clipboard.writeText(json);
+      await writeClipboardFragment(entry.fragment, (message) => toast.warning(message));
       setCopied(true);
     } catch {
-      // Clipboard write may fail (insecure context, permissions). Silent for now.
+      toast.error("Could not restore this clipboard entry.");
     }
   }, [entry.fragment]);
 

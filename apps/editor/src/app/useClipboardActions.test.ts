@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import type { ChordSymbol, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { useClipboardActions } from "./useClipboardActions";
@@ -13,7 +14,8 @@ import { sequenceContentBeats } from "../commands/noteCommands";
 import type { ClipboardSelection } from "../commands/clipboardCommands";
 import { FRAGMENT_VERSION, type ClipboardFragment } from "../clipboard/ClipboardFragment";
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), warning: vi.fn(), info: vi.fn() } }));
 
 const readText = vi.fn<() => Promise<string>>();
 const writeText = vi.fn<(text: string) => Promise<void>>();
@@ -112,6 +114,54 @@ afterEach(() => {
 });
 
 describe("clipboard actions with a selected lyric", () => {
+  it.each(["handleCopy", "handleCut"] as const)("writes lyric text without native notation on %s", async (action) => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockResolvedValue({ supported: true });
+    const { result, updateScore } = harness(lyricSelection);
+    await act(() => result.current[action]());
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: "Sing", museScore: null });
+    expect(writeText).not.toHaveBeenCalled();
+    expect(useClipboardHistoryStore.getState().entries).toHaveLength(0);
+    if (action === "handleCut") expect(updatedEvent(updateScore).lyrics?.lines?.verse).toBeUndefined();
+    else expect(updateScore).not.toHaveBeenCalled();
+  });
+
+  it("does not cut a selected lyric when native clipboard writing fails", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
+    const { result, updateScore } = harness(lyricSelection);
+    await act(() => result.current.handleCut());
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Could not cut the selected lyric.");
+  });
+
+  it.each(["application/musescore/stafflist", "application/musescore/symbol", "application/musescore/symbollist"])(
+    "does not replace a lyric with empty text when native %s is present",
+    async (mime) => {
+      vi.stubGlobal("__TAURI_INTERNALS__", {});
+      vi.mocked(invoke).mockResolvedValue({ supported: true, text: "", museScore: { mime, xml: "<StaffList/>" } });
+      const { result, updateScore, score } = harness(lyricSelection);
+      await act(() => result.current.handlePaste());
+      expect(updateScore).not.toHaveBeenCalled();
+      expect((score.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent).lyrics?.lines?.verse?.text).toBe(
+        "Sing",
+      );
+      expect(toast.info).toHaveBeenCalledWith("Select a note or rhythmic position to paste notation.");
+    },
+  );
+
+  it.each(["<StaffList", '<StaffList version="4.70"/>', "<StaffList/>", "<SymbolList/>", "<EngravingItem/>"])(
+    "recognizes plain-text notation before replacing a lyric: %s",
+    async (xml) => {
+      readText.mockResolvedValue(xml);
+      const { result, updateScore } = harness(lyricSelection);
+      await act(() => result.current.handlePaste());
+      expect(updateScore).not.toHaveBeenCalled();
+      expect(toast.info).toHaveBeenCalledOnce();
+    },
+  );
+
   it("still pastes ordinary lyric text", async () => {
     readText.mockResolvedValue("Song");
     const { result, updateScore } = harness(lyricSelection);
@@ -156,6 +206,84 @@ describe("clipboard actions with a selected lyric", () => {
 });
 
 describe("clipboard history fallback", () => {
+  it.each(["application/musescore/stafflist", "application/musescore/symbol", "application/musescore/symbollist"])(
+    "never uses stale history for recognized unsupported native %s",
+    async (mime) => {
+      addHistory();
+      vi.stubGlobal("__TAURI_INTERNALS__", {});
+      vi.mocked(invoke).mockResolvedValue({
+        supported: true,
+        text: "unrelated text",
+        museScore: { mime, xml: '<StaffList version="9.0" tick="0/1" len="1/4" staff="0" staves="1"/>' },
+      });
+      const { result, updateScore } = harness();
+      await act(() => result.current.handlePaste());
+      expect(updateScore).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledOnce();
+      expect(toast.warning).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not add a failed native copy to history or fall back to browser writing", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
+    const { result, updateScore } = harness();
+    await act(() => result.current.handleCopy());
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+    expect(useClipboardHistoryStore.getState().entries).toHaveLength(0);
+    expect(toast.error).toHaveBeenCalledWith("Could not write the system clipboard.");
+  });
+
+  it("warns and uses history when the native clipboard cannot be opened", async () => {
+    addHistory();
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
+    const { result, updateScore, selectElement } = harness();
+    await act(() => result.current.handlePaste());
+    expect(updatedEvent(updateScore).notes?.[0]?.pitch.step).toBe("E");
+    expect(selectElement).toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalledWith("Could not read the system clipboard.");
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "MuseScore clipboard payload is invalid UTF-8: invalid utf-8 sequence",
+    "MuseScore clipboard payload is empty",
+  ])("reports malformed native data and never pastes history: %s", async (error) => {
+    addHistory();
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue(error);
+    const { result, updateScore } = harness();
+    await act(() => result.current.handlePaste());
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledOnce();
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+
+  it.each(["<StaffList", '<StaffList version="9.0" tick="0/1" len="1/4" staff="0" staves="1"/>'])(
+    "reports recognized unsupported notation instead of using history: %s",
+    async (xml) => {
+      addHistory();
+      readText.mockResolvedValue(xml);
+      const { result, updateScore } = harness();
+      await act(() => result.current.handlePaste());
+      expect(updateScore).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("still cuts to history after a best-effort native write fails", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
+    const { result, updateScore } = harness();
+    await act(() => result.current.handleCut());
+    expect(updatedEvent(updateScore).rest).toEqual({});
+    const fragment = useClipboardHistoryStore.getState().entries[0]?.fragment;
+    expect(fragment?.content[0]).toMatchObject({ notes: [{ pitch: { step: "C" } }] });
+    expect(toast.warning).toHaveBeenCalled();
+  });
+
   it.each(["", "ordinary text", "{invalid json"])("uses history for non-fragment browser text: %j", async (text) => {
     addHistory();
     readText.mockResolvedValue(text);
