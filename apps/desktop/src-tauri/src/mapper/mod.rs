@@ -10,9 +10,10 @@ mod protocol;
 mod runtime;
 
 pub use protocol::{
-    Articulations, MidiMessage, NotationNote, PlaybackEvent, PlaybackVelocityEndpoint,
-    PlaybackVelocityInterpolation, PlayingState, ScheduledMidi,
+    Articulations, MidiMessage, NotationNote, PlaybackEvent, PlayingState, ScheduledMidi,
 };
+#[cfg(test)]
+pub use protocol::{PlaybackVelocityEndpoint, PlaybackVelocityInterpolation};
 pub use runtime::{LuaMapper, LuaMapperConfig, LuaMapperError};
 
 /// Compile a mapper script and run a whole part's event stream through it.
