@@ -13,7 +13,7 @@ ttf-parser = "0.25"
 regress = "0.12"
 # Runtime JSON Schema validation against src/mnx-schema.json (draft 2020-12).
 # Used by validator.rs to back assert_raw_score / is_raw_score.
-jsonschema = { version = "0.18", default-features = false, features = ["draft202012"] }
+jsonschema = { version = "0.24", default-features = false, features = ["draft202012"] }
 uuid = { version = "1", features = ["v7", "js"] }
 
 # Phase Q+: WASM-safe time source for the layout `tick!` macro. Native uses
