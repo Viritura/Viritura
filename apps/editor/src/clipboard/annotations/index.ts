@@ -2,3 +2,4 @@ export { capturedAnnotationDestination, resolvePhysicalStaffDestination } from "
 export { beatsBetweenMeasures, type CaptureOrigin } from "./captureOrigin";
 export { unassignedDynamics } from "./dynamicIdentity";
 export { shiftSelectionOrigin, type CapturedSelection } from "./selectionOrigin";
+export { sourceStavesForPart } from "./staffSelection";

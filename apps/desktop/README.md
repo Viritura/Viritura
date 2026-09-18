@@ -26,15 +26,19 @@ paste onto a MuseScore note or rest for the reverse direction.
 
 Supported notation includes pitched notes, chords, rests, dotted durations,
 complete tuplets, grace notes, multiple staves and voices, and common
-articulations. Chord symbols and dynamics on the primary copied staff are
-supported, including explicit MIDI attack-velocity overrides. Single-note
-MuseScore clipboard selections are also accepted.
+articulations. Source transposition preserves sounding pitches, and explicit
+standard accidentals retain their display intent. Complete ties and hairpins
+are supported, as are chord symbols and dynamics on secondary staves, including
+explicit MIDI attack-velocity overrides. Single-note MuseScore clipboard
+selections are also accepted.
 
-This is not complete MuseScore format support. Ties and slurs, percussion-kit
-interchange, annotation-only selections, secondary-staff annotations, and other
-unsupported constructs produce a diagnostic rather than silently losing
-notation. Unsupported MuseScore exports still copy the complete Viritura
-fragment and display a warning. Viritura-to-Viritura paste prefers that fragment.
+This is not complete MuseScore format support. Slurs, partial or grace-note
+ties, cross-track hairpins, percussion-kit interchange, annotation-only selections,
+and other unsupported constructs produce a diagnostic rather than silently
+losing notation. Tie export involving unison chord endpoints is also rejected
+because MuseScore can reorder those notes. Unsupported MuseScore exports still
+copy the complete Viritura fragment and display a warning.
+Viritura-to-Viritura paste prefers that fragment.
 
 Native MuseScore formats are Windows-desktop-only. Browsers and other desktop
 platforms retain the existing text/JSON clipboard path; explicitly copied

@@ -1,4 +1,12 @@
-import { DURATION_BEATS, type Duration, type Markings, type NoteEvent, type SequenceContent } from "@viritura/core";
+import {
+  DURATION_BEATS,
+  type Duration,
+  type Markings,
+  type Note,
+  type NoteEvent,
+  type SequenceContent,
+  type Transposition,
+} from "@viritura/core";
 import type { ClipboardSelection } from "../../commands/clipboardCommands";
 import type { CapturedChordSymbol, CapturedDynamic, ClipboardTrack } from "../ClipboardFragment";
 import { MuseScoreConversionError, unsupported } from "./errors";
@@ -15,8 +23,10 @@ import {
   type Fraction,
 } from "./fractions";
 import { serializeHarmony } from "./harmony";
-import { midiFromPitch, tpcFromPitch } from "./pitch";
-import { escapeXml } from "./xml";
+import { hairpinAnnotations, immediateDynamicXml, reconcileHairpinDynamics } from "./hairpinWriting";
+import { notePitchXml } from "./noteReading";
+import { buildTieConnectors, orderedMuseScoreNotes } from "./tieWriting";
+import { staffTranspositionXml } from "./transposition";
 
 interface MuseScoreWriteResult {
   xml: string | null;
@@ -31,6 +41,8 @@ interface ExportTrack extends ClipboardTrack {
 interface Annotation {
   offset: Fraction;
   xml: string;
+  connector?: boolean;
+  currentDynamic?: string;
 }
 
 interface WriteState {
@@ -120,22 +132,28 @@ function validateEvent(event: NoteEvent, path: string): void {
   }
 }
 
-function noteXml(event: NoteEvent, path: string): string {
-  const notes = event.notes ?? [];
+function noteXml(
+  event: NoteEvent,
+  path: string,
+  connectors: ReadonlyMap<Note, string>,
+  transposition?: Transposition,
+): string {
+  const notes = orderedMuseScoreNotes(event.notes ?? []);
   if (notes.length === 0) return "";
   return notes
-    .map((note, index) => {
-      if (note.ties?.length) unsupported("ties cannot be exported to StaffList yet", `${path}/Note[${index}]`);
-      const midi = midiFromPitch(note.pitch);
-      if (!Number.isInteger(midi) || midi < 0 || midi > 127) {
-        throw new MuseScoreConversionError("invalid-pitch", "pitch is outside MIDI range", `${path}/Note[${index}]`);
-      }
-      return `<Note><pitch>${midi}</pitch><tpc>${tpcFromPitch(note.pitch)}</tpc></Note>`;
-    })
+    .map(
+      (note, index) =>
+        `<Note>${connectors.get(note) ?? ""}${notePitchXml(note, `${path}/Note[${index}]`, transposition)}</Note>`,
+    )
     .join("");
 }
 
-function eventXml(event: NoteEvent, path: string): string {
+function eventXml(
+  event: NoteEvent,
+  path: string,
+  connectors: ReadonlyMap<Note, string>,
+  transposition?: Transposition,
+): string {
   validateEvent(event, path);
   const markings = markingsXml(event.markings, path);
   if (event.rest || !event.notes?.length) {
@@ -143,7 +161,7 @@ function eventXml(event: NoteEvent, path: string): string {
     if (event.notes?.length) unsupported("an event containing both a rest and notes cannot be exported", path);
     return `<Rest>${durationXml(event.duration, path)}</Rest>`;
   }
-  return `<Chord>${durationXml(event.duration, path)}${markings}${noteXml(event, path)}</Chord>`;
+  return `<Chord>${durationXml(event.duration, path)}${markings}${noteXml(event, path, connectors, transposition)}</Chord>`;
 }
 
 function moveXml(state: WriteState, staff: number, voice: number, time: Fraction): string {
@@ -174,15 +192,7 @@ function dynamicXml(captured: CapturedDynamic, path: string): string {
   if (dynamic.type !== "immediate" || !dynamic.value) {
     unsupported(`dynamic type "${dynamic.type}" is not supported by MuseScore clipboard export`, path);
   }
-  if (
-    dynamic.playbackVelocity !== undefined &&
-    (!Number.isInteger(dynamic.playbackVelocity) || dynamic.playbackVelocity < 1 || dynamic.playbackVelocity > 127)
-  ) {
-    throw new MuseScoreConversionError("invalid-structure", "dynamic velocity must be 1..127", path);
-  }
-  const velocity =
-    dynamic.playbackVelocity === undefined ? "" : `<velocity>${Math.round(dynamic.playbackVelocity)}</velocity>`;
-  return `<Dynamic><subtype>${escapeXml(dynamic.value)}</subtype>${velocity}</Dynamic>`;
+  return immediateDynamicXml(dynamic.value, dynamic.playbackVelocity, path);
 }
 
 function annotationTrack(
@@ -192,16 +202,12 @@ function annotationTrack(
   path: string,
   staffOffset?: number,
 ): ExportTrack {
-  // Secondary-staff annotation interchange remains unsupported by the reader.
-  if (sourceStaff !== undefined && sourceStaff !== 1) {
-    unsupported(`annotations on source staff ${sourceStaff} cannot be mapped reliably to copied physical staves`, path);
-  }
   const candidates = tracks.filter((candidate) => candidate.partOffset === partOffset);
   if (candidates.length === 0) unsupported("annotation's part has no copied track", path);
   const track =
     staffOffset === undefined
       ? (candidates.find((candidate) => candidate.sourceStaff === (sourceStaff ?? 1)) ??
-        candidates.find((candidate) => candidate.sourceStaff === undefined))
+        ((sourceStaff ?? 1) === 1 ? candidates.find((candidate) => candidate.sourceStaff === undefined) : undefined))
       : candidates.find((candidate) => candidate.staff === staffOffset);
   if (!track) unsupported("annotation's staff has no copied track", path);
   return track;
@@ -233,21 +239,36 @@ function annotationsByTrack(
   }
 
   const dynamicCaptures = new Map<string, string>();
+  const hairpinEndpoints = new Set<string>();
   const appendDynamic = (captured: CapturedDynamic, sourcePartOffset: number, path: string): void => {
     const partOffset = captured.partOffset ?? sourcePartOffset;
+    const gradual = captured.dynamic.type === "gradual";
     const track = annotationTrack(tracks, partOffset, captured.dynamic.staff, path, captured.staffOffset);
     const offset = annotationOffset(captured, path);
-    const xml = dynamicXml(captured, path);
+    const annotations: Annotation[] = gradual
+      ? hairpinAnnotations(captured, offset, track.staff, track.voice, path).map((annotation) => ({
+          ...annotation,
+          connector: true,
+        }))
+      : [{ offset, xml: "", currentDynamic: dynamicXml(captured, path) }];
+    const xml = JSON.stringify(annotations);
     // Capture can mirror a part-level dynamic on the selection and every voice.
     // Keep distinct parts and occurrences, but emit each captured occurrence once.
-    const key = JSON.stringify([partOffset, captured.dynamic.id, formatFraction(offset)]);
+    const key = JSON.stringify([partOffset, track.staff, captured.dynamic.id, formatFraction(offset)]);
     const previous = dynamicCaptures.get(key);
     if (previous !== undefined) {
       if (previous !== xml) unsupported("conflicting captures of the same dynamic", path);
       return;
     }
     dynamicCaptures.set(key, xml);
-    append(track, { offset, xml });
+    for (const [index, annotation] of annotations.entries()) {
+      if (gradual) {
+        const endpointKey = `${track.staff}:${track.voice}:${index}:${formatFraction(annotation.offset)}`;
+        if (hairpinEndpoints.has(endpointKey)) unsupported("ambiguous duplicate HairPin endpoint", path);
+        hairpinEndpoints.add(endpointKey);
+      }
+      append(track, annotation);
+    }
   };
   for (const [index, captured] of (selection.dynamics ?? []).entries()) {
     appendDynamic(captured, 0, `dynamics[${index}]`);
@@ -259,6 +280,12 @@ function annotationsByTrack(
   }
   for (const annotations of result.values()) {
     annotations.sort((left, right) => compare(left.offset, right.offset));
+    reconcileHairpinDynamics(
+      annotations,
+      new Set(
+        annotations.filter((annotation) => annotation.connector).map((annotation) => formatFraction(annotation.offset)),
+      ),
+    );
   }
   return result;
 }
@@ -275,13 +302,14 @@ function writeContent(
   state: WriteState,
   track: ExportTrack,
   path: string,
+  connectors: ReadonlyMap<Note, string>,
 ): string {
   const output: string[] = [];
   for (const [index, item] of content.entries()) {
     const itemPath = `${path}[${index}]`;
     switch (item.type) {
       case "event": {
-        output.push(eventXml(item, itemPath));
+        output.push(eventXml(item, itemPath, connectors, track.transposition));
         state.time = add(state.time, multiply(durationAsWhole(item.duration), scale));
         break;
       }
@@ -307,7 +335,7 @@ function writeContent(
                 ? "<acciaccatura/>"
                 : "<appoggiatura/>";
           output.push(
-            `<Chord>${durationXml(graceEvent.duration, gracePath)}${graceTag}${markingsXml(graceEvent.markings, gracePath)}${noteXml(graceEvent, gracePath)}</Chord>`,
+            `<Chord>${durationXml(graceEvent.duration, gracePath)}${graceTag}${markingsXml(graceEvent.markings, gracePath)}${noteXml(graceEvent, gracePath, connectors, track.transposition)}</Chord>`,
           );
         }
         break;
@@ -319,7 +347,7 @@ function writeContent(
             `<baseNote>${spec.baseName}</baseNote></Tuplet>`,
         );
         const nestedScale = multiply(scale, spec.scale);
-        output.push(writeContent(item.content, nestedScale, state, track, `${itemPath}/content`));
+        output.push(writeContent(item.content, nestedScale, state, track, `${itemPath}/content`, connectors));
         output.push("<endTuplet/>");
         break;
       }
@@ -335,7 +363,15 @@ function exportTracks(selection: ClipboardSelection): ExportTrack[] {
   const sourceTracks =
     selection.tracks && selection.tracks.length > 0
       ? selection.tracks
-      : [{ partOffset: 0, voiceIndex: 0, staffOffset: 0, content: selection.events }];
+      : [
+          {
+            partOffset: 0,
+            voiceIndex: 0,
+            staffOffset: 0,
+            content: selection.events,
+            transposition: selection.transposition,
+          },
+        ];
   return sourceTracks
     .map((track) => {
       const staff = track.staffOffset ?? track.partOffset;
@@ -353,11 +389,13 @@ function writeStaffList(selection: ClipboardSelection): string {
     unsupported("measure repeats cannot be exported to StaffList", "measureRepeats");
   const tracks = exportTracks(selection);
   if (tracks.length === 0) unsupported("selection has no rhythmic content");
+  const connectors = buildTieConnectors(tracks);
   const trackAnnotations = annotationsByTrack(selection, tracks);
   const staves = Math.max(...tracks.map((track) => track.staff)) + 1;
   const state: WriteState = { staff: 0, voice: 0, time: ZERO };
   const staffBodies = new Map<number, string[]>();
   let maximumEnd = ZERO;
+  let rhythmicEnd = ZERO;
   for (const track of tracks) {
     if (!staffBodies.has(track.staff)) {
       state.staff = track.staff;
@@ -367,7 +405,10 @@ function writeStaffList(selection: ClipboardSelection): string {
     const leadIn = track.leadIn ? fromTuple(track.leadIn) : ZERO;
     body.push(moveXml(state, track.staff, track.voice, leadIn));
     const annotations = trackAnnotations.get(track) ?? [];
-    body.push(writeContent(track.content, fraction(1), state, track, `tracks[${track.staff}:${track.voice}]`));
+    body.push(
+      writeContent(track.content, fraction(1), state, track, `tracks[${track.staff}:${track.voice}]`, connectors),
+    );
+    if (compare(state.time, rhythmicEnd) > 0) rhythmicEnd = state.time;
     if (compare(state.time, maximumEnd) > 0) maximumEnd = state.time;
     // An annotation's onset need not be a rhythmic boundary in its owning voice.
     // Write it outside tuplet/chord content with its own location movement.
@@ -375,15 +416,28 @@ function writeStaffList(selection: ClipboardSelection): string {
       if (compare(annotation.offset, ZERO) < 0) {
         throw new MuseScoreConversionError("invalid-timing", "annotation occurs before the copied range");
       }
-      body.push(moveXml(state, track.staff, track.voice, annotation.offset), annotation.xml);
+      body.push(
+        moveXml(state, track.staff, track.voice, annotation.offset),
+        annotation.currentDynamic ?? "",
+        annotation.xml,
+      );
     }
     if (compare(state.time, maximumEnd) > 0) maximumEnd = state.time;
     staffBodies.set(track.staff, body);
+  }
+  for (const annotations of trackAnnotations.values()) {
+    if (annotations.some((annotation) => annotation.connector && compare(annotation.offset, rhythmicEnd) > 0)) {
+      unsupported("HairPin endpoint is outside the copied rhythmic selection", "dynamics");
+    }
   }
   if (compare(maximumEnd, ZERO) <= 0) unsupported("selection has no timed rhythmic content");
   const staffXml = [...staffBodies.entries()]
     .sort(([left], [right]) => left - right)
     .map(([staff, body]) => {
+      const transpositions = tracks
+        .filter((track) => track.staff === staff)
+        .map((track) => staffTranspositionXml(track.transposition, `tracks[${staff}:${track.voice}]`));
+      if (new Set(transpositions).size !== 1) unsupported("conflicting source transpositions on one staff", "tracks");
       const offsets = tracks
         .filter((track) => track.staff === staff)
         .map((track) => {
@@ -395,7 +449,7 @@ function writeStaffList(selection: ClipboardSelection): string {
           return `<voice id="${track.voice}">${ticks}</voice>`;
         })
         .join("");
-      return `<Staff id="${staff}"><voiceOffset>${offsets}</voiceOffset>${body.join("")}</Staff>`;
+      return `<Staff id="${staff}">${transpositions[0]}<voiceOffset>${offsets}</voiceOffset>${body.join("")}</Staff>`;
     })
     .join("");
   return `<StaffList version="4.70" tick="0/1" len="${formatFraction(maximumEnd)}" staff="0" staves="${staves}">${staffXml}</StaffList>`;

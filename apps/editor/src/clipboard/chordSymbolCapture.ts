@@ -1,6 +1,16 @@
 import { measureBeats, type Score } from "@viritura/core";
+import type { AnnotationLocation } from "../score/ElementPath";
 import type { CapturedChordSymbol } from "./ClipboardFragment";
 import { partStaffOffset } from "./clipboardTrackMapping";
+
+export function chordSymbolStaffAtLocation(score: Score, location: AnnotationLocation): number | undefined {
+  if (location.partIndex === undefined || location.type !== "chord" || location.annotationIndex === undefined) {
+    return undefined;
+  }
+  const symbol =
+    score.parts[location.partIndex]?.measures[location.measureIndex]?.chordSymbols?.[location.annotationIndex];
+  return symbol ? (symbol.displayStaff ?? 1) : undefined;
+}
 
 function activeMeasureBeats(score: Score, measureIndex: number): number {
   let time = { count: 4, unit: 4 };
@@ -23,17 +33,19 @@ export function captureChordSymbols(
   lastMeasureEndBeat: number,
   partOffset = 0,
   anchorStaffOffset = 0,
+  sourceStaves?: ReadonlySet<number>,
 ): CapturedChordSymbol[] {
   const result: CapturedChordSymbol[] = [];
   let beatsBeforeMeasure = 0;
   for (let measureIndex = startMeasure; measureIndex <= endMeasure; measureIndex++) {
     const symbols = score.parts[partIndex]?.measures[measureIndex]?.chordSymbols ?? [];
     for (const chordSymbol of symbols) {
+      if (sourceStaves && !sourceStaves.has(chordSymbol.displayStaff ?? 1)) continue;
       const [numerator, denominator] = chordSymbol.position.fraction;
       if (denominator === 0) continue;
       const beat = (numerator / denominator) * 4;
       if (measureIndex === startMeasure && beat < firstMeasureStartBeat - 1e-9) continue;
-      if (measureIndex === endMeasure && beat > lastMeasureEndBeat + 1e-9) continue;
+      if (measureIndex === endMeasure && beat >= lastMeasureEndBeat - 1e-9) continue;
       const cloned = structuredClone(chordSymbol);
       if (measureIndex === startMeasure) {
         cloned.position = { fraction: wholeFraction(beat - firstMeasureStartBeat) };

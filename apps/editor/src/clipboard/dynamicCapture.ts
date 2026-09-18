@@ -48,6 +48,15 @@ function dynamicIndexAtLocation(score: Score, location: AnnotationLocation): num
   );
 }
 
+export function dynamicStaffAtLocation(score: Score, location: AnnotationLocation): number | undefined {
+  if (location.partIndex === undefined || (location.type !== "dyn" && location.type !== "hairpin")) return undefined;
+  const dynamic =
+    score.parts[location.partIndex]?.measures[location.measureIndex]?.dynamics?.[
+      dynamicIndexAtLocation(score, location)
+    ];
+  return dynamic ? (dynamic.staff ?? 1) : undefined;
+}
+
 export function selectedDynamicOrigin(
   score: Score,
   locations: readonly AnnotationLocation[],
@@ -131,6 +140,7 @@ export function collectDynamics(
   endMeasure: number,
   firstMeasureStartBeat: number,
   lastMeasureEndBeat: number,
+  sourceStaves?: ReadonlySet<number>,
 ): CapturedDynamic[] {
   const result: CapturedDynamic[] = [];
   const part = score.parts[partIndex];
@@ -147,12 +157,12 @@ export function collectDynamics(
     const dynamics = part.measures[measureIndex]?.dynamics ?? [];
     const isFirst = measureIndex === startMeasure;
     const isLast = measureIndex === endMeasure;
-    for (const dynamic of dynamics) {
+    for (const dynamic of dynamics.filter((item) => !sourceStaves || sourceStaves.has(item.staff ?? 1))) {
       const fraction = dynamic.position?.fraction;
       if (!fraction || fraction[1] === 0) continue;
       const beats = (fraction[0] / fraction[1]) * 4;
       if (isFirst && beats < firstMeasureStartBeat - 1e-9) continue;
-      if (isLast && beats > lastMeasureEndBeat + 1e-9) continue;
+      if (isLast && beats >= lastMeasureEndBeat - 1e-9) continue;
       const cloned = structuredClone(dynamic);
       if (isFirst && firstMeasureStartBeat > 0) {
         cloned.position = { fraction: [Math.round((beats - firstMeasureStartBeat) * 4), 16] };

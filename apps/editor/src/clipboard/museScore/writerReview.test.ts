@@ -103,6 +103,25 @@ describe("MuseScore writer annotation review", () => {
     expect(source).toEqual(before);
   });
 
+  it.each(["sourceStaff", "staffOffset"] as const)("routes secondary harmony using %s metadata", (metadata) => {
+    const harmony = cm(2);
+    if (metadata === "staffOffset") harmony.staffOffset = 1;
+    const copied = selection({
+      tracks: [
+        { ...track(), sourceStaff: 1 },
+        { ...track(0, 1), sourceStaff: 2 },
+        { ...track(0, 1, 1), sourceStaff: 2 },
+      ],
+      chordSymbols: [harmony],
+    });
+    const document = exported(copied);
+    expect(document.querySelectorAll("Harmony")).toHaveLength(1);
+    expect(document.querySelector('Staff[id="0"] Harmony')).toBeNull();
+    expect(document.querySelector('Staff[id="1"] Harmony root')?.textContent).toBe("14");
+    const parsed = readMuseScoreClipboard(new XMLSerializer().serializeToString(document));
+    expect(parsed.chordSymbols?.[0]?.staffOffset).toBe(1);
+  });
+
   it("emits primary-staff Cm once, on the correct part's physical staff", () => {
     const document = exported(
       selection({
@@ -259,20 +278,33 @@ describe("MuseScore writer annotation review", () => {
   });
 
   it.each(["selection", "track"] as const)(
-    "rejects unsupported explicit secondary-staff dynamics captured on the %s",
+    "routes explicit secondary-staff dynamics captured on the %s without voice duplication",
     (source) => {
       const dynamic = mf();
       dynamic.dynamic.staff = 2;
+      const upper = { ...track(), sourceStaff: 1 };
+      const lower = { ...track(0, 1), sourceStaff: 2 };
+      const lowerVoice = { ...track(0, 1, 1), sourceStaff: 2, dynamics: [dynamic] };
       const copied = selection({
-        tracks: source === "track" ? [{ ...track(), dynamics: [dynamic] }, track(0, 1)] : [track(), track(0, 1)],
+        tracks:
+          source === "track" ? [{ ...upper, dynamics: [dynamic] }, lower, lowerVoice] : [upper, lower, lowerVoice],
         ...(source === "selection" ? { dynamics: [dynamic] } : {}),
       });
-      expect(writeMuseScoreStaffList(copied)).toMatchObject({
-        xml: null,
-        warning: expect.stringContaining("staff"),
-      });
+      const document = exported(copied);
+      expect(document.querySelectorAll("Dynamic")).toHaveLength(1);
+      expect(document.querySelector('Staff[id="0"] Dynamic')).toBeNull();
+      expect(document.querySelector('Staff[id="1"] Dynamic velocity')?.textContent).toBe("96");
     },
   );
+
+  it("rejects secondary dynamics without a source staff coordinate instead of guessing", () => {
+    const dynamic = mf();
+    dynamic.dynamic.staff = 2;
+    expect(writeMuseScoreStaffList(selection({ tracks: [track(), track(0, 1)], dynamics: [dynamic] }))).toMatchObject({
+      xml: null,
+      warning: expect.stringContaining("staff"),
+    });
+  });
 
   it("warns instead of dropping annotations whose part has no copied track", () => {
     expect(writeMuseScoreStaffList(selection({ chordSymbols: [cm(1, 1)] }))).toMatchObject({

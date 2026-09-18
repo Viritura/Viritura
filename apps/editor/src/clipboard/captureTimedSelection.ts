@@ -4,7 +4,7 @@ import { resolveEventLocation, resolveGraceLocation, type EventLocation } from "
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { beatPositionToFraction } from "../app/timedAnnotationPosition";
 import type { ClipboardTrack } from "./ClipboardFragment";
-import { beatsBetweenMeasures, type CapturedSelection } from "./annotations";
+import { beatsBetweenMeasures, sourceStavesForPart, type CapturedSelection } from "./annotations";
 import { partStaffOffset, voiceIndexWithinStaff } from "./clipboardTrackMapping";
 import { assignDynamicsToTracks, collectDynamics } from "./dynamicCapture";
 import { captureChordSymbols } from "./chordSymbolCapture";
@@ -161,6 +161,7 @@ export function captureTimedSelection(
       span.end.measureIndex,
       span.start.beat,
       span.end.beat,
+      sourceStavesForPart(tracks, partIndex - startPart),
     ).map((captured) => ({
       ...captured,
       partIndex,
@@ -201,6 +202,7 @@ export function captureTimedSelection(
         span.end.beat,
         partIndex - startPart,
         anchorStaffOffset,
+        sourceStavesForPart(tracks, partIndex - startPart),
       ),
     ),
     partIndex: startPart,

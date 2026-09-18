@@ -6,13 +6,20 @@ import {
   type DynamicValue,
   type Grace,
   type Markings,
-  type Note,
   type NoteEvent,
   type NoteValueBase,
   type SequenceContent,
   type Tuplet,
+  type Transposition,
 } from "@viritura/core";
 import type { CapturedChordSymbol, CapturedDynamic, ClipboardTrack } from "../ClipboardFragment";
+import {
+  readNoteConnectors,
+  resolveHairpinConnectors,
+  resolveNoteConnectors,
+  type LocatedDynamic,
+  type NoteConnector,
+} from "./connectorReading";
 import { MuseScoreConversionError, unsupported } from "./errors";
 import {
   ZERO,
@@ -28,7 +35,10 @@ import {
   type Fraction,
 } from "./fractions";
 import { parseHarmony } from "./harmony";
-import { pitchFromMidiTpc } from "./pitch";
+import { noteConnectorOrdinals } from "./noteConnectorOrder";
+import { parseMuseScoreNote } from "./noteReading";
+import { readRelativeConnector, type RelativeConnector } from "./relativeConnectors";
+import { parseStaffTransposition } from "./transposition";
 import { child, children, integerText, parseSafeXml, requiredText, text } from "./xml";
 
 export const MUSESCORE_STAFF_LIST_MIME = "application/musescore/stafflist";
@@ -37,6 +47,7 @@ export const MUSESCORE_SYMBOL_LIST_MIME = "application/musescore/symbollist";
 
 interface MuseScorePasteData {
   content: SequenceContent[];
+  transposition?: Transposition;
   tracks?: ClipboardTrack[];
   dynamics?: CapturedDynamic[];
   chordSymbols?: CapturedChordSymbol[];
@@ -189,19 +200,6 @@ function parseMarkings(chord: Element, path: string): Markings | undefined {
   return Object.keys(markings).length > 0 ? markings : undefined;
 }
 
-function parseNote(element: Element, path: string): Note {
-  const midi = integerText(element, "pitch", `${path}/pitch`);
-  const tpc = integerText(element, "tpc", `${path}/tpc`);
-  const note: Note = { id: generateId(), pitch: pitchFromMidiTpc(midi, tpc, path) };
-  const allowed = new Set(["pitch", "tpc", "tpc2", "accidental"]);
-  for (const elementChild of children(element)) {
-    if (!allowed.has(elementChild.tagName)) {
-      unsupported(`Note property "${elementChild.tagName}" is not supported`, `${path}/${elementChild.tagName}`);
-    }
-  }
-  return note;
-}
-
 function tupletScale(frames: readonly TupletFrame[]): Fraction {
   return frames.reduce((scale, frame) => multiply(scale, fraction(frame.normal, frame.actual)), fraction(1));
 }
@@ -236,9 +234,12 @@ function parseChord(
   track: ParsedTrack,
   onset: Fraction,
   path: string,
+  context: StaffListContext,
 ): { nominal: Fraction; grace: boolean } {
   const { duration, nominal } = parseDuration(element, path);
-  const notes = children(element, "Note").map((note, index) => parseNote(note, `${path}/Note[${index}]`));
+  const notes = children(element, "Note").map((note, index) =>
+    parseMuseScoreNote(note, `${path}/Note[${index}]`, context.transpositions.get(track.staffOffset)),
+  );
   if (notes.length === 0) throw new MuseScoreConversionError("invalid-structure", "Chord has no notes", path);
   const markings = parseMarkings(element, path);
   const event: NoteEvent = {
@@ -249,6 +250,18 @@ function parseChord(
     ...(markings ? { markings } : {}),
   };
   const graceTag = children(element).find((candidate) => GRACE_TAGS.has(candidate.tagName));
+  const sourceOrdinals = noteConnectorOrdinals(notes);
+  for (const [index, noteElement] of children(element, "Note").entries()) {
+    context.noteConnectors.push(
+      ...readNoteConnectors(
+        noteElement,
+        notes[index]!,
+        { staff: track.staffOffset, voice: track.voice, time: onset, note: sourceOrdinals[index]! },
+        Boolean(graceTag),
+        `${path}/Note[${index}]/Spanner`,
+      ),
+    );
+  }
   const supported = new Set(["durationType", "dots", "duration", "Note", "Articulation", "Symbol", ...GRACE_TAGS]);
   for (const elementChild of children(element)) {
     if (!supported.has(elementChild.tagName)) {
@@ -397,6 +410,10 @@ interface StaffListContext extends StaffListEnvelope {
   voiceOffsets: Map<string, Fraction>;
   dynamics: CapturedDynamic[];
   chordSymbols: CapturedChordSymbol[];
+  locatedDynamics: LocatedDynamic[];
+  noteConnectors: NoteConnector[];
+  hairpinConnectors: RelativeConnector[];
+  transpositions: Map<number, Transposition>;
 }
 
 function validateStaffListEnvelope(root: Element): StaffListEnvelope {
@@ -475,22 +492,32 @@ function parseStaffItem(element: Element, path: string, track: ParsedTrack, cont
   }
   switch (element.tagName) {
     case "Harmony":
-      if (location.staff !== context.firstStaff) {
-        unsupported("Harmony on a non-primary physical staff is not supported", path, formatFraction(location.time));
-      }
       context.chordSymbols.push({
         partOffset: 0,
-        staffOffset: 0,
+        staffOffset: track.staffOffset,
         measureOffset: 0,
         offset: tuple(onset),
         chordSymbol: parseHarmony(element, [0, 1], path),
       });
       break;
-    case "Dynamic":
-      if (location.staff !== context.firstStaff) {
-        unsupported("Dynamic on a non-primary physical staff is not supported", path, formatFraction(location.time));
-      }
-      context.dynamics.push({ ...parseDynamic(element, onset, path), staffOffset: 0 });
+    case "Dynamic": {
+      const captured = { ...parseDynamic(element, onset, path), partOffset: 0, staffOffset: track.staffOffset };
+      context.dynamics.push(captured);
+      context.locatedDynamics.push({
+        captured,
+        location: { staff: track.staffOffset, voice: track.voice, time: onset, note: 0 },
+      });
+      break;
+    }
+    case "Spanner":
+      context.hairpinConnectors.push(
+        readRelativeConnector(
+          element,
+          { staff: track.staffOffset, voice: track.voice, time: onset, note: 0 },
+          "HairPin",
+          path,
+        ),
+      );
       break;
     case "Tuplet":
       if (track.tuplets.length === 0 && compare(onset, track.end) > 0) {
@@ -503,7 +530,7 @@ function parseStaffItem(element: Element, path: string, track: ParsedTrack, cont
       closeTuplet(track, path);
       break;
     case "Chord": {
-      const parsed = parseChord(element, track, onset, path);
+      const parsed = parseChord(element, track, onset, path, context);
       if (!parsed.grace) {
         const frame = track.tuplets.at(-1);
         if (frame) frame.consumed = add(frame.consumed, parsed.nominal);
@@ -542,11 +569,13 @@ function parseStaffElement(staff: Element, staffIndex: number, context: StaffLis
   // Each Staff has a fresh track cursor; only the absolute time cursor carries over.
   context.location.staff = declaredStaff;
   context.location.voice = 0;
+  const transposition = parseStaffTransposition(staff, `/StaffList/Staff[${staffIndex}]`);
+  if (transposition) context.transpositions.set(declaredStaff - context.firstStaff, transposition);
   readVoiceOffsets(staff, staffIndex, declaredStaff, context);
   let itemIndex = 0;
   for (const element of children(staff)) {
     const path = `/StaffList/Staff[${staffIndex}]/${element.tagName}[${itemIndex++}]`;
-    if (element.tagName === "voiceOffset") continue;
+    if (["voiceOffset", "transposeChromatic", "transposeDiatonic"].includes(element.tagName)) continue;
     if (element.tagName === "location") {
       applyLocation(element, context.location, context.firstStaff, context.staffCount, path);
       continue;
@@ -567,10 +596,21 @@ function parseStaffList(root: Element): MuseScorePasteData {
     voiceOffsets: new Map(),
     dynamics: [],
     chordSymbols: [],
+    locatedDynamics: [],
+    noteConnectors: [],
+    hairpinConnectors: [],
+    transpositions: new Map(),
   };
   const staffs = children(root, "Staff");
   if (staffs.length === 0) throw new MuseScoreConversionError("invalid-structure", "StaffList contains no Staff");
   for (const [staffIndex, staff] of staffs.entries()) parseStaffElement(staff, staffIndex, context);
+  resolveNoteConnectors(context.noteConnectors, context.length, context.staffCount);
+  context.dynamics = resolveHairpinConnectors(
+    context.hairpinConnectors,
+    context.locatedDynamics,
+    context.length,
+    context.staffCount,
+  );
   for (const track of context.trackMap.values()) {
     if (track.tuplets.length > 0) {
       throw new MuseScoreConversionError("invalid-structure", "Tuplet is missing endTuplet");
@@ -584,12 +624,20 @@ function parseStaffList(root: Element): MuseScorePasteData {
     partOffset: 0,
     voiceIndex: track.voice,
     staffOffset: track.staffOffset,
+    ...(context.transpositions.has(track.staffOffset)
+      ? { transposition: context.transpositions.get(track.staffOffset)! }
+      : {}),
     ...(isZero(track.leadIn) ? {} : { leadIn: tuple(track.leadIn) }),
     content: track.content,
   }));
   return {
     content: tracks[0]!.content,
-    ...(tracks.length > 1 || tracks[0]!.staffOffset !== 0 || tracks[0]!.voiceIndex !== 0 || tracks[0]!.leadIn
+    ...(tracks[0]!.transposition ? { transposition: tracks[0]!.transposition } : {}),
+    ...(tracks.length > 1 ||
+    tracks[0]!.staffOffset !== 0 ||
+    tracks[0]!.voiceIndex !== 0 ||
+    tracks[0]!.leadIn ||
+    tracks[0]!.transposition
       ? { tracks }
       : {}),
     ...(context.dynamics.length > 0 ? { dynamics: context.dynamics } : {}),
@@ -610,7 +658,13 @@ function parseSingleSymbol(root: Element): MuseScorePasteData {
   }
   const durationText = text(root, "duration") ?? "1/4";
   const duration = durationForWhole(parseFraction(durationText, "/EngravingItem/duration"), "/EngravingItem/duration");
-  const note = parseNote(noteElement, "/EngravingItem/Note");
+  if (children(noteElement, "Spanner").length) {
+    unsupported("single-note connectors require a complete StaffList selection", "/EngravingItem/Note/Spanner");
+  }
+  const note = parseMuseScoreNote(noteElement, "/EngravingItem/Note");
+  if (children(noteElement, "Spanner").length > 0) {
+    unsupported("single Note connectors require a complete StaffList selection", "/EngravingItem/Note/Spanner");
+  }
   return { content: [{ type: "event", id: generateId(), duration, notes: [note] }] };
 }
 

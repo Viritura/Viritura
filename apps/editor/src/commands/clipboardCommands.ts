@@ -212,8 +212,8 @@ import {
 function pasteResultFromMuseScore(data: ReturnType<typeof readMuseScoreClipboard>): PasteResult {
   return {
     ...assignFreshTrackIds(data.content, data.tracks),
-    dynamics: data.dynamics?.map((item) => ({ ...structuredClone(item), staffOffset: 0 })),
-    chordSymbols: data.chordSymbols?.map((item) => ({ ...structuredClone(item), staffOffset: 0 })),
+    dynamics: data.dynamics?.map((item) => structuredClone(item)),
+    chordSymbols: data.chordSymbols?.map((item) => structuredClone(item)),
   };
 }
 
@@ -582,14 +582,18 @@ function applyCapturedMeasureRepeats(
 /**
  * Replay captured dynamics into the target part's measures.
  *
- * Each `CapturedDynamic` carries:
+ * Absolute `offset` and `endOffset` values are independently mapped from the
+ * paste origin across destination measures. `endOffset` is authoritative even
+ * when the start uses legacy coordinates or `endMeasureOffset` is also present.
+ *
+ * Legacy coordinates (used only when the corresponding absolute offset is absent):
  *  - `measureOffset`: offset from the selection's first measure.
  *  - `position`: for `measureOffset === 0`, the position is stored
  *    *relative to the selection window start* (i.e. already shifted so beat 0
  *    means "start of selection"). For later measures, the position is the
  *    original measure-relative position.
  *
- * Paste behavior:
+ * Legacy paste behavior:
  *  - First-measure dynamics: new beat = `pasteStartBeat + capturedBeat`.
  *  - Later measures: position is preserved (selection always begins at beat 0
  *    of any subsequent measure).
@@ -625,6 +629,13 @@ function applyCapturedDynamics(
     return [num, denom];
   }
 
+  function absoluteDynamicEnd(endOffset: [number, number]) {
+    const end = resolveOffsetPosition(score, measureIndex, pasteStartBeat, endOffset, true);
+    const endMeasure = score.global.measures[end.measureIndex];
+    if (!endMeasure?.id || !score.parts[partIndex]?.measures[end.measureIndex]) return undefined;
+    return { measure: endMeasure.id, position: { fraction: quarterBeatsToFraction(end.beat) } };
+  }
+
   function applyOffsetDynamic(c: CapturedDynamic): void {
     const target = resolveOffsetPosition(score, measureIndex, pasteStartBeat, c.offset);
     const targetMeasure = score.parts[partIndex]?.measures[target.measureIndex];
@@ -636,10 +647,9 @@ function applyCapturedDynamics(
     };
     if (newDynamic.type === "gradual") {
       if (!c.endOffset) return;
-      const end = resolveOffsetPosition(score, measureIndex, pasteStartBeat, c.endOffset, true);
-      const endMeasure = score.global.measures[end.measureIndex];
-      if (!endMeasure?.id || !score.parts[partIndex]?.measures[end.measureIndex]) return;
-      newDynamic.end = { measure: endMeasure.id, position: { fraction: quarterBeatsToFraction(end.beat) } };
+      const end = absoluteDynamicEnd(c.endOffset);
+      if (!end) return;
+      newDynamic.end = end;
     }
     targetMeasure.dynamics ??= [];
     targetMeasure.dynamics.push(newDynamic);
@@ -667,18 +677,24 @@ function applyCapturedDynamics(
     };
 
     if (newDyn.type === "gradual") {
-      if (c.endMeasureOffset === undefined) continue;
-      const endMeasureIndex = measureIndex + c.endMeasureOffset;
-      const endMeasure = score.global.measures[endMeasureIndex];
-      if (!endMeasure?.id || endMeasureIndex < 0 || endMeasureIndex >= part.measures.length) continue;
-      const sourceEndBeats = fractionToQuarterBeats(newDyn.end.position.fraction);
-      const endBeats = c.endMeasureOffset === 0 ? pasteStartBeat + sourceEndBeats : sourceEndBeats;
-      const endCapacity = measureBeats(getTimeSigAt(endMeasureIndex));
-      if (endBeats < -1e-9 || endBeats > endCapacity + 1e-9) continue;
-      newDyn.end = {
-        measure: endMeasure.id,
-        position: { fraction: quarterBeatsToFraction(Math.max(0, endBeats)) },
-      };
+      if (c.endOffset) {
+        const end = absoluteDynamicEnd(c.endOffset);
+        if (!end) continue;
+        newDyn.end = end;
+      } else {
+        if (c.endMeasureOffset === undefined) continue;
+        const endMeasureIndex = measureIndex + c.endMeasureOffset;
+        const endMeasure = score.global.measures[endMeasureIndex];
+        if (!endMeasure?.id || endMeasureIndex < 0 || endMeasureIndex >= part.measures.length) continue;
+        const sourceEndBeats = fractionToQuarterBeats(newDyn.end.position.fraction);
+        const endBeats = c.endMeasureOffset === 0 ? pasteStartBeat + sourceEndBeats : sourceEndBeats;
+        const endCapacity = measureBeats(getTimeSigAt(endMeasureIndex));
+        if (endBeats < -1e-9 || endBeats > endCapacity + 1e-9) continue;
+        newDyn.end = {
+          measure: endMeasure.id,
+          position: { fraction: quarterBeatsToFraction(Math.max(0, endBeats)) },
+        };
+      }
     }
 
     if (!targetMeasure.dynamics) targetMeasure.dynamics = [];

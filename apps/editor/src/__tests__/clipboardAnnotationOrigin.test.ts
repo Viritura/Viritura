@@ -3,7 +3,7 @@ import type { ChordSymbol, DynamicGroup, NoteEvent, Score, SequenceContent } fro
 import { buildClipboardSelection } from "../clipboard/buildClipboardSelection";
 import { deserializeFragment } from "../clipboard/deserialize";
 import { serializeFragment } from "../clipboard/serialize";
-import { writeMuseScoreStaffList } from "../clipboard/museScore";
+import { readMuseScoreClipboard, writeMuseScoreStaffList } from "../clipboard/museScore";
 import { applyPaste, pasteResultFromFragment, type ClipboardSelection } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import type { SelectionState } from "../store/selectionStore";
@@ -129,7 +129,11 @@ describe("clipboard annotation source staff metadata", () => {
       expect(measure.dynamics).toMatchObject([{ staff: 1, position: { fraction: [0, 16] } }]);
       expect(measure.chordSymbols).toMatchObject([{ displayStaff: 1, root: { step: "C" } }]);
     }
-    expect(writeMuseScoreStaffList(selection)).toMatchObject({ xml: null, warning: expect.any(String) });
+    const exported = writeMuseScoreStaffList(selection);
+    expect(exported.warning).toBeUndefined();
+    const imported = readMuseScoreClipboard(exported.xml!);
+    expect(imported.chordSymbols?.map((item) => item.staffOffset)).toEqual([0, 0]);
+    expect(imported.dynamics?.map((item) => item.staffOffset)).toEqual([0, 0]);
   });
 
   it("retains a single lower-staff note's harmony source coordinate without tracks", () => {

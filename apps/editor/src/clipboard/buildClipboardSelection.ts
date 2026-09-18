@@ -23,11 +23,12 @@ import { buildNavigationIndex } from "../navigation/NavigationIndex";
 import { measureRepeatElementIdsForSelection } from "../commands/measureRepeatCommands";
 import { isLyricId } from "../commands/lyricCommands";
 import { withClipboardLyricMetadata, withoutSelectedLyrics } from "./lyricMetadata";
-import { captureChordSymbols } from "./chordSymbolCapture";
+import { captureChordSymbols, chordSymbolStaffAtLocation } from "./chordSymbolCapture";
 import {
   assignDynamicsToTracks,
   captureSelectedDynamics,
   collectDynamics,
+  dynamicStaffAtLocation,
   selectedDynamicOrigin,
 } from "./dynamicCapture";
 import {
@@ -36,7 +37,7 @@ import {
   selectionStaffAnchor,
   voiceIndexWithinStaff,
 } from "./clipboardTrackMapping";
-import { beatsBetweenMeasures, shiftSelectionOrigin, type CapturedSelection } from "./annotations";
+import { beatsBetweenMeasures, shiftSelectionOrigin, sourceStavesForPart, type CapturedSelection } from "./annotations";
 import { captureTimedSelection } from "./captureTimedSelection";
 
 /** Walk backwards from measureIndex to find the most recent clef on partIndex. */
@@ -204,8 +205,12 @@ function buildSingleClipboardSelection(
         })
       : undefined;
   const { time, key } = resolveActiveTimeKey(score, loc.measureIndex);
+  const sourceStaff = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.staff ?? 1;
+  const sourceStaves = new Set([sourceStaff]);
+  const startBeat = eventStartBeat(score, loc);
+  const endBeat = startBeat + sequenceContentBeats(event);
   return {
-    captureOrigin: { measureIndex: loc.measureIndex, beat: eventStartBeat(score, loc) },
+    captureOrigin: { measureIndex: loc.measureIndex, beat: startBeat },
     events: [event],
     timeSignature: time,
     keySignature: key,
@@ -216,15 +221,25 @@ function buildSingleClipboardSelection(
     sequenceIndex: loc.sequenceIndex,
     eventIndex: loc.eventIndex,
     tracks,
+    dynamics: collectDynamics(
+      score,
+      loc.partIndex,
+      loc.measureIndex,
+      loc.measureIndex,
+      startBeat,
+      endBeat,
+      sourceStaves,
+    ).map((captured) => ({ ...captured, staffOffset: 0 })),
     chordSymbols: captureChordSymbols(
       score,
       loc.partIndex,
       loc.measureIndex,
       loc.measureIndex,
-      eventStartBeat(score, loc),
-      eventStartBeat(score, loc) + sequenceContentBeats(event),
+      startBeat,
+      endBeat,
       0,
-      (score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.staff ?? 1) - 1,
+      sourceStaff - 1,
+      sourceStaves,
     ),
     cutLocations: routed,
   };
@@ -538,15 +553,27 @@ function buildRangeClipboardSelection(
   const resolved = resolveRangeAndIds(score, selection, selectedScoreIndex);
   if (!resolved) return null;
   const { range, selectedIds } = resolved;
+  const { events: trackedEvents } = collectTrackedEvents(score, range, selectedIds);
+  if (trackedEvents.length === 0) return null;
+  const selectedStaves = new Set(
+    trackedEvents.map((event) => {
+      const partIndex = range.startPart + event.partOffset;
+      const staff = score.parts[partIndex]?.measures[event.measureIndex]?.sequences[event.voiceIndex]?.staff ?? 1;
+      return `${partIndex}:${staff}`;
+    }),
+  );
   const annotationLocations = [...selectedIds]
-    .map(resolveAnnotationLocation)
+    .map((id) => {
+      const location = resolveAnnotationLocation(id);
+      if (!location || id === selection.startElementId || id === selection.endElementId) return location;
+      const staff = dynamicStaffAtLocation(score, location) ?? chordSymbolStaffAtLocation(score, location);
+      return staff === undefined || selectedStaves.has(`${location.partIndex}:${staff}`) ? location : null;
+    })
     .filter((location): location is AnnotationLocation => location !== null);
   const cutAnnotationLocations =
     selectedScoreIndex === undefined
       ? annotationLocations
       : expandCondensedDynamicLocations(score, annotationLocations, selectedScoreIndex);
-  const { events: trackedEvents } = collectTrackedEvents(score, range, selectedIds);
-  if (trackedEvents.length === 0) return null;
   const origin = selectedDynamicOrigin(score, cutAnnotationLocations, {
     measureIndex: trackedEvents[0]!.measureIndex,
     beat: trackedEvents[0]!.sortKey,
@@ -578,9 +605,15 @@ function buildRangeClipboardSelection(
       ? Math.max(...lastMeasureEvents.map((event) => event.sortKey + event.eventBeats))
       : Infinity;
   const dynamics = [...new Set(trackedEvents.map((event) => range.startPart + event.partOffset))].flatMap((partIndex) =>
-    collectDynamics(score, partIndex, origin.measureIndex, range.endMeasure, origin.beat, lastMeasureBeat).map(
-      (captured) => ({ ...captured, partIndex, sourceMeasureIndex: origin.measureIndex + captured.measureOffset }),
-    ),
+    collectDynamics(
+      score,
+      partIndex,
+      origin.measureIndex,
+      range.endMeasure,
+      origin.beat,
+      lastMeasureBeat,
+      sourceStavesForPart(tracks, partIndex - range.startPart),
+    ).map((captured) => ({ ...captured, partIndex, sourceMeasureIndex: origin.measureIndex + captured.measureOffset })),
   );
   assignDynamicsToTracks(score, range.startPart, tracks, [...selectedDynamics, ...dynamics], anchorStaffOffset);
   const chordSymbols = [...new Set(trackedEvents.map((event) => range.startPart + event.partOffset))].flatMap(
@@ -594,6 +627,7 @@ function buildRangeClipboardSelection(
         lastMeasureBeat,
         partIndex - range.startPart,
         anchorStaffOffset,
+        sourceStavesForPart(tracks, partIndex - range.startPart),
       ),
   );
 
