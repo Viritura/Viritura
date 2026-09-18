@@ -172,6 +172,9 @@ export function createDocumentStore() {
 
       const perf = getGlobalPerfTracker();
       if (perf.fastLayoutCallback) {
+        // Dispatch against the loaded model, just as updateScore dispatches
+        // against workingScore before publishing its React-visible snapshot.
+        set({ workingScore: newScore });
         // A new document supersedes any in-flight/pending coalesced layout;
         // reset, then fire its full layout through the coalescer so a fast
         // first edit during a slow cold load still coalesces behind it.

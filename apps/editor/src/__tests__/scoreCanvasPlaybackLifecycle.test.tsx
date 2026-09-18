@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
   selectionActions: { clearSelection: vi.fn() },
   document: { mnxJson: '{"mnx":{"version":1},"parts":[]}', score: null, dirty: false },
   documentActions: { updateScore: vi.fn() },
-  documentStore: { subscribe: vi.fn(() => vi.fn()) },
+  documentStore: { subscribe: vi.fn(() => vi.fn()), getState: () => ({ workingScore: null, score: null }) },
   playbackActions: {},
   follow: {
     detached: true,

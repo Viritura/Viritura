@@ -8,6 +8,7 @@ import {
 } from "../binaryDisplayList";
 import { SpatialIndex } from "../hitTest";
 import { decodeFrame, PatchReconstructor } from "../patchFrame";
+import type { DisplayList } from "../wasm";
 
 /**
  * Helper: encode a color string "#RRGGBB" into a u32, then pack as f32 bits.
@@ -33,11 +34,12 @@ function buildBinaryBuffer(
   measureBounds: number[][] = [],
   selectionGroups: Array<{ elementId: string; memberIds: string[] }> = [],
   sourceMappings: Array<{ boundsIndex: number; sourcePartIndices: number[] }> = [],
+  slurGeometries: number[][] = [],
 ): Float32Array {
   const data: number[] = [];
   const numStrings = elementIds?.stringTable.length ?? 0;
   // Header (7 floats): width, height, commands, pages, strings, bboxes, slur geometries.
-  data.push(width, height, commands.length, pages.length, numStrings, bboxes.length, 0);
+  data.push(width, height, commands.length, pages.length, numStrings, bboxes.length, slurGeometries.length);
   // Pages
   for (const page of pages) {
     for (const val of page) {
@@ -47,6 +49,11 @@ function buildBinaryBuffer(
   // Element bboxes
   for (const bbox of bboxes) {
     for (const val of bbox) {
+      data.push(val);
+    }
+  }
+  for (const slur of slurGeometries) {
+    for (const val of slur) {
       data.push(val);
     }
   }
@@ -566,6 +573,79 @@ function encodeId(id: string): number[] {
   return [id.length, ...Array.from(id).map((c) => c.codePointAt(0) ?? 0)];
 }
 
+function retainedPatchFrame(placements: number[][]): Float32Array {
+  const empty = buildBinaryBuffer(200, 100, []);
+  return new Float32Array([
+    1,
+    3,
+    200,
+    100,
+    0,
+    0,
+    empty.length,
+    ...empty,
+    empty.length,
+    ...empty,
+    placements.length,
+    ...placements.flat(),
+  ]);
+}
+
+function retainedSegment(origin: number): Float32Array {
+  const black = encodeColor("#000000");
+  const command = [1, origin, origin + 1, origin + 10, origin + 11, 1, black];
+  const bbox = [...encodeId(`bbox${origin}`), origin + 2, origin + 3, 4, 5];
+  const measure = [
+    ...encodeId(`m${origin}`),
+    0,
+    0,
+    0,
+    0,
+    origin + 4,
+    20,
+    origin + 5,
+    10,
+    0,
+    4,
+    1,
+    0,
+    origin + 6,
+    0,
+    0,
+    0,
+    0,
+  ];
+  const slur = [
+    ...encodeId(`slur${origin}`),
+    origin + 7,
+    origin + 8,
+    origin + 9,
+    origin + 10,
+    origin + 11,
+    origin + 12,
+    origin + 13,
+    origin + 14,
+    1,
+    1,
+    4,
+  ];
+  return buildBinaryBuffer(200, 100, [command], [], undefined, [bbox], [measure], [], [], [slur]);
+}
+
+function freshPlacement(segment: Float32Array): number[] {
+  return [1, segment.length, ...segment];
+}
+
+function reusePlacement(prevIndex: number, dx: number, dy: number): number[] {
+  return [0, prevIndex, dx, dy];
+}
+
+function commandStart(displayList: DisplayList): [number, number] {
+  const command = displayList.commands[0];
+  if (command?.type !== "DrawLine") throw new Error("Expected DrawLine command");
+  return [command.x1, command.y1];
+}
+
 describe("element bounding box decoding", () => {
   it("should decode element bboxes from binary", () => {
     const black = encodeColor("#000000");
@@ -709,6 +789,34 @@ describe("measure bounds decoding", () => {
 
     const replaced = reconstructor.apply(decodeFrame(new Float32Array([...patchHeader, 1, legacy.length, ...legacy])));
     expect(replaced.measureBounds?.map((b) => b.sourcePartIndices ?? [b.partIndex])).toEqual([[2], [7]]);
+  });
+
+  it("finalizes skipped fresh frames before next reuse without mutating published geometry", () => {
+    const reconstructor = new PatchReconstructor();
+    const first = reconstructor.apply(decodeFrame(retainedPatchFrame([freshPlacement(retainedSegment(10))])));
+    const firstLayerBounds = { ...first.retainedRenderLayers![1]!.bounds! };
+
+    const skipped = reconstructor.apply(decodeFrame(retainedPatchFrame([freshPlacement(retainedSegment(40))])), true);
+    const next = reconstructor.apply(decodeFrame(retainedPatchFrame([reusePlacement(0, 5, 7)])));
+
+    expect(first).not.toBe(skipped);
+    expect(skipped).not.toBe(next);
+    expect(commandStart(next)).toEqual([45, 48]);
+    expect(next.elementBboxes?.[0]?.bbox).toMatchObject({ x: 47, y: 50 });
+    expect(next.slurGeometries?.[0]).toMatchObject({ p0x: 52, p0y: 55, p3x: 58, p3y: 61 });
+    expect(next.measureBounds?.[0]).toMatchObject({ x: 49, y: 52, beatAnchors: [[0, 51]] });
+    expect(next.retainedRenderLayers?.[1]?.bounds).toMatchObject({ x: 44, y: 47, x2: 56, y2: 59 });
+
+    expect(skipped.finalizeRetainedFrame).toBeUndefined();
+    expect(commandStart(skipped)).toEqual([40, 41]);
+    expect(skipped.elementBboxes?.[0]?.bbox).toMatchObject({ x: 42, y: 43 });
+    expect(skipped.slurGeometries?.[0]).toMatchObject({ p0x: 47, p0y: 48, p3x: 53, p3y: 54 });
+    expect(skipped.measureBounds?.[0]).toMatchObject({ x: 44, y: 45, beatAnchors: [[0, 46]] });
+    expect(commandStart(first)).toEqual([10, 11]);
+    expect(first.elementBboxes?.[0]?.bbox).toMatchObject({ x: 12, y: 13 });
+    expect(first.slurGeometries?.[0]).toMatchObject({ p0x: 17, p0y: 18, p3x: 23, p3y: 24 });
+    expect(first.measureBounds?.[0]).toMatchObject({ x: 14, y: 15, beatAnchors: [[0, 16]] });
+    expect(first.retainedRenderLayers?.[1]?.bounds).toEqual(firstLayerBounds);
   });
 });
 

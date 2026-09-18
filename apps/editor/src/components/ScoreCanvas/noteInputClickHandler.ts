@@ -5,7 +5,7 @@
 
 import { toast } from "sonner";
 import type { Clef, KeySignature, Pitch, Score } from "@viritura/core";
-import { pitchToMidi } from "@viritura/core";
+import { measureBeats, pitchToMidi } from "@viritura/core";
 import type { DisplayList, SpatialIndex } from "@viritura/renderer";
 import type { PlaybackActions } from "@viritura/playback";
 import type { NoteInputClickInfo } from "../InputCursor";
@@ -28,6 +28,8 @@ import {
   addGraceNote,
   findLastNoteEvent,
   durationToBeats,
+  getEffectiveTimeSignature,
+  type AddNoteParams,
 } from "../../commands/noteCommands";
 import { resolveEntryPitch } from "../../commands/transposeCommands";
 import { prevailingAlterationAtPosition } from "../../commands/accidentalCommands";
@@ -55,6 +57,51 @@ export interface AddNoteAtClickArgs {
   clearSlurStart: () => void;
   toggleSlur: () => void;
   playbackActions: PlaybackActions;
+}
+
+function produceScoreMutation(score: Score, mutate: (draft: Score) => void): Score {
+  return produce(score, (draft) => {
+    mutate(draft as Score);
+  });
+}
+
+function autoTieMayAppendMeasure(score: Score, params: AddNoteParams): boolean {
+  if (params.measureIndex >= score.global.measures.length) return true;
+  if (params.kitComponent) return false;
+
+  let overflow =
+    durationToBeats(params.duration) -
+    (measureBeats(getEffectiveTimeSignature(score, params.measureIndex)) - params.beatPosition);
+  let measureIndex = params.measureIndex + 1;
+  while (overflow > 1e-9 && measureIndex < score.global.measures.length) {
+    overflow -= measureBeats(getEffectiveTimeSignature(score, measureIndex));
+    measureIndex++;
+  }
+  return overflow > 1e-9;
+}
+
+function addNoteWithAutoTieImmutable(score: Score, params: AddNoteParams): Score {
+  if (autoTieMayAppendMeasure(score, params)) {
+    return addNoteWithAutoTie(cloneScore(score), params);
+  }
+  return produceScoreMutation(score, (draft) => {
+    addNoteWithAutoTie(draft, params);
+  });
+}
+
+function addNotesWithAutoTieImmutable(score: Score, paramsList: AddNoteParams[]): Score {
+  if (paramsList.some((params) => autoTieMayAppendMeasure(score, params))) {
+    let next = cloneScore(score);
+    for (const params of paramsList) {
+      next = addNoteWithAutoTie(next, params);
+    }
+    return next;
+  }
+  return produceScoreMutation(score, (draft) => {
+    for (const params of paramsList) {
+      addNoteWithAutoTie(draft, params);
+    }
+  });
 }
 
 /**
@@ -294,9 +341,6 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     else delete pitch.alter;
   }
 
-  // Deep clone and mutate
-  const newScore = cloneScore(score);
-
   // Play auditory feedback for the entered note. Percussion parts preview
   // the actual GM drum-key on channel 9 (via the part's kit + global.sounds
   // map) instead of the clicked pitch. For transposing instruments we preview
@@ -327,13 +371,21 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       const effectiveMode =
         noteInputState.condensingRouting ?? detectCondensingMode(score, condensingStaff, measureIndex) ?? undefined;
       const targets = resolveEditTargets(effectiveMode, condensingStaff, voice);
+      let newScore: Score;
 
       if (info.shiftKey) {
         // Chord entry on condensing staff: broadcast to all targets
+        const chordTargets: {
+          target: (typeof targets)[number];
+          loc: NonNullable<ReturnType<typeof findLastNoteEvent>>;
+        }[] = [];
         for (const target of targets) {
-          const loc = findLastNoteEvent(newScore, target.partIndex, target.voice);
-          if (loc) {
-            addPitchToChord(newScore, {
+          const loc = findLastNoteEvent(score, target.partIndex, target.voice);
+          if (loc) chordTargets.push({ target, loc });
+        }
+        newScore = produceScoreMutation(score, (draft) => {
+          for (const { target, loc } of chordTargets) {
+            addPitchToChord(draft, {
               pitch,
               measureIndex: loc.measureIndex,
               partIndex: target.partIndex,
@@ -341,41 +393,47 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
               eventIndex: loc.eventIndex,
               kitComponent: kitComponentId ?? undefined,
             });
-            insertedChordPitch = true;
           }
+        });
+        if (chordTargets.length > 0) {
+          insertedChordPitch = true;
         }
       } else if (noteInputState.isRest) {
-        for (const target of targets) {
-          addRest(newScore, {
-            duration,
-            measureIndex,
-            partIndex: target.partIndex,
-            voice: target.voice,
-            beatPosition,
-            staffNumber: clickedStaffNumber,
-          });
-        }
+        newScore = produceScoreMutation(score, (draft) => {
+          for (const target of targets) {
+            addRest(draft, {
+              duration,
+              measureIndex,
+              partIndex: target.partIndex,
+              voice: target.voice,
+              beatPosition,
+              staffNumber: clickedStaffNumber,
+            });
+          }
+        });
       } else if (noteInputState.currentGraceType) {
-        for (const target of targets) {
-          addGraceNote(newScore, {
-            pitch,
-            duration,
-            measureIndex,
-            partIndex: target.partIndex,
-            voice: target.voice,
-            beatPosition,
-            slash: noteInputState.currentGraceType === "grace",
-            kitComponent: kitComponentId ?? undefined,
-          });
-        }
+        newScore = produceScoreMutation(score, (draft) => {
+          for (const target of targets) {
+            addGraceNote(draft, {
+              pitch,
+              duration,
+              measureIndex,
+              partIndex: target.partIndex,
+              voice: target.voice,
+              beatPosition,
+              slash: noteInputState.currentGraceType === "grace",
+              kitComponent: kitComponentId ?? undefined,
+            });
+          }
+        });
         updateScore(newScore);
         setLastPitch(writtenPitch);
         clearExplicitAccidental();
         return;
       } else {
-        let resultScore = newScore;
-        for (const target of targets) {
-          resultScore = addNoteWithAutoTie(resultScore, {
+        const resultScore = addNotesWithAutoTieImmutable(
+          score,
+          targets.map((target) => ({
             pitch,
             duration,
             measureIndex,
@@ -384,8 +442,8 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
             beatPosition,
             staffNumber: clickedStaffNumber,
             kitComponent: kitComponentId ?? undefined,
-          });
-        }
+          })),
+        );
         updateScore(resultScore);
         setCursor(
           advanceCursorByNotatedDuration(
@@ -423,7 +481,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     // no-op (conservative behavior; user can change duration and click again).
     // Shift+Click and rest/grace modes keep their existing behavior.
     if (!info.shiftKey && !noteInputState.isRest && !noteInputState.currentGraceType) {
-      const seq = newScore.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
+      const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
       if (seq) {
         const ONSET_TOL = 0.005;
         let bp = 0;
@@ -450,7 +508,12 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
               const cur = item.kitNotes[0]!.kitComponent;
               if (sharing.length > 1 && sharing.includes(cur)) {
                 const next = sharing[(sharing.indexOf(cur) + 1) % sharing.length]!;
-                item.kitNotes[0]!.kitComponent = next;
+                const newScore = produceScoreMutation(score, (draft) => {
+                  const draftItem = draft.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex]?.content[i];
+                  if (draftItem?.type === "event" && draftItem.kitNotes?.[0]) {
+                    draftItem.kitNotes[0].kitComponent = next;
+                  }
+                });
                 updateScore(newScore);
                 if (!noteInputState.isRest) {
                   const drumMidi = midiNumberForKitComponent(percussionPart, score.global.sounds, next);
@@ -469,13 +532,15 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
             }
             // Duration matches → add pitch to this chord (addPitchToChord
             // skips duplicates internally).
-            addPitchToChord(newScore, {
-              pitch,
-              measureIndex,
-              partIndex,
-              voice: seqIndex,
-              eventIndex: i,
-              kitComponent: kitComponentId ?? undefined,
+            const newScore = produceScoreMutation(score, (draft) => {
+              addPitchToChord(draft, {
+                pitch,
+                measureIndex,
+                partIndex,
+                voice: seqIndex,
+                eventIndex: i,
+                kitComponent: kitComponentId ?? undefined,
+              });
             });
             updateScore(newScore);
             setLastPitch(writtenPitch);
@@ -488,11 +553,13 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       }
     }
 
+    let newScore: Score;
     if (info.shiftKey) {
       // Shift+Click: add pitch to last entered event (chord entry)
-      const loc = findLastNoteEvent(newScore, partIndex, seqIndex);
-      if (loc) {
-        addPitchToChord(newScore, {
+      const loc = findLastNoteEvent(score, partIndex, seqIndex);
+      newScore = produceScoreMutation(score, (draft) => {
+        if (!loc) return;
+        addPitchToChord(draft, {
           pitch,
           measureIndex: loc.measureIndex,
           partIndex,
@@ -500,34 +567,40 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
           eventIndex: loc.eventIndex,
           kitComponent: kitComponentId ?? undefined,
         });
+      });
+      if (loc) {
         insertedChordPitch = true;
       }
     } else if (noteInputState.isRest) {
-      addRest(newScore, {
-        duration,
-        measureIndex,
-        partIndex,
-        voice: seqIndex,
-        beatPosition,
-        staffNumber: clickedStaffNumber,
+      newScore = produceScoreMutation(score, (draft) => {
+        addRest(draft, {
+          duration,
+          measureIndex,
+          partIndex,
+          voice: seqIndex,
+          beatPosition,
+          staffNumber: clickedStaffNumber,
+        });
       });
     } else if (noteInputState.currentGraceType) {
-      addGraceNote(newScore, {
-        pitch,
-        duration,
-        measureIndex,
-        partIndex,
-        voice: seqIndex,
-        beatPosition,
-        slash: noteInputState.currentGraceType === "grace",
-        kitComponent: kitComponentId ?? undefined,
+      newScore = produceScoreMutation(score, (draft) => {
+        addGraceNote(draft, {
+          pitch,
+          duration,
+          measureIndex,
+          partIndex,
+          voice: seqIndex,
+          beatPosition,
+          slash: noteInputState.currentGraceType === "grace",
+          kitComponent: kitComponentId ?? undefined,
+        });
       });
       updateScore(newScore);
       setLastPitch(writtenPitch);
       clearExplicitAccidental();
       return;
     } else {
-      let resultScore = addNoteWithAutoTie(newScore, {
+      let resultScore = addNoteWithAutoTieImmutable(score, {
         pitch,
         duration,
         measureIndex,
@@ -540,29 +613,31 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
 
       // If tie mode is active, add a tie to the just-added note
       if (noteInputState.tieActive) {
-        const seq = resultScore.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
-        if (seq) {
-          // Find the last note event (the one we just added) — search inside tuplets too
-          outer: for (let i = seq.content.length - 1; i >= 0; i--) {
-            const item = seq.content[i];
-            if (item && item.type === "tuplet") {
-              for (let j = item.content.length - 1; j >= 0; j--) {
-                const ev = item.content[j];
-                if (ev && ev.type === "event" && ev.notes && ev.notes.length > 0) {
-                  for (const note of ev.notes) {
-                    note.ties = [{}];
+        resultScore = produceScoreMutation(resultScore, (draft) => {
+          const seq = draft.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
+          if (seq) {
+            // Find the last note event (the one we just added) — search inside tuplets too
+            outer: for (let i = seq.content.length - 1; i >= 0; i--) {
+              const item = seq.content[i];
+              if (item && item.type === "tuplet") {
+                for (let j = item.content.length - 1; j >= 0; j--) {
+                  const ev = item.content[j];
+                  if (ev && ev.type === "event" && ev.notes && ev.notes.length > 0) {
+                    for (const note of ev.notes) {
+                      note.ties = [{}];
+                    }
+                    break outer;
                   }
-                  break outer;
                 }
+              } else if (item && item.type === "event" && item.notes && item.notes.length > 0) {
+                for (const note of item.notes) {
+                  note.ties = [{}];
+                }
+                break;
               }
-            } else if (item && item.type === "event" && item.notes && item.notes.length > 0) {
-              for (const note of item.notes) {
-                note.ties = [{}];
-              }
-              break;
             }
           }
-        }
+        });
       }
 
       // Slur entry: two-step process (start → end)
@@ -591,7 +666,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         if (newEventId) {
           if (noteInputState.slurStartEventId) {
             // Second note: complete the slur
-            resultScore = produce(resultScore, (draft) => {
+            resultScore = produceScoreMutation(resultScore, (draft) => {
               addSlur(draft, {
                 sourceEventId: noteInputState.slurStartEventId!,
                 targetEventId: newEventId,

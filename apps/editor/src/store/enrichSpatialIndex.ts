@@ -9,7 +9,7 @@
  */
 
 import type { Score } from "@viritura/core";
-import type { DisplayList, PatchInfo } from "@viritura/renderer";
+import type { DisplayList } from "@viritura/renderer";
 import { SpatialIndex } from "@viritura/renderer";
 import { eventSuffix } from "../score/ElementPath";
 
@@ -103,69 +103,4 @@ export function buildEnrichedSpatialIndex(dl: DisplayList, score: Score | null):
   });
 
   return new SpatialIndex(enrichedEntries);
-}
-
-interface DirtyRect {
-  x: number;
-  y: number;
-  x2: number;
-  y2: number;
-}
-
-function intersects(entry: { x: number; y: number; width: number; height: number }, rect: DirtyRect): boolean {
-  return entry.x + entry.width > rect.x && entry.x < rect.x2 && entry.y + entry.height > rect.y && entry.y < rect.y2;
-}
-
-/**
- * Replace only the spatial regions touched by a measure patch.
- *
- * Precise engine bboxes make this independent of command ordering. Structural
- * changes, missing bounds, and degenerate dirty regions conservatively rebuild
- * the full index.
- */
-export function updateEnrichedSpatialIndexForPatch(
-  previous: SpatialIndex | null,
-  previousDisplayList: DisplayList | null,
-  displayList: DisplayList,
-  score: Score | null,
-  patchInfo?: PatchInfo,
-): SpatialIndex {
-  if (
-    !previous ||
-    !previousDisplayList?.measureBounds?.length ||
-    !displayList.measureBounds?.length ||
-    !displayList.elementBboxes?.length ||
-    !patchInfo ||
-    patchInfo.structuralChange
-  ) {
-    return buildEnrichedSpatialIndex(displayList, score);
-  }
-
-  const changedGlobal = new Set(patchInfo.changedGlobalMeasures);
-  const changedParts = patchInfo.changedPartMeasures;
-  const isDirtyBound = (bound: NonNullable<DisplayList["measureBounds"]>[number]): boolean =>
-    changedGlobal.has(bound.index) || changedParts.get(bound.partIndex)?.includes(bound.index) === true;
-  const padding = 128;
-  const toRect = (bound: NonNullable<DisplayList["measureBounds"]>[number]): DirtyRect => ({
-    x: bound.x - padding,
-    y: bound.y - padding,
-    x2: bound.x + bound.width + padding,
-    y2: bound.y + bound.height + padding,
-  });
-  const oldRects = previousDisplayList.measureBounds.filter(isDirtyBound).map(toRect);
-  const newRects = displayList.measureBounds.filter(isDirtyBound).map(toRect);
-  if (oldRects.length === 0 || newRects.length === 0) return buildEnrichedSpatialIndex(displayList, score);
-
-  const dirtyRects = [...oldRects, ...newRects];
-  const retained = previous.all.filter((entry) => !dirtyRects.some((rect) => intersects(entry, rect)));
-  const dirtyBboxes = displayList.elementBboxes.filter((entry) =>
-    newRects.some((rect) => intersects(entry.bbox, rect)),
-  );
-  const partial = SpatialIndex.fromDisplayList({
-    commands: [],
-    width: displayList.width,
-    height: displayList.height,
-    elementBboxes: dirtyBboxes,
-  });
-  return new SpatialIndex([...retained, ...partial.all]);
 }

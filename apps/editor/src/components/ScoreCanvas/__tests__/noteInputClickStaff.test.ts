@@ -34,6 +34,23 @@ function makeTwoPartScore(): Score {
   } as unknown as Score;
 }
 
+function makeTwoMeasureScore(): Score {
+  const wholeRest = () => ({ type: "event" as const, duration: { base: "whole" as const }, rest: {} });
+  const part = (id: string, name: string) => ({
+    id,
+    name,
+    measures: [
+      { sequences: [{ staff: 1, content: [wholeRest()] }] },
+      { sequences: [{ staff: 1, content: [wholeRest()] }] },
+    ],
+  });
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }, {}] },
+    parts: [part("p0", "Violin I"), part("p1", "Violin II")],
+  } as unknown as Score;
+}
+
 /** measureBounds mapping part 0 to global staff 0 (y=0) and part 1 to global
  *  staff 1 (y=100) — mirrors a full-score layout where staffIndex is global. */
 function makeDisplayList(): DisplayList {
@@ -177,6 +194,48 @@ describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
     const firstPartContent = result.parts[0]!.measures[0]!.sequences[0]!.content;
     expect(firstPartContent.length).toBe(1);
     expect(isRest(firstPartContent[0]!)).toBe(true);
+  });
+
+  it("structurally shares untouched parts and measures while preserving the original score", () => {
+    const score = makeTwoMeasureScore();
+    const result = runClick(score);
+
+    expect(result).not.toBe(score);
+    expect(result.parts[0]).toBe(score.parts[0]);
+    expect(result.parts[1]).not.toBe(score.parts[1]);
+    expect(result.parts[1]!.measures[0]).not.toBe(score.parts[1]!.measures[0]);
+    expect(result.parts[1]!.measures[1]).toBe(score.parts[1]!.measures[1]);
+    expect(isRest(score.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(true);
+    expect(isRest(result.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(false);
+  });
+
+  it("keeps rest, grace and chord click branches immutable", () => {
+    const makeNoteScore = (): Score => {
+      const score = makeTwoPartScore();
+      score.parts[1]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "event",
+          duration: { base: "whole" },
+          notes: [{ pitch: { step: "C", octave: 4 } }],
+        },
+      ];
+      return score;
+    };
+
+    const restScore = makeNoteScore();
+    const restResult = runClick(restScore, { ...makeNoteInputState(), isRest: true });
+    expect(isRest(restResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(true);
+    expect(isRest(restScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(false);
+
+    const graceScore = makeNoteScore();
+    const graceResult = runClick(graceScore, { ...makeNoteInputState(), currentGraceType: "grace" } as NoteInputState);
+    expect(graceResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("grace");
+    expect(graceScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("event");
+
+    const chordScore = makeNoteScore();
+    const chordResult = runClick(chordScore, makeNoteInputState(), vi.fn(), { ...makeClickInfo(), shiftKey: true });
+    expect(chordResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(2);
+    expect(chordScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(1);
   });
 
   it("clears an explicit accidental after inserting a note", () => {

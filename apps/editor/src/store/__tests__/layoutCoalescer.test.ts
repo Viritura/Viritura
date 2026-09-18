@@ -63,7 +63,6 @@ function makeHarness() {
 
   return { coalescer, fired, settle, isInFlight: () => resolveCurrent !== null };
 }
-
 describe("LayoutCoalescer", () => {
   it("fires immediately when idle", () => {
     const h = makeHarness();
@@ -210,6 +209,68 @@ describe("LayoutCoalescer", () => {
     await h.settle();
     expect(h.fired[1]!.json).toBe("B");
     expect(h.fired[1]!.full).toBe(true); // structural → undefined patchInfo → full layout
+  });
+
+  it("uses the latest lazy fallback once when coalesced structural state needs a full layout", async () => {
+    const h = makeHarness();
+    let fallbackCalls = 0;
+    h.coalescer.submit({
+      json: "A",
+      changedGlobalMeasures: [1],
+      changedPartMeasures: new Map(),
+      structuralChange: false,
+    });
+    h.coalescer.submit({
+      json: "B",
+      changedGlobalMeasures: [2],
+      changedPartMeasures: new Map(),
+      structuralChange: true,
+    });
+    h.coalescer.submit({
+      json: "",
+      fallbackJson: () => {
+        fallbackCalls += 1;
+        return "LATEST-FULL";
+      },
+      changedGlobalMeasures: [3],
+      changedPartMeasures: new Map(),
+      structuralChange: false,
+    });
+
+    await h.settle();
+    expect(h.fired[1]!.full).toBe(true);
+    expect(h.fired[1]!.json).toBe("LATEST-FULL");
+    expect(fallbackCalls).toBe(1);
+  });
+
+  it("leaves ordinary patch fallback lazy", () => {
+    let fallbackCalls = 0;
+    let dispatchedJson = "";
+    let dispatchedFallback: (() => string) | undefined;
+    const coalescer = new LayoutCoalescer(
+      () => "{}",
+      (json, patchInfo) => {
+        const pi = patchInfo as { fallbackJson?: () => string } | undefined;
+        dispatchedJson = json;
+        dispatchedFallback = pi?.fallbackJson;
+      },
+    );
+
+    coalescer.submit({
+      json: "",
+      fallbackJson: () => {
+        fallbackCalls += 1;
+        return "FULL";
+      },
+      changedGlobalMeasures: [1],
+      changedPartMeasures: new Map(),
+      structuralChange: false,
+    });
+
+    expect(dispatchedJson).toBe("");
+    expect(fallbackCalls).toBe(0);
+    expect(dispatchedFallback?.()).toBe("FULL");
+    expect(fallbackCalls).toBe(1);
   });
 
   it("dispatches a time-signature-only edit through the patch path", () => {
