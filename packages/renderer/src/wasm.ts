@@ -9,7 +9,15 @@ import { decodeBinaryDisplayList } from "./binaryDisplayList";
 
 // Type re-exports — definitions live in wasmTypes.ts.
 export * from "./wasmTypes";
-import type { BoundingBox, DisplayList, ScoreInfo, SlurPreview, SlurPreviewInput } from "./wasmTypes";
+import type {
+  BoundingBox,
+  DisplayList,
+  NotePreviewInput,
+  RenderCommand,
+  ScoreInfo,
+  SlurPreview,
+  SlurPreviewInput,
+} from "./wasmTypes";
 
 declare const __VIRITURA_WASM_ASSET_HASH__: string | undefined;
 
@@ -58,6 +66,7 @@ let wasmModule: {
   get_score_info: (mnx_json: string) => string;
   engine_version: () => string;
   compute_slur_preview: (preview_json: string) => string;
+  compute_note_preview?: (preview_json: string) => string;
   export_svg: (
     display_list_json: string,
     bravura_data: Uint8Array,
@@ -141,7 +150,14 @@ export function computeSlurPreview(input: SlurPreviewInput): SlurPreview {
   if (!wasmModule) {
     throw new Error("WASM engine not initialized. Call initWasm() first.");
   }
+
   return JSON.parse(wasmModule.compute_slur_preview(JSON.stringify(input))) as SlurPreview;
+}
+
+/** Older/uninitialized WASM can still show the cursor, but cannot engrave a ghost. */
+export function computeNotePreview(input: NotePreviewInput): RenderCommand[] {
+  if (!wasmModule?.compute_note_preview) return [];
+  return JSON.parse(wasmModule.compute_note_preview(JSON.stringify(input))) as RenderCommand[];
 }
 
 /**

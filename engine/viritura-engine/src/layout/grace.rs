@@ -6,6 +6,8 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::HashSet;
 
+pub(crate) const GRACE_SCALE: f64 = 0.65;
+
 // ═══════════════════════════════════════════
 // Grace note rendering
 // ═══════════════════════════════════════════
@@ -19,7 +21,7 @@ pub(crate) fn render_grace_event(
     config: &LayoutConfig,
     beamed_ids: &HashSet<String>,
 ) {
-    let scale = 0.65;
+    let scale = GRACE_SCALE;
     let event = &gn.event;
     let x = gn.x;
     let color: &str = gn.color.as_deref().unwrap_or("#000000");
@@ -128,15 +130,15 @@ pub(crate) fn render_grace_event(
                     }
                     if gn.is_slash {
                         let slash_center_y = stem_top + stem_len * 0.35;
-                        let slash_ext = 0.6 * sp * scale;
-                        dl.push(RenderCommand::DrawLine {
-                            x1: stem_x - slash_ext * 0.8,
-                            y1: slash_center_y + slash_ext,
-                            x2: stem_x + slash_ext * 0.8,
-                            y2: slash_center_y - slash_ext,
-                            width: config.stem_width * sp * 1.5,
-                            color: color.into(),
-                        });
+                        render_grace_slash(
+                            dl,
+                            stem_x,
+                            slash_center_y,
+                            sp,
+                            scale,
+                            config.stem_width,
+                            color,
+                        );
                     }
                 }
             } else {
@@ -166,20 +168,40 @@ pub(crate) fn render_grace_event(
                     }
                     if gn.is_slash {
                         let slash_center_y = stem_bottom - stem_len * 0.35;
-                        let slash_ext = 0.6 * sp * scale;
-                        dl.push(RenderCommand::DrawLine {
-                            x1: stem_x - slash_ext * 0.8,
-                            y1: slash_center_y + slash_ext,
-                            x2: stem_x + slash_ext * 0.8,
-                            y2: slash_center_y - slash_ext,
-                            width: config.stem_width * sp * 1.5,
-                            color: color.into(),
-                        });
+                        render_grace_slash(
+                            dl,
+                            stem_x,
+                            slash_center_y,
+                            sp,
+                            scale,
+                            config.stem_width,
+                            color,
+                        );
                     }
                 }
             }
         }
     }
+}
+
+pub(super) fn render_grace_slash(
+    dl: &mut DisplayList,
+    stem_x: f64,
+    slash_center_y: f64,
+    sp: f64,
+    scale: f64,
+    stem_width: f64,
+    color: &str,
+) {
+    let slash_ext = 0.6 * sp * scale;
+    dl.push(RenderCommand::DrawLine {
+        x1: stem_x - slash_ext * 0.8,
+        y1: slash_center_y + slash_ext,
+        x2: stem_x + slash_ext * 0.8,
+        y2: slash_center_y - slash_ext,
+        width: stem_width * sp * 1.5,
+        color: color.into(),
+    });
 }
 
 /// Render a slur from the first grace note to the main event.

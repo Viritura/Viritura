@@ -3,12 +3,160 @@
 
 use super::test_helpers::*;
 use crate::layout::config::LayoutConfig;
+use crate::layout::grace::{render_grace_event, GRACE_SCALE};
 use crate::layout::measure::*;
 use crate::layout::resolve::*;
+use crate::layout::types::GraceNoteLayout;
 use crate::layout::{layout_full_score, layout_score};
+use crate::model::{AccidentalDisplay, Duration, Event, Note, NoteValueBase, NoteheadShape, Pitch};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+#[test]
+fn test_grace_score_renderer_preserves_legacy_ink() {
+    let config = LayoutConfig::default();
+    let sp = 10.0;
+    let staff_y = 100.0;
+    let x = 80.0;
+    let color = "#123456";
+    for duration in [
+        NoteValueBase::Half,
+        NoteValueBase::Eighth,
+        NoteValueBase::ThousandTwentyFourth,
+    ] {
+        for stem_up in [false, true] {
+            for beamed in [false, true] {
+                let event = Event {
+                    duration: Duration {
+                        base: duration.clone(),
+                        dots: Some(2),
+                    },
+                    notes: Some(vec![Note {
+                        pitch: Pitch {
+                            step: "C".into(),
+                            octave: 4,
+                            alter: Some(1),
+                        },
+                        accidental_display: Some(AccidentalDisplay {
+                            show: true,
+                            force: None,
+                            enclosure: None,
+                        }),
+                        notehead: Some(NoteheadShape::Diamond),
+                        ..Note::default()
+                    }]),
+                    id: None,
+                    rest: None,
+                    staff: None,
+                    slurs: None,
+                    glissandos: None,
+                    markings: None,
+                    fermata: None,
+                    lyrics: None,
+                    stem_direction: None,
+                    orient: None,
+                };
+                // Full-score positions may already be transposed independently
+                // of the source pitch; legacy grace ink adds no accidentals.
+                let pos = if stem_up { 10.0 } else { -2.0 };
+                let gn = GraceNoteLayout {
+                    event,
+                    x,
+                    note_positions: vec![pos],
+                    stem_up,
+                    after_main: false,
+                    is_slash: true,
+                    id: Some("grace".into()),
+                    color: Some(color.into()),
+                };
+                let beamed_ids = if beamed {
+                    std::collections::HashSet::from(["grace".into()])
+                } else {
+                    std::collections::HashSet::new()
+                };
+                let mut actual = DisplayList::new(0.0, 0.0);
+                render_grace_event(&mut actual, &gn, staff_y, sp, &config, &beamed_ids);
+
+                let mut expected = DisplayList::new(0.0, 0.0);
+                let note_y = staff_y + pos * sp * 0.5;
+                expected.ledger_line(
+                    x - config.ledger_extension * sp * GRACE_SCALE,
+                    note_y,
+                    config.notehead_rx * 2.0 * GRACE_SCALE * sp
+                        + 2.0 * config.ledger_extension * sp * GRACE_SCALE,
+                    config.ledger_line_width * sp,
+                );
+                expected.push(RenderCommand::DrawGlyph {
+                    x,
+                    y: note_y,
+                    codepoint: smufl::notehead_glyph(&gn.event.duration.base),
+                    font: "Bravura".into(),
+                    size: 4.0 * sp * GRACE_SCALE,
+                    color: color.into(),
+                    rotation: 0.0,
+                });
+                if !beamed {
+                    let stem_len = config.stem_length * sp * GRACE_SCALE;
+                    let flag_count = gn.event.duration.base.flag_count();
+                    let ext = smufl::flag_stem_extension(flag_count, stem_up) * sp * GRACE_SCALE;
+                    let (stem_x, stem_top, stem_bottom, flag_y) = if stem_up {
+                        let flag_y = note_y - stem_len;
+                        (
+                            x + smufl::STEM_UP_SE.0 * sp * GRACE_SCALE
+                                - config.stem_width * sp * 0.5,
+                            flag_y - ext,
+                            note_y + smufl::STEM_UP_SE.1 * sp * GRACE_SCALE,
+                            flag_y,
+                        )
+                    } else {
+                        let flag_y = note_y + stem_len;
+                        (
+                            x + smufl::STEM_DOWN_NW.0 * sp * GRACE_SCALE
+                                + config.stem_width * sp * 0.5,
+                            note_y,
+                            flag_y + ext,
+                            flag_y,
+                        )
+                    };
+                    expected.stem(stem_x, stem_top, stem_bottom, config.stem_width * sp);
+                    if let Some(codepoint) = smufl::flag_glyph(flag_count, stem_up) {
+                        expected.push(RenderCommand::DrawGlyph {
+                            x: stem_x,
+                            y: flag_y,
+                            codepoint,
+                            font: "Bravura".into(),
+                            size: 4.0 * sp * GRACE_SCALE,
+                            color: color.into(),
+                            rotation: 0.0,
+                        });
+                    }
+                    if flag_count > 0 {
+                        let center_y = if stem_up {
+                            stem_top + stem_len * 0.35
+                        } else {
+                            stem_bottom - stem_len * 0.35
+                        };
+                        let slash_ext = 0.6 * sp * GRACE_SCALE;
+                        expected.push(RenderCommand::DrawLine {
+                            x1: stem_x - slash_ext * 0.8,
+                            y1: center_y + slash_ext,
+                            x2: stem_x + slash_ext * 0.8,
+                            y2: center_y - slash_ext,
+                            width: config.stem_width * sp * 1.5,
+                            color: color.into(),
+                        });
+                    }
+                }
+                assert_eq!(
+                    serde_json::to_value(&actual.commands).unwrap(),
+                    serde_json::to_value(&expected.commands).unwrap(),
+                    "{duration:?}, stem_up={stem_up}, beamed={beamed}"
+                );
+            }
+        }
+    }
+}
 
 #[test]
 fn test_grace_note_layout_and_rendering() {

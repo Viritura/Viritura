@@ -1,26 +1,15 @@
 /**
  * Overlay Painter — renders input cursor and ghost note preview
- * on top of the score canvas without re-running WASM layout.
+ * on top of the score canvas without re-running score layout.
  *
  * All coordinates are in display-list (score) space.
  * The caller applies the viewport transform before calling these functions.
  */
 
-import type { DisplayList } from "./wasm";
+import { computeNotePreview, type DisplayList, type NotePreviewInput } from "./wasm";
+import { paintCommand } from "./displayListPainter";
 
 type ContentPointSnapper = (x: number, y: number) => { x: number; y: number };
-
-// ─── SMuFL Notehead Codepoints ──────────────────────────
-const NOTEHEAD_WHOLE = 0xe0a2;
-const NOTEHEAD_HALF = 0xe0a3;
-const NOTEHEAD_BLACK = 0xe0a4;
-
-// ─── Accidental Codepoints ──────────────────────────────
-const ACCIDENTAL_FLAT = 0xe260;
-const ACCIDENTAL_NATURAL = 0xe261;
-const ACCIDENTAL_SHARP = 0xe262;
-const ACCIDENTAL_DOUBLE_SHARP = 0xe263;
-const ACCIDENTAL_DOUBLE_FLAT = 0xe264;
 
 /** A detected staff region in score coordinates. */
 export interface StaffInfo {
@@ -239,54 +228,10 @@ export function getStaffPosition(snappedY: number, staff: StaffInfo): number {
   return (snappedY - staff.y) / staff.spatium;
 }
 
-/**
- * Get the SMuFL notehead codepoint for a given duration.
- */
-export function noteheadForDuration(duration: string): number {
-  switch (duration) {
-    case "1":
-      return NOTEHEAD_WHOLE;
-    case "2":
-      return NOTEHEAD_HALF;
-    default:
-      return NOTEHEAD_BLACK;
-  }
-}
-
-/**
- * Get the SMuFL accidental codepoint.
- */
-function accidentalCodepoint(accidental: string | null): number | null {
-  switch (accidental) {
-    case "sharp":
-      return ACCIDENTAL_SHARP;
-    case "flat":
-      return ACCIDENTAL_FLAT;
-    case "natural":
-      return ACCIDENTAL_NATURAL;
-    case "double-sharp":
-      return ACCIDENTAL_DOUBLE_SHARP;
-    case "double-flat":
-      return ACCIDENTAL_DOUBLE_FLAT;
-    default:
-      return null;
-  }
-}
-
 /** Options for painting the ghost note overlay. */
-export interface GhostNoteOptions {
-  /** Snapped Y position in score coordinates. */
-  y: number;
-  /** X position in score coordinates (cursor position). */
-  x: number;
+export interface GhostNoteOptions extends Omit<NotePreviewInput, "staffY" | "spatium"> {
   /** The staff this ghost note is on. */
   staff: StaffInfo;
-  /** Note duration string ("1", "2", "4", "8", etc.). */
-  duration: string;
-  /** Accidental to show (null = none). */
-  accidental: string | null;
-  /** Whether to show a rest instead. */
-  isRest: boolean;
 }
 
 /**
@@ -306,84 +251,20 @@ export function paintInputCursor(ctx: CanvasRenderingContext2D, x: number, staff
 
 /**
  * Paint a ghost note preview on the overlay canvas.
- * Draws a semi-transparent notehead at the snapped position,
- * with ledger lines if needed, and an optional accidental.
+ * Rust owns all glyph selection and engraving geometry, including rhythm,
+ * accidentals, ledger lines, rests and grace-note scaling.
  */
 export function paintGhostNote(ctx: CanvasRenderingContext2D, opts: GhostNoteOptions): void {
-  if (opts.isRest) return;
-
-  const { y, x, staff, duration, accidental } = opts;
-  const sp = staff.spatium;
-  const fontSize = sp * 4;
-
+  const { staff, ...input } = opts;
+  const commands = computeNotePreview({ ...input, staffY: staff.y, spatium: staff.spatium });
+  if (commands.length === 0) return;
   ctx.save();
-  ctx.globalAlpha = 0.35;
-
-  // Draw notehead glyph
-  const codepoint = noteheadForDuration(duration);
-  ctx.fillStyle = "rgba(33, 150, 243, 1)";
-  ctx.font = `${fontSize}px Bravura`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(String.fromCodePoint(codepoint), x, y);
-
-  // Draw ledger lines if note is above or below the staff
-  const staffPos = getStaffPosition(y, staff);
-  paintLedgerLines(ctx, x, y, staffPos, staff);
-
-  // Draw accidental if set
-  const accCode = accidentalCodepoint(accidental);
-  if (accCode !== null) {
-    const accX = x - sp * 1.2;
-    ctx.fillText(String.fromCodePoint(accCode), accX, y);
+  ctx.globalAlpha *= 0.35;
+  for (const command of commands) {
+    paintCommand(ctx, "color" in command ? { ...command, color: "rgb(33, 150, 243)" } : command);
   }
-
   ctx.restore();
 }
-
-/**
- * Draw ledger lines for positions above or below the staff.
- */
-function paintLedgerLines(
-  ctx: CanvasRenderingContext2D,
-  noteX: number,
-  noteY: number,
-  staffPos: number,
-  staff: StaffInfo,
-): void {
-  const sp = staff.spatium;
-  const ledgerWidth = sp * 1.6;
-  const ledgerX = noteX - sp * 0.3;
-
-  ctx.strokeStyle = "rgba(33, 150, 243, 1)";
-  ctx.lineWidth = 1.2;
-
-  // Ledger lines above staff (staffPos < 0)
-  if (staffPos < 0) {
-    const topLedger = Math.ceil(staffPos);
-    for (let pos = -1; pos >= topLedger; pos--) {
-      const ly = staff.y + pos * sp;
-      ctx.beginPath();
-      ctx.moveTo(ledgerX, ly);
-      ctx.lineTo(ledgerX + ledgerWidth, ly);
-      ctx.stroke();
-    }
-  }
-
-  // Ledger lines below staff (staffPos > 4)
-  if (staffPos > 4) {
-    const bottomLedger = Math.floor(staffPos);
-    for (let pos = 5; pos <= bottomLedger; pos++) {
-      const ly = staff.y + pos * sp;
-      ctx.beginPath();
-      ctx.moveTo(ledgerX, ly);
-      ctx.lineTo(ledgerX + ledgerWidth, ly);
-      ctx.stroke();
-    }
-  }
-}
-
-export { NOTEHEAD_WHOLE, NOTEHEAD_HALF, NOTEHEAD_BLACK };
 
 // ─── SMuFL Clef Codepoint Range ─────────────────────────
 // Clefs occupy U+E050–U+E07F in SMuFL

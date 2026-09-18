@@ -147,7 +147,8 @@ function paintGlyph(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawGlyph">):
   ctx.font = `${cmd.size}px ${cmd.font}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  if (cmd.rotation !== 0) {
+  // Rust's JSON encoding omits zero rotation (binary commands include it).
+  if (cmd.rotation != null && cmd.rotation !== 0) {
     ctx.save();
     ctx.translate(cmd.x, cmd.y);
     ctx.rotate(cmd.rotation);

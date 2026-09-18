@@ -7,10 +7,12 @@ import {
   type StaffInfo,
   type DisplayList,
   type SpatialIndex,
+  type GhostNoteOptions,
 } from "@viritura/renderer";
-import type { Score, NoteValueBase, SequenceContent } from "@viritura/core";
+import type { AccidentalType, Part, Score, NoteValueBase, SequenceContent } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
-import type { DotCount } from "../store/noteInputStore";
+import type { DotCount, GraceType } from "../store/noteInputStore";
+import { kitComponentFromStaffPosition, mnxStaffPositionFromPosFromTop } from "../score/kitInput";
 
 export const OPTIMISTIC_NOTE_INPUT_EVENT = "viritura:optimistic-note-input";
 
@@ -20,6 +22,8 @@ export interface OptimisticNoteInputDetail {
   duration: string;
   accidental: string | null;
   isRest: boolean;
+  dots?: DotCount;
+  graceType?: GraceType | null;
   /** Normal-mode preview independent of note-input activation. */
   optimisticOnly?: boolean;
   currentVoice?: number;
@@ -522,13 +526,34 @@ export interface PaintOverlayOptions {
   displayList: DisplayList | null;
   currentVoice: number;
   currentDuration: NoteValueBase;
-  currentAccidental: string | null;
+  currentAccidental: AccidentalType | null;
   isRest: boolean;
+  currentGraceType?: GraceType | null;
   dotCount: DotCount;
   zoom: number;
   scrollX: number;
   scrollY: number;
   onHoverBeat?: (info: { measureIndex: number; beat: number; scoreX: number } | null) => void;
+}
+
+/** Resolve the same nearest kit component used by click entry, not a pitched accidental. */
+function ghostPitch(
+  y: number,
+  staff: StaffInfo,
+  part: Part | undefined,
+  accidental: AccidentalType | null,
+  isRest: boolean,
+): Pick<GhostNoteOptions, "y" | "accidental" | "notehead"> {
+  if (!part?.kit || isRest) return { y, accidental };
+  const position = mnxStaffPositionFromPosFromTop(((y - staff.y) * 2) / staff.spatium);
+  const componentId = kitComponentFromStaffPosition(part, position);
+  const component = componentId ? part.kit[componentId] : undefined;
+  if (!component) return { y, accidental };
+  return {
+    y: staff.y + ((4 - (component.staffPosition ?? 0)) * staff.spatium) / 2,
+    notehead: component.notehead,
+    accidental: null,
+  };
 }
 
 /** Paint the persistent beat cursor + the mouse-following ghost note. */
@@ -607,12 +632,20 @@ export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOver
 
   paintInputCursor(ctx, ghostX, staff);
   paintGhostNote(ctx, {
-    y: snappedY,
+    ...ghostPitch(
+      snappedY,
+      staff,
+      score.parts[snapped?.partIndex ?? cursor?.partIndex ?? 0],
+      opts.currentAccidental,
+      opts.isRest,
+    ),
     x: ghostX,
     staff,
     duration: opts.currentDuration,
-    accidental: opts.currentAccidental,
+    dots: opts.dotCount,
     isRest: opts.isRest,
+    isGrace: !!opts.currentGraceType,
+    slash: opts.currentGraceType === "grace",
   });
 }
 
@@ -624,6 +657,8 @@ export interface PaintOptimisticOptions {
   score: Score;
   displayList: DisplayList | null;
   currentVoice: number;
+  currentDots?: DotCount;
+  currentGraceType?: GraceType | null;
 }
 
 /**
@@ -647,12 +682,21 @@ export function paintOptimisticOverlay(ctx: CanvasRenderingContext2D, opts: Pain
   if (!staff) return false;
 
   paintBeatCursor(ctx, cursorX, staff, currentVoice);
+  const graceType = detail.graceType ?? (detail.optimisticOnly ? null : opts.currentGraceType);
   paintGhostNote(ctx, {
-    y: staff.y + detail.staffPosition * (staff.spatium / 2),
+    ...ghostPitch(
+      staff.y + detail.staffPosition * (staff.spatium / 2),
+      staff,
+      score.parts[detail.cursor.partIndex],
+      detail.accidental as AccidentalType | null,
+      detail.isRest,
+    ),
     x: cursorX,
     staff,
-    duration: detail.duration,
-    accidental: detail.accidental,
+    duration: detail.duration as NoteValueBase,
+    dots: detail.dots ?? (detail.optimisticOnly ? 0 : opts.currentDots),
+    isGrace: !!graceType,
+    slash: graceType === "grace",
     isRest: detail.isRest,
   });
   return true;

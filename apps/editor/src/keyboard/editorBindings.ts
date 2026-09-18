@@ -28,6 +28,7 @@ import {
 } from "./normalModeHandlers";
 import { handleDelete } from "./normalModeDelete";
 import { handleArrowLeftRight, handleHomeEnd } from "./navigationHandlers";
+import type { NoteInputContextValue } from "../store/noteInputStore";
 
 // ─── Config interface (passed in from the hook) ─────────────────────
 
@@ -59,7 +60,7 @@ export interface EditorBindingConfig {
   };
   selectAll: () => void;
   setVoice: (v: 1 | 2 | 3 | 4) => void;
-  toggleNoteInput: () => void;
+  toggleNoteInput: NoteInputContextValue["toggleNoteInput"];
   selectElement: (id: string) => void;
   clearSelection: () => void;
   undo: () => void;
@@ -200,7 +201,7 @@ function buildGlobalGuardedBindings(cfg: EditorBindingConfig): KeyBinding[] {
       id: "global.toggleNoteInput",
       key: "N",
       context: "global",
-      handler: () => cfg.toggleNoteInput(),
+      handler: () => cfg.toggleNoteInput({ score: cfg.ctx.getScore(), selection: cfg.ctx.getSelection() }),
     },
     {
       id: "global.toggleLyricInput",

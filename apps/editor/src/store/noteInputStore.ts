@@ -15,8 +15,16 @@
 
 import { useMemo } from "react";
 import { create } from "zustand";
-import type { NoteValueBase, AccidentalType, Pitch } from "@viritura/core";
+import type { NoteValueBase, AccidentalType, Pitch, Duration, Score } from "@viritura/core";
 import type { CondensingMode } from "../components/CondensingPopover";
+import {
+  getContentArrayForLocation,
+  getNoteEventAtLocation,
+  resolveEventFromSubElement,
+  resolveGraceLocation,
+} from "../score/ElementPath";
+import type { Selection } from "./selectionStore";
+import { resolveSelectionAnchor } from "./selectionUtils";
 import { setLyricMode, setLyricState } from "./overlayStore";
 
 // ═══════════════════════════════════════════
@@ -109,7 +117,7 @@ export const initialNoteInputState: NoteInputState = {
 // ═══════════════════════════════════════════
 
 export type NoteInputAction =
-  | { type: "TOGGLE_NOTE_INPUT" }
+  | { type: "TOGGLE_NOTE_INPUT"; duration?: Duration }
   | { type: "SET_DURATION"; duration: NoteValueBase }
   | { type: "SET_ACCIDENTAL"; accidental: AccidentalType | null }
   | { type: "TOGGLE_REST" }
@@ -154,8 +162,16 @@ function inputModeReducer(state: NoteInputState, action: NoteInputAction): NoteI
           condensingRouting: null,
         };
       }
-      // Turning on: active becomes true (cursor set externally via SET_CURSOR)
-      return { ...state, active: true };
+      // Inherit rhythm atomically with activation; cursor is set externally.
+      return {
+        ...(action.duration
+          ? noteInputReducer(
+              { ...state, currentDuration: action.duration.base },
+              { type: "SET_DOT_COUNT", dotCount: (action.duration.dots ?? 0) as DotCount },
+            )
+          : state),
+        active: true,
+      };
 
     case "SET_DURATION":
       return { ...state, currentDuration: action.duration, dotCount: 0 };
@@ -302,12 +318,38 @@ function dispatchNoteInput(action: NoteInputAction): void {
   useNoteInputStore.getState()._dispatch(action);
 }
 
-export function toggleNoteInputMode(): void {
+interface NoteInputEntryContext {
+  score: Score | null;
+  selection: Selection;
+}
+
+function selectedNoteDuration({ score, selection }: NoteInputEntryContext): Duration | undefined {
+  const anchor = resolveSelectionAnchor(selection);
+  if (!score || !anchor) return undefined;
+
+  if (anchor.includes("/grace/")) {
+    const loc = resolveGraceLocation(anchor, score);
+    if (!loc) return undefined;
+    const content = getContentArrayForLocation(score, { ...loc, eventIndex: loc.graceContainerIndex });
+    const grace = content?.[loc.graceContainerIndex];
+    return grace?.type === "grace" ? grace.content[loc.graceNoteIndex]?.duration : undefined;
+  }
+
+  // Model event IDs are arbitrary; annotation-like prefixes do not identify their kind.
+  if (!/^p\d+\/m\d+\/s\d+\/[^/]+(?:\/n\d+)?$/.test(anchor)) return undefined;
+  const loc = resolveEventFromSubElement(anchor, score);
+  const event = loc ? getNoteEventAtLocation(score, loc) : undefined;
+  return event?.notes?.length || event?.kitNotes?.length ? event.duration : undefined;
+}
+
+export function toggleNoteInputMode(context?: NoteInputEntryContext): void {
+  let duration: Duration | undefined;
   if (!useNoteInputStore.getState().active) {
     setLyricMode(false);
     setLyricState(null);
+    duration = context ? selectedNoteDuration(context) : undefined;
   }
-  dispatchNoteInput({ type: "TOGGLE_NOTE_INPUT" });
+  dispatchNoteInput({ type: "TOGGLE_NOTE_INPUT", duration });
 }
 
 /** Reset the store to its initial state (primarily for test isolation). */
@@ -329,7 +371,7 @@ export function resetNoteInputStore(): void {
 export interface NoteInputContextValue {
   state: NoteInputState;
   dispatch: (action: NoteInputAction) => void;
-  toggleNoteInput: () => void;
+  toggleNoteInput: (context?: NoteInputEntryContext) => void;
   setDuration: (duration: NoteValueBase) => void;
   setAccidental: (accidental: AccidentalType | null) => void;
   toggleRest: () => void;
