@@ -127,21 +127,11 @@ const DYNAMIC_LADDER: readonly DynamicValue[] = [
 // Envelope model
 // ═══════════════════════════════════════════
 
-/** Keep imported attack calibration separate from the semantic dynamic ladder. */
-interface DynamicLevel extends DynamicAxes {
-  playbackVelocity?: number;
-}
-
-/** Unresolved attack endpoints retain the consumer's choice of default mapping. */
-export interface PlaybackVelocitySample {
-  from: DynamicLevel;
-  to: DynamicLevel;
-  progress: number;
-}
-
 /** An explicit graded dynamic at an absolute time (step). */
-interface DynamicAnchor extends DynamicLevel {
+interface DynamicAnchor {
   time: number;
+  velocity: number;
+  cc11: number;
 }
 
 /** A hairpin span: both axes interpolate from `start` to `end` over the span. */
@@ -149,15 +139,14 @@ interface DynamicRamp {
   groupId: string;
   startTime: number;
   endTime: number;
-  start: DynamicLevel;
-  end: DynamicLevel;
+  start: DynamicAxes;
+  end: DynamicAxes;
 }
 
 /** A dynamic attack override at one onset. */
 interface DynamicAttack {
   time: number;
   attackVelocity: number;
-  playbackVelocity?: number;
 }
 
 /** A part's coupled dynamics over time. */
@@ -210,25 +199,12 @@ function stepRung(axes: DynamicAxes, dir: 1 | -1): DynamicAxes {
 
 /** Sample only the anchor step function (no ramps) at time `t`. */
 function sampleAnchorsAxes(anchors: readonly DynamicAnchor[], t: number): DynamicAxes {
-  const active = anchorAt(anchors, t) ?? DEFAULT_DYNAMIC;
-  return { velocity: active.velocity, cc11: active.cc11 };
-}
-
-function anchorAt(anchors: readonly DynamicAnchor[], t: number): DynamicAnchor | undefined {
-  let active: DynamicAnchor | undefined;
+  let active: DynamicAxes = DEFAULT_DYNAMIC;
   for (const a of anchors) {
     if (a.time > t + EPS) break;
-    active = a;
+    active = { velocity: a.velocity, cc11: a.cc11 };
   }
   return active;
-}
-
-function validatedPlaybackVelocity(value: number | undefined): number | undefined {
-  return value !== undefined && Number.isInteger(value) && value >= 1 && value <= 127 ? value : undefined;
-}
-
-function levelOf({ velocity, cc11, playbackVelocity }: DynamicLevel): DynamicLevel {
-  return { velocity, cc11, ...(playbackVelocity === undefined ? {} : { playbackVelocity }) };
 }
 
 // ═══════════════════════════════════════════
@@ -338,11 +314,9 @@ function resolveEndMeasureLocation(
 }
 
 /** Axes of an explicit (authored) dynamic anchor at (≈) `time`, or undefined. */
-function explicitAnchorAt(anchors: readonly DynamicAnchor[], time: number): DynamicLevel | undefined {
+function explicitAnchorAt(anchors: readonly DynamicAnchor[], time: number): DynamicAxes | undefined {
   for (const a of anchors) {
-    if (Math.abs(a.time - time) <= EPS) {
-      return levelOf({ ...a, playbackVelocity: anchorAt(anchors, time)?.playbackVelocity });
-    }
+    if (Math.abs(a.time - time) <= EPS) return { velocity: a.velocity, cc11: a.cc11 };
   }
   return undefined;
 }
@@ -354,7 +328,6 @@ interface TimedHairpin {
   endTime: number;
   dir: 1 | -1;
   start?: DynamicAxes;
-  playbackVelocity?: number;
   startsAfterSilence: boolean;
   measureStartTime: number;
 }
@@ -397,7 +370,6 @@ function resolveRamps(timed: readonly TimedHairpin[], anchors: readonly DynamicA
     endTime,
     dir,
     start: authoredStart,
-    playbackVelocity,
     startsAfterSilence,
     measureStartTime,
   } of ordered) {
@@ -406,22 +378,16 @@ function resolveRamps(timed: readonly TimedHairpin[], anchors: readonly DynamicA
     const currentMeasureAnchor = anchors.some(
       (anchor) => anchor.time >= measureStartTime - EPS && anchor.time <= startTime + EPS,
     );
-    const start: DynamicLevel =
+    const start =
       authoredStart ??
       explicitAnchorAt(anchors, startTime) ??
       (startsAfterSilence && !currentMeasureAnchor
         ? axesOf("p")
         : chained
           ? prev!.end
-          : levelOf(anchorAt(anchors, startTime) ?? DEFAULT_DYNAMIC));
+          : sampleAnchorsAxes(anchors, startTime));
     const end = explicitAnchorAt(anchors, endTime) ?? stepRung(start, dir);
-    const ramp: DynamicRamp = {
-      groupId,
-      startTime,
-      endTime,
-      start: playbackVelocity === undefined ? start : { ...start, playbackVelocity },
-      end,
-    };
+    const ramp: DynamicRamp = { groupId, startTime, endTime, start, end };
     ramps.push(ramp);
     prev = ramp;
   }
@@ -493,19 +459,17 @@ export function buildDynamicsEnvelope(
 
   // Pass 2: resolve persistent levels and onset attacks.
   for (const { group, time } of timedGroups) {
-    const playbackVelocity = validatedPlaybackVelocity(group.playbackVelocity);
-    const override = playbackVelocity === undefined ? {} : { playbackVelocity };
     if (group.type === "immediate") {
       const body = axesOf(group.value);
-      anchors.push({ time, velocity: body.velocity, cc11: body.cc11, ...override });
+      anchors.push({ time, velocity: body.velocity, cc11: body.cc11 });
     } else if (group.type === "relative") {
       const current = sampleAnchorsAxes(anchors, time - EPS);
       const next = stepRung(current, group.relativeValue === "louder" ? 1 : -1);
-      anchors.push({ time, velocity: next.velocity, cc11: next.cc11, ...override });
+      anchors.push({ time, velocity: next.velocity, cc11: next.cc11 });
     } else if (group.type === "accent") {
       // `value` is the attack; `residualValue` (the "p" of "fp") is the level
       // that persists from this onset onward.
-      attacks.push({ time, attackVelocity: axesOf(group.value).velocity, ...override });
+      attacks.push({ time, attackVelocity: axesOf(group.value).velocity });
       if (group.residualValue !== undefined) {
         const body = axesOf(group.residualValue);
         anchors.push({ time, velocity: body.velocity, cc11: body.cc11 });
@@ -551,7 +515,6 @@ export function buildDynamicsEnvelope(
       endTime,
       dir: gradual.wedgeType === "increasing" ? 1 : -1,
       start: gradual.value === undefined ? undefined : axesOf(gradual.value),
-      playbackVelocity: validatedPlaybackVelocity(gradual.playbackVelocity),
       startsAfterSilence: startsAfterSilentMeasure(part, measureOrder, expandedIdx),
       measureStartTime: model.timeAtBeat(measureStartBeats[expandedIdx]!),
     });
@@ -620,57 +583,7 @@ function attackAt(env: DynamicsEnvelope, t: number): DynamicAttack | undefined {
  */
 export function noteVelocityAt(env: DynamicsEnvelope, t: number): number {
   const c = attackAt(env, t);
-  return playbackVelocityAt(env, t) ?? (c ? c.attackVelocity : sampleDynamics(env, t).velocity);
-}
-
-/**
- * Explicit MIDI attack calibration, never a semantic level or a scale factor.
- * Immediate/relative groups persist until the next level; accents affect only
- * their onset (a residual level clears the previous override). Gradual groups
- * calibrate the ramp's start and interpolate to the endpoint's override or
- * normal mapped velocity, only within the span. The latest-starting ramp owns
- * attack calibration during overlaps. Invalid inputs are ignored.
- */
-export function playbackVelocityAt(env: DynamicsEnvelope, t: number): number | undefined {
-  const sample = samplePlaybackVelocity(env, t);
-  if (sample === undefined || typeof sample === "number") return sample;
-  const from = sample.from.playbackVelocity ?? sample.from.velocity;
-  const to = sample.to.playbackVelocity ?? sample.to.velocity;
-  return Math.round(from * (1 - sample.progress) + to * sample.progress);
-}
-
-/** Sample attack calibration before choosing a backend's default endpoint velocities. */
-export function samplePlaybackVelocity(env: DynamicsEnvelope, t: number): number | PlaybackVelocitySample | undefined {
-  const attack = attackAt(env, t);
-  if (attack) return attack.playbackVelocity;
-  const ramp = env.ramps.findLast((candidate) => t >= candidate.startTime - EPS && t <= candidate.endTime + EPS);
-  const anchor = anchorAt(env.anchors, t);
-  if (!ramp) return anchor?.playbackVelocity;
-  // A later persistent marking interrupts an imported attack calibration.
-  if (anchor && anchor.time > ramp.startTime + EPS) {
-    return anchor.playbackVelocity;
-  }
-  const start = ramp.start.playbackVelocity;
-  const end = ramp.end.playbackVelocity;
-  if (start === undefined && end === undefined) return undefined;
-  const progress = clamp01((t - ramp.startTime) / (ramp.endTime - ramp.startTime));
-  return { from: ramp.start, to: ramp.end, progress };
-}
-
-/** Whether generated subdivisions must stop using their legacy onset velocity. */
-export function hasPlaybackVelocityBetween(env: DynamicsEnvelope, startTime: number, endTime: number): boolean {
-  const inSpan = (time: number) => time >= startTime - EPS && time <= endTime + EPS;
-  return (
-    playbackVelocityAt(env, startTime) !== undefined ||
-    env.anchors.some((anchor) => anchor.playbackVelocity !== undefined && inSpan(anchor.time)) ||
-    env.attacks.some((attack) => attack.playbackVelocity !== undefined && inSpan(attack.time)) ||
-    env.ramps.some(
-      (ramp) =>
-        (ramp.start.playbackVelocity !== undefined || ramp.end.playbackVelocity !== undefined) &&
-        ramp.startTime <= endTime + EPS &&
-        ramp.endTime >= startTime - EPS,
-    )
-  );
+  return c ? c.attackVelocity : sampleDynamics(env, t).velocity;
 }
 
 // ═══════════════════════════════════════════

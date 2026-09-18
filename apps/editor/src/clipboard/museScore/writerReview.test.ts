@@ -40,7 +40,6 @@ function mf(): CapturedDynamic {
       id: "one-mf",
       type: "immediate",
       value: "mf",
-      playbackVelocity: 96,
       position: { fraction: [0, 1] },
     },
   };
@@ -64,7 +63,9 @@ function exported(selection: ClipboardSelection): Document {
   const result = writeMuseScoreStaffList(selection);
   expect(result.warning).toBeUndefined();
   expect(result.xml).not.toBeNull();
-  return new DOMParser().parseFromString(result.xml!, "application/xml");
+  const document = new DOMParser().parseFromString(result.xml!, "application/xml");
+  expect(document.querySelectorAll("velocity")).toHaveLength(0);
+  return document;
 }
 
 describe("MuseScore writer annotation review", () => {
@@ -148,8 +149,16 @@ describe("MuseScore writer annotation review", () => {
     );
     expect(document.querySelectorAll("Chord")).toHaveLength(2);
     expect(document.querySelectorAll("Dynamic")).toHaveLength(1);
-    expect(document.querySelector("Dynamic subtype")?.textContent).toBe("mf");
-    expect(document.querySelector("Dynamic velocity")?.textContent).toBe("96");
+    expect(document.querySelector("Dynamic")?.innerHTML).toBe("<subtype>mf</subtype>");
+    expect(readMuseScoreClipboard(new XMLSerializer().serializeToString(document)).dynamics).toEqual([
+      {
+        partOffset: 0,
+        staffOffset: 0,
+        measureOffset: 0,
+        offset: [0, 1],
+        dynamic: { id: expect.any(String), type: "immediate", value: "mf", position: { fraction: [0, 1] } },
+      },
+    ]);
   });
 
   it("does not repeat a part-wide mf on its second physical staff", () => {
@@ -257,7 +266,7 @@ describe("MuseScore writer annotation review", () => {
 
   it("rejects conflicting mirrored dynamics instead of silently picking one", () => {
     const conflicting = mf();
-    conflicting.dynamic.playbackVelocity = 80;
+    conflicting.dynamic.value = "f";
     expect(
       writeMuseScoreStaffList(
         selection({
@@ -293,7 +302,16 @@ describe("MuseScore writer annotation review", () => {
       const document = exported(copied);
       expect(document.querySelectorAll("Dynamic")).toHaveLength(1);
       expect(document.querySelector('Staff[id="0"] Dynamic')).toBeNull();
-      expect(document.querySelector('Staff[id="1"] Dynamic velocity')?.textContent).toBe("96");
+      expect(document.querySelector('Staff[id="1"] Dynamic')?.innerHTML).toBe("<subtype>mf</subtype>");
+      expect(readMuseScoreClipboard(new XMLSerializer().serializeToString(document)).dynamics).toEqual([
+        {
+          partOffset: 0,
+          staffOffset: 1,
+          measureOffset: 0,
+          offset: [0, 1],
+          dynamic: { id: expect.any(String), type: "immediate", value: "mf", position: { fraction: [0, 1] } },
+        },
+      ]);
     },
   );
 

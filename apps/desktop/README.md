@@ -28,9 +28,13 @@ Supported notation includes pitched notes, chords, rests, dotted durations,
 complete tuplets, grace notes, multiple staves and voices, and common
 articulations. Source transposition preserves sounding pitches, and explicit
 standard accidentals retain their display intent. Complete ties and hairpins
-are supported, as are chord symbols and dynamics on secondary staves, including
-explicit MIDI attack-velocity overrides. Single-note MuseScore clipboard
-selections are also accepted.
+are supported, as are chord symbols and dynamics on secondary staves.
+Dynamics retain their written subtype (`p`, `mp`, `mf`, `f`, etc.); source playback
+settings (velocity, enablement, and hairpin velocity change and interpolation) are
+ignored, and Viritura's audio engine chooses playback from the written notation.
+A source-muted dynamic intentionally becomes active in Viritura.
+Raw captured XML fixtures retain source velocities as import regression evidence.
+Single-note MuseScore clipboard selections are also accepted.
 
 This is not complete MuseScore format support. Slurs, partial or grace-note
 ties, cross-track hairpins, percussion-kit interchange, annotation-only selections,

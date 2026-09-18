@@ -14,7 +14,7 @@
 --   Channel 5  Sustain Muted
 --   Channel 6  Staccato Muted
 --
---   CC11  Dynamics   -- Marcato/Sustain (open + muted): nominal velocity by default
+--   CC11  Dynamics   -- Marcato/Sustain (open + muted): the ONLY loudness control (velocity is nominal)
 --                    -- Staccato       (open + muted): combined with note velocity
 
 local MARCATO = 1
@@ -24,7 +24,7 @@ local MUTE_OFFSET = 3 -- muted patches sit three channels above their open count
 
 local SUSTAIN_THRESHOLD = 0.75 -- seconds; marcato notes longer than this become sustains
 local LATENCY = 0.03 -- seconds to nudge channel-priming CCs ahead of the note
-local NOMINAL_VELOCITY = 96 -- default note velocity for CC11-only articulations
+local NOMINAL_VELOCITY = 96 -- fixed note velocity for CC11-only articulations
 
 local function to_data(value)
     local scaled = math.floor(value * 127 + 0.5)
@@ -98,7 +98,11 @@ function note_on(time, note)
     -- Prime the channel just before the note sounds with its starting dynamic.
     midi.cc(time - LATENCY, 11, to_data(note.dynamics), channel)
 
-    local velocity = midi.attack_velocity(note, is_dynamic_only(channel) and NOMINAL_VELOCITY or to_velocity)
+    -- Marcato/Sustain ignore velocity (CC11 is everything); staccato combines the two.
+    local velocity = NOMINAL_VELOCITY
+    if not is_dynamic_only(channel) then
+        velocity = to_velocity(note.dynamics)
+    end
 
     midi.note({
         startTime = time,

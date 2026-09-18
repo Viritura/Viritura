@@ -381,19 +381,21 @@ function applyLocation(
 function parseDynamic(element: Element, offset: Fraction, path: string): CapturedDynamic {
   const subtype = requiredText(element, "subtype", `${path}/subtype`) as DynamicValue;
   if (!DYNAMIC_VALUES.has(subtype)) unsupported(`dynamic "${subtype}" is not supported`, path);
-  const velocityText = text(element, "velocity");
-  const velocity = velocityText === undefined ? undefined : integerText(element, "velocity", `${path}/velocity`);
-  if (velocity !== undefined && (velocity < 1 || velocity > 127)) {
-    throw new MuseScoreConversionError("invalid-structure", "dynamic velocity must be 1..127", `${path}/velocity`);
-  }
-  const supported = new Set(["subtype", "velocity"]);
+  // Source playback settings do not affect Viritura's semantic dynamics.
+  const supported = new Set(["subtype", "velocity", "play", "veloChange", "veloChangeSpeed"]);
   for (const elementChild of children(element)) {
     if (!supported.has(elementChild.tagName)) {
       unsupported(`Dynamic property "${elementChild.tagName}" is not supported`, `${path}/${elementChild.tagName}`);
     }
+    if (children(elementChild).length > 0 || elementChild.attributes.length > 0) {
+      throw new MuseScoreConversionError(
+        "invalid-structure",
+        `Dynamic ${elementChild.tagName} must be scalar`,
+        `${path}/${elementChild.tagName}`,
+      );
+    }
   }
   const dynamic = createDynamicGroup(subtype, { fraction: [0, 1] });
-  if (velocity !== undefined) dynamic.playbackVelocity = velocity;
   return { measureOffset: 0, offset: tuple(offset), dynamic };
 }
 

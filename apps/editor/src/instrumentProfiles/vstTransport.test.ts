@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDynamicGroup, type Score } from "@viritura/core";
+import type { Score } from "@viritura/core";
 import type { PerformanceEvent } from "@viritura/midi";
 import type { VstPreparePlan } from "@viritura/playback";
 import type { FxChainsConfig } from "./fxChainStore";
@@ -100,43 +100,6 @@ function plan(kind: "vst" | "sf2"): VstPreparePlan {
         ],
         sf2Parts: [],
       };
-}
-
-function mfScore(playbackVelocity?: number): Score {
-  const document = score();
-  document.parts[0]!.measures[0]!.dynamics = [
-    {
-      ...createDynamicGroup("mf", { fraction: [0, 1] }, "mf"),
-      ...(playbackVelocity === undefined ? {} : { playbackVelocity }),
-    },
-  ];
-  return document;
-}
-
-function rampScore(fromVelocity?: number, toVelocity?: number): Score {
-  const document = mfScore(fromVelocity);
-  document.global.measures[0]!.id = "m1";
-  const measure = document.parts[0]!.measures[0]!;
-  measure.dynamics!.push(
-    {
-      id: "crescendo",
-      type: "gradual",
-      position: { fraction: [0, 4] },
-      end: { measure: "m1", position: { fraction: [2, 4] } },
-      wedgeType: "increasing",
-    },
-    {
-      ...createDynamicGroup("f", { fraction: [2, 4] }, "f"),
-      ...(toVelocity === undefined ? {} : { playbackVelocity: toVelocity }),
-    },
-  );
-  measure.sequences[0]!.content = Array.from({ length: 5 }, (_, index) => ({
-    type: "event",
-    id: `eighth-${index}`,
-    duration: { base: "eighth" },
-    notes: [{ pitch: { step: "C", octave: 4 } }],
-  }));
-  return document;
 }
 
 function selectionFixture(kind: "vst" | "sf2" | "shared vst", step: "C" | "D" = "C") {
@@ -252,135 +215,6 @@ describe("native mixer reconciliation", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
-
-  it.each([undefined, 1, 96, 127])(
-    "sends native SF2 attack velocity %s without changing expression or the score",
-    async (playbackVelocity) => {
-      const document = mfScore(playbackVelocity);
-      const original = structuredClone(document);
-      const { createVstTransport } = await import("./vstTransport");
-      const transport = createVstTransport()!;
-      await transport.prepare(document, plan("sf2"));
-      const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
-      const events = (load?.[1]?.slots as LoadSlot[])[0]!.events;
-      expect(events.filter((event) => event.type === "note_on")).toEqual([
-        expect.objectContaining({ note: 60, velocity: playbackVelocity ?? 100 }),
-      ]);
-      expect(events.filter((event) => event.type === "control_change")).toContainEqual(
-        expect.objectContaining({ controller: 11, value: 100 }),
-      );
-      expect(mocks.compileMapper).not.toHaveBeenCalled();
-      expect(document).toStrictEqual(original);
-
-      await transport.release();
-      mocks.invoke.mockClear();
-      await transport.prepare(mfScore(), plan("sf2"));
-      const baselineLoad = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
-      const baseline = (baselineLoad?.[1]?.slots as LoadSlot[])[0]!.events;
-      expect(events.map((event) => (event.type === "note_on" ? { ...event, velocity: 100 } : event))).toStrictEqual(
-        baseline,
-      );
-    },
-  );
-
-  it.each([
-    { from: 100, to: undefined, expected: [100, 103, 106, 109, 112] },
-    { from: undefined, to: 120, expected: [100, 105, 110, 115, 120] },
-    { from: 120, to: 100, expected: [120, 115, 110, 105, 100] },
-    { from: undefined, to: undefined, expected: [100, 103, 106, 109, 112] },
-  ])("resolves SF2 ramp $from -> $to using native endpoints without a final jump", async ({ from, to, expected }) => {
-    const { createVstTransport } = await import("./vstTransport");
-    const document = rampScore(from, to);
-    const original = structuredClone(document);
-    await createVstTransport()!.prepare(document, plan("sf2"));
-    const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
-    const events = (load?.[1]?.slots as LoadSlot[])[0]!.events;
-    expect(events.filter((event) => event.type === "note_on").map((event) => event.velocity)).toEqual(expected);
-    expect(events.filter((event) => event.type === "control_change")).toEqual(
-      expect.arrayContaining([100, 106, 112].map((value) => expect.objectContaining({ controller: 11, value }))),
-    );
-    expect(document).toStrictEqual(original);
-  });
-
-  it("passes unresolved endpoints to VST mappers without imposing SF2's mapping on their output", async () => {
-    mockMultitimbralMapper();
-    const { createVstTransport } = await import("./vstTransport");
-    await createVstTransport()!.prepare(rampScore(100), plan("vst"));
-    const compile = mocks.invoke.mock.calls.find(([command]) => command === "vst_compile_mapper");
-    const events = JSON.parse(JSON.stringify(compile?.[1]?.events)) as PerformanceEvent[];
-    const notes = events.flatMap((event) => (event.kind === "noteOn" ? [event.note] : []));
-    expect(notes).toHaveLength(5);
-    for (const [index, note] of notes.entries()) {
-      expect(note).not.toHaveProperty("playbackVelocity");
-      if (index === 4) {
-        expect(note).not.toHaveProperty("playbackVelocityInterpolation");
-      } else {
-        expect(note.playbackVelocityInterpolation).toStrictEqual({
-          from: { dynamics: 100 / 127, playbackVelocity: 100 },
-          to: { dynamics: 112 / 127 },
-          progress: index / 4,
-        });
-      }
-      const off = events.find((event) => event.kind === "noteOff" && event.note.id === note.id);
-      expect(off).toMatchObject({ note });
-    }
-    const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
-    const scheduled = (load?.[1]?.slots as LoadSlot[])[0]!.events;
-    expect(scheduled.filter((event) => event.type === "note_on").map((event) => event.velocity)).toEqual([
-      100, 100, 100, 100, 100,
-    ]);
-  });
-
-  it.each([undefined, 1, 96, 127])(
-    "serializes optional VST attack velocity %s independently of expression and mapper output",
-    async (playbackVelocity) => {
-      mockMultitimbralMapper();
-      const document = mfScore(playbackVelocity);
-      const original = structuredClone(document);
-      const { createVstTransport } = await import("./vstTransport");
-      await createVstTransport()!.prepare(document, plan("vst"));
-      const compile = mocks.invoke.mock.calls.find(([command]) => command === "vst_compile_mapper");
-      const events = JSON.parse(JSON.stringify(compile?.[1]?.events)) as PerformanceEvent[];
-      const notes = events.flatMap((event) =>
-        event.kind === "noteOn" || event.kind === "noteOff" ? [event.note] : [],
-      );
-      expect(notes).toHaveLength(2);
-      for (const note of notes) {
-        expect(note.dynamics).toBe(100 / 127);
-        if (playbackVelocity === undefined) expect(note).not.toHaveProperty("playbackVelocity");
-        else expect(note.playbackVelocity).toBe(playbackVelocity);
-      }
-      expect(events).toContainEqual({ kind: "dynamics", time: 0, value: 100 / 127 });
-      const load = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load");
-      const scheduled = (load?.[1]?.slots as LoadSlot[])[0]!.events;
-      // Custom mappers still own their output velocity; the transport must not rewrite it.
-      expect(scheduled.find((event) => event.type === "note_on")?.velocity).toBe(100);
-      expect(document).toStrictEqual(original);
-    },
-  );
-
-  it.each(["vst", "sf2"] as const)("invalidates %s schedules when only attack velocity changes", async (kind) => {
-    mockMultitimbralMapper();
-    const { createVstTransport } = await import("./vstTransport");
-    const transport = createVstTransport()!;
-    for (const [playbackVelocity, expectedLoads] of [
-      [undefined, 1],
-      [96, 2],
-      [96, 2],
-      [127, 3],
-      [undefined, 4],
-    ] as const) {
-      await transport.prepare(mfScore(playbackVelocity), plan(kind));
-      const loads = mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_load");
-      expect(loads).toHaveLength(expectedLoads);
-      if (kind === "vst") {
-        expect(mocks.compileMapper).toHaveBeenCalledTimes(expectedLoads);
-      } else {
-        const events = (loads.at(-1)![1].slots as LoadSlot[])[0]!.events;
-        expect(events.find((event) => event.type === "note_on")?.velocity).toBe(playbackVelocity ?? 100);
-      }
-    }
-  });
 
   it("sends repeated score IDs as separate SF2 lifetimes without the VST mapper", async () => {
     const document = score();

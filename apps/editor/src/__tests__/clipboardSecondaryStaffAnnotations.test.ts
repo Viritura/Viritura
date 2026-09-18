@@ -36,7 +36,7 @@ function score(layout: number[], measures = 3): Score {
 }
 
 function importedPiano(lowerHarmony = false, voices = 1): PasteResult {
-  // Decoded contract of the staff-22/23 piano dump: Cm, Eb, and lower-staff mp=49.
+  // Decoded contract of the staff-22/23 piano dump: Cm, Eb, and lower-staff mp.
   const upper: NoteEvent[] = [0, 1].map((index) => ({
     ...eighth(`upper-${index}`),
     duration: { base: "quarter", dots: 1 },
@@ -60,7 +60,7 @@ function importedPiano(lowerHarmony = false, voices = 1): PasteResult {
         staffOffset: 1,
         measureOffset: 0,
         offset: [0, 1],
-        dynamic: { id: "mp", type: "immediate", value: "mp", playbackVelocity: 49, position: { fraction: [0, 1] } },
+        dynamic: { id: "mp", type: "immediate", value: "mp", position: { fraction: [0, 1] } },
       },
     ],
     chordSymbols: [
@@ -139,10 +139,18 @@ describe("secondary physical staff annotation capture", () => {
     }
     const placed: SequenceContent[] = [];
     const result = applyPaste(target, paste, 1, 1, 0, 0, placed);
-    expect(result.parts[1]!.measures[1]!.dynamics).toMatchObject([
-      { type: "immediate", staff: 2, playbackVelocity: 49 },
+    expect(result.parts[1]!.measures[1]!.dynamics).toEqual([
       {
+        id: expect.any(String),
+        type: "immediate",
+        value: "mp",
+        staff: 2,
+        position: { fraction: [0, 16] },
+      },
+      {
+        id: expect.any(String),
         type: "gradual",
+        wedgeType: "increasing",
         staff: 2,
         position: { fraction: [2, 16] },
         end: { measure: "m2", position: { fraction: [4, 16] } },
@@ -158,9 +166,22 @@ describe("secondary physical staff annotation capture", () => {
     expect(offsetValue(hairpin.endOffset)).toBe(3 / 4);
     expect(hairpin.endMeasureOffset).toBe(1);
     const repasted = applyPaste(score([1, 1]), captured, 0, 0, 0, 0);
-    expect(repasted.parts[1]!.measures[0]!.dynamics).toMatchObject([
-      { type: "immediate", staff: 1, playbackVelocity: 49 },
-      { type: "gradual", staff: 1, end: { measure: "m0", position: { fraction: [12, 16] } } },
+    expect(repasted.parts[1]!.measures[0]!.dynamics).toEqual([
+      {
+        id: expect.any(String),
+        type: "immediate",
+        value: "mp",
+        staff: 1,
+        position: { fraction: [0, 16] },
+      },
+      {
+        id: expect.any(String),
+        type: "gradual",
+        wedgeType: "increasing",
+        staff: 1,
+        position: { fraction: [2, 16] },
+        end: { measure: "m0", position: { fraction: [12, 16] } },
+      },
     ]);
   });
 
@@ -175,7 +196,15 @@ describe("secondary physical staff annotation capture", () => {
       const result = applyPaste(target, importedPiano(lowerHarmony, 2), 1, 1, 0, 1, placed);
       expect(target).toEqual(snapshot);
       const lower = result.parts[lowerPart + 1]!.measures[1]!;
-      expect(lower.dynamics).toMatchObject([{ staff: lowerStaff, value: "mp", playbackVelocity: 49 }]);
+      expect(lower.dynamics).toEqual([
+        {
+          id: expect.any(String),
+          type: "immediate",
+          value: "mp",
+          staff: lowerStaff,
+          position: { fraction: [2, 16] },
+        },
+      ]);
       expect(result.parts.flatMap((part) => part.measures.flatMap((measure) => measure.dynamics ?? []))).toHaveLength(
         1,
       );
@@ -193,7 +222,7 @@ describe("secondary physical staff annotation capture", () => {
       const captured = roundTrip(buildClipboardSelection(result, selection)!);
       expect(captured.tracks).toHaveLength(4);
       expect(dynamics(captured)).toMatchObject([
-        { staffOffset: 1, dynamic: { staff: lowerStaff, playbackVelocity: 49 } },
+        { staffOffset: 1, dynamic: { type: "immediate", value: "mp", staff: lowerStaff } },
       ]);
       expect(dynamics(captured)).toHaveLength(1);
       expect(offsetValue(dynamics(captured)[0]!.offset)).toBe(0);
@@ -202,7 +231,15 @@ describe("secondary physical staff annotation capture", () => {
         [lowerHarmony ? 1 : 0, 3 / 8],
       ]);
       const repasted = applyPaste(score([2]), captured, 0, 0, 0, 0);
-      expect(repasted.parts[0]!.measures[0]!.dynamics).toMatchObject([{ staff: 2, playbackVelocity: 49 }]);
+      expect(repasted.parts[0]!.measures[0]!.dynamics).toEqual([
+        {
+          id: expect.any(String),
+          type: "immediate",
+          value: "mp",
+          staff: 2,
+          position: { fraction: [0, 16] },
+        },
+      ]);
       expect(repasted.parts[0]!.measures[0]!.chordSymbols?.map((item) => item.displayStaff)).toEqual(
         lowerHarmony ? [2, 2] : [1, 1],
       );
@@ -252,10 +289,21 @@ describe("secondary physical staff annotation capture", () => {
     const copied = buildClipboardSelection(source, selection)!;
     const captured = roundTrip(copied);
     expect(dynamics(captured)).toHaveLength(1);
-    expect(dynamics(captured)[0]).toMatchObject({ staffOffset: 0, dynamic: { staff: 2, playbackVelocity: 49 } });
+    expect(dynamics(captured)[0]).toMatchObject({
+      staffOffset: 0,
+      dynamic: { type: "immediate", value: "mp", staff: 2 },
+    });
     expect(captured.chordSymbols?.map((item) => item.staffOffset)).toEqual(kind === "single" ? [0] : [0, 0]);
     const result = applyPaste(score([1]), captured, 0, 0, 0, 0);
-    expect(result.parts[0]!.measures[0]!.dynamics).toMatchObject([{ staff: 1, value: "mp", playbackVelocity: 49 }]);
+    expect(result.parts[0]!.measures[0]!.dynamics).toEqual([
+      {
+        id: expect.any(String),
+        type: "immediate",
+        value: "mp",
+        staff: 1,
+        position: { fraction: [0, 16] },
+      },
+    ]);
     expect(result.parts[0]!.measures[0]!.chordSymbols?.every((symbol) => symbol.displayStaff === 1)).toBe(true);
     if (kind === "range") {
       const cut = applyCut(source, {
@@ -311,10 +359,18 @@ describe("secondary physical staff annotation capture", () => {
       expect(offsetValue(dynamics(captured)[1]!.endOffset)).toBe(1 / 8);
       expect(captured.chordSymbols).toHaveLength(1);
       const result = applyPaste(score([2]), captured, 0, 0, 1, 2);
-      expect(result.parts[0]!.measures[0]!.dynamics).toMatchObject([
-        { type: "immediate", staff: 2, value: "mp", playbackVelocity: 49, position: { fraction: [4, 16] } },
+      expect(result.parts[0]!.measures[0]!.dynamics).toEqual([
         {
+          id: expect.any(String),
+          type: "immediate",
+          staff: 2,
+          value: "mp",
+          position: { fraction: [4, 16] },
+        },
+        {
+          id: expect.any(String),
           type: "gradual",
+          wedgeType: "increasing",
           staff: 2,
           position: { fraction: [4, 16] },
           end: { measure: "m0", position: { fraction: [6, 16] } },

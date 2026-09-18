@@ -10,7 +10,7 @@
 --   Channel 2  Staccato
 --   Channel 3  Pizzicato
 --
---   CC11  Dynamics   -- Detache/Sustain: nominal velocity by default
+--   CC11  Dynamics   -- Detache/Sustain: the ONLY loudness control (velocity is nominal)
 --                    -- Staccato/Pizz:   combined with note velocity
 --   CC15  Con sordini
 
@@ -21,7 +21,7 @@ local PIZZ = 3
 
 local SUSTAIN_THRESHOLD = 0.75 -- seconds; detache bows longer than this become sustains
 local LATENCY = 0.03 -- seconds to nudge channel-priming CCs ahead of the note
-local NOMINAL_VELOCITY = 96 -- default note velocity for CC11-only articulations
+local NOMINAL_VELOCITY = 96 -- fixed note velocity for CC11-only articulations
 
 local function to_data(value)
     local scaled = math.floor(value * 127 + 0.5)
@@ -91,7 +91,11 @@ function note_on(time, note)
     midi.cc(time - LATENCY, 15, state.con_sordino and 127 or 0, channel)
     midi.cc(time - LATENCY, 11, to_data(note.dynamics), channel)
 
-    local velocity = midi.attack_velocity(note, is_dynamic_only(channel) and NOMINAL_VELOCITY or to_velocity)
+    -- Detache/Sustain ignore velocity (CC11 is everything); staccato/pizz combine the two.
+    local velocity = NOMINAL_VELOCITY
+    if not is_dynamic_only(channel) then
+        velocity = to_velocity(note.dynamics)
+    end
 
     midi.note({
         startTime = time,

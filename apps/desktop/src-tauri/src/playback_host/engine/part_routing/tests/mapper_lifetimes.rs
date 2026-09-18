@@ -18,8 +18,6 @@ fn performance_note(start: f64, duration: f64) -> PlaybackEvent {
             duration,
             pitch: 60,
             dynamics: 0.8,
-            playback_velocity: None,
-            playback_velocity_interpolation: None,
             articulations: Articulations::default(),
             state: PlayingState::default(),
         },
@@ -54,59 +52,6 @@ fn strings_on(channel: u8) -> ResolvedMidi {
         channel,
         note: 60,
         velocity: 96,
-    }
-}
-
-#[test]
-fn explicit_and_default_attacks_reach_native_note_delivery_and_seek_unchanged() {
-    const PIANO: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../editor/public/articulations/piano_basic.lua"
-    ));
-    for playback_velocity in [None, Some(96)] {
-        let expected_velocity = playback_velocity.unwrap_or(100);
-        let event: PlaybackEvent = serde_json::from_value(serde_json::json!({
-            "kind": "noteOn", "time": 0.0,
-            "note": {
-                "id": "mf-note", "startTime": 0.0, "duration": 1.0,
-                "pitch": 60, "dynamics": 100.0 / 127.0,
-                "playbackVelocity": playback_velocity
-            }
-        }))
-        .unwrap();
-        let mapped = compile(PIANO, 0, &[event]);
-        // Native SF2 bypasses Lua and receives this flat wire shape from the editor.
-        let sf2: Vec<PartScheduledMidi> = serde_json::from_value(serde_json::json!([
-            {
-                "part": 0, "atSeconds": 0.0, "type": "note_on",
-                "note_id": "mf-note", "channel": 0, "note": 60,
-                "velocity": expected_velocity
-            },
-            { "part": 0, "atSeconds": 1.0, "type": "note_off", "note_id": "mf-note" }
-        ]))
-        .unwrap();
-        for (raw, channel) in [(mapped, 1), (sf2, 0)] {
-            let mut seq = sequence();
-            let mut strip = routing_strip();
-            seq.schedule = resolve_schedule(&raw);
-            let expected = ResolvedMidi::NoteOn {
-                channel,
-                note: 60,
-                velocity: expected_velocity,
-            };
-            advance(&mut seq, &mut strip, 0.0);
-            assert_eq!(rendered_notes(&mut strip), vec![sent(expected, 17)]);
-            assert_eq!(seq.active[0].velocity, expected_velocity);
-            assert!((0..8).any(|_| routing_peak(&mut strip) > 1e-4));
-
-            strip.panic();
-            seek_slot(&mut seq, &mut strip, 0.5, &HashSet::new());
-            assert_eq!(rendered_notes(&mut strip), vec![sent(expected, 0)]);
-            assert_eq!(seq.active[0].velocity, expected_velocity);
-            advance(&mut seq, &mut strip, 1.0);
-            assert_eq!(rendered_notes(&mut strip), vec![sent(off(channel, 60), 17)]);
-            assert!(seq.active.is_empty());
-        }
     }
 }
 

@@ -192,7 +192,7 @@ function dynamicXml(captured: CapturedDynamic, path: string): string {
   if (dynamic.type !== "immediate" || !dynamic.value) {
     unsupported(`dynamic type "${dynamic.type}" is not supported by MuseScore clipboard export`, path);
   }
-  return immediateDynamicXml(dynamic.value, dynamic.playbackVelocity, path);
+  return immediateDynamicXml(dynamic.value);
 }
 
 function annotationTrack(

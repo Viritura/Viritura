@@ -4,13 +4,13 @@ import {
   pitchToMidi,
   walkSequenceEvents,
   type ChordSymbol,
-  type DynamicGroup,
   type NoteEvent,
   type Score,
   type SequenceContent,
   type TimeSignature,
   type Transposition,
 } from "@viritura/core";
+import type { DynamicGroup as RawDynamicGroup } from "@viritura/core/raw";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 import {
   applyPaste,
@@ -53,9 +53,19 @@ const UPPER_PITCHES = [
 ];
 const LOWER_PITCHES = [[48], [46], [48], [50], [46], [50]];
 
+// MuseScore v4.7.5: Dynamic L1288-L1308; PLAY via Spanner L1592-L1602 / TextLineBase L1642-L1672.
+// Hairpin playback fields: https://github.com/musescore/MuseScore/blob/3654226c2e99289916916953a98e585a3d3b315a/src/engraving/rw/write/twrite.cpp#L1683-L1707
+const sourcePlaybackHairpinXml = hairpinXml
+  .replace("<Dynamic>", "<Dynamic><play>0</play>")
+  .replace(
+    "<HairPin>",
+    "<HairPin><veloChange>20</veloChange><singleNoteDynamics>0</singleNoteDynamics>" +
+      "<veloChangeMethod>1</veloChangeMethod><play>0</play>",
+  );
+
 interface NativeMeasure {
   sequences: Array<{ staff?: number; content: Array<Omit<NoteEvent, "type">> }>;
-  dynamics?: Array<Omit<DynamicGroup, "playbackVelocity"> & { _x?: { viritura?: { playbackVelocity?: number } } }>;
+  dynamics?: RawDynamicGroup[];
   _x?: { viritura?: { chordSymbols?: ChordSymbol[] } };
 }
 
@@ -195,6 +205,7 @@ function captureClipboardSelection(captured: ClipboardSelection) {
   expect(written.xml).toBeTruthy();
   const xml = written.xml!;
   const document = new DOMParser().parseFromString(xml, "application/xml");
+  expect(document.querySelectorAll("velocity")).toHaveLength(0);
   const length = document.documentElement.getAttribute("len")!.split("/").map(Number);
   expect(length[0]! / length[1]!).toBe(3 / 4);
   return {
@@ -238,6 +249,12 @@ function allIds(events: NoteEvent[]) {
 describe("exact real StaffList captures through actual paste, MNX, native copy, and MuseScore", () => {
   it.each([
     { name: "hairpin", xml: hairpinXml, layout: [1], pitches: [[63], [65], [67]] },
+    {
+      name: "hairpin with disabled source playback",
+      xml: sourcePlaybackHairpinXml,
+      layout: [1],
+      pitches: [[63], [65], [67]],
+    },
     { name: "double bass", xml: doublebassXml, layout: [1], pitches: [[29], [31]] },
     { name: "natural", xml: naturalXml, layout: [1], pitches: [[60], [59]] },
     { name: "ties", xml: tiesXml, layout: [1], pitches: TIE_PITCHES },
@@ -269,10 +286,31 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
           [3, 4],
           [5, 6],
         ]);
-      } else if (name === "hairpin") {
-        expect(result.decoded.parts[0]!.measures[1]!.dynamics).toMatchObject([
-          { type: "gradual", value: "mf", playbackVelocity: 80, wedgeType: "increasing" },
-        ]);
+      } else if (name.startsWith("hairpin")) {
+        for (const score of [result.score, result.wire, result.decoded]) {
+          expect(score.parts[0]!.measures[1]!.dynamics).toEqual([
+            {
+              id: expect.any(String),
+              type: "gradual",
+              value: "mf",
+              wedgeType: "increasing",
+              staff: 1,
+              position: { fraction: [0, 16] },
+              end: { measure: "destination-m1", position: { fraction: [12, 16] } },
+            },
+          ]);
+        }
+        expect(copied.reimported.dynamics).toEqual(
+          readCapture(hairpinXml).dynamics!.map(({ dynamic, ...placement }) => ({
+            ...placement,
+            dynamic: { ...dynamic, id: expect.any(String) },
+          })),
+        );
+        expect(
+          copied.document.querySelectorAll(
+            "velocity, play, veloChange, veloChangeSpeed, singleNoteDynamics, veloChangeMethod",
+          ),
+        ).toHaveLength(0);
       } else {
         expect(staffEvents(result.decoded)[1]!.notes![0]!.accidentalDisplay).toMatchObject({ show: true });
       }
@@ -286,11 +324,13 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
     const parsed = readCapture(hairpinXml);
     expectMusic(pitched(parsed.content), [[63], [65], [67]], [1 / 4, 1 / 8, 3 / 8]);
     expect(parsed.dynamics).toHaveLength(1);
-    expect(parsed.dynamics![0]!.dynamic).toMatchObject({
+    expect(parsed.dynamics![0]!.dynamic).toEqual({
+      id: expect.any(String),
       type: "gradual",
       value: "mf",
       wedgeType: "increasing",
-      playbackVelocity: 80,
+      position: { fraction: [0, 1] },
+      end: { measure: "0", position: { fraction: [3, 4] } },
     });
     expect(fractionValue(parsed.dynamics![0]!.endOffset)).toBe(3 / 4);
     const result = place(parsed, destination([1], time));
@@ -300,24 +340,34 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
       expectMusic(staffEvents(score, 0, 1, 1, endMeasure), expectedPitches, expectedDurations);
       const dynamics = score.parts[0]!.measures.flatMap((measure) => measure.dynamics ?? []);
       expect(dynamics).toHaveLength(1);
-      expect(dynamics[0]).toMatchObject({
+      expect(dynamics[0]).toEqual({
+        id: expect.any(String),
         type: "gradual",
         value: "mf",
         wedgeType: "increasing",
-        playbackVelocity: 80,
         staff: 1,
-        end: { measure: score.global.measures[endMeasure]!.id },
+        position: { fraction: [0, 16] },
+        end: {
+          measure: score.global.measures[endMeasure]!.id,
+          position: { fraction: [endFraction * 16, 16] },
+        },
       });
       expect(fractionValue(dynamics[0]!.position.fraction)).toBe(0);
       expect(fractionValue(dynamics[0]!.end!.position.fraction)).toBe(endFraction);
     }
     expectMusic(nativeEvents(result.wire, 0, 1, 1, endMeasure), expectedPitches, expectedDurations);
-    expect(result.wire.parts[0]!.measures[1]!.dynamics).toMatchObject([
+    expect(result.wire.parts[0]!.measures[1]!.dynamics).toEqual([
       {
+        id: expect.any(String),
         type: "gradual",
         value: "mf",
         wedgeType: "increasing",
-        _x: { viritura: { playbackVelocity: 80 } },
+        staff: 1,
+        position: { fraction: [0, 16] },
+        end: {
+          measure: result.score.global.measures[endMeasure]!.id,
+          position: { fraction: [endFraction * 16, 16] },
+        },
       },
     ]);
     expect(result.selection.rhythmicRange?.end).toEqual({ measureIndex: endMeasure, beat: endFraction * 4 });
@@ -326,14 +376,18 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
     const copied = captureClipboardSelection(result.captured);
     expectMusic(pitched(copied.reimported.content), expectedPitches, expectedDurations);
     expect(copied.reimported.dynamics).toHaveLength(1);
-    expect(copied.reimported.dynamics![0]!.dynamic).toMatchObject({
+    expect(copied.reimported.dynamics![0]!.staffOffset).toBe(0);
+    expect(copied.reimported.dynamics![0]!.dynamic).toEqual({
+      id: expect.any(String),
       type: "gradual",
       value: "mf",
       wedgeType: "increasing",
-      playbackVelocity: 80,
+      position: { fraction: [0, 1] },
+      end: { measure: "0", position: { fraction: [3, 4] } },
     });
     expect(fractionValue(copied.reimported.dynamics![0]!.endOffset)).toBe(3 / 4);
     expect(copied.document.querySelectorAll("Dynamic")).toHaveLength(1);
+    expect(copied.document.querySelector("Dynamic")?.innerHTML).toBe("<subtype>mf</subtype>");
     expect(copied.document.querySelectorAll('Spanner[type="HairPin"]')).toHaveLength(2);
   });
 
@@ -481,12 +535,13 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
     expectPiano(result.decoded, lowerPart, lowerStaff);
     expectMusic(nativeEvents(result.wire), UPPER_PITCHES, [3 / 8, 3 / 8]);
     expectMusic(nativeEvents(result.wire, lowerPart, lowerStaff), LOWER_PITCHES, Array<number>(6).fill(1 / 8));
-    expect(result.wire.parts[lowerPart]!.measures[1]!.dynamics).toMatchObject([
+    expect(result.wire.parts[lowerPart]!.measures[1]!.dynamics).toEqual([
       {
+        id: expect.any(String),
         type: "immediate",
         value: "mp",
         staff: lowerStaff,
-        _x: { viritura: { playbackVelocity: 49 } },
+        position: { fraction: [0, 16] },
       },
     ]);
     expectHarmonies(result.wire.parts[0]!.measures[1]!._x?.viritura?.chordSymbols, 1);
@@ -494,14 +549,26 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
     expect(copied.reimported.tracks?.map((track) => track.staffOffset)).toEqual([0, 1]);
     expectMusic(pitched(copied.reimported.tracks![0]!.content), UPPER_PITCHES, [3 / 8, 3 / 8]);
     expectMusic(pitched(copied.reimported.tracks![1]!.content), LOWER_PITCHES, Array<number>(6).fill(1 / 8));
-    expect(copied.reimported.dynamics).toMatchObject([
-      { staffOffset: 1, dynamic: { type: "immediate", value: "mp", playbackVelocity: 49 } },
+    expect(copied.reimported.dynamics).toEqual([
+      {
+        partOffset: 0,
+        staffOffset: 1,
+        measureOffset: 0,
+        offset: [0, 1],
+        dynamic: {
+          id: expect.any(String),
+          type: "immediate",
+          value: "mp",
+          position: { fraction: [0, 1] },
+        },
+      },
     ]);
     const staves = copied.document.querySelectorAll("Staff");
     expect(staves).toHaveLength(2);
     expect(staves[0]!.querySelectorAll("Dynamic")).toHaveLength(0);
     expect(staves[0]!.querySelectorAll("Harmony")).toHaveLength(2);
-    expect(staves[1]!.querySelector("Dynamic > velocity")?.textContent).toBe("49");
+    expect(staves[1]!.querySelectorAll("Dynamic")).toHaveLength(1);
+    expect(staves[1]!.querySelector("Dynamic")?.innerHTML).toBe("<subtype>mp</subtype>");
     expect(staves[1]!.querySelectorAll("Harmony")).toHaveLength(0);
     const otherLayout = layout.length === 1 ? [1, 1] : [2];
     const repasted = place(copied.reimported, destination(otherLayout));
@@ -578,8 +645,14 @@ function expectPiano(score: Score, lowerPart: number, lowerStaff: number, lowerH
   expectMusic(staffEvents(score, lowerPart, lowerStaff), LOWER_PITCHES, Array<number>(6).fill(1 / 8));
   const dynamics = score.parts.flatMap((part) => part.measures.flatMap((measure) => measure.dynamics ?? []));
   expect(dynamics).toHaveLength(1);
-  expect(score.parts[lowerPart]!.measures[1]!.dynamics).toMatchObject([
-    { type: "immediate", value: "mp", playbackVelocity: 49, staff: lowerStaff },
+  expect(score.parts[lowerPart]!.measures[1]!.dynamics).toEqual([
+    {
+      id: expect.any(String),
+      type: "immediate",
+      value: "mp",
+      staff: lowerStaff,
+      position: { fraction: [0, 16] },
+    },
   ]);
   expect(fractionValue(dynamics[0]!.position.fraction)).toBe(0);
   expectHarmonies(score.parts[lowerHarmony ? lowerPart : 0]!.measures[1]!.chordSymbols, lowerHarmony ? lowerStaff : 1);

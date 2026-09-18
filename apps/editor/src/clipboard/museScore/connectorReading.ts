@@ -60,7 +60,7 @@ export function resolveNoteConnectors(endpoints: readonly NoteConnector[], lengt
 }
 
 function hairpinSubtype(body: Element, path: string): number {
-  connectorChildren(body, ["subtype", "ticks_f"], path);
+  connectorChildren(body, ["subtype", "ticks_f", "veloChange", "singleNoteDynamics", "veloChangeMethod", "play"], path);
   const subtype = integerText(body, "subtype", path, 0);
   if (subtype !== 0 && subtype !== 1) unsupported(`HairPin subtype "${subtype}" is not supported`, path);
   return subtype;

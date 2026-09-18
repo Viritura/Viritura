@@ -340,7 +340,6 @@ mod tests {
             group_type: DynamicGroupType::Immediate,
             position: RhythmicPosition { fraction: (0, 1) },
             value: Some(value),
-            playback_velocity: None,
             residual_value: None,
             accent_prefix: None,
             accent_suffix: None,

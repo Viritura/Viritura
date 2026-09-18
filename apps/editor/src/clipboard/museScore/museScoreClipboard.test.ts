@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { applyPaste, type ClipboardSelection } from "../../commands/clipboardCommands";
 import {
   MUSESCORE_STAFF_LIST_MIME,
@@ -49,7 +50,7 @@ function destinationScore(): Score {
 }
 
 describe("MuseScore StaffList import", () => {
-  it("imports the supplied MuseScore 4.70 notes, C minor harmony, and mf velocity 96", () => {
+  it("imports the supplied MuseScore 4.70 notes, C minor harmony, and written mf", () => {
     const parsed = readMuseScoreClipboard(USER_STAFF_LIST, MUSESCORE_STAFF_LIST_MIME);
     expect(parsed.content).toHaveLength(8);
     expect(parsed.content.map((item) => (item.type === "event" ? item.notes?.[0]?.pitch : undefined))).toEqual([
@@ -68,11 +69,30 @@ describe("MuseScore StaffList import", () => {
       quality: "minor",
       position: { fraction: [0, 1] },
     });
-    expect(parsed.dynamics?.[0]?.dynamic).toMatchObject({
+    expect(parsed.dynamics?.[0]?.dynamic).toEqual({
+      id: expect.any(String),
       type: "immediate",
       value: "mf",
-      playbackVelocity: 96,
+      position: { fraction: [0, 1] },
     });
+  });
+
+  it.each([-1, 0, 1, 49, 80, 96, 127, 128])(
+    "ignores source dynamic velocity %s without retaining metadata",
+    (velocity) => {
+      const parsed = readMuseScoreClipboard(
+        USER_STAFF_LIST.replace("<velocity>96</velocity>", `<velocity>${velocity}</velocity>`),
+      );
+      const semantic = readMuseScoreClipboard(USER_STAFF_LIST.replace("<velocity>96</velocity>", ""));
+      const withoutIds = (value: unknown): unknown =>
+        JSON.parse(JSON.stringify(value, (key, item: unknown) => (key === "id" ? undefined : item)));
+      expect(withoutIds(parsed)).toEqual(withoutIds(semantic));
+    },
+  );
+
+  it("rejects nested notation in a recognized scalar dynamic property", () => {
+    const xml = USER_STAFF_LIST.replace("<velocity>96</velocity>", "<velocity><subtype>f</subtype></velocity>");
+    expect(() => readMuseScoreClipboard(xml)).toThrow("velocity must be scalar");
   });
 
   it("applies imported annotations and a whole note of melody atomically", () => {
@@ -84,10 +104,16 @@ describe("MuseScore StaffList import", () => {
       quality: "minor",
     });
 
-    expect(score.parts[0]!.measures[0]!.dynamics?.[0]).toMatchObject({
+    expect(score.parts[0]!.measures[0]!.dynamics?.[0]).toEqual({
+      id: expect.any(String),
+      type: "immediate",
       value: "mf",
-      playbackVelocity: 96,
+      staff: 1,
+      position: { fraction: [0, 16] },
     });
+    const mnx = serializeMnx(score);
+    expect(mnx).toHaveProperty("parts.0.measures.0.dynamics", score.parts[0]!.measures[0]!.dynamics);
+    expect(parseMnx(mnx).parts[0]!.measures[0]!.dynamics).toEqual(score.parts[0]!.measures[0]!.dynamics);
   });
 
   it("places imported melody, Cm, and mf on the selected lower destination staff", () => {
@@ -237,7 +263,7 @@ describe("MuseScore StaffList import", () => {
 });
 
 describe("MuseScore StaffList export", () => {
-  it("writes exact 4.70 StaffList with notes, rests, dots, spelling, harmony, and velocity", () => {
+  it("writes exact 4.70 StaffList with notes, rests, dots, spelling, harmony, and semantic dynamics", () => {
     const selection: ClipboardSelection = {
       events: [
         {
@@ -257,7 +283,6 @@ describe("MuseScore StaffList export", () => {
             id: "mf",
             type: "immediate",
             value: "mf",
-            playbackVelocity: 96,
             position: { fraction: [0, 1] },
           },
         },
@@ -278,10 +303,18 @@ describe("MuseScore StaffList export", () => {
     expect(result.warning).toBeUndefined();
     expect(result.xml).toContain('<StaffList version="4.70" tick="0/1" len="1/4" staff="0" staves="1">');
     expect(result.xml).toContain("<Harmony><harmonyInfo><name>m</name><root>14</root>");
-    expect(result.xml).toContain("<Dynamic><subtype>mf</subtype><velocity>96</velocity></Dynamic>");
+    expect(result.xml).toContain("<Dynamic><subtype>mf</subtype></Dynamic>");
+    expect(result.xml).not.toContain("<velocity>");
     expect(result.xml).toContain("<pitch>75</pitch><tpc>11</tpc>");
     expect(result.xml).toContain("<dots>1</dots>");
-    expect(readMuseScoreClipboard(result.xml!).content).toHaveLength(2);
+    const parsed = readMuseScoreClipboard(result.xml!);
+    expect(parsed.content).toHaveLength(2);
+    expect(parsed.dynamics?.[0]?.dynamic).toEqual({
+      id: expect.any(String),
+      type: "immediate",
+      value: "mf",
+      position: { fraction: [0, 1] },
+    });
   });
 
   it("returns an explicit warning while leaving callers free to preserve native JSON", () => {

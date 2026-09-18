@@ -10,14 +10,8 @@ export interface HairpinAnnotation {
   currentDynamic?: string;
 }
 
-export function immediateDynamicXml(value: string, velocity: number | undefined, path: string): string {
-  if (velocity !== undefined && (!Number.isInteger(velocity) || velocity < 1 || velocity > 127)) {
-    throw new MuseScoreConversionError("invalid-structure", "dynamic velocity must be 1..127", path);
-  }
-  return (
-    `<Dynamic><subtype>${escapeXml(value)}</subtype>` +
-    `${velocity === undefined ? "" : `<velocity>${velocity}</velocity>`}</Dynamic>`
-  );
+export function immediateDynamicXml(value: string): string {
+  return `<Dynamic><subtype>${escapeXml(value)}</subtype></Dynamic>`;
 }
 
 function hairpinEnd(captured: CapturedDynamic, offset: Fraction, path: string): Fraction {
@@ -50,9 +44,6 @@ export function hairpinAnnotations(
   if (dynamic.wedgeType !== "increasing" && dynamic.wedgeType !== "decreasing") {
     unsupported("HairPin requires an increasing or decreasing wedge", path);
   }
-  if (dynamic.playbackVelocity !== undefined && dynamic.value === undefined) {
-    unsupported("HairPin playback velocity without a written start dynamic cannot be exported", path);
-  }
   const end = hairpinEnd(captured, offset, path);
   if (compare(offset, ZERO) < 0 || compare(end, offset) <= 0) {
     throw new MuseScoreConversionError(
@@ -67,7 +58,7 @@ export function hairpinAnnotations(
     { staff, voice, time: end, note: 0 },
     `<subtype>${dynamic.wedgeType === "increasing" ? 0 : 1}</subtype>`,
   );
-  const current = dynamic.value === undefined ? "" : immediateDynamicXml(dynamic.value, dynamic.playbackVelocity, path);
+  const current = dynamic.value === undefined ? "" : immediateDynamicXml(dynamic.value);
   return [
     { offset, xml: connector.start, ...(current ? { currentDynamic: current } : {}) },
     { offset: end, xml: connector.end },

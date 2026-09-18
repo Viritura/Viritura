@@ -15,8 +15,6 @@ fn note_event(time: f64) -> PlaybackEvent {
             duration: 1.0,
             pitch: 60,
             dynamics: 0.8,
-            playback_velocity: None,
-            playback_velocity_interpolation: None,
             articulations: Articulations::default(),
             state: PlayingState::default(),
         },

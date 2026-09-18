@@ -8,12 +8,9 @@ use super::protocol::{
     PlaybackEvent, PlaybackEventValidationError, PlayingState, ScheduledMidi,
 };
 
-mod attack_calibration;
 #[cfg(test)]
 mod note_identity_tests;
 mod output_note_ids;
-#[cfg(test)]
-mod playback_velocity_tests;
 
 use output_note_ids::OutputNoteIds;
 
@@ -352,7 +349,6 @@ fn remove_unsafe_globals(lua: &Lua) -> Result<(), mlua::Error> {
 
 fn install_midi_api(lua: &Lua, state: MidiApiState) -> Result<(), mlua::Error> {
     let midi = lua.create_table()?;
-    attack_calibration::install(lua, &midi)?;
     let MidiApiState {
         actions,
         output_ids,
@@ -494,13 +490,6 @@ fn notation_note_table(lua: &Lua, note: &NotationNote) -> Result<Table, mlua::Er
     table.set("duration", note.duration)?;
     table.set("pitch", note.pitch)?;
     table.set("dynamics", note.dynamics)?;
-    table.set("playbackVelocity", note.playback_velocity)?;
-    if let Some(interpolation) = &note.playback_velocity_interpolation {
-        table.set(
-            "playbackVelocityInterpolation",
-            attack_calibration::interpolation_table(lua, interpolation)?,
-        )?;
-    }
     table.set(
         "articulations",
         articulations_table(lua, &note.articulations)?,
@@ -561,8 +550,6 @@ mod tests {
             duration: 1.0,
             pitch,
             dynamics: 0.8,
-            playback_velocity: None,
-            playback_velocity_interpolation: None,
             articulations: Articulations {
                 staccato: true,
                 ..Articulations::default()

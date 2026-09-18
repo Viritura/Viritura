@@ -292,9 +292,7 @@ export function parseDynamicGroup(raw: RawDynamicGroup): DynamicGroup {
   }
   if (raw.end !== undefined) common.end = parseMeasureRhythmicPosition(raw.end);
   if (raw.glyphs !== undefined) common.glyphs = [...raw.glyphs];
-  const extension = raw._x?.["viritura"] as RawDynamicGroupExt | undefined;
-  applyManualPlacement(common, extension);
-  if (extension?.playbackVelocity !== undefined) common.playbackVelocity = extension.playbackVelocity;
+  applyManualPlacement(common, raw._x?.["viritura"] as RawDynamicGroupExt | undefined);
 
   switch (raw.type) {
     case "immediate":

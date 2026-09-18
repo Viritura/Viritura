@@ -1,13 +1,13 @@
 -- Piano "basic" mapper.
 --
 -- A single-patch instrument: every note plays on one MIDI channel and the note's dynamic maps
--- to note-on velocity by default (a struck piano key has no post-attack loudness control, so there
+-- straight to note-on velocity (a struck piano key has no post-attack loudness control, so there
 -- is no CC11 dynamics ride here). Every callback receives the timeline `time` (seconds) of its
 -- event; MIDI is scheduled relative to that time and any event before the origin is clamped to 0.
 --
 --   Channel 1  Piano
 --
---   Velocity   <- attack calibration, otherwise Dynamics
+--   Velocity   <- Dynamics (the note's dynamic level is the only loudness control)
 
 local PIANO = 1
 
@@ -45,7 +45,7 @@ function note_on(time, note)
         startTime = time,
         endTime = time + note.duration,
         pitch = note.pitch,
-        velocity = midi.attack_velocity(note, to_velocity),
+        velocity = to_velocity(note.dynamics),
         channel = PIANO,
         id = note.id,
     })

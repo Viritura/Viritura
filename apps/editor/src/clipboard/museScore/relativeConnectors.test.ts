@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NoteEvent, SequenceContent } from "@viritura/core";
 import type { ClipboardSelection } from "../../commands/clipboardCommands";
+import type { CapturedDynamic } from "../ClipboardFragment";
 import { MuseScoreConversionError, readMuseScoreClipboard, writeMuseScoreStaffList } from ".";
 
 function start(type = "Tie", delta = "1/4", fields = "", properties = ""): string {
@@ -389,42 +390,53 @@ describe("relative HairPin import and export", () => {
     );
 
   it.each([0, 1])(
-    "absorbs coincident mf80 as the gradual start and retains the exact selection-end endpoint (%i)",
+    "absorbs coincident mf as the gradual start and retains the exact selection-end endpoint (%i)",
     (subtype) => {
       const parsed = readMuseScoreClipboard(span(mf, subtype));
       expect(parsed.dynamics).toHaveLength(1);
-      expect(parsed.dynamics![0]).toMatchObject({
+      expect(parsed.dynamics![0]).toEqual({
         offset: [0, 1],
         endOffset: [3, 4],
         measureOffset: 0,
         endMeasureOffset: 0,
         staffOffset: 0,
         dynamic: {
+          id: expect.any(String),
           type: "gradual",
           value: "mf",
-          playbackVelocity: 80,
           wedgeType: subtype === 0 ? "increasing" : "decreasing",
-          end: { position: { fraction: [3, 4] } },
+          position: { fraction: [0, 1] },
+          end: { measure: "0", position: { fraction: [3, 4] } },
         },
       });
       const before = JSON.stringify(parsed);
       const result = writeMuseScoreStaffList(selection(parsed));
       expect(result.warning).toBeUndefined();
       expect(result.xml!.match(/<Dynamic>/g)).toHaveLength(1);
+      expect(result.xml).toContain("<Dynamic><subtype>mf</subtype></Dynamic>");
+      expect(result.xml).not.toContain("<velocity>");
       expect(result.xml!.match(/<Spanner type="HairPin">/g)).toHaveLength(2);
       expect(result.xml).toContain("<ticks_f>3/4</ticks_f>");
       expect(result.xml).toContain("<fractions>-3/4</fractions>");
       const again = readMuseScoreClipboard(result.xml!);
       expect(again.dynamics).toHaveLength(1);
-      expect(again.dynamics![0]!.dynamic).toMatchObject({ type: "gradual", value: "mf", playbackVelocity: 80 });
+      expect(again.dynamics![0]).toEqual({
+        ...parsed.dynamics![0],
+        dynamic: { ...parsed.dynamics![0]!.dynamic, id: expect.any(String) },
+      });
       expect(JSON.stringify(parsed)).toBe(before);
     },
   );
 
   it("leaves an unmarked start at the current level rather than inventing mf", () => {
     const parsed = readMuseScoreClipboard(span(""));
-    expect(parsed.dynamics![0]!.dynamic.value).toBeUndefined();
-    expect(parsed.dynamics![0]!.dynamic.playbackVelocity).toBeUndefined();
+    expect(parsed.dynamics![0]!.dynamic).toEqual({
+      id: expect.any(String),
+      type: "gradual",
+      wedgeType: "increasing",
+      position: { fraction: [0, 1] },
+      end: { measure: "0", position: { fraction: [3, 4] } },
+    });
     const result = writeMuseScoreStaffList(selection(parsed));
     expect(result.warning).toBeUndefined();
     expect(result.xml).not.toContain("<Dynamic>");
@@ -441,8 +453,26 @@ describe("relative HairPin import and export", () => {
     );
     const parsed = readMuseScoreClipboard(xml);
     expect(parsed.dynamics).toHaveLength(2);
-    expect(parsed.dynamics![0]!.dynamic).toMatchObject({ type: "gradual", value: "mf", playbackVelocity: 80 });
-    expect(parsed.dynamics![1]).toMatchObject({ offset: [1, 4], dynamic: { type: "immediate", value: "f" } });
+    expect(parsed.dynamics![0]!.dynamic).toEqual({
+      id: expect.any(String),
+      type: "gradual",
+      value: "mf",
+      wedgeType: "increasing",
+      position: { fraction: [0, 1] },
+      end: { measure: "0", position: { fraction: [1, 4] } },
+    });
+    expect(parsed.dynamics![1]).toEqual({
+      partOffset: 0,
+      staffOffset: 0,
+      measureOffset: 0,
+      offset: [1, 4],
+      dynamic: {
+        id: expect.any(String),
+        type: "immediate",
+        value: "f",
+        position: { fraction: [0, 1] },
+      },
+    });
   });
 
   it("absorbs an all-voices current dynamic when its staff-stream voice differs", () => {
@@ -456,20 +486,26 @@ describe("relative HairPin import and export", () => {
       ),
     );
     expect(parsed.dynamics).toHaveLength(1);
-    expect(parsed.dynamics![0]!.dynamic).toMatchObject({ type: "gradual", value: "mf", playbackVelocity: 80 });
+    expect(parsed.dynamics![0]!.dynamic).toEqual({
+      id: expect.any(String),
+      type: "gradual",
+      value: "mf",
+      wedgeType: "increasing",
+      position: { fraction: [0, 1] },
+      end: { measure: "0", position: { fraction: [1, 2] } },
+    });
   });
 
   it("coalesces identical native immediate/current start markings and rejects conflicting ones", () => {
     const parsed = readMuseScoreClipboard(span());
-    const immediate = {
+    const immediate: CapturedDynamic = {
       measureOffset: 0,
-      offset: [0, 1] as [number, number],
+      offset: [0, 1],
       dynamic: {
         id: "immediate",
-        type: "immediate" as const,
-        value: "mf" as const,
-        playbackVelocity: 80,
-        position: { fraction: [0, 1] as [number, number] },
+        type: "immediate",
+        value: "mf",
+        position: { fraction: [0, 1] },
       },
     };
     parsed.dynamics!.push(immediate);
@@ -477,9 +513,11 @@ describe("relative HairPin import and export", () => {
     const written = writeMuseScoreStaffList(selection(parsed));
     expect(written.warning).toBeUndefined();
     expect(written.xml!.match(/<Dynamic>/g)).toHaveLength(1);
+    expect(written.xml).toContain("<Dynamic><subtype>mf</subtype></Dynamic>");
+    expect(written.xml).not.toContain("<velocity>");
     expect(readMuseScoreClipboard(written.xml!).dynamics).toHaveLength(1);
     expect(JSON.stringify(parsed)).toBe(before);
-    immediate.dynamic.playbackVelocity = 81;
+    immediate.dynamic.value = "f";
     expect(writeMuseScoreStaffList(selection(parsed)).warning).toMatch(/conflicting coincident/);
   });
 

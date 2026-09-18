@@ -112,14 +112,12 @@ export interface components {
              */
             style?: "normal" | "thick" | "short" | "curved";
         };
-        /** @description Viritura engraving placement and playback extensions on a standard MNX dynamic-group object. */
+        /** @description Viritura engraving placement extensions on a standard MNX dynamic-group object. */
         "dynamic-group-extensions": {
             /** @description Manual [dx, dy] offset in spatia (sp), applied after automatic placement. */
             manualOffset?: components["schemas"]["sp-delta"];
             /** @description Whether automatic collision avoidance may re-flow this dynamic group. Default/unset: true. */
             avoidCollisions?: boolean;
-            /** @description Explicit MIDI attack velocity, independent of the written dynamic value and expression. Immediate/relative groups set a persistent attack level; accents override their onset; gradual groups set the starting attack level of the ramp. Absent: normal dynamic response. */
-            playbackVelocity?: number;
         };
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {

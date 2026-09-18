@@ -138,10 +138,6 @@ pub struct DynamicGroup {
     pub position: RhythmicPosition,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<DynamicValue>,
-    /// Explicit MIDI attack velocity (1–127), independent of the written value.
-    /// Hoisted from `_x.viritura.playbackVelocity`; does not affect engraving.
-    #[serde(skip_serializing_if = "Option::is_none", rename = "playbackVelocity")]
-    pub playback_velocity: Option<i64>,
     /// Accent-only: the level that persists after the initial attack, as in `fp`
     /// ("attack at f, immediately drop to p").
     #[serde(skip_serializing_if = "Option::is_none", rename = "residualValue")]

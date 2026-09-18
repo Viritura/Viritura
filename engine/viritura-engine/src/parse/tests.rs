@@ -2,8 +2,6 @@
 
 use super::*;
 
-mod dynamic_playback;
-
 #[test]
 fn test_parse_hello_world() {
     let json = r#"{

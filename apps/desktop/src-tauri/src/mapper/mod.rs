@@ -12,8 +12,6 @@ mod runtime;
 pub use protocol::{
     Articulations, MidiMessage, NotationNote, PlaybackEvent, PlayingState, ScheduledMidi,
 };
-#[cfg(test)]
-pub use protocol::{PlaybackVelocityEndpoint, PlaybackVelocityInterpolation};
 pub use runtime::{LuaMapper, LuaMapperConfig, LuaMapperError};
 
 /// Compile a mapper script and run a whole part's event stream through it.
@@ -51,8 +49,6 @@ fn probe_sequence() -> Vec<PlaybackEvent> {
         duration: 0.5,
         pitch: 67,
         dynamics: 0.6,
-        playback_velocity: None,
-        playback_velocity_interpolation: None,
         articulations: Articulations::default(),
         state: PlayingState::default(),
     };
@@ -62,8 +58,6 @@ fn probe_sequence() -> Vec<PlaybackEvent> {
         duration: 0.25,
         pitch: 60,
         dynamics: 0.5,
-        playback_velocity: None,
-        playback_velocity_interpolation: None,
         articulations: Articulations::default(),
         state: PlayingState {
             pizzicato: true,
@@ -119,8 +113,6 @@ mod golden_tests {
             duration: dur,
             pitch,
             dynamics: 0.7,
-            playback_velocity: None,
-            playback_velocity_interpolation: None,
             articulations: Articulations {
                 staccato,
                 ..Articulations::default()

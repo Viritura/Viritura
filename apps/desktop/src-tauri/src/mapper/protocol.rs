@@ -72,11 +72,6 @@ pub struct NotationNote {
     pub pitch: u8,
     /// Normalized dynamic scalar in `0.0..=1.0` for this note.
     pub dynamics: f64,
-    /// Explicit attack velocity in `1..=127`, independent of expression dynamics.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub playback_velocity: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub playback_velocity_interpolation: Option<PlaybackVelocityInterpolation>,
     /// Articulation marks attached to this note.
     #[serde(default)]
     pub articulations: Articulations,
@@ -92,58 +87,8 @@ impl NotationNote {
         validate_finite_time("startTime", self.start_time)?;
         validate_duration(self.duration)?;
         validate_unit("dynamics", self.dynamics)?;
-        if let Some(velocity) = self.playback_velocity {
-            validate_data("playbackVelocity", velocity)?;
-            if velocity == 0 {
-                return Err(PlaybackEventValidationError::ZeroPlaybackVelocity);
-            }
-        }
-        if let Some(interpolation) = self.playback_velocity_interpolation {
-            validate_unit(
-                "playbackVelocityInterpolation.progress",
-                interpolation.progress,
-            )?;
-            for (endpoint, dynamics_field, velocity_field) in [
-                (
-                    interpolation.from,
-                    "playbackVelocityInterpolation.from.dynamics",
-                    "playbackVelocityInterpolation.from.playbackVelocity",
-                ),
-                (
-                    interpolation.to,
-                    "playbackVelocityInterpolation.to.dynamics",
-                    "playbackVelocityInterpolation.to.playbackVelocity",
-                ),
-            ] {
-                validate_unit(dynamics_field, endpoint.dynamics)?;
-                if let Some(velocity) = endpoint.playback_velocity {
-                    validate_data(velocity_field, velocity)?;
-                    if velocity == 0 {
-                        return Err(PlaybackEventValidationError::ZeroEndpointPlaybackVelocity {
-                            field: velocity_field,
-                        });
-                    }
-                }
-            }
-        }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlaybackVelocityInterpolation {
-    pub from: PlaybackVelocityEndpoint,
-    pub to: PlaybackVelocityEndpoint,
-    pub progress: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlaybackVelocityEndpoint {
-    pub dynamics: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub playback_velocity: Option<u8>,
 }
 
 /// Articulation marks that may appear on a single note. Absent marks are `false`.
@@ -275,10 +220,6 @@ pub enum PlaybackEventValidationError {
     InvalidDuration { value: f64 },
     #[error("{field} must be a finite normalized scalar in 0.0..=1.0, got {value}")]
     UnitOutOfRange { field: &'static str, value: f64 },
-    #[error("playbackVelocity must be non-zero")]
-    ZeroPlaybackVelocity,
-    #[error("{field} must be non-zero")]
-    ZeroEndpointPlaybackVelocity { field: &'static str },
     #[error(transparent)]
     InvalidMidi(#[from] MidiValidationError),
 }
@@ -346,9 +287,6 @@ fn validate_unit(field: &'static str, value: f64) -> Result<(), PlaybackEventVal
 }
 
 #[cfg(test)]
-mod playback_velocity_interpolation_tests;
-
-#[cfg(test)]
 mod tests {
     use super::{
         Articulations, MidiMessage, NotationNote, PlaybackEvent, PlayingState, ScheduledMidi,
@@ -361,8 +299,6 @@ mod tests {
             duration: 1.0,
             pitch: 60,
             dynamics: 0.7,
-            playback_velocity: None,
-            playback_velocity_interpolation: None,
             articulations: Articulations {
                 staccato: true,
                 ..Articulations::default()
@@ -428,68 +364,10 @@ mod tests {
             PlaybackEvent::NoteOn { time, note } => {
                 assert_eq!(time, 0.5);
                 assert_eq!(note.pitch, 60);
-                assert_eq!(note.playback_velocity, None);
                 assert!(note.articulations.staccato);
                 assert!(note.state.pizzicato);
             }
             other => panic!("unexpected variant: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn playback_velocity_wire_defaults_and_bounds() {
-        for kind in ["noteOn", "noteOff"] {
-            let base = serde_json::json!({
-                "kind": kind, "time": 0.5,
-                "note": {
-                    "id": "mf-note", "startTime": 0.5, "duration": 1.0,
-                    "pitch": 60, "dynamics": 100.0 / 127.0
-                }
-            });
-            for velocity in [None, Some(1), Some(96), Some(127)] {
-                let mut wire = base.clone();
-                if let Some(value) = velocity {
-                    wire["note"]["playbackVelocity"] = value.into();
-                }
-                let event: PlaybackEvent = serde_json::from_value(wire).unwrap();
-                assert!(event.validate().is_ok());
-                let (PlaybackEvent::NoteOn { note, .. } | PlaybackEvent::NoteOff { note, .. }) =
-                    &event
-                else {
-                    unreachable!()
-                };
-                assert_eq!(note.playback_velocity, velocity);
-                assert_eq!(note.dynamics, 100.0 / 127.0);
-                assert_eq!(note.articulations, Articulations::default());
-                assert_eq!(note.state, PlayingState::default());
-                let serialized = serde_json::to_value(&event).unwrap();
-                assert_eq!(
-                    serialized["note"].get("playbackVelocity"),
-                    velocity.map(serde_json::Value::from).as_ref()
-                );
-                assert_eq!(
-                    serde_json::from_value::<PlaybackEvent>(serialized).unwrap(),
-                    event
-                );
-            }
-
-            for velocity in [0, 128, 255] {
-                let mut wire = base.clone();
-                wire["note"]["playbackVelocity"] = velocity.into();
-                let event: PlaybackEvent = serde_json::from_value(wire).unwrap();
-                assert!(event.validate().is_err(), "{kind}: {velocity}");
-            }
-            for velocity in [
-                serde_json::json!(-1),
-                serde_json::json!(256),
-                serde_json::json!(96.5),
-                serde_json::json!("96"),
-                serde_json::json!(true),
-            ] {
-                let mut wire = base.clone();
-                wire["note"]["playbackVelocity"] = velocity;
-                assert!(serde_json::from_value::<PlaybackEvent>(wire).is_err());
-            }
         }
     }
 

@@ -226,7 +226,7 @@
 
     "dynamic-group-extensions": {
       "type": "object",
-      "description": "Viritura engraving placement and playback extensions on a standard MNX dynamic-group object.",
+      "description": "Viritura engraving placement extensions on a standard MNX dynamic-group object.",
       "properties": {
         "manualOffset": {
           "$ref": "#/$defs/sp-delta",
@@ -235,12 +235,6 @@
         "avoidCollisions": {
           "type": "boolean",
           "description": "Whether automatic collision avoidance may re-flow this dynamic group. Default/unset: true."
-        },
-        "playbackVelocity": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 127,
-          "description": "Explicit MIDI attack velocity, independent of the written dynamic value and expression. Immediate/relative groups set a persistent attack level; accents override their onset; gradual groups set the starting attack level of the ramp. Absent: normal dynamic response."
         }
       },
       "additionalProperties": false

@@ -6,7 +6,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 > Dynamics are standard MNX `dynamic-group` objects — hairpins are gradual
 > groups and dynamic-attached text uses standard `prefix`/`suffix`. Viritura
-> adds engraving placement and optional attack velocity under each group's `_x.viritura` dict; see
+> adds only engraving placement under each group's `_x.viritura` dict; see
 > [dynamics.md](dynamics.md).
 
 ## Quick Reference
@@ -20,7 +20,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions, playbackVelocity                                                |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
 | [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
 | [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
@@ -658,35 +658,10 @@ only when the target jump type is not yet in the spec enum.
 
 Extensions on each standard `parts[].measures[].dynamics[]` object.
 
-| Property           | Type               | Required | Description                                                                               |
-| ------------------ | ------------------ | -------- | ----------------------------------------------------------------------------------------- |
-| `manualOffset`     | `[number, number]` | No       | User-authored `[dx, dy]` engraving offset in staff spaces.                                |
-| `avoidCollisions`  | boolean            | No       | Unset/true enables automatic reflow; false pins placement.                                |
-| `playbackVelocity` | integer (1–127)    | No       | Explicit MIDI note-on attack velocity, independent of the written dynamic and expression. |
-
-An omitted `playbackVelocity` preserves the normal instrument dynamic response.
-For immediate and relative groups, the override applies to subsequent attacks
-until another persistent dynamic replaces it; a dynamic without an override
-restores the normal mapping. Accent groups override only their onset, not the
-residual level. On gradual groups, the override calibrates the ramp's starting
-attack velocity; attacks interpolate toward the endpoint override or its normal
-mapped velocity. Expression and the semantic dynamic ladder remain unchanged.
-Instrument attack remapping and automatic metric/humanization offsets do not
-replace an explicit velocity; gain and notated articulation shaping still apply.
-
-For example, an imported `mf` with explicit velocity 96 retains both values:
-
-```json
-{
-  "type": "immediate",
-  "position": { "fraction": [0, 1] },
-  "value": "mf",
-  "_x": { "viritura": { "playbackVelocity": 96 } }
-}
-```
-
-The override is never a top-level MNX attribute or a normalized dynamics value.
-Out-of-range or non-integer values are rejected by schema validation.
+| Property          | Type               | Required | Description                                                |
+| ----------------- | ------------------ | -------- | ---------------------------------------------------------- |
+| `manualOffset`    | `[number, number]` | No       | User-authored `[dx, dy]` engraving offset in staff spaces. |
+| `avoidCollisions` | boolean            | No       | Unset/true enables automatic reflow; false pins placement. |
 
 ```json
 {

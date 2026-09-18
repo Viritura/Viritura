@@ -173,7 +173,6 @@ function expectCmAndMf(parsed: ReturnType<typeof readMuseScoreClipboard>, offset
     dynamic: {
       type: "immediate",
       value: "mf",
-      playbackVelocity: 96,
       position: { fraction: [0, 1] },
     },
   });

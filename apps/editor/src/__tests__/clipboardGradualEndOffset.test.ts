@@ -50,7 +50,6 @@ function hairpin(overrides: Partial<CapturedDynamic> = {}): CapturedDynamic {
       wedgeType: "increasing",
       position: { fraction: [1, 4] },
       end: { measure: "source-m7", position: { fraction: [3, 4] } },
-      playbackVelocity: 48,
     },
     ...overrides,
   };
@@ -118,13 +117,14 @@ function expectHairpin(
 ): void {
   const dynamics = result.parts[0]!.measures.flatMap((measure) => measure.dynamics ?? []);
   expect(dynamics).toHaveLength(1);
-  expect(result.parts[0]!.measures[startMeasure]!.dynamics).toMatchObject([
+  expect(result.parts[0]!.measures[startMeasure]!.dynamics?.map((dynamic) => ({ staff: 1, ...dynamic }))).toEqual([
     {
+      id: expect.any(String),
       type: "gradual",
       wedgeType: "increasing",
+      staff: 1,
       position: { fraction: [startNumerator, 16] },
       end: { measure: result.global.measures[endMeasure]!.id, position: { fraction: [endNumerator, 16] } },
-      playbackVelocity: 48,
     },
   ]);
 }

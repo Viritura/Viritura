@@ -174,7 +174,6 @@ export function serializeDynamicGroup(d: DynamicGroup): Obj {
   const viritura: Obj = {};
   if (d.manualOffset) viritura["manualOffset"] = d.manualOffset;
   if (d.avoidCollisions === false) viritura["avoidCollisions"] = false;
-  if (d.playbackVelocity !== undefined) viritura["playbackVelocity"] = d.playbackVelocity;
   if (Object.keys(viritura).length > 0) out["_x"] = { viritura };
   return out;
 }

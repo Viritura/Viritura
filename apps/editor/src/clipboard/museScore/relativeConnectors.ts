@@ -25,12 +25,21 @@ export function connectorChildren(element: Element, allowed: readonly string[], 
     if (seen.has(item.tagName)) {
       throw new MuseScoreConversionError("invalid-structure", `duplicate connector ${item.tagName}`, path);
     }
-    if (!["Tie", "HairPin", "next", "prev", "location"].includes(item.tagName) && children(item).length > 0) {
-      throw new MuseScoreConversionError(
-        "invalid-structure",
-        "connector scalar properties cannot contain nested elements",
-        path,
-      );
+    if (!["Tie", "HairPin", "next", "prev", "location"].includes(item.tagName)) {
+      if (children(item).length > 0) {
+        throw new MuseScoreConversionError(
+          "invalid-structure",
+          "connector scalar properties cannot contain nested elements",
+          path,
+        );
+      }
+      if (item.attributes.length > 0) {
+        throw new MuseScoreConversionError(
+          "invalid-structure",
+          "connector scalar properties cannot contain attributes",
+          path,
+        );
+      }
     }
     seen.add(item.tagName);
   }

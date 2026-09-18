@@ -150,10 +150,6 @@ export interface DynamicGroupBase {
   /** Whether automatic collision avoidance may re-flow this group. Unset/true
    *  = re-flow (default); false = pinned. Viritura extension. */
   avoidCollisions?: boolean;
-  /** Explicit integer MIDI attack velocity (1..127), stored in `_x.viritura`.
-   *  Independent of the written level and expression. Immediate/relative: persistent;
-   *  accent: onset only; gradual: ramp start. Absent: normal dynamic response. */
-  playbackVelocity?: number;
 }
 
 /** An absolute, persistent dynamic level. */
