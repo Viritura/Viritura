@@ -75,7 +75,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@inquirer/checkbox": "^5.1.5",
+    "@inquirer/checkbox": "^5.2.5",
     "@playwright/test": "^1.63.0",
     "@types/node": "24.0.0",
     "autoprefixer": "^10.5.4",
