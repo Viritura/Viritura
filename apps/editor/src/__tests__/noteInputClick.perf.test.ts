@@ -68,6 +68,19 @@ interface ClickMetric {
   totalMs: number;
 }
 
+interface PatchMetric {
+  wasmMs: number;
+  decodeMs: number;
+  retainedApplyMs: number;
+  fresh: number;
+  reused: number;
+}
+
+interface CompletionMetric {
+  compatibilityMs: number | undefined;
+  spatialMs: number | undefined;
+}
+
 interface EventLocation {
   partIndex: number;
   measureIndex: number;
@@ -201,12 +214,20 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
     const spatialIndexRef = { current: buildEnrichedSpatialIndex(initial, store.getState().workingScore) };
     const docScoreRef = { current: store.getState().workingScore };
     const displayListVersionRef = { current: 0 };
-    const paintNowRef = { current: () => {} };
+    let paintCalls = 0;
+    // Count publication-side paint requests without pretending to measure Canvas.
+    const paintNowRef = {
+      current: () => {
+        paintCalls++;
+      },
+    };
     const insertedIds: string[] = [];
     const commandSamples: number[] = [];
     const layoutSamples: number[] = [];
     const totalSamples: number[] = [];
     const burstDurations: number[] = [];
+    const patchMetrics: PatchMetric[] = [];
+    const completionMetrics: CompletionMetric[] = [];
     let calls = 0;
     let fullCalls = 0;
     let maxPatchMeasures = 0;
@@ -227,18 +248,26 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
           0,
         );
         maxPatchMeasures = Math.max(maxPatchMeasures, changedPatchMeasures);
-        displayList = reconstructor.apply(
-          decodeFrame(
-            engine.apply_patch_and_layout_patch_frame_binary(
-              patch.prebuiltPatchJson,
-              SP,
-              HORIZON_WIDTH,
-              undefined,
-              SCORE_INDEX,
-            ),
-          ),
-          true,
+        const wasmStart = performance.now();
+        const binary = engine.apply_patch_and_layout_patch_frame_binary(
+          patch.prebuiltPatchJson,
+          SP,
+          HORIZON_WIDTH,
+          undefined,
+          SCORE_INDEX,
         );
+        const wasmEnd = performance.now();
+        const frame = decodeFrame(binary);
+        const decodeEnd = performance.now();
+        displayList = reconstructor.apply(frame, true);
+        const applyEnd = performance.now();
+        patchMetrics.push({
+          wasmMs: wasmEnd - wasmStart,
+          decodeMs: decodeEnd - wasmEnd,
+          retainedApplyMs: applyEnd - decodeEnd,
+          fresh: frame.kind === "patch" ? frame.patch.placements.filter((p) => p.kind === "fresh").length : 0,
+          reused: frame.kind === "patch" ? frame.patch.placements.filter((p) => p.kind === "reuse").length : 0,
+        });
       } else {
         fullCalls++;
         reconstructor.reset();
@@ -255,6 +284,8 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
       const capturedScore = docScoreRef.current;
       const run = workerQueue.then(async () => {
         await Promise.resolve();
+        performance.clearMeasures("viritura:compatibility-reconstruct");
+        performance.clearMeasures("viritura:spatial-index");
         await runFastLayoutAndPaint({
           json,
           patchInfo,
@@ -266,6 +297,10 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
           displayListVersionRef,
           paintNowRef,
           perfTracker: perf,
+        });
+        completionMetrics.push({
+          compatibilityMs: performance.getEntriesByName("viritura:compatibility-reconstruct", "measure")[0]?.duration,
+          spatialMs: performance.getEntriesByName("viritura:spatial-index", "measure")[0]?.duration,
         });
       });
       workerQueue = run.catch(() => {});
@@ -407,6 +442,12 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
       const warmedLayouts = statsOf(warmedLayoutSamples);
       const warmedTotals = statsOf(totalSamples);
       const burstStats = statsOf(burstDurations);
+      const serialPatches = patchMetrics.slice(1, SERIAL_EDITS);
+      const serialCompletions = completionMetrics.slice(1, SERIAL_EDITS);
+      const compatibilitySamples = serialCompletions.flatMap((m) =>
+        m.compatibilityMs === undefined ? [] : [m.compatibilityMs],
+      );
+      const spatialSamples = serialCompletions.flatMap((m) => (m.spatialMs === undefined ? [] : [m.spatialMs]));
       const finalScore = store.getState().score!;
       const finalLocations = collectPitchedEventLocations(finalScore);
       const missingIds = insertedIds.filter((id) => !finalLocations.has(id));
@@ -436,8 +477,25 @@ suite(`Beethoven real-WASM click-entry lifecycle${available ? "" : ` — SKIPPED
           `layout ${formatStats(warmedLayouts)}; total ${formatStats(warmedTotals)}; ` +
           `burst32 ${formatStats(burstStats)}`,
       );
+      console.log(
+        `[Beethoven click phases] Node/direct WASM, Promise queue (not Worker RPC), no-op paint; ` +
+          `warmed serial WASM ${formatStats(statsOf(serialPatches.map((m) => m.wasmMs)))}; ` +
+          `decode ${formatStats(statsOf(serialPatches.map((m) => m.decodeMs)))}; ` +
+          `retained apply ${formatStats(statsOf(serialPatches.map((m) => m.retainedApplyMs)))}; ` +
+          `compatibility ${formatStats(statsOf(compatibilitySamples))}; ` +
+          `spatial ${formatStats(statsOf(spatialSamples))}; ` +
+          `all calls=${calls} deferredFinalizations=${completionMetrics.filter((m) => m.compatibilityMs !== undefined).length} ` +
+          `spatialBuilds=${completionMetrics.filter((m) => m.spatialMs !== undefined).length} paintRequests=${paintCalls}; ` +
+          `serial fresh/reused totals=${serialPatches.reduce((n, m) => n + m.fresh, 0)}/` +
+          `${serialPatches.reduce((n, m) => n + m.reused, 0)}; final spatialEntries=${spatialIndexRef.current.size}`,
+      );
 
       expect(fullCalls).toBe(0);
+      expect(patchMetrics).toHaveLength(calls);
+      expect(completionMetrics).toHaveLength(calls);
+      expect(compatibilitySamples).toHaveLength(SERIAL_EDITS - 1);
+      expect(spatialSamples).toHaveLength(SERIAL_EDITS - 1);
+      expect(paintCalls).toBe(completionMetrics.filter((m) => m.spatialMs !== undefined).length);
       expect(serialMaxPatchMeasures).toBe(1);
       expect(maxPatchMeasures).toBeLessThanOrEqual(BURST_SIZE);
       expect(maxChangedReferences).toBe(1);

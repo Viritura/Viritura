@@ -480,6 +480,7 @@ pub(super) fn draw_grace_beam_stems(
     dl: &mut DisplayList,
     beam_graces: &[&GraceNoteLayout],
     stem_tips: &[(f64, f64)],
+    stem_anchors: &[smufl::StemAnchors],
     first: (f64, f64),
     slope: f64,
     stem_up: bool,
@@ -506,11 +507,13 @@ pub(super) fn draw_grace_beam_stems(
             .fold(f64::NEG_INFINITY, f64::max);
 
         if stem_up {
-            let stem_bottom = staff_y + bottom_pos * sp * 0.5;
+            let stem_bottom =
+                staff_y + bottom_pos * sp * 0.5 + stem_anchors[i].up_se.1 * sp * grace_scale;
             let stem_end = beam_y_at_stem + grace_beam_center_offset;
             dl.stem(stem_x, stem_end, stem_bottom, stem_w);
         } else {
-            let stem_top = staff_y + top_pos * sp * 0.5;
+            let stem_top =
+                staff_y + top_pos * sp * 0.5 + stem_anchors[i].down_nw.1 * sp * grace_scale;
             let stem_end = beam_y_at_stem - grace_beam_center_offset;
             dl.stem(stem_x, stem_top, stem_end, stem_w);
         }
@@ -722,9 +725,26 @@ pub(crate) fn render_grace_beams(
             .max()
             .unwrap_or(1);
 
-        let note_info_g: Vec<(f64, f64)> = beam_graces
+        let stem_anchors: Vec<_> = beam_graces
             .iter()
             .map(|gn| {
+                crate::layout::render_events::extreme_stem_anchor(
+                    &gn.note_positions,
+                    stem_up,
+                    |i| {
+                        crate::layout::render_events::notehead_for_note(
+                            gn.event.notes().get(i),
+                            &gn.event.duration.base,
+                            ml.resolved.kit.as_ref(),
+                        )
+                    },
+                )
+            })
+            .collect();
+        let note_info_g: Vec<(f64, f64)> = beam_graces
+            .iter()
+            .zip(&stem_anchors)
+            .map(|(gn, anchors)| {
                 let top_pos = gn
                     .note_positions
                     .iter()
@@ -737,12 +757,12 @@ pub(crate) fn render_grace_beams(
                     .fold(f64::NEG_INFINITY, f64::max);
                 if stem_up {
                     (
-                        gn.x + smufl::STEM_UP_SE.0 * sp * grace_scale - stem_w * 0.5,
+                        gn.x + anchors.up_se.0 * sp * grace_scale - stem_w * 0.5,
                         staff_y + top_pos * sp * 0.5,
                     )
                 } else {
                     (
-                        gn.x + smufl::STEM_DOWN_NW.0 * sp * grace_scale + stem_w * 0.5,
+                        gn.x + anchors.down_nw.0 * sp * grace_scale + stem_w * 0.5,
                         staff_y + bottom_pos * sp * 0.5,
                     )
                 }
@@ -768,6 +788,7 @@ pub(crate) fn render_grace_beams(
             dl,
             &beam_graces,
             &stem_tips,
+            &stem_anchors,
             *first,
             slope,
             stem_up,

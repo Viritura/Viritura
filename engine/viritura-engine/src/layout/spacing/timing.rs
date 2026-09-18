@@ -36,8 +36,8 @@ pub(super) struct SpacingEvent<'a> {
 
 pub(super) struct SequenceTimeline<'a> {
     pub events: Vec<SpacingEvent<'a>>,
-    pub grace_before: HashMap<BeatKey, usize>,
-    pub grace_after: HashMap<BeatKey, usize>,
+    pub grace_before: HashMap<BeatKey, Vec<&'a Event>>,
+    pub grace_after: HashMap<BeatKey, Vec<&'a Event>>,
 }
 
 /// Traverse every timed spacing event in a sequence exactly once.
@@ -65,7 +65,7 @@ pub(super) fn sequence_timeline(
         grace_after: HashMap::new(),
     };
     let mut beat = 0.0;
-    let mut pending_graces = 0;
+    let mut pending_graces = Vec::new();
     let forced_stem_up = sequence
         .orient
         .and_then(Orientation::force_stem_up)
@@ -81,7 +81,7 @@ pub(super) fn sequence_timeline(
         &mut pending_graces,
         &mut timeline,
     );
-    if pending_graces > 0 {
+    if !pending_graces.is_empty() {
         if let Some(last_event) = timeline.events.last() {
             timeline.grace_after.insert(last_event.key, pending_graces);
         }
@@ -98,7 +98,7 @@ fn walk_content<'a>(
     sequence_index: usize,
     sequence_count: usize,
     sequence_staff: u32,
-    pending_graces: &mut usize,
+    pending_graces: &mut Vec<&'a Event>,
     timeline: &mut SequenceTimeline<'a>,
 ) {
     for item in content {
@@ -160,7 +160,7 @@ fn walk_content<'a>(
                     *beat += per_event * duration_scale;
                 }
             }
-            SequenceContent::Grace(grace) => *pending_graces += grace.content.len(),
+            SequenceContent::Grace(grace) => pending_graces.extend(&grace.content),
             SequenceContent::Space(space) => {
                 *beat += space.total_beats() * duration_scale;
             }
@@ -178,13 +178,16 @@ fn push_event<'a>(
     sequence_index: usize,
     sequence_count: usize,
     sequence_staff: u32,
-    pending_graces: &mut usize,
+    pending_graces: &mut Vec<&'a Event>,
     timeline: &mut SequenceTimeline<'a>,
 ) {
     let key = BeatKey::new(beat);
-    if *pending_graces > 0 {
-        *timeline.grace_before.entry(key).or_default() += *pending_graces;
-        *pending_graces = 0;
+    if !pending_graces.is_empty() {
+        timeline
+            .grace_before
+            .entry(key)
+            .or_default()
+            .append(pending_graces);
     }
     timeline.events.push(SpacingEvent {
         key,

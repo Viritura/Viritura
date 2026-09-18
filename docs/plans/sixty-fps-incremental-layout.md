@@ -1,11 +1,11 @@
 # 60 FPS Incremental Layout Plan
 
-> **Status:** Core local-pitch target achieved — bounded dirty scope, stable Horizon chunks,
-> PatchFrame v3, patch IR, optimistic feedback, spatial deltas, and retained
-> Horizon paint partitions shipped on the performance branch. The branch is
-> synchronized with current `main`; the initial broader headed-browser scenario
-> expansion is complete. Pitch p95 is within 33 ms, but p50 still varies under
-> sustained host load despite stable deterministic work counters.
+> **Status (PR188 audit, 2026-09-18, HEAD `a06bafa`):** The July performance branch
+> achieved a local-pitch browser target; those numbers below are **historical**,
+> not proof of 60 FPS at this HEAD. PatchFrame retention remains, but the current
+> publication path finalizes copied/rebuilt compatibility arrays and rebuilds
+> the **whole spatial index before paint**. Immutable per-layer spatial updates
+> remain a follow-up, not a shipped bounded API.
 >
 > **Target:** authoritative local edits at p50 ≤ 16.6 ms on Rhapsody in Blue
 > (510 measures × 33 parts), with immediate visual feedback for larger reflows  
@@ -53,9 +53,23 @@ constraint solution. The authoritative result replaces it atomically.
 
 ## 3. Measurements and implementation record
 
-Measurements are from production WASM and native release probes on 2026-07-11.
+The implementation chronology below records July 2026 measurements.
 See [`performance-architecture.md`](performance-architecture.md) for commands and
-full context.
+the **2026-09-18 PR188 audit**, including artifact provenance and current limits.
+
+The unmodified Node click-lifecycle baseline at this HEAD measured command
+p50/p95 **6.0/7.4 ms**, WASM/decode/retained application **64.7/101.7 ms**, and
+click→publication **126.2/160.9 ms** on Beethoven (502 measures × 18 parts).
+It uses the real deferred frame/finalization/spatial path, but a Promise queue
+instead of worker RPC and **no-op paint**; publication totals also include
+test-only scans/assertions. Its **p95 <220 ms** publication ceiling is a
+regression safety budget, not this plan's **p50 ≤50 ms** width-edit contract.
+No browser SLO was revalidated. The same audit's separate `noteInput` orchestral
+case failed its 80 ms p95 ceiling at 115.10 ms; do not report all perf gates green.
+After rebuilding the corrective Rust changes, the same click harness measured
+**102.3/149.2 ms** publication p50/p95 and **26.7/38.1 ms** full spatial-build
+p50/p95. The regression gate passed, but the width-edit target remains unmet
+in this no-paint workload; this is not a controlled before/after speedup claim.
 
 ### 3.1 Pre-plan local-edit baseline
 
@@ -86,11 +100,11 @@ Pre-plan native buckets:
 Retention bookkeeping is already negligible. Container-level `memcpy` work is
 not the next priority.
 
-### 3.2 Current accepted checkpoint and implementation chronology
+### 3.2 Historical July accepted checkpoint and implementation chronology
 
-The performance branch now exercises the real editor in headed production
+At that checkpoint the performance branch exercised the real editor in headed production
 Chrome with trusted keyboard input and 30 warmed samples per scenario. The
-accepted implementation has reached:
+accepted implementation had reached:
 
 - 1–2 resolved and natural-width staff/measure cells out of 17,340;
 - one dirty Horizon system with 169 reused systems in the permanent pitch gate;
@@ -133,7 +147,9 @@ accepted implementation has reached:
 
 The remaining paragraphs in this subsection are a chronological measurement
 record. Intermediate statements such as “target is not yet met” describe that
-checkpoint only; the final accepted result is the 16.52 ms run below.
+checkpoint only; the final accepted result was the 16.52 ms July run below. Paint-first and spatial
+replacement statements in this historical record are not the current publication
+ordering; see the PR188 audit above.
 
 A controlled headed-Chrome A/B on the same production build measured Canvas
 paint p50 at 35.82 ms with full command traversal and 17.89 ms with retained
@@ -500,12 +516,21 @@ Performance gate:
 
 ## Phase 2 — per-staff render layers and spatial deltas
 
-**Status: 🟡 Substantially shipped.** PatchFrame v3, retained system/staff content
-ranges, batched retained runs, transform-aware retained application, direct
-paint before compatibility flattening, and incremental spatial replacement are
-live. Fully independent public generational layer handles and the aspirational
-<64 KB local frame are not complete; current local frames are roughly 338 KB,
-but decode/application is already ~0.58 ms p50.
+**Status: 🟡 Render retention shipped; bounded spatial maintenance incomplete.**
+PatchFrame v3, retained system/staff content ranges, batched retained runs and
+transform-aware retained application exist. At PR188 HEAD, shape-stable
+compatibility updates copy whole arrays before replacing ranges; other shapes
+rebuild. The production path finalizes these stores, rebuilds the whole spatial
+index, then commits and paints. Public generational layer handles and immutable
+spatial upsert/remove/transform APIs are absent. July's ~338 KB / ~0.58 ms
+decode/application observation excludes these current whole-frame completion
+costs and cannot establish the <1 ms spatial goal.
+
+Do not restore rectangle-limited hit-target retention or mutate previous frames
+to meet this goal. A new index design must preserve cross-layer duplicate-ID
+merging, barline extension and command-derived supplements, with full-index
+parity for shifted suffixes, spanners, condensed/expansion staves and stale
+generations. Existing segment identity alone is not that contract.
 
 **Goal:** stop producing, transferring, decoding, and indexing an entire system
 for a one-staff edit.
@@ -726,7 +751,7 @@ explicitly migrated to a new canonical representation.
    authoritative paint.
 6. Added optimistic feedback and hard pitch/accidental contracts.
 
-### Remaining order
+### Historical July remaining order (remeasure against PR188 before acting)
 
 1. Normalize/isolate browser-runner host load: quiet integrated pitch is
    13.94 ms p50, while sustained loaded runs measured 19–26 ms p50 with the same
@@ -750,7 +775,7 @@ preceding protocol. Do not turn optional phases 3–6 into a flag day.
 
 ## 11. Definition of done
 
-### Achieved core target
+### Historical July achieved core target (not revalidated at PR188 HEAD)
 
 - ✅ Trusted full-score local pitch authoritative p50 is **16.52 ms**, within the
   16.6 ms primary contract.
@@ -758,8 +783,9 @@ preceding protocol. Do not turn optional phases 3–6 into a flag day.
   18.37 ms authoritative p50, within the 50 ms contract.
 - ✅ Full-score common-path work scales with the 1–2-cell dirty island rather
   than all 17,340 staff-measure cells.
-- ✅ Patch decode/application and spatial maintenance are incremental; retained
-  layers paint before compatibility reconstruction.
+- ⚠️ July's incremental spatial / paint-before-compatibility claim is superseded:
+  PR188 rebuilds the full spatial index after compatibility finalization and
+  before paint. This completion work is not bounded by the dirty island.
 - ✅ Every accepted optimization has byte-equivalence coverage and non-vacuous
   engagement counters; structural/failed patches retain a safe full fallback.
 

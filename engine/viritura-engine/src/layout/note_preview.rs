@@ -2,9 +2,9 @@
 
 use super::arena::EventArena;
 use super::beams::render_rest_scaled;
-use super::grace::GRACE_SCALE;
-use super::render_events::{render_event, render_note_chord, NoteChordStyle};
-use super::types::EventLayout;
+use super::grace::{render_grace_event, GraceRenderContext, GRACE_SCALE};
+use super::render_events::render_event;
+use super::types::{EventLayout, GraceNoteLayout};
 use super::LayoutConfig;
 use crate::model::{
     AccidentalDisplay, Duration, Event, KeySignature, Note, NoteValueBase, NoteheadShape,
@@ -122,6 +122,8 @@ impl NotePreviewInput {
 /// Grace glyphs and horizontal spacing use 0.65 scale; ledger/dot Y positions
 /// remain on the staff grid and line strokes retain staff weight. Slash is
 /// drawn only for flagged grace notes. Rest previews ignore note-only options.
+/// An isolated preview has no sequence context: it cannot predict group beams
+/// or slurs, and its accidental is explicit rather than measure-state inferred.
 pub fn compute_note_preview(input: &NotePreviewInput) -> Vec<RenderCommand> {
     if !input.is_valid() {
         return Vec::new();
@@ -152,6 +154,35 @@ pub fn compute_note_preview(input: &NotePreviewInput) -> Vec<RenderCommand> {
             *direction == StemDirection::Up
         });
     let pitches = event.notes().iter().map(|n| n.pitch.clone()).collect();
+    if input.is_grace {
+        render_grace_event(
+            &mut dl,
+            &GraceNoteLayout {
+                x: input.x,
+                event,
+                note_positions: vec![pos],
+                display_pitches: pitches,
+                stem_up,
+                after_main: false,
+                is_slash: input.slash,
+                id: None,
+                color: None,
+            },
+            input.staff_y,
+            input.spatium,
+            &config,
+            &HashSet::new(),
+            &mut GraceRenderContext {
+                active_key: &KeySignature::default(),
+                measure_acc: &mut HashMap::new(),
+                use_accidental_display: true,
+                kit: None,
+                tie_accidentals: None,
+            },
+            "note-preview",
+        );
+        return dl.commands;
+    }
     let events = EventArena::from_events(vec![EventLayout {
         x: input.x,
         event,
@@ -167,53 +198,27 @@ pub fn compute_note_preview(input: &NotePreviewInput) -> Vec<RenderCommand> {
         sequence_staff: 1,
         beat_position: 0.0,
     }]);
-    if input.is_grace {
-        render_note_chord(
-            &mut dl,
-            &events,
-            0,
-            input.staff_y,
-            input.spatium,
-            &config,
-            NoteChordStyle {
-                scale: GRACE_SCALE,
-                slash: input.slash,
-            },
-            &HashSet::new(),
-            &KeySignature::default(),
-            &mut HashMap::new(),
-            true,
-            "note-preview",
-            config.ledger_extension,
-            config.ledger_extension,
-            None,
-            None,
-            &[],
-            &[],
-        );
-    } else {
-        render_event(
-            &mut dl,
-            &events,
-            0,
-            input.staff_y,
-            input.spatium,
-            &config,
-            &HashSet::new(),
-            &KeySignature::default(),
-            &mut HashMap::new(),
-            true,
-            "note-preview",
-            config.ledger_extension,
-            config.ledger_extension,
-            None,
-            None,
-            None,
-            0,
-            &[],
-            &[],
-            f64::INFINITY,
-        );
-    }
+    render_event(
+        &mut dl,
+        &events,
+        0,
+        input.staff_y,
+        input.spatium,
+        &config,
+        &HashSet::new(),
+        &KeySignature::default(),
+        &mut HashMap::new(),
+        true,
+        "note-preview",
+        config.ledger_extension,
+        config.ledger_extension,
+        None,
+        None,
+        None,
+        0,
+        &[],
+        &[],
+        f64::INFINITY,
+    );
     dl.commands
 }

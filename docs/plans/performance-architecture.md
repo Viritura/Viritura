@@ -11,7 +11,208 @@
 workload is **Rhapsody in Blue, 510 measures × 33 parts** in the editor's
 chunked-Horizon mode, using trusted keyboard input in headed production Chrome.
 
-**Current accepted snapshot (performance branch after merging `origin/main`, 2026-07-12):**
+### PR188 source and measurement audit (2026-09-18, HEAD `a06bafa`)
+
+**Current scope is not fully O(dirty island), and 60 FPS has not been revalidated
+at this HEAD.** Engine/transport retention remains, but the publication path has
+correctness-first whole-frame work:
+
+- `runFastLayoutAndPaint` consumes `finalizeRetainedFrame` **before** checking
+  whether the result may commit. Even a suppressed stale frame must advance
+  transport retention for the next patch.
+- A current result calls `buildEnrichedSpatialIndex` on the **entire finalized
+  display list**, then publishes matching display-list/index refs and requests
+  paint. This is not dirty-measure spatial replacement or paint-before-flatten.
+- `PatchReconstructor` creates a new frame. Shape-stable updates first
+  `slice()` the flattened compatibility arrays, then replace changed ranges;
+  changed store shapes or reordered systems rebuild the arrays. Untranslated
+  segments can be shared; translated segments are cloned before moving. These
+  copies protect older frames and are not O(changed entries).
+
+Source: [`fastLayout.ts`](../../apps/editor/src/components/ScoreCanvas/fastLayout.ts),
+[`enrichSpatialIndex.ts`](../../apps/editor/src/store/enrichSpatialIndex.ts),
+[`patchFrame.ts`](../../packages/renderer/src/patchFrame.ts), and
+[`hitTest.ts`](../../packages/renderer/src/hitTest.ts). Source wins over the
+historical paint-first/spatial-delta claims below.
+
+#### Measurement boundaries and reproducibility
+
+The audit used Windows, Node **24.14.0**, pnpm **9.15.4**, and an AMD Ryzen
+Threadripper 2920X (24 logical processors), with one Vitest worker and default
+budgets (`CI`, `PERF_BUDGET_MULTIPLIER`, `VIRITURA_SKIP_PERF` unset).
+This is a shared, non-isolated host, **not a browser measurement**. CPU load at
+the first click run's preflight was 15%; no native cargo/rustc/wasm-opt process
+was observed then. Other agents subsequently edited and built Rust; later
+loaded-host results must not be treated as quiet-run regressions.
+
+The existing `pkg-browser` artifact was not rebuilt, staged, or overwritten:
+4,282,155 bytes, modified **2026-09-18 04:53:50 UTC**, SHA-256
+`c3fbf26f58c7c2aac6093b3ccf8859c31bea74d44aa9b72805c02081f6640f97`.
+Its release-input fingerprint matched `.build-cache.json` at audit preflight
+(`4f72728adf4a1e31eadf1df5c16be314a08a2405f854c784910385cc89e0b048`);
+the module had no `name` or `.debug_info` section. That validates the initial
+cached inputs, **not subsequent Rust changes**. The baseline and instrumented
+repeat below used that artifact. The final rebuilt verification is recorded
+separately below; do not attribute baseline timings to the corrected renderer.
+
+Run the existing harness directly to preserve a profiling/shared artifact:
+
+```powershell
+pnpm --filter @viritura/editor exec vitest run src\__tests__\noteInputClick.perf.test.ts --maxWorkers=1
+pnpm --filter @viritura/editor exec vitest run src\__tests__\noteInput.perf.test.ts src\__tests__\pagedPatchFrame.perf.test.ts src\__tests__\horizonVsPage.perf.test.ts --maxWorkers=1 --testTimeout=120000
+```
+
+`noteInputClick` is the closest existing **Node deferred lifecycle** harness:
+real click command, document store/coalescer, real WASM patch API,
+`reconstructor.apply(frame, true)`, production `runFastLayoutAndPaint`,
+compatibility finalization, full spatial rebuild, and score publication.
+Its Promise queue is **not** a Dedicated Worker/Comlink transfer. It bypasses
+the production `computeDisplayList` mapping/backend wrapper and uses **no-op
+paint**; no Canvas, React rendering, browser input scheduling, or visual
+completion is measured. `commandMs` ends on synchronous command return;
+`layoutMs` covers WASM + decode + retained application, but excludes subsequent
+deferred finalization/spatial work. `totalMs` ends at score publication and
+also includes test-only event scans/assertions before awaiting publication.
+It is neither pure engine time nor production input-to-visible latency.
+
+Unmodified baseline (Beethoven movement 1, **502 measures × 18 parts**, Horizon,
+score index 1; 1 warmup + 47 measured serial clicks, then four 8-click bursts):
+
+| Scope                                                  |      p50 |      p95 |      max |
+| ------------------------------------------------------ | -------: | -------: | -------: |
+| Command return                                         |   6.0 ms |   7.4 ms |  10.8 ms |
+| WASM + decode + retained apply                         |  64.7 ms | 101.7 ms | 117.0 ms |
+| Click → publication (no-op paint, includes test scans) | 126.2 ms | 160.9 ms | 186.0 ms |
+| Whole 8-click burst → publication (4 samples)          | 368.7 ms | 394.2 ms | 394.2 ms |
+
+Warmup command/layout/total: **31.6/574.8/749.3 ms**. All 48 serial requests
+used patches; no full fallback, one changed part-measure and one changed
+measure reference per click, at most seven coalesced patch measures. All inserted
+IDs remained present and hittable after later reflows; loaded input stayed
+unchanged. Quantiles select sorted index `floor(n*q)`; four burst samples are
+too few for a stable tail estimate.
+
+The test's generous ceilings are command **p95 <40 ms**, layout **p95 <180 ms**,
+and publication **p95 <220 ms** (plus max ceilings). Passing these does **not**
+establish the width-edit **p50 <50 ms** target, much less 16.6 ms authoritative
+paint. This baseline passed its regression gate but exceeded 50 ms even without
+Canvas. The existing harness now also reports WASM/decode/retained application,
+deferred compatibility, full spatial-build timings and phase counts separately.
+
+Instrumented repeat (**loaded/shared host, no browser**, same unchanged WASM;
+no native cargo/rustc/wasm-opt process observed in the preceding preflight):
+
+| Scope (47 warmed serial samples)                       |      p50 |      p95 |      max |
+| ------------------------------------------------------ | -------: | -------: | -------: |
+| Command return                                         |   6.0 ms |   9.6 ms |  23.7 ms |
+| WASM + decode + retained apply                         |  66.7 ms | 101.3 ms | 103.2 ms |
+| ↳ WASM call                                            |  60.3 ms |  79.7 ms |  85.4 ms |
+| ↳ Decode                                               |   3.9 ms |  15.1 ms |  30.1 ms |
+| ↳ Retained apply (excluding deferred hook)             |   0.5 ms |  32.6 ms |  35.2 ms |
+| Deferred compatibility finalization                    |   1.7 ms |   2.8 ms |   4.2 ms |
+| Full spatial index build                               |  34.6 ms |  56.8 ms |  65.9 ms |
+| Click → publication (no-op paint, includes test scans) | 127.7 ms | 161.0 ms | 183.9 ms |
+
+Do not add percentiles across phases. Warmup command/layout/total was
+18.4/624.7/832.4 ms; four 8-click burst durations had p50/p95/max
+333.8/371.4/371.4 ms. Across serial + bursts there were **56 layout calls,
+55 deferred finalizations, 52 full spatial builds and 52 no-op paint requests**.
+The first frame flattens inside apply; four superseded burst results finalize
+without indexing/painting. The 47 warmed serial frames had **47 fresh / 799
+reused** systems in total (1/17 per frame), and the final index contained
+**39,572 entries**. This establishes retained engine engagement, not bounded
+spatial work. The repeat passed all existing ceilings and added phase-count
+checks. Instrumentation reads the production performance measures, leaving
+publication ordering, retention and index construction unchanged.
+
+#### Final corrective-build verification (2026-09-18)
+
+After the mapping and grace-rendering/spacing fixes, `pnpm wasm:build` rebuilt
+and staged the shipping module: **4,315,955 bytes**, SHA-256
+`6ba6119256bc02699b1705b7d068e124b743a65fb6a13458bb6029728424d6a0`,
+input fingerprint
+`dc39a672148e03e530dc19e07cc9fab418af95c24a8d30ca35ac3be885872b2a`.
+The same one-worker click harness was rerun after builds/tests finished.
+This remains a shared-host Node measurement with the exclusions above.
+
+| Scope (47 warmed serial samples)                       |      p50 |      p95 |      max |
+| ------------------------------------------------------ | -------: | -------: | -------: |
+| Command return                                         |   5.5 ms |   7.7 ms |  24.7 ms |
+| WASM + decode + retained apply                         |  55.4 ms |  97.6 ms | 106.0 ms |
+| ↳ WASM call                                            |  50.4 ms |  62.3 ms |  71.0 ms |
+| ↳ Decode                                               |   3.5 ms |  14.5 ms |  30.9 ms |
+| ↳ Retained apply (excluding deferred hook)             |   0.5 ms |  29.3 ms |  32.5 ms |
+| Deferred compatibility finalization                    |   1.4 ms |   9.8 ms |  16.7 ms |
+| Full spatial index build                               |  26.7 ms |  38.1 ms |  41.3 ms |
+| Click → publication (no-op paint, includes test scans) | 102.3 ms | 149.2 ms | 157.6 ms |
+
+Warmup command/layout/total was **19.2/594.5/757.2 ms**. Four eight-click
+bursts measured **284.6/324.2/324.2 ms** p50/p95/max. Counts remained 56
+layout calls, 55 deferred finalizations, 52 full spatial builds/paint requests,
+47 fresh / 799 reused warmed systems and 39,572 final spatial entries.
+The regression gate passes, but publication still exceeds the width-edit
+50 ms target without Canvas. This is not a controlled speedup comparison.
+
+Rust tests (1,693 passed, 7 ignored), Rust lint, Rust/WASM/TypeScript builds,
+repository lint, and focused editor/renderer integration tests passed.
+The workspace TypeScript run had one 30-second dynamic-import timeout in
+`app-layout.test.ts`; all eight tests in that file passed when rerun alone.
+The complete editor suite then passed with two workers: 3,749 tests across
+252 files, without retries or an increased timeout. All nine WASM binding tests
+also passed.
+No browser performance or visual validation was performed.
+
+Other existing harness results, run sequentially (not alongside another perf
+suite) against the initial artifact, are diagnostics rather than browser gates:
+
+| Harness / workload                    |       p50 |       p95 | Outcome                                  |
+| ------------------------------------- | --------: | --------: | ---------------------------------------- |
+| `noteInput`, small                    |   1.82 ms |   3.81 ms | Passed <10 ms p95                        |
+| `noteInput`, Beethoven finale         |  95.19 ms | 115.10 ms | **Failed** <80 ms p95                    |
+| Rhapsody serialize + patch build only |   3.77 ms |  12.07 ms | Passed <16 ms p95                        |
+| Paged Beethoven patch                 |  10.50 ms |  17.64 ms | Passed <60 ms p95; 1 fresh / 10 reused   |
+| Paged Rhapsody insertion patch        | 190.88 ms | 258.27 ms | Passed <500 ms p95; 1 fresh / 261 reused |
+| Paged Rhapsody pitch patch            | 153.51 ms | 190.96 ms | Passed <500 ms p95; 1 fresh / 261 reused |
+| Rhapsody page WASM only               |  199.7 ms |  220.8 ms | Consume p50 12.6 ms separately           |
+| Rhapsody Horizon WASM only            |  196.9 ms |  269.5 ms | Consume p50 21.6 ms separately           |
+
+Paged tests include synchronous flattening, but exclude command preparation,
+spatial indexing, worker RPC, publication and paint; despite their historical
+test titles, they are **not user-facing end-to-end latency**. `noteInput`
+includes mutation/serialization and synchronous reconstruction but likewise
+omits spatial/paint. The three-file run had **8 passed / 1 failed**; transport
+and Horizon reconstruction checks passed. Host load was not isolated throughout.
+No browser suite ran: Docker was unavailable on PATH, and the existing
+Playwright performance config starts Vite directly rather than `pnpm dev:stack`.
+No running app/plugin was touched or reloaded.
+
+Focused correctness checks also passed: **21** editor deferred-publication and
+coalescer tests, and **84** renderer binary-display-list/hit-test tests. The
+modified harness passed ESLint. These checks are not a full repository build or
+Rust-suite validation.
+
+#### Safe bounded spatial updates: API limitation
+
+There is **no current public immutable per-layer update/translate API** in
+`SpatialIndex`: construction consumes a whole display list or entry array and
+copies/sorts entries. Retained render layers expose segment identity/bounds,
+but not a complete generational spatial ownership/delta contract. Independently
+indexing each segment and concatenating results would change cross-segment
+duplicate-ID merging, barline hitbox extension, and command-derived supplements;
+it would also retain a global copy/sort if fed back to today's constructor.
+Dirty measure rectangles do not prove unchanged geometry outside them:
+horizontal/vertical reflow and spanners can move targets elsewhere.
+
+Keep the full authoritative rebuild and immutable frame copies. A bounded
+follow-up needs versioned layer ownership (including prefix/overlay and removed
+or reordered layers), immutable transform-aware index shards, cross-layer
+aggregation semantics, and query parity with the full index. Verify translated
+suffixes, condensed/expansion duplicate IDs, spanners/barlines, stale completion,
+unpainted-frame reuse and old-frame immutability. Measure finalization, index
+maintenance and browser paint independently before adopting it; this is a
+broader renderer/index change, not a safe rectangle-retention shortcut.
+
+### Historical accepted snapshot (performance branch after merging `origin/main`, 2026-07-12)
 
 | Scenario / phase                           |      p50 | Contract / status                                |
 | ------------------------------------------ | -------: | ------------------------------------------------ |
@@ -25,7 +226,7 @@ chunked-Horizon mode, using trusted keyboard input in headed production Chrome.
 | Note insertion                             | 34.99 ms | ✅ p50 <50 ms; p95 198.31 ms remains a tail risk |
 | Structural global meter change             |   1.07 s | ✅ asynchronous fallback measured; no frame SLO  |
 
-The branch is synchronized with current `main`. A quiet-window integrated run
+At that historical checkpoint the branch was synchronized with `main`. A quiet-window integrated run
 meets the hard pitch p50/p95 targets, but repeated runs during sustained build,
 test, and browser load measured 19–26 ms p50 while retaining identical 1-cell/
 169-system engagement counters; p95 remained below 33 ms. Treat 13.94 ms as the
@@ -95,8 +296,9 @@ pitch path.
 > 0.34 ms command processing, 0.15 ms delta preparation), meeting the primary
 > 16.6 ms contract.
 
-**The wall is visit-count, not visit-cost.** 510 × 33 = **17,340 measure-layouts
-are visited on every edit, even at 100% cache reuse** — page mode with a perfect
+**Historical diagnosis — the wall was visit-count, not visit-cost.** The flattened
+34-staff workload had **17,340 measure-layouts (510 × 34)
+visited on every edit, even at 100% cache reuse** — page mode with a perfect
 measure cache is still ~438 ms (horizon was 1016 ms before Lever 0). The cache
 spares the per-measure _recompute_; it does not spare the _visit_. You cannot
 reach 16 ms by making 17,340 operations faster — you reach it by **not doing
@@ -105,7 +307,7 @@ lever is **O(viewport) — stop walking the whole score per edit**; the arena
 (making each surviving visit cheaper) is a multiplier on top of it, not a
 substitute.
 
-### Measured per-edit breakdown (audited 2026-07-11, release, Rhapsody warm cache)
+### Historical per-edit breakdown (audited 2026-07-11, release, Rhapsody warm cache)
 
 Re-measured from the in-tree engine probes (`cargo test -p viritura-engine --lib
 --release <probe> -- --ignored --nocapture --test-threads=1`) so the next steps
@@ -478,8 +680,9 @@ green commit in a throwaway worktree: `git worktree add --detach ../perf <sha>`.
 
 ## The lever roadmap (what's left)
 
-The original Lever 0–3 sequence is now mostly an implementation history. Use
-this section—not the historical cost tables above—for current priorities.
+The original Lever 0–3 sequence and July priority list below are implementation
+history. Use the PR188 audit above for current publication/spatial limitations;
+the July timings are not a revalidation of this HEAD.
 
 | Lever / capability                            | Current status                                                                                                                                                              |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -490,7 +693,7 @@ this section—not the historical cost tables above—for current priorities.
 | **SAB / WASM threads**                        | ⏸ Deferred: current transfer/decode is below 2 ms and worker p50 is within budget; do not add COOP/COEP/thread complexity without a new measured need                       |
 | **Page frontier / indexed spanner fragments** | 🟡 Partial: stable Horizon chunks, compact dependency snapshots, and system-membership reuse shipped; full page reconvergence and fragment graph remain optional follow-ups |
 
-### Next session — start here (measured priority order)
+### Historical July follow-ups (remeasure before prioritizing)
 
 1. **Stabilize the pitch gate under host contention.** Repeated loaded runs moved
    worker p50 from 11.11 ms to 15–20 ms and Canvas from 1.44 ms to 2–4 ms without
@@ -578,9 +781,10 @@ than a prerequisite for the achieved frame budget:
 
 The worker owns a stateful `LayoutEngine`, retains the promoted score and layout
 graph, applies small part/global-measure patches, and transfers PatchFrame v3
-buffers by ownership. The main thread retains system/staff layers, paints them
-before flattening compatibility arrays, and patches the spatial index by dirty
-measure.
+buffers by ownership. The main thread retains system/staff layers. At PR188
+HEAD, it finalizes copied/rebuilt compatibility arrays and rebuilds the complete
+spatial index before committing matching frame/index refs and painting. The
+older paint-first and dirty-measure replacement sequence is not current.
 
 `SharedArrayBuffer` and WASM threads remain intentionally deferred. They require
 COOP/COEP and add synchronization/fallback complexity, while the accepted run
@@ -644,10 +848,11 @@ dirty range from every caller (it's `patchAffectedMeasures`-scoped on most paths
 already); `getEffectiveTimeSignature` does an O(measureIndex) backward walk that a
 parse-time `timeSigByMeasure` table would make O(1).
 
-The current accepted pitch path reports 1–2 resolved/width cells, 169 reused
+The historical July accepted pitch path reported 1–2 resolved/width cells, 169 reused
 Horizon systems, retained-layer direct paint, incremental spatial replacement,
-and 16.52 ms authoritative p50. Use the permanent headed-browser suite and its
-trace/counter artifacts for current cost attribution.
+and 16.52 ms authoritative p50. Its spatial-maintenance claim is superseded by
+the PR188 audit. Rerun the headed-browser suite through supported dev-stack
+infrastructure before making current input-to-visible claims.
 
 ### Reference workload — Beethoven's 9th (scaling ceiling)
 
@@ -667,9 +872,9 @@ load-time concern (streaming parse, per-movement sub-docs), not a per-edit one.
     `engine/viritura-wasm`'s `Default`. A probe without the dirty range measures the
     _unscoped_ worst case (e.g. `natural_widths` reads ~33 ms unscoped vs. ~5 ms on
     the real live path) and mis-ranks the passes.
-- **Burst latency only shows up in a live DevTools trace**, not a vitest run —
-  vitest awaits each edit serially and can't reproduce a human typing faster than
-  the worker drains.
+- **Use a browser trace for actual burst input-to-visible latency.** The
+  `noteInputClick` Vitest harness does exercise burst coalescing, but its Promise
+  queue and no-op paint do not measure worker transport or browser scheduling.
 
 ---
 

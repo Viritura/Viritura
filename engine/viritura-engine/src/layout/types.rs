@@ -180,6 +180,7 @@ pub(crate) struct GraceNoteLayout {
     pub(crate) x: f64,
     pub(crate) event: Event,
     pub(crate) note_positions: Vec<f64>,
+    pub(crate) display_pitches: Vec<Pitch>,
     pub(crate) stem_up: bool,
     pub(crate) after_main: bool,
     /// Acciaccatura (slashed flag) vs appoggiatura (normal flag)

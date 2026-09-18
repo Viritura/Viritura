@@ -1,16 +1,16 @@
 use super::super::config::LayoutConfig;
+use super::super::grace::GraceSpacingContext;
 use super::accidental_ink::ink_snapshot;
-use super::collectors::{
-    event_accidental_extent_sp_transposed, grace_padding_sp, notes_contain_second,
-};
-use super::timing::{sequence_timeline, BeatKey, SpacingEvent};
+use super::collectors::notes_contain_second;
+use super::timing::{sequence_timeline, BeatKey, SequenceTimeline, SpacingEvent};
 use crate::model::*;
 use crate::render::smufl::smufl;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 pub(super) struct SpacingSnapshot<'a> {
     pub onsets: Vec<BeatKey>,
-    pub grace_counts: HashMap<BeatKey, usize>,
+    pub grace_padding: HashMap<BeatKey, f64>,
+    pub grace_after_extents: HashMap<BeatKey, f64>,
     pub accidental_extents: HashMap<BeatKey, f64>,
     pub second_onsets: HashSet<BeatKey>,
     pub fermata_widths: HashMap<BeatKey, f64>,
@@ -33,11 +33,13 @@ pub(super) fn build_spacing_snapshot<'a>(
     clef_changes: &[Option<&[(f64, Clef)]>],
     beamed_event_ids: &[HashSet<String>],
     suppressed_note_ids: &[HashSet<String>],
+    kits: &[Option<&HashMap<String, KitComponent>>],
     config: &LayoutConfig,
 ) -> SpacingSnapshot<'a> {
     let mut snapshot = SpacingSnapshot {
         onsets: Vec::new(),
-        grace_counts: HashMap::new(),
+        grace_padding: HashMap::new(),
+        grace_after_extents: HashMap::new(),
         accidental_extents: HashMap::new(),
         second_onsets: HashSet::new(),
         fermata_widths: HashMap::new(),
@@ -57,6 +59,14 @@ pub(super) fn build_spacing_snapshot<'a>(
         let mut staff_onsets = BTreeSet::new();
         let mut measure_accidentals = HashMap::new();
         let default_key = KeySignature::default();
+        let default_clef = Clef {
+            sign: ClefSign::G,
+            staff_position: -2,
+            color: None,
+            glyph: None,
+            octave: None,
+            show_octave: None,
+        };
         let active_key = active_keys
             .get(staff_index)
             .copied()
@@ -70,30 +80,30 @@ pub(super) fn build_spacing_snapshot<'a>(
                 continue;
             }
             let timeline = sequence_timeline(sequence, sequence_index, sequence_count, ratio);
-            for (key, count) in timeline.grace_before {
-                snapshot
-                    .grace_counts
-                    .entry(key)
-                    .and_modify(|current| *current = (*current).max(count))
-                    .or_insert(count);
-            }
-            for (key, count) in timeline.grace_after {
-                let extent = 2.0 * config.notehead_rx + grace_padding_sp(count, config);
-                max_entry(&mut snapshot.right_ink_extents, key, extent);
-            }
-            for source in timeline.events {
+            for &source in &timeline.events {
                 onset_set.insert(source.key);
                 staff_onsets.insert(source.key);
-                collect_event_facts(
-                    source,
-                    active_key,
-                    transpositions.get(staff_index).copied().flatten(),
-                    changes,
-                    suppressed_note_ids.get(staff_index),
+                let context = GraceSpacingContext {
+                    key: active_key,
+                    transposition: transpositions.get(staff_index).copied().flatten(),
+                    clef: Some(changes.filter(|changes| !changes.is_empty()).map_or(
+                        &default_clef,
+                        |changes| {
+                            super::super::resolve::active_clef_at_beat(changes, source.key.beats())
+                        },
+                    )),
+                    kit: kits.get(staff_index).copied().flatten(),
+                    suppressed_note_ids: suppressed_note_ids.get(staff_index),
                     config,
+                };
+                let accidental_extent = collect_grace_facts(
+                    source,
+                    &timeline,
+                    &context,
                     &mut measure_accidentals,
                     &mut snapshot,
                 );
+                collect_event_facts(source, accidental_extent, &mut snapshot);
                 staff_events.push(source);
             }
         }
@@ -125,15 +135,49 @@ pub(super) fn build_spacing_snapshot<'a>(
     snapshot
 }
 
-#[allow(clippy::too_many_arguments)] // each output is a field of the single immutable snapshot
+fn collect_grace_facts(
+    source: SpacingEvent<'_>,
+    timeline: &SequenceTimeline<'_>,
+    context: &GraceSpacingContext<'_>,
+    measure_accidentals: &mut HashMap<(String, i32), i32>,
+    snapshot: &mut SpacingSnapshot<'_>,
+) -> f64 {
+    let before_events = timeline.grace_before.get(&source.key);
+    let after_events = timeline.grace_after.get(&source.key);
+    if before_events.is_none() && after_events.is_none() {
+        return context.accidental_extent(source.event, measure_accidentals);
+    }
+    let before = context.run(
+        before_events.into_iter().flatten().copied(),
+        measure_accidentals,
+    );
+    let mut principal = context.event_extent(source.event, 1.0, measure_accidentals);
+    if notes_contain_second(source.event.notes()) {
+        principal.left += 2.0 * context.config.notehead_rx;
+        principal.right += 2.0 * context.config.notehead_rx;
+    }
+    if !before.offsets.is_empty() {
+        max_entry(
+            &mut snapshot.grace_padding,
+            source.key,
+            before.before_padding(&principal),
+        );
+    }
+    let after = context.run(
+        after_events.into_iter().flatten().copied(),
+        measure_accidentals,
+    );
+    if !after.offsets.is_empty() {
+        let right = after.after_extent(&principal);
+        max_entry(&mut snapshot.right_ink_extents, source.key, right);
+        max_entry(&mut snapshot.grace_after_extents, source.key, right);
+    }
+    principal.accidental
+}
+
 fn collect_event_facts(
     source: SpacingEvent<'_>,
-    active_key: &KeySignature,
-    transposition: Option<(i32, i32)>,
-    clef_changes: Option<&[(f64, Clef)]>,
-    suppressed_note_ids: Option<&HashSet<String>>,
-    config: &LayoutConfig,
-    measure_accidentals: &mut HashMap<(String, i32), i32>,
+    accidental_extent: f64,
     snapshot: &mut SpacingSnapshot<'_>,
 ) {
     let event = source.event;
@@ -141,20 +185,12 @@ fn collect_event_facts(
         if notes_contain_second(notes) {
             snapshot.second_onsets.insert(source.key);
         }
-        let clef = clef_changes
-            .filter(|changes| !changes.is_empty())
-            .map(|changes| super::super::resolve::active_clef_at_beat(changes, source.key.beats()));
-        let extent = event_accidental_extent_sp_transposed(
-            notes,
-            active_key,
-            transposition,
-            measure_accidentals,
-            clef,
-            config.ledger_extension,
-            suppressed_note_ids,
-        );
-        if extent > 0.0 {
-            max_entry(&mut snapshot.accidental_extents, source.key, extent);
+        if accidental_extent > 0.0 {
+            max_entry(
+                &mut snapshot.accidental_extents,
+                source.key,
+                accidental_extent,
+            );
         }
     }
     if event

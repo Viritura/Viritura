@@ -58,6 +58,106 @@ fn stem(commands: &[RenderCommand]) -> (f64, f64, f64, f64) {
 }
 
 #[test]
+fn note_preview_committed_grace_parity() {
+    use crate::layout::grace::{render_grace_event, GraceRenderContext};
+    use crate::layout::types::GraceNoteLayout;
+    use crate::model::{AccidentalDisplay, Duration, Event, KeySignature, Note, Pitch};
+    use crate::render::DisplayList;
+    use std::collections::{HashMap, HashSet};
+
+    for shape in [
+        None,
+        Some(NoteheadShape::Diamond),
+        Some(NoteheadShape::X),
+        Some(NoteheadShape::TriangleUp),
+        Some(NoteheadShape::Slash),
+    ] {
+        for duration in ["half", "eighth", "16th", "1024th"] {
+            for direction in [StemDirection::Up, StemDirection::Down] {
+                for pos in [-2.0, 4.0, 10.0] {
+                    let mut preview = input(duration);
+                    preview.y = preview.staff_y + pos * preview.spatium * 0.5;
+                    preview.is_grace = true;
+                    preview.slash = true;
+                    preview.dots = 2;
+                    preview.accidental = Some(NotePreviewAccidental::Sharp);
+                    preview.notehead = shape;
+                    preview.stem_direction = Some(direction);
+                    let grace = GraceNoteLayout {
+                        x: preview.x,
+                        event: Event {
+                            duration: Duration {
+                                base: preview.duration.clone(),
+                                dots: Some(2),
+                            },
+                            notes: Some(vec![Note {
+                                pitch: Pitch {
+                                    step: "C".into(),
+                                    octave: 4,
+                                    alter: Some(1),
+                                },
+                                notehead: shape,
+                                accidental_display: Some(AccidentalDisplay {
+                                    show: true,
+                                    force: None,
+                                    enclosure: None,
+                                }),
+                                ..Note::default()
+                            }]),
+                            id: None,
+                            rest: None,
+                            staff: None,
+                            slurs: None,
+                            glissandos: None,
+                            markings: None,
+                            fermata: None,
+                            lyrics: None,
+                            stem_direction: None,
+                            orient: None,
+                        },
+                        note_positions: vec![pos],
+                        display_pitches: vec![Pitch {
+                            step: "C".into(),
+                            octave: 4,
+                            alter: Some(1),
+                        }],
+                        stem_up: direction == StemDirection::Up,
+                        after_main: false,
+                        is_slash: true,
+                        id: None,
+                        color: None,
+                    };
+                    let source = serde_json::to_value(&grace.event).unwrap();
+                    let mut committed = DisplayList::new(0.0, 0.0);
+                    render_grace_event(
+                        &mut committed,
+                        &grace,
+                        preview.staff_y,
+                        preview.spatium,
+                        &LayoutConfig::default(),
+                        &HashSet::new(),
+                        &mut GraceRenderContext {
+                            active_key: &KeySignature::default(),
+                            measure_acc: &mut HashMap::new(),
+                            use_accidental_display: true,
+                            kit: None,
+                            tie_accidentals: None,
+                        },
+                        "grace",
+                    );
+                    assert_eq!(serde_json::to_value(&grace.event).unwrap(), source);
+                    assert_eq!(
+                        serde_json::to_value(&committed.commands).unwrap(),
+                        serde_json::to_value(compute_note_preview(&preview)).unwrap(),
+                        "{shape:?}, {duration}, {direction:?}, position {pos}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn note_preview_duration_heads_and_stems() {
     for (duration, cp, has_stem) in [
         ("duplexMaxima", smufl::NOTEHEAD_DOUBLE_WHOLE, false),

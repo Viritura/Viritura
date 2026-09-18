@@ -100,15 +100,6 @@ pub(crate) fn log_duration_width(
     QUARTER_SPACE_SP * ratio.powf(DURATION_SPACING_EXPONENT)
 }
 
-/// Compute grace note padding (in spatium) for a given count of grace notes.
-pub(super) fn grace_padding_sp(count: usize, config: &LayoutConfig) -> f64 {
-    let grace_scale = 0.65;
-    let grace_nw = config.notehead_rx * 2.0 * grace_scale;
-    let grace_gap = 0.3;
-    let grace_to_main = 1.2;
-    count as f64 * grace_nw + (count as f64 - 1.0).max(0.0) * grace_gap + grace_to_main
-}
-
 /// Estimate the leftward horizontal extent (in staff spaces) of an event's
 /// stacked accidental column, measured from the column's right edge (the
 /// boundary that sits `acc_note_gap` left of the notehead).
@@ -220,7 +211,7 @@ pub(crate) fn event_accidental_extent_sp(
 }
 
 #[allow(clippy::too_many_arguments)] // Mirrors rendered accidental state with optional written-pitch projection.
-pub(super) fn event_accidental_extent_sp_transposed(
+pub(crate) fn event_accidental_extent_sp_transposed(
     notes: &[Note],
     active_key: &KeySignature,
     transposition: Option<(i32, i32)>,
@@ -300,7 +291,7 @@ pub(super) fn event_accidental_extent_sp_transposed(
     extent
 }
 
-pub(super) fn spacing_display_pitch(note: &Note, transposition: Option<(i32, i32)>) -> Pitch {
+pub(crate) fn spacing_display_pitch(note: &Note, transposition: Option<(i32, i32)>) -> Pitch {
     let Some((staff_distance, half_steps)) = transposition else {
         return note.pitch.clone();
     };

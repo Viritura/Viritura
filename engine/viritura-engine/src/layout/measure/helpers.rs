@@ -449,6 +449,7 @@ pub(crate) fn layout_sequence_content(
                         x: 0.0, // positioned later
                         event: ev.clone(),
                         note_positions,
+                        display_pitches: compute_display_pitches(notes, transposition),
                         stem_up,
                         after_main: false,
                         is_slash,

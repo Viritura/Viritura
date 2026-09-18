@@ -1,18 +1,32 @@
 //! Grace note rendering — reduced-size notes with slurs.
 
 use super::config::LayoutConfig;
+use super::render_events::{render_note_chord, NoteChordInput, NoteChordStyle};
 use super::types::*;
-use crate::render::smufl::smufl;
+use crate::model::{KeySignature, KitComponent};
 use crate::render::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) const GRACE_SCALE: f64 = 0.65;
+
+mod spacing;
+pub(crate) use spacing::{position_grace_notes, GraceSpacingContext};
 
 // ═══════════════════════════════════════════
 // Grace note rendering
 // ═══════════════════════════════════════════
 
-/// Render a single grace note at reduced size (0.65× spatium).
+/// Score-owned accidental decisions and percussion shapes, also used by previews.
+pub(crate) struct GraceRenderContext<'a> {
+    pub active_key: &'a KeySignature,
+    pub measure_acc: &'a mut HashMap<(String, i32), i32>,
+    pub use_accidental_display: bool,
+    pub kit: Option<&'a HashMap<String, KitComponent>>,
+    pub tie_accidentals: Option<&'a HashMap<String, bool>>,
+}
+
+/// Render reduced-size ink on the full staff grid. Group beams own their stems.
+#[allow(clippy::too_many_arguments)] // grace geometry and score-resolved accidental context are independent inputs
 pub(crate) fn render_grace_event(
     dl: &mut DisplayList,
     gn: &GraceNoteLayout,
@@ -20,165 +34,57 @@ pub(crate) fn render_grace_event(
     sp: f64,
     config: &LayoutConfig,
     beamed_ids: &HashSet<String>,
+    context: &mut GraceRenderContext<'_>,
+    element_id: &str,
 ) {
-    let scale = GRACE_SCALE;
-    let event = &gn.event;
-    let x = gn.x;
-    let color: &str = gn.color.as_deref().unwrap_or("#000000");
-
-    if event.is_rest() {
+    if gn.event.is_rest() || gn.event.notes().is_empty() {
         return;
     }
-    let notes = event.notes();
-    if notes.is_empty() {
-        return;
-    }
-
-    let notehead_w = config.notehead_rx * 2.0 * scale * sp;
-    let notehead_codepoint = smufl::notehead_glyph(&event.duration.base);
-    let glyph_size = 4.0 * sp * scale;
-
-    // Noteheads + ledger lines
-    for &pos in &gn.note_positions {
-        let note_y = staff_y + pos * sp * 0.5;
-
-        // Ledger lines above staff (at reduced width)
-        if pos < 0.0 {
-            let mut ledger = -2.0;
-            while ledger >= pos {
-                let ly = staff_y + ledger * sp * 0.5;
-                dl.ledger_line(
-                    x - config.ledger_extension * sp * scale,
-                    ly,
-                    notehead_w + 2.0 * config.ledger_extension * sp * scale,
-                    config.ledger_line_width * sp,
-                );
-                ledger -= 2.0;
-            }
-        }
-
-        // Ledger lines below staff
-        if pos > 8.0 {
-            let mut ledger = 10.0;
-            while ledger <= pos {
-                let ly = staff_y + ledger * sp * 0.5;
-                dl.ledger_line(
-                    x - config.ledger_extension * sp * scale,
-                    ly,
-                    notehead_w + 2.0 * config.ledger_extension * sp * scale,
-                    config.ledger_line_width * sp,
-                );
-                ledger += 2.0;
-            }
-        }
-
-        // Notehead glyph
-        dl.push(RenderCommand::DrawGlyph {
-            x,
-            y: note_y,
-            codepoint: notehead_codepoint,
-            font: "Bravura".into(),
-            size: glyph_size,
-            color: color.into(),
-            rotation: 0.0,
-        });
-    }
-
-    // Stem + flag (beamed grace notes: stems drawn by render_grace_beams)
-    if event.duration.base.has_stem() && !gn.note_positions.is_empty() {
-        let top_pos = gn
-            .note_positions
-            .iter()
-            .cloned()
-            .fold(f64::INFINITY, f64::min);
-        let bottom_pos = gn
-            .note_positions
-            .iter()
-            .cloned()
-            .fold(f64::NEG_INFINITY, f64::max);
-        let stem_len = config.stem_length * sp * scale;
-
-        let is_beamed = gn.id.as_ref().is_some_and(|id| beamed_ids.contains(id));
-
-        // Beamed grace notes: stems are drawn by render_grace_beams with
-        // correct beam-connected length. Only draw stems here for non-beamed.
-        if !is_beamed {
-            if gn.stem_up {
-                // SMuFL stemUpSE anchor (scaled for grace notes)
-                let stem_x = x + smufl::STEM_UP_SE.0 * sp * scale - config.stem_width * sp * 0.5;
-                let stem_bottom =
-                    staff_y + bottom_pos * sp * 0.5 + smufl::STEM_UP_SE.1 * sp * scale;
-                let flag_y = staff_y + top_pos * sp * 0.5 - stem_len;
-                // Extend stem through flag glyph (Bravura stemUpNW anchor)
-                let ext =
-                    smufl::flag_stem_extension(event.duration.base.flag_count(), true) * sp * scale;
-                let stem_top = flag_y - ext;
-                dl.stem(stem_x, stem_top, stem_bottom, config.stem_width * sp);
-
-                let flag_count = event.duration.base.flag_count();
-                if flag_count > 0 {
-                    if let Some(flag_cp) = smufl::flag_glyph(flag_count, true) {
-                        dl.push(RenderCommand::DrawGlyph {
-                            x: stem_x,
-                            y: flag_y,
-                            codepoint: flag_cp,
-                            font: "Bravura".into(),
-                            size: glyph_size,
-                            color: color.into(),
-                            rotation: 0.0,
-                        });
-                    }
-                    if gn.is_slash {
-                        let slash_center_y = stem_top + stem_len * 0.35;
-                        render_grace_slash(
-                            dl,
-                            stem_x,
-                            slash_center_y,
-                            sp,
-                            scale,
-                            config.stem_width,
-                            color,
-                        );
-                    }
-                }
-            } else {
-                // SMuFL stemDownNW anchor (scaled for grace notes)
-                let stem_x = x + smufl::STEM_DOWN_NW.0 * sp * scale + config.stem_width * sp * 0.5;
-                let stem_top = staff_y + top_pos * sp * 0.5;
-                let flag_y = staff_y + bottom_pos * sp * 0.5 + stem_len;
-                // Extend stem through flag glyph (Bravura stemDownSW anchor)
-                let ext = smufl::flag_stem_extension(event.duration.base.flag_count(), false)
-                    * sp
-                    * scale;
-                let stem_bottom = flag_y + ext;
-                dl.stem(stem_x, stem_top, stem_bottom, config.stem_width * sp);
-
-                let flag_count = event.duration.base.flag_count();
-                if flag_count > 0 {
-                    if let Some(flag_cp) = smufl::flag_glyph(flag_count, false) {
-                        dl.push(RenderCommand::DrawGlyph {
-                            x: stem_x,
-                            y: flag_y,
-                            codepoint: flag_cp,
-                            font: "Bravura".into(),
-                            size: glyph_size,
-                            color: color.into(),
-                            rotation: 0.0,
-                        });
-                    }
-                    if gn.is_slash {
-                        let slash_center_y = stem_bottom - stem_len * 0.35;
-                        render_grace_slash(
-                            dl,
-                            stem_x,
-                            slash_center_y,
-                            sp,
-                            scale,
-                            config.stem_width,
-                            color,
-                        );
-                    }
-                }
+    let start = dl.commands.len();
+    render_note_chord(
+        dl,
+        NoteChordInput {
+            event: &gn.event,
+            x: gn.x,
+            stem_up: gn.stem_up,
+            note_positions: &gn.note_positions,
+            note_x_offsets: &[],
+            shared_noteheads: &[],
+            display_pitches: &gn.display_pitches,
+            id: gn.id.as_deref(),
+        },
+        staff_y,
+        sp,
+        config,
+        NoteChordStyle {
+            scale: GRACE_SCALE,
+            slash: gn.is_slash,
+        },
+        beamed_ids,
+        context.active_key,
+        context.measure_acc,
+        context.use_accidental_display,
+        element_id,
+        config.ledger_extension,
+        config.ledger_extension,
+        context.kit,
+        context.tie_accidentals,
+        &[],
+        &[],
+    );
+    if let Some(color) = &gn.color {
+        for command in &mut dl.commands[start..] {
+            match command {
+                RenderCommand::DrawGlyph { color: ink, .. } => *ink = color.clone(),
+                RenderCommand::DrawLine {
+                    x1,
+                    x2,
+                    y1,
+                    y2,
+                    color: ink,
+                    ..
+                } if x1 != x2 && y1 != y2 => *ink = color.clone(),
+                _ => {}
             }
         }
     }

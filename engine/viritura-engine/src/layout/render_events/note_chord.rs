@@ -3,6 +3,33 @@
 use super::*;
 use crate::layout::grace::render_grace_slash;
 
+/// Borrowed resolved geometry; written pitches never replace source pitches.
+pub(crate) struct NoteChordInput<'a> {
+    pub event: &'a Event,
+    pub x: f64,
+    pub stem_up: bool,
+    pub note_positions: &'a [f64],
+    pub note_x_offsets: &'a [f64],
+    pub shared_noteheads: &'a [bool],
+    pub display_pitches: &'a [Pitch],
+    pub id: Option<&'a str>,
+}
+
+impl<'a> NoteChordInput<'a> {
+    pub fn from_arena(events: &'a EventArena, ei: usize) -> Self {
+        Self {
+            event: events.event(ei),
+            x: events.x(ei),
+            stem_up: events.stem_up(ei),
+            note_positions: events.note_positions(ei),
+            note_x_offsets: events.note_x_offsets(ei),
+            shared_noteheads: events.shared_noteheads(ei),
+            display_pitches: events.display_pitches(ei),
+            id: events.id(ei),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct NoteChordStyle {
     pub scale: f64,
@@ -18,11 +45,24 @@ impl Default for NoteChordStyle {
     }
 }
 
+pub(crate) fn notehead_for_note(
+    note: Option<&Note>,
+    duration: &NoteValueBase,
+    kit: Option<&HashMap<String, KitComponent>>,
+) -> u32 {
+    let shape = note.and_then(|note| match &note.kit_component {
+        Some(id) => kit
+            .and_then(|k| k.get(id))
+            .and_then(|c| c.notehead.as_ref()),
+        None => note.notehead.as_ref(),
+    });
+    smufl::shaped_notehead_glyph(shape, duration)
+}
+
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one chord's heads, dots, accidental skyline and stem share per-note metrics
 pub(crate) fn render_note_chord(
     dl: &mut DisplayList,
-    events: &EventArena,
-    ei: usize,
+    chord: NoteChordInput<'_>,
     staff_y: f64,
     staff_sp: f64,
     config: &LayoutConfig,
@@ -39,34 +79,21 @@ pub(crate) fn render_note_chord(
     sibling_noteheads: &[(f64, f64, f64)],
     sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
 ) {
-    let event = events.event(ei);
+    let event = chord.event;
     let notes = event.notes();
-    let x = events.x(ei);
-    let stem_up = events.stem_up(ei);
-    let note_positions = events.note_positions(ei);
-    let note_x_offsets = events.note_x_offsets(ei);
-    let shared_noteheads = events.shared_noteheads(ei);
-    let display_pitches = events.display_pitches(ei);
+    let x = chord.x;
+    let stem_up = chord.stem_up;
+    let note_positions = chord.note_positions;
+    let note_x_offsets = chord.note_x_offsets;
+    let shared_noteheads = chord.shared_noteheads;
+    let display_pitches = chord.display_pitches;
     let sp = staff_sp * style.scale;
     let notehead_w = config.notehead_rx * 2.0 * sp;
     let notehead_codepoint = smufl::notehead_glyph(&event.duration.base);
     let glyph_size = 4.0 * sp;
     let mut acc_infos = Vec::new();
 
-    let per_note_cp = |i: usize| -> u32 {
-        if let Some(note) = notes.get(i) {
-            if note.kit_component.is_none() {
-                return smufl::shaped_notehead_glyph(note.notehead.as_ref(), &event.duration.base);
-            }
-            if let Some(kc_id) = &note.kit_component {
-                let shape = kit
-                    .and_then(|k| k.get(kc_id.as_str()))
-                    .and_then(|c| c.notehead.as_ref());
-                return smufl::shaped_notehead_glyph(shape, &event.duration.base);
-            }
-        }
-        notehead_codepoint
-    };
+    let per_note_cp = |i: usize| notehead_for_note(notes.get(i), &event.duration.base, kit);
 
     // Standard engraving practice: chord dots share a right-aligned column,
     // but their vertical slots and ledger lines remain on the full staff grid.
@@ -154,8 +181,7 @@ pub(crate) fn render_note_chord(
     }
     render_accidentals_stacked(
         dl,
-        events,
-        ei,
+        &chord,
         x,
         sp,
         staff_sp,
@@ -168,7 +194,7 @@ pub(crate) fn render_note_chord(
         sibling_accidentals,
     );
 
-    let is_beamed = events.id(ei).is_some_and(|id| beamed_ids.contains(id));
+    let is_beamed = chord.id.is_some_and(|id| beamed_ids.contains(id));
     if event.duration.base.has_stem() && !note_positions.is_empty() && !is_beamed {
         let top_pos = note_positions.iter().copied().fold(f64::INFINITY, f64::min);
         let bottom_pos = note_positions

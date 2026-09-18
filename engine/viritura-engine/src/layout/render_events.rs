@@ -20,7 +20,7 @@ use accidental_shapes::{register_accidental_shape, tag_accidental, AccidentalPla
 mod tie_accidentals;
 pub(crate) use tie_accidentals::{compute_tie_accidental_map, compute_tie_accidental_map_refs};
 mod note_chord;
-pub(crate) use note_chord::{render_note_chord, NoteChordStyle};
+pub(crate) use note_chord::{notehead_for_note, render_note_chord, NoteChordInput, NoteChordStyle};
 
 /// Compute the stem tip Y, ensuring stems on ledger-line notes extend at least
 /// to the middle staff line (standard engraving rule).
@@ -40,7 +40,7 @@ fn stem_tip_y(note_edge_pos: f64, stem_up: bool, staff_y: f64, sp: f64, stem_len
 /// down-stem to the highest (min). For shaped drum noteheads (X, triangle,
 /// diamond, slash) the per-shape anchor differs from the oval default — see
 /// `smufl::stem_anchors`. `cp_at` returns the per-note glyph codepoint.
-fn extreme_stem_anchor(
+pub(super) fn extreme_stem_anchor(
     note_positions: &[f64],
     stem_up: bool,
     cp_at: impl Fn(usize) -> u32,
@@ -419,8 +419,7 @@ fn clear_sibling_obstacles(
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one stateful accidental-skyline placement pass
 fn render_accidentals_stacked(
     dl: &mut DisplayList,
-    events: &EventArena,
-    ei: usize,
+    chord: &NoteChordInput<'_>,
     x: f64,
     sp: f64,
     staff_sp: f64,
@@ -442,8 +441,8 @@ fn render_accidentals_stacked(
     // nearby.
     sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
 ) {
-    let note_positions = events.note_positions(ei);
-    let note_x_offsets = events.note_x_offsets(ei);
+    let note_positions = chord.note_positions;
+    let note_x_offsets = chord.note_x_offsets;
     let glyph_scale = sp / staff_sp;
     // Minimum clear gap between an accidental and the notehead it qualifies.
     // This is the hard floor the barrier skyline enforces, so it must match the
@@ -685,7 +684,7 @@ fn render_accidentals_stacked(
                 color: "#000000".into(),
                 rotation: 0.0,
             });
-            register_accidental_shape(dl, cmd_idx, events.id(ei), idx, "left");
+            register_accidental_shape(dl, cmd_idx, chord.id, idx, "left");
             acc_cmds.push(cmd_idx);
             cursor_x += enc_w + enc_gap;
         }
@@ -700,7 +699,7 @@ fn render_accidentals_stacked(
             color: "#000000".into(),
             rotation: 0.0,
         });
-        register_accidental_shape(dl, acc_cmd_idx, events.id(ei), idx, "body");
+        register_accidental_shape(dl, acc_cmd_idx, chord.id, idx, "body");
         acc_cmds.push(acc_cmd_idx);
         cursor_x += acc_width;
 
@@ -716,7 +715,7 @@ fn render_accidentals_stacked(
                 color: "#000000".into(),
                 rotation: 0.0,
             });
-            register_accidental_shape(dl, cmd_idx, events.id(ei), idx, "right");
+            register_accidental_shape(dl, cmd_idx, chord.id, idx, "right");
             acc_cmds.push(cmd_idx);
         }
 
@@ -793,8 +792,7 @@ pub(crate) fn render_event(
 
     render_note_chord(
         dl,
-        events,
-        ei,
+        NoteChordInput::from_arena(events, ei),
         staff_y,
         sp,
         config,
