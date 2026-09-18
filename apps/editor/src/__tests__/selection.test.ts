@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { selectionReducer, type Selection, type SelectionAction } from "../store/selectionStore";
+import {
+  selectionReducer,
+  type Selection,
+  type SelectionAction,
+  type SelectionRhythmicRange,
+} from "../store/selectionStore";
 
 describe("selectionReducer", () => {
   const none: Selection = { kind: "none" };
@@ -200,6 +205,11 @@ describe("selectionReducer", () => {
     });
 
     describe("SELECT_ELEMENTS", () => {
+      const rhythmicRange: SelectionRhythmicRange = {
+        start: { measureIndex: 0, beat: 0 },
+        end: { measureIndex: 0, beat: 4 },
+      };
+
       it("selects an exact non-contiguous group and removes duplicates", () => {
         const result = selectionReducer(none, {
           type: "SELECT_ELEMENTS",
@@ -228,6 +238,46 @@ describe("selectionReducer", () => {
           elementIds: ["p1/m0/s0/a", "p1/m0/s0/b"],
           measureAnchor,
         });
+      });
+
+      it.each([{ elementIds: ["p0/m0/s0/a"] }, { elementIds: ["p0/m0/s0/a", "p0/m0/s1/b"] }])(
+        "preserves explicit timing for the group $elementIds",
+        ({ elementIds }) => {
+          const measureAnchor = { partIndex: 0, staffIndex: 0, measureIndex: 0 };
+          const result = selectionReducer(none, {
+            type: "SELECT_ELEMENTS",
+            elementIds: [...elementIds, elementIds[0]!, "bare-id"],
+            measureAnchor,
+            rhythmicRange,
+          });
+          expect(result).toEqual({ kind: "multi", elementIds, measureAnchor, rhythmicRange });
+        },
+      );
+
+      it.each([{ elementIds: [] }, { elementIds: ["bare-id"] }])(
+        "clears an empty valid group even with timing: $elementIds",
+        ({ elementIds }) => {
+          expect(selectionReducer(single, { type: "SELECT_ELEMENTS", elementIds, rhythmicRange })).toEqual(none);
+        },
+      );
+
+      it.each<SelectionAction>([
+        { type: "SELECT_ELEMENT", elementId: "p0/m0/s0/c" },
+        { type: "SELECT_RANGE", startElementId: "p0/m0/s0/a", endElementId: "p0/m0/s0/c" },
+        { type: "SELECT_ELEMENTS", elementIds: ["p0/m0/s0/a", "p0/m0/s0/c"] },
+        { type: "TOGGLE_SELECTION", elementId: "p0/m0/s0/c" },
+        { type: "TOGGLE_SELECTION", elementId: "p0/m0/s0/a" },
+        { type: "EXTEND_SELECTION", elementId: "p0/m0/s0/c" },
+        { type: "SELECT_MEASURE", partIndex: 0, staffIndex: 0, measureIndex: 1 },
+        { type: "EXTEND_MEASURE", partIndex: 0, staffIndex: 0, measureIndex: 1 },
+        { type: "CLEAR_SELECTION" },
+      ])("clears stale timing on $type", (action) => {
+        const timed: Selection = {
+          kind: "multi",
+          elementIds: ["p0/m0/s0/a", "p0/m0/s1/b"],
+          rhythmicRange,
+        };
+        expect(selectionReducer(timed, action)).not.toHaveProperty("rhythmicRange");
       });
     });
 
