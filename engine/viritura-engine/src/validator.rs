@@ -23,7 +23,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::sync::OnceLock;
 
-use jsonschema::JSONSchema;
+use jsonschema::Validator;
 use serde_json::Value;
 
 use crate::raw;
@@ -103,14 +103,14 @@ impl std::error::Error for RawScoreValidationFailure {}
 
 /// Lazily-compiled MNX schema validator. Compilation walks the entire MNX
 /// schema graph and is non-trivial (~a few ms), so we do it once.
-fn schema() -> &'static JSONSchema {
-    static COMPILED: OnceLock<JSONSchema> = OnceLock::new();
+fn schema() -> &'static Validator {
+    static COMPILED: OnceLock<Validator> = OnceLock::new();
     COMPILED.get_or_init(|| {
         let value: Value = serde_json::from_str(MNX_SCHEMA_JSON)
             .expect("embedded MNX schema is valid JSON (checked at codegen time)");
-        JSONSchema::options()
+        Validator::options()
             .with_draft(jsonschema::Draft::Draft202012)
-            .compile(&value)
+            .build(&value)
             .expect("embedded MNX schema compiles as a valid JSON Schema (draft 2020-12)")
     })
 }

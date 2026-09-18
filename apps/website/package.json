@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tanstack/react-router": "^1.170.8",
+    "@tanstack/react-router": "^1.170.36",
     "@viritura/format": "workspace:*",
     "@viritura/monaco-react": "workspace:*",
     "@viritura/musicxml": "workspace:*",
@@ -34,7 +34,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.0.5",
-    "astro": "7.2.10",
+    "astro": "7.3.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "happy-dom": "^20.8.9",
     "typescript": "^5.7.0",
