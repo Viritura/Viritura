@@ -26,12 +26,7 @@ export interface CsrfResponse {
 }
 
 export type RecentAuthAction =
-  | "SetPassword"
-  | "ChangeEmail"
-  | "DeleteAccount"
-  | "UnlinkLogin"
-  | "LinkLogin"
-  | "ManageTwoFactor";
+  "SetPassword" | "ChangeEmail" | "DeleteAccount" | "UnlinkLogin" | "LinkLogin" | "ManageTwoFactor";
 
 const TWO_FACTOR_REQUIRED_PARAM = "two_factor_required";
 
@@ -247,8 +242,7 @@ interface LoginResponseDto {
  * <c>loginVirituraTwoFactor</c> or <c>loginVirituraRecovery</c> to finish.
  */
 export type LoginResult =
-  | { readonly status: "signedIn"; readonly user: VirituraUser }
-  | { readonly status: "requiresTwoFactor" };
+  { readonly status: "signedIn"; readonly user: VirituraUser } | { readonly status: "requiresTwoFactor" };
 
 /**
  * Completes a 2FA-gated sign-in with a TOTP code. The 2FA-partial cookie set by

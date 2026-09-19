@@ -9,9 +9,7 @@ import { keys } from "./types";
 
 /** Resolved breath/fermata selection. */
 export type BreathFermataSelection =
-  | { kind: "breath"; symbol: BreathMarkSymbol }
-  | { kind: "fermata"; shape: FermataSymbol }
-  | { kind: "caesura" };
+  { kind: "breath"; symbol: BreathMarkSymbol } | { kind: "fermata"; shape: FermataSymbol } | { kind: "caesura" };
 
 interface BreathFermataItem {
   id: string;

@@ -686,9 +686,7 @@ interface PartLayoutContext {
       "id": "fl1",
       "measures": [
         {
-          "sequences": [
-            /* … */
-          ],
+          "sequences": [/* … */],
           "_x": {
             "viritura": {
               "condensingOverride": "divisi",
@@ -750,9 +748,7 @@ The aspirational `partLayouts` field would look roughly like:
         "maxPaperWastePercent": 15,
       },
       "multirest": { "enabled": true, "breakAtRehearsalMarks": true },
-      "cueNotes": [
-        /* see §4.3 */
-      ],
+      "cueNotes": [/* see §4.3 */],
     },
   },
 }

@@ -108,12 +108,10 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   if (raw.name) sd.name = raw.name;
   if (raw.layout) sd.layout = raw.layout;
   if (raw.multimeasureRests && raw.multimeasureRests.length > 0) {
-    sd.multimeasureRests = raw.multimeasureRests.map(
-      (m: RawMultimeasureRest): MultimeasureRestRange => ({
-        start: m.start,
-        duration: m.duration,
-      }),
-    );
+    sd.multimeasureRests = raw.multimeasureRests.map((m: RawMultimeasureRest): MultimeasureRestRange => ({
+      start: m.start,
+      duration: m.duration,
+    }));
   }
   if (raw.pages && raw.pages.length > 0) {
     sd.pages = raw.pages.map(parsePageDefinition);
@@ -217,23 +215,21 @@ function parseSystemDefinition(raw: RawSystem): SystemDefinition {
   };
   if (raw.layout) sd.layout = raw.layout;
   if (raw.layoutChanges && raw.layoutChanges.length > 0) {
-    sd.layoutChanges = raw.layoutChanges.map(
-      (lc: RawLayoutChange): LayoutChange => ({
-        layout: lc.layout,
-        location: {
-          measure: lc.location.measure,
-          ...(lc.location.position
-            ? {
-                position: {
-                  // Schema types fraction as integer-unsigned[]; the decoded
-                  // model uses a [num, den] tuple. Narrow array→tuple here.
-                  fraction: lc.location.position.fraction as [number, number],
-                },
-              }
-            : {}),
-        },
-      }),
-    );
+    sd.layoutChanges = raw.layoutChanges.map((lc: RawLayoutChange): LayoutChange => ({
+      layout: lc.layout,
+      location: {
+        measure: lc.location.measure,
+        ...(lc.location.position
+          ? {
+              position: {
+                // Schema types fraction as integer-unsigned[]; the decoded
+                // model uses a [num, den] tuple. Narrow array→tuple here.
+                fraction: lc.location.position.fraction as [number, number],
+              },
+            }
+          : {}),
+      },
+    }));
   }
   return sd;
 }

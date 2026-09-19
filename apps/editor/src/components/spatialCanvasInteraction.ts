@@ -11,9 +11,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 5;
 
 export type DragTarget =
-  | { type: "part"; index: number }
-  | { type: "listener"; index: number }
-  | { type: "child"; childId: string };
+  { type: "part"; index: number } | { type: "listener"; index: number } | { type: "child"; childId: string };
 
 interface ChildNode {
   id: string;

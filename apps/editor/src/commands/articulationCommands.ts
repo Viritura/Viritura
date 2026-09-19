@@ -231,12 +231,10 @@ export function removeMultiNoteTremolo(
   const item = content?.[containerIndex];
   if (!content || item?.type !== "tremolo") return null;
 
-  const restored = item.content.map(
-    (event): NoteEvent => ({
-      ...event,
-      duration: item.individualDuration ? { ...item.individualDuration } : { ...event.duration },
-    }),
-  );
+  const restored = item.content.map((event): NoteEvent => ({
+    ...event,
+    duration: item.individualDuration ? { ...item.individualDuration } : { ...event.duration },
+  }));
   content.splice(containerIndex, 1, ...restored);
   return score;
 }

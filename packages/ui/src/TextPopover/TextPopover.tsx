@@ -42,12 +42,7 @@ export interface TextPopoverProps {
 }
 
 export type TextPopoverNavigationCommand =
-  | "next"
-  | "previous"
-  | "nextBeat"
-  | "previousBeat"
-  | "nextMeasure"
-  | "previousMeasure";
+  "next" | "previous" | "nextBeat" | "previousBeat" | "nextMeasure" | "previousMeasure";
 
 // ═══════════════════════════════════════════
 // Component

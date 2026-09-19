@@ -855,12 +855,10 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
       throw new Error(`Container at index ${tupletIndex} not found`);
     }
     if (container.type === "tremolo") {
-      const restored = container.content.map(
-        (innerEvent): NoteEvent => ({
-          ...innerEvent,
-          duration: container.individualDuration ? { ...container.individualDuration } : { ...innerEvent.duration },
-        }),
-      );
+      const restored = container.content.map((innerEvent): NoteEvent => ({
+        ...innerEvent,
+        duration: container.individualDuration ? { ...container.individualDuration } : { ...innerEvent.duration },
+      }));
       const event = restored[eventIndex];
       if (!event) throw new Error(`Event ${eventIndex} not found`);
       if (!isRest(event)) restored[eventIndex] = createRest(event.duration);
