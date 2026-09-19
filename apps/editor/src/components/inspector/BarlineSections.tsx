@@ -231,10 +231,19 @@ export function MeasureRepeatSection({
 
 export interface TrillSectionProps {
   accidental: number | undefined;
+  showExtension: boolean;
+  canEnableExtension: boolean;
   onAccidentalChange: (value: -1 | 0 | 1 | null) => () => void;
+  onExtensionVisibleChange: (visible: boolean) => void;
 }
 
-export function TrillSection({ accidental, onAccidentalChange }: TrillSectionProps) {
+export function TrillSection({
+  accidental,
+  showExtension,
+  canEnableExtension,
+  onAccidentalChange,
+  onExtensionVisibleChange,
+}: TrillSectionProps) {
   const current = accidentalToValue(accidental);
   const handleChange = (next: TrillAccidentalValue) => {
     if (next === "none") onAccidentalChange(null)();
@@ -255,6 +264,13 @@ export function TrillSection({ accidental, onAccidentalChange }: TrillSectionPro
           />
         </div>
       </label>
+      <Checkbox
+        data-testid="notation-trill-show-extension"
+        label="Show extension line"
+        checked={showExtension}
+        disabled={!showExtension && !canEnableExtension}
+        onChange={(event) => onExtensionVisibleChange(event.target.checked)}
+      />
     </fieldset>
   );
 }

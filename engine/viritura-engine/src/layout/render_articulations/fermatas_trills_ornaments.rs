@@ -358,6 +358,9 @@ pub(crate) fn render_trills(
                 },
                 None => continue,
             };
+            if trill.show_symbol == Some(false) {
+                continue;
+            }
 
             let codepoint = smufl::trill_glyph(&trill.accidental);
             let (_, _, glyph_w, _) = smufl::glyph_bbox(codepoint);
@@ -366,25 +369,7 @@ pub(crate) fn render_trills(
             // Ref: industry-standard engravers — trills are placed above the highest
             // point (top of staff or highest note/stem, whichever is higher).
             let tx = el.x + notehead_w * 0.5 - glyph_w * sp * 0.5;
-            let default_y = staff_y - config.trill_above_staff * sp;
-            let highest_note_y = if !el.note_positions.is_empty() {
-                let top_pos = el
-                    .note_positions
-                    .iter()
-                    .cloned()
-                    .fold(f64::INFINITY, f64::min);
-                let note_y = staff_y + top_pos * sp * 0.5;
-                // If stem up, stem tip is even higher
-                let stem_tip_y = if el.stem_up && el.event.duration.base.has_stem() {
-                    note_y - config.stem_length * sp
-                } else {
-                    note_y
-                };
-                stem_tip_y - 1.0 * sp // clearance above stem tip
-            } else {
-                default_y
-            };
-            let mut ty = default_y.min(highest_note_y);
+            let mut ty = super::super::trill_lines::trill_baseline_y(el, staff_y, sp, config);
 
             // Sit above any articulation (accent, marcato, staccato, ...)
             // already stacked above this notehead: notehead, then

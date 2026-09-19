@@ -894,13 +894,22 @@ has native `staccatissimo`, but not the wedge glyph variant.
 
 ### `trill`
 
-A trill marking (tr~ symbol above the note).
+A trill marking, optionally followed by a wavy extension line. The initial
+symbol is shown by default. Set `showSymbol` to `false` when preserving an
+extension-only line. The target can be the trill event itself with
+`targetEdge: "end"` to span the written duration of one note.
 
-| Property     | Type               | Required | Description                                                  |
-| ------------ | ------------------ | -------- | ------------------------------------------------------------ |
-| `accidental` | `-1` \| `0` \| `1` | No       | Auxiliary note accidental: -1 = flat, 0 = natural, 1 = sharp |
+| Property               | Type                 | Required | Description                                                  |
+| ---------------------- | -------------------- | -------- | ------------------------------------------------------------ |
+| `accidental`           | `-1` \| `0` \| `1`   | No       | Auxiliary note accidental: -1 = flat, 0 = natural, 1 = sharp |
+| `showSymbol`           | boolean              | No       | Whether to show the initial trill symbol; defaults to `true` |
+| `extension.target`     | string               | No       | Event ID whose rhythmic edge anchors the line end            |
+| `extension.targetEdge` | `"start"` \| `"end"` | No       | Target event edge; defaults to `"start"`                     |
 
-**SMuFL glyph**: U+E566 (ornamentTrill)
+**SMuFL glyphs**: U+E566 (ornamentTrill) and U+EAA4 (wiggleTrill). Extension
+rendering uses the active engraving font rather than preserving a
+source-application font choice. In the editor, the extension is a selectable
+spanner whose end handle snaps to the start or end edge of note events.
 
 ### `ornaments`
 

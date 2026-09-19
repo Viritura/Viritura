@@ -18,6 +18,7 @@ export type ScoreElementType =
   | "event"
   | "slur"
   | "tie"
+  | "trill"
   | "dynamics"
   | "hairpin"
   | "pedal"
@@ -47,6 +48,7 @@ export type ScoreElementType =
 export function getElementType(id: string): ScoreElementType {
   if (id.startsWith("slur/")) return "slur";
   if (id.startsWith("tie/")) return "tie";
+  if (id.startsWith("trill-line/")) return "trill";
   const last = id.slice(id.lastIndexOf("/") + 1);
   if (last === "clef") return "clef";
   if (last === "time") return "time";
@@ -194,23 +196,37 @@ export class SpatialIndex {
       }
     }
 
-    // Supplement with tagged commands not in element_bboxes (e.g., spanners)
-    if (dl.elementIds && dl.elementIds.length > 0) {
-      for (let i = 0; i < dl.commands.length; i++) {
-        const engineId = dl.elementIds[i];
-        if (!engineId || seen.has(engineId)) continue;
-
-        const cmd = dl.commands[i];
-        if (!cmd) continue;
-        const bbox = commandBBox(cmd);
-        if (!bbox) continue;
-
-        seen.add(engineId);
-        entries.push({ id: engineId, ...bbox });
-      }
-    }
+    SpatialIndex.appendTaggedCommandBBoxes(dl, entries, byId, new Set(seen));
 
     return new SpatialIndex(entries);
+  }
+
+  private static appendTaggedCommandBBoxes(
+    dl: DisplayList,
+    entries: ElementBBox[],
+    byId: Map<string, ElementBBox[]>,
+    engineBBoxIds: ReadonlySet<string>,
+  ): void {
+    if (!dl.elementIds || dl.elementIds.length === 0) return;
+    for (let index = 0; index < dl.commands.length; index++) {
+      const engineId = dl.elementIds[index];
+      if (!engineId || engineBBoxIds.has(engineId)) continue;
+      const command = dl.commands[index];
+      if (!command) continue;
+      const bbox = commandBBox(command);
+      if (!bbox) continue;
+
+      const bucket = byId.get(engineId);
+      const existing = bucket?.find((entry) => Math.abs(entry.y - bbox.y) < 60);
+      if (existing) {
+        mergeBBox(existing, bbox.x, bbox.y, bbox.width, bbox.height);
+      } else {
+        const entry = { id: engineId, ...bbox };
+        entries.push(entry);
+        if (bucket) bucket.push(entry);
+        else byId.set(engineId, [entry]);
+      }
+    }
   }
 
   /**
@@ -467,6 +483,7 @@ export function hitTestSpannerHandle(
     if (!anchors) continue;
 
     for (const anchor of anchors) {
+      if (id.startsWith("trill-line/") && anchor.handle === "start") continue;
       const dx = scoreX - anchor.handleX;
       const dy = scoreY - anchor.handleY;
       if (dx * dx + dy * dy <= HANDLE_HIT_RADIUS * HANDLE_HIT_RADIUS) {

@@ -1662,7 +1662,11 @@ mod tests {
     fn test_one_part_has_trill_other_does_not_is_divisi() {
         let mut ev_a = make_note_event("C", 5, NoteValueBase::Quarter);
         ev_a.markings = Some(Markings {
-            trill: Some(Trill { accidental: None }),
+            trill: Some(Trill {
+                accidental: None,
+                show_symbol: None,
+                extension: None,
+            }),
             ..Default::default()
         });
         let ev_b = make_note_event("C", 5, NoteValueBase::Quarter);

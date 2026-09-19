@@ -8520,13 +8520,13 @@ impl ::std::default::Default for TimeSignatureStyles {
         }
     }
 }
-///A trill marking on a note. Renders the tr~ symbol above the note.
+///A trill marking on a note, optionally followed by a wavy extension line.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "A trill marking on a note. Renders the tr~ symbol above the note.",
+///  "description": "A trill marking on a note, optionally followed by a wavy extension line.",
 ///  "type": "object",
 ///  "properties": {
 ///    "accidental": {
@@ -8537,6 +8537,13 @@ impl ::std::default::Default for TimeSignatureStyles {
 ///        0,
 ///        1
 ///      ]
+///    },
+///    "extension": {
+///      "$ref": "#/$defs/trill-extension"
+///    },
+///    "showSymbol": {
+///      "description": "Whether to display the initial trill symbol. Defaults to true; set false for an extension-only line.",
+///      "type": "boolean"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -8549,6 +8556,15 @@ pub struct Trill {
     ///Accidental on the auxiliary note: -1 = flat, 0 = natural, 1 = sharp.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub accidental: ::std::option::Option<TrillAccidental>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extension: ::std::option::Option<TrillExtension>,
+    ///Whether to display the initial trill symbol. Defaults to true; set false for an extension-only line.
+    #[serde(
+        rename = "showSymbol",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub show_symbol: ::std::option::Option<bool>,
 }
 impl ::std::convert::From<&Trill> for Trill {
     fn from(value: &Trill) -> Self {
@@ -8559,6 +8575,8 @@ impl ::std::default::Default for Trill {
     fn default() -> Self {
         Self {
             accidental: Default::default(),
+            extension: Default::default(),
+            show_symbol: Default::default(),
         }
     }
 }
@@ -8616,6 +8634,135 @@ impl<'de> ::serde::Deserialize<'de> for TrillAccidental {
     {
         Self::try_from(<i64>::deserialize(deserializer)?)
             .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
+///A wavy trill-extension line from this event to a target event.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A wavy trill-extension line from this event to a target event.",
+///  "type": "object",
+///  "required": [
+///    "target"
+///  ],
+///  "properties": {
+///    "target": {
+///      "description": "ID of the event where the trill-extension line ends.",
+///      "type": "string"
+///    },
+///    "targetEdge": {
+///      "description": "Which rhythmic edge of the target event ends the line. Defaults to 'start'.",
+///      "type": "string",
+///      "enum": [
+///        "start",
+///        "end"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TrillExtension {
+    ///ID of the event where the trill-extension line ends.
+    pub target: ::std::string::String,
+    ///Which rhythmic edge of the target event ends the line. Defaults to 'start'.
+    #[serde(
+        rename = "targetEdge",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub target_edge: ::std::option::Option<TrillExtensionTargetEdge>,
+}
+impl ::std::convert::From<&TrillExtension> for TrillExtension {
+    fn from(value: &TrillExtension) -> Self {
+        value.clone()
+    }
+}
+///Which rhythmic edge of the target event ends the line. Defaults to 'start'.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Which rhythmic edge of the target event ends the line. Defaults to 'start'.",
+///  "type": "string",
+///  "enum": [
+///    "start",
+///    "end"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TrillExtensionTargetEdge {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "end")]
+    End,
+}
+impl ::std::convert::From<&Self> for TrillExtensionTargetEdge {
+    fn from(value: &TrillExtensionTargetEdge) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TrillExtensionTargetEdge {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::End => f.write_str("end"),
+        }
+    }
+}
+impl ::std::str::FromStr for TrillExtensionTargetEdge {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "end" => Ok(Self::End),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TrillExtensionTargetEdge {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TrillExtensionTargetEdge {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TrillExtensionTargetEdge {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Viritura extensions on an MNX tuplet object.
@@ -9645,6 +9792,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "trill": {
 ///      "$ref": "#/$defs/trill"
 ///    },
+///    "trill-extension": {
+///      "$ref": "#/$defs/trill-extension"
+///    },
 ///    "tuplet-extensions": {
 ///      "$ref": "#/$defs/tuplet-extensions"
 ///    },
@@ -10118,6 +10268,12 @@ pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub trill: ::std::option::Option<Trill>,
     #[serde(
+        rename = "trill-extension",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub trill_extension: ::std::option::Option<TrillExtension>,
+    #[serde(
         rename = "tuplet-extensions",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -10230,6 +10386,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             time_signature_settings_object: Default::default(),
             time_signature_styles: Default::default(),
             trill: Default::default(),
+            trill_extension: Default::default(),
             tuplet_extensions: Default::default(),
             tuplet_span: Default::default(),
             video_media_identity: Default::default(),

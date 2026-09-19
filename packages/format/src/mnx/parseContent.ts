@@ -335,6 +335,13 @@ function parseVirituraMarkings(viritura: RawEventMarkingsExt, m: Markings): void
     const t = viritura.trill;
     const trill: Trill = {};
     if (t.accidental !== undefined) trill.accidental = t.accidental;
+    if (t.showSymbol !== undefined) trill.showSymbol = t.showSymbol;
+    if (t.extension !== undefined) {
+      trill.extension = {
+        target: t.extension.target,
+        ...(t.extension.targetEdge !== undefined ? { targetEdge: t.extension.targetEdge } : {}),
+      };
+    }
     m.trill = trill;
   }
   if (viritura.ornaments !== undefined) {

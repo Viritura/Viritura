@@ -1,5 +1,14 @@
-import type { DenigmaDiagnostic, DenigmaDiagnosticSeverity, MusxImportOptions, MusxImportResult } from "./types";
+import type {
+  DenigmaDiagnostic,
+  DenigmaDiagnosticSeverity,
+  DenigmaGap,
+  DenigmaGapAnchor,
+  DenigmaGapReport,
+  MusxImportOptions,
+  MusxImportResult,
+} from "./types";
 import { validateMusxArchive } from "./archiveLimits";
+import { applyDenigmaGapReport } from "./gapAdapters";
 
 interface DenigmaModule {
   HEAPU8: Uint8Array;
@@ -28,6 +37,8 @@ interface DenigmaModule {
   _denigma_result_output_count(result: number): number;
   _denigma_result_output_data(result: number, index: number): number;
   _denigma_result_output_size(result: number, index: number): number;
+  _denigma_result_gap_report_data(result: number): number;
+  _denigma_result_gap_report_size(result: number): number;
   _denigma_version(): number;
   _denigma_commit(): number;
 }
@@ -96,6 +107,81 @@ function readDiagnostics(module: DenigmaModule, resultPointer: number): DenigmaD
   return diagnostics;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isGapAnchor(value: unknown): value is DenigmaGapAnchor {
+  if (!isRecord(value) || typeof value.anchor !== "string") return false;
+  if (
+    value.staff !== undefined &&
+    (typeof value.staff !== "number" || !Number.isInteger(value.staff) || value.staff < 1)
+  ) {
+    return false;
+  }
+  if (value.position === undefined) return true;
+  return (
+    isRecord(value.position) &&
+    typeof value.position.numerator === "number" &&
+    Number.isInteger(value.position.numerator) &&
+    typeof value.position.denominator === "number" &&
+    Number.isInteger(value.position.denominator) &&
+    value.position.denominator !== 0
+  );
+}
+
+function isGap(value: unknown): value is DenigmaGap {
+  if (!isGapAnchor(value) || !isRecord(value)) return false;
+  if (typeof value.type !== "string" || (value.extent !== "complete" && value.extent !== "partial")) return false;
+  if (value.end !== undefined && !isGapAnchor(value.end)) return false;
+  if (value.placements === undefined) return true;
+  return (
+    Array.isArray(value.placements) &&
+    value.placements.every(
+      (placement) =>
+        isGapAnchor(placement) &&
+        isRecord(placement) &&
+        (placement.kind === "staff" || placement.kind === "system-top" || placement.kind === "system-bottom"),
+    )
+  );
+}
+
+function isGapReport(value: unknown): value is DenigmaGapReport {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 1 &&
+    isRecord(value.producer) &&
+    typeof value.producer.name === "string" &&
+    typeof value.producer.version === "string" &&
+    typeof value.producer.commit === "string" &&
+    Array.isArray(value.gaps) &&
+    value.gaps.every(isGap) &&
+    (value.arrowheads === undefined || isRecord(value.arrowheads))
+  );
+}
+
+function readGapReport(module: DenigmaModule, resultPointer: number): DenigmaGapReport {
+  const pointer = module._denigma_result_gap_report_data(resultPointer);
+  const size = module._denigma_result_gap_report_size(resultPointer);
+  if (!pointer || size === 0) {
+    throw new Error("Denigma did not return an MNX conversion gap report.");
+  }
+
+  const json = new TextDecoder().decode(module.HEAPU8.slice(pointer, pointer + size));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (error) {
+    throw new Error(
+      `Denigma returned an invalid gap report: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (!isGapReport(parsed)) {
+    throw new Error("Denigma returned an unsupported or malformed gap report.");
+  }
+  return parsed;
+}
+
 export async function convertWithDenigma(
   source: ArrayBuffer,
   sourceName: string,
@@ -137,9 +223,13 @@ export async function convertWithDenigma(
 
     const outputPointer = module._denigma_result_output_data(resultPointer, 0);
     const output = module.HEAPU8.slice(outputPointer, outputPointer + outputSize);
+    const gapReport = readGapReport(module, resultPointer);
+    const adaptation = applyDenigmaGapReport(new TextDecoder().decode(output), gapReport, options.indentSpaces);
     return {
-      mnxJson: new TextDecoder().decode(output),
-      diagnostics,
+      mnxJson: adaptation.mnxJson,
+      gapReport,
+      gapOutcomes: adaptation.outcomes,
+      diagnostics: [...diagnostics, ...adaptation.diagnostics],
       denigmaVersion: module.UTF8ToString(module._denigma_version()),
       denigmaCommit: module.UTF8ToString(module._denigma_commit()),
     };

@@ -21,7 +21,9 @@ use crate::model::event::{
     Staccatissimo as ModelStaccatissimo, StaccatissimoWedge as ModelStaccatissimoWedge,
     Staccato as ModelStaccato, Stress as ModelStress, StrongAccent as ModelStrongAccent,
     Tenuto as ModelTenuto, Tie as ModelTie, Tremolo as ModelTremolo, Trill as ModelTrill,
-    Unstress as ModelUnstress, UpDown as ModelUpDown, UpDownAuto as ModelUpDownAuto,
+    TrillExtension as ModelTrillExtension,
+    TrillExtensionTargetEdge as ModelTrillExtensionTargetEdge, Unstress as ModelUnstress,
+    UpDown as ModelUpDown, UpDownAuto as ModelUpDownAuto,
 };
 use crate::promote::vendor_ext::read_viritura_ext;
 use crate::{raw, raw_viritura};
@@ -191,6 +193,16 @@ pub(crate) fn promote_ornament_type(r: raw_viritura::OrnamentType) -> ModelOrnam
 pub(crate) fn promote_trill(r: raw_viritura::Trill) -> ModelTrill {
     ModelTrill {
         accidental: r.accidental.map(|a| *a as i32),
+        show_symbol: r.show_symbol,
+        extension: r.extension.map(|extension| ModelTrillExtension {
+            target: extension.target,
+            target_edge: extension.target_edge.map(|edge| match edge {
+                raw_viritura::TrillExtensionTargetEdge::Start => {
+                    ModelTrillExtensionTargetEdge::Start
+                }
+                raw_viritura::TrillExtensionTargetEdge::End => ModelTrillExtensionTargetEdge::End,
+            }),
+        }),
     }
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "@viritura/core";
 import type { SpannerHandleHit } from "@viritura/renderer";
-import { commitSpannerDragImpl, type SpannerDragSnap } from "../commitSpannerDrag";
+import { commitSpannerDragImpl, resolveTrillLineDragTarget, type SpannerDragSnap } from "../commitSpannerDrag";
 
 const HAIRPIN_GROUP_ID = "0195f3a1-7c4e-7a2b-9d10-1f2e3a4b5c6d";
 
@@ -75,6 +75,36 @@ function makeOttavaScore(): Score {
   };
 }
 
+function makeTrillExtensionScore(): Score {
+  const score = makeHairpinScore();
+  score.parts[0]!.measures[0]!.sequences = [
+    {
+      content: [
+        {
+          type: "event",
+          id: "ev1",
+          duration: { base: "quarter" },
+          notes: [{ pitch: { step: "C", octave: 4 } }],
+          markings: { trill: { extension: { target: "ev2" } } },
+        },
+        {
+          type: "event",
+          id: "ev2",
+          duration: { base: "quarter" },
+          notes: [{ pitch: { step: "D", octave: 4 } }],
+        },
+        {
+          type: "event",
+          id: "ev3",
+          duration: { base: "half" },
+          notes: [{ pitch: { step: "E", octave: 4 } }],
+        },
+      ],
+    },
+  ];
+  return score;
+}
+
 describe("commitSpannerDragImpl — hairpin group ids", () => {
   it("moves the end handle of a hairpin identified by its group id", () => {
     const score = makeHairpinScore();
@@ -109,5 +139,32 @@ describe("commitSpannerDragImpl — hairpin group ids", () => {
     const next = commitSpannerDragImpl(score, hit("p0/m0/ottava0", "end"), 300, SNAPS);
 
     expect(next.parts[0]!.measures[0]!.ottavas![0]!.end.position.fraction).toEqual([12, 16]);
+  });
+
+  it("reanchors a trill extension end handle to the nearest note event", () => {
+    const score = makeTrillExtensionScore();
+    const anchors: SpannerDragSnap[] = [
+      { x: 150, y: 50, eventId: "ev1", targetEdge: "end", measureIndex: 0 },
+      { x: 200, y: 50, eventId: "ev2", targetEdge: "start", measureIndex: 0 },
+      { x: 300, y: 50, eventId: "ev3", targetEdge: "end", measureIndex: 0 },
+    ];
+
+    const next = commitSpannerDragImpl(score, hit("trill-line/ev1/ev2", "end"), 295, anchors, 52);
+    const event = next.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+
+    expect(event.type === "event" ? event.markings?.trill?.extension?.target : undefined).toBe("ev3");
+    expect(event.type === "event" ? event.markings?.trill?.extension?.targetEdge : undefined).toBe("end");
+    expect(resolveTrillLineDragTarget(hit("trill-line/ev1/ev2", "end"), 295, anchors, 52)).toEqual({
+      eventId: "ev3",
+      targetEdge: "end",
+      elementId: "trill-line/ev1/ev3",
+    });
+  });
+
+  it("does not move the fixed start of a trill extension", () => {
+    const score = makeTrillExtensionScore();
+    const anchors: SpannerDragSnap[] = [{ x: 300, y: 50, eventId: "ev3", targetEdge: "end", measureIndex: 0 }];
+
+    expect(commitSpannerDragImpl(score, hit("trill-line/ev1/ev2", "start"), 300, anchors, 50)).toBe(score);
   });
 });

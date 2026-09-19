@@ -60,7 +60,8 @@ const ANNOTATION_PREFIXES = [
 /** Classify an element ID into a rendering category for the selection overlay. */
 export function classifyElement(id: string): ElementCategory {
   // Top-level slur/tie connectors live under their own namespaces.
-  if (id.startsWith("slur/") || id.startsWith("tie/") || id.startsWith("gliss/")) return "spanner";
+  if (id.startsWith("slur/") || id.startsWith("tie/") || id.startsWith("gliss/") || id.startsWith("trill-line/"))
+    return "spanner";
 
   const last = id.split("/").pop() ?? "";
 
@@ -152,8 +153,10 @@ function paintSelectionFor(
   const activeBboxes =
     bboxes.length === 0 ? [] : isGlobalKey ? bboxes : resolveActiveBboxes(id, bboxes, spatialIndex.lastHitY);
 
+  const isTrillLine = id.startsWith("trill-line/");
   if (
     displayList &&
+    !isTrillLine &&
     paintInkHighlight(
       ctx,
       id,
@@ -268,7 +271,9 @@ function paintForCategory(
   bbox: ElementBBox,
   color: string,
 ): void {
-  if (category === "spanner") return paintSpannerHighlight(ctx, bbox, color, !id.startsWith("tie/"));
+  if (category === "spanner") {
+    return paintSpannerHighlight(ctx, bbox, color, !id.startsWith("tie/"), !id.startsWith("trill-line/"));
+  }
   if (category === "annotation") return paintAnnotationHighlight(ctx, bbox, color);
   if (category === "note") return paintNoteHighlight(ctx, bbox, color);
   paintEventHighlight(ctx, bbox, color);
@@ -279,6 +284,7 @@ function paintSpannerHighlight(
   bbox: ElementBBox,
   color: string,
   showHandles: boolean,
+  showStartHandle: boolean,
 ): void {
   ctx.setLineDash([4, 3]);
   ctx.strokeStyle = color + "CC"; // 80% opacity
@@ -295,10 +301,12 @@ function paintSpannerHighlight(
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1.5;
 
-  ctx.beginPath();
-  ctx.arc(bbox.x, cy, handleRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  if (showStartHandle) {
+    ctx.beginPath();
+    ctx.arc(bbox.x, cy, handleRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   ctx.beginPath();
   ctx.arc(bbox.x + bbox.width, cy, handleRadius, 0, Math.PI * 2);

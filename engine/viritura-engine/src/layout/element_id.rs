@@ -265,6 +265,11 @@ pub fn glissando(source: &str, target: &str) -> String {
     format!("gliss/{}/{}", sanitize(source), sanitize(target))
 }
 
+/// Trill extension: `trill-line/{source}/{target}`
+pub fn trill_line(source: &str, target: &str) -> String {
+    format!("trill-line/{}/{}", sanitize(source), sanitize(target))
+}
+
 // ── Bbox helpers ────────────────────────────────────────────────────
 
 /// Articulation bbox (combined): `{base_id}/artic`

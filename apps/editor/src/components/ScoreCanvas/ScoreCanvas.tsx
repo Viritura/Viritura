@@ -72,7 +72,7 @@ import { addNoteAtClick } from "./noteInputClickHandler";
 import { paintScoreFrame } from "./paintScoreFrame";
 import { selectionVoiceIndex } from "./selectionVoice";
 import { buildDragSnapPoints as buildDragSnapPointsImpl } from "./dragSnapPoints";
-import { commitSpannerDragImpl } from "./commitSpannerDrag";
+import { commitSpannerDragImpl, resolveTrillLineDragTarget } from "./commitSpannerDrag";
 import { runFastLayoutAndPaint } from "./fastLayout";
 import { computeSelectedIds } from "./computeSelectedIds";
 import { buildScoreCanvasHandle } from "./imperativeHandle";
@@ -843,13 +843,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const selectionStatus = useMemo(() => selectionAnnouncement(selection), [selection]);
 
     // ─── Spanner handle drag state ─────────────────
-    const spannerDragRef = useRef<{
-      hit: SpannerHandleHit;
-      dragX: number;
-      bbox: { x: number; y: number; width: number; height: number };
-      snapPoints: Array<{ x: number; beat: number; measureIndex: number }>;
-      altKey: boolean;
-    } | null>(null);
+    const spannerDragRef = useRef<import("./paintScoreFrame").SpannerDragState | null>(null);
 
     // ─── Slur bezier-handle drag state (engrave mode) ─────────────
     /**
@@ -1117,11 +1111,15 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       (hit: SpannerHandleHit, dragX: number) => {
         const score = docScoreRef.current;
         if (!score) return;
-        const snapPoints = spannerDragRef.current?.snapPoints ?? [];
-        const newScore = commitSpannerDragImpl(score, hit, dragX, snapPoints);
-        if (newScore !== score) updateScore(newScore);
+        const drag = spannerDragRef.current;
+        const newScore = commitSpannerDragImpl(score, hit, dragX, drag?.snapPoints ?? [], drag?.dragY);
+        if (newScore !== score) {
+          updateScore(newScore);
+          const trillTarget = resolveTrillLineDragTarget(hit, dragX, drag?.snapPoints ?? [], drag?.dragY);
+          if (trillTarget) selectElement(trillTarget.elementId);
+        }
       },
-      [docScoreRef, updateScore],
+      [docScoreRef, selectElement, updateScore],
     );
     // ─── Canvas pointer handlers (bodies live in canvasHandlers.ts) ───
     const canvasHandlerCtx: CanvasHandlerCtx = useMemo(

@@ -1,3 +1,4 @@
+use super::super::trill_lines::render_trill_lines_for_system;
 use super::super::*;
 use crate::layout::staff_brace::brace_geometry;
 
@@ -448,6 +449,7 @@ pub(in crate::layout) fn render_grand_staff_system_staves(
         .map(|(si, layouts)| (layouts.as_slice(), staff_y_offsets[si]))
         .collect();
     render_glissandos(dl, &gliss_staves, sp, config, Some(staff_y_offsets));
+    render_trill_lines_for_system(dl, all_sys_layouts, staff_y_offsets, sp, config);
 }
 
 /// Grand-staff helper — draw the brace, system-start barline, inter-staff

@@ -470,14 +470,39 @@
       "additionalProperties": false
     },
 
+    "trill-extension": {
+      "type": "object",
+      "description": "A wavy trill-extension line from this event to a target event.",
+      "required": ["target"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "ID of the event where the trill-extension line ends."
+        },
+        "targetEdge": {
+          "type": "string",
+          "enum": ["start", "end"],
+          "description": "Which rhythmic edge of the target event ends the line. Defaults to 'start'."
+        }
+      },
+      "additionalProperties": false
+    },
+
     "trill": {
       "type": "object",
-      "description": "A trill marking on a note. Renders the tr~ symbol above the note.",
+      "description": "A trill marking on a note, optionally followed by a wavy extension line.",
       "properties": {
         "accidental": {
           "type": "integer",
           "enum": [-1, 0, 1],
           "description": "Accidental on the auxiliary note: -1 = flat, 0 = natural, 1 = sharp."
+        },
+        "showSymbol": {
+          "type": "boolean",
+          "description": "Whether to display the initial trill symbol. Defaults to true; set false for an extension-only line."
+        },
+        "extension": {
+          "$ref": "#/$defs/trill-extension"
         }
       },
       "additionalProperties": false

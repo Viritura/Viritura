@@ -19,3 +19,42 @@ export const SimpleTrill: StoryObj = {
   },
   name: "Simple trill",
 };
+
+export const TrillWithExtension: StoryObj = {
+  render: () => {
+    const mnx = buildSingleMeasure([
+      {
+        id: "trill-start",
+        duration: "quarter",
+        virituraMarkings: { trill: { extension: { target: "trill-start", targetEdge: "end" } } },
+        notes: [{ step: "E", octave: 5 }],
+      },
+      { duration: "quarter", notes: [{ step: "F", octave: 5 }] },
+      { id: "trill-end", duration: "half", notes: [{ step: "G", octave: 5 }] },
+    ]);
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Trill with extension",
+};
+
+export const ExtensionOnly: StoryObj = {
+  render: () => {
+    const mnx = buildSingleMeasure([
+      {
+        id: "trill-start",
+        duration: "quarter",
+        virituraMarkings: {
+          trill: {
+            showSymbol: false,
+            extension: { target: "trill-start", targetEdge: "end" },
+          },
+        },
+        notes: [{ step: "E", octave: 5 }],
+      },
+      { duration: "quarter", notes: [{ step: "F", octave: 5 }] },
+      { id: "trill-end", duration: "half", notes: [{ step: "G", octave: 5 }] },
+    ]);
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Extension only",
+};

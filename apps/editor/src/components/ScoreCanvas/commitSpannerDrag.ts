@@ -2,10 +2,14 @@ import { produce } from "immer";
 import type { Score } from "@viritura/core";
 import type { SpannerHandleHit } from "@viritura/renderer";
 import { resolveAnnotationLocation } from "../../score/ElementPath";
+import { reanchorTrillExtension } from "../../score/trillExtensionMutations";
 
 export interface SpannerDragSnap {
   x: number;
-  beat: number;
+  y?: number;
+  beat?: number;
+  eventId?: string;
+  targetEdge?: "start" | "end";
   measureIndex: number;
 }
 
@@ -13,6 +17,41 @@ type SpannerLike = {
   position: { fraction: [number, number] };
   end: { measure: string; position: { fraction: [number, number] } };
 };
+
+export interface TrillLineDragTarget {
+  eventId: string;
+  targetEdge: "start" | "end";
+  elementId: string;
+}
+
+export function resolveTrillLineDragTarget(
+  hit: SpannerHandleHit,
+  dragX: number,
+  snapPoints: SpannerDragSnap[],
+  dragY?: number,
+): TrillLineDragTarget | null {
+  if (!hit.elementId.startsWith("trill-line/") || hit.handle !== "end") return null;
+  const sourceId = hit.elementId.split("/")[1];
+  const eventSnaps = snapPoints.filter(
+    (point): point is SpannerDragSnap & { eventId: string } => point.eventId !== undefined,
+  );
+  if (!sourceId || eventSnaps.length === 0) return null;
+
+  let target = eventSnaps[0]!;
+  let bestDistance = Math.hypot(dragX - target.x, (dragY ?? hit.handleY) - (target.y ?? hit.handleY));
+  for (const candidate of eventSnaps.slice(1)) {
+    const distance = Math.hypot(dragX - candidate.x, (dragY ?? hit.handleY) - (candidate.y ?? hit.handleY));
+    if (distance < bestDistance) {
+      target = candidate;
+      bestDistance = distance;
+    }
+  }
+  return {
+    eventId: target.eventId,
+    targetEdge: target.targetEdge ?? "start",
+    elementId: `trill-line/${sourceId}/${target.eventId.replaceAll("/", "_")}`,
+  };
+}
 
 /**
  * Commit a spanner drag: snap to nearest ruler position and return the
@@ -23,8 +62,14 @@ export function commitSpannerDragImpl(
   hit: SpannerHandleHit,
   dragX: number,
   snapPoints: SpannerDragSnap[],
+  dragY?: number,
 ): Score {
   if (snapPoints.length === 0) return score;
+
+  if (hit.elementId.startsWith("trill-line/")) {
+    const target = resolveTrillLineDragTarget(hit, dragX, snapPoints, dragY);
+    return target ? reanchorTrillExtension(score, hit.elementId, target.eventId, target.targetEdge) : score;
+  }
 
   // Find the snap point nearest to dragX
   let bestSnap = snapPoints[0]!;
@@ -53,10 +98,12 @@ export function commitSpannerDragImpl(
     if (gm?.time) activeTime = gm.time;
   }
   const beatsInMeasure = activeTime.count * (4 / activeTime.unit);
+  if (bestSnap.beat === undefined) return score;
+  const snappedBeat = bestSnap.beat;
 
   // Build the fraction for this snap point
   const denom = Math.round(beatsInMeasure * 4); // sixteenth-note precision
-  const numer = Math.round(bestSnap.beat * 4);
+  const numer = Math.round(snappedBeat * 4);
   const fraction: [number, number] = [Math.max(0, Math.min(numer, denom)), Math.max(1, denom)];
 
   return produce(score, (draft) => {
@@ -106,7 +153,7 @@ export function commitSpannerDragImpl(
         bestSnap.measureIndex,
       );
     } else {
-      updateEndHandle(draft, spanner, bestSnap, beatsInMeasure, fraction);
+      updateEndHandle(draft, spanner, bestSnap.measureIndex, snappedBeat, beatsInMeasure, fraction);
     }
   });
 }
@@ -154,17 +201,18 @@ function updateStartHandle(
 function updateEndHandle(
   draft: Score,
   spanner: SpannerLike,
-  bestSnap: SpannerDragSnap,
+  measureIndex: number,
+  beat: number,
   beatsInMeasure: number,
   fraction: [number, number],
 ): void {
-  let endMeasureIdx = bestSnap.measureIndex;
+  let endMeasureIdx = measureIndex;
   let endFraction = fraction;
 
   // If snapped to end-of-measure (beat == beatsInMeasure), reference
   // beat 0 of the next measure to avoid an off-by-one past the barline.
-  if (Math.abs(bestSnap.beat - beatsInMeasure) < 0.001 && endMeasureIdx + 1 < draft.global.measures.length) {
-    endMeasureIdx = bestSnap.measureIndex + 1;
+  if (Math.abs(beat - beatsInMeasure) < 0.001 && endMeasureIdx + 1 < draft.global.measures.length) {
+    endMeasureIdx = measureIndex + 1;
     endFraction = [0, 1];
     const nextMeasure = draft.global.measures[endMeasureIdx];
     if (nextMeasure && !nextMeasure.id) {

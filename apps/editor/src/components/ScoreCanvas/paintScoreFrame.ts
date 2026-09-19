@@ -51,8 +51,16 @@ interface StickyClefCache {
 export interface SpannerDragState {
   hit: SpannerHandleHit;
   dragX: number;
+  dragY: number;
   bbox: { x: number; y: number; width: number; height: number };
-  snapPoints: Array<{ x: number; beat: number; measureIndex: number }>;
+  snapPoints: Array<{
+    x: number;
+    y?: number;
+    beat?: number;
+    eventId?: string;
+    targetEdge?: "start" | "end";
+    measureIndex: number;
+  }>;
   altKey: boolean;
 }
 
@@ -433,7 +441,14 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
       }
 
       if (spannerDrag) {
-        paintSnapRuler(ctx, spannerDrag.bbox, spannerDrag.hit.handle, spannerDrag.dragX, spannerDrag.snapPoints);
+        paintSnapRuler(
+          ctx,
+          spannerDrag.bbox,
+          spannerDrag.hit.handle,
+          spannerDrag.dragX,
+          spannerDrag.snapPoints,
+          spannerDrag.hit.elementId.startsWith("trill-line/") ? spannerDrag.dragY : undefined,
+        );
       }
 
       // Write-mode slur endpoints re-anchor onto notes and get a snap ruler.

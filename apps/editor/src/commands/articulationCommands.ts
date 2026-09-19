@@ -313,7 +313,46 @@ export function setTrillAccidental(
       delete markings.trill;
       return;
     }
-    markings.trill = accidental === null ? {} : { accidental };
+    const trill = markings.trill ?? {};
+    if (accidental === null) delete trill.accidental;
+    else trill.accidental = accidental;
+    markings.trill = trill;
+  });
+  return score;
+}
+
+export function setTrillExtensionVisible(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  seqIndex: number,
+  eventIndex: number,
+  visible: boolean,
+  tupletIndex?: number,
+): Score | null {
+  const event = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
+  if (!event || !hasPlayableNotes(event)) return null;
+
+  if (visible) {
+    const sourceId = event.id;
+    if (!sourceId) return null;
+    updateMarkings(event, (markings) => {
+      markings.trill = {
+        ...(markings.trill ?? {}),
+        extension: { target: sourceId, targetEdge: "end" },
+      };
+    });
+    return score;
+  }
+
+  updateMarkings(event, (markings) => {
+    const trill = markings.trill;
+    if (!trill) return;
+    if (trill.showSymbol === false) {
+      delete markings.trill;
+      return;
+    }
+    delete trill.extension;
   });
   return score;
 }
@@ -775,7 +814,11 @@ export function planSetTrillAccidental(
   if (!locator) return null;
   const ev = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
   if (!ev || !hasPlayableNotes(ev)) return null;
-  const value = accidental === undefined ? undefined : accidental === null ? {} : { accidental };
+  const value = accidental === undefined ? undefined : { ...(ev.markings?.trill ?? {}) };
+  if (value) {
+    if (accidental === null) delete value.accidental;
+    else value.accidental = accidental;
+  }
   return [patch.setEventMarking(locator, "trill", value)];
 }
 

@@ -117,8 +117,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleRepeatEndTimesChange,
   } = useBarlineHandlers({ score, target, updateScore }, selectedElementType === "barline");
 
-  const { handleAccidentalDisplayModeChange, handleAccidentalEnclosureChange, handleTrillAccidentalChange } =
-    useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
+  const {
+    handleAccidentalDisplayModeChange,
+    handleAccidentalEnclosureChange,
+    handleTrillAccidentalChange,
+    handleTrillExtensionVisibleChange,
+    canEnableTrillExtension,
+  } = useAccidentalAndTrillHandlers({ score, target, updateScore, commitPatches });
 
   const { notehead: selectedNotehead, handleNoteheadChange } = useNoteheadHandler({ score, target, updateScore });
   const {
@@ -336,7 +341,13 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {selectedElementType === "trill" && selectedTrill && (
-          <TrillSection accidental={selectedTrill.accidental} onAccidentalChange={handleTrillAccidentalChange} />
+          <TrillSection
+            accidental={selectedTrill.accidental}
+            showExtension={selectedTrill.extension !== undefined}
+            canEnableExtension={canEnableTrillExtension}
+            onAccidentalChange={handleTrillAccidentalChange}
+            onExtensionVisibleChange={handleTrillExtensionVisibleChange}
+          />
         )}
 
         {!isLyricSelected && target && <FermataSection />}
