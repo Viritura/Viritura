@@ -57,6 +57,26 @@ describe("notationInspectorCommands", () => {
     expect(measureTarget?.measureIndex).toBe(0);
   });
 
+  it("resolves a trill-line selection to its source trill", () => {
+    const score = buildScore();
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    if (event.type !== "event") throw new Error("expected note event");
+    event.markings = { trill: { extension: { target: "ev2" } } };
+
+    const target = resolveNotationSelectionTarget(
+      { kind: "single", elementId: "trill-line/ev1/ev2", elementType: "trill" },
+      score,
+    );
+
+    expect(target).toMatchObject({
+      elementType: "trill",
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 0,
+    });
+  });
+
   it("retains the selected note index for a chord notehead", () => {
     const score = buildScore();
     const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;

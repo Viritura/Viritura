@@ -38,6 +38,42 @@ fn test_trill_renders_from_mnx_file() {
         trill_cmds.len()
     );
 }
+
+#[test]
+fn test_extension_only_trill_does_not_render_initial_symbol() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
+            "sequences": [{"content": [
+                {"id": "trill-start", "duration": {"base": "quarter"},
+                 "markings": {"_x": {"viritura": {"trill": {
+                     "showSymbol": false,
+                     "extension": {"target": "trill-end"}
+                 }}}},
+                 "notes": [{"pitch": {"step": "E", "octave": 5}}]},
+                {"id": "trill-end", "duration": {"base": "dotted-half"},
+                 "notes": [{"pitch": {"step": "D", "octave": 5}}]}
+            ]}]
+        }]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    let has_trill_symbol = dl.commands.iter().any(|cmd| {
+        matches!(
+            cmd,
+            RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::ORNAMENT_TRILL
+        )
+    });
+
+    assert!(
+        !has_trill_symbol,
+        "Extension-only trill must not render an initial symbol"
+    );
+}
+
 #[test]
 fn test_trill_above_staff() {
     // Trill symbol should be above the top staff line

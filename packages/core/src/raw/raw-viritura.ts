@@ -235,13 +235,26 @@ export interface components {
             /** @description Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it. */
             avoidCollisions?: boolean;
         };
-        /** @description A trill marking on a note. Renders the tr~ symbol above the note. */
+        /** @description A wavy trill-extension line from this event to a target event. */
+        "trill-extension": {
+            /** @description ID of the event where the trill-extension line ends. */
+            target: string;
+            /**
+             * @description Which rhythmic edge of the target event ends the line. Defaults to 'start'.
+             * @enum {string}
+             */
+            targetEdge?: "start" | "end";
+        };
+        /** @description A trill marking on a note, optionally followed by a wavy extension line. */
         trill: {
             /**
              * @description Accidental on the auxiliary note: -1 = flat, 0 = natural, 1 = sharp.
              * @enum {integer}
              */
             accidental?: -1 | 0 | 1;
+            /** @description Whether to display the initial trill symbol. Defaults to true; set false for an extension-only line. */
+            showSymbol?: boolean;
+            extension?: components["schemas"]["trill-extension"];
         };
         /**
          * @description Ornament type. Each maps to a SMuFL ornament glyph.
@@ -809,6 +822,7 @@ export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
 export type TextExpression = components["schemas"]["text-expression"];
+export type TrillExtension = components["schemas"]["trill-extension"];
 export type Trill = components["schemas"]["trill"];
 export type OrnamentType = components["schemas"]["ornament-type"];
 export type Fingering = components["schemas"]["fingering"];

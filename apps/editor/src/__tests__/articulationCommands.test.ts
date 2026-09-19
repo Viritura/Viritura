@@ -11,6 +11,7 @@ import {
   removeMultiNoteTremolo,
   setFermataShape,
   setTrillAccidental,
+  setTrillExtensionVisible,
   setOrnaments,
   setArpeggioDirection,
   setArpeggioMark,
@@ -216,6 +217,46 @@ describe("event marking setters", () => {
     const ev = getEvent(score, 0);
     expect(ev.markings?.trill?.accidental).toBe(-1);
     expect(ev.markings?.ornaments).toEqual(["turn", "mordent"]);
+  });
+
+  it("adds and removes a trill extension without losing trill properties", () => {
+    const score = makeScoreWithNote();
+    setTrillAccidental(score, 0, 0, 0, 0, -1);
+
+    expect(setTrillExtensionVisible(score, 0, 0, 0, 0, true)).toBe(score);
+    expect(getEvent(score, 0).markings?.trill).toEqual({
+      accidental: -1,
+      extension: { target: "ev1", targetEdge: "end" },
+    });
+
+    setTrillExtensionVisible(score, 0, 0, 0, 0, false);
+    expect(getEvent(score, 0).markings?.trill).toEqual({ accidental: -1 });
+  });
+
+  it("preserves a trill extension while changing its accidental", () => {
+    const score = makeScoreWithNote();
+    setTrillExtensionVisible(score, 0, 0, 0, 0, true);
+
+    setTrillAccidental(score, 0, 0, 0, 0, 1);
+    expect(getEvent(score, 0).markings?.trill).toEqual({
+      accidental: 1,
+      extension: { target: "ev1", targetEdge: "end" },
+    });
+
+    setTrillAccidental(score, 0, 0, 0, 0, null);
+    expect(getEvent(score, 0).markings?.trill).toEqual({
+      extension: { target: "ev1", targetEdge: "end" },
+    });
+  });
+
+  it("adds a trill extension to the end of the final note", () => {
+    const score = makeScoreWithNote();
+    setTrillAccidental(score, 0, 0, 0, 1, null);
+
+    expect(setTrillExtensionVisible(score, 0, 0, 0, 1, true)).toBe(score);
+    expect(getEvent(score, 1).markings?.trill).toEqual({
+      extension: { target: "ev2", targetEdge: "end" },
+    });
   });
 
   it("requires a chord for arpeggio direction", () => {

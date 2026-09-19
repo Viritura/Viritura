@@ -81,6 +81,13 @@ pub(in crate::layout) fn render_systems_pass2(
             config,
             None,
         );
+        render_trill_lines(
+            dl,
+            &[(sys_measure_layouts.as_slice(), staff_y)],
+            sp,
+            config,
+            None,
+        );
 
         // This path has no staff groups (one part, one staff), so a spanning
         // meter covers the staff it belongs to.

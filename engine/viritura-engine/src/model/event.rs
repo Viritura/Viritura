@@ -349,11 +349,30 @@ pub struct Fermata {
     pub pointing: Option<UpDownAuto>,
 }
 
-/// Trill ornament marking.
+/// Wavy trill-extension line ending at another event.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum TrillExtensionTargetEdge {
+    Start,
+    End,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TrillExtension {
+    pub target: String,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "targetEdge")]
+    pub target_edge: Option<TrillExtensionTargetEdge>,
+}
+
+/// Trill ornament marking, optionally followed by a wavy extension line.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Trill {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accidental: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "showSymbol")]
+    pub show_symbol: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extension: Option<TrillExtension>,
 }
 
 /// Ornament type variants.

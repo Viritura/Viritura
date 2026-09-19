@@ -48,6 +48,7 @@ mod system;
 pub mod text_styles;
 mod ties;
 mod time_signatures;
+mod trill_lines;
 mod tuplets;
 mod types;
 mod volta;
@@ -81,6 +82,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use system::*;
 use ties::*;
+use trill_lines::*;
 use types::*;
 use volta::*;
 

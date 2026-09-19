@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 
 const DENIGMA_REPOSITORY = "https://github.com/openmusx/denigma.git";
 const DENIGMA_REPOSITORY_SLUG = "openmusx/denigma";
-const DENIGMA_COMMIT = "1956a698c3608f520082321a82ab0c289878d4a8";
+const DENIGMA_COMMIT = "5864f4eb358dafabc06c7448ead5c16fd6481776";
 const DENIGMA_VERSION = "4.0.0";
 const EMSCRIPTEN_IMAGE =
   "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a";

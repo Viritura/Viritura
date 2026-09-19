@@ -58,7 +58,16 @@ try {
     if (JSON.stringify(parsed).includes("-dirty")) {
       throw new Error("Denigma output reports a dirty source checkout.");
     }
-    console.log(`Converted ${input.byteLength} MUSX bytes to ${outputSize} MNX bytes.`);
+    const gapPointer = module._denigma_result_gap_report_data(result);
+    const gapSize = module._denigma_result_gap_report_size(result);
+    if (!gapPointer || !gapSize) throw new Error("Denigma returned no MNX conversion gap report.");
+    const gapReport = JSON.parse(new TextDecoder().decode(module.HEAPU8.slice(gapPointer, gapPointer + gapSize)));
+    if (gapReport.schemaVersion !== 1 || !Array.isArray(gapReport.gaps)) {
+      throw new Error("Denigma returned an invalid MNX conversion gap report.");
+    }
+    console.log(
+      `Converted ${input.byteLength} MUSX bytes to ${outputSize} MNX bytes with ${gapReport.gaps.length} reported gaps.`,
+    );
   } finally {
     module._denigma_result_destroy(result);
   }

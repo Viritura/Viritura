@@ -103,6 +103,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
  */
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
+  if (elementId.startsWith("trill-line/")) return "trill";
 
   const segments = elementId.split("/");
   const last = segments[segments.length - 1];

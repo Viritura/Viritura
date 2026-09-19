@@ -582,6 +582,13 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
             config,
             Some(&staff_y_offsets),
         );
+        super::super::trill_lines::render_trill_lines_for_system(
+            &mut seg,
+            all_staff_layouts,
+            &staff_y_offsets,
+            sp,
+            config,
+        );
         collect_system_slur_data(
             all_staff_layouts,
             flat_staves,

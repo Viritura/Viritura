@@ -29,7 +29,11 @@ import {
   type AccidentalDisplayMode,
   type AccidentalEnclosureSymbolValue,
 } from "../../commands/noteCommands";
-import { setTrillAccidental, planSetTrillAccidental } from "../../commands/articulationCommands";
+import {
+  setTrillAccidental,
+  setTrillExtensionVisible,
+  planSetTrillAccidental,
+} from "../../commands/articulationCommands";
 import { setEventNotehead, getEventNotehead } from "../../commands/drumKitCommands";
 import type { NoteheadShape } from "@viritura/core";
 import {
@@ -528,6 +532,8 @@ export interface AccidentalAndTrillHandlers {
   handleAccidentalDisplayModeChange: (mode: AccidentalDisplayMode) => void;
   handleAccidentalEnclosureChange: (symbol: AccidentalEnclosureSymbolValue | null) => void;
   handleTrillAccidentalChange: (accidental: -1 | 0 | 1 | null) => () => void;
+  handleTrillExtensionVisibleChange: (visible: boolean) => void;
+  canEnableTrillExtension: boolean;
 }
 
 function accidentalTargetParams(target: NotationSelectionTarget) {
@@ -558,6 +564,12 @@ export function useAccidentalAndTrillHandlers({
   updateScore,
   commitPatches,
 }: SelectionArgs): AccidentalAndTrillHandlers {
+  const canEnableTrillExtension = useMemo(() => {
+    if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return false;
+    const event = selectedContent(score, target);
+    return event?.type === "event" && event.id !== undefined;
+  }, [score, target]);
+
   const handleAccidentalDisplayModeChange = useCallback(
     (mode: AccidentalDisplayMode) => {
       if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
@@ -608,10 +620,31 @@ export function useAccidentalAndTrillHandlers({
     [score, target, updateScore, commitPatches],
   );
 
+  const handleTrillExtensionVisibleChange = useCallback(
+    (visible: boolean) => {
+      if (!score || !target || target.sequenceIndex === undefined || target.eventIndex === undefined) return;
+      const nextScore = produce(score, (draft) => {
+        setTrillExtensionVisible(
+          draft,
+          target.partIndex,
+          target.measureIndex,
+          target.sequenceIndex!,
+          target.eventIndex!,
+          visible,
+          target.tupletIndex,
+        );
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [score, target, updateScore],
+  );
+
   return {
     handleAccidentalDisplayModeChange,
     handleAccidentalEnclosureChange,
     handleTrillAccidentalChange,
+    handleTrillExtensionVisibleChange,
+    canEnableTrillExtension,
   };
 }
 

@@ -1,9 +1,10 @@
 # Denigma MUSX Vendor-Gap Architecture
 
-> **Status: proposed.** Viritura can import Finale MUSX through an internally
-> packaged Denigma WebAssembly converter. Denigma does not currently expose the
-> structured gap catalog, source-evidence graph, or vendor-shim protocol
-> described below.
+> **Status: active design and staged implementation.** Viritura imports Finale
+> MUSX through an internally packaged Denigma WebAssembly converter and now
+> receives Denigma's schema-v1 structured gap report. The adapter registry,
+> source-evidence graph, NotationRef mapping catalog, and user-facing loss
+> report described below remain proposed.
 
 This plan defines a separation of concerns for high-fidelity Finale MUSX import:
 Denigma remains responsible for understanding MUSX and producing standard MNX,
@@ -25,8 +26,10 @@ inside Denigma.
 3. **Known loss is explicit.** A recognized MUSX feature must be classified as
    faithfully mapped, mapped with loss, unsupported by MNX, intentionally
    omitted, or unrecognized.
-4. **NotationRef supplies shared semantics.** Gap reports use W3C Music
-   Notation Reference concept IDs for discovery and coverage reporting.
+4. **NotationRef supplies shared semantics.** A future mapping catalog should
+   associate gap types with W3C Music Notation Reference concept IDs for
+   discovery and coverage reporting. Denigma's schema-v1 reports do not yet
+   carry those IDs.
 5. **Gap payloads remain separately versioned.** NotationRef identifies what a
    feature means; it does not define enough data to reconstruct an occurrence.
 6. **Vendors own preservation policy.** Each consumer decides which gap payloads
@@ -38,16 +41,16 @@ inside Denigma.
 
 ## Ownership boundaries
 
-| Authority                          | Responsibility                                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| W3C Music Notation Community Group | NotationRef taxonomy and MNX specification                                                                   |
-| musxdom                            | Typed Finale document model, object resolution, and effective-value calculation                              |
-| Denigma                            | MUSX classification, MUSX-to-NotationRef mappings, standard MNX conversion, gap schemas, and source evidence |
-| Viritura                           | Viritura extension schema, Denigma-gap adapters, import policy, and user-facing loss reporting               |
-| Other vendors                      | Their own gap adapters and extension/application representations                                             |
+| Authority                          | Responsibility                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| W3C Music Notation Community Group | NotationRef taxonomy and MNX specification                                                     |
+| musxdom                            | Typed Finale document model, object resolution, and effective-value calculation                |
+| Denigma                            | MUSX classification, standard MNX conversion, typed gap payloads, and stable target anchors    |
+| Viritura                           | Viritura extension schema, Denigma-gap adapters, import policy, and user-facing loss reporting |
+| Other vendors                      | Their own gap adapters and extension/application representations                               |
 
-Denigma would own the assertion that a Finale construct corresponds to a
-NotationRef concept. It would not own the NotationRef concept itself.
+Denigma should own any future assertion that a Finale construct corresponds to
+a NotationRef concept. It would not own the NotationRef concept itself.
 
 ---
 
@@ -59,7 +62,7 @@ PR #64 establishes the initial converter boundary:
 MUSX bytes
   -> @viritura/musx-import worker
   -> Denigma WebAssembly
-  -> standard MNX JSON + diagnostics
+  -> standard MNX JSON + diagnostics + schema-v1 gap report
   -> Viritura MNX schema/semantic validation
   -> editor document
 ```
@@ -70,8 +73,10 @@ module's embedded provenance, and falls back to building Denigma's own
 `denigma_wasm` target when the CI artifact is unavailable. Generated assets
 carry hashes, provenance, and licenses.
 
-This is a deployment mechanism, not the target vendor-gap protocol. The current
-Denigma API returns MNX and diagnostics only.
+The WebAssembly result exposes gap-report bytes through
+`denigma_result_gap_report_data` and `denigma_result_gap_report_size`.
+`@viritura/musx-import` validates the envelope and anchor contract and returns
+it as `MusxImportResult.gapReport`. No Viritura shim mutates the MNX yet.
 
 Denigma and Denigma Online now use this same upstream module, which supports
 MNX, MusicXML, and EnigmaXML output. Official Denigma releases will attach a
@@ -81,9 +86,144 @@ command-line users, but cannot be rebundled into WebAssembly after compilation.
 
 ---
 
+## Current schema-v1 gap contract
+
+Denigma currently serializes:
+
+- `schemaVersion: 1`;
+- producer name, version, and commit;
+- a source-ordered `gaps` array;
+- stable target-MNX `anchor` IDs, optional rhythmic positions and staff
+  numbers, optional span `end` anchors, and optional display placements;
+- `complete` or `partial` extent;
+- typed chord-symbol, notehead, expression, formatted-text, playback-only,
+  smart-shape, and lyric-word-extension payloads; and
+- a report-level arrowhead table for custom smart-shape caps, with SVG geometry
+  in staff-space units.
+
+Consumers dispatch on `type` and ignore unknown fields and types. This is enough
+for safe, incremental Viritura adapters: unsupported payloads remain reportable
+instead of blocking the entire import.
+
+The current contract deliberately lacks some of the target architecture below:
+there are no per-payload versions, gap codes distinct from `type`, NotationRef
+IDs, source-evidence graph, or published JSON Schemas. Viritura should
+therefore keep schema-v1 readers narrow and avoid treating the current payload
+shape as an indefinitely frozen vendor-extension schema.
+
+### Viability of the September 2026 gap families
+
+| Denigma gap family                | Existing Viritura destination                              | Viability now | Remaining loss or prerequisite                                                                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generic expressive text           | Part-measure `_x.viritura.expressions[]`                   | High          | Preserve plain text, rhythmic position, staff, and above/below placement first; rich runs and exact font metrics need a separate rich-text model.                                                         |
+| Performance instructions          | Same expression extension                                  | High          | Denigma's normalized technique kind is useful for future playback, but the current Viritura field stores displayed text only.                                                                             |
+| Rehearsal marks                   | Global-measure `_x.viritura.rehearsalMark`                 | High          | Map system-top placement and text now; retain style only when it maps to plain, boxed, or circled. Multiple marks in one measure require model expansion because Viritura currently stores one.           |
+| Tempo text and visibility         | Standard MNX `tempos[]` plus `_x.viritura` text/show flags | High          | A partial gap can decorate the already emitted tempo by ID. Preserve plain text and playback-only visibility; defer rich runs and exact source font size.                                                 |
+| Entry-attached glissando          | Event `_x.viritura.glissandos[]`                           | Medium-high   | Straight/wavy style and text map. Resolve note anchors to containing events before mutation. Chord-specific endpoints, arbitrary line widths, caps, and offsets do not fit the current event-level model. |
+| Trill symbol                      | Event marking `_x.viritura.trill`                          | Medium        | A simple `tr` symbol and accidental map.                                                                                                                                                                  |
+| Trill extension line              | Event marking `_x.viritura.trill.extension`                | Medium-high   | Event-anchored same-system spans now render; cross-system segmentation and exact source line appearance remain deferred.                                                                                  |
+| Keyboard pedal smart shape        | Part-measure `_x.viritura.pedals[]`                        | Medium        | Basic sustain/sostenuto/una-corda spans and text/bracket styles fit; custom lines, cap geometry, and mixed text runs do not.                                                                              |
+| Lyric word extension              | No rendered extender-line model                            | Low now       | Keep the gap visible. Viritura represents syllabic/melisma structure but does not render explicit extender endpoints or continuation lines.                                                               |
+| General/custom lines and SVG caps | No generic line extension                                  | Low           | Do not create a catch-all drawing extension merely to absorb Finale data. Add only source-neutral semantics with an editing/rendering use case.                                                           |
+
+Adapter order matters:
+
+1. Parse and validate both artifacts.
+2. Build an index of MNX IDs before changing arrays or object structure.
+3. Dispatch by report schema version and gap `type`.
+4. Apply only the semantic subset Viritura can represent faithfully.
+5. Record handled-partial and unhandled gaps in import diagnostics.
+6. Validate the mutated MNX again.
+
+Standard MNX always wins. A shim must not duplicate a feature Denigma already
+emitted, and a partial gap should decorate its target rather than create a
+second object.
+
+## Finale-specific follow-up priorities
+
+This snapshot uses MNX commit
+[`92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1),
+the Music Notation Reference taxonomy at
+[`7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677),
+and the MusicXML 4.1 draft matrix and schema at
+[`1380e6a`](https://github.com/w3c-cg/musicxml/commit/1380e6a9ac61d54ae695cab2c8fc94bba82d101b).
+MusicXML 4.1 is a draft; MusicXML 4.0 remains the latest published release.
+
+Priority meanings:
+
+- **Now** — use an existing native MNX shape; do not create a parallel
+  extension.
+- **Next** — a bounded Viritura bridge has clear semantics and useful import
+  value.
+- **Watch** — MNX explicitly plans or is actively designing the feature; retain
+  source data if necessary without stabilizing a broad public model.
+- **Defer** — timing, layout, or cascading semantics remain too unsettled for a
+  reliable shared model.
+
+| Priority                    | Finale feature                                       | Standards readiness                                                                                           | Viritura direction                                                                                                                       |
+| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Now                         | Forced stem direction                                | Native MNX `event.stemDirection`; native MusicXML `<stem>`                                                    | Map directly when import policy retains authored directions.                                                                             |
+| Now                         | Individual rest placement                            | Native MNX `rest.staffPosition`; MusicXML has per-rest display pitch                                          | Map explicit overrides directly. Keep a staff-wide default separate.                                                                     |
+| Now                         | Ordinary compound meter and common/cut display       | Native MNX `count`, `unit`, and common/cut display                                                            | Map directly; Viritura already models compound meters.                                                                                   |
+| Now                         | Staff-name display override                          | MNX layout staffs accept literal labels; MusicXML supports subsequent-system name displays                    | Use layout labels rather than changing semantic part identity.                                                                           |
+| Now, with caution           | Instrument change                                    | MNX specifies layout-based changes; MusicXML has semantic `instrument-change`                                 | Follow native MNX for interchange, but do not force Viritura's internal instrument identity to be layout-owned.                          |
+| Next                        | Arbitrary jump instruction text                      | MNX jump semantics have no text; MusicXML composes words with jump playback                                   | Add a textual adjunct to the semantic jump, not an unclassified system-text duplicate.                                                   |
+| Next                        | Hidden key-signature display                         | MNX key has no display switch; MusicXML uses `print-object="no"`                                              | Add a small key display extension distinct from atonal/open key.                                                                         |
+| Next                        | Barline-aligned per-staff key/time changes           | MNX remains global; MusicXML staff-scopes key/time                                                            | Reuse shipped synchronous `staffMeters`; add a parallel staff-key subset. Do not imply independent barlines.                             |
+| Next                        | Additive and display-versus-semantic meters          | MNX cannot express arbitrary displayed/actual pairs; MusicXML has composite beats and richer display controls | Extend the existing Viritura beat-structure/display model instead of inventing a second time-signature object.                           |
+| Next                        | Independent mid-part transposition                   | MNX transposition is part-wide; MusicXML can change staff-scoped transposition per measure                    | High musical value, especially orchestral brass. Requires pitch, key, playback, label, and editing pipelines, not just display metadata. |
+| Next                        | Per-staff barline extent                             | Neither standard models arbitrary staff-local barline length                                                  | A bounded staff-config engraving extension is justified, especially for one-line staves.                                                 |
+| Next                        | Staff-default rest position                          | Both standards model only individual rest overrides                                                           | Preserve the source rule in staff config; materialize per-rest exceptions only when needed.                                              |
+| Next after asset groundwork | Measure/page graphics                                | MNX has no image object; MusicXML supports measure images and page credit images                              | Preserve an opaque resource, anchor, MIME type, and dimensions. Build project attachments and safe raster/vector handling first.         |
+| Next, low priority          | Explicit cutaway intent                              | MNX layouts can express the result but not the policy; MusicXML has explicit staff hiding                     | Preserve intent only when useful; Viritura already expresses visible results through layout overrides.                                   |
+| Watch                       | Measure-attached wrapped blocks and page text        | MNX text frames/rich text are planned; MusicXML text runs lack a true wrapping rectangle                      | Preserve rectangle, anchoring, alignment, justification, and authored breaks. Avoid freezing rich-run/font-unit semantics.               |
+| Watch                       | Chord fretboards                                     | MNX marks fretboards planned for 1.0; MusicXML `<frame>` is mature                                            | Use a temporary bridge only if near-term round-trip demand outweighs likely migration work.                                              |
+| Watch                       | Articulations, arbitrary glyph markings, and caesura | Many markings are native; caesura is planned; MusicXML has semantic caesura plus SMuFL escape hatches         | Prefer semantic MNX mappings. Use Denigma's SMuFL mapping only for truly unmapped glyphs.                                                |
+| Watch                       | Key mode                                             | MNX mode/tonic design is active; MusicXML has major/minor/church modes                                        | Preserve as analysis/spelling metadata, but wait before making it authoritative.                                                         |
+| Watch                       | Measure-number ranges and custom text                | MNX has only an integer now and plans the broader facility; MusicXML 4.1 draft is richer                      | Current numeric override stays native. Keep custom labels/ranges narrow and migratable.                                                  |
+| Watch                       | TAB                                                  | MNX marks TAB planned for 1.0; MusicXML has a mature string/fret/tuning model                                 | Preserve source data only if work begins before MNX lands its native design.                                                             |
+| Defer                       | True non-aligning polymeter                          | MNX measure topology is global; MusicXML can represent non-controlling measures                               | The shipped Viritura staff-meter bridge intentionally keeps barlines aligned. True polymeter needs structural design.                    |
+| Defer selectively           | X-EDO and tuning-system semantics                    | Neither standard defines a complete tuning-system model                                                       | A displayed microtonal key-signature list is bridgeable; temperament, reference pitch, and spelling policy are not.                      |
+| Defer selectively           | Universal object hide/show                           | MNX has no universal rule; MusicXML's `print-object` coverage is broad but not universal                      | Add targeted visibility only where spacing, playback, children, and references have defined behavior.                                    |
+
+Relevant active MNX discussions include rich text
+([#345](https://github.com/w3c-cg/mnx/issues/345)), fretboards
+([#110](https://github.com/w3c-cg/mnx/issues/110)), local meter and polymeter
+([#248](https://github.com/w3c-cg/mnx/issues/248)), additive meter
+([#254](https://github.com/w3c-cg/mnx/issues/254)), key mode
+([#510](https://github.com/w3c-cg/mnx/issues/510)), hidden key signatures
+([#435](https://github.com/w3c-cg/mnx/issues/435)), and independent
+transposition changes ([#466](https://github.com/w3c-cg/mnx/issues/466)).
+
+### Text and staff-size units
+
+Finale's default staff space is 24 EVPUs, so a five-line staff is 96 EVPUs or
+24 typographic points high. Denigma's scalable text therefore carries a source
+relationship that cannot safely be reduced to one unitless font number.
+MusicXML also separates point-based font sizes, global geometric tenths, and
+percentage staff scaling. MNX has not settled equivalent rich-text,
+page-measurement, or staff-scaling units.
+
+An interim text bridge should preserve:
+
+- the numeric font value and source unit;
+- the source/reference staff size;
+- whether the text scales with staff resizing;
+- resolved display size when available;
+- absolute page geometry versus staff-relative geometry;
+- authored line breaks versus automatic wrapping; and
+- alignment independently from justification.
+
+Plain-text semantic adapters should land before this richer style model.
+Converting every Finale font immediately to absolute points would reproduce the
+default staff but lose resized-staff behavior; treating every size as
+staff-relative would conflict with MusicXML's point-based font sizes.
+
+---
+
 ## Target conversion artifact
 
-Denigma should return one logical artifact containing:
+The longer-term contract should return one logical artifact containing:
 
 ```text
 Denigma conversion artifact
@@ -478,10 +618,14 @@ decompressed-size, expansion-ratio, memory, and time limits.
 
 ---
 
-## Proposed upstream asks
+## Upstream asks and current disposition
 
-These are intentionally high-level starting points for discussion with the
-Denigma author:
+The reusable WebAssembly converter and first structured conversion-gap report
+have landed upstream. The remaining asks are a machine-readable mapping
+catalog, explicit payload-version compatibility, NotationRef associations, and
+source evidence where the normalized payload is not sufficient.
+
+The quoted requests below are retained as the historical starting point:
 
 > **Consumable converter package:** Would you be open to publishing a reusable
 > WebAssembly package for Denigma's MUSX-to-MNX converter, potentially by
@@ -498,33 +642,87 @@ Denigma author:
 > post-conversion shims or `_x` extensions without adding vendor-specific
 > behavior to Denigma itself.
 
-Implementation details should be proposed upstream only after there is agreement
-on these ownership boundaries and goals.
-
 ---
 
 ## Suggested rollout
 
-### Phase 1: upstream contract
+### Phase 1: upstream contract — completed for the first report
 
-- Agree on ownership and terminology with the Denigma author.
-- Define mapping dispositions and stable gap-code rules.
-- Select one source-backed pilot such as percussion component noteheads.
-- Publish an initial mapping catalog and payload schema.
+- Denigma owns MUSX classification and emits standard MNX plus a separate gap
+  report.
+- Chord symbols and noteheads established stable target anchoring.
+- Expressions, smart shapes, and lyric word extensions expanded the report.
+- A published mapping catalog, gap codes, and payload schemas remain open.
 
-### Phase 2: converter output
+### Phase 2: Viritura report ingestion — completed
 
-- Add gap collection to Denigma's public conversion result.
-- Add source-graph capture for the pilot feature.
-- Expose the result through native and WebAssembly APIs.
-- Prove that recognized unsupported features cannot be silently discarded.
+- Pin a Denigma build that exposes the schema-v1 report.
+- Read and validate the report through the WebAssembly result boundary.
+- Return it from `@viritura/musx-import` without silently dropping unknown
+  types.
+- Keep source-graph capture as a later upstream enhancement.
 
-### Phase 3: Viritura adapters
+### Step 1: adapter prerequisites
 
-- Extend `@viritura/musx-import` to validate the catalog, manifest, and graph.
-- Add a versioned shim registry.
-- Implement the percussion-notehead adapter.
+- [x] Extend the source-neutral Viritura trill model with an optional endpoint-based
+      extension and an explicit initial-symbol visibility flag. This represents
+      both ordinary trill-plus-line spans and extension-only lines without carrying
+      Finale font choices into the document model.
+- [x] Add a Notation Properties control that creates an event-anchored
+      extension. New lines default to the end of the trill's own note. Trill
+      endpoints remain event-anchored rather than accepting arbitrary positions.
+- [x] Add same-system trill-extension rendering with stable selectable IDs.
+- [x] Add an event-snapping end handle that updates the extension target and
+      can choose either the start or end edge of a note.
+- No new destination model is required for plain expressions, performance
+  instructions rendered as text, rehearsal marks, tempo visibility, or the
+  safe glissando subset.
+- Defer separate displayed-versus-playback metronome values, multiple rehearsal
+  marks in one measure, note-specific chord endpoints, rich text, custom line
+  glyphs, exact line widths and caps, and tab-slide semantics. These are
+  fidelity improvements rather than blockers for the first adapters.
+
+### Step 2: Viritura gap conversions
+
+- Add a schema-versioned shim registry and target-ID index.
+- Implement plain expressive text and performance instructions as text
+  expressions.
+- Preserve rehearsal marks and tempo text/display behavior by decorating
+  Denigma's existing standard MNX targets rather than creating duplicates.
+- Add the safe event-level straight/wavy glissando subset.
+- Convert trill lines after the extension renderer is available:
+  `includesTrSymbol: true` produces a trill symbol plus an extension, while
+  `false` produces an extension only.
+- Keep rich formatting and unsupported line details explicitly partial or
+  unhandled.
 - Present handled, partial, and unhandled gaps in the import UI.
+
+### Step 2.5: conversion test strategy
+
+- Keep ordinary pull-request CI hermetic: unit-test adapters with compact
+  hand-authored MNX and gap-report objects, reuse existing format/render tests
+  for destination behavior, and add one mocked editor integration test.
+- Do not clone Denigma or download MUSX fixtures during ordinary pull-request
+  CI.
+- When `pnpm build:denigma-wasm` updates the pinned converter, use the fixtures
+  from that exact checkout for a focused WebAssembly acceptance corpus:
+  `slurs_2staves.musx`, `techniques.musx`, `rehearsal_marks.musx`,
+  `tempo_varied_staves.musx`, `glissando.musx`, and
+  `smartshape_lines.musx`.
+- Assert only Viritura's external contract: schema version, representative gap
+  discriminators, resolvable anchors, and required payload fields. Do not copy
+  Denigma's complete golden snapshots or classification tests.
+
+### Step 3: remaining gaps of the gap
+
+- Generate a report from handled, partial, and unhandled schema-v1 payload
+  fields after the first adapter set lands.
+- Open a follow-up issue from that report for deferred fidelity work, including
+  displayed-versus-playback metronome values, multiple rehearsal marks,
+  note-specific endpoints, rich text and font metrics, dashed/invisible/custom
+  lines, caps and arrowheads, tab slides, and exact source appearance.
+- Keep the issue tied to the pinned Denigma commit and payload schema version so
+  later upstream changes can be distinguished from known Viritura limitations.
 
 ### Phase 4: ecosystem
 

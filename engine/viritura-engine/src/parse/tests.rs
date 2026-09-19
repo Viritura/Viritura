@@ -1339,6 +1339,58 @@ fn test_parse_trill_from_vendor_ext() {
         .unwrap();
     let t = m.trill.as_ref().expect("Expected trill");
     assert_eq!(t.accidental, Some(-1));
+    assert_eq!(t.show_symbol, None);
+    assert_eq!(t.extension, None);
+}
+
+#[test]
+fn test_parse_trill_extension_from_vendor_ext() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+            {"type": "event", "id": "trill-start", "duration": {"base": "quarter"},
+             "notes": [{"pitch": {"step": "D", "octave": 5}}],
+             "markings": {"_x": {"viritura": {"trill": {
+                 "showSymbol": false,
+                 "extension": {"target": "trill-end", "targetEdge": "end"}
+             }}}}},
+            {"type": "event", "id": "trill-end", "duration": {"base": "dotted-half"},
+             "notes": [{"pitch": {"step": "E", "octave": 5}}]}
+        ]}]}]}]
+    }"#;
+    let score = parse_mnx(json).expect("Failed to parse trill extension");
+    let trill = score.parts[0].measures[0].sequences[0].content[0]
+        .as_event()
+        .unwrap()
+        .markings
+        .as_ref()
+        .unwrap()
+        .trill
+        .as_ref()
+        .expect("Expected trill extension");
+    assert_eq!(trill.show_symbol, Some(false));
+    assert_eq!(
+        trill
+            .extension
+            .as_ref()
+            .map(|extension| extension.target.as_str()),
+        Some("trill-end")
+    );
+    assert!(matches!(
+        trill
+            .extension
+            .as_ref()
+            .and_then(|extension| extension.target_edge.as_ref()),
+        Some(crate::model::TrillExtensionTargetEdge::End)
+    ));
+    let serialized = serde_json::to_value(&score).expect("Failed to serialize trill extension");
+    let wire_trill = &serialized["parts"][0]["measures"][0]["sequences"][0]["content"][0]
+        ["markings"]["_x"]["viritura"]["trill"];
+    assert_eq!(wire_trill["showSymbol"], false);
+    assert_eq!(wire_trill["extension"]["target"], "trill-end");
+    assert_eq!(wire_trill["extension"]["targetEdge"], "end");
+    assert!(wire_trill.get("show_symbol").is_none());
 }
 
 #[test]
