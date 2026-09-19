@@ -126,8 +126,8 @@ export class PageCache {
 
   /** Optional painter function override (for testing). */
   private paintFn:
-    | ((ctx: OffscreenCanvasRenderingContext2D, commands: RenderCommand[], atlas: GlyphAtlas | null) => void)
-    | null = null;
+    ((ctx: OffscreenCanvasRenderingContext2D, commands: RenderCommand[], atlas: GlyphAtlas | null) => void) | null =
+    null;
 
   constructor(glyphAtlas?: GlyphAtlas) {
     if (glyphAtlas) {

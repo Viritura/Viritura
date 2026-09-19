@@ -10,17 +10,7 @@ import type {
 
 /** Dynamic spellings exposed by authoring and interchange surfaces. */
 export type AuthoredDynamicValue =
-  | DynamicValue
-  | "fp"
-  | "pf"
-  | "sf"
-  | "sfp"
-  | "sfpp"
-  | "sfz"
-  | "sffz"
-  | "fz"
-  | "rf"
-  | "rfz";
+  DynamicValue | "fp" | "pf" | "sf" | "sfp" | "sfpp" | "sfz" | "sffz" | "fz" | "rf" | "rfz";
 
 const PRECOMPOSED_GLYPHS: Readonly<Record<string, string>> = {
   pppppp: "dynamicPPPPPP",

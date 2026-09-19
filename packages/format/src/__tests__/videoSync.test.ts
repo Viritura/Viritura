@@ -130,8 +130,7 @@ describe("videoSync vendor extension", () => {
   it("omits the extension entirely for scores with no video", () => {
     const serialized = serializeMnx(parseMnx(baseScore())) as Record<string, unknown>;
     const viritura = (serialized["_x"] as Record<string, unknown> | undefined)?.["viritura"] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     expect(viritura?.["videoSync"]).toBeUndefined();
   });
 

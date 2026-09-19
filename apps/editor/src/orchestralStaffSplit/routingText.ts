@@ -1,6 +1,5 @@
 export type PlayerRouting =
-  | { readonly kind: "players"; readonly players: readonly number[] }
-  | { readonly kind: "all"; readonly count: number };
+  { readonly kind: "players"; readonly players: readonly number[] } | { readonly kind: "all"; readonly count: number };
 
 const PLAYER_TOKEN = "(?:1|2|3|I|II|III)";
 const SEPARATED_PLAYERS = new RegExp(`^(${PLAYER_TOKEN})\\.?\\s*(?:,|/|&)\\s*(${PLAYER_TOKEN})\\.?$`, "i");

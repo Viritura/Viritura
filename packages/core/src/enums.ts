@@ -59,10 +59,4 @@ export type StemDirection = "up" | "down" | "auto";
 // ═══════════════════════════════════════════
 
 export type AccidentalType =
-  | "sharp"
-  | "flat"
-  | "natural"
-  | "double-sharp"
-  | "double-flat"
-  | "triple-sharp"
-  | "triple-flat";
+  "sharp" | "flat" | "natural" | "double-sharp" | "double-flat" | "triple-sharp" | "triple-flat";
