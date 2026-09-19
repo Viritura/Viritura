@@ -44,6 +44,7 @@ import { parseHarmony } from "./harmony";
 import { noteConnectorOrdinals } from "./noteConnectorOrder";
 import { parseMuseScoreNote } from "./noteReading";
 import { readRelativeConnector, type RelativeConnector } from "./relativeConnectors";
+import { readSlurConnectors, resolveSlurConnectors, type SlurConnector } from "./slurReading";
 import { parseStaffTransposition } from "./transposition";
 import { child, children, integerText, parseSafeXml, requiredText, text } from "./xml";
 
@@ -260,7 +261,25 @@ function parseChord(
       ),
     );
   }
-  const supported = new Set(["durationType", "dots", "duration", "Note", "Articulation", "Symbol", ...GRACE_TAGS]);
+  context.slurConnectors.push(
+    ...readSlurConnectors(
+      element,
+      event,
+      { staff: track.staffOffset, voice: track.voice, time: onset, note: 0 },
+      Boolean(graceTag),
+      path,
+    ),
+  );
+  const supported = new Set([
+    "durationType",
+    "dots",
+    "duration",
+    "Note",
+    "Articulation",
+    "Symbol",
+    "Spanner",
+    ...GRACE_TAGS,
+  ]);
   for (const elementChild of children(element)) {
     if (!supported.has(elementChild.tagName)) {
       unsupported(`Chord property "${elementChild.tagName}" is not supported`, `${path}/${elementChild.tagName}`);
@@ -285,15 +304,30 @@ function parseChord(
   return { nominal, grace: false };
 }
 
-function parseRest(element: Element, track: ParsedTrack, onset: Fraction, path: string): Fraction {
+function parseRest(
+  element: Element,
+  track: ParsedTrack,
+  onset: Fraction,
+  path: string,
+  context: StaffListContext,
+): Fraction {
   const { duration, nominal } = parseDuration(element, path);
-  const supported = new Set(["durationType", "dots", "duration", "staffPosition"]);
+  const supported = new Set(["durationType", "dots", "duration", "staffPosition", "Spanner"]);
   for (const elementChild of children(element)) {
     if (!supported.has(elementChild.tagName)) {
       unsupported(`Rest property "${elementChild.tagName}" is not supported`, `${path}/${elementChild.tagName}`);
     }
   }
   const event: NoteEvent = { type: "event", id: generateId(), duration, rest: {} };
+  context.slurConnectors.push(
+    ...readSlurConnectors(
+      element,
+      event,
+      { staff: track.staffOffset, voice: track.voice, time: onset, note: 0 },
+      false,
+      path,
+    ),
+  );
   appendContent(track, event, onset, multiply(nominal, tupletScale(track.tuplets)), path);
   return nominal;
 }
@@ -413,6 +447,7 @@ interface StaffListContext extends StaffListEnvelope {
   locatedDynamics: LocatedDynamic[];
   noteConnectors: NoteConnector[];
   hairpinConnectors: RelativeConnector[];
+  slurConnectors: SlurConnector[];
   transpositions: Map<number, Transposition>;
 }
 
@@ -539,7 +574,7 @@ function parseStaffItem(element: Element, path: string, track: ParsedTrack, cont
       break;
     }
     case "Rest": {
-      const nominal = parseRest(element, track, onset, path);
+      const nominal = parseRest(element, track, onset, path, context);
       const frame = track.tuplets.at(-1);
       if (frame) frame.consumed = add(frame.consumed, nominal);
       location.time = add(location.time, multiply(nominal, tupletScale(track.tuplets)));
@@ -599,11 +634,13 @@ function parseStaffList(root: Element): MuseScoreClipboardData {
     locatedDynamics: [],
     noteConnectors: [],
     hairpinConnectors: [],
+    slurConnectors: [],
     transpositions: new Map(),
   };
   const staffs = children(root, "Staff");
   if (staffs.length === 0) throw new MuseScoreConversionError("invalid-structure", "StaffList contains no Staff");
   for (const [staffIndex, staff] of staffs.entries()) parseStaffElement(staff, staffIndex, context);
+  resolveSlurConnectors(context.slurConnectors, context.length, context.staffCount);
   resolveNoteConnectors(context.noteConnectors, context.length, context.staffCount);
   context.dynamics = resolveHairpinConnectors(
     context.hairpinConnectors,

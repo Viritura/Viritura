@@ -11,7 +11,7 @@ are unavailable in a browser:
   `SharedArrayBuffer` (WASM threads) works under the Tauri asset protocol;
 - VST3 plugin scanning and hosting;
 - native SF2/VST playback, mixing, and convolution reverb;
-- MuseScore notation clipboard interchange on Windows;
+- MuseScore notation clipboard import on Windows;
 - sandboxed Lua articulation mapping; and
 - filesystem-backed instrument profiles.
 
@@ -19,16 +19,20 @@ The web build continues to ship in parallel; nothing here changes the editor.
 
 ## MuseScore clipboard
 
-On Windows desktop, normal Copy, Cut, and Paste exchange notation with MuseScore
-4.7 (`StaffList` clipboard version `4.70`). Select a passage in MuseScore, copy
-it, then paste at the desired Viritura score position. Copy from Viritura and
-paste onto a MuseScore note or rest for the reverse direction.
+On Windows desktop, normal Paste imports notation copied from MuseScore 4.7
+(`StaffList` clipboard version `4.70`). Select a passage in MuseScore, copy it,
+then paste at the desired Viritura score position. Viritura-to-MuseScore clipboard
+export is disabled until a future implementation; Copy and Cut publish only
+Viritura's existing text/JSON fragment, not native MuseScore formats.
 
 Supported notation includes pitched notes, chords, rests, dotted durations,
 complete tuplets, grace notes, multiple staves and voices, and common
 articulations. Source transposition preserves sounding pitches, and explicit
-standard accidentals retain their display intent. Complete ties and hairpins
-are supported, as are chord symbols and dynamics on secondary staves.
+standard accidentals retain their display intent. Complete ties and hairpins,
+normal fully-contained event slurs, and chord symbols and dynamics on secondary
+staves are supported.
+Slurs may overlap, share endpoints, and span tuplets, bars, voices, or staves.
+Automatic/up/down placement and solid, dotted, or dashed lines are preserved.
 Dynamics retain their written subtype (`p`, `mp`, `mf`, `f`, etc.); source playback
 settings (velocity, enablement, and hairpin velocity change and interpolation) are
 ignored, and Viritura's audio engine chooses playback from the written notation.
@@ -36,18 +40,25 @@ A source-muted dynamic intentionally becomes active in Viritura.
 Raw captured XML fixtures retain source velocities as import regression evidence.
 Single-note MuseScore clipboard selections are also accepted.
 
-This is not complete MuseScore format support. Slurs, partial or grace-note
-ties, cross-track hairpins, percussion-kit interchange, annotation-only selections,
+This is not complete MuseScore format support. Slurs outside that conservative
+subset (including partial or grace-note slurs), partial or grace-note ties,
+cross-track hairpins, percussion-kit interchange, annotation-only selections,
 and other unsupported constructs produce a diagnostic rather than silently
-losing notation. Tie export involving unison chord endpoints is also rejected
-because MuseScore can reorder those notes. Unsupported MuseScore exports still
-copy the complete Viritura fragment and display a warning.
-Viritura-to-Viritura paste prefers that fragment.
+losing notation. Slurs with edited segment geometry, wide-dashed lines, or
+ambiguous duplicate endpoint pairs are also rejected.
+Viritura-to-Viritura JSON copy/paste remains unchanged and
+prefers the complete internal fragment.
 
-Native MuseScore formats are Windows-desktop-only. Browsers and other desktop
+Native MuseScore import is Windows-desktop-only. Browsers and other desktop
 platforms retain the existing text/JSON clipboard path; explicitly copied
 StaffList XML text can also be imported. No clipboard polling or external
 service is involved.
+
+The native reader still accepts only `application/musescore/stafflist`,
+`application/musescore/symbol`, and `application/musescore/symbollist`, with
+8 MiB payload limits and strict encoding checks. The native writer first clears
+all previous clipboard formats, including stale MuseScore data, then publishes
+only NUL-terminated `CF_UNICODETEXT`.
 
 The reusable `@viritura/musescore-clipboard` package owns the notation codec.
 Its public barrel exposes `readMuseScoreClipboard`, `writeMuseScoreStaffList`,
@@ -58,6 +69,8 @@ access the clipboard or editor state. Track and annotation offsets are exact
 whole-note fractions; physical staff offsets and sounding-pitch transposition
 metadata are documented on the DTOs. The editor adapter owns fragment/history
 conversion and browser fallback; the desktop host owns native clipboard IO.
+The pure `writeMuseScoreStaffList` export codec remains available in the package
+but is inactive in application Copy/Cut and native clipboard publication.
 
 ## Layout
 

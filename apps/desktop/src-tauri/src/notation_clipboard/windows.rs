@@ -17,9 +17,8 @@ use winapi::{
 };
 
 use super::{
-    decode_musescore_payload, decode_unicode_payload, encode_musescore_payload,
-    encode_unicode_payload, MuseScoreClipboard, MuseScoreMime, NotationClipboardRead,
-    NotationClipboardWrite, MAX_PAYLOAD_BYTES,
+    decode_musescore_payload, decode_unicode_payload, encode_unicode_payload, MuseScoreClipboard,
+    MuseScoreMime, NotationClipboardRead, NotationClipboardWrite, MAX_PAYLOAD_BYTES,
 };
 
 const OPTIONAL_NUL_BYTES: usize = 2;
@@ -60,42 +59,28 @@ pub(super) fn read(window: &WebviewWindow) -> Result<NotationClipboardRead, Stri
     clipboard.finish(result)
 }
 
-pub(super) fn write(
-    window: &WebviewWindow,
-    text: &str,
-    muse_score: Option<&MuseScoreClipboard>,
-) -> Result<NotationClipboardWrite, String> {
+pub(super) fn write(window: &WebviewWindow, text: &str) -> Result<NotationClipboardWrite, String> {
     let text_units = encode_unicode_payload(text)?;
     let mut text_bytes = Vec::with_capacity(text_units.len() * size_of::<u16>());
     for unit in text_units {
         text_bytes.extend_from_slice(&unit.to_le_bytes());
     }
 
-    let muse_payload = muse_score
-        .map(|payload| -> Result<_, String> {
-            let mime = MuseScoreMime::parse(&payload.mime)?;
-            let bytes = encode_musescore_payload(&payload.xml)?;
-            Ok((mime, bytes))
-        })
-        .transpose()?;
-
-    let formats = MuseScoreFormats::register()?;
-    let mut text_memory = OwnedGlobal::new(&text_bytes, 0, MAX_PAYLOAD_BYTES + OPTIONAL_NUL_BYTES)?;
-    let mut muse_memory = muse_payload
-        .as_ref()
-        .map(|(_, bytes)| OwnedGlobal::new(bytes, b' ', MAX_PAYLOAD_BYTES))
-        .transpose()?;
+    let mut text_memory = OwnedGlobal::new(&text_bytes, MAX_PAYLOAD_BYTES + OPTIONAL_NUL_BYTES)?;
 
     let clipboard = Clipboard::open(owner_hwnd(window)?)?;
-    let result = (|| {
-        empty_clipboard()?;
-        text_memory.transfer(CF_UNICODETEXT)?;
-        if let (Some((mime, _)), Some(memory)) = (muse_payload.as_ref(), muse_memory.as_mut()) {
-            memory.transfer(formats.id_for(*mime))?;
-        }
-        Ok(NotationClipboardWrite { supported: true })
-    })();
+    let result = replace_with_unicode_text(empty_clipboard, || text_memory.transfer_unicode_text());
     clipboard.finish(result)
+}
+
+fn replace_with_unicode_text(
+    empty: impl FnOnce() -> Result<(), String>,
+    publish_text: impl FnOnce() -> Result<(), String>,
+) -> Result<NotationClipboardWrite, String> {
+    // Clear every previous format so stale MuseScore notation cannot survive a copy.
+    empty()?;
+    publish_text()?;
+    Ok(NotationClipboardWrite { supported: true })
 }
 
 fn owner_hwnd(window: &WebviewWindow) -> Result<HWND, String> {
@@ -278,7 +263,7 @@ struct OwnedGlobal {
 }
 
 impl OwnedGlobal {
-    fn new(bytes: &[u8], padding: u8, maximum_allocation: usize) -> Result<Self, String> {
+    fn new(bytes: &[u8], maximum_allocation: usize) -> Result<Self, String> {
         if bytes.is_empty() {
             return Err("cannot allocate an empty clipboard payload".to_owned());
         }
@@ -299,7 +284,7 @@ impl OwnedGlobal {
         // SAFETY: GlobalSize establishes the destination length, checked above.
         // Source and destination cannot overlap because GlobalAlloc created it.
         unsafe {
-            ptr::write_bytes(lock.pointer.cast::<u8>(), padding, allocated);
+            ptr::write_bytes(lock.pointer.cast::<u8>(), 0, allocated);
             ptr::copy_nonoverlapping(bytes.as_ptr(), lock.pointer.cast::<u8>(), bytes.len());
         }
 
@@ -307,10 +292,10 @@ impl OwnedGlobal {
         Ok(memory)
     }
 
-    fn transfer(&mut self, format: UINT) -> Result<(), String> {
+    fn transfer_unicode_text(&mut self) -> Result<(), String> {
         // SAFETY: the clipboard is open and empty, and `handle` is movable global
         // memory. Ownership changes only after SetClipboardData reports success.
-        if unsafe { SetClipboardData(format, self.handle) }.is_null() {
+        if unsafe { SetClipboardData(CF_UNICODETEXT, self.handle) }.is_null() {
             Err(last_error("failed to set clipboard data"))
         } else {
             self.handle = ptr::null_mut();
@@ -332,29 +317,109 @@ impl Drop for OwnedGlobal {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use super::*;
+
+    #[test]
+    fn native_writer_can_only_publish_unicode_text() {
+        let _: fn(&WebviewWindow, &str) -> Result<NotationClipboardWrite, String> = write;
+        let source = include_str!("windows.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("native implementation");
+        assert_eq!(source.matches("SetClipboardData(").count(), 1);
+        assert!(source.contains("SetClipboardData(CF_UNICODETEXT, self.handle)"));
+        assert!(source.contains("replace_with_unicode_text(empty_clipboard,"));
+    }
+
+    #[test]
+    fn text_copy_empties_stale_musescore_formats_before_publishing() {
+        let formats = MuseScoreFormats {
+            staff_list: 0xc000,
+            symbol: 0xc001,
+            symbol_list: 0xc002,
+        };
+        assert_eq!(
+            formats.priority_order(),
+            [
+                (0xc000, MuseScoreMime::StaffList),
+                (0xc001, MuseScoreMime::Symbol),
+                (0xc002, MuseScoreMime::SymbolList),
+            ]
+        );
+        let clipboard = RefCell::new(vec![(CF_UNICODETEXT, b"old text".to_vec())]);
+        for (format, _) in formats.priority_order() {
+            clipboard
+                .borrow_mut()
+                .push((format, b"stale MuseScore notation".to_vec()));
+        }
+        let text_bytes: Vec<u8> = encode_unicode_payload("{\"viritura\":\"fragment\"}")
+            .expect("encode")
+            .into_iter()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        let result = replace_with_unicode_text(
+            || {
+                clipboard.borrow_mut().clear();
+                Ok(())
+            },
+            || {
+                assert!(clipboard.borrow().is_empty());
+                clipboard
+                    .borrow_mut()
+                    .push((CF_UNICODETEXT, text_bytes.clone()));
+                Ok(())
+            },
+        )
+        .expect("publish text");
+        assert!(result.supported);
+        assert_eq!(clipboard.into_inner(), vec![(CF_UNICODETEXT, text_bytes)]);
+    }
+
+    #[test]
+    fn failed_empty_does_not_publish_text() {
+        let result = replace_with_unicode_text(
+            || Err("failed to empty clipboard".to_owned()),
+            || panic!("must not publish without emptying the clipboard"),
+        );
+        assert_eq!(result.unwrap_err(), "failed to empty clipboard");
+    }
+
+    #[test]
+    fn failed_text_publication_propagates_after_emptying() {
+        let emptied = RefCell::new(false);
+        let result = replace_with_unicode_text(
+            || {
+                *emptied.borrow_mut() = true;
+                Ok(())
+            },
+            || {
+                assert!(*emptied.borrow());
+                Err("failed to set clipboard data".to_owned())
+            },
+        );
+        assert_eq!(result.unwrap_err(), "failed to set clipboard data");
+    }
 
     #[test]
     fn owned_allocations_initialize_all_storage_without_touching_the_clipboard() {
         for length in 1..65 {
-            for padding in [0, b' '] {
-                let bytes = vec![b'x'; length];
-                let memory =
-                    OwnedGlobal::new(&bytes, padding, MAX_PAYLOAD_BYTES).expect("allocate");
-                // SAFETY: the owned handle remains live until after the lock is released.
-                let size = unsafe { GlobalSize(memory.handle) };
-                let lock = GlobalLockGuard::new(memory.handle).expect("lock");
-                let storage = unsafe { slice::from_raw_parts(lock.pointer.cast::<u8>(), size) };
-                assert_eq!(&storage[..length], bytes.as_slice());
-                assert!(storage[length..].iter().all(|byte| *byte == padding));
-                lock.unlock().expect("unlock");
-            }
+            let bytes = vec![b'x'; length];
+            let memory = OwnedGlobal::new(&bytes, MAX_PAYLOAD_BYTES).expect("allocate");
+            // SAFETY: the owned handle remains live until after the lock is released.
+            let size = unsafe { GlobalSize(memory.handle) };
+            let lock = GlobalLockGuard::new(memory.handle).expect("lock");
+            let storage = unsafe { slice::from_raw_parts(lock.pointer.cast::<u8>(), size) };
+            assert_eq!(&storage[..length], bytes.as_slice());
+            assert!(storage[length..].iter().all(|byte| *byte == 0));
+            lock.unlock().expect("unlock");
         }
     }
 
     #[test]
     fn oversized_allocation_is_rejected_before_clipboard_transfer() {
-        assert!(OwnedGlobal::new(b"notes", b' ', 4).is_err());
+        assert!(OwnedGlobal::new(b"notes", 4).is_err());
     }
 }
 
@@ -371,14 +436,6 @@ impl MuseScoreFormats {
             symbol: register_format(MuseScoreMime::Symbol)?,
             symbol_list: register_format(MuseScoreMime::SymbolList)?,
         })
-    }
-
-    fn id_for(&self, mime: MuseScoreMime) -> UINT {
-        match mime {
-            MuseScoreMime::StaffList => self.staff_list,
-            MuseScoreMime::Symbol => self.symbol,
-            MuseScoreMime::SymbolList => self.symbol_list,
-        }
     }
 
     fn priority_order(&self) -> [(UINT, MuseScoreMime); 3] {

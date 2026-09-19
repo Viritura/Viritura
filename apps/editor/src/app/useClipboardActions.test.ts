@@ -119,7 +119,7 @@ describe("clipboard actions with a selected lyric", () => {
     vi.mocked(invoke).mockResolvedValue({ supported: true });
     const { result, updateScore } = harness(lyricSelection);
     await act(() => result.current[action]());
-    expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: "Sing", museScore: null });
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: "Sing" });
     expect(writeText).not.toHaveBeenCalled();
     expect(useClipboardHistoryStore.getState().entries).toHaveLength(0);
     if (action === "handleCut") expect(updatedEvent(updateScore).lyrics?.lines?.verse).toBeUndefined();
@@ -205,6 +205,56 @@ describe("clipboard actions with a selected lyric", () => {
   });
 });
 
+describe.each([false, true])("JSON-only notation actions (native=%s)", (native) => {
+  it.each(["handleCopy", "handleCut"] as const)(
+    "%s preserves unison ties, tremolo, slurs, and lyrics without export warnings",
+    async (action) => {
+      if (native) {
+        vi.stubGlobal("__TAURI_INTERNALS__", {});
+        vi.mocked(invoke).mockResolvedValue({ supported: true });
+      }
+      const score = scoreWithLyric();
+      const content = score.parts[0]!.measures[0]!.sequences[0]!.content;
+      const source = content[0] as NoteEvent;
+      source.notes = [
+        { id: "source-note", pitch: { step: "C", octave: 4 } },
+        { id: "unison-note", pitch: { step: "C", octave: 4 }, ties: [{ target: "target-note" }] },
+      ];
+      source.markings = { tremolo: { marks: 3 } };
+      source.slurs = [{ target: "target" }];
+      content.push({
+        type: "event",
+        id: "target",
+        duration: { base: "quarter" },
+        notes: [{ id: "target-note", pitch: { step: "C", octave: 4 } }],
+      });
+      const snapshot = structuredClone(score);
+      const { result, updateScore } = harness(
+        { kind: "range", startElementId: "p0/m0/s0/source", endElementId: "p0/m0/s0/target" },
+        score,
+      );
+      await act(() => result.current[action]());
+      const text = native
+        ? (vi.mocked(invoke).mock.calls[0]![1] as { text: string }).text
+        : writeText.mock.calls[0]![0];
+      expect(JSON.parse(text)).toMatchObject({ type: "viritura/fragment", content });
+      expect(useClipboardHistoryStore.getState().entries[0]?.fragment.content).toEqual(content);
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+      if (native) {
+        expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text });
+        expect(writeText).not.toHaveBeenCalled();
+      } else {
+        expect(writeText).toHaveBeenCalledExactlyOnceWith(text);
+        expect(invoke).not.toHaveBeenCalled();
+      }
+      if (action === "handleCut") expect(updatedEvent(updateScore).rest).toEqual({});
+      else expect(updateScore).not.toHaveBeenCalled();
+      expect(score).toEqual(snapshot);
+    },
+  );
+});
+
 describe("clipboard history fallback", () => {
   it.each(["application/musescore/stafflist", "application/musescore/symbol", "application/musescore/symbollist"])(
     "never uses stale history for recognized unsupported native %s",
@@ -281,7 +331,7 @@ describe("clipboard history fallback", () => {
     expect(updatedEvent(updateScore).rest).toEqual({});
     const fragment = useClipboardHistoryStore.getState().entries[0]?.fragment;
     expect(fragment?.content[0]).toMatchObject({ notes: [{ pitch: { step: "C" } }] });
-    expect(toast.warning).toHaveBeenCalled();
+    expect(toast.warning).toHaveBeenCalledExactlyOnceWith("Could not write the system clipboard.");
   });
 
   it.each(["", "ordinary text", "{invalid json"])("uses history for non-fragment browser text: %j", async (text) => {

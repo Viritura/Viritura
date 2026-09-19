@@ -348,7 +348,7 @@ describe("relative Tie import and public export", () => {
       end(),
       /nested/,
     ],
-    ["slur", start("Slur"), end("Slur"), /Slur/],
+    ["note-level slur", start("Slur"), end("Slur"), /Slur/],
   ])("rejects %s without fabricating ties", (_name, from, to, message) => {
     expectInvalid(staffList(chord(note(from)) + chord(note(to))), message as RegExp);
   });
@@ -622,7 +622,7 @@ describe("relative HairPin import and export", () => {
         end("HairPin", "-1/4", "<voices>-1</voices>"),
       /cross-voice/,
     ],
-    ["unknown spanner", start("Slur") + chord() + end("Slur"), /Slur/],
+    ["staff-stream slur", start("Slur") + chord() + end("Slur"), /Slur/],
   ])("rejects %s HairPin connectors gracefully", (_name, body, message) => {
     expectInvalid(staffList(body), message as RegExp);
   });

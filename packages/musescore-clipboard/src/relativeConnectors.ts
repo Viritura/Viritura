@@ -11,7 +11,7 @@ export interface ConnectorLocation {
 }
 
 export interface RelativeConnector {
-  type: "Tie" | "HairPin";
+  type: "Tie" | "HairPin" | "Slur";
   direction: "next" | "prev";
   current: ConnectorLocation;
   target: ConnectorLocation;
@@ -26,7 +26,7 @@ export function connectorChildren(element: Element, allowed: readonly string[], 
     if (seen.has(item.tagName)) {
       throw new MuseScoreConversionError("invalid-structure", `duplicate connector ${item.tagName}`, path);
     }
-    if (!["Tie", "HairPin", "next", "prev", "location"].includes(item.tagName)) {
+    if (!["Tie", "HairPin", "Slur", "next", "prev", "location"].includes(item.tagName)) {
       if (children(item).length > 0) {
         throw new MuseScoreConversionError(
           "invalid-structure",
@@ -97,8 +97,13 @@ export function pairRelativeConnectors<T extends RelativeConnector>(
   staffCount: number,
 ): { start: T; end: T }[] {
   const index = new Map<string, T>();
-  const key = (endpoint: RelativeConnector, direction = endpoint.direction, location = endpoint.current): string =>
-    `${endpoint.type}:${direction}:${connectorLocationKey(location)}`;
+  const key = (endpoint: RelativeConnector, reverse = false): string => {
+    const direction = reverse ? (endpoint.direction === "next" ? "prev" : "next") : endpoint.direction;
+    const current = connectorLocationKey(reverse ? endpoint.target : endpoint.current);
+    const target = connectorLocationKey(reverse ? endpoint.current : endpoint.target);
+    // Distinct slurs may share either endpoint; ties and hairpins remain one-to-one.
+    return `${endpoint.type}:${direction}:${current}${endpoint.type === "Slur" ? `:${target}` : ""}`;
+  };
   for (const endpoint of endpoints) {
     for (const location of [endpoint.current, endpoint.target]) {
       if (
@@ -130,8 +135,7 @@ export function pairRelativeConnectors<T extends RelativeConnector>(
   }
   const pairs: { start: T; end: T }[] = [];
   for (const endpoint of endpoints) {
-    const opposite = endpoint.direction === "next" ? "prev" : "next";
-    const match = index.get(key(endpoint, opposite, endpoint.target));
+    const match = index.get(key(endpoint, true));
     if (!match || connectorLocationKey(match.target) !== connectorLocationKey(endpoint.current)) {
       throw new MuseScoreConversionError(
         "invalid-structure",
@@ -173,7 +177,7 @@ function relativeLocationXml(from: ConnectorLocation, to: ConnectorLocation): st
 }
 
 export function connectorPairXml(
-  type: RelativeConnector["type"],
+  type: "Tie" | "HairPin",
   start: ConnectorLocation,
   end: ConnectorLocation,
   properties = "",

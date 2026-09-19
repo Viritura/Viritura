@@ -83,7 +83,7 @@ export function useClipboardActions({
     const lyricText = score ? selectedLyricText(score, selection) : null;
     if (lyricText !== null) {
       try {
-        await writeNotationClipboard({ text: lyricText, museScore: null });
+        await writeNotationClipboard({ text: lyricText });
       } catch {
         toast.error("Could not copy the selected lyric.");
       }
@@ -93,7 +93,7 @@ export function useClipboardActions({
     if (!sel) return;
     let copied = false;
     try {
-      copied = await copyToClipboard(sel, (message) => toast.warning(message));
+      copied = await copyToClipboard(sel);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not copy notation.");
     }
@@ -126,7 +126,7 @@ export function useClipboardActions({
     const lyric = lyricElementId ? resolveSelectedLyric(score, lyricElementId) : null;
     if (lyric && lyricElementId) {
       try {
-        await writeNotationClipboard({ text: lyric.line.text, museScore: null });
+        await writeNotationClipboard({ text: lyric.line.text });
       } catch {
         toast.error("Could not cut the selected lyric.");
         return;

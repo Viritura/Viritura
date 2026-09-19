@@ -51,19 +51,17 @@ describe("clipboard history interoperability", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /Score preview/ }));
     await waitFor(() => expect(screen.getByText("Copied")).toBeTruthy());
-    expect(writeClipboardFragment).toHaveBeenCalledExactlyOnceWith(source, expect.any(Function));
+    expect(writeClipboardFragment).toHaveBeenCalledExactlyOnceWith(source);
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("shows export warnings without treating a successful JSON restore as failure", async () => {
-    vi.mocked(writeClipboardFragment).mockImplementation(async (_fragment, warn) => {
-      warn?.("Unsupported notation was preserved as Viritura JSON.");
-    });
+  it("restores JSON without an export warning callback", async () => {
     addClipboardEntry(fragment());
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /Score preview/ }));
     await waitFor(() => expect(screen.getByText("Copied")).toBeTruthy());
-    expect(toast.warning).toHaveBeenCalledExactlyOnceWith("Unsupported notation was preserved as Viritura JSON.");
+    expect(writeClipboardFragment).toHaveBeenCalledExactlyOnceWith(fragment());
+    expect(toast.warning).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });
 

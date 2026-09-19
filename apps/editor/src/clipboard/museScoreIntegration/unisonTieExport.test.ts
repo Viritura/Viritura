@@ -38,10 +38,9 @@ afterEach(() => {
 });
 
 describe("ambiguous unison-chord tie export", () => {
-  it("copies unchanged Viritura JSON with a specific warning and pastes the original tie identities", async () => {
+  it("copies only unchanged Viritura JSON and pastes the original tie identities", async () => {
     const source = reviewRepro();
     const before = structuredClone(source);
-    const warning = vi.fn();
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     vi.mocked(invoke).mockResolvedValue({ supported: true });
 
@@ -49,18 +48,16 @@ describe("ambiguous unison-chord tie export", () => {
       xml: null,
       warning: expect.stringMatching(/unison-chord ties/),
     });
-    expect(await copyToClipboard(source, warning)).toBe(true);
-    expect(warning).toHaveBeenCalledExactlyOnceWith(expect.stringMatching(/unison-chord ties/));
+    expect(await copyToClipboard(source)).toBe(true);
     expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", {
       text: expect.any(String),
-      museScore: null,
     });
     const written = vi.mocked(invoke).mock.calls[0]![1] as NotationClipboardWrite;
-    expect(written.museScore).toBeNull();
+    expect(written).not.toHaveProperty("museScore");
     expect(deserializeFragment(written.text)!.content).toEqual(source.events);
     expect(source).toEqual(before);
 
-    vi.mocked(invoke).mockResolvedValue({ ...written, supported: true });
+    vi.mocked(invoke).mockResolvedValue({ ...written, museScore: null, supported: true });
     const pasted = await pasteFromClipboard();
     const [from, to] = pasted!.content as NoteEvent[];
     expect(from!.notes!.map((note) => note.pitch)).toEqual(
