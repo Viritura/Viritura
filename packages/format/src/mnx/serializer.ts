@@ -631,6 +631,13 @@ function serializeVendorMarkings(m: Markings): Obj {
   if (m.trill !== undefined) {
     const t: Obj = {};
     if (m.trill.accidental !== undefined) t["accidental"] = m.trill.accidental;
+    if (m.trill.showSymbol !== undefined) t["showSymbol"] = m.trill.showSymbol;
+    if (m.trill.extension !== undefined) {
+      t["extension"] = {
+        target: m.trill.extension.target,
+        ...(m.trill.extension.targetEdge !== undefined ? { targetEdge: m.trill.extension.targetEdge } : {}),
+      };
+    }
     ext["trill"] = t;
   }
   if (m.ornaments !== undefined && m.ornaments.length > 0) {

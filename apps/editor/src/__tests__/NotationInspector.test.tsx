@@ -1166,6 +1166,24 @@ describe("NotationInspector", () => {
     expect(JSON.stringify(currentMnx())).toContain('"showText":false');
   });
 
+  it("enables a trill extension to the next note", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/trill" />));
+
+    const showExtension = (await screen.findByTestId("notation-trill-show-extension")) as HTMLInputElement;
+    expect(showExtension.checked).toBe(false);
+    await user.click(showExtension);
+
+    await waitFor(() => {
+      const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+      expect(event.type === "event" ? event.markings?.trill?.extension : undefined).toEqual({
+        target: "ev1",
+        targetEdge: "end",
+      });
+    });
+    expect(JSON.stringify(currentMnx())).toContain('"extension":{"target":"ev1","targetEdge":"end"}');
+  });
+
   it("commits an edited glissando endpoint after the field loses focus", async () => {
     const user = userEvent.setup();
     render(withProviders(<Harness elementId="gliss/ev1/ev2" />));

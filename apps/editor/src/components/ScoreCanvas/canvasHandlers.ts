@@ -25,12 +25,8 @@ import { hitTestSlurHandle } from "./slurHandles";
 import { hitTestSlurCurve } from "./slurCurveHit";
 import { buildSlurAnchorPoints, nearestSlurAnchor } from "./slurAnchorSnap";
 import { findSlurAnchorInfo } from "../../score/ScoreMutations";
-import {
-  getNoteEventAtLocation,
-  resolveAnnotationLocation,
-  resolveEventLocation,
-  isEngraveTextAnnotationId,
-} from "../../score/ElementPath";
+import { prepareSpannerDrag, updateSpannerDrag } from "./spannerDragSetup";
+import { getNoteEventAtLocation, resolveEventLocation, isEngraveTextAnnotationId } from "../../score/ElementPath";
 import { getAnnotationOffset, isMovableAnnotationId } from "../../score/annotationOffsetMutations";
 import type { BarlineHit, EngraveAdornments, EngraveClickModifiers, StaffEyeHit } from "./ScoreCanvas";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
@@ -440,25 +436,27 @@ export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElemen
     if (!bbox) return;
     capturePointer(e);
     ctx.dragLockRef.current = true;
-    const partIdx = resolveAnnotationLocation(handleHit.elementId)?.partIndex ?? 0;
-    const initialSnaps = ctx.buildDragSnapPoints(partIdx, e.altKey);
+    const dragSetup = prepareSpannerDrag({
+      score: ctx.docScoreRef.current,
+      spatialIndex: si,
+      measureBounds: dl?.measureBounds,
+      elementId: handleHit.elementId,
+      altKey: e.altKey,
+      buildRhythmicSnaps: ctx.buildDragSnapPoints,
+    });
     ctx.spannerDragRef.current = {
       hit: handleHit,
       dragX: handleHit.handleX,
+      dragY: handleHit.handleY,
       bbox,
-      snapPoints: initialSnaps,
+      snapPoints: dragSetup.snapPoints,
       altKey: e.altKey,
     };
 
     const onMouseMove = (ev: PointerEvent): void => {
       const r = canvas.getBoundingClientRect();
-      const sx = (ev.clientX - r.left) / ctx.viewport.zoom + ctx.viewport.scrollX;
       if (ctx.spannerDragRef.current) {
-        ctx.spannerDragRef.current.dragX = sx;
-        if (ev.altKey !== ctx.spannerDragRef.current.altKey) {
-          ctx.spannerDragRef.current.altKey = ev.altKey;
-          ctx.spannerDragRef.current.snapPoints = ctx.buildDragSnapPoints(partIdx, ev.altKey);
-        }
+        updateSpannerDrag(ctx.spannerDragRef.current, ev, r, ctx.viewport, dragSetup, ctx.buildDragSnapPoints);
         ctx.repaint();
       }
     };

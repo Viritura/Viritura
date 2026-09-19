@@ -487,6 +487,13 @@ pub mod smufl {
     /// connecting line means dropping the origin by half this height.
     pub const WIGGLE_GLISSANDO_HEIGHT: f64 = 0.444;
 
+    // Trill extension — multi-segment (U+EAA4)
+    pub const WIGGLE_TRILL: u32 = 0xEAA4;
+
+    /// Advance width (= repeat offset) of wiggleTrill in staff spaces.
+    /// From Bravura metadata: repeatOffset = [0.948, 0.0].
+    pub const WIGGLE_TRILL_SEGMENT_WIDTH: f64 = 0.948;
+
     // ═══════════════════════════════════════
     // Arpeggios — precomposed (U+E634 - U+E63C)
     // Per SMuFL spec: "Scoring applications should draw arpeggiato markings
@@ -1819,6 +1826,7 @@ pub mod smufl {
             // Glissando — multi-segment (horizontal before rotation); the ink
             // sits above the baseline, so y starts at -height.
             WIGGLE_GLISSANDO => (-0.1, -0.444, 1.224, 0.444),
+            WIGGLE_TRILL => (-0.144, -0.836, 1.224, 0.444),
 
             // Fingering numbers (compact digit glyphs)
             FINGERING_0 => (0.0, -1.372, 0.668, 1.372),

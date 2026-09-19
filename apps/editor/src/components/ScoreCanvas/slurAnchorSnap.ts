@@ -6,7 +6,7 @@
  * to a specific **event**, so its ruler has to carry the event's MNX id rather
  * than a beat fraction.
  */
-import type { SpatialIndex } from "@viritura/renderer";
+import type { MeasureBounds, SpatialIndex } from "@viritura/renderer";
 import type { Score, SequenceContent } from "@viritura/core";
 import { eventSuffix, eventId as buildEventId } from "../../score/ElementPath";
 
@@ -15,9 +15,12 @@ export interface SlurAnchorPoint {
   x: number;
   /** Engine-space y of the event bbox centre, used to disambiguate systems/staves. */
   y: number;
+  /** Engine-space x of the event's rhythmic end when it can be inferred. */
+  endX?: number;
   /** MNX event id — what `slur.target` / the slur's owning event reference. */
   eventId: string;
   measureIndex: number;
+  sequenceIndex?: number;
 }
 
 /** Yield `(content item, flat index)` pairs, descending into containers. */
@@ -47,6 +50,7 @@ export function buildSlurAnchorPoints(
   score: Score | null,
   si: SpatialIndex | null,
   partIndex: number,
+  measureBounds?: readonly MeasureBounds[],
 ): SlurAnchorPoint[] {
   if (!score || !si) return [];
   const part = score.parts[partIndex];
@@ -59,19 +63,42 @@ export function buildSlurAnchorPoints(
     for (let s = 0; s < pm.sequences.length; s++) {
       const seq = pm.sequences[s];
       if (!seq) continue;
+      const sequencePoints: SlurAnchorPoint[] = [];
       for (const { ev, index } of iterateAnchorable(seq.content)) {
         if (ev.type !== "event" || !ev.notes || ev.notes.length === 0) continue;
         const id = ev.id;
         if (!id) continue;
         const bbox = si.getBBox(buildEventId(partIndex, m, s, eventSuffix(id, index, m, s)));
         if (!bbox) continue;
-        points.push({
+        sequencePoints.push({
           x: bbox.x + bbox.width / 2,
           y: bbox.y + bbox.height / 2,
+          endX: bbox.x + bbox.width,
           eventId: id,
           measureIndex: m,
+          sequenceIndex: s,
         });
       }
+      for (let index = 0; index + 1 < sequencePoints.length; index++) {
+        sequencePoints[index]!.endX = sequencePoints[index + 1]!.x;
+      }
+      const lastPoint = sequencePoints.at(-1);
+      if (lastPoint) {
+        const bounds = measureBounds
+          ?.filter(
+            (candidate) =>
+              candidate.index === m &&
+              !candidate.ghostStaff &&
+              (candidate.partIndex === partIndex || candidate.sourcePartIndices?.includes(partIndex)),
+          )
+          .reduce<MeasureBounds | undefined>(
+            (nearest, candidate) =>
+              !nearest || Math.abs(candidate.y - lastPoint.y) < Math.abs(nearest.y - lastPoint.y) ? candidate : nearest,
+            undefined,
+          );
+        if (bounds) lastPoint.endX = bounds.x + bounds.width - bounds.height / 8;
+      }
+      points.push(...sequencePoints);
     }
   }
   points.sort((a, b) => a.x - b.x);

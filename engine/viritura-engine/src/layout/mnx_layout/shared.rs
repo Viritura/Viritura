@@ -22,6 +22,7 @@ use super::super::resolve::*;
 use super::super::spacing::LogSpacing;
 use super::super::spacing::*;
 use super::super::system::*;
+use super::super::trill_lines::render_trill_lines_for_system;
 use super::super::types::*;
 use super::super::{
     compute_above_staff_extra, compute_below_staff_extra_from_layouts, render_system_contents,
@@ -857,6 +858,7 @@ pub(super) fn render_system_staves_and_contents(
         .map(|(staff_idx, layouts)| (layouts.as_slice(), staff_y_offsets[staff_idx]))
         .collect();
     super::super::render_glissandos(dl, &gliss_staves, sp, config, Some(staff_y_offsets));
+    render_trill_lines_for_system(dl, all_staff_layouts, staff_y_offsets, sp, config);
 
     // Slur capture is intentionally separate from command emission: it walks
     // the same layouts but pushes no `RenderCommand`s. The retained-segment

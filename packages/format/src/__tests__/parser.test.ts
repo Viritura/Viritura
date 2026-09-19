@@ -518,6 +518,82 @@ describe("parseMnx", () => {
     }
   });
 
+  it("should round-trip trill extensions with and without an initial symbol", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: {
+        measures: [{ time: { count: 4, unit: 4 } }],
+      },
+      parts: [
+        {
+          measures: [
+            {
+              clefs: [{ clef: { sign: "G", staffPosition: -2 } }],
+              sequences: [
+                {
+                  content: [
+                    {
+                      id: "trill-start",
+                      duration: { base: "quarter" },
+                      notes: [{ pitch: { step: "E", octave: 5 } }],
+                      markings: {
+                        _x: {
+                          viritura: {
+                            trill: { extension: { target: "trill-end", targetEdge: "end" } },
+                          },
+                        },
+                      },
+                    },
+                    {
+                      id: "extension-start",
+                      duration: { base: "quarter" },
+                      notes: [{ pitch: { step: "F", octave: 5 } }],
+                      markings: {
+                        _x: {
+                          viritura: {
+                            trill: {
+                              showSymbol: false,
+                              extension: { target: "trill-end" },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    {
+                      id: "trill-end",
+                      duration: { base: "half" },
+                      notes: [{ pitch: { step: "G", octave: 5 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const score = parseMnx(mnx);
+    const content = score.parts[0]?.measures[0]?.sequences[0]?.content;
+    expect(content?.[0]?.type === "event" ? content[0].markings?.trill : undefined).toEqual({
+      extension: { target: "trill-end", targetEdge: "end" },
+    });
+    expect(content?.[1]?.type === "event" ? content[1].markings?.trill : undefined).toEqual({
+      showSymbol: false,
+      extension: { target: "trill-end" },
+    });
+
+    const reparsed = parseMnx(serializeMnx(score));
+    const reparsedContent = reparsed.parts[0]?.measures[0]?.sequences[0]?.content;
+    expect(reparsedContent?.[0]?.type === "event" ? reparsedContent[0].markings?.trill : undefined).toEqual({
+      extension: { target: "trill-end", targetEdge: "end" },
+    });
+    expect(reparsedContent?.[1]?.type === "event" ? reparsedContent[1].markings?.trill : undefined).toEqual({
+      showSymbol: false,
+      extension: { target: "trill-end" },
+    });
+  });
+
   it("should parse ornaments array", () => {
     const mnx = {
       mnx: { version: 1 },

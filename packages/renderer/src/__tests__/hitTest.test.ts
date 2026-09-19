@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SpatialIndex, getElementType } from "../hitTest";
+import { SpatialIndex, getElementType, hitTestSpannerHandle } from "../hitTest";
 import type { ElementBBox } from "../hitTest";
 import type { DisplayList } from "../wasm";
 
@@ -465,6 +465,43 @@ describe("SpatialIndex", () => {
       expect(index.getBBox("p0/m0/hairpin0")).toBeDefined();
     });
 
+    it("merges repeated tagged glyphs into one spanner hitbox", () => {
+      const dl: DisplayList = {
+        commands: [
+          {
+            type: "DrawGlyph",
+            x: 100,
+            y: 70,
+            codepoint: 0xeaa4,
+            font: "Bravura",
+            size: 40,
+            color: "#000",
+            rotation: 0,
+          },
+          {
+            type: "DrawGlyph",
+            x: 120,
+            y: 70,
+            codepoint: 0xeaa4,
+            font: "Bravura",
+            size: 40,
+            color: "#000",
+            rotation: 0,
+          },
+        ],
+        elementIds: ["trill-line/ev1/ev2", "trill-line/ev1/ev2"],
+        elementBboxes: [{ elementId: "p0/m0/s0/ev1", bbox: { x: 90, y: 55, width: 20, height: 30 } }],
+        width: 500,
+        height: 200,
+      };
+
+      const index = SpatialIndex.fromDisplayList(dl);
+      const bbox = index.getBBox("trill-line/ev1/ev2");
+      expect(bbox).toBeDefined();
+      expect(bbox!.x + bbox!.width).toBeGreaterThan(120);
+      expect(index.hitTest(121, 65)).toBe("trill-line/ev1/ev2");
+    });
+
     it("merges duplicate element IDs in element_bboxes", () => {
       const dl: DisplayList = {
         commands: [],
@@ -490,6 +527,21 @@ describe("SpatialIndex", () => {
 // ── getElementType tests ─────────────────────────────────────────────
 
 describe("getElementType", () => {
+  it("classifies trill extensions", () => {
+    expect(getElementType("trill-line/ev1/ev2")).toBe("trill");
+  });
+
+  describe("hitTestSpannerHandle", () => {
+    it("exposes only the end handle for a trill extension", () => {
+      const id = "trill-line/ev1/ev2";
+      const index = new SpatialIndex([{ id, x: 100, y: 50, width: 80, height: 10 }]);
+      const selected = new Set([id]);
+
+      expect(hitTestSpannerHandle(index, selected, 180, 55)).toMatchObject({ elementId: id, handle: "end" });
+      expect(hitTestSpannerHandle(index, selected, 100, 55)).toBeNull();
+    });
+  });
+
   it("classifies clef IDs", () => {
     expect(getElementType("p0/m0/clef")).toBe("clef");
     expect(getElementType("p1/m5/clef")).toBe("clef");

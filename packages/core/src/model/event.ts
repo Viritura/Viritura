@@ -160,10 +160,21 @@ export type UpDown = RawBowDirection["direction"];
 /** Fermata (hold) marking on a note or rest. Derived from MNX raw. */
 export type Fermata = RawFermata;
 
-/** Trill ornament marking. */
+/** Wavy trill-extension line ending at another event. */
+export interface TrillExtension {
+  target: string;
+  /** Which rhythmic edge of the target event ends the line. Defaults to "start". */
+  targetEdge?: "start" | "end";
+}
+
+/** Trill ornament marking, optionally followed by a wavy extension line. */
 export interface Trill {
   /** Accidental alteration: -1 = flat, 0 = natural, 1 = sharp */
   accidental?: number;
+  /** Whether to display the initial trill symbol. Defaults to true. */
+  showSymbol?: boolean;
+  /** Wavy extension line from this event to a target event. */
+  extension?: TrillExtension;
 }
 
 /** Ornament type variants — aliased to the Viritura vendor `ornament-type` schema. */

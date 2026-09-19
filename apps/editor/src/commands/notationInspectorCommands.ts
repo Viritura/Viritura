@@ -67,6 +67,23 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
     return resolveGlissandoSelectionTarget(elementId, score);
   }
 
+  if (elementId.startsWith("trill-line/")) {
+    const sourceEventId = elementId.split("/")[1];
+    if (!sourceEventId) return null;
+    const loc = locateEventByModelId(score, sourceEventId);
+    if (!loc) return null;
+    return {
+      elementId,
+      elementType: "trill",
+      partIndex: loc.partIndex,
+      measureIndex: loc.measureIndex,
+      sequenceIndex: loc.sequenceIndex,
+      eventIndex: loc.eventIndex,
+      tupletIndex: loc.tupletIndex,
+      graceContainerIndex: loc.graceContainerIndex,
+    };
+  }
+
   if (elementId.startsWith("tie/")) {
     return resolveTieSelectionTarget(elementId, score);
   }

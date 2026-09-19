@@ -27,6 +27,7 @@ import {
 } from "./measureRepeatCommands";
 import { isLyricId, removeLyricByElementId, removeLyrics } from "./lyricCommands";
 import { removeGlissandoByElementId } from "./glissandoCommands";
+import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -126,6 +127,12 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */
 function deleteStandaloneElement(score: Score, elementId: string): DeleteSelectionResult | null {
+  if (elementId.startsWith("trill-line/")) {
+    const withoutExtension = removeTrillExtensionByElementId(score, elementId);
+    return withoutExtension
+      ? { kind: "single", score: withoutExtension, nextSelection: { kind: "clear" } }
+      : { kind: "noop" };
+  }
   if (elementId.startsWith("gliss/")) {
     const withoutGlissando = removeGlissandoByElementId(score, elementId);
     return withoutGlissando

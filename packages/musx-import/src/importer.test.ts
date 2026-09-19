@@ -49,6 +49,7 @@ describe("createMusxImporter", () => {
       requestId: worker.request!.requestId,
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
+        gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
         diagnostics: [],
         denigmaVersion: "4.0.0",
         denigmaCommit: "abc123",
@@ -121,6 +122,7 @@ describe("createMusxImporter", () => {
       requestId: replacement.request!.requestId,
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
+        gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
         diagnostics: [],
         denigmaVersion: "4.0.0",
         denigmaCommit: "abc123",
@@ -150,6 +152,7 @@ describe("createMusxImporter", () => {
       requestId: replacement.request!.requestId,
       result: {
         mnxJson: '{"global":{"measures":[]},"parts":[]}',
+        gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
         diagnostics: [],
         denigmaVersion: "4.0.0",
         denigmaCommit: "abc123",

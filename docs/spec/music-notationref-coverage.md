@@ -1,12 +1,12 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"252062733f58677eb6cb0b30047fa097fe6c80e2","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-13","virituraAuditedAt":"2026-09-13"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"1380e6a9ac61d54ae695cab2c8fc94bba82d101b","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-19","virituraAuditedAt":"2026-09-13"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
 > · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
-> · MusicXML matrix: [`musicxml@2520627`](https://github.com/w3c-cg/musicxml/commit/252062733f58677eb6cb0b30047fa097fe6c80e2)
+> · MusicXML matrix: [`musicxml@1380e6a`](https://github.com/w3c-cg/musicxml/commit/1380e6a9ac61d54ae695cab2c8fc94bba82d101b)
 > · Viritura source: [`e75616c`](https://github.com/Viritura/Viritura/commit/e75616c4c65eeffd62134e54e729c0f978f6b5e3)
-> · Upstream synced 2026-09-13; Viritura audited 2026-09-13.
+> · Upstream synced 2026-09-19; Viritura audited 2026-09-13.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
 Reference to the current Viritura MNX ingest/model/engraving pipeline and the
@@ -74,7 +74,7 @@ or round-trip support unless a row note says so.
 
 | Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
 | ----------------- | ---: | -------------------: | --------------------: |
-| Notes             |  344 |         186/29/129/0 |       102/56/152/34/0 |
+| Notes             |  344 |         187/28/129/0 |       102/56/152/34/0 |
 | Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
 | Measures          |  104 |            65/5/34/0 |           52/0/46/6/0 |
@@ -360,7 +360,7 @@ or round-trip support unless a row note says so.
 | Markings (articulations, ornaments, etc.) &gt; Harmonics                         | Harmonic with sounding pitch indication                                        | `event-harmonic-sounding`                |  N  |    S     |      N       |      N       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Harmonics                         | Pinch harmonic (guitar)                                                        | `event-harmonic-pinch`                   |  N  |    P     |      N       |      N       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Sustain pedal down (Ped.)                                                      | `event-pedal-sustain-down`               |  N  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: vendor-ext gated                                                                                                                                                                                                   |
-| Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Sustain pedal up (\*)                                                          | `event-pedal-sustain-up`                 |  N  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: vendor-ext gated                                                                                                                                                                                                   |
+| Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Sustain pedal up (*)                                                           | `event-pedal-sustain-up`                 |  N  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: vendor-ext gated                                                                                                                                                                                                   |
 | Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Pedal change (retake)                                                          | `event-pedal-change`                     |  N  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: converted to a stop+start pair, vendor-ext gated (\_x.viritura.pedals)                                                                                                                                             |
 | Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Pedal line with notch marks                                                    | `event-pedal-line`                       |  N  |    S     |      S       |      N       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Keyboard markings                 | Half-pedal                                                                     | `event-pedal-half`                       |  N  |    P     |      N       |      N       | -                                                                                                                                                                                                                                               |

@@ -18,6 +18,7 @@ use super::slurs::*;
 use super::spacing::*;
 use super::staff_brace::brace_geometry;
 use super::ties::*;
+use super::trill_lines::*;
 use super::types::*;
 use super::volta::*;
 use super::{build_beat_anchors, layout_score_cached};
@@ -336,6 +337,7 @@ pub fn layout_full_score_cached(
             .map(|(vi, layouts)| (layouts.as_slice(), staff_y_offsets[vi]))
             .collect();
         render_glissandos(&mut dl, &gliss_staves, sp, config, Some(&staff_y_offsets));
+        render_trill_lines_for_system(&mut dl, &all_sys_layouts, &staff_y_offsets, sp, config);
 
         if let Some(first_layouts) = all_sys_layouts.first() {
             let volta_part_index = visual_staves.first().map_or(0, |vs| vs.0);

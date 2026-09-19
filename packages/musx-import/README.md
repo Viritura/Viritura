@@ -30,7 +30,14 @@ import { convertMusxToMnx } from "@viritura/musx-import";
 const result = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
   includeTempoTool: true,
 });
+
+for (const gap of result.gapReport.gaps) {
+  console.log(gap.type, gap.anchor, gap.extent);
+}
 ```
 
-The current upstream wrapper returns standard MNX and Denigma diagnostics. It
-does not yet expose the proposed structured conversion-gap manifest.
+The result includes standard MNX, Denigma diagnostics, and the versioned
+structured conversion-gap report produced by Denigma. Gap payloads use stable
+target MNX IDs as anchors. Consumers must dispatch on `type`, tolerate unknown
+fields and gap types, and preserve unhandled gaps in import diagnostics rather
+than silently discarding them.
