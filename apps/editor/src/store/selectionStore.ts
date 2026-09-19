@@ -45,12 +45,29 @@ interface SelectionRange {
   readonly measureAnchor?: MeasureSelectionPoint;
 }
 
+interface SelectionRhythmicSpan {
+  readonly start: { readonly measureIndex: number; readonly beat: number };
+  readonly end: { readonly measureIndex: number; readonly beat: number };
+}
+
+export interface SelectionTrackRhythmicRange extends SelectionRhythmicSpan {
+  readonly partIndex: number;
+  readonly staff: number;
+  readonly voice: number;
+}
+
+export interface SelectionRhythmicRange extends SelectionRhythmicSpan {
+  /** Occupied intervals distinguish selected silence from non-overwriting voice offsets. */
+  readonly tracks?: readonly SelectionTrackRhythmicRange[];
+}
+
 /** Multiple non-contiguous elements are selected (Ctrl+click). */
 interface SelectionMulti {
   readonly kind: "multi";
   readonly elementIds: readonly string[];
   /** Visual staff location that produced this group selection. */
   readonly measureAnchor?: MeasureSelectionPoint;
+  readonly rhythmicRange?: SelectionRhythmicRange;
 }
 
 /** A measure (or range of measures) is selected by clicking empty space. */
@@ -86,6 +103,7 @@ interface SelectElementsAction {
   readonly type: "SELECT_ELEMENTS";
   readonly elementIds: readonly string[];
   readonly measureAnchor?: MeasureSelectionPoint;
+  readonly rhythmicRange?: SelectionRhythmicRange;
 }
 
 interface ExtendSelectionAction {
@@ -295,7 +313,7 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
     case "SELECT_ELEMENTS": {
       const elementIds = [...new Set(action.elementIds.filter((id) => id.includes("/")))];
       if (elementIds.length === 0) return { kind: "none" };
-      if (elementIds.length === 1) {
+      if (elementIds.length === 1 && !action.rhythmicRange) {
         return {
           kind: "single",
           elementId: elementIds[0]!,
@@ -306,6 +324,7 @@ function selectionReducer(state: Selection, action: SelectionAction): Selection 
         kind: "multi",
         elementIds,
         ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
+        ...(action.rhythmicRange && { rhythmicRange: action.rhythmicRange }),
       };
     }
 
@@ -407,7 +426,11 @@ export function resetSelectionStore(): void {
 interface SelectionActionsValue {
   selectElement: (elementId: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectRange: (startElementId: string, endElementId: string) => void;
-  selectElements: (elementIds: readonly string[], measureAnchor?: MeasureSelectionPoint) => void;
+  selectElements: (
+    elementIds: readonly string[],
+    measureAnchor?: MeasureSelectionPoint,
+    rhythmicRange?: SelectionRhythmicRange,
+  ) => void;
   extendSelection: (elementId: string) => void;
   toggleSelection: (elementId: string) => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
@@ -420,8 +443,13 @@ const actions: SelectionActionsValue = {
     dispatchSelection({ type: "SELECT_ELEMENT", elementId, ...(measureAnchor && { measureAnchor }) }),
   selectRange: (startElementId, endElementId) =>
     dispatchSelection({ type: "SELECT_RANGE", startElementId, endElementId }),
-  selectElements: (elementIds, measureAnchor) =>
-    dispatchSelection({ type: "SELECT_ELEMENTS", elementIds, ...(measureAnchor && { measureAnchor }) }),
+  selectElements: (elementIds, measureAnchor, rhythmicRange) =>
+    dispatchSelection({
+      type: "SELECT_ELEMENTS",
+      elementIds,
+      ...(measureAnchor && { measureAnchor }),
+      ...(rhythmicRange && { rhythmicRange }),
+    }),
   extendSelection: (elementId) => dispatchSelection({ type: "EXTEND_SELECTION", elementId }),
   toggleSelection: (elementId) => dispatchSelection({ type: "TOGGLE_SELECTION", elementId }),
   selectMeasure: (partIndex, staffIndex, measureIndex, localStaffIndex) =>
