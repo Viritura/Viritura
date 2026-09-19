@@ -21,6 +21,7 @@ describe("Finale MUSX import", () => {
     convertMusxToMnx.mockResolvedValue({
       mnxJson: VALID_MNX,
       gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
+      gapOutcomes: [],
       diagnostics: [{ severity: "warning", message: "A Finale-only detail was omitted." }],
       denigmaVersion: "4.0.0",
       denigmaCommit: "abc123",
@@ -69,6 +70,7 @@ describe("Finale MUSX import", () => {
       filename: "Finale Score.mnx",
       fileHandle: null,
       importDiagnostics: [{ severity: "warning", message: "A Finale-only detail was omitted." }],
+      importGapOutcomes: [],
     });
   });
 
@@ -76,6 +78,7 @@ describe("Finale MUSX import", () => {
     convertMusxToMnx.mockResolvedValue({
       mnxJson: "{}",
       gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
+      gapOutcomes: [],
       diagnostics: [],
       denigmaVersion: "4.0.0",
       denigmaCommit: "abc123",
@@ -100,6 +103,7 @@ describe("Finale MUSX import", () => {
     convertMusxToMnx.mockResolvedValue({
       mnxJson: JSON.stringify(invalid),
       gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
+      gapOutcomes: [],
       diagnostics: [],
       denigmaVersion: "4.0.0",
       denigmaCommit: "abc123",

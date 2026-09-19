@@ -1166,7 +1166,7 @@ describe("NotationInspector", () => {
     expect(JSON.stringify(currentMnx())).toContain('"showText":false');
   });
 
-  it("enables a trill extension to the next note", async () => {
+  it("enables a trill extension to the end of the selected note", async () => {
     const user = userEvent.setup();
     render(withProviders(<Harness elementId="p0/m0/s0/ev1/trill" />));
 

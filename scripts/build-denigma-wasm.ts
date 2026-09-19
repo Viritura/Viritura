@@ -156,7 +156,7 @@ if (!wasmBuild) {
 run(process.execPath, [
   resolve(root, "packages/musx-import/scripts/smoke.mjs"),
   wasmBuild.moduleSource,
-  resolve(denigmaRoot, "tests/data/inputs/barline_short_normal.musx"),
+  resolve(denigmaRoot, "tests/data/inputs"),
   DENIGMA_COMMIT,
 ]);
 

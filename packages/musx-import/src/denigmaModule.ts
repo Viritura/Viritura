@@ -8,6 +8,7 @@ import type {
   MusxImportResult,
 } from "./types";
 import { validateMusxArchive } from "./archiveLimits";
+import { applyDenigmaGapReport } from "./gapAdapters";
 
 interface DenigmaModule {
   HEAPU8: Uint8Array;
@@ -222,10 +223,13 @@ export async function convertWithDenigma(
 
     const outputPointer = module._denigma_result_output_data(resultPointer, 0);
     const output = module.HEAPU8.slice(outputPointer, outputPointer + outputSize);
+    const gapReport = readGapReport(module, resultPointer);
+    const adaptation = applyDenigmaGapReport(new TextDecoder().decode(output), gapReport, options.indentSpaces);
     return {
-      mnxJson: new TextDecoder().decode(output),
-      gapReport: readGapReport(module, resultPointer),
-      diagnostics,
+      mnxJson: adaptation.mnxJson,
+      gapReport,
+      gapOutcomes: adaptation.outcomes,
+      diagnostics: [...diagnostics, ...adaptation.diagnostics],
       denigmaVersion: module.UTF8ToString(module._denigma_version()),
       denigmaCommit: module.UTF8ToString(module._denigma_commit()),
     };
