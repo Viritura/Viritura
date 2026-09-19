@@ -6,6 +6,7 @@ interface PositionedEvent {
   start: number;
   end: number;
   staff?: number;
+  grace: boolean;
 }
 
 export interface MeasureTarget {
@@ -40,6 +41,9 @@ const BASE_DURATION: Readonly<Record<string, number>> = {
 };
 
 function durationValue(value: unknown): number {
+  if (Array.isArray(value) && typeof value[0] === "number" && typeof value[1] === "number" && value[1] !== 0) {
+    return value[0] / value[1];
+  }
   if (!isRecord(value) || typeof value["base"] !== "string") return 0;
   let duration = BASE_DURATION[value["base"]] ?? 0;
   const dots = typeof value["dots"] === "number" ? Math.max(0, Math.floor(value["dots"])) : 0;
@@ -51,19 +55,23 @@ function durationValue(value: unknown): number {
   return duration;
 }
 
-function collectPositionedEvents(content: unknown, scale = 1, start = 0): PositionedEvent[] {
+function collectPositionedEvents(content: unknown, scale = 1, start = 0, grace = false): PositionedEvent[] {
   if (!Array.isArray(content)) return [];
   const events: PositionedEvent[] = [];
   let cursor = start;
   for (const item of content) {
     if (!isRecord(item)) continue;
+    if (item["type"] === "space") {
+      cursor += durationValue(item["duration"]) * scale;
+      continue;
+    }
     if (
       isRecord(item["duration"]) &&
       (Array.isArray(item["notes"]) || Array.isArray(item["kitNotes"]) || "rest" in item)
     ) {
       const duration = durationValue(item["duration"]) * scale;
-      events.push({ event: item, start: cursor, end: cursor + duration });
-      cursor += duration;
+      events.push({ event: item, start: cursor, end: cursor + duration, grace });
+      if (!grace) cursor += duration;
       continue;
     }
     const nested = item["content"];
@@ -78,9 +86,10 @@ function collectPositionedEvents(content: unknown, scale = 1, start = 0): Positi
         nestedScale *= (outerDuration * outerMultiple) / (innerDuration * innerMultiple);
       }
     }
-    const nestedEvents = collectPositionedEvents(nested, nestedScale, cursor);
+    const isGraceContainer = item["type"] === "grace";
+    const nestedEvents = collectPositionedEvents(nested, nestedScale, cursor, grace || isGraceContainer);
     events.push(...nestedEvents);
-    cursor = nestedEvents.at(-1)?.end ?? cursor;
+    if (!isGraceContainer && !grace) cursor = nestedEvents.at(-1)?.end ?? cursor;
   }
   return events;
 }
@@ -185,8 +194,12 @@ export class TargetIndex {
     if (!events || events.length === 0) return undefined;
     const position = positionValue(anchor.position);
     const tolerance = 1e-8;
-    const atEnd = events.find((candidate) => Math.abs(candidate.end - position) < tolerance);
-    const atStart = events.find((candidate) => Math.abs(candidate.start - position) < tolerance);
+    const atEnd =
+      events.find((candidate) => !candidate.grace && Math.abs(candidate.end - position) < tolerance) ??
+      events.find((candidate) => Math.abs(candidate.end - position) < tolerance);
+    const atStart =
+      events.find((candidate) => !candidate.grace && Math.abs(candidate.start - position) < tolerance) ??
+      events.find((candidate) => Math.abs(candidate.start - position) < tolerance);
     if (preferEnd && atEnd) return { event: atEnd.event, edge: "end" };
     if (atStart) return { event: atStart.event, edge: "start" };
     if (atEnd) return { event: atEnd.event, edge: "end" };

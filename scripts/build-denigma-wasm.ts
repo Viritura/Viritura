@@ -154,7 +154,8 @@ if (!wasmBuild) {
 }
 
 run(process.execPath, [
-  resolve(root, "packages/musx-import/scripts/smoke.mjs"),
+  resolve(root, "node_modules/tsx/dist/cli.mjs"),
+  resolve(root, "scripts/denigma-gap-acceptance.ts"),
   wasmBuild.moduleSource,
   resolve(denigmaRoot, "tests/data/inputs"),
   DENIGMA_COMMIT,
