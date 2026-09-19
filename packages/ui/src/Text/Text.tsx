@@ -3,15 +3,7 @@ import type { ElementType, HTMLAttributes, ReactNode, Ref } from "react";
 import styles from "./Text.module.css";
 
 export type TextVariant =
-  | "display"
-  | "title"
-  | "heading"
-  | "body"
-  | "control"
-  | "small"
-  | "eyebrow"
-  | "monoInline"
-  | "monoBlock";
+  "display" | "title" | "heading" | "body" | "control" | "small" | "eyebrow" | "monoInline" | "monoBlock";
 
 export type TextTone = "default" | "bright" | "muted" | "accent" | "error";
 

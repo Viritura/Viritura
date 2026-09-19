@@ -269,8 +269,8 @@ function rebuildLayoutsAndScores(
   const usedLayoutIds = new Set(retainedLayouts.map((layout) => layout.id));
   for (const policy of SPLIT_POLICIES.filter((candidate) => splitPartIds.has(candidate.id))) {
     const inherited = sourcePartScores.get(policy.id);
-    for (const player of policy.players.map(
-      (_, index) => result.parts.find((part) => part.id === `${policy.id}-${String(index + 1)}`)!,
+    for (const player of policy.players.map((_, index) =>
+      result.parts.find((part) => part.id === `${policy.id}-${String(index + 1)}`)!,
     )) {
       const layoutId = uniqueId(`part-${player.id!}`, usedLayoutIds);
       retainedLayouts.push({

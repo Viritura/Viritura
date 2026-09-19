@@ -146,12 +146,7 @@ chord.set("id", "e1");
 chord.set("type", "chord");
 chord.set("duration", new Y.Map([["base", "quarter"]]));
 chord.set("dots", 0);
-chord.set(
-  "notes",
-  new Y.Array([
-    /* note Y.Maps */
-  ]),
-);
+chord.set("notes", new Y.Array([/* note Y.Maps */]));
 
 elements.push([chord]);
 voice.set("elements", elements);

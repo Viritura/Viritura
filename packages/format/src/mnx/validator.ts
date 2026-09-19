@@ -91,8 +91,7 @@ export interface RawScoreValidationError {
 
 /** Result of {@link validateRawScore}. */
 export type RawScoreValidationResult =
-  | { ok: true; value: RawScore }
-  | { ok: false; errors: readonly RawScoreValidationError[] };
+  { ok: true; value: RawScore } | { ok: false; errors: readonly RawScoreValidationError[] };
 
 /**
  * Validate `json` against the MNX JSON Schema and return either the

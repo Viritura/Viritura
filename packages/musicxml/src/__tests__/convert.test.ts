@@ -1436,8 +1436,7 @@ describe("convertMusicXmlToMnx — forward skips", () => {
 
     const content = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!.sequences![0]!.content;
     const space = content.find((c) => "type" in c && (c as { type?: string }).type === "space") as
-      | { type: string; duration: [number, number] }
-      | undefined;
+      { type: string; duration: [number, number] } | undefined;
     expect(space).toBeDefined();
     // 1 division / (1 division per quarter × 4) = a quarter note → 1/4.
     expect(space!.duration).toEqual([1, 4]);

@@ -61,8 +61,7 @@ function retainedRenderLayer(displayList: DisplayList): RetainedRenderLayer {
 
 /** A unit in the reassembled system order. */
 export type Placement =
-  | { kind: "reuse"; prevIndex: number; dx: number; dy: number }
-  | { kind: "fresh"; segment: DisplayList };
+  { kind: "reuse"; prevIndex: number; dx: number; dy: number } | { kind: "fresh"; segment: DisplayList };
 
 /** Decoded patch frame: the global header plus the ordered placements. */
 export interface PatchFrame {

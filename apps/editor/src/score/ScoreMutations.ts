@@ -116,12 +116,9 @@ export function insertEmptyMeasures(score: Score, atIndex: number, count: number
     const globalBlanks = Array.from({ length: count }, () => ({}));
     draft.global.measures.splice(clampedIndex, 0, ...globalBlanks);
     for (const part of draft.parts) {
-      const partBlanks = Array.from(
-        { length: count },
-        (): PartMeasure => ({
-          sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
-        }),
-      );
+      const partBlanks = Array.from({ length: count }, (): PartMeasure => ({
+        sequences: [{ content: [], fullMeasure: { visualDuration: { base: "whole" } } }],
+      }));
       part.measures.splice(clampedIndex, 0, ...partBlanks);
     }
   });

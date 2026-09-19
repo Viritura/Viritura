@@ -48,9 +48,7 @@ export const DEFAULT_DRIFT_POLICY: DriftPolicyOptions = {
 
 /** What the synchronizer should do about the current drift. */
 export type DriftCorrection =
-  | { kind: "hold" }
-  | { kind: "nudge"; playbackRate: number }
-  | { kind: "seek"; reason: "drift" };
+  { kind: "hold" } | { kind: "nudge"; playbackRate: number } | { kind: "seek"; reason: "drift" };
 
 /** Inputs to a single drift decision. */
 export interface DriftSample {

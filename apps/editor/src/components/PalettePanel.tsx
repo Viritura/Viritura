@@ -867,8 +867,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const measureIndex = timeSignatureMeasureIndexFromSelection(sel, score);
     if (measureIndex === null) return;
     const current = (score.global.measures[measureIndex] as Record<string, unknown>)?.rehearsalMark as
-      | { text?: string }
-      | undefined;
+      { text?: string } | undefined;
     setPromptState({
       open: true,
       title: "Rehearsal mark",
