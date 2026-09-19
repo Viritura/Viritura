@@ -34,10 +34,31 @@ const result = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
 for (const gap of result.gapReport.gaps) {
   console.log(gap.type, gap.anchor, gap.extent);
 }
+
+for (const outcome of result.gapOutcomes) {
+  console.log(outcome.type, outcome.subtype, outcome.disposition, outcome.reason);
+}
 ```
 
 The result includes standard MNX, Denigma diagnostics, and the versioned
-structured conversion-gap report produced by Denigma. Gap payloads use stable
-target MNX IDs as anchors. Consumers must dispatch on `type`, tolerate unknown
-fields and gap types, and preserve unhandled gaps in import diagnostics rather
-than silently discarding them.
+structured conversion-gap report produced by Denigma. Viritura applies its
+supported schema-v1 adapters in the worker and returns one outcome for every
+source gap. The consuming editor validates the adapted document against the
+MNX and Viritura extension schemas before loading it. Gap payloads use stable
+target MNX IDs as anchors. Unknown fields and gap types remain visible as
+unhandled outcomes and import diagnostics rather than being silently
+discarded.
+
+The current schema-v1 adapters preserve:
+
+- generic expressive text and performance instructions as plain text
+  expressions;
+- rehearsal marks;
+- tempo text, metronome visibility, and playback-only tempo visibility;
+- ordinary straight and standard wavy glissandos with one plain center label;
+- trill symbols and event-anchored trill-extension spans.
+
+Formatting runs, performance-technique playback semantics, multiple rehearsal
+marks in one measure, separate displayed/playback metronome values,
+note-specific chord endpoints, custom/dashed/invisible lines, and tab slides
+remain explicit partial or unhandled outcomes.

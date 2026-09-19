@@ -35,6 +35,17 @@ export interface DenigmaGapReport {
   arrowheads?: Record<string, unknown>;
 }
 
+export type DenigmaGapDisposition = "handled" | "handled-partially" | "unhandled";
+
+export interface DenigmaGapOutcome {
+  gapIndex: number;
+  type: string;
+  subtype?: string;
+  anchor: string;
+  disposition: DenigmaGapDisposition;
+  reason?: string;
+}
+
 export interface MusxImportOptions {
   includeTempoTool?: boolean;
   splitInstruments?: boolean;
@@ -47,6 +58,7 @@ export interface MusxImportOptions {
 export interface MusxImportResult {
   mnxJson: string;
   gapReport: DenigmaGapReport;
+  gapOutcomes: DenigmaGapOutcome[];
   diagnostics: DenigmaDiagnostic[];
   denigmaVersion: string;
   denigmaCommit: string;

@@ -2,9 +2,9 @@
 
 > **Status: active design and staged implementation.** Viritura imports Finale
 > MUSX through an internally packaged Denigma WebAssembly converter and now
-> receives Denigma's schema-v1 structured gap report. The adapter registry,
-> source-evidence graph, NotationRef mapping catalog, and user-facing loss
-> report described below remain proposed.
+> receives and adapts Denigma's schema-v1 structured gap report. The
+> source-evidence graph, NotationRef mapping catalog, and dedicated user-facing
+> loss report described below remain proposed.
 
 This plan defines a separation of concerns for high-fidelity Finale MUSX import:
 Denigma remains responsible for understanding MUSX and producing standard MNX,
@@ -76,7 +76,10 @@ carry hashes, provenance, and licenses.
 The WebAssembly result exposes gap-report bytes through
 `denigma_result_gap_report_data` and `denigma_result_gap_report_size`.
 `@viritura/musx-import` validates the envelope and anchor contract and returns
-it as `MusxImportResult.gapReport`. No Viritura shim mutates the MNX yet.
+it as `MusxImportResult.gapReport`. Its schema-v1 registry applies supported
+Viritura extensions inside the worker and returns one handled, partial, or
+unhandled outcome for every source gap. The editor validates the adapted MNX
+before loading it.
 
 Denigma and Denigma Online now use this same upstream module, which supports
 MNX, MusicXML, and EnigmaXML output. Official Denigma releases will attach a
@@ -684,34 +687,36 @@ The quoted requests below are retained as the historical starting point:
 
 ### Step 2: Viritura gap conversions
 
-- Add a schema-versioned shim registry and target-ID index.
-- Implement plain expressive text and performance instructions as text
-  expressions.
-- Preserve rehearsal marks and tempo text/display behavior by decorating
-  Denigma's existing standard MNX targets rather than creating duplicates.
-- Add the safe event-level straight/wavy glissando subset.
-- Convert trill lines after the extension renderer is available:
-  `includesTrSymbol: true` produces a trill symbol plus an extension, while
-  `false` produces an extension only.
-- Keep rich formatting and unsupported line details explicitly partial or
-  unhandled.
-- Present handled, partial, and unhandled gaps in the import UI.
+- [x] Add a schema-versioned shim registry and target-ID index.
+- [x] Implement plain expressive text and performance instructions as text
+      expressions.
+- [x] Preserve rehearsal marks and tempo text/display behavior by decorating
+      Denigma's existing standard MNX targets rather than creating duplicates.
+- [x] Add the safe event-level straight/wavy glissando subset.
+- [x] Convert trill lines after the extension renderer is available:
+      `includesTrSymbol: true` produces a trill symbol plus an extension, while
+      `false` produces an extension only.
+- [x] Keep rich formatting and unsupported line details explicitly partial or
+      unhandled.
+- [ ] Present handled, partial, and unhandled gaps in a dedicated import report
+      UI. The importer already returns one outcome per gap and surfaces partial or
+      unhandled outcomes through existing diagnostics.
 
 ### Step 2.5: conversion test strategy
 
-- Keep ordinary pull-request CI hermetic: unit-test adapters with compact
-  hand-authored MNX and gap-report objects, reuse existing format/render tests
-  for destination behavior, and add one mocked editor integration test.
-- Do not clone Denigma or download MUSX fixtures during ordinary pull-request
-  CI.
-- When `pnpm build:denigma-wasm` updates the pinned converter, use the fixtures
-  from that exact checkout for a focused WebAssembly acceptance corpus:
-  `slurs_2staves.musx`, `techniques.musx`, `rehearsal_marks.musx`,
-  `tempo_varied_staves.musx`, `glissando.musx`, and
-  `smartshape_lines.musx`.
-- Assert only Viritura's external contract: schema version, representative gap
-  discriminators, resolvable anchors, and required payload fields. Do not copy
-  Denigma's complete golden snapshots or classification tests.
+- [x] Keep ordinary pull-request CI hermetic: unit-test adapters with compact
+      hand-authored MNX and gap-report objects, reuse existing format/render tests
+      for destination behavior, and add one mocked editor integration test.
+- [x] Do not clone Denigma or download MUSX fixtures during ordinary pull-request
+      CI.
+- [x] When `pnpm build:denigma-wasm` updates the pinned converter, use the fixtures
+      from that exact checkout for a focused WebAssembly acceptance corpus:
+      `slurs_2staves.musx`, `techniques.musx`, `rehearsal_marks.musx`,
+      `tempo_varied_staves.musx`, `glissando.musx`, and
+      `smartshape_lines.musx`.
+- [x] Assert only Viritura's external contract: schema version, representative gap
+      discriminators, resolvable anchors, and required payload fields. Do not copy
+      Denigma's complete golden snapshots or classification tests.
 
 ### Step 3: remaining gaps of the gap
 

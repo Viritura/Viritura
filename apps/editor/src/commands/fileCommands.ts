@@ -10,7 +10,12 @@
  */
 
 import { convertMusicXmlToMnx, convertMxlToMnx, type PercussionImportReview } from "@viritura/musicxml";
-import { convertMusxToMnx, MAX_MUSX_BYTES, type DenigmaDiagnostic } from "@viritura/musx-import";
+import {
+  convertMusxToMnx,
+  MAX_MUSX_BYTES,
+  type DenigmaDiagnostic,
+  type DenigmaGapOutcome,
+} from "@viritura/musx-import";
 import { validateRawScore } from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
@@ -29,6 +34,8 @@ export interface OpenFileResult {
   percussionReviewReasons?: string[];
   /** Non-fatal diagnostics reported by the source-format converter. */
   importDiagnostics?: DenigmaDiagnostic[];
+  /** Per-gap preservation result retained for the MUSX import report. */
+  importGapOutcomes?: DenigmaGapOutcome[];
 }
 
 /** Options accepted by the File System Access API picker. */
@@ -181,6 +188,7 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
         fileHandle: null,
         importDiagnostics: conversion.diagnostics,
+        importGapOutcomes: conversion.gapOutcomes,
       };
     }
 
