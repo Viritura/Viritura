@@ -17,7 +17,7 @@ import { computePasteResult } from "../clipboard/computePasteResult";
 import { computeRepeatResult } from "../clipboard/computeRepeatResult";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { useHistoryStoreInstance } from "../store/historyStore";
-import type { useSelection } from "../store/selectionStore";
+import { useSelectionActions, type SelectionState } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
 import { useViewStateStore } from "../store/viewStateStore";
 import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
@@ -29,8 +29,6 @@ import {
   selectedLyricText,
 } from "../commands/lyricCommands";
 import { toast } from "sonner";
-
-type SelectionState = ReturnType<typeof useSelection>;
 
 interface UseClipboardActionsArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
@@ -61,6 +59,15 @@ export function useClipboardActions({
   clearSelection,
 }: UseClipboardActionsArgs): ClipboardActions {
   const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
+  const { selectElements } = useSelectionActions();
+  const applyResultSelection = useCallback(
+    (next: SelectionState | null) => {
+      if (next?.kind === "single") selectElement(next.elementId);
+      else if (next?.kind === "range") selectRange(next.startElementId, next.endElementId);
+      else if (next?.kind === "multi") selectElements(next.elementIds, next.measureAnchor, next.rhythmicRange);
+    },
+    [selectElement, selectRange, selectElements],
+  );
   const getClipboardSelection = useCallback((): ClipboardSelection | null => {
     return buildClipboardSelection(store.getState().score, selection, selectedScoreIndex);
   }, [store, selection, selectedScoreIndex]);
@@ -95,6 +102,7 @@ export function useClipboardActions({
           ...(sel.clef ? { clef: sel.clef } : {}),
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
+          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
           ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
@@ -137,6 +145,7 @@ export function useClipboardActions({
           ...(sel.clef ? { clef: sel.clef } : {}),
           ...(sel.transposition ? { transposition: sel.transposition } : {}),
           ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
+          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
           ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
           ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
           tracks: sel.tracks,
@@ -182,14 +191,11 @@ export function useClipboardActions({
       if (!result) return;
       updateScore(result.newScore);
       if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
-      if (result.range) {
-        if (result.range.start === result.range.end) selectElement(result.range.start);
-        else selectRange(result.range.start, result.range.end);
-      }
+      applyResultSelection(result.selection);
     } catch (error) {
       console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor });
     }
-  }, [store, selection, updateScore, selectRange, selectElement]);
+  }, [store, selection, updateScore, applyResultSelection]);
 
   const handleRepeat = useCallback(() => {
     const sel = getClipboardSelection();
@@ -198,11 +204,8 @@ export function useClipboardActions({
     const result = computeRepeatResult(score, sel);
     if (!result) return;
     updateScore(result.newScore);
-    if (result.range) {
-      if (result.range.start === result.range.end) selectElement(result.range.start);
-      else selectRange(result.range.start, result.range.end);
-    }
-  }, [store, getClipboardSelection, updateScore, selectRange, selectElement]);
+    applyResultSelection(result.selection);
+  }, [store, getClipboardSelection, updateScore, applyResultSelection]);
 
   return {
     getClipboardSelection,

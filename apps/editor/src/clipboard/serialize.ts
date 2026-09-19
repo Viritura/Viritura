@@ -7,6 +7,7 @@ import {
   type ClipboardTrack,
   type CapturedDynamic,
   type CapturedMeasureRepeat,
+  type CapturedChordSymbol,
 } from "./ClipboardFragment";
 
 /**
@@ -31,6 +32,7 @@ export function serializeFragment(
   dynamics?: CapturedDynamic[],
   measureRepeats?: CapturedMeasureRepeat[],
   lyrics?: GlobalLyrics,
+  chordSymbols?: CapturedChordSymbol[],
 ): string {
   const fragment: ClipboardFragment = {
     type: VIRITURA_FRAGMENT_TYPE,
@@ -43,11 +45,15 @@ export function serializeFragment(
     ...(dynamics && dynamics.length > 0 ? { dynamics: structuredClone(dynamics) } : {}),
     ...(measureRepeats && measureRepeats.length > 0 ? { measureRepeats: structuredClone(measureRepeats) } : {}),
     ...(lyrics ? { lyrics: structuredClone(lyrics) } : {}),
+    ...(chordSymbols && chordSymbols.length > 0 ? { chordSymbols: structuredClone(chordSymbols) } : {}),
     ...(tracks
       ? {
           tracks: tracks.map((t) => ({
             partOffset: t.partOffset,
             voiceIndex: t.voiceIndex,
+            ...(t.staffOffset === undefined ? {} : { staffOffset: t.staffOffset }),
+            ...(t.sourceStaff === undefined ? {} : { sourceStaff: t.sourceStaff }),
+            ...(t.leadIn === undefined ? {} : { leadIn: [...t.leadIn] as [number, number] }),
             content: t.content.map(stripInternalIds),
             ...(t.clef ? { clef: t.clef } : {}),
             ...(t.transposition ? { transposition: t.transposition } : {}),

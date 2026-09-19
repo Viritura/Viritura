@@ -4,7 +4,7 @@
 import type { Score, TimeSignature, KeySignature, SequenceContent } from "@viritura/core";
 import { measureBeats } from "@viritura/core";
 import type { ClipboardSelection } from "../commands/clipboardCommands";
-import type { CapturedMeasureRepeat, ClipboardTrack, CapturedDynamic } from "./ClipboardFragment";
+import type { CapturedMeasureRepeat, ClipboardTrack } from "./ClipboardFragment";
 import type { ClipboardSourceRef } from "../store/clipboardHistoryStore";
 import type { SelectionState } from "../store/selectionStore";
 import {
@@ -23,6 +23,34 @@ import { buildNavigationIndex } from "../navigation/NavigationIndex";
 import { measureRepeatElementIdsForSelection } from "../commands/measureRepeatCommands";
 import { isLyricId } from "../commands/lyricCommands";
 import { withClipboardLyricMetadata, withoutSelectedLyrics } from "./lyricMetadata";
+import {
+  captureChordSymbols,
+  captureSelectedChordSymbols,
+  chordSymbolStaffAtLocation,
+  selectedChordSymbolOrigin,
+} from "./chordSymbolCapture";
+import {
+  assignDynamicsToTracks,
+  captureSelectedDynamics,
+  collectDynamics,
+  dynamicStaffAtLocation,
+  selectedDynamicOrigin,
+} from "./dynamicCapture";
+import {
+  firstPhysicalTrack,
+  partStaffOffset,
+  selectionStaffAnchor,
+  voiceIndexWithinStaff,
+} from "./clipboardTrackMapping";
+import {
+  beatsBetweenMeasures,
+  exactCaptureDifference,
+  exactCaptureFraction,
+  shiftSelectionOrigin,
+  sourceStavesForPart,
+  type CapturedSelection,
+} from "./annotations";
+import { captureTimedSelection } from "./captureTimedSelection";
 
 /** Walk backwards from measureIndex to find the most recent clef on partIndex. */
 function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
@@ -31,66 +59,6 @@ function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
     if (clefs && clefs.length > 0) return clefs[0]!.clef;
   }
   return undefined;
-}
-
-/**
- * Collect dynamics from `partIdx`'s measures [startMeasure, endMeasure] whose
- * position (in quarter-note beats) falls within the captured range. The first
- * measure's window starts at `firstMeasureStartBeat`; the last measure's window
- * ends at `lastMeasureEndBeat`. Intermediate measures are fully included.
- *
- * Returns each dynamic with its `measureOffset` relative to `startMeasure`.
- */
-function collectDynamics(
-  score: Score,
-  partIdx: number,
-  startMeasure: number,
-  endMeasure: number,
-  firstMeasureStartBeat: number,
-  lastMeasureEndBeat: number,
-): CapturedDynamic[] {
-  const result: CapturedDynamic[] = [];
-  const part = score.parts[partIdx];
-  if (!part) return result;
-  const measureIndexById = new Map(
-    score.global.measures.flatMap((measure, index) => (measure.id ? [[measure.id, index] as const] : [])),
-  );
-  for (let m = startMeasure; m <= Math.min(endMeasure, part.measures.length - 1); m++) {
-    const measure = part.measures[m];
-    const dyns = measure?.dynamics;
-    if (!dyns || dyns.length === 0) continue;
-    const isFirst = m === startMeasure;
-    const isLast = m === endMeasure;
-    for (const d of dyns) {
-      const frac = d.position?.fraction;
-      if (!frac || frac[1] === 0) continue;
-      const beats = (frac[0] / frac[1]) * 4;
-      if (isFirst && beats < firstMeasureStartBeat - 1e-9) continue;
-      if (isLast && beats > lastMeasureEndBeat + 1e-9) continue;
-      const cloned = structuredClone(d);
-      // For the first measure of the selection, store positions relative
-      // to the selection window so paste can simply add pasteStartBeat.
-      if (isFirst && firstMeasureStartBeat > 0) {
-        const rel = beats - firstMeasureStartBeat;
-        const denom = 16;
-        const num = Math.round((rel / 4) * denom);
-        cloned.position = { fraction: [num, denom] };
-      }
-      let endMeasureOffset: number | undefined;
-      if (cloned.type === "gradual") {
-        const endMeasureIndex = measureIndexById.get(cloned.end.measure);
-        if (endMeasureIndex === undefined) continue;
-        endMeasureOffset = endMeasureIndex - startMeasure;
-        if (endMeasureIndex === startMeasure && firstMeasureStartBeat > 0) {
-          const endBeats = (cloned.end.position.fraction[0] / cloned.end.position.fraction[1]) * 4;
-          const relativeEnd = endBeats - firstMeasureStartBeat;
-          cloned.end.position = { fraction: [Math.round((relativeEnd / 4) * 16), 16] };
-        }
-      }
-      result.push({ measureOffset: m - startMeasure, endMeasureOffset, dynamic: cloned });
-    }
-  }
-  return result;
 }
 
 /**
@@ -122,20 +90,30 @@ export function buildClipboardSelection(
     ? regularSelection
     : !regularSelection
       ? repeatSelection
-      : mergeStructuralClipboardSelection(regularSelection, repeatSelection);
+      : mergeStructuralClipboardSelection(score, regularSelection, repeatSelection);
   return combined ? withClipboardLyricMetadata(score, combined) : null;
 }
 
 function mergeStructuralClipboardSelection(
-  regular: ClipboardSelection,
-  structural: ClipboardSelection,
+  score: Score,
+  regular: CapturedSelection,
+  structural: CapturedSelection,
 ): ClipboardSelection {
+  regular = shiftSelectionOrigin(score, regular, structural.captureOrigin);
   const partDelta = structural.partIndex - regular.partIndex;
-  const measureDelta = structural.measureIndex - regular.measureIndex;
+  const measureDelta = structural.captureOrigin.measureIndex - regular.captureOrigin.measureIndex;
+  const beatDelta =
+    beatsBetweenMeasures(score, regular.captureOrigin.measureIndex, structural.captureOrigin.measureIndex) +
+    structural.captureOrigin.beat -
+    regular.captureOrigin.beat;
+  const shiftedOffset = (offset: [number, number]): [number, number] =>
+    exactCaptureFraction((offset[0] / offset[1]) * 4 + beatDelta);
   const structuralDynamics = (structural.dynamics ?? []).map((dynamic) => ({
     ...dynamic,
     partOffset: (dynamic.partOffset ?? 0) + partDelta,
     measureOffset: dynamic.measureOffset + measureDelta,
+    ...(dynamic.offset ? { offset: shiftedOffset(dynamic.offset) } : {}),
+    ...(dynamic.endOffset ? { endOffset: shiftedOffset(dynamic.endOffset) } : {}),
     ...(dynamic.endMeasureOffset === undefined ? {} : { endMeasureOffset: dynamic.endMeasureOffset + measureDelta }),
   }));
   return {
@@ -146,11 +124,12 @@ function mergeStructuralClipboardSelection(
       measureOffset: repeat.measureOffset + measureDelta,
     })),
     dynamics: [...(regular.dynamics ?? []), ...structuralDynamics],
+    chordSymbols: [...(regular.chordSymbols ?? []), ...(structural.chordSymbols ?? [])],
     cutMeasureRepeats: structural.cutMeasureRepeats,
   };
 }
 
-function buildMeasureRepeatClipboardSelection(score: Score, selection: SelectionState): ClipboardSelection | null {
+function buildMeasureRepeatClipboardSelection(score: Score, selection: SelectionState): CapturedSelection | null {
   const elementIds = measureRepeatElementIdsForSelection(score, selection);
   if (elementIds.length === 0) return null;
   const locations = elementIds.flatMap((elementId) => {
@@ -182,6 +161,7 @@ function buildMeasureRepeatClipboardSelection(score: Score, selection: Selection
   );
   const { time, key } = resolveActiveTimeKey(score, startMeasure);
   return {
+    captureOrigin: { measureIndex: startMeasure, beat: 0 },
     events: [],
     timeSignature: time,
     keySignature: key,
@@ -198,21 +178,21 @@ function buildMeasureRepeatClipboardSelection(score: Score, selection: Selection
 }
 
 function resolveActiveTimeKey(score: Score, measureIndex: number): { time: TimeSignature; key: KeySignature } {
-  let activeTime: TimeSignature = { count: 4, unit: 4 };
-  let activeKey: KeySignature = { fifths: 0 };
+  let activeTime: TimeSignature | undefined;
+  let activeKey: KeySignature | undefined;
   for (let m = measureIndex; m >= 0; m--) {
     const gm = score.global.measures[m];
     if (gm?.time && !activeTime) activeTime = gm.time;
     if (gm?.key && !activeKey) activeKey = gm.key;
   }
-  return { time: activeTime, key: activeKey };
+  return { time: activeTime ?? { count: 4, unit: 4 }, key: activeKey ?? { fifths: 0 } };
 }
 
 function buildSingleClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "single" }>,
   selectedScoreIndex?: number,
-): ClipboardSelection | null {
+): CapturedSelection | null {
   const loc = resolveEventLocation(selection.elementId, score);
   if (!loc) return null;
   const event = getEventAtLocation(score, loc);
@@ -235,7 +215,12 @@ function buildSingleClipboardSelection(
         })
       : undefined;
   const { time, key } = resolveActiveTimeKey(score, loc.measureIndex);
+  const sourceStaff = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.staff ?? 1;
+  const sourceStaves = new Set([sourceStaff]);
+  const startBeat = eventStartBeat(score, loc);
+  const endBeat = startBeat + sequenceContentBeats(event);
   return {
+    captureOrigin: { measureIndex: loc.measureIndex, beat: startBeat },
     events: [event],
     timeSignature: time,
     keySignature: key,
@@ -246,6 +231,26 @@ function buildSingleClipboardSelection(
     sequenceIndex: loc.sequenceIndex,
     eventIndex: loc.eventIndex,
     tracks,
+    dynamics: collectDynamics(
+      score,
+      loc.partIndex,
+      loc.measureIndex,
+      loc.measureIndex,
+      startBeat,
+      endBeat,
+      sourceStaves,
+    ).map((captured) => ({ ...captured, staffOffset: 0 })),
+    chordSymbols: captureChordSymbols(
+      score,
+      loc.partIndex,
+      loc.measureIndex,
+      loc.measureIndex,
+      startBeat,
+      endBeat,
+      0,
+      sourceStaff - 1,
+      sourceStaves,
+    ),
     cutLocations: routed,
   };
 }
@@ -254,7 +259,8 @@ function buildMultiClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "multi" }>,
   selectedScoreIndex?: number,
-): ClipboardSelection | null {
+): CapturedSelection | null {
+  if (selection.rhythmicRange) return captureTimedSelection(score, selection, selection.rhythmicRange);
   const events: SequenceContent[] = [];
   let firstLoc: { partIndex: number; measureIndex: number; sequenceIndex: number; eventIndex: number } | null = null;
   const locations =
@@ -273,6 +279,10 @@ function buildMultiClipboardSelection(
     selectedScoreIndex === undefined
       ? annotationLocations
       : expandCondensedDynamicLocations(score, annotationLocations, selectedScoreIndex);
+  locations.sort(
+    (left, right) =>
+      left.measureIndex - right.measureIndex || eventStartBeat(score, left) - eventStartBeat(score, right),
+  );
   for (const loc of locations) {
     const event = getEventAtLocation(score, loc);
     if (!event) continue;
@@ -281,40 +291,53 @@ function buildMultiClipboardSelection(
   }
   if (events.length === 0 || !firstLoc) return null;
   const trackMap = new Map<string, ClipboardTrack>();
+  const { partIndex: startPart, staffOffset: anchorStaffOffset } = selectionStaffAnchor(score, locations);
+  const origin = selectedChordSymbolOrigin(
+    score,
+    cutAnnotationLocations,
+    selectedDynamicOrigin(score, cutAnnotationLocations, {
+      measureIndex: firstLoc.measureIndex,
+      beat: eventStartBeat(score, firstLoc),
+    }),
+  );
   for (const location of locations) {
     const sourceEvent = getEventAtLocation(score, location);
     if (!sourceEvent) continue;
-    const key = `${location.partIndex}/${location.sequenceIndex}`;
+    const staff =
+      score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex]?.staff ?? 1;
+    const voiceIndex = voiceIndexWithinStaff(score, location.partIndex, location.measureIndex, location.sequenceIndex);
+    const key = `${location.partIndex}/${staff}/${voiceIndex}`;
     const track = trackMap.get(key) ?? {
-      partOffset: location.partIndex - firstLoc.partIndex,
-      voiceIndex: location.sequenceIndex,
+      partOffset: location.partIndex - startPart,
+      voiceIndex,
+      staffOffset: partStaffOffset(score, startPart, location.partIndex, staff) - anchorStaffOffset,
+      sourceStaff: staff,
       content: [],
     };
+    if (track.content.length === 0) {
+      const onset =
+        beatsBetweenMeasures(score, origin.measureIndex, location.measureIndex) + eventStartBeat(score, location);
+      if (onset - origin.beat > 1e-9) track.leadIn = exactCaptureDifference(onset, origin.beat);
+    }
     track.content.push(sourceEvent);
     trackMap.set(key, track);
   }
-  const tracks = new Set(locations.map((location) => location.partIndex)).size > 1 ? [...trackMap.values()] : undefined;
-  const capturedDynamics = captureSelectedDynamics(score, cutAnnotationLocations, firstLoc);
-  if (tracks) {
-    for (const track of tracks) {
-      const partIndex = firstLoc.partIndex + track.partOffset;
-      const dynamics = capturedDynamics.filter((dynamic) => dynamic.partIndex === partIndex);
-      if (dynamics.length > 0) track.dynamics = dynamics.map(({ partIndex: _partIndex, ...captured }) => captured);
-    }
-  }
+  const tracks = [...trackMap.values()].sort((left, right) => left.staffOffset! - right.staffOffset!);
+  const capturedDynamics = captureSelectedDynamics(score, cutAnnotationLocations, origin);
+  assignDynamicsToTracks(score, startPart, tracks, capturedDynamics, anchorStaffOffset);
   const { time, key } = resolveActiveTimeKey(score, firstLoc.measureIndex);
   return {
+    captureOrigin: origin,
     events,
     timeSignature: time,
     keySignature: key,
-    partIndex: firstLoc.partIndex,
+    partIndex: startPart,
     measureIndex: firstLoc.measureIndex,
     sequenceIndex: firstLoc.sequenceIndex,
     eventIndex: firstLoc.eventIndex,
-    tracks,
-    dynamics: capturedDynamics
-      .filter((dynamic) => dynamic.partIndex === firstLoc.partIndex)
-      .map(({ partIndex: _partIndex, ...captured }) => captured),
+    tracks: tracks.length > 1 || tracks[0]?.leadIn ? tracks : undefined,
+    dynamics: tracks[0]?.dynamics,
+    chordSymbols: captureSelectedChordSymbols(score, cutAnnotationLocations, origin, startPart, anchorStaffOffset),
     cutLocations: locations,
     cutAnnotationLocations,
   };
@@ -326,56 +349,6 @@ function eventStartBeat(score: Score, location: EventLocation): number {
   return sequence.content
     .slice(0, location.tupletIndex ?? location.eventIndex)
     .reduce((sum, item) => sum + sequenceContentBeats(item), 0);
-}
-
-function dynamicIndexAtLocation(score: Score, location: AnnotationLocation): number {
-  if (location.partIndex === undefined) return -1;
-  const dynamics = score.parts[location.partIndex]?.measures[location.measureIndex]?.dynamics ?? [];
-  if (location.annotationId) return dynamics.findIndex((dynamic) => dynamic.id === location.annotationId);
-  if (location.annotationIndex === undefined) return -1;
-  if (location.type !== "hairpin") return location.annotationIndex;
-  return (
-    dynamics.map((dynamic, index) => ({ dynamic, index })).filter(({ dynamic }) => dynamic.type === "gradual")[
-      location.annotationIndex
-    ]?.index ?? -1
-  );
-}
-
-function captureSelectedDynamics(
-  score: Score,
-  locations: readonly AnnotationLocation[],
-  firstEvent: EventLocation,
-): (CapturedDynamic & { partIndex: number })[] {
-  const firstBeat = eventStartBeat(score, firstEvent);
-  const measureById = new Map(
-    score.global.measures.flatMap((measure, index) => (measure.id ? [[measure.id, index] as const] : [])),
-  );
-  return locations.flatMap((location) => {
-    if (location.partIndex === undefined || (location.type !== "dyn" && location.type !== "hairpin")) return [];
-    const dynamic =
-      score.parts[location.partIndex]?.measures[location.measureIndex]?.dynamics?.[
-        dynamicIndexAtLocation(score, location)
-      ];
-    if (!dynamic) return [];
-    const cloned = structuredClone(dynamic);
-    if (location.measureIndex === firstEvent.measureIndex) {
-      const [numerator, denominator] = cloned.position.fraction;
-      const relative = (denominator === 0 ? 0 : (numerator / denominator) * 4) - firstBeat;
-      cloned.position = { fraction: [Math.round(relative * 4), 16] };
-    }
-    const endMeasureOffset =
-      cloned.type === "gradual"
-        ? (measureById.get(cloned.end.measure) ?? location.measureIndex) - firstEvent.measureIndex
-        : undefined;
-    return [
-      {
-        partIndex: location.partIndex,
-        measureOffset: location.measureIndex - firstEvent.measureIndex,
-        endMeasureOffset,
-        dynamic: cloned,
-      },
-    ];
-  });
 }
 
 interface RangeResolved {
@@ -516,85 +489,54 @@ function collectTrackedEvents(
   return { events, selectionStartBeat };
 }
 
-function groupByTrack(trackedEvents: TrackedEvent[]): Map<string, TrackedEvent[]> {
+function groupByTrack(score: Score, startPart: number, trackedEvents: TrackedEvent[]): Map<string, TrackedEvent[]> {
   const trackMap = new Map<string, TrackedEvent[]>();
   for (const te of trackedEvents) {
-    const key = `${te.partOffset}:${te.voiceIndex}`;
+    const partIndex = startPart + te.partOffset;
+    const staff = score.parts[partIndex]?.measures[te.measureIndex]?.sequences[te.voiceIndex]?.staff ?? 1;
+    const voice = voiceIndexWithinStaff(score, partIndex, te.measureIndex, te.voiceIndex);
+    const key = `${te.partOffset}:${staff}:${voice}`;
     if (!trackMap.has(key)) trackMap.set(key, []);
     trackMap.get(key)!.push(te);
   }
   return trackMap;
 }
 
-interface TrackBeatWindow {
-  firstMeasureForPart: number;
-  lastMeasureForPart: number;
-  firstBeatInFirstMeasure: number;
-  lastBeatInLastMeasure: number;
-}
-
-function computeTrackBeatWindow(
-  events: TrackedEvent[],
-  range: RangeResolved["range"],
-  first: TrackedEvent,
-  last: TrackedEvent,
-): TrackBeatWindow {
-  let firstMeasureForPart = range.startMeasure;
-  let lastMeasureForPart = range.endMeasure;
-  let firstBeatInFirstMeasure = 0;
-  let lastBeatInLastMeasure = Infinity;
-  let minBeatHere = Infinity;
-  let maxEndHere = -Infinity;
-  for (const ev of events) {
-    if (ev.measureIndex === firstMeasureForPart && ev.sortKey < minBeatHere) minBeatHere = ev.sortKey;
-    if (ev.measureIndex === lastMeasureForPart) {
-      const endBeat = ev.sortKey + ev.eventBeats;
-      if (endBeat > maxEndHere) maxEndHere = endBeat;
-    }
-  }
-  if (isFinite(minBeatHere)) firstBeatInFirstMeasure = minBeatHere;
-  else firstMeasureForPart = first.measureIndex;
-  if (isFinite(maxEndHere)) lastBeatInLastMeasure = maxEndHere;
-  else lastMeasureForPart = last.measureIndex;
-  return { firstMeasureForPart, lastMeasureForPart, firstBeatInFirstMeasure, lastBeatInLastMeasure };
+function appendTrackGap(track: ClipboardTrack, end: number, start: number): void {
+  if (end - start > 1e-9) track.content.push({ type: "space", duration: exactCaptureDifference(end, start) });
 }
 
 function buildTrackFromEvents(
   score: Score,
-  range: RangeResolved["range"],
+  range: Pick<RangeResolved["range"], "startPart" | "startMeasure">,
   events: TrackedEvent[],
-  isCrossPart: boolean,
+  anchorStaffOffset: number,
   selectionStartBeat: number,
+  selectionEndBeat?: number,
 ): ClipboardTrack {
   const first = events[0]!;
-  const last = events[events.length - 1]!;
   const srcPartIndex = range.startPart + first.partOffset;
-  const window = computeTrackBeatWindow(events, range, first, last);
-  const dynamics = collectDynamics(
-    score,
-    srcPartIndex,
-    window.firstMeasureForPart,
-    window.lastMeasureForPart,
-    window.firstBeatInFirstMeasure,
-    window.lastBeatInLastMeasure,
-  );
+  const staff = score.parts[srcPartIndex]?.measures[first.measureIndex]?.sequences[first.voiceIndex]?.staff ?? 1;
   const track: ClipboardTrack = {
     partOffset: first.partOffset,
-    voiceIndex: first.voiceIndex,
+    voiceIndex: voiceIndexWithinStaff(score, srcPartIndex, first.measureIndex, first.voiceIndex),
+    staffOffset: partStaffOffset(score, range.startPart, srcPartIndex, staff) - anchorStaffOffset,
+    sourceStaff: staff,
     content: [],
     clef: getActiveClef(score, srcPartIndex, range.startMeasure),
     transposition: score.parts[srcPartIndex]?.transposition,
-    ...(dynamics.length > 0 ? { dynamics } : {}),
   };
-  if (isCrossPart) {
-    const gap = first.absBeat - selectionStartBeat;
-    if (gap > 1e-9) {
-      for (const d of decomposeDuration(gap)) {
-        track.content.push({ type: "event" as const, id: generateEventId(), duration: d, rest: {} });
-      }
-    }
+  const leadIn = first.absBeat - selectionStartBeat;
+  if (leadIn > 1e-9) {
+    track.leadIn = exactCaptureDifference(first.absBeat, selectionStartBeat);
   }
-  for (const te of events) track.content.push(te.event);
+  let endBeat = first.absBeat;
+  for (const te of events) {
+    appendTrackGap(track, te.absBeat, endBeat);
+    track.content.push(te.event);
+    endBeat = te.absBeat + te.eventBeats;
+  }
+  if (selectionEndBeat !== undefined) appendTrackGap(track, selectionEndBeat, endBeat);
   return track;
 }
 
@@ -620,59 +562,106 @@ function buildRangeClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "range" }>,
   selectedScoreIndex?: number,
-): ClipboardSelection | null {
+): CapturedSelection | null {
   const resolved = resolveRangeAndIds(score, selection, selectedScoreIndex);
   if (!resolved) return null;
   const { range, selectedIds } = resolved;
+  const { events: trackedEvents } = collectTrackedEvents(score, range, selectedIds);
+  if (trackedEvents.length === 0) return null;
+  const selectedStaves = new Set(
+    trackedEvents.map((event) => {
+      const partIndex = range.startPart + event.partOffset;
+      const staff = score.parts[partIndex]?.measures[event.measureIndex]?.sequences[event.voiceIndex]?.staff ?? 1;
+      return `${partIndex}:${staff}`;
+    }),
+  );
   const annotationLocations = [...selectedIds]
-    .map(resolveAnnotationLocation)
+    .map((id) => {
+      const location = resolveAnnotationLocation(id);
+      if (!location || id === selection.startElementId || id === selection.endElementId) return location;
+      const staff = dynamicStaffAtLocation(score, location) ?? chordSymbolStaffAtLocation(score, location);
+      return staff === undefined || selectedStaves.has(`${location.partIndex}:${staff}`) ? location : null;
+    })
     .filter((location): location is AnnotationLocation => location !== null);
   const cutAnnotationLocations =
     selectedScoreIndex === undefined
       ? annotationLocations
       : expandCondensedDynamicLocations(score, annotationLocations, selectedScoreIndex);
-  const { events: trackedEvents, selectionStartBeat } = collectTrackedEvents(score, range, selectedIds);
-  if (trackedEvents.length === 0) return null;
-  const isCrossPart = new Set(trackedEvents.map((event) => event.partOffset)).size > 1;
-
-  const trackMap = groupByTrack(trackedEvents);
-  const tracks: ClipboardTrack[] = [];
-  for (const [, events] of trackMap) {
-    tracks.push(buildTrackFromEvents(score, range, events, isCrossPart, selectionStartBeat));
-  }
-  if (isCrossPart) padMissingPartTracks(score, range, tracks);
-  const selectedDynamics = captureSelectedDynamics(
+  const origin = selectedChordSymbolOrigin(
     score,
     cutAnnotationLocations,
-    trackedEvents[0]!.location ?? {
-      partIndex: range.startPart,
-      measureIndex: range.startMeasure,
-      sequenceIndex: range.startVoice,
-      eventIndex: 0,
-    },
+    selectedDynamicOrigin(score, cutAnnotationLocations, {
+      measureIndex: trackedEvents[0]!.measureIndex,
+      beat: trackedEvents[0]!.sortKey,
+    }),
   );
-  for (const track of tracks) {
-    const partIndex = range.startPart + track.partOffset;
-    const dynamics = selectedDynamics.filter((dynamic) => dynamic.partIndex === partIndex);
-    if (dynamics.length > 0) {
-      track.dynamics = dynamics.map(({ partIndex: _partIndex, ...captured }) => captured);
-    }
+  const selectionStartBeat = beatsBetweenMeasures(score, range.startMeasure, origin.measureIndex) + origin.beat;
+  const isCrossPart = new Set(trackedEvents.map((event) => event.partOffset)).size > 1;
+
+  const trackMap = groupByTrack(score, range.startPart, trackedEvents);
+  const tracks: ClipboardTrack[] = [];
+  const trackAnchor = firstPhysicalTrack(score, range.startPart, trackedEvents);
+  const anchorPart = range.startPart + trackAnchor.partOffset;
+  const anchorStaff =
+    score.parts[anchorPart]?.measures[trackAnchor.measureIndex]?.sequences[trackAnchor.voiceIndex]?.staff ?? 1;
+  const anchorStaffOffset = partStaffOffset(score, range.startPart, anchorPart, anchorStaff);
+  for (const [, events] of trackMap) {
+    tracks.push(buildTrackFromEvents(score, range, events, anchorStaffOffset, selectionStartBeat));
   }
+  if (isCrossPart) padMissingPartTracks(score, range, tracks);
+  tracks.sort(
+    (a, b) => (a.staffOffset ?? a.partOffset) - (b.staffOffset ?? b.partOffset) || a.voiceIndex - b.voiceIndex,
+  );
+  const selectedDynamics = captureSelectedDynamics(score, cutAnnotationLocations, origin);
 
   const primaryEvents: SequenceContent[] = tracks.length > 0 ? tracks[0]!.content : [];
   if (primaryEvents.length === 0) return null;
+  const lastMeasureEvents = trackedEvents.filter((event) => event.measureIndex === range.endMeasure);
+  const lastMeasureBeat =
+    lastMeasureEvents.length > 0
+      ? Math.max(...lastMeasureEvents.map((event) => event.sortKey + event.eventBeats))
+      : Infinity;
+  const dynamics = [...new Set(trackedEvents.map((event) => range.startPart + event.partOffset))].flatMap((partIndex) =>
+    collectDynamics(
+      score,
+      partIndex,
+      origin.measureIndex,
+      range.endMeasure,
+      origin.beat,
+      lastMeasureBeat,
+      sourceStavesForPart(tracks, partIndex - range.startPart),
+    ).map((captured) => ({ ...captured, partIndex, sourceMeasureIndex: origin.measureIndex + captured.measureOffset })),
+  );
+  assignDynamicsToTracks(score, range.startPart, tracks, [...selectedDynamics, ...dynamics], anchorStaffOffset);
+  const chordSymbols = Array.from(
+    { length: range.endPart - range.startPart + 1 },
+    (_, offset) => range.startPart + offset,
+  ).flatMap((partIndex) =>
+    captureChordSymbols(
+      score,
+      partIndex,
+      origin.measureIndex,
+      range.endMeasure,
+      origin.beat,
+      lastMeasureBeat,
+      partIndex - range.startPart,
+      anchorStaffOffset,
+      sourceStavesForPart(tracks, partIndex - range.startPart),
+      { locations: cutAnnotationLocations },
+    ),
+  );
 
   const { time, key } = resolveActiveTimeKey(score, range.startMeasure);
   return {
+    captureOrigin: origin,
     events: primaryEvents,
     timeSignature: time,
     keySignature: key,
     clef: getActiveClef(score, range.startPart, range.startMeasure),
     transposition: score.parts[range.startPart]?.transposition,
-    tracks: isCrossPart && tracks.length > 1 ? tracks : undefined,
-    dynamics: selectedDynamics
-      .filter((dynamic) => dynamic.partIndex === range.startPart)
-      .map(({ partIndex: _partIndex, ...captured }) => captured),
+    tracks: tracks.length > 1 || tracks[0]?.leadIn ? tracks : undefined,
+    dynamics: tracks[0]?.partOffset === 0 ? tracks[0].dynamics : undefined,
+    chordSymbols,
     partIndex: range.startPart,
     measureIndex: range.startMeasure,
     sequenceIndex: range.startVoice,
@@ -684,40 +673,6 @@ function buildRangeClipboardSelection(
   };
 }
 
-function collectMeasureContent(
-  score: Score,
-  partIndex: number,
-  startMeasure: number,
-  endMeasure: number,
-): { content: SequenceContent[]; locations: EventLocation[]; exact: boolean } {
-  const content: SequenceContent[] = [];
-  const locations: EventLocation[] = [];
-  let exact = true;
-  const part = score.parts[partIndex];
-  if (!part) return { content, locations, exact: false };
-  for (
-    let measureIndex = startMeasure;
-    measureIndex <= Math.min(endMeasure, part.measures.length - 1);
-    measureIndex++
-  ) {
-    const measure = part.measures[measureIndex];
-    if (!measure) continue;
-    for (let sequenceIndex = 0; sequenceIndex < measure.sequences.length; sequenceIndex++) {
-      const sequence = measure.sequences[sequenceIndex]!;
-      for (let eventIndex = 0; eventIndex < sequence.content.length; eventIndex++) {
-        const item = sequence.content[eventIndex]!;
-        content.push(item);
-        if (item.type !== "event") {
-          exact = false;
-          continue;
-        }
-        locations.push({ partIndex, measureIndex, sequenceIndex, eventIndex });
-      }
-    }
-  }
-  return { content, locations, exact };
-}
-
 function collectMeasureTracks(
   score: Score,
   startPart: number,
@@ -725,9 +680,15 @@ function collectMeasureTracks(
   startMeasure: number,
   endMeasure: number,
 ): { tracks: ClipboardTrack[]; locations: EventLocation[]; exact: boolean } {
-  const tracks: ClipboardTrack[] = [];
+  const events: TrackedEvent[] = [];
   const locations: EventLocation[] = [];
   let exact = true;
+  const measureOffsets = new Map<number, number>();
+  let totalBeats = 0;
+  for (let measureIndex = startMeasure; measureIndex <= endMeasure; measureIndex++) {
+    measureOffsets.set(measureIndex, totalBeats);
+    totalBeats += measureBeats(resolveActiveTimeKey(score, measureIndex).time);
+  }
   for (let partIndex = startPart; partIndex <= Math.min(endPart, score.parts.length - 1); partIndex++) {
     const part = score.parts[partIndex];
     if (!part) continue;
@@ -739,18 +700,32 @@ function collectMeasureTracks(
       const measure = part.measures[measureIndex];
       if (!measure) continue;
       for (let sequenceIndex = 0; sequenceIndex < measure.sequences.length; sequenceIndex++) {
-        const content = measure.sequences[sequenceIndex]!.content;
-        if (content.length === 0) continue;
-        const dynamics =
-          sequenceIndex === 0 ? collectDynamics(score, partIndex, startMeasure, endMeasure, 0, Infinity) : undefined;
-        tracks.push({
-          partOffset: partIndex - startPart,
-          voiceIndex: sequenceIndex,
-          content: [...content],
-          ...(dynamics && dynamics.length > 0 ? { dynamics } : {}),
-        });
+        const sequence = measure.sequences[sequenceIndex]!;
+        const fullMeasureRest = sequence.fullMeasure && sequence.content.length === 0;
+        const content: SequenceContent[] = fullMeasureRest
+          ? decomposeDuration(measureBeats(resolveActiveTimeKey(score, measureIndex).time)).map((duration) => ({
+              type: "event",
+              id: generateEventId(),
+              duration,
+              rest: { staffPosition: sequence.fullMeasure?.staffPosition },
+            }))
+          : sequence.content;
+        let sortKey = 0;
         for (let eventIndex = 0; eventIndex < content.length; eventIndex++) {
-          if (content[eventIndex]?.type !== "event") {
+          const event = content[eventIndex]!;
+          const eventBeats = sequenceContentBeats(event);
+          events.push({
+            event,
+            eventBeats,
+            measureIndex,
+            sortKey,
+            absBeat: measureOffsets.get(measureIndex)! + sortKey,
+            partOffset: partIndex - startPart,
+            voiceIndex: sequenceIndex,
+          });
+          sortKey += eventBeats;
+          if (fullMeasureRest) continue;
+          if (event.type !== "event") {
             exact = false;
             continue;
           }
@@ -759,45 +734,45 @@ function collectMeasureTracks(
       }
     }
   }
+  const tracks = [...groupByTrack(score, startPart, events).values()]
+    .map((trackEvents) => buildTrackFromEvents(score, { startPart, startMeasure }, trackEvents, 0, 0, totalBeats))
+    .sort((a, b) => a.staffOffset! - b.staffOffset! || a.voiceIndex - b.voiceIndex);
+  const dynamics = [...new Set(events.map((event) => startPart + event.partOffset))].flatMap((partIndex) =>
+    collectDynamics(score, partIndex, startMeasure, endMeasure, 0, Infinity).map((captured) => ({
+      ...captured,
+      partIndex,
+      sourceMeasureIndex: startMeasure + captured.measureOffset,
+    })),
+  );
+  assignDynamicsToTracks(score, startPart, tracks, dynamics);
   return { tracks, locations, exact };
 }
 
 function buildMeasureClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "measure" }>,
-): ClipboardSelection | null {
+): CapturedSelection | null {
   const startP = Math.min(selection.startPartIndex, selection.endPartIndex);
   const endP = Math.max(selection.startPartIndex, selection.endPartIndex);
   const startM = Math.min(selection.startMeasure, selection.endMeasure);
   const endM = Math.max(selection.startMeasure, selection.endMeasure);
-  const isCrossPart = startP !== endP;
-
-  // Collect events from the primary (first) part
-  const primary = collectMeasureContent(score, startP, startM, endM);
-  const primaryEvents = primary.content;
+  const { tracks, locations: cutLocations, exact: exactCut } = collectMeasureTracks(score, startP, endP, startM, endM);
+  const primaryEvents = tracks[0]?.content ?? [];
   if (primaryEvents.length === 0) return null;
+  const chordSymbols = Array.from({ length: endP - startP + 1 }, (_, offset) => startP + offset).flatMap((partIndex) =>
+    captureChordSymbols(score, partIndex, startM, endM, 0, Infinity, partIndex - startP),
+  );
 
-  const crossPart = isCrossPart ? collectMeasureTracks(score, startP, endP, startM, endM) : undefined;
-  const tracks = crossPart?.tracks;
-  const cutLocations = crossPart?.locations ?? primary.locations;
-  const exactCut = crossPart?.exact ?? primary.exact;
-
-  const primaryDynamics = collectDynamics(score, startP, startM, endM, 0, Infinity);
-
-  let activeTime: TimeSignature = { count: 4, unit: 4 };
-  let activeKey: KeySignature = { fifths: 0 };
-  for (let m = startM; m >= 0; m--) {
-    const gm = score.global.measures[m];
-    if (gm?.time && !activeTime) activeTime = gm.time;
-    if (gm?.key && !activeKey) activeKey = gm.key;
-  }
+  const { time, key } = resolveActiveTimeKey(score, startM);
 
   return {
+    captureOrigin: { measureIndex: startM, beat: 0 },
     events: primaryEvents,
-    timeSignature: activeTime,
-    keySignature: activeKey,
+    timeSignature: time,
+    keySignature: key,
     tracks,
-    dynamics: primaryDynamics.length > 0 ? primaryDynamics : undefined,
+    dynamics: tracks[0]?.partOffset === 0 ? tracks[0].dynamics : undefined,
+    chordSymbols,
     partIndex: startP,
     measureIndex: startM,
     sequenceIndex: 0,

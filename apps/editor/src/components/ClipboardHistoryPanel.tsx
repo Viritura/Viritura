@@ -93,6 +93,12 @@ function ClipboardHistoryItem({ entry }: ClipboardHistoryItemProps) {
       entry.fragment.timeSignature,
       entry.fragment.keySignature,
       entry.fragment.tracks,
+      entry.fragment.clef,
+      entry.fragment.transposition,
+      entry.fragment.dynamics,
+      entry.fragment.measureRepeats,
+      entry.fragment.lyrics,
+      entry.fragment.chordSymbols,
     );
     try {
       await navigator.clipboard.writeText(json);
