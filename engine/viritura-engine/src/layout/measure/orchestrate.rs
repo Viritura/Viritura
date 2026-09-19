@@ -32,9 +32,12 @@ fn event_right_edge(
     events: &EventArena,
     index: usize,
     sp: f64,
-    config: &LayoutConfig,
-    is_beamed: bool,
+    grace_context: &super::super::grace::GraceSpacingContext<'_>,
+    clef_changes: &[(f64, Clef)],
+    beamed_ids: &HashSet<String>,
 ) -> f64 {
+    let config = grace_context.config;
+    let is_beamed = events.id(index).is_some_and(|id| beamed_ids.contains(id));
     let event = events.event(index);
     let x = events.x(index);
     let codepoint = if event.is_rest() {
@@ -74,7 +77,16 @@ fn event_right_edge(
             right = right.max(stem_x + (bbox_x + bbox_w) * sp);
         }
     }
-    right
+    let context = super::super::grace::GraceSpacingContext {
+        clef: Some(active_clef_at_beat(
+            clef_changes,
+            events.beat_position(index),
+        )),
+        ..*grace_context
+    };
+    context
+        .after_right_edge(events.grace_notes(index), sp)
+        .map_or(right, |grace_right| right.max(grace_right))
 }
 
 pub(crate) fn layout_total_beats(rm: &ResolvedMeasure) -> f64 {
@@ -529,7 +541,6 @@ pub(super) fn layout_voice_for_measure(
     rm: &ResolvedMeasure,
     num_voices: usize,
     sp: f64,
-    config: &LayoutConfig,
     start_x: f64,
     prefix_width: f64,
     content_width: f64,
@@ -539,6 +550,8 @@ pub(super) fn layout_voice_for_measure(
     clef_changes: &[(f64, Clef)],
     resolved_ottavas: &[ResolvedOttavaRange],
     log_spacing: &LogSpacing,
+    grace_context: &super::super::grace::GraceSpacingContext<'_>,
+    measure_acc: &mut HashMap<(String, i32), i32>,
 ) -> VoiceLayout {
     let mut events = Vec::new();
     let mut tuplet_groups = Vec::new();
@@ -656,60 +669,13 @@ pub(super) fn layout_voice_for_measure(
         }
     }
 
-    // Position grace notes around their main event.
-    let grace_scale = 0.65;
-    let grace_nw = config.notehead_rx * 2.0 * grace_scale * sp;
-    let grace_spacing = 0.3 * sp;
-    let grace_to_main = 1.2 * sp; // enough room for flag + clearance
-    for el in &mut events {
-        let before = el.grace_notes.iter().filter(|gn| !gn.after_main).count();
-        let after = el.grace_notes.iter().filter(|gn| gn.after_main).count();
-        if before > 0 {
-            // The main event's accidental column is drawn to the LEFT of its
-            // notehead (el.x). Grace notes must clear that column too, or they
-            // collide with the accidental. Reserve its extent on top of the
-            // base flag clearance. Uses the same key-aware estimate as the
-            // measure spacing reservation.
-            let acc_extent = el
-                .event
-                .notes
-                .as_ref()
-                .map(|notes| {
-                    event_accidental_extent_sp(
-                        notes,
-                        &rm.active_key,
-                        &mut HashMap::new(),
-                        None,
-                        0.0,
-                        None,
-                    ) * sp
-                })
-                .unwrap_or(0.0);
-            let total_w = before as f64 * grace_nw
-                + (before as f64 - 1.0).max(0.0) * grace_spacing
-                + grace_to_main
-                + acc_extent;
-            let mut gx = el.x - total_w;
-            for gn in &mut el.grace_notes {
-                if gn.after_main {
-                    continue;
-                }
-                gn.x = gx;
-                gx += grace_nw + grace_spacing;
-            }
-        }
-        if after > 0 {
-            let main_w = smufl::notehead_width(smufl::notehead_glyph(&el.event.duration.base)) * sp;
-            let mut gx = el.x + main_w + grace_to_main;
-            for gn in &mut el.grace_notes {
-                if !gn.after_main {
-                    continue;
-                }
-                gn.x = gx;
-                gx += grace_nw + grace_spacing;
-            }
-        }
-    }
+    super::super::grace::position_grace_notes(
+        &mut events,
+        grace_context,
+        clef_changes,
+        measure_acc,
+        sp,
+    );
 
     VoiceLayout {
         voice_index: vi,
@@ -843,6 +809,20 @@ pub(super) fn layout_measure_inner(
             + trailing_barline_extra,
     );
 
+    let suppressed_note_ids = if is_system_start {
+        HashSet::new()
+    } else {
+        rm.tie_continuation_ids.iter().cloned().collect()
+    };
+    let grace_context = super::super::grace::GraceSpacingContext {
+        key: &rm.active_key,
+        transposition: rm.display_transposition(),
+        clef: None,
+        kit: rm.kit.as_ref(),
+        suppressed_note_ids: Some(&suppressed_note_ids),
+        config,
+    };
+    let mut measure_acc = HashMap::new();
     for (vi, seq) in rm.part.sequences.iter().enumerate() {
         let vl = layout_voice_for_measure(
             seq,
@@ -850,7 +830,6 @@ pub(super) fn layout_measure_inner(
             rm,
             num_voices,
             sp,
-            config,
             start_x,
             prefix_width,
             content_width,
@@ -860,6 +839,8 @@ pub(super) fn layout_measure_inner(
             &clef_changes,
             resolved_ottavas,
             log_spacing,
+            &grace_context,
+            &mut measure_acc,
         );
         voice_layouts.push(vl);
     }
@@ -916,21 +897,21 @@ pub(super) fn layout_measure_inner(
                     (0..voice.events.len())
                         .filter(|&index| voice.events.beat_position(index) < beat - 0.001)
                         .map(|index| {
-                            let is_beamed = voice
-                                .events
-                                .id(index)
-                                .is_some_and(|id| beamed_ids.contains(id));
-                            event_right_edge(&voice.events, index, sp, config, is_beamed)
+                            event_right_edge(
+                                &voice.events,
+                                index,
+                                sp,
+                                &grace_context,
+                                &clef_changes,
+                                &beamed_ids,
+                            )
                         })
                 })
                 .max_by(f64::total_cmp);
             let preferred_x = target_x - fixed_material.max(column_width);
-            let x = preceding_right.map_or(preferred_x, |right| {
-                // Standard engraving practice: a change clef sits between the
-                // adjacent event ink, never on top of the preceding chord.
-                let minimum_glyph_x = right + MID_CLEF_LEFT_PAD_SP * sp;
-                preferred_x.max(minimum_glyph_x - MID_CLEF_LEFT_PAD_SP * sp)
-            });
+            // The column includes its left pad: keep its start after all
+            // preceding chord and after-grace ink.
+            let x = preceding_right.map_or(preferred_x, |right| preferred_x.max(right));
             mid_clef_layouts.push(MidClefChange {
                 clef: clef.clone(),
                 x,

@@ -15,7 +15,7 @@ import {
   type StickyClefInfo,
   type PatchInfo,
 } from "@viritura/renderer";
-import type { Note } from "@viritura/core";
+import type { Note, Score } from "@viritura/core";
 import { DEFAULT_PAGE_SETUP } from "@viritura/core";
 import type { PageSetup } from "@viritura/core";
 // loadMnxFromString removed — we use the Score from DocumentContext directly
@@ -86,6 +86,7 @@ import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } fro
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
 import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
 import { useRenderedStaffSources } from "./renderedStaffSources";
+import { useDocumentScoreRefs } from "./documentScoreRefs";
 import {
   handleCanvasClickImpl,
   handleCanvasMouseDownImpl,
@@ -233,9 +234,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       engraveHoverFadeTRef,
       repaint: () => repaintRef.current?.(),
     });
-    /** Latest mapping of part index → MNX part id, for staff-eye hit-tests. */
-    const partIdByIndexRef = useRef<readonly string[]>([]);
-
     const selection = useSelection();
     // Tracks whether a selection is active, read by the fast-layout callback to
     // rebuild the spatial index immediately (not on the typing debounce) so the
@@ -268,16 +266,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     const documentStore = useDocumentStoreApi();
 
     // Refs to avoid stale closures in keyboard/click handlers
-    const docScoreRef = useRef(docScore);
-    docScoreRef.current = docScore;
-    useEffect(
-      () =>
-        documentStore.subscribe((state) => {
-          docScoreRef.current = state.workingScore;
-          partIdByIndexRef.current = (state.workingScore?.parts ?? []).map((part) => part.id ?? "");
-        }),
-      [documentStore],
-    );
+    const { docScoreRef, partIdByIndexRef } = useDocumentScoreRefs(documentStore, docScore);
     // Latest selection-injection state, mirrored so the deferred patch-chain
     // pre-warm can read it without re-firing the initial-load effect on
     // selection changes.
@@ -285,8 +274,6 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     selectedPartIdsRef.current = selectedPartIds;
     const expandedCondensingStavesRef = useRef(expandedCondensingStaves);
     expandedCondensingStavesRef.current = expandedCondensingStaves;
-    // Map part index → MNX part id (kept current for engrave eye-pill hit-tests).
-    partIdByIndexRef.current = (docScore?.parts ?? []).map((p) => p.id ?? "");
     const noteInputActiveRef = useRef(noteInputState.active);
     noteInputActiveRef.current = noteInputState.active;
     const selectionRef = useRef(selection);
@@ -375,7 +362,17 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           docScoreRef,
           viewMode,
         }),
-      [setZoom, setScroll, resetViewport, scoreDefinitions, selectedScoreIndex, viewport, containerRef, viewMode],
+      [
+        setZoom,
+        setScroll,
+        resetViewport,
+        scoreDefinitions,
+        selectedScoreIndex,
+        viewport,
+        containerRef,
+        docScoreRef,
+        viewMode,
+      ],
     );
 
     // Notify parent of viewport / score-info / layouts / page-count changes,
@@ -416,7 +413,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         });
         if (newScore !== score) updateScore(newScore);
       },
-      [updateScore],
+      [docScoreRef, updateScore],
     );
 
     // Keyboard shortcuts are handled by useEditorKeyboard in App.tsx
@@ -424,10 +421,11 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // ─── Note input click handler ─────────────────
     const handleNoteInputClick = useCallback(
       (info: NoteInputClickInfo) => {
-        if (!docScore) return;
+        const score = docScoreRef.current;
+        if (!score) return;
         addNoteAtClick({
           info,
-          score: docScore,
+          score,
           noteInputState,
           spatialIndex: spatialIndexRef.current,
           displayList: displayListRef.current,
@@ -443,7 +441,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         });
       },
       [
-        docScore,
+        docScoreRef,
         noteInputState,
         updateScore,
         setSlurStart,
@@ -494,7 +492,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
 
     // Helper: compute display list for given MNX JSON and score index
     const computeDisplayList = useCallback(
-      (mnxJson: string, info: ScoreInfo, scoreIdx: number, patchInfo?: PatchInfo) =>
+      (mnxJson: string, info: ScoreInfo, scoreIdx: number, patchInfo?: PatchInfo, scoreOverride?: Score | null) =>
         computeDisplayListImpl({
           mnxJson,
           info,
@@ -504,14 +502,14 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           viewMode,
           selectedPartIds,
           expandedCondensingStaves,
-          score: docScoreRef.current,
+          score: scoreOverride ?? docScoreRef.current,
           engine: backendRef.current,
           perfTracker: perfTrackerRef.current,
           setLayoutPerfDebug,
           pageSetupRef,
           showHiddenRests,
         }),
-      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, showHiddenRests],
+      [partIndex, viewMode, selectedPartIds, expandedCondensingStaves, docScoreRef, showHiddenRests],
     );
 
     // Cached ScoreInfo to avoid re-calling WASM getScoreInfo on every edit
@@ -742,6 +740,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       viewMode,
       containerWidth,
       debugEnabled,
+      docScoreRef,
       handleDisplayListCommit,
     ]);
 
@@ -825,7 +824,16 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         setDisplayListVersion, // no setContentSize for debug path
         forceDirectPaint: true,
       });
-    }, [debugEnabled, wasmReady, mnxJson, computeDisplayList, selectedScoreIndex, scoreDefinitions.length, viewMode]);
+    }, [
+      debugEnabled,
+      wasmReady,
+      mnxJson,
+      computeDisplayList,
+      selectedScoreIndex,
+      scoreDefinitions.length,
+      viewMode,
+      docScoreRef,
+    ]);
 
     // Build set of selected element IDs for the overlay
     const selectedIds = useMemo(() => {
@@ -898,7 +906,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         setSelectedSlurId(nextElementId);
         if (interactionModeRef.current === "write") selectElement(nextElementId);
       },
-      [selectElement, setSelectedSlurId, updateScore],
+      [docScoreRef, selectElement, setSelectedSlurId, updateScore],
     );
     /** Open context menu (anchored at the right-clicked screen pos) for the selected slur. */
     const [slurContextMenu, setSlurContextMenu] = useState<ContextMenuState | null>(null);
@@ -916,7 +924,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           partIndex,
           fine,
         ),
-      [],
+      [docScoreRef],
     );
     // Repaint on viewport or content changes
     /** Track previous zoom to detect active zooming and bypass tiles. */
@@ -997,6 +1005,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         performanceOverlayEnabled,
         printPreview,
         publishStaffSources,
+        docScoreRef,
+        partIdByIndexRef,
         safeArea?.left,
       ],
     );
@@ -1111,7 +1121,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         const newScore = commitSpannerDragImpl(score, hit, dragX, snapPoints);
         if (newScore !== score) updateScore(newScore);
       },
-      [updateScore],
+      [docScoreRef, updateScore],
     );
     // ─── Canvas pointer handlers (bodies live in canvasHandlers.ts) ───
     const canvasHandlerCtx: CanvasHandlerCtx = useMemo(
@@ -1175,6 +1185,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         selectedScoreIndex,
         selectedIds,
         performanceOverlayEnabled,
+        docScoreRef,
+        partIdByIndexRef,
         canvasRef,
         dragLockRef,
         repaint,
@@ -1290,7 +1302,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               zoom={viewport.zoom}
               onClick={noteInputState.active ? handleNoteInputClick : undefined}
               spatialIndex={spatialIndexRef.current}
-              score={docScore}
+              score={docScoreRef.current}
               onHoverBeat={onHoverBeat}
             />
           )}

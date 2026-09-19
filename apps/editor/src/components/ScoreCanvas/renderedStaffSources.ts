@@ -8,6 +8,16 @@ import { useSelectionStore, type RenderedStaffSources } from "../../store/select
 const projectedSources = new WeakMap<DisplayList, RenderedStaffSources>();
 
 export function recordRenderedStaffSources(displayList: DisplayList, score: Score | null): DisplayList {
+  const finalize = displayList.finalizeRetainedFrame;
+  if (finalize) {
+    // Deferred Horizon frames have no bounds yet. Keep this request's immutable
+    // score until finalization, before the frame/index/identity commit.
+    displayList.finalizeRetainedFrame = () => {
+      finalize();
+      recordRenderedStaffSources(displayList, score);
+    };
+    return displayList;
+  }
   if (!score || !displayList.measureBounds?.length) {
     projectedSources.delete(displayList);
     return displayList;

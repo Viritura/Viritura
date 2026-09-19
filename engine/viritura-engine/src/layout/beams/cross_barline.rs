@@ -480,6 +480,7 @@ pub(super) fn draw_grace_beam_stems(
     dl: &mut DisplayList,
     beam_graces: &[&GraceNoteLayout],
     stem_tips: &[(f64, f64)],
+    stem_anchors: &[smufl::StemAnchors],
     first: (f64, f64),
     slope: f64,
     stem_up: bool,
@@ -506,11 +507,13 @@ pub(super) fn draw_grace_beam_stems(
             .fold(f64::NEG_INFINITY, f64::max);
 
         if stem_up {
-            let stem_bottom = staff_y + bottom_pos * sp * 0.5;
+            let stem_bottom =
+                staff_y + bottom_pos * sp * 0.5 + stem_anchors[i].up_se.1 * sp * grace_scale;
             let stem_end = beam_y_at_stem + grace_beam_center_offset;
             dl.stem(stem_x, stem_end, stem_bottom, stem_w);
         } else {
-            let stem_top = staff_y + top_pos * sp * 0.5;
+            let stem_top =
+                staff_y + top_pos * sp * 0.5 + stem_anchors[i].down_nw.1 * sp * grace_scale;
             let stem_end = beam_y_at_stem - grace_beam_center_offset;
             dl.stem(stem_x, stem_top, stem_end, stem_w);
         }
@@ -722,9 +725,26 @@ pub(crate) fn render_grace_beams(
             .max()
             .unwrap_or(1);
 
-        let note_info_g: Vec<(f64, f64)> = beam_graces
+        let stem_anchors: Vec<_> = beam_graces
             .iter()
             .map(|gn| {
+                crate::layout::render_events::extreme_stem_anchor(
+                    &gn.note_positions,
+                    stem_up,
+                    |i| {
+                        crate::layout::render_events::notehead_for_note(
+                            gn.event.notes().get(i),
+                            &gn.event.duration.base,
+                            ml.resolved.kit.as_ref(),
+                        )
+                    },
+                )
+            })
+            .collect();
+        let note_info_g: Vec<(f64, f64)> = beam_graces
+            .iter()
+            .zip(&stem_anchors)
+            .map(|(gn, anchors)| {
                 let top_pos = gn
                     .note_positions
                     .iter()
@@ -737,12 +757,12 @@ pub(crate) fn render_grace_beams(
                     .fold(f64::NEG_INFINITY, f64::max);
                 if stem_up {
                     (
-                        gn.x + smufl::STEM_UP_SE.0 * sp * grace_scale - stem_w * 0.5,
+                        gn.x + anchors.up_se.0 * sp * grace_scale - stem_w * 0.5,
                         staff_y + top_pos * sp * 0.5,
                     )
                 } else {
                     (
-                        gn.x + smufl::STEM_DOWN_NW.0 * sp * grace_scale + stem_w * 0.5,
+                        gn.x + anchors.down_nw.0 * sp * grace_scale + stem_w * 0.5,
                         staff_y + bottom_pos * sp * 0.5,
                     )
                 }
@@ -768,6 +788,7 @@ pub(crate) fn render_grace_beams(
             dl,
             &beam_graces,
             &stem_tips,
+            &stem_anchors,
             *first,
             slope,
             stem_up,
@@ -808,95 +829,4 @@ pub(crate) fn render_grace_beams(
             }
         }
     }
-}
-
-pub(crate) fn render_rest(
-    dl: &mut DisplayList,
-    element_id: &str,
-    x: f64,
-    staff_y: f64,
-    sp: f64,
-    duration: &Duration,
-    staff_position: Option<i32>,
-    centered_on_anchor: bool,
-) {
-    let rest_codepoint = smufl::rest_glyph(&duration.base);
-
-    // If an explicit staff position is provided, use it directly.
-    // MNX staffPosition: 0 = middle line, positive = up, negative = down.
-    // Layout Y: staff_y is the top line; each half-space is 0.5*sp downward.
-    let y = if let Some(pos) = staff_position {
-        staff_y + (4.0 - pos as f64) * 0.5 * sp
-    } else {
-        // Default rest Y positions vary by type:
-        // Whole rest hangs from line 4, half rest sits on line 3, others centered on middle line
-        match duration.base {
-            NoteValueBase::Whole => staff_y + 1.0 * sp, // Hangs from 2nd line from top
-            NoteValueBase::Half => staff_y + 2.0 * sp,  // Sits on middle line
-            _ => staff_y + 2.0 * sp,                    // Centered on middle line
-        }
-    };
-
-    let glyph_x = rest_glyph_origin_x(x, rest_codepoint, sp, centered_on_anchor);
-    dl.push_selectable_command(
-        RenderCommand::DrawGlyph {
-            x: glyph_x,
-            y,
-            codepoint: rest_codepoint,
-            font: "Bravura".into(),
-            size: 4.0 * sp,
-            color: "#000000".into(),
-            rotation: 0.0,
-        },
-        element_id.to_string(),
-        ElementKind::Rest,
-        HitPolicy::Ink,
-    );
-
-    // Augmentation dots. Standard engraving practice: the dot sits in the
-    // space just above the rest's vertical reference (never on a staff
-    // line), to the right of the glyph — this was previously only drawn for
-    // notes, so a dotted rest rendered visually identical to an undotted one.
-    if let Some(dots) = duration.dots {
-        let (bbox_x, _, bbox_w, _) = smufl::glyph_bbox(rest_codepoint);
-        let dot_align_x = glyph_x + (bbox_x + bbox_w) * sp;
-        let dot_y = y - 0.5 * sp;
-        for d in 0..dots {
-            let dot_x = dot_align_x + (0.3 + d as f64 * 0.35) * sp;
-            dl.push(RenderCommand::DrawGlyph {
-                x: dot_x,
-                y: dot_y,
-                codepoint: smufl::AUGMENTATION_DOT,
-                font: "Bravura".into(),
-                size: 4.0 * sp,
-                color: "#000000".into(),
-                rotation: 0.0,
-            });
-        }
-    }
-}
-
-pub(crate) fn rest_glyph_origin_x(
-    event_x: f64,
-    codepoint: u32,
-    sp: f64,
-    centered_on_anchor: bool,
-) -> f64 {
-    if centered_on_anchor {
-        let (bbox_x, _, bbox_w, _) = smufl::glyph_bbox(codepoint);
-        event_x - (bbox_x + bbox_w * 0.5) * sp
-    } else {
-        event_x + 0.2 * sp
-    }
-}
-
-pub(crate) fn rest_ink_center_x(
-    event_x: f64,
-    duration: &Duration,
-    sp: f64,
-    centered_on_anchor: bool,
-) -> f64 {
-    let codepoint = smufl::rest_glyph(&duration.base);
-    let (bbox_x, _, bbox_w, _) = smufl::glyph_bbox(codepoint);
-    rest_glyph_origin_x(event_x, codepoint, sp, centered_on_anchor) + (bbox_x + bbox_w * 0.5) * sp
 }

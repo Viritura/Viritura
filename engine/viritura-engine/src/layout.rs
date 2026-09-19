@@ -22,6 +22,7 @@ mod glissando;
 mod grace;
 mod hairpins;
 mod measure;
+mod note_preview;
 mod orchestration;
 mod page;
 pub mod page_turn;
@@ -56,6 +57,7 @@ mod volta;
 mod tests;
 
 pub use config::LayoutConfig;
+pub use note_preview::{compute_note_preview, NotePreviewAccidental, NotePreviewInput};
 pub use page::compute_page_breaks;
 pub use slur_preview::{
     compute_slur_preview, SlurPreview, SlurPreviewHandle, SlurPreviewInput, SlurPreviewMode,

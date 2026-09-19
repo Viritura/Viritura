@@ -1,5 +1,5 @@
 import { type DisplayList, type PatchInfo, type PerfTracker, type SpatialIndex } from "@viritura/renderer";
-import { updateEnrichedSpatialIndexForPatch } from "../../store/enrichSpatialIndex";
+import { buildEnrichedSpatialIndex } from "../../store/enrichSpatialIndex";
 import type { Score } from "@viritura/core";
 
 export interface FastLayoutRefs {
@@ -15,7 +15,7 @@ export interface FastLayoutRefs {
 
 /**
  * Run WASM layout, swap in the new display list, repaint, and schedule a
- * debounced spatial-index rebuild. Shared by the fastLayoutCallback path
+ * matching spatial index. Shared by the fastLayoutCallback path
  * (synchronous, called from `updateScore` before React renders) and the
  * useEffect fast-path fallback. Throws on WASM errors — caller decides
  * whether to fall back or surface the error.
@@ -54,14 +54,9 @@ export async function runFastLayoutAndPaint(
   performance.mark("viritura:wasm-layout-end");
   performance.measure("viritura:wasm-layout", "viritura:wasm-layout-start", "viritura:wasm-layout-end");
 
-  // Worker RPCs cannot be cancelled. A document load/reset can dispatch the
-  // new document while the old one's call is still queued/running; suppress
-  // that stale result rather than briefly repainting the old score or
-  // rebuilding its spatial index against the new model.
-  if (shouldCommit && !shouldCommit()) return;
-
-  const previousDisplayList = displayListRef.current;
-  const previousSpatialIndex = spatialIndexRef.current;
+  // Consume even an unpainted frame: the next patch may reuse a segment that
+  // was freshly supplied here. Skipping this leaves the flattened stores a
+  // generation behind the reconstructor's segment order.
   if (displayList.finalizeRetainedFrame) {
     performance.mark("viritura:compatibility-reconstruct-start");
     displayList.finalizeRetainedFrame();
@@ -77,15 +72,16 @@ export async function runFastLayoutAndPaint(
     }
   }
 
+  // Worker RPCs cannot be cancelled; only the current model may publish hit
+  // targets and paint. Transport retention above must still advance in order.
+  if (shouldCommit && !shouldCommit()) return;
+
   performance.mark("viritura:spatial-start");
   const s0 = performance.now();
-  const spatialIndex = updateEnrichedSpatialIndexForPatch(
-    previousSpatialIndex,
-    previousDisplayList,
-    displayList,
-    docScoreRef.current,
-    patchInfo,
-  );
+  // A measure edit can move other systems/staves. Retained display lists also
+  // mutate in place, so their "previous" measure bounds are not a before-image.
+  // Index the authoritative frame rather than retaining stale hit regions.
+  const spatialIndex = buildEnrichedSpatialIndex(displayList, docScoreRef.current);
   perfTracker.spatialIndexMs = performance.now() - s0;
   performance.mark("viritura:spatial-end");
   try {

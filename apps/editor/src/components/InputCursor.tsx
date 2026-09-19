@@ -20,6 +20,7 @@ import {
   paintOptimisticOverlay,
 } from "./inputCursorHelpers";
 import { useGlyphWarmup } from "./useGlyphWarmup";
+import { useInputCursorPointer } from "./inputCursorPointer";
 
 function cursorCanvasStyle(active: boolean): CSSProperties {
   return {
@@ -58,7 +59,7 @@ interface InputCursorProps {
  *
  * Renders on top of the score canvas. Only visible when note input mode is
  * active. Tracks mouse movement at 60fps via requestAnimationFrame and
- * draws a blue cursor line + semi-transparent ghost notehead snapped to
+ * draws a blue cursor line + semi-transparent engraved rhythm snapped to
  * the nearest staff line/space.
  */
 export function InputCursor({
@@ -87,7 +88,7 @@ export function InputCursor({
   const viewportRef = useRef({ scrollX, scrollY, zoom });
 
   // Recompute staves when display list changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     stavesRef.current = displayList ? detectStaves(displayList) : [];
   }, [displayList]);
 
@@ -116,6 +117,7 @@ export function InputCursor({
       currentDuration: inputState.currentDuration as NoteValueBase,
       currentAccidental: inputState.currentAccidental,
       isRest: inputState.isRest,
+      currentGraceType: inputState.currentGraceType,
       dotCount: inputState.dotCount as DotCount,
       zoom: z,
       scrollX: sx,
@@ -164,6 +166,8 @@ export function InputCursor({
         score,
         displayList,
         currentVoice: inputState.currentVoice,
+        currentDots: inputState.dotCount,
+        currentGraceType: inputState.currentGraceType,
       });
       if (!painted) return;
 
@@ -182,7 +186,15 @@ export function InputCursor({
         // No input-event mark was recorded for this edit.
       }
     },
-    [displayList, inputState.active, inputState.currentVoice, score, spatialIndex],
+    [
+      displayList,
+      inputState.active,
+      inputState.currentVoice,
+      inputState.dotCount,
+      inputState.currentGraceType,
+      score,
+      spatialIndex,
+    ],
   );
 
   useEffect(() => {
@@ -222,44 +234,14 @@ export function InputCursor({
     return () => observer.disconnect();
   }, [displayList, zoom, scheduleRepaint]);
 
-  // Track mouse movement over the overlay
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      altKeyRef.current = e.altKey;
-      scheduleRepaint();
-    };
-    const onMouseLeave = () => {
-      mouseRef.current = null;
-      scheduleRepaint();
-    };
-    canvas.addEventListener("mousemove", onMouseMove);
-    canvas.addEventListener("mouseleave", onMouseLeave);
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Alt") {
-        altKeyRef.current = true;
-        scheduleRepaint();
-      }
-    };
-    const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "Alt") {
-        altKeyRef.current = false;
-        scheduleRepaint();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    return () => {
-      canvas.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mouseleave", onMouseLeave);
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [scheduleRepaint]);
+  useInputCursorPointer({
+    active: inputState.active,
+    canvasRef,
+    mouseRef,
+    altKeyRef,
+    rafRef,
+    scheduleRepaint,
+  });
 
   // Handle click: compute note position and emit callback
   useEffect(() => {

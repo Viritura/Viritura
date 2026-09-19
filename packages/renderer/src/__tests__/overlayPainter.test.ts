@@ -6,10 +6,6 @@ import {
   findStaffAtPosition,
   snapToStaffPosition,
   getStaffPosition,
-  noteheadForDuration,
-  NOTEHEAD_WHOLE,
-  NOTEHEAD_HALF,
-  NOTEHEAD_BLACK,
 } from "../overlayPainter";
 import type { DisplayList } from "../wasm";
 
@@ -253,23 +249,6 @@ describe("getStaffPosition", () => {
 
   it("returns >4 for below staff", () => {
     expect(getStaffPosition(160, staff)).toBe(5);
-  });
-});
-
-describe("noteheadForDuration", () => {
-  it("returns whole notehead for duration 1", () => {
-    expect(noteheadForDuration("1")).toBe(NOTEHEAD_WHOLE);
-  });
-
-  it("returns half notehead for duration 2", () => {
-    expect(noteheadForDuration("2")).toBe(NOTEHEAD_HALF);
-  });
-
-  it("returns black notehead for quarter and shorter", () => {
-    expect(noteheadForDuration("4")).toBe(NOTEHEAD_BLACK);
-    expect(noteheadForDuration("8")).toBe(NOTEHEAD_BLACK);
-    expect(noteheadForDuration("16")).toBe(NOTEHEAD_BLACK);
-    expect(noteheadForDuration("32")).toBe(NOTEHEAD_BLACK);
   });
 });
 

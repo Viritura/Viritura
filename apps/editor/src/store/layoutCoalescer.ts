@@ -149,10 +149,11 @@ export class LayoutCoalescer {
             fallbackJson,
           }
         : undefined;
+    const dispatchJson = patchInfo === undefined ? (fallbackJson?.() ?? json) : json;
 
     const generation = this.generation;
     this.inFlight = true;
-    Promise.resolve(this.dispatch(json, patchInfo))
+    Promise.resolve(this.dispatch(dispatchJson, patchInfo))
       .catch(() => {
         // Layout errors are handled inside the layout path (it falls back to a
         // full relayout); keep draining so a queued edit still lands.

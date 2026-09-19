@@ -1,11 +1,11 @@
 # System Architecture
 
-> **Status (current).** Most of this document still reflects the shipped system: WASM core engine, binary display-list protocol, Canvas rendering, Yjs CRDT collaboration, MNX as the score format. Three caveats:
+> **Status (current).** Most of this document still reflects the shipped system: WASM core engine, binary display-list protocol, Canvas rendering, Yjs CRDT collaboration, MNX as the score format. Four caveats:
 >
 > 1. The layout engine runs in a **Dedicated Worker** by default, hosted through Comlink with a retained Rust→WASM `LayoutEngine`. A main-thread backend remains as an initialization-failure fallback. Incremental edits use PatchFrame v3 and transferable `Float32Array` buffers; see [`../plans/performance-architecture.md`](../plans/performance-architecture.md).
 > 2. Any mention of a separate `.viritura` sidecar file is **obsolete** — the score is a single `.mnx` file with `_x.viritura` vendor extensions. See [`../spec/file-format.md`](../spec/file-format.md).
 > 3. **The `SERVER (ASP.NET Core)` subgraph below mixes shipped and future work.** Shipped: auth (ASP.NET Core Identity, Google/GitHub OAuth, TOTP 2FA), the external MCP relay (OAuth-secured, per-tab opt-in), WebRTC signalling endpoint and room snapshot store, and the GitHub App integration (OAuth, installation, git proxy). Today's collaboration runs as **y-webrtc P2P** with IndexedDB persistence; the SignalR collaboration hub, Redis pub/sub, PostgreSQL/SQLite persistence, S3/MinIO blob storage, and server-side export are not built (see [`../plans/crdt-collaboration.md`](../plans/crdt-collaboration.md)). The "Scalability Architecture" section near the bottom of this doc is likewise aspirational.
-> 4. The diagram below shows conceptual ownership and data flow. The local-edit hot path is incremental: a 2-D dirty region updates retained layout/system/staff layers and applies PatchFrame v3/spatial deltas rather than rerunning the illustrated pipeline over the whole score.
+> 4. The diagram below shows conceptual ownership and data flow. Local edits use dirty-region layout and retained PatchFrame v3 system/staff layers, but publication is not fully incremental: at PR188 HEAD `a06bafa`, compatibility arrays are copied/rebuilt and the complete spatial index is rebuilt before committing the frame and painting. See the [2026-09-18 performance audit](../plans/performance-architecture.md) for scope and measurements.
 
 ## High-Level Architecture Diagram
 
@@ -166,6 +166,10 @@ Runs in a **Web Worker** as a **Rust→WASM** module for near-native performance
 
 **Multi-rate layout contract (see [`../plans/performance-architecture.md`](../plans/performance-architecture.md) for measurements):**
 
+These are targets, not current-HEAD guarantees. July's accepted headed-Chrome
+measurements are historical; the September Node/no-op-paint harness does not
+revalidate browser latency or 60 FPS.
+
 - **Local, width-neutral edits:** retained incremental layout; the production-Chrome Rhapsody gate requires authoritative p50 ≤16.6 ms.
 - **Width-changing edits:** optimistic local feedback within one frame, followed by bounded authoritative reconciliation with a p50 <50 ms gate.
 - **Structural/global edits:** asynchronous full fallback; correctness and UI responsiveness take priority over a one-frame completion promise.
@@ -174,7 +178,25 @@ Runs in a **Web Worker** as a **Rust→WASM** module for near-native performance
 
 - The worker retains the promoted score, layout caches, system/staff render layers, Horizon-global staff summaries, and patch-frame state across edits.
 - PatchFrame v3 transfers a tagged `Float32Array` with fresh systems plus reuse/transform records. Comlink transfers ownership of the buffer; `SharedArrayBuffer` is not required by the current hot path.
-- The main thread paints retained Horizon layers first, then finalizes flattened compatibility arrays for spatial indexing/export consumers.
+- The main thread consumes deferred compatibility finalization even for suppressed stale results, so subsequent reuse remains valid. For a current result it builds the complete spatial index, commits matching display-list/index refs, then paints retained Horizon layers.
+- Shape-stable compatibility updates copy the previous arrays before replacing changed ranges; other updates rebuild them. Translated retained segments are cloned, preserving older frames. There is no public immutable per-layer spatial-update API yet; a small patch payload does not imply bounded publication cost.
+
+**Note-entry identity and preview boundary (PR188 follow-up):**
+
+- MNX remains the canonical persisted format. Parsed stable event IDs survive
+  immutable edits to `workingScore`; published React score/MNX can lag while the
+  delta coalescer advances the worker's retained promoted score.
+- Rendered staff identities come from the finalized frame's source-part indices
+  resolved against that request's captured source score, not authored layout
+  positions or the latest model. Deferred Horizon finalization records this
+  mapping before the matching frame/index commit; superseded results cannot
+  publish it. This covers automatic staff splitting and condensed sources.
+- Rust owns preview noteheads, stems, flags, dots, accidentals and grace geometry.
+  TypeScript selects the input snap/pitch and paints the Rust commands with
+  viewport scale/translation; it does not independently engrave those shapes.
+  Committed graces and previews share chord rendering with resolved display
+  pitches, without rewriting source pitches. The isolated preview has an explicit
+  accidental and cannot predict sequence beams/slurs or measure-state suppression.
 
 **Responsibilities:**
 
@@ -456,7 +478,10 @@ graph TB
 
 ### Performance Targets
 
-All targets are validated against the "Beethoven's 9th" benchmark (1,200 measures, 24 parts, ~400 pages). See [`../plans/performance-architecture.md`](../plans/performance-architecture.md) for the full performance design.
+These are design targets for the "Beethoven's 9th" scaling ceiling (1,200 measures,
+24 parts, ~400 pages), not a claim that every target has been validated. Measured
+Rhapsody and Beethoven-5 workloads, environment limits and current failures are
+listed in [`../plans/performance-architecture.md`](../plans/performance-architecture.md).
 
 | Metric                             | Target                           |
 | ---------------------------------- | -------------------------------- |

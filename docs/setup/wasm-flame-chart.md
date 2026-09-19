@@ -6,6 +6,32 @@ the engine eating most of a per-edit budget, the `take_timings_json` probe
 inside `layout_with_mnx_scores_cached` is hot. Once you've narrowed to one
 pass and want **which line inside that pass** — use this.
 
+## Measure the right boundary first
+
+At PR188 HEAD `a06bafa`, the deferred editor path finalizes compatibility arrays
+and rebuilds the full spatial index **before paint**. A paged patch benchmark
+measures WASM/decode/synchronous reconstruction, not that full lifecycle.
+For the closest existing Node lifecycle probe, without rebuilding or overwriting
+the current WASM artifact:
+
+```powershell
+pnpm --filter @viritura/editor exec vitest run src\__tests__\noteInputClick.perf.test.ts --maxWorkers=1
+```
+
+It reports command, WASM, decode, retained apply, compatibility finalization,
+spatial rebuild and publication separately, with phase counts. Paint is a
+**no-op** and the queue uses Promises, not worker RPC; publication totals include
+test-only scans/assertions. Passing its p95 <220 ms publication ceiling does not
+prove the width-edit p50 <50 ms or 60 FPS browser targets. See the
+[performance audit](../plans/performance-architecture.md) for the exact measured
+scope, artifact fingerprint, failures and historical browser results.
+
+Avoid concurrent perf samples/heavy builds. Record host load, artifact hash and
+build provenance; an existing WASM file need not include current Rust edits.
+On a shared checkout, do not run `wasm:profile` or a restoring build over another
+owner's artifact. Coordinate rebuilding/remeasurement rather than silently
+substituting a different module or reloading a running user app/plugin.
+
 ## What you get
 
 Chrome DevTools Performance shows WASM call stacks with **demangled Rust
@@ -40,20 +66,13 @@ table the browser uses for demangling.
 > stays near release performance because the `--profiling` cargo profile
 > already runs `-O3`.
 
-### 2. Restore the shipping build when done
+### 2. Open the editor and capture
 
-```sh
-pnpm wasm
-```
-
-The shipping build is slimmer and faster (one fewer optimization pass is
-preserved on the profiling build, but `wasm-opt` post-pass IS applied on
-the shipping build).
-
-### 3. Open the editor and capture
-
-1. `pnpm --filter @viritura/editor dev` (or whatever your normal dev
-   command is) and open the editor against the score you want to profile.
+1. Use `pnpm dev:stack up ui` for an isolated worktree service and
+   `pnpm dev:stack url` for its route; Docker must be available. Do not launch
+   Vite directly or reload an existing user's app. UI profiles run the
+   cache-aware WASM builder automatically, so coordinate artifact ownership and
+   verify the module actually loaded by the browser still has profiling symbols.
 2. DevTools → Performance tab → cog icon → set **CPU throttling: No
    throttling** and **Network: No throttling**.
 3. Click **Record**.
@@ -61,7 +80,7 @@ the shipping build).
    type a single note into the score so a patch fires.
 5. **Stop** after ~1-2 seconds.
 
-### 4. Read the trace
+### 3. Read the trace
 
 - The **Bottom-Up** view, sorted by **Self Time**, is the fastest path to
   "what's hot." Filter to `wasm` to drop the V8/browser-internal frames.
@@ -71,7 +90,7 @@ the shipping build).
   `viritura_engine::layout::slurs::cross_system::render_cross_system_slurs::h6f3a8e`.
   The trailing `h…` is the crate hash — ignore.
 
-### 5. Cross-reference against `take_timings_json`
+### 4. Cross-reference against `take_timings_json`
 
 The Phase Q+ engine probe (run via the perf bench) reports ms-resolution
 splits for each named pass. The flame chart's sample-time attribution
@@ -83,6 +102,19 @@ usually:
 - WASM↔JS marshalling shown as `js-sys` / `__wbg_*` frames just outside
   the engine call.
 
+### 5. Restore the shipping build after capturing
+
+When you own the artifact and profiling is finished:
+
+```sh
+pnpm wasm:build:force
+```
+
+Use the forced build: `wasm:profile` overwrites `pkg-browser` without updating
+the shipping build's input-cache record, so an ordinary cache hit can preserve
+profiling output. The shipping build applies the `wasm-opt` post-pass. Do not
+restore an artifact owned by another session.
+
 ## Known limits / gotchas
 
 - **First record after `pnpm wasm:profile` is JIT-cold.** Toss it; the
@@ -92,9 +124,11 @@ usually:
   matters, look at the same function in the **Sources** panel —
   DevTools can resolve the symbol there even when the perf-tab tooltip
   doesn't.
-- **The profiling build is single-threaded.** We don't ship worker-based
-  WASM today, but if/when we do, you'll need to enable
-  "JavaScript Profiler" alongside Performance to see worker stacks.
+- **The WASM engine is single-threaded inside a Dedicated Worker by default.**
+  The editor uses Comlink and transferable patch buffers; main-thread execution
+  is an initialization-failure fallback. Inspect the worker track as well as
+  main-thread decode, compatibility reconstruction, spatial indexing and Canvas
+  work. “No WASM threads” does not mean “no worker.”
 - **wasm-pack's `--profiling` flag does not read the
   `[profile.profiling]` section in `engine/Cargo.toml`.** Its three flags
   (`--dev`, `--release`, `--profiling`) override cargo profile settings
@@ -113,7 +147,7 @@ pnpm wasm:profile
 pnpm exec tsx apps/editor/src/__tests__/profile-rhapsody.ts
 node scripts/profile/summarize-rhapsody.cjs tmp/profiles/rhapsody.cpuprofile
 node scripts/profile/analyze-cpuprofile.cjs  tmp/profiles/rhapsody.cpuprofile 50
-pnpm wasm
+pnpm wasm:build:force
 ```
 
 What you get:

@@ -378,6 +378,7 @@ mod tests {
                     x: x - 1.0,
                     event: minimal_event(),
                     note_positions: vec![2.0],
+                    display_pitches: vec![pitch("C", 4)],
                     stem_up: true,
                     after_main: false,
                     is_slash: false,

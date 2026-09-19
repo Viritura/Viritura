@@ -7,11 +7,13 @@ mod drawing;
 mod grouping;
 mod quantized_positions;
 mod render;
+mod rests;
 mod scoring;
 
 pub(crate) use cross_barline::*;
 pub(crate) use grouping::*;
 pub(crate) use render::*;
+pub(crate) use rests::*;
 #[cfg(test)]
 pub(crate) use scoring::*;
 

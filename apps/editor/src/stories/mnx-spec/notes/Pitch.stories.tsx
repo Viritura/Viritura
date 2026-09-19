@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { ComponentProps } from "react";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
+import { InputGhostPreview } from "../../storyFixtures/InputGhostPreview";
 import { buildSingleMeasure } from "../../storyFixtures/buildMnx";
 
 const meta: Meta = {
@@ -110,4 +112,55 @@ export const Accidentals: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "Double-flat, flat, natural, sharp, and double-sharp",
+};
+
+export const InputGhostRhythm: StoryObj<ComponentProps<typeof InputGhostPreview>> = {
+  name: "Add Note rhythm ghost",
+  render: (args) => <InputGhostPreview {...args} />,
+  parameters: {
+    controls: {
+      include: [
+        "duration",
+        "dots",
+        "spatium",
+        "staffY",
+        "staffPosition",
+        "stemDirection",
+        "accidental",
+        "notehead",
+        "isRest",
+        "isGrace",
+        "slash",
+      ],
+    },
+  },
+  argTypes: {
+    duration: { control: "select", options: ["whole", "half", "quarter", "eighth", "16th", "32nd", "64th"] },
+    dots: { control: { type: "range", min: 0, max: 4, step: 1 } },
+    spatium: { control: { type: "range", min: 6, max: 24, step: 1 } },
+    staffY: { control: { type: "range", min: 90, max: 180, step: 1 } },
+    staffPosition: { control: { type: "range", min: -6, max: 14, step: 1 } },
+    stemDirection: { control: "select", options: ["up", "down"] },
+    accidental: { control: "select", options: [null, "flat", "natural", "sharp", "double-flat", "double-sharp"] },
+    notehead: {
+      control: "select",
+      options: ["normal", "x", "circleX", "diamond", "slash", "triangleUp", "triangleDown"],
+    },
+    isRest: { control: "boolean" },
+    isGrace: { control: "boolean" },
+    slash: { control: "boolean" },
+  },
+  args: {
+    duration: "16th",
+    dots: 2,
+    spatium: 16,
+    staffY: 140,
+    staffPosition: 4,
+    stemDirection: "up",
+    accidental: null,
+    notehead: "normal",
+    isRest: false,
+    isGrace: false,
+    slash: false,
+  },
 };

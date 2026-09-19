@@ -19,6 +19,8 @@ use accidental_shapes::{register_accidental_shape, tag_accidental, AccidentalPla
 #[path = "render_events/tie_accidentals.rs"]
 mod tie_accidentals;
 pub(crate) use tie_accidentals::{compute_tie_accidental_map, compute_tie_accidental_map_refs};
+mod note_chord;
+pub(crate) use note_chord::{notehead_for_note, render_note_chord, NoteChordInput, NoteChordStyle};
 
 /// Compute the stem tip Y, ensuring stems on ledger-line notes extend at least
 /// to the middle staff line (standard engraving rule).
@@ -38,7 +40,7 @@ fn stem_tip_y(note_edge_pos: f64, stem_up: bool, staff_y: f64, sp: f64, stem_len
 /// down-stem to the highest (min). For shaped drum noteheads (X, triangle,
 /// diamond, slash) the per-shape anchor differs from the oval default — see
 /// `smufl::stem_anchors`. `cp_at` returns the per-note glyph codepoint.
-fn extreme_stem_anchor(
+pub(super) fn extreme_stem_anchor(
     note_positions: &[f64],
     stem_up: bool,
     cp_at: impl Fn(usize) -> u32,
@@ -417,10 +419,10 @@ fn clear_sibling_obstacles(
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one stateful accidental-skyline placement pass
 fn render_accidentals_stacked(
     dl: &mut DisplayList,
-    events: &EventArena,
-    ei: usize,
+    chord: &NoteChordInput<'_>,
     x: f64,
     sp: f64,
+    staff_sp: f64,
     notehead_w: f64,
     ledger_left_ext: f64,
     glyph_size: f64,
@@ -439,8 +441,9 @@ fn render_accidentals_stacked(
     // nearby.
     sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
 ) {
-    let note_positions = events.note_positions(ei);
-    let note_x_offsets = events.note_x_offsets(ei);
+    let note_positions = chord.note_positions;
+    let note_x_offsets = chord.note_x_offsets;
+    let glyph_scale = sp / staff_sp;
     // Minimum clear gap between an accidental and the notehead it qualifies.
     // This is the hard floor the barrier skyline enforces, so it must match the
     // spacing reservation in `accidental_padding_sp`. A tight 0.12sp reads as a
@@ -529,6 +532,7 @@ fn render_accidentals_stacked(
         let enclosure = &info.enclosure;
         let acc_width = smufl::accidental_width(alter) * sp;
         let (above, below) = smufl::accidental_vertical_extent(alter);
+        let (above, below) = (above * glyph_scale, below * glyph_scale);
         let v_top = pos - above;
         let v_bottom = pos + below;
 
@@ -558,8 +562,8 @@ fn render_accidentals_stacked(
 
         // Query barrier with NE/SE cut-out aware interlocking.
         let cut_outs = smufl::accidental_cut_outs(alter);
-        let incoming_ne_h = cut_outs.ne.map_or(0.0, |(_, h)| h * 2.0);
-        let incoming_se_h = cut_outs.se.map_or(0.0, |(_, h)| h * 2.0);
+        let incoming_ne_h = cut_outs.ne.map_or(0.0, |(_, h)| h * 2.0 * glyph_scale);
+        let incoming_se_h = cut_outs.se.map_or(0.0, |(_, h)| h * 2.0 * glyph_scale);
 
         let core_top = v_top + incoming_ne_h;
         let core_bottom = v_bottom - incoming_se_h;
@@ -632,8 +636,8 @@ fn render_accidentals_stacked(
         // event's notehead OR already-placed accidental on this staff that it
         // overlaps (see `clear_sibling_obstacles`).
         if !sibling_noteheads.is_empty() || !sibling_accidentals.is_empty() {
-            let v_top_px = note_y - above * 0.5 * sp;
-            let v_bottom_px = note_y + below * 0.5 * sp;
+            let v_top_px = note_y - above * 0.5 * staff_sp;
+            let v_bottom_px = note_y + below * 0.5 * staff_sp;
             group_x = clear_sibling_obstacles(
                 group_x,
                 barrier,
@@ -651,8 +655,8 @@ fn render_accidentals_stacked(
         // Update skyline with NW/SW cut-out-aware segments so the next
         // accidental can tuck closer.
         let base_barrier = group_x - acc_stack_gap;
-        let nw_h = cut_outs.nw.map_or(0.0, |(_, h)| h * 2.0);
-        let sw_h = cut_outs.sw.map_or(0.0, |(_, h)| h * 2.0);
+        let nw_h = cut_outs.nw.map_or(0.0, |(_, h)| h * 2.0 * glyph_scale);
+        let sw_h = cut_outs.sw.map_or(0.0, |(_, h)| h * 2.0 * glyph_scale);
         let nw_w = cut_outs.nw.map_or(0.0, |(w, _)| w) * sp;
         let sw_w = cut_outs.sw.map_or(0.0, |(w, _)| w) * sp;
 
@@ -680,7 +684,7 @@ fn render_accidentals_stacked(
                 color: "#000000".into(),
                 rotation: 0.0,
             });
-            register_accidental_shape(dl, cmd_idx, events.id(ei), idx, "left");
+            register_accidental_shape(dl, cmd_idx, chord.id, idx, "left");
             acc_cmds.push(cmd_idx);
             cursor_x += enc_w + enc_gap;
         }
@@ -695,7 +699,7 @@ fn render_accidentals_stacked(
             color: "#000000".into(),
             rotation: 0.0,
         });
-        register_accidental_shape(dl, acc_cmd_idx, events.id(ei), idx, "body");
+        register_accidental_shape(dl, acc_cmd_idx, chord.id, idx, "body");
         acc_cmds.push(acc_cmd_idx);
         cursor_x += acc_width;
 
@@ -711,7 +715,7 @@ fn render_accidentals_stacked(
                 color: "#000000".into(),
                 rotation: 0.0,
             });
-            register_accidental_shape(dl, cmd_idx, events.id(ei), idx, "right");
+            register_accidental_shape(dl, cmd_idx, chord.id, idx, "right");
             acc_cmds.push(cmd_idx);
         }
 
@@ -775,248 +779,36 @@ pub(crate) fn render_event(
     sibling_accidentals: &[(f64, f64, f64, f64, Option<i32>)],
     measure_beats: f64,
 ) {
-    // Lever 2: read this event's columns directly from the arena (no
-    // `to_event_layout` deep clone of the model `Event` + per-note Vecs).
     let event = events.event(ei);
-    let x = events.x(ei);
-    let stem_up = events.stem_up(ei);
-    let note_positions = events.note_positions(ei);
-    let note_x_offsets = events.note_x_offsets(ei);
-    let shared_noteheads = events.shared_noteheads(ei);
-    let display_pitches = events.display_pitches(ei);
 
     if event.is_rest() {
         render_event_rest(dl, events, ei, element_id, staff_y, sp, measure_beats);
         return;
     }
 
-    let notes = event.notes();
-    if notes.is_empty() {
+    if event.notes().is_empty() {
         return;
     }
 
-    let notehead_w = config.notehead_rx * 2.0 * sp;
-    let _notehead_h = config.notehead_ry * sp;
-    let _is_whole = !event.duration.base.has_stem();
-    let notehead_codepoint = smufl::notehead_glyph(&event.duration.base);
-    let glyph_size = 4.0 * sp; // SMuFL fonts are designed at 4x staff space
-
-    // Accidental info collected during note loop for post-loop stacking
-    let mut acc_infos: Vec<AccidentalPlacement> = Vec::new();
-
-    // Per-note notehead codepoint: pitched notes may override the shape directly,
-    // while kit-notes inherit it from their KitComponent. Used for drawing,
-    // extents, and the per-shape stem-attachment anchor.
-    let per_note_cp = |i: usize| -> u32 {
-        if let Some(note) = notes.get(i) {
-            if note.kit_component.is_none() {
-                return smufl::shaped_notehead_glyph(note.notehead.as_ref(), &event.duration.base);
-            }
-            if let Some(kc_id) = &note.kit_component {
-                let shape = kit
-                    .and_then(|k| k.get(kc_id.as_str()))
-                    .and_then(|c| c.notehead.as_ref());
-                return smufl::shaped_notehead_glyph(shape, &event.duration.base);
-            }
-        }
-        notehead_codepoint
-    };
-
-    // Compute the rightmost notehead edge for dot X alignment.
-    // Ref: standard engraving practice layoutChords3() — all dots in a chord
-    // align to a single X column (the rightmost notehead's right edge).
-    let dot_align_x = {
-        let mut max_right = f64::NEG_INFINITY;
-        for (i, &_pos) in note_positions.iter().enumerate() {
-            let offset = note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
-            let right = x + offset + smufl::notehead_right_extent(per_note_cp(i)) * sp;
-            if right > max_right {
-                max_right = right;
-            }
-        }
-        max_right.max(x + smufl::notehead_right_extent(notehead_codepoint) * sp)
-    };
-
-    // Pre-compute dot Y adjustments for seconds.
-    let dot_y_offsets = compute_dot_y_offsets(note_positions, sp);
-
-    // Draw noteheads + ledger lines
-    for (i, &pos) in note_positions.iter().enumerate() {
-        // Skip shared noteheads — the other voice renders this notehead
-        if shared_noteheads.get(i).copied().unwrap_or(false) {
-            continue;
-        }
-
-        // Per-note notehead codepoint: kit-notes may override the shape via
-        // their KitComponent.notehead (Viritura vendor extension).
-        let per_note_codepoint = per_note_cp(i);
-        let ledger_w = smufl::notehead_width(per_note_codepoint) * sp;
-
-        let note_y = staff_y + pos * sp * 0.5;
-        let note_x_offset = note_x_offsets.get(i).copied().unwrap_or(0.0) * notehead_w;
-        let note_x = x + note_x_offset;
-
-        // Ledger lines above/below the staff for this note.
-        draw_ledger_lines_for_note(
-            dl,
-            pos,
-            note_x,
-            staff_y,
-            sp,
-            ledger_w,
-            ledger_left_ext,
-            ledger_right_ext,
-            config.ledger_line_width,
-        );
-
-        // Notehead (SMuFL glyph) — tagged with per-note sub-element ID
-        // Apply noteheadOrigin offset for breve/double-whole so its body
-        // aligns with the rhythmic column (Bravura noteheadOrigin = 0.36sp).
-        let nh_x = if per_note_codepoint == smufl::NOTEHEAD_DOUBLE_WHOLE {
-            note_x - smufl::NOTEHEAD_DOUBLE_WHOLE_ORIGIN.0 * sp
-        } else {
-            note_x
-        };
-        let notehead_cmd_idx = dl.commands.len();
-        dl.push(RenderCommand::DrawGlyph {
-            x: nh_x,
-            y: note_y,
-            codepoint: per_note_codepoint,
-            font: "Bravura".into(),
-            size: glyph_size,
-            color: "#000000".into(),
-            rotation: 0.0,
-        });
-        // Tag this notehead with a per-note sub-element ID for chord note selection
-        let nh_eid = element_id::source_notehead(element_id, notes.get(i), i);
-        dl.tag_command(notehead_cmd_idx, nh_eid.clone());
-        // Register as a Cmd shape (zero geometry duplication; bbox derived
-        // from SMuFL metrics via DrawGlyph::bbox()).
-        dl.push_shape_cmd(notehead_cmd_idx, nh_eid, ElementKind::Notehead, None, None);
-
-        // Augmentation dots (SMuFL glyph)
-        // Ref: standard engraving practice — dots align to rightmost notehead X,
-        // Y adjusted to avoid staff lines and second collisions.
-        if let Some(dots) = event.duration.dots {
-            for d in 0..dots {
-                let dot_x = dot_align_x + (0.4 + d as f64 * 0.5) * sp;
-                let dot_y = note_y
-                    + dot_y_offsets.get(i).copied().unwrap_or_else(|| {
-                        // Fallback: simple staff-line nudge
-                        if (pos as i32) % 2 == 0 {
-                            -0.25 * sp
-                        } else {
-                            0.0
-                        }
-                    });
-                let dot_idx = dl.commands.len();
-                dl.push(RenderCommand::DrawGlyph {
-                    x: dot_x,
-                    y: dot_y,
-                    codepoint: smufl::AUGMENTATION_DOT,
-                    font: "Bravura".into(),
-                    size: glyph_size,
-                    color: "#000000".into(),
-                    rotation: 0.0,
-                });
-                dl.push_shape_cmd(
-                    dot_idx,
-                    format!("{element_id}/dot/{i}/{d}"),
-                    ElementKind::AugmentationDot,
-                    None,
-                    None,
-                );
-            }
-        }
-
-        // Collect accidental info for post-loop stacking.
-        if let Some(info) = collect_one_note_accidental_info(
-            &notes[i],
-            i,
-            pos,
-            note_y,
-            display_pitches.get(i),
-            active_key,
-            use_accidental_display,
-            measure_acc,
-            tie_accidentals,
-        ) {
-            acc_infos.push(info);
-        }
-    }
-
-    // Render accidentals with skyline-based placement for better kerning.
-    render_accidentals_stacked(
+    render_note_chord(
         dl,
-        events,
-        ei,
-        x,
+        NoteChordInput::from_arena(events, ei),
+        staff_y,
         sp,
-        notehead_w,
-        ledger_left_ext,
-        glyph_size,
-        &acc_infos,
+        config,
+        NoteChordStyle::default(),
+        beamed_ids,
+        active_key,
+        measure_acc,
+        use_accidental_display,
         element_id,
+        ledger_left_ext,
+        ledger_right_ext,
+        kit,
+        tie_accidentals,
         sibling_noteheads,
         sibling_accidentals,
     );
-
-    // Stem
-    if event.duration.base.has_stem() && !note_positions.is_empty() {
-        let top_pos = note_positions.iter().cloned().fold(f64::INFINITY, f64::min);
-        let bottom_pos = note_positions
-            .iter()
-            .cloned()
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        // Check if this event is beamed (suppress flags AND stems — beams redraw stems)
-        let is_beamed = events.id(ei).is_some_and(|id| beamed_ids.contains(id));
-
-        // Beamed notes: stems are drawn by render_beams with correct beam-connected length.
-        // Only draw stems here for non-beamed notes.
-        if !is_beamed {
-            let stem_w = config.stem_width * sp;
-            // Lengthen stem for flagged notes so the flag's curl tip clears the
-            // notehead body. Bravura's flag glyphs extend ~3.24sp back toward the
-            // notehead from the stem tip; with the default 3.5sp stem the flag
-            // overlaps the notehead. Engraving rule:
-            // flagged stems are lengthened to keep the flag clear.
-            // Required: stem_length >= flag_inward_extent + notehead_ry + clearance.
-            let flag_count = event.duration.base.flag_count();
-            let stem_length = if flag_count > 0 {
-                let needed =
-                    smufl::flag_inward_extent(flag_count, stem_up) + config.notehead_ry + 0.25; // clearance margin
-                config.stem_length.max(needed)
-            } else {
-                config.stem_length
-            };
-            // Per-shape stem anchors: the notehead the stem attaches to drives
-            // the attachment point. For shaped drum noteheads (X, triangle,
-            // diamond, slash) this differs from the oval default.
-            let a = extreme_stem_anchor(note_positions, stem_up, per_note_cp);
-            if stem_up {
-                // SMuFL stemUpSE anchor: right edge of stem at notehead's stemUpSE.x
-                let stem_x = x + a.up_se.0 * sp - stem_w * 0.5;
-                let stem_bottom = staff_y + bottom_pos * sp * 0.5 + a.up_se.1 * sp;
-                let flag_y = stem_tip_y(top_pos, true, staff_y, sp, stem_length);
-                // Extend stem through flag glyph (Bravura stemUpNW anchor)
-                let ext = smufl::flag_stem_extension(flag_count, true) * sp;
-                let stem_top = flag_y - ext;
-                dl.stem(stem_x, stem_top, stem_bottom, config.stem_width * sp);
-                render_flags(dl, stem_x, flag_y, sp, &event.duration.base, true);
-            } else {
-                // SMuFL stemDownNW anchor: left edge of stem at notehead's stemDownNW.x
-                let stem_x = x + a.down_nw.0 * sp + stem_w * 0.5;
-                let stem_top = staff_y + top_pos * sp * 0.5 + a.down_nw.1 * sp;
-                let flag_y = stem_tip_y(bottom_pos, false, staff_y, sp, stem_length);
-                // Extend stem through flag glyph (Bravura stemDownSW anchor)
-                let ext = smufl::flag_stem_extension(flag_count, false) * sp;
-                let stem_bottom = flag_y + ext;
-                dl.stem(stem_x, stem_top, stem_bottom, config.stem_width * sp);
-                render_flags(dl, stem_x, flag_y, sp, &event.duration.base, false);
-            }
-        }
-    }
 
     // Articulation markings (staccato, accent, tenuto, marcato)
     render_articulations(

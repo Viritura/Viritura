@@ -1,4 +1,5 @@
 import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { wrap } from "comlink";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -10,6 +11,7 @@ import {
   EMPTY_LAYOUT_METRICS,
   PatchReconstructor,
   PerfTracker,
+  SpatialIndex,
   type DisplayList,
   type PatchInfo,
 } from "@viritura/renderer";
@@ -19,8 +21,9 @@ import { useDocumentStoreApi } from "../../store/DocumentContext";
 import { resetSelectionStore, useSelectionActions, useSelectionStore } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
 import { computeDisplayListImpl, tryRelayoutScoreView } from "../ScoreCanvas/computeDisplayList";
+import { runFastLayoutAndPaint } from "../ScoreCanvas/fastLayout";
 import { pointerToMeasure } from "../ScoreCanvas/hitTesting";
-import type { LayoutBackend } from "../ScoreCanvas/layoutBackend";
+import { createLayoutBackend, type LayoutBackend } from "../ScoreCanvas/layoutBackend";
 import {
   getRenderedStaffSources as getMeasureSources,
   useRenderedStaffSources,
@@ -35,6 +38,7 @@ const playback = vi.hoisted(() => ({
     seek: vi.fn(),
   },
 }));
+vi.mock("comlink", () => ({ wrap: vi.fn() }));
 vi.mock("@viritura/playback", () => ({
   getPlaybackSnapshot: () => playback,
   usePlaybackActions: () => playback.actions,
@@ -159,6 +163,29 @@ function createEngine(retained?: WasmLayoutEngine): LayoutBackend {
   };
 }
 
+async function createWorkerEngine(retained: WasmLayoutEngine): Promise<LayoutBackend> {
+  // Only replace the worker/RPC boundary; use production backend, decoding and
+  // deferred Horizon reconstruction with real WASM binary frames.
+  vi.stubGlobal(
+    "Worker",
+    class {
+      terminate() {}
+    },
+  );
+  vi.mocked(wrap).mockReturnValue({
+    init: async () => true,
+    engineCacheStats: async () => [0, 0],
+    engineLayoutMetrics: async () => ({ ...EMPTY_LAYOUT_METRICS }),
+    engineComputeFullScoreLayoutBinary: async (
+      ...args: Parameters<WasmLayoutEngine["compute_full_score_layout_cached_binary"]>
+    ) => retained.compute_full_score_layout_cached_binary(...args),
+    engineApplyPatchAndLayoutPatchFrameBinary: async (
+      ...args: Parameters<WasmLayoutEngine["apply_patch_and_layout_patch_frame_binary"]>
+    ) => retained.apply_patch_and_layout_patch_frame_binary(...args),
+  });
+  return createLayoutBackend(false);
+}
+
 async function project(
   source: Score,
   scoreIdx: number,
@@ -248,9 +275,126 @@ beforeEach(() => {
   useViewStateStore.setState({ selectedScoreIndex: 0, selectedPartIds: [] });
   renderHook(() => useDocumentStoreApi()).result.current.setState({ score });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("committed staff projection playback selection", () => {
+  it.each([false, true])(
+    "commits deferred Horizon sources with the frame and index (automatic meter split=%s)",
+    async (splitMeter) => {
+      const source = structuredClone(score);
+      const measureCount = 96;
+      source.global.measures = Array.from({ length: measureCount }, (_, index) => ({
+        id: `m${index}`,
+        ...(index === 0 ? { time: { count: 4, unit: 4 } } : {}),
+      }));
+      for (const part of source.parts) {
+        part.measures = Array.from({ length: measureCount }, () => ({ sequences: [] }));
+      }
+      if (splitMeter) {
+        source.parts[2]!.measures[0]!.staffMeters = [
+          { staff: 1, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" },
+        ];
+      }
+      const documentStore = renderHook(() => useDocumentStoreApi()).result.current;
+      documentStore.setState({ score: source });
+      const retained = new wasm.LayoutEngine();
+      const engine = await createWorkerEngine(retained);
+      try {
+        expect(engine.isWorker).toBe(true);
+        const initialSource = structuredClone(source);
+        delete initialSource.parts[2]!.measures[0]!.staffMeters;
+        await project(initialSource, 0, undefined, undefined, { engine });
+        const patchInfo: PatchInfo = {
+          changedGlobalMeasures: [],
+          changedPartMeasures: new Map(),
+          structuralChange: false,
+          prebuiltPatchJson: "{}",
+        };
+        const initial = await project(initialSource, 0, undefined, undefined, { engine, patchInfo });
+        if (splitMeter) {
+          patchInfo.changedPartMeasures.set(2, [0]);
+          patchInfo.prebuiltPatchJson = JSON.stringify({
+            partMeasures: { 2: { 0: serializeMnx(source).parts[2]!.measures[0] } },
+          });
+        }
+        const initialBounds = structuredClone(initial.measureBounds);
+        const initialSources = getMeasureSources(initial);
+        const canvas = mountCanvas(initial);
+        const spatialIndexRef = { current: SpatialIndex.fromDisplayList(initial) };
+        const previousIndex = spatialIndexRef.current;
+        const versionRef = { current: 0 };
+        const capturedScoreRef = { current: source };
+        render(<SelectionPlaybackBridge />);
+        const publish = vi.fn(() => {
+          expect(spatialIndexRef.current).not.toBe(previousIndex);
+          expect(spatialIndexRef.current.all).toEqual(SpatialIndex.fromDisplayList(canvas.ref.current!).all);
+          expect(getMeasureSources(canvas.ref.current)).toHaveLength(canvas.ref.current!.measureBounds!.length);
+          canvas.result.current();
+        });
+        const paint = vi.fn(() => {
+          expect(useSelectionStore.getState().renderedStaffSources).toBe(getMeasureSources(canvas.ref.current));
+        });
+        let pending: DisplayList | undefined;
+        await act(async () => {
+          await runFastLayoutAndPaint({
+            json: "",
+            patchInfo,
+            computeDisplayList: async () => {
+              pending = await project(source, 0, undefined, undefined, { engine, patchInfo });
+              expect(pending).not.toBe(initial);
+              expect(pending.finalizeRetainedFrame).toBeTypeOf("function");
+              expect(pending.measureBounds).toBeUndefined();
+              expect(canvas.ref.current).toBe(initial);
+              expect(spatialIndexRef.current).toBe(previousIndex);
+              expect(useSelectionStore.getState().renderedStaffSourcesGetter?.()).toBe(initialSources);
+              // The result must retain request identities, not reinterpret source
+              // indices against the document visible when the worker completes.
+              documentStore.setState({
+                score: { ...source, parts: [source.parts[2]!, source.parts[1]!, source.parts[0]!] },
+              });
+              return pending;
+            },
+            displayListRef: canvas.ref,
+            displayListVersionRef: versionRef,
+            spatialIndexRef,
+            docScoreRef: capturedScoreRef,
+            paintNowRef: { current: paint },
+            perfTracker: new PerfTracker(),
+            onDisplayListCommit: publish,
+          });
+        });
+        const committed = canvas.ref.current!;
+        expect(committed).toBe(pending);
+        expect(committed.finalizeRetainedFrame).toBeUndefined();
+        expect(committed.retainedRenderLayers!.length).toBeGreaterThan(3);
+        expect(initial.measureBounds).toEqual(initialBounds);
+        expect(getMeasureSources(initial)).toBe(initialSources);
+        expect(versionRef.current).toBe(1);
+        expect(publish).toHaveBeenCalledOnce();
+        expect(paint).toHaveBeenCalledOnce();
+        selectSpan(committed, 0, 0, measureCount - 1, measureCount - 1);
+        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(
+          splitMeter ? ["cello"] : ["cello", "flute"],
+        );
+        selectSpan(committed, 1, 1, 0, measureCount - 1);
+        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(splitMeter ? ["flute"] : ["piano"]);
+        expect(getMeasureSources(committed)).toEqual(
+          committed.measureBounds!.map((bound) => ({
+            staffIndex: bound.staffIndex,
+            measureIndex: bound.index,
+            partIds: (bound.sourcePartIndices ?? [bound.partIndex]).map((index) => source.parts[index]!.id),
+          })),
+        );
+      } finally {
+        engine.dispose();
+        retained.free();
+      }
+    },
+  );
+
   it("limits source identities to selected measures when explicit systems reorder their staves", async () => {
     const reordered: Score = {
       ...score,

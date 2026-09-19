@@ -1,9 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
-import type { Score } from "@viritura/core";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import type { Duration, Score } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import type { DisplayList } from "@viritura/renderer";
 import { addNoteAtClick } from "../noteInputClickHandler";
-import type { NoteInputState } from "../../../store/noteInputStore";
+import {
+  resetNoteInputStore,
+  toggleNoteInputMode,
+  useNoteInputStore,
+  type NoteInputState,
+} from "../../../store/noteInputStore";
 import type { NoteInputClickInfo } from "../../InputCursor";
 import { sequenceContentBeats } from "../../../commands/noteCommands";
 import { buildNavigationIndex } from "../../../navigation/NavigationIndex";
@@ -30,6 +35,23 @@ function makeTwoPartScore(): Score {
   return {
     mnx: { version: 1 },
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [part("p0", "Violin I"), part("p1", "Violin II")],
+  } as unknown as Score;
+}
+
+function makeTwoMeasureScore(): Score {
+  const wholeRest = () => ({ type: "event" as const, duration: { base: "whole" as const }, rest: {} });
+  const part = (id: string, name: string) => ({
+    id,
+    name,
+    measures: [
+      { sequences: [{ staff: 1, content: [wholeRest()] }] },
+      { sequences: [{ staff: 1, content: [wholeRest()] }] },
+    ],
+  });
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }, {}] },
     parts: [part("p0", "Violin I"), part("p1", "Violin II")],
   } as unknown as Score;
 }
@@ -99,7 +121,51 @@ function runClick(
   return captured;
 }
 
+afterEach(() => resetNoteInputStore());
+
 describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
+  it.each<Duration>([{ base: "quarter" }, { base: "half", dots: 1 }])(
+    "inserts a pitched note with the selected rest's rhythm: %j",
+    (duration) => {
+      resetNoteInputStore();
+      const score = makeTwoPartScore();
+      score.parts[1]!.measures[0]!.sequences[0]!.content = [
+        { type: "event", id: "selected-rest", duration, rest: {} },
+        {
+          type: "event",
+          duration: duration.base === "quarter" ? { base: "half", dots: 1 } : { base: "quarter" },
+          rest: {},
+        },
+      ];
+      const original = structuredClone(score);
+      toggleNoteInputMode({
+        score,
+        selection: { kind: "single", elementId: "p1/m0/s0/selected-rest", elementType: "rest" },
+      });
+      expect(useNoteInputStore.getState().isRest).toBe(false);
+      expect(score).toEqual(original);
+
+      const result = runClick(score, useNoteInputStore.getState());
+      const inserted = result.parts[1]!.measures[0]!.sequences[0]!.content[0]!;
+      expect(inserted.duration).toEqual(duration);
+      expect(inserted.notes).toHaveLength(1);
+      expect(isRest(inserted)).toBe(false);
+      expect(score).toEqual(original);
+    },
+  );
+
+  it("keeps the chosen rhythm when clicking a rest during active input", () => {
+    const result = runClick(makeTwoPartScore(), {
+      ...makeNoteInputState(),
+      currentDuration: "quarter",
+      dotCount: 1,
+    });
+    const inserted = result.parts[1]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(inserted.duration).toEqual({ base: "quarter", dots: 1 });
+    expect(inserted.notes).toHaveLength(1);
+    expect(isRest(inserted)).toBe(false);
+  });
+
   it("materializes a complete selectable 5/2 bar when clicking a quarter note at its start", () => {
     const score: Score = {
       mnx: { version: 1 },
@@ -177,6 +243,48 @@ describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
     const firstPartContent = result.parts[0]!.measures[0]!.sequences[0]!.content;
     expect(firstPartContent.length).toBe(1);
     expect(isRest(firstPartContent[0]!)).toBe(true);
+  });
+
+  it("structurally shares untouched parts and measures while preserving the original score", () => {
+    const score = makeTwoMeasureScore();
+    const result = runClick(score);
+
+    expect(result).not.toBe(score);
+    expect(result.parts[0]).toBe(score.parts[0]);
+    expect(result.parts[1]).not.toBe(score.parts[1]);
+    expect(result.parts[1]!.measures[0]).not.toBe(score.parts[1]!.measures[0]);
+    expect(result.parts[1]!.measures[1]).toBe(score.parts[1]!.measures[1]);
+    expect(isRest(score.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(true);
+    expect(isRest(result.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(false);
+  });
+
+  it("keeps rest, grace and chord click branches immutable", () => {
+    const makeNoteScore = (): Score => {
+      const score = makeTwoPartScore();
+      score.parts[1]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "event",
+          duration: { base: "whole" },
+          notes: [{ pitch: { step: "C", octave: 4 } }],
+        },
+      ];
+      return score;
+    };
+
+    const restScore = makeNoteScore();
+    const restResult = runClick(restScore, { ...makeNoteInputState(), isRest: true });
+    expect(isRest(restResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(true);
+    expect(isRest(restScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!)).toBe(false);
+
+    const graceScore = makeNoteScore();
+    const graceResult = runClick(graceScore, { ...makeNoteInputState(), currentGraceType: "grace" } as NoteInputState);
+    expect(graceResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("grace");
+    expect(graceScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("event");
+
+    const chordScore = makeNoteScore();
+    const chordResult = runClick(chordScore, makeNoteInputState(), vi.fn(), { ...makeClickInfo(), shiftKey: true });
+    expect(chordResult.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(2);
+    expect(chordScore.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes).toHaveLength(1);
   });
 
   it("clears an explicit accidental after inserting a note", () => {

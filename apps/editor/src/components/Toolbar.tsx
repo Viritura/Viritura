@@ -293,7 +293,12 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
       <Button
         label="N"
         active={state.active}
-        onClick={toggleNoteInput}
+        onClick={() =>
+          toggleNoteInput({
+            score: store.getState().workingScore,
+            selection: useSelectionStore.getState().selection,
+          })
+        }
         testId="toolbar-note-input"
         ariaLabel="Toggle note input (N)"
         tooltip="Toggle note input (N)"

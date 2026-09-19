@@ -16,6 +16,7 @@ interface FastLayoutCallbackArgs {
     info: ScoreInfo,
     scoreIdx: number,
     patchInfo?: PatchInfo,
+    scoreOverride?: Score | null,
   ) => Promise<DisplayList>;
   selectedScoreIndex: number;
   perfTrackerRef: { current: PerfTracker };
@@ -63,8 +64,11 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
     // is identical (or only selectedScoreIndex changed).
     let latestRequestId = 0;
     perf.fastLayoutCallback = (json: string, patchInfo?: PatchInfo) => {
-      if (!wasmReady || !cachedScoreInfoRef.current) return;
+      const capturedScoreInfo = cachedScoreInfoRef.current;
+      if (!wasmReady || !capturedScoreInfo) return;
       const requestId = ++latestRequestId;
+      const capturedScore = docScoreRef.current;
+      const capturedDocScoreRef = { current: capturedScore };
       // Mark this JSON as in-flight synchronously so the mnxJson useEffect
       // (which runs ~32 ms later, before the worker resolves) skips it instead
       // of laying out — and patching — the same edit a second time.
@@ -79,21 +83,29 @@ export function useFastLayoutCallback(args: FastLayoutCallbackArgs): void {
       // coalescer) can fire the next queued edit only once this one has
       // resolved — collapsing a fast-typed burst onto the single worker.
       return (async () => {
+        let committed = false;
         try {
           await runFastLayoutAndPaint({
             json,
-            computeDisplayList: (j, pi) => computeDisplayList(j, cachedScoreInfoRef.current!, selectedScoreIndex, pi),
+            computeDisplayList: (j, pi) =>
+              computeDisplayList(j, capturedScoreInfo, selectedScoreIndex, pi, capturedScore),
             patchInfo,
-            shouldCommit: () => requestId === latestRequestId && pendingFastJsonRef.current === json,
+            shouldCommit: () => {
+              committed =
+                requestId === latestRequestId &&
+                pendingFastJsonRef.current === json &&
+                docScoreRef.current === capturedScore;
+              return committed;
+            },
             displayListRef,
             displayListVersionRef,
             spatialIndexRef,
-            docScoreRef,
+            docScoreRef: capturedDocScoreRef,
             paintNowRef,
             perfTracker: perf,
             onDisplayListCommit,
           });
-          lastFastPaintedJsonRef.current = json;
+          if (committed) lastFastPaintedJsonRef.current = json;
         } catch (err) {
           console.error("[FastLayout] WASM layout error:", err);
           // will fall back to useEffect path

@@ -29,7 +29,25 @@ fn displaced_notehead_gap_floor(config: &LayoutConfig) -> f64 {
 
 const CLUSTER_TIE_MIN_GAP_SP: f64 = 3.8;
 
-/// Fixed-width material immediately before an onset, in staff spaces.
+fn after_grace_gap_floor(
+    snapshot: &SpacingSnapshot<'_>,
+    beat_key: BeatKey,
+    next_key: Option<BeatKey>,
+) -> f64 {
+    next_key
+        .and_then(|key| {
+            snapshot.grace_after_extents.get(&beat_key).map(|right| {
+                right
+                    + snapshot
+                        .accidental_extents
+                        .get(&key)
+                        .map_or(0.3, |width| accidental_padding_sp(*width))
+            })
+        })
+        .unwrap_or(0.0)
+}
+
+/// Fixed-width material since the preceding onset, in staff spaces.
 pub(crate) fn rigid_delta_before(spacing: &LogSpacing, beat: f64) -> f64 {
     let Some(index) = spacing
         .mapping
@@ -71,6 +89,7 @@ pub(crate) fn build_log_spacing_for_part_measure(
         &arpeggio_set,
         &beamed_ids,
         &suppressed_note_ids,
+        None,
         super::super::render_barlines::regular_trailing_barline_content_buffer_sp(config),
     )
 }
@@ -107,6 +126,7 @@ pub(crate) fn build_log_spacing_for_resolved_measure(
         &arpeggio_set,
         &beamed_ids,
         &suppressed_note_ids,
+        measure.kit.as_ref(),
         super::super::render_barlines::trailing_barline_content_buffer_sp(measure, config),
     )
 }
@@ -123,6 +143,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &HashSet<String>,
     suppressed_note_ids: &HashSet<String>,
+    kit: Option<&HashMap<String, KitComponent>>,
     trailing_barline_buffer_sp: f64,
 ) -> LogSpacing {
     let all_sequences: Vec<&[Sequence]> = vec![sequences];
@@ -144,6 +165,7 @@ pub(super) fn build_log_spacing_with_arpeggios(
         standard_arpeggio_set,
         &beamed_event_ids,
         &suppressed_note_ids,
+        &[kit],
         trailing_barline_buffer_sp,
     )
 }
@@ -188,6 +210,7 @@ pub(crate) fn build_merged_log_spacing_for_part_measures(
         &arpeggio_set,
         &beamed_event_ids,
         &suppressed_note_ids,
+        &vec![None; part_measures.len()],
         super::super::render_barlines::regular_trailing_barline_content_buffer_sp(config),
     )
 }
@@ -255,6 +278,10 @@ pub(crate) fn build_merged_log_spacing_for_resolved_measures(
         &arpeggio_set,
         &beamed_event_ids,
         &suppressed_note_ids,
+        &measures
+            .iter()
+            .map(|measure| measure.kit.as_ref())
+            .collect::<Vec<_>>(),
         measures
             .iter()
             .map(|measure| {
@@ -279,6 +306,7 @@ pub(super) fn build_merged_log_spacing_with_arpeggios(
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &[HashSet<String>],
     suppressed_note_ids: &[HashSet<String>],
+    kits: &[Option<&HashMap<String, KitComponent>>],
     trailing_barline_buffer_sp: f64,
 ) -> LogSpacing {
     build_spacing_from_sequences(
@@ -293,6 +321,7 @@ pub(super) fn build_merged_log_spacing_with_arpeggios(
         standard_arpeggio_set,
         beamed_event_ids,
         suppressed_note_ids,
+        kits,
         trailing_barline_buffer_sp,
     )
 }
@@ -341,6 +370,7 @@ fn build_spacing_from_sequences(
     standard_arpeggio_set: &HashSet<BeatKey>,
     beamed_event_ids: &[HashSet<String>],
     suppressed_note_ids: &[HashSet<String>],
+    kits: &[Option<&HashMap<String, KitComponent>>],
     trailing_barline_buffer_sp: f64,
 ) -> LogSpacing {
     let snapshot = build_spacing_snapshot(
@@ -351,6 +381,7 @@ fn build_spacing_from_sequences(
         clef_changes,
         beamed_event_ids,
         suppressed_note_ids,
+        kits,
         config,
     );
     let mut arp_set = snapshot.arpeggio_onsets.clone();
@@ -386,8 +417,7 @@ fn build_spacing_from_sequences(
                 cum_rigid += clef_column;
             }
         }
-        if let Some(&count) = snapshot.grace_counts.get(&beat_key) {
-            let pad = grace_padding_sp(count, config);
+        if let Some(&pad) = snapshot.grace_padding.get(&beat_key) {
             cum_width += pad;
             cum_rigid += pad;
         }
@@ -467,6 +497,7 @@ fn build_spacing_from_sequences(
             .and_then(|key| snapshot.accidental_ink_floors.get(&key))
             .copied()
             .unwrap_or(0.0);
+        let grace_after_floor = after_grace_gap_floor(&snapshot, beat_key, next_key);
         let notehead_floor = config
             .shortest_duration_space
             .max(2.0 * config.notehead_rx + 0.5);
@@ -476,7 +507,8 @@ fn build_spacing_from_sequences(
             .max(cross_staff_min)
             .max(displaced_floor)
             .max(accidental_floor)
-            .max(accidental_ink_floor);
+            .max(accidental_ink_floor)
+            .max(grace_after_floor);
         let clef_column = next_key
             .and_then(|key| clef_columns.get(&key))
             .copied()
@@ -537,7 +569,10 @@ fn build_spacing_from_sequences(
             cum_rigid += displaced_floor.min(gap_advance);
         }
         let existing_gap_rigid = cum_rigid - rigid_before_gap;
-        cum_rigid += (gap_rigid - existing_gap_rigid).max(0.0);
+        let grace_after_rigid = (grace_after_floor - accidental_floor).max(0.0);
+        // After-grace ink and a following change clef occupy consecutive columns,
+        // so compression must preserve their sum rather than their maximum.
+        cum_rigid += (gap_rigid.max(grace_after_rigid + clef_column) - existing_gap_rigid).max(0.0);
     }
 
     LogSpacing {

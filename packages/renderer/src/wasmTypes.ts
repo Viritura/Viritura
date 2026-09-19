@@ -3,6 +3,24 @@
  * that module under the lint max-lines threshold. Re-exported from wasm.ts.
  */
 
+import type { AccidentalType, NoteheadShape, NoteValueBase } from "@viritura/core";
+
+/** Isolated note entry engraved by Rust, in score coordinates. */
+export interface NotePreviewInput {
+  x: number;
+  y: number;
+  staffY: number;
+  spatium: number;
+  duration: NoteValueBase;
+  dots?: number;
+  accidental?: AccidentalType | null;
+  isRest?: boolean;
+  isGrace?: boolean;
+  slash?: boolean;
+  notehead?: NoteheadShape;
+  stemDirection?: "up" | "down";
+}
+
 // Types matching the Rust DisplayList serialization
 export interface PageLayout {
   pageNumber: number;

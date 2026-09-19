@@ -197,6 +197,32 @@ function translateSegmentInPlace(dl: DisplayList, dx: number, dy: number): void 
   }
 }
 
+function cloneSegmentForTranslation(segment: DisplayList): DisplayList {
+  // Copy only coordinates that translation mutates; IDs and selection groups
+  // are immutable. Structured cloning every field stalls long horizon reflows.
+  const clone: DisplayList = {
+    ...segment,
+    commands: segment.commands.map((command) =>
+      command.type === "DrawPolygon" ? { ...command, points: command.points.map(([x, y]) => [x, y]) } : { ...command },
+    ),
+    elementBboxes: segment.elementBboxes?.map((entry) => ({ ...entry, bbox: { ...entry.bbox } })),
+    slurGeometries: segment.slurGeometries?.map((geometry) => ({ ...geometry })),
+    measureBounds: segment.measureBounds?.map((bound) => ({
+      ...bound,
+      beatAnchors: bound.beatAnchors.map(([beat, x]) => [beat, x]),
+    })),
+  };
+  const layer = retainedLayerCache.get(segment);
+  if (layer) {
+    retainedLayerCache.set(clone, {
+      displayList: clone,
+      bounds: layer.bounds ? { ...layer.bounds } : null,
+      stateCommands: layer.stateCommands,
+    });
+  }
+  return clone;
+}
+
 /**
  * Append `other`'s content stores onto `target`, mirroring
  * `DisplayList::append`. `element_shapes` are absent over the binary protocol,
@@ -336,9 +362,9 @@ export function decodePatchFrame(data: Float32Array): PatchFrame {
  * single-note edit no system moves vertically (`dy === 0`), so reused systems
  * are appended by reference at zero copy cost.
  *
- * The assembled list shares the live segment objects, so a consumer must finish
- * with one frame before requesting the next (the editor discards the previous
- * display list on each layout, so this holds).
+ * Published frames share only unchanged segment data. Translated segments and
+ * flattened stores are copied so consuming an unpainted frame cannot change
+ * the geometry of the frame still on screen.
  */
 export class PatchReconstructor {
   private prevSegments: DisplayList[] = [];
@@ -377,20 +403,30 @@ export class PatchReconstructor {
     return this.applyPatch(frame.patch, deferFlatten);
   }
 
+  private finalizePendingFrame(): void {
+    this.assembled?.finalizeRetainedFrame?.();
+  }
+
   private applyPatch(patch: PatchFrame, deferFlatten: boolean): DisplayList {
+    this.finalizePendingFrame();
     const off = patch.galleyOffsetY;
     // Prefix carries the constant galley headroom (chunked horizon). The
     // decoded frame is single-use (re-decoded every edit; only per-system
     // segments are retained), so translate in place.
     if (off !== 0) translateSegmentInPlace(patch.prefix, 0, off);
+    const previousSegments = this.prevSegments;
+    const previousAssembled = this.assembled;
+    const previousPrefixShape = this.prefixShape;
+    const previousOverlayShape = this.overlayShape;
     const nextSegments: DisplayList[] = [];
     const nextDx: number[] = [];
     const nextDy: number[] = [];
-    let canUpdateInPlace = this.assembled !== null && patch.placements.length === this.prevSegments.length;
+    const replaceSegmentRanges: boolean[] = [];
+    let canUpdateInPlace = previousAssembled !== null && patch.placements.length === previousSegments.length;
     for (let placementIndex = 0; placementIndex < patch.placements.length; placementIndex++) {
       const placement = patch.placements[placementIndex]!;
       if (placement.kind === "reuse") {
-        const segment = this.prevSegments[placement.prevIndex];
+        let segment = previousSegments[placement.prevIndex];
         if (!segment) {
           throw new Error(`Patch reuse references missing segment ${placement.prevIndex}`);
         }
@@ -398,7 +434,10 @@ export class PatchReconstructor {
         const currentDy = this.shownDy[placement.prevIndex] ?? 0;
         const deltaX = placement.dx - currentDx;
         const deltaY = placement.dy - currentDy;
-        if (deltaX !== 0 || deltaY !== 0) translateSegmentInPlace(segment, deltaX, deltaY);
+        if (deltaX !== 0 || deltaY !== 0) {
+          segment = cloneSegmentForTranslation(segment);
+          translateSegmentInPlace(segment, deltaX, deltaY);
+        }
         // An in-place flattened view can retain a reused range only when its
         // ordinal is unchanged. Reordering is uncommon (membership changes)
         // and safely falls back to a full compatibility rebuild.
@@ -406,6 +445,7 @@ export class PatchReconstructor {
         nextSegments.push(segment);
         nextDx.push(placement.dx);
         nextDy.push(placement.dy);
+        replaceSegmentRanges.push(segment !== previousSegments[placementIndex]);
       } else {
         // Fresh segments are decoded at their PRE-offset position. Apply the
         // constant galley headroom once, in place, then both append it and
@@ -414,6 +454,7 @@ export class PatchReconstructor {
         nextSegments.push(placement.segment);
         nextDx.push(0);
         nextDy.push(0);
+        replaceSegmentRanges.push(true);
       }
     }
 
@@ -425,24 +466,28 @@ export class PatchReconstructor {
           : patch.pages
         : undefined;
 
-    const previousSegments = this.prevSegments;
-    const previousPrefixShape = this.prefixShape;
-    const previousOverlayShape = this.overlayShape;
-    const assembled = this.assembled ?? { commands: [], width: patch.width, height: patch.height };
+    const assembled: DisplayList = {
+      commands: [],
+      width: patch.width,
+      height: patch.height,
+      ...(pages ? { pages } : {}),
+    };
     const finalizeFlattenedStores = (): void => {
       if (
         canUpdateInPlace &&
+        previousAssembled &&
         sameStoreShapeAtRanges(
           patch.prefix,
           nextSegments,
           patch.overlay,
-          assembled,
+          previousAssembled,
           previousSegments,
           previousPrefixShape,
           previousOverlayShape,
         )
       ) {
-        updateFlattenedStoresInPlace(assembled, patch.prefix, patch.placements, nextSegments, patch.overlay);
+        copyFlattenedStores(assembled, previousAssembled);
+        updateFlattenedStoresInPlace(assembled, patch.prefix, replaceSegmentRanges, nextSegments, patch.overlay);
       } else {
         const rebuilt: DisplayList = { commands: [], width: patch.width, height: patch.height };
         appendSegment(rebuilt, patch.prefix);
@@ -459,13 +504,12 @@ export class PatchReconstructor {
       assembled.height = patch.height;
       assembled.pages = pages;
       delete assembled.finalizeRetainedFrame;
-      this.prefixShape = storeShape(patch.prefix);
-      this.overlayShape = storeShape(patch.overlay);
+      if (this.assembled === assembled || this.assembled === previousAssembled) {
+        this.prefixShape = storeShape(patch.prefix);
+        this.overlayShape = storeShape(patch.overlay);
+      }
     };
 
-    assembled.width = patch.width;
-    assembled.height = patch.height;
-    assembled.pages = pages;
     if (deferFlatten && this.assembled) {
       Object.defineProperty(assembled, "finalizeRetainedFrame", {
         value: finalizeFlattenedStores,
@@ -497,6 +541,7 @@ export class PatchReconstructor {
 
 interface StoreShape {
   commands: number;
+  ids: number;
   bboxes: number;
   slurs: number;
   measures: number;
@@ -506,6 +551,7 @@ interface StoreShape {
 function storeShape(displayList: DisplayList): StoreShape {
   return {
     commands: displayList.commands.length,
+    ids: displayList.elementIds?.length ?? 0,
     bboxes: displayList.elementBboxes?.length ?? 0,
     slurs: displayList.slurGeometries?.length ?? 0,
     measures: displayList.measureBounds?.length ?? 0,
@@ -516,6 +562,7 @@ function storeShape(displayList: DisplayList): StoreShape {
 function equalStoreShapes(left: StoreShape, right: StoreShape): boolean {
   return (
     left.commands === right.commands &&
+    left.ids === right.ids &&
     left.bboxes === right.bboxes &&
     left.slurs === right.slurs &&
     left.measures === right.measures &&
@@ -548,16 +595,18 @@ function sameStoreShapeAtRanges(
     (sum, displayList) => {
       const shape = storeShape(displayList);
       sum.commands += shape.commands;
+      sum.ids = sum.ids > 0 || shape.ids > 0 ? 1 : 0;
       sum.bboxes += shape.bboxes;
       sum.slurs += shape.slurs;
       sum.measures += shape.measures;
       sum.selectionGroups += shape.selectionGroups;
       return sum;
     },
-    { commands: 0, bboxes: 0, slurs: 0, measures: 0, selectionGroups: 0 },
+    { commands: 0, ids: 0, bboxes: 0, slurs: 0, measures: 0, selectionGroups: 0 },
   );
   return (
     assembled.commands.length === expected.commands &&
+    (assembled.elementIds?.length ?? 0) === (expected.ids > 0 ? expected.commands : 0) &&
     (assembled.elementBboxes?.length ?? 0) === expected.bboxes &&
     (assembled.slurGeometries?.length ?? 0) === expected.slurs &&
     (assembled.measureBounds?.length ?? 0) === expected.measures &&
@@ -589,6 +638,15 @@ function normalizedIds(displayList: DisplayList): Array<string | null> {
   return ids;
 }
 
+function copyFlattenedStores(target: DisplayList, source: DisplayList): void {
+  target.commands = source.commands.slice();
+  if (source.elementIds) target.elementIds = source.elementIds.slice();
+  if (source.elementBboxes) target.elementBboxes = source.elementBboxes.slice();
+  if (source.slurGeometries) target.slurGeometries = source.slurGeometries.slice();
+  if (source.measureBounds) target.measureBounds = source.measureBounds.slice();
+  if (source.selectionGroups) target.selectionGroups = source.selectionGroups.slice();
+}
+
 function replaceStoresAt(target: DisplayList, source: DisplayList, offsets: StoreOffsets): void {
   const shape = storeShape(source);
   target.commands.splice(offsets.commands, shape.commands, ...source.commands);
@@ -612,7 +670,7 @@ function replaceStoresAt(target: DisplayList, source: DisplayList, offsets: Stor
 function updateFlattenedStoresInPlace(
   target: DisplayList,
   prefix: DisplayList,
-  placements: readonly Placement[],
+  replaceSegmentRanges: readonly boolean[],
   segments: readonly DisplayList[],
   overlay: DisplayList,
 ): void {
@@ -621,7 +679,7 @@ function updateFlattenedStoresInPlace(
   advanceOffsets(offsets, prefix);
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index]!;
-    if (placements[index]?.kind === "fresh") replaceStoresAt(target, segment, offsets);
+    if (replaceSegmentRanges[index]) replaceStoresAt(target, segment, offsets);
     advanceOffsets(offsets, segment);
   }
   replaceStoresAt(target, overlay, offsets);

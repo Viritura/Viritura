@@ -585,6 +585,13 @@ pub(crate) fn render_measure(
     // Track the accidental in effect at each (step, octave) within this
     // measure, seeded lazily from the key signature. Reset per measure.
     let mut measure_acc: HashMap<(String, i32), i32> = HashMap::new();
+    let mut grace_context = GraceRenderContext {
+        active_key: &rm.active_key,
+        measure_acc: &mut measure_acc,
+        use_accidental_display,
+        kit: rm.kit.as_ref(),
+        tie_accidentals,
+    };
     // Record where this measure's event commands begin so dynamics can later
     // treat the articulation glyphs emitted here as collision obstacles.
     let measure_event_cmd_start = dl.commands.len();
@@ -671,17 +678,26 @@ pub(crate) fn render_measure(
                     continue;
                 }
                 let grace_cmd_idx = dl.commands.len();
-                render_grace_event(dl, gn, event_staff_y, sp, config, global_beamed_ids);
+                let grace_suffix = element_id::event_suffix(gn.id.as_deref(), gi);
+                let grace_element_id = element_id::grace(
+                    voice_part_index,
+                    rm.index,
+                    voice_seq_index,
+                    &event_suffix,
+                    &grace_suffix,
+                );
+                render_grace_event(
+                    dl,
+                    gn,
+                    event_staff_y,
+                    sp,
+                    config,
+                    global_beamed_ids,
+                    &mut grace_context,
+                    &grace_element_id,
+                );
                 let grace_cmd_end = dl.commands.len();
                 if grace_cmd_end > grace_cmd_idx {
-                    let grace_suffix = element_id::event_suffix(gn.id.as_deref(), gi);
-                    let grace_element_id = element_id::grace(
-                        voice_part_index,
-                        rm.index,
-                        voice_seq_index,
-                        &event_suffix,
-                        &grace_suffix,
-                    );
                     for ci in grace_cmd_idx..grace_cmd_end {
                         dl.tag_command(ci, grace_element_id.clone());
                     }
@@ -784,7 +800,7 @@ pub(crate) fn render_measure(
                 config,
                 global_beamed_ids,
                 &ml.resolved.active_key,
-                &mut measure_acc,
+                grace_context.measure_acc,
                 use_accidental_display,
                 &element_id_str,
                 ledger_left_ext,
@@ -875,17 +891,26 @@ pub(crate) fn render_measure(
                 .filter(|(_, gn)| gn.after_main)
             {
                 let grace_cmd_idx = dl.commands.len();
-                render_grace_event(dl, gn, event_staff_y, sp, config, global_beamed_ids);
+                let grace_suffix = element_id::event_suffix(gn.id.as_deref(), gi);
+                let grace_element_id = element_id::grace(
+                    voice_part_index,
+                    rm.index,
+                    voice_seq_index,
+                    &event_suffix,
+                    &grace_suffix,
+                );
+                render_grace_event(
+                    dl,
+                    gn,
+                    event_staff_y,
+                    sp,
+                    config,
+                    global_beamed_ids,
+                    &mut grace_context,
+                    &grace_element_id,
+                );
                 let grace_cmd_end = dl.commands.len();
                 if grace_cmd_end > grace_cmd_idx {
-                    let grace_suffix = element_id::event_suffix(gn.id.as_deref(), gi);
-                    let grace_element_id = element_id::grace(
-                        voice_part_index,
-                        rm.index,
-                        voice_seq_index,
-                        &event_suffix,
-                        &grace_suffix,
-                    );
                     for ci in grace_cmd_idx..grace_cmd_end {
                         dl.tag_command(ci, grace_element_id.clone());
                     }

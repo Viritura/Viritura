@@ -4,9 +4,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use viritura_engine::layout::cache::{DirtyRegion, LayoutCache, RangeScope};
 use viritura_engine::layout::{
+    compute_note_preview as compute_engine_note_preview,
     compute_slur_preview as compute_engine_slur_preview, layout_full_score,
     layout_full_score_cached, layout_score, layout_score_cached, layout_with_mnx_scores,
-    layout_with_mnx_scores_cached, LayoutConfig, SlurPreviewInput,
+    layout_with_mnx_scores_cached, LayoutConfig, NotePreviewInput, SlurPreviewInput,
 };
 use viritura_engine::model::{PartMeasure, Score, SequenceContent};
 use viritura_engine::parse::parse_mnx;
@@ -455,6 +456,55 @@ pub fn compute_slur_preview(preview_json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Slur preview parse error: {}", e)))?;
     serde_json::to_string(&compute_engine_slur_preview(&input))
         .map_err(|e| JsValue::from_str(&format!("Slur preview serialization error: {}", e)))
+}
+
+/// Engrave an isolated input cursor note/rest and return a RenderCommand JSON array.
+#[wasm_bindgen]
+pub fn compute_note_preview(preview_json: &str) -> Result<String, JsValue> {
+    let input: NotePreviewInput = serde_json::from_str(preview_json)
+        .map_err(|e| JsValue::from_str(&format!("Note preview parse error: {}", e)))?;
+    serde_json::to_string(&compute_engine_note_preview(&input))
+        .map_err(|e| JsValue::from_str(&format!("Note preview serialization error: {}", e)))
+}
+
+#[cfg(test)]
+mod note_preview_tests {
+    use super::*;
+    use viritura_engine::render::{smufl::smufl, RenderCommand};
+
+    #[test]
+    fn note_preview_binding_returns_command_array() {
+        let json = compute_note_preview(
+            r#"{"x":100,"y":130,"staffY":100,"spatium":10,"duration":"eighth",
+                "dots":1,"accidental":"natural","stemDirection":"up"}"#,
+        )
+        .unwrap();
+        let commands: Vec<RenderCommand> = serde_json::from_str(&json).unwrap();
+        assert_eq!(commands.len(), 5);
+        for expected in [
+            smufl::NOTEHEAD_BLACK,
+            smufl::AUGMENTATION_DOT,
+            smufl::ACCIDENTAL_NATURAL,
+            smufl::flag_glyph(1, true).unwrap(),
+        ] {
+            assert!(commands.iter().any(|command| matches!(
+                command,
+                RenderCommand::DrawGlyph { codepoint, font, .. }
+                    if *codepoint == expected && font == "Bravura"
+            )));
+        }
+    }
+
+    #[test]
+    fn note_preview_binding_returns_empty_array_for_invalid_scale() {
+        assert_eq!(
+            compute_note_preview(
+                r#"{"x":100,"y":130,"staffY":100,"spatium":0,"duration":"whole"}"#
+            )
+            .unwrap(),
+            "[]"
+        );
+    }
 }
 
 /// Layout a score from MNX JSON and return a DisplayList as JSON.
