@@ -40,12 +40,16 @@ A source-muted dynamic intentionally becomes active in Viritura.
 Raw captured XML fixtures retain source velocities as import regression evidence.
 Single-note MuseScore clipboard selections are also accepted.
 
-This is not complete MuseScore format support. Slurs outside that conservative
-subset (including partial or grace-note slurs), partial or grace-note ties,
-cross-track hairpins, percussion-kit interchange, annotation-only selections,
-and other unsupported constructs produce a diagnostic rather than silently
-losing notation. Slurs with edited segment geometry, wide-dashed lines, or
-ambiguous duplicate endpoint pairs are also rejected.
+Paste is best-effort, not complete MuseScore format support. Unsupported
+embellishments and styles are skipped with a visible warning while supported
+notes, rests, annotations, voices, staves, and timing are retained. Unsupported
+or incomplete connectors (including partial or grace-note slurs/ties,
+cross-track hairpins, edited slur geometry, wide-dashed slurs, and ambiguous
+duplicate slur endpoint pairs) are omitted without dropping their notes.
+Malformed or unsafe XML, unsupported format versions, and unknown structural
+or timing data still stop the paste rather than risk changing the rhythm.
+Percussion-kit interchange and annotation-only selections remain unsupported.
+Empty or entirely skipped selections do not change the score or paste old history.
 Viritura-to-Viritura JSON copy/paste remains unchanged and
 prefers the complete internal fragment.
 
@@ -71,6 +75,10 @@ metadata are documented on the DTOs. The editor adapter owns fragment/history
 conversion and browser fallback; the desktop host owns native clipboard IO.
 The pure `writeMuseScoreStaffList` export codec remains available in the package
 but is inactive in application Copy/Cut and native clipboard publication.
+`readMuseScoreClipboard` remains strict by default. The editor opts into
+`readMuseScoreClipboard(xml, mime, { unsupported: "skip" })` for both native
+payloads and recognized XML text, and displays the returned diagnostics as a
+warning. Diagnostics are not persisted in score data.
 
 ## Layout
 

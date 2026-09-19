@@ -9,7 +9,9 @@ import {
 } from "@viritura/core";
 import type { Element } from "@xmldom/xmldom";
 import { MuseScoreConversionError, unsupported } from "./errors";
+import { validateDecoration } from "./notationReading";
 import { midiFromPitch, tpcFromPitch } from "./pitch";
+import type { ReadPolicy } from "./readPolicy";
 import { diatonicPosition, writtenPitchForNote } from "./transposition";
 import { child, children, integerText, requiredText } from "./xml";
 
@@ -26,8 +28,70 @@ const ACCIDENTALS: ReadonlyMap<string, number> = new Map([
 ]);
 const FIFTHS_STEPS: readonly Step[] = ["F", "C", "G", "D", "A", "E", "B"];
 
-function validateProperties(element: Element, allowed: ReadonlySet<string>, path: string): void {
-  if (element.attributes.length) unsupported(`${element.tagName} attributes are not supported`, path);
+const NOTE_PROPERTIES = new Set(["pitch", "tpc", "tpc2", "Accidental", "Spanner"]);
+const ACCIDENTAL_PROPERTIES = new Set(["subtype", "bracket", "role", "visible", "small", "stackingOrderOffset"]);
+const VISUAL_PROPERTIES = new Set(["color", "offset", "pos", "autoplace", "z", "placement"]);
+const NOTE_EMBELLISHMENTS = new Set([
+  "Fingering",
+  "Symbol",
+  "Image",
+  "Text",
+  "Bend",
+  "Ornament",
+  "Articulation",
+  "NoteDot",
+]);
+const NOTE_NON_RHYTHMIC_PROPERTIES = new Set([
+  "head",
+  "headType",
+  "headGroup",
+  "headScheme",
+  "headHasParentheses",
+  "velocity",
+  "veloType",
+  "veloOffset",
+  "velocityType",
+  "tuning",
+  "fret",
+  "string",
+  "ghost",
+  "small",
+  "mirror",
+  "dotPosition",
+  "play",
+  "visible",
+  "fixed",
+  "fixedLine",
+  "line",
+  "deadNote",
+  ...VISUAL_PROPERTIES,
+  ...NOTE_EMBELLISHMENTS,
+]);
+
+interface ReadLoss {
+  message: string;
+  path?: string;
+}
+
+interface WrittenSpelling {
+  pitch: Pick<Pitch, "alter">;
+  discarded: boolean;
+}
+
+function validateProperties(
+  element: Element,
+  allowed: ReadonlySet<string>,
+  skippable: ReadonlySet<string>,
+  path: string,
+  losses: ReadLoss[],
+  policy?: ReadPolicy,
+): void {
+  if (element.attributes.length) {
+    if (policy?.skipUnsupported) {
+      throw new MuseScoreConversionError("invalid-structure", `unknown ${element.tagName} attributes`, path);
+    }
+    losses.push({ message: `${element.tagName} attributes are not supported`, path });
+  }
   for (const node of Array.from(element.childNodes)) {
     if ((node.nodeType === 3 || node.nodeType === 4) && node.textContent?.trim()) {
       throw new MuseScoreConversionError("invalid-structure", `unexpected ${element.tagName} text`, path);
@@ -37,7 +101,19 @@ function validateProperties(element: Element, allowed: ReadonlySet<string>, path
   for (const property of children(element)) {
     const name = property.tagName;
     const propertyPath = `${path}/${name}`;
-    if (!allowed.has(name)) unsupported(`${element.tagName} property "${name}" is not supported`, propertyPath);
+    if (!allowed.has(name)) {
+      if (!skippable.has(name) && policy?.skipUnsupported) {
+        throw new MuseScoreConversionError(
+          "invalid-structure",
+          `unknown ${element.tagName} property "${name}"`,
+          propertyPath,
+        );
+      }
+      losses.push({ message: `${element.tagName} property "${name}" is not supported`, path: propertyPath });
+      if (!skippable.has(name)) continue;
+      validateDecoration(property, propertyPath);
+      if (VISUAL_PROPERTIES.has(name) || NOTE_EMBELLISHMENTS.has(name)) continue;
+    }
     // Connectors own Spanner validation and may legitimately have multiple endpoints.
     if (name === "Spanner") continue;
     if (seen.has(name)) {
@@ -50,7 +126,7 @@ function validateProperties(element: Element, allowed: ReadonlySet<string>, path
   }
 }
 
-function pitchFromTpc(midi: number, tpc: number, path: string): Pitch {
+function decodeSpelling(midi: number, tpc: number, path: string): { step: Step; alter: number; octave: number } {
   if (!Number.isSafeInteger(midi) || !Number.isSafeInteger(tpc) || tpc < -8 || tpc > 40) {
     throw new MuseScoreConversionError("invalid-pitch", "pitch or TPC is outside the supported range", path);
   }
@@ -58,12 +134,16 @@ function pitchFromTpc(midi: number, tpc: number, path: string): Pitch {
   const step = FIFTHS_STEPS[((shifted % 7) + 7) % 7]!;
   const alter = Math.floor(shifted / 7);
   const octave = (midi - midiFromPitch({ step, octave: 0 }) - alter) / 12;
-  if (!Number.isInteger(octave) || octave < 0 || octave > 9) {
-    throw new MuseScoreConversionError(
-      "invalid-pitch",
-      "MIDI pitch and TPC spelling disagree or exceed native octaves",
-      path,
-    );
+  if (!Number.isInteger(octave)) {
+    throw new MuseScoreConversionError("invalid-pitch", "MIDI pitch and TPC spelling disagree", path);
+  }
+  return { step, alter, octave };
+}
+
+function pitchFromTpc(midi: number, tpc: number, path: string): Pitch {
+  const { step, alter, octave } = decodeSpelling(midi, tpc, path);
+  if (octave < 0 || octave > 9) {
+    throw new MuseScoreConversionError("invalid-pitch", "MIDI pitch and TPC spelling exceed native octaves", path);
   }
   return { step, octave: octave as Octave, ...(alter === 0 ? {} : { alter }) };
 }
@@ -73,33 +153,62 @@ function parseWrittenSpelling(
   note: Note,
   transposition: Transposition | undefined,
   path: string,
-): Pitch {
-  if (!child(element, "tpc2")) return writtenPitchForNote(note, transposition, path);
-  const tpc = integerText(element, "tpc2", `${path}/tpc2`);
-  const writtenMidi = midiFromPitch(note.pitch) + (transposition?.interval.halfSteps ?? 0);
-  const written = pitchFromTpc(writtenMidi, tpc, `${path}/tpc2`);
-  const delta = diatonicPosition(written) - diatonicPosition(note.pitch) - (transposition?.interval.staffDistance ?? 0);
-  if (delta !== 0) {
-    if (!transposition) {
-      unsupported(
-        "tpc2 spelling without source transposition cannot preserve both concert and written pitch",
+  losses: ReadLoss[],
+): WrittenSpelling {
+  // Decode the source spelling before attempting its native representation, so
+  // even a discarded written override can validate the source accidental.
+  const decoded = child(element, "tpc2")
+    ? decodeSpelling(
+        midiFromPitch(note.pitch) + (transposition?.interval.halfSteps ?? 0),
+        integerText(element, "tpc2", `${path}/tpc2`),
         `${path}/tpc2`,
-      );
-    }
-    note.written = { diatonicDelta: delta };
+      )
+    : undefined;
+  if (decoded && (decoded.octave < 0 || decoded.octave > 9)) {
+    losses.push({ message: "written pitch is outside the native octave range", path: `${path}/tpc2` });
+    return { pitch: decoded, discarded: true };
   }
-  writtenPitchForNote(note, transposition, path);
-  return written;
+  const written = decoded ? { ...decoded, octave: decoded.octave as Octave } : undefined;
+  try {
+    if (!written) return { pitch: writtenPitchForNote(note, transposition, path), discarded: false };
+    const delta =
+      diatonicPosition(written) - diatonicPosition(note.pitch) - (transposition?.interval.staffDistance ?? 0);
+    if (delta !== 0) {
+      if (!transposition) {
+        unsupported(
+          "tpc2 spelling without source transposition cannot preserve both concert and written pitch",
+          `${path}/tpc2`,
+        );
+      }
+      note.written = { diatonicDelta: delta };
+    }
+    writtenPitchForNote(note, transposition, path);
+  } catch (error) {
+    if (!(error instanceof MuseScoreConversionError) || error.code !== "unsupported-content") throw error;
+    losses.push(error);
+    delete note.written;
+    return { pitch: written ?? note.pitch, discarded: true };
+  }
+  return { pitch: written, discarded: false };
 }
 
-function parseAccidental(element: Element, written: Pitch, concert: Pitch, path: string): AccidentalDisplay {
-  validateProperties(element, new Set(["subtype", "bracket", "role", "visible", "small", "stackingOrderOffset"]), path);
+function parseAccidental(
+  element: Element,
+  written: WrittenSpelling,
+  concert: Pitch,
+  path: string,
+  losses: ReadLoss[],
+  policy?: ReadPolicy,
+): AccidentalDisplay | undefined {
+  validateProperties(element, ACCIDENTAL_PROPERTIES, VISUAL_PROPERTIES, path, losses, policy);
   const subtype = requiredText(element, "subtype", `${path}/subtype`);
   const alter = ACCIDENTALS.get(subtype);
-  if (alter === undefined) unsupported(`accidental subtype "${subtype}" is not supported`, `${path}/subtype`);
+  if (alter === undefined) {
+    losses.push({ message: `accidental subtype "${subtype}" is not supported`, path: `${path}/subtype` });
+  }
   // StaffList does not identify Concert Pitch view; the displayed glyph may
   // describe either spelling, while MIDI and the two TPCs remain authoritative.
-  if (alter !== (written.alter ?? 0) && alter !== (concert.alter ?? 0)) {
+  if (alter !== undefined && alter !== (written.pitch.alter ?? 0) && alter !== (concert.alter ?? 0)) {
     throw new MuseScoreConversionError(
       "invalid-pitch",
       "explicit accidental contradicts written pitch and concert pitch",
@@ -107,36 +216,66 @@ function parseAccidental(element: Element, written: Pitch, concert: Pitch, path:
     );
   }
   const bracket = integerText(element, "bracket", `${path}/bracket`, 0);
-  if (bracket < 0 || bracket > 2) unsupported(`accidental bracket "${bracket}" is not supported`, `${path}/bracket`);
+  const supportedBracket = bracket >= 0 && bracket <= 2;
+  if (!supportedBracket) {
+    losses.push({ message: `accidental bracket "${bracket}" is not supported`, path: `${path}/bracket` });
+  }
   const role = integerText(element, "role", `${path}/role`, 0);
-  if (role !== 0 && role !== 1) unsupported(`accidental role "${role}" is not supported`, `${path}/role`);
+  const supportedRole = role === 0 || role === 1;
+  if (!supportedRole) {
+    losses.push({ message: `accidental role "${role}" is not supported`, path: `${path}/role` });
+  }
   const visible = integerText(element, "visible", `${path}/visible`, 1);
   if (visible !== 0 && visible !== 1) {
     throw new MuseScoreConversionError("invalid-structure", "accidental visible must be 0 or 1", `${path}/visible`);
   }
   for (const name of ["small", "stackingOrderOffset"]) {
     if (integerText(element, name, `${path}/${name}`, 0) !== 0) {
-      unsupported(`accidental ${name} cannot be represented by the native display model`, `${path}/${name}`);
+      losses.push({
+        message: `accidental ${name} cannot be represented by the native display model`,
+        path: `${path}/${name}`,
+      });
     }
+  }
+  if (alter === undefined) return undefined;
+  if (written.discarded && alter !== (concert.alter ?? 0)) {
+    losses.push({ message: "accidental display requires the discarded written spelling", path: `${path}/subtype` });
+    return undefined;
   }
   return {
     show: visible === 1,
-    force: role === 1,
-    ...(bracket === 0 ? {} : { enclosure: { symbol: bracket === 1 ? "parentheses" : "brackets" } }),
+    ...(supportedRole ? { force: role === 1 } : {}),
+    ...(!supportedBracket || bracket === 0
+      ? {}
+      : { enclosure: { symbol: bracket === 1 ? "parentheses" : "brackets" } }),
   };
 }
 
-export function parseMuseScoreNote(element: Element, path: string, transposition?: Transposition): Note {
-  validateProperties(element, new Set(["pitch", "tpc", "tpc2", "Accidental", "Spanner"]), path);
+export function parseMuseScoreNote(
+  element: Element,
+  path: string,
+  transposition?: Transposition,
+  policy?: ReadPolicy,
+): Note {
+  const losses: ReadLoss[] = [];
+  validateProperties(element, NOTE_PROPERTIES, NOTE_NON_RHYTHMIC_PROPERTIES, path, losses, policy);
   const midi = integerText(element, "pitch", `${path}/pitch`);
   if (midi < 0 || midi > 127) {
     throw new MuseScoreConversionError("invalid-pitch", "pitch is outside MIDI range", `${path}/pitch`);
   }
   const tpc = integerText(element, "tpc", `${path}/tpc`);
   const note: Note = { id: generateId(), pitch: pitchFromTpc(midi, tpc, path) };
-  const written = parseWrittenSpelling(element, note, transposition, path);
+  const written = parseWrittenSpelling(element, note, transposition, path, losses);
   const accidental = child(element, "Accidental");
-  if (accidental) note.accidentalDisplay = parseAccidental(accidental, written, note.pitch, `${path}/Accidental`);
+  if (accidental) {
+    const display = parseAccidental(accidental, written, note.pitch, `${path}/Accidental`, losses, policy);
+    if (display) note.accidentalDisplay = display;
+  }
+  // Unsupported decorations must never short-circuit validation of supported data.
+  for (const loss of losses) {
+    if (policy) policy.skip(loss.message, loss.path);
+    else unsupported(loss.message, loss.path);
+  }
   return note;
 }
 

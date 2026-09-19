@@ -177,24 +177,29 @@ export interface CutResult {
  * Prefer Viritura JSON, then recognized MuseScore notation, assigning fresh IDs.
  * Only unrelated text or unavailable reads permit clipboard-history fallback.
  */
-export async function pasteFromClipboard(onReadWarning?: (message: string) => void): Promise<PasteResult | null> {
+export async function pasteFromClipboard(onWarning?: (message: string) => void): Promise<PasteResult | null> {
   let clipboard;
   try {
     clipboard = await readNotationClipboard();
   } catch (error) {
     if (error instanceof NotationClipboardError && error.canUseHistory) {
-      onReadWarning?.(error.message);
+      onWarning?.(error.message);
       return null;
     }
     throw error;
   }
   const fragment = deserializeFragment(clipboard.text);
   if (fragment) return pasteResultFromFragment(fragment);
-  if (clipboard.museScore) {
-    return pasteResultFromMuseScore(readMuseScoreClipboard(clipboard.museScore.xml, clipboard.museScore.mime));
-  }
-  if (looksLikeMuseScoreXml(clipboard.text)) {
-    return pasteResultFromMuseScore(readMuseScoreClipboard(clipboard.text));
+  if (clipboard.museScore || looksLikeMuseScoreXml(clipboard.text)) {
+    const data = readMuseScoreClipboard(clipboard.museScore?.xml ?? clipboard.text, clipboard.museScore?.mime, {
+      unsupported: "skip",
+    });
+    if (data.diagnostics?.length) {
+      const messages = [...new Set(data.diagnostics.map((diagnostic) => diagnostic.message))];
+      const remaining = messages.length > 3 ? ` (+${messages.length - 3} more)` : "";
+      onWarning?.(`Skipped unsupported MuseScore notation: ${messages.slice(0, 3).join("; ")}${remaining}.`);
+    }
+    return pasteResultFromMuseScore(data);
   }
   return null;
 }

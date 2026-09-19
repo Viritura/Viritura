@@ -5,6 +5,7 @@ export type MuseScoreErrorCode =
   | "unsupported-content"
   | "invalid-timing"
   | "invalid-pitch"
+  | "empty-content"
   | "invalid-structure";
 
 export class MuseScoreConversionError extends Error {

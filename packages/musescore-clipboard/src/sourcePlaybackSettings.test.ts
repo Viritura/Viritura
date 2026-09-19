@@ -64,7 +64,8 @@ describe.each(playbackSettings)("$element source playback settings", ({ element,
   });
 
   it.each(rejected)("still rejects non-playback or wrong-element property %s", (field) => {
-    const parse = () => readMuseScoreClipboard(withProperty(`<${field}>0</${field}>`));
+    const property = field === "offset" ? '<offset x="0" y="0"/>' : `<${field}>0</${field}>`;
+    const parse = () => readMuseScoreClipboard(withProperty(property));
     expect(parse).toThrow(MuseScoreConversionError);
     expect(parse).toThrow(`property "${field}" is not supported`);
   });

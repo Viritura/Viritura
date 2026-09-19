@@ -9,6 +9,8 @@ export { writeMuseScoreStaffList } from "./writer";
 export { MuseScoreConversionError, type MuseScoreErrorCode } from "./errors";
 export type {
   MuseScoreClipboardData,
+  MuseScoreClipboardReadOptions,
+  MuseScoreClipboardDiagnostic,
   MuseScoreClipboardTrack,
   MuseScoreClipboardDynamic,
   MuseScoreClipboardChordSymbol,

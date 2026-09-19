@@ -1,8 +1,10 @@
 import type { ChordQuality, ChordRoot, ChordSymbol } from "@viritura/core";
 import type { Element } from "@xmldom/xmldom";
 import { MuseScoreConversionError, unsupported } from "./errors";
+import { validateContainer, validatePropertyContent } from "./notationReading";
 import { pitchFromMidiTpc, tpcFromPitch } from "./pitch";
-import { child, children, integerText, text } from "./xml";
+import type { ReadPolicy } from "./readPolicy";
+import { children, integerText, requiredText, text } from "./xml";
 
 interface HarmonyKind {
   quality: ChordQuality;
@@ -43,37 +45,156 @@ function rootFromTpc(tpc: number, path: string): ChordRoot {
   return pitch.alter === undefined ? { step: pitch.step } : { step: pitch.step, alter: pitch.alter };
 }
 
-export function parseHarmony(element: Element, position: [number, number], path: string): ChordSymbol {
+const HARMONY_SCALARS = new Set(["name", "root", "bass", "base", "extension"]);
+const HARMONY_STYLES = new Set([
+  "fontFace",
+  "fontSize",
+  "fontStyle",
+  "sizeSpatiumDependent",
+  "color",
+  "offset",
+  "pos",
+  "placement",
+  "visible",
+  "autoplace",
+  "z",
+  "style",
+  "align",
+  "minDistance",
+  "frameType",
+  "frameWidth",
+  "framePadding",
+  "frameRound",
+  "frameFgColor",
+  "frameBgColor",
+  "rootCase",
+  "bassCase",
+  "leftParen",
+  "rightParen",
+]);
+const HARMONY_SEMANTICS = new Set(["harmonyType", "function", "text", "xmlText"]);
+const DEGREE_SCALARS = new Set(["degree-value", "degree-alter", "degree-type"]);
+
+interface HarmonyLoss {
+  message: string;
+  path: string;
+  independent: boolean;
+}
+
+function validateUnsupportedProperty(item: Element, path: string): void {
+  if (item.tagName !== "degree") {
+    validatePropertyContent(item, path);
+    return;
+  }
+  validateContainer(item, [], path);
+  const seen = new Set<string>();
+  for (const field of children(item)) {
+    const name = field.tagName;
+    const fieldPath = `${path}/${name}`;
+    if (!DEGREE_SCALARS.has(name) || seen.has(name) || field.children.length || field.attributes.length) {
+      throw new MuseScoreConversionError("invalid-structure", "invalid harmony degree field", fieldPath);
+    }
+    seen.add(name);
+    if (name === "degree-type") requiredText(item, name, fieldPath);
+    else integerText(item, name, fieldPath);
+  }
+}
+
+function validateHarmonyProperties(
+  element: Element,
+  path: string,
+  isInfo: boolean,
+  losses: HarmonyLoss[],
+  policy?: ReadPolicy,
+): void {
+  validateContainer(element, [], path);
+  const seen = new Set<string>();
   for (const item of children(element)) {
-    if (item.tagName !== "harmonyInfo" && item.tagName !== "degree") {
-      unsupported(`Harmony property "${item.tagName}" is not supported`, `${path}/${item.tagName}`);
+    const name = item.tagName;
+    const propertyPath = `${path}/${name}`;
+    if (!isInfo && name === "harmonyInfo") continue;
+    if (name !== "degree" && seen.has(name)) {
+      throw new MuseScoreConversionError("invalid-structure", `duplicate harmony ${name}`, propertyPath);
     }
-  }
-  const infos = children(element, "harmonyInfo");
-  if (infos.length !== 1) unsupported("multiple harmonyInfo blocks are not representable", path);
-  const info = infos[0];
-  if (!info) throw new MuseScoreConversionError("invalid-structure", "Harmony requires harmonyInfo", path);
-  if (children(info, "degree").length > 0 || children(element, "degree").length > 0) {
-    unsupported("altered/add/subtract harmony degrees are not representable", path);
-  }
-  for (const item of children(info)) {
-    if (!new Set(["name", "root", "bass", "base", "extension"]).has(item.tagName)) {
-      unsupported(`harmonyInfo property "${item.tagName}" is not supported`, `${path}/harmonyInfo/${item.tagName}`);
+    seen.add(name);
+    if (name === "degree") {
+      losses.push({
+        message: "altered/add/subtract harmony degrees are not representable",
+        path: propertyPath,
+        independent: false,
+      });
+    } else if (isInfo && HARMONY_SCALARS.has(name)) {
+      if (item.attributes.length || item.children.length) {
+        throw new MuseScoreConversionError("invalid-structure", `${name} must be a single scalar`, propertyPath);
+      }
+      continue;
+    } else {
+      const independent = HARMONY_STYLES.has(name) || name === "play";
+      if (!independent && !HARMONY_SEMANTICS.has(name) && policy?.skipUnsupported) {
+        throw new MuseScoreConversionError(
+          "invalid-structure",
+          `unknown ${element.tagName} property "${name}"`,
+          propertyPath,
+        );
+      }
+      losses.push({
+        message: `${element.tagName} property "${name}" is not supported`,
+        path: propertyPath,
+        independent,
+      });
     }
+    validateUnsupportedProperty(item, propertyPath);
   }
+}
+
+function readHarmonyInfo(info: Element, path: string): { root: ChordRoot; bass?: ChordRoot; name: string } {
+  const root = rootFromTpc(integerText(info, "root", `${path}/root`), `${path}/root`);
+  const basses = children(info).filter((item) => item.tagName === "bass" || item.tagName === "base");
+  const decodedBasses = basses.map((item) =>
+    rootFromTpc(integerText(info, item.tagName, `${path}/${item.tagName}`), `${path}/${item.tagName}`),
+  );
+  if (basses.length > 1) {
+    throw new MuseScoreConversionError("invalid-structure", "ambiguous harmony bass/base", path);
+  }
+  if (children(info, "extension").length) integerText(info, "extension", `${path}/extension`);
   const name = (text(info, "name") ?? "").replace(/^=/, "");
-  const kind = IMPORT_KINDS[name];
+  return { root, name, ...(decodedBasses[0] ? { bass: decodedBasses[0] } : {}) };
+}
+
+export function parseHarmony(
+  element: Element,
+  position: [number, number],
+  path: string,
+  policy?: ReadPolicy,
+): ChordSymbol {
+  const losses: HarmonyLoss[] = [];
+  validateHarmonyProperties(element, path, false, losses, policy);
+  const infos = children(element, "harmonyInfo");
+  if (!infos.length) throw new MuseScoreConversionError("invalid-structure", "Harmony requires harmonyInfo", path);
+  // Validate every block before any recoverable semantic failure, including
+  // blocks that cannot be retained in the native single-chord model.
+  const parsed = infos.map((info, index) => {
+    const infoPath = `${path}/harmonyInfo${infos.length === 1 ? "" : `[${index}]`}`;
+    validateHarmonyProperties(info, infoPath, true, losses, policy);
+    return readHarmonyInfo(info, infoPath);
+  });
+  if (infos.length > 1) unsupported("multiple harmonyInfo blocks are not representable", path);
+  const { root, bass, name } = parsed[0]!;
+  const kind = Object.hasOwn(IMPORT_KINDS, name) ? IMPORT_KINDS[name] : undefined;
   if (!kind) unsupported(`harmony name "${name}" is not supported`, `${path}/harmonyInfo/name`);
-  const root = integerText(info, "root", `${path}/harmonyInfo/root`);
-  const chord: ChordSymbol = { position: { fraction: position }, root: rootFromTpc(root, path), quality: kind.quality };
-  if (kind.extension !== undefined) chord.extension = kind.extension;
-  const bassElement = child(info, "bass") ?? child(info, "base");
-  if (bassElement) {
-    const bass = Number(bassElement.textContent?.trim());
-    if (!Number.isInteger(bass)) throw new MuseScoreConversionError("invalid-structure", "invalid harmony bass", path);
-    chord.bass = rootFromTpc(bass, path);
+  const semanticLoss = losses.find((loss) => !loss.independent);
+  if (semanticLoss) unsupported(semanticLoss.message, semanticLoss.path);
+  for (const loss of losses) {
+    if (loss.independent && policy) policy.skip(loss.message, loss.path);
+    else unsupported(loss.message, loss.path);
   }
-  return chord;
+  return {
+    position: { fraction: position },
+    root,
+    quality: kind.quality,
+    ...(kind.extension === undefined ? {} : { extension: kind.extension }),
+    ...(bass ? { bass } : {}),
+  };
 }
 
 const QUALITY_NAMES: Partial<Record<ChordQuality, string>> = {

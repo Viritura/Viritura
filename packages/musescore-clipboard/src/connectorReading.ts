@@ -4,6 +4,7 @@ import type { MuseScoreClipboardDynamic } from "./types";
 import { MuseScoreConversionError, unsupported } from "./errors";
 import { compare, fromTuple, tuple, type Fraction } from "./fractions";
 import { midiFromPitch } from "./pitch";
+import type { ReadPolicy } from "./readPolicy";
 import {
   connectorChildren,
   pairRelativeConnectors,
@@ -28,10 +29,19 @@ export function readNoteConnectors(
   location: ConnectorLocation,
   grace: boolean,
   path: string,
+  policy?: ReadPolicy,
 ): NoteConnector[] {
-  return children(element, "Spanner").map((spanner) => {
-    if (grace) unsupported("ties involving grace notes are not supported", path);
-    return { ...readRelativeConnector(spanner, location, "Tie", path), note };
+  return children(element, "Spanner").flatMap((spanner, index) => {
+    const connectorPath = `${path}/Spanner[${index}]`;
+    const connector = readRelativeConnector(spanner, location, "Tie", connectorPath, policy);
+    if (!connector) return [];
+    if (grace) {
+      if (!policy) unsupported("ties involving grace notes are not supported", connectorPath);
+      policy.skip("ties involving grace notes are not supported", connectorPath);
+      connector.rejected = true;
+      connector.unresolvedAnchor = true;
+    }
+    return [{ ...connector, note }];
   });
 }
 
@@ -43,12 +53,20 @@ function tieSide(body: Element, path: string): Tie["side"] {
   unsupported(`Tie direction "${side}" is not supported`, path);
 }
 
-export function resolveNoteConnectors(endpoints: readonly NoteConnector[], length: Fraction, staffCount: number): void {
-  for (const { start, end } of pairRelativeConnectors(endpoints, length, staffCount)) {
+export function resolveNoteConnectors(
+  endpoints: readonly NoteConnector[],
+  length: Fraction,
+  staffCount: number,
+  policy?: ReadPolicy,
+): void {
+  for (const { start, end } of pairRelativeConnectors(endpoints, length, staffCount, policy)) {
     if (midiFromPitch(start.note.pitch) !== midiFromPitch(end.note.pitch)) {
       throw new MuseScoreConversionError("invalid-pitch", "tie endpoints must have the same MIDI pitch", start.path);
     }
-    const side = tieSide(start.body!, start.path);
+    const properties = (): Pick<Tie, "side"> => ({ side: tieSide(start.body!, start.path) });
+    const result = policy ? policy.recover(properties) : properties();
+    if (!result) continue;
+    const { side } = result;
     const crossVoice = start.current.staff !== end.current.staff || start.current.voice !== end.current.voice;
     start.note.ties = [
       {
@@ -72,10 +90,12 @@ export function resolveHairpinConnectors(
   dynamics: readonly LocatedDynamic[],
   length: Fraction,
   staffCount: number,
+  policy?: ReadPolicy,
 ): MuseScoreClipboardDynamic[] {
   const absorbed = new Set<MuseScoreClipboardDynamic>();
-  const hairpins = pairRelativeConnectors(endpoints, length, staffCount).map(
-    ({ start, end }): MuseScoreClipboardDynamic => {
+  const hairpins: MuseScoreClipboardDynamic[] = [];
+  for (const { start, end } of pairRelativeConnectors(endpoints, length, staffCount, policy)) {
+    const read = (): MuseScoreClipboardDynamic => {
       if (start.current.staff !== end.current.staff || start.current.voice !== end.current.voice) {
         unsupported("cross-staff or cross-voice HairPin endpoints are not supported by MuseScore paste", start.path);
       }
@@ -104,8 +124,10 @@ export function resolveHairpinConnectors(
           end: { measure: "0", position: { fraction: tuple(end.current.time) } },
         },
       };
-    },
-  );
+    };
+    const hairpin = policy ? policy.recover(read) : read();
+    if (hairpin) hairpins.push(hairpin);
+  }
   return [
     ...dynamics.filter(({ captured }) => !absorbed.has(captured)).map(({ captured }) => captured),
     ...hairpins,
