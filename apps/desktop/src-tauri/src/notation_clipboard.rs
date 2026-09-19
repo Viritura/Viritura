@@ -4,7 +4,7 @@ mod windows;
 #[cfg(any(windows, test))]
 use std::mem::size_of;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 const MAIN_WINDOW_LABEL: &str = "main";
 #[cfg(any(windows, test))]
@@ -17,7 +17,7 @@ const SYMBOL_MIME: &str = "application/musescore/symbol";
 #[cfg(any(windows, test))]
 const SYMBOL_LIST_MIME: &str = "application/musescore/symbollist";
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MuseScoreClipboard {
     mime: String,
@@ -48,15 +48,6 @@ enum MuseScoreMime {
 
 #[cfg(any(windows, test))]
 impl MuseScoreMime {
-    fn parse(mime: &str) -> Result<Self, String> {
-        match mime {
-            STAFF_LIST_MIME => Ok(Self::StaffList),
-            SYMBOL_MIME => Ok(Self::Symbol),
-            SYMBOL_LIST_MIME => Ok(Self::SymbolList),
-            _ => Err(format!("unsupported MuseScore clipboard MIME type: {mime}")),
-        }
-    }
-
     fn as_str(self) -> &'static str {
         match self {
             Self::StaffList => STAFF_LIST_MIME,
@@ -91,18 +82,17 @@ pub(crate) fn notation_clipboard_read(
 pub(crate) fn notation_clipboard_write(
     window: tauri::WebviewWindow,
     text: String,
-    muse_score: Option<MuseScoreClipboard>,
 ) -> Result<NotationClipboardWrite, String> {
     ensure_main_window(&window)?;
 
     #[cfg(windows)]
     {
-        windows::write(&window, &text, muse_score.as_ref())
+        windows::write(&window, &text)
     }
 
     #[cfg(not(windows))]
     {
-        let _ = (text, muse_score);
+        let _ = text;
         Ok(NotationClipboardWrite { supported: false })
     }
 }
@@ -156,23 +146,6 @@ fn decode_unicode_payload(units: &[u16]) -> Result<String, String> {
 }
 
 #[cfg(any(windows, test))]
-fn encode_musescore_payload(xml: &str) -> Result<Vec<u8>, String> {
-    let bytes = xml.as_bytes();
-    if bytes.is_empty() {
-        return Err("MuseScore clipboard XML is empty".to_owned());
-    }
-    if bytes.len() > MAX_PAYLOAD_BYTES {
-        return Err(format!(
-            "MuseScore clipboard XML exceeds the {MAX_PAYLOAD_BYTES}-byte limit"
-        ));
-    }
-    if bytes.contains(&0) {
-        return Err("MuseScore clipboard XML contains a NUL byte".to_owned());
-    }
-    Ok(bytes.to_vec())
-}
-
-#[cfg(any(windows, test))]
 fn decode_musescore_payload(bytes: &[u8]) -> Result<String, String> {
     let payload = bytes.strip_suffix(&[0]).unwrap_or(bytes);
     if payload.is_empty() {
@@ -198,17 +171,23 @@ mod tests {
     #[test]
     fn mime_whitelist_is_exact() {
         assert_eq!(
-            MuseScoreMime::parse(STAFF_LIST_MIME),
-            Ok(MuseScoreMime::StaffList)
+            [
+                MuseScoreMime::StaffList.as_str(),
+                MuseScoreMime::Symbol.as_str(),
+                MuseScoreMime::SymbolList.as_str(),
+            ],
+            [
+                "application/musescore/stafflist",
+                "application/musescore/symbol",
+                "application/musescore/symbollist",
+            ]
         );
-        assert_eq!(MuseScoreMime::parse(SYMBOL_MIME), Ok(MuseScoreMime::Symbol));
-        assert_eq!(
-            MuseScoreMime::parse(SYMBOL_LIST_MIME),
-            Ok(MuseScoreMime::SymbolList)
-        );
-        assert!(MuseScoreMime::parse("Application/musescore/stafflist").is_err());
-        assert!(MuseScoreMime::parse("application/musescore/stafflist\0").is_err());
-        assert!(MuseScoreMime::parse("text/plain").is_err());
+    }
+
+    #[test]
+    fn write_command_accepts_only_text_without_invoking_the_clipboard() {
+        let _: fn(tauri::WebviewWindow, String) -> Result<NotationClipboardWrite, String> =
+            notation_clipboard_write;
     }
 
     #[test]
@@ -230,6 +209,18 @@ mod tests {
         assert!(decode_unicode_payload(&[b'a' as u16]).is_err());
         let oversized = "a".repeat(MAX_PAYLOAD_BYTES / size_of::<u16>() + 1);
         assert!(encode_unicode_payload(&oversized).is_err());
+        let oversized_units: Vec<u16> = oversized.encode_utf16().chain(Some(0)).collect();
+        assert!(decode_unicode_payload(&oversized_units).is_err());
+    }
+
+    #[test]
+    fn unicode_payload_limit_excludes_the_required_nul_terminator() {
+        let text = "\u{1d11e}".repeat(MAX_PAYLOAD_BYTES / (2 * size_of::<u16>()));
+        let units = encode_unicode_payload(&text).expect("encode maximum UTF-16 payload");
+        assert_eq!(units.len() * size_of::<u16>(), MAX_PAYLOAD_BYTES + 2);
+        assert_eq!(units.last(), Some(&0));
+        assert_eq!(decode_unicode_payload(&units).expect("decode"), text);
+        assert_eq!(encode_unicode_payload("").expect("encode empty text"), [0]);
     }
 
     #[test]
@@ -241,10 +232,9 @@ mod tests {
         assert!(decode_musescore_payload(&[0xff]).is_err());
         assert!(decode_musescore_payload(b"<Staff\0List/>").is_err());
         assert!(decode_musescore_payload(b"\0").is_err());
-        assert!(encode_musescore_payload("").is_err());
-        assert!(encode_musescore_payload("<Staff\0List/>").is_err());
+        assert!(decode_musescore_payload(b"").is_err());
+        assert!(decode_musescore_payload(b"<StaffList/>\0\0").is_err());
         let oversized = "a".repeat(MAX_PAYLOAD_BYTES + 1);
-        assert!(encode_musescore_payload(&oversized).is_err());
         assert!(decode_musescore_payload(oversized.as_bytes()).is_err());
     }
 

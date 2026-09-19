@@ -90,7 +90,7 @@ function ClipboardHistoryItem({ entry }: ClipboardHistoryItemProps) {
 
   const handleRestore = useCallback(async () => {
     try {
-      await writeClipboardFragment(entry.fragment, (message) => toast.warning(message));
+      await writeClipboardFragment(entry.fragment);
       setCopied(true);
     } catch {
       toast.error("Could not restore this clipboard entry.");

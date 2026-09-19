@@ -56,19 +56,27 @@ describe("notation clipboard adapter", () => {
     expect(readText).not.toHaveBeenCalled();
   });
 
-  it("writes text and StaffList in one native transaction", async () => {
+  it("writes only text in a native transaction", async () => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     vi.mocked(invoke).mockResolvedValue({ supported: true });
-    await writeNotationClipboard({
-      text: "json",
-      museScore: { mime: "application/musescore/stafflist", xml: "<StaffList/>" },
-    });
+    await writeNotationClipboard({ text: "json" });
     expect(invoke).toHaveBeenCalledWith("notation_clipboard_write", {
       text: "json",
-      museScore: { mime: "application/musescore/stafflist", xml: "<StaffList/>" },
     });
     expect(writeText).not.toHaveBeenCalled();
   });
+
+  it.each(["application/musescore/stafflist", "application/musescore/symbol", "application/musescore/symbollist"])(
+    "does not forward an extra %s payload from a legacy caller",
+    async (mime) => {
+      vi.stubGlobal("__TAURI_INTERNALS__", {});
+      vi.mocked(invoke).mockResolvedValue({ supported: true });
+      const legacyPayload = { text: "json", museScore: { mime, xml: "<StaffList/>" } };
+      await writeNotationClipboard(legacyPayload);
+      expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: "json" });
+      expect(writeText).not.toHaveBeenCalled();
+    },
+  );
 
   it("falls back to browser text and never claims native MIME access", async () => {
     readText.mockResolvedValue("browser text");
@@ -77,7 +85,7 @@ describe("notation clipboard adapter", () => {
       museScore: null,
       nativeFormatsSupported: false,
     });
-    await writeNotationClipboard({ text: "plain lyric", museScore: null });
+    await writeNotationClipboard({ text: "plain lyric" });
     expect(writeText).toHaveBeenCalledWith("plain lyric");
   });
 
@@ -90,10 +98,7 @@ describe("notation clipboard adapter", () => {
       museScore: null,
       nativeFormatsSupported: false,
     });
-    await writeNotationClipboard({
-      text: "json",
-      museScore: { mime: "application/musescore/stafflist", xml: "<StaffList/>" },
-    });
+    await writeNotationClipboard({ text: "json" });
     expect(writeText).toHaveBeenCalledExactlyOnceWith("json");
   });
 
@@ -108,17 +113,15 @@ describe("notation clipboard adapter", () => {
 });
 
 describe("clipboard command integration", () => {
-  it("writes Viritura JSON as text and StaffList as native MIME", async () => {
+  it("writes only Viritura JSON as native text", async () => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     vi.mocked(invoke).mockResolvedValue({ supported: true });
     await expect(copyToClipboard(selection())).resolves.toBe(true);
     const payload = vi.mocked(invoke).mock.calls[0]?.[1] as {
       text: string;
-      museScore: { mime: string; xml: string };
     };
     expect(JSON.parse(payload.text)).toMatchObject({ type: "viritura/fragment", version: 5 });
-    expect(payload.museScore.mime).toBe("application/musescore/stafflist");
-    expect(payload.museScore.xml).toContain('version="4.70"');
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: payload.text });
   });
 
   it("prefers full-fidelity Viritura JSON over accompanying StaffList", async () => {
@@ -138,7 +141,7 @@ describe("clipboard command integration", () => {
     expect(result?.content[0]).toMatchObject({ duration: { base: "half" }, rest: {} });
   });
 
-  it.each([false, true])("preserves Viritura JSON when MuseScore export is unsupported (native=%s)", async (native) => {
+  it.each([false, true])("preserves Viritura-only notation as JSON (native=%s)", async (native) => {
     if (native) {
       vi.stubGlobal("__TAURI_INTERNALS__", {});
       vi.mocked(invoke).mockResolvedValue({ supported: true });
@@ -147,21 +150,18 @@ describe("clipboard command integration", () => {
     const event = source.events[0];
     if (event?.type !== "event") throw new Error("Expected a note event");
     event.lyrics = { lines: { verse: { text: "Sing" } } };
-    const warning = vi.fn();
-    await expect(copyToClipboard(source, warning)).resolves.toBe(true);
-    expect(warning).toHaveBeenCalledOnce();
+    await expect(copyToClipboard(source)).resolves.toBe(true);
     const text = native ? (vi.mocked(invoke).mock.calls[0]![1] as { text: string }).text : writeText.mock.calls[0]![0];
     expect(JSON.parse(text).content[0].lyrics.lines.verse.text).toBe("Sing");
     if (native) {
       expect(invoke).toHaveBeenCalledWith("notation_clipboard_write", {
         text,
-        museScore: null,
       });
       expect(writeText).not.toHaveBeenCalled();
     }
   });
 
-  it("restores history fragments with primary transposition in both formats", async () => {
+  it("restores history fragments with primary transposition in JSON only", async () => {
     vi.stubGlobal("__TAURI_INTERNALS__", {});
     vi.mocked(invoke).mockResolvedValue({ supported: true });
     const source = selection();
@@ -174,11 +174,9 @@ describe("clipboard command integration", () => {
     });
     const payload = vi.mocked(invoke).mock.calls[0]![1] as {
       text: string;
-      museScore: { xml: string };
     };
     expect(JSON.parse(payload.text).transposition).toEqual(transposition);
-    expect(payload.museScore.xml).toContain("<transposeChromatic>-12</transposeChromatic>");
-    expect(payload.museScore.xml).toContain("<transposeDiatonic>-7</transposeDiatonic>");
+    expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: payload.text });
   });
 
   it("throws for recognized malformed MuseScore data so history cannot be pasted instead", async () => {

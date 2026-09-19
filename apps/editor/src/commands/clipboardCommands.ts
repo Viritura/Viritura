@@ -94,12 +94,9 @@ interface ClipboardCutLocation {
 
 /**
  * Copy selected events to the system clipboard.
- * Preserves Viritura JSON alongside MuseScore notation on native clipboards.
+ * Writes lossless Viritura JSON only; MuseScore export is disabled.
  */
-export async function copyToClipboard(
-  selection: ClipboardSelection,
-  onConversionWarning?: (message: string) => void,
-): Promise<boolean> {
+export async function copyToClipboard(selection: ClipboardSelection): Promise<boolean> {
   if (
     selection.events.length === 0 &&
     !selection.measureRepeats?.length &&
@@ -109,21 +106,18 @@ export async function copyToClipboard(
     return false;
 
   try {
-    await writeClipboardFragment(
-      {
-        content: selection.events,
-        timeSignature: selection.timeSignature,
-        keySignature: selection.keySignature,
-        tracks: selection.tracks,
-        clef: selection.clef,
-        transposition: selection.transposition,
-        dynamics: selection.dynamics,
-        measureRepeats: selection.measureRepeats,
-        lyrics: selection.lyrics,
-        chordSymbols: selection.chordSymbols,
-      },
-      onConversionWarning,
-    );
+    await writeClipboardFragment({
+      content: selection.events,
+      timeSignature: selection.timeSignature,
+      keySignature: selection.keySignature,
+      tracks: selection.tracks,
+      clef: selection.clef,
+      transposition: selection.transposition,
+      dynamics: selection.dynamics,
+      measureRepeats: selection.measureRepeats,
+      lyrics: selection.lyrics,
+      chordSymbols: selection.chordSymbols,
+    });
     return true;
   } catch (error) {
     if (error instanceof NotationClipboardError && error.backend === "native") throw error;
@@ -137,15 +131,15 @@ export async function copyToClipboard(
  */
 export async function cutToClipboard(
   selection: ClipboardSelection,
-  onConversionWarning?: (message: string) => void,
+  onWriteWarning?: (message: string) => void,
 ): Promise<CutResult | null> {
   // System clipboard is best-effort. The editor's internal clipboard history
   // still receives the fragment, so a denied browser clipboard must not turn
   // Cut into a no-op.
   try {
-    await copyToClipboard(selection, onConversionWarning);
+    await copyToClipboard(selection);
   } catch (error) {
-    onConversionWarning?.(error instanceof Error ? error.message : "Could not copy to the system clipboard.");
+    onWriteWarning?.(error instanceof Error ? error.message : "Could not copy to the system clipboard.");
   }
 
   // Build rest replacements for each cut event

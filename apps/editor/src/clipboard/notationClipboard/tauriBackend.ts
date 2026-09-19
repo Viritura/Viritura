@@ -11,7 +11,6 @@ export interface NativeNotationClipboardRead {
 
 export interface NativeNotationClipboardWrite {
   text: string;
-  museScore: NativeMuseScoreClipboard | null;
 }
 
 function isTauriRuntime(): boolean {
@@ -30,7 +29,6 @@ export async function writeNativeNotationClipboard(payload: NativeNotationClipbo
   const { invoke } = await import("@tauri-apps/api/core");
   const result = await invoke<{ supported: boolean }>("notation_clipboard_write", {
     text: payload.text,
-    museScore: payload.museScore,
   });
   return result.supported;
 }

@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import { writeMuseScoreStaffList } from "@viritura/musescore-clipboard";
+import { copyToClipboard, cutToClipboard } from "../../commands/clipboardCommands";
 import { FRAGMENT_VERSION, type ClipboardFragment } from "../ClipboardFragment";
 import { writeClipboardFragment } from "./museScoreAdapter";
 
-vi.mock("@viritura/musescore-clipboard", () => ({
-  MUSESCORE_STAFF_LIST_MIME: "application/musescore/stafflist",
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@viritura/musescore-clipboard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@viritura/musescore-clipboard")>()),
   writeMuseScoreStaffList: vi.fn(),
 }));
 
@@ -35,7 +38,7 @@ afterEach(() => {
 });
 
 describe("MuseScore application adapter", () => {
-  it("passes only portable notation to the writer, retaining app metadata in JSON", async () => {
+  it("retains complete app metadata in JSON without calling the package exporter", async () => {
     const source = fragment();
     source.tracks = [
       {
@@ -50,25 +53,7 @@ describe("MuseScore application adapter", () => {
       },
     ];
     await writeClipboardFragment(source);
-    expect(writeMuseScoreStaffList).toHaveBeenCalledExactlyOnceWith({
-      events: source.content,
-      tracks: [
-        {
-          partOffset: 0,
-          voiceIndex: 1,
-          staffOffset: 0,
-          sourceStaff: 2,
-          leadIn: [1, 12],
-          content: source.content,
-          transposition: source.transposition,
-          dynamics: undefined,
-        },
-      ],
-      transposition: source.transposition,
-      dynamics: undefined,
-      chordSymbols: undefined,
-      measureRepeats: undefined,
-    });
+    expect(writeMuseScoreStaffList).not.toHaveBeenCalled();
     expect(JSON.parse(writeText.mock.calls[0]![0])).toMatchObject({
       clef: source.clef,
       transposition: source.transposition,
@@ -77,25 +62,51 @@ describe("MuseScore application adapter", () => {
     });
   });
 
-  it("keeps lossless JSON available even if the package writer unexpectedly throws", async () => {
+  it.each([false, true])("restores history without invoking a failing exporter (native=%s)", async (native) => {
+    if (native) {
+      vi.stubGlobal("__TAURI_INTERNALS__", {});
+      vi.mocked(invoke).mockResolvedValue({ supported: true });
+    }
     vi.mocked(writeMuseScoreStaffList).mockImplementation(() => {
       throw new Error("Unexpected export failure");
     });
     const source = fragment();
-    const warning = vi.fn();
-    await expect(writeClipboardFragment(source, warning)).resolves.toBeUndefined();
-    expect(warning).toHaveBeenCalledExactlyOnceWith(
-      "This selection cannot be exported to MuseScore. Viritura clipboard content is still available.",
-    );
-    expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual(source);
+    await expect(writeClipboardFragment(source)).resolves.toBeUndefined();
+    expect(writeMuseScoreStaffList).not.toHaveBeenCalled();
+    if (native) {
+      expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text: JSON.stringify(source) });
+      expect(writeText).not.toHaveBeenCalled();
+    } else {
+      expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual(source);
+    }
   });
 
-  it("reports the package warning while still writing the complete fragment", async () => {
-    vi.mocked(writeMuseScoreStaffList).mockReturnValue({ xml: null, warning: "Unsupported notation" });
-    const source = fragment();
-    const warning = vi.fn();
-    await writeClipboardFragment(source, warning);
-    expect(warning).toHaveBeenCalledExactlyOnceWith("Unsupported notation");
-    expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual(source);
+  describe.each([false, true])("notation commands (native=%s)", (native) => {
+    it.each(["copy", "cut"] as const)("%s never calls the exporter or reports export warnings", async (action) => {
+      if (native) {
+        vi.stubGlobal("__TAURI_INTERNALS__", {});
+        vi.mocked(invoke).mockResolvedValue({ supported: true });
+      }
+      vi.mocked(writeMuseScoreStaffList).mockReturnValue({ xml: null, warning: "Unsupported notation" });
+      const source = fragment();
+      const selection = {
+        ...source,
+        events: source.content,
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+      };
+      const warning = vi.fn();
+      if (action === "copy") await expect(copyToClipboard(selection)).resolves.toBe(true);
+      else await expect(cutToClipboard(selection, warning)).resolves.not.toBeNull();
+      expect(writeMuseScoreStaffList).not.toHaveBeenCalled();
+      expect(warning).not.toHaveBeenCalled();
+      const text = native
+        ? (vi.mocked(invoke).mock.calls[0]![1] as { text: string }).text
+        : writeText.mock.calls[0]![0];
+      expect(JSON.parse(text)).toEqual(source);
+      if (native) expect(invoke).toHaveBeenCalledExactlyOnceWith("notation_clipboard_write", { text });
+    });
   });
 });

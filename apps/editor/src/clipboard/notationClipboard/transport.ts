@@ -33,7 +33,6 @@ export interface NotationClipboardContents {
 
 export interface NotationClipboardWrite {
   text: string;
-  museScore: NativeMuseScoreClipboard | null;
 }
 
 export async function readNotationClipboard(): Promise<NotationClipboardContents> {
