@@ -86,13 +86,12 @@ jobs:
               tools/vst-reverb-probe/*)
                 vst_probe=true
                 ;;
-              packages/musx-import/*|scripts/build-denigma-wasm.ts|scripts/denigma-gap-acceptance.ts)
-                musx=true
-                pnpm=true
-                ;;
             esac
 
             case "$path" in
+              packages/musx-import/*|scripts/build-denigma-wasm.ts|scripts/denigma-gap-acceptance.ts)
+                musx=true
+                ;;
               apps/server-ui/*|packages/ui/*)
                 dotnet=true
                 ;;
