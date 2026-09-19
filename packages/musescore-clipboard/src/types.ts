@@ -1,5 +1,17 @@
 import type { ChordSymbol, DynamicGroup, MeasureRepeat, SequenceContent, Transposition } from "@viritura/core";
 
+export interface MuseScoreClipboardReadOptions {
+  /** Strict by default. Skip only unsupported notation with known recovery boundaries. */
+  unsupported?: "skip" | "error";
+}
+
+export interface MuseScoreClipboardDiagnostic {
+  code: "unsupported-content";
+  message: string;
+  path?: string;
+  sourceTime?: string;
+}
+
 /**
  * A dynamic on the copied timeline. Offsets are exact [numerator, denominator]
  * whole-note fractions, not beats or ticks.
@@ -54,6 +66,8 @@ export interface MuseScoreClipboardTrack {
 
 /** Decoded notation only; assigning destination locations and clipboard IO belong to callers. */
 export interface MuseScoreClipboardData {
+  /** Notation discarded during opt-in best-effort import; never persisted in the score. */
+  diagnostics?: MuseScoreClipboardDiagnostic[];
   /** Primary voice, in sounding pitch. Tracks take precedence when present. */
   content: SequenceContent[];
   /** Primary track's sounding-to-written transposition, not an instruction to alter sounding notes. */

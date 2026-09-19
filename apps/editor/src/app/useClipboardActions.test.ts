@@ -255,6 +255,100 @@ describe.each([false, true])("JSON-only notation actions (native=%s)", (native) 
   );
 });
 
+describe.each([false, true])("best-effort MuseScore paste (native=%s)", (native) => {
+  function setXml(xml: string, mime = "application/musescore/stafflist") {
+    if (native) {
+      vi.stubGlobal("__TAURI_INTERNALS__", {});
+      vi.mocked(invoke).mockResolvedValue({ supported: true, text: "unrelated text", museScore: { mime, xml } });
+    } else {
+      readText.mockResolvedValue(xml);
+    }
+  }
+
+  function staffList(content: string) {
+    return (
+      '<StaffList version="4.70" tick="0/1" len="1/2" staff="0" staves="1">' +
+      '<Staff id="0"><voiceOffset><voice id="0">0</voice></voiceOffset>' +
+      content +
+      "</Staff></StaffList>"
+    );
+  }
+
+  const chord = "<Chord><durationType>quarter</durationType><Note><pitch>67</pitch><tpc>15</tpc></Note></Chord>";
+
+  it("warns visibly while pasting supported events, markings and annotations at their original times", async () => {
+    addHistory();
+    const history = structuredClone(useClipboardHistoryStore.getState().entries);
+    setXml(
+      staffList(
+        "<Dynamic><subtype>mf</subtype></Dynamic>" +
+          chord.replace(
+            "</Chord>",
+            "<Articulation><subtype>articStaccatoAbove</subtype><direction>up</direction></Articulation>" +
+              "<Articulation><subtype>unsupported-articulation</subtype></Articulation></Chord>",
+          ) +
+          "<Dynamic><subtype>other</subtype><text>custom</text></Dynamic>" +
+          chord,
+      ),
+    );
+    const { result, updateScore, score } = harness();
+    const snapshot = structuredClone(score);
+    await act(() => result.current.handlePaste());
+    expect(updateScore).toHaveBeenCalledOnce();
+    const measure = updateScore.mock.calls[0]![0].parts[0]!.measures[0]!;
+    expect(eventTimeline(measure.sequences[0]!.content)).toEqual([
+      { beat: 0, step: "G" },
+      { beat: 1, step: "G" },
+    ]);
+    expect(updatedEvent(updateScore).markings).toHaveProperty("staccato");
+    expect(measure.dynamics).toHaveLength(1);
+    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining("Skipped unsupported MuseScore notation:"),
+    );
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining("unsupported-articulation"));
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(score).toEqual(snapshot);
+    expect(useClipboardHistoryStore.getState().entries).toEqual(history);
+    expect(JSON.stringify(updateScore.mock.calls[0]![0])).not.toContain("diagnostics");
+  });
+
+  it("uses best-effort import for single-note symbols too", async () => {
+    setXml(
+      "<EngravingItem><duration>1/4</duration><Note><pitch>67</pitch><tpc>15</tpc>" +
+        "<head>diamond</head></Note></EngravingItem>",
+      "application/musescore/symbol",
+    );
+    const { result, updateScore } = harness();
+    await act(() => result.current.handlePaste());
+    expect(updatedEvent(updateScore).notes?.[0]?.pitch.step).toBe("G");
+    expect(toast.warning).toHaveBeenCalledOnce();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["empty", ""],
+    ["all skipped", "<StaffText><text>Unsupported text</text></StaffText>"],
+    ["unknown structure", chord + "<UnknownRhythm><duration>1/4</duration></UnknownRhythm>"],
+    ["unknown duration", chord.replace("quarter", "unknown-duration")],
+    ["nested unknown timing", chord.replace("</Chord>", "<offset><unknownTiming>1/4</unknownTiming></offset></Chord>")],
+    ["malformed XML", chord + "<Chord>"],
+  ])("never mutates the score or uses stale history for %s material", async (_label, content) => {
+    addHistory();
+    setXml(staffList(content));
+    const { result, updateScore, selectElement, selectRange, score } = harness();
+    const snapshot = structuredClone(score);
+    const history = structuredClone(useClipboardHistoryStore.getState().entries);
+    await act(() => result.current.handlePaste());
+    expect(updateScore).not.toHaveBeenCalled();
+    expect(selectElement).not.toHaveBeenCalled();
+    expect(selectRange).not.toHaveBeenCalled();
+    expect(score).toEqual(snapshot);
+    expect(useClipboardHistoryStore.getState().entries).toEqual(history);
+    expect(toast.error).toHaveBeenCalledOnce();
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+});
+
 describe("clipboard history fallback", () => {
   it.each(["application/musescore/stafflist", "application/musescore/symbol", "application/musescore/symbollist"])(
     "never uses stale history for recognized unsupported native %s",
