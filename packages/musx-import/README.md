@@ -51,6 +51,10 @@ discarded.
 
 The current schema-v1 adapters preserve:
 
+- chord roots, bass notes, normalized qualities, common extensions, authored
+  suffix text, and a plain display override for complex Finale chord suffixes;
+- recognized per-note notehead families (`normal`, X, diamond, slash,
+  circle-X, and triangles);
 - generic expressive text and performance instructions as plain text
   expressions;
 - rehearsal marks;
@@ -58,7 +62,8 @@ The current schema-v1 adapters preserve:
 - ordinary straight and standard wavy glissandos with one plain center label;
 - trill symbols and event-anchored trill-extension spans.
 
-Formatting runs, performance-technique playback semantics, multiple rehearsal
-marks in one measure, separate displayed/playback metronome values,
-note-specific chord endpoints, custom/dashed/invisible lines, and tab slides
-remain explicit partial or unhandled outcomes.
+Chord-suffix typography and visibility flags, arbitrary notehead glyphs and
+explicit fills, formatting runs, performance-technique playback semantics,
+multiple rehearsal marks in one measure, separate displayed/playback metronome
+values, note-specific chord endpoints, custom/dashed/invisible lines, and tab
+slides remain explicit partial or unhandled outcomes.
