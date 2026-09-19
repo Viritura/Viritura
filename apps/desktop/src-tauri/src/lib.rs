@@ -6,6 +6,7 @@
 //! (here: in-process VST3 hosting for the Instrument Profiles Configure panel).
 
 mod mapper;
+mod notation_clipboard;
 mod playback_host;
 mod plugin_scan;
 mod profile_fs;
@@ -269,6 +270,8 @@ pub fn run() {
             vst_playback_preview,
             vst_soundfont_path,
             desktop_soundfont_bytes,
+            notation_clipboard::notation_clipboard_read,
+            notation_clipboard::notation_clipboard_write,
             profile_fs::profile_fs_read_text,
             profile_fs::profile_fs_write_text,
             profile_fs::profile_fs_read_binary,

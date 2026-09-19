@@ -12,8 +12,14 @@ import type {
   Space,
 } from "@viritura/core";
 import { generateId, measureBeats } from "@viritura/core";
-import { serializeFragment } from "../clipboard/serialize";
 import { deserializeFragment, assignFreshTrackIds } from "../clipboard/deserialize";
+import { looksLikeMuseScoreXml, readMuseScoreClipboard } from "@viritura/musescore-clipboard";
+import {
+  NotationClipboardError,
+  pasteResultFromMuseScore,
+  readNotationClipboard,
+  writeClipboardFragment,
+} from "../clipboard/notationClipboard";
 import type {
   CapturedMeasureRepeat,
   ClipboardTrack,
@@ -88,7 +94,7 @@ interface ClipboardCutLocation {
 
 /**
  * Copy selected events to the system clipboard.
- * Serializes the selection as a Viritura MNX fragment JSON string.
+ * Writes lossless Viritura JSON only; MuseScore export is disabled.
  */
 export async function copyToClipboard(selection: ClipboardSelection): Promise<boolean> {
   if (
@@ -99,23 +105,22 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
   )
     return false;
 
-  const json = serializeFragment(
-    selection.events,
-    selection.timeSignature,
-    selection.keySignature,
-    selection.tracks,
-    selection.clef,
-    selection.transposition,
-    selection.dynamics,
-    selection.measureRepeats,
-    selection.lyrics,
-    selection.chordSymbols,
-  );
-
   try {
-    await navigator.clipboard.writeText(json);
+    await writeClipboardFragment({
+      content: selection.events,
+      timeSignature: selection.timeSignature,
+      keySignature: selection.keySignature,
+      tracks: selection.tracks,
+      clef: selection.clef,
+      transposition: selection.transposition,
+      dynamics: selection.dynamics,
+      measureRepeats: selection.measureRepeats,
+      lyrics: selection.lyrics,
+      chordSymbols: selection.chordSymbols,
+    });
     return true;
-  } catch {
+  } catch (error) {
+    if (error instanceof NotationClipboardError && error.backend === "native") throw error;
     return false;
   }
 }
@@ -124,11 +129,18 @@ export async function copyToClipboard(selection: ClipboardSelection): Promise<bo
  * Cut selected events: copy to clipboard and return events replaced with rests.
  * The caller is responsible for applying the returned score mutation.
  */
-export async function cutToClipboard(selection: ClipboardSelection): Promise<CutResult | null> {
+export async function cutToClipboard(
+  selection: ClipboardSelection,
+  onWriteWarning?: (message: string) => void,
+): Promise<CutResult | null> {
   // System clipboard is best-effort. The editor's internal clipboard history
   // still receives the fragment, so a denied browser clipboard must not turn
   // Cut into a no-op.
-  await copyToClipboard(selection);
+  try {
+    await copyToClipboard(selection);
+  } catch (error) {
+    onWriteWarning?.(error instanceof Error ? error.message : "Could not copy to the system clipboard.");
+  }
 
   // Build rest replacements for each cut event
   const replacements: SequenceContent[] = selection.events.map((event) => ({
@@ -162,19 +174,34 @@ export interface CutResult {
 }
 
 /**
- * Read from the system clipboard and parse as a Viritura fragment.
- * Returns the deserialized content with fresh IDs, or null if invalid.
+ * Prefer Viritura JSON, then recognized MuseScore notation, assigning fresh IDs.
+ * Only unrelated text or unavailable reads permit clipboard-history fallback.
  */
-export async function pasteFromClipboard(): Promise<PasteResult | null> {
+export async function pasteFromClipboard(onWarning?: (message: string) => void): Promise<PasteResult | null> {
+  let clipboard;
   try {
-    const text = await navigator.clipboard.readText();
-    const fragment = deserializeFragment(text);
-    if (!fragment) return null;
-
-    return pasteResultFromFragment(fragment);
-  } catch {
-    return null;
+    clipboard = await readNotationClipboard();
+  } catch (error) {
+    if (error instanceof NotationClipboardError && error.canUseHistory) {
+      onWarning?.(error.message);
+      return null;
+    }
+    throw error;
   }
+  const fragment = deserializeFragment(clipboard.text);
+  if (fragment) return pasteResultFromFragment(fragment);
+  if (clipboard.museScore || looksLikeMuseScoreXml(clipboard.text)) {
+    const data = readMuseScoreClipboard(clipboard.museScore?.xml ?? clipboard.text, clipboard.museScore?.mime, {
+      unsupported: "skip",
+    });
+    if (data.diagnostics?.length) {
+      const messages = [...new Set(data.diagnostics.map((diagnostic) => diagnostic.message))];
+      const remaining = messages.length > 3 ? ` (+${messages.length - 3} more)` : "";
+      onWarning?.(`Skipped unsupported MuseScore notation: ${messages.slice(0, 3).join("; ")}${remaining}.`);
+    }
+    return pasteResultFromMuseScore(data);
+  }
+  return null;
 }
 
 export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResult {
@@ -182,6 +209,7 @@ export function pasteResultFromFragment(fragment: ClipboardFragment): PasteResul
     ...assignFreshTrackIds(fragment.content, fragment.tracks),
     sourceTimeSignature: fragment.timeSignature,
     sourceKeySignature: fragment.keySignature,
+    transposition: fragment.transposition ? structuredClone(fragment.transposition) : undefined,
     dynamics: fragment.dynamics,
     chordSymbols: fragment.chordSymbols,
     measureRepeats: fragment.measureRepeats,
@@ -194,9 +222,11 @@ export interface PasteResult {
   /** Events to insert, with fresh IDs assigned (primary track) */
   content: SequenceContent[];
   /** Time signature from the source context */
-  sourceTimeSignature: TimeSignature;
+  sourceTimeSignature?: TimeSignature;
   /** Key signature from the source context */
-  sourceKeySignature: KeySignature;
+  sourceKeySignature?: KeySignature;
+  /** Source metadata; imported note pitches are already sounding pitches. */
+  transposition?: Transposition;
   /** Dynamics captured at copy time, to be replayed at the paste site */
   dynamics?: CapturedDynamic[];
   chordSymbols?: CapturedChordSymbol[];

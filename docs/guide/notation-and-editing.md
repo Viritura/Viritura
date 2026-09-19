@@ -99,6 +99,19 @@ Copy and paste use MNX-aware score fragments rather than pixels. The
 **History** tab in the left panel retains recent copied fragments and shows a
 musical preview, making it useful when reusing several passages.
 
+> [!NOTE]
+> **Availability: MuseScore paste in the Windows desktop app**
+>
+> Copy a passage in MuseScore, select its destination in Viritura, then press
+> `Ctrl+V`. Supported notation is imported; unsupported markings are skipped
+> where safe, with a warning explaining what was omitted. Include both ends of
+> ties, slurs, and hairpins when copying. Invalid data or uncertain timing stops
+> the paste rather than risking incorrect rhythms.
+>
+> Direct MuseScore clipboard paste is not available in the browser or on other
+> desktop platforms. Copying from Viritura back into MuseScore is currently
+> disabled; copying and pasting within Viritura still works normally.
+
 ## Jump bar
 
 Press `Mod+Space` to open the jump bar. It can:
