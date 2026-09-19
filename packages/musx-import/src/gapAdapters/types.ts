@@ -69,6 +69,44 @@ interface SmartShapePayload {
   trillLine?: { includesTrSymbol: boolean; line?: GeneralLinePayload };
 }
 
+interface ChordPitchPayload {
+  step: string;
+  alteration: number;
+}
+
+interface ChordSuffixPayload {
+  strings: Array<{ text: string; position: "inline" | "above" | "below" }>;
+  suffixText: string;
+  degrees: Array<{
+    value: number;
+    alteration: number;
+    type: "add" | "remove" | "alter";
+    impliedByText: boolean;
+  }>;
+  parenthesizeDegrees: boolean;
+  stackDegrees: boolean;
+  hasOuterParentheses: boolean;
+  hasUnrecognizedGlyphs: boolean;
+  quality?: string;
+}
+
+export interface ChordPayload {
+  root: ChordPitchPayload;
+  rootLowerCase: boolean;
+  showRoot: boolean;
+  showSuffix: boolean;
+  suffix: ChordSuffixPayload;
+  bass?: ChordPitchPayload;
+  bassLowerCase?: boolean;
+  bassArrangement?: "horizontal" | "vertical" | "diagonal";
+}
+
+export interface NoteheadPayload {
+  shape: string;
+  fill: "unspecified" | "filled" | "unfilled";
+  glyph?: string;
+}
+
 export interface KnownExpressionGap extends DenigmaGap {
   type: "expression";
   expression: ExpressionPayload;
@@ -77,6 +115,16 @@ export interface KnownExpressionGap extends DenigmaGap {
 export interface KnownSmartShapeGap extends DenigmaGap {
   type: "smart-shape";
   smartShape: SmartShapePayload;
+}
+
+export interface KnownChordGap extends DenigmaGap {
+  type: "chord-symbol";
+  chord: ChordPayload;
+}
+
+export interface KnownNoteheadGap extends DenigmaGap {
+  type: "notehead";
+  notehead: NoteheadPayload;
 }
 
 export function isRecord(value: unknown): value is JsonRecord {
@@ -129,4 +177,79 @@ export function isSmartShapeGap(gap: DenigmaGap): gap is KnownSmartShapeGap {
     return isRecord(smartShape["trillLine"]) && typeof smartShape["trillLine"]["includesTrSymbol"] === "boolean";
   }
   return true;
+}
+
+function isChordPitch(value: unknown): value is ChordPitchPayload {
+  return (
+    isRecord(value) &&
+    typeof value["step"] === "string" &&
+    typeof value["alteration"] === "number" &&
+    Number.isInteger(value["alteration"])
+  );
+}
+
+function isChordString(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value["text"] === "string" &&
+    (value["position"] === "inline" || value["position"] === "above" || value["position"] === "below")
+  );
+}
+
+function isChordDegree(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value["value"] === "number" &&
+    Number.isInteger(value["value"]) &&
+    typeof value["alteration"] === "number" &&
+    Number.isInteger(value["alteration"]) &&
+    (value["type"] === "add" || value["type"] === "remove" || value["type"] === "alter") &&
+    typeof value["impliedByText"] === "boolean"
+  );
+}
+
+function isChordSuffix(value: unknown): value is ChordSuffixPayload {
+  return (
+    isRecord(value) &&
+    Array.isArray(value["strings"]) &&
+    value["strings"].every(isChordString) &&
+    typeof value["suffixText"] === "string" &&
+    Array.isArray(value["degrees"]) &&
+    value["degrees"].every(isChordDegree) &&
+    typeof value["parenthesizeDegrees"] === "boolean" &&
+    typeof value["stackDegrees"] === "boolean" &&
+    typeof value["hasOuterParentheses"] === "boolean" &&
+    typeof value["hasUnrecognizedGlyphs"] === "boolean" &&
+    (value["quality"] === undefined || typeof value["quality"] === "string")
+  );
+}
+
+export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
+  if (gap.type !== "chord-symbol" || !isRecord(gap["chord"])) return false;
+  const chord = gap["chord"];
+  return (
+    isChordPitch(chord["root"]) &&
+    typeof chord["rootLowerCase"] === "boolean" &&
+    typeof chord["showRoot"] === "boolean" &&
+    typeof chord["showSuffix"] === "boolean" &&
+    isChordSuffix(chord["suffix"]) &&
+    (chord["bass"] === undefined || isChordPitch(chord["bass"])) &&
+    (chord["bassLowerCase"] === undefined || typeof chord["bassLowerCase"] === "boolean") &&
+    (chord["bassArrangement"] === undefined ||
+      chord["bassArrangement"] === "horizontal" ||
+      chord["bassArrangement"] === "vertical" ||
+      chord["bassArrangement"] === "diagonal")
+  );
+}
+
+export function isNoteheadGap(gap: DenigmaGap): gap is KnownNoteheadGap {
+  return (
+    gap.type === "notehead" &&
+    isRecord(gap["notehead"]) &&
+    typeof gap["notehead"]["shape"] === "string" &&
+    (gap["notehead"]["fill"] === "unspecified" ||
+      gap["notehead"]["fill"] === "filled" ||
+      gap["notehead"]["fill"] === "unfilled") &&
+    (gap["notehead"]["glyph"] === undefined || typeof gap["notehead"]["glyph"] === "string")
+  );
 }

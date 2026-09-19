@@ -74,6 +74,21 @@ function firstEvent(value: unknown): JsonRecord {
   return sequence["content"][0];
 }
 
+function noteAt(value: unknown, eventIndex: number): JsonRecord {
+  if (!isRecord(value) || !Array.isArray(value["parts"])) throw new Error("Expected parts.");
+  const part = value["parts"][0];
+  if (!isRecord(part) || !Array.isArray(part["measures"])) throw new Error("Expected measures.");
+  const measure = part["measures"][0];
+  if (!isRecord(measure) || !Array.isArray(measure["sequences"])) throw new Error("Expected sequences.");
+  const sequence = measure["sequences"][0];
+  if (!isRecord(sequence) || !Array.isArray(sequence["content"])) throw new Error("Expected content.");
+  const event = sequence["content"][eventIndex];
+  if (!isRecord(event) || !Array.isArray(event["notes"]) || !isRecord(event["notes"][0])) {
+    throw new Error("Expected pitched note.");
+  }
+  return event["notes"][0];
+}
+
 function viritura(owner: JsonRecord): JsonRecord {
   const extensions = owner["_x"];
   if (!isRecord(extensions) || !isRecord(extensions["viritura"])) {
@@ -147,6 +162,202 @@ describe("applyDenigmaGapReport", () => {
     const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
     expect(viritura(parsed.global.measures[0]!)["rehearsalMark"]).toEqual({ text: "A" });
     expect(result.outcomes[1]?.disposition).toBe("handled-partially");
+  });
+
+  it("preserves ordinary chord semantics and flattens rich suffix typography", () => {
+    const simple: DenigmaGap = {
+      anchor: "P1.m1",
+      position: { numerator: 0, denominator: 1 },
+      extent: "complete",
+      type: "chord-symbol",
+      chord: {
+        root: { step: "C", alteration: 0 },
+        rootLowerCase: false,
+        showRoot: true,
+        showSuffix: true,
+        suffix: {
+          strings: [{ text: "maj7", position: "inline" }],
+          suffixText: "maj7",
+          degrees: [],
+          parenthesizeDegrees: false,
+          stackDegrees: false,
+          hasOuterParentheses: false,
+          hasUnrecognizedGlyphs: false,
+          quality: "major-seventh",
+        },
+      },
+    };
+    const rich: DenigmaGap = {
+      anchor: "P1.m1",
+      position: { numerator: 1, denominator: 2 },
+      extent: "complete",
+      type: "chord-symbol",
+      chord: {
+        root: { step: "G", alteration: -1 },
+        rootLowerCase: false,
+        showRoot: true,
+        showSuffix: true,
+        suffix: {
+          strings: [
+            { text: "(", position: "inline" },
+            { text: "add9", position: "above" },
+            { text: "omit3)", position: "inline" },
+          ],
+          suffixText: "(add9omit3)",
+          degrees: [
+            { value: 9, alteration: 0, type: "add", impliedByText: false },
+            { value: 3, alteration: 0, type: "remove", impliedByText: false },
+          ],
+          parenthesizeDegrees: true,
+          stackDegrees: true,
+          hasOuterParentheses: true,
+          hasUnrecognizedGlyphs: false,
+          quality: "major",
+        },
+      },
+    };
+
+    const result = apply([simple, rich]);
+    const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: JsonRecord[] }> };
+    expect(viritura(parsed.parts[0]!.measures[0]!)["chordSymbols"]).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        quality: "major",
+        kindText: "maj7",
+        extension: 7,
+      },
+      {
+        position: { fraction: [1, 2] },
+        root: { step: "G", alter: -1 },
+        quality: "major",
+        kindText: "(add9omit3)",
+        textOverride: "Gb(add9omit3)",
+      },
+    ]);
+    expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled-partially"]);
+  });
+
+  it("preserves power-chord semantics and distinct staff occurrences", () => {
+    const powerChord = (staff: number): DenigmaGap => ({
+      anchor: "P1.m1",
+      staff,
+      position: { numerator: 0, denominator: 1 },
+      extent: "complete",
+      type: "chord-symbol",
+      chord: {
+        root: { step: "A", alteration: 0 },
+        rootLowerCase: false,
+        showRoot: true,
+        showSuffix: true,
+        suffix: {
+          strings: [{ text: "5", position: "inline" }],
+          suffixText: "5",
+          degrees: [],
+          parenthesizeDegrees: false,
+          stackDegrees: false,
+          hasOuterParentheses: false,
+          hasUnrecognizedGlyphs: false,
+          quality: "power",
+        },
+      },
+    });
+
+    const result = apply([powerChord(1), powerChord(2)]);
+    const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: JsonRecord[] }> };
+
+    expect(viritura(parsed.parts[0]!.measures[0]!)["chordSymbols"]).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 1,
+        root: { step: "A" },
+        quality: "power",
+        kindText: "5",
+      },
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 2,
+        root: { step: "A" },
+        quality: "power",
+        kindText: "5",
+      },
+    ]);
+    expect(result.outcomes.every((entry) => entry.disposition === "handled")).toBe(true);
+  });
+
+  it("rejects malformed nested chord payloads without throwing", () => {
+    const result = apply([
+      {
+        anchor: "P1.m1",
+        position: { numerator: 0, denominator: 1 },
+        extent: "complete",
+        type: "chord-symbol",
+        chord: {
+          root: { step: "C", alteration: 0 },
+          rootLowerCase: false,
+          showRoot: true,
+          showSuffix: true,
+          suffix: {
+            strings: [null],
+            suffixText: "7",
+            degrees: [],
+            parenthesizeDegrees: false,
+            stackDegrees: false,
+            hasOuterParentheses: false,
+            hasUnrecognizedGlyphs: false,
+            quality: "dominant",
+          },
+        },
+      },
+    ]);
+
+    expect(result.outcomes[0]?.disposition).toBe("unhandled");
+  });
+
+  it("maps recognized per-note noteheads and leaves unsupported glyphs explicit", () => {
+    const result = apply([
+      {
+        anchor: "ev1n1",
+        extent: "complete",
+        type: "notehead",
+        notehead: { shape: "x", fill: "unspecified", glyph: "noteheadXBlack" },
+      },
+      {
+        anchor: "ev2n1",
+        extent: "complete",
+        type: "notehead",
+        notehead: { shape: "other", fill: "filled", glyph: "noteheadTriangleUpBlack" },
+      },
+      {
+        anchor: "ev3n1",
+        extent: "complete",
+        type: "notehead",
+        notehead: { shape: "other", fill: "unspecified", glyph: "noteheadSquareBlack" },
+      },
+      {
+        anchor: "ev3n1",
+        extent: "complete",
+        type: "notehead",
+        notehead: { shape: "other", fill: "filled", glyph: "noteheadDiamondClusterBlack2nd" },
+      },
+      {
+        anchor: "ev3n1",
+        extent: "complete",
+        type: "notehead",
+        notehead: { shape: "other", fill: "filled", glyph: "noteheadSlashX" },
+      },
+    ]);
+
+    expect(viritura(noteAt(result.document, 0))["notehead"]).toBe("x");
+    expect(viritura(noteAt(result.document, 1))["notehead"]).toBe("triangleUp");
+    expect(noteAt(result.document, 2)["_x"]).toBeUndefined();
+    expect(result.outcomes.map((entry) => entry.disposition)).toEqual([
+      "handled",
+      "handled-partially",
+      "unhandled",
+      "unhandled",
+      "unhandled",
+    ]);
   });
 
   it("decorates visible and playback-only standard tempo objects", () => {

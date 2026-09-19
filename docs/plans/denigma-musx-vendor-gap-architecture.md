@@ -688,6 +688,7 @@ The quoted requests below are retained as the historical starting point:
 ### Step 2: Viritura gap conversions
 
 - [x] Add a schema-versioned shim registry and target-ID index.
+- [x] Preserve chord-symbol semantics and recognized per-note notehead families.
 - [x] Implement plain expressive text and performance instructions as text
       expressions.
 - [x] Preserve rehearsal marks and tempo text/display behavior by decorating
@@ -711,9 +712,9 @@ The quoted requests below are retained as the historical starting point:
       CI.
 - [x] When `pnpm build:denigma-wasm` updates the pinned converter, use the fixtures
       from that exact checkout for a focused WebAssembly acceptance corpus:
-      `slurs_2staves.musx`, `techniques.musx`, `rehearsal_marks.musx`,
-      `tempo_varied_staves.musx`, `glissando.musx`, and
-      `smartshape_lines.musx`.
+      `chords.musx`, `note_shapes.musx`, `slurs_2staves.musx`,
+      `techniques.musx`, `rehearsal_marks.musx`, `tempo_varied_staves.musx`,
+      `glissando.musx`, and `smartshape_lines.musx`.
 - [x] Assert only Viritura's external contract: schema version, representative gap
       discriminators, resolvable anchors, and required payload fields. Do not copy
       Denigma's complete golden snapshots or classification tests.

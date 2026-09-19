@@ -61,6 +61,8 @@ if (!expectedCommit.startsWith(actualCommit)) {
 }
 
 const CASES: AcceptanceCase[] = [
+  { file: "chords.musx", gaps: [{ type: "chord-symbol", subtype: "chord-symbol" }] },
+  { file: "note_shapes.musx", gaps: [{ type: "notehead", subtype: "regular" }] },
   { file: "slurs_2staves.musx", gaps: [] },
   { file: "techniques.musx", gaps: [{ type: "expression", subtype: "technique-text" }] },
   { file: "rehearsal_marks.musx", gaps: [{ type: "expression", subtype: "rehearsal-mark" }] },
@@ -77,6 +79,16 @@ const CASES: AcceptanceCase[] = [
 ];
 
 function gapSubtype(gap: DenigmaGap): string | undefined {
+  if (gap.type === "chord-symbol") return "chord-symbol";
+  if (gap.type === "notehead") {
+    const notehead = gap["notehead"];
+    return typeof notehead === "object" &&
+      notehead !== null &&
+      !Array.isArray(notehead) &&
+      typeof notehead["shape"] === "string"
+      ? notehead["shape"]
+      : undefined;
+  }
   const payload = gap.type === "expression" ? gap["expression"] : gap["smartShape"];
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return undefined;
   const key = gap.type === "expression" ? "type" : "shapeType";
