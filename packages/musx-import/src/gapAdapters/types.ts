@@ -180,7 +180,48 @@ export function isSmartShapeGap(gap: DenigmaGap): gap is KnownSmartShapeGap {
 }
 
 function isChordPitch(value: unknown): value is ChordPitchPayload {
-  return isRecord(value) && typeof value["step"] === "string" && typeof value["alteration"] === "number";
+  return (
+    isRecord(value) &&
+    typeof value["step"] === "string" &&
+    typeof value["alteration"] === "number" &&
+    Number.isInteger(value["alteration"])
+  );
+}
+
+function isChordString(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value["text"] === "string" &&
+    (value["position"] === "inline" || value["position"] === "above" || value["position"] === "below")
+  );
+}
+
+function isChordDegree(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value["value"] === "number" &&
+    Number.isInteger(value["value"]) &&
+    typeof value["alteration"] === "number" &&
+    Number.isInteger(value["alteration"]) &&
+    (value["type"] === "add" || value["type"] === "remove" || value["type"] === "alter") &&
+    typeof value["impliedByText"] === "boolean"
+  );
+}
+
+function isChordSuffix(value: unknown): value is ChordSuffixPayload {
+  return (
+    isRecord(value) &&
+    Array.isArray(value["strings"]) &&
+    value["strings"].every(isChordString) &&
+    typeof value["suffixText"] === "string" &&
+    Array.isArray(value["degrees"]) &&
+    value["degrees"].every(isChordDegree) &&
+    typeof value["parenthesizeDegrees"] === "boolean" &&
+    typeof value["stackDegrees"] === "boolean" &&
+    typeof value["hasOuterParentheses"] === "boolean" &&
+    typeof value["hasUnrecognizedGlyphs"] === "boolean" &&
+    (value["quality"] === undefined || typeof value["quality"] === "string")
+  );
 }
 
 export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
@@ -191,15 +232,13 @@ export function isChordGap(gap: DenigmaGap): gap is KnownChordGap {
     typeof chord["rootLowerCase"] === "boolean" &&
     typeof chord["showRoot"] === "boolean" &&
     typeof chord["showSuffix"] === "boolean" &&
-    isRecord(chord["suffix"]) &&
-    Array.isArray(chord["suffix"]["strings"]) &&
-    typeof chord["suffix"]["suffixText"] === "string" &&
-    Array.isArray(chord["suffix"]["degrees"]) &&
-    typeof chord["suffix"]["parenthesizeDegrees"] === "boolean" &&
-    typeof chord["suffix"]["stackDegrees"] === "boolean" &&
-    typeof chord["suffix"]["hasOuterParentheses"] === "boolean" &&
-    typeof chord["suffix"]["hasUnrecognizedGlyphs"] === "boolean" &&
-    (chord["bass"] === undefined || isChordPitch(chord["bass"]))
+    isChordSuffix(chord["suffix"]) &&
+    (chord["bass"] === undefined || isChordPitch(chord["bass"])) &&
+    (chord["bassLowerCase"] === undefined || typeof chord["bassLowerCase"] === "boolean") &&
+    (chord["bassArrangement"] === undefined ||
+      chord["bassArrangement"] === "horizontal" ||
+      chord["bassArrangement"] === "vertical" ||
+      chord["bassArrangement"] === "diagonal")
   );
 }
 

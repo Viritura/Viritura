@@ -69,8 +69,25 @@ const CHORD_QUALITY_MAP: Readonly<Record<string, ChordMapping>> = {
   "dominant-13th": { quality: "dominant", extension: 13 },
   "major-13th": { quality: "major", extension: 13 },
   "minor-13th": { quality: "minor", extension: 13 },
+  power: { quality: "power" },
   "suspended-second": { quality: "suspended2" },
   "suspended-fourth": { quality: "suspended4" },
+};
+
+const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangleUp" | "triangleDown">> = {
+  noteheadCircleX: "circleX",
+  noteheadCircleXBlack: "circleX",
+  noteheadCircleXHalf: "circleX",
+  noteheadCircleXWhole: "circleX",
+  noteheadCircleXDoubleWhole: "circleX",
+  noteheadTriangleUpBlack: "triangleUp",
+  noteheadTriangleUpHalf: "triangleUp",
+  noteheadTriangleUpWhole: "triangleUp",
+  noteheadTriangleUpDoubleWhole: "triangleUp",
+  noteheadTriangleDownBlack: "triangleDown",
+  noteheadTriangleDownHalf: "triangleDown",
+  noteheadTriangleDownWhole: "triangleDown",
+  noteheadTriangleDownDoubleWhole: "triangleDown",
 };
 
 function chordPitch(pitch: ChordPayload["root"]): JsonRecord | undefined {
@@ -110,6 +127,21 @@ function hasComplexChordPresentation(chord: ChordPayload, mapping: ChordMapping 
     chord.suffix.hasUnrecognizedGlyphs ||
     (chord.bassArrangement !== undefined && chord.bassArrangement !== "horizontal")
   );
+}
+
+function sameChordSymbol(candidate: unknown, chord: JsonRecord): boolean {
+  if (!isRecord(candidate)) return false;
+  const keys = [
+    "position",
+    "displayStaff",
+    "root",
+    "quality",
+    "kindText",
+    "bass",
+    "extension",
+    "textOverride",
+  ] as const;
+  return keys.every((key) => JSON.stringify(candidate[key]) === JSON.stringify(chord[key]));
 }
 
 function tempoDisplayText(expression: ExpressionPayload): string | undefined {
@@ -442,12 +474,7 @@ function applyChordSymbolGap(gap: DenigmaGap, index: TargetIndex): GapApplicatio
 
   const extensions = ensureViritura(target.partMeasure);
   const chordSymbols = ensureArrayProperty(extensions, "chordSymbols");
-  const duplicate = chordSymbols.some(
-    (candidate) =>
-      isRecord(candidate) &&
-      JSON.stringify(candidate["position"]) === JSON.stringify(chordSymbol["position"]) &&
-      JSON.stringify(candidate["root"]) === JSON.stringify(root),
-  );
+  const duplicate = chordSymbols.some((candidate) => sameChordSymbol(candidate, chordSymbol));
   if (!duplicate) chordSymbols.push(chordSymbol);
 
   return outcome(
@@ -473,26 +500,10 @@ function noteheadShape(payload: NoteheadPayload): {
     case "large-slash":
       return { shape: "slash", reason: "Collapsed Finale's small/large slash distinction." };
     case "other": {
-      const glyph = payload.glyph?.toLowerCase() ?? "";
-      if (glyph.includes("triangleup")) {
-        return { shape: "triangleUp", reason: "Mapped a recognized source glyph to Viritura's triangle-up shape." };
-      }
-      if (glyph.includes("triangledown")) {
-        return { shape: "triangleDown", reason: "Mapped a recognized source glyph to Viritura's triangle-down shape." };
-      }
-      if (glyph.includes("circlex")) {
-        return { shape: "circleX", reason: "Mapped a recognized source glyph to Viritura's circle-X shape." };
-      }
-      if (glyph.includes("diamond")) {
-        return { shape: "diamond", reason: "Mapped a recognized source glyph to Viritura's diamond shape." };
-      }
-      if (glyph.includes("slash")) {
-        return { shape: "slash", reason: "Mapped a recognized source glyph to Viritura's slash shape." };
-      }
-      if (glyph.includes("noteheadx")) {
-        return { shape: "x", reason: "Mapped a recognized source glyph to Viritura's X shape." };
-      }
-      return {};
+      const shape = payload.glyph ? NOTEHEAD_GLYPH_MAP[payload.glyph] : undefined;
+      return shape
+        ? { shape, reason: `Mapped the recognized ${payload.glyph} glyph to Viritura's ${shape} shape.` }
+        : {};
     }
     default:
       return {};
