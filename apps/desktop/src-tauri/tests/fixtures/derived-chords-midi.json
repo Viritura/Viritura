@@ -1,0 +1,82 @@
+[
+  {
+    "atSeconds": 0,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:0:36",
+    "channel": 0,
+    "note": 36,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 0,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:0:60",
+    "channel": 0,
+    "note": 60,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 0,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:0:64",
+    "channel": 0,
+    "note": 64,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 0,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:0:67",
+    "channel": 0,
+    "note": 67,
+    "velocity": 80
+  },
+  { "atSeconds": 2, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:0:36" },
+  { "atSeconds": 2, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:0:60" },
+  { "atSeconds": 2, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:0:64" },
+  { "atSeconds": 2, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:0:67" },
+  {
+    "atSeconds": 2,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:1:36",
+    "channel": 0,
+    "note": 36,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 2,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:1:60",
+    "channel": 0,
+    "note": 60,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 2,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:1:64",
+    "channel": 0,
+    "note": 64,
+    "velocity": 80
+  },
+  {
+    "atSeconds": 2,
+    "part": 1,
+    "type": "note_on",
+    "note_id": "viritura:derived:chords:1:67",
+    "channel": 0,
+    "note": 67,
+    "velocity": 80
+  },
+  { "atSeconds": 4, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:1:36" },
+  { "atSeconds": 4, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:1:60" },
+  { "atSeconds": 4, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:1:64" },
+  { "atSeconds": 4, "part": 1, "type": "note_off", "note_id": "viritura:derived:chords:1:67" }
+]

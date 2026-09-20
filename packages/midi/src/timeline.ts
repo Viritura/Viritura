@@ -39,6 +39,7 @@ import type {
 import { pitchToMidi, isRest, DURATION_BEATS, SHARP_ORDER, FLAT_ORDER } from "@viritura/core";
 import { detectToCodaMeasureIndex, expandMeasureOrder } from "./repeatExpansion";
 import { expandScoreMeasureRepeats } from "./measureRepeats";
+import { compileChordPlayback, chordMidiEvents } from "./chordPlayback";
 import { analyzeImpliedSectionDynamics, type ImpliedSectionDynamicAnchor } from "./sectionDynamics";
 import { buildHoldSchedule, type HoldSchedule, type MeasureHold } from "./holds";
 import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
@@ -63,7 +64,7 @@ function kitNoteToMidi(kn: KitNote, kitMidiMap: ReadonlyMap<string, number>): nu
   return kitMidiMap.get(kn.kitComponent) ?? -1;
 }
 import type { MidiEvent, MidiTimeline, TempoMapEntry, TimelineDiagnostic } from "./types";
-import { buildTempoMap, buildTempoModel, measureBeatsFromTime, DEFAULT_BPM } from "./tempoMap";
+import { buildTempoMap, buildTempoModel } from "./tempoMap";
 import { TempoModel } from "./tempoModel";
 import {
   applyArticulationVelocity,
@@ -108,6 +109,10 @@ export function fractionToBeats(frac: readonly [number, number]): number {
 export interface TimelineOptions {
   /** GM program number per part index (used for tremolo sound selection). */
   partPrograms?: number[];
+  /** Include the global derived Chords stream (default true). Full-score and
+   *  current-part extracts include it. Explicit selected-instrument callers
+   *  must pass false unless the entire visible score is selected. */
+  includeGlobalChords?: boolean;
 }
 
 /**
@@ -220,6 +225,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     return emptyTimeline();
   }
 
+  const chords = compileChordPlayback(score, options?.includeGlobalChords);
   // Step 1: Expand repeats/jumps into linear measure order
   const toCodaMeasureIndex = detectToCodaMeasureIndex(score);
   const measureOrder = expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
@@ -240,7 +246,8 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   // through sub-bar tempo changes / holds. The legacy `tempoMap` entry array is
   // kept for UI, dynamics, and the score-engine consumers.
   const { tempoMap } = buildTempoMap(expandedGlobal, holdSchedule);
-  const { model, measureStartTimes, measureStartBeats } = buildTempoModel(expandedGlobal, holdSchedule);
+  const tempoBuild = buildTempoModel(expandedGlobal, holdSchedule);
+  const { model, measureStartTimes, measureStartBeats } = tempoBuild;
   const timing: TimelineTiming = { tempoMap, measureStartTimes, model, measureStartBeats };
 
   // Step 3: For each part, generate MIDI events
@@ -262,6 +269,9 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     );
   }
 
+  if (chords) {
+    for (const event of chordMidiEvents(chords, measureOrder, tempoBuild)) allEvents.push(event);
+  }
   const diagnostics = assignPhysicalMidiChannels(allEvents, score);
 
   // Step 4: Sort by time, then noteOff before programChange before noteOn at same time
@@ -274,11 +284,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     return a.midiNote - b.midiNote;
   });
 
-  // Calculate total duration from last measure
-  const lastExpandedIdx = measureOrder.length - 1;
-  const lastMeasureBeats = measureBeatsFromTime(expandedGlobal[lastExpandedIdx]!.time ?? { count: 4, unit: 4 });
-  const lastTempoQpm = tempoMap.length > 0 ? tempoMap[tempoMap.length - 1]!.bpm : DEFAULT_BPM;
-  const duration = measureStartTimes[lastExpandedIdx]! + lastMeasureBeats * (60 / lastTempoQpm);
+  const duration = model.timeAtBeat(tempoBuild.totalBeats);
 
   // Active time signature per expanded measure (for the metronome click grid).
   const measureTimeSignatures = measureOrder.map((origIdx) => {

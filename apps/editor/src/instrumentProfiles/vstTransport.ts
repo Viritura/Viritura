@@ -13,9 +13,9 @@
  * and imports Tauri lazily so the web bundle never eagerly loads it.
  */
 
-import type { Score } from "@viritura/core";
+import { CHORDS_PART_ID, type Score } from "@viritura/core";
 import type { Sf2PartAssignment, VstPartAssignment, VstPreparePlan, VstTransport } from "@viritura/playback";
-import { generatePerformanceEvents } from "@viritura/midi";
+import { generatePerformanceEvents, getChordPlaybackPart } from "@viritura/midi";
 import type { SlotBinding, ProfileSlot, VstInstrumentProfile } from "@viritura/instrument-profiles";
 import { isDesktopHost } from "./profileHostBridge";
 import { readInstrumentProfileState, useInstrumentProfileStore } from "./instrumentProfileStore";
@@ -158,6 +158,7 @@ interface DesiredMixer {
 
 interface DesktopVstTransport extends VstTransport {
   setPartPan(partIndex: number, pan: number): Promise<void>;
+  previewChord(partIndex: number, notes: readonly number[], velocity: number, durationMs: number): Promise<boolean>;
 }
 
 /** A shared VST slot has one output strip: the last change to each control wins. */
@@ -496,6 +497,8 @@ async function buildVstSlots(
 ): Promise<void> {
   const profiles = useInstrumentProfileStore.getState().profiles;
   for (const { partIndex, vst } of parts) {
+    // Derived lanes never inherit a score's VST assignment.
+    if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= score.parts.length) continue;
     const slot = findSlot(profiles, vst.hostProfileId, vst.instrumentSlot);
     const binding = slot?.binding;
     // A partially-configured slot can't be hosted: leave the part on SF2 (§3.8).
@@ -537,14 +540,22 @@ async function buildSf2Slots(
 ): Promise<void> {
   if (parts.length === 0) return;
   const fontPath = await soundfontPath();
+  const chords = getChordPlaybackPart(score);
   for (const { partIndex, program, isDrum } of parts) {
+    const isChords = partIndex === chords?.partIndex;
+    if (!Number.isInteger(partIndex) || partIndex < 0 || (partIndex >= score.parts.length && !isChords)) continue;
     const events = sf2Schedule(score, partIndex);
-    const slotKey = `sf2:${partIndex}`;
+    const slotKey = isChords ? CHORDS_PART_ID : `sf2:${partIndex}`;
     builds.set(slotKey, {
       slotKey,
-      label: score.parts[partIndex]?.name || `Part ${partIndex + 1}`,
+      label: isChords ? "Chords" : score.parts[partIndex]?.name || `Part ${partIndex + 1}`,
       reverbSend,
-      source: { kind: "sf2", soundfontPath: fontPath, program, isDrum },
+      source: {
+        kind: "sf2",
+        soundfontPath: fontPath,
+        program: isChords ? 0 : program,
+        isDrum: isChords ? false : isDrum,
+      },
       events,
       partSigs: [signature(JSON.stringify(events))],
     });
@@ -628,10 +639,19 @@ export function createVstTransport(): DesktopVstTransport | undefined {
       if (!slotKey) return false;
       await tauriInvoke("vst_playback_preview", {
         slotKey,
+        partIndex,
         note,
         velocity,
         durationMs,
       });
+      return true;
+    },
+    async previewChord(partIndex, notes, velocity, durationMs) {
+      if (mixer.mutedParts.has(partIndex)) return true;
+      const slotKey = ownedSlotByPart.get(partIndex);
+      if (slotKey !== CHORDS_PART_ID) return false;
+      if (notes.length === 0) return true;
+      await tauriInvoke("vst_playback_preview_chord", { slotKey, partIndex, notes: [...notes], velocity, durationMs });
       return true;
     },
     async setMutedParts(parts) {

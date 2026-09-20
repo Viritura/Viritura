@@ -26,8 +26,9 @@ use crate::mapper::{MidiMessage, ScheduledMidi};
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PartScheduledMidi {
-    /// Index of the source part within `score.parts`. Matches the mixer's channel
-    /// index, so a muted mixer channel maps directly to a muted part here.
+    /// Runtime playback lane index, usually the source index within `score.parts`.
+    /// Derived lanes may use extra indices such as `score.parts.length`; the same
+    /// index identifies the lane in the host's per-part mute set.
     #[serde(default)]
     pub part: u32,
     #[serde(flatten)]
@@ -367,6 +368,92 @@ mod tests {
         for (on, off) in [(0, 4), (1, 5), (2, 3)] {
             assert_eq!(resolved[on].note_id, resolved[off].note_id);
             assert_eq!(resolved[on].note_off_at, Some(resolved[off].at_seconds));
+        }
+    }
+
+    #[test]
+    fn derived_chord_lane_reused_ids_pair_fifo_independently_of_authored_parts() {
+        // A score with 33 authored parts appends its runtime chord lane at 33.
+        let chord_part = 33;
+        let mut raw = Vec::new();
+        for (part_index, start, end, channel, pitches) in [
+            (chord_part, 0.0, 2.0, 1, [60, 64, 67]),
+            (32, 0.25, 0.75, 0, [48, 52, 55]),
+            (chord_part, 1.0, 3.0, 2, [62, 65, 69]),
+            // A repeat visit reuses the original chord's mapper IDs.
+            (chord_part, 4.0, 5.0, 1, [60, 64, 67]),
+        ] {
+            for (voice, pitch) in pitches.into_iter().enumerate() {
+                let id = format!("chord-voice-{voice}");
+                raw.push(PartScheduledMidi {
+                    part: part_index,
+                    ..note_on(start, &id, channel, pitch, 100)
+                });
+                raw.push(PartScheduledMidi {
+                    part: part_index,
+                    ..note_off(end, &id)
+                });
+            }
+        }
+        raw.reverse();
+        let resolved = resolve_schedule(&raw);
+        assert_eq!(resolved.len(), 24, "every attack and release must survive");
+        let mut identities = std::collections::HashSet::new();
+        for attack in &resolved {
+            let ResolvedMidi::NoteOn { channel, note, .. } = attack.midi else {
+                continue;
+            };
+            let identity = attack.note_id.expect("each attack has an identity");
+            assert!(identities.insert(identity.0), "each visit is independent");
+            let end = match attack.at_seconds {
+                0.0 => 2.0,
+                0.25 => 0.75,
+                1.0 => 3.0,
+                4.0 => 5.0,
+                _ => unreachable!(),
+            };
+            assert_eq!(attack.note_off_at, Some(end));
+            let releases: Vec<_> = resolved
+                .iter()
+                .filter(|event| {
+                    event.note_id == Some(identity)
+                        && matches!(event.midi, ResolvedMidi::NoteOff { .. })
+                })
+                .collect();
+            assert_eq!(releases.len(), 1);
+            assert_eq!(releases[0].part, attack.part);
+            assert_eq!(releases[0].at_seconds, end);
+            assert_eq!(releases[0].midi, ResolvedMidi::NoteOff { channel, note });
+        }
+        assert_eq!(identities.len(), 12);
+        for (time, channel, pitches) in [
+            (2.5, 2, vec![62, 65, 69]),
+            (3.5, 1, vec![]),
+            (4.5, 1, vec![60, 64, 67]),
+            (5.5, 1, vec![]),
+        ] {
+            let plan = plan_seek(&resolved, time);
+            assert!(plan.held_notes.iter().all(|note| note.part == chord_part));
+            let mut actual: Vec<_> = plan.held_notes.iter().map(|note| note.midi).collect();
+            actual.sort_by_key(|midi| match midi {
+                ResolvedMidi::NoteOn { note, .. } => *note,
+                _ => unreachable!(),
+            });
+            assert_eq!(
+                actual,
+                pitches
+                    .into_iter()
+                    .map(|note| ResolvedMidi::NoteOn {
+                        channel,
+                        note,
+                        velocity: 100,
+                    })
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                plan.resume_index,
+                resolved.partition_point(|event| event.at_seconds < time)
+            );
         }
     }
 

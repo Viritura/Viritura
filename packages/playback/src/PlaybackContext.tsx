@@ -21,8 +21,8 @@
    siblings without breaking react-hooks/exhaustive-deps (a hook-returned ref is
    not recognized as stable) or duplicating the filter call across sites. */
 
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import type { Score } from "@viritura/core";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+import { CHORDS_PART_ID, type ChordSymbol, type Score } from "@viritura/core";
 import { toast } from "sonner";
 import { dispatchPlayback, setPlaybackActions } from "./usePlayback";
 import {
@@ -44,8 +44,8 @@ import {
   warmUpSectionSynths,
   type SectionEntry,
 } from "./playbackSamplerHelpers";
-import { requireSf2Sound, resolvePartSounds } from "./soundProfileRuntime";
-import type { VstTransport, VstPartAssignment, Sf2PartAssignment, VstPreparePlan } from "./vstTransport";
+import { requireSf2Sound, resolvePartSounds, resolveScorePlaybackParts } from "./soundProfileRuntime";
+import type { VstTransport, VstPreparePlan } from "./vstTransport";
 import {
   collectSf2Assignments,
   collectVstAssignments,
@@ -73,12 +73,14 @@ import type {
 } from "@viritura/audio";
 import { usePercussionPreview } from "./usePercussionPreview";
 import { useMelodicPreview } from "./useMelodicPreview";
-import { generateTimeline, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
+import { generateTimeline, getChordPlaybackPart, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
 import { resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 import type { SoundfontLoader } from "./soundfont";
 import { useSoundfontBuffer } from "./useSoundfontBuffer";
+import { createPublishedChordPreview } from "./chordPreview";
+import { createMixerIdentity, playbackPartIds } from "./mixerIdentity";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -87,7 +89,7 @@ import { useSoundfontBuffer } from "./useSoundfontBuffer";
 interface PlaybackProviderProps {
   /** Optional score for timeline regeneration. */
   score?: Score | null;
-  /** When set and non-empty, only these part IDs produce audio. Empty or undefined = play all. */
+  /** Restrict authored instruments to these IDs; global harmony still accompanies the view. */
   visiblePartIds?: string[];
   /**
    * Available sound profiles for part→source resolution. Compose the user's VST
@@ -132,10 +134,10 @@ function laneIdsByPart(timeline: EngineMidiTimeline | null, partCount: number): 
 }
 
 function samplerSignature(score: Score, timeline: EngineMidiTimeline | null): string {
-  const lanes = [...laneIdsByPart(timeline, score.parts.length).entries()]
-    .map(([partIndex, ids]) => `${partIndex}:${ids.join(",")}`)
-    .join("|");
-  return `${computePartSignature(score)}#${JSON.stringify(score.soundProfile ?? null)}#${lanes}`;
+  const laneMap = laneIdsByPart(timeline, playbackPartIds(score).length);
+  if (getChordPlaybackPart(score)) laneMap.set(score.parts.length, [CHORDS_PART_ID]);
+  const lanes = [...laneMap.entries()].map(([partIndex, ids]) => `${partIndex}:${ids.join(",")}`).join("|");
+  return `${computePartSignature(score)}#${playbackPartIds(score).join("|")}#${JSON.stringify(score.soundProfile ?? null)}#${lanes}`;
 }
 
 // eslint-disable-next-line max-lines-per-function, max-statements -- audio-engine provider shell: declares ~30 refs/state for transport, scheduler, sampler, MIDI, mute/solo/level state, then wires effects for soundfont load, score-change reschedule, visible-parts gain, and tab-visibility throttle. Helpers are extracted (PartLevelRefs bundle, useFastLayoutCallback, schedulers); the remaining body is cohesive provider wiring that does not decompose cleanly.
@@ -162,10 +164,6 @@ export function PlaybackProvider({
   }, [vstTransport]);
   /** Parts the VST host currently owns; their SF2 voices are muted (§3.8). */
   const vstOwnedPartsRef = useRef<ReadonlySet<number>>(new Set<number>());
-  /** VST-assigned parts from the latest resolution, prepared at play/seek time. */
-  const vstAssignmentsRef = useRef<readonly VstPartAssignment[]>([]);
-  /** Non-VST pitched parts to voice on the native SoundFont in native mode. */
-  const sf2AssignmentsRef = useRef<readonly Sf2PartAssignment[]>([]);
   /** Latest audio render mode, read from callbacks without re-subscribing. */
   const audioRenderModeRef = useRef<"web" | "native">(audioRenderMode);
   useEffect(() => {
@@ -176,6 +174,27 @@ export function PlaybackProvider({
   const selectionPartIdsRef = useRef<readonly string[] | null>(null);
   const partFilterSourceRef = useRef({ score, visiblePartIds });
   const nativeControlRevisionRef = useRef(0);
+  const nativeStopRef = useRef<Promise<void> | null>(null);
+  const stopNativeHost = useCallback(() => {
+    const transport = vstTransportRef.current;
+    if (!transport) return;
+    const previous = nativeStopRef.current;
+    const pending = (async () => {
+      // Earlier failures were reported below; an explicit Stop can retry.
+      if (previous) await previous.catch(() => {});
+      await transport.stop();
+    })();
+    nativeStopRef.current = pending;
+    void pending.then(
+      () => {
+        if (nativeStopRef.current === pending) nativeStopRef.current = null;
+      },
+      (error: unknown) => {
+        // Keep the rejected barrier so preparation cannot race an unstopped host.
+        console.warn("[Audio] Native transport stop failed:", error);
+      },
+    );
+  }, []);
 
   // --- Audio engine refs (persist across renders) ---
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -249,6 +268,37 @@ export function PlaybackProvider({
   /** A seek made before the engine/timeline exists still owns the next start. */
   const pendingStartRef = useRef<PendingPlaybackStart | null>(null);
   const stopGenerationRef = useRef(0);
+  const chordPreview = useMemo(() => createPublishedChordPreview(), []);
+  const reconcileMixer = useMemo(() => createMixerIdentity(), []);
+  const mixerMutesRef = useRef(new Map<number, boolean>());
+
+  useLayoutEffect(() => {
+    const mutes = mixerMutesRef.current;
+    for (const index of mutes.keys()) mutes.set(index, false);
+    for (const index of mixerVolumeRef.current.keys()) mutes.set(index, vstMutedPartsRef.current.has(index));
+    for (const index of vstMutedPartsRef.current) mutes.set(index, true);
+    const settings = mixerSettingsRef.current;
+    reconcileMixer(playbackPartIds(score), [
+      mixerVolumeRef.current,
+      mixerPanRef.current,
+      stageDepthEnabledRef.current,
+      settings.nativeGains,
+      settings.positions,
+      settings.ensembleEnabled,
+      settings.layerPans,
+      mutes,
+    ]);
+    vstMutedPartsRef.current = new Set([...mutes].filter(([, muted]) => muted).map(([index]) => index));
+    partFilterSourceRef.current = { score, visiblePartIds };
+  }, [score, visiblePartIds, reconcileMixer]);
+
+  useLayoutEffect(() => {
+    const generation = stopGenerationRef;
+    return () => {
+      generation.current++;
+      void chordPreview.cancel();
+    };
+  }, [chordPreview]);
 
   // Bundle the refs that level-recompute helpers read from. Built once
   // (all underlying ref objects are stable for the provider's lifetime),
@@ -345,11 +395,14 @@ export function PlaybackProvider({
         dispatchPlayback({ type: "SET_PLAYHEAD", position: detail.position });
       });
       engineRef.current.on("state", (detail) => {
+        // Natural completion must stop the native clock too. A paused timeline
+        // reload must not interrupt the commit audition that followed Pause.
+        if (detail.previousState === "playing" && detail.state === "stopped") stopNativeHost();
         dispatchPlayback({ type: "SET_STATUS", status: detail.state as PlaybackState["status"] });
       });
     }
     return engineRef.current;
-  }, []);
+  }, [stopNativeHost]);
 
   /** Dispose all current samplers, section SF2 synths, and clear the maps. */
   const disposeAllSamplers = useCallback(() => {
@@ -455,7 +508,7 @@ export function PlaybackProvider({
   }, []);
 
   /** Create samplers for all parts using SF2 section-pooled synths. */
-  const createSamplersForScore = useCallback(
+  const buildSamplersForScore = useCallback(
     async (
       scoreParts: Score["parts"],
       ctx: AudioContext,
@@ -469,7 +522,11 @@ export function PlaybackProvider({
       const samplers = new Map<number, ISampler>();
       const routingSamplers = new Map<number | string, ISampler>();
       const patches: PartPatchInfo[] = [];
-      const lanes = laneIdsByPart(timeline, scoreParts.length);
+      const resolvedParts = score
+        ? resolveScorePlaybackParts(score, soundProfileRegistryRef.current)
+        : resolvePartSounds(scoreParts, undefined, soundProfileRegistryRef.current);
+      const lanes = laneIdsByPart(timeline, resolvedParts.length);
+      if (score && getChordPlaybackPart(score)) lanes.set(scoreParts.length, [CHORDS_PART_ID]);
 
       // Wait for SF2 buffer
       let sf2Buffer = sf2BufferRef.current;
@@ -484,14 +541,6 @@ export function PlaybackProvider({
 
       // Resolve each part through the built-in compatibility profile before
       // constructing any SF2 source or section routing.
-      const resolvedParts = resolvePartSounds(scoreParts, score?.soundProfile, soundProfileRegistryRef.current);
-
-      // Record VST-assigned parts so play()/seek() can (re)prepare the native
-      // host and silence their SF2 fallback voices. Web builds resolve no VST
-      // sources, so this stays empty and every part plays through SoundFont.
-      vstAssignmentsRef.current = collectVstAssignments(resolvedParts);
-      sf2AssignmentsRef.current = collectSf2Assignments(resolvedParts);
-
       // Group parts by orchestra section for SF2 synth sharing
       const sectionParts = groupPartsBySection(
         resolvedParts.map((part) => ({
@@ -542,7 +591,7 @@ export function PlaybackProvider({
         basePan: basePanRef.current,
         mixerVolume: mixerVolumeRef.current,
       };
-      for (let i = 0; i < scoreParts.length; i++) {
+      for (let i = 0; i < resolvedParts.length; i++) {
         await createPartSampler({
           partIndex: i,
           resolved: resolvedParts[i]!,
@@ -592,6 +641,32 @@ export function PlaybackProvider({
     [levelRefs, score, sf2BufferRef, sf2FetchPromiseRef],
   );
 
+  const samplerBuildRef = useRef<{
+    signature: string;
+    generation: number;
+    promise: ReturnType<typeof buildSamplersForScore>;
+  } | null>(null);
+  const createSamplersForScore = useCallback(
+    (...args: Parameters<typeof buildSamplersForScore>): ReturnType<typeof buildSamplersForScore> => {
+      const signature = score ? samplerSignature(score, args[3]) : "";
+      const generation = stopGenerationRef.current;
+      const previous = samplerBuildRef.current;
+      // Cancelled consumers may dispose their graph on completion. Only share
+      // within a generation; newer builds wait for that cleanup before starting.
+      if (previous?.signature === signature && previous.generation === generation) return previous.promise;
+      const promise = (async () => {
+        await previous?.promise.catch(() => {});
+        disposeAllSamplers();
+        return buildSamplersForScore(...args);
+      })().finally(() => {
+        if (samplerBuildRef.current?.promise === promise) samplerBuildRef.current = null;
+      });
+      samplerBuildRef.current = { signature, generation, promise };
+      return promise;
+    },
+    [score, buildSamplersForScore, disposeAllSamplers],
+  );
+
   // --- Actions (play defined later, after createSamplersForScore) ---
 
   // Eligibility gates events without changing the mixer or its saved gains.
@@ -605,6 +680,7 @@ export function PlaybackProvider({
         visiblePartIds,
         selectionPartIds: selectionPartIdsRef.current,
         vstOwnedParts: vstOwnedPartsRef.current,
+        chordPartIndex: getChordPlaybackPart(score)?.partIndex,
       }),
     );
   }, []);
@@ -618,9 +694,10 @@ export function PlaybackProvider({
       visiblePartIds,
       selectionPartIds: selectionPartIdsRef.current,
       vstOwnedParts: new Set(),
+      chordPartIndex: getChordPlaybackPart(score)?.partIndex,
     });
     if (allowed) {
-      for (let index = 0; index < score.parts.length; index++) {
+      for (let index = 0; index < playbackPartIds(score).length; index++) {
         if (!allowed.has(index)) muted.add(index);
       }
     }
@@ -642,67 +719,84 @@ export function PlaybackProvider({
   // in native mode all VST and pitched SF2 parts are hosted while the browser
   // engine keeps driving the playhead/metronome. On the web no transport is
   // injected, so every part stays on SoundFont (§3.8).
-  const prepareNativeHost = useCallback(async () => {
-    const vstTransport = vstTransportRef.current;
-    const nativeMode = audioRenderModeRef.current === "native";
-    if (vstTransport && score && nativeMode) {
-      const plan: VstPreparePlan = {
-        vstParts: vstAssignmentsRef.current,
-        sf2Parts: sf2AssignmentsRef.current,
-      };
-      const syncMixer = async () => {
-        let revision: number;
-        do {
-          revision = nativeControlRevisionRef.current;
-          await applyNativeMixer(vstTransport, score.parts.length, {
-            gains: mixerSettingsRef.current.nativeGains,
-            pans: mixerPanRef.current,
-            mutedParts: nativeMutedParts(),
-          });
-          // A write can finish after newer live edits. Reapply and await the
-          // latest intent before the first note, not a captured mute snapshot.
-        } while (revision !== nativeControlRevisionRef.current);
-      };
-      await syncMixer();
-      vstOwnedPartsRef.current = await prepareVstOwnedParts(vstTransport, score, plan);
-      applyViewPartFilter();
-      // Read again after asynchronous loading: mixer edits during preparation win.
-      await syncMixer();
-    } else if (vstOwnedPartsRef.current.size > 0) {
-      // Left native mode (or nothing to host): un-silence every browser voice.
-      vstOwnedPartsRef.current = new Set<number>();
-      applyViewPartFilter();
-    }
-  }, [score, applyViewPartFilter, nativeMutedParts]);
+  const prepareNativeHost = useCallback(
+    async (chordAudition = false) => {
+      const vstTransport = vstTransportRef.current;
+      const nativeMode = audioRenderModeRef.current === "native";
+      if (vstTransport && score && nativeMode) {
+        while (nativeStopRef.current) await nativeStopRef.current;
+        const resolved = resolveScorePlaybackParts(score, soundProfileRegistryRef.current);
+        const plan: VstPreparePlan = {
+          vstParts: collectVstAssignments(resolved),
+          sf2Parts: collectSf2Assignments(resolved),
+        };
+        const syncMixer = async () => {
+          let revision: number;
+          do {
+            revision = nativeControlRevisionRef.current;
+            const mutedParts = nativeMutedParts();
+            const chordIndex = getChordPlaybackPart(score)?.partIndex;
+            if (chordAudition && chordIndex !== undefined && !vstMutedPartsRef.current.has(chordIndex)) {
+              mutedParts.delete(chordIndex);
+            }
+            await applyNativeMixer(vstTransport, playbackPartIds(score).length, {
+              gains: mixerSettingsRef.current.nativeGains,
+              pans: mixerPanRef.current,
+              mutedParts,
+            });
+            // A write can finish after newer live edits. Reapply and await the
+            // latest intent before the first note, not a captured mute snapshot.
+          } while (revision !== nativeControlRevisionRef.current);
+        };
+        await syncMixer();
+        vstOwnedPartsRef.current = await prepareVstOwnedParts(vstTransport, score, plan);
+        applyViewPartFilter();
+        // Read again after asynchronous loading: mixer edits during preparation win.
+        await syncMixer();
+      } else if (vstOwnedPartsRef.current.size > 0) {
+        // Left native mode (or nothing to host): un-silence every browser voice.
+        vstOwnedPartsRef.current = new Set<number>();
+        applyViewPartFilter();
+      }
+    },
+    [score, applyViewPartFilter, nativeMutedParts],
+  );
 
   const pause = useCallback(() => {
+    void chordPreview.cancel();
     engineRef.current?.pause();
-    void vstTransportRef.current?.stop();
+    stopNativeHost();
     dispatchPlayback({ type: "PAUSE" });
-  }, []);
+  }, [chordPreview, stopNativeHost]);
 
   const stop = useCallback(() => {
+    void chordPreview.cancel();
     stopGenerationRef.current++;
     pendingStartRef.current = null;
+    // Playing -> stopped is synchronized by the engine state callback.
+    if (engineRef.current?.getState() !== "playing") stopNativeHost();
     engineRef.current?.stop();
-    void vstTransportRef.current?.stop();
     disposeAllSamplers();
     dispatchPlayback({ type: "STOP" });
-  }, [disposeAllSamplers]);
+  }, [disposeAllSamplers, chordPreview, stopNativeHost]);
 
-  const seek = useCallback((seconds: number) => {
-    if (engineRef.current?.getState() !== "playing") {
-      pendingStartRef.current = {
-        seconds: Math.max(0, Math.min(seconds, timelineRef.current?.duration ?? Infinity)),
-      };
-    }
-    // Publish the requested position first. PlaybackEngine emits the precise
-    // measure/beat synchronously when available, and that resolved update must
-    // come after—not be overwritten by—the optimistic one.
-    dispatchPlayback({ type: "SEEK", seconds });
-    engineRef.current?.seek(seconds);
-    void vstTransportRef.current?.seek(seconds);
-  }, []);
+  const seek = useCallback(
+    (seconds: number) => {
+      void chordPreview.cancel();
+      if (engineRef.current?.getState() !== "playing") {
+        pendingStartRef.current = {
+          seconds: Math.max(0, Math.min(seconds, timelineRef.current?.duration ?? Infinity)),
+        };
+      }
+      // Publish the requested position first. PlaybackEngine emits the precise
+      // measure/beat synchronously when available, and that resolved update must
+      // come after—not be overwritten by—the optimistic one.
+      dispatchPlayback({ type: "SEEK", seconds });
+      engineRef.current?.seek(seconds);
+      void vstTransportRef.current?.seek(seconds);
+    },
+    [chordPreview],
+  );
 
   const setTempo = useCallback((bpm: number) => {
     engineRef.current?.setTempo(bpm);
@@ -945,11 +1039,87 @@ export function PlaybackProvider({
     [score, prepareNativeHost],
   );
 
+  const auditionChord = useCallback(
+    async (chord: ChordSymbol): Promise<void> => {
+      const lane = score && getChordPlaybackPart(score);
+      const mode = audioRenderModeRef.current;
+      const eligible = () =>
+        !!lane &&
+        !playStartInFlightRef.current &&
+        engineRef.current?.getState() !== "playing" &&
+        partFilterSourceRef.current.score === score &&
+        audioRenderModeRef.current === mode &&
+        !vstMutedPartsRef.current.has(lane.partIndex) &&
+        (mixerVolumeRef.current.get(lane.partIndex) ?? 1) > 0;
+      await chordPreview.preview(
+        chord,
+        lane && score
+          ? {
+              partIndex: lane.partIndex,
+              native:
+                mode === "native" && vstTransportRef.current
+                  ? { transport: vstTransportRef.current, prepare: () => prepareNativeHost(true) }
+                  : undefined,
+              browser: async (current) => {
+                if (!current()) return null;
+                const generation = stopGenerationRef.current;
+                ensureEngine();
+                const ctx = audioCtxRef.current!;
+                if (ctx.state === "suspended") await ctx.resume();
+                if (!current()) return null;
+                const signature = samplerSignature(score, timelineRef.current);
+                if (samplerPartSignatureRef.current !== signature) {
+                  const result = await createSamplersForScore(
+                    score.parts,
+                    ctx,
+                    mixBusRef.current!,
+                    timelineRef.current,
+                  );
+
+                  // A superseded click relinquishes the shared build, not its
+                  // resources: a note preview or Play can still use this graph.
+                  if (generation !== stopGenerationRef.current) {
+                    disposeAllSamplers();
+                    return null;
+                  }
+                  samplersRef.current = result.samplers;
+                  routingSamplersRef.current = result.routingSamplers;
+                  samplerPartSignatureRef.current = signature;
+                  dispatchPlayback({ type: "SET_PART_PATCHES", patches: result.patches });
+                  if (timelineRef.current) {
+                    engineRef.current?.loadTimeline(timelineRef.current, result.routingSamplers);
+                    engineRef.current?.setPlayheadResolver(playheadResolverRef.current);
+                    engineRef.current?.setClickTrack(clickTrackRef.current);
+                  }
+                }
+                const sampler = samplersRef.current.get(lane.partIndex);
+                return sampler ? { sampler, context: ctx } : null;
+              },
+            }
+          : undefined,
+        eligible,
+      );
+    },
+    [score, chordPreview, prepareNativeHost, ensureEngine, disposeAllSamplers, createSamplersForScore],
+  );
+
+  useLayoutEffect(() => {
+    stopGenerationRef.current++;
+    chordPreview.publish({ score, mode: audioRenderMode, transport: vstTransport, audition: auditionChord });
+  }, [score, audioRenderMode, vstTransport, chordPreview, auditionChord]);
+
+  const previewChord = useCallback(
+    (chord: ChordSymbol, updatedScore?: Score) => chordPreview.request(chord, updatedScore),
+    [chordPreview],
+  );
+
   // Note preview using active samplers — auto-initializes on first call
   const previewInitializingRef = useRef(false);
   const previewNote = useCallback(
     async (midiNote: number, partIndex?: number, velocity = 80, durationMs = 400, altKitProgram?: number) => {
+      const generation = stopGenerationRef.current;
       if (await tryNativePreview(midiNote, partIndex, velocity, durationMs)) return;
+      if (generation !== stopGenerationRef.current) return;
 
       // If samplers exist, play immediately
       let sampler =
@@ -960,16 +1130,24 @@ export function PlaybackProvider({
         // Auto-initialize audio engine + samplers on first preview attempt
         previewInitializingRef.current = true;
         try {
-          ensureEngine();
+          const engine = ensureEngine();
           const ctx = audioCtxRef.current;
           if (ctx) {
             if (ctx.state === "suspended") await ctx.resume();
-            const bus = mixBusRef.current!;
-            const result = await createSamplersForScore(score.parts, ctx, bus, timelineRef.current);
+            const result = await createSamplersForScore(score.parts, ctx, mixBusRef.current!, timelineRef.current);
+            if (generation !== stopGenerationRef.current) {
+              disposeAllSamplers();
+              return;
+            }
             samplersRef.current = result.samplers;
             routingSamplersRef.current = result.routingSamplers;
             samplerPartSignatureRef.current = samplerSignature(score, timelineRef.current);
             dispatchPlayback({ type: "SET_PART_PATCHES", patches: result.patches });
+            // A score edit can already have loaded this timeline with empty
+            // routing while the cancelled build was pending.
+            engine.loadTimeline(timelineRef.current, result.routingSamplers);
+            engine.setPlayheadResolver(playheadResolverRef.current);
+            engine.setClickTrack(clickTrackRef.current);
             // Now try again
             sampler =
               (partIndex !== undefined ? samplersRef.current.get(partIndex) : undefined) ??
@@ -993,6 +1171,7 @@ export function PlaybackProvider({
           } catch {
             /* ignore */
           }
+          if (generation !== stopGenerationRef.current) return;
         }
         if (ctx) {
           const now = ctx.currentTime;
@@ -1004,7 +1183,7 @@ export function PlaybackProvider({
         }
       }
     },
-    [score, ensureEngine, createSamplersForScore, tryNativePreview],
+    [score, ensureEngine, createSamplersForScore, disposeAllSamplers, tryNativePreview],
   );
 
   // --- play() defined here (after createSamplersForScore) ---
@@ -1019,15 +1198,16 @@ export function PlaybackProvider({
       if (fromSeconds === undefined && engineRef.current?.getState() === "playing") return;
       playStartInFlightRef.current = true;
       try {
+        const stopGeneration = stopGenerationRef.current;
+        await chordPreview.cancel();
+        if (stopGenerationRef.current !== stopGeneration) return;
         const engine = ensureEngine();
         // Capture before loadTimeline can reset a paused transport during a
         // sampler rebuild. Both native and browser engines use this origin.
         const pendingStart = pendingStartRef.current;
-        const stopGeneration = stopGenerationRef.current;
         const resumeAt = engine.getScoreTimeSeconds();
         const wasStopped = engine.getState() === "stopped";
         const ctx = audioCtxRef.current!;
-        const bus = mixBusRef.current!;
 
         // Resume AudioContext (browser requires user gesture)
         if (ctx.state === "suspended") {
@@ -1044,7 +1224,7 @@ export function PlaybackProvider({
             const { samplers, routingSamplers, patches } = await createSamplersForScore(
               score.parts,
               ctx,
-              bus,
+              mixBusRef.current!,
               timelineRef.current,
             );
             samplersRef.current = samplers;
@@ -1101,7 +1281,6 @@ export function PlaybackProvider({
         if (vstTransport && vstOwnedPartsRef.current.size > 0) {
           void vstTransport.start(startAt);
         }
-        dispatchPlayback({ type: "PLAY" });
       } catch (err) {
         console.error("Failed to start playback:", err);
         toast.error("Audio engine failed to start", {
@@ -1112,7 +1291,15 @@ export function PlaybackProvider({
         playStartInFlightRef.current = false;
       }
     },
-    [ensureEngine, score, createSamplersForScore, countInBeatsForScore, prepareNativeHost, applyViewPartFilter],
+    [
+      ensureEngine,
+      score,
+      createSamplersForScore,
+      countInBeatsForScore,
+      prepareNativeHost,
+      applyViewPartFilter,
+      chordPreview,
+    ],
   );
 
   // --- Score change → regenerate timeline only ---
@@ -1127,11 +1314,12 @@ export function PlaybackProvider({
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
       try {
-        const partPrograms = resolvePartSounds(score.parts, score.soundProfile, soundProfileRegistryRef.current).map(
+        const partPrograms = resolveScorePlaybackParts(score, soundProfileRegistryRef.current).map(
           (resolved) => requireSf2Sound(resolved.part.name, resolved.sf2).primary.program,
         );
-        const midiTimeline = generateTimeline(score, { partPrograms });
+        const midiTimeline = generateTimeline(score, { partPrograms, includeGlobalChords: true });
         const timeline: EngineMidiTimeline = {
+          chasePartIndices: getChordPlaybackPart(score) ? [score.parts.length] : [],
           events: midiTimeline.events,
           duration: midiTimeline.duration,
           tempoMap: midiTimeline.tempoMap.map((e) => ({
@@ -1168,11 +1356,20 @@ export function PlaybackProvider({
         // note preview keeps working across edits.
         const newSignature = samplerSignature(score, timeline);
         const routingChanged = samplerPartSignatureRef.current !== newSignature;
-        if (routingChanged) {
+        const build = samplerBuildRef.current;
+        const buildingCurrentGraph =
+          build?.signature === newSignature && build.generation === stopGenerationRef.current;
+        // A cold commit audition can still be warming the graph for this very
+        // publication. Its completion will install the refreshed timeline.
+        if (routingChanged && !buildingCurrentGraph) {
           disposeAllSamplers();
           samplerPartSignatureRef.current = null;
         }
-        engineRef.current?.loadTimeline(timeline, routingChanged ? new Map() : routingSamplersRef.current);
+        const engine = engineRef.current;
+        if (engine && engine.getState() !== "stopped") {
+          pendingStartRef.current ??= { seconds: engine.getScoreTimeSeconds() };
+        }
+        engine?.loadTimeline(timeline, routingChanged ? new Map() : routingSamplersRef.current);
       } catch (err) {
         console.warn("Failed to generate playback timeline:", err);
         dispatchPlayback({ type: "STOP" });
@@ -1221,6 +1418,7 @@ export function PlaybackProvider({
       previewInstrumentNoteOff,
       previewInstrumentAllNotesOff,
       previewPercussion,
+      previewChord,
       measureBeatToSeconds,
       setEnsembleLayer,
       setAirEQGain,
@@ -1252,6 +1450,7 @@ export function PlaybackProvider({
       previewInstrumentNoteOff,
       previewInstrumentAllNotesOff,
       previewPercussion,
+      previewChord,
       measureBeatToSeconds,
       setEnsembleLayer,
       setAirEQGain,

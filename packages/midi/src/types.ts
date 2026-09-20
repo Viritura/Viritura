@@ -18,7 +18,7 @@ export interface MidiEvent {
   midiNote: number;
   /** Velocity (0–127). noteOff events use 0. */
   velocity: number;
-  /** Index into score.parts[] identifying which instrument plays this event */
+  /** Index into score.parts[], or score.parts.length for the derived Chords lane. */
   partIndex: number;
   /** Independently controlled semantic playback stream. */
   playbackLaneId?: string;

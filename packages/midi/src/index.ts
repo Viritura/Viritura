@@ -12,6 +12,8 @@ export type { MidiTimeline, MidiEvent, TempoMapEntry, TimelineDiagnostic } from 
 export { generateTimeline, durationBeats, expandMeasureOrder } from "./timeline";
 export { expandMeasureRepeats, expandScoreMeasureRepeats } from "./measureRepeats";
 export type { TimelineOptions } from "./timeline";
+export { getChordPlaybackPart } from "./chordPlayback";
+export type { ChordPlaybackPart } from "./chordPlayback";
 
 // Notation-level performance events for VST articulation mapping
 export { generatePerformanceEvents } from "./performanceEvents";

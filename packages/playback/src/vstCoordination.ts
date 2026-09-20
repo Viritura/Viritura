@@ -13,21 +13,24 @@ import type { Sf2PartAssignment, VstPartAssignment, VstPreparePlan, VstTransport
 
 /**
  * Compute the engine's part filter, combining view visibility and temporary
- * source-part selection with VST ownership.
+ * source-part selection with native ownership.
  *
  * The base filter is the visible parts (or `null` = every part audible when the
  * view isn't filtered). Parts the native VST host plays are then subtracted so
  * their SF2 fallback voices stay silent (§3.8) — which, for the "all parts"
  * base, means enumerating every non-VST part. Returns `null` to mean "no filter,
- * play all".
+ * play all". Global chords accompany any unselected view, independently of
+ * visual chord visibility; explicit selections include them only when every
+ * visible source part is selected.
  */
 export function computeViewPartFilter(args: {
   parts: readonly Part[];
   visiblePartIds: readonly string[] | undefined;
   vstOwnedParts: ReadonlySet<number>;
   selectionPartIds?: readonly string[] | null;
+  chordPartIndex?: number;
 }): ReadonlySet<number> | null {
-  const { parts, visiblePartIds, vstOwnedParts, selectionPartIds } = args;
+  const { parts, visiblePartIds, vstOwnedParts, selectionPartIds, chordPartIndex } = args;
 
   let base: Set<number> | null = null;
   if (visiblePartIds && visiblePartIds.length > 0) {
@@ -41,10 +44,14 @@ export function computeViewPartFilter(args: {
 
   // Unlike an empty view, an explicit empty selection allows no source parts.
   if (selectionPartIds != null) {
+    const visibleSourceCount = base?.size ?? parts.length;
     const selected = new Set(selectionPartIds);
     base = new Set(
       parts.flatMap((part, index) => (part.id && selected.has(part.id) && (!base || base.has(index)) ? [index] : [])),
     );
+    if (chordPartIndex != null && base.size > 0 && base.size === visibleSourceCount) base.add(chordPartIndex);
+  } else if (base && chordPartIndex != null) {
+    base.add(chordPartIndex);
   }
 
   if (vstOwnedParts.size === 0) return base;
@@ -54,6 +61,7 @@ export function computeViewPartFilter(args: {
     for (const idx of base) if (!vstOwnedParts.has(idx)) filtered.add(idx);
   } else {
     for (let i = 0; i < parts.length; i++) if (!vstOwnedParts.has(i)) filtered.add(i);
+    if (chordPartIndex != null && !vstOwnedParts.has(chordPartIndex)) filtered.add(chordPartIndex);
   }
   return filtered;
 }

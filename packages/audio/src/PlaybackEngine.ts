@@ -207,6 +207,7 @@ export class PlaybackEngine {
 
     this.scheduler.start(startTime, this.tempoScale);
     this.applyStartingState(startTime);
+    this.restoreStartingNotes(startTime);
     this.startPlayheadUpdates();
     this.setState("playing");
   }
@@ -267,6 +268,7 @@ export class PlaybackEngine {
       );
       this.scheduler.start(clamped, this.tempoScale);
       this.applyStartingState(clamped);
+      this.restoreStartingNotes(clamped);
     } else {
       this.pausedAtScoreTime = clamped;
     }
@@ -287,6 +289,7 @@ export class PlaybackEngine {
   setTempo(bpm: number): void {
     if (bpm <= 0) return;
     const originalBpm = this.getOriginalBpm();
+    const previousTempoScale = this.tempoScale;
     this.tempoScale = bpm / originalBpm;
 
     if (this.scheduler) {
@@ -300,11 +303,14 @@ export class PlaybackEngine {
         sampler.cancelScheduledNotes(cutoff);
         cancelled.add(sampler);
       }
-      this.filterContinuity.rescheduleFrom(this.scheduler.currentScoreTime(), cutoff, (event) => {
+      const pendingChase = this.filterContinuity.rescheduleFrom(this.scheduler.currentScoreTime(), cutoff, (event) => {
         const sampler = this.samplerForEvent(event);
         return !!sampler && cancelled.has(sampler);
       });
       this.scheduler.setTempoScale(this.tempoScale);
+      for (const [event, scheduledTime] of pendingChase) {
+        this.dispatchEvent(event, audioTime + ((scheduledTime - audioTime) * previousTempoScale) / this.tempoScale);
+      }
     }
   }
 
@@ -444,6 +450,20 @@ export class PlaybackEngine {
     for (const [partIndex, sampler] of this.partControlSamplers()) {
       sampler.setPlaybackMuted?.(!!this.viewPartFilter && !this.viewPartFilter.has(partIndex));
     }
+  }
+
+  private restoreStartingNotes(scoreTime: number): void {
+    const parts = new Set(this.timeline?.chasePartIndices ?? []);
+    this.filterContinuity.restore(
+      parts,
+      scoreTime,
+      this.audioContext.currentTime + this.options.leadInTime,
+      () => true,
+      (event, audioTime) => {
+        // Onsets at/after the origin already belong to the scheduler window.
+        if (event.type !== "noteOn" || event.time < scoreTime) this.dispatchEvent(event, audioTime);
+      },
+    );
   }
 
   /**

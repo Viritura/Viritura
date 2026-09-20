@@ -56,7 +56,15 @@ fn assert_playback_busy(host: &PlaybackHost) {
     assert_busy(playback::close_fx_editor(host));
     assert_busy(playback::set_gain(host, "slot".to_owned(), 1.0));
     assert_busy(playback::set_pan(host, "slot".to_owned(), 0.0));
-    assert_busy(playback::preview(host, "slot".to_owned(), 60, 100, 100));
+    assert_busy(playback::preview(host, "slot".to_owned(), 0, 60, 100, 100));
+    assert_busy(playback::preview_chord(
+        host,
+        "slot".to_owned(),
+        0,
+        vec![60, 64, 67],
+        100,
+        100,
+    ));
 }
 
 #[test]

@@ -32,7 +32,7 @@ export interface VstPartAssignment {
  * strip instead of the browser SF2 engine.
  */
 export interface Sf2PartAssignment {
-  /** The part's index within `score.parts`. */
+  /** Authored part index, or score.parts.length for the derived global chord lane. */
   readonly partIndex: number;
   /** General MIDI program the SoundFont voice should load. */
   readonly program: number;
@@ -80,6 +80,8 @@ export interface VstTransport {
    * not host-owned so the caller can fall back to the browser sampler.
    */
   previewNote(partIndex: number, note: number, velocity: number, durationMs: number): Promise<boolean>;
+  /** Audition the prepared bundled piano lane; the transport must be stopped. */
+  previewChord?(partIndex: number, notes: readonly number[], velocity: number, durationMs: number): Promise<boolean>;
   /**
    * Set which part indices are muted (mixer mute/solo resolved to an effective
    * muted set). The host drops those parts' events and cuts any of their
