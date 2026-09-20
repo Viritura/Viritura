@@ -12,25 +12,30 @@ interface Args {
 export function useChordSymbolInspector({ score, target, updateScore }: Args) {
   const chordMatch = target?.elementType.match(/^chord(\d+)$/);
   const chordIndex = chordMatch ? Number.parseInt(chordMatch[1]!, 10) : undefined;
+  const isGlobal = target?.elementId.startsWith("m") === true;
   const chord = useMemo<ChordSymbol | null>(() => {
     if (!score || !target || chordIndex === undefined) return null;
+    if (isGlobal) return score.global.measures[target.measureIndex]?.chordSymbols?.[chordIndex] ?? null;
     return score.parts[target.partIndex]?.measures[target.measureIndex]?.chordSymbols?.[chordIndex] ?? null;
-  }, [score, target, chordIndex]);
+  }, [score, target, chordIndex, isGlobal]);
 
   const mutateChord = useCallback(
     (mutate: (chord: ChordSymbol) => void) => {
       if (!score || !target || chordIndex === undefined) return;
       const nextScore = produce(score, (draft) => {
-        const selected = draft.parts[target.partIndex]?.measures[target.measureIndex]?.chordSymbols?.[chordIndex];
+        const selected = isGlobal
+          ? draft.global.measures[target.measureIndex]?.chordSymbols?.[chordIndex]
+          : draft.parts[target.partIndex]?.measures[target.measureIndex]?.chordSymbols?.[chordIndex];
         if (selected) mutate(selected);
       });
       if (nextScore !== score) updateScore(nextScore);
     },
-    [score, target, chordIndex, updateScore],
+    [score, target, chordIndex, isGlobal, updateScore],
   );
 
   return {
     chord,
+    isGlobal,
     setRootStep: (step: string) => mutateChord((selected) => (selected.root.step = step)),
     setRootAlter: (alter: number | undefined) => mutateChord((selected) => (selected.root.alter = alter)),
     setQuality: (quality: ChordQuality) =>
@@ -52,7 +57,9 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
         if (selected.bass) selected.bass.alter = alter;
       }),
     setDisplayStaff: (displayStaff: number | undefined) =>
-      mutateChord((selected) => (selected.displayStaff = displayStaff)),
+      mutateChord((selected) => {
+        if (!isGlobal) selected.displayStaff = displayStaff;
+      }),
     setTextOverride: (text: string) =>
       mutateChord((selected) => (selected.textOverride = text.trim() === "" ? undefined : text)),
   };

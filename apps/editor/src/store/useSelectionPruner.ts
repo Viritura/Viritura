@@ -126,6 +126,8 @@ function globalAnnotationExists(location: AnnotationLocation, score: Score): boo
   switch (location.type) {
     case "tempo":
       return measure.tempos?.[location.annotationIndex ?? 0] !== undefined;
+    case "chord":
+      return measure.chordSymbols?.[location.annotationIndex ?? 0] !== undefined;
     case "rehearsal":
       return measure.rehearsalMark !== undefined;
     case "jump":

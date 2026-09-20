@@ -1454,6 +1454,74 @@ describe("parseMnx _x.viritura extensions", () => {
     expect(cs?.[0]?.kindText).toBe("Neapolitan");
   });
 
+  it("should round-trip global harmony events from _x.viritura", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            _x: {
+              viritura: {
+                chordSymbols: [
+                  {
+                    position: { fraction: [0, 1] },
+                    root: { step: "C" },
+                    quality: "major",
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      parts: [{ measures: [{ sequences: [{ content: [] }] }] }],
+    };
+
+    const parsed = parseMnx(mnx);
+    expect(parsed.global.measures[0]?.chordSymbols?.[0]?.root.step).toBe("C");
+    const serialized = serializeMnx(parsed) as {
+      global: { measures: Array<{ _x?: { viritura?: { chordSymbols?: unknown[] } } }> };
+    };
+    expect(serialized.global.measures[0]?._x?.viritura?.chordSymbols).toHaveLength(1);
+  });
+
+  it("should round-trip global harmony visibility on layout staffs", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{}] },
+      layouts: [
+        {
+          id: "full",
+          content: [
+            {
+              type: "staff",
+              sources: [{ part: "p1" }],
+              _x: { viritura: { globalChordSymbolVisibility: "show" } },
+            },
+          ],
+        },
+      ],
+      parts: [{ id: "p1", measures: [{ sequences: [{ content: [] }] }] }],
+    };
+
+    const parsed = parseMnx(mnx);
+    const staff = parsed.layouts?.[0]?.content[0];
+    expect(staff?.type).toBe("staff");
+    if (staff?.type !== "staff") return;
+    expect(staff.globalChordSymbolVisibility).toBe("show");
+    expect(serializeMnx(parsed)).toMatchObject({
+      layouts: [
+        {
+          content: [
+            {
+              _x: { viritura: { globalChordSymbolVisibility: "show" } },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it("should migrate the legacy chord-symbol staff field to displayStaff", () => {
     const mnx = {
       mnx: { version: 1 },

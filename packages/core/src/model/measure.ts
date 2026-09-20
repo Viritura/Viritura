@@ -369,6 +369,8 @@ export interface GlobalMeasure {
   caesura?: Caesura;
   /** Gradual tempo change (rit./accel.) playback curve (Viritura extension) */
   gradualTempo?: GradualTempo;
+  /** Score-wide harmony events at rhythmic positions in this measure. */
+  chordSymbols?: ChordSymbol[];
 }
 
 /**
@@ -391,7 +393,7 @@ export interface PartMeasure {
   ottavas?: Ottava[];
   /** Piano pedal markings in this measure */
   pedals?: Pedal[];
-  /** Chord symbols above the staff */
+  /** Part-local chord symbols, retained for imported or authored exceptions to global harmony. */
   chordSymbols?: ChordSymbol[];
   /** Text expressions in this measure (e.g. "dolce", "rit.", "a tempo") */
   expressions?: TextExpression[];

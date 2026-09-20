@@ -38,6 +38,9 @@ pub struct GlobalMeasureExtensions {
     /// Open-meter semantic kept outside standard MNX `time.display`.
     #[serde(skip_serializing_if = "Option::is_none", rename = "senzaMisura")]
     pub senza_misura: Option<bool>,
+    /// Score-wide harmony events at rhythmic positions in this measure.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "chordSymbols")]
+    pub chord_symbols: Option<Vec<ChordSymbol>>,
 }
 
 /// A global measure — score-wide properties (MNX global.measures[n]).
@@ -98,6 +101,15 @@ impl GlobalMeasure {
     pub fn coda(&self) -> Option<&Coda> {
         self.extensions.as_ref()?.viritura.as_ref()?.coda.as_ref()
     }
+    /// Score-wide harmony events in this measure.
+    pub fn chord_symbols(&self) -> Option<&[ChordSymbol]> {
+        self.extensions
+            .as_ref()?
+            .viritura
+            .as_ref()?
+            .chord_symbols
+            .as_deref()
+    }
 }
 
 /// A part-specific measure (MNX parts[n].measures[m]).
@@ -131,7 +143,7 @@ pub struct PartMeasure {
     /// Piano pedal markings in this measure (Viritura extension `_x.viritura.pedals[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pedals: Option<Vec<Pedal>>,
-    /// Chord symbols above the staff (Viritura extension `_x.viritura.chordSymbols[]`)
+    /// Part-local chord symbols retained as exceptions to global harmony.
     #[serde(skip_serializing_if = "Option::is_none", rename = "chordSymbols")]
     pub chord_symbols: Option<Vec<ChordSymbol>>,
     /// Text expressions in this measure (Viritura extension `_x.viritura.expressions[]`)

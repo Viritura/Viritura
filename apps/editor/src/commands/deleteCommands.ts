@@ -25,6 +25,8 @@ function deleteGlobalAnnotation(gm: GlobalMeasure, loc: AnnotationLocation): boo
   switch (loc.type) {
     case "tempo":
       return removeAnnotationFromArray(rec, "tempos", loc.annotationIndex);
+    case "chord":
+      return removeAnnotationFromArray(rec, "chordSymbols", loc.annotationIndex);
     case "segno":
       if (!gm.segno) return false;
       delete rec.segno;

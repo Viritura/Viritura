@@ -125,6 +125,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
         <ChordSymbolSection
           chord={chordSymbol.chord}
           staffCount={staffCount}
+          isGlobal={chordSymbol.isGlobal}
           onRootStepChange={chordSymbol.setRootStep}
           onRootAlterChange={chordSymbol.setRootAlter}
           onQualityChange={chordSymbol.setQuality}

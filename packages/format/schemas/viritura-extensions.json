@@ -666,6 +666,11 @@
         "coda": { "$ref": "#/$defs/coda" },
         "jump": { "$ref": "#/$defs/jump" },
         "gradualTempo": { "$ref": "#/$defs/gradual-tempo" },
+        "chordSymbols": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/chord-symbol" },
+          "description": "Score-wide harmony events at rhythmic positions in this measure."
+        },
         "senzaMisura": {
           "type": "boolean",
           "const": true,
@@ -908,6 +913,11 @@
           "type": "string",
           "enum": ["auto", "show", "hide"],
           "description": "Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part."
+        },
+        "globalChordSymbolVisibility": {
+          "type": "string",
+          "enum": ["auto", "show", "hide"],
+          "description": "Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout."
         }
       },
       "additionalProperties": false

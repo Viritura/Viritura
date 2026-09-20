@@ -105,6 +105,9 @@ pub struct ChordSymbol {
     /// Source part retained when a layout staff combines multiple parts.
     #[serde(skip)]
     pub source_part_index: Option<usize>,
+    /// Whether this rendered event originated in the global harmony track.
+    #[serde(skip)]
+    pub source_global: bool,
     /// Root note (e.g., C, F#, Bb)
     pub root: ChordRoot,
     /// Chord quality
@@ -234,6 +237,7 @@ mod tests {
             display_staff: None,
             source_index: None,
             source_part_index: None,
+            source_global: false,
             root: ChordRoot {
                 step: step.into(),
                 alter,

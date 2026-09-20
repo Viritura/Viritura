@@ -200,6 +200,36 @@ fn test_chord_symbols_render_text() {
 }
 
 #[test]
+fn test_global_harmony_renders_with_global_element_id() {
+    let score = crate::parse::parse_mnx(
+        r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
+                "_x": {"viritura": {"chordSymbols": [{
+                    "position": {"fraction": [0, 1]},
+                    "root": {"step": "C"},
+                    "quality": "major"
+                }]}}
+            }]},
+            "parts": [{"measures": [{"sequences": [{"content": [{
+                "duration": {"base": "whole"},
+                "rest": {}
+            }]}]}]}]
+        }"#,
+    )
+    .expect("Failed to parse global harmony");
+
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+    assert!(
+        dl.element_ids
+            .iter()
+            .any(|id| id.as_deref() == Some("m0/chord0")),
+        "global harmony should render with a global element id"
+    );
+}
+
+#[test]
 fn test_chord_symbol_accidentals_use_smufl_glyphs() {
     let score = crate::parse::parse_mnx(
         r#"{

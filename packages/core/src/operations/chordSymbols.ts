@@ -80,7 +80,7 @@ function parseQuality(text: string): { quality: ChordQuality; extension?: ChordS
 /**
  * Parse the common chord-symbol shorthand used by inline entry.
  *
- * The returned event is anchored only by its part-measure and relative time.
+ * The returned event is anchored by its containing measure and relative time.
  * Selecting a note is an editor convenience, not persistent ownership.
  */
 export function parseChordSymbolText(input: string, position: RhythmicPosition): ChordSymbol | undefined {

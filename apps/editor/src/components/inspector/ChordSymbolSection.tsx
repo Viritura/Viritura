@@ -40,6 +40,7 @@ const EXTENSION_VALUES: Record<string, ChordSymbol["extension"]> = {
 interface Props {
   chord: ChordSymbol;
   staffCount: number;
+  isGlobal: boolean;
   onRootStepChange: (step: string) => void;
   onRootAlterChange: (alter: number | undefined) => void;
   onQualityChange: (quality: ChordQuality) => void;
@@ -120,7 +121,7 @@ export function ChordSymbolSection(props: Props) {
           />
         </label>
       )}
-      {staffCount > 1 && (
+      {!props.isGlobal && staffCount > 1 && (
         <label style={labelStyle}>
           Display staff override
           <Select

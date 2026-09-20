@@ -1201,6 +1201,32 @@ fn test_parse_vendor_ext_chord_symbols() {
 }
 
 #[test]
+fn test_parse_vendor_ext_global_chord_symbols() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "_x": {
+                "viritura": {
+                    "chordSymbols": [{
+                        "position": {"fraction": [0, 1]},
+                        "root": {"step": "C"},
+                        "quality": "major"
+                    }]
+                }
+            }
+        }]},
+        "parts": [{"measures": [{"sequences": [{"content": []}]}]}]
+    }"#;
+
+    let score = parse_mnx(json).expect("Failed to parse global chordSymbols");
+    let chords = score.global.measures[0]
+        .chord_symbols()
+        .expect("Expected global chord symbols");
+    assert_eq!(chords.len(), 1);
+    assert_eq!(chords[0].display_text(), "C");
+}
+
+#[test]
 fn test_parse_vendor_ext_expressions() {
     let json = r#"{
         "mnx": {"version": 1},

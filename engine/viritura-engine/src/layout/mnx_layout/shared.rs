@@ -33,7 +33,7 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 pub(super) use super::cache_hashing::{compound_layout_hash, time_signature_aware_hash};
-use super::chord_symbols::extend_visible_chord_symbols;
+use super::chord_symbols::{extend_visible_chord_symbols, visible_global_chord_symbols};
 pub(super) use super::instrument_labels::{
     build_label_lines, label_gutter_extent, split_label_transposition, EXPANSION_COLOR,
 };
@@ -339,7 +339,7 @@ pub(super) fn build_virtual_part_measure(
     let mut pedals: Option<Vec<Pedal>> = None;
     let mut ottavas: Option<Vec<Ottava>> = None;
     let mut measure_repeat: Option<MeasureRepeat> = None;
-    let mut chord_symbols: Option<Vec<ChordSymbol>> = None;
+    let mut chord_symbols = visible_global_chord_symbols(score, measure_index, flat_staff);
     let mut arpeggios: Option<Vec<MnxArpeggio>> = None;
     let mut non_arpeggios: Option<Vec<NonArpeggio>> = None;
     let mut staff_configs: Option<Vec<PositionedStaffConfig>> = None;

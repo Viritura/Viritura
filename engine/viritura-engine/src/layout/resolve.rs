@@ -317,6 +317,31 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             grouping_display_overrides: None,
             staff_meters: None,
         });
+        if part_index == 0 {
+            if let Some(global_chords) = global.chord_symbols() {
+                let mut resolved_chords = global_chords
+                    .iter()
+                    .enumerate()
+                    .map(|(index, chord)| {
+                        let mut chord = chord.clone();
+                        chord.source_index = Some(index);
+                        chord.source_global = true;
+                        chord
+                    })
+                    .collect::<Vec<_>>();
+                if let Some(local_chords) = part_measure.chord_symbols.take() {
+                    for chord in local_chords {
+                        if !resolved_chords
+                            .iter()
+                            .any(|existing| existing.position == chord.position)
+                        {
+                            resolved_chords.push(chord);
+                        }
+                    }
+                }
+                part_measure.chord_symbols = Some(resolved_chords);
+            }
+        }
 
         if let Some(ref t) = global.time {
             active_time = t.clone();

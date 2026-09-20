@@ -213,6 +213,7 @@ const GLOBAL_ANNOTATION_SUFFIXES = [
   "volta",
   "mnum",
   "barline",
+  "chord",
 ] as const;
 
 /**

@@ -101,6 +101,8 @@ fn default_flat_staves(score: &Score) -> StaffGroupLayout {
             expansion: false,
             condensed_numbers: Vec::new(),
             chord_symbols_visible: None,
+            global_chord_symbols_visible: index == 0,
+            global_chord_symbols_policy: None,
         })
         .collect();
     (staves, Vec::new())

@@ -49,7 +49,7 @@ describe("applyChordSymbolEdit", () => {
     });
   });
 
-  it("creates a part-level harmony event without inheriting the selected note's staff", () => {
+  it("creates a global harmony event using the selected note as its time anchor", () => {
     const updated = applyChordSymbolEdit(
       scoreWithQuarterNotes(),
       {
@@ -62,7 +62,7 @@ describe("applyChordSymbolEdit", () => {
       "F#maj7/A#",
     );
 
-    expect(updated?.parts[0]!.measures[0]!.chordSymbols).toEqual([
+    expect(updated?.global.measures[0]!.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
         root: { step: "F", alter: 1 },
@@ -85,7 +85,7 @@ describe("applyChordSymbolEdit", () => {
     const first = applyChordSymbolEdit(score, target, "C");
     const replaced = first ? applyChordSymbolEdit(first, target, "Dm7") : undefined;
 
-    expect(replaced?.parts[0]!.measures[0]!.chordSymbols).toEqual([
+    expect(replaced?.global.measures[0]!.chordSymbols).toEqual([
       {
         position: { fraction: [0, 1] },
         root: { step: "D" },
@@ -95,7 +95,45 @@ describe("applyChordSymbolEdit", () => {
     ]);
   });
 
-  it("replaces an imported staff-targeted chord while preserving its display override", () => {
+  it("shows newly entered global harmony on the selected layout staff", () => {
+    const score = scoreWithQuarterNotes();
+    score.parts[0]!.id = "piano";
+    score.layouts = [
+      {
+        id: "full",
+        content: [
+          {
+            type: "group",
+            content: [
+              { type: "staff", sources: [{ part: "piano", staff: 1 }] },
+              { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const updated = applyChordSymbolEdit(
+      score,
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 0,
+        anchorStaff: 2,
+      },
+      "C",
+    );
+    const group = updated?.layouts?.[0]?.content[0];
+
+    expect(group?.type).toBe("group");
+    if (group?.type !== "group") return;
+    expect(group.content[0]).not.toHaveProperty("globalChordSymbolVisibility");
+    expect(group.content[1]).toMatchObject({ globalChordSymbolVisibility: "show" });
+  });
+
+  it("adds global harmony without rewriting imported staff-local harmony", () => {
     const score = scoreWithQuarterNotes();
     score.parts[0]!.measures[0]!.chordSymbols = [
       {
@@ -126,13 +164,20 @@ describe("applyChordSymbolEdit", () => {
       "Dm7",
     );
 
+    expect(updated?.global.measures[0]!.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "D" },
+        quality: "minor",
+        extension: 7,
+      },
+    ]);
     expect(updated?.parts[0]!.measures[0]!.chordSymbols).toEqual([
       {
         position: { fraction: [0, 1] },
         displayStaff: 2,
-        root: { step: "D" },
-        quality: "minor",
-        extension: 7,
+        root: { step: "C" },
+        quality: "major",
       },
       {
         position: { fraction: [0, 1] },
@@ -183,7 +228,7 @@ describe("applyChordSymbolEdit", () => {
       "G7",
     );
 
-    expect(updated?.parts[0]!.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [1, 3] });
+    expect(updated?.global.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [1, 3] });
   });
 
   it("uses a direct beat-stepping position instead of the anchor event onset", () => {
@@ -200,7 +245,7 @@ describe("applyChordSymbolEdit", () => {
       "G7",
     );
 
-    expect(updated?.parts[0]!.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [3, 4] });
+    expect(updated?.global.measures[0]!.chordSymbols?.[0]?.position).toEqual({ fraction: [3, 4] });
   });
 
   it("navigates continuously to the next event and next measure", () => {

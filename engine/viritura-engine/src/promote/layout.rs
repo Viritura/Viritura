@@ -91,11 +91,21 @@ pub(crate) fn promote_staff(r: raw::Staff, original_json: &serde_json::Value) ->
             "hide" => Some(ChordSymbolVisibility::Hide),
             _ => None,
         });
+    let global_chord_symbol_visibility = original_json
+        .pointer("/_x/viritura/globalChordSymbolVisibility")
+        .and_then(|value| value.as_str())
+        .and_then(|value| match value {
+            "auto" => Some(ChordSymbolVisibility::Auto),
+            "show" => Some(ChordSymbolVisibility::Show),
+            "hide" => Some(ChordSymbolVisibility::Hide),
+            _ => None,
+        });
     ModelLayoutStaff {
         sources: r.sources.into_iter().map(promote_staff_source).collect(),
         label: r.label.map(|l| l.0),
         labelref: r.labelref.map(|l| l.to_string()),
         chord_symbol_visibility,
+        global_chord_symbol_visibility,
         symbol: r.symbol.map(staff_symbol_to_string),
         expansion,
         condensed_numbers_override,

@@ -15,8 +15,8 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
-| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility                                                                          |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX                                                  |
+| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility, globalChordSymbolVisibility                                             |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, chordSymbols                                    |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
@@ -225,6 +225,18 @@ An imported chord's `displayStaff` remains a per-event compatibility override
 when the layout is `auto`. Explicit layout `show`/`hide` settings take
 precedence, allowing full-score and part layouts to display the same semantic
 harmony lane differently.
+
+### `globalChordSymbolVisibility`
+
+Controls whether the document's global harmony track is engraved on this
+displayed staff:
+
+- `auto` (or omitted): show global harmony on the first displayed staff.
+- `show`: show global harmony on this layout staff.
+- `hide`: suppress global harmony on this layout staff.
+
+This is independent of `chordSymbolVisibility`, which continues to control
+part-local harmony imported or authored as an exception.
 
 In the editor's Setup layout tree, right-click a staff and choose
 **Chord Symbols** → **Automatic**, **Show**, or **Hide**.
@@ -709,10 +721,16 @@ Array of piano pedal markings.
 ### `chordSymbols`
 
 Array of time-anchored harmony events rendered as chord symbols. Each event
-belongs to the part at its rhythmic position; it is not attached to a note,
-voice, or staff. Layout-staff `chordSymbolVisibility` controls ordinary
-engraving placement, while `displayStaff` preserves an explicit per-event
-source override.
+is not attached to a note or voice. The same shape is valid in two scopes:
+
+- `global.measures[]._x.viritura.chordSymbols` stores the document's preferred
+  global harmony track;
+- `parts[].measures[]._x.viritura.chordSymbols` stores part-local harmony,
+  including imported staff-specific differences.
+
+Layout-staff `globalChordSymbolVisibility` controls global-harmony projection.
+For part-local events, `chordSymbolVisibility` controls ordinary engraving
+placement while `displayStaff` preserves an explicit source-staff target.
 
 Semantic root, bass, and numeric modifier accidentals are rendered with SMuFL
 accidental glyphs from Bravura. `textOverride` is intentionally rendered
