@@ -1,5 +1,4 @@
 using System.Net.WebSockets;
-using System.Text.Json;
 using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Authentication;
@@ -61,7 +60,8 @@ builder.Services.AddOpenIddict()
             options.SetIssuer(new Uri(
                 builder.Configuration["OAuth:Issuer"] ?? "https://api.viritura.com"));
         }
-        options.SetAuthorizationEndpointUris("/oauth/authorize")
+        options.SetConfigurationEndpointUris("/.well-known/oauth-authorization-server")
+            .SetAuthorizationEndpointUris("/oauth/authorize")
             .SetTokenEndpointUris("/oauth/token")
             .SetRevocationEndpointUris("/oauth/revoke");
         options.AllowAuthorizationCodeFlow();
@@ -75,24 +75,20 @@ builder.Services.AddOpenIddict()
         options.UseReferenceAccessTokens();
         options.SetAccessTokenLifetime(TimeSpan.FromHours(1));
         options.UseDataProtection();
-        options.AddEventHandler<OpenIddictServerEvents.ApplyConfigurationResponseContext>(builder =>
+        options.AddEventHandler<OpenIddictServerEvents.HandleConfigurationRequestContext>(builder =>
             builder.UseInlineHandler(context =>
             {
-                var issuer = context.Transaction.Options.Issuer ?? context.Transaction.BaseUri!;
-                context.Response["authorization_endpoint"] = new OpenIddictParameter(
-                    new Uri(issuer, "/oauth/authorize").AbsoluteUri);
-                context.Response["token_endpoint"] = new OpenIddictParameter(
-                    new Uri(issuer, "/oauth/token").AbsoluteUri);
-                context.Response["revocation_endpoint"] = new OpenIddictParameter(
-                    new Uri(issuer, "/oauth/revoke").AbsoluteUri);
-                context.Response["jwks_uri"] = new OpenIddictParameter(
-                    new Uri(issuer, "/.well-known/jwks").AbsoluteUri);
-                context.Response["registration_endpoint"] = new OpenIddictParameter(
-                    new Uri(issuer, "/oauth/register").AbsoluteUri);
-                context.Response["code_challenge_methods_supported"] = new OpenIddictParameter(
-                    JsonSerializer.SerializeToElement(new[] { OpenIddictConstants.CodeChallengeMethods.Sha256 }));
+                context.Metadata["registration_endpoint"] =
+                    new OpenIddictParameter(new Uri(context.Issuer!, "/oauth/register").AbsoluteUri);
+                context.TokenEndpointAuthenticationMethods.Add(
+                    OpenIddictConstants.ClientAuthenticationMethods.None);
+                context.RevocationEndpointAuthenticationMethods.Add(
+                    OpenIddictConstants.ClientAuthenticationMethods.None);
+                context.CodeChallengeMethods.Clear();
+                context.CodeChallengeMethods.Add(OpenIddictConstants.CodeChallengeMethods.Sha256);
                 return default;
-            }));
+            })
+            .SetOrder(OpenIddictServerHandlers.Discovery.AttachCodeChallengeMethods.Descriptor.Order + 500));
         // OAuth artifacts use the same persisted Data Protection ring as the
         // Viritura session cookie. Ephemeral protocol credentials satisfy
         // OpenIddict's metadata requirements but never carry token payloads.
@@ -502,8 +498,6 @@ app.MapGet(
 app.MapGet(
     "/.well-known/oauth-protected-resource/mcp",
     McpOAuthEndpoint.StaticProtectedResourceMetadata)
-    .RequireRateLimiting("McpRequest");
-app.MapGet("/.well-known/oauth-authorization-server", McpOAuthEndpoint.AuthorizationServerMetadata)
     .RequireRateLimiting("McpRequest");
 app.MapPost("/oauth/register", McpOAuthEndpoint.RegisterClientAsync)
     .RequireRateLimiting("McpOAuthRegistration");

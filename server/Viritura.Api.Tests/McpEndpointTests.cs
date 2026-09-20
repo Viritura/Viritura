@@ -146,6 +146,17 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Contains("preview.split_orchestral_staves", names);
         Assert.Contains("preview.normalize_tritsch_instruments", names);
         Assert.Contains("preview.propose_chord_notes", names);
+        Assert.Contains("editor.list_sessions", names);
+
+        var listed = await PostRpcAsync(client, endpoint, grant.AccessToken, new
+        {
+            jsonrpc = "2.0",
+            id = 3,
+            method = "tools/call",
+            @params = new { name = "editor.list_sessions", arguments = new { } }
+        });
+        Assert.Empty(
+            listed.GetProperty("result").GetProperty("structuredContent").GetProperty("sessions").EnumerateArray());
     }
 
     [Theory]
@@ -207,7 +218,12 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
 
         var missing = await client.PostAsJsonAsync(endpoint, body);
         Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
-        Assert.Equal("Bearer", missing.Headers.WwwAuthenticate.Single().Scheme);
+        var challenge = missing.Headers.WwwAuthenticate.Single();
+        Assert.Equal("Bearer", challenge.Scheme);
+        Assert.Contains(
+            "resource_metadata=\"https://localhost/.well-known/oauth-protected-resource/mcp\"",
+            challenge.ToString(),
+            StringComparison.Ordinal);
 
         using var wrongRequest = CreateAuthorizedRequest(endpoint, "wrong-token", body);
         var wrong = await client.SendAsync(wrongRequest);
@@ -226,16 +242,64 @@ public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Progr
         Assert.Equal(
             $"https://localhost/mcp/sessions/{sessionId}",
             protectedResource.GetProperty("resource").GetString());
+        Assert.Equal(
+            ["https://localhost/"],
+            protectedResource.GetProperty("authorization_servers").EnumerateArray()
+                .Select(server => server.GetString()!)
+                .ToArray());
         var staticProtectedResource = await client.GetFromJsonAsync<JsonElement>(
             "/.well-known/oauth-protected-resource/mcp");
         Assert.Equal("https://localhost/mcp", staticProtectedResource.GetProperty("resource").GetString());
+        Assert.Equal(
+            ["https://localhost/"],
+            staticProtectedResource.GetProperty("authorization_servers").EnumerateArray()
+                .Select(server => server.GetString()!)
+                .ToArray());
 
-        var server = await client.GetFromJsonAsync<JsonElement>("/.well-known/oauth-authorization-server");
+        var discovery = await client.GetAsync("/.well-known/oauth-authorization-server");
+        Assert.Equal(HttpStatusCode.OK, discovery.StatusCode);
+        Assert.Equal("application/json", discovery.Content.Headers.ContentType?.MediaType);
+        var server = await discovery.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("https://localhost/", server.GetProperty("issuer").GetString());
+        Assert.Equal("https://localhost/oauth/authorize", server.GetProperty("authorization_endpoint").GetString());
+        Assert.Equal("https://localhost/oauth/token", server.GetProperty("token_endpoint").GetString());
         Assert.Equal("https://localhost/oauth/register", server.GetProperty("registration_endpoint").GetString());
         Assert.Equal(
             ["S256"],
             server.GetProperty("code_challenge_methods_supported").EnumerateArray()
                 .Select(method => method.GetString()!)
+                .ToArray());
+        Assert.Contains(
+            "none",
+            server.GetProperty("token_endpoint_auth_methods_supported").EnumerateArray()
+                .Select(method => method.GetString()!));
+    }
+
+    [Fact]
+    public async Task OAuthRegistration_AcceptsPublicVsCodeRedirectUris()
+    {
+        using var client = CreateClient();
+        string[] redirectUris =
+        [
+            "https://vscode.dev/redirect",
+            "http://127.0.0.1:43129/callback"
+        ];
+
+        var response = await client.PostAsJsonAsync("/oauth/register", new
+        {
+            client_name = "Visual Studio Code",
+            redirect_uris = redirectUris,
+            token_endpoint_auth_method = "none"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var registration = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.StartsWith("mcp-", registration.GetProperty("client_id").GetString(), StringComparison.Ordinal);
+        Assert.Equal("none", registration.GetProperty("token_endpoint_auth_method").GetString());
+        Assert.Equal(
+            redirectUris,
+            registration.GetProperty("redirect_uris").EnumerateArray()
+                .Select(uri => uri.GetString()!)
                 .ToArray());
     }
 

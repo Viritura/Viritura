@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using OpenIddict.Server.AspNetCore;
 
 using Viritura.Infrastructure;
@@ -32,8 +33,6 @@ internal static class McpOAuthEndpoint
     private static readonly string[] HeaderBearerMethod = ["header"];
     private static readonly string[] CodeResponseType = ["code"];
     private static readonly string[] AuthorizationCodeGrant = ["authorization_code"];
-    private static readonly string[] S256ChallengeMethod = ["S256"];
-    private static readonly string[] NoClientAuthentication = ["none"];
     private static readonly string[] AccessTokenDestination = [Destinations.AccessToken];
     private static readonly string[] NoDestinations = [];
     private static readonly string[] ApplicationPermissions =
@@ -51,14 +50,15 @@ internal static class McpOAuthEndpoint
     internal static IResult ProtectedResourceMetadata(
         HttpContext context,
         string sessionId,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IOptionsMonitor<OpenIddictServerOptions> serverOptions)
     {
         var scheme = environment.IsDevelopment() ? context.Request.Scheme : "https";
         var origin = $"{scheme}://{context.Request.Host}";
         return Results.Json(new
         {
             resource = $"{origin}/mcp/sessions/{sessionId}",
-            authorization_servers = new[] { origin },
+            authorization_servers = new[] { GetAuthorizationServerIssuer(origin, serverOptions.CurrentValue) },
             scopes_supported = SupportedScopes,
             bearer_methods_supported = HeaderBearerMethod
         });
@@ -66,39 +66,22 @@ internal static class McpOAuthEndpoint
 
     internal static IResult StaticProtectedResourceMetadata(
         HttpContext context,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IOptionsMonitor<OpenIddictServerOptions> serverOptions)
     {
         var scheme = environment.IsDevelopment() ? context.Request.Scheme : "https";
         var origin = $"{scheme}://{context.Request.Host}";
         return Results.Json(new
         {
             resource = $"{origin}/mcp",
-            authorization_servers = new[] { origin },
+            authorization_servers = new[] { GetAuthorizationServerIssuer(origin, serverOptions.CurrentValue) },
             scopes_supported = SupportedScopes,
             bearer_methods_supported = HeaderBearerMethod
         });
     }
 
-    internal static IResult AuthorizationServerMetadata(
-        HttpContext context,
-        IWebHostEnvironment environment)
-    {
-        var scheme = environment.IsDevelopment() ? context.Request.Scheme : "https";
-        var origin = $"{scheme}://{context.Request.Host}";
-        return Results.Json(new
-        {
-            issuer = origin,
-            authorization_endpoint = $"{origin}/oauth/authorize",
-            token_endpoint = $"{origin}/oauth/token",
-            revocation_endpoint = $"{origin}/oauth/revoke",
-            registration_endpoint = $"{origin}/oauth/register",
-            response_types_supported = CodeResponseType,
-            grant_types_supported = AuthorizationCodeGrant,
-            code_challenge_methods_supported = S256ChallengeMethod,
-            token_endpoint_auth_methods_supported = NoClientAuthentication,
-            scopes_supported = SupportedScopes
-        });
-    }
+    private static string GetAuthorizationServerIssuer(string origin, OpenIddictServerOptions options) =>
+        options.Issuer?.AbsoluteUri ?? new Uri($"{origin}/").AbsoluteUri;
 
     internal static async Task<IResult> RegisterClientAsync(
         HttpContext context,
