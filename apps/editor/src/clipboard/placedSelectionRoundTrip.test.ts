@@ -3,7 +3,7 @@ import { walkSequenceEvents, type NoteEvent, type Score, type SequenceContent } 
 import { serializeMnx, validateRawScore } from "@viritura/format";
 import { pasteResultFromFragment, type ClipboardSelection } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
-import { chordSymbolId, dynamicId } from "../score/ElementPath";
+import { dynamicId } from "../score/ElementPath";
 import type { SelectionState } from "../store/selectionStore";
 import { buildClipboardSelection } from "./buildClipboardSelection";
 import { computePasteResult } from "./computePasteResult";
@@ -199,10 +199,9 @@ describe("automatic placed-selection clipboard round trips", () => {
       const { score, tracks } = fixture("single", [note("before"), note("selected", "G"), rest("after", "half")]);
       for (const [measureIndex, measure] of score.parts[0]!.measures.entries()) {
         const beats = measureIndex === 0 ? [0, 1] : [0, 0.5, 2];
-        measure.chordSymbols = beats.map((beat) => ({
+        score.global.measures[measureIndex]!.chordSymbols = beats.map((beat) => ({
           root: { step: beat === 0.5 ? "D" : "C" },
           quality: "minor",
-          displayStaff: 1,
           position: { fraction: [beat * 2, 8] },
         }));
         measure.dynamics = beats
@@ -219,7 +218,7 @@ describe("automatic placed-selection clipboard round trips", () => {
       const snapshot = structuredClone(score);
       const original = buildClipboardSelection(score, {
         kind: "multi",
-        elementIds: ["p0/m0/s0/selected", "p0/m0/chord0", "p0/m0/chord1", "p0/m0/dyn0", "p0/m0/dyn1"],
+        elementIds: ["p0/m0/s0/selected", "m0/chord0", "m0/chord1", "p0/m0/dyn0", "p0/m0/dyn1"],
       })!;
       let result = computePasteResult(score, wholeMeasure(tracks, 1), nativePaste(original))!;
       for (const placement of [0, 1]) {
@@ -242,10 +241,11 @@ describe("automatic placed-selection clipboard round trips", () => {
           ],
         });
         const measure = result.newScore.parts[0]!.measures[measureIndex]!;
+        const globalMeasure = result.newScore.global.measures[measureIndex]!;
         const annotations = [
-          ...measure.chordSymbols!.flatMap((symbol, index) => {
+          ...globalMeasure.chordSymbols!.flatMap((symbol, index) => {
             const onset = (symbol.position.fraction[0] / symbol.position.fraction[1]) * 4;
-            return onset === beat || onset === beat + 1 ? [chordSymbolId(0, measureIndex, index)] : [];
+            return onset === beat || onset === beat + 1 ? [`m${measureIndex}/chord${index}`] : [];
           }),
           ...measure
             .dynamics!.filter(
@@ -268,7 +268,7 @@ describe("automatic placed-selection clipboard round trips", () => {
         expect(copied.dynamics).toHaveLength(2);
         expect(copied.dynamics!.map((item) => item.dynamic.value)).toEqual(["mf", "mf"]);
         expect(copied.dynamics!.map((item) => (item.offset![0] / item.offset![1]) * 4)).toEqual([0, 1]);
-        expect(measure.chordSymbols).toContainEqual(snapshot.parts[0]!.measures[measureIndex]!.chordSymbols![1]);
+        expect(globalMeasure.chordSymbols).toContainEqual(snapshot.global.measures[measureIndex]!.chordSymbols![1]);
         expect(measure.dynamics).toEqual(expect.arrayContaining(snapshot.parts[0]!.measures[measureIndex]!.dynamics!));
         if (placement === 0) {
           result =
@@ -284,7 +284,7 @@ describe("automatic placed-selection clipboard round trips", () => {
 
   it("keeps annotation IDs when one placed note otherwise qualifies as a single selection", () => {
     const { score, tracks } = fixture("single", [note("selected")]);
-    score.parts[0]!.measures[0]!.chordSymbols = [
+    score.global.measures[0]!.chordSymbols = [
       { root: { step: "C" }, quality: "minor", position: { fraction: [0, 1] } },
     ];
     score.parts[0]!.measures[0]!.dynamics = [
@@ -292,7 +292,7 @@ describe("automatic placed-selection clipboard round trips", () => {
     ];
     const copied = buildClipboardSelection(score, {
       kind: "multi",
-      elementIds: ["p0/m0/s0/selected", "p0/m0/chord0", "p0/m0/dynsource-dynamic"],
+      elementIds: ["p0/m0/s0/selected", "m0/chord0", "p0/m0/dynsource-dynamic"],
     })!;
     const result = computePasteResult(score, wholeMeasure(tracks, 1), nativePaste(copied))!;
     expect(result.selection?.kind).toBe("multi");
@@ -305,8 +305,8 @@ describe("automatic placed-selection clipboard round trips", () => {
 
   it("recaptures fractional harmony on the staff above a delayed note across a repeat boundary", () => {
     const { score } = fixture("staff");
-    score.parts[0]!.measures[0]!.chordSymbols = [
-      { root: { step: "C" }, quality: "minor", displayStaff: 1, position: { fraction: [1, 6] } },
+    score.global.measures[0]!.chordSymbols = [
+      { root: { step: "C" }, quality: "minor", position: { fraction: [1, 6] } },
     ];
     score.parts[0]!.measures[0]!.dynamics = [
       { id: "upper-dynamic", type: "immediate", value: "mf", staff: 1, position: { fraction: [0, 1] } },
@@ -314,7 +314,7 @@ describe("automatic placed-selection clipboard round trips", () => {
     score.parts[0]!.measures[1]!.sequences[1]!.content = [0, 1, 2, 3].map((beat) => note(`target-${beat}`));
     const original = buildClipboardSelection(score, {
       kind: "multi",
-      elementIds: ["p0/m0/s1/g-1", "p0/m0/chord0", "p0/m0/dynupper-dynamic"],
+      elementIds: ["p0/m0/s1/g-1", "m0/chord0/p0/staff1", "p0/m0/dynupper-dynamic"],
     })!;
     let result = computePasteResult(
       score,
@@ -329,7 +329,7 @@ describe("automatic placed-selection clipboard round trips", () => {
       expect(result.selection?.kind).toBe("multi");
       if (result.selection?.kind !== "multi") throw new Error("Expected annotation and lower-staff note IDs");
       expect(result.selection.elementIds).toHaveLength(3);
-      expect(result.selection.elementIds).toContain(`p0/m1/chord${beat === 1 ? 0 : 1}`);
+      expect(result.selection.elementIds).toContain(`m1/chord${beat === 1 ? 0 : 1}`);
       const copied = buildClipboardSelection(result.newScore, result.selection)!;
       expect(copied.captureOrigin).toEqual({ measureIndex: 1, beat });
       expect(copied.tracks).toHaveLength(2);

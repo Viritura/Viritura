@@ -9,7 +9,12 @@
  * crash recovery.
  */
 
-import { convertMusicXmlToMnx, convertMxlToMnx, type PercussionImportReview } from "@viritura/musicxml";
+import {
+  convertMusicXmlToMnx,
+  convertMxlToMnx,
+  DiagnosticCollector,
+  type PercussionImportReview,
+} from "@viritura/musicxml";
 import {
   convertMusxToMnx,
   MAX_MUSX_BYTES,
@@ -198,11 +203,13 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
     const { includeVendorExtensions, discardStemDirections, hideMetronomeWhenTempoText } =
       useImportSettingsStore.getState();
     const percussionReviews: PercussionImportReview[] = [];
+    const diagnostics = new DiagnosticCollector();
     const opts = {
       includeVendorExtensions,
       discardStemDirections,
       hideMetronomeWhenTempoText,
       percussionReviews,
+      diagnostics,
     } as const;
     const doc = lower.endsWith(".mxl")
       ? await convertMxlToMnx(await file.arrayBuffer(), opts)
@@ -216,6 +223,7 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
       mnxJson: JSON.stringify(doc),
       filename: `${baseName}.mnx`,
       fileHandle: null,
+      ...(diagnostics.length > 0 ? { importDiagnostics: [...diagnostics.all()] } : {}),
       ...(reviewedParts.length > 0
         ? {
             percussionReviewPartIndices: reviewedParts.map((entry) => entry.index),

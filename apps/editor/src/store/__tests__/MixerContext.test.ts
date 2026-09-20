@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { CHORDS_PART_ID } from "@viritura/core";
 import { mixerReducer, initialMixerState, type MixerState, type MixerChannelState } from "../mixerStore";
 import { MIXER_DEFAULT_GAIN, MIXER_MAX_GAIN } from "../mixerGain";
 
@@ -24,6 +25,100 @@ function stateWithChannels(count: number, overrides?: Partial<MixerChannelState>
 }
 
 describe("mixerReducer", () => {
+  describe("derived Chords", () => {
+    it("appends an ordinary unmuted channel with a stable cache identity", () => {
+      const next = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      expect(next.channels).toHaveLength(3);
+      expect(next.chordsPartIndex).toBe(2);
+      expect(ch(next, 2)).toEqual(ch(next, 0));
+      expect(ch(next, 2)).toMatchObject({ volume: MIXER_DEFAULT_GAIN, muted: false, solo: false });
+      expect(next.derivedChannels?.[CHORDS_PART_ID]).toBe(ch(next, 2));
+    });
+
+    it("keeps the cache current through positional channel edits", () => {
+      let state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 1, hasChords: true });
+      state = mixerReducer(state, { type: "SET_VOLUME", partIndex: 1, volume: 0.3 });
+      state = mixerReducer(state, { type: "SET_PAN", partIndex: 1, pan: -0.4 });
+      state = mixerReducer(state, { type: "TOGGLE_MUTE", partIndex: 1 });
+      state = mixerReducer(state, { type: "TOGGLE_SOLO", partIndex: 1 });
+      state = mixerReducer(state, { type: "TOGGLE_ENSEMBLE", partIndex: 1 });
+      state = mixerReducer(state, { type: "TOGGLE_SPATIAL_MODE", partIndex: 1 });
+      expect(state.derivedChannels?.[CHORDS_PART_ID]).toBe(ch(state, 1));
+      expect(ch(state, 1)).toEqual({
+        volume: 0.3,
+        pan: -0.4,
+        muted: true,
+        solo: true,
+        ensembleEnabled: false,
+        spatialMode: "stereo",
+      });
+    });
+
+    it("caches hidden state without participating in solo and restores the same channel object", () => {
+      let state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      state = mixerReducer(state, { type: "TOGGLE_SOLO", partIndex: 2 });
+      const derived = ch(state, 2);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 2, hasChords: false });
+      expect(state.channels).toHaveLength(2);
+      expect(state.channels.some((channel) => channel.solo)).toBe(false);
+      expect(state.chordsPartIndex).toBeUndefined();
+      expect(state.derivedChannels?.[CHORDS_PART_ID]).toBe(derived);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 4 });
+      expect(ch(state, 2).solo).toBe(false);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 4, hasChords: true });
+      expect(ch(state, 4)).toBe(derived);
+    });
+
+    it("moves visible Chords past newly defaulted real parts and back on shrink", () => {
+      let state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      state = mixerReducer(state, { type: "SET_VOLUME", partIndex: 2, volume: 0.17 });
+      const real = ch(state, 0);
+      const derived = ch(state, 2);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 4, hasChords: true });
+      expect(ch(state, 0)).toBe(real);
+      expect(ch(state, 2).volume).toBe(MIXER_DEFAULT_GAIN);
+      expect(ch(state, 3).volume).toBe(MIXER_DEFAULT_GAIN);
+      expect(ch(state, 4)).toBe(derived);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 1 });
+      expect(state.channels).toEqual([real, derived]);
+      expect(state.chordsPartIndex).toBe(1);
+    });
+
+    it("does not confuse equal total channel counts with equal rosters", () => {
+      let state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      state = mixerReducer(state, { type: "SET_VOLUME", partIndex: 2, volume: 0.12 });
+      const derived = ch(state, 2);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 3, hasChords: false });
+      expect(state.channels).toHaveLength(3);
+      expect(ch(state, 2).volume).toBe(MIXER_DEFAULT_GAIN);
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      expect(ch(state, 2)).toBe(derived);
+    });
+
+    it("makes duplicate and count-only syncs referential no-ops", () => {
+      const state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 2, hasChords: true });
+      expect(mixerReducer(state, { type: "SYNC_PARTS", partCount: 2, hasChords: true })).toBe(state);
+      expect(mixerReducer(state, { type: "SYNC_PARTS", partCount: 2 })).toBe(state);
+      const hidden = mixerReducer(state, { type: "SYNC_PARTS", partCount: 2, hasChords: false });
+      expect(mixerReducer(hidden, { type: "SYNC_PARTS", partCount: 2 })).toBe(hidden);
+      expect(mixerReducer(hidden, { type: "SYNC_PARTS", partCount: 2, hasChords: false })).toBe(hidden);
+    });
+
+    it.each([true, false])("reset clears cached Chords when visibility is %s", (hasChords) => {
+      let state = mixerReducer(initialMixerState(), { type: "SYNC_PARTS", partCount: 0, hasChords: true });
+      state = mixerReducer(state, { type: "TOGGLE_SOLO", partIndex: 0 });
+      state = mixerReducer(state, { type: "SET_MASTER_VOLUME", volume: 0.4 });
+      state = mixerReducer(state, { type: "TOGGLE_MASTER_MUTE" });
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 0, hasChords });
+      state = mixerReducer(state, { type: "RESET" });
+      expect(state).toEqual(initialMixerState());
+      state = mixerReducer(state, { type: "SYNC_PARTS", partCount: 1, hasChords: true });
+      expect(ch(state, 1)).toMatchObject({ volume: MIXER_DEFAULT_GAIN, muted: false, solo: false });
+      expect(state.masterMuted).toBe(false);
+      expect(state.masterVolume).toBe(1);
+    });
+  });
+
   describe("SYNC_PARTS", () => {
     it("creates channels for new parts", () => {
       const state = initialMixerState();

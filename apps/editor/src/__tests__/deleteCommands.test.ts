@@ -6,6 +6,7 @@ import {
   deleteAnnotations,
   deleteArpeggioByElementId,
   expandCondensedDynamicLocations,
+  resolveDeletableAnnotationLocation,
 } from "../commands/deleteCommands";
 import { resolveEventLocation, resolveAnnotationLocation } from "../score/ElementPath";
 
@@ -118,15 +119,8 @@ describe("resolveAnnotationLocation", () => {
       });
     });
 
-    it("parses a chord symbol ID", () => {
-      const loc = resolveAnnotationLocation("p0/m0/chord1");
-      expect(loc).toEqual({
-        kind: "part",
-        type: "chord",
-        measureIndex: 0,
-        partIndex: 0,
-        annotationIndex: 1,
-      });
+    it("rejects legacy part-local chord symbol IDs for deletion", () => {
+      expect(resolveDeletableAnnotationLocation("p0/m0/chord1")).toBeNull();
     });
 
     it("parses a hairpin ID", () => {
@@ -176,6 +170,15 @@ describe("resolveAnnotationLocation", () => {
 
     it("parses a global chord annotation ID", () => {
       expect(resolveAnnotationLocation("m0/chord2")).toEqual({
+        kind: "global",
+        type: "chord",
+        measureIndex: 0,
+        annotationIndex: 2,
+      });
+    });
+
+    it("resolves a rendered chord copy to its canonical global annotation", () => {
+      expect(resolveDeletableAnnotationLocation("m0/chord2/p4/staff2")).toEqual({
         kind: "global",
         type: "chord",
         measureIndex: 0,
@@ -322,7 +325,6 @@ describe("deleteAnnotation", () => {
                 },
               ],
               expressions: [{ text: "dolce", position: { fraction: [0, 1] } }],
-              chordSymbols: [{ position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" }],
               pedals: [
                 {
                   type: "sustain",
@@ -342,6 +344,17 @@ describe("deleteAnnotation", () => {
       ],
     };
   }
+
+  it("does not conflate dynamic and hairpin ordinals when deduplicating annotations", () => {
+    const score = makeAnnotatedScore();
+    const result = deleteAnnotations(score, [
+      { kind: "part", type: "dyn", partIndex: 0, measureIndex: 0, annotationIndex: 0 },
+      { kind: "part", type: "hairpin", partIndex: 0, measureIndex: 0, annotationIndex: 0 },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
+    expect(result!.parts[0]!.measures[0]!.dynamics![0]!.type).toBe("immediate");
+  });
 
   describe("global annotations", () => {
     it("deletes a tempo marking", () => {
@@ -601,8 +614,11 @@ describe("deleteAnnotation", () => {
       expect(result!.parts[0]!.measures[0]!.expressions).toBeUndefined();
     });
 
-    it("deletes a chord symbol", () => {
+    it("does not delete global harmony through a legacy part-local location", () => {
       const score = makeAnnotatedScore();
+      score.global.measures[0]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      ];
       const result = deleteAnnotation(score, {
         kind: "part",
         type: "chord",
@@ -610,8 +626,8 @@ describe("deleteAnnotation", () => {
         partIndex: 0,
         annotationIndex: 0,
       });
-      expect(result).not.toBeNull();
-      expect(result!.parts[0]!.measures[0]!.chordSymbols).toBeUndefined();
+      expect(result).toBeNull();
+      expect(score.global.measures[0]!.chordSymbols).toHaveLength(1);
     });
 
     it("deletes a hairpin", () => {

@@ -1,8 +1,14 @@
-import { measureBeats, type Score } from "@viritura/core";
+import { compareChordSymbolPositions, type Score } from "@viritura/core";
 import type { PasteResult } from "../../commands/clipboardCommands";
-import { chordSymbolId, dynamicId, hairpinId } from "../../score/ElementPath";
+import { dynamicId, hairpinId } from "../../score/ElementPath";
 import type { CapturedChordSymbol } from "../ClipboardFragment";
-import { capturedAnnotationDestination } from "./staffDestination";
+import {
+  addWholeFractions,
+  compareWholeFractions,
+  exactWholeFraction,
+  sequenceBoundaryFraction,
+  subtractWholeFractions,
+} from "../clipboardTrackPlacement";
 
 interface PlacementOrigin {
   partIndex: number;
@@ -11,29 +17,33 @@ interface PlacementOrigin {
   beat: number;
 }
 
-function chordPosition(score: Score, captured: CapturedChordSymbol, origin: PlacementOrigin) {
-  if (!captured.offset) {
-    return {
-      measureIndex: origin.measureIndex + captured.measureOffset,
-      beat:
-        (captured.measureOffset === 0 ? origin.beat : 0) +
-        (captured.chordSymbol.position.fraction[0] / captured.chordSymbol.position.fraction[1]) * 4,
-    };
-  }
-  let beat = origin.beat + (captured.offset[0] / captured.offset[1]) * 4;
+function chordPosition(before: Score, score: Score, captured: CapturedChordSymbol, origin: PlacementOrigin) {
+  const sequences = before.parts[origin.partIndex]?.measures[origin.measureIndex]?.sequences ?? [];
+  const start =
+    sequences
+      .filter((sequence) => (sequence.staff ?? 1) === origin.staffIndex + 1)
+      .map((sequence) => sequenceBoundaryFraction(sequence.content, origin.beat))
+      .find((fraction) => fraction !== undefined) ?? exactWholeFraction(origin.beat);
+  const firstMeasure = origin.measureIndex + (captured.offset ? 0 : captured.measureOffset);
+  let fraction = addWholeFractions(
+    captured.offset || captured.measureOffset === 0 ? start : [0, 1],
+    captured.offset ?? captured.chordSymbol.position.fraction,
+  );
   let time = { count: 4, unit: 4 };
   for (const [measureIndex, measure] of score.global.measures.entries()) {
     time = measure.time ?? time;
-    if (measureIndex < origin.measureIndex) continue;
-    const capacity = measureBeats(time);
-    if (capacity <= 0) return undefined;
-    if (beat < capacity - 1e-9) return { measureIndex, beat };
-    beat = Math.max(0, beat - capacity);
+    if (measureIndex < firstMeasure) continue;
+    const capacity: [number, number] = [time.count, time.unit];
+    if (compareWholeFractions(capacity, [0, 1]) <= 0) return undefined;
+    if (compareWholeFractions(fraction, capacity) < 0) {
+      return { measureIndex, position: { ...captured.chordSymbol.position, fraction } };
+    }
+    fraction = subtractWholeFractions(fraction, capacity);
   }
   return undefined;
 }
 
-/** Dynamics have fresh IDs; harmony is identified by its final staff/position and array index. */
+/** Dynamics have fresh IDs; global harmony uses its final position and array index. */
 export function findPlacedAnnotationIds(
   before: Score,
   after: Score,
@@ -53,28 +63,12 @@ export function findPlacedAnnotationIds(
     }
   }
   for (const captured of paste.chordSymbols ?? []) {
-    const destination = capturedAnnotationDestination(
-      after,
-      origin.partIndex,
-      origin.staffIndex,
-      paste.tracks,
-      captured.partOffset ?? 0,
-      captured.chordSymbol.displayStaff ?? 1,
-      captured.staffOffset,
-    );
-    const position = chordPosition(after, captured, origin);
+    const position = chordPosition(before, after, captured, origin);
     if (!position) continue;
-    const staff = destination.staff ?? captured.chordSymbol.displayStaff ?? 1;
-    const index = after.parts[destination.partIndex]?.measures[position.measureIndex]?.chordSymbols?.findIndex(
-      (symbol) => {
-        const beat = (symbol.position.fraction[0] / symbol.position.fraction[1]) * 4;
-        // Placement adds exact fractions; the selection's numeric origin can
-        // differ by summation roundoff without identifying a different harmony.
-        const roundoff = Number.EPSILON * Math.max(1, Math.abs(beat), Math.abs(position.beat)) * 8;
-        return (symbol.displayStaff ?? 1) === staff && Math.abs(beat - position.beat) <= roundoff;
-      },
+    const index = after.global.measures[position.measureIndex]?.chordSymbols?.findIndex(
+      (symbol) => compareChordSymbolPositions(symbol.position, position.position) === 0,
     );
-    if (index !== undefined && index >= 0) ids.add(chordSymbolId(destination.partIndex, position.measureIndex, index));
+    if (index !== undefined && index >= 0) ids.add(`m${position.measureIndex}/chord${index}`);
   }
   return [...ids];
 }

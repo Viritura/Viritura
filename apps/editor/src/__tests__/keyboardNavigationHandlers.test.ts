@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { NoteEvent, Score } from "@viritura/core";
-import { buildNavigationIndex } from "../navigation/NavigationIndex";
-import { handleArrowLeftRight, handleHomeEnd } from "../keyboard/navigationHandlers";
+import { buildNavigationIndex, getEntry } from "../navigation/NavigationIndex";
+import { handleAnnotationNavigation, handleArrowLeftRight, handleHomeEnd } from "../keyboard/navigationHandlers";
+import { buildEditorBindings, type EditorBindingConfig } from "../keyboard/editorBindings";
 import { handleArrowUpDown } from "../keyboard/normalModeHandlers";
 import { applyArrowTranspose } from "../keyboard/noteInputArrows";
 import type { KeyboardHandlerContext } from "../keyboard/types";
+import { extractMeasureIndex } from "../score/ElementPath";
+import { selectionReducer, type Selection } from "../store/selectionStore";
+import { isSelectionIdValid } from "../store/useSelectionPruner";
 
 function note(id: string, step: "C" | "D" = "C"): NoteEvent {
   return {
@@ -32,6 +36,214 @@ function scoreWithTempo(): Score {
 function keyboardEvent(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   return new KeyboardEvent("keydown", { key, ...init });
 }
+
+describe("harmony annotation keyboard navigation", () => {
+  function chordScore(): Score {
+    const score = scoreWithTempo();
+    score.global.measures[0]!.chordSymbols = [
+      { position: { fraction: [0, 1] }, root: { step: "C" } },
+      { position: { fraction: [1, 4] }, root: { step: "D" } },
+      { position: { fraction: [1, 2] }, root: { step: "E" } },
+    ];
+    return score;
+  }
+
+  it.each([
+    {
+      layout: "canonical chord on the second source part",
+      elementId: "m0/chord0",
+      anchor: { partIndex: 1, staffIndex: 1, measureIndex: 0 },
+    },
+    {
+      layout: "structural layout with a remapped staff",
+      elementId: "m0/chord0/p0/staff8",
+      anchor: { partIndex: 1, staffIndex: 7, localStaffIndex: 1, measureIndex: 0 },
+    },
+    {
+      layout: "condensed staff",
+      elementId: "m0/chord0/p0/staff1",
+      anchor: { partIndex: 1, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
+    },
+    {
+      layout: "expanded condensed source staff",
+      elementId: "m0/chord0/p0/staff2",
+      anchor: { partIndex: 1, staffIndex: 1, localStaffIndex: 0, measureIndex: 0, isExpansion: true },
+    },
+    {
+      layout: "reordered source parts",
+      elementId: "m0/chord0/p1/staff1",
+      anchor: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
+    },
+  ])("uses the mapped source for opposite-side navigation in $layout", ({ elementId, anchor }) => {
+    const score = chordScore();
+    score.parts[0]!.id = "clarinet";
+    score.parts.push({
+      id: "piano",
+      staves: (anchor.localStaffIndex ?? 0) + 1,
+      measures: [{ sequences: [{ content: [note("piano-event")] }] }],
+    });
+    for (const part of score.parts) {
+      part.measures[0]!.dynamics = [{ id: part.id!, type: "immediate", position: { fraction: [0, 1] }, value: "p" }];
+    }
+    const before = structuredClone(score);
+    let selection: Selection = selectionReducer(
+      { kind: "none" },
+      { type: "SELECT_ELEMENT", elementId, measureAnchor: anchor },
+    );
+    const selectElement = vi.fn<KeyboardHandlerContext["selectElement"]>((elementId, measureAnchor) => {
+      selection = selectionReducer(selection, { type: "SELECT_ELEMENT", elementId, measureAnchor });
+    });
+    const ctx = {
+      getScore: () => score,
+      getSelection: () => selection,
+      selectElement,
+    } as unknown as KeyboardHandlerContext;
+
+    handleArrowUpDown(keyboardEvent("ArrowDown", { altKey: true }), false, ctx);
+
+    const target = `p${anchor.partIndex}/m0/dyn${score.parts[anchor.partIndex]!.id}`;
+    expect(selectElement).toHaveBeenCalledExactlyOnceWith(target, anchor);
+    handleArrowUpDown(keyboardEvent("ArrowUp", { altKey: true }), false, ctx);
+    expect(selection).toMatchObject({ elementId: "m0/chord0", measureAnchor: anchor });
+    handleArrowUpDown(keyboardEvent("ArrowDown", { altKey: true }), false, ctx);
+    expect(selectElement).toHaveBeenLastCalledWith(target, anchor);
+    expect(score).toEqual(before);
+  });
+
+  it("retains an unanchored source dynamic's part when navigating through a global chord", () => {
+    const score = chordScore();
+    score.parts.push({
+      id: "piano",
+      measures: [
+        {
+          sequences: [{ content: [note("piano-event")] }],
+          dynamics: [{ id: "piano", type: "immediate", position: { fraction: [0, 1] }, value: "p" }],
+        },
+      ],
+    });
+    let selection: Selection = selectionReducer(
+      { kind: "none" },
+      { type: "SELECT_ELEMENT", elementId: "p1/m0/dynpiano" },
+    );
+    const selectElement = vi.fn<KeyboardHandlerContext["selectElement"]>((elementId, measureAnchor) => {
+      selection = selectionReducer(selection, { type: "SELECT_ELEMENT", elementId, measureAnchor });
+    });
+    const ctx = { getScore: () => score, getSelection: () => selection, selectElement } as KeyboardHandlerContext;
+    handleArrowUpDown(keyboardEvent("ArrowUp", { altKey: true }), false, ctx);
+    expect(selection).toMatchObject({ elementId: "m0/chord0", measureAnchor: { partIndex: 1 } });
+    handleArrowUpDown(keyboardEvent("ArrowDown", { altKey: true }), false, ctx);
+    expect(selection).toMatchObject({ elementId: "p1/m0/dynpiano", measureAnchor: { partIndex: 1 } });
+  });
+
+  it.each([1, 2])("retains an unanchored dynamic's source staff %s through a global chord", (staff) => {
+    const score = chordScore();
+    score.parts.push({
+      id: "piano",
+      staves: 2,
+      measures: [
+        {
+          sequences: [{ staff, content: [note("piano-event")] }],
+          dynamics: [{ id: "piano", staff, type: "immediate", position: { fraction: [0, 1] }, value: "p" }],
+        },
+      ],
+    });
+    let selection = selectionReducer({ kind: "none" }, { type: "SELECT_ELEMENT", elementId: "p1/m0/dynpiano" });
+    const selectElement = vi.fn<KeyboardHandlerContext["selectElement"]>((elementId, measureAnchor) => {
+      selection = selectionReducer(selection, { type: "SELECT_ELEMENT", elementId, measureAnchor });
+    });
+    const ctx = { getScore: () => score, getSelection: () => selection, selectElement } as KeyboardHandlerContext;
+
+    handleArrowUpDown(keyboardEvent("ArrowUp", { altKey: true }), false, ctx);
+    expect(selection).toMatchObject({
+      elementId: "m0/chord0",
+      measureAnchor: { partIndex: 1, sourceStaff: staff },
+    });
+    handleArrowUpDown(keyboardEvent("ArrowDown", { altKey: true }), false, ctx);
+    expect(selection).toMatchObject({ elementId: "p1/m0/dynpiano" });
+  });
+
+  it.each([
+    { direction: "next", bindingId: "normal.annotationNext", key: "Alt+ArrowRight", targetIndex: 1 },
+    { direction: "previous", bindingId: "normal.annotationPrev", key: "Alt+ArrowLeft", targetIndex: 2 },
+  ] as const)("routes $key through source-preserving selection", ({ bindingId, key, targetIndex }) => {
+    const score = chordScore();
+    const anchor = { partIndex: 3, staffIndex: 7, localStaffIndex: 1, measureIndex: 0, isExpansion: true };
+    let selection: Selection = selectionReducer(
+      { kind: "none" },
+      { type: "SELECT_ELEMENT", elementId: "m0/chord0/p0/staff8", measureAnchor: anchor },
+    );
+    const selectElement = vi.fn<KeyboardHandlerContext["selectElement"]>((elementId, measureAnchor) => {
+      selection = selectionReducer(selection, { type: "SELECT_ELEMENT", elementId, measureAnchor });
+    });
+    const ctx = {
+      getScore: () => score,
+      getSelection: () => selection,
+      selectElement,
+    } as KeyboardHandlerContext;
+    const binding = buildEditorBindings({ ctx } as EditorBindingConfig).find((entry) => entry.id === bindingId)!;
+    expect(binding.key).toBe(key);
+
+    binding.handler(keyboardEvent(key.split("+")[1]!, { altKey: true }));
+
+    const target = `m0/chord${targetIndex}/p0/staff8`;
+    expect(selectElement).toHaveBeenCalledExactlyOnceWith(target, anchor);
+    expect(selection).toMatchObject({ elementId: target, measureAnchor: anchor });
+    expect(getEntry(buildNavigationIndex(score), target)?.elementId).toBe(`m0/chord${targetIndex}`);
+    expect(isSelectionIdValid(target, score)).toBe(true);
+    expect(extractMeasureIndex(target)).toBe(0);
+
+    binding.handler(keyboardEvent(key.split("+")[1]!, { altKey: true }));
+    expect(selection).toMatchObject({ measureAnchor: anchor });
+  });
+
+  it.each(["m0/chord0", "m0/chord0/p1/staff1", "m0/chord0/p4/staff2"])(
+    "does not invent source metadata for unanchored %s",
+    (elementId) => {
+      const selectElement = vi.fn();
+      const ctx = {
+        getScore: chordScore,
+        getSelection: () => selectionReducer({ kind: "none" }, { type: "SELECT_ELEMENT", elementId }),
+        selectElement,
+      } as unknown as KeyboardHandlerContext;
+
+      handleAnnotationNavigation("next", ctx);
+
+      expect(selectElement).toHaveBeenCalledExactlyOnceWith(elementId.replace("chord0", "chord1"));
+    },
+  );
+
+  it("does not carry a staff anchor onto unrelated annotations", () => {
+    const score = scoreWithTempo();
+    score.global.measures[0]!.tempos!.push({ position: 1, bpm: 90 });
+    const selectElement = vi.fn();
+    const ctx = {
+      getScore: () => score,
+      getSelection: () => ({
+        kind: "single",
+        elementId: "m0/tempo0",
+        measureAnchor: { partIndex: 1, staffIndex: 1, measureIndex: 0 },
+      }),
+      selectElement,
+    } as unknown as KeyboardHandlerContext;
+
+    handleAnnotationNavigation("next", ctx);
+
+    expect(selectElement).toHaveBeenCalledExactlyOnceWith("m0/tempo1");
+  });
+
+  it.each(["m0/chord9/p1/staff1", "p0/m0/s0/ev0"])("ignores unresolved/non-annotation %s", (elementId) => {
+    const selectElement = vi.fn();
+    const ctx = {
+      getScore: chordScore,
+      getSelection: () => ({ kind: "single", elementId }),
+      selectElement,
+    } as unknown as KeyboardHandlerContext;
+
+    handleAnnotationNavigation("next", ctx);
+
+    expect(selectElement).not.toHaveBeenCalled();
+  });
+});
 
 describe("keyboard navigation handlers", () => {
   it("navigates right from a clicked notehead using its parent event", () => {

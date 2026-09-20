@@ -12,7 +12,7 @@ import type { EditorKeyboardConfig } from "./useEditorKeyboard";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
 import type { GraceType } from "../store/noteInputStore";
 import type { RadialMenuCategory } from "../radialMenu/types";
-import type { Selection } from "../store/selectionStore";
+import type { MeasureSelectionPoint, Selection } from "../store/selectionStore";
 
 export interface CursorPosition {
   measureIndex: number;
@@ -52,7 +52,7 @@ export interface KeyboardHandlerContext {
   commitPatches: (patches: readonly ScorePatch[], affectedMeasures?: { start: number; end: number }) => void;
 
   // Selection actions
-  selectElement: (id: string) => void;
+  selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectRange: (start: string, end: string) => void;
   extendSelection: (id: string) => void;
   clearSelection: () => void;

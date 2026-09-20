@@ -29,11 +29,15 @@ import {
   resolveGraceLocation,
   getEventAncestorId,
   getEventAtLocation,
+  extractPartIndex,
+  extractMeasureIndex,
+  canonicalChordSymbolId,
   type EventLocation,
   type GraceLocation,
 } from "../score/ElementPath";
 import { resolveRangeGraceElementIds, resolveSelectionNotes, groupEventsByVoice } from "../store/selectionUtils";
 import { resolveCapabilityTargets, SELECTION_CAPABILITIES } from "../store/selectionCapabilities";
+import { resolveChordRange } from "../store/chordRange";
 import { resolveCondensedSelectionEvents, resolveCondensedSelectionNotes } from "../score/condensedWriteback";
 import { isAnnotationId, findAnnotationOtherSide } from "../navigation/annotationNav";
 import { cloneScore } from "../score/scoreClone";
@@ -219,7 +223,13 @@ function selectedGraceIds(selection: ReturnType<KeyboardHandlerContext["getSelec
     case "multi":
       return [...selection.elementIds];
     case "range":
-      return resolveRangeGraceElementIds(selection.startElementId, selection.endElementId, score);
+      return resolveRangeGraceElementIds(
+        selection.startElementId,
+        selection.endElementId,
+        score,
+        selection.measureAnchor,
+        selection.measureFocus,
+      );
     default:
       return [];
   }
@@ -318,17 +328,59 @@ function applyTransposeToSelection(
   }
 }
 
+/** Resolve global harmony through source endpoints, never through a rendered copy's indices. */
+function chordNavigationSource(
+  score: Score,
+  selection: ReturnType<KeyboardHandlerContext["getSelection"]>,
+  elementId: string,
+) {
+  if (selection.kind === "range") {
+    return resolveChordRange(
+      score,
+      selection.startElementId,
+      selection.endElementId,
+      selection.measureAnchor,
+      selection.measureFocus,
+    )?.chordSources.get(elementId);
+  }
+  if (selection.kind !== "single" && selection.kind !== "multi") return undefined;
+  return resolveChordRange(
+    score,
+    elementId,
+    elementId,
+    selection.measureAnchor,
+    selection.measureAnchor,
+  )?.chordSources.get(elementId);
+}
+
 /** Alt+Arrow on an annotation: navigate to the annotation on the matched side. */
 function handleAnnotationArrowNav(
   e: KeyboardEvent,
   ctx: KeyboardHandlerContext,
   currentScore: Score,
-  elementId: string,
+  selection: Extract<ReturnType<KeyboardHandlerContext["getSelection"]>, { kind: "single" }>,
 ): boolean {
+  const { elementId, measureAnchor } = selection;
   if (!isAnnotationId(elementId)) return false;
   e.preventDefault();
-  const target = findAnnotationOtherSide(currentScore, elementId);
-  if (target) ctx.selectElement(target);
+  const chordSource = canonicalChordSymbolId(elementId)
+    ? chordNavigationSource(currentScore, selection, elementId)
+    : undefined;
+  if (canonicalChordSymbolId(elementId) && !chordSource) return true;
+  const target = findAnnotationOtherSide(currentScore, elementId, chordSource?.partIndex ?? measureAnchor?.partIndex);
+  if (!target) return true;
+  const partIndex = extractPartIndex(elementId);
+  const measureIndex = extractMeasureIndex(elementId);
+  const targetSource = canonicalChordSymbolId(target)
+    ? resolveChordRange(currentScore, elementId, target)?.chordSources.get(target)
+    : undefined;
+  const sourceAnchor =
+    measureAnchor ??
+    (partIndex !== undefined && measureIndex !== undefined
+      ? { partIndex, measureIndex, staffIndex: 0, ...(targetSource && { sourceStaff: targetSource.staff }) }
+      : undefined);
+  if (sourceAnchor) ctx.selectElement(target, sourceAnchor);
+  else ctx.selectElement(target);
   return true;
 }
 
@@ -336,6 +388,7 @@ function handleAnnotationArrowNav(
 function handleCrossStaffArrow(
   e: KeyboardEvent,
   ctx: KeyboardHandlerContext,
+  score: Score,
   sel: ReturnType<KeyboardHandlerContext["getSelection"]>,
 ): void {
   const currentId =
@@ -349,8 +402,10 @@ function handleCrossStaffArrow(
   if (!currentId) return;
   const ni = ctx.getNavIndex();
   if (!ni) return;
+  const chordSource = canonicalChordSymbolId(currentId) ? chordNavigationSource(score, sel, currentId) : undefined;
+  if (canonicalChordSymbolId(currentId) && !chordSource) return;
   const direction = e.key === "ArrowUp" ? ("up" as const) : ("down" as const);
-  const target = findAdjacentPart(ni, getEventAncestorId(currentId), direction);
+  const target = findAdjacentPart(ni, getEventAncestorId(currentId), direction, chordSource?.partIndex);
   if (!target) return;
   e.preventDefault();
   if (e.shiftKey) {
@@ -374,7 +429,7 @@ export function handleArrowUpDown(e: KeyboardEvent, mod: boolean, ctx: KeyboardH
 
   // Alt+Arrow: Annotation navigation
   if (e.altKey && !mod && !e.shiftKey && sel.kind === "single") {
-    if (handleAnnotationArrowNav(e, ctx, currentScore, sel.elementId)) return;
+    if (handleAnnotationArrowNav(e, ctx, currentScore, sel)) return;
   }
 
   // Alt+Arrow (no Shift): diatonic step
@@ -393,7 +448,7 @@ export function handleArrowUpDown(e: KeyboardEvent, mod: boolean, ctx: KeyboardH
 
   // Arrow or Shift+Arrow (no Alt/Ctrl): Cross-staff navigation — standard
   if (!mod && !e.altKey && sel.kind !== "none") {
-    handleCrossStaffArrow(e, ctx, sel);
+    handleCrossStaffArrow(e, ctx, currentScore, sel);
   }
 }
 

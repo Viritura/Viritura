@@ -170,6 +170,20 @@
   padding: 0 var(--space-1);
 }
 
+.chordDiagnostic {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}
+
+.chordDiagnostic svg {
+  flex-shrink: 0;
+}
+
 .faderBar.channelFader {
   grid-column: 1 / -1;
   height: auto;

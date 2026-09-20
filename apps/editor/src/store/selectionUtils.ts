@@ -16,7 +16,8 @@ import {
   type EventLocation,
 } from "../score/ElementPath";
 import { isMeasureLevel } from "../score/elementTypes";
-import type { Selection } from "./selectionStore";
+import type { MeasureSelectionPoint, Selection } from "./selectionStore";
+import { resolveChordRange } from "./chordRange";
 
 /**
  * Measure-index range derived from element-ID-based selection.
@@ -39,7 +40,11 @@ export function resolveSelectionMeasureRange(
   startElementId: string,
   endElementId: string,
   score: Score,
+  measureAnchor?: MeasureSelectionPoint,
+  measureFocus?: MeasureSelectionPoint,
 ): MeasureRange | null {
+  const chordRange = resolveChordRange(score, startElementId, endElementId, measureAnchor, measureFocus);
+  if (chordRange !== undefined) return chordRange?.range ?? null;
   const startLoc = resolveEventFromSubElement(startElementId, score) ?? resolveEventLocation(startElementId, score);
   const endLoc = resolveEventFromSubElement(endElementId, score) ?? resolveEventLocation(endElementId, score);
   if (!startLoc || !endLoc) return null;
@@ -106,7 +111,15 @@ function resolveSamePartRangeEventIds(
  * For cross-part selections: uses measure range to include all events across staves.
  */
 // eslint-disable-next-line complexity, max-statements -- range resolution keeps note, voice, staff, and direction boundaries together
-export function resolveRangeElementIds(startElementId: string, endElementId: string, score: Score): string[] {
+export function resolveRangeElementIds(
+  startElementId: string,
+  endElementId: string,
+  score: Score,
+  measureAnchor?: MeasureSelectionPoint,
+  measureFocus?: MeasureSelectionPoint,
+): string[] {
+  const chordRange = resolveChordRange(score, startElementId, endElementId, measureAnchor, measureFocus);
+  if (chordRange !== undefined) return chordRange ? [...chordRange.selectedIds] : [];
   const navIndex = buildNavigationIndex(score);
   const isRangeSelectable = (entry: (typeof navIndex.entries)[number]): boolean =>
     entry.elementType === "event" || entry.elementType === "rest" || isMeasureLevel(entry.elementType);
@@ -234,10 +247,16 @@ export function resolveRangeElementIds(startElementId: string, endElementId: str
 }
 
 /** Grace-note IDs attached to ordinary events covered by an element range. */
-export function resolveRangeGraceElementIds(startElementId: string, endElementId: string, score: Score): string[] {
+export function resolveRangeGraceElementIds(
+  startElementId: string,
+  endElementId: string,
+  score: Score,
+  measureAnchor?: MeasureSelectionPoint,
+  measureFocus?: MeasureSelectionPoint,
+): string[] {
   const ids: string[] = [];
   const seen = new Set<string>();
-  for (const parentId of resolveRangeElementIds(startElementId, endElementId, score)) {
+  for (const parentId of resolveRangeElementIds(startElementId, endElementId, score, measureAnchor, measureFocus)) {
     const parent = resolveEventLocation(parentId, score);
     if (!parent) continue;
     const sequence = score.parts[parent.partIndex]?.measures[parent.measureIndex]?.sequences[parent.sequenceIndex];
@@ -436,7 +455,13 @@ export function resolveSelectionEvents(selection: Selection, score: Score): Even
       break;
     }
     case "range": {
-      const ids = resolveRangeElementIds(selection.startElementId, selection.endElementId, score);
+      const ids = resolveRangeElementIds(
+        selection.startElementId,
+        selection.endElementId,
+        score,
+        selection.measureAnchor,
+        selection.measureFocus,
+      );
       for (const id of ids) {
         const loc = resolveAnyEvent(id, score);
         if (loc) raw.push(loc);
@@ -536,7 +561,13 @@ export function resolveSelectionNotes(selection: Selection, score: Score): NoteS
       break;
     }
     case "range": {
-      const ids = resolveRangeElementIds(selection.startElementId, selection.endElementId, score);
+      const ids = resolveRangeElementIds(
+        selection.startElementId,
+        selection.endElementId,
+        score,
+        selection.measureAnchor,
+        selection.measureFocus,
+      );
       for (const id of ids) {
         const loc = resolveAnyEvent(id, score);
         if (loc) add(loc, true);
@@ -608,7 +639,13 @@ export function resolveSelectionScope(selection: Selection, score: Score): Measu
         endVoice: 0,
       };
     case "range":
-      return resolveSelectionMeasureRange(selection.startElementId, selection.endElementId, score);
+      return resolveSelectionMeasureRange(
+        selection.startElementId,
+        selection.endElementId,
+        score,
+        selection.measureAnchor,
+        selection.measureFocus,
+      );
     case "single": {
       const loc = resolveAnyEvent(selection.elementId, score);
       if (!loc) return null;
@@ -680,7 +717,13 @@ function resolveSelectionElementIds(selection: Selection, score: Score): string[
     case "multi":
       return [...selection.elementIds];
     case "range":
-      return resolveRangeElementIds(selection.startElementId, selection.endElementId, score);
+      return resolveRangeElementIds(
+        selection.startElementId,
+        selection.endElementId,
+        score,
+        selection.measureAnchor,
+        selection.measureFocus,
+      );
     case "measure":
       // Measure selections are highlighted with the full-bar rectangle overlay,
       // not per-element IDs, so there are no individual element IDs to report.

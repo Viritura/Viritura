@@ -29,8 +29,16 @@ Open **Advanced** to control root-letter case, major-seventh, minor,
 diminished, half-diminished, and augmented spellings, plus superscript or
 baseline extensions. Per-symbol display text remains available in
 **Properties** for an exception that should not change the document-wide house
-style. See [Chord Symbols](/docs/chord-symbols) for entry, progression
-navigation, semantic editing, and layout visibility.
+style. To remain playable, the override must describe the same harmony;
+unsupported or contradictory text is retained with an editor-only warning.
+
+Chord visibility belongs to the instrument, not the layout: **Automatic**
+places the shared progression above the topmost displayed instrument,
+**Show** above the instrument's first displayed staff, and **Hide** suppresses
+it for that instrument wherever it appears. Adding or pasting a chord sets the
+affected instrument to **Show** for the entire progression, even after **Hide**.
+See [Chord Symbols](/docs/chord-symbols) for entry, progression navigation,
+editing, and playback.
 
 ### Text styles
 

@@ -8,7 +8,7 @@ import {
   type RenderCommand,
   type SlurGeometry,
 } from "@viritura/renderer";
-import type { PageSetup, SlurShape, Score } from "@viritura/core";
+import type { ChordSymbol, PageSetup, SlurShape, Score } from "@viritura/core";
 import type { ContextMenuState } from "@viritura/ui";
 
 import { screenToLayout, visualToEngineCoords } from "./viewportGeometry";
@@ -35,6 +35,8 @@ import type { MeasureSelectionPoint } from "../../store/selectionStore";
 import { listenForPointerDrag } from "./pointerDrag";
 import { selectBeamAtPoint } from "./beamSelection";
 import type { ViewportInfo } from "./types";
+import { globalChordForElement, previewClickedChord } from "./chordFeedback";
+import { selectCanvasElement } from "./elementSelection";
 
 const PX_PER_MM = 12;
 
@@ -92,12 +94,13 @@ export interface CanvasHandlerCtx {
   docScoreRef: Ref<Score | null>;
 
   // Callbacks
+  previewChord?: (chord: ChordSymbol) => Promise<void>;
   repaint: () => void;
   commitSlurReanchor: (slurElementId: string, end: "start" | "end", newEventId: string) => void;
   setSelectedSlurId: (id: string | null) => void;
   selectElement: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   selectElements: (ids: readonly string[]) => void;
-  extendSelection: (id: string) => void;
+  extendSelection: (id: string, measureAnchor?: MeasureSelectionPoint) => void;
   toggleSelection: (id: string) => void;
   clearSelection: () => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
@@ -200,6 +203,7 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   const hitId = exactHit ?? nearestHit;
 
   if (hitId) {
+    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
     const isSpannerSegment = hitId.startsWith("slur/") || hitId.startsWith("tie/");
     const eventId = isSpannerSegment || exactHit === hitId ? hitId : hitId.replace(/\/n\d+$/, "");
     if (eventId.startsWith("slur/") && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -207,23 +211,11 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
     } else if (ctx.selectedSlurIdRef.current) {
       ctx.setSelectedSlurId(null);
     }
-    if (e.shiftKey) ctx.extendSelection(eventId);
-    else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(eventId);
-    else {
-      if (measureAnchor) ctx.selectElement(eventId, measureAnchor);
-      else ctx.selectElement(eventId);
-    }
+    selectCanvasElement(e, ctx, eventId, measureAnchor ?? undefined);
   } else {
     if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
     selectMeasureOrClear(e, ctx, scoreX, scoreY);
   }
-}
-
-function selectEngraveElement(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx, elementId: string): void {
-  if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
-  if (e.shiftKey) ctx.extendSelection(elementId);
-  else if (e.ctrlKey || e.metaKey) ctx.toggleSelection(elementId);
-  else ctx.selectElement(elementId);
 }
 
 function handleEngraveClick(
@@ -314,19 +306,20 @@ function handleEngraveClick(
   // Text annotations (expression / dynamic / tempo / rehearsal) select into the
   // shared selection store so the notation-properties inspector opens, mirroring
   // the slur properties panel.
-  if (hitId && isEngraveTextAnnotationId(hitId)) {
-    selectEngraveElement(e, ctx, hitId);
+  if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
+  if (hitId && (isEngraveTextAnnotationId(hitId) || globalChordForElement(ctx.docScoreRef.current, hitId))) {
+    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
+    selectCanvasElement(e, ctx, hitId, pointerToMeasure(scoreX, scoreY, dl?.measureBounds) ?? undefined);
     return true;
   }
   const score = ctx.docScoreRef.current;
   const eventLocation = hitId && score ? resolveEventLocation(hitId, score) : null;
   const event = eventLocation && score ? getNoteEventAtLocation(score, eventLocation) : undefined;
   if (hitId && event?.rest) {
-    selectEngraveElement(e, ctx, hitId);
+    selectCanvasElement(e, ctx, hitId);
     return true;
   }
   // 4. Empty click → deselect
-  if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
   ctx.clearSelection();
   ctx.onEngraveEmptyClickRef.current?.();
   return true;

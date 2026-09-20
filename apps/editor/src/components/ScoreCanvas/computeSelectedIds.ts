@@ -64,7 +64,13 @@ function addRangeSelectionIds(
   if (score) {
     const repeatIds = measureRepeatElementIdsForSelection(score, selection);
     for (const id of repeatIds) ids.add(id);
-    const rangeIds = resolveRangeElementIds(selection.startElementId, selection.endElementId, score);
+    const rangeIds = resolveRangeElementIds(
+      selection.startElementId,
+      selection.endElementId,
+      score,
+      selection.measureAnchor,
+      selection.measureFocus,
+    );
     for (const id of rangeIds) ids.add(id);
   }
   // Always ensure start and end are included

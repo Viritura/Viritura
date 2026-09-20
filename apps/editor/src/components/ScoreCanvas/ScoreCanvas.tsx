@@ -98,6 +98,7 @@ import {
   type CanvasHandlerCtx,
 } from "./canvasHandlers";
 import { selectionAnnouncement } from "./selectionAnnouncement";
+import { UnsupportedChordOverlay } from "./UnsupportedChordOverlay";
 import { produce } from "../../score/scoreClone";
 import { reanchoredSlurElementId, reanchorSlurInScore } from "../../score/ScoreMutations";
 
@@ -1161,6 +1162,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         onEngraveTextExpressionOffsetEditRef,
         docScoreRef,
         repaint,
+        previewChord: playbackActions.previewChord,
         commitSlurReanchor,
         setSelectedSlurId,
         selectElement,
@@ -1188,6 +1190,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         canvasRef,
         dragLockRef,
         repaint,
+        playbackActions.previewChord,
         commitSlurReanchor,
         setSelectedSlurId,
         selectElement,
@@ -1289,6 +1292,19 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           >
             Interactive music score
           </canvas>
+          {!loading && wasmReady && !error && !printPreview && (
+            <UnsupportedChordOverlay
+              score={docScore}
+              selectedScoreIndex={selectedScoreIndex}
+              displayList={displayListRef.current}
+              spatialIndex={spatialIndexRef.current}
+              displayListVersion={displayListVersion}
+              viewport={viewport}
+              viewMode={viewMode}
+              printPreview={printPreview}
+              onSelect={selectElement}
+            />
+          )}
           <span id={selectionStatusId} aria-live="polite" style={SCREEN_READER_ONLY_STYLE}>
             {selectionStatus}
           </span>

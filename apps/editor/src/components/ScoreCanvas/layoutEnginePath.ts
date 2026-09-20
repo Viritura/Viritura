@@ -158,7 +158,7 @@ async function runCachedFullLayout(args: {
     setLayoutPerfDebug,
   } = args;
   const result =
-    info.scoreCount > 1
+    info.scoreCount > 0
       ? await engine.computeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson, scoreIdx)
       : info.partCount !== 1
         ? await engine.computeFullScoreLayout(mnxJson, sp, pageWidthPx, pageSetupJson)

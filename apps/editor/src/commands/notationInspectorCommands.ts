@@ -11,7 +11,12 @@ import type {
 import type { NoteValueBase, Octave, StemDirection, Step } from "@viritura/core";
 import { walkSequenceEvents } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
-import { resolveEventLocation, resolveEventFromSubElement, resolveGraceLocation } from "../score/ElementPath";
+import {
+  resolveEventLocation,
+  resolveEventFromSubElement,
+  resolveGraceLocation,
+  resolveFullMeasureRestLocation,
+} from "../score/ElementPath";
 import { parseElementType } from "../score/elementTypes";
 import { setSlurProperties, setTieProperties } from "./noteCommands";
 import { setGlissandoProperties } from "./glissandoCommands";
@@ -54,6 +59,17 @@ const NOTE_STEPS = new Set(["A", "B", "C", "D", "E", "F", "G"]);
 export function resolveNotationSelectionTarget(selection: Selection, score: Score): NotationSelectionTarget | null {
   if (selection.kind !== "single") return null;
   const { elementId } = selection;
+  const chordMatch = elementId.match(/^m(\d+)\/chord(\d+)(?:\/p(\d+)\/staff\d+)?$/);
+  if (chordMatch) {
+    const measureIndex = Number(chordMatch[1]);
+    if (!score.global.measures[measureIndex]?.chordSymbols?.[Number(chordMatch[2])]) return null;
+    return {
+      elementId,
+      elementType: `chord${chordMatch[2]}`,
+      partIndex: chordMatch[3] !== undefined ? Number(chordMatch[3]) : (selection.measureAnchor?.partIndex ?? 0),
+      measureIndex,
+    };
+  }
 
   // Spanner IDs use model-ID paths: `slur/{srcEventId}/{tgtEventId}` and
   // `tie/{srcNoteId}/{tgtNoteId|lv}`. Resolve them by locating the source
@@ -145,6 +161,9 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
       noteIndex: eventLoc.noteIndex,
     };
   }
+
+  const fullRest = resolveFullMeasureRestLocation(elementId, score);
+  if (fullRest) return { ...fullRest, elementId, elementType: "rest" };
 
   const measureMatch = elementId.match(/(?:^|\/)m(\d+)(?:\/|$)/);
   if (!measureMatch) {

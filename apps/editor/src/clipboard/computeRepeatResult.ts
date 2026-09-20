@@ -229,7 +229,12 @@ function repeatAnchor(score: Score, sel: ClipboardSelection) {
 export function computeRepeatResult(
   score: Score,
   sel: ClipboardSelection,
-): { newScore: Score; range: { start: string; end: string } | null; selection: SelectionState | null } | null {
+): {
+  newScore: Score;
+  range: { start: string; end: string } | null;
+  selection: SelectionState | null;
+  warnings: string[];
+} | null {
   const anchor = repeatAnchor(score, sel);
   if (!anchor) return null;
   const pasteResult: PasteResult = {
@@ -242,6 +247,7 @@ export function computeRepeatResult(
 
   const { partIndex, measureIndex, sequenceIndex, eventIndex } = anchor;
   const placedContent: SequenceContent[] = [];
+  const warnings: string[] = [];
   const newScore = applyPaste(
     anchor.score,
     pasteResult,
@@ -251,6 +257,7 @@ export function computeRepeatResult(
     eventIndex,
     placedContent,
     anchor.physicalTrackStartBeat,
+    (message) => warnings.push(message),
   );
   const startBeat =
     anchor.physicalTrackStartBeat ??
@@ -264,5 +271,9 @@ export function computeRepeatResult(
     beat: startBeat,
     staffIndex: (anchor.score.parts[partIndex]!.measures[measureIndex]!.sequences[sequenceIndex]!.staff ?? 1) - 1,
   });
-  return { newScore, ...findPlacedSelection(newScore, placedContent, measureIndex, startBeat, annotationIds) };
+  return {
+    newScore,
+    ...findPlacedSelection(newScore, placedContent, measureIndex, startBeat, annotationIds),
+    warnings: [...new Set(warnings)],
+  };
 }

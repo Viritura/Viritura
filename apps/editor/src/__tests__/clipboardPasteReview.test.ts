@@ -377,27 +377,26 @@ describe("clipboard destination staff/voice review", () => {
 });
 
 describe("clipboard chord-symbol identity review", () => {
-  it.each([undefined, 1])("preserves staff 1 (%s) harmony when replacing staff 2 at the same beat", (displayStaff) => {
+  it.each([undefined, 1])("preserves other global positions when pasting from staff offset %s", (staffOffset) => {
     const score = scoreWithMeters();
+    score.parts[0]!.staves = 2;
     const upper: ChordSymbol = {
-      position: { fraction: [1, 4] },
-      displayStaff,
+      position: { fraction: [0, 1] },
       root: { step: "C" },
       quality: "major",
     };
     const lower: ChordSymbol = {
       position: { fraction: [2, 8] },
-      displayStaff: 2,
       root: { step: "D" },
       quality: "minor",
     };
-    score.parts[0]!.measures[0]!.chordSymbols = [upper, lower];
+    score.global.measures[0]!.chordSymbols = [upper, lower];
     const replacement: ChordSymbol = { ...lower, root: { step: "E" } };
     const result = applyPaste(
       score,
       {
         content: [],
-        chordSymbols: [{ measureOffset: 0, chordSymbol: replacement }],
+        chordSymbols: [{ measureOffset: 0, staffOffset, chordSymbol: replacement }],
       },
       0,
       0,
@@ -405,34 +404,37 @@ describe("clipboard chord-symbol identity review", () => {
       0,
     );
 
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toEqual([
+    expect(result.global.measures[0]!.chordSymbols).toEqual([
       upper,
       { ...replacement, position: { fraction: [1, 4] } },
     ]);
-    expect(score.parts[0]!.measures[0]!.chordSymbols).toEqual([upper, lower]);
+    expect(score.global.measures[0]!.chordSymbols).toEqual([upper, lower]);
+    expect(result.parts[0]!.measures[0]).not.toHaveProperty("chordSymbols");
   });
 
-  it("treats omitted displayStaff and explicit staff 1 as the same identity", () => {
+  it("uses the exact global position as identity regardless of source staff", () => {
     const score = scoreWithMeters();
+    score.parts[0]!.staves = 2;
     const original: ChordSymbol = {
       position: { fraction: [0, 1] },
-      displayStaff: 1,
       root: { step: "C" },
       quality: "major",
     };
-    score.parts[0]!.measures[0]!.chordSymbols = [original];
+    score.global.measures[0]!.chordSymbols = [original];
     const result = applyPaste(
       score,
       {
         content: [],
-        chordSymbols: [{ measureOffset: 0, chordSymbol: { ...original, displayStaff: undefined, quality: "minor" } }],
+        chordSymbols: [
+          { measureOffset: 0, staffOffset: 1, sourceStaff: 2, chordSymbol: { ...original, quality: "minor" } },
+        ],
       },
       0,
       0,
       0,
       0,
     );
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toHaveLength(1);
-    expect(result.parts[0]!.measures[0]!.chordSymbols![0]!.quality).toBe("minor");
+    expect(result.global.measures[0]!.chordSymbols).toEqual([{ ...original, quality: "minor" }]);
+    expect(score.global.measures[0]!.chordSymbols).toEqual([original]);
   });
 });

@@ -429,6 +429,97 @@ describe("event-attached annotation cycling", () => {
     expect(wrap).toBe(arts[0]!.elementId);
   });
 
+  describe("global chord navigation", () => {
+    function makeChordScore(): Score {
+      const score = makePlainScore();
+      score.global.measures[0]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" } },
+        { position: { fraction: [1, 4] }, rawText: "NC" },
+      ];
+      score.parts.push(structuredClone(score.parts[0]!));
+      return score;
+    }
+
+    it("discovers the same canonical chords from events in every part", () => {
+      const score = makeChordScore();
+      for (const part of [0, 1]) {
+        const eventId = `p${part}/m0/s0/e0`;
+        expect(findAnnotationsForEvent(score, eventId)).toEqual([
+          { elementId: "m0/chord0", type: "chord-symbol", position: "above", parentEventId: eventId },
+          { elementId: "m0/chord1", type: "chord-symbol", position: "above", parentEventId: eventId },
+        ]);
+        expect(findAnnotationAbove(score, eventId)).toBe("m0/chord0");
+      }
+    });
+
+    it.each(["m0/chord0", "m0/chord0/p0/staff1", "m0/chord0/p1/staff2"])(
+      "recognizes and cycles %s without discarding its rendered staff",
+      (id) => {
+        const score = makeChordScore();
+        expect(isAnnotationId(id)).toBe(true);
+        expect(getParentEventId(id)).toBeUndefined();
+        expect(findNextAnnotation(score, id)).toBe(id.replace("chord0", "chord1"));
+        expect(findPrevAnnotation(score, id)).toBe(id.replace("chord0", "chord1"));
+      },
+    );
+
+    it("wraps canonical and rendered siblings without changing the score", () => {
+      const score = makeChordScore();
+      const before = structuredClone(score);
+      expect(findNextAnnotation(score, "m0/chord1/p1/staff2")).toBe("m0/chord0/p1/staff2");
+      expect(findPrevAnnotation(score, "m0/chord1")).toBe("m0/chord0");
+      expect(score).toEqual(before);
+    });
+
+    it("does not cycle a single chord, stale copy, or legacy part ID", () => {
+      const score = makeChordScore();
+      score.global.measures[0]!.chordSymbols!.pop();
+      for (const id of ["m0/chord0/p1/staff2", "m0/chord9/p1/staff2", "p0/m0/chord0"]) {
+        expect(findNextAnnotation(score, id)).toBeUndefined();
+        expect(findPrevAnnotation(score, id)).toBeUndefined();
+      }
+    });
+
+    it("falls back to the rendered copy's part without mapped source context", () => {
+      const score = makeChordScore();
+      score.parts[1]!.measures[0]!.dynamics = [
+        { id: "lower", type: "immediate", position: { fraction: [0, 1] }, value: "p" },
+      ];
+      expect(findAnnotationOtherSide(score, "m0/chord0/p1/staff2")).toBe("p1/m0/dynlower");
+      expect(findAnnotationOtherSide(score, "m0/chord0/p0/staff1")).toBeUndefined();
+    });
+
+    it.each(["m0/chord0", "m0/chord0/p0/staff8", "m0/chord0/p4/staff2"])(
+      "uses the mapped source part rather than the rendered part for %s",
+      (id) => {
+        const score = makeChordScore();
+        for (const [partIndex, name] of ["clarinet", "piano"].entries()) {
+          score.parts[partIndex]!.measures[0]!.dynamics = [
+            { id: name, type: "immediate", position: { fraction: [0, 1] }, value: "p" },
+          ];
+        }
+        expect(findAnnotationOtherSide(score, id, 1)).toBe("p1/m0/dynpiano");
+        expect(findAnnotationOtherSide(score, id, 0)).toBe("p0/m0/dynclarinet");
+        expect(findAnnotationOtherSide(score, id, 99)).toBeUndefined();
+        score.parts[1]!.measures[0]!.dynamics = [];
+        expect(findAnnotationOtherSide(score, id, 1)).toBeUndefined();
+      },
+    );
+
+    it("uses full-measure rests as annotation context in both directions", () => {
+      const score = makeChordScore();
+      score.parts[1]!.measures[0]!.sequences = [{ fullMeasure: true, content: [] }];
+      score.parts[1]!.measures[0]!.dynamics = [
+        { id: "rest", type: "immediate", position: { fraction: [0, 1] }, value: "p" },
+      ];
+      const restId = "p1/m0/s0/__auto_m0_v0_e0";
+      expect(findAnnotationAbove(score, restId)).toBe("m0/chord0");
+      expect(findAnnotationOtherSide(score, "p1/m0/dynrest")).toBe("m0/chord0");
+      expect(findAnnotationOtherSide(score, "m0/chord0/p1/staff2")).toBe("p1/m0/dynrest");
+      expect(findAnnotationsForEvent(score, "p1/m0/s0/__auto_m0_v0_e9")).toEqual([]);
+    });
+  });
+
   it("treats a combo ligature as a single articulation target", () => {
     // accent + staccato collapse to one glyph, so there is one thing to
     // select — you cannot click half a ligature.

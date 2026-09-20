@@ -110,6 +110,18 @@ describe("resolveSelectionMeasureRange", () => {
 // ═══════════════════════════════════════════
 
 describe("resolveRangeElementIds", () => {
+  it.each(["p0/m2/s0/ev-m2", "p1/m2/s0/c-m2"])(
+    "does not treat global harmony as a part annotation in a range ending at %s",
+    (endId) => {
+      const score = makeMultiMeasureScore();
+      const expected = resolveRangeElementIds("p0/m1/s0/ev-m1", endId, score);
+      score.global.measures[1]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      ];
+      expect(resolveRangeElementIds("p0/m1/s0/ev-m1", endId, score)).toEqual(expected);
+    },
+  );
+
   it("returns all element IDs between start and end in navigation order", () => {
     const score = makeMultiMeasureScore();
     const ids = resolveRangeElementIds("p0/m1/s0/ev-m1", "p0/m2/s0/ev-m2", score);

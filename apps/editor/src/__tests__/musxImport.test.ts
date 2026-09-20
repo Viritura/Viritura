@@ -89,6 +89,24 @@ describe("Finale MUSX import", () => {
     await expect(convertImportedMusicFile(file)).rejects.toThrow("Denigma produced invalid MNX");
   });
 
+  it("retains actionable chord diagnostics and gap outcomes without duplicating or summarizing them", async () => {
+    const diagnostics = [
+      { severity: "warning", message: "Unsupported chord text at measure 2 was preserved without playback." },
+      { severity: "warning", message: "Conflicting staff harmony at measure 4: kept the topmost source staff." },
+    ];
+    const gapOutcomes = [{ gapIndex: 0, type: "chord-symbol", anchor: "measure-2", disposition: "handled-partially" }];
+    convertMusxToMnx.mockResolvedValue({
+      mnxJson: VALID_MNX,
+      diagnostics,
+      gapOutcomes,
+    });
+
+    const result = await convertImportedMusicFile(new File([new Uint8Array([1])], "chords.musx"));
+
+    expect(result.importDiagnostics).toEqual(diagnostics);
+    expect(result.importGapOutcomes).toEqual(gapOutcomes);
+  });
+
   it("rejects schema-invalid notation even when Denigma reports success", async () => {
     const invalid = JSON.parse(VALID_MNX) as {
       parts: Array<{

@@ -68,7 +68,6 @@ export interface UsePartListLayoutResult {
   commitLayoutChange: (newContent: LayoutContent[]) => void;
   removeGroup: (path: NodePath) => void;
   updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
-  updateStaffChordSymbolVisibility: (path: NodePath, value: LayoutStaff["chordSymbolVisibility"]) => void;
   ungroupStaff: (path: NodePath) => void;
   createGroupFromSelection: (selectedPaths: Set<string>, onDone: () => void) => void;
   // drag/drop state + handlers
@@ -79,19 +78,6 @@ export interface UsePartListLayoutResult {
   handleDragOver: (e: React.DragEvent, targetPath: NodePath, targetType: "staff" | "group") => void;
   handleDrop: (e: React.DragEvent) => void;
   handleDragEnd: () => void;
-}
-
-export function setStaffChordSymbolVisibility(
-  content: LayoutContent[],
-  path: NodePath,
-  value: LayoutStaff["chordSymbolVisibility"],
-): LayoutContent[] {
-  const tree = cloneContent(content);
-  const node = getNodeAt(tree, path);
-  if (!node || node.type !== "staff") return content;
-  if (value === "auto") delete node.chordSymbolVisibility;
-  else node.chordSymbolVisibility = value;
-  return tree;
 }
 
 function setGroupProperty(
@@ -261,14 +247,6 @@ export function usePartListLayout({
     [layoutContent, commitLayoutChange],
   );
 
-  const updateStaffChordSymbolVisibility = useCallback(
-    (path: NodePath, value: LayoutStaff["chordSymbolVisibility"]) => {
-      const updated = setStaffChordSymbolVisibility(layoutContent, path, value);
-      if (updated !== layoutContent) commitLayoutChange(updated);
-    },
-    [layoutContent, commitLayoutChange],
-  );
-
   const ungroupStaff = useCallback(
     (path: NodePath) => {
       if (path.length < 2) return;
@@ -343,7 +321,6 @@ export function usePartListLayout({
     commitLayoutChange,
     removeGroup,
     updateGroupProp,
-    updateStaffChordSymbolVisibility,
     ungroupStaff,
     createGroupFromSelection,
     dragState: dnd.dragState,

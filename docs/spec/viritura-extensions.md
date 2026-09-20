@@ -15,10 +15,10 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
-| layout staff                                 | `layouts[].content[]._x.viritura`               | chordSymbolVisibility, globalChordSymbolVisibility                                             |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility                              |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, chordSymbols                                    |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, chordSymbols, expressions, condensingOverride, groupingDisplayOverrides, staffMeters   |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters                 |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
 | [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
@@ -206,45 +206,40 @@ same policy directly: full-then-short, short-only, or hidden.
 }
 ```
 
-## Layout Staff Extensions
+## Source Part Extensions
 
-`_x.viritura` on a `staff` node in a layout definition. Schema def:
-`layout-staff-extensions`.
+`_x.viritura` on an MNX source part (`parts[]`). Schema def: `part-extensions`.
+Instrument identity and placement use `instrumentId`, `midiProgram` (0–127),
+`family`, and `spatial` (`{ x, y }` in stage meters).
 
 ### `chordSymbolVisibility`
 
-Controls whether the part-level harmony lane is engraved on this displayed
-staff:
+Controls projection of the single document-wide chord progression for this
+source part:
 
-- `auto` (or omitted): show each part's chord symbols on the first displayed
-  staff sourced from that part.
-- `show`: show chord symbols on this layout staff.
-- `hide`: suppress chord symbols on this layout staff.
+- `auto` (or omitted): show the progression on the first displayed staff of the
+  topmost displayed source part.
+- `show`: show the progression on this source part's first displayed staff.
+- `hide`: suppress the progression for this source part.
 
-An imported chord's `displayStaff` remains a per-event compatibility override
-when the layout is `auto`. Explicit layout `show`/`hide` settings take
-precedence, allowing full-score and part layouts to display the same semantic
-harmony lane differently.
+This policy persists wherever the source part appears. It is not a per-layout
+or per-chord switch, and hiding the automatic topmost source does not promote
+the next source to automatic placement. It does not mute chord playback.
 
-### `globalChordSymbolVisibility`
+The decoded TypeScript field is `Part.chordSymbolVisibility`; serialization
+stores it under the source part's `_x.viritura`, not as a top-level MNX field.
+Adding or pasting a chord sets affected source parts to `show`, overriding
+previous `hide` and revealing the entire progression rather than only the new
+event.
 
-Controls whether the document's global harmony track is engraved on this
-displayed staff:
-
-- `auto` (or omitted): show global harmony on the first displayed staff.
-- `show`: show global harmony on this layout staff.
-- `hide`: suppress global harmony on this layout staff.
-
-This is independent of `chordSymbolVisibility`, which continues to control
-part-local harmony imported or authored as an exception.
-
-In the editor's Setup layout tree, right-click a staff and choose
-**Chord Symbols** → **Automatic**, **Show**, or **Hide**.
+The editor exposes **Chord Symbols** → **Automatic**, **Show**, or **Hide** in
+Setup and source-instrument visibility in chord Properties.
 
 ```json
 {
-  "type": "staff",
-  "sources": [{ "part": "piano", "staff": 2 }],
+  "id": "piano",
+  "name": "Piano",
+  "measures": [],
   "_x": {
     "viritura": {
       "chordSymbolVisibility": "show"
@@ -252,6 +247,12 @@ In the editor's Setup layout tree, right-click a staff and choose
   }
 }
 ```
+
+## Layout Staff Extensions
+
+The `layout-staff-extensions` schema currently has no properties. Neither
+`chordSymbolVisibility` nor `globalChordSymbolVisibility` is accepted on a
+layout staff. Chord events also have no `displayStaff` property.
 
 ---
 
@@ -664,6 +665,114 @@ Navigation jumps not covered by MNX's current `jump.type` enum.
 Use native MNX `jump` for standard values such as `dsalfine`; use this extension
 only when the target jump type is not yet in the spec enum.
 
+### `chordSymbols`
+
+Array of time-anchored harmony events, stored **only** at
+`global.measures[]._x.viritura.chordSymbols`. The decoded TypeScript location is
+`GlobalMeasure.chordSymbols`. Events are independent of notes and voices;
+there is no part-measure chord collection or per-chord `displayStaff`.
+Source-part [`chordSymbolVisibility`](#chordsymbolvisibility) controls display.
+
+Roots and slash bass notes are canonical **concert pitch**. Written entry
+converts both using the inverse of the source part's MNX sounding-to-written
+interval. Rendering projects both into written pitch when the view requires
+it, without changing stored harmony.
+
+| Property       | Type                                   | Required | Description                                                    |
+| -------------- | -------------------------------------- | -------- | -------------------------------------------------------------- |
+| `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Exact rhythmic position, including optional grace index        |
+| `root`         | [ChordRoot](#chord-root)               | No       | Structured concert root; parser requires `root` or `rawText`   |
+| `rawText`      | string                                 | No       | Preserved authored text, including unsupported symbols and NC  |
+| `quality`      | [ChordQuality](#chord-quality)         | No       | Omitted quality on a structured root means major               |
+| `kindText`     | string                                 | No       | Authored quality spelling, checked against structured harmony  |
+| `bass`         | [ChordRoot](#chord-root)               | No       | Concert slash bass note                                        |
+| `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                                                |
+| `textOverride` | string                                 | No       | Display override, not a replacement for the underlying harmony |
+
+The schema requires `position`; the parsers additionally enforce the
+`root`-or-`rawText` constraint. Rootless text does not acquire an invented root.
+Authored spelling is retained; explicit transposition changes recognized root
+and bass spellings while retaining unsupported suffixes.
+
+`resolveChordSymbol` in `@viritura/core` is the semantic authority for editor
+feedback and audio. Its results are `supported`, `silent`, or `unsupported`.
+It checks agreement among structured fields, `rawText`, `kindText`, and
+`textOverride`; an unknown quality or contradictory/unsupported override is
+not silently played as a major chord. Unsupported text remains authored data.
+`NC` and `N.C.` resolve to intentional silence when not contradicted by other
+fields.
+
+Semantic accidentals use Bravura SMuFL glyphs; literal display overrides remain
+text. Unsupported symbols receive an editor-only red warning and the message
+“Unsupported chord: cannot play this symbol.” This diagnostic is not persisted
+as engraving color and does not appear in print preview, print, PDF, or SVG.
+Unsupported and no-chord events produce no notes but still terminate the
+preceding harmony.
+
+```json
+{
+  "time": { "count": 4, "unit": 4 },
+  "_x": {
+    "viritura": {
+      "chordSymbols": [
+        {
+          "position": { "fraction": [0, 1] },
+          "root": { "step": "C" },
+          "quality": "major",
+          "rawText": "C"
+        },
+        {
+          "position": { "fraction": [2, 4] },
+          "rawText": "N.C."
+        }
+      ]
+    }
+  }
+}
+```
+
+#### Import, paste, and export
+
+MusicXML, MuseScore clipboard, and Finale gap-adapter imports consolidate
+incoming harmony into this global collection. Equivalent harmony at the same
+exact rational position is coalesced; conflicting incoming symbols keep the
+topmost source part/staff and produce a warning. Grace indices distinguish
+separate grace onsets. No conflicting part-local progression is retained.
+Paste compares incoming sources only: it replaces destination symbols at
+incoming onsets and leaves unrelated existing changes intact.
+
+MNX serialization retains the canonical fields and authored text. PDF/SVG
+export lays out the current model for the selected score definition, applying
+source-part visibility and concert/written root and bass projection without
+copying editor diagnostics into the output.
+
+MuseScore StaffList clipboard harmony uses concert-pitch root and bass TPCs;
+the receiving application applies destination written transposition. Unsupported
+content exports with preservation warnings, using raw text or disambiguating
+root/bass structure. Conversion fails if that representation would silently
+change the harmony's meaning. MusicXML/MXL support here is import, not a
+MusicXML export contract.
+
+#### Derived playback
+
+Any global chord symbols create a runtime-only **Chords** mixer lane, including
+when all symbols are unsupported or silent. Its identity is
+`viritura:derived:chords`, with runtime part index `score.parts.length`; it is
+never serialized as a `Part` or assigned a user instrument profile. It starts
+unmuted and uses the GM program 0 SoundFont piano on web and native playback.
+
+`voiceChordSymbol` uses a fixed-register voicing: one root/slash bass at MIDI
+36–47, and every semantic chord tone at MIDI 60–71, sorted and deduplicated.
+The right hand includes the root and excludes a non-chord slash bass. This is
+not voice-leading or an adaptive arrangement.
+
+Click/commit auditions use the same voicing for 400 ms while transport is not
+playing and respect effective mixer mute, solo, and gain. Playback includes the
+lane in unselected full-score and current-view extracts regardless of visual
+Hide. An explicit selection includes it only when every visible source part
+is selected; partial selections exclude it, and an explicitly empty selection
+includes nothing. Selection filtering does not overwrite mixer controls.
+
 ---
 
 ## Dynamic Group Extensions
@@ -717,57 +826,6 @@ Array of piano pedal markings.
 | `voice`    | string                                                | No       | Voice name                                                                         |
 
 **SMuFL glyphs**: U+E650 (Ped), U+E655 (\*), U+E659 (Sost.)
-
-### `chordSymbols`
-
-Array of time-anchored harmony events rendered as chord symbols. Each event
-is not attached to a note or voice. The same shape is valid in two scopes:
-
-- `global.measures[]._x.viritura.chordSymbols` stores the document's preferred
-  global harmony track;
-- `parts[].measures[]._x.viritura.chordSymbols` stores part-local harmony,
-  including imported staff-specific differences.
-
-Layout-staff `globalChordSymbolVisibility` controls global-harmony projection.
-For part-local events, `chordSymbolVisibility` controls ordinary engraving
-placement while `displayStaff` preserves an explicit source-staff target.
-
-Semantic root, bass, and numeric modifier accidentals are rendered with SMuFL
-accidental glyphs from Bravura. `textOverride` is intentionally rendered
-literally because it represents author-supplied presentation text.
-
-| Property       | Type                                   | Required | Description                                   |
-| -------------- | -------------------------------------- | -------- | --------------------------------------------- |
-| `position`     | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                             |
-| `displayStaff` | integer (>=1)                          | No       | Imported/per-event display-staff override     |
-| `root`         | [ChordRoot](#chord-root)               | **Yes**  | Root note                                     |
-| `quality`      | [ChordQuality](#chord-quality)         | **Yes**  | Harmonic quality                              |
-| `kindText`     | string                                 | No       | Authored quality spelling                     |
-| `bass`         | [ChordRoot](#chord-root)               | No       | Bass note for slash chords (e.g. "C/E")       |
-| `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                               |
-| `textOverride` | string                                 | No       | Override computed display text (e.g. "Cadd9") |
-
-```json
-{
-  "_x": {
-    "viritura": {
-      "chordSymbols": [
-        {
-          "position": { "fraction": [0, 1] },
-          "root": { "step": "C" },
-          "quality": "major"
-        },
-        {
-          "position": { "fraction": [2, 4] },
-          "root": { "step": "G" },
-          "quality": "dominant",
-          "extension": 7
-        }
-      ]
-    }
-  }
-}
-```
 
 ### `expressions`
 

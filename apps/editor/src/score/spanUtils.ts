@@ -254,7 +254,13 @@ export function resolveSpanFromSelection(score: Score, selection: Selection): Sp
   }
 
   // Fallback: use measure range resolution (less precise, measure-level only)
-  const range = resolveSelectionMeasureRange(selection.startElementId, selection.endElementId, score);
+  const range = resolveSelectionMeasureRange(
+    selection.startElementId,
+    selection.endElementId,
+    score,
+    selection.measureAnchor,
+    selection.measureFocus,
+  );
 
   if (range) {
     const partIdx = range.startPart;

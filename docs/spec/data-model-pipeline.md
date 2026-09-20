@@ -115,6 +115,44 @@ These two schemas are the **only** place wire-shape changes happen. Every consum
 
 Both strict parsers validate every supported `_x.viritura` location against its location-specific `$def`. Unknown extension properties and vendor blocks attached to unsupported MNX objects are errors, rather than data that is silently dropped during promotion.
 
+### Chord-symbol ownership and derived state
+
+Chord symbols illustrate the boundary between authored data and projections:
+
+- **Wire ownership:** only
+  `global.measures[]._x.viritura.chordSymbols` stores harmony. There is no
+  part-measure chord collection or per-chord `displayStaff`.
+  `parts[]._x.viritura.chordSymbolVisibility` is the source-part
+  `auto`/`show`/`hide` policy, not a layout-staff property.
+- **Decoded ownership:** TypeScript exposes `GlobalMeasure.chordSymbols` and
+  `Part.chordSymbolVisibility`; Rust promotes the corresponding global-measure
+  and source-part fields. Serialization restores their vendor-extension
+  locations. The layout-staff extension schema has no chord controls.
+- **Authored semantics:** roots and slash bass notes use canonical concert
+  pitch. `rawText` preserves authored text, including unsupported symbols and
+  no-chord declarations; `root` is optional, but the parsers require `root` or
+  `rawText`. Core's `resolveChordSymbol` checks structured/text agreement and
+  returns `supported`, `silent`, or `unsupported`, not a persisted status.
+- **Display projection:** automatic placement uses the topmost displayed
+  source part; explicit Show uses that source part's first displayed staff and
+  Hide suppresses it. The policy follows the source part across outputs.
+  Written entry inverts its transposition for storage; layout projects both
+  root and slash bass into the displayed pitch convention. Rendered copies do
+  not become additional authored chord events. Red unsupported warnings are
+  editor overlays, not document colors or export commands.
+- **Playback projection:** the derived `viritura:derived:chords` lane uses
+  runtime index `score.parts.length` and a GM0 piano; it never adds a source
+  `Part` or instrument-profile assignment. Its fixed voicing and selection
+  filtering are runtime behavior. Unsupported and NC events remain timing
+  boundaries but produce no notes.
+
+Import/paste consolidation compares exact rational onsets, coalesces matching
+incoming harmony, and warns when a conflicting lower source is discarded in
+favor of the topmost source. Paste replaces only incoming onsets and sets
+affected source parts to Show, even after Hide. See
+[the chord-symbol contract](viritura-extensions.md#chordsymbols) for field,
+interchange, visibility, and playback details.
+
 ---
 
 ## Tier 2 — Wire types (codegen)

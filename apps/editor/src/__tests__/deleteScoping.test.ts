@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from "vitest";
 import type { NoteEvent, Score } from "@viritura/core";
+import { parseChordSymbolText } from "@viritura/core";
 import type { Selection } from "../store/selectionStore";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 import { handleDelete } from "../keyboard/normalModeDelete";
@@ -64,6 +65,7 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
   const ctx = {
     getScore: () => current,
     getSelection: () => selection,
+    getConfig: () => ({ selectedScoreIndex: 0 }),
     updateScore: (next: Score) => {
       current = next;
     },
@@ -74,6 +76,31 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
 }
 
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
+
+describe("global chord keyboard deletion", () => {
+  it.each(["m0/chord0", "m0/chord0/p0/staff1"])("deletes %s without touching notes", (elementId) => {
+    const score = makeScore();
+    score.global.measures[0]!.chordSymbols = [parseChordSymbolText("C", { fraction: [0, 1] })];
+    const { ctx, latest } = makeCtx(score, { kind: "single", elementId, elementType: "chord-symbol" });
+    handleDelete(noopEvent, false, ctx);
+    expect(latest().global.measures[0]!.chordSymbols).toBeUndefined();
+    expect(latest().parts).toEqual(score.parts);
+    expect(score.global.measures[0]!.chordSymbols).toHaveLength(1);
+  });
+
+  it("deduplicates selected render copies before shifting global chord indices", () => {
+    const score = makeScore();
+    const retained = parseChordSymbolText("G", { fraction: [1, 2] });
+    score.global.measures[0]!.chordSymbols = [parseChordSymbolText("C", { fraction: [0, 1] }), retained];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "multi",
+      elementIds: ["m0/chord0", "m0/chord0/p0/staff1", "m0/chord0/p0/staff2"],
+    });
+    handleDelete(noopEvent, false, ctx);
+    expect(latest().global.measures[0]!.chordSymbols).toEqual([retained]);
+    expect(latest().parts).toEqual(score.parts);
+  });
+});
 
 describe("addressesWholeEvent", () => {
   it("accepts the event itself", () => {

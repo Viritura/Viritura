@@ -33,6 +33,10 @@ export interface CapturedChordSymbol {
   partOffset?: number;
   /** Physical staff relative to the selection anchor, independent of source part layout. */
   staffOffset?: number;
+  /** Transient one-based source staff; never stored on the global chord. */
+  sourceStaff?: number;
+  /** All source parts contributing a deduplicated global harmony, relative to the selection. */
+  sourcePartOffsets?: number[];
   measureOffset: number;
   chordSymbol: ChordSymbol;
   /** Absolute delay from the fragment start, independent of source measure boundaries. */

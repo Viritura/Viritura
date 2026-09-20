@@ -1,7 +1,18 @@
-import { useCallback, useMemo } from "react";
-import type { ChordQuality, ChordSymbol, Score } from "@viritura/core";
+import {
+  formatChordSymbolText,
+  parseChordSymbolText,
+  transposeChordSymbol,
+  type ChordQuality,
+  type ChordSymbol,
+  type Part,
+  type Score,
+} from "@viritura/core";
+import { usePlaybackActions } from "@viritura/playback";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
+import { resolveChordSymbolSource } from "../../app/useAppKeyboardWiring";
 import { produce } from "../../score/scoreClone";
+import { useSelection, useSelectionStore } from "../../store/selectionStore";
+import { useViewStateStore } from "../../store/viewStateStore";
 
 interface Args {
   score: Score | null;
@@ -9,43 +20,97 @@ interface Args {
   updateScore: (score: Score) => void;
 }
 
-export function useChordSymbolInspector({ score, target, updateScore }: Args) {
-  const chordMatch = target?.elementType.match(/^chord(\d+)$/);
-  const chordIndex = chordMatch ? Number.parseInt(chordMatch[1]!, 10) : undefined;
-  const isGlobal = target?.elementId.startsWith("m") === true;
-  const chord = useMemo<ChordSymbol | null>(() => {
-    if (!score || !target || chordIndex === undefined) return null;
-    if (isGlobal) return score.global.measures[target.measureIndex]?.chordSymbols?.[chordIndex] ?? null;
-    return score.parts[target.partIndex]?.measures[target.measureIndex]?.chordSymbols?.[chordIndex] ?? null;
-  }, [score, target, chordIndex, isGlobal]);
+function chordDisplayInterval(score: Score | null, scoreIndex: number, part: Part | undefined) {
+  const useWritten = score?.scores?.[scoreIndex]?.useWritten || part?.transposition?.prefersWrittenPitches;
+  return (useWritten ? part?.transposition?.interval : undefined) ?? { halfSteps: 0, staffDistance: 0 };
+}
 
-  const mutateChord = useCallback(
-    (mutate: (chord: ChordSymbol) => void) => {
-      if (!score || !target || chordIndex === undefined) return;
-      const nextScore = produce(score, (draft) => {
-        const selected = isGlobal
-          ? draft.global.measures[target.measureIndex]?.chordSymbols?.[chordIndex]
-          : draft.parts[target.partIndex]?.measures[target.measureIndex]?.chordSymbols?.[chordIndex];
-        if (selected) mutate(selected);
-      });
-      if (nextScore !== score) updateScore(nextScore);
-    },
-    [score, target, chordIndex, isGlobal, updateScore],
-  );
+export function useChordSymbolInspector({ score, target, updateScore }: Args) {
+  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
+  const selectedPartIds = useViewStateStore((state) => state.selectedPartIds);
+  const selection = useSelection();
+  useSelectionStore((state) => state.renderedStaffSources);
+  const { previewChord } = usePlaybackActions();
+  const match = target?.elementId.match(/^(m(\d+)\/chord(\d+))(?:\/p\d+\/staff\d+)?$/);
+  const canonicalId = match?.[1];
+  const measureIndex = match ? Number(match[2]) : undefined;
+  const chordIndex = match ? Number(match[3]) : undefined;
+  const sourcePartIndex =
+    score && measureIndex !== undefined
+      ? resolveChordSymbolSource(
+          score,
+          selection.kind === "single" && selection.elementId === target?.elementId ? selection : { kind: "none" },
+          selectedScoreIndex,
+          measureIndex,
+          selectedPartIds,
+        )?.partIndex
+      : undefined;
+  const sourcePart = sourcePartIndex === undefined ? undefined : score?.parts[sourcePartIndex];
+  const displayInterval = chordDisplayInterval(score, selectedScoreIndex, sourcePart);
+  const stored =
+    measureIndex === undefined || chordIndex === undefined
+      ? undefined
+      : score?.global.measures[measureIndex]?.chordSymbols?.[chordIndex];
+  const chord = stored && sourcePart ? transposeChordSymbol(stored, displayInterval) : null;
+
+  function commit(displayChord: ChordSymbol) {
+    if (!score || !stored || measureIndex === undefined || chordIndex === undefined) return;
+    const concertChord = transposeChordSymbol(displayChord, {
+      halfSteps: -displayInterval.halfSteps,
+      staffDistance: -displayInterval.staffDistance,
+    });
+    if (JSON.stringify(concertChord) === JSON.stringify(stored)) return;
+    const nextScore = produce(score, (draft) => {
+      draft.global.measures[measureIndex]!.chordSymbols![chordIndex] = concertChord;
+    });
+    updateScore(nextScore);
+    // Audio failures must not roll back an already committed notation edit.
+    void previewChord(concertChord, nextScore).catch(() => {});
+  }
+
+  function mutateChord(mutate: (selected: ChordSymbol) => void) {
+    if (!chord) return;
+    const changed = produce(chord, mutate);
+    if (changed === chord) return;
+    const next: ChordSymbol = { ...changed, rawText: undefined };
+    next.rawText = formatChordSymbolText({ ...next, textOverride: undefined });
+    commit(next);
+  }
 
   return {
     chord,
-    isGlobal,
-    setRootStep: (step: string) => mutateChord((selected) => (selected.root.step = step)),
-    setRootAlter: (alter: number | undefined) => mutateChord((selected) => (selected.root.alter = alter)),
+    canonicalId,
+    sourcePart,
+    editorKey: `${canonicalId}:${sourcePartIndex}:${displayInterval.halfSteps}:${displayInterval.staffDistance}`,
+    setText: (text: string) => {
+      if (chord && text.trim())
+        commit({
+          ...parseChordSymbolText(text, chord.position),
+          ...(chord.textOverride !== undefined && { textOverride: chord.textOverride }),
+        });
+    },
+    setRootStep: (step: string) =>
+      mutateChord((selected) => {
+        selected.root = { ...selected.root, step };
+      }),
+    setRootAlter: (alter: number | undefined) =>
+      mutateChord((selected) => {
+        if (selected.root) selected.root.alter = alter;
+      }),
     setQuality: (quality: ChordQuality) =>
       mutateChord((selected) => {
         selected.quality = quality;
         if (quality !== "other") selected.kindText = undefined;
       }),
     setKindText: (kindText: string) =>
-      mutateChord((selected) => (selected.kindText = kindText.trim() === "" ? undefined : kindText)),
-    setExtension: (extension: ChordSymbol["extension"]) => mutateChord((selected) => (selected.extension = extension)),
+      mutateChord((selected) => {
+        selected.kindText = kindText.trim() === "" ? undefined : kindText;
+      }),
+    setExtension: (extension: ChordSymbol["extension"]) =>
+      mutateChord((selected) => {
+        selected.extension = extension;
+        if (selected.quality !== "other") selected.kindText = undefined;
+      }),
     setBassStep: (step: string | undefined) =>
       mutateChord((selected) => {
         selected.bass = step
@@ -56,11 +121,15 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
       mutateChord((selected) => {
         if (selected.bass) selected.bass.alter = alter;
       }),
-    setDisplayStaff: (displayStaff: number | undefined) =>
-      mutateChord((selected) => {
-        if (!isGlobal) selected.displayStaff = displayStaff;
-      }),
-    setTextOverride: (text: string) =>
-      mutateChord((selected) => (selected.textOverride = text.trim() === "" ? undefined : text)),
+    setVisibility: (visibility: NonNullable<Part["chordSymbolVisibility"]>) => {
+      if (!score || sourcePartIndex === undefined || !sourcePart) return;
+      const nextScore = produce(score, (draft) => {
+        draft.parts[sourcePartIndex]!.chordSymbolVisibility = visibility;
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    setTextOverride: (text: string) => {
+      if (chord) commit({ ...chord, textOverride: text.trim() === "" ? undefined : text });
+    },
   };
 }

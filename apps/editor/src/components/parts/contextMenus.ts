@@ -1,7 +1,8 @@
-import type { LayoutContent, LayoutGroup, LayoutStaff, PartDisplayInfo } from "@viritura/core";
+import type { LayoutContent, LayoutGroup, LayoutStaff, Part, PartDisplayInfo } from "@viritura/core";
 import type { MenuItemDef } from "@viritura/ui";
 import { type NodePath, getNodeAt } from "./treeOps";
 import { SYMBOL_OPTIONS } from "./styles";
+import { CHORD_SYMBOL_VISIBILITY_OPTIONS, type PartChordSymbolUpdate } from "./chordSymbolVisibility";
 
 function getPartDisplayName(displayMap: Map<string, PartDisplayInfo>, partId: string): string {
   return displayMap.get(partId)?.displayName ?? partId;
@@ -46,7 +47,8 @@ export interface StaffContextMenuDeps {
   partIdToScoreIndex: Map<string, number>;
   onSelectScore: (i: number) => void;
   ungroupStaff: (path: NodePath) => void;
-  updateStaffChordSymbolVisibility: (path: NodePath, value: LayoutStaff["chordSymbolVisibility"]) => void;
+  sourceParts: readonly Part[];
+  onPartUpdate?: (partId: string, updates: PartChordSymbolUpdate) => void;
   onAddDoubling?: (path: NodePath, instrumentId: string) => void;
   onRemoveDoubling?: (path: NodePath, sourceIndex: number) => void;
   onRemoveInstrument?: (partId: string) => void;
@@ -67,17 +69,30 @@ export interface StaffContextMenuDeps {
 
 function chordSymbolVisibilityMenu(
   node: LayoutStaff,
-  path: NodePath,
-  update: StaffContextMenuDeps["updateStaffChordSymbolVisibility"],
+  sourceParts: readonly Part[],
+  displayMap: Map<string, PartDisplayInfo>,
+  update: StaffContextMenuDeps["onPartUpdate"],
 ): MenuItemDef {
-  const current = node.chordSymbolVisibility ?? "auto";
+  const sourceIds = [...new Set(node.sources.map((source) => source.part))];
+  const sources = sourceIds.map((id) => {
+    const part = sourceParts.find((source) => source.id === id);
+    const current = part?.chordSymbolVisibility ?? "auto";
+    return {
+      label: `${displayMap.get(id)?.displayName ?? part?.name ?? id} (${id})`,
+      disabled: !part || !update,
+      children: part
+        ? CHORD_SYMBOL_VISIBILITY_OPTIONS.map(({ label, value }) => ({
+            label,
+            action: update ? () => update(id, { chordSymbolVisibility: value }) : undefined,
+            disabled: !update || current === value,
+          }))
+        : undefined,
+    };
+  });
   return {
     label: "Chord Symbols",
-    children: [
-      { label: "Automatic", action: () => update(path, "auto"), disabled: current === "auto" },
-      { label: "Show", action: () => update(path, "show"), disabled: current === "show" },
-      { label: "Hide", action: () => update(path, "hide"), disabled: current === "hide" },
-    ],
+    disabled: !update || sources.length === 0 || sources.every((source) => source.disabled),
+    children: sources.length === 1 ? sources[0]?.children : sources,
   };
 }
 
@@ -91,7 +106,8 @@ export function buildStaffContextMenuItems(
     partIdToScoreIndex,
     onSelectScore,
     ungroupStaff,
-    updateStaffChordSymbolVisibility,
+    sourceParts,
+    onPartUpdate,
     onAddDoubling,
     onRemoveDoubling,
     onRemoveInstrument,
@@ -114,7 +130,7 @@ export function buildStaffContextMenuItems(
   }
   const node = getNodeAt(layoutContent, path);
   if (node?.type === "staff") {
-    items.push(chordSymbolVisibilityMenu(node, path, updateStaffChordSymbolVisibility));
+    items.push(chordSymbolVisibilityMenu(node, sourceParts, partDisplayMap, onPartUpdate));
   }
   if (depth > 0) {
     items.push({ label: "Move to Root", action: () => ungroupStaff(path) });

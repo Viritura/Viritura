@@ -1,4 +1,11 @@
-import type { ChordQuality, ChordSymbol } from "@viritura/core";
+import {
+  formatChordSymbolText,
+  resolveChordSymbol,
+  UNSUPPORTED_CHORD_MESSAGE,
+  type ChordQuality,
+  type ChordSymbol,
+  type Part,
+} from "@viritura/core";
 import { FormInput, Select } from "@viritura/ui";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
 
@@ -39,8 +46,8 @@ const EXTENSION_VALUES: Record<string, ChordSymbol["extension"]> = {
 
 interface Props {
   chord: ChordSymbol;
-  staffCount: number;
-  isGlobal: boolean;
+  sourcePart?: Part;
+  onTextChange: (text: string) => void;
   onRootStepChange: (step: string) => void;
   onRootAlterChange: (alter: number | undefined) => void;
   onQualityChange: (quality: ChordQuality) => void;
@@ -48,95 +55,137 @@ interface Props {
   onExtensionChange: (extension: ChordSymbol["extension"]) => void;
   onBassStepChange: (step: string | undefined) => void;
   onBassAlterChange: (alter: number | undefined) => void;
-  onDisplayStaffChange: (staff: number | undefined) => void;
+  onVisibilityChange: (visibility: NonNullable<Part["chordSymbolVisibility"]>) => void;
   onTextOverrideChange: (text: string) => void;
 }
 
+function ChordTextInput({
+  value,
+  onCommit,
+  placeholder,
+}: {
+  value: string;
+  onCommit: (text: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <FormInput
+      key={value}
+      defaultValue={value}
+      placeholder={placeholder}
+      onBlur={(event) => {
+        if (event.target.value !== value) onCommit(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.currentTarget.value = value;
+          event.currentTarget.blur();
+        } else if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function ChordSymbolSection(props: Props) {
-  const { chord, staffCount } = props;
-  const staffOptions = [
-    { value: "", label: "Use layout" },
-    ...Array.from({ length: staffCount }, (_, index) => ({
-      value: String(index + 1),
-      label: `Staff ${index + 1}`,
-    })),
-  ];
+  const { chord, sourcePart } = props;
+  const resolution = resolveChordSymbol(chord);
 
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Chord Symbol</legend>
       <label style={labelStyle}>
-        Root
-        <Select value={chord.root.step} options={STEP_OPTIONS} onValueChange={props.onRootStepChange} />
-      </label>
-      <label style={labelStyle}>
-        Root accidental
-        <Select
-          value={chord.root.alter?.toString() ?? ""}
-          options={ACCIDENTAL_OPTIONS}
-          onValueChange={(value) => props.onRootAlterChange(value === "" ? undefined : Number(value))}
+        Chord text
+        <ChordTextInput
+          value={chord.rawText ?? formatChordSymbolText({ ...chord, textOverride: undefined })}
+          placeholder="e.g. F#maj7/A#"
+          onCommit={props.onTextChange}
         />
       </label>
-      <label style={labelStyle}>
-        Quality
-        <Select
-          value={chord.quality}
-          options={QUALITY_OPTIONS}
-          onValueChange={(value) => props.onQualityChange(value as ChordQuality)}
-        />
-      </label>
-      {chord.quality === "other" && (
-        <label style={labelStyle}>
-          Quality text
-          <FormInput
-            value={chord.kindText ?? ""}
-            placeholder="e.g. Neapolitan"
-            onChange={(event) => props.onKindTextChange(event.target.value)}
-          />
-        </label>
+      {resolution.status === "unsupported" && <p role="status">{UNSUPPORTED_CHORD_MESSAGE}</p>}
+      {resolution.status === "silent" && <p role="status">No chord: silent.</p>}
+      {chord.root && (
+        <>
+          <label style={labelStyle}>
+            Root
+            <Select value={chord.root.step} options={STEP_OPTIONS} onValueChange={props.onRootStepChange} />
+          </label>
+          <label style={labelStyle}>
+            Root accidental
+            <Select
+              value={chord.root.alter?.toString() ?? ""}
+              options={ACCIDENTAL_OPTIONS}
+              onValueChange={(value) => props.onRootAlterChange(value === "" ? undefined : Number(value))}
+            />
+          </label>
+          <label style={labelStyle}>
+            Quality
+            <Select
+              value={chord.quality ?? "major"}
+              options={QUALITY_OPTIONS}
+              onValueChange={(value) => props.onQualityChange(value as ChordQuality)}
+            />
+          </label>
+          {chord.quality === "other" && (
+            <label style={labelStyle}>
+              Quality text
+              <ChordTextInput
+                value={chord.kindText ?? ""}
+                placeholder="e.g. Neapolitan"
+                onCommit={props.onKindTextChange}
+              />
+            </label>
+          )}
+          <label style={labelStyle}>
+            Extension
+            <Select
+              value={chord.extension?.toString() ?? ""}
+              options={EXTENSION_OPTIONS}
+              onValueChange={(value) => props.onExtensionChange(EXTENSION_VALUES[value])}
+            />
+          </label>
+          <label style={labelStyle}>
+            Bass
+            <Select
+              value={chord.bass?.step ?? ""}
+              options={OPTIONAL_STEP_OPTIONS}
+              onValueChange={(value) => props.onBassStepChange(value || undefined)}
+            />
+          </label>
+          {chord.bass && (
+            <label style={labelStyle}>
+              Bass accidental
+              <Select
+                value={chord.bass.alter?.toString() ?? ""}
+                options={ACCIDENTAL_OPTIONS}
+                onValueChange={(value) => props.onBassAlterChange(value === "" ? undefined : Number(value))}
+              />
+            </label>
+          )}
+        </>
       )}
-      <label style={labelStyle}>
-        Extension
-        <Select
-          value={chord.extension?.toString() ?? ""}
-          options={EXTENSION_OPTIONS}
-          onValueChange={(value) => props.onExtensionChange(EXTENSION_VALUES[value])}
-        />
-      </label>
-      <label style={labelStyle}>
-        Bass
-        <Select
-          value={chord.bass?.step ?? ""}
-          options={OPTIONAL_STEP_OPTIONS}
-          onValueChange={(value) => props.onBassStepChange(value || undefined)}
-        />
-      </label>
-      {chord.bass && (
+      {sourcePart && (
         <label style={labelStyle}>
-          Bass accidental
+          Chord visibility — {sourcePart.name}
           <Select
-            value={chord.bass.alter?.toString() ?? ""}
-            options={ACCIDENTAL_OPTIONS}
-            onValueChange={(value) => props.onBassAlterChange(value === "" ? undefined : Number(value))}
-          />
-        </label>
-      )}
-      {!props.isGlobal && staffCount > 1 && (
-        <label style={labelStyle}>
-          Display staff override
-          <Select
-            value={chord.displayStaff?.toString() ?? ""}
-            options={staffOptions}
-            onValueChange={(value) => props.onDisplayStaffChange(value === "" ? undefined : Number(value))}
+            value={sourcePart.chordSymbolVisibility ?? "auto"}
+            options={[
+              { value: "auto", label: "Auto" },
+              { value: "show", label: "Show" },
+              { value: "hide", label: "Hide" },
+            ]}
+            onValueChange={(value) => props.onVisibilityChange(value as NonNullable<Part["chordSymbolVisibility"]>)}
           />
         </label>
       )}
       <label style={labelStyle}>
         Display override
-        <FormInput
+        <ChordTextInput
           value={chord.textOverride ?? ""}
           placeholder="Use semantic spelling"
-          onChange={(event) => props.onTextOverrideChange(event.target.value)}
+          onCommit={props.onTextOverrideChange}
         />
       </label>
     </fieldset>

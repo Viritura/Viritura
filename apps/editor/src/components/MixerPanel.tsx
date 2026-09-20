@@ -20,14 +20,30 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Volume2, VolumeX, ChevronDown, ChevronRight, Waves, AudioWaveform, ShieldCheck } from "lucide-react";
-import { useMixer, useMixerActions, type MixerChannelState, type MixerGroupState } from "../store/mixerStore";
+import {
+  Volume2,
+  VolumeX,
+  ChevronDown,
+  ChevronRight,
+  Waves,
+  AudioWaveform,
+  ShieldCheck,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  useMixer,
+  useMixerActions,
+  useMixerPartSync,
+  type MixerChannelState,
+  type MixerGroupState,
+} from "../store/mixerStore";
 import { usePlaybackActions } from "@viritura/playback";
 import { REVERB_PRESETS } from "@viritura/audio";
 import type { ReverbPreset } from "@viritura/audio";
 import { Collapsible, IconButton, Select, PanelHeader, Slider, withTooltip, CascadingMenu, Button } from "@viritura/ui";
 import type { CascadingMenuItem } from "@viritura/ui";
-import type { Part, Score } from "@viritura/core";
+import type { GlobalMeasure, Part, Score } from "@viritura/core";
+import { CHORDS_PART_ID, resolveChordSymbol } from "@viritura/core";
 import type { VstInstrumentProfile } from "@viritura/instrument-profiles";
 import {
   useInstrumentProfileStore,
@@ -260,9 +276,26 @@ function AssignAllControl({ onAssign }: { onAssign: (profile: VstInstrumentProfi
 // Component
 // ═══════════════════════════════════════════
 
+function chordRowState(measures: GlobalMeasure[] | undefined) {
+  let present = false;
+  for (const measure of measures ?? []) {
+    for (const symbol of measure.chordSymbols ?? []) {
+      present = true;
+      const resolution = resolveChordSymbol(symbol);
+      if (resolution.status === "unsupported") return { present, diagnostic: resolution.message };
+    }
+  }
+  return { present, diagnostic: undefined };
+}
+
 export function MixerPanel({ parts, score, onSoundSourceChange, onAssignAllToProfile }: MixerPanelProps) {
+  const measures = score?.global.measures;
+  const chords = useMemo(() => chordRowState(measures), [measures]);
+  const chordsPartIndex = score?.parts.length ?? parts.length;
+  useMixerPartSync(chordsPartIndex, chords.present);
   const mixer = useMixer();
   const actions = useMixerActions();
+  const chordsChannel = mixer.chordsPartIndex === chordsPartIndex ? mixer.channels[chordsPartIndex] : undefined;
   const anyChannelSolo = mixer.channels.some((ch) => ch.solo);
   const anyGroupSolo = useMemo(() => {
     for (const id in mixer.groups) {
@@ -299,6 +332,25 @@ export function MixerPanel({ parts, score, onSoundSourceChange, onAssignAllToPro
             spatialControlDisabled={nativeMode}
           />
         ))}
+        {chords.present && chordsChannel && (
+          <div className={styles.groupTracks}>
+            <ChannelStrip
+              key={CHORDS_PART_ID}
+              partIndex={chordsPartIndex}
+              name="Chords"
+              derived
+              diagnostic={chords.diagnostic}
+              channel={chordsChannel}
+              dimmed={(anyChannelSolo && !chordsChannel.solo) || anyGroupSolo}
+              onVolumeChange={actions.setVolume}
+              onToggleMute={actions.toggleMute}
+              onToggleSolo={actions.toggleSolo}
+              onToggleSpatialMode={actions.toggleSpatialMode}
+              spatialControlDisabled
+              onSoundSourceChange={onSoundSourceChange}
+            />
+          </div>
+        )}
       </div>
 
       <div className={styles.master}>
@@ -435,6 +487,8 @@ interface ChannelStripProps {
   onToggleSpatialMode: (partIndex: number) => void;
   spatialControlDisabled: boolean;
   onSoundSourceChange: (change: PartSoundSourceChange) => void;
+  derived?: boolean;
+  diagnostic?: string;
 }
 
 function ChannelStrip({
@@ -450,9 +504,16 @@ function ChannelStrip({
   onToggleSpatialMode,
   spatialControlDisabled,
   onSoundSourceChange,
+  derived = false,
+  diagnostic,
 }: ChannelStripProps) {
   return (
-    <div className={styles.track} data-dimmed={dimmed ? "true" : undefined} data-testid={`mixer-channel-${partIndex}`}>
+    <div
+      className={styles.track}
+      data-dimmed={dimmed ? "true" : undefined}
+      data-testid={`mixer-channel-${partIndex}`}
+      data-part-id={derived ? CHORDS_PART_ID : part?.id}
+    >
       <FaderBar
         className={styles.channelFader}
         value={channel.volume}
@@ -464,24 +525,34 @@ function ChannelStrip({
       <span className={styles.channelControls}>
         <ToggleM active={channel.muted} label={`Mute ${name}`} onClick={() => onToggleMute(partIndex)} />
         <ToggleS active={channel.solo} label={`Solo ${name}`} onClick={() => onToggleSolo(partIndex)} />
-        <SoundPicker part={part} score={score} partDisplayName={name} onSoundSourceChange={onSoundSourceChange} />
-        <Button
-          size="xs"
-          active={channel.spatialMode === "stage"}
-          disabled={spatialControlDisabled}
-          ariaLabel={`${name} spatial mode: ${channel.spatialMode === "stage" ? "Stage" : "Stereo"}`}
-          tooltip={
-            spatialControlDisabled
-              ? `Spatial mode is unavailable while Native playback owns ${name}`
-              : channel.spatialMode === "stage"
-                ? `3D Stage: ${name} uses left/right position and depth`
-                : `2D Stereo: ${name} uses left/right position without depth`
-          }
-          onClick={() => onToggleSpatialMode(partIndex)}
-        >
-          {channel.spatialMode === "stage" ? "3D" : "2D"}
-        </Button>
+        {!derived && (
+          <SoundPicker part={part} score={score} partDisplayName={name} onSoundSourceChange={onSoundSourceChange} />
+        )}
+        {!derived && (
+          <Button
+            size="xs"
+            active={channel.spatialMode === "stage"}
+            disabled={spatialControlDisabled}
+            ariaLabel={`${name} spatial mode: ${channel.spatialMode === "stage" ? "Stage" : "Stereo"}`}
+            tooltip={
+              spatialControlDisabled
+                ? `Spatial mode is unavailable while Native playback owns ${name}`
+                : channel.spatialMode === "stage"
+                  ? `3D Stage: ${name} uses left/right position and depth`
+                  : `2D Stereo: ${name} uses left/right position without depth`
+            }
+            onClick={() => onToggleSpatialMode(partIndex)}
+          >
+            {channel.spatialMode === "stage" ? "3D" : "2D"}
+          </Button>
+        )}
       </span>
+      {diagnostic && (
+        <span className={styles.chordDiagnostic} role="status">
+          <TriangleAlert size={12} aria-hidden="true" />
+          {diagnostic}
+        </span>
+      )}
     </div>
   );
 }

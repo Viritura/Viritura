@@ -61,14 +61,23 @@ describe("runLayoutEnginePath", () => {
 
     await runLayout(engine, scoreInfo(0));
 
-    expect(engine.computeFullScoreLayout).toHaveBeenCalledWith("{}", 12, 800, "{}");
+    expect(engine.computeFullScoreLayout).toHaveBeenCalledWith("{}", 12, 800, "{}", 0);
     expect(engine.computeLayout).not.toHaveBeenCalled();
   });
 
-  it("uses single-part layout only when exactly one part exists", async () => {
+  it("preserves the only authored score's written view and source layout", async () => {
     const engine = createBackend();
 
     await runLayout(engine, scoreInfo(1));
+
+    expect(engine.computeFullScoreLayout).toHaveBeenCalledWith("{}", 12, 800, "{}", 0);
+    expect(engine.computeLayout).not.toHaveBeenCalled();
+  });
+
+  it("uses single-part layout when no score definition exists", async () => {
+    const engine = createBackend();
+
+    await runLayout(engine, { ...scoreInfo(1), scoreCount: 0, scoreNames: [] });
 
     expect(engine.computeLayout).toHaveBeenCalledWith("{}", 0, 12, 800, "{}");
     expect(engine.computeFullScoreLayout).not.toHaveBeenCalled();

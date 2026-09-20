@@ -43,11 +43,17 @@ function partsFromScore(score: Score | null | undefined): MixerPartInfo[] {
 
 export function MixerSyncBridge({ score }: MixerSyncBridgeProps) {
   const parts = useMemo(() => partsFromScore(score), [score]);
-  useMixerPartSync(parts.length);
+  const measures = score?.global.measures;
+  const hasChords = useMemo(
+    () => measures?.some((measure) => (measure.chordSymbols?.length ?? 0) > 0) ?? false,
+    [measures],
+  );
+  const channelCount = parts.length + Number(hasChords);
+  useMixerPartSync(parts.length, hasChords);
   return (
     <>
-      <MixerGroupSync parts={parts} score={score ?? null} />
-      <MixerEngineBridge partCount={parts.length} />
+      <MixerGroupSync parts={parts} score={score ?? null} channelCount={channelCount} />
+      <MixerEngineBridge partCount={channelCount} chordsPartIndex={hasChords ? parts.length : undefined} />
       <AudioRenderModeRevertBridge />
     </>
   );
@@ -101,14 +107,22 @@ function AudioRenderModeRevertBridge() {
  * Keeps mixer group bus state in sync with the score layout's family
  * groups (e.g. Woodwinds, Brass).
  */
-function MixerGroupSync({ parts, score }: { parts: MixerPartInfo[]; score: Score | null }) {
+function MixerGroupSync({
+  parts,
+  score,
+  channelCount,
+}: {
+  parts: MixerPartInfo[];
+  score: Score | null;
+  channelCount: number;
+}) {
   const { syncGroups } = useMixerActions();
   useEffect(() => {
     const groups = extractFamilyGroups(score, parts);
     const groupIds = groups.map((g) => g.label);
-    const partGroups = buildPartGroups(parts.length, groups);
+    const partGroups = buildPartGroups(channelCount, groups);
     syncGroups(groupIds, partGroups);
-  }, [score, parts, syncGroups]);
+  }, [score, parts, channelCount, syncGroups]);
   return null;
 }
 
@@ -122,7 +136,7 @@ function MixerGroupSync({ parts, score }: { parts: MixerPartInfo[]; score: Score
  *                   || (anyChannelSolo && !channel.solo)
  *                   || (anyGroupSolo   && !group.solo)
  */
-function MixerEngineBridge({ partCount }: { partCount: number }) {
+function MixerEngineBridge({ partCount, chordsPartIndex }: { partCount: number; chordsPartIndex?: number }) {
   const mixer = useMixer();
   const { applyMix, setEnsembleLayer, setVstMutedParts } = usePlaybackActions();
   const anyChannelSolo = mixer.channels.some((ch) => ch.solo);
@@ -135,11 +149,13 @@ function MixerEngineBridge({ partCount }: { partCount: number }) {
   }
 
   useEffect(() => {
+    // Part sync runs in an effect too. Never apply an old roster to new indices.
+    if (mixer.channels.length !== partCount || mixer.chordsPartIndex !== chordsPartIndex) return;
     const mutedParts = new Set<number>();
     for (let i = 0; i < partCount; i++) {
       const ch = mixer.channels[i];
       if (!ch) continue;
-      const groupId = mixer.partGroups[i] ?? "";
+      const groupId = i === chordsPartIndex ? "" : (mixer.partGroups[i] ?? "");
       const group = groupId ? mixer.groups[groupId] : undefined;
       const groupVolume = group?.volume ?? 1;
       const groupMuted = group?.muted ?? false;
@@ -155,7 +171,7 @@ function MixerEngineBridge({ partCount }: { partCount: number }) {
     // Mirror the resolved mute set to the native VST host (no-op on the web
     // build), so mute/solo silences VST-hosted parts just like SF2 parts.
     setVstMutedParts(mutedParts);
-  }, [mixer, partCount, anyChannelSolo, anyGroupSolo, applyMix, setEnsembleLayer, setVstMutedParts]);
+  }, [mixer, partCount, chordsPartIndex, anyChannelSolo, anyGroupSolo, applyMix, setEnsembleLayer, setVstMutedParts]);
 
   return null;
 }

@@ -46,14 +46,25 @@ function beatStep(time: TimeSignature): [number, number] {
 }
 
 function measureEnd(score: Score, target: ChordSymbolPopoverState, time: TimeSignature): RhythmicPosition {
-  const measure = score.parts[target.partIndex]?.measures[target.measureIndex];
-  const contentBeats = Math.max(
-    0,
-    ...(measure?.sequences.map((sequence) =>
-      sequence.content.reduce((total, content) => total + sequenceContentBeats(content), 0),
-    ) ?? []),
-  );
-  return contentBeats > 0 ? { fraction: beatPositionToFraction(contentBeats) } : fraction(time.count, time.unit);
+  const measure = score.global.measures[target.measureIndex];
+  const pickup = target.measureIndex === 0 && measure?.number === 0;
+  const cadenza = measure?.time?.display === "senzaMisura";
+  if (!pickup && !cadenza) return fraction(time.count, time.unit);
+
+  // Pickups and cadenzas span the longest written voice across all parts;
+  // full-measure rests are placeholders, not evidence of a longer duration.
+  let beats = pickup ? 0 : (time.count / time.unit) * 4;
+  for (const part of score.parts) {
+    for (const sequence of part.measures[target.measureIndex]?.sequences ?? []) {
+      if (!sequence.fullMeasure) {
+        beats = Math.max(
+          beats,
+          sequence.content.reduce((total, content) => total + sequenceContentBeats(content), 0),
+        );
+      }
+    }
+  }
+  return beats > 0 ? { fraction: beatPositionToFraction(beats) } : fraction(time.count, time.unit);
 }
 
 function currentPosition(score: Score, current: ChordSymbolPopoverState): RhythmicPosition | null {
@@ -125,9 +136,10 @@ function navigateBeat(
   const previousTime = activeTime(score, adjacent.measureIndex);
   const previousEnd = measureEnd(score, adjacent, previousTime);
   const [previousStepNumerator, previousStepDenominator] = beatStep(previousTime);
+  const previousPosition = addPosition(previousEnd, -previousStepNumerator, previousStepDenominator);
   return {
     ...adjacent,
-    rhythmicPosition: addPosition(previousEnd, -previousStepNumerator, previousStepDenominator),
+    rhythmicPosition: comparePosition(previousPosition, fraction(0, 1)) < 0 ? fraction(0, 1) : previousPosition,
   };
 }
 

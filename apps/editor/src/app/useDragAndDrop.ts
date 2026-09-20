@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type React from "react";
+import { toast } from "sonner";
 import {
   convertImportedMusicFile,
   isMusicImportFilename,
@@ -8,6 +9,7 @@ import {
 } from "../commands/fileCommands";
 import type { OpenFileResult } from "../commands/fileCommands";
 import { useProjectStore } from "../store/projectStore";
+import { formatImportWarning } from "./importDiagnostics";
 
 interface UseDragAndDropArgs {
   openFolderHandle: (handle: FileSystemDirectoryHandle) => Promise<void>;
@@ -94,6 +96,8 @@ export function useDragAndDrop({
         }
         void useProjectStore.getState().setAdapter(null);
         setOpenedFile(result);
+        const warning = formatImportWarning(result);
+        if (warning) toast.warning(warning.message, { description: warning.description });
       } catch (err: unknown) {
         setFileError(err instanceof Error ? err.message : "Failed to read dropped file");
       }

@@ -56,9 +56,9 @@ describe("exportScoresToPdf layout routing", () => {
     { scoreCount: 0, partCount: 0, scoreIndex: 0, route: "full" },
     { scoreCount: 0, partCount: 1, scoreIndex: 0, route: "part" },
     { scoreCount: 0, partCount: 2, scoreIndex: 0, route: "full" },
-    { scoreCount: 1, partCount: 0, scoreIndex: 0, route: "full" },
-    { scoreCount: 1, partCount: 1, scoreIndex: 0, route: "part" },
-    { scoreCount: 1, partCount: 2, scoreIndex: 0, route: "full" },
+    { scoreCount: 1, partCount: 0, scoreIndex: 0, route: "mnx" },
+    { scoreCount: 1, partCount: 1, scoreIndex: 0, route: "mnx" },
+    { scoreCount: 1, partCount: 2, scoreIndex: 0, route: "mnx" },
     { scoreCount: 2, partCount: 0, scoreIndex: 1, route: "mnx" },
     { scoreCount: 2, partCount: 1, scoreIndex: 1, route: "mnx" },
     { scoreCount: 2, partCount: 2, scoreIndex: 1, route: "mnx" },
@@ -136,6 +136,106 @@ describe("exportScoresToPdf layout routing", () => {
       );
       expect(vi.mocked(exportPdf).mock.calls[0]?.[0]).toBe(displayList);
       expect(onProgress).toHaveBeenCalledExactlyOnceWith(1, 1, name);
+    },
+  );
+
+  it.each([
+    { visibility: "auto", useWritten: false },
+    { visibility: "show", useWritten: false },
+    { visibility: "hide", useWritten: false },
+    { visibility: "auto", useWritten: true },
+    { visibility: "show", useWritten: true },
+    { visibility: "hide", useWritten: true },
+  ] as const)(
+    "uses a single explicit source layout with $visibility chords and useWritten=$useWritten",
+    async ({ visibility, useWritten }) => {
+      const score: Score = {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              chordSymbols: [
+                {
+                  position: { fraction: [0, 1] },
+                  root: { step: "F", alter: 1 },
+                  bass: { step: "B", alter: -1 },
+                  quality: "major",
+                },
+                { position: { fraction: [1, 2] }, rawText: "C7(" },
+              ],
+            },
+          ],
+        },
+        parts: [
+          { id: "flute", name: "Flute", chordSymbolVisibility: "hide", measures: [{ sequences: [] }] },
+          {
+            id: "clarinet",
+            name: "Clarinet",
+            chordSymbolVisibility: visibility,
+            transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+            measures: [{ sequences: [] }],
+          },
+        ],
+        layouts: [{ id: "part", content: [{ type: "staff", sources: [{ part: "clarinet" }] }] }],
+        scores: [{ name: "Clarinet part", layout: "part", useWritten }],
+      };
+      const before = structuredClone(score);
+      const canonical = serializeMnx(score);
+      vi.mocked(getScoreInfo).mockReturnValue({
+        scoreCount: 1,
+        partCount: 2,
+        scoreNames: ["Clarinet part"],
+        partNames: ["Flute", "Clarinet"],
+        measureCount: 1,
+        layoutCount: 1,
+      });
+      const displayList: DisplayList = {
+        width: 2400,
+        height: 3500,
+        commands: [{ type: "DrawText", x: 10, y: 20, text: "C7(", font: "serif", size: 12, color: "#000000" }],
+      };
+      vi.mocked(wasmComputeMnxScoreLayout).mockReturnValue(displayList);
+      vi.mocked(exportPdf).mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+
+      await exportScoresToPdf(score, { scoreIndices: [0], embedMnx: true });
+
+      expect(wasmComputeMnxScoreLayout).toHaveBeenCalledExactlyOnceWith(
+        JSON.stringify(canonical),
+        expect.any(Number),
+        expect.any(Number),
+        0,
+        expect.any(String),
+      );
+      expect(canonical).toMatchObject({
+        global: {
+          measures: [
+            {
+              _x: {
+                viritura: {
+                  chordSymbols: [{ root: { step: "F", alter: 1 }, bass: { step: "B", alter: -1 } }, { rawText: "C7(" }],
+                },
+              },
+            },
+          ],
+        },
+        parts: [
+          { _x: { viritura: { chordSymbolVisibility: "hide" } } },
+          {
+            _x: { viritura: { chordSymbolVisibility: visibility } },
+            transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+          },
+        ],
+        layouts: score.layouts,
+        scores: [{ layout: "part", useWritten }],
+      });
+      expect(wasmComputeLayout).not.toHaveBeenCalled();
+      expect(wasmComputeFullScoreLayout).not.toHaveBeenCalled();
+      expect(exportPdf).toHaveBeenCalledExactlyOnceWith(
+        displayList,
+        expect.objectContaining({ mnxJson: JSON.stringify(canonical, null, 2) }),
+      );
+      expect(vi.mocked(exportPdf).mock.calls[0]![0]).toBe(displayList);
+      expect(score).toEqual(before);
     },
   );
 });

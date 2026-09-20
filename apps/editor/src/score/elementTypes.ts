@@ -7,6 +7,8 @@
  * enabling context-sensitive selection, navigation, and inspector routing.
  */
 
+import { canonicalChordSymbolId } from "./ElementPath";
+
 export type SelectableElementType =
   | "event"
   | "rest"
@@ -91,7 +93,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
  * Parse an element ID string and return its selectable element type.
  *
  * The element ID is a '/'-separated path produced by the Rust layout engine.
- * The last segment determines the type via prefix matching.
+ * Chord copies use their global root; otherwise the last segment determines the type.
  *
  * Examples:
  * - "p0/m1/s0/ev1"       → "event"
@@ -100,10 +102,12 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
  * - "p0/m1/s0/ev1/art0"  → "articulation"
  * - "p0/m1/s0/ev1/acc0"  → "accidental"
  * - "m0/time"            → "time-signature"
+ * - "m0/chord0/p1/staff1" → "chord-symbol"
  */
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
   if (elementId.startsWith("trill-line/")) return "trill";
+  if (canonicalChordSymbolId(elementId)) return "chord-symbol";
 
   const segments = elementId.split("/");
   const last = segments[segments.length - 1];
@@ -152,7 +156,6 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
   "pedal",
   "ottava",
   "expression",
-  "chord-symbol",
   "measure-number",
   "measure-repeat",
   "barline",
@@ -162,7 +165,13 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
 ]);
 
 /** Element types that belong to the global timeline. */
-const GLOBAL_LEVEL: ReadonlySet<SelectableElementType> = new Set(["tempo", "rehearsal", "jump", "volta"]);
+const GLOBAL_LEVEL: ReadonlySet<SelectableElementType> = new Set([
+  "tempo",
+  "rehearsal",
+  "jump",
+  "volta",
+  "chord-symbol",
+]);
 
 /** True if this element type is attached to a specific event (note/rest). */
 export function isEventAttached(type: SelectableElementType): boolean {

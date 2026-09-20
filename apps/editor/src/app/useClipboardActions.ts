@@ -51,6 +51,13 @@ export interface ClipboardActions {
   handleRepeat: () => void;
 }
 
+function showClipboardWarnings(warnings: readonly string[]): void {
+  const messages = [...new Set(warnings)];
+  if (messages.length === 0) return;
+  const remaining = messages.length > 3 ? `; and ${messages.length - 3} more warnings` : "";
+  toast.warning(`${messages.slice(0, 3).join("; ")}${remaining}`);
+}
+
 export function useClipboardActions({
   store,
   historyStore,
@@ -182,8 +189,9 @@ export function useClipboardActions({
       return;
     }
     let systemPaste: Awaited<ReturnType<typeof pasteFromClipboard>>;
+    const warnings: string[] = [];
     try {
-      systemPaste = await pasteFromClipboard((message) => toast.warning(message));
+      systemPaste = await pasteFromClipboard((message) => warnings.push(message));
     } catch (error) {
       if (error instanceof MuseScoreConversionError) toast.error(error.userMessage());
       else if (error instanceof NotationClipboardError) toast.error(error.message);
@@ -196,7 +204,10 @@ export function useClipboardActions({
         const latest = useClipboardHistoryStore.getState().entries[0];
         return latest ? pasteResultFromFragment(latest.fragment) : null;
       })();
-    if (!paste) return;
+    if (!paste) {
+      showClipboardWarnings(warnings);
+      return;
+    }
     const noteInput = useNoteInputStore.getState();
     const pasteCursor =
       noteInput.active && noteInput.cursorPosition
@@ -204,10 +215,14 @@ export function useClipboardActions({
         : undefined;
     try {
       const result = computePasteResult(score, selection, paste, pasteCursor);
-      if (!result) return;
+      if (!result) {
+        showClipboardWarnings(warnings);
+        return;
+      }
       updateScore(result.newScore);
       if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
       applyResultSelection(result.selection);
+      showClipboardWarnings([...warnings, ...result.warnings]);
     } catch (error) {
       console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor });
       toast.error(error instanceof Error ? error.message : "Could not paste notation.");
@@ -218,10 +233,15 @@ export function useClipboardActions({
     const sel = getClipboardSelection();
     const { score } = store.getState();
     if (!sel || !score) return;
-    const result = computeRepeatResult(score, sel);
-    if (!result) return;
-    updateScore(result.newScore);
-    applyResultSelection(result.selection);
+    try {
+      const result = computeRepeatResult(score, sel);
+      if (!result) return;
+      updateScore(result.newScore);
+      applyResultSelection(result.selection);
+      showClipboardWarnings(result.warnings);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not repeat notation.");
+    }
   }, [store, getClipboardSelection, updateScore, applyResultSelection]);
 
   return {

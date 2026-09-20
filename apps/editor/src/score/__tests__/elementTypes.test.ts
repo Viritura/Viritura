@@ -97,11 +97,6 @@ describe("parseElementType", () => {
       expect(parseElementType("p0/m1/expression1")).toBe("expression");
     });
 
-    it("returns 'chord-symbol' for chord-prefixed segments", () => {
-      expect(parseElementType("p0/m0/chord0")).toBe("chord-symbol");
-      expect(parseElementType("p0/m1/chordSym2")).toBe("chord-symbol");
-    });
-
     it("returns 'measure-number' for mnum segments", () => {
       expect(parseElementType("p0/m0/mnum")).toBe("measure-number");
       expect(parseElementType("p0/m3/mnum0")).toBe("measure-number");
@@ -129,6 +124,17 @@ describe("parseElementType", () => {
   });
 
   describe("global-level elements", () => {
+    it.each(["m0/chord0", "m12/chord3", "m0/chord0/p1/staff1", "m12/chord3/p9/staff2"])(
+      "classifies %s as a global chord symbol",
+      (id) => {
+        const type = parseElementType(id);
+        expect(type).toBe("chord-symbol");
+        expect(isGlobalLevel(type)).toBe(true);
+        expect(isMeasureLevel(type)).toBe(false);
+        expect(isEventAttached(type)).toBe(false);
+      },
+    );
+
     it("returns 'tempo' for tempo-prefixed segments", () => {
       expect(parseElementType("m0/tempo0")).toBe("tempo");
       expect(parseElementType("m0/tempo")).toBe("tempo");
@@ -251,7 +257,6 @@ describe("isMeasureLevel", () => {
     "pedal",
     "ottava",
     "expression",
-    "chord-symbol",
     "measure-number",
     "barline",
     "clef",
@@ -265,7 +270,14 @@ describe("isMeasureLevel", () => {
     });
   }
 
-  const notMeasure: SelectableElementType[] = ["event", "articulation", "tempo", "rehearsal", "unknown"];
+  const notMeasure: SelectableElementType[] = [
+    "event",
+    "articulation",
+    "tempo",
+    "rehearsal",
+    "chord-symbol",
+    "unknown",
+  ];
 
   for (const type of notMeasure) {
     it(`returns false for '${type}'`, () => {
@@ -275,7 +287,7 @@ describe("isMeasureLevel", () => {
 });
 
 describe("isGlobalLevel", () => {
-  const globalTypes: SelectableElementType[] = ["tempo", "rehearsal", "jump", "volta"];
+  const globalTypes: SelectableElementType[] = ["tempo", "rehearsal", "jump", "volta", "chord-symbol"];
 
   for (const type of globalTypes) {
     it(`returns true for '${type}'`, () => {

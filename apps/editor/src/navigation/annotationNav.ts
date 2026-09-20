@@ -13,12 +13,11 @@
  *
  * Measure-level (from PartMeasure):
  *   p{part}/m{measure}/dyn{i}, p{part}/m{measure}/hairpin{i},
- *   p{part}/m{measure}/pedal{i}, p{part}/m{measure}/expr{i},
- *   p{part}/m{measure}/chord{i}
+ *   p{part}/m{measure}/pedal{i}, p{part}/m{measure}/expr{i}
  *
  * Global-level (from GlobalMeasure):
  *   m{measure}/tempo{i}, m{measure}/rehearsal, m{measure}/jump,
- *   m{measure}/coda, m{measure}/caesura
+ *   m{measure}/coda, m{measure}/caesura, m{measure}/chord{i}
  */
 
 import type { Score, Markings, PartMeasure, GlobalMeasure } from "@viritura/core";
@@ -27,13 +26,13 @@ import {
   extractMeasureIndex,
   getEventAncestorId,
   resolveEventLocation,
+  resolveFullMeasureRestLocation,
   getNoteEventAtLocation,
   articulationId,
   dynamicId,
   hairpinId,
   pedalId,
   expressionId,
-  chordSymbolId,
   tempoId,
   rehearsalId,
   jumpId,
@@ -44,6 +43,12 @@ import {
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { parseElementType, isEventAttached, isMeasureLevel, isGlobalLevel } from "../score/elementTypes";
+import {
+  canonicalNavigationId,
+  chordCopyPartIndex,
+  globalChordNavigationId,
+  retainChordNavigationCopy,
+} from "./chordNavigationId";
 
 /** Position relative to the staff. */
 export type AnnotationPosition = "above" | "below";
@@ -69,7 +74,7 @@ export interface AnnotationInfo {
  * Annotations have suffixes like /ferm, /trill, /dyn0, /tempo0, etc.
  */
 export function isAnnotationId(elementId: string): boolean {
-  const type = parseElementType(elementId);
+  const type = parseElementType(canonicalNavigationId(elementId));
   if (type === "event" || type === "unknown" || type === "note") return false;
   return isEventAttached(type) || isMeasureLevel(type) || isGlobalLevel(type);
 }
@@ -90,7 +95,7 @@ function normalizeAnnotationType(suffix: string): string {
  * For measure-level annotations: returns undefined (no direct parent event).
  */
 export function getParentEventId(annotationId: string): string | undefined {
-  const elType = parseElementType(annotationId);
+  const elType = parseElementType(canonicalNavigationId(annotationId));
   if (!isEventAttached(elType)) return undefined;
   return getEventAncestorId(annotationId);
 }
@@ -121,7 +126,7 @@ export function findAnnotationsForEvent(score: Score, eventId: string): Annotati
   const annotations: AnnotationInfo[] = [];
 
   // Parse event location from ID
-  const loc = resolveEventLocation(eventId, score);
+  const loc = resolveEventLocation(eventId, score) ?? resolveFullMeasureRestLocation(eventId, score);
   if (!loc) return annotations;
 
   const { partIndex, measureIndex } = loc;
@@ -141,7 +146,7 @@ export function findAnnotationsForEvent(score: Score, eventId: string): Annotati
     });
   }
 
-  // 2. Measure-level part annotations (dynamics, hairpins, pedals, expressions, chord symbols)
+  // 2. Measure-level part annotations (dynamics, hairpins, pedals, expressions)
   const partMeasure = score.parts[partIndex]?.measures[measureIndex];
   if (partMeasure) {
     annotations.push(...extractPartMeasureAnnotations(partMeasure, partIndex, measureIndex, eventId));
@@ -278,17 +283,6 @@ function extractPartMeasureAnnotations(
     }
   }
 
-  if (partMeasure.chordSymbols) {
-    for (let i = 0; i < partMeasure.chordSymbols.length; i++) {
-      annotations.push({
-        elementId: chordSymbolId(partIndex, measureIndex, i),
-        type: "chord-symbol",
-        position: "above",
-        parentEventId,
-      });
-    }
-  }
-
   return annotations;
 }
 
@@ -299,6 +293,15 @@ function extractGlobalAnnotations(
   parentEventId: string,
 ): AnnotationInfo[] {
   const annotations: AnnotationInfo[] = [];
+
+  for (let i = 0; i < (globalMeasure.chordSymbols?.length ?? 0); i++) {
+    annotations.push({
+      elementId: globalChordNavigationId(measureIndex, i),
+      type: "chord-symbol",
+      position: "above",
+      parentEventId,
+    });
+  }
 
   if (globalMeasure.tempos) {
     for (let i = 0; i < globalMeasure.tempos.length; i++) {
@@ -407,12 +410,18 @@ export function findPrevAnnotation(score: Score, annotationId: string): string |
 /**
  * From a currently selected annotation, find the first annotation on the
  * opposite side of the staff (above ↔ below).
+ * For global annotations, sourcePartIndex is the selection's mapped source part,
+ * not the rendered copy's part index.
  */
-export function findAnnotationOtherSide(score: Score, annotationId: string): string | undefined {
+export function findAnnotationOtherSide(
+  score: Score,
+  annotationId: string,
+  sourcePartIndex?: number,
+): string | undefined {
   const parentId = getParentEventId(annotationId);
   if (!parentId) {
     // Measure-level annotation — determine position and find opposite side
-    return findMeasureAnnotationOtherSide(score, annotationId);
+    return findMeasureAnnotationOtherSide(score, annotationId, sourcePartIndex);
   }
 
   const annotations = findAnnotationsForEvent(score, parentId);
@@ -436,9 +445,9 @@ function findNextMeasureAnnotation(score: Score, annotationId: string): string |
 
   const type = getAnnotationType(annotationId);
   const siblings = getMeasureLevelAnnotations(score, measureIdx, partIdx, type);
-  const idx = siblings.findIndex((id) => id === annotationId);
+  const idx = siblings.indexOf(canonicalNavigationId(annotationId));
   if (idx < 0 || siblings.length <= 1) return undefined;
-  return siblings[(idx + 1) % siblings.length];
+  return retainChordNavigationCopy(annotationId, siblings[(idx + 1) % siblings.length]!);
 }
 
 /** Find the previous measure-level annotation of the same type. */
@@ -449,15 +458,19 @@ function findPrevMeasureAnnotation(score: Score, annotationId: string): string |
 
   const type = getAnnotationType(annotationId);
   const siblings = getMeasureLevelAnnotations(score, measureIdx, partIdx, type);
-  const idx = siblings.findIndex((id) => id === annotationId);
+  const idx = siblings.indexOf(canonicalNavigationId(annotationId));
   if (idx < 0 || siblings.length <= 1) return undefined;
-  return siblings[(idx - 1 + siblings.length) % siblings.length];
+  return retainChordNavigationCopy(annotationId, siblings[(idx - 1 + siblings.length) % siblings.length]!);
 }
 
 /** Find the annotation on the other side for a measure-level annotation. */
-function findMeasureAnnotationOtherSide(score: Score, annotationId: string): string | undefined {
+function findMeasureAnnotationOtherSide(
+  score: Score,
+  annotationId: string,
+  sourcePartIndex?: number,
+): string | undefined {
   const measureIdx = extractMeasureIndex(annotationId);
-  const partIdx = extractPartIndex(annotationId);
+  const partIdx = extractPartIndex(annotationId) ?? sourcePartIndex ?? chordCopyPartIndex(annotationId);
   if (measureIdx === undefined) return undefined;
 
   const currentPosition = classifyAnnotationPosition(getAnnotationType(annotationId));
@@ -472,7 +485,7 @@ function findMeasureAnnotationOtherSide(score: Score, annotationId: string): str
   return otherSide[0]?.elementId;
 }
 
-type PartLevelKind = "pedal" | "expression" | "chord-symbol";
+type PartLevelKind = "pedal" | "expression";
 
 interface PartLevelEntry {
   field: keyof PartMeasure;
@@ -482,7 +495,6 @@ interface PartLevelEntry {
 const PART_LEVEL_MAP: Record<PartLevelKind, PartLevelEntry> = {
   pedal: { field: "pedals", id: pedalId },
   expression: { field: "expressions", id: expressionId },
-  "chord-symbol": { field: "chordSymbols", id: chordSymbolId },
 };
 
 function pushPartLevelIds(ids: string[], pm: PartMeasure, partIndex: number, measureIndex: number, type: string): void {
@@ -508,7 +520,9 @@ function pushPartLevelIds(ids: string[], pm: PartMeasure, partIndex: number, mea
 }
 
 function pushGlobalLevelIds(ids: string[], gm: GlobalMeasure, measureIndex: number, type: string): void {
-  if (type === "tempo" && gm.tempos) {
+  if (type === "chord-symbol" && gm.chordSymbols) {
+    for (let i = 0; i < gm.chordSymbols.length; i++) ids.push(globalChordNavigationId(measureIndex, i));
+  } else if (type === "tempo" && gm.tempos) {
     for (let i = 0; i < gm.tempos.length; i++) ids.push(tempoId(measureIndex, i));
   } else if (type === "rehearsal" && gm.rehearsalMark) {
     ids.push(rehearsalId(measureIndex));
@@ -545,7 +559,7 @@ function getMeasureLevelAnnotations(
 
 /** Map from annotation ID suffix to type label used in AnnotationInfo. */
 function getAnnotationType(annotationId: string): string {
-  const parts = annotationId.split("/");
+  const parts = canonicalNavigationId(annotationId).split("/");
   const last = parts[parts.length - 1] ?? "";
   const normalized = normalizeAnnotationType(last);
 
@@ -582,6 +596,9 @@ function findFirstEventInMeasure(score: Score, measureIndex: number, partIndex: 
   for (let s = 0; s < measure.sequences.length; s++) {
     const seq = measure.sequences[s];
     if (!seq) continue;
+    if (seq.fullMeasure && seq.content.length === 0) {
+      return buildEventId(partIndex, measureIndex, s, eventSuffix(undefined, 0, measureIndex, s));
+    }
     for (let e = 0; e < seq.content.length; e++) {
       const ev = seq.content[e];
       if (!ev || ev.type !== "event") continue;

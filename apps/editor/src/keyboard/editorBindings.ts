@@ -14,7 +14,7 @@ import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { RefObject } from "react";
 import { DURATION_KEY_MAP } from "../commands/noteInputCommands";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
-import { isAnnotationId, getParentEventId, findNextAnnotation, findPrevAnnotation } from "../navigation/annotationNav";
+import { isAnnotationId, getParentEventId } from "../navigation/annotationNav";
 import { handleNoteInputKey, handleNoteInputArrowUpDown } from "./noteInputHandlers";
 import {
   handleArrowUpDown,
@@ -27,7 +27,7 @@ import {
   handleFlip,
 } from "./normalModeHandlers";
 import { handleDelete } from "./normalModeDelete";
-import { handleArrowLeftRight, handleHomeEnd } from "./navigationHandlers";
+import { handleAnnotationNavigation, handleArrowLeftRight, handleHomeEnd } from "./navigationHandlers";
 import type { NoteInputContextValue } from "../store/noteInputStore";
 
 // ─── Config interface (passed in from the hook) ─────────────────────
@@ -446,31 +446,13 @@ function buildNormalModeBindings(cfg: EditorBindingConfig): KeyBinding[] {
     id: "normal.annotationPrev",
     key: "Alt+ArrowLeft",
     context: "normal",
-    handler: () => {
-      const sel = ctx.getSelection();
-      if (sel.kind === "single" && isAnnotationId(sel.elementId)) {
-        const sc = ctx.getScore();
-        if (sc) {
-          const target = findPrevAnnotation(sc, sel.elementId);
-          if (target) cfg.selectElement(target);
-        }
-      }
-    },
+    handler: () => handleAnnotationNavigation("previous", ctx),
   });
   bindings.push({
     id: "normal.annotationNext",
     key: "Alt+ArrowRight",
     context: "normal",
-    handler: () => {
-      const sel = ctx.getSelection();
-      if (sel.kind === "single" && isAnnotationId(sel.elementId)) {
-        const sc = ctx.getScore();
-        if (sc) {
-          const target = findNextAnnotation(sc, sel.elementId);
-          if (target) cfg.selectElement(target);
-        }
-      }
-    },
+    handler: () => handleAnnotationNavigation("next", ctx),
   });
 
   // ArrowLeft / ArrowRight — element navigation
