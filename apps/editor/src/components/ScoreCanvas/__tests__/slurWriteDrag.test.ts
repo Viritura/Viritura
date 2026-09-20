@@ -120,6 +120,7 @@ function context() {
     perfTrackerRef: { current: { handleClick: () => false } },
     dragOccurredRef: { current: false },
     mouseDownPosRef: { current: null },
+    panPointerIdRef: { current: null },
     dragLockRef: { current: false },
     spannerDragRef: { current: null },
     slurHandleDragRef: { current: null },
@@ -363,7 +364,10 @@ describe("Write-mode slur endpoint dragging", () => {
     expect(ctx.slurHandleDragRef.current).toBeNull();
     expect(ctx.dragLockRef.current).toBe(false);
     expect(commitSlurReanchor).not.toHaveBeenCalled();
-    handleCanvasPointerCancelImpl(ctx);
+    handleCanvasPointerCancelImpl(
+      { pointerId: 4, currentTarget: null } as unknown as React.PointerEvent<HTMLCanvasElement>,
+      ctx,
+    );
     expect(ctx.mouseDownPosRef.current).toBeNull();
     expect(ctx.dragOccurredRef.current).toBe(false);
   });
