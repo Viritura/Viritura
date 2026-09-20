@@ -103,6 +103,11 @@ function WithScore({ children }: { readonly children: ReactNode }) {
           (score.parts[0]?.measures[1]?.sequences[0]?.content[0] as { glissandos?: unknown[] })?.glissandos ?? null,
         )}
       </output>
+      <output data-testid="first-note-markings">
+        {JSON.stringify(
+          (score.parts[0]?.measures[1]?.sequences[0]?.content[0] as { markings?: unknown })?.markings ?? null,
+        )}
+      </output>
     </>
   ) : null;
 }
@@ -231,6 +236,29 @@ describe("PalettePanel", () => {
     expect(screen.getByTestId("arpeggios-1").textContent).toBe(
       '[{"position":{"fraction":[0,1]},"span":{"start":"first-note-low","end":"first-note-high"},"direction":"up","arrow":true}]',
     );
+  });
+
+  it("authors and clears the selected bow direction", async () => {
+    useSelectionStore.setState({
+      selection: { kind: "single", elementId: "p0/m1/s0/first-note", elementType: "event" },
+    });
+    const user = userEvent.setup();
+    render(
+      <TooltipPrimitives.Provider delayDuration={0}>
+        <DocumentProvider>
+          <WithScore>
+            <PalettePanel />
+          </WithScore>
+        </DocumentProvider>
+      </TooltipPrimitives.Provider>,
+    );
+
+    const downBow = await screen.findByRole("button", { name: "Down-bow" });
+    await user.click(downBow);
+    expect(screen.getByTestId("first-note-markings").textContent).toBe('{"bowDirection":{"direction":"down"}}');
+
+    await user.click(downBow);
+    expect(screen.getByTestId("first-note-markings").textContent).toBe("null");
   });
 
   it("applies a custom time signature to a selected measure", async () => {

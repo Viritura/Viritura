@@ -50,6 +50,7 @@ import {
 } from "../commands/articulationCommands";
 import {
   applyArticulationToSelection,
+  applyBowDirectionToSelection,
   applyArpeggioToSelection,
   applyBreathMarkToSelection,
   applyFingeringToSelection,
@@ -94,6 +95,7 @@ import type {
   BreathMarkSymbol,
   PartMeasure,
   TimeSignature,
+  BowDirection,
 } from "@viritura/core";
 import {
   setTimeSignature,
@@ -117,6 +119,7 @@ import { insertEmptyMeasures } from "../score/ScoreMutations";
 import {
   SMUFL,
   ARTICULATION_ITEMS,
+  BOW_DIRECTION_PALETTE_ITEMS,
   DYNAMIC_ITEMS,
   TUPLET_ITEMS,
   CLEF_PALETTE_ITEMS,
@@ -665,6 +668,12 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     // second press clears it — instead of inverting each note independently.
     (articulation: ArticulationType) => () =>
       applySelectionScore((score, sel) => applyArticulationToSelection(score, sel, articulation, selectedScoreIndex)),
+    [applySelectionScore, selectedScoreIndex],
+  );
+
+  const handleBowDirection = useCallback(
+    (direction: BowDirection["direction"]) => () =>
+      applySelectionScore((score, sel) => applyBowDirectionToSelection(score, sel, direction, selectedScoreIndex)),
     [applySelectionScore, selectedScoreIndex],
   );
 
@@ -1347,6 +1356,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   // Check if any items in a section match
   const articulationsMatch = ARTICULATION_ITEMS.some(matchesSearch);
+  const bowDirectionsMatch = BOW_DIRECTION_PALETTE_ITEMS.some(matchesSearch);
   const dynamicsMatch = DYNAMIC_ITEMS.some(matchesSearch);
   const breathMatch = !searchQuery || "breath comma tick caesura fermata".includes(searchLower);
   const tupletsMatch = TUPLET_ITEMS.some(matchesSearch);
@@ -1500,6 +1510,25 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               shortcut={item.shortcut}
               active={!!selectedEventMarkings?.[item.articulation]}
               onClick={handleArticulation(item.articulation)}
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "bow-directions",
+      title: "Bowing",
+      show: bowDirectionsMatch,
+      render: () => (
+        <div style={gridStyle}>
+          {BOW_DIRECTION_PALETTE_ITEMS.filter(matchesSearch).map((item) => (
+            <PaletteButton
+              key={item.id}
+              label={item.label}
+              title={item.title}
+              useBravura={item.useBravura}
+              active={(selectedEventMarkings?.bowDirection as BowDirection | undefined)?.direction === item.direction}
+              onClick={handleBowDirection(item.direction)}
             />
           ))}
         </div>
