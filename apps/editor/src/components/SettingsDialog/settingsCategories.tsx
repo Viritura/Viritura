@@ -1,5 +1,16 @@
 import type { ComponentType, ReactNode } from "react";
-import { Bug, CircleUserRound, FileInput, Gauge, KeyboardMusic, Music, Palette, Volume2, Waves } from "lucide-react";
+import {
+  Bug,
+  CircleUserRound,
+  FileInput,
+  Gauge,
+  KeyboardMusic,
+  Music,
+  Palette,
+  Play,
+  Volume2,
+  Waves,
+} from "lucide-react";
 import {
   InstrumentProfilesPanel,
   AudioRenderModeSettings,
@@ -12,6 +23,7 @@ import { RenderingPanel } from "./panels/RenderingPanel";
 import { LayoutDebugPanel } from "./panels/LayoutDebugPanel";
 import { AccountPanel } from "./panels/AccountPanel";
 import { MidiInputPanel } from "./panels/MidiInputPanel";
+import { PlaybackPanel } from "./panels/PlaybackPanel";
 
 /** Rail groups, in display order. */
 export const SETTINGS_GROUPS = ["General", "Audio", "Files", "Advanced"] as const;
@@ -66,6 +78,15 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     description: "Editor chrome and colour theme.",
     keywords: ["theme", "dark", "light", "midnight", "colour", "color", "contrast"],
     Panel: AppearancePanel,
+  },
+  {
+    id: "playback",
+    label: "Playback",
+    group: "Audio",
+    icon: <Play size={14} />,
+    description: "Transport controls and playback-head following.",
+    keywords: ["transport", "time", "follow", "playhead", "metronome", "click track"],
+    Panel: PlaybackPanel,
   },
   {
     id: "instrument-profiles",
