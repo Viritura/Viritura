@@ -15,7 +15,19 @@ export function previewClickedChord(
   previewChord: ((chord: ChordSymbol, updatedScore?: Score) => Promise<void>) | undefined,
 ): void {
   const chord = globalChordForElement(score, elementId);
-  if (!score || !chord || resolveChordSymbol(chord).status !== "supported") return;
+  if (!score || !chord) {
+    if (/(?:^|\/)chord\d/.test(elementId)) {
+      console.warn("[Audio] Cannot resolve clicked chord:", elementId);
+    }
+    return;
+  }
+  if (resolveChordSymbol(chord).status !== "supported") return;
+  if (!previewChord) {
+    console.warn("[Audio] Clicked chord preview is unavailable:", elementId);
+    return;
+  }
   // Device initialization can fail; an audition must not interrupt selection.
-  void previewChord?.(chord, score).catch(() => {});
+  void previewChord(chord, score).catch((error: unknown) => {
+    console.warn("[Audio] Clicked chord preview failed:", elementId, error);
+  });
 }

@@ -995,6 +995,139 @@ describe("global chords through the real browser provider", () => {
 });
 
 describe("global chords through the native boundary", () => {
+  it.each(["selection", "mixer"] as const)(
+    "drains an earlier live %s mute before a normal chord click",
+    async (source) => {
+      const host = nativeTransport();
+      await mount({ vstTransport: host, audioRenderMode: "native" });
+      const delayed = deferred<void>();
+      let muted = new Set<number>();
+      let sounding = false;
+      host.setMutedParts.mockImplementation(async (parts) => {
+        muted = new Set(parts);
+        if (muted.has(2)) sounding = false;
+      });
+      const applyMute = host.setMutedParts.getMockImplementation()!;
+      host.setMutedParts.mockImplementationOnce(async (parts) => {
+        await delayed.promise;
+        await applyMute(parts);
+      });
+      host.previewChord.mockImplementation(async () => {
+        sounding = !muted.has(2);
+        return true;
+      });
+      act(() => {
+        if (source === "selection") actions().setSelectionPartIds(["flute-0"]);
+        else actions().setVstMutedParts(new Set([2]));
+      });
+      expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set(source === "selection" ? [1, 2] : [2]));
+      let audition!: Promise<void>;
+      await act(async () => {
+        if (source === "selection") actions().setSelectionPartIds(null);
+        else actions().setVstMutedParts(new Set());
+        expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set());
+        audition = actions().previewChord(symbol);
+      });
+      await flush();
+      const attacksBeforeRelease = host.previewChord.mock.calls.length;
+      await act(async () => {
+        delayed.resolve();
+        await audition;
+      });
+      expect(muted).toEqual(new Set());
+      expect(sounding).toBe(true);
+      expect(attacksBeforeRelease).toBe(0);
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+    },
+  );
+
+  it("drains live mutes issued during preparation before starting playback", async () => {
+    const host = nativeTransport();
+    await mount({ vstTransport: host, audioRenderMode: "native" });
+    const prepared = deferred<ReadonlySet<number>>();
+    const delayed = deferred<void>();
+    let muted = new Set<number>();
+    host.setMutedParts.mockImplementation(async (parts) => {
+      muted = new Set(parts);
+    });
+    host.prepare.mockReturnValueOnce(prepared.promise);
+    let playing!: Promise<void>;
+    await act(async () => {
+      playing = actions().play();
+    });
+    expect(host.prepare).toHaveBeenCalledOnce();
+    host.setMutedParts.mockImplementationOnce(async (parts) => {
+      await delayed.promise;
+      muted = new Set(parts);
+    });
+    act(() => {
+      actions().setSelectionPartIds(["flute-0"]);
+      actions().setSelectionPartIds(null);
+    });
+    await act(async () => prepared.resolve(new Set([0, 1, 2])));
+    const startsBeforeRelease = host.start.mock.calls.length;
+    await act(async () => {
+      delayed.resolve();
+      await playing;
+    });
+    expect(muted).toEqual(new Set());
+    expect(startsBeforeRelease).toBe(0);
+    expect(host.start).toHaveBeenCalledOnce();
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+  });
+
+  it.each(["mute", "seek"] as const)("reports a rejected live %s without poisoning later previews", async (control) => {
+    const host = nativeTransport();
+    await mount({ vstTransport: host, audioRenderMode: "native" });
+    const delayed = deferred<void>();
+    const error = new Error(`live ${control} failed`);
+    const write = control === "mute" ? host.setMutedParts : host.seek;
+    write.mockImplementationOnce(async () => {
+      await delayed.promise;
+      throw error;
+    });
+    let audition!: Promise<void>;
+    await act(async () => {
+      if (control === "seek") actions().seek(0);
+      else actions().setSelectionPartIds(["flute-0"]);
+      actions().setSelectionPartIds(null);
+      audition = actions().previewChord(symbol);
+    });
+    expect(host.previewChord).not.toHaveBeenCalled();
+    await act(async () => {
+      delayed.resolve();
+      await audition;
+    });
+    expect(console.warn).toHaveBeenCalledExactlyOnceWith(`[Audio] Native ${control} update failed:`, error);
+    vi.mocked(console.warn).mockClear();
+    expect(host.setMutedParts).toHaveBeenLastCalledWith(new Set());
+    expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+    await preview();
+    expect(host.previewChord).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps Stop cancellation while a preview waits for a live mute", async () => {
+    const host = nativeTransport();
+    await mount({ vstTransport: host, audioRenderMode: "native" });
+    const delayed = deferred<void>();
+    host.setMutedParts.mockReturnValueOnce(delayed.promise);
+    let audition!: Promise<void>;
+    await act(async () => {
+      actions().setSelectionPartIds(null);
+      audition = actions().previewChord(symbol);
+    });
+    expect(host.previewChord).not.toHaveBeenCalled();
+    act(() => actions().stop());
+    await act(async () => {
+      delayed.resolve();
+      await audition;
+    });
+    expect(host.previewChord).not.toHaveBeenCalled();
+    expect(host.start).not.toHaveBeenCalled();
+    await preview();
+    expect(host.previewChord).toHaveBeenCalledOnce();
+  });
+
   it("does not let an ineligible click abort Play while audition cleanup is pending", async () => {
     const host = nativeTransport();
     await mount({ vstTransport: host, audioRenderMode: "native" });

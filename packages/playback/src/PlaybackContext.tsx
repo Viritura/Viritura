@@ -174,6 +174,17 @@ export function PlaybackProvider({
   const selectionPartIdsRef = useRef<readonly string[] | null>(null);
   const partFilterSourceRef = useRef({ score, visiblePartIds });
   const nativeControlRevisionRef = useRef(0);
+  const nativeControlWritesRef = useRef(new Set<Promise<void>>());
+  const trackNativeControl = useCallback((write: Promise<void> | undefined, control: "mute" | "seek") => {
+    if (!write) return;
+    const pending = write.catch((error: unknown) => {
+      console.warn(`[Audio] Native ${control} update failed:`, error);
+    });
+    nativeControlWritesRef.current.add(pending);
+    void pending.then(() => {
+      nativeControlWritesRef.current.delete(pending);
+    });
+  }, []);
   const nativeStopRef = useRef<Promise<void> | null>(null);
   const stopNativeHost = useCallback(() => {
     const transport = vstTransportRef.current;
@@ -708,14 +719,18 @@ export function PlaybackProvider({
     return muted;
   }, [chordPreview]);
 
+  const syncLiveNativeMute = useCallback(() => {
+    trackNativeControl(vstTransportRef.current?.setMutedParts(nativeMutedParts()), "mute");
+  }, [nativeMutedParts, trackNativeControl]);
+
   const setSelectionPartIds = useCallback(
     (partIds: readonly string[] | null) => {
       selectionPartIdsRef.current = partIds === null ? null : [...partIds];
       nativeControlRevisionRef.current++;
       applyViewPartFilter();
-      void vstTransportRef.current?.setMutedParts(nativeMutedParts());
+      syncLiveNativeMute();
     },
-    [applyViewPartFilter, nativeMutedParts],
+    [applyViewPartFilter, syncLiveNativeMute],
   );
 
   // Prepare the native host for a play and silence the browser voices it owns.
@@ -737,6 +752,9 @@ export function PlaybackProvider({
         const syncMixer = async () => {
           let revision: number;
           do {
+            // An older mute or selection seek can otherwise land after the
+            // awaited mixer snapshot and cut off its first preview note.
+            while (nativeControlWritesRef.current.size) await Promise.all(nativeControlWritesRef.current);
             revision = nativeControlRevisionRef.current;
             const mutedParts = nativeMutedParts();
             const chordIndex = getChordPlaybackPart(score)?.partIndex;
@@ -797,9 +815,10 @@ export function PlaybackProvider({
       // come after—not be overwritten by—the optimistic one.
       dispatchPlayback({ type: "SEEK", seconds });
       engineRef.current?.seek(seconds);
-      void vstTransportRef.current?.seek(seconds);
+      nativeControlRevisionRef.current++;
+      trackNativeControl(vstTransportRef.current?.seek(seconds), "seek");
     },
-    [chordPreview],
+    [chordPreview, trackNativeControl],
   );
 
   const setTempo = useCallback((bpm: number) => {
@@ -892,9 +911,9 @@ export function PlaybackProvider({
       const chordIndex = currentScore ? getChordPlaybackPart(currentScore)?.partIndex : undefined;
       if (chordIndex !== undefined && mutedParts.has(chordIndex)) void chordPreview.cancel();
       nativeControlRevisionRef.current++;
-      void vstTransportRef.current?.setMutedParts(nativeMutedParts());
+      syncLiveNativeMute();
     },
-    [nativeMutedParts, chordPreview],
+    [syncLiveNativeMute, chordPreview],
   );
 
   const setEnsembleLayer = useCallback((partIndex: number, enabled: boolean) => {
@@ -1400,8 +1419,8 @@ export function PlaybackProvider({
     partFilterSourceRef.current = { score, visiblePartIds };
     nativeControlRevisionRef.current++;
     applyViewPartFilter();
-    void vstTransportRef.current?.setMutedParts(nativeMutedParts());
-  }, [score, visiblePartIds, applyViewPartFilter, nativeMutedParts]);
+    syncLiveNativeMute();
+  }, [score, visiblePartIds, applyViewPartFilter, syncLiveNativeMute]);
 
   // --- Memoized context values ---
 

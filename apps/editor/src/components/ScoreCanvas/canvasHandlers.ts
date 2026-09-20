@@ -203,7 +203,6 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   const hitId = exactHit ?? nearestHit;
 
   if (hitId) {
-    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
     const isSpannerSegment = hitId.startsWith("slur/") || hitId.startsWith("tie/");
     const eventId = isSpannerSegment || exactHit === hitId ? hitId : hitId.replace(/\/n\d+$/, "");
     if (eventId.startsWith("slur/") && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -212,6 +211,9 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
       ctx.setSelectedSlurId(null);
     }
     selectCanvasElement(e, ctx, eventId, measureAnchor ?? undefined);
+    // Selection synchronously seeks (cancelling old previews) and clears the
+    // temporary measure filter. Audition only after those updates have settled.
+    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
   } else {
     if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
     selectMeasureOrClear(e, ctx, scoreX, scoreY);
@@ -308,8 +310,8 @@ function handleEngraveClick(
   // the slur properties panel.
   if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
   if (hitId && (isEngraveTextAnnotationId(hitId) || globalChordForElement(ctx.docScoreRef.current, hitId))) {
-    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
     selectCanvasElement(e, ctx, hitId, pointerToMeasure(scoreX, scoreY, dl?.measureBounds) ?? undefined);
+    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
     return true;
   }
   const score = ctx.docScoreRef.current;
@@ -319,6 +321,7 @@ function handleEngraveClick(
     selectCanvasElement(e, ctx, hitId);
     return true;
   }
+  if (hitId) previewClickedChord(score, hitId, ctx.previewChord);
   // 4. Empty click → deselect
   ctx.clearSelection();
   ctx.onEngraveEmptyClickRef.current?.();

@@ -140,6 +140,7 @@ function context(id = "m0/chord0/p0/staff0") {
     docScoreRef: { current: score() },
     pageSetupRef: { current: { margins: { left: 0 } } },
     engraveAdornmentsRef: { current: undefined },
+    onEngraveEmptyClickRef: { current: undefined },
     previewChord,
     selectElement,
     clearSelection: vi.fn(),
@@ -153,6 +154,7 @@ const click = { clientX: 110, clientY: 30 } as MouseEvent<HTMLCanvasElement>;
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   useSelectionStore.setState(useSelectionStore.getInitialState());
 });
 
@@ -268,10 +270,14 @@ describe("direct canvas chord preview", () => {
   it.each(["m0/chord1/p0/staff0", "m0/chord2", "m99/chord0", "p0/m0/s0/ev0"])(
     "does not audition unsupported, silent, stale, or non-chord hit %s",
     (id) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const { ctx, previewChord, selectElement } = context(id);
       handleCanvasClickImpl(click, ctx);
       expect(previewChord).not.toHaveBeenCalled();
       expect(selectElement).toHaveBeenCalledWith(id);
+      if (id === "m99/chord0") {
+        expect(warn).toHaveBeenCalledWith("[Audio] Cannot resolve clicked chord:", id);
+      } else expect(warn).not.toHaveBeenCalled();
     },
   );
 
@@ -282,11 +288,41 @@ describe("direct canvas chord preview", () => {
     expect(previewChord).not.toHaveBeenCalled();
   });
 
-  it("contains asynchronous audition failures", async () => {
-    const previewChord = vi.fn().mockRejectedValue(new Error("Device unavailable"));
+  it("reports asynchronous audition failures without interrupting selection", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = new Error("Device unavailable");
+    const previewChord = vi.fn().mockRejectedValue(error);
     previewClickedChord(score(), "m0/chord0", previewChord);
     await Promise.resolve();
     expect(previewChord).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith("[Audio] Clicked chord preview failed:", "m0/chord0", error);
+  });
+
+  it.each(["m0/chord0/junk", "m0/chord0/p0", "p0/m0/chord0"])(
+    "diagnoses unknown chord selection %s rather than silently falling through",
+    (id) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { ctx, previewChord, selectElement } = context(id);
+      handleCanvasClickImpl(click, ctx);
+      expect(selectElement).toHaveBeenCalledWith(id);
+      expect(previewChord).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith("[Audio] Cannot resolve clicked chord:", id);
+    },
+  );
+
+  it("reports a missing playback action", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    previewClickedChord(score(), "m0/chord0", undefined);
+    expect(warn).toHaveBeenCalledWith("[Audio] Clicked chord preview is unavailable:", "m0/chord0");
+  });
+
+  it.each(["m99/chord0", "m0/chord0/junk"])("diagnoses unresolved engrave hit %s", (id) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { ctx, previewChord } = context(id);
+    ctx.interactionModeRef.current = "engrave";
+    handleCanvasClickImpl(click, ctx);
+    expect(previewChord).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith("[Audio] Cannot resolve clicked chord:", id);
   });
 
   it("rejects malformed copies and part-local IDs", () => {
