@@ -4,8 +4,8 @@
 import type { Score, NoteEvent, SequenceContent, Sequence } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import type { SelectionState } from "../store/selectionStore";
-import { deleteAnnotation, deleteArpeggioByElementId, deleteGraceNote } from "./deleteCommands";
-import { deleteNote } from "./noteCommands";
+import { deleteAnnotation, deleteAnnotations, deleteArpeggioByElementId, deleteGraceNote } from "./deleteCommands";
+import { deleteNote, sequenceContentBeats } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
 import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from "./markingSelection";
@@ -18,7 +18,7 @@ import {
   resolveGraceLocation,
   addressesWholeEvent,
 } from "../score/ElementPath";
-import type { GraceLocation } from "../score/ElementPath";
+import type { AnnotationLocation, GraceLocation } from "../score/ElementPath";
 import { deleteKeySignatureByElementId } from "./signatureCommands";
 import {
   deleteMeasureRepeatByElementId,
@@ -39,6 +39,10 @@ type SingleSel = Extract<SelectionState, { kind: "single" }>;
 type MultiOrRangeSel = Extract<SelectionState, { kind: "multi" | "range" }>;
 type MeasureSel = Extract<SelectionState, { kind: "measure" }>;
 type SequenceEntry = Score["parts"][number]["measures"][number]["sequences"][number]["content"][number];
+type TimedPartAnnotation = {
+  position: { fraction: [number, number] };
+  voice?: string;
+};
 
 /**
  * Compute the result of deleting the current selection. Pure function with
@@ -296,10 +300,12 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   const lyricResult = removeLyrics(score, lyricIds);
   let newScore = lyricResult.score;
   const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
+  const annotationResult = deleteTimedAnnotationsAnchoredToCollapsedSequences(newScore, events);
+  newScore = annotationResult.score;
   const leavesRemoved = [markingsRemoved, lyricResult.removed].includes(true);
   if (events.length === 0) {
     const graceRemoved = deleteSelectedGraceNotes(newScore, graceIds);
-    return leavesRemoved || chordsThinned || graceRemoved !== newScore
+    return didDeleteSelectionLeaves(leavesRemoved, annotationResult.removed, chordsThinned, graceRemoved !== newScore)
       ? { kind: "multi", score: graceRemoved, nextSelection: { kind: "clear" } }
       : { kind: "noop" };
   }
@@ -338,6 +344,136 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
     }
   }
   return { kind: "multi", score: deleteSelectedGraceNotes(newScore, graceIds), nextSelection: { kind: "clear" } };
+}
+
+function didDeleteSelectionLeaves(
+  markingsOrLyricsRemoved: boolean,
+  annotationsRemoved: boolean,
+  chordsThinned: boolean,
+  graceNotesRemoved: boolean,
+): boolean {
+  return markingsOrLyricsRemoved || annotationsRemoved || chordsThinned || graceNotesRemoved;
+}
+
+function deleteTimedAnnotationsAnchoredToCollapsedSequences(
+  score: Score,
+  events: ReturnType<typeof resolveSelectionEvents>,
+): { score: Score; removed: boolean } {
+  const locations = timedAnnotationsAnchoredToCollapsedSequences(score, events);
+  const withoutAnnotations = locations.length > 0 ? deleteAnnotations(score, locations) : null;
+  return withoutAnnotations ? { score: withoutAnnotations, removed: true } : { score, removed: false };
+}
+
+/**
+ * Timed part annotations are anchored to a top-level sequence item. Deleting
+ * every event in a sequence collapses its roots into one full-measure rest, so
+ * remove annotations whose anchors would otherwise disappear with that tree.
+ */
+function timedAnnotationsAnchoredToCollapsedSequences(
+  score: Score,
+  events: ReturnType<typeof resolveSelectionEvents>,
+): AnnotationLocation[] {
+  const selectedBySequence = new Map<string, Set<string>>();
+  for (const loc of events) {
+    const sequenceKey = `${loc.partIndex}/${loc.measureIndex}/${loc.sequenceIndex}`;
+    const rootIndex = loc.tupletIndex ?? loc.eventIndex;
+    const childIndex = loc.tupletIndex === undefined ? -1 : loc.eventIndex;
+    const selectedRoots = selectedBySequence.get(sequenceKey) ?? new Set<string>();
+    selectedRoots.add(`${rootIndex}/${childIndex}`);
+    selectedBySequence.set(sequenceKey, selectedRoots);
+  }
+
+  const locations: AnnotationLocation[] = [];
+  for (const [sequenceKey, selectedRoots] of selectedBySequence) {
+    const [partText, measureText, sequenceText] = sequenceKey.split("/");
+    if (!partText || !measureText || !sequenceText) continue;
+    const partIndex = Number(partText);
+    const measureIndex = Number(measureText);
+    const sequenceIndex = Number(sequenceText);
+    const measure = score.parts[partIndex]?.measures[measureIndex];
+    const sequence = measure?.sequences[sequenceIndex];
+    if (!measure || !sequence || !willSequenceCollapse(sequence.content, selectedRoots)) continue;
+
+    const voice = sequence.voice ?? `v${sequenceIndex + 1}`;
+    const allSequencesCollapse = measure.sequences.every((candidate, candidateIndex) => {
+      if (!candidate) return false;
+      return willSequenceCollapse(
+        candidate.content,
+        selectedBySequence.get(`${partIndex}/${measureIndex}/${candidateIndex}`) ?? new Set<string>(),
+      );
+    });
+    locations.push(
+      ...timedAnnotationLocationsAtSelectedRoots(
+        measure,
+        partIndex,
+        measureIndex,
+        sequence.content,
+        voice,
+        allSequencesCollapse,
+      ),
+    );
+  }
+  return locations;
+}
+
+function willSequenceCollapse(content: SequenceContent[], selectedRoots: ReadonlySet<string>): boolean {
+  return (
+    content.length > 0 &&
+    content.every((item, rootIndex) => {
+      if (item.type === "event") return selectedRoots.has(`${rootIndex}/-1`);
+      if (item.type !== "tuplet" && item.type !== "tremolo") return false;
+      return item.content.every((_, childIndex) => selectedRoots.has(`${rootIndex}/${childIndex}`));
+    })
+  );
+}
+
+function timedAnnotationLocationsAtSelectedRoots(
+  measure: Score["parts"][number]["measures"][number],
+  partIndex: number,
+  measureIndex: number,
+  content: SequenceContent[],
+  voice: string,
+  removeUnscopedAnnotations: boolean,
+): AnnotationLocation[] {
+  const locations: AnnotationLocation[] = [];
+  const isAnchoredInSequence = (annotation: TimedPartAnnotation): boolean =>
+    (annotation.voice === voice || (annotation.voice === undefined && removeUnscopedAnnotations)) &&
+    content.some((item, index) => {
+      const start = content.slice(0, index).reduce((total, previous) => total + sequenceContentBeats(previous), 0);
+      const end = start + sequenceContentBeats(item);
+      const beat = (annotation.position.fraction[0] / annotation.position.fraction[1]) * 4;
+      return beat >= start - 1e-9 && beat < end - 1e-9;
+    });
+
+  for (const [index, dynamic] of (measure.dynamics ?? []).entries()) {
+    if (!isAnchoredInSequence(dynamic)) continue;
+    locations.push({
+      kind: "part",
+      type: dynamic.type === "gradual" ? "hairpin" : "dyn",
+      partIndex,
+      measureIndex,
+      annotationIndex: index,
+      annotationId: dynamic.id,
+    });
+  }
+  for (const [index, pedal] of (measure.pedals ?? []).entries()) {
+    if (isAnchoredInSequence(pedal))
+      locations.push({ kind: "part", type: "pedal", partIndex, measureIndex, annotationIndex: index });
+  }
+  for (const [index, ottava] of (measure.ottavas ?? []).entries()) {
+    if (isAnchoredInSequence(ottava))
+      locations.push({ kind: "part", type: "ottava", partIndex, measureIndex, annotationIndex: index });
+  }
+  for (const [index, expression] of (measure.expressions ?? []).entries()) {
+    if (isAnchoredInSequence(expression))
+      locations.push({ kind: "part", type: "expr", partIndex, measureIndex, annotationIndex: index });
+  }
+  for (const [index, chordSymbol] of (measure.chordSymbols ?? []).entries()) {
+    if (isAnchoredInSequence(chordSymbol)) {
+      locations.push({ kind: "part", type: "chord", partIndex, measureIndex, annotationIndex: index });
+    }
+  }
+  return locations;
 }
 
 function deleteRepeatOnlySelection(score: Score, selection: MultiOrRangeSel): DeleteSelectionResult | null {
