@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StaffList version="4.70" tick="11/4" len="6/8" staff="28" staves="1">
+  <Staff id="28">
+    <transposeChromatic>-12</transposeChromatic>
+    <transposeDiatonic>-7</transposeDiatonic>
+    <voiceOffset>
+      <voice id="0">0</voice>
+      </voiceOffset>
+    <location>
+      <fractions>11/4</fractions>
+      </location>
+    <Chord>
+      <dots>1</dots>
+      <durationType>quarter</durationType>
+      <Note>
+        <pitch>29</pitch>
+        <tpc>13</tpc>
+        </Note>
+      </Chord>
+    <Chord>
+      <dots>1</dots>
+      <durationType>quarter</durationType>
+      <Note>
+        <pitch>31</pitch>
+        <tpc>15</tpc>
+        </Note>
+      </Chord>
+    </Staff>
+  </StaffList>
