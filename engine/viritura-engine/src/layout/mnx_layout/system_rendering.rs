@@ -1,7 +1,7 @@
 #![allow(clippy::too_many_arguments, clippy::too_many_lines, unused_imports)]
 
 use super::super::*;
-use super::instrument_labels::policy_for_system;
+use super::instrument_labels::{policy_for_system, render_staff_labels};
 use super::inter_staff_barlines::render_inter_staff_barlines;
 use super::render_hashing::*;
 use super::resolve_condensing::ResolvedStaffSnapshot;

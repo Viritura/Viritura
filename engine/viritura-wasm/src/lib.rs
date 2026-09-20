@@ -291,6 +291,65 @@ mod arpeggio_patch_tests {
 }
 
 #[cfg(test)]
+mod grouping_display_patch_tests {
+    use super::*;
+    use viritura_engine::render::RenderCommand;
+
+    fn has_grouping_annotation(display_list: &DisplayList) -> bool {
+        display_list.commands.iter().any(|command| {
+            matches!(command, RenderCommand::DrawText { text, font, .. } if text == "3+2+2" && font == "serif bold")
+        })
+    }
+
+    #[test]
+    fn part_measure_patch_refreshes_grouping_display_without_cold_cache_fallback() {
+        let json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"time": {"count": 7, "unit": 8, "_x": {"viritura": {"beatStructure": [3, 2, 2]}}}},
+                {},
+                {}
+            ]},
+            "parts": [{"id": "P1", "name": "Flute", "measures": [
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]}]},
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}]}]},
+                {"sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}]}]}
+            ]}],
+            "layouts": [{"id": "full", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+            "scores": [{"name": "Full score", "layout": "full"}]
+        }"#;
+        let patch = r#"{
+            "partMeasures": {"0": {"0": {
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]}],
+                "_x": {"viritura": {"groupingDisplayOverrides": [
+                    {"staff": 1, "groupingDisplay": "annotation"}
+                ]}}
+            }}}
+        }"#;
+
+        let mut engine = LayoutEngine::default();
+        let initial = engine
+            .compute_full_score_layout_cached_dl(json, 10.0, 3_000.0, None, Some(0))
+            .expect("initial cached layout");
+        assert!(!has_grouping_annotation(&initial));
+
+        let patched = engine
+            .apply_patch_and_layout_display_list(patch, 10.0, 3_000.0, None, Some(0))
+            .expect("grouping-display patch layout");
+        assert!(
+            has_grouping_annotation(&patched),
+            "the incremental display list must contain the updated grouping annotation"
+        );
+
+        let cache_stats = engine.cache_stats();
+        assert!(
+            cache_stats[0] > 0,
+            "unaffected measures must continue using the retained layout cache"
+        );
+    }
+}
+
+#[cfg(test)]
 mod zero_part_layout_tests {
     use super::*;
 

@@ -343,6 +343,7 @@ pub(super) fn build_virtual_part_measure(
     let mut arpeggios: Option<Vec<MnxArpeggio>> = None;
     let mut non_arpeggios: Option<Vec<NonArpeggio>> = None;
     let mut staff_configs: Option<Vec<PositionedStaffConfig>> = None;
+    let mut grouping_display_overrides: Option<Vec<StaffGroupingDisplayOverride>> = None;
     let mut beams = Vec::new();
 
     // --- Condensing merge mode analysis ---
@@ -500,6 +501,13 @@ pub(super) fn build_virtual_part_measure(
         if staff_configs.is_none() {
             staff_configs = super::super::staff_lines::configs_for_staff(pm, source.staff_number);
         }
+        if grouping_display_overrides.is_none() && !flat_staff.is_condensing() {
+            grouping_display_overrides =
+                crate::layout::time_signatures::staff_grouping_override_for_source(
+                    pm,
+                    source.staff_number.unwrap_or(1),
+                );
+        }
 
         // For Unison/Amalgamate/Solo: only take directions from the first active source
         // (they're identical or we only show one). For Divisi: merge from all.
@@ -650,7 +658,7 @@ pub(super) fn build_virtual_part_measure(
             chord_symbols,
             expressions,
             condensing_override: None,
-            grouping_display_overrides: None,
+            grouping_display_overrides,
             staff_meters: None,
         },
         condensing_mode,
@@ -738,38 +746,6 @@ pub(super) fn render_group_brackets_and_braces(
         sp,
         config,
         render_brace_labels,
-    );
-}
-
-/// Render the per-staff instrument labels in the left margin of a system.
-///
-/// Handles long vs. short labels (first system vs. subsequent), labelled-brace
-/// group suppression, and the optional condensed-number column ("1 / 2 / 3")
-/// drawn to the right of the name column.
-#[allow(clippy::too_many_arguments)] // pipeline boundary — all inputs are required
-pub(super) fn render_staff_labels(
-    dl: &mut DisplayList,
-    flat_staves: &[FlatStaff],
-    group_ranges: &[GroupRange],
-    staff_y_offsets: &[f64],
-    label_x: f64,
-    staff_height: f64,
-    sp: f64,
-    sys_idx: usize,
-    policy: Option<InstrumentNameDisplayPolicy>,
-    style: &crate::layout::text_styles::TextStyle,
-) {
-    super::instrument_labels::render_staff_labels(
-        dl,
-        flat_staves,
-        group_ranges,
-        staff_y_offsets,
-        label_x,
-        staff_height,
-        sp,
-        sys_idx,
-        policy,
-        style,
     );
 }
 
