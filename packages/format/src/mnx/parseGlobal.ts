@@ -177,6 +177,9 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
     if (viritura.gradualTempo) {
       measure.gradualTempo = parseGradualTempo(viritura.gradualTempo);
     }
+    if (viritura.chordSymbols) {
+      measure.chordSymbols = viritura.chordSymbols.map(parseChordSymbol);
+    }
   }
 
   return measure;

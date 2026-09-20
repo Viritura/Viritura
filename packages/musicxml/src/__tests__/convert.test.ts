@@ -13,6 +13,7 @@ function wrapScore(
     time?: string;
     key?: string;
     clef?: string;
+    staves?: number;
   } = {},
 ): string {
   const {
@@ -22,6 +23,7 @@ function wrapScore(
     time = "<beats>4</beats><beat-type>4</beat-type>",
     key = "<fifths>0</fifths>",
     clef = "<sign>G</sign><line>2</line>",
+    staves,
   } = opts;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -35,6 +37,7 @@ function wrapScore(
         <divisions>${divisions}</divisions>
         <key>${key}</key>
         <time>${time}</time>
+        ${staves === undefined ? "" : `<staves>${staves}</staves>`}
         <clef>${clef}</clef>
       </attributes>
       ${partContent}
@@ -2183,12 +2186,11 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
       { divisions: 2 },
     );
 
-    const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
 
-    expect(measure._x?.viritura.chordSymbols).toEqual([
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
-        displayStaff: 2,
         root: { step: "F", alter: 1 },
         quality: "major",
         kindText: "M7",
@@ -2196,6 +2198,7 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
         bass: { step: "A", alter: 1 },
       },
     ]);
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
   });
 
   it("preserves MusicXML chord kinds outside the Viritura quality model", () => {
@@ -2208,7 +2211,7 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
     const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
     expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-kind");
-    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [0, 1] },
         root: { step: "C" },
@@ -2216,6 +2219,147 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
         kindText: "Neapolitan",
       },
     ]);
+  });
+
+  it("consolidates matching staff lanes globally and retains differing staff lanes locally", () => {
+    const xml = wrapScore(
+      `
+      <harmony>
+        <root><root-step>C</root-step></root><kind>major</kind><staff>1</staff>
+      </harmony>
+      <harmony>
+        <root><root-step>C</root-step></root><kind>major</kind><staff>2</staff>
+      </harmony>
+      <forward><duration>1</duration></forward>
+      <harmony>
+        <root><root-step>D</root-step></root><kind>minor</kind><staff>1</staff>
+      </harmony>
+      <harmony>
+        <root><root-step>E</root-step></root><kind>minor</kind><staff>2</staff>
+      </harmony>
+      <backup><duration>1</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type><staff>1</staff>
+      </note>
+      <backup><duration>4</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><type>whole</type><staff>2</staff>
+      </note>
+    `,
+      { divisions: 1, staves: 2 },
+    );
+
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        root: { step: "C" },
+        quality: "major",
+      },
+    ]);
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
+      {
+        position: { fraction: [1, 4] },
+        displayStaff: 1,
+        root: { step: "D" },
+        quality: "minor",
+      },
+      {
+        position: { fraction: [1, 4] },
+        displayStaff: 2,
+        root: { step: "E" },
+        quality: "minor",
+      },
+    ]);
+
+    const staffs = converted.layouts![0]!.content[0]!;
+    expect(staffs.type).toBe("group");
+    if (staffs.type !== "group") return;
+    expect(staffs.content[0]).toMatchObject({
+      type: "staff",
+      _x: { viritura: { globalChordSymbolVisibility: "show" } },
+    });
+    expect(staffs.content[1]).toMatchObject({
+      type: "staff",
+      _x: { viritura: { globalChordSymbolVisibility: "show" } },
+    });
+  });
+
+  it("keeps conflicting MusicXML staff harmonies local", () => {
+    const xml = wrapScore(
+      `
+      <harmony>
+        <root><root-step>C</root-step></root><kind>major</kind><staff>1</staff>
+      </harmony>
+      <harmony>
+        <root><root-step>D</root-step></root><kind>minor</kind><staff>2</staff>
+      </harmony>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type><staff>1</staff>
+      </note>
+      <backup><duration>4</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><type>whole</type><staff>2</staff>
+      </note>
+    `,
+      { staves: 2 },
+    );
+
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 1,
+        root: { step: "C" },
+        quality: "major",
+      },
+      {
+        position: { fraction: [0, 1] },
+        displayStaff: 2,
+        root: { step: "D" },
+        quality: "minor",
+      },
+    ]);
+
+    const group = converted.layouts![0]!.content[0]!;
+    expect(group.type).toBe("group");
+    if (group.type !== "group") return;
+    expect(group.content.every((item) => item.type === "staff" && item._x === undefined)).toBe(true);
+  });
+
+  it("collapses equivalent MusicXML staff harmony lanes into one global track", () => {
+    const xml = wrapScore(
+      `
+      <harmony>
+        <root><root-step>C</root-step></root><kind>major</kind><staff>1</staff>
+      </harmony>
+      <harmony>
+        <root><root-step>C</root-step></root><kind>major</kind><staff>2</staff>
+      </harmony>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type><staff>1</staff>
+      </note>
+      <backup><duration>4</duration></backup>
+      <note>
+        <pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><type>whole</type><staff>2</staff>
+      </note>
+    `,
+      { staves: 2 },
+    );
+
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toHaveLength(1);
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    const group = converted.layouts![0]!.content[0]!;
+    expect(group.type).toBe("group");
+    if (group.type !== "group") return;
+    expect(
+      group.content.map((item) => (item.type === "staff" ? item._x?.viritura.globalChordSymbolVisibility : undefined)),
+    ).toEqual(["show", "show"]);
   });
 
   it("reports harmony representations that the chord lane cannot preserve", () => {

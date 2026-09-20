@@ -132,13 +132,15 @@ pub(crate) fn promote_global_measure_with_json(
     let extensions = (vendor.rehearsal_mark.is_some()
         || vendor.coda.is_some()
         || vendor.jump.is_some()
-        || vendor.senza_misura.is_some())
+        || vendor.senza_misura.is_some()
+        || vendor.chord_symbols.is_some())
     .then_some(ModelVendorExtensions {
         viritura: Some(GlobalMeasureExtensions {
             rehearsal_mark: vendor.rehearsal_mark,
             coda: vendor.coda,
             jump: vendor.jump,
             senza_misura: vendor.senza_misura,
+            chord_symbols: vendor.chord_symbols,
         }),
     });
     Ok(ModelGlobalMeasure {

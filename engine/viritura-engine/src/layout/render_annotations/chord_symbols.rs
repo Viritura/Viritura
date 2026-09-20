@@ -469,11 +469,16 @@ pub(crate) fn render_chord_symbols(
 
     for (index, chord) in chords.iter().enumerate() {
         let chord_x = x_origin + (chord.position.beats() / total_beats) * content_width;
-        let element_id = element_id::chord_symbol(
-            chord.source_part_index.unwrap_or(part_index),
-            measure_index,
-            chord.source_index.unwrap_or(index),
-        );
+        let source_index = chord.source_index.unwrap_or(index);
+        let element_id = if chord.source_global {
+            element_id::global_chord_symbol(measure_index, source_index)
+        } else {
+            element_id::chord_symbol(
+                chord.source_part_index.unwrap_or(part_index),
+                measure_index,
+                source_index,
+            )
+        };
         let (runs, _, _) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
         for run in runs {
             let command = match run {

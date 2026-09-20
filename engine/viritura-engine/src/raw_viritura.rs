@@ -3154,6 +3154,15 @@ impl<'de> ::serde::Deserialize<'de> for LayoutBreakMeasure {
 ///        "show",
 ///        "hide"
 ///      ]
+///    },
+///    "globalChordSymbolVisibility": {
+///      "description": "Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.",
+///      "type": "string",
+///      "enum": [
+///        "auto",
+///        "show",
+///        "hide"
+///      ]
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -3172,6 +3181,15 @@ pub struct LayoutStaffExtensions {
     pub chord_symbol_visibility: ::std::option::Option<
         LayoutStaffExtensionsChordSymbolVisibility,
     >,
+    ///Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.
+    #[serde(
+        rename = "globalChordSymbolVisibility",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub global_chord_symbol_visibility: ::std::option::Option<
+        LayoutStaffExtensionsGlobalChordSymbolVisibility,
+    >,
 }
 impl ::std::convert::From<&LayoutStaffExtensions> for LayoutStaffExtensions {
     fn from(value: &LayoutStaffExtensions) -> Self {
@@ -3182,6 +3200,7 @@ impl ::std::default::Default for LayoutStaffExtensions {
     fn default() -> Self {
         Self {
             chord_symbol_visibility: Default::default(),
+            global_chord_symbol_visibility: Default::default(),
         }
     }
 }
@@ -3267,6 +3286,95 @@ for LayoutStaffExtensionsChordSymbolVisibility {
 }
 impl ::std::convert::TryFrom<::std::string::String>
 for LayoutStaffExtensionsChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.",
+///  "type": "string",
+///  "enum": [
+///    "auto",
+///    "show",
+///    "hide"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    #[serde(rename = "auto")]
+    Auto,
+    #[serde(rename = "show")]
+    Show,
+    #[serde(rename = "hide")]
+    Hide,
+}
+impl ::std::convert::From<&Self> for LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    fn from(value: &LayoutStaffExtensionsGlobalChordSymbolVisibility) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Auto => f.write_str("auto"),
+            Self::Show => f.write_str("show"),
+            Self::Hide => f.write_str("hide"),
+        }
+    }
+}
+impl ::std::str::FromStr for LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "show" => Ok(Self::Show),
+            "hide" => Ok(Self::Hide),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for LayoutStaffExtensionsGlobalChordSymbolVisibility {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for LayoutStaffExtensionsGlobalChordSymbolVisibility {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -4035,6 +4143,13 @@ impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenType {
 ///  "description": "Viritura vendor extensions on a global measure object.",
 ///  "type": "object",
 ///  "properties": {
+///    "chordSymbols": {
+///      "description": "Score-wide harmony events at rhythmic positions in this measure.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/chord-symbol"
+///      }
+///    },
 ///    "coda": {
 ///      "$ref": "#/$defs/coda"
 ///    },
@@ -4060,6 +4175,13 @@ impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenType {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct MeasureGlobalExtensions {
+    ///Score-wide harmony events at rhythmic positions in this measure.
+    #[serde(
+        rename = "chordSymbols",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub chord_symbols: ::std::vec::Vec<ChordSymbol>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub coda: ::std::option::Option<Coda>,
     #[serde(
@@ -4092,6 +4214,7 @@ impl ::std::convert::From<&MeasureGlobalExtensions> for MeasureGlobalExtensions 
 impl ::std::default::Default for MeasureGlobalExtensions {
     fn default() -> Self {
         Self {
+            chord_symbols: Default::default(),
             coda: Default::default(),
             gradual_tempo: Default::default(),
             jump: Default::default(),

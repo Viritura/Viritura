@@ -109,6 +109,7 @@ pub(crate) struct GlobalMeasureVendor {
     pub coda: Option<ModelCoda>,
     pub jump: Option<ModelJump>,
     pub senza_misura: Option<bool>,
+    pub chord_symbols: Option<Vec<ModelChordSymbol>>,
 }
 
 pub(crate) fn extract_global_measure_vendor(
@@ -127,6 +128,13 @@ pub(crate) fn extract_global_measure_vendor(
         coda: raw_ext.coda.map(promote_coda),
         jump: raw_ext.jump.map(promote_extended_jump),
         senza_misura: raw_ext.senza_misura,
+        chord_symbols: vec_or_none(
+            raw_ext
+                .chord_symbols
+                .into_iter()
+                .map(promote_chord_symbol)
+                .collect(),
+        ),
     }
 }
 
@@ -230,6 +238,7 @@ fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {
             .map(|staff| u32::try_from(staff).unwrap_or(1)),
         source_index: None,
         source_part_index: None,
+        source_global: false,
         root: promote_chord_root(r.root),
         quality: r.quality,
         kind_text: r.kind_text,

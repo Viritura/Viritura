@@ -174,6 +174,15 @@ describe("resolveAnnotationLocation", () => {
       });
     });
 
+    it("parses a global chord annotation ID", () => {
+      expect(resolveAnnotationLocation("m0/chord2")).toEqual({
+        kind: "global",
+        type: "chord",
+        measureIndex: 0,
+        annotationIndex: 2,
+      });
+    });
+
     it("parses a segno annotation ID", () => {
       const loc = resolveAnnotationLocation("m2/segno");
       expect(loc).toEqual({
@@ -340,6 +349,16 @@ describe("deleteAnnotation", () => {
       const result = deleteAnnotation(score, { kind: "global", type: "tempo", measureIndex: 0, annotationIndex: 0 });
       expect(result).not.toBeNull();
       expect(result!.global.measures[0]!.tempos).toBeUndefined();
+    });
+
+    it("deletes a global chord symbol", () => {
+      const score = makeAnnotatedScore();
+      score.global.measures[0]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      ];
+      const result = deleteAnnotation(score, { kind: "global", type: "chord", measureIndex: 0, annotationIndex: 0 });
+      expect(result).not.toBeNull();
+      expect(result!.global.measures[0]!.chordSymbols).toBeUndefined();
     });
 
     it("deletes a segno marker", () => {

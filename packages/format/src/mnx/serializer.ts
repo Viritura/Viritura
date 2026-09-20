@@ -314,6 +314,9 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
     if (gm.gradualTempo.kind) gt["kind"] = gm.gradualTempo.kind;
     ext["gradualTempo"] = gt;
   }
+  if (gm.chordSymbols && gm.chordSymbols.length > 0) {
+    ext["chordSymbols"] = gm.chordSymbols;
+  }
   if (gm.time?.display === "senzaMisura") ext["senzaMisura"] = true;
   return ext;
 }

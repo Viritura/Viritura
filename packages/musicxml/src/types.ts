@@ -45,6 +45,7 @@ export interface MnxGlobalMeasure {
   _x?: {
     viritura: {
       coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
+      chordSymbols?: ChordSymbol[];
       [key: string]: unknown;
     };
   };
@@ -324,6 +325,11 @@ export interface MnxLayoutStaff {
   sources: { part: string; staff?: number }[];
   label?: string;
   labelref?: string;
+  _x?: {
+    viritura: {
+      globalChordSymbolVisibility?: "show" | "hide";
+    };
+  };
 }
 
 export interface MnxScore {

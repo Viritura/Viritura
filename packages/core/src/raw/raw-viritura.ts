@@ -338,6 +338,8 @@ export interface components {
             coda?: components["schemas"]["coda"];
             jump?: components["schemas"]["jump"];
             gradualTempo?: components["schemas"]["gradual-tempo"];
+            /** @description Score-wide harmony events at rhythmic positions in this measure. */
+            chordSymbols?: components["schemas"]["chord-symbol"][];
             /**
              * @description Marks this measure as open meter without adding a nonstandard value to MNX time.display.
              * @constant
@@ -462,6 +464,11 @@ export interface components {
              * @enum {string}
              */
             chordSymbolVisibility?: "auto" | "show" | "hide";
+            /**
+             * @description Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.
+             * @enum {string}
+             */
+            globalChordSymbolVisibility?: "auto" | "show" | "hide";
         };
         "page-turn-weights": {
             density?: number;

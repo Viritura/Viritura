@@ -3,7 +3,7 @@
 use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatSource, FlatStaff};
 use super::super::types::MeasureLayout;
-use crate::model::{ChordSymbol, PartMeasure};
+use crate::model::{ChordSymbol, PartMeasure, Score};
 use crate::render::ElementKind;
 
 pub(crate) fn above_staff_protrusion(
@@ -85,4 +85,27 @@ pub(super) fn extend_visible_chord_symbols(
             lane.push(chord);
         }
     }
+}
+
+pub(super) fn visible_global_chord_symbols(
+    score: &Score,
+    measure_index: usize,
+    staff: &FlatStaff,
+) -> Option<Vec<ChordSymbol>> {
+    if !staff.global_chord_symbols_visible {
+        return None;
+    }
+    let chords = score.global.measures.get(measure_index)?.chord_symbols()?;
+    Some(
+        chords
+            .iter()
+            .enumerate()
+            .map(|(index, chord)| {
+                let mut chord = chord.clone();
+                chord.source_index = Some(index);
+                chord.source_global = true;
+                chord
+            })
+            .collect(),
+    )
 }

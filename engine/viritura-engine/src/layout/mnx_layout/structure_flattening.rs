@@ -159,6 +159,15 @@ fn flatten_content_recursive(
                         Some(ChordSymbolVisibility::Hide) => Some(false),
                         Some(ChordSymbolVisibility::Auto) | None => None,
                     },
+                    global_chord_symbols_visible: matches!(
+                        staff.global_chord_symbol_visibility,
+                        Some(ChordSymbolVisibility::Show)
+                    ),
+                    global_chord_symbols_policy: match staff.global_chord_symbol_visibility {
+                        Some(ChordSymbolVisibility::Show) => Some(true),
+                        Some(ChordSymbolVisibility::Hide) => Some(false),
+                        Some(ChordSymbolVisibility::Auto) | None => None,
+                    },
                 };
                 if super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score) {
                     for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {
@@ -181,6 +190,22 @@ fn flatten_content_recursive(
 }
 
 fn resolve_chord_symbol_sources(staves: &mut [FlatStaff]) {
+    let has_explicit_global_staff = staves
+        .iter()
+        .any(|staff| staff.global_chord_symbols_policy == Some(true));
+    let mut selected_automatic_global_staff = false;
+    for staff in staves.iter_mut() {
+        staff.global_chord_symbols_visible = match staff.global_chord_symbols_policy {
+            Some(visible) => visible,
+            None if has_explicit_global_staff => false,
+            None if selected_automatic_global_staff => false,
+            None => {
+                selected_automatic_global_staff = true;
+                true
+            }
+        };
+    }
+
     let mut displayed_by_part: HashMap<usize, HashSet<u32>> = HashMap::new();
     let explicit_parts: HashSet<usize> = staves
         .iter()

@@ -47,6 +47,9 @@ pub struct LayoutStaff {
     /// Per-layout chord-symbol visibility for this displayed staff.
     #[serde(skip)]
     pub chord_symbol_visibility: Option<ChordSymbolVisibility>,
+    /// Per-layout visibility of the score-wide global harmony track.
+    #[serde(skip)]
+    pub global_chord_symbol_visibility: Option<ChordSymbolVisibility>,
     /// Staff symbol type (MNX `symbol`): "brace", "bracket", "noSymbol".
     /// Nested brackets automatically render as thin lines.
     #[serde(skip_serializing_if = "Option::is_none")]

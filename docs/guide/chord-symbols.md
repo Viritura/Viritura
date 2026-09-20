@@ -1,8 +1,9 @@
 # Chord Symbols
 
-Chord symbols belong to a part-level harmony lane. They are anchored to
-rhythmic positions in the music, but they are not owned by the note or rest you
-select to enter them.
+Chord symbols normally belong to the document's global harmony track. They are
+anchored to rhythmic positions in the music, but they are not owned by the note
+or rest you select to enter them. Part-local harmony remains available for
+imported material that differs from the global progression.
 
 ## Enter a chord symbol
 
@@ -12,9 +13,9 @@ select to enter them.
 4. Press `Enter` to commit and exit, or use a navigation key to continue the
    progression.
 
-The selected event establishes the source part and rhythmic position. Entering
-another chord at the same position replaces the existing symbol for that
-display staff rather than creating a duplicate.
+The selected event establishes the rhythmic position and the staff where the
+global harmony track is shown. Entering another chord at the same position
+replaces the existing global symbol rather than creating a duplicate.
 
 ## Shorthand
 
@@ -72,13 +73,24 @@ harmony event without changing the underlying note or rest.
 
 ## Placement in scores and parts
 
-By default, a source part's chord symbols appear above its first displayed
-staff. A multi-staff instrument can direct an individual symbol to another
-staff through **Properties**.
+By default, the global harmony track appears above the first displayed staff.
+Entering a chord from another staff enables the global track above that staff
+in layouts that contain it.
 
-Layouts can independently show or hide the harmony lane on a displayed staff.
-This lets a document use the same harmonic data in a full score and
-instrumental parts while presenting it differently in each output.
+MusicXML harmony is consolidated during import. Chords that agree at the same
+rhythmic position across the imported harmony-bearing staves become global.
+Differences remain part-local with their original staff placement.
+Consolidation therefore changes storage without changing the imported musical
+content.
+
+Layouts can independently show or hide global harmony and part-local harmony on
+a displayed staff. This lets a document use the same global progression in a
+full score and instrumental parts while retaining imported staff-specific
+exceptions.
+
+Manual scope conversion and global-harmony staff controls are not yet exposed
+in the editor. For now, ordinary entry creates global harmony and MusicXML
+import configures the required per-staff visibility automatically.
 
 ## House style
 

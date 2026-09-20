@@ -772,6 +772,10 @@ pub(super) struct FlatStaff {
     pub(crate) condensed_numbers: Vec<u32>,
     /// Explicit layout-staff chord-symbol visibility. None means automatic.
     pub(crate) chord_symbols_visible: Option<bool>,
+    /// Resolved visibility of the global harmony track on this layout staff.
+    pub(crate) global_chord_symbols_visible: bool,
+    /// Explicit global-harmony visibility. None means automatic.
+    pub(crate) global_chord_symbols_policy: Option<bool>,
 }
 
 #[derive(Clone)]
