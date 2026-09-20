@@ -1,4 +1,10 @@
-import { resolveChordSymbol, voiceChordSymbol, type ChordSymbol } from "@viritura/core";
+import {
+  formatChordSymbolText,
+  resolveChordSymbol,
+  transposeChordSymbol,
+  voiceChordSymbol,
+  type ChordSymbol,
+} from "@viritura/core";
 import { describe, expect, it } from "vitest";
 import type { DenigmaGapReport } from "../types";
 import { applyDenigmaGapReport } from "./applyGapReport";
@@ -74,6 +80,77 @@ function globalMeasure(source: JsonRecord): JsonRecord {
 }
 
 describe("global MUSX chord symbols", () => {
+  describe.each([false, true])("source aliases (rich typography=%s)", (rich) => {
+    it.each([
+      { suffix: "M7", quality: "major-seventh", display: "Cmaj7/E" },
+      { suffix: "Δ", quality: "major-seventh", display: "Cmaj7/E" },
+      { suffix: "min7", quality: "minor-seventh", display: "Cm7/E" },
+      { suffix: "-7", quality: "minor-seventh", display: "Cm7/E" },
+      { suffix: "°7", quality: "diminished-seventh", display: "Cdim7/E" },
+      { suffix: "o7", quality: "diminished-seventh", display: "Cdim7/E" },
+      { suffix: "+", quality: "augmented", display: "Caug/E" },
+      { suffix: "+7", quality: "augmented-seventh", display: "Caug7/E" },
+      { suffix: "m7b5", quality: "half-diminished", display: "Cø7/E" },
+      { suffix: "07", quality: "half-diminished", display: "Cø7/E" },
+      { suffix: "mΔ", quality: "major-minor", display: "CmMaj7/E" },
+      { suffix: "sus", quality: "suspended-fourth", display: "Csus4/E" },
+    ])("renders $suffix in house style without losing provenance", ({ suffix, quality, display }) => {
+      const gap = chordGap("C", suffix, quality);
+      gap.chord.bass = { step: "E", alteration: 0 };
+      if (rich) gap.chord.suffix.strings = [{ text: suffix, position: "above" }];
+      const result = apply([gap]);
+      const chord = result.chords[0]!;
+      expect(chord).toMatchObject({ rawText: `C${suffix}/E`, kindText: suffix });
+      expect(chord).not.toHaveProperty("textOverride");
+      expect(resolveChordSymbol(chord).status).toBe("supported");
+      expect(result.outcomes[0]?.disposition).toBe(rich ? "handled-partially" : "handled");
+      expect(result.diagnostics.every((entry) => !entry.message.includes("Unsupported chord"))).toBe(true);
+      expect(formatChordSymbolText(chord)).toBe(display);
+    });
+  });
+
+  it("keeps concert aliases in storage when formatting transposed context copies", () => {
+    const source = document();
+    sourcePart(source)["transposition"] = { interval: { halfSteps: 2, staffDistance: 1 } };
+    const gap = chordGap("D", "M7", "major-seventh");
+    gap.chord.bass = { step: "F", alteration: 1 };
+    gap.chord.suffix.stackDegrees = true;
+    const originalGap = structuredClone(gap);
+    const result = apply([gap], source);
+    const stored = result.chords[0]!;
+    const before = structuredClone(stored);
+    const written = transposeChordSymbol(stored, { halfSteps: 2, staffDistance: 1 });
+    expect(stored).toMatchObject({ root: { step: "C" }, bass: { step: "E" }, rawText: "CM7/E" });
+    expect(written).toMatchObject({ root: { step: "D" }, bass: { step: "F", alter: 1 }, rawText: "DM7/F#" });
+    expect(stored).not.toHaveProperty("textOverride");
+    expect(written).not.toHaveProperty("textOverride");
+    expect(stored).toEqual(before);
+    expect(gap).toEqual(originalGap);
+    expect(apply([], JSON.parse(result.mnxJson) as JsonRecord).chords).toEqual([before]);
+    expect(formatChordSymbolText(stored)).toBe("Cmaj7/E");
+    expect(formatChordSymbolText(written)).toBe("Dmaj7/F#");
+  });
+
+  it.each(["cM7/e", ""])("retains an existing authored override %j through import and storage", (textOverride) => {
+    const source = document();
+    const retained: ChordSymbol = {
+      position: { fraction: [3, 4] },
+      root: { step: "C" },
+      bass: { step: "E" },
+      quality: "major",
+      extension: 7,
+      rawText: "CM7/E",
+      kindText: "M7",
+      textOverride,
+    };
+    globalMeasure(source)["_x"] = { viritura: { chordSymbols: [retained] } };
+    const result = apply([chordGap()], source);
+    expect(result.chords[1]).toEqual(retained);
+    expect(formatChordSymbolText(result.chords[1]!)).toBe(textOverride);
+    expect(apply([], JSON.parse(result.mnxJson) as JsonRecord).chords).toEqual(result.chords);
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it("stores only global harmony and replaces hidden source-part visibility with show", () => {
     const source = document(3);
     sourcePart(source)["_x"] = { viritura: { chordSymbolVisibility: "hide", instrumentId: "clarinet" } };
@@ -208,7 +285,7 @@ describe("global MUSX chord symbols", () => {
     });
     expect(result.chords[0]).not.toHaveProperty("textOverride");
     expect(resolveChordSymbol(result.chords[0]!).status).toBe("supported");
-    expect(result.diagnostics[0]?.message).toContain("omitted non-equivalent display text");
+    expect(result.diagnostics[0]?.message).toContain("visibility fields cannot be represented");
     if (bass) expect(result.chords[0]?.bass).toEqual({ step: "E" });
     else expect(result.chords[0]).not.toHaveProperty("bass");
   });
@@ -246,11 +323,11 @@ describe("global MUSX chord symbols", () => {
         pitchClasses: [0, 4, 7, 11],
       });
       expect(voiceChordSymbol(result.chords[0]!)).toEqual({ leftHand: [40], rightHand: [60, 64, 67, 71] });
-      if (showRoot && showSuffix && lowerCase) expect(result.chords[0]?.textOverride).toBe("cmaj7/e");
-      else expect(result.chords[0]).not.toHaveProperty("textOverride");
+      expect(result.chords[0]).not.toHaveProperty("textOverride");
+      expect(formatChordSymbolText(result.chords[0]!)).toBe("Cmaj7/E");
       if (!showRoot || !showSuffix) {
         expect(result.outcomes[0]?.disposition).toBe("handled-partially");
-        expect(result.diagnostics[0]?.message).toContain("omitted non-equivalent display text");
+        expect(result.diagnostics[0]?.message).toContain("visibility fields cannot be represented");
       }
       expect(result.diagnostics.every((entry) => !entry.message.includes("Unsupported chord"))).toBe(true);
     });
@@ -260,7 +337,8 @@ describe("global MUSX chord symbols", () => {
     const gap = chordGap("C", "", "major");
     gap.chord.showSuffix = false;
     const result = apply([gap]);
-    expect(result.chords[0]).toMatchObject({ rawText: "C", textOverride: "C" });
+    expect(result.chords[0]).toMatchObject({ rawText: "C" });
+    expect(result.chords[0]).not.toHaveProperty("textOverride");
     expect(resolveChordSymbol(result.chords[0]!).status).toBe("supported");
   });
 
@@ -276,7 +354,7 @@ describe("global MUSX chord symbols", () => {
     expect(result.chords[0]).not.toHaveProperty("textOverride");
     expect(result.chords[0]).not.toHaveProperty("bass");
     expect(voiceChordSymbol(result.chords[0]!)).toEqual({ leftHand: [36], rightHand: [60, 64, 67, 71] });
-    expect(result.diagnostics[0]?.message).toContain("omitted non-equivalent display text");
+    expect(result.diagnostics[0]?.message).toContain("visibility fields cannot be represented");
   });
 
   it.each(["vertical", "diagonal"] as const)(
@@ -287,11 +365,12 @@ describe("global MUSX chord symbols", () => {
       const result = apply([gap]);
       expect(result.chords[0]).toMatchObject({
         rawText: "Cmaj7/Eb",
-        textOverride: "Cmaj7/eb",
         bass: { step: "E", alter: -1 },
       });
+      expect(result.chords[0]).not.toHaveProperty("textOverride");
+      expect(formatChordSymbolText(result.chords[0]!)).toBe("Cmaj7/Eb");
       expect(resolveChordSymbol(result.chords[0]!)).toMatchObject({ status: "supported", bassPitchClass: 3 });
-      expect(result.diagnostics[0]?.message).toContain("not Finale suffix typography");
+      expect(result.diagnostics[0]?.message).toContain("Finale suffix typography");
     },
   );
 
@@ -306,10 +385,11 @@ describe("global MUSX chord symbols", () => {
     const gap = chordGap();
     Object.assign(gap.chord.suffix, presentation);
     const result = apply([gap]);
-    expect(result.chords[0]).toMatchObject({ rawText: "Cmaj7", textOverride: "Cmaj7" });
+    expect(result.chords[0]).toMatchObject({ rawText: "Cmaj7" });
+    expect(result.chords[0]).not.toHaveProperty("textOverride");
     expect(resolveChordSymbol(result.chords[0]!).status).toBe("supported");
     expect(result.outcomes[0]?.disposition).toBe("handled-partially");
-    expect(result.diagnostics[0]?.message).toContain("not Finale suffix typography");
+    expect(result.diagnostics[0]?.message).toContain("Finale suffix typography");
   });
 
   it("preserves diatonic spelling for transposed flats and a lowered slash bass", () => {
@@ -406,6 +486,7 @@ describe("global MUSX chord symbols", () => {
     const source = document();
     sourcePart(source)["transposition"] = { interval: { halfSteps: 2, staffDistance: 1 } };
     const gap = chordGap("D", "7alt", "dominant");
+    gap.chord.suffix.stackDegrees = true;
     gap.chord.showRoot = visible;
     gap.chord.showSuffix = visible;
     gap.chord.bass = { step: "F", alteration: 1 };
@@ -416,6 +497,8 @@ describe("global MUSX chord symbols", () => {
       rawText: "C7alt/E",
     });
     expect(resolveChordSymbol(result.chords[0]!).status).toBe("unsupported");
+    expect(result.chords[0]).not.toHaveProperty("textOverride");
+    expect(formatChordSymbolText(result.chords[0]!)).toBe("C7alt/E");
     expect(result.outcomes[0]?.disposition).toBe("handled-partially");
     expect(result.diagnostics[0]?.message).toContain("Unsupported chord");
   });

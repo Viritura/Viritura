@@ -123,7 +123,10 @@ export interface PlaybackActions {
   previewPercussion(midiNote: number, drumKitProgram?: number, velocity?: number, durationMs?: number): Promise<void>;
   /** Audition global harmony while stopped. Commit handlers must pass the
    * updated score to wait for its deferred publication; clicks may omit it.
-   * A queued request resolves on enqueue, and cancels on other score/mode changes. */
+   * A queued request resolves on enqueue, and cancels on changed score content
+   * or devices, not equivalent immutable snapshots. Piano keys release after
+   * three seconds into the instrument's natural tail; transport, mute, and the
+   * next audition cancel immediately. */
   previewChord(chord: ChordSymbol, updatedScore?: Score): Promise<void>;
   /** Convert a measure index and beat to absolute time in seconds. Returns null if unavailable. */
   /** Convert an authored score measure and beat to its first performed occurrence. */

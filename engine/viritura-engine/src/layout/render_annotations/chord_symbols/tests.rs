@@ -22,29 +22,440 @@ fn text_runs(chord: &ChordSymbol) -> String {
 }
 
 #[test]
-fn raw_text_preserves_authored_formatting_instead_of_house_style() {
+fn raw_text_provenance_does_not_override_house_style() {
     let symbol = chord(json!({
         "root": {"step": "C"}, "quality": "major", "extension": 7,
-        "rawText": "  Cmaj7 (add 9)  "
+        "rawText": "  Cmaj7  ", "kindText": "maj7"
     }));
     let style = ChordSymbolStyle {
         major_seventh: MajorSeventhStyle::Triangle,
         ..Default::default()
     };
     let (runs, width, ascent) = chord_symbol_runs(&symbol, style, 10.0);
-    assert_eq!(runs.len(), 1);
+    assert_eq!(runs.len(), 3);
     assert!(
         matches!(&runs[0], ChordRun::Text {text, baseline_offset, ..}
-        if text == "  Cmaj7 (add 9)  " && *baseline_offset == 0.0)
+        if text == "C" && *baseline_offset == 0.0)
     );
-    assert_eq!(
-        width,
-        text_styles::text_width("  Cmaj7 (add 9)  ", 24.0, FontFamily::Serif, false)
+    assert!(matches!(&runs[1], ChordRun::Glyph {codepoint, ..}
+        if *codepoint == smufl::CHORD_MAJOR_SEVENTH));
+    assert!(
+        matches!(&runs[2], ChordRun::Text {text, size, baseline_offset, ..}
+        if text == "7" && *size < 24.0 && *baseline_offset < 0.0)
     );
     assert_eq!(
         chord_symbol_dimensions(&symbol, style, 10.0),
         (width, ascent)
     );
+    let mut without_provenance = symbol.clone();
+    without_provenance.raw_text = None;
+    without_provenance.kind_text = None;
+    assert_eq!(
+        chord_symbol_dimensions(&without_provenance, style, 10.0),
+        (width, ascent)
+    );
+}
+
+fn rendered_chord_commands(fields: serde_json::Value) -> Vec<RenderCommand> {
+    let symbol = chord(fields);
+    let value = json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"chordSymbols": [symbol]}}
+        }]},
+        "parts": [{"measures": [{
+            "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
+        }]}]
+    });
+    let score = crate::parse::parse_mnx_strict_value(&value).unwrap();
+    let permissive = crate::parse::parse_mnx(&value.to_string()).unwrap();
+    for parsed in [&score, &permissive] {
+        assert_eq!(
+            parsed.global.measures[0].chord_symbols().unwrap(),
+            std::slice::from_ref(&symbol)
+        );
+    }
+    let dl = crate::layout::layout_score(&score, 0, &LayoutConfig::default());
+    assert_eq!(
+        score.global.measures[0].chord_symbols().unwrap(),
+        std::slice::from_ref(&symbol)
+    );
+    dl.commands
+        .into_iter()
+        .zip(dl.element_ids)
+        .filter_map(|(command, id)| (id.as_deref() == Some("m0/chord0")).then_some(command))
+        .collect()
+}
+
+#[test]
+fn supported_chords_with_authored_spelling_draw_quality_glyphs_and_superscripts() {
+    for (quality, raw, kind, glyph) in [
+        ("major", "Cmaj7", "maj7", smufl::CHORD_MAJOR_SEVENTH),
+        ("major", "CMaj7", "Maj7", smufl::CHORD_MAJOR_SEVENTH),
+        ("major", "CMa7", "Ma7", smufl::CHORD_MAJOR_SEVENTH),
+        ("major", "CΔ7", "Δ7", smufl::CHORD_MAJOR_SEVENTH),
+        ("major", "CΔ", "Δ", smufl::CHORD_MAJOR_SEVENTH),
+        ("major", "CM7", "M7", smufl::CHORD_MAJOR_SEVENTH),
+        ("diminished", "Cdim7", "dim7", smufl::CHORD_DIMINISHED),
+        ("diminished", "C°7", "°7", smufl::CHORD_DIMINISHED),
+        ("half-diminished", "Cø7", "ø7", smufl::CHORD_HALF_DIMINISHED),
+        ("half-diminished", "Cø", "ø", smufl::CHORD_HALF_DIMINISHED),
+        ("half-diminished", "C07", "07", smufl::CHORD_HALF_DIMINISHED),
+        (
+            "half-diminished",
+            "Cm7b5",
+            "m7b5",
+            smufl::CHORD_HALF_DIMINISHED,
+        ),
+    ] {
+        for raw_text in [None, Some(raw)] {
+            let mut fields = json!({
+                "root": {"step": "C"}, "quality": quality, "extension": 7, "kindText": kind
+            });
+            if let Some(raw) = raw_text {
+                fields["rawText"] = json!(raw);
+            }
+            let commands = rendered_chord_commands(fields);
+            assert_eq!(commands.len(), 3, "{raw}");
+            let (root_y, root_size) = match &commands[0] {
+                RenderCommand::DrawText {
+                    text,
+                    y,
+                    size,
+                    color,
+                    ..
+                } => {
+                    assert_eq!(text, "C");
+                    assert_eq!(color, "#000000");
+                    (*y, *size)
+                }
+                other => panic!("expected root text, got {other:?}"),
+            };
+            assert!(matches!(&commands[1],
+                RenderCommand::DrawGlyph { codepoint, font, color, .. }
+                if *codepoint == glyph && font == "Bravura" && color == "#000000"));
+            assert!(matches!(&commands[2],
+                RenderCommand::DrawText { text, y, size, color, .. }
+                if text == "7" && *y < root_y && *size < root_size && color == "#000000"));
+        }
+    }
+}
+
+#[test]
+fn equivalent_kind_text_aliases_keep_structured_dimensions() {
+    for (quality, kind) in [
+        ("major", "MAJ7"),
+        ("minor", "Min7"),
+        ("minor", "-7"),
+        ("dominant", "7"),
+        ("diminished", "Dim7"),
+        ("augmented", "Aug7"),
+        ("augmented", "+7"),
+        ("half-diminished", "M7B5"),
+        ("minor-major", "mMaj7"),
+        ("minor-major", "minMa"),
+        ("minor-major", "-Δ7"),
+        ("suspended2", "7SUS2"),
+        ("suspended4", "7Sus"),
+    ] {
+        let symbol = chord(json!({
+            "root": {"step": "C"}, "quality": quality, "extension": 7, "kindText": kind
+        }));
+        let mut canonical = symbol.clone();
+        canonical.kind_text = None;
+        assert_eq!(
+            chord_symbol_dimensions(&symbol, Default::default(), 10.0),
+            chord_symbol_dimensions(&canonical, Default::default(), 10.0),
+            "{quality}: {kind}"
+        );
+    }
+}
+
+#[test]
+fn unsupported_chords_retain_verbatim_raw_text_in_black_exports() {
+    for fields in [
+        json!({"rawText": "  H#?!  "}),
+        json!({
+            "root": {"step": "C"}, "quality": "other",
+            "kindText": "7(b9)", "rawText": "  C7(b9)  "
+        }),
+        json!({
+            "root": {"step": "C"}, "quality": "dominant", "extension": 7,
+            "kindText": "7(b9)", "rawText": "  C7(b9)  "
+        }),
+    ] {
+        let commands = rendered_chord_commands(fields.clone());
+        assert_eq!(commands.len(), 1);
+        assert!(
+            matches!(&commands[0], RenderCommand::DrawText { text, color, size, .. }
+            if text == fields["rawText"].as_str().unwrap()
+                && color == "#000000" && *size == CHORD_FONT_SIZE_SP * LayoutConfig::default().sp)
+        );
+    }
+}
+
+#[test]
+fn unsupported_kind_text_without_raw_text_is_not_discarded() {
+    for quality in ["major", "dominant", "other"] {
+        let commands = rendered_chord_commands(json!({
+            "root": {"step": "C"}, "quality": quality, "extension": 7,
+            "kindText": "mystery"
+        }));
+        assert_eq!(commands.len(), 1);
+        assert!(
+            matches!(&commands[0], RenderCommand::DrawText { text, color, .. }
+            if text == "Cmystery" && color == "#000000")
+        );
+    }
+}
+
+#[test]
+fn raw_only_supported_spelling_uses_semantic_house_style() {
+    for (raw, root, quality) in [
+        ("CM7", "C", "major"),
+        ("Ddim7", "D", "diminished"),
+        ("Cø", "C", "half-diminished"),
+        ("CmMa", "C", "minor-major"),
+        ("C7sus", "C", "suspended4"),
+    ] {
+        assert_eq!(
+            serde_json::to_value(rendered_chord_commands(json!({"rawText": raw}))).unwrap(),
+            serde_json::to_value(rendered_chord_commands(json!({
+                "root": {"step": root}, "quality": quality, "extension": 7
+            })))
+            .unwrap(),
+            "{raw}"
+        );
+    }
+}
+
+#[test]
+fn raw_quality_grammar_uses_style_without_rewriting_authored_data() {
+    for (suffix, quality, extension) in [
+        ("", "major", None),
+        ("M", "major", None),
+        ("Ma6", "major", Some(6)),
+        ("△", "major", Some(7)),
+        ("MAJ13", "major", Some(13)),
+        ("Min9", "minor", Some(9)),
+        ("-11", "minor", Some(11)),
+        ("13", "dominant", Some(13)),
+        ("°", "diminished", None),
+        ("Dim6", "diminished", Some(6)),
+        ("o7", "diminished", Some(7)),
+        ("AUG9", "augmented", Some(9)),
+        ("+", "augmented", None),
+        ("0", "half-diminished", Some(7)),
+        ("ø11", "half-diminished", Some(11)),
+        ("M7B5", "half-diminished", Some(7)),
+        ("minMA", "minor-major", Some(7)),
+        ("-δ9", "minor-major", Some(9)),
+        ("sus", "suspended4", None),
+        ("11SUS4", "suspended4", Some(11)),
+        ("sus2", "suspended2", None),
+        ("6sus2", "suspended2", Some(6)),
+        ("5", "power", None),
+    ] {
+        let raw = chord(json!({"rawText": format!("b♭{suffix}/d")}));
+        let original = raw.clone();
+        let expected = chord(json!({
+            "root": {"step": "B", "alter": -1}, "quality": quality,
+            "extension": extension, "bass": {"step": "D"}
+        }));
+        for style in [
+            ChordSymbolStyle::default(),
+            ChordSymbolStyle {
+                root_case: ChordRootCase::LowercaseMinor,
+                major_seventh: MajorSeventhStyle::CapitalM,
+                minor: MinorStyle::Minus,
+                diminished: DiminishedStyle::Dim,
+                half_diminished: HalfDiminishedStyle::MinorFlatFive,
+                augmented: AugmentedStyle::Aug,
+                extensions: ChordExtensionPosition::Baseline,
+            },
+        ] {
+            assert_eq!(
+                chord_symbol_dimensions(&raw, style, 10.0),
+                chord_symbol_dimensions(&expected, style, 10.0),
+                "{suffix}"
+            );
+        }
+        assert_eq!(raw, original);
+    }
+    for text in [
+        "C7alt", "Cm(maj7)", "C6/9", "Cδ7", "CmAj7", "C♮7", "C7/E/G", "C7 /E",
+    ] {
+        let raw = chord(json!({"rawText": text}));
+        let (runs, _, _) = chord_symbol_runs(&raw, Default::default(), 10.0);
+        assert_eq!(runs.len(), 1, "{text}");
+        assert_eq!(text_runs(&raw), text);
+    }
+}
+
+#[test]
+fn transposed_raw_only_harmony_is_styled_without_changing_storage() {
+    let symbol = chord(json!({"rawText": "  CM7/E  "}));
+    let original = symbol.clone();
+    let written = chord_symbol_for_display(&symbol, Some((1, 2)));
+    let expected = chord(json!({
+        "root": {"step": "D"}, "quality": "major", "extension": 7,
+        "bass": {"step": "F", "alter": 1}
+    }));
+    assert_eq!(text_runs(&written), "D7/F");
+    assert_eq!(
+        chord_symbol_dimensions(&written, Default::default(), 10.0),
+        chord_symbol_dimensions(&expected, Default::default(), 10.0)
+    );
+    assert_eq!(symbol, original);
+    assert_eq!(written.root, None);
+}
+
+#[test]
+fn transposition_does_not_promote_unsupported_authored_syntax() {
+    let symbol = chord(json!({"rawText": "E♮7"}));
+    let original = symbol.clone();
+    let written = chord_symbol_for_display(&symbol, Some((1, 2)));
+    let (runs, _, _) = chord_symbol_runs(&written, Default::default(), 10.0);
+    assert_eq!(runs.len(), 1);
+    assert!(matches!(&runs[0], ChordRun::Text {text, ..} if text == "F♯7"));
+    assert_eq!(symbol, original);
+}
+
+#[test]
+fn semantic_raw_only_large_accidentals_are_not_discarded() {
+    let symbol = chord(json!({"rawText": "B##7/Ebb"}));
+    let written = chord_symbol_for_display(&symbol, Some((1, 2)));
+    assert_eq!(written.raw_text.as_deref(), Some("C###7/Fb"));
+    let (runs, _, _) = chord_symbol_runs(&written, Default::default(), 10.0);
+    let glyphs: Vec<_> = runs
+        .iter()
+        .filter_map(|run| match run {
+            ChordRun::Glyph { codepoint, .. } => Some(*codepoint),
+            ChordRun::Text { .. } => None,
+        })
+        .collect();
+    assert_eq!(
+        glyphs,
+        [
+            smufl::chord_accidental_glyph(2).unwrap(),
+            smufl::chord_accidental_glyph(1).unwrap(),
+            smufl::chord_accidental_glyph(-1).unwrap(),
+        ]
+    );
+    let extreme = chord(json!({"root": {"step": "C", "alter": -2147483648}}));
+    assert_eq!(text_runs(&extreme), "C(-2147483648)");
+}
+
+#[test]
+fn harmonic_equivalence_not_spelling_controls_authored_aliases() {
+    for (fields, canonical) in [
+        (
+            json!({"root": {"step": "C"}, "rawText": "B#/Dbb"}),
+            json!({"root": {"step": "C"}}),
+        ),
+        (
+            json!({"root": {"step": "C"}, "quality": "diminished", "extension": 7,
+                "kindText": "dim6", "rawText": "Cdim6"}),
+            json!({"root": {"step": "C"}, "quality": "diminished", "extension": 7}),
+        ),
+        (
+            json!({"root": {"step": "C"}, "quality": "dominant", "extension": 6,
+                "kindText": "6", "rawText": "C6"}),
+            json!({"root": {"step": "C"}, "quality": "dominant", "extension": 6}),
+        ),
+    ] {
+        assert_eq!(
+            serde_json::to_value(rendered_chord_commands(fields)).unwrap(),
+            serde_json::to_value(rendered_chord_commands(canonical)).unwrap()
+        );
+    }
+}
+
+#[test]
+fn implicit_seventh_kind_aliases_use_semantic_house_style() {
+    for (quality, kind) in [
+        ("dominant", "7"),
+        ("half-diminished", "m7b5"),
+        ("half-diminished", "ø"),
+        ("minor-major", "minMa"),
+    ] {
+        assert_eq!(
+            serde_json::to_value(rendered_chord_commands(json!({
+                "root": {"step": "C"}, "quality": quality, "kindText": kind
+            })))
+            .unwrap(),
+            serde_json::to_value(rendered_chord_commands(json!({
+                "root": {"step": "C"}, "quality": quality, "extension": 7
+            })))
+            .unwrap(),
+            "{quality}: {kind}"
+        );
+    }
+}
+
+#[test]
+fn contradictory_or_unsupported_authored_metadata_remains_literal() {
+    for fields in [
+        json!({"root": {"step": "C"}, "quality": "dominant", "extension": 7, "rawText": "C7alt"}),
+        json!({"root": {"step": "C"}, "rawText": "Cm"}),
+        json!({"root": {"step": "C"}, "rawText": "D"}),
+        json!({"root": {"step": "C"}, "rawText": "C/E"}),
+        json!({"root": {"step": "C"}, "quality": "major", "extension": 7, "kindText": "m7", "rawText": "CM7"}),
+        json!({"root": {"step": "C"}, "quality": "dominant", "kindText": "", "rawText": "C7"}),
+        json!({"rawText": "CM7", "quality": "major"}),
+        json!({"rawText": "CM7", "kindText": "M7"}),
+        json!({"rawText": "CM7", "extension": 7}),
+        json!({"rawText": "CM7", "bass": {"step": "E"}}),
+    ] {
+        let commands = rendered_chord_commands(fields.clone());
+        assert_eq!(commands.len(), 1, "{fields}");
+        assert!(
+            matches!(&commands[0],
+            RenderCommand::DrawText {text, color, ..}
+            if Some(text.as_str()) == fields["rawText"].as_str() && color == "#000000"),
+            "{fields}"
+        );
+    }
+}
+
+#[test]
+fn explicit_chord_text_override_stays_literal() {
+    for text in ["Custom harmony", "Cmaj7", ""] {
+        let commands = rendered_chord_commands(json!({
+            "root": {"step": "C"}, "quality": "major", "extension": 7,
+            "kindText": "maj7", "rawText": "Cmaj7", "textOverride": text
+        }));
+        assert_eq!(commands.len(), 1);
+        assert!(
+            matches!(&commands[0], RenderCommand::DrawText { text: actual, color, size, .. }
+            if actual == text && color == "#000000"
+                && *size == CHORD_FONT_SIZE_SP * LayoutConfig::default().sp)
+        );
+    }
+    for fields in [
+        json!({"rawText": "CM7", "textOverride": "CM7"}),
+        json!({"rawText": "C7alt", "textOverride": "Custom"}),
+        json!({"root": {"step": "C"}, "kindText": "mystery", "textOverride": ""}),
+    ] {
+        let commands = rendered_chord_commands(fields.clone());
+        assert_eq!(commands.len(), 1);
+        assert!(matches!(&commands[0],
+            RenderCommand::DrawText {text, color, ..}
+            if Some(text.as_str()) == fields["textOverride"].as_str() && color == "#000000"));
+    }
+}
+
+#[test]
+fn no_chord_declarations_retain_literal_text_in_black_exports() {
+    for text in ["NC", "N.C.", "N.C", "  nc  ", " n.c. "] {
+        let commands = rendered_chord_commands(json!({"rawText": text}));
+        assert_eq!(commands.len(), 1);
+        assert!(
+            matches!(&commands[0], RenderCommand::DrawText { text: actual, color, .. }
+            if actual == text && color == "#000000")
+        );
+    }
 }
 
 #[test]

@@ -65,12 +65,14 @@ export interface MidiTimeline {
  * Concrete implementations (SfzSampler, etc.) must satisfy this contract.
  */
 export interface ISampler {
-  /** Trigger a note. `time` is audioContext.currentTime-based. `altKitProgram`
+  /** Trigger a note. `time` is audioContext.currentTime-based. Notes are addressed
+   *  by pitch/channel, not a unique voice ID. `altKitProgram`
    *  optionally routes a percussion hit to a secondary drum channel loaded with
    *  that GS kit program (kit-component sound override). */
   noteOn(midiNote: number, velocity: number, time?: number, altKitProgram?: number): void;
-  /** Release a note. `altKitProgram` mirrors {@link noteOn} so the release
-   *  targets the same channel. */
+  /** Release a key at an audioContext.currentTime-based deadline, allowing the
+   *  instrument's release tail. Sustain may defer release until pedal-up.
+   *  `altKitProgram` mirrors {@link noteOn} so the release targets the same channel. */
   noteOff(midiNote: number, time?: number, altKitProgram?: number): void;
   /** Immediately release all sounding notes. */
   allNotesOff(): void;

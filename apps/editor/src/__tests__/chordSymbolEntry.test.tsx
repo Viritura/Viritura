@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseChordSymbolText, type ChordSymbol, type Score } from "@viritura/core";
+import { formatChordSymbolText, parseChordSymbolText, type ChordSymbol, type Score } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
 import { ChordSymbolEntryPopover } from "../app/chordSymbolEntry";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
@@ -70,6 +70,33 @@ afterEach(() => {
 });
 
 describe("chord entry commits", () => {
+  it.each([
+    ["CM7/E", "BbM7/D", "Bbmaj7/D"],
+    ["C°7/E", "Bb°7/D", "Bbdim7/D"],
+    ["Cmin7/E", "Bbmin7/D", "Bbm7/D"],
+  ])("stores written alias %s as concert semantics without an override", (input, rawText, label) => {
+    const { store } = setup();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: input } });
+    fireEvent.keyDown(window, { key: "Enter" });
+    const chord = store.getState().workingScore!.global.measures[0]!.chordSymbols![0]!;
+    expect(chord.rawText).toBe(rawText);
+    expect(chord).not.toHaveProperty("textOverride");
+    expect(formatChordSymbolText(chord)).toBe(label);
+    expect(previewChord).toHaveBeenCalledExactlyOnceWith(chord, store.getState().workingScore);
+    expect(store.getState().workingScore!.parts[0]!.chordSymbolVisibility).toBe("show");
+  });
+
+  it("reopens the transposed authored alias rather than rewriting entry text to a display label", () => {
+    const score = buildScore();
+    score.global.measures[0]!.chordSymbols = [
+      { ...parseChordSymbolText("BbM7/D", { fraction: [0, 1] }), textOverride: "BbΔ/D" },
+    ];
+    setup(score);
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("CM7/E");
+    expect(score.global.measures[0]!.chordSymbols![0]!.rawText).toBe("BbM7/D");
+    expect(previewChord).not.toHaveBeenCalled();
+  });
+
   it("previews concert root and slash bass only after a successful atomic commit", () => {
     const { store, updateScore, rerender } = setup();
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "C/E" } });

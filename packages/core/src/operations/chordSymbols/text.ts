@@ -1,4 +1,5 @@
 import type { ChordQuality, ChordRoot, ChordSymbol, RhythmicPosition } from "../../model";
+import { resolveChordSymbol } from "./resolution";
 
 function parseRoot(step: string, accidental: string): ChordRoot {
   const normalized = accidental.replaceAll("♭", "b").replaceAll("♯", "#");
@@ -168,10 +169,17 @@ function formatQuality(chord: ChordSymbol): string {
   }
 }
 
-/** Display text, not a promise of playability. Overrides/raw syntax are never discarded. */
+/** Semantic plain-text label; provenance remains stored separately from explicit display overrides. */
 export function formatChordSymbolText(chord: ChordSymbol): string {
   if (chord.textOverride !== undefined) return chord.textOverride;
-  if (chord.rawText !== undefined) return chord.rawText;
+  if (chord.rawText !== undefined) {
+    if (resolveChordSymbol(chord).status !== "supported") return chord.rawText;
+    if (!chord.root) chord = parseChordSymbolText(chord.rawText, chord.position);
+  }
   if (!chord.root) return "";
-  return formatChordRoot(chord.root) + formatQuality(chord) + (chord.bass ? `/${formatChordRoot(chord.bass)}` : "");
+  const suffix =
+    chord.kindText !== undefined && resolveChordSymbol(chord).status === "unsupported"
+      ? chord.kindText
+      : formatQuality(chord);
+  return formatChordRoot(chord.root) + suffix + (chord.bass ? `/${formatChordRoot(chord.bass)}` : "");
 }

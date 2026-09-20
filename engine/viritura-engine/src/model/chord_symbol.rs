@@ -109,9 +109,10 @@ pub struct ChordSymbol {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quality: Option<ChordQuality>,
     /// Original authored text, including malformed symbols and NC, verbatim.
+    /// Supported spellings use semantic house style; unsupported descriptions remain literal.
     #[serde(skip_serializing_if = "Option::is_none", rename = "rawText")]
     pub raw_text: Option<String>,
-    /// Authored quality spelling retained alongside the normalized quality.
+    /// Authored quality spelling retained alongside the normalized quality, not a display override.
     #[serde(skip_serializing_if = "Option::is_none", rename = "kindText")]
     pub kind_text: Option<String>,
     /// Optional bass note for slash chords (e.g., C/E → bass = E)
@@ -365,9 +366,12 @@ mod tests {
     fn test_structured_chord_retains_authored_spelling() {
         let mut chord = make_chord("B", Some(-1), ChordQuality::Major, Some(7), None);
         chord.raw_text = Some("B♭Δ7".into());
+        chord.kind_text = Some("Δ7".into());
         assert_eq!(chord.display_text(), "Bbmaj7");
         let json = serde_json::to_value(&chord).unwrap();
         assert_eq!(json["rawText"], "B♭Δ7");
+        assert_eq!(json["kindText"], "Δ7");
+        assert!(json.get("textOverride").is_none());
         assert_eq!(serde_json::from_value::<ChordSymbol>(json).unwrap(), chord);
     }
 

@@ -52,8 +52,7 @@ discarded.
 The current schema-v1 adapters preserve:
 
 - score-wide chord roots, slash bass notes, normalized qualities, common
-  extensions, authored text, and a plain display override for complex Finale
-  chord suffixes;
+  extensions, and source text provenance;
 - recognized per-note notehead families (`normal`, X, diamond, slash,
   circle-X, and triangles);
 - generic expressive text and performance instructions as plain text
@@ -97,3 +96,10 @@ warning rather than being simplified into playable major chords. Recognizable
 roots and slash basses in unsupported text are also converted to concert pitch.
 Malformed source transposition, rhythmic positions, and existing global chord
 containers fail structurally rather than being swallowed as harmony warnings.
+
+Supported chord symbols render from their semantics in house style. Source
+suffix aliases remain in `rawText` (with concert-normalized roots and basses) and
+`kindText` as provenance; the adapter never synthesizes `textOverride` from
+aliases, casing, visibility, or suffix typography. Unsupported harmony keeps its
+raw display text and diagnostics. Existing explicitly authored `textOverride`
+values at untouched global positions remain unchanged.

@@ -94,7 +94,7 @@ export interface CanvasHandlerCtx {
   docScoreRef: Ref<Score | null>;
 
   // Callbacks
-  previewChord?: (chord: ChordSymbol) => Promise<void>;
+  previewChord?: (chord: ChordSymbol, updatedScore?: Score) => Promise<void>;
   repaint: () => void;
   commitSlurReanchor: (slurElementId: string, end: "start" | "end", newEventId: string) => void;
   setSelectedSlurId: (id: string | null) => void;
@@ -730,7 +730,7 @@ export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>
   if (start) {
     const dx = Math.abs(e.clientX - start.x);
     const dy = Math.abs(e.clientY - start.y);
-    ctx.dragOccurredRef.current = dx > 3 || dy > 3;
+    ctx.dragOccurredRef.current ||= dx > 3 || dy > 3;
   }
   if (e.currentTarget?.hasPointerCapture?.(e.pointerId)) {
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -740,7 +740,7 @@ export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>
 
 export function handleCanvasPointerCancelImpl(ctx: CanvasHandlerCtx): void {
   ctx.mouseDownPosRef.current = null;
-  ctx.dragOccurredRef.current = false;
+  ctx.dragOccurredRef.current = true;
 }
 
 function capturePointer(e: React.PointerEvent<HTMLCanvasElement>): void {
@@ -748,6 +748,11 @@ function capturePointer(e: React.PointerEvent<HTMLCanvasElement>): void {
 }
 
 export function handleCanvasMouseMoveImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  const start = ctx.mouseDownPosRef.current;
+  if (start) {
+    // Returning to the press position does not turn a pan/drag into a click.
+    ctx.dragOccurredRef.current ||= Math.abs(e.clientX - start.x) > 3 || Math.abs(e.clientY - start.y) > 3;
+  }
   const canvas = ctx.canvasRef.current;
   if (!canvas) return;
   const dl = ctx.displayListRef.current;

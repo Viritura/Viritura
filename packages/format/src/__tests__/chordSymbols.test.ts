@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { formatChordSymbolText, resolveChordSymbol, transposeChordSymbol } from "@viritura/core";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
-import { validateRawScore } from "../mnx/validator";
+import { assertRawScore, validateRawScore } from "../mnx/validator";
 
 const position = { fraction: [0, 1] };
 const structuredChord = { position, root: { step: "C" }, quality: "major" };
@@ -23,6 +24,7 @@ function expectChordRoundtrip(chord: Record<string, unknown>) {
   expect(parsed.global.measures[0]?.chordSymbols).toEqual([chord]);
   expect(parsed.parts[0]?.measures[0]).not.toHaveProperty("chordSymbols");
   const serialized = serializeMnx(parsed);
+  assertRawScore(serialized);
   expect(serialized).toHaveProperty("global.measures.0._x.viritura.chordSymbols", [chord]);
   expect(serialized.global.measures[0]).not.toHaveProperty("chordSymbols");
   expect(serialized.parts[0]?.measures[0]).not.toHaveProperty("_x.viritura.chordSymbols");
@@ -35,6 +37,70 @@ function expectRejected(source: unknown) {
 }
 
 describe("central chord-symbol contract", () => {
+  it.each([
+    ["M7", "major", 7, "Cmaj7/E"],
+    ["min7", "minor", 7, "Cm7/E"],
+    ["°7", "diminished", 7, "Cdim7/E"],
+    ["+", "augmented", undefined, "Caug/E"],
+    ["m7b5", "half-diminished", 7, "Cø7/E"],
+    ["mΔ", "minor-major", 7, "CmMaj7/E"],
+    ["sus", "suspended4", undefined, "Csus4/E"],
+  ])("keeps %s provenance in storage without creating a visual override", (alias, quality, extension, label) => {
+    const chord = {
+      position,
+      root: { step: "C" },
+      bass: { step: "E" },
+      quality,
+      ...(extension === undefined ? {} : { extension }),
+      rawText: `C${alias}/E`,
+      kindText: alias,
+    };
+    expectChordRoundtrip(chord);
+    const parsed = parseMnx(scoreWithChords([chord]));
+    const stored = parsed.global.measures[0]!.chordSymbols![0]!;
+    expect(stored).not.toHaveProperty("textOverride");
+    expect(resolveChordSymbol(stored).status).toBe("supported");
+    expect(formatChordSymbolText(stored)).toBe(label);
+  });
+
+  it("keeps concert storage unchanged when a render context transposes an alias copy", () => {
+    const chord = {
+      ...structuredChord,
+      extension: 7,
+      bass: { step: "E" },
+      rawText: "CM7/E",
+      kindText: "M7",
+    };
+    const parsed = parseMnx(scoreWithChords([chord]));
+    const stored = parsed.global.measures[0]!.chordSymbols![0]!;
+    const written = transposeChordSymbol(stored, { halfSteps: 2, staffDistance: 1 });
+    expect(written).toMatchObject({ root: { step: "D" }, bass: { step: "F", alter: 1 }, rawText: "DM7/F#" });
+    expect(written).not.toHaveProperty("textOverride");
+    expect(stored).toEqual(chord);
+    expect(serializeMnx(parsed)).toHaveProperty("global.measures.0._x.viritura.chordSymbols", [chord]);
+    expect(formatChordSymbolText(written)).toBe("Dmaj7/F#");
+  });
+
+  it.each(["cM7/e", "", "custom label"])(
+    "retains explicit authored override %j rather than normalizing it",
+    (textOverride) => {
+      const chord = { ...structuredChord, extension: 7, rawText: "CM7", kindText: "M7", textOverride };
+      expectChordRoundtrip(chord);
+      const parsed = parseMnx(scoreWithChords([chord]));
+      expect(formatChordSymbolText(parsed.global.measures[0]!.chordSymbols![0]!)).toBe(textOverride);
+    },
+  );
+
+  it("retains unsupported raw text and its diagnostic across serialization", () => {
+    const chord = { ...structuredChord, quality: "other", kindText: "7alt", rawText: "  C7alt  " };
+    expectChordRoundtrip(chord);
+    const parsed = parseMnx(scoreWithChords([chord]));
+    const restored = parseMnx(serializeMnx(parsed)).global.measures[0]!.chordSymbols![0]!;
+    expect(restored).not.toHaveProperty("textOverride");
+    expect(resolveChordSymbol(restored).status).toBe("unsupported");
+    expect(formatChordSymbolText(restored)).toBe(chord.rawText);
+  });
+
   it("round-trips a structured root without inventing an optional quality or raw text", () => {
     expectChordRoundtrip({ position, root: { step: "C" } });
   });
@@ -88,6 +154,7 @@ describe("central chord-symbol contract", () => {
     const parsed = parseMnx(source);
     expect(parsed.global.measures[0]?.chordSymbols).toEqual(chords);
     const serialized = serializeMnx(parsed);
+    assertRawScore(serialized);
     expect(serialized).toHaveProperty("global.measures.0._x.viritura.chordSymbols", chords);
     for (const part of parsed.parts) {
       expect(part.measures[0]).not.toHaveProperty("chordSymbols");
@@ -221,6 +288,7 @@ describe("source-part chord-symbol visibility", () => {
     const parsed = parseMnx(source);
     expect(parsed.parts[0]?.chordSymbolVisibility).toBe(visibility);
     const serialized = serializeMnx(parsed);
+    assertRawScore(serialized);
     expect(serialized).toHaveProperty("parts.0._x.viritura.chordSymbolVisibility", visibility);
     expect(serialized.parts[0]).not.toHaveProperty("chordSymbolVisibility");
     expect(parseMnx(serialized)).toEqual(parsed);
@@ -229,7 +297,7 @@ describe("source-part chord-symbol visibility", () => {
   it("leaves absent visibility absent rather than materializing auto", () => {
     const parsed = parseMnx(scoreWithChords([structuredChord]));
     expect(parsed.parts[0]?.chordSymbolVisibility).toBeUndefined();
-    expect(serializeMnx(parsed).parts[0]).not.toHaveProperty("_x.viritura.chordSymbolVisibility");
+    expect(serializeMnx(parsed)).not.toHaveProperty("parts.0._x.viritura.chordSymbolVisibility");
   });
 
   it("merges edited visibility with retained instrument identity and spatial placement", () => {

@@ -1337,6 +1337,7 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
                 "position": {"fraction": [0, 1]},
                 "root": {"step": "B", "alter": -1},
                 "quality": "major",
+                "extension": 7, "rawText": "Bbmaj7/F", "kindText": "maj7",
                 "bass": {"step": "F"}
             },
             {"position": {"fraction": [1, 4]}, "rawText": "  H#?!  "},
@@ -1352,8 +1353,14 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
             assert_eq!(chords.len(), 4);
             assert_eq!(
                 chords[0].display_text(),
-                if written { "C/G" } else { "Bb/F" }
+                if written { "Cmaj7/G" } else { "Bbmaj7/F" }
             );
+            assert_eq!(
+                chords[0].raw_text.as_deref(),
+                Some(if written { "Cmaj7/G" } else { "Bbmaj7/F" })
+            );
+            assert_eq!(chords[0].kind_text.as_deref(), Some("maj7"));
+            assert!(chords[0].text_override.is_none());
             assert_eq!(
                 chords[3].raw_text.as_deref(),
                 Some(if written { "C7/G" } else { "Bb7/F" })
@@ -1368,10 +1375,10 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
             }
             let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
             for (index, expected) in [
-                if written { "C/G" } else { "B/F" },
+                if written { "C7/G" } else { "B7/F" },
                 "  H#?!  ",
                 "N.C.",
-                if written { "C7/G" } else { "Bb7/F" },
+                if written { "C7/G" } else { "B7/F" },
             ]
             .iter()
             .enumerate()
@@ -1390,6 +1397,27 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
                     "one canonical hit region for {id}"
                 );
             }
+            let raw_only_glyphs: Vec<_> = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter_map(|(command, id)| match command {
+                    RenderCommand::DrawGlyph { codepoint, .. }
+                        if id.as_deref() == Some("m0/chord3") =>
+                    {
+                        Some(*codepoint)
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(
+                raw_only_glyphs,
+                if written {
+                    vec![]
+                } else {
+                    vec![smufl::CHORD_FLAT]
+                }
+            );
             let glyphs: Vec<_> = dl
                 .commands
                 .iter()
@@ -1407,11 +1435,28 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
             assert_eq!(
                 glyphs,
                 if written {
-                    vec![]
+                    vec![smufl::CHORD_MAJOR_SEVENTH]
                 } else {
-                    vec![smufl::CHORD_FLAT]
+                    vec![smufl::CHORD_FLAT, smufl::CHORD_MAJOR_SEVENTH]
                 }
             );
+            let chord_text: Vec<_> = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter_map(|(command, id)| match command {
+                    RenderCommand::DrawText { text, size, y, .. }
+                        if id.as_deref() == Some("m0/chord0") =>
+                    {
+                        Some((text.as_str(), *size, *y))
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(chord_text.len(), 3);
+            assert_eq!(chord_text[1].0, "7");
+            assert!(chord_text[1].1 < chord_text[0].1);
+            assert!(chord_text[1].2 < chord_text[0].2);
             assert_eq!(
                 score.global.measures[0].chord_symbols().unwrap(),
                 &canonical
@@ -1419,6 +1464,7 @@ fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_conde
             assert_eq!(canonical[0].root.as_ref().unwrap().step, "B");
             assert_eq!(canonical[0].root.as_ref().unwrap().alter, Some(-1));
             assert_eq!(canonical[0].bass.as_ref().unwrap().step, "F");
+            assert_eq!(canonical[0].raw_text.as_deref(), Some("Bbmaj7/F"));
         }
     }
 }

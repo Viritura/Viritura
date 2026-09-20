@@ -1229,7 +1229,10 @@ fn test_parse_global_chord_raw_text_and_part_visibility() {
                 {"position": {"fraction": [1, 4]}, "rawText": "  H#?!  "},
                 {"position": {"fraction": [1, 2]}, "root": {"step": "F"}},
                 {"position": {"fraction": [3, 4]}, "root": {"step": "D"},
-                 "quality": "minor", "extension": 7, "rawText": "Dm7"}
+                 "quality": "minor", "extension": 7, "rawText": "Dm7", "kindText": "min7"},
+                {"position": {"fraction": [7, 8]}, "root": {"step": "F"},
+                 "quality": "major", "extension": 7, "rawText": "Fmaj7",
+                 "textOverride": "Authored label"}
             ]}}
         }]},
         "parts": [
@@ -1246,8 +1249,11 @@ fn test_parse_global_chord_raw_text_and_part_visibility() {
     let lenient = parse_mnx(&json.to_string()).unwrap();
     assert_eq!(strict, lenient);
     let chords = strict.global.measures[0].chord_symbols().unwrap();
-    assert_eq!(chords.len(), 4);
-    for (chord, expected) in chords.iter().zip(["N.C.", "  H#?!  ", "F", "Dm7"]) {
+    assert_eq!(chords.len(), 5);
+    for (chord, expected) in chords
+        .iter()
+        .zip(["N.C.", "  H#?!  ", "F", "Dm7", "Authored label"])
+    {
         assert_eq!(chord.display_text(), expected);
     }
     for chord in &chords[..2] {
@@ -1259,6 +1265,10 @@ fn test_parse_global_chord_raw_text_and_part_visibility() {
     }
     assert!(chords[2].quality.is_none());
     assert_eq!(chords[3].raw_text.as_deref(), Some("Dm7"));
+    assert_eq!(chords[3].kind_text.as_deref(), Some("min7"));
+    assert!(chords[3].text_override.is_none());
+    assert_eq!(chords[4].raw_text.as_deref(), Some("Fmaj7"));
+    assert_eq!(chords[4].text_override.as_deref(), Some("Authored label"));
     assert_eq!(chords[3].position.fraction, (3, 4));
     let global = serde_json::to_value(&strict.global.measures[0]).unwrap();
     assert_eq!(

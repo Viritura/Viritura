@@ -27,6 +27,14 @@ pub(crate) fn chord_symbol_for_display(
             *text = transposed;
         }
     }
+    if chord.text_override.is_none()
+        && super::display_interpretation::semantic_display(chord).is_none()
+        && super::display_interpretation::semantic_display(&display).is_some()
+    {
+        // Transposition can replace unsupported syntax (e.g. a natural sign).
+        // Pin the diagnostic literal on this render copy, never the stored event.
+        display.text_override = display.raw_text.clone();
+    }
     display
 }
 
@@ -48,13 +56,13 @@ fn transpose_root(root: &ChordRoot, (staff_distance, half_steps): (i32, i32)) ->
     })
 }
 
-struct TextRoot<'a> {
-    root: ChordRoot,
+pub(super) struct TextRoot<'a> {
+    pub(super) root: ChordRoot,
     spelling: &'a str,
-    rest: &'a str,
+    pub(super) rest: &'a str,
 }
 
-fn parse_text_root(text: &str) -> Option<TextRoot<'_>> {
+pub(super) fn parse_text_root(text: &str) -> Option<TextRoot<'_>> {
     let step = text.chars().next()?;
     if !matches!(step, 'A'..='G' | 'a'..='g') {
         return None;

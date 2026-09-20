@@ -365,7 +365,7 @@ describe("Write-mode slur endpoint dragging", () => {
     expect(commitSlurReanchor).not.toHaveBeenCalled();
     handleCanvasPointerCancelImpl(ctx);
     expect(ctx.mouseDownPosRef.current).toBeNull();
-    expect(ctx.dragOccurredRef.current).toBe(false);
+    expect(ctx.dragOccurredRef.current).toBe(true);
   });
 
   it("does not start edit drags from touch contacts", () => {

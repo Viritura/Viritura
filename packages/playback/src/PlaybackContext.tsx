@@ -701,8 +701,12 @@ export function PlaybackProvider({
         if (!allowed.has(index)) muted.add(index);
       }
     }
+    const chordIndex = getChordPlaybackPart(score)?.partIndex;
+    if (chordPreview.isActive() && chordIndex !== undefined && !vstMutedPartsRef.current.has(chordIndex)) {
+      muted.delete(chordIndex);
+    }
     return muted;
-  }, []);
+  }, [chordPreview]);
 
   const setSelectionPartIds = useCallback(
     (partIds: readonly string[] | null) => {
@@ -853,6 +857,10 @@ export function PlaybackProvider({
       // when the samplers are (re)built — which is what makes mute/solo honored
       // when playback is started from any view, not just the mixer page.
       mixerVolumeRef.current.set(partIndex, effectiveVolume);
+      const currentScore = partFilterSourceRef.current.score;
+      if (effectiveVolume === 0 && currentScore && partIndex === getChordPlaybackPart(currentScore)?.partIndex) {
+        void chordPreview.cancel();
+      }
       mixerSettingsRef.current.nativeGains.delete(partIndex);
       mixerSettingsRef.current.nativeGains.set(partIndex, volume);
       mixerPanRef.current.delete(partIndex);
@@ -874,16 +882,19 @@ export function PlaybackProvider({
       else applyPartLevel(partIndex, levelRefs);
       void sampler;
     },
-    [levelRefs],
+    [levelRefs, chordPreview],
   );
 
   const setVstMutedParts = useCallback(
     (mutedParts: ReadonlySet<number>) => {
       vstMutedPartsRef.current = new Set(mutedParts);
+      const currentScore = partFilterSourceRef.current.score;
+      const chordIndex = currentScore ? getChordPlaybackPart(currentScore)?.partIndex : undefined;
+      if (chordIndex !== undefined && mutedParts.has(chordIndex)) void chordPreview.cancel();
       nativeControlRevisionRef.current++;
       void vstTransportRef.current?.setMutedParts(nativeMutedParts());
     },
-    [nativeMutedParts],
+    [nativeMutedParts, chordPreview],
   );
 
   const setEnsembleLayer = useCallback((partIndex: number, enabled: boolean) => {
@@ -1043,11 +1054,12 @@ export function PlaybackProvider({
     async (chord: ChordSymbol): Promise<void> => {
       const lane = score && getChordPlaybackPart(score);
       const mode = audioRenderModeRef.current;
+      const generation = stopGenerationRef.current;
       const eligible = () =>
         !!lane &&
         !playStartInFlightRef.current &&
         engineRef.current?.getState() !== "playing" &&
-        partFilterSourceRef.current.score === score &&
+        stopGenerationRef.current === generation &&
         audioRenderModeRef.current === mode &&
         !vstMutedPartsRef.current.has(lane.partIndex) &&
         (mixerVolumeRef.current.get(lane.partIndex) ?? 1) > 0;
@@ -1104,8 +1116,9 @@ export function PlaybackProvider({
   );
 
   useLayoutEffect(() => {
-    stopGenerationRef.current++;
-    chordPreview.publish({ score, mode: audioRenderMode, transport: vstTransport, audition: auditionChord });
+    chordPreview.publish({ score, mode: audioRenderMode, transport: vstTransport, audition: auditionChord }, () => {
+      stopGenerationRef.current++;
+    });
   }, [score, audioRenderMode, vstTransport, chordPreview, auditionChord]);
 
   const previewChord = useCallback(
@@ -1199,8 +1212,7 @@ export function PlaybackProvider({
       playStartInFlightRef.current = true;
       try {
         const stopGeneration = stopGenerationRef.current;
-        await chordPreview.cancel();
-        if (stopGenerationRef.current !== stopGeneration) return;
+        if (!(await chordPreview.cancel()) || stopGenerationRef.current !== stopGeneration) return;
         const engine = ensureEngine();
         // Capture before loadTimeline can reset a paused transport during a
         // sampler rebuild. Both native and browser engines use this origin.

@@ -53,16 +53,8 @@ function chordPitch(pitch: ChordPayload["root"]): ChordRoot {
   return { step, ...(pitch.alteration !== 0 ? { alter: pitch.alteration } : {}) };
 }
 
-function chordPitchText(pitch: ChordRoot, lowerCase: boolean): string {
-  const text = formatChordSymbolText({ position: { fraction: [0, 1] }, root: pitch });
-  return lowerCase ? text.toLowerCase() : text;
-}
-
-function chordText(chord: ChordPayload, pitches: Pick<ChordSymbol, "root" | "bass">): string {
-  const root = chord.showRoot && pitches.root ? chordPitchText(pitches.root, chord.rootLowerCase) : "";
-  const suffix = chord.showSuffix ? chord.suffix.suffixText : "";
-  const bass = pitches.bass ? `/${chordPitchText(pitches.bass, chord.bassLowerCase === true)}` : "";
-  return `${root}${suffix}${bass}`;
+function chordPitchText(pitch: ChordRoot): string {
+  return formatChordSymbolText({ position: { fraction: [0, 1] }, root: pitch });
 }
 
 function complexPresentation(chord: ChordPayload): boolean {
@@ -78,16 +70,6 @@ function complexPresentation(chord: ChordPayload): boolean {
     chord.suffix.hasUnrecognizedGlyphs ||
     (chord.bassArrangement !== undefined && chord.bassArrangement !== "horizontal")
   );
-}
-
-function applyPresentation(symbol: ChordSymbol, chord: ChordPayload): void {
-  if (!complexPresentation(chord)) return;
-  const textOverride = chordText(chord, symbol);
-  // Preserve identical source text even for unsupported music. Otherwise core
-  // requires the override to agree with full harmony, not merely look like the source.
-  if (textOverride === symbol.rawText || resolveChordSymbol({ ...symbol, textOverride }).status === "supported") {
-    symbol.textOverride = textOverride;
-  }
 }
 
 function sourceToConcert(part: JsonRecord): Interval {
@@ -176,9 +158,7 @@ function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval)
   }
   // Visibility and letter casing must not remove harmonic information from rawText.
   const text =
-    chordPitchText(pitches.root!, false) +
-    chord.suffix.suffixText +
-    (pitches.bass ? `/${chordPitchText(pitches.bass, false)}` : "");
+    chordPitchText(pitches.root!) + chord.suffix.suffixText + (pitches.bass ? `/${chordPitchText(pitches.bass)}` : "");
   const parsed = parseChordSymbolText(text, position);
   const mapping = chord.suffix.quality ? CHORD_QUALITY_MAP[chord.suffix.quality] : undefined;
   const symbol: ChordSymbol = {
@@ -189,7 +169,7 @@ function toChordSymbol(chord: ChordPayload, gap: DenigmaGap, interval: Interval)
     ...(mapping?.extension !== undefined ? { extension: mapping.extension } : {}),
   };
   applyDegrees(symbol, parsed, chord.suffix.degrees);
-  applyPresentation(symbol, chord);
+  // Source aliases and typography are provenance, not authored display overrides.
   return symbol;
 }
 
@@ -262,9 +242,7 @@ export function applyChordSymbolGaps(
       resolution.status === "unsupported"
         ? `${resolution.message} Preserved source harmony as rawText.`
         : complexPresentation(gap.chord) && (resolution.status !== "silent" || !gap.chord.showSuffix)
-          ? chordSymbol.textOverride === undefined
-            ? "Preserved full concert harmonic text; omitted non-equivalent display text because Finale typography and visibility fields cannot be represented."
-            : "Preserved harmonic meaning and equivalent plain display text but not Finale suffix typography or visibility fields."
+          ? "Preserved full concert harmonic text for house-style rendering; Finale suffix typography and visibility fields cannot be represented."
           : undefined;
     applications.set(gapIndex, {
       outcome: { disposition: reason ? "handled-partially" : "handled", ...(reason ? { reason } : {}) },

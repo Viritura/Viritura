@@ -39,7 +39,7 @@ function initialText(score: Score | null, popover: ChordSymbolPopoverState | nul
   const useWritten = score.scores?.[scoreIndex]?.useWritten || part?.transposition?.prefersWrittenPitches;
   const interval = useWritten ? part?.transposition?.interval : undefined;
   const displayed = interval ? transposeChordSymbol(chord, interval) : chord;
-  return formatChordSymbolText({ ...displayed, textOverride: undefined });
+  return displayed.rawText ?? formatChordSymbolText({ ...displayed, textOverride: undefined });
 }
 
 export function ChordSymbolEntryPopover({ store, popover, updateScore, selectedScoreIndex }: Props) {

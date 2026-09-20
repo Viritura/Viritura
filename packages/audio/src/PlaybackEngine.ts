@@ -105,7 +105,10 @@ export class PlaybackEngine {
    * @param samplers - Map of part index → ISampler instance.
    */
   loadTimeline(timeline: MidiTimeline, samplers: ReadonlyMap<number | string, ISampler>): void {
-    if (this.state !== "stopped" || this.scheduler) this.stop();
+    if (this.state === "playing" || this.scheduler) this.stop();
+    // Pause already silenced transport-owned voices. A later audition shares
+    // these samplers but must survive a deferred timeline publication.
+    else if (this.state === "paused") this.setState("stopped");
     this.timeline = timeline;
     this.filterContinuity = new FilterContinuity(timeline.events);
     this.samplers = samplers;

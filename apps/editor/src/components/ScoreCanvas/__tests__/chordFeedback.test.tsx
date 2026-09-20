@@ -231,7 +231,7 @@ describe("direct canvas chord preview", () => {
       handleCanvasClickImpl(click, ctx);
       handleCanvasClickImpl(click, ctx);
       expect(previewChord).toHaveBeenCalledTimes(2);
-      expect(previewChord).toHaveBeenNthCalledWith(1, supported);
+      expect(previewChord).toHaveBeenNthCalledWith(1, supported, ctx.docScoreRef.current);
       expect(previewChord.mock.calls[0]![0]).toBe(supported);
       expect(selectElement).toHaveBeenCalledWith(id);
       expect(JSON.stringify(ctx.docScoreRef.current)).toBe(before);
@@ -242,7 +242,7 @@ describe("direct canvas chord preview", () => {
     const { ctx, previewChord, selectElement } = context();
     ctx.interactionModeRef.current = "engrave";
     handleCanvasClickImpl(click, ctx);
-    expect(previewChord).toHaveBeenCalledWith(supported);
+    expect(previewChord).toHaveBeenCalledWith(supported, ctx.docScoreRef.current);
     expect(selectElement).toHaveBeenCalledWith("m0/chord0/p0/staff0");
   });
 
@@ -260,7 +260,7 @@ describe("direct canvas chord preview", () => {
       expect(selectElement.mock.calls[0]![0]).toBe(id);
       expectClarinetSource(document, id, selectElement.mock.calls[0]![1]);
       expect(selectElement.mock.calls[0]![1]?.sourceStaff).toBe(1);
-      if (chordIndex === 0) expect(previewChord).toHaveBeenCalledExactlyOnceWith(supported);
+      if (chordIndex === 0) expect(previewChord).toHaveBeenCalledExactlyOnceWith(supported, document);
       else expect(previewChord).not.toHaveBeenCalled();
     });
   });

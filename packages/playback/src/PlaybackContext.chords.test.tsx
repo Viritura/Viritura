@@ -201,7 +201,7 @@ describe.each(["web", "native"] as const)("published chord commits in %s mode", 
       if (mode === "native") {
         expect(host.prepare.mock.calls.at(-1)?.[0]).toBe(published);
         expect(host.prepare.mock.calls.at(-1)?.[1].sf2Parts.at(-1)).toMatchObject({ partIndex: 2, program: 0 });
-        expect(host.previewChord).toHaveBeenLastCalledWith(2, pitches(chord), 80, 400);
+        expect(host.previewChord).toHaveBeenLastCalledWith(2, pitches(chord), 80, 3000);
         host.stop.mockClear();
       } else {
         expect(notes(0).slice(previousAttacks)).toEqual(pitches(chord));
@@ -209,11 +209,16 @@ describe.each(["web", "native"] as const)("published chord commits in %s mode", 
         piano().cancelScheduledNotes.mockClear();
       }
       // Cross both the score timeline debounce and the original 38ms failure.
-      await flush(399);
+      const context = mode === "web" ? piano().context : undefined;
+      const start = context?.currentTime ?? 0;
+      if (context) Object.assign(context, { currentTime: start + 2.999 });
+      await flush(2999);
       if (mode === "web") expect(piano().cancelScheduledNotes).not.toHaveBeenCalled();
       else expect(host.stop).not.toHaveBeenCalled();
+      if (context) Object.assign(context, { currentTime: start + 3 });
       await flush(1);
-      if (mode === "web") expect(piano().cancelScheduledNotes).toHaveBeenCalled();
+      if (mode === "web") expect(piano().cancelScheduledNotes).not.toHaveBeenCalled();
+      else expect(host.stop).not.toHaveBeenCalled();
     }
     expect(synths).toHaveLength(mode === "web" ? 2 : 0);
   });
@@ -235,11 +240,10 @@ describe.each(["web", "native"] as const)("published chord commits in %s mode", 
       expect(notes(0)).toEqual(pitches(last));
       piano().cancelScheduledNotes.mockClear();
     } else {
-      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(last), 80, 400);
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(last), 80, 3000);
       host.stop.mockClear();
     }
-    // Even an otherwise identical document is not the audition's publication.
-    await renderProvider({ ...props, score: structuredClone(props.score) }, 0);
+    await renderProvider({ ...props, score: makeScore(first) }, 0);
     if (mode === "web") expect(piano().cancelScheduledNotes).toHaveBeenCalled();
     else expect(host.stop).toHaveBeenCalled();
   });
@@ -271,7 +275,154 @@ describe.each(["web", "native"] as const)("published chord commits in %s mode", 
     if (mode === "web") {
       expect(notes(0)).toEqual(pitches());
       for (const synth of synths) expect(synth.destroy).not.toHaveBeenCalled();
-    } else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 400);
+    } else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+  });
+
+  it.each(["sounding", "warming"] as const)(
+    "preserves a %s cold commit across an equivalent publication and mixer resync at 38ms",
+    async (phase) => {
+      const host = nativeTransport();
+      const ready = deferred<void>();
+      if (phase === "warming") {
+        if (mode === "native") {
+          host.prepare.mockImplementationOnce(async () => {
+            await ready.promise;
+            return new Set([0, 1, 2]);
+          });
+        } else {
+          const create = vi.mocked(Sf2Synth.create).getMockImplementation()!;
+          vi.mocked(Sf2Synth.create).mockImplementation(async (...args) => {
+            const synth = await create(...args);
+            vi.mocked(synth.warmUp).mockReturnValue(ready.promise);
+            return synth;
+          });
+        }
+      }
+      await mount({ score: makeScore(null), audioRenderMode: mode, vstTransport: host });
+      const committed = makeScore();
+      await act(async () => actions().previewChord(symbol, committed));
+      await renderProvider({ ...props, score: committed }, 0);
+      if (phase === "sounding") {
+        if (mode === "web") expect(notes(0)).toEqual(pitches());
+        else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+      } else {
+        expect(notes(0)).toEqual([]);
+        expect(host.previewChord).not.toHaveBeenCalled();
+      }
+      host.stop.mockClear();
+      for (const synth of synths) {
+        synth.cancelScheduledNotes.mockClear();
+        synth.synth.controllerChange.mockClear();
+        Object.assign(synth.context, { currentTime: 10.038 });
+      }
+      await flush(38);
+      await renderProvider({ ...props, score: structuredClone(committed) }, 0);
+      act(() => {
+        actions().applyMix(2, 0.7, 0, false, false);
+        actions().setVstMutedParts(new Set());
+      });
+      await flush(SCORE_CHANGE_DEBOUNCE_MS + 50);
+      expect(host.stop).not.toHaveBeenCalled();
+      expect(host.release).not.toHaveBeenCalled();
+      for (const synth of synths) {
+        expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+        expect(synth.destroy).not.toHaveBeenCalled();
+        expect(lastController(synth, 120)).toBeUndefined();
+        expect(lastController(synth, 123)).toBeUndefined();
+      }
+      if (phase === "warming") {
+        expect(notes(0)).toEqual([]);
+        expect(host.previewChord).not.toHaveBeenCalled();
+        await act(async () => ready.resolve());
+      }
+      if (mode === "web") {
+        expect(synths).toHaveLength(2);
+        expect(notes(0)).toEqual(pitches());
+        expect(notes(73)).toEqual([]);
+        expect(piano().synth.noteOff.mock.calls).toEqual(
+          pitches().map((pitch) => [0, pitch, { time: phase === "warming" ? 13.038 : 13 }]),
+        );
+        for (const synth of synths) expect(synth.destroy).not.toHaveBeenCalled();
+      } else {
+        expect(host.prepare).toHaveBeenCalledOnce();
+        expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+        expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set());
+      }
+      expect(host.stop).not.toHaveBeenCalled();
+      expect(host.start).not.toHaveBeenCalled();
+      expect(getPlaybackSnapshot().state.status).toBe("stopped");
+    },
+  );
+
+  describe.each(["sounding", "warming", "unpublished"] as const)("%s mixer cancellation", (phase) => {
+    it.each(["mute", "zero fader", "solo exclusion"] as const)(
+      "cancels on %s and does not revive on unmute",
+      async (reason) => {
+        const host = nativeTransport();
+        const ready = deferred<void>();
+        if (phase === "warming") {
+          if (mode === "native") {
+            host.prepare.mockImplementationOnce(async () => {
+              await ready.promise;
+              return new Set([0, 1, 2]);
+            });
+          } else {
+            const create = vi.mocked(Sf2Synth.create).getMockImplementation()!;
+            vi.mocked(Sf2Synth.create).mockImplementationOnce(async (...args) => {
+              await ready.promise;
+              return create(...args);
+            });
+          }
+        }
+        await mount({ audioRenderMode: mode, vstTransport: host });
+        const chord = { ...symbol, root: { step: "D" } };
+        const committed = makeScore(chord);
+        let pending!: Promise<void>;
+        await act(async () => {
+          pending = actions().previewChord(chord, phase === "unpublished" ? committed : undefined);
+        });
+        if (phase === "sounding") {
+          await act(async () => pending);
+          if (mode === "web") expect(notes(0)).toEqual(pitches(chord));
+          else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 3000);
+        } else {
+          expect(notes(0)).toEqual([]);
+          expect(host.previewChord).not.toHaveBeenCalled();
+          if (phase === "warming") {
+            if (mode === "web") expect(Sf2Synth.create).toHaveBeenCalled();
+            else expect(host.prepare).toHaveBeenCalledOnce();
+          }
+        }
+        const synth = phase === "sounding" && mode === "web" ? piano() : undefined;
+        synth?.cancelScheduledNotes.mockClear();
+        host.stop.mockClear();
+        act(() => {
+          if (reason === "solo exclusion") actions().setVstMutedParts(new Set([2]));
+          else actions().applyMix(2, reason === "zero fader" ? 0 : 0.7, 0, reason === "mute", false);
+        });
+        if (synth) expect(synth.cancelScheduledNotes).toHaveBeenCalledWith([0], -Infinity);
+        if (phase === "sounding" && mode === "native") expect(host.stop).toHaveBeenCalledOnce();
+        clearNotes();
+        host.previewChord.mockClear();
+        act(() => {
+          actions().applyMix(2, 0.7, 0, false, false);
+          actions().setVstMutedParts(new Set());
+        });
+        if (phase === "unpublished") await renderProvider({ ...props, score: committed }, 0);
+        await act(async () => {
+          ready.resolve();
+          await pending;
+        });
+        for (const item of synths) Object.assign(item.context, { currentTime: 13.1 });
+        await flush(3100);
+        expect(notes(0)).toEqual([]);
+        expect(host.previewChord).not.toHaveBeenCalled();
+        expect(host.start).not.toHaveBeenCalled();
+        await preview(chord);
+        if (mode === "web") expect(notes(0)).toEqual(pitches(chord));
+        else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 3000);
+      },
+    );
   });
 
   it.each(["stop", "seek", "mode change", "transport replacement", "unrelated document", "unmount"] as const)(
@@ -319,9 +470,9 @@ describe.each(["web", "native"] as const)("published chord commits in %s mode", 
       if (synth) {
         expect(notes(0).slice(-pitches(chord).length)).toEqual(pitches(chord));
         synth.cancelScheduledNotes.mockClear();
-      } else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 400);
-      // Native cancellation must still work after the paused timeline reload.
-      await flush(mode === "native" ? SCORE_CHANGE_DEBOUNCE_MS + 50 : 50);
+      } else expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 3000);
+      // Both backends must preserve the audition across the paused timeline reload.
+      await flush(SCORE_CHANGE_DEBOUNCE_MS + 50);
       if (synth) expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
       else expect(host.stop).not.toHaveBeenCalled();
 
@@ -454,7 +605,7 @@ describe("global chords through the real browser provider", () => {
     expect(notes(0)).toEqual(pitches());
   });
 
-  it("previews the core slash-chord voicing only, then releases after 400ms without starting transport", async () => {
+  it("previews the core slash-chord voicing only, scheduling note-offs after 3s without starting transport", async () => {
     await mount();
     await preview();
     expect(notes(0)).toEqual(pitches());
@@ -466,30 +617,80 @@ describe("global chords through the real browser provider", () => {
     ).toBe(true);
     synth.cancelScheduledNotes.mockClear();
     synth.synth.controllerChange.mockClear();
-    await flush(399);
+    expect(synth.synth.noteOff.mock.calls).toEqual(pitches().map((pitch) => [0, pitch, { time: 13 }]));
+    Object.assign(synth.context, { currentTime: 12.999 });
+    await flush(2999);
     expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    Object.assign(synth.context, { currentTime: 13 });
     await flush(1);
-    expect(synth.cancelScheduledNotes).toHaveBeenCalledWith([0], -Infinity);
-    expect(lastController(synth, 123)).toBe(0);
-    expect(synth.synth.noteOff).not.toHaveBeenCalled();
+    expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    expect(lastController(synth, 120)).toBeUndefined();
+    expect(lastController(synth, 123)).toBeUndefined();
+    expect(synth.synth.noteOff.mock.calls).toEqual(pitches().map((pitch) => [0, pitch, { time: 13 }]));
   });
 
   it("releases an old click immediately and gives the new click its own full lifetime", async () => {
     await mount();
     await preview();
     const synth = piano();
+    Object.assign(synth.context, { currentTime: 10.25 });
     await flush(250);
     synth.cancelScheduledNotes.mockClear();
     await preview();
-    expect(synth.cancelScheduledNotes).toHaveBeenCalled();
+    expect(synth.cancelScheduledNotes).toHaveBeenCalledWith([0], -Infinity);
     expect(notes(0)).toEqual([...pitches(), ...pitches()]);
+    expect(synth.synth.noteOff.mock.calls).toEqual([
+      ...pitches().map((pitch) => [0, pitch, { time: 13 }]),
+      ...pitches().map((pitch) => [0, pitch, { time: 13.25 }]),
+    ]);
+    expect(synth.cancelScheduledNotes.mock.invocationCallOrder[0]).toBeLessThan(
+      synth.synth.noteOn.mock.invocationCallOrder[pitches().length]!,
+    );
     synth.cancelScheduledNotes.mockClear();
-    await flush(150);
+    synth.synth.controllerChange.mockClear();
+    Object.assign(synth.context, { currentTime: 13 });
+    await flush(2750);
     expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    Object.assign(synth.context, { currentTime: 13.249 });
     await flush(249);
     expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    Object.assign(synth.context, { currentTime: 13.25 });
     await flush(1);
-    expect(synth.cancelScheduledNotes).toHaveBeenCalled();
+    expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    expect(lastController(synth, 120)).toBeUndefined();
+    expect(lastController(synth, 123)).toBeUndefined();
+  });
+
+  it("releases a warm chord with finite note-offs, never CC120 or CC123 at its natural deadline", async () => {
+    await mount();
+    await preview();
+    const synth = piano();
+    Object.assign(synth.context, { currentTime: 14 });
+    await flush(4000);
+    clearNotes();
+    synth.synth.noteOff.mockClear();
+    await preview();
+    expect(synths).toHaveLength(2);
+    expect(notes(0)).toEqual(pitches());
+    expect(synth.synth.noteOn.mock.calls).toEqual(pitches().map((pitch) => [0, pitch, 80, { time: 14 }]));
+    expect(synth.synth.noteOff.mock.calls).toEqual(pitches().map((pitch) => [0, pitch, { time: 17 }]));
+    synth.cancelScheduledNotes.mockClear();
+    synth.synth.controllerChange.mockClear();
+    Object.assign(synth.context, { currentTime: 14.4 });
+    await flush(400);
+    expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    Object.assign(synth.context, { currentTime: 16.999 });
+    await flush(2599);
+    expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    Object.assign(synth.context, { currentTime: 17 });
+    await flush(1);
+    expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    expect(lastController(synth, 120)).toBeUndefined();
+    expect(lastController(synth, 123)).toBeUndefined();
+    expect(synth.synth.stopAll).not.toHaveBeenCalled();
+    expect(synth.destroy).not.toHaveBeenCalled();
+    expect(synth.synth.noteOff.mock.calls).toEqual(pitches().map((pitch) => [0, pitch, { time: 17 }]));
+    expect(getPlaybackSnapshot().state.status).toBe("stopped");
   });
 
   it("coalesces concurrent cold clicks and stop cancels the outstanding release", async () => {
@@ -508,7 +709,7 @@ describe("global chords through the real browser provider", () => {
     expect(synth.cancelScheduledNotes).toHaveBeenCalled();
     expect(synth.destroy).toHaveBeenCalledOnce();
     clearNotes();
-    await flush(500);
+    await flush(3100);
     expect(notes(0)).toEqual([]);
   });
 
@@ -523,6 +724,10 @@ describe("global chords through the real browser provider", () => {
 
   it("releases the preview before the real timeline starts", async () => {
     await mount();
+    const score = makeScore();
+    score.global.measures[0]!.tempos = [{ bpm: 60, value: { base: "quarter" } }];
+    await renderProvider({ ...props, score });
+    expect(getPlaybackSnapshot().state.duration).toBe(4);
     await preview();
     const synth = piano();
     synth.cancelScheduledNotes.mockClear();
@@ -535,8 +740,10 @@ describe("global chords through the real browser provider", () => {
     expect(notes(0)).toEqual(pitches());
     expect(notes(73)).toEqual([84, 96]);
     synth.cancelScheduledNotes.mockClear();
-    await flush(400);
+    Object.assign(synth.context, { currentTime: 13 });
+    await flush(3000);
     expect(synth.cancelScheduledNotes).not.toHaveBeenCalled();
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
   });
 
   it("does not let a stopped cold preview sound after its synth finishes loading", async () => {
@@ -788,6 +995,43 @@ describe("global chords through the real browser provider", () => {
 });
 
 describe("global chords through the native boundary", () => {
+  it("does not let an ineligible click abort Play while audition cleanup is pending", async () => {
+    const host = nativeTransport();
+    await mount({ vstTransport: host, audioRenderMode: "native" });
+    await preview();
+    const stopped = deferred<void>();
+    host.stop.mockReturnValueOnce(stopped.promise);
+    let playing!: Promise<void>;
+    let clicked!: Promise<void>;
+    await act(async () => {
+      playing = actions().play();
+      clicked = actions().previewChord(symbol);
+    });
+    expect(host.start).not.toHaveBeenCalled();
+    await act(async () => {
+      stopped.resolve();
+      await Promise.all([playing, clicked]);
+    });
+    expect(host.start).toHaveBeenCalledOnce();
+    expect(host.previewChord).toHaveBeenCalledOnce();
+    expect(getPlaybackSnapshot().state.status).toBe("playing");
+  });
+
+  it("blocks Play on a failed audition stop and retries cleanup on the next Play", async () => {
+    const host = nativeTransport();
+    await mount({ vstTransport: host, audioRenderMode: "native" });
+    await preview();
+    const error = new Error("audition stop failed");
+    host.stop.mockRejectedValueOnce(error);
+    await act(async () => actions().play());
+    expect(host.start).not.toHaveBeenCalled();
+    expect(getPlaybackSnapshot().state.status).toBe("stopped");
+    expect(console.warn).toHaveBeenCalledExactlyOnceWith("[Audio] Chord preview cancellation failed:", error);
+    vi.mocked(console.warn).mockClear();
+    await play();
+    expect(host.start).toHaveBeenCalledOnce();
+  });
+
   it.each(["chord", "note", "play"] as const)(
     "awaits native natural-completion stop before preparing %s",
     async (next) => {
@@ -835,8 +1079,8 @@ describe("global chords through the native boundary", () => {
       expect(host.prepare).toHaveBeenCalledOnce();
       if (next === "chord") {
         expect(nativePlaying).toBe(false);
-        expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 400);
-        await flush(399);
+        expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+        await flush(2999);
         expect(host.stop).toHaveBeenCalledOnce();
       } else if (next === "note") {
         expect(host.previewNote).toHaveBeenCalledExactlyOnceWith(0, 60, 80, 400);
@@ -871,7 +1115,7 @@ describe("global chords through the native boundary", () => {
       expect(host.previewChord).not.toHaveBeenCalled();
       expect(notes(0)).toEqual([]);
       await preview();
-      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 400);
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
     },
   );
 
@@ -893,7 +1137,7 @@ describe("global chords through the native boundary", () => {
     vi.mocked(console.warn).mockClear();
     act(() => actions().stop());
     await preview();
-    expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
   });
 
   it.each([
@@ -935,9 +1179,9 @@ describe("global chords through the native boundary", () => {
       await flush(prepareDelay);
       await act(async () => ready.resolve());
       expect(host.prepare.mock.calls.at(-1)?.[0]).toBe(published);
-      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 400);
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 3000);
       expect(host.start).not.toHaveBeenCalled();
-      await flush(399);
+      await flush(2999);
       expect(reload).toHaveBeenCalledOnce();
       expect(host.stop).not.toHaveBeenCalled();
       await flush(1);
@@ -988,7 +1232,7 @@ describe("global chords through the native boundary", () => {
         { partIndex: 2, program: 0, isDrum: false },
       ],
     });
-    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 3000);
     expect(host.prepare.mock.invocationCallOrder[0]).toBeLessThan(host.previewChord.mock.invocationCallOrder[0]!);
     expect(host.start).not.toHaveBeenCalled();
     expect(host.previewNote).not.toHaveBeenCalled();
@@ -1002,10 +1246,46 @@ describe("global chords through the native boundary", () => {
     act(() => actions().setSelectionPartIds(["flute-0"]));
     await preview();
     expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set([1]));
-    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 3000);
     await play();
     expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set([1, 2]));
   });
+
+  it.each([
+    { selection: ["flute-0"], muted: [1], playbackMuted: [1, 2] },
+    { selection: [], muted: [0, 1], playbackMuted: [0, 1, 2] },
+  ])(
+    "keeps an active audition unmuted during mixer resync with selection $selection",
+    async ({ selection, muted, playbackMuted }) => {
+      const host = nativeTransport();
+      await mount({ vstTransport: host, audioRenderMode: "native" });
+      act(() => actions().setSelectionPartIds(selection));
+      await preview();
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(), 80, 3000);
+      expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set(muted));
+      host.stop.mockClear();
+      host.setMutedParts.mockClear();
+      await flush(38);
+      await renderProvider({ ...props, score: structuredClone(props.score) }, 0);
+      act(() => {
+        actions().applyMix(2, 0.7, -0.2, false, false);
+        actions().setVstMutedParts(new Set());
+        actions().setSelectionPartIds([...selection]);
+      });
+      await flush(SCORE_CHANGE_DEBOUNCE_MS + 50);
+      expect(host.setPartGain).toHaveBeenLastCalledWith(2, 0.7);
+      expect(host.setPartPan).toHaveBeenLastCalledWith(2, -0.2);
+      expect(host.setMutedParts).toHaveBeenCalled();
+      for (const [parts] of host.setMutedParts.mock.calls) expect(parts).toEqual(new Set(muted));
+      expect(host.stop).not.toHaveBeenCalled();
+      expect(host.release).not.toHaveBeenCalled();
+      expect(host.prepare).toHaveBeenCalledOnce();
+      expect(host.previewChord).toHaveBeenCalledOnce();
+      expect(host.start).not.toHaveBeenCalled();
+      await play();
+      expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set(playbackMuted));
+    },
+  );
 
   it("does not revive a cleared mute when a lane index changes without a fader edit", async () => {
     const host = nativeTransport();
@@ -1017,7 +1297,7 @@ describe("global chords through the native boundary", () => {
     await renderProvider({ ...props, score: { ...score, parts: [score.parts[0]!] } });
     await preview();
     expect(host.setMutedParts.mock.calls.at(-1)?.[0]).toEqual(new Set());
-    expect(host.previewChord).toHaveBeenCalledWith(1, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledWith(1, pitches(), 80, 3000);
   });
 
   it.each([
@@ -1088,7 +1368,7 @@ describe("global chords through the native boundary", () => {
       actions().setVstMutedParts(new Set());
     });
     await preview();
-    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 3000);
   });
 
   it("silences native previews on repeated clicks, stop, and switching to browser mode", async () => {
@@ -1117,12 +1397,57 @@ describe("global chords through the native boundary", () => {
     expect(host.start).not.toHaveBeenCalled();
   });
 
+  it.each(["new audition", "mixer mute"] as const)(
+    "serializes asynchronous native cancellation from %s before a newer preview",
+    async (cancellation) => {
+      const host = nativeTransport();
+      await mount({ vstTransport: host, audioRenderMode: "native" });
+      await preview();
+      const stopped = deferred<void>();
+      let stopFinished = false;
+      host.stop.mockClear();
+      host.stop.mockImplementationOnce(async () => {
+        await stopped.promise;
+        stopFinished = true;
+      });
+      host.prepare.mockClear();
+      host.previewChord.mockClear();
+      host.previewChord.mockImplementation(async () => {
+        expect(stopFinished).toBe(true);
+        return true;
+      });
+      if (cancellation === "mixer mute") {
+        act(() => {
+          actions().applyMix(2, 0.7, 0, true, false);
+          actions().applyMix(2, 0.7, 0, false, false);
+        });
+      }
+      const chord = { ...symbol, root: { step: "D" } };
+      let pending!: Promise<void>;
+      await act(async () => {
+        pending = actions().previewChord(chord);
+      });
+      expect(host.stop).toHaveBeenCalledOnce();
+      await flush(SCORE_CHANGE_DEBOUNCE_MS + 50);
+      expect(host.prepare).not.toHaveBeenCalled();
+      expect(host.previewChord).not.toHaveBeenCalled();
+      await act(async () => {
+        stopped.resolve();
+        await pending;
+      });
+      expect(host.previewChord).toHaveBeenCalledExactlyOnceWith(2, pitches(chord), 80, 3000);
+      expect(host.start).not.toHaveBeenCalled();
+      await flush(3000);
+      expect(host.stop).toHaveBeenCalledOnce();
+    },
+  );
+
   it("falls back to the real browser piano when the native host declines preview", async () => {
     const host = nativeTransport();
     host.previewChord.mockResolvedValue(false);
     await mount({ vstTransport: host, audioRenderMode: "native" });
     await preview();
-    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 400);
+    expect(host.previewChord).toHaveBeenCalledWith(2, pitches(), 80, 3000);
     expect(notes(0)).toEqual(pitches());
     expect(notes(73)).toEqual([]);
     expect(host.start).not.toHaveBeenCalled();

@@ -12,10 +12,10 @@ export function globalChordForElement(score: Score | null, elementId: string): C
 export function previewClickedChord(
   score: Score | null,
   elementId: string,
-  previewChord: ((chord: ChordSymbol) => Promise<void>) | undefined,
+  previewChord: ((chord: ChordSymbol, updatedScore?: Score) => Promise<void>) | undefined,
 ): void {
   const chord = globalChordForElement(score, elementId);
-  if (!chord || resolveChordSymbol(chord).status !== "supported") return;
+  if (!score || !chord || resolveChordSymbol(chord).status !== "supported") return;
   // Device initialization can fail; an audition must not interrupt selection.
-  void previewChord?.(chord).catch(() => {});
+  void previewChord?.(chord, score).catch(() => {});
 }

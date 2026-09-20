@@ -210,6 +210,51 @@ describe("transposeChordSymbol", () => {
 });
 
 describe("formatChordSymbolText", () => {
+  it.each([
+    [" cM7/e ", "Cmaj7/E", "Dmaj7/F#"],
+    ["Cmin7/E", "Cm7/E", "Dm7/F#"],
+    ["C°7/E", "Cdim7/E", "Ddim7/F#"],
+    ["C+/E", "Caug/E", "Daug/F#"],
+    ["Cm7b5/E", "Cø7/E", "Dø7/F#"],
+    ["CmΔ/E", "CmMaj7/E", "DmMaj7/F#"],
+    ["Csus/E", "Csus4/E", "Dsus4/F#"],
+  ])("formats supported alias %s semantically without rewriting storage", (rawText, concertLabel, writtenLabel) => {
+    const original = freeze(chord(rawText));
+    const snapshot = structuredClone(original);
+    const written = transposeChordSymbol(original, { halfSteps: 2, staffDistance: 1 });
+    expect(formatChordSymbolText(original)).toBe(concertLabel);
+    expect(formatChordSymbolText(written)).toBe(writtenLabel);
+    expect(original).toEqual(snapshot);
+    expect(written).not.toHaveProperty("textOverride");
+  });
+
+  it("formats supported raw-only labels without persisting inferred structure", () => {
+    const original = freeze({ position: position(), rawText: "CM7/E" });
+    expect(formatChordSymbolText(original)).toBe("Cmaj7/E");
+    expect(formatChordSymbolText(transposeChordSymbol(original, { halfSteps: 2, staffDistance: 1 }))).toBe("Dmaj7/F#");
+    expect(original).toEqual({ position: position(), rawText: "CM7/E" });
+  });
+
+  it("retains unsupported kind text even beside otherwise supported structure", () => {
+    const original = freeze({ ...chord("C7/E"), kindText: "7alt", rawText: " C7alt/E " });
+    expect(formatChordSymbolText(original)).toBe(" C7alt/E ");
+  });
+
+  it.each(["7alt", "min7"])("retains conflicting kind text %s when no raw fallback exists", (kindText) => {
+    const original: ChordSymbol = freeze({
+      position: position(),
+      root: { step: "C" },
+      bass: { step: "E" },
+      quality: "major",
+      kindText,
+    });
+    expect(resolveChordSymbol(original).status).toBe("unsupported");
+    expect(formatChordSymbolText(original)).toBe(`C${kindText}/E`);
+    expect(formatChordSymbolText(transposeChordSymbol(original, { halfSteps: 2, staffDistance: 1 }))).toBe(
+      `D${kindText}/F#`,
+    );
+  });
+
   it.each(["Custom display", "", " N.C. "])("prefers the override %j over raw and generated text", (textOverride) => {
     const original = freeze({ ...chord("C7/E"), textOverride });
     const snapshot = structuredClone(original);

@@ -16,25 +16,44 @@ interface ChordPreviewTarget {
   };
 }
 
+// A bounded key hold lets the piano decay before its own release envelope.
+// Never use pedal sustain or a channel-wide panic as the normal deadline.
+const CHORD_PREVIEW_HOLD_MS = 3_000;
+
 /** Serialize cold preparation and invalidate old clicks before they can sound. */
 function createChordPreview() {
   let revision = 0;
   let pending: Promise<void> = Promise.resolve();
-  let release: (() => void | Promise<void>) | undefined;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let active: { id: number; stopping?: Promise<void>; release(): void | Promise<void> } | undefined;
+  let requested = false;
 
-  const silence = async () => {
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
-    const stop = release;
-    release = undefined;
-    await stop?.();
+  const silence = async (id = active?.id) => {
+    const voice = active;
+    if (!voice || voice.id !== id) return;
+    voice.stopping ??= (async () => {
+      await voice.release();
+      if (active === voice) active = undefined;
+    })().finally(() => {
+      voice.stopping = undefined;
+    });
+    await voice.stopping;
   };
 
-  const cancel = async () => {
+  const cancel = () => {
     revision++;
-    await silence();
-    await pending;
+    requested = false;
+    // Release immediately, but include the asynchronous native stop in the
+    // serialization barrier. A later audition must not overtake that stop.
+    const cancelled = Promise.all([pending, silence()])
+      .then(() => active === undefined)
+      .catch((error: unknown) => {
+        // Retain the voice for a retry. Fire-and-forget UI cancellations must
+        // report failure without poisoning all subsequent transport barriers.
+        console.warn("[Audio] Chord preview cancellation failed:", error);
+        return false;
+      });
+    pending = cancelled.then(() => {});
+    return cancelled;
   };
 
   const preview = (
@@ -43,22 +62,24 @@ function createChordPreview() {
     eligible: () => boolean,
   ): Promise<void> => {
     const request = ++revision;
+    requested = true;
     const voicing = voiceChordSymbol(chord);
     const notes = [...voicing.leftHand, ...voicing.rightHand];
     const previous = pending;
     pending = (async () => {
-      await silence();
       await previous;
       const current = () => request === revision && eligible();
+      if (request !== revision) return;
+      await silence();
       if (!target || !notes.length || !current()) return;
       if (target.native?.transport.previewChord) {
         await target.native.prepare();
         if (!current()) return;
         const transport = target.native.transport;
-        const voiced = await transport.previewChord!(target.partIndex, notes, 80, 400);
+        const voiced = await transport.previewChord!(target.partIndex, notes, 80, CHORD_PREVIEW_HOLD_MS);
         if (voiced) {
-          release = () => transport.stop();
-          if (!current()) await silence();
+          active = { id: request, release: () => transport.stop() };
+          if (!current()) await silence(request);
           return;
         }
       }
@@ -66,25 +87,34 @@ function createChordPreview() {
       if (!voice || !current()) return;
       const { sampler, context } = voice;
       sampler.setPlaybackMuted?.(false);
-      release = () => {
-        sampler.cancelScheduledNotes?.(-Infinity);
-        sampler.allNotesOff();
+      active = {
+        id: request,
+        release: () => {
+          // ISampler uses MIDI pitch/channel addressing. Remove this audition's
+          // queued offs before the next ID can reuse any of its pitches.
+          sampler.cancelScheduledNotes?.(-Infinity);
+          sampler.allNotesOff();
+        },
       };
-      for (const note of notes) sampler.noteOn(note, 80, context.currentTime);
-      // Do not queue old note-offs into a shared channel: a repeat click can
-      // reuse the same pitches before that old release reaches the worklet.
-      timer = setTimeout(() => {
-        timer = undefined;
-        if (request === revision) void silence();
-      }, 400);
+      sampler.sendControl?.(64, 0);
+      sampler.sendControl?.(66, 0);
+      const start = context.currentTime;
+      for (const note of notes) {
+        sampler.noteOn(note, 80, start);
+        sampler.noteOff(note, start + CHORD_PREVIEW_HOLD_MS / 1000);
+      }
     })();
     // Keep the serialization chain usable if a device or resource load fails.
-    pending = pending.catch((error: unknown) => {
-      console.warn("[Audio] Chord preview failed:", error);
-    });
+    pending = pending
+      .catch((error: unknown) => {
+        console.warn("[Audio] Chord preview failed:", error);
+      })
+      .finally(() => {
+        if (request === revision && active?.id !== request) requested = false;
+      });
     return pending;
   };
-  return { preview, cancel };
+  return { preview, cancel, isActive: () => requested || active !== undefined };
 }
 
 interface ChordPreviewPublication {
@@ -118,11 +148,16 @@ export function createPublishedChordPreview() {
     return voice.cancel();
   };
 
-  const publish = (next: ChordPreviewPublication) => {
+  const publish = (next: ChordPreviewPublication, invalidate?: () => void) => {
     const request = pending;
     const sameDevice = publication?.mode === next.mode && publication.transport === next.transport;
+    const nextKey = publicationKey(next.score ?? null);
     publication = next;
-    scoreKey = publicationKey(next.score ?? null);
+    // Republishing parsed/immutable snapshots or refreshing callbacks is not
+    // an audio lifetime boundary. Keep warming and sounding auditions alive.
+    if (sameDevice && nextKey === scoreKey) return;
+    scoreKey = nextKey;
+    invalidate?.();
     if (request && sameDevice && request.scoreKey !== scoreKey && expectedPublications.delete(scoreKey)) {
       // Deferred rendering can publish an earlier commit after a newer click.
       // Keep only the newest audition, but do not mistake this for a new document.
@@ -143,8 +178,8 @@ export function createPublishedChordPreview() {
     const cancelled = voice.cancel();
     pending = { chord, scoreKey: expected };
     expectedPublications.add(expected);
-    return cancelled;
+    return cancelled.then(() => {});
   };
 
-  return { preview: voice.preview, cancel, publish, request };
+  return { preview: voice.preview, isActive: voice.isActive, cancel, publish, request };
 }

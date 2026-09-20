@@ -207,9 +207,7 @@ export function parseHarmony(
     if (loss.independent && policy) policy.skip(loss.message, loss.path);
     else unsupported(loss.message, loss.path);
   }
-  if (resolution.status === "silent") return chord;
-  // Structured supported harmony needs no fallback; retain unsupported/raw-only text above.
-  delete chord.rawText;
+  // Source spelling is provenance, not an authored display override.
   return chord;
 }
 
@@ -284,7 +282,7 @@ export function serializeHarmony(chord: ChordSymbol, path: string, warnings?: st
   validateExportHarmony(chord, path);
   const resolution = resolveChordSymbol(chord);
   if (resolution.status === "unsupported") {
-    const rawText = chord.rawText ?? formatChordSymbolText(chord);
+    const rawText = chord.textOverride ?? chord.rawText ?? formatChordSymbolText(chord);
     if (!rawText.trim()) {
       throw new MuseScoreConversionError("invalid-structure", "Harmony requires a root or text name", path);
     }

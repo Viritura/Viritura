@@ -133,6 +133,13 @@ Chord symbols illustrate the boundary between authored data and projections:
   no-chord declarations; `root` is optional, but the parsers require `root` or
   `rawText`. Core's `resolveChordSymbol` checks structured/text agreement and
   returns `supported`, `silent`, or `unsupported`, not a persisted status.
+  Supported `rawText` and `kindText` aliases are provenance, not display
+  overrides: house-style engraving uses semantic quality glyphs and extension
+  positioning. Plain-text display labels use normalized semantic spelling,
+  while entry fields retain authored spelling. Only an explicitly authored
+  `textOverride` forces literal display, including for existing documents;
+  unsupported raw text remains literal diagnostic text. Supported raw-only
+  harmony is interpreted on display copies without adding stored structure.
 - **Display projection:** automatic placement uses the topmost displayed
   source part; explicit Show uses that source part's first displayed staff and
   Hide suppresses it. The policy follows the source part across outputs.

@@ -164,7 +164,7 @@ describe("applyDenigmaGapReport", () => {
     expect(result.outcomes[1]?.disposition).toBe("handled-partially");
   });
 
-  it("preserves ordinary chord semantics and flattens rich suffix typography", () => {
+  it("preserves ordinary chord semantics and unsupported rich suffixes as raw text", () => {
     const simple: DenigmaGap = {
       anchor: "P1.m1",
       position: { numerator: 0, denominator: 1 },
@@ -234,7 +234,6 @@ describe("applyDenigmaGapReport", () => {
         quality: "other",
         rawText: "Gb(add9omit3)",
         kindText: "(add9omit3)",
-        textOverride: "Gb(add9omit3)",
       },
     ]);
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled-partially"]);

@@ -297,6 +297,7 @@ describe("harmony recovery boundaries", () => {
         bass: { step: "G" },
         quality: "minor",
         extension: 7,
+        rawText: "Cm7/G",
       });
       expect(diagnostics).toHaveLength(1);
       expect(diagnostics[0]?.path).toMatch(/^Harmony\/(harmonyInfo\/)?/);

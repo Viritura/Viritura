@@ -1,5 +1,7 @@
 //! Chord-symbol placement and rendering.
 
+#[path = "chord_symbols/display_interpretation.rs"]
+mod display_interpretation;
 #[path = "chord_symbols/display_spelling.rs"]
 mod display_spelling;
 #[cfg(test)]
@@ -110,6 +112,29 @@ fn push_accidental_run(
     let Some(alter) = alter else {
         return 0.0;
     };
+    if alter.unsigned_abs() > 128 {
+        // Preserve extreme authored values without allocating unbounded glyph runs.
+        return push_text_run(runs, dx, format!("({alter:+})"), size, baseline_offset);
+    }
+    if alter.unsigned_abs() > 2 {
+        // Compound accidentals combine double and single signs rather than
+        // silently dropping an alteration introduced by written transposition.
+        let mut remaining = alter;
+        let mut ascent: f64 = 0.0;
+        while remaining != 0 {
+            let component = remaining.clamp(-2, 2);
+            ascent = ascent.max(push_accidental_run(
+                runs,
+                dx,
+                Some(component),
+                size,
+                baseline_offset,
+                sp,
+            ));
+            remaining -= component;
+        }
+        return ascent;
+    }
     let Some(codepoint) = smufl::chord_accidental_glyph(alter) else {
         return 0.0;
     };
@@ -394,7 +419,12 @@ fn chord_symbol_runs(
     sp: f64,
 ) -> (Vec<ChordRun>, f64, f64) {
     let font_size = CHORD_FONT_SIZE_SP * sp;
-    if let Some(text) = chord.text_override.as_ref().or(chord.raw_text.as_ref()) {
+    let display = display_interpretation::semantic_display(chord);
+    let literal = chord
+        .text_override
+        .as_ref()
+        .or_else(|| chord.raw_text.as_ref().filter(|_| display.is_none()));
+    if let Some(text) = literal {
         let width = text_styles::text_width(text, font_size, FontFamily::Serif, false);
         return (
             vec![ChordRun::Text {
@@ -408,6 +438,14 @@ fn chord_symbol_runs(
         );
     }
 
+    let display = display.unwrap_or_else(|| {
+        let mut fallback = chord.clone();
+        if fallback.kind_text.is_some() {
+            fallback.quality = Some(ChordQuality::Other);
+        }
+        fallback
+    });
+    let chord = &display;
     let Some(root) = &chord.root else {
         return (Vec::new(), 0.0, 0.0);
     };

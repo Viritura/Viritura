@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolveChordSymbol, voiceChordSymbol, type ChordSymbol } from "@viritura/core";
+import {
+  formatChordSymbolText,
+  resolveChordSymbol,
+  transposeChordSymbol,
+  voiceChordSymbol,
+  type ChordSymbol,
+} from "@viritura/core";
 import { convertMusicXmlToMnx, DiagnosticCollector, type MnxDocument, type MnxGlobalMeasure } from "../index";
 import { consolidateImportedHarmony } from "../convert/harmonyConsolidation";
 
@@ -67,7 +73,15 @@ function expectGlobalOnly(document: MnxDocument, sourcePartIndices: number[]): v
 
 describe("MusicXML global harmony merging", () => {
   it("immutably merges incoming positions without losing untouched global harmony or other extensions", () => {
-    const originalChord: ChordSymbol = { position: { fraction: [3, 4] }, root: { step: "G" } };
+    const originalChord: ChordSymbol = {
+      position: { fraction: [3, 4] },
+      root: { step: "G" },
+      quality: "major",
+      extension: 7,
+      rawText: "GM7",
+      kindText: "M7",
+      textOverride: "GΔ",
+    };
     const original: MnxGlobalMeasure = {
       id: "m1",
       _x: { viritura: { chordSymbols: [originalChord], rehearsalMark: { text: "A" } } },
@@ -94,6 +108,7 @@ describe("MusicXML global harmony merging", () => {
       rehearsalMark: { text: "A" },
     });
     expect(diagnostics.all()).toEqual([]);
+    expect(formatChordSymbolText(measures[0]!._x!.viritura.chordSymbols![1]!)).toBe("GΔ");
   });
   it("does not emit harmony extensions when vendor extensions are disabled", () => {
     const diagnostics = new DiagnosticCollector();
@@ -353,6 +368,34 @@ describe("MusicXML concert-pitch harmony", () => {
   const transpose = "<transpose><diatonic>-1</diatonic><chromatic>-2</chromatic></transpose>";
   const written = harmony("D", "major", "<bass><bass-step>F</bass-step><bass-alter>1</bass-alter></bass>");
 
+  it.each([
+    ["M7", "major-seventh", "maj7"],
+    ["Δ", "major-seventh", "maj7"],
+    ["min7", "minor-seventh", "m7"],
+    ["-7", "minor-seventh", "m7"],
+    ["°7", "diminished-seventh", "dim7"],
+    ["+", "augmented", "aug"],
+    ["m7b5", "half-diminished", "ø7"],
+    ["mΔ", "major-minor", "mMaj7"],
+    ["sus", "suspended-fourth", "sus4"],
+  ])("keeps source kind text %s as metadata, not a concert or written display override", (alias, kind, suffix) => {
+    const source = `<harmony><root><root-step>D</root-step></root><kind text="${alias}">${kind}</kind>
+      <bass><bass-step>F</bass-step><bass-alter>1</bass-alter></bass></harmony>`;
+    const { document, diagnostics } = importHarmony([{ attributes: transpose, measures: [source] }]);
+    const stored = document.global.measures[0]!._x!.viritura.chordSymbols![0]!;
+    const snapshot = structuredClone(document);
+    const contextCopy = transposeChordSymbol(stored, { halfSteps: 2, staffDistance: 1 });
+    expect(stored).toMatchObject({ root: { step: "C" }, bass: { step: "E" }, kindText: alias });
+    expect(stored).not.toHaveProperty("textOverride");
+    expect(contextCopy).not.toHaveProperty("textOverride");
+    expect(resolveChordSymbol(stored).status).toBe("supported");
+    expect(formatChordSymbolText(stored)).toBe(`C${suffix}/E`);
+    expect(formatChordSymbolText(contextCopy)).toBe(`D${suffix}/F#`);
+    expect(document).toEqual(snapshot);
+    expect(diagnostics).toEqual([]);
+    expectGlobalOnly(document, [0]);
+  });
+
   it("transposes both the written root and slash bass to concert pitch", () => {
     const { document, diagnostics } = importHarmony([{ attributes: transpose, measures: [written] }]);
     const chords = document.global.measures[0]!._x?.viritura.chordSymbols;
@@ -428,6 +471,8 @@ describe("MusicXML concert-pitch harmony", () => {
     ]);
     const chord = document.global.measures[0]!._x?.viritura.chordSymbols?.[0];
     expect(chord).toMatchObject({ root: { step: "C" }, bass: { step: "E" }, rawText: "CNeapolitan/E" });
+    expect(chord).not.toHaveProperty("textOverride");
+    expect(formatChordSymbolText(chord!)).toBe("CNeapolitan/E");
     expect(resolveChordSymbol(chord!)).toMatchObject({ status: "unsupported" });
     expect(diagnostics).toEqual([expect.objectContaining({ code: "musicxml-harmony-kind" })]);
   });
@@ -519,6 +564,8 @@ describe("MusicXML unsupported harmony preservation", () => {
       }),
     ]);
     expect(resolveChordSymbol(chords![0]!)).toMatchObject({ status: "unsupported" });
+    expect(chords![0]).not.toHaveProperty("textOverride");
+    expect(formatChordSymbolText(chords![0]!)).toBe("CMystery");
     expect(diagnostics).toEqual([expect.objectContaining({ severity: "warning", code: "musicxml-harmony-kind" })]);
     expectGlobalOnly(document, [0]);
   });

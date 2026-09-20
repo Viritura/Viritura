@@ -14,6 +14,65 @@ fn request(notes: &[u8]) -> PreviewRequest<'_> {
     }
 }
 
+#[test]
+fn three_second_piano_preview_holds_keys_then_renders_its_natural_release() {
+    use crate::playback_host::{BLOCK_SIZE, SAMPLE_RATE};
+
+    let mut core = audition_core(&[KEY]);
+    let mut previews = PreviewNotes::default();
+    let now = Instant::now();
+    previews
+        .preview(
+            &mut core,
+            false,
+            PreviewRequest {
+                duration_ms: 3_000,
+                ..request(&[36, 60, 64, 67])
+            },
+            now,
+        )
+        .unwrap();
+    assert_eq!(
+        midi(&mut core, KEY),
+        vec![(true, 36), (true, 60), (true, 64), (true, 67)]
+    );
+
+    // Advance the synth as well as the deadline clock, without sleeping.
+    let hold_blocks = (3.0 * SAMPLE_RATE / BLOCK_SIZE as f64) as usize;
+    let mut held_peak = 0.0;
+    for _ in 0..hold_blocks {
+        held_peak = routing_peak(core.strip_mut(KEY).unwrap());
+    }
+    assert!(
+        held_peak > 1e-6,
+        "piano must still sound near the hold deadline"
+    );
+    previews.release_due(&mut core, now + Duration::from_millis(2_999));
+    assert!(midi(&mut core, KEY).is_empty());
+    assert_eq!(previews.slots[KEY].len(), 4);
+
+    previews.release_due(&mut core, now + Duration::from_secs(3));
+    assert_eq!(
+        midi(&mut core, KEY),
+        vec![(false, 36), (false, 60), (false, 64), (false, 67)]
+    );
+    assert!(previews.slots.is_empty());
+    assert!(
+        routing_peak(core.strip_mut(KEY).unwrap()) > 1e-6,
+        "deadline must release keys, not truncate the SF2 release envelope"
+    );
+    for _ in 0..200 {
+        routing_peak(core.strip_mut(KEY).unwrap());
+    }
+    assert!(
+        routing_peak(core.strip_mut(KEY).unwrap()) < 1e-6,
+        "released piano must become silent without a panic or sustain reset"
+    );
+    previews.release_due(&mut core, now + Duration::from_secs(10));
+    previews.cancel(&mut core);
+    assert!(midi(&mut core, KEY).is_empty());
+}
+
 fn midi(core: &mut MixerCore, key: &str) -> Vec<(bool, u8)> {
     routing_midi(core.strip_mut(key).unwrap())
         .into_iter()
