@@ -85,12 +85,57 @@
 }
 
 .notice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-raised);
   color: var(--text-muted);
   font-size: var(--type-small-size);
   text-align: center;
+}
+
+.noticeClose {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.noticeClose:hover {
+  background: var(--menu-hover);
+  color: var(--text);
+}
+
+.volumeControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+
+.volumeValue {
+  min-width: 32px;
+  color: var(--text);
+  font-size: var(--type-small-size);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .viewer {

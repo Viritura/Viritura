@@ -1,22 +1,17 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-  type WheelEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { DisplayList, Engine, EngineLoadError, LayoutError, ParseError } from "@viritura/score-engine";
 import { ScoreView, type ScorePageMargins, type ScoreSpreadFirstPage, type ScoreViewMode } from "./ScoreView";
 import {
   ScoreViewerControls,
   type ScoreFitMode,
   type ScoreViewerControlOptions,
+  type ScoreViewerPageSizeOption,
   type ScoreViewerScoreOption,
+  type ScoreViewerStaffSizeOption,
   type ScoreViewerControlSurface,
 } from "./ScoreViewerControls";
+import { useNativeWheelZoom } from "./useNativeWheelZoom";
+import { useViewerLayoutControls } from "./viewerLayoutControls";
 
 export interface ScoreViewerProps {
   readonly mnx: string | object;
@@ -25,6 +20,13 @@ export interface ScoreViewerProps {
   readonly pageHeight?: number;
   readonly pageMargins?: ScorePageMargins;
   readonly spatium?: number;
+  readonly pageSizeOptions?: readonly ScoreViewerPageSizeOption[];
+  readonly defaultPageSizeId?: string;
+  readonly onPageSizeChange?: (pageSize: ScoreViewerPageSizeOption) => void;
+  readonly staffSizeOptions?: readonly ScoreViewerStaffSizeOption[];
+  readonly staffSize?: number;
+  readonly defaultStaffSize?: number;
+  readonly onStaffSizeChange?: (spatium: number) => void;
   readonly scoreIndex?: number;
   readonly defaultScoreIndex?: number;
   readonly onScoreIndexChange?: (scoreIndex: number) => void;
@@ -69,7 +71,13 @@ interface ViewportSize {
   readonly height: number;
 }
 
-const defaultAvailableViewModes: readonly ScoreViewMode[] = ["page", "horizontal", "spread", "spread-horizontal"];
+const defaultAvailableViewModes: readonly ScoreViewMode[] = [
+  "page",
+  "horizontal",
+  "spread",
+  "spread-horizontal",
+  "horizon",
+];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -88,6 +96,47 @@ function getViewportPadding(): number {
   return 48;
 }
 
+function computeFitZoom(args: {
+  readonly fitMode: ScoreFitMode;
+  readonly viewportSize: ViewportSize;
+  readonly displayList: DisplayList | null;
+  readonly pageWidth: number;
+  readonly pageHeight: number;
+  readonly viewMode: ScoreViewMode;
+  readonly gap: number;
+  readonly minZoom: number;
+  readonly maxZoom: number;
+}): number | null {
+  const { fitMode, viewportSize, displayList, pageWidth, pageHeight, viewMode, gap, minZoom, maxZoom } = args;
+  if (fitMode === "none" || viewportSize.width <= 0 || viewportSize.height <= 0) return null;
+  const padding = getViewportPadding();
+  const usableWidth = Math.max(1, viewportSize.width - padding);
+  const usableHeight = Math.max(1, viewportSize.height - padding);
+  const layoutWidth = displayList && displayList.width > 0 ? displayList.width : Math.max(1, pageWidth);
+  const contentWidth = getFitContentWidth(viewMode, layoutWidth, gap);
+  const primaryPageHeight = getPrimaryPageHeight(displayList, pageHeight, pageWidth > 0);
+  const widthZoom = usableWidth / contentWidth;
+  const pageZoom = Math.min(widthZoom, usableHeight / primaryPageHeight);
+  return clamp(fitMode === "page" ? pageZoom : widthZoom, minZoom, maxZoom);
+}
+
+function updateUncontrolled<T>(controlledValue: T | undefined, nextValue: T, setter: (value: T) => void): void {
+  if (controlledValue == null) setter(nextValue);
+}
+
+function clearFitForHorizon(args: {
+  readonly nextViewMode: ScoreViewMode;
+  readonly fitMode: ScoreFitMode;
+  readonly controlledFitMode?: ScoreFitMode;
+  readonly setUncontrolledFitMode: (fitMode: ScoreFitMode) => void;
+  readonly onFitModeChange?: (fitMode: ScoreFitMode) => void;
+}): void {
+  const { nextViewMode, fitMode, controlledFitMode, setUncontrolledFitMode, onFitModeChange } = args;
+  if (nextViewMode !== "horizon" || fitMode === "none") return;
+  if (controlledFitMode == null) setUncontrolledFitMode("none");
+  onFitModeChange?.("none");
+}
+
 // eslint-disable-next-line max-lines-per-function -- public component shell: declares props, score-index controlled/uncontrolled state, WASM init effect, scroll-into-view effect, score-selector dropdown, and JSX render. Sub-pieces are external (ScoreViewerInner, useEmbeddedAssets); the remaining shell is single-concept (controlled-vs-uncontrolled + render).
 export function ScoreViewer({
   mnx,
@@ -96,6 +145,13 @@ export function ScoreViewer({
   pageHeight = pageWidth * (297 / 210),
   pageMargins,
   spatium = 7,
+  pageSizeOptions: providedPageSizeOptions,
+  defaultPageSizeId,
+  onPageSizeChange,
+  staffSizeOptions: providedStaffSizeOptions,
+  staffSize: controlledStaffSize,
+  defaultStaffSize,
+  onStaffSizeChange,
   scoreIndex: controlledScoreIndex,
   defaultScoreIndex = 0,
   onScoreIndexChange,
@@ -134,6 +190,7 @@ export function ScoreViewer({
   onError,
   children,
 }: ScoreViewerProps) {
+  const viewerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [uncontrolledScoreIndex, setUncontrolledScoreIndex] = useState(defaultScoreIndex);
   const [uncontrolledViewMode, setUncontrolledViewMode] = useState(defaultViewMode);
@@ -146,10 +203,31 @@ export function ScoreViewer({
   const viewMode = controlledViewMode ?? uncontrolledViewMode;
   const zoom = controlledZoom ?? uncontrolledZoom;
   const fitMode = controlledFitMode ?? uncontrolledFitMode;
+  const {
+    pageSizeId,
+    staffSize,
+    effectivePageWidth,
+    effectivePageHeight,
+    pageSizeOptions,
+    staffSizeOptions,
+    setPageSize,
+    setSpatium,
+  } = useViewerLayoutControls({
+    pageWidth,
+    pageHeight,
+    spatium,
+    pageSizeOptions: providedPageSizeOptions,
+    staffSizeOptions: providedStaffSizeOptions,
+    defaultPageSizeId,
+    controlledStaffSize,
+    defaultStaffSize,
+    onPageSizeChange,
+    onStaffSizeChange,
+  });
 
   const setScoreIndex = useCallback(
     (nextScoreIndex: number) => {
-      if (controlledScoreIndex == null) setUncontrolledScoreIndex(nextScoreIndex);
+      updateUncontrolled(controlledScoreIndex, nextScoreIndex, setUncontrolledScoreIndex);
       onScoreIndexChange?.(nextScoreIndex);
     },
     [controlledScoreIndex, onScoreIndexChange],
@@ -157,15 +235,22 @@ export function ScoreViewer({
 
   const setViewMode = useCallback(
     (nextViewMode: ScoreViewMode) => {
-      if (controlledViewMode == null) setUncontrolledViewMode(nextViewMode);
+      updateUncontrolled(controlledViewMode, nextViewMode, setUncontrolledViewMode);
+      clearFitForHorizon({
+        nextViewMode,
+        fitMode,
+        controlledFitMode,
+        setUncontrolledFitMode,
+        onFitModeChange,
+      });
       onViewModeChange?.(nextViewMode);
     },
-    [controlledViewMode, onViewModeChange],
+    [controlledFitMode, controlledViewMode, fitMode, onFitModeChange, onViewModeChange],
   );
 
   const setFitMode = useCallback(
     (nextFitMode: ScoreFitMode) => {
-      if (controlledFitMode == null) setUncontrolledFitMode(nextFitMode);
+      updateUncontrolled(controlledFitMode, nextFitMode, setUncontrolledFitMode);
       onFitModeChange?.(nextFitMode);
     },
     [controlledFitMode, onFitModeChange],
@@ -199,33 +284,24 @@ export function ScoreViewer({
   useEffect(() => {
     if (scoreOptions.length === 0) return;
     if (scoreOptions.some((option) => option.index === scoreIndex)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled-sync effect — external source seeds local state when it changes
     setScoreIndex(scoreOptions[0]?.index ?? 0);
   }, [scoreIndex, scoreOptions, setScoreIndex]);
 
-  const fitZoom = useMemo(() => {
-    if (fitMode === "none" || viewportSize.width <= 0 || viewportSize.height <= 0) return null;
-    const padding = getViewportPadding();
-    const usableWidth = Math.max(1, viewportSize.width - padding);
-    const usableHeight = Math.max(1, viewportSize.height - padding);
-    const layoutWidth = displayList && displayList.width > 0 ? displayList.width : Math.max(1, pageWidth);
-    const contentWidth = getFitContentWidth(viewMode, layoutWidth, gap);
-    const primaryPageHeight = getPrimaryPageHeight(displayList, pageHeight, pageWidth > 0);
-    const widthZoom = usableWidth / contentWidth;
-    const pageZoom = Math.min(widthZoom, usableHeight / primaryPageHeight);
-    return clamp(fitMode === "page" ? pageZoom : widthZoom, minZoom, maxZoom);
-  }, [
-    displayList,
-    fitMode,
-    gap,
-    maxZoom,
-    minZoom,
-    pageHeight,
-    pageWidth,
-    viewMode,
-    viewportSize.height,
-    viewportSize.width,
-  ]);
+  const fitZoom = useMemo(
+    () =>
+      computeFitZoom({
+        fitMode,
+        viewportSize,
+        displayList,
+        pageWidth: effectivePageWidth,
+        pageHeight: effectivePageHeight,
+        viewMode,
+        gap,
+        minZoom,
+        maxZoom,
+      }),
+    [displayList, effectivePageHeight, effectivePageWidth, fitMode, gap, maxZoom, minZoom, viewMode, viewportSize],
+  );
 
   useEffect(() => {
     if (fitZoom == null) return;
@@ -243,16 +319,7 @@ export function ScoreViewer({
     [onReady],
   );
 
-  const handleWheel = useCallback(
-    (event: WheelEvent<HTMLDivElement>) => {
-      if (!enableCtrlWheelZoom || (!event.ctrlKey && !event.metaKey)) return;
-      event.preventDefault();
-      const direction = event.deltaY > 0 ? -1 : 1;
-      const factor = direction > 0 ? 1 + zoomStep : 1 - zoomStep;
-      setZoom(zoom * factor);
-    },
-    [enableCtrlWheelZoom, setZoom, zoom, zoomStep],
-  );
+  useNativeWheelZoom({ viewerRef, enabled: enableCtrlWheelZoom, zoom, zoomStep, setZoom });
 
   const viewerStyle: CSSProperties = {
     position: "relative",
@@ -276,20 +343,20 @@ export function ScoreViewer({
   };
 
   const scoreBaseStyle: CSSProperties = {
-    margin: viewMode === "horizontal" || viewMode === "spread-horizontal" ? "0" : "0 auto",
+    margin: viewMode === "horizontal" || viewMode === "spread-horizontal" || viewMode === "horizon" ? "0" : "0 auto",
     ...scoreStyle,
   };
 
   return (
-    <div className={className} style={viewerStyle} onWheel={handleWheel}>
+    <div ref={viewerRef} className={className} style={viewerStyle}>
       <div ref={viewportRef} className={viewportClassName} style={viewportBaseStyle}>
         <ScoreView
           mnx={mnx}
           assetBaseUrl={assetBaseUrl}
-          pageWidth={pageWidth}
-          pageHeight={pageHeight}
+          pageWidth={effectivePageWidth}
+          pageHeight={effectivePageHeight}
           pageMargins={pageMargins}
-          spatium={spatium}
+          spatium={staffSize}
           scoreIndex={scoreIndex}
           viewMode={viewMode}
           zoom={zoom}
@@ -314,6 +381,13 @@ export function ScoreViewer({
         scoreIndex={scoreIndex}
         onScoreIndexChange={setScoreIndex}
         scoreOptions={scoreOptions}
+        pageSizeId={pageSizeId}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={pageSizeOptions}
+        staffSize={staffSize}
+        onStaffSizeChange={setSpatium}
+        staffSizeOptions={staffSizeOptions}
+        showLayoutSettings={viewMode !== "horizon"}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         availableViewModes={availableViewModes}

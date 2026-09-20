@@ -1,9 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, ExternalLink } from "lucide-react";
-import type { Score } from "@viritura/core";
-import { PlaybackProvider, TransportBar } from "@viritura/playback";
-import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
-import { Button, TooltipPrimitives } from "@viritura/ui";
+import { Download, ExternalLink, Volume2, X } from "lucide-react";
+import {
+  defaultPageSetupForScore,
+  formatStaffSizeLabel,
+  PAGE_SIZE_PRESETS,
+  RASTRAL_SPATIUM_MM,
+  type LayoutContent,
+  type Score,
+} from "@viritura/core";
+import { PlaybackProvider, TransportBar, usePlaybackActions, usePlaybackState } from "@viritura/playback";
+import {
+  ScoreView,
+  ScoreViewer,
+  type ScoreViewerPageSizeOption,
+  type ScoreViewerScoreOption,
+  type ScoreViewerStaffSizeOption,
+} from "@viritura/score-viewer-react";
+import { Button, IconButton, Slider, TooltipPrimitives } from "@viritura/ui";
 import { Toaster } from "sonner";
 import { loadGistMnx, readGistShareLocation, type LoadedGistMnx } from "../gistShare";
 import { getDesktopSoundfontLoader } from "../desktopAudio";
@@ -52,6 +65,18 @@ function LoadedShare({ publication }: { readonly publication: LoadedGistMnx }) {
   const title = publication.score.metadata?.title?.trim() || publication.fileName;
   const composer = publication.score.metadata?.composer?.trim();
   const scoreOptions = useMemo(() => buildScoreOptions(publication.score), [publication.score]);
+  const [scoreIndex, setScoreIndex] = useState(0);
+  const [staffSize, setStaffSize] = useState(() => defaultStaffSizeForScore(publication.score, 0));
+  const [noticeVisible, setNoticeVisible] = useState(true);
+  const visiblePartIds = useMemo(
+    () => visiblePartIdsForScore(publication.score, scoreIndex),
+    [publication.score, scoreIndex],
+  );
+
+  const handleScoreIndexChange = (nextScoreIndex: number) => {
+    setScoreIndex(nextScoreIndex);
+    setStaffSize(defaultStaffSizeForScore(publication.score, nextScoreIndex));
+  };
 
   useEffect(() => {
     document.title = `${title} — Viritura`;
@@ -69,7 +94,11 @@ function LoadedShare({ publication }: { readonly publication: LoadedGistMnx }) {
 
   return (
     <TooltipPrimitives.Provider delayDuration={400} skipDelayDuration={100}>
-      <PlaybackProvider score={publication.score} soundfontLoader={getDesktopSoundfontLoader()}>
+      <PlaybackProvider
+        score={publication.score}
+        visiblePartIds={visiblePartIds}
+        soundfontLoader={getDesktopSoundfontLoader()}
+      >
         <main className={styles.root}>
           <header className={styles.header}>
             <div className={styles.identity}>
@@ -83,6 +112,7 @@ function LoadedShare({ publication }: { readonly publication: LoadedGistMnx }) {
             </div>
             <div className={styles.actions}>
               <TransportBar showFollow={false} compact />
+              <ShareVolumeControl />
               <Button size="sm" className={styles.actionButton} onClick={handleDownload}>
                 <Download size={15} aria-hidden="true" />
                 Download MNX
@@ -93,23 +123,113 @@ function LoadedShare({ publication }: { readonly publication: LoadedGistMnx }) {
               </a>
             </div>
           </header>
-          <div className={styles.notice}>
-            Read-only preview hosted on GitHub Gist. Secret Gists are unlisted, not private.
-          </div>
+          {noticeVisible && (
+            <div className={styles.notice}>
+              <span>Read-only preview hosted on GitHub Gist. Secret Gists are unlisted, not private.</span>
+              <IconButton
+                size="sm"
+                variant="ghost"
+                className={styles.noticeClose}
+                tooltip="Dismiss preview notice"
+                aria-label="Dismiss preview notice"
+                onClick={() => setNoticeVisible(false)}
+              >
+                <X size={14} aria-hidden="true" />
+              </IconButton>
+            </div>
+          )}
           <section className={styles.viewer} aria-label="Shared score">
             <ScoreViewer
               mnx={publication.mnx}
+              scoreIndex={scoreIndex}
+              onScoreIndexChange={handleScoreIndexChange}
               scoreOptions={scoreOptions}
-              defaultFitMode="width"
-              defaultViewMode="page"
-              controls={{ score: true, viewMode: true, zoom: true, fit: true }}
+              defaultFitMode="none"
+              defaultViewMode="horizon"
+              defaultZoom={1}
               viewportClassName={styles.viewport}
-            />
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              defaultPageSizeId="A4"
+              staffSizeOptions={STAFF_SIZE_OPTIONS}
+              staffSize={staffSize}
+              onStaffSizeChange={setStaffSize}
+              controls={{ score: true, viewMode: true, zoom: true, fit: true, pageSize: true, staffSize: true }}
+            >
+              <SharedScorePlayhead />
+            </ScoreViewer>
           </section>
         </main>
         <Toaster position="bottom-right" richColors closeButton />
       </PlaybackProvider>
     </TooltipPrimitives.Provider>
+  );
+}
+
+const PAGE_SCALE = 800 / PAGE_SIZE_PRESETS.A4!.width;
+const PAGE_SIZE_OPTIONS: readonly ScoreViewerPageSizeOption[] = Object.entries(PAGE_SIZE_PRESETS).map(
+  ([id, dimensions]) => ({
+    id,
+    label: id,
+    width: dimensions.width * PAGE_SCALE,
+    height: dimensions.height * PAGE_SCALE,
+  }),
+);
+const STAFF_SIZE_OPTIONS: readonly ScoreViewerStaffSizeOption[] = RASTRAL_SPATIUM_MM.map((spatiumMm, index) => ({
+  label: `Rastral ${index} · ${formatStaffSizeLabel(spatiumMm)}`,
+  spatium: spatiumMm * PAGE_SCALE,
+}));
+
+function defaultStaffSizeForScore(score: Score, scoreIndex: number): number {
+  return defaultPageSetupForScore(score.scores, scoreIndex, score.layouts, score.parts.length).spatiumMm * PAGE_SCALE;
+}
+
+function collectPartIds(content: readonly LayoutContent[], result: Set<string>): void {
+  for (const node of content) {
+    if (node.type === "staff") {
+      for (const source of node.sources) result.add(source.part);
+    } else {
+      collectPartIds(node.content, result);
+    }
+  }
+}
+
+function visiblePartIdsForScore(score: Score, scoreIndex: number): string[] {
+  if (scoreIndex === 0) return [];
+  const scoreDefinition = score.scores?.[scoreIndex];
+  const layout = score.layouts?.find((candidate) => candidate.id === scoreDefinition?.layout);
+  if (!layout) return [];
+  const partIds = new Set<string>();
+  collectPartIds(layout.content, partIds);
+  return [...partIds];
+}
+
+function SharedScorePlayhead() {
+  const playback = usePlaybackState();
+  if (playback.status !== "playing" || !playback.playheadPosition) return null;
+  return <ScoreView.Playhead position={playback.playheadPosition} />;
+}
+
+function ShareVolumeControl() {
+  const { volume } = usePlaybackState();
+  const { setVolume } = usePlaybackActions();
+  const percentage = Math.round(volume * 100);
+
+  return (
+    <div className={styles.volumeControl}>
+      <Volume2 size={15} aria-hidden="true" />
+      <Slider
+        min={0}
+        max={1}
+        step={0.01}
+        value={volume}
+        onChange={setVolume}
+        ariaLabel={`Master volume ${percentage}%`}
+        width={80}
+      />
+      <span className={styles.volumeValue} aria-hidden="true">
+        {percentage}%
+      </span>
+    </div>
   );
 }
 

@@ -45,6 +45,7 @@
     "react": "^18 || ^19"
   },
   "dependencies": {
+    "@viritura/renderer": "workspace:*",
     "@viritura/score-engine": "workspace:*",
     "@viritura/ui": "workspace:*",
     "lucide-react": "^1.46.0"
