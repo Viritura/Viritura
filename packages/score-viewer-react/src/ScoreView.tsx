@@ -17,13 +17,24 @@ import {
   useEffectEvent,
   useMemo,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
-import type { DisplayList, Engine, EngineLoadError, LayoutError, PageLayout, ParseError } from "@viritura/score-engine";
+import { computeHorizonPaperGeometry, detectStaves, TileCache } from "@viritura/renderer";
+import type {
+  DisplayList,
+  Engine,
+  EngineLoadError,
+  LayoutError,
+  LayoutOptions,
+  PageLayout,
+  ParseError,
+} from "@viritura/score-engine";
 import { useScoreEngine } from "./useScoreEngine";
+import { resolveScorePlayheadGeometry } from "./playheadGeometry";
 
-export type ScoreViewMode = "page" | "horizontal" | "spread" | "spread-horizontal";
+export type ScoreViewMode = "page" | "horizontal" | "spread" | "spread-horizontal" | "horizon";
 export type ScoreSpreadFirstPage = "single" | "paired";
 
 export interface ScorePageMargins {
@@ -117,6 +128,78 @@ export function useScoreView(): ScoreViewContextValue {
 const SCOREVIEW_ERROR_INNER_STYLE: CSSProperties = { color: "#b00", padding: 16 };
 const SCOREVIEW_LOADING_INNER_STYLE: CSSProperties = { padding: 16, color: "#666" };
 const PLAYHEAD_BAR_STYLE: CSSProperties = { width: 2, height: "100%", background: "currentColor" };
+const HORIZON_CANVAS_STYLE: CSSProperties = {
+  position: "sticky",
+  left: 0,
+  top: 0,
+  display: "block",
+  pointerEvents: "none",
+};
+
+function buildLayoutOptions(args: {
+  pageWidth: number;
+  resolvedPageHeight: number;
+  marginTop: number;
+  marginRight: number;
+  marginBottom: number;
+  marginLeft: number;
+  spatium: number;
+  scoreIndex: number;
+}): LayoutOptions {
+  const { pageWidth, resolvedPageHeight, marginTop, marginRight, marginBottom, marginLeft, spatium, scoreIndex } = args;
+  return {
+    pageWidth,
+    spatium,
+    scoreIndex,
+    pageSetup:
+      pageWidth > 0
+        ? {
+            height: resolvedPageHeight,
+            margins: { top: marginTop, right: marginRight, bottom: marginBottom, left: marginLeft },
+          }
+        : undefined,
+  };
+}
+
+function usesPagedLayout(viewMode: ScoreViewMode, pageWidth: number): boolean {
+  return viewMode !== "horizon" && pageWidth > 0;
+}
+
+function renderScoreStatus(args: {
+  error: Error | null;
+  loading: boolean;
+  displayList: DisplayList | null;
+  className?: string;
+  style?: CSSProperties;
+  loadingFallback?: ReactNode;
+  errorFallback?: (error: Error) => ReactNode;
+}): ReactNode | null {
+  const { error, loading, displayList, className, style, loadingFallback, errorFallback } = args;
+  if (error) {
+    return (
+      <div className={className} style={style}>
+        {errorFallback ? (
+          errorFallback(error)
+        ) : (
+          <div style={SCOREVIEW_ERROR_INNER_STYLE}>Score error: {error.message}</div>
+        )}
+      </div>
+    );
+  }
+  if (loading || !displayList) {
+    return (
+      <div className={className} style={style}>
+        {loadingFallback ?? <div style={SCOREVIEW_LOADING_INNER_STYLE}>Loading score...</div>}
+      </div>
+    );
+  }
+  return null;
+}
+
+function assertDisplayList(displayList: DisplayList | null): asserts displayList is DisplayList {
+  if (!displayList) throw new Error("Score display list is unavailable after loading completed.");
+}
+
 function scorePageContainerStyle(
   pagePosition: { x: number; y: number; width: number; height: number },
   style: CSSProperties | undefined,
@@ -170,6 +253,106 @@ function scorePageCanvasStyle(
   };
 }
 
+interface HorizonScoreSurfaceProps {
+  readonly displayList: DisplayList;
+  readonly zoom: number;
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly pageBackground: string;
+  readonly onPaint?: () => void;
+  readonly children?: ReactNode;
+}
+
+function HorizonScoreSurface({
+  displayList,
+  zoom,
+  className,
+  style,
+  pageBackground,
+  onPaint,
+  children,
+}: HorizonScoreSurfaceProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRef = useRef(0);
+  const displayListVersionRef = useRef(0);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [tileCache] = useState(() => new TileCache());
+  const paper = useMemo(() => computeHorizonPaperGeometry(displayList), [displayList]);
+  const notifyPaint = useEffectEvent(() => onPaint?.());
+
+  useEffect(() => {
+    displayListVersionRef.current += 1;
+    tileCache.invalidate();
+  }, [displayList, tileCache]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const canvas = canvasRef.current;
+    const viewport = root?.parentElement;
+    if (!root || !canvas || !viewport) return;
+
+    const renderFrame = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const width = viewport.clientWidth;
+      const height = viewport.clientHeight;
+      if (canvas.width !== Math.ceil(width * dpr)) canvas.width = Math.ceil(width * dpr);
+      if (canvas.height !== Math.ceil(height * dpr)) canvas.height = Math.ceil(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      setViewportSize((current) =>
+        current.width === width && current.height === height ? current : { width, height },
+      );
+      tileCache.paintFrame({
+        canvas,
+        displayList,
+        scrollX: viewport.scrollLeft / zoom,
+        scrollY: viewport.scrollTop / zoom,
+        zoom,
+        version: displayListVersionRef.current,
+        glyphAtlas: null,
+        viewMode: "horizon",
+        canvasBg: "rgba(0, 0, 0, 0)",
+        paperFill: pageBackground,
+      });
+      if (tileCache.hasPendingTiles) {
+        frameRef.current = requestAnimationFrame(renderFrame);
+      } else {
+        notifyPaint();
+      }
+    };
+
+    const schedulePaint = () => {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = requestAnimationFrame(renderFrame);
+    };
+
+    const observer = new ResizeObserver(schedulePaint);
+    observer.observe(viewport);
+    viewport.addEventListener("scroll", schedulePaint, { passive: true });
+    renderFrame();
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+      observer.disconnect();
+      viewport.removeEventListener("scroll", schedulePaint);
+    };
+  }, [displayList, pageBackground, tileCache, zoom]);
+
+  const rootStyle: CSSProperties = {
+    position: "relative",
+    width: paper.width * zoom,
+    height: Math.max(paper.contentHeight * zoom, viewportSize.height),
+    ...style,
+  };
+
+  return (
+    <div ref={rootRef} className={className} style={rootStyle}>
+      <canvas ref={canvasRef} style={HORIZON_CANVAS_STYLE} />
+      {children}
+    </div>
+  );
+}
+
 interface ScorePageProps {
   page: number;
   children?: ReactNode;
@@ -190,39 +373,85 @@ function ScorePage({ page, children, className, style }: ScorePageProps) {
 }
 
 interface ScorePlayheadProps {
-  beat: number;
+  beat?: number;
+  position?: { readonly measureIndex: number; readonly beat: number };
   partId?: string;
+  follow?: boolean;
   render?: (pos: { x: number; y: number; height: number }) => ReactNode;
   className?: string;
   style?: CSSProperties;
 }
 
-function ScorePlayhead({ beat, partId, render, className, style }: ScorePlayheadProps) {
-  const { engine, displayList, zoom, pageLayouts, pagePositions } = useScoreView();
-  if (!engine || !displayList) return null;
+interface ScorePlayheadMarkerProps {
+  readonly left: number;
+  readonly top: number;
+  readonly height: number;
+  readonly follow: boolean;
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly children: ReactNode;
+}
 
-  const firstPartIndex = displayList.measureBounds?.[0]?.partIndex;
-  const targetPart = partId ?? (firstPartIndex != null ? `p${firstPartIndex + 1}` : "p1");
-  const playheadPosition = engine.beatToCanvas(displayList, beat, targetPart);
-  if (!playheadPosition) return null;
+function ScorePlayheadMarker({ left, top, height, follow, className, style, children }: ScorePlayheadMarkerProps) {
+  const playheadRef = useRef<HTMLDivElement | null>(null);
 
-  const pageLayout = pageLayouts[playheadPosition.page];
-  const pagePosition = pagePositions[playheadPosition.page];
-  if (!pageLayout || !pagePosition) return null;
-
-  const localY = playheadPosition.y - pageLayout.yOffset;
-  const left = pagePosition.x + playheadPosition.x * zoom;
-  const top = pagePosition.y + localY * zoom;
-  const height = playheadPosition.height * zoom;
+  useEffect(() => {
+    const element = playheadRef.current;
+    const viewport = element?.parentElement?.parentElement;
+    if (!follow || !element || !viewport) return;
+    const cursor = element.getBoundingClientRect();
+    const visible = viewport.getBoundingClientRect();
+    if (cursor.left < visible.left || cursor.right > visible.right) {
+      viewport.scrollLeft += cursor.left - visible.left - visible.width / 3;
+    }
+    if (cursor.top < visible.top || cursor.bottom > visible.bottom) {
+      viewport.scrollTop += cursor.top - visible.top - visible.height / 2;
+    }
+  }, [follow, left, top]);
 
   return (
-    <div className={className} style={playheadContainerStyle(left, top, height, style)}>
+    <div
+      ref={playheadRef}
+      className={className}
+      style={playheadContainerStyle(left, top, height, { zIndex: 5, color: "#e34935", ...style })}
+      data-score-playhead="true"
+    >
+      {children}
+    </div>
+  );
+}
+
+function ScorePlayhead({ beat, position, partId, follow = false, render, className, style }: ScorePlayheadProps) {
+  const { engine, displayList, zoom, pageLayouts, pagePositions } = useScoreView();
+  const staves = useMemo(() => (displayList ? detectStaves(displayList) : []), [displayList]);
+  const geometry = resolveScorePlayheadGeometry({
+    engine,
+    displayList,
+    beat,
+    position,
+    partId,
+    zoom,
+    pageLayouts,
+    pagePositions,
+    staves,
+  });
+  if (!geometry) return null;
+
+  return (
+    <ScorePlayheadMarker
+      left={geometry.left}
+      top={geometry.top}
+      height={geometry.height}
+      follow={follow}
+      className={className}
+      style={style}
+    >
       {render ? (
-        render({ x: playheadPosition.x, y: localY, height: playheadPosition.height })
+        render({ x: geometry.sourceX, y: geometry.localY, height: geometry.sourceHeight })
       ) : (
         <div style={PLAYHEAD_BAR_STYLE} />
       )}
-    </div>
+    </ScorePlayheadMarker>
   );
 }
 
@@ -257,20 +486,20 @@ export function ScoreView({
   const marginRight = pageMargins?.right ?? defaultMargin;
   const marginBottom = pageMargins?.bottom ?? defaultMargin;
   const marginLeft = pageMargins?.left ?? defaultMargin;
+  const layoutPageWidth = viewMode === "horizon" ? 0 : pageWidth;
   const layoutOpts = useMemo(
-    () => ({
-      pageWidth,
-      spatium,
-      scoreIndex,
-      pageSetup:
-        pageWidth > 0
-          ? {
-              height: resolvedPageHeight,
-              margins: { top: marginTop, right: marginRight, bottom: marginBottom, left: marginLeft },
-            }
-          : undefined,
-    }),
-    [marginBottom, marginLeft, marginRight, marginTop, pageWidth, resolvedPageHeight, scoreIndex, spatium],
+    () =>
+      buildLayoutOptions({
+        pageWidth: layoutPageWidth,
+        resolvedPageHeight,
+        marginTop,
+        marginRight,
+        marginBottom,
+        marginLeft,
+        spatium,
+        scoreIndex,
+      }),
+    [layoutPageWidth, marginBottom, marginLeft, marginRight, marginTop, resolvedPageHeight, scoreIndex, spatium],
   );
   const engineOptions = useMemo(() => ({ assetBaseUrl }), [assetBaseUrl]);
   const { engine, displayList, error, loading } = useScoreEngine(mnx, layoutOpts, engineOptions);
@@ -280,8 +509,8 @@ export function ScoreView({
   });
 
   const pageLayouts = useMemo(
-    () => (displayList ? getPageLayouts(displayList, pageWidth > 0) : []),
-    [displayList, pageWidth],
+    () => (displayList ? getPageLayouts(displayList, usesPagedLayout(viewMode, pageWidth)) : []),
+    [displayList, pageWidth, viewMode],
   );
   const pageLayoutResult = useMemo(
     () =>
@@ -306,7 +535,7 @@ export function ScoreView({
   }, [error, onError]);
 
   useEffect(() => {
-    if (!engine || !displayList) return;
+    if (!engine || !displayList || viewMode === "horizon") return;
     const layouts = getPageLayouts(displayList, pageWidth > 0);
     layouts.forEach((pageLayout, pageIndex) => {
       const canvas = canvasRefs.current[pageIndex];
@@ -332,7 +561,7 @@ export function ScoreView({
       });
     });
     notifyPaint();
-  }, [engine, displayList, pageBackground, pageWidth, zoom]);
+  }, [engine, displayList, pageBackground, pageWidth, viewMode, zoom]);
 
   const setCanvasRef = useCallback(
     (pageIndex: number) => (element: HTMLCanvasElement | null) => {
@@ -341,25 +570,17 @@ export function ScoreView({
     [],
   );
 
-  if (error) {
-    return (
-      <div className={className} style={style}>
-        {errorFallback ? (
-          errorFallback(error)
-        ) : (
-          <div style={SCOREVIEW_ERROR_INNER_STYLE}>Score error: {error.message}</div>
-        )}
-      </div>
-    );
-  }
-
-  if (loading || !displayList) {
-    return (
-      <div className={className} style={style}>
-        {loadingFallback ?? <div style={SCOREVIEW_LOADING_INNER_STYLE}>Loading score...</div>}
-      </div>
-    );
-  }
+  const status = renderScoreStatus({
+    error,
+    loading,
+    displayList,
+    className,
+    style,
+    loadingFallback,
+    errorFallback,
+  });
+  if (status) return status;
+  assertDisplayList(displayList);
 
   const contextValue: ScoreViewContextValue = {
     engine,
@@ -368,6 +589,25 @@ export function ScoreView({
     pageLayouts,
     pagePositions: pageLayoutResult.positions,
   };
+
+  if (viewMode === "horizon") {
+    return (
+      <ScoreViewContext.Provider value={contextValue}>
+        <HorizonScoreSurface
+          displayList={displayList}
+          zoom={zoom}
+          className={className}
+          style={style}
+          pageBackground={pageBackground}
+          onPaint={() => {
+            if (engine) onPaint?.({ engine, displayList });
+          }}
+        >
+          {children}
+        </HorizonScoreSurface>
+      </ScoreViewContext.Provider>
+    );
+  }
 
   return (
     <ScoreViewContext.Provider value={contextValue}>
@@ -417,11 +657,19 @@ function computePageLayout({
   const pageWidthPx = pageWidth * zoom;
   const pageHeights = pageLayouts.map((pageLayout) => pageLayout.height * zoom);
   const positions =
-    viewMode === "horizontal"
-      ? computeHorizontalPositions(pageHeights, pageWidthPx, gap)
-      : viewMode === "spread" || viewMode === "spread-horizontal"
-        ? computeSpreadPositions(pageHeights, pageWidthPx, gap, spreadFirstPage, viewMode === "spread-horizontal")
-        : computePagePositions(pageHeights, pageWidthPx, gap, pagesPerRow);
+    viewMode === "horizon"
+      ? pageLayouts.map((pageLayout, pageIndex) => ({
+          page: pageIndex,
+          x: 0,
+          y: pageLayout.yOffset * zoom,
+          width: pageWidthPx,
+          height: pageLayout.height * zoom,
+        }))
+      : viewMode === "horizontal"
+        ? computeHorizontalPositions(pageHeights, pageWidthPx, gap)
+        : viewMode === "spread" || viewMode === "spread-horizontal"
+          ? computeSpreadPositions(pageHeights, pageWidthPx, gap, spreadFirstPage, viewMode === "spread-horizontal")
+          : computePagePositions(pageHeights, pageWidthPx, gap, pagesPerRow);
 
   return { positions, ...computeBounds(positions) };
 }

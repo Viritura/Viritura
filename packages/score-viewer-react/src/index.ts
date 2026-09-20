@@ -14,7 +14,9 @@ export type {
   ScoreViewerControlOptions,
   ScoreViewerControlsProps,
   ScoreViewerControlSurface,
+  ScoreViewerPageSizeOption,
   ScoreViewerScoreOption,
+  ScoreViewerStaffSizeOption,
 } from "./ScoreViewerControls";
 export { useScoreEngine } from "./useScoreEngine";
 export type { UseScoreEngineResult } from "./useScoreEngine";

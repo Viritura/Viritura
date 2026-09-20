@@ -753,6 +753,9 @@ importers:
 
   packages/score-viewer-react:
     dependencies:
+      '@viritura/renderer':
+        specifier: workspace:*
+        version: link:../renderer
       '@viritura/score-engine':
         specifier: workspace:*
         version: link:../score-engine

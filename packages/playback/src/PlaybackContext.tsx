@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { dispatchPlayback, setPlaybackActions } from "./usePlayback";
 import {
   computePartSignature,
+  DEFAULT_VOLUME,
   SCORE_CHANGE_DEBOUNCE_MS,
   type PartPatchInfo,
   type PlaybackActions,
@@ -79,6 +80,7 @@ import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadRe
 import { resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 import type { SoundfontLoader } from "./soundfont";
 import { useSoundfontBuffer } from "./useSoundfontBuffer";
+import { applyMasterVolume } from "./masterVolume";
 
 // ═══════════════════════════════════════════
 // Provider
@@ -193,6 +195,8 @@ export function PlaybackProvider({
   const reverbEngineRef = useRef<ReverbEngine | null>(null);
   /** Master output node — EQ + limiter before ctx.destination. */
   const masterOutRef = useRef<GainNode | null>(null);
+  /** Master volume retained before the Web Audio graph is initialized. */
+  const masterVolumeRef = useRef(DEFAULT_VOLUME);
   /** Air EQ high-shelf filter on master bus. */
   const airEQRef = useRef<BiquadFilterNode | null>(null);
   /** Limiter/compressor on master bus. */
@@ -280,7 +284,7 @@ export function PlaybackProvider({
     if (!masterOutRef.current || !masterOutRef.current.context || masterOutRef.current.context.state === "closed") {
       const ctx = audioCtxRef.current;
       const masterOut = ctx.createGain();
-      masterOut.gain.value = 1.0;
+      masterOut.gain.value = masterVolumeRef.current;
 
       // Air EQ: gentle high-shelf boost to add presence/shimmer to GM instruments
       const airEQ = ctx.createBiquadFilter();
@@ -326,7 +330,10 @@ export function PlaybackProvider({
       if (wet !== undefined) reverb.setWetLevel(wet);
     }
     if (!metronomeRef.current) {
-      metronomeRef.current = new Metronome({ audioContext: audioCtxRef.current });
+      metronomeRef.current = new Metronome({
+        audioContext: audioCtxRef.current,
+        destination: masterOutRef.current!,
+      });
       metronomeRef.current.setEnabled(false); // off by default
     }
     if (!engineRef.current || !engineRef.current.getTimeline) {
@@ -710,7 +717,9 @@ export function PlaybackProvider({
   }, []);
 
   const setVolume = useCallback((volume: number) => {
-    dispatchPlayback({ type: "SET_VOLUME", volume });
+    const clamped = applyMasterVolume(masterOutRef.current, volume);
+    masterVolumeRef.current = clamped;
+    dispatchPlayback({ type: "SET_VOLUME", volume: clamped });
   }, []);
 
   const toggleMetronome = useCallback(() => {

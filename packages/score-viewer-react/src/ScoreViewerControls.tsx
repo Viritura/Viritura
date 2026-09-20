@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { BookOpen, Columns3, FileText, Maximize2, Minus, Plus, Rows3, Scan } from "lucide-react";
+import { BookOpen, Columns3, FileText, Maximize2, Minus, MoveRight, Plus, Rows3, Scan } from "lucide-react";
 import { Slider } from "@viritura/ui";
 import type { ScoreViewMode } from "./ScoreView";
 
@@ -48,17 +48,38 @@ export interface ScoreViewerScoreOption {
   readonly label: string;
 }
 
+export interface ScoreViewerPageSizeOption {
+  readonly id: string;
+  readonly label: string;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface ScoreViewerStaffSizeOption {
+  readonly label: string;
+  readonly spatium: number;
+}
+
 export interface ScoreViewerControlOptions {
   readonly score?: boolean;
   readonly viewMode?: boolean;
   readonly zoom?: boolean;
   readonly fit?: boolean;
+  readonly pageSize?: boolean;
+  readonly staffSize?: boolean;
 }
 
 export interface ScoreViewerControlsProps {
   readonly scoreIndex?: number;
   readonly onScoreIndexChange?: (scoreIndex: number) => void;
   readonly scoreOptions?: readonly ScoreViewerScoreOption[];
+  readonly pageSizeId?: string;
+  readonly onPageSizeChange?: (pageSizeId: string) => void;
+  readonly pageSizeOptions?: readonly ScoreViewerPageSizeOption[];
+  readonly staffSize?: number;
+  readonly onStaffSizeChange?: (spatium: number) => void;
+  readonly staffSizeOptions?: readonly ScoreViewerStaffSizeOption[];
+  readonly showLayoutSettings?: boolean;
   readonly viewMode: ScoreViewMode;
   readonly onViewModeChange: (viewMode: ScoreViewMode) => void;
   readonly availableViewModes?: readonly ScoreViewMode[];
@@ -75,25 +96,77 @@ export interface ScoreViewerControlsProps {
   readonly style?: CSSProperties;
 }
 
-const defaultViewModes: readonly ScoreViewMode[] = ["page", "horizontal", "spread", "spread-horizontal"];
+const defaultViewModes: readonly ScoreViewMode[] = ["page", "horizontal", "spread", "spread-horizontal", "horizon"];
 
 const controlLabels: Record<ScoreViewMode, string> = {
   page: "Single page",
   horizontal: "Horizontal pages",
   spread: "Page spread",
   "spread-horizontal": "Horizontal spreads",
+  horizon: "Horizon",
 };
 
 function normalizeControls(
   controls: boolean | ScoreViewerControlOptions | undefined,
 ): Required<ScoreViewerControlOptions> {
-  if (controls === false) return { score: false, viewMode: false, zoom: false, fit: false };
+  if (controls === false) {
+    return { score: false, viewMode: false, zoom: false, fit: false, pageSize: false, staffSize: false };
+  }
   return {
     score: controls === true || controls == null ? true : (controls.score ?? true),
     viewMode: controls === true || controls == null ? true : (controls.viewMode ?? true),
     zoom: controls === true || controls == null ? true : (controls.zoom ?? true),
     fit: controls === true || controls == null ? true : (controls.fit ?? true),
+    pageSize: controls === true || controls == null ? false : (controls.pageSize ?? false),
+    staffSize: controls === true || controls == null ? false : (controls.staffSize ?? false),
   };
+}
+
+function resolveControlVisibility(args: {
+  readonly visibleControls: Required<ScoreViewerControlOptions>;
+  readonly scoreOptions: readonly ScoreViewerScoreOption[];
+  readonly onScoreIndexChange?: (scoreIndex: number) => void;
+  readonly showLayoutSettings: boolean;
+  readonly pageSizeId?: string;
+  readonly onPageSizeChange?: (pageSizeId: string) => void;
+  readonly pageSizeOptions: readonly ScoreViewerPageSizeOption[];
+  readonly staffSize?: number;
+  readonly onStaffSizeChange?: (spatium: number) => void;
+  readonly staffSizeOptions: readonly ScoreViewerStaffSizeOption[];
+}) {
+  const {
+    visibleControls,
+    scoreOptions,
+    onScoreIndexChange,
+    showLayoutSettings,
+    pageSizeId,
+    onPageSizeChange,
+    pageSizeOptions,
+    staffSize,
+    onStaffSizeChange,
+    staffSizeOptions,
+  } = args;
+  const showScoreSelector = Boolean(visibleControls.score && scoreOptions.length > 1 && onScoreIndexChange);
+  const showPageSize = Boolean(
+    showLayoutSettings && visibleControls.pageSize && pageSizeId && onPageSizeChange && pageSizeOptions.length > 0,
+  );
+  const showStaffSize = Boolean(
+    showLayoutSettings &&
+    visibleControls.staffSize &&
+    staffSize != null &&
+    onStaffSizeChange &&
+    staffSizeOptions.length > 0,
+  );
+  return { showScoreSelector, showPageSize, showStaffSize, showLayoutSelectors: showPageSize || showStaffSize };
+}
+
+function hasVisibleControls(
+  visibility: ReturnType<typeof resolveControlVisibility>,
+  controls: Required<ScoreViewerControlOptions>,
+): boolean {
+  return (
+    visibility.showScoreSelector || visibility.showLayoutSelectors || controls.viewMode || controls.zoom || controls.fit
+  );
 }
 
 function ViewModeIcon({ viewMode }: { readonly viewMode: ScoreViewMode }) {
@@ -101,6 +174,7 @@ function ViewModeIcon({ viewMode }: { readonly viewMode: ScoreViewMode }) {
   if (viewMode === "horizontal") return <Rows3 size={size} />;
   if (viewMode === "spread") return <BookOpen size={size} />;
   if (viewMode === "spread-horizontal") return <Columns3 size={size} />;
+  if (viewMode === "horizon") return <MoveRight size={size} />;
   return <FileText size={size} />;
 }
 
@@ -132,6 +206,13 @@ export function ScoreViewerControls({
   scoreIndex = 0,
   onScoreIndexChange,
   scoreOptions = [],
+  pageSizeId,
+  onPageSizeChange,
+  pageSizeOptions = [],
+  staffSize,
+  onStaffSizeChange,
+  staffSizeOptions = [],
+  showLayoutSettings = true,
   viewMode,
   onViewModeChange,
   availableViewModes = defaultViewModes,
@@ -150,10 +231,20 @@ export function ScoreViewerControls({
   if (surface === "none") return null;
 
   const visibleControls = normalizeControls(controls);
-  const showScoreSelector = Boolean(visibleControls.score && scoreOptions.length > 1 && onScoreIndexChange);
-  if (!showScoreSelector && !visibleControls.viewMode && !visibleControls.zoom && !visibleControls.fit) {
+  const { showScoreSelector, showPageSize, showStaffSize, showLayoutSelectors } = resolveControlVisibility({
+    visibleControls,
+    scoreOptions,
+    onScoreIndexChange,
+    showLayoutSettings,
+    pageSizeId,
+    onPageSizeChange,
+    pageSizeOptions,
+    staffSize,
+    onStaffSizeChange,
+    staffSizeOptions,
+  });
+  if (!hasVisibleControls({ showScoreSelector, showPageSize, showStaffSize, showLayoutSelectors }, visibleControls))
     return null;
-  }
 
   const isFloating = surface === "floating-status";
   const controlStyle = buildControlStyle(isFloating, style);
@@ -167,7 +258,23 @@ export function ScoreViewerControls({
         onScoreIndexChange={onScoreIndexChange}
       />
       <SectionDivider
-        show={showScoreSelector && (visibleControls.viewMode || visibleControls.zoom || visibleControls.fit)}
+        show={
+          showScoreSelector &&
+          (showLayoutSelectors || visibleControls.viewMode || visibleControls.zoom || visibleControls.fit)
+        }
+      />
+      <LayoutSelectors
+        showPageSize={showPageSize}
+        pageSizeId={pageSizeId}
+        onPageSizeChange={onPageSizeChange}
+        pageSizeOptions={pageSizeOptions}
+        showStaffSize={showStaffSize}
+        staffSize={staffSize}
+        onStaffSizeChange={onStaffSizeChange}
+        staffSizeOptions={staffSizeOptions}
+      />
+      <SectionDivider
+        show={showLayoutSelectors && (visibleControls.viewMode || visibleControls.zoom || visibleControls.fit)}
       />
       <ViewModeSwitcher
         show={visibleControls.viewMode}
@@ -185,6 +292,64 @@ export function ScoreViewerControls({
         zoomStep={zoomStep}
       />
       <FitControl show={visibleControls.fit} fitMode={fitMode} onFitModeChange={onFitModeChange} />
+    </div>
+  );
+}
+
+interface LayoutSelectorsProps {
+  readonly showPageSize: boolean;
+  readonly pageSizeId?: string;
+  readonly onPageSizeChange?: (pageSizeId: string) => void;
+  readonly pageSizeOptions: readonly ScoreViewerPageSizeOption[];
+  readonly showStaffSize: boolean;
+  readonly staffSize?: number;
+  readonly onStaffSizeChange?: (spatium: number) => void;
+  readonly staffSizeOptions: readonly ScoreViewerStaffSizeOption[];
+}
+
+function LayoutSelectors({
+  showPageSize,
+  pageSizeId,
+  onPageSizeChange,
+  pageSizeOptions,
+  showStaffSize,
+  staffSize,
+  onStaffSizeChange,
+  staffSizeOptions,
+}: LayoutSelectorsProps) {
+  if (!showPageSize && !showStaffSize) return null;
+  return (
+    <div style={INLINE_ROW_CENTERED_STYLE}>
+      {showPageSize && onPageSizeChange && (
+        <select
+          value={pageSizeId}
+          aria-label="Page size"
+          title="Page size"
+          onChange={(event) => onPageSizeChange(event.currentTarget.value)}
+          style={SCORE_SELECT_STYLE}
+        >
+          {pageSizeOptions.map((option) => (
+            <option key={option.id} value={option.id} style={SCORE_OPTION_STYLE}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {showStaffSize && onStaffSizeChange && (
+        <select
+          value={staffSize}
+          aria-label="Staff size"
+          title="Staff size"
+          onChange={(event) => onStaffSizeChange(Number(event.currentTarget.value))}
+          style={SCORE_SELECT_STYLE}
+        >
+          {staffSizeOptions.map((option) => (
+            <option key={option.spatium} value={option.spatium} style={SCORE_OPTION_STYLE}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }
