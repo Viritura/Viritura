@@ -26,7 +26,7 @@ export const Basic: StoryObj = {
     ]);
     return <ScorePreview mnxJson={mnx} />;
   },
-  name: "Alternating down-bow and up-bow marks",
+  name: "Up-bow and down-bow marks",
 };
 
 /** Explicit `orient: "below"` forces the glyph below the staff. */

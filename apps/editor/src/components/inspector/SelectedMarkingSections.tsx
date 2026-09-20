@@ -2,6 +2,7 @@ import type {
   ArpeggioMarkKind,
   BreathMark,
   BreathMarkSymbol,
+  BowDirection,
   Fingering,
   NonArpeggio,
   OrnamentType,
@@ -30,6 +31,10 @@ const ORIENTATION_OPTIONS = [
   { value: "", label: "Auto" },
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
+];
+const BOW_DIRECTION_OPTIONS = [
+  { value: "down", label: "Down-bow" },
+  { value: "up", label: "Up-bow" },
 ];
 const FINGERING_OPTIONS = Array.from({ length: 6 }, (_, finger) => ({ value: String(finger), label: String(finger) }));
 const ORNAMENT_OPTIONS = [
@@ -86,6 +91,38 @@ function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: Brea
         <Select
           aria-label="Breath placement"
           value={breath.orient ?? ""}
+          options={ORIENTATION_OPTIONS}
+          onValueChange={(value) => onOrientationChange((value || undefined) as Orientation | undefined)}
+        />
+      </label>
+    </fieldset>
+  );
+}
+
+interface BowDirectionSectionProps {
+  bowDirection: BowDirection;
+  onDirectionChange: (direction: BowDirection["direction"]) => void;
+  onOrientationChange: (orient: Orientation | undefined) => void;
+}
+
+function BowDirectionSection({ bowDirection, onDirectionChange, onOrientationChange }: BowDirectionSectionProps) {
+  return (
+    <fieldset style={sectionStyle}>
+      <legend style={legendStyle}>Bow Direction</legend>
+      <label style={labelStyle}>
+        Direction
+        <Select
+          aria-label="Bow direction"
+          value={bowDirection.direction}
+          options={BOW_DIRECTION_OPTIONS}
+          onValueChange={(value) => onDirectionChange(value as BowDirection["direction"])}
+        />
+      </label>
+      <label style={labelStyle}>
+        Placement
+        <Select
+          aria-label="Bow direction placement"
+          value={bowDirection.orient ?? ""}
           options={ORIENTATION_OPTIONS}
           onValueChange={(value) => onOrientationChange((value || undefined) as Orientation | undefined)}
         />
@@ -329,6 +366,13 @@ export function SelectedMarkingInspectors({
           breath={marking.selectedBreath}
           onSymbolChange={marking.setBreathSymbol}
           onOrientationChange={marking.setBreathOrientation}
+        />
+      )}
+      {marking.selectedBowDirection && (
+        <BowDirectionSection
+          bowDirection={marking.selectedBowDirection}
+          onDirectionChange={marking.setBowDirection}
+          onOrientationChange={marking.setBowDirectionOrientation}
         />
       )}
       {marking.selectedFingering && (

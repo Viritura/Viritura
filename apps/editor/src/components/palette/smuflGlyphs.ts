@@ -13,6 +13,9 @@ export const SMUFL = {
   articMarcatoAbove: String.fromCodePoint(0xe4ac),
   articStressAbove: String.fromCodePoint(0xe4b6),
   articUnstressAbove: String.fromCodePoint(0xe4b8),
+  // Bow directions
+  stringsDownBow: String.fromCodePoint(0xe610),
+  stringsUpBow: String.fromCodePoint(0xe612),
   // Breath & pauses
   breathMarkComma: String.fromCodePoint(0xe4ce),
   breathMarkTick: String.fromCodePoint(0xe4cf),

@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import type {
   ArpeggioMarkKind,
   BreathMarkSymbol,
+  BowDirection,
   Fingering,
   NonArpeggio,
   NoteEvent,
@@ -97,6 +98,21 @@ function resolveSelectedArpeggio(
   return nonArpeggio ? { kind: "nonArpeggio", value: nonArpeggio } : null;
 }
 
+function bowDirectionAtSelectedMarking(
+  target: NotationSelectionTarget | null,
+  selectedElementType: SelectableElementType | null,
+  selectedEvent: NoteEvent | null,
+): BowDirection | null {
+  return selectedElementType === "articulation" && target?.elementId.endsWith("/art-bowDirection")
+    ? (selectedEvent?.markings?.bowDirection ?? null)
+    : null;
+}
+
+function mutateBowDirection(event: NoteEvent, mutate: (bowDirection: BowDirection) => void): void {
+  const bowDirection = event.markings?.bowDirection;
+  if (bowDirection) mutate(bowDirection);
+}
+
 export function useSelectedMarking({
   score,
   target,
@@ -108,6 +124,7 @@ export function useSelectedMarking({
   const pedalIndex = pedalIndexFor(target, selectedElementType);
 
   const selectedBreath = selectedEvent?.markings?.breath ?? null;
+  const selectedBowDirection = bowDirectionAtSelectedMarking(target, selectedElementType, selectedEvent);
   const selectedFingering = selectedEvent?.markings?.fingerings?.[fingeringIndex] ?? null;
   const selectedOrnaments = selectedEvent?.markings?.ornaments ?? null;
   const selectedPedal =
@@ -195,6 +212,7 @@ export function useSelectedMarking({
 
   return {
     selectedBreath: selectedElementType === "breath" ? selectedBreath : null,
+    selectedBowDirection,
     selectedFingering: selectedElementType === "fingering" ? selectedFingering : null,
     selectedOrnaments: selectedElementType === "ornament" ? selectedOrnaments : null,
     selectedArpeggio,
@@ -206,6 +224,18 @@ export function useSelectedMarking({
     setBreathOrientation: (orient: Orientation | undefined) =>
       mutateEvent((event) => {
         if (event.markings?.breath) event.markings.breath.orient = orient;
+      }),
+    setBowDirection: (direction: BowDirection["direction"]) =>
+      mutateEvent((event) => {
+        mutateBowDirection(event, (bowDirection) => {
+          bowDirection.direction = direction;
+        });
+      }),
+    setBowDirectionOrientation: (orient: Orientation | undefined) =>
+      mutateEvent((event) => {
+        mutateBowDirection(event, (bowDirection) => {
+          bowDirection.orient = orient;
+        });
       }),
     setFingeringValue: (finger: Fingering["finger"]) =>
       mutateEvent((event) => {
