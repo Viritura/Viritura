@@ -33,4 +33,14 @@ describe("applyMasterVolume", () => {
   it("retains the clamped value before an output exists", () => {
     expect(applyMasterVolume(null, 0.4)).toBe(0.4);
   });
+
+  it("supports minimal Web Audio test doubles", () => {
+    const output = {
+      context: { currentTime: 0 },
+      gain: { value: 1 },
+    } as unknown as GainNode;
+
+    expect(applyMasterVolume(output, 0.25)).toBe(0.25);
+    expect(output.gain.value).toBe(0.25);
+  });
 });
