@@ -1,6 +1,7 @@
 import {
   formatChordSymbolText,
   parseChordSymbolText,
+  rewriteChordSymbolBase,
   transposeChordSymbol,
   type ChordQuality,
   type ChordSymbol,
@@ -77,6 +78,12 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
     commit(next);
   }
 
+  function setBase(base: Partial<Pick<ChordSymbol, "quality" | "extension">>) {
+    if (!chord) return;
+    const next = rewriteChordSymbolBase(chord, base);
+    if (next !== chord) commit(next);
+  }
+
   return {
     chord,
     canonicalId,
@@ -97,20 +104,12 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
       mutateChord((selected) => {
         if (selected.root) selected.root.alter = alter;
       }),
-    setQuality: (quality: ChordQuality) =>
-      mutateChord((selected) => {
-        selected.quality = quality;
-        if (quality !== "other") selected.kindText = undefined;
-      }),
+    setQuality: (quality: ChordQuality) => setBase({ quality }),
     setKindText: (kindText: string) =>
       mutateChord((selected) => {
         selected.kindText = kindText.trim() === "" ? undefined : kindText;
       }),
-    setExtension: (extension: ChordSymbol["extension"]) =>
-      mutateChord((selected) => {
-        selected.extension = extension;
-        if (selected.quality !== "other") selected.kindText = undefined;
-      }),
+    setExtension: (extension: ChordSymbol["extension"]) => setBase({ extension }),
     setBassStep: (step: string | undefined) =>
       mutateChord((selected) => {
         selected.bass = step

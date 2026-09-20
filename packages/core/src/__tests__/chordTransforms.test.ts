@@ -538,7 +538,7 @@ describe("mergeGlobalChordSymbols", () => {
     });
   });
 
-  it.each(["Cadd9", "H7", ""])("coalesces equal unsupported display text %j without legitimizing it", (text) => {
+  it.each(["Cadd#9", "H7", ""])("coalesces equal unsupported display text %j without legitimizing it", (text) => {
     const winner = freeze(chord(text));
     const other = freeze(chord(text, position(0, 4)));
     expect(resolveChordSymbol(winner).status).toBe("unsupported");

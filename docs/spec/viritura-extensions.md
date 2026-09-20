@@ -684,7 +684,7 @@ it, without changing stored harmony.
 | `root`         | [ChordRoot](#chord-root)               | No       | Structured concert root; parser requires `root` or `rawText`   |
 | `rawText`      | string                                 | No       | Preserved authored text, including unsupported symbols and NC  |
 | `quality`      | [ChordQuality](#chord-quality)         | No       | Omitted quality on a structured root means major               |
-| `kindText`     | string                                 | No       | Authored quality spelling, checked against structured harmony  |
+| `kindText`     | string                                 | No       | Authored suffix, including supported `add`/`no`/`omit` degrees |
 | `bass`         | [ChordRoot](#chord-root)               | No       | Concert slash bass note                                        |
 | `extension`    | `6` \| `7` \| `9` \| `11` \| `13`      | No       | Chord extension                                                |
 | `textOverride` | string                                 | No       | Display override, not a replacement for the underlying harmony |
@@ -701,6 +701,14 @@ It checks agreement among structured fields, `rawText`, `kindText`, and
 not silently played as a major chord. Unsupported text remains authored data.
 `NC` and `N.C.` resolve to intentional silence when not contradicted by other
 fields.
+
+For degree modifiers, `quality` and `extension` retain the base harmony and
+`kindText` retains the complete suffix. For example, `Cadd79omit5/E` stores
+major quality, no extension, `kindText: "add79omit5"`, and bass E. The resolver
+adds only the named degrees (added seventh is minor), then removes named
+omissions; `add9` and `add13` do not imply lower extensions. `Cadd6` normalizes
+to major quality with extension 6. No additional schema fields are needed.
+Both base and modified harmony must agree across structured and text descriptions.
 
 Semantic accidentals use Bravura SMuFL glyphs; literal display overrides remain
 text. Unsupported symbols receive an editor-only red warning and the message
@@ -763,7 +771,8 @@ unmuted and uses the GM program 0 SoundFont piano on web and native playback.
 
 `voiceChordSymbol` uses a fixed-register voicing: one root/slash bass at MIDI
 36–47, and every semantic chord tone at MIDI 60–71, sorted and deduplicated.
-The right hand includes the root and excludes a non-chord slash bass. This is
+The right hand includes the root unless explicitly omitted by degree 1 and
+excludes a non-chord slash bass. This is
 not voice-leading or an adaptive arrangement.
 
 Click/commit auditions use the same voicing for 400 ms while transport is not

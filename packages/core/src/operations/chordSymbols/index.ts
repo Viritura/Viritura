@@ -1,4 +1,4 @@
-export { parseChordSymbolText, formatChordSymbolText } from "./text";
+export { parseChordSymbolText, formatChordSymbolText, rewriteChordSymbolBase } from "./text";
 export {
   CHORDS_PART_ID,
   UNSUPPORTED_CHORD_MESSAGE,

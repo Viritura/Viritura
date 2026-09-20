@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ChordQuality, ChordRoot, ChordSymbol, Part } from "@viritura/core";
+import { parseChordSymbolText } from "@viritura/core";
 import { assertRawScore, type RawScore } from "@viritura/format";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx, buildSingleMeasure } from "../../storyFixtures/buildMnx";
@@ -35,7 +36,7 @@ const meta: Meta = {
     },
     extension: {
       control: "select",
-      options: [undefined, 7, 9, 11, 13],
+      options: [undefined, 6, 7, 9, 11, 13],
       description: "Chord extension (7th, 9th, etc.)",
     },
   },
@@ -136,6 +137,44 @@ export const AllQualities: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "All ten chord qualities",
+};
+
+export const AddedAndOmittedDegrees: StoryObj = {
+  name: "Added and omitted degrees — central text grammar",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "All symbols use the central chord-entry parser. Cadd6 displays as C6; Csus47 as C7sus4. " +
+          "Cadd9 and Cadd13 add only the named degree, without an implied seventh. " +
+          "The three add7/add9/omit5 slash spellings describe the same harmony and normalize to " +
+          "Cadd7add9omit5/E. Parentheses and commas preserve authored provenance, not a display override.",
+      },
+    },
+  },
+  render: () => {
+    const symbols = [
+      "Cadd6",
+      "Csus47",
+      "Cadd9",
+      "Cadd13",
+      "Cmaj7add9",
+      "Cadd79omit5/E",
+      "C(add7,9,no5)/E",
+      "Cadd(7,9)omit5/E",
+      "C7(add9,omit5)",
+      "Cadd791113",
+    ];
+    const mnx = buildMnx({
+      measures: symbols.map((text, index) => ({
+        ...(index === 0 ? { time: { count: 4, unit: 4 } } : {}),
+        voices: [[{ duration: "whole", notes: [{ step: "C", octave: 4 }] }]],
+        virituraGlobal: { chordSymbols: [parseChordSymbolText(text, { fraction: [0, 1] })] },
+      })),
+    });
+    assertRawScore(JSON.parse(mnx));
+    return <ScorePreview mnxJson={mnx} />;
+  },
 };
 
 const GLOBAL_PROGRESSION: ChordSymbol[] = [

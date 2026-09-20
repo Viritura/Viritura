@@ -322,7 +322,7 @@ export interface ChordSymbol {
   /** Original authored text, preserved verbatim and checked against structured fields by the semantic resolver. */
   rawText?: string;
   quality?: ChordQuality;
-  /** Authored quality spelling retained alongside the normalized quality. */
+  /** Authored suffix, including add/no/omit degrees; quality/extension describe its base harmony. */
   kindText?: string;
   bass?: ChordRoot;
   extension?: 6 | 7 | 9 | 11 | 13;

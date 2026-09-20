@@ -22,6 +22,144 @@ fn text_runs(chord: &ChordSymbol) -> String {
 }
 
 #[test]
+fn modifier_chords_use_canonical_semantic_runs() {
+    for (raw, expected) in [
+        ("Cadd79omit5/E", "Cadd7add9omit5/E"),
+        ("C(add7,9,no5)", "Cadd7add9omit5"),
+        ("Cadd(7,9)omit5", "Cadd7add9omit5"),
+        ("C7(add9,omit5)", "C7add9omit5"),
+        ("Cadd791113", "Cadd7add9add11add13"),
+        ("Cadd6", "C6"),
+        ("Csus47", "C7sus4"),
+        ("Cno1", "Comit1"),
+    ] {
+        let symbol = chord(json!({"rawText": raw}));
+        assert_eq!(text_runs(&symbol), expected, "{raw}");
+        assert_eq!(symbol.raw_text.as_deref(), Some(raw));
+    }
+}
+
+#[test]
+fn modified_structured_chords_preserve_storage_and_style() {
+    let fields = json!({
+        "root": {"step": "C"}, "quality": "major", "extension": 7,
+        "rawText": " Cmaj7(add9,no5)/E ", "kindText": "maj7(add9,no5)",
+        "bass": {"step": "E"}
+    });
+    let symbol = chord(fields.clone());
+    let original = symbol.clone();
+    let written = chord_symbol_for_display(&symbol, Some((1, 2)));
+    assert_eq!(text_runs(&written), "D7add9omit5/F");
+    let commands = rendered_chord_commands(fields);
+    assert!(commands.iter().any(|command| matches!(command,
+        RenderCommand::DrawGlyph { codepoint, font, .. }
+        if *codepoint == smufl::CHORD_MAJOR_SEVENTH && font == "Bravura")));
+    for number in ["7", "9", "5"] {
+        assert!(commands.iter().any(|command| matches!(command,
+            RenderCommand::DrawText { text, size, .. }
+            if text == number && *size < CHORD_FONT_SIZE_SP * LayoutConfig::default().sp)));
+    }
+    for number in ["7", "9", "5"] {
+        let (runs, _, _) = chord_symbol_runs(&symbol, Default::default(), 10.0);
+        assert!(runs.iter().any(|run| matches!(run,
+            ChordRun::Text { text, baseline_offset, .. }
+            if text == number && *baseline_offset < 0.0)));
+    }
+    let baseline_style = ChordSymbolStyle {
+        major_seventh: MajorSeventhStyle::Maj,
+        extensions: ChordExtensionPosition::Baseline,
+        ..Default::default()
+    };
+    let (runs, _, _) = chord_symbol_runs(&symbol, baseline_style, 10.0);
+    assert!(
+        matches!(&runs[..], [ChordRun::Text { text, baseline_offset, size, .. }]
+        if text == "Cmaj7add9omit5/E" && *baseline_offset == 0.0 && *size == 24.0)
+    );
+    let (runs, _, _) = chord_symbol_runs(&written, Default::default(), 10.0);
+    assert!(runs
+        .iter()
+        .any(|run| matches!(run, ChordRun::Glyph { codepoint, .. }
+        if Some(*codepoint) == smufl::chord_accidental_glyph(1))));
+    assert_eq!(symbol, original);
+}
+
+#[test]
+fn raw_only_modified_slash_harmony_transposes_semantically() {
+    let symbol = chord(json!({"rawText": "  C(add7,9,no5)/E  "}));
+    let original = symbol.clone();
+    let written = chord_symbol_for_display(&symbol, Some((1, 2)));
+    assert_eq!(written.raw_text.as_deref(), Some("  D(add7,9,no5)/F#  "));
+    assert_eq!(text_runs(&written), "Dadd7add9omit5/F");
+    assert_eq!(symbol, original);
+    assert!(written.root.is_none());
+}
+
+#[test]
+fn malformed_modifiers_and_inconsistent_bases_remain_literal() {
+    for raw in [
+        "Cadd",
+        "Cno",
+        "Cadd1",
+        "Cadd3",
+        "Cadd5",
+        "Cadd8",
+        "Comit8",
+        "Cadd(7,9",
+        "Cadd7)",
+        "C((add9))",
+        "Cadd()",
+        "C(add9,)",
+        "C(add9,,no5)",
+        "C,add9",
+        "Cadd,9",
+        "Cadd9,",
+        "C7(9)",
+        "C79",
+        "C7b9",
+        "Cadd9unknown",
+        "C(add9)()",
+        "Cadd(no5)",
+    ] {
+        let symbol = chord(json!({"rawText": raw}));
+        assert!(
+            display_interpretation::semantic_display(&symbol).is_none(),
+            "{raw}"
+        );
+        assert_eq!(text_runs(&symbol), raw);
+    }
+    for fields in [
+        json!({"root": {"step": "C"}, "quality": "other", "kindText": "add9", "rawText": "Cadd9"}),
+        json!({"root": {"step": "C"}, "quality": "minor", "kindText": "add9", "rawText": "Cadd9"}),
+        json!({"root": {"step": "C"}, "quality": "major", "kindText": "7omit7", "rawText": "C"}),
+        json!({"root": {"step": "C"}, "quality": "major", "kindText": "add9", "rawText": "Cadd13"}),
+    ] {
+        let symbol = chord(fields);
+        assert!(display_interpretation::semantic_display(&symbol).is_none());
+        assert_eq!(text_runs(&symbol), symbol.raw_text.unwrap());
+    }
+}
+
+#[test]
+fn modified_kind_text_checks_final_harmony_not_just_base() {
+    for (quality, extension, kind, raw) in [
+        ("major", None, "add79omit5", "C(add7,9,no5)/E"),
+        ("major", Some(7), "maj7add9", "CM7add9/E"),
+        ("major", None, "add7", "C7/E"),
+        ("diminished", Some(7), "dim7omit7", "Cdim/E"),
+        ("augmented", None, "augomit5", "Cadd7omit5omit7/E"),
+    ] {
+        let symbol = chord(json!({
+            "root": {"step": "C"}, "quality": quality, "extension": extension,
+            "kindText": kind, "rawText": raw, "bass": {"step": "E"}
+        }));
+        assert!(
+            display_interpretation::semantic_display(&symbol).is_some(),
+            "{kind}: {raw}"
+        );
+    }
+}
+
+#[test]
 fn raw_text_provenance_does_not_override_house_style() {
     let symbol = chord(json!({
         "root": {"step": "C"}, "quality": "major", "extension": 7,

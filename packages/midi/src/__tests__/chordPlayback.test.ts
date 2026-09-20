@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CHORDS_PART_ID,
+  parseChordSymbolText,
   voiceChordSymbol,
   type ChordSymbol,
   type GlobalMeasure,
@@ -97,6 +98,68 @@ function expectSpans(score: Score, spans: ChordSpan[], options?: TimelineOptions
 }
 
 describe("derived global chord playback", () => {
+  const modifierPitches: { text: string; notes: number[] }[] = [
+    { text: "Cadd6", notes: [36, 60, 64, 67, 69] },
+    { text: "C6", notes: [36, 60, 64, 67, 69] },
+    { text: "Csus47", notes: [36, 60, 65, 67, 70] },
+    { text: "C7sus4", notes: [36, 60, 65, 67, 70] },
+    { text: "Cadd79omit5/E", notes: [40, 60, 62, 64, 70] },
+    { text: "C(add7,9,no5)/E", notes: [40, 60, 62, 64, 70] },
+    { text: "Cadd(7,9)omit5/E", notes: [40, 60, 62, 64, 70] },
+    { text: "C7(add9,omit5)", notes: [36, 60, 62, 64, 70] },
+    { text: "Cmaj7add9", notes: [36, 60, 62, 64, 67, 71] },
+    { text: "Cadd791113", notes: [36, 60, 62, 64, 65, 67, 69, 70] },
+    { text: "Cno(3,5)", notes: [36, 60] },
+    { text: "Comit(3,5)", notes: [36, 60] },
+    { text: "Cadd2", notes: [36, 60, 62, 64, 67] },
+    { text: "Cadd4", notes: [36, 60, 64, 65, 67] },
+    { text: "Cadd7", notes: [36, 60, 64, 67, 70] },
+    { text: "Cmajadd7", notes: [36, 60, 64, 67, 70] },
+    { text: "Cmadd7", notes: [36, 60, 63, 67, 70] },
+    { text: "Cdimadd7", notes: [36, 60, 63, 66, 70] },
+    { text: "Cadd9", notes: [36, 60, 62, 64, 67] },
+    { text: "Cadd11", notes: [36, 60, 64, 65, 67] },
+    { text: "Cadd13", notes: [36, 60, 64, 67, 69] },
+    ...["no", "omit"].flatMap((modifier) => [
+      { text: `C${modifier}1`, notes: [36, 64, 67] },
+      { text: `Csus2${modifier}2`, notes: [36, 60, 67] },
+      { text: `C${modifier}3`, notes: [36, 60, 67] },
+      { text: `Csus4${modifier}4`, notes: [36, 60, 67] },
+      { text: `C${modifier}5`, notes: [36, 60, 64] },
+      { text: `C6${modifier}6`, notes: [36, 60, 64, 67] },
+      { text: `C7${modifier}7`, notes: [36, 60, 64, 67] },
+      { text: `C9${modifier}9`, notes: [36, 60, 64, 67, 70] },
+      { text: `C11${modifier}11`, notes: [36, 60, 62, 64, 67, 70] },
+      { text: `C13${modifier}13`, notes: [36, 60, 62, 64, 65, 67, 70] },
+    ]),
+  ];
+
+  it.each(modifierPitches)("plays $text with independent numeric MIDI and performance pitches", ({ text, notes }) => {
+    for (const symbol of [parseChordSymbolText(text, { fraction: [0, 1] }), chord({ rawText: text })]) {
+      const score = makeScore([{ chordSymbols: [symbol] }]);
+      const midi = generateTimeline(score).events.filter((event) => event.playbackLaneId === CHORDS_PART_ID);
+      const performance = generatePerformanceEvents(score, score.parts.length);
+      for (const [kind, time] of [
+        ["noteOn", 0],
+        ["noteOff", 2],
+      ] as const) {
+        const expected = notes.map((pitch) => ({ pitch, time }));
+        expect(
+          midi
+            .filter((event) => event.type === kind)
+            .map((event) => ({ pitch: event.midiNote, time: event.time }))
+            .sort((a, b) => a.pitch - b.pitch),
+        ).toEqual(expected);
+        expect(
+          performance
+            .filter((event) => event.kind === kind)
+            .map((event) => ({ pitch: event.note.pitch, time: event.time }))
+            .sort((a, b) => a.pitch - b.pitch),
+        ).toEqual(expected);
+      }
+    }
+  });
+
   const supported: { name: string; symbol: ChordSymbol; notes: number[] }[] = [
     { name: "implicit major", symbol: major("C"), notes: [36, 60, 64, 67] },
     { name: "minor", symbol: chord({ root: { step: "D" }, quality: "minor" }), notes: [38, 62, 65, 69] },

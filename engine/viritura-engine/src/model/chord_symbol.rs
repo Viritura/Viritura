@@ -112,7 +112,8 @@ pub struct ChordSymbol {
     /// Supported spellings use semantic house style; unsupported descriptions remain literal.
     #[serde(skip_serializing_if = "Option::is_none", rename = "rawText")]
     pub raw_text: Option<String>,
-    /// Authored quality spelling retained alongside the normalized quality, not a display override.
+    /// Authored quality spelling, or the entire suffix when it carries degree modifiers.
+    /// Quality/extension retain the base harmony; this is not a display override.
     #[serde(skip_serializing_if = "Option::is_none", rename = "kindText")]
     pub kind_text: Option<String>,
     /// Optional bass note for slash chords (e.g., C/E → bass = E)
@@ -373,6 +374,23 @@ mod tests {
         assert_eq!(json["kindText"], "Δ7");
         assert!(json.get("textOverride").is_none());
         assert_eq!(serde_json::from_value::<ChordSymbol>(json).unwrap(), chord);
+    }
+
+    #[test]
+    fn test_modified_chord_preserves_base_harmony_and_verbatim_suffix() {
+        let json = serde_json::json!({
+            "position": {"fraction": [0, 1]},
+            "root": {"step": "C"},
+            "quality": "major",
+            "rawText": "  Cadd79omit5/E  ",
+            "kindText": "add79omit5",
+            "bass": {"step": "E"}
+        });
+        let chord: ChordSymbol = serde_json::from_value(json.clone()).unwrap();
+        assert_eq!(chord.quality, Some(ChordQuality::Major));
+        assert_eq!(chord.extension, None);
+        assert_eq!(chord.kind_text.as_deref(), Some("add79omit5"));
+        assert_eq!(serde_json::to_value(chord).unwrap(), json);
     }
 
     #[test]

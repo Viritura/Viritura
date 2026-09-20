@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatChordSymbolText, resolveChordSymbol, transposeChordSymbol } from "@viritura/core";
+import {
+  formatChordSymbolText,
+  parseChordSymbolText,
+  resolveChordSymbol,
+  transposeChordSymbol,
+  voiceChordSymbol,
+  type ChordSymbol,
+} from "@viritura/core";
 import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import { assertRawScore, validateRawScore } from "../mnx/validator";
@@ -37,6 +44,166 @@ function expectRejected(source: unknown) {
 }
 
 describe("central chord-symbol contract", () => {
+  const modifierCases: {
+    text: string;
+    quality: ChordSymbol["quality"];
+    extension?: ChordSymbol["extension"];
+    kindText?: string;
+    label: string;
+    rightHand: number[];
+  }[] = [
+    { text: "Cadd6", quality: "major", extension: 6, label: "C6", rightHand: [60, 64, 67, 69] },
+    { text: "C6", quality: "major", extension: 6, label: "C6", rightHand: [60, 64, 67, 69] },
+    { text: "Csus47", quality: "suspended4", extension: 7, label: "C7sus4", rightHand: [60, 65, 67, 70] },
+    { text: "C7sus4", quality: "suspended4", extension: 7, label: "C7sus4", rightHand: [60, 65, 67, 70] },
+    {
+      text: "Cadd79omit5/E",
+      quality: "major",
+      kindText: "add79omit5",
+      label: "Cadd7add9omit5/E",
+      rightHand: [60, 62, 64, 70],
+    },
+    {
+      text: "C(add7,9,no5)/E",
+      quality: "major",
+      kindText: "(add7,9,no5)",
+      label: "Cadd7add9omit5/E",
+      rightHand: [60, 62, 64, 70],
+    },
+    {
+      text: "Cadd(7,9)omit5/E",
+      quality: "major",
+      kindText: "add(7,9)omit5",
+      label: "Cadd7add9omit5/E",
+      rightHand: [60, 62, 64, 70],
+    },
+    {
+      text: "C7(add9,omit5)",
+      quality: "dominant",
+      extension: 7,
+      kindText: "7(add9,omit5)",
+      label: "C7add9omit5",
+      rightHand: [60, 62, 64, 70],
+    },
+    {
+      text: "Cmaj7add9",
+      quality: "major",
+      extension: 7,
+      kindText: "maj7add9",
+      label: "Cmaj7add9",
+      rightHand: [60, 62, 64, 67, 71],
+    },
+    {
+      text: "Cadd791113",
+      quality: "major",
+      kindText: "add791113",
+      label: "Cadd7add9add11add13",
+      rightHand: [60, 62, 64, 65, 67, 69, 70],
+    },
+  ];
+
+  it.each(modifierCases)(
+    "round-trips entered $text through the wire schema, interpretation, and transposition",
+    ({ text, quality, extension, kindText, label, rightHand }) => {
+      const rawText = `  ${text}\t`;
+      const entered = parseChordSymbolText(rawText, { fraction: [0, 1] });
+      const score = parseMnx(scoreWithChords([]));
+      score.global.measures[0]!.chordSymbols = [entered];
+      const serialized = serializeMnx(score);
+      assertRawScore(serialized);
+      const restored = parseMnx(serialized).global.measures[0]!.chordSymbols![0]!;
+      expect(restored).toEqual(entered);
+      expect(restored).toMatchObject({ root: { step: "C" }, quality, rawText });
+      expect(restored.extension).toBe(extension);
+      if (kindText !== undefined) expect(restored.kindText).toBe(kindText);
+      expect(restored).not.toHaveProperty("textOverride");
+      const hasBass = text.endsWith("/E");
+      expect(restored.bass).toEqual(hasBass ? { step: "E" } : undefined);
+      expect(resolveChordSymbol(restored)).toEqual({
+        status: "supported",
+        rootPitchClass: 0,
+        bassPitchClass: hasBass ? 4 : 0,
+        pitchClasses: rightHand.map((pitch) => pitch - 60),
+      });
+      expect(formatChordSymbolText(restored)).toBe(label);
+      expect(voiceChordSymbol(restored)).toEqual({ leftHand: [hasBass ? 40 : 36], rightHand });
+
+      const written = transposeChordSymbol(restored, { halfSteps: 2, staffDistance: 1 });
+      expect(written.root).toEqual({ step: "D" });
+      expect(written.bass).toEqual(hasBass ? { step: "F", alter: 1 } : undefined);
+      expect(written.rawText).toBe(rawText.replace("C", "D").replace("/E", "/F#"));
+      expect(written.kindText).toBe(restored.kindText);
+      expect(formatChordSymbolText(written)).toBe(label.replace("C", "D").replace("/E", "/F#"));
+      expect(voiceChordSymbol(written)).toEqual({
+        leftHand: [hasBass ? 42 : 38],
+        rightHand: rightHand.map((pitch) => 60 + ((pitch - 60 + 2) % 12)).sort((a, b) => a - b),
+      });
+      expect(transposeChordSymbol(written, { halfSteps: -2, staffDistance: -1 })).toEqual(restored);
+      expect(serializeMnx(score)).toEqual(serialized);
+    },
+  );
+
+  it.each([
+    "C7(9)",
+    "C79",
+    "C7b9",
+    "Caddb9",
+    "Cadd#11",
+    "Cadd8",
+    "Cadd1",
+    "Comit8",
+    "C(add7",
+    "Cadd(7,9",
+    "Cadd7)",
+    "C((add9))",
+    "C(add(7,9))",
+    "C()",
+    "Cadd()",
+    "C(add7,,9)",
+    "C(add7,)",
+    "C(,add7)",
+    "Cadd",
+    "Comit",
+    "Cno",
+    "Cadd9mystery",
+  ])("preserves unsupported grammar %s and its diagnostic without changing the wire schema", (text) => {
+    const entered = parseChordSymbolText(` ${text} `, { fraction: [0, 1] });
+    const score = parseMnx(scoreWithChords([]));
+    score.global.measures[0]!.chordSymbols = [entered];
+    const serialized = serializeMnx(score);
+    assertRawScore(serialized);
+    const restored = parseMnx(serialized).global.measures[0]!.chordSymbols![0]!;
+    expect(restored).toEqual(entered);
+    expect(resolveChordSymbol(restored)).toEqual({
+      status: "unsupported",
+      message: "Unsupported chord: cannot play this symbol.",
+    });
+    expect(formatChordSymbolText(restored)).toBe(` ${text} `);
+    expect(voiceChordSymbol(restored)).toEqual({ leftHand: [], rightHand: [] });
+  });
+
+  it("preserves imported structured modifiers without needing raw text or rewriting the base harmony", () => {
+    const imported = {
+      ...structuredChord,
+      extension: 7,
+      kindText: "maj7(add9,omit5)",
+      bass: { step: "E" },
+    };
+    expectChordRoundtrip(imported);
+    const stored = parseMnx(scoreWithChords([imported])).global.measures[0]!.chordSymbols![0]!;
+    expect(stored).not.toHaveProperty("rawText");
+    expect(formatChordSymbolText(stored)).toBe("Cmaj7add9omit5/E");
+    expect(voiceChordSymbol(stored)).toEqual({ leftHand: [40], rightHand: [60, 62, 64, 71] });
+  });
+
+  it("does not reparse contradictory imported structured harmony from modifier provenance", () => {
+    const imported = { ...structuredChord, rawText: "Cadd79omit5/E", kindText: "add79omit5", bass: { step: "F" } };
+    expectChordRoundtrip(imported);
+    const stored = parseMnx(scoreWithChords([imported])).global.measures[0]!.chordSymbols![0]!;
+    expect(resolveChordSymbol(stored).status).toBe("unsupported");
+    expect(voiceChordSymbol(stored)).toEqual({ leftHand: [], rightHand: [] });
+  });
+
   it.each([
     ["M7", "major", 7, "Cmaj7/E"],
     ["min7", "minor", 7, "Cm7/E"],

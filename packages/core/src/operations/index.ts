@@ -27,6 +27,7 @@ export {
   UNSUPPORTED_CHORD_MESSAGE,
   parseChordSymbolText,
   formatChordSymbolText,
+  rewriteChordSymbolBase,
   resolveChordSymbol,
   transposeChordSymbol,
   voiceChordSymbol,

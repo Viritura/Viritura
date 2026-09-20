@@ -1,5 +1,6 @@
 import type { ChordQuality, ChordRoot, ChordSymbol, RhythmicPosition } from "../../model";
 import { resolveChordSymbol } from "./resolution";
+import { formatModifiers, parseModifiers, type ChordModifiers } from "./modifiers";
 
 function parseRoot(step: string, accidental: string): ChordRoot {
   const normalized = accidental.replaceAll("♭", "b").replaceAll("♯", "#");
@@ -40,6 +41,7 @@ function parseExtension(value: string | undefined): ChordSymbol["extension"] {
 interface ParsedQuality {
   quality: ChordQuality;
   extension?: ChordSymbol["extension"];
+  modifiers?: ChordModifiers;
 }
 
 function parseSpecialQuality(text: string): ParsedQuality | undefined {
@@ -59,10 +61,16 @@ function parseSpecialQuality(text: string): ParsedQuality | undefined {
       quality: suspended[2] === "2" ? "suspended2" : "suspended4",
       extension: parseExtension(suspended[1]),
     };
+  const reverseSuspended = /^sus([24])?(6|7|9|11|13)$/i.exec(text);
+  if (reverseSuspended)
+    return {
+      quality: reverseSuspended[1] === "2" ? "suspended2" : "suspended4",
+      extension: parseExtension(reverseSuspended[2]),
+    };
   return undefined;
 }
 
-export function parseQuality(text: string): ParsedQuality | undefined {
+function parseBaseQuality(text: string): ParsedQuality | undefined {
   const special = parseSpecialQuality(text);
   if (special) return special;
   const match = /^(maj|Maj|MAJ|ma|Ma|M|m|min|Min|MIN|-|dim|Dim|DIM|o|°|aug|Aug|AUG|\+|Δ|△)?(6|7|9|11|13)?$/.exec(text);
@@ -104,6 +112,24 @@ export function parseQuality(text: string): ParsedQuality | undefined {
   return extension === undefined ? { quality } : { quality, extension };
 }
 
+export function parseQuality(text: string): ParsedQuality | undefined {
+  const boundary = text.search(/add|omit|no|\(/i);
+  if (boundary < 0) return parseBaseQuality(text);
+  const base = parseBaseQuality(text.slice(0, boundary).trim());
+  const modifiers = parseModifiers(text.slice(boundary));
+  if (!base || !modifiers) return undefined;
+  if (
+    base.quality === "major" &&
+    base.extension === undefined &&
+    modifiers.added.length === 1 &&
+    modifiers.added[0] === 6 &&
+    modifiers.omitted.length === 0
+  ) {
+    return { quality: "major", extension: 6 };
+  }
+  return { ...base, modifiers };
+}
+
 /**
  * Parse the common chord-symbol shorthand used by inline entry.
  *
@@ -125,7 +151,7 @@ export function parseChordSymbolText(input: string, position: RhythmicPosition):
     root,
     quality: parsedQuality?.quality ?? "other",
   };
-  if (!parsedQuality) chord.kindText = match[4]!;
+  if (!parsedQuality || parsedQuality.modifiers) chord.kindText = match[4]!;
   if (parsedQuality?.extension !== undefined) chord.extension = parsedQuality.extension;
 
   if (match[5]) {
@@ -169,6 +195,46 @@ function formatQuality(chord: ChordSymbol): string {
   }
 }
 
+function formatRewriteModifiers(kind: ParsedQuality | undefined, raw: ChordSymbol | undefined): string {
+  const rawModifiers = raw?.kindText === undefined ? undefined : parseQuality(raw.kindText)?.modifiers;
+  return formatModifiers({
+    added: [...new Set([...(kind?.modifiers?.added ?? []), ...(rawModifiers?.added ?? [])])].sort((a, b) => a - b),
+    omitted: [...new Set([...(kind?.modifiers?.omitted ?? []), ...(rawModifiers?.omitted ?? [])])].sort(
+      (a, b) => a - b,
+    ),
+  });
+}
+
+/**
+ * Rewrite only the base harmony, retaining explicit degree operations and display overrides.
+ * Unknown or contradictory source harmony is left untouched rather than guessed.
+ */
+export function rewriteChordSymbolBase(
+  chord: ChordSymbol,
+  base: Partial<Pick<ChordSymbol, "quality" | "extension">>,
+): ChordSymbol {
+  const raw = chord.rawText === undefined ? undefined : parseChordSymbolText(chord.rawText, chord.position);
+  const source = chord.root ? chord : { ...chord, ...raw };
+  const kind = source.kindText === undefined ? undefined : parseQuality(source.kindText);
+  // Other can carry a recognized suffix after an explicit quality edit; keep that edit reversible.
+  const understood =
+    source.quality === "other" && kind ? { ...source, quality: kind.quality, extension: kind.extension } : source;
+  if (resolveChordSymbol({ ...understood, textOverride: undefined }).status !== "supported") return chord;
+  const next = { ...source, extension: understood.extension, ...base };
+  if (next.quality === source.quality && next.extension === source.extension) return chord;
+  const modifiers = formatRewriteModifiers(kind, raw);
+  const currentKind = formatQuality(understood) + modifiers;
+  if (resolveChordSymbol({ ...understood, kindText: currentKind, textOverride: undefined }).status !== "supported")
+    return chord;
+  const nextBase = next.quality === "other" ? { ...next, quality: understood.quality } : next;
+  next.kindText = modifiers || next.quality === "other" ? formatQuality(nextBase) + modifiers : undefined;
+  next.rawText = undefined;
+  next.rawText = formatChordSymbolText({ ...next, textOverride: undefined });
+  if (resolveChordSymbol({ ...next, quality: nextBase.quality, textOverride: undefined }).status !== "supported")
+    return chord;
+  return next;
+}
+
 /** Semantic plain-text label; provenance remains stored separately from explicit display overrides. */
 export function formatChordSymbolText(chord: ChordSymbol): string {
   if (chord.textOverride !== undefined) return chord.textOverride;
@@ -180,6 +246,7 @@ export function formatChordSymbolText(chord: ChordSymbol): string {
   const suffix =
     chord.kindText !== undefined && resolveChordSymbol(chord).status === "unsupported"
       ? chord.kindText
-      : formatQuality(chord);
+      : formatQuality(chord) +
+        (chord.kindText ? formatModifiers(parseQuality(chord.kindText)?.modifiers ?? { added: [], omitted: [] }) : "");
   return formatChordRoot(chord.root) + suffix + (chord.bass ? `/${formatChordRoot(chord.bass)}` : "");
 }

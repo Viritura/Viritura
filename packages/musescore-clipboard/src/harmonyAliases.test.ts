@@ -4,19 +4,20 @@ import {
   mergeGlobalChordSymbols,
   resolveChordSymbol,
   transposeChordSymbol,
+  voiceChordSymbol,
   type ChordSymbol,
 } from "@viritura/core";
 import { readMuseScoreClipboard, writeMuseScoreStaffList } from ".";
 
 // MuseScore v4.7.5 writeHarmonyInfo transports concert TPCs, even on a transposing staff.
 // These source literals are independent of the clipboard writer.
-function source(name: string, structured: boolean): string {
+function source(name: string, structured: boolean, root = 12, bass = 13): string {
   return `<StaffList version="4.70" tick="1/1" len="1/4" staff="3" staves="1">
     <Staff id="3">
       <transposeChromatic>-2</transposeChromatic><transposeDiatonic>-1</transposeDiatonic>
       <voiceOffset><voice id="0">0</voice></voiceOffset>
       <location><fractions>1/1</fractions></location>
-      <Harmony><harmonyInfo><name>${name}</name>${structured ? "<root>12</root><bass>13</bass>" : ""}</harmonyInfo></Harmony>
+      <Harmony><harmonyInfo><name>${name}</name>${structured ? `<root>${root}</root><bass>${bass}</bass>` : ""}</harmonyInfo></Harmony>
       <Rest><durationType>quarter</durationType></Rest>
     </Staff>
   </StaffList>`;
@@ -68,6 +69,104 @@ describe.each([true, false])("MuseScore chord aliases (structured source: %s)", 
     expect(data).toEqual(original);
     expect(formatChordSymbolText(symbol)).toBe(`Bb${entry.canonical}/F`);
     expect(formatChordSymbolText(written)).toBe(`C${entry.canonical}/G`);
+  });
+});
+
+const MODIFIERS = [
+  { alias: "add79omit5", canonical: "add7add9omit5", quality: "major", pitches: [0, 2, 4, 10] },
+  { alias: "(add7,9,no5)", canonical: "add7add9omit5", quality: "major", pitches: [0, 2, 4, 10] },
+  { alias: "add(7,9)omit5", canonical: "add7add9omit5", quality: "major", pitches: [0, 2, 4, 10] },
+  { alias: "add9", canonical: "add9", quality: "major", pitches: [0, 2, 4, 7] },
+  { alias: "add13", canonical: "add13", quality: "major", pitches: [0, 4, 7, 9] },
+  { alias: "maj7add9", canonical: "maj7add9", quality: "major", extension: 7, pitches: [0, 2, 4, 7, 11] },
+  { alias: "M7(add9)", canonical: "maj7add9", quality: "major", extension: 7, pitches: [0, 2, 4, 7, 11] },
+  { alias: "min7add9", canonical: "m7add9", quality: "minor", extension: 7, pitches: [0, 2, 3, 7, 10] },
+  { alias: "no3", canonical: "omit3", quality: "major", pitches: [0, 7] },
+  { alias: "add6", canonical: "6", quality: "major", extension: 6, pitches: [0, 4, 7, 9] },
+] satisfies {
+  alias: string;
+  canonical: string;
+  quality: ChordSymbol["quality"];
+  extension?: ChordSymbol["extension"];
+  pitches: number[];
+}[];
+
+describe.each([true, false])("MuseScore modifiers (structured source: %s)", (structured) => {
+  it.each(MODIFIERS)("imports $alias without losing degrees or transposing concert TPCs", (entry) => {
+    const rawText = `C${entry.alias}/E`;
+    const data = readMuseScoreClipboard(source(structured ? entry.alias : rawText, structured, 14, 18));
+    const symbol = data.chordSymbols![0]!.chordSymbol;
+    expect(symbol).toEqual({
+      position: { fraction: [0, 1] },
+      root: { step: "C" },
+      bass: { step: "E" },
+      quality: entry.quality,
+      ...("extension" in entry ? { extension: entry.extension } : {}),
+      ...(entry.alias === "add6" ? {} : { kindText: entry.alias }),
+      rawText,
+    });
+    expect(data.diagnostics).toBeUndefined();
+    expect(resolveChordSymbol(symbol)).toEqual({
+      status: "supported",
+      rootPitchClass: 0,
+      bassPitchClass: 4,
+      pitchClasses: entry.pitches,
+    });
+    expect(voiceChordSymbol(symbol)).toEqual({ leftHand: [40], rightHand: entry.pitches.map((pitch) => 60 + pitch) });
+    const original = structuredClone(data);
+    const written = transposeChordSymbol(symbol, data.transposition!.interval);
+    expect(written).toMatchObject({ root: { step: "D" }, bass: { step: "F", alter: 1 } });
+    expect(formatChordSymbolText(written)).toBe(`D${entry.canonical}/F#`);
+    const exported = writeMuseScoreStaffList({
+      events: data.content,
+      tracks: data.tracks,
+      chordSymbols: data.chordSymbols,
+    });
+    expect(exported.warning).toBeUndefined();
+    expect(exported.xml).toContain(`<name>${entry.canonical}</name><root>14</root><bass>18</bass>`);
+    const restored = readMuseScoreClipboard(exported.xml!).chordSymbols![0]!.chordSymbol;
+    expect(formatChordSymbolText(restored)).toBe(`C${entry.canonical}/E`);
+    expect(resolveChordSymbol(restored)).toEqual(resolveChordSymbol(symbol));
+    expect(voiceChordSymbol(restored)).toEqual(voiceChordSymbol(symbol));
+    expect(data).toEqual(original);
+  });
+});
+
+describe.each([true, false])("MuseScore modifier export (raw-only: %s)", (rawOnly) => {
+  it.each(MODIFIERS)("serializes the complete semantic $alias suffix", (entry) => {
+    const data = readMuseScoreClipboard(source("", true));
+    const chord: ChordSymbol = {
+      position: { fraction: [0, 1] },
+      rawText: `C${entry.alias}/E`,
+      ...(rawOnly
+        ? {}
+        : {
+            root: { step: "C" },
+            bass: { step: "E" },
+            quality: entry.quality,
+            ...("extension" in entry ? { extension: entry.extension } : {}),
+            ...(entry.alias === "add6" ? {} : { kindText: entry.alias }),
+          }),
+    };
+    const original = structuredClone(chord);
+    const exported = writeMuseScoreStaffList({
+      events: data.content,
+      tracks: data.tracks,
+      chordSymbols: [{ ...data.chordSymbols![0]!, chordSymbol: chord }],
+    });
+    expect(exported.warning).toBeUndefined();
+    expect(exported.xml).toContain(`<name>${entry.canonical}</name><root>14</root><bass>18</bass>`);
+    const restored = readMuseScoreClipboard(exported.xml!).chordSymbols![0]!.chordSymbol;
+    expect(restored).toMatchObject({ root: { step: "C" }, bass: { step: "E" } });
+    expect(resolveChordSymbol(restored)).toEqual({
+      status: "supported",
+      rootPitchClass: 0,
+      bassPitchClass: 4,
+      pitchClasses: entry.pitches,
+    });
+    expect(resolveChordSymbol(restored)).toEqual(resolveChordSymbol(chord));
+    expect(voiceChordSymbol(restored)).toEqual({ leftHand: [40], rightHand: entry.pitches.map((pitch) => 60 + pitch) });
+    expect(chord).toEqual(original);
   });
 });
 
@@ -136,5 +235,18 @@ describe("MuseScore harmony provenance boundaries", () => {
     expect(resolveChordSymbol(symbol).status).toBe("unsupported");
     expect(data.diagnostics).toHaveLength(1);
     expect(data.diagnostics![0]!.message).toContain("Preserved harmony as rawText");
+  });
+
+  it("does not infer supported modifiers from degree XML", () => {
+    const xml = source("add9", true).replace(
+      "</harmonyInfo>",
+      "<degree><degree-value>5</degree-value><degree-alter>0</degree-alter><degree-type>subtract</degree-type></degree></harmonyInfo>",
+    );
+    const data = readMuseScoreClipboard(xml);
+    const symbol = data.chordSymbols![0]!.chordSymbol;
+    expect(symbol.quality).toBe("other");
+    expect(resolveChordSymbol(symbol).status).toBe("unsupported");
+    expect(voiceChordSymbol(symbol)).toEqual({ leftHand: [], rightHand: [] });
+    expect(data.diagnostics![0]!.message).toContain("harmony degrees are not representable");
   });
 });

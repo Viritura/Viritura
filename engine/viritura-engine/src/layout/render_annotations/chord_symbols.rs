@@ -443,9 +443,12 @@ fn chord_symbol_runs(
         if fallback.kind_text.is_some() {
             fallback.quality = Some(ChordQuality::Other);
         }
-        fallback
+        display_interpretation::SemanticDisplay {
+            symbol: fallback,
+            modifier_label: String::new(),
+        }
     });
-    let chord = &display;
+    let chord = &display.symbol;
     let Some(root) = &chord.root else {
         return (Vec::new(), 0.0, 0.0);
     };
@@ -463,6 +466,15 @@ fn chord_symbol_runs(
         &mut runs, &mut dx, root.alter, font_size, 0.0, sp,
     ));
     push_quality_and_extension(&mut runs, &mut dx, chord, style, font_size, sp, &mut ascent);
+    push_chord_text_runs(
+        &mut runs,
+        &mut dx,
+        &display.modifier_label,
+        font_size,
+        sp,
+        &mut ascent,
+        style.extensions,
+    );
     if let Some(ChordRoot { step, alter }) = &chord.bass {
         ascent = ascent.max(push_text_run(
             &mut runs,

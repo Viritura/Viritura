@@ -1,5 +1,6 @@
 import type { ChordQuality, ChordRoot, ChordSymbol } from "../../model";
 import { isNoChordText, parseChordSymbolText, parseQuality } from "./text";
+import { applyModifiers, type ChordModifiers } from "./modifiers";
 
 /** Derived playback channel only: its runtime part index is score.parts.length. Never persist a Part. */
 export const CHORDS_PART_ID = "viritura:derived:chords";
@@ -9,7 +10,7 @@ export interface SupportedChordSymbol {
   status: "supported";
   rootPitchClass: number;
   bassPitchClass: number;
-  /** Sorted, unique chord tones, including root but excluding any non-chord slash bass. */
+  /** Sorted, unique chord tones after degree operations, excluding any non-chord slash bass. */
   pitchClasses: number[];
 }
 
@@ -46,7 +47,30 @@ function pitchClass(root: ChordRoot): number | undefined {
   return typeof natural === "number" && Number.isSafeInteger(alter) ? modulo(natural + modulo(alter)) : undefined;
 }
 
-function resolveStructured(chord: ChordSymbol): ChordSymbolResolution {
+function chordDegrees(
+  quality: Exclude<ChordQuality, "other">,
+  triad: readonly number[],
+  extension: ChordSymbol["extension"],
+): Map<number, number[]> {
+  const thirdDegree = quality === "suspended2" ? 2 : quality === "suspended4" ? 4 : 3;
+  const degrees = new Map<number, number[]>([
+    [1, [0]],
+    [5, [triad[triad.length - 1]!]],
+  ]);
+  if (quality !== "power") degrees.set(thirdDegree, [triad[1]!]);
+  // A sixth is additive, not a tertian extension: it does not imply a seventh.
+  if (extension === 6) degrees.set(6, [9]);
+  else if (extension !== undefined) {
+    const seventh = quality === "major" || quality === "minor-major" ? 11 : quality === "diminished" ? 9 : 10;
+    degrees.set(7, [seventh]);
+    if (extension >= 9) degrees.set(9, [2]);
+    if (extension >= 11) degrees.set(11, [5]);
+    if (extension >= 13) degrees.set(13, [9]);
+  }
+  return degrees;
+}
+
+function resolveBase(chord: ChordSymbol, modifiers?: ChordModifiers): ChordSymbolResolution {
   if (!chord.root) return unsupported();
   const rootPitchClass = pitchClass(chord.root);
   const bassPitchClass = chord.bass ? pitchClass(chord.bass) : rootPitchClass;
@@ -58,22 +82,25 @@ function resolveStructured(chord: ChordSymbol): ChordSymbolResolution {
   const extension = chord.extension ?? (impliedSeventh ? 7 : undefined);
   if (extension !== undefined && ![6, 7, 9, 11, 13].includes(extension)) return unsupported();
   if (quality === "power" && extension !== undefined) return unsupported();
-  const intervals = [...triad];
-  // A sixth is additive, not a tertian extension: it does not imply a seventh.
-  if (extension === 6) intervals.push(9);
-  else if (extension !== undefined) {
-    const seventh = quality === "major" || quality === "minor-major" ? 11 : quality === "diminished" ? 9 : 10;
-    intervals.push(seventh);
-    if (extension >= 9) intervals.push(2);
-    if (extension >= 11) intervals.push(5);
-    if (extension >= 13) intervals.push(9);
-  }
+  const intervals = applyModifiers(chordDegrees(quality, triad, extension), modifiers);
   return {
     status: "supported",
     rootPitchClass,
     bassPitchClass,
     pitchClasses: [...new Set(intervals.map((interval) => modulo(rootPitchClass + interval)))].sort((a, b) => a - b),
   };
+}
+
+function resolveStructured(chord: ChordSymbol): ChordSymbolResolution {
+  const base = resolveBase(chord);
+  if (chord.kindText === undefined) return base;
+  const parsed = parseQuality(chord.kindText);
+  if (!parsed) return unsupported();
+  const description = { ...chord, quality: parsed.quality, extension: parsed.extension };
+  const described = resolveBase(description);
+  if (!equivalent(base, described)) return unsupported();
+  const result = resolveBase(chord, parsed.modifiers);
+  return equivalent(result, resolveBase(description, parsed.modifiers)) ? result : unsupported();
 }
 
 function resolveText(text: string, chord: ChordSymbol): ChordSymbolResolution {
@@ -115,12 +142,6 @@ export function resolveChordSymbol(chord: ChordSymbol): ChordSymbolResolution {
       return unsupported();
     }
     result = resolveText(chord.rawText, chord);
-  }
-  if (chord.kindText !== undefined && chord.root) {
-    const parsed = parseQuality(chord.kindText);
-    if (!parsed) return unsupported();
-    const described = resolveStructured({ ...chord, quality: parsed.quality, extension: parsed.extension });
-    if (!equivalent(result, described)) return unsupported();
   }
   if (chord.textOverride !== undefined && !equivalent(result, resolveText(chord.textOverride, chord)))
     return unsupported();

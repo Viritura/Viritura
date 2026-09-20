@@ -148,11 +148,12 @@ function structuredHarmony(info: ReturnType<typeof readHarmonyInfo>, position: [
   // Root and bass TPCs are authoritative. A suffix such as b5 must not turn C
   // into C-flat power merely because concatenating the source tokens is ambiguous.
   const quality = suffix.root?.step === "C" && !suffix.root.alter && !suffix.bass ? suffix.quality : "other";
+  const kindText = quality === "other" ? info.name : suffix.kindText;
   return {
     position: { fraction: position },
     root: info.root,
     quality,
-    ...(quality === "other" ? { kindText: info.name } : {}),
+    ...(kindText === undefined ? {} : { kindText }),
     ...(suffix.extension === undefined ? {} : { extension: suffix.extension }),
     ...(info.bass ? { bass: info.bass } : {}),
   };
@@ -222,7 +223,13 @@ function rootTpc(root: ChordRoot): number {
 
 function harmonyName(chord: ChordSymbol): string {
   if (!chord.root) return formatChordSymbolText(chord);
-  const structured = { position: chord.position, root: chord.root, quality: chord.quality, extension: chord.extension };
+  const structured = {
+    position: chord.position,
+    root: chord.root,
+    quality: chord.quality,
+    extension: chord.extension,
+    kindText: chord.kindText,
+  };
   const rootText = formatChordSymbolText({ position: chord.position, root: chord.root });
   return formatChordSymbolText(structured).slice(rootText.length);
 }

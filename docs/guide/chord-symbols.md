@@ -32,7 +32,28 @@ Chord entry accepts:
 - major, minor, dominant, diminished, augmented, half-diminished,
   minor-major, power, suspended-second, and suspended-fourth qualities;
 - extensions `6`, `7`, `9`, `11`, and `13`;
+- added degrees `2`, `4`, `6`, `7`, `9`, `11`, and `13` with `add`;
+- omitted degrees `1`, `2`, `3`, `4`, `5`, `6`, `7`, `9`, `11`, and `13`
+  with `no` or `omit`;
 - slash bass notes such as `C/E` or `F#maj7/A#`.
+
+`Cadd6` means `C6`, and `Csus47` means `C7sus4`. Added degrees do not
+imply intervening extensions: `Cadd9` has no seventh, and `Cadd13` adds
+only the thirteenth to the triad. An added seventh is always a minor seventh,
+even with a major or diminished base quality. `Cmaj7add9` retains its major
+seventh.
+
+Combine modifiers as `Cadd79omit5/E`: add the seventh and ninth, omit the
+fifth, and use E in the bass. Concatenated `79` means `7,9`; `11` and `13`
+remain whole degrees, so `Cadd791113` adds four degrees. Balanced, nonnested
+parentheses and commas may group modifier or degree lists:
+`C(add7, 9, no5)`, `Cadd(7,9)omit5`, and `C7(add9,omit5)` are supported.
+Plain-text labels normalize these spellings, for example to
+`Cadd7add9omit5/E`, while the document preserves the exact authored text.
+
+Bare extension lists (`C79`, `C7(9)`), altered degrees (`C7b9`, `Cadd#11`),
+unknown degrees, and malformed or nested groups are unsupported. They retain
+their text and show the unsupported-symbol diagnostic described below.
 
 Authored text is retained, including unfamiliar suffixes and unrecognized
 symbols. Unsupported text is not silently interpreted as a major chord. Use
@@ -116,11 +137,19 @@ use the selected score or instrumental part's visibility and concert/written
 pitch settings, including both roots and slash bass notes. Editor warning
 marks are not printed or exported.
 
-Copying to MuseScore preserves supported harmony using its concert-pitch
-clipboard format; MuseScore applies the destination instrument's written
-transposition. Unsupported harmony is preserved with a warning when possible.
+Clipboard conversion preserves supported harmony, including added and omitted
+degrees, using MuseScore's concert-pitch clipboard format; MuseScore applies
+the destination instrument's written transposition. Unsupported harmony is
+preserved with a warning when possible.
 If that format would change its meaning, conversion reports an error rather
 than silently substituting a playable chord.
+
+> [!NOTE]
+> **Availability: Destination chord vocabulary**
+>
+> Added/omitted-degree text is retained by the clipboard converter, but another
+> application's chord vocabulary determines how it displays and plays that
+> text. Use MNX for lossless exchange between Viritura documents.
 
 ## Unsupported symbols and playback
 
@@ -134,8 +163,9 @@ When the document contains chord symbols, the mixer includes a **Chords**
 channel. It starts unmuted and uses a piano sound in both browser and desktop
 playback; it does not add a notated instrument to the document. The voicing uses
 one low root or slash bass and all the chord tones in a fixed upper register.
-The root remains among the upper chord tones; an unrelated slash bass is not
-added to them.
+The root remains among the upper chord tones unless explicitly omitted with
+`no1` or `omit1`; this does not remove the low bass note. An unrelated slash
+bass is not added to the upper chord tones.
 
 Click a supported symbol or commit a chord edit to hear a short audition while
 playback is stopped. Audition uses the same voicing and respects the Chords

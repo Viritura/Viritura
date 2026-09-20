@@ -65,7 +65,6 @@ describe("parseChordSymbolText lossless entry", () => {
   });
 
   it.each([
-    ["Cadd9", "add9"],
     ["C7b9", "7b9"],
     ["Cmaj7#11", "maj7#11"],
     ["C6/9", undefined],
@@ -240,10 +239,10 @@ describe("parsed musical aliases", () => {
     { texts: ["C7"], quality: "dominant", extension: 7, tones: [0, 4, 7, 10] },
     { texts: ["C9"], quality: "dominant", extension: 9, tones: [0, 2, 4, 7, 10] },
     { texts: ["Cmaj9", "CM9"], quality: "major", extension: 9, tones: [0, 2, 4, 7, 11] },
-    { texts: ["C6"], quality: "major", extension: 6, tones: [0, 4, 7, 9] },
+    { texts: ["C6", "Cadd6"], quality: "major", extension: 6, tones: [0, 4, 7, 9] },
     { texts: ["Cm6", "Cmin6"], quality: "minor", extension: 6, tones: [0, 3, 7, 9] },
     { texts: ["C9sus2"], quality: "suspended2", extension: 9, tones: [0, 2, 7, 10] },
-    { texts: ["C7sus", "C7sus4"], quality: "suspended4", extension: 7, tones: [0, 5, 7, 10] },
+    { texts: ["C7sus", "C7sus4", "Csus47"], quality: "suspended4", extension: 7, tones: [0, 5, 7, 10] },
     { texts: ["Cdim13"], quality: "diminished", extension: 13, tones: [0, 2, 3, 5, 6, 9] },
     { texts: ["Cø11"], quality: "half-diminished", extension: 11, tones: [0, 2, 3, 5, 6, 10] },
     { texts: ["CmMaj13"], quality: "minor-major", extension: 13, tones: [0, 2, 3, 5, 7, 9, 11] },
@@ -332,7 +331,7 @@ describe("resolution refuses contradictory display and structured harmony", () =
     { textOverride: "NC" },
     { kindText: "m" },
     { kindText: "7" },
-    { kindText: "add9" },
+    { kindText: "madd9" },
     { kindText: "unrecognized" },
     { rawText: "Cm", textOverride: "C" },
     { rawText: "C", textOverride: "Cm" },

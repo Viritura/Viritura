@@ -10,6 +10,7 @@ import {
   type ChordSymbol,
   type Score,
 } from "@viritura/core";
+import { parseMnx, serializeMnx } from "@viritura/format";
 import { Button, TooltipPrimitives } from "@viritura/ui";
 import { resolveNotationSelectionTarget, type NotationSelectionTarget } from "../commands/notationInspectorCommands";
 import { DirectionTextSections } from "../components/inspector/DirectionTextSections";
@@ -545,15 +546,33 @@ describe("global chord symbol inspector", () => {
   it("retains an unsupported suffix as Other instead of guessing a major chord", async () => {
     const { user, getScore } = renderInspector();
     await user.clear(chordInput());
-    await user.type(chordInput(), "Cadd9{Enter}");
+    await user.type(chordInput(), "Cadd#9{Enter}");
     expect(getScore().global.measures[0]!.chordSymbols![0]).toMatchObject({
-      rawText: "Cadd9",
+      rawText: "Cadd#9",
       root: { step: "C" },
       quality: "other",
-      kindText: "add9",
+      kindText: "add#9",
     });
     expect(screen.getByRole("status").textContent).toBe(UNSUPPORTED_CHORD_MESSAGE);
     expect(screen.getByRole("combobox", { name: "Quality" }).textContent).toContain("Other");
+  });
+
+  it.each([
+    ["Cadd9", [0, 2, 4, 7], 0],
+    ["Cadd79omit5/E", [0, 2, 4, 10], 4],
+  ] as const)("commits %s through the central resolver without an unsupported warning", async (text, pitches, bass) => {
+    const { user, getScore } = renderInspector();
+    await user.clear(chordInput());
+    await user.type(chordInput(), `${text}{Enter}`);
+    const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(chord.rawText).toBe(text);
+    expect(resolveChordSymbol(chord)).toEqual({
+      status: "supported",
+      rootPitchClass: 0,
+      bassPitchClass: bass,
+      pitchClasses: pitches,
+    });
+    expect(screen.queryByText(UNSUPPORTED_CHORD_MESSAGE)).toBeNull();
   });
 
   it.each(["NC", "N.C."])("commits %s as silent rather than a guessed harmony", async (text) => {
@@ -617,6 +636,209 @@ describe("global chord symbol inspector", () => {
       chord,
       expectedScoreWithChord(initial, parseChordSymbolText("Cmaj9", POSITION)),
     );
+  });
+
+  describe.each([0, 1])("modifier-preserving base edits in score view %i", (scoreIndex) => {
+    it.each([
+      { control: "Quality", option: "Minor", suffix: "madd7add9omit5", pitches: [0, 2, 3, 10] },
+      { control: "Extension", option: "7", suffix: "maj7add7add9omit5", pitches: [0, 2, 4, 10, 11] },
+    ])("preserves explicit degrees when changing $control", async ({ control, option, suffix, pitches }) => {
+      useViewStateStore.setState({ selectedScoreIndex: scoreIndex });
+      const initial = buildScore();
+      initial.global.measures[0]!.chordSymbols![0] = parseChordSymbolText("Cadd79omit5/E", POSITION);
+      const { user, getScore, onUpdate } = renderInspector(initial);
+      await choose(user, new RegExp(`^${control}$`), option);
+      const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+      expect(chord).toEqual(parseChordSymbolText(`C${suffix}/E`, POSITION));
+      expect(chord.kindText).toBe(suffix);
+      expect(chordInput().value).toBe(scoreIndex === 1 ? `D${suffix}/F#` : `C${suffix}/E`);
+      expect(resolveChordSymbol(chord)).toEqual({
+        status: "supported",
+        rootPitchClass: 0,
+        bassPitchClass: 4,
+        pitchClasses: pitches,
+      });
+      const restored = parseMnx(serializeMnx(getScore())).global.measures[0]!.chordSymbols![0]!;
+      expect(restored).toEqual(chord);
+      expect(resolveChordSymbol(restored)).toEqual(resolveChordSymbol(chord));
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+      expect(previewChord).toHaveBeenCalledExactlyOnceWith(chord, getScore());
+      expect(screen.queryByText(UNSUPPORTED_CHORD_MESSAGE)).toBeNull();
+      expect(initial.global.measures[0]!.chordSymbols![0]!.rawText).toBe("Cadd79omit5/E");
+    });
+  });
+
+  it("retains imported additions and omissions across successive base edits", async () => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = {
+      position: POSITION,
+      root: { step: "C" },
+      quality: "major",
+      extension: 7,
+      kindText: "M7(add9,no5,no7)",
+    };
+    const { user, getScore } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Minor");
+    await choose(user, /^Extension$/, "None");
+    const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(chord).toEqual(parseChordSymbolText("Cmadd9omit5omit7", POSITION));
+    expect(resolveChordSymbol(chord)).toMatchObject({ status: "supported", pitchClasses: [0, 2, 3] });
+    await choose(user, /^Extension$/, "9");
+    expect(getScore().global.measures[0]!.chordSymbols![0]).toEqual(
+      parseChordSymbolText("Cm9add9omit5omit7", POSITION),
+    );
+    expect(resolveChordSymbol(getScore().global.measures[0]!.chordSymbols![0]!)).toMatchObject({
+      status: "supported",
+      pitchClasses: [0, 2, 3],
+    });
+  });
+
+  it.each(["Cadd#9/E", "C79/E"])("does not erase unknown degree intent in %s with base controls", async (text) => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = parseChordSymbolText(text, POSITION);
+    const { user, getScore, onUpdate } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Minor");
+    await choose(user, /^Extension$/, "7");
+    expect(getScore()).toEqual(initial);
+    expect(chordInput().value).toBe(text);
+    expect(screen.getByRole("status").textContent).toBe(UNSUPPORTED_CHORD_MESSAGE);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(previewChord).not.toHaveBeenCalled();
+  });
+
+  it("retains explicit additions in equivalent imported raw text", async () => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = {
+      position: POSITION,
+      root: { step: "C" },
+      quality: "dominant",
+      extension: 9,
+      rawText: "C7add9",
+    };
+    const { user, getScore } = renderInspector(initial);
+    await choose(user, /^Extension$/, "7");
+    const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(chord).toEqual(parseChordSymbolText("C7add9", POSITION));
+    expect(resolveChordSymbol(chord)).toMatchObject({ status: "supported", pitchClasses: [0, 2, 4, 7, 10] });
+  });
+
+  it("keeps recognized modifiers when switching through Other", async () => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = parseChordSymbolText("Cadd79omit5/E", POSITION);
+    const { user, getScore } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Other");
+    expect(getScore().global.measures[0]!.chordSymbols![0]).toMatchObject({
+      quality: "other",
+      kindText: "add7add9omit5",
+      rawText: "Cadd7add9omit5/E",
+    });
+    await choose(user, /^Quality$/, "Minor");
+    expect(getScore().global.measures[0]!.chordSymbols![0]).toEqual(
+      parseChordSymbolText("Cmadd7add9omit5/E", POSITION),
+    );
+  });
+
+  describe.each([
+    { modifiers: "", pitches: [0, 3, 7] },
+    { modifiers: "add9omit5", pitches: [0, 2, 3] },
+  ])("recognized custom quality with '$modifiers'", ({ modifiers, pitches }) => {
+    it.each([
+      { control: "Quality", option: "Minor" },
+      { control: "Extension", option: "None" },
+    ])("reconciles a stale seventh through $control", async ({ control, option }) => {
+      const initial = buildScore();
+      initial.global.measures[0]!.chordSymbols![0] = parseChordSymbolText(`Cmaj7${modifiers}`, POSITION);
+      const { user, getScore, onUpdate } = renderInspector(initial);
+      await choose(user, /^Quality$/, "Other");
+      const qualityText = screen.getByRole<HTMLInputElement>("textbox", { name: "Quality text" });
+      await user.clear(qualityText);
+      await user.type(qualityText, `m${modifiers}{Enter}`);
+      expect(getScore().global.measures[0]!.chordSymbols![0]).toMatchObject({
+        quality: "other",
+        extension: 7,
+        kindText: `m${modifiers}`,
+        rawText: `Cm${modifiers}`,
+      });
+
+      await choose(user, new RegExp(`^${control}$`), option);
+      const corrected = getScore().global.measures[0]!.chordSymbols![0]!;
+      expect(corrected.extension).toBeUndefined();
+      expect(corrected.rawText).toBe(`Cm${modifiers}`);
+      expect(screen.getByRole("combobox", { name: "Extension" }).textContent).toContain("None");
+      expect(onUpdate).toHaveBeenCalledTimes(3);
+      expect(previewChord).toHaveBeenLastCalledWith(corrected, getScore());
+
+      if (control === "Extension") {
+        expect(corrected.quality).toBe("other");
+        expect(corrected.kindText).toBe(`m${modifiers}`);
+        await choose(user, /^Quality$/, "Minor");
+      }
+      const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+      expect(chord).toEqual(parseChordSymbolText(`Cm${modifiers}`, POSITION));
+      expect(resolveChordSymbol(chord)).toMatchObject({ status: "supported", pitchClasses: pitches });
+      expect(screen.queryByText(UNSUPPORTED_CHORD_MESSAGE)).toBeNull();
+      expect(parseMnx(serializeMnx(getScore())).global.measures[0]!.chordSymbols![0]).toEqual(chord);
+
+      await choose(user, /^Extension$/, "9");
+      expect(getScore().global.measures[0]!.chordSymbols![0]).toEqual(
+        parseChordSymbolText(`Cm9${modifiers}`, POSITION),
+      );
+    });
+  });
+
+  it.each([
+    { quality: "other", kindText: "mystery", rawText: "Cmystery" },
+    { quality: "other", kindText: "madd#9", rawText: "Cmadd#9" },
+    { quality: "other", kindText: "madd9omit5", rawText: "Cmaj7add9omit5" },
+    { quality: "major", kindText: "madd9omit5", rawText: "Cmadd9omit5" },
+  ] as const)("does not guess base corrections for $quality/$kindText/$rawText", async (source) => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = {
+      position: POSITION,
+      root: { step: "C" },
+      extension: 7,
+      ...source,
+    };
+    const { user, getScore, onUpdate } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Minor");
+    await choose(user, /^Extension$/, "None");
+    expect(getScore()).toEqual(initial);
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(previewChord).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(UNSUPPORTED_CHORD_MESSAGE);
+  });
+
+  it("does not lock base controls into an incompatible power extension", async () => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = parseChordSymbolText("Cmaj7add9", POSITION);
+    const { user, getScore, onUpdate } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Power");
+    expect(onUpdate).not.toHaveBeenCalled();
+    await choose(user, /^Extension$/, "None");
+    await choose(user, /^Quality$/, "Power");
+    const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(chord).toEqual(parseChordSymbolText("C5add9", POSITION));
+    expect(resolveChordSymbol(chord)).toMatchObject({ status: "supported", pitchClasses: [0, 2, 7] });
+  });
+
+  it("preserves a conflicting display override while rewriting the base and degrees", async () => {
+    const initial = buildScore();
+    initial.global.measures[0]!.chordSymbols![0] = {
+      ...parseChordSymbolText("Cadd79omit5/E", POSITION),
+      textOverride: "custom display",
+    };
+    const { user, getScore } = renderInspector(initial);
+    await choose(user, /^Quality$/, "Minor");
+    const chord = getScore().global.measures[0]!.chordSymbols![0]!;
+    expect(chord).toEqual({
+      ...parseChordSymbolText("Cmadd7add9omit5/E", POSITION),
+      textOverride: "custom display",
+    });
+    expect(resolveChordSymbol(chord).status).toBe("unsupported");
+    expect(resolveChordSymbol({ ...chord, textOverride: undefined })).toMatchObject({
+      status: "supported",
+      pitchClasses: [0, 2, 3, 10],
+    });
   });
 
   it("preserves independently authored display text and reports conflicting harmony", async () => {
