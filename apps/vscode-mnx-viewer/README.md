@@ -14,7 +14,8 @@ Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.co
 - Opens a side preview panel that renders MNX through the Viritura WASM layout engine and Canvas painter.
 - Refreshes the preview as the source document changes.
 - Provides zoom, fit-to-width, and Ctrl+wheel zoom controls.
-- Supports page, horizontal, spread, and horizontal spread arrangements.
+- Supports page, horizontal, spread, horizontal spread, and continuous Horizon arrangements.
+- Offers page-size and staff-size controls for paged arrangements.
 - Lets you select among multiple scores in an MNX document.
 - Reports loading, parse, layout, and runtime errors inside the preview.
 - Bundles the WASM engine and SMuFL/text fonts into the VSIX for local/offline use.
