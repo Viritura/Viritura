@@ -168,6 +168,7 @@ export const ORCHESTRAL_POSITIONS: Record<string, SpatialPosition> = {
 
   // Percussion (far back)
   timpani: { x: 0, y: 10 },
+  percussion: { x: -1, y: 10 },
   glockenspiel: { x: 0, y: 10.5 },
   xylophone: { x: 0.5, y: 10.5 },
   vibraphone: { x: -0.5, y: 10.5 },

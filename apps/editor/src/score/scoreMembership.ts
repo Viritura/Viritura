@@ -35,6 +35,11 @@ export interface ConductorScore {
   staffCount: number;
 }
 
+interface SubGroupRun {
+  subGroup: string | undefined;
+  nodes: LayoutContent[];
+}
+
 /** Resolve the layout id a score definition renders (top-level or first page). */
 function scoreLayoutId(sd: ScoreDefinition): string | undefined {
   return sd.layout ?? sd.pages?.[0]?.systems?.[0]?.layout;
@@ -179,6 +184,19 @@ function staffNodeFor(score: Score, part: Part): LayoutContent {
     : ({ type: "staff", sources: [{ part: part.id!, labelref: "name" }] } as LayoutStaff);
 }
 
+function groupConsecutiveBySubGroup(entries: { node: LayoutContent; subGroup: string | undefined }[]): SubGroupRun[] {
+  const runs: SubGroupRun[] = [];
+  for (const entry of entries) {
+    const last = runs[runs.length - 1];
+    if (last && last.subGroup != null && last.subGroup === entry.subGroup) {
+      last.nodes.push(entry.node);
+    } else {
+      runs.push({ subGroup: entry.subGroup, nodes: [entry.node] });
+    }
+  }
+  return runs;
+}
+
 /**
  * Build family-grouped layout content from a chosen subset of parts.
  *
@@ -200,11 +218,23 @@ function buildSectionContent(score: Score, chosen: readonly Part[]): LayoutConte
   const out: LayoutContent[] = [];
   for (const key of [...buckets.keys()].sort((a, b) => order(a) - order(b))) {
     const parts = buckets.get(key)!;
-    const nodes = parts.map((p) => staffNodeFor(score, p));
-    if (nodes.length > 1 && key !== "other") {
-      out.push({ type: "group", symbol: "bracket", label: FAMILY_META[key].label, content: nodes } as LayoutGroup);
+    const entries = parts.map((part) => {
+      const inst = part.id ? resolvePartInstrument(score, part.id) : undefined;
+      return { node: staffNodeFor(score, part), subGroup: inst?.subGroup };
+    });
+    if (entries.length > 1 && key !== "other") {
+      const subGroupRuns = groupConsecutiveBySubGroup(entries);
+      const content: LayoutContent[] =
+        subGroupRuns.length > 1
+          ? subGroupRuns.map((run) =>
+              run.nodes.length > 1
+                ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup)
+                : run.nodes[0]!,
+            )
+          : entries.map((entry) => entry.node);
+      out.push({ type: "group", symbol: "bracket", label: FAMILY_META[key].label, content } as LayoutGroup);
     } else {
-      out.push(...nodes);
+      out.push(...entries.map((entry) => entry.node));
     }
   }
   return out;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { SpatialNode, setListenerPosition } from "./SpatialNode";
+import { getOrchestraPositions, SpatialNode, setListenerPosition } from "./SpatialNode";
 
 // ─── Mock Web Audio API ──────────────────────────────────────────────
 
@@ -158,5 +158,27 @@ describe("setListenerPosition", () => {
     expect(ctx.listener.upX.value).toBe(0);
     expect(ctx.listener.upY.value).toBe(1);
     expect(ctx.listener.upZ.value).toBe(0);
+  });
+});
+
+describe("getOrchestraPositions", () => {
+  it("places bass clarinet as the third clarinet and auxiliary percussion beside timpani", () => {
+    const positions = getOrchestraPositions([
+      "Clarinet 1",
+      "Clarinet 2",
+      "Bass Clarinet",
+      "Timpani",
+      "Orchestral Percussion",
+      "Auxiliary Percussion",
+    ]);
+
+    expect(positions).toEqual([
+      { x: -0.5, y: 7 },
+      { x: -1.5, y: 7 },
+      { x: -2.5, y: 7 },
+      { x: 0, y: 10 },
+      { x: -1, y: 10 },
+      { x: -1, y: 10 },
+    ]);
   });
 });
