@@ -185,6 +185,16 @@ pub(super) fn resolve_staves_with_condensing_labels(
     dirty_region: Option<&cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> ResolvedStaffSet {
+    let display_staves: Vec<_> = flat_staves
+        .iter()
+        .map(|staff| {
+            let mut display = staff.clone();
+            display.chord_symbol_transposition =
+                super::chord_symbols::display_transposition(score, staff, use_written);
+            display
+        })
+        .collect();
+    let flat_staves = &display_staves;
     let measure_count = score.global.measures.len();
     let full_span = flat_staves.len() * measure_count;
 
@@ -411,6 +421,8 @@ pub(super) fn resolve_staves_salt(
     measure_count.hash(&mut hasher);
     flat_staves.len().hash(&mut hasher);
     for s in flat_staves {
+        s.chord_symbol_source.hash(&mut hasher);
+        s.chord_symbol_transposition.hash(&mut hasher);
         s.sources.len().hash(&mut hasher);
         for src in &s.sources {
             src.part_index.hash(&mut hasher);
@@ -676,6 +688,7 @@ pub(super) fn resolve_one_measure_phase1(
     );
     let rm = ResolvedMeasure {
         index: mi,
+        chord_symbols: super::chord_symbols::visible_global_chord_symbols(score, mi, flat_staff),
         global,
         part: virtual_pm,
         measure_repeat_covered: flat_staff.sources.iter().any(|source| {

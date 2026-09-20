@@ -51,8 +51,9 @@ discarded.
 
 The current schema-v1 adapters preserve:
 
-- chord roots, bass notes, normalized qualities, common extensions, authored
-  suffix text, and a plain display override for complex Finale chord suffixes;
+- score-wide chord roots, slash bass notes, normalized qualities, common
+  extensions, authored text, and a plain display override for complex Finale
+  chord suffixes;
 - recognized per-note notehead families (`normal`, X, diamond, slash,
   circle-X, and triangles);
 - generic expressive text and performance instructions as plain text
@@ -67,3 +68,32 @@ explicit fills, formatting runs, performance-technique playback semantics,
 multiple rehearsal marks in one measure, separate displayed/playback metronome
 values, note-specific chord endpoints, custom/dashed/invisible lines, and tab
 slides remain explicit partial or unhandled outcomes.
+
+### Global harmony and source pitch
+
+Chord events are written only to
+`global.measures[n]._x.viritura.chordSymbols`. Source parts receive
+`_x.viritura.chordSymbolVisibility: "show"` (including previously hidden parts);
+no part-measure chord arrays or per-chord display-staff fields are created.
+Incoming events replace only matching exact rational positions. Multiple source
+parts/staves coalesce into one harmony stream: the topmost part, then topmost
+staff, wins regardless of gap order. Equivalent harmony is silent; discarded
+different harmony is reported through import diagnostics.
+
+The pinned Denigma revision classifies both chord roots and slash basses as
+**written** pitches (`KeyContext::Written` in
+[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/5864f4eb358dafabc06c7448ead5c16fd6481776/src/formats/mnx/mnx_chords.cpp)).
+The adapter negates the **source** MNX part's sounding-to-written
+`transposition.interval` to store concert harmony, preserving diatonic spelling.
+Absent transposition means unison; `prefersWrittenPitches` does not change this
+source representation. No destination instrument or display preference is used.
+This assumes Denigma's part-level interval describes all chord-bearing staves
+and measures in that part; the schema-v1 gap payload supplies no separate
+staff-specific or time-varying transposition metadata.
+
+The shared core resolver distinguishes supported harmony, silent `NC`/`N.C.`,
+and unsupported syntax. Unsupported symbols retain `rawText` and produce a
+warning rather than being simplified into playable major chords. Recognizable
+roots and slash basses in unsupported text are also converted to concert pitch.
+Malformed source transposition, rhythmic positions, and existing global chord
+containers fail structurally rather than being swallowed as harmony warnings.

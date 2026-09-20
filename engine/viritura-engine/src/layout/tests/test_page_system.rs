@@ -543,6 +543,7 @@ fn transposing_part(name: &str, half_steps: i32) -> crate::model::part::Part {
         id: None,
         name: name.to_string(),
         short_name: None,
+        chord_symbol_visibility: None,
         measures: Vec::new(),
         staves: 1,
         transposition: Some(crate::model::part::Transposition {
@@ -562,6 +563,7 @@ fn concert_part(name: &str) -> crate::model::part::Part {
         id: None,
         name: name.to_string(),
         short_name: None,
+        chord_symbol_visibility: None,
         measures: Vec::new(),
         staves: 1,
         transposition: None,

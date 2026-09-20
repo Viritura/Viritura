@@ -16,7 +16,7 @@ function isXmlCharacter(codePoint: number): boolean {
   );
 }
 
-function validateXmlCharacters(xml: string): void {
+export function validateXmlCharacters(xml: string): void {
   for (const character of xml) {
     if (!isXmlCharacter(character.codePointAt(0)!)) {
       throw new MuseScoreConversionError("malformed-xml", "XML contains an illegal XML 1.0 character");

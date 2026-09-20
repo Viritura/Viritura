@@ -34,7 +34,6 @@ use crate::{raw, raw_viritura};
 #[derive(Default)]
 pub(crate) struct PartMeasureVendor {
     pub pedals: Option<Vec<ModelPedal>>,
-    pub chord_symbols: Option<Vec<ModelChordSymbol>>,
     pub expressions: Option<Vec<ModelTextExpression>>,
     pub condensing_override: Option<String>,
     pub grouping_display_overrides: Option<Vec<ModelStaffGroupingDisplayOverride>>,
@@ -58,7 +57,6 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
         // Synthesize the still-supported unrelated extension fields.
         let synthetic = serde_json::json!({
             "pedals": top.get("pedals").cloned().unwrap_or(serde_json::Value::Array(Vec::new())),
-            "chordSymbols": top.get("chordSymbols").cloned().unwrap_or(serde_json::Value::Array(Vec::new())),
             "expressions": top.get("expressions").cloned().unwrap_or(serde_json::Value::Array(Vec::new())),
         });
         serde_json::from_value(synthetic).unwrap_or_default()
@@ -67,13 +65,6 @@ pub(crate) fn extract_part_measure_vendor_with_fallback(
     };
     PartMeasureVendor {
         pedals: vec_or_none(raw_ext.pedals.into_iter().map(promote_pedal).collect()),
-        chord_symbols: vec_or_none(
-            raw_ext
-                .chord_symbols
-                .into_iter()
-                .map(promote_chord_symbol)
-                .collect(),
-        ),
         expressions: vec_or_none(
             raw_ext
                 .expressions
@@ -232,15 +223,11 @@ fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpressi
 fn promote_chord_symbol(r: raw_viritura::ChordSymbol) -> ModelChordSymbol {
     ModelChordSymbol {
         position: promote_rhythmic_position_local(r.position),
-        display_staff: r
-            .display_staff
-            .or(r.staff)
-            .map(|staff| u32::try_from(staff).unwrap_or(1)),
         source_index: None,
         source_part_index: None,
-        source_global: false,
-        root: promote_chord_root(r.root),
+        root: r.root.map(promote_chord_root),
         quality: r.quality,
+        raw_text: r.raw_text,
         kind_text: r.kind_text,
         bass: r.bass.map(promote_chord_root),
         extension: r.extension.and_then(|e| u32::try_from(*e).ok()),
@@ -380,6 +367,40 @@ mod tests {
         let x = vendor_ext_from_json(r#"{"viritura":{"condensingOverride":"divisi"}}"#);
         let v = extract_part_measure_vendor(Some(&x));
         assert_eq!(v.condensing_override.as_deref(), Some("divisi"));
+    }
+
+    #[test]
+    fn extracts_global_harmony_without_guessing_missing_fields() {
+        let x = vendor_ext_from_json(
+            r#"{"viritura":{"chordSymbols":[
+                {"position":{"fraction":[0,1]},"rawText":"N.C."},
+                {"position":{"fraction":[1,4]},"rawText":"  H#?!  "},
+                {"position":{"fraction":[1,2]},"root":{"step":"D"}},
+                {"position":{"fraction":[3,4]},"root":{"step":"B","alter":-1},
+                 "quality":"minor","rawText":"B♭m7/F","kindText":"min",
+                 "extension":7,"bass":{"step":"F"},"textOverride":"Bbmin7/F"}
+            ]}} "#,
+        );
+        let vendor = extract_global_measure_vendor(Some(&x));
+        let chords = vendor.chord_symbols.expect("global harmony");
+        assert_eq!(chords.len(), 4);
+        for (index, text) in ["N.C.", "  H#?!  "].iter().enumerate() {
+            assert!(chords[index].root.is_none());
+            assert!(chords[index].quality.is_none());
+            assert_eq!(chords[index].raw_text.as_deref(), Some(*text));
+            assert_eq!(chords[index].display_text(), *text);
+        }
+        assert_eq!(chords[1].position.fraction, (1, 4));
+        assert_eq!(chords[2].root.as_ref().unwrap().step, "D");
+        assert!(chords[2].quality.is_none());
+        assert!(chords[2].raw_text.is_none());
+        assert_eq!(chords[3].root.as_ref().unwrap().alter, Some(-1));
+        assert_eq!(chords[3].quality, Some(raw_viritura::ChordQuality::Minor));
+        assert_eq!(chords[3].raw_text.as_deref(), Some("B♭m7/F"));
+        assert_eq!(chords[3].kind_text.as_deref(), Some("min"));
+        assert_eq!(chords[3].extension, Some(7));
+        assert_eq!(chords[3].bass.as_ref().unwrap().step, "F");
+        assert_eq!(chords[3].text_override.as_deref(), Some("Bbmin7/F"));
     }
 
     #[test]

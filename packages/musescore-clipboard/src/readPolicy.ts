@@ -12,6 +12,11 @@ export class ReadPolicy {
 
   skip(message: string, path?: string, sourceTime?: string): void {
     if (!this.skipUnsupported) throw new MuseScoreConversionError("unsupported-content", message, path, sourceTime);
+    this.warn(message, path, sourceTime);
+  }
+
+  /** Retained raw notation can be diagnosed without invoking lossy recovery. */
+  warn(message: string, path?: string, sourceTime?: string): void {
     this.diagnostics.push({
       code: "unsupported-content",
       message,

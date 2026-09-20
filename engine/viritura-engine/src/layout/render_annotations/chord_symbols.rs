@@ -1,5 +1,13 @@
 //! Chord-symbol placement and rendering.
 
+#[path = "chord_symbols/display_spelling.rs"]
+mod display_spelling;
+#[cfg(test)]
+#[path = "chord_symbols/tests.rs"]
+mod tests;
+
+pub(crate) use display_spelling::chord_symbol_for_display;
+
 use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::text_styles::{self, FontFamily};
@@ -198,16 +206,16 @@ fn extension_metrics(position: ChordExtensionPosition, font_size: f64) -> (f64, 
     }
 }
 
-fn root_text(chord: &ChordSymbol, style: ChordSymbolStyle) -> String {
+fn root_text(root: &ChordRoot, chord: &ChordSymbol, style: ChordSymbolStyle) -> String {
     let lower = style.root_case == ChordRootCase::LowercaseMinor
         && matches!(
             chord.quality,
-            ChordQuality::Minor | ChordQuality::HalfDiminished | ChordQuality::MinorMajor
+            Some(ChordQuality::Minor | ChordQuality::HalfDiminished | ChordQuality::MinorMajor)
         );
     if lower {
-        chord.root.step.to_lowercase()
+        root.step.to_lowercase()
     } else {
-        chord.root.step.clone()
+        root.step.clone()
     }
 }
 
@@ -303,7 +311,7 @@ fn push_quality_and_extension(
     sp: f64,
     ascent: &mut f64,
 ) {
-    match chord.quality {
+    match chord.quality.unwrap_or(ChordQuality::Major) {
         ChordQuality::Major if chord.extension.is_some_and(|extension| extension != 6) => {
             push_major_seventh_marker(runs, dx, style, font_size, sp, ascent);
             push_extension(runs, dx, chord.extension, style, font_size, ascent);
@@ -386,7 +394,7 @@ fn chord_symbol_runs(
     sp: f64,
 ) -> (Vec<ChordRun>, f64, f64) {
     let font_size = CHORD_FONT_SIZE_SP * sp;
-    if let Some(text) = &chord.text_override {
+    if let Some(text) = chord.text_override.as_ref().or(chord.raw_text.as_ref()) {
         let width = text_styles::text_width(text, font_size, FontFamily::Serif, false);
         return (
             vec![ChordRun::Text {
@@ -400,23 +408,21 @@ fn chord_symbol_runs(
         );
     }
 
+    let Some(root) = &chord.root else {
+        return (Vec::new(), 0.0, 0.0);
+    };
     let mut runs = Vec::new();
     let mut dx = 0.0;
     let mut ascent = 0.82 * font_size;
     ascent = ascent.max(push_text_run(
         &mut runs,
         &mut dx,
-        root_text(chord, style),
+        root_text(root, chord, style),
         font_size,
         0.0,
     ));
     ascent = ascent.max(push_accidental_run(
-        &mut runs,
-        &mut dx,
-        chord.root.alter,
-        font_size,
-        0.0,
-        sp,
+        &mut runs, &mut dx, root.alter, font_size, 0.0, sp,
     ));
     push_quality_and_extension(&mut runs, &mut dx, chord, style, font_size, sp, &mut ascent);
     if let Some(ChordRoot { step, alter }) = &chord.bass {
@@ -451,7 +457,7 @@ pub(crate) fn render_chord_symbols(
     sp: f64,
     config: &LayoutConfig,
 ) {
-    let chords = match &ml.resolved.part.chord_symbols {
+    let chords = match &ml.resolved.chord_symbols {
         Some(chords) if !chords.is_empty() => chords,
         _ => return,
     };
@@ -465,20 +471,11 @@ pub(crate) fn render_chord_symbols(
         .attach_gap;
     let chord_baseline_y = staff_y - attach_gap * sp;
     let measure_index = ml.resolved.index;
-    let part_index = ml.part_index;
 
     for (index, chord) in chords.iter().enumerate() {
         let chord_x = x_origin + (chord.position.beats() / total_beats) * content_width;
         let source_index = chord.source_index.unwrap_or(index);
-        let element_id = if chord.source_global {
-            element_id::global_chord_symbol(measure_index, source_index)
-        } else {
-            element_id::chord_symbol(
-                chord.source_part_index.unwrap_or(part_index),
-                measure_index,
-                source_index,
-            )
-        };
+        let element_id = element_id::global_chord_symbol(measure_index, source_index);
         let (runs, _, _) = chord_symbol_runs(chord, config.chord_symbol_style, sp);
         for run in runs {
             let command = match run {

@@ -88,7 +88,7 @@ fn resolve_layout(
 
 fn default_flat_staves(score: &Score) -> StaffGroupLayout {
     let display_names = resolve_part_display_names(&score.parts);
-    let staves = score
+    let mut staves: Vec<_> = score
         .parts
         .iter()
         .enumerate()
@@ -100,10 +100,10 @@ fn default_flat_staves(score: &Score) -> StaffGroupLayout {
             resolved_short_label: Some(display_names[index].display_short_name.clone()),
             expansion: false,
             condensed_numbers: Vec::new(),
-            chord_symbols_visible: None,
-            global_chord_symbols_visible: index == 0,
-            global_chord_symbols_policy: None,
+            chord_symbol_source: None,
+            chord_symbol_transposition: None,
         })
         .collect();
+    super::structure_flattening::resolve_chord_symbol_sources(&mut staves, score);
     (staves, Vec::new())
 }

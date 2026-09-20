@@ -3,6 +3,7 @@ import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren } from "../xmlHelpers";
 import type { MnxGlobalMeasure, MnxRhythmicPosition, MnxTempo } from "../types";
 import { normalizeMusicXmlColor } from "./colors";
+import { durationFraction } from "./durationFraction";
 import { IdGenerator } from "./idGenerator";
 import { makePosition } from "./pitchDuration";
 
@@ -78,7 +79,7 @@ export function buildGlobalMeasures(
     let divisions = 4;
     if (attrs) {
       const divEl = findChild(attrs, "divisions");
-      if (divEl) divisions = parseInt(divEl.textContent ?? "4", 10);
+      if (divEl) divisions = Number(divEl.textContent ?? "4");
     }
 
     // Tempo / navigation carried by a `<sound>` element. MusicXML allows a
@@ -203,18 +204,18 @@ export function buildGlobalMeasures(
         if (findChild(child, "chord") === null && findChild(child, "grace") === null) {
           const durEl = findChild(child, "duration");
           if (durEl) {
-            currentPos = currentPos.add(new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4));
+            currentPos = currentPos.add(durationFraction(Number(durEl.textContent ?? "0"), divisions));
           }
         }
       } else if (child.tagName === "forward") {
         const durEl = findChild(child, "duration");
         if (durEl) {
-          currentPos = currentPos.add(new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4));
+          currentPos = currentPos.add(durationFraction(Number(durEl.textContent ?? "0"), divisions));
         }
       } else if (child.tagName === "backup") {
         const durEl = findChild(child, "duration");
         if (durEl) {
-          currentPos = currentPos.subtract(new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4));
+          currentPos = currentPos.subtract(durationFraction(Number(durEl.textContent ?? "0"), divisions));
           if (currentPos.isNegative()) currentPos = Fraction.ZERO;
         }
       }

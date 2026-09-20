@@ -1,11 +1,12 @@
 // Auto-generated from tests.rs — test_grand_staff
 // 14 test(s)
 
+use crate::layout::cache::LayoutCache;
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_with_mnx_scores;
 use crate::layout::resolve::*;
 use crate::layout::staff_brace::is_brace_glyph;
 use crate::layout::{layout_full_score, layout_score};
+use crate::layout::{layout_with_mnx_scores, layout_with_mnx_scores_cached};
 use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
@@ -1064,359 +1065,603 @@ fn test_organ_layout_clefs_all_staves() {
     );
 }
 
-#[test]
-fn test_chord_symbols_follow_staff_without_losing_source_index() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-            "parts": [{"staves": 2, "measures": [{
-                "sequences": [
+fn harmony_layout_fixture(content: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "id": "opening-bar",
+            "time": {"count": 4, "unit": 4},
+            "_x": {"viritura": {"chordSymbols": [
+                {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"},
+                {"position": {"fraction": [1, 2]}, "root": {"step": "F"}}
+            ]}}
+        }]},
+        "parts": [
+            {
+                "id": "flute-source", "name": "Flute",
+                "measures": [{"sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "rest": {}}
+                ]}]}]
+            },
+            {
+                "id": "keyboard-source", "name": "Piano", "staves": 2,
+                "measures": [{"sequences": [
                     {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
                     {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
-                ],
-                "_x": {"viritura": {"chordSymbols": [
-                    {"position": {"fraction": [0, 1]}, "displayStaff": 1, "root": {"step": "C"}, "quality": "major"},
-                    {"position": {"fraction": [0, 1]}, "displayStaff": 2, "root": {"step": "F"}, "quality": "major"}
-                ]}}
-            }]}]
-        }"#,
-    )
-    .unwrap();
-    let pm = &score.parts[0].measures[0];
+                ]}]
+            },
+            {
+                "id": "clarinet-source", "name": "Clarinet",
+                "transposition": {"interval": {"staffDistance": 1, "halfSteps": 2}},
+                "measures": [{"sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "rest": {}}
+                ]}]}]
+            }
+        ],
+        "layouts": [{"id": "harmony-layout", "content": content}],
+        "scores": [{"name": "Harmony", "layout": "harmony-layout", "useWritten": false}]
+    })
+}
 
-    let upper = split_part_measure_by_staff(pm, 1);
-    let lower = split_part_measure_by_staff(pm, 2);
+fn harmony_staff_lines(dl: &DisplayList) -> Vec<f64> {
+    let mut ys: Vec<_> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x1, x2, y1, y2, .. }
+                if (y1 - y2).abs() < 0.001 && (x2 - x1).abs() > 80.0 =>
+            {
+                Some(*y1)
+            }
+            _ => None,
+        })
+        .collect();
+    ys.sort_by(f64::total_cmp);
+    ys.dedup_by(|left, right| (*left - *right).abs() < 0.001);
+    ys
+}
 
-    assert_eq!(upper.chord_symbols.as_ref().unwrap().len(), 1);
-    assert_eq!(lower.chord_symbols.as_ref().unwrap().len(), 1);
-    assert_eq!(upper.chord_symbols.as_ref().unwrap()[0].root.step, "C");
+fn harmony_text_runs<'a>(dl: &'a DisplayList, id: &str) -> Vec<(&'a str, f64)> {
+    dl.commands
+        .iter()
+        .zip(&dl.element_ids)
+        .filter_map(|(command, element_id)| match command {
+            RenderCommand::DrawText { text, y, color, .. } if element_id.as_deref() == Some(id) => {
+                assert_eq!(color, "#000000", "harmony is not diagnostic red");
+                Some((text.as_str(), *y))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn assert_harmony_copies(dl: &DisplayList, expected: usize) {
+    for (index, text) in ["C", "F"].iter().enumerate() {
+        let id = format!("m0/chord{index}");
+        let runs = harmony_text_runs(dl, &id);
+        assert_eq!(
+            runs.len(),
+            expected,
+            "{id} must render once per eligible staff"
+        );
+        assert!(runs.iter().all(|(actual, _)| actual == text));
+        assert_eq!(
+            dl.element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id == id)
+                .count(),
+            expected,
+            "each displayed copy needs its own hit region with the same canonical ID"
+        );
+    }
+    assert!(dl
+        .element_ids
+        .iter()
+        .flatten()
+        .all(|id| !id.contains("chord") || id == "m0/chord0" || id == "m0/chord1"));
+}
+
+#[test]
+fn test_global_chords_project_once_on_grand_staff_with_source_indices() {
+    let value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]}
+    ]));
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let canonical = score.global.measures[0].chord_symbols().unwrap().to_vec();
+    let resolved = resolve_measures(&score, 1);
+    let projected = resolved[0].chord_symbols.as_ref().unwrap();
+    assert_eq!(projected.len(), 2);
+    for (index, chord) in projected.iter().enumerate() {
+        assert_eq!(chord.source_index, Some(index));
+        assert_eq!(chord.source_part_index, Some(1));
+        assert_eq!(chord.root, canonical[index].root);
+    }
+    assert_eq!(projected[0].quality, Some(ChordQuality::Major));
+    assert_eq!(projected[1].quality, None);
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    assert_harmony_copies(&dl, 1);
+    let lines = harmony_staff_lines(&dl);
+    assert_eq!(lines.len(), 10);
+    assert!(harmony_text_runs(&dl, "m0/chord0")[0].1 < lines[0]);
     assert_eq!(
-        upper.chord_symbols.as_ref().unwrap()[0].source_index,
-        Some(0)
-    );
-    assert_eq!(lower.chord_symbols.as_ref().unwrap()[0].root.step, "F");
-    assert_eq!(
-        lower.chord_symbols.as_ref().unwrap()[0].source_index,
-        Some(1)
+        score.global.measures[0].chord_symbols().unwrap(),
+        &canonical
     );
 }
 
 #[test]
-fn test_hiding_default_staff_promotes_harmony_lane_to_next_auto_staff() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "layouts": [{
-                    "id": "piano",
-                    "content": [
-                        {
-                            "type": "staff",
-                            "sources": [{"part": "P1", "staff": 1}],
-                            "_x": {"viritura": {"chordSymbolVisibility": "hide"}}
-                        },
-                        {
-                            "type": "staff",
-                            "sources": [{"part": "P1", "staff": 2}]
-                        }
-                    ]
-                }],
-            "scores": [{"name": "Piano", "layout": "piano"}],
-            "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
-            "parts": [{
-                "id": "P1",
-                "name": "Piano",
-                "staves": 2,
-                "measures": [{
-                    "sequences": [
-                        {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
-                        {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
-                    ],
-                    "_x": {"viritura": {"chordSymbols": [
-                        {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}
-                    ]}}
-                }]
-            }]
-        }"#,
-    )
-    .unwrap();
-    let layout = &score.layouts[0];
-    let LayoutContent::Staff(upper) = &layout.content[0] else {
-        panic!("expected upper staff")
-    };
-    let LayoutContent::Staff(lower) = &layout.content[1] else {
-        panic!("expected lower staff")
-    };
+fn test_hiding_first_displayed_part_suppresses_automatic_harmony() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    value["parts"][1]["_x"] = serde_json::json!({"viritura": {"chordSymbolVisibility": "hide"}});
+    let score = parse_mnx(&value.to_string()).unwrap();
     assert_eq!(
-        upper.chord_symbol_visibility,
+        score.parts[1].chord_symbol_visibility,
         Some(ChordSymbolVisibility::Hide)
     );
-    assert_eq!(lower.chord_symbol_visibility, None);
-    let config = LayoutConfig::default();
-    let dl = layout_with_mnx_scores(&score, &config, 0);
-    let chord_positions: Vec<f64> = dl
-        .commands
-        .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawText { y, text, .. } if text == "C" => Some(*y),
-            _ => None,
-        })
-        .collect();
-    let mut staff_line_ys: Vec<f64> = dl
-        .commands
-        .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawLine { x1, x2, y1, y2, .. }
-                if (y1 - y2).abs() < 0.001 && (x2 - x1).abs() > 10.0 * config.sp =>
-            {
-                Some(*y1)
-            }
-            _ => None,
-        })
-        .collect();
-    staff_line_ys.sort_by(f64::total_cmp);
-    staff_line_ys.dedup_by(|left, right| (*left - *right).abs() < 0.001);
-    let upper_staff_y = staff_line_ys[0];
-
-    assert_eq!(chord_positions.len(), 1);
-    assert!(
-        chord_positions[0] > upper_staff_y,
-        "explicit layout policy should place the harmony lane on the lower staff, got y={:?}, upper={upper_staff_y}",
-        chord_positions
-    );
-    let upper_staff_bottom = staff_line_ys[4];
-    let chord_top = chord_positions[0] - 2.4 * 0.82 * config.sp;
-    assert!(
-        chord_top > upper_staff_bottom,
-        "lower-staff chord symbols must clear the upper staff: top={chord_top}, upper bottom={upper_staff_bottom}"
+    assert!(resolve_measures(&score, 1)[0].chord_symbols.is_none());
+    assert_harmony_copies(
+        &layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+        0,
     );
 }
 
 #[test]
-fn test_layout_automatically_shows_part_harmony_lane_once_on_first_staff() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "layouts": [{
-                    "id": "piano",
-                    "content": [
-                        {"type": "staff", "sources": [{"part": "P1", "staff": 1}]},
-                        {"type": "staff", "sources": [{"part": "P1", "staff": 2}]}
-                    ]
-                }],
-            "scores": [{"name": "Piano", "layout": "piano"}],
-            "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
-            "parts": [{
-                "id": "P1",
-                "name": "Piano",
-                "staves": 2,
-                "measures": [{
-                    "sequences": [
-                        {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
-                        {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
-                    ],
-                    "_x": {"viritura": {"chordSymbols": [
-                        {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}
-                    ]}}
-                }]
-            }]
-        }"#,
-    )
-    .unwrap();
-    let config = LayoutConfig::default();
-    let dl = layout_with_mnx_scores(&score, &config, 0);
-    let chord_positions: Vec<f64> = dl
-        .commands
-        .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawText { y, text, .. } if text == "C" => Some(*y),
-            _ => None,
-        })
-        .collect();
-    let mut staff_line_ys: Vec<f64> = dl
-        .commands
-        .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawLine { x1, x2, y1, y2, .. }
-                if (y1 - y2).abs() < 0.001 && (x2 - x1).abs() > 10.0 * config.sp =>
-            {
-                Some(*y1)
-            }
-            _ => None,
-        })
-        .collect();
-    staff_line_ys.sort_by(f64::total_cmp);
-    staff_line_ys.dedup_by(|left, right| (*left - *right).abs() < 0.001);
-    let upper_staff_y = staff_line_ys[0];
-
-    assert_eq!(chord_positions.len(), 1);
-    assert!(
-        chord_positions[0] < upper_staff_y,
-        "automatic layout policy should place the harmony lane above the first staff, got y={:?}, upper={upper_staff_y}",
-        chord_positions
-    );
+fn test_harmony_auto_uses_first_displayed_source_after_extract_and_reorder() {
+    for content in [
+        serde_json::json!([
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]}
+        ]),
+        serde_json::json!([
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "flute-source"}]}
+        ]),
+    ] {
+        let mut value = harmony_layout_fixture(content);
+        value["parts"][1]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "auto"}});
+        let score = parse_mnx(&value.to_string()).unwrap();
+        assert_eq!(
+            score.parts[1].chord_symbol_visibility,
+            Some(ChordSymbolVisibility::Auto)
+        );
+        let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+        assert_harmony_copies(&dl, 1);
+        assert!(harmony_text_runs(&dl, "m0/chord0")[0].1 < harmony_staff_lines(&dl)[0]);
+    }
 }
 
 #[test]
-fn test_explicit_show_suppresses_automatic_chord_staff() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "layouts": [{
-                "id": "piano",
-                "content": [
-                    {"type": "staff", "sources": [{"part": "P1", "staff": 1}]},
-                    {
-                        "type": "staff",
-                        "sources": [{"part": "P1", "staff": 2}],
-                        "_x": {"viritura": {"chordSymbolVisibility": "show"}}
-                    }
-                ]
-            }],
-            "scores": [{"name": "Piano", "layout": "piano"}],
-            "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
-            "parts": [{
-                "id": "P1",
-                "name": "Piano",
-                "staves": 2,
-                "measures": [{
-                    "sequences": [
-                        {"staff": 1, "content": [{"duration": {"base": "whole"}, "rest": {}}]},
-                        {"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}
-                    ],
-                    "_x": {"viritura": {"chordSymbols": [
-                        {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}
-                    ]}}
-                }]
-            }]
-        }"#,
-    )
-    .unwrap();
-    let config = LayoutConfig::default();
-    let dl = layout_with_mnx_scores(&score, &config, 0);
-    let mut staff_line_ys: Vec<f64> = dl
-        .commands
+fn test_show_copies_harmony_on_each_source_parts_first_rendered_staff() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "flute-source"}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    for index in [1, 2] {
+        value["parts"][index]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+    }
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    assert_harmony_copies(&dl, 3);
+    let lines = harmony_staff_lines(&dl);
+    assert_eq!(lines.len(), 20);
+    let mut ys: Vec<_> = harmony_text_runs(&dl, "m0/chord0")
         .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawLine { x1, x2, y1, y2, .. }
-                if (y1 - y2).abs() < 0.001 && (x2 - x1).abs() > 10.0 * config.sp =>
-            {
-                Some(*y1)
-            }
-            _ => None,
-        })
+        .map(|(_, y)| *y)
         .collect();
-    staff_line_ys.sort_by(f64::total_cmp);
-    staff_line_ys.dedup_by(|left, right| (*left - *right).abs() < 0.001);
-    let chord_positions: Vec<f64> = dl
-        .commands
-        .iter()
-        .filter_map(|command| match command {
-            RenderCommand::DrawText { y, text, .. } if text == "C" => Some(*y),
-            _ => None,
-        })
-        .collect();
-
-    assert_eq!(chord_positions.len(), 1);
-    assert!(chord_positions[0] > staff_line_ys[0]);
+    ys.sort_by(f64::total_cmp);
+    assert!(ys[0] < lines[0]);
+    assert!(ys[1] > lines[4] && ys[1] < lines[5]);
+    assert!(ys[2] > lines[14] && ys[2] < lines[15]);
 }
 
 #[test]
-fn test_condensed_layout_chords_use_source_order_for_same_onset() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "layouts": [{
-                "id": "condensed",
-                "content": [{
-                    "type": "staff",
-                    "sources": [{"part": "P1"}, {"part": "P2"}],
-                    "_x": {"viritura": {"chordSymbolVisibility": "show"}}
-                }]
-            }],
-            "scores": [{"name": "Condensed", "layout": "condensed"}],
-            "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
-            "parts": [
-                {
-                    "id": "P1",
-                    "name": "Flute 1",
-                    "measures": [{
-                        "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
-                        "_x": {"viritura": {"chordSymbols": [
-                            {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}
-                        ]}}
-                    }]
-                },
-                {
-                    "id": "P2",
-                    "name": "Flute 2",
-                    "measures": [{
-                        "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
-                        "_x": {"viritura": {"chordSymbols": [
-                            {"position": {"fraction": [0, 1]}, "root": {"step": "F"}, "quality": "major"},
-                            {"position": {"fraction": [1, 2]}, "root": {"step": "G"}, "quality": "major"}
-                        ]}}
-                    }]
+fn test_condensed_harmony_deduplicates_source_mappings_per_rendered_staff() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [
+            {"part": "keyboard-source", "staff": 2},
+            {"part": "flute-source"},
+            {"part": "keyboard-source", "staff": 1}
+        ]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    for index in 0..3 {
+        value["parts"][index]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+    }
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    assert_harmony_copies(&dl, 2);
+    let lines = harmony_staff_lines(&dl);
+    assert_eq!(lines.len(), 10);
+    let mut ys: Vec<_> = harmony_text_runs(&dl, "m0/chord0")
+        .iter()
+        .map(|(_, y)| *y)
+        .collect();
+    ys.sort_by(f64::total_cmp);
+    assert!(ys[0] < lines[0]);
+    assert!(ys[1] > lines[4] && ys[1] < lines[5]);
+}
+
+#[test]
+fn test_harmony_hide_does_not_suppress_other_parts_explicit_show() {
+    let mut value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+        {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+        {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+    ]));
+    value["parts"][1]["_x"] = serde_json::json!({"viritura": {"chordSymbolVisibility": "hide"}});
+    value["parts"][2]["_x"] = serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    assert_harmony_copies(&dl, 1);
+    let lines = harmony_staff_lines(&dl);
+    assert_eq!(lines.len(), 15);
+    let y = harmony_text_runs(&dl, "m0/chord0")[0].1;
+    assert!(y > lines[9] && y < lines[10]);
+}
+
+#[test]
+fn test_harmony_written_bb_slash_uses_source_transposition_in_extracts_and_condensing() {
+    let layouts = [
+        serde_json::json!([
+            {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+        ]),
+        serde_json::json!([
+            {"type": "staff", "sources": [{"part": "clarinet-source"}]},
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]}
+        ]),
+        serde_json::json!([
+            {"type": "staff", "sources": [
+                {"part": "flute-source"},
+                {"part": "clarinet-source"}
+            ]}
+        ]),
+    ];
+    for content in layouts {
+        let mut value = harmony_layout_fixture(content);
+        value["parts"][0]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "hide"}});
+        value["parts"][2]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+        value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"] = serde_json::json!([
+            {
+                "position": {"fraction": [0, 1]},
+                "root": {"step": "B", "alter": -1},
+                "quality": "major",
+                "bass": {"step": "F"}
+            },
+            {"position": {"fraction": [1, 4]}, "rawText": "  H#?!  "},
+            {"position": {"fraction": [1, 2]}, "rawText": "N.C."},
+            {"position": {"fraction": [3, 4]}, "rawText": "Bb7/F"}
+        ]);
+        for written in [false, true] {
+            value["scores"][0]["useWritten"] = serde_json::json!(written);
+            let score = parse_mnx(&value.to_string()).unwrap();
+            let canonical = score.global.measures[0].chord_symbols().unwrap().to_vec();
+            let resolved = resolve_measures(&score, 2);
+            let chords = resolved[0].chord_symbols.as_ref().unwrap();
+            assert_eq!(chords.len(), 4);
+            assert_eq!(
+                chords[0].display_text(),
+                if written { "C/G" } else { "Bb/F" }
+            );
+            assert_eq!(
+                chords[3].raw_text.as_deref(),
+                Some(if written { "C7/G" } else { "Bb7/F" })
+            );
+            for (index, chord) in chords.iter().enumerate() {
+                assert_eq!(chord.source_index, Some(index));
+                assert_eq!(chord.source_part_index, Some(2));
+                if index > 0 {
+                    assert!(chord.root.is_none());
+                    assert!(chord.quality.is_none());
                 }
-            ]
-        }"#,
-    )
-    .unwrap();
-    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
-    let chord_ids: Vec<_> = dl
-        .commands
-        .iter()
-        .zip(dl.element_ids.iter())
-        .filter_map(|(command, id)| match command {
-            RenderCommand::DrawText { text, .. } if text == "C" || text == "F" || text == "G" => {
-                id.as_deref().map(str::to_owned)
             }
-            _ => None,
-        })
-        .collect();
-
-    assert_eq!(
-        chord_ids,
-        vec!["p0/m0/chord0".to_string(), "p1/m0/chord1".to_string()]
-    );
+            let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+            for (index, expected) in [
+                if written { "C/G" } else { "B/F" },
+                "  H#?!  ",
+                "N.C.",
+                if written { "C7/G" } else { "Bb7/F" },
+            ]
+            .iter()
+            .enumerate()
+            {
+                let id = format!("m0/chord{index}");
+                let runs = harmony_text_runs(&dl, &id);
+                assert!(!runs.is_empty(), "missing {id}");
+                let text: String = runs.iter().map(|(text, _)| *text).collect();
+                assert_eq!(&text, expected, "written={written}, {id}");
+                assert_eq!(
+                    dl.element_bboxes
+                        .iter()
+                        .filter(|bbox| bbox.element_id == id)
+                        .count(),
+                    1,
+                    "one canonical hit region for {id}"
+                );
+            }
+            let glyphs: Vec<_> = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter_map(|(command, id)| match command {
+                    RenderCommand::DrawGlyph {
+                        codepoint, color, ..
+                    } if id.as_deref() == Some("m0/chord0") => {
+                        assert_eq!(color, "#000000");
+                        Some(*codepoint)
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(
+                glyphs,
+                if written {
+                    vec![]
+                } else {
+                    vec![smufl::CHORD_FLAT]
+                }
+            );
+            assert_eq!(
+                score.global.measures[0].chord_symbols().unwrap(),
+                &canonical
+            );
+            assert_eq!(canonical[0].root.as_ref().unwrap().step, "B");
+            assert_eq!(canonical[0].root.as_ref().unwrap().alter, Some(-1));
+            assert_eq!(canonical[0].bass.as_ref().unwrap().step, "F");
+        }
+    }
 }
 
 #[test]
-fn test_imported_display_staff_falls_back_when_layout_omits_that_staff() {
-    let score = parse_mnx(
-        r#"{
-            "mnx": {"version": 1},
-            "layouts": [{
-                "id": "left-hand-only",
-                "content": [{"type": "staff", "sources": [{"part": "P1", "staff": 2}]}]
-            }],
-            "scores": [{"name": "Left hand", "layout": "left-hand-only"}],
-            "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
-            "parts": [{
-                "id": "P1",
-                "name": "Piano",
-                "staves": 2,
-                "measures": [{
-                    "sequences": [{"staff": 2, "content": [{"duration": {"base": "whole"}, "rest": {}}]}],
-                    "_x": {"viritura": {"chordSymbols": [{
-                        "position": {"fraction": [0, 1]},
-                        "displayStaff": 1,
-                        "root": {"step": "C"},
-                        "quality": "major"
-                    }]}}
-                }]
-            }]
-        }"#,
-    )
-    .unwrap();
-    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
-    let chord_count = dl
-        .commands
-        .iter()
-        .filter(|command| matches!(command, RenderCommand::DrawText { text, .. } if text == "C"))
-        .count();
+fn test_full_score_and_single_part_harmony_share_canonical_ids() {
+    let value = harmony_layout_fixture(serde_json::json!([
+        {"type": "staff", "sources": [{"part": "flute-source"}]}
+    ]));
+    let mut score = parse_mnx(&value.to_string()).unwrap();
+    let config = LayoutConfig::default();
+    assert_harmony_copies(&layout_full_score(&score, &config), 1);
+    for part in 0..3 {
+        assert_harmony_copies(&layout_score(&score, part, &config), 1);
+    }
+    score.parts[0].chord_symbol_visibility = Some(ChordSymbolVisibility::Hide);
+    assert_harmony_copies(&layout_full_score(&score, &config), 0);
+    score.parts[1].chord_symbol_visibility = Some(ChordSymbolVisibility::Show);
+    score.parts[2].chord_symbol_visibility = Some(ChordSymbolVisibility::Show);
+    assert_harmony_copies(&layout_full_score(&score, &config), 2);
+    assert_harmony_copies(&layout_score(&score, 0, &config), 0);
+    assert_harmony_copies(&layout_score(&score, 1, &config), 1);
+}
 
-    assert_eq!(chord_count, 1);
+#[test]
+fn test_harmony_visibility_without_mnx_layouts_uses_each_parts_first_staff() {
+    let mut value = harmony_layout_fixture(serde_json::json!([]));
+    value.as_object_mut().unwrap().remove("layouts");
+    value.as_object_mut().unwrap().remove("scores");
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        for (visibility, expected_staffs) in [
+            (["auto", "auto", "auto"], vec![0]),
+            (["hide", "auto", "auto"], vec![]),
+            (["show", "show", "show"], vec![0, 1, 3]),
+            (["hide", "show", "hide"], vec![1]),
+            (["hide", "hide", "hide"], vec![]),
+        ] {
+            for (part, visibility) in visibility.iter().enumerate() {
+                value["parts"][part]["_x"] =
+                    serde_json::json!({"viritura": {"chordSymbolVisibility": visibility}});
+            }
+            let score = parse_mnx(&value.to_string()).unwrap();
+            for dl in [
+                layout_full_score(&score, &config),
+                layout_with_mnx_scores(&score, &config, 0),
+            ] {
+                assert_harmony_copies(&dl, expected_staffs.len());
+                let lines = harmony_staff_lines(&dl);
+                assert_eq!(lines.len(), 20);
+                for id in ["m0/chord0", "m0/chord1"] {
+                    let mut ys: Vec<_> =
+                        harmony_text_runs(&dl, id).iter().map(|(_, y)| *y).collect();
+                    ys.sort_by(f64::total_cmp);
+                    for (y, staff) in ys.iter().zip(&expected_staffs) {
+                        assert!(*y < lines[staff * 5]);
+                        if *staff > 0 {
+                            assert!(*y > lines[staff * 5 - 1]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn cached_harmony_matches_fresh(
+    value: &serde_json::Value,
+    config: &LayoutConfig,
+    cache: &mut LayoutCache,
+) -> DisplayList {
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let fresh = layout_with_mnx_scores(&score, config, 0);
+    for _ in 0..2 {
+        let cached = layout_with_mnx_scores_cached(&score, config, 0, Some(&mut *cache));
+        let snapshot = |dl: &DisplayList| {
+            let commands: Vec<_> = dl
+                .commands
+                .iter()
+                .zip(&dl.element_ids)
+                .filter(|(_, id)| id.as_deref().is_some_and(|id| id.contains("/chord")))
+                .collect();
+            let bboxes: Vec<_> = dl
+                .element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id.contains("/chord"))
+                .collect();
+            serde_json::to_value((commands, bboxes)).unwrap()
+        };
+        assert_eq!(
+            snapshot(&cached),
+            snapshot(&fresh),
+            "warm harmony commands and hit regions must match a fresh layout"
+        );
+    }
+    fresh
+}
+
+#[test]
+fn test_cached_global_chord_edit_matches_fresh() {
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut value = harmony_layout_fixture(serde_json::json!([
+            {"type": "staff", "sources": [{"part": "flute-source"}]}
+        ]));
+        let mut cache = LayoutCache::new();
+        assert_harmony_copies(
+            &cached_harmony_matches_fresh(&value, &config, &mut cache),
+            1,
+        );
+        value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"][0]["root"]["step"] =
+            serde_json::json!("G");
+        let dl = cached_harmony_matches_fresh(&value, &config, &mut cache);
+        assert_eq!(harmony_text_runs(&dl, "m0/chord0")[0].0, "G");
+        value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"] = serde_json::json!([]);
+        assert_harmony_copies(
+            &cached_harmony_matches_fresh(&value, &config, &mut cache),
+            0,
+        );
+    }
+}
+
+#[test]
+fn test_cached_global_chord_visibility_matches_fresh() {
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut value = harmony_layout_fixture(serde_json::json!([
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 1}]},
+            {"type": "staff", "sources": [{"part": "keyboard-source", "staff": 2}]},
+            {"type": "staff", "sources": [{"part": "clarinet-source"}]}
+        ]));
+        let mut cache = LayoutCache::new();
+        assert_harmony_copies(
+            &cached_harmony_matches_fresh(&value, &config, &mut cache),
+            1,
+        );
+        for (keyboard, clarinet, copies) in [
+            ("hide", "auto", 0),
+            ("hide", "show", 1),
+            ("show", "show", 2),
+            ("auto", "auto", 1),
+        ] {
+            value["parts"][1]["_x"] =
+                serde_json::json!({"viritura": {"chordSymbolVisibility": keyboard}});
+            value["parts"][2]["_x"] =
+                serde_json::json!({"viritura": {"chordSymbolVisibility": clarinet}});
+            assert_harmony_copies(
+                &cached_harmony_matches_fresh(&value, &config, &mut cache),
+                copies,
+            );
+        }
+    }
+}
+
+#[test]
+fn test_cached_global_chord_source_reorder_matches_fresh() {
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut value = harmony_layout_fixture(serde_json::json!([
+            {"type": "staff", "sources": [
+                {"part": "flute-source"}, {"part": "clarinet-source"}
+            ]}
+        ]));
+        value["scores"][0]["useWritten"] = serde_json::json!(true);
+        for part in [0, 2] {
+            value["parts"][part]["_x"] =
+                serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+        }
+        let mut cache = LayoutCache::new();
+        for expected_root in ["C", "D", "C"] {
+            let dl = cached_harmony_matches_fresh(&value, &config, &mut cache);
+            let runs = harmony_text_runs(&dl, "m0/chord0");
+            assert_eq!(runs.len(), 1, "condensed harmony must not duplicate");
+            assert_eq!(runs[0].0, expected_root);
+            value["layouts"][0]["content"][0]["sources"]
+                .as_array_mut()
+                .unwrap()
+                .swap(0, 1);
+        }
+    }
+}
+
+#[test]
+fn test_cached_harmony_written_mode_and_secondary_source_transposition_match_fresh() {
+    for page_width in [None, Some(1200.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let mut value = harmony_layout_fixture(serde_json::json!([
+            {"type": "staff", "sources": [
+                {"part": "flute-source"}, {"part": "clarinet-source"}
+            ]}
+        ]));
+        value["parts"][0]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "hide"}});
+        value["parts"][2]["_x"] =
+            serde_json::json!({"viritura": {"chordSymbolVisibility": "show"}});
+        value["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"] = serde_json::json!([
+            {"position": {"fraction": [1, 4]}, "root": {"step": "C"}, "bass": {"step": "G"}},
+            {"position": {"fraction": [3, 4]}, "rawText": "  H#?!  "}
+        ]);
+        let mut cache = LayoutCache::new();
+        for (written, staff_distance, half_steps, expected) in [
+            (false, 1, 2, "C/G"),
+            (true, 1, 2, "D/A"),
+            (true, 2, 4, "E/B"),
+            (false, 2, 4, "C/G"),
+            (true, 1, 2, "D/A"),
+        ] {
+            value["scores"][0]["useWritten"] = serde_json::json!(written);
+            value["parts"][2]["transposition"]["interval"] =
+                serde_json::json!({"staffDistance": staff_distance, "halfSteps": half_steps});
+            let dl = cached_harmony_matches_fresh(&value, &config, &mut cache);
+            for (id, expected) in [("m0/chord0", expected), ("m0/chord1", "  H#?!  ")] {
+                let text: String = harmony_text_runs(&dl, id)
+                    .iter()
+                    .map(|(text, _)| *text)
+                    .collect();
+                assert_eq!(text, expected);
+                assert_eq!(
+                    dl.element_bboxes
+                        .iter()
+                        .filter(|bbox| bbox.element_id == id)
+                        .count(),
+                    1,
+                    "secondary condensed source must have one canonical hit region"
+                );
+            }
+        }
+    }
 }
 
 #[test]

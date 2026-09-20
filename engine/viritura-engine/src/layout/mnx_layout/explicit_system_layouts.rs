@@ -196,6 +196,9 @@ pub(super) fn build_explicit_system_layouts<'a>(
             measure_staves.insert(measure_index, effective_staff);
             let (transposition, key_fifths_flip_at) =
                 compute_flat_staff_transposition(effective_staff, score, use_written);
+            let mut chord_staff = effective_staff.clone();
+            chord_staff.chord_symbol_transposition =
+                super::chord_symbols::display_transposition(score, effective_staff, use_written);
             let global =
                 score
                     .global
@@ -312,6 +315,11 @@ pub(super) fn build_explicit_system_layouts<'a>(
             );
             virtual_resolved.push(ResolvedMeasure {
                 index: measure_index,
+                chord_symbols: super::chord_symbols::visible_global_chord_symbols(
+                    score,
+                    measure_index,
+                    &chord_staff,
+                ),
                 global,
                 part: virtual_part,
                 measure_repeat_covered: effective_staff.sources.iter().any(|source| {

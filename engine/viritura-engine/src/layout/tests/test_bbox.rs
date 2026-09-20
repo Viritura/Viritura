@@ -374,8 +374,8 @@ fn test_bbox_rehearsal_mark() {
 fn test_bbox_chord_symbol() {
     let json = r#"{
         "mnx": {"version": 1},
-        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}], "_x": {"viritura": {"chordSymbols": [{"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}]}}}]}]
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"chordSymbols": [{"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major"}]}}}]},
+        "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}]}]
     }"#;
 
     let score = parse_mnx(json).unwrap();
@@ -385,7 +385,7 @@ fn test_bbox_chord_symbol() {
     let chord_bbox = dl
         .element_bboxes
         .iter()
-        .find(|eb| eb.element_id.contains("/chord"));
+        .find(|eb| eb.element_id == "m0/chord0");
     assert!(
         chord_bbox.is_some(),
         "Should have a chord symbol bounding box"
@@ -399,10 +399,7 @@ fn test_bbox_chord_symbol() {
         cb.bbox.height > 0.0,
         "Chord symbol bbox should have positive height"
     );
-    assert!(
-        cb.element_id.ends_with("/chord0"),
-        "Chord bbox ID should end with /chord0"
-    );
+    assert_eq!(cb.element_id, "m0/chord0");
 }
 
 #[test]

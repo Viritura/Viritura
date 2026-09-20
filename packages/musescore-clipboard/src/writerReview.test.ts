@@ -44,16 +44,16 @@ function mf(): MuseScoreClipboardDynamic {
   };
 }
 
-function cm(displayStaff?: number, partOffset = 0): MuseScoreClipboardChordSymbol {
+function cm(sourceStaff?: number, partOffset = 0): MuseScoreClipboardChordSymbol {
   return {
     partOffset,
     measureOffset: 0,
     offset: [0, 1],
+    ...(sourceStaff === undefined ? {} : { sourceStaff }),
     chordSymbol: {
       position: { fraction: [0, 1] },
       root: { step: "C" },
       quality: "minor",
-      ...(displayStaff === undefined ? {} : { displayStaff }),
     },
   };
 }

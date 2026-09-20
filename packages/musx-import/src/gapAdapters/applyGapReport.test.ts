@@ -218,11 +218,12 @@ describe("applyDenigmaGapReport", () => {
     };
 
     const result = apply([simple, rich]);
-    const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: JsonRecord[] }> };
-    expect(viritura(parsed.parts[0]!.measures[0]!)["chordSymbols"]).toEqual([
+    const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
+    expect(viritura(parsed.global.measures[0]!)["chordSymbols"]).toEqual([
       {
         position: { fraction: [0, 1] },
         root: { step: "C" },
+        rawText: "Cmaj7",
         quality: "major",
         kindText: "maj7",
         extension: 7,
@@ -230,7 +231,8 @@ describe("applyDenigmaGapReport", () => {
       {
         position: { fraction: [1, 2] },
         root: { step: "G", alter: -1 },
-        quality: "major",
+        quality: "other",
+        rawText: "Gb(add9omit3)",
         kindText: "(add9omit3)",
         textOverride: "Gb(add9omit3)",
       },
@@ -238,7 +240,7 @@ describe("applyDenigmaGapReport", () => {
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled-partially"]);
   });
 
-  it("preserves power-chord semantics and distinct staff occurrences", () => {
+  it("preserves power-chord semantics and coalesces staff occurrences", () => {
     const powerChord = (staff: number): DenigmaGap => ({
       anchor: "P1.m1",
       staff,
@@ -264,19 +266,12 @@ describe("applyDenigmaGapReport", () => {
     });
 
     const result = apply([powerChord(1), powerChord(2)]);
-    const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: JsonRecord[] }> };
+    const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
 
-    expect(viritura(parsed.parts[0]!.measures[0]!)["chordSymbols"]).toEqual([
+    expect(viritura(parsed.global.measures[0]!)["chordSymbols"]).toEqual([
       {
         position: { fraction: [0, 1] },
-        displayStaff: 1,
-        root: { step: "A" },
-        quality: "power",
-        kindText: "5",
-      },
-      {
-        position: { fraction: [0, 1] },
-        displayStaff: 2,
+        rawText: "A5",
         root: { step: "A" },
         quality: "power",
         kindText: "5",

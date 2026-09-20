@@ -10,6 +10,9 @@ function recoveryPolicy(skipUnsupported = true): { policy: ReadPolicy; diagnosti
   const diagnostics: MuseScoreConversionError[] = [];
   const policy = {
     skipUnsupported,
+    warn(message: string, path?: string, sourceTime?: string): void {
+      diagnostics.push(new MuseScoreConversionError("unsupported-content", message, path, sourceTime));
+    },
     skip(message: string, path?: string, sourceTime?: string): void {
       const error = new MuseScoreConversionError("unsupported-content", message, path, sourceTime);
       if (!skipUnsupported) throw error;
@@ -308,11 +311,13 @@ describe("harmony recovery boundaries", () => {
     `<style>Jazz</style>${info()}<degree/>`,
     info("<root>14</root><degree><degree-value>9</degree-value></degree>"),
     info() + info("<root>15</root>"),
-  ])("leaves unsupported harmony semantics for atomic caller recovery: %s", (fields) => {
+  ])("retains unsupported harmony semantics as diagnosed raw text: %s", (fields) => {
     const { policy, diagnostics } = recoveryPolicy();
-    expect(() => harmony(fields, policy)).toThrow(expect.objectContaining({ code: "unsupported-content" }));
-    expect(diagnostics).toHaveLength(0);
-    expect(policy.recover(() => harmony(fields, policy))).toBeUndefined();
+    expect(policy.recover(() => harmony(fields, policy))).toMatchObject({
+      position: { fraction: [1, 4] },
+      rawText: expect.any(String),
+      quality: "other",
+    });
     expect(diagnostics).toHaveLength(1);
     expect(harmony(info(), policy).quality).toBe("minor");
   });
@@ -332,7 +337,7 @@ describe("harmony recovery boundaries", () => {
     "<name>m7</name><name>unknown</name><root>14</root>",
     "<name><value>unknown</value></name><root>14</root>",
     "<name>unknown</name><root>14</root><root>14</root>",
-    "<name>unknown</name>",
+    "<name/>",
   ])("does not hide malformed harmony fields behind semantics or styles: %s", (fields) => {
     for (const wrapper of [
       info(fields),
@@ -367,7 +372,7 @@ describe("harmony recovery boundaries", () => {
     );
   });
 
-  it("leaves export strict regardless of read policy use", () => {
+  it("leaves non-harmony export strict regardless of read policy use", () => {
     const { policy } = recoveryPolicy();
     const parsed = accidental(`${NATURAL}<small>1</small>`, policy);
     const unsupportedDisplay = { show: true, color: "red" };
@@ -377,8 +382,10 @@ describe("harmony recovery boundaries", () => {
     expect(() => notePitchXml({ ...parsed, written: { diatonicDelta: -1 } }, "Note")).toThrow(
       expect.objectContaining({ code: "unsupported-content" }),
     );
-    expect(() => serializeHarmony({ ...harmony(info(), policy), textOverride: "custom" }, "Harmony")).toThrow(
-      expect.objectContaining({ code: "unsupported-content" }),
+    const warnings: string[] = [];
+    expect(serializeHarmony({ ...harmony(info(), policy), textOverride: "custom" }, "Harmony", warnings)).toBe(
+      "<Harmony><harmonyInfo><name>custom</name></harmonyInfo></Harmony>",
     );
+    expect(warnings).toEqual([expect.stringContaining("unsupported harmony")]);
   });
 });

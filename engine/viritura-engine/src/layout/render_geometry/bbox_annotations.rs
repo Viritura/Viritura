@@ -19,18 +19,16 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
-pub(super) fn bbox_chord_symbols(
-    bboxes: &mut Vec<ElementBBox>,
+pub(crate) fn chord_symbol_bboxes(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
-    part_idx: usize,
-    measure_idx: usize,
     config: &LayoutConfig,
-) {
-    let Some(chords) = &ml.resolved.part.chord_symbols else {
-        return;
+) -> Vec<ElementBBox> {
+    let Some(chords) = &ml.resolved.chord_symbols else {
+        return Vec::new();
     };
+    let mut bboxes = Vec::with_capacity(chords.len());
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
     let x_origin = ml.x + ml.prefix_width;
@@ -50,14 +48,14 @@ pub(super) fn bbox_chord_symbols(
         let (width, ascent) = chord_symbol_dimensions(chord, config.chord_symbol_style, sp);
         let bbox = BoundingBox::new(chord_x, chord_baseline_y - ascent, width, ascent);
         bboxes.push(ElementBBox {
-            element_id: element_id::chord_symbol(
-                chord.source_part_index.unwrap_or(part_idx),
-                measure_idx,
+            element_id: element_id::global_chord_symbol(
+                ml.resolved.index,
                 chord.source_index.unwrap_or(i),
             ),
             bbox,
         });
     }
+    bboxes
 }
 
 pub(super) fn bbox_measure_numbers(

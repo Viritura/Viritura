@@ -216,6 +216,7 @@ function annotationTrack(
 function annotationsByTrack(
   selection: MuseScoreClipboardWriteInput,
   tracks: readonly ExportTrack[],
+  warnings: string[],
 ): Map<ExportTrack, Annotation[]> {
   const result = new Map<ExportTrack, Annotation[]>();
   const append = (track: ExportTrack, annotation: Annotation): void => {
@@ -225,16 +226,10 @@ function annotationsByTrack(
   };
   for (const [index, captured] of (selection.chordSymbols ?? []).entries()) {
     const path = `chordSymbols[${index}]`;
-    const track = annotationTrack(
-      tracks,
-      captured.partOffset ?? 0,
-      captured.chordSymbol.displayStaff,
-      path,
-      captured.staffOffset,
-    );
+    const track = annotationTrack(tracks, captured.partOffset ?? 0, captured.sourceStaff, path, captured.staffOffset);
     append(track, {
       offset: annotationOffset(captured, path),
-      xml: serializeHarmony(captured.chordSymbol, path),
+      xml: serializeHarmony(captured.chordSymbol, path, warnings),
     });
   }
 
@@ -384,13 +379,13 @@ function exportTracks(selection: MuseScoreClipboardWriteInput): ExportTrack[] {
     .sort((left, right) => left.staff - right.staff || left.voice - right.voice);
 }
 
-function writeStaffList(selection: MuseScoreClipboardWriteInput): string {
+function writeStaffList(selection: MuseScoreClipboardWriteInput, warnings: string[]): string {
   if (selection.measureRepeats?.length)
     unsupported("measure repeats cannot be exported to StaffList", "measureRepeats");
   const tracks = exportTracks(selection);
   if (tracks.length === 0) unsupported("selection has no rhythmic content");
   const connectors = buildTieConnectors(tracks);
-  const trackAnnotations = annotationsByTrack(selection, tracks);
+  const trackAnnotations = annotationsByTrack(selection, tracks, warnings);
   const staves = Math.max(...tracks.map((track) => track.staff)) + 1;
   const state: WriteState = { staff: 0, voice: 0, time: ZERO };
   const staffBodies = new Map<number, string[]>();
@@ -455,10 +450,12 @@ function writeStaffList(selection: MuseScoreClipboardWriteInput): string {
   return `<StaffList version="4.70" tick="0/1" len="${formatFraction(maximumEnd)}" staff="0" staves="${staves}">${staffXml}</StaffList>`;
 }
 
-/** Encode supported notation without mutating input; unsupported content returns null XML and a warning. */
+/** Preserve unsupported harmony as raw text with a warning; other export limitations still return null XML. */
 export function writeMuseScoreStaffList(selection: MuseScoreClipboardWriteInput): MuseScoreClipboardWriteResult {
   try {
-    return { xml: writeStaffList(selection) };
+    const warnings: string[] = [];
+    const xml = writeStaffList(selection, warnings);
+    return { xml, ...(warnings.length ? { warning: warnings.join("\n") } : {}) };
   } catch (error) {
     if (error instanceof MuseScoreConversionError) return { xml: null, warning: error.userMessage() };
     return {

@@ -975,57 +975,53 @@ fn test_parse_chord_symbols_mnx_file() {
     let score = parse_mnx(json).expect("Failed to parse chord-symbols.mnx");
 
     // First measure: C, Dm, G7, Cmaj7
-    let chords = score.parts[0].measures[0]
-        .chord_symbols
-        .as_ref()
-        .expect("Expected chord symbols on first part measure");
+    let chords = score.global.measures[0]
+        .chord_symbols()
+        .expect("Expected chord symbols on first global measure");
     assert_eq!(chords.len(), 4);
 
-    assert_eq!(chords[0].root.step, "C");
-    assert_eq!(chords[0].quality, ChordQuality::Major);
+    assert_eq!(chords[0].root.as_ref().unwrap().step, "C");
+    assert_eq!(chords[0].quality, Some(ChordQuality::Major));
     assert_eq!(chords[0].display_text(), "C");
 
-    assert_eq!(chords[1].root.step, "D");
-    assert_eq!(chords[1].quality, ChordQuality::Minor);
+    assert_eq!(chords[1].root.as_ref().unwrap().step, "D");
+    assert_eq!(chords[1].quality, Some(ChordQuality::Minor));
     assert_eq!(chords[1].display_text(), "Dm");
 
-    assert_eq!(chords[2].root.step, "G");
-    assert_eq!(chords[2].quality, ChordQuality::Dominant);
+    assert_eq!(chords[2].root.as_ref().unwrap().step, "G");
+    assert_eq!(chords[2].quality, Some(ChordQuality::Dominant));
     assert_eq!(chords[2].extension, Some(7));
     assert_eq!(chords[2].display_text(), "G7");
 
-    assert_eq!(chords[3].root.step, "C");
-    assert_eq!(chords[3].quality, ChordQuality::Major);
+    assert_eq!(chords[3].root.as_ref().unwrap().step, "C");
+    assert_eq!(chords[3].quality, Some(ChordQuality::Major));
     assert_eq!(chords[3].extension, Some(7));
     assert_eq!(chords[3].display_text(), "Cmaj7");
 
     // Second measure: Am7, Bbmaj7, F
-    let chords2 = score.parts[0].measures[1]
-        .chord_symbols
-        .as_ref()
-        .expect("Expected chord symbols on second part measure");
+    let chords2 = score.global.measures[1]
+        .chord_symbols()
+        .expect("Expected chord symbols on second global measure");
     assert_eq!(chords2.len(), 3);
-    assert_eq!(chords2[1].root.step, "B");
-    assert_eq!(chords2[1].root.alter, Some(-1));
+    assert_eq!(chords2[1].root.as_ref().unwrap().step, "B");
+    assert_eq!(chords2[1].root.as_ref().unwrap().alter, Some(-1));
     assert_eq!(chords2[1].display_text(), "Bbmaj7");
 
     // Third measure: F#dim, Dsus4, C/E
-    let chords3 = score.parts[0].measures[2]
-        .chord_symbols
-        .as_ref()
-        .expect("Expected chord symbols on third part measure");
+    let chords3 = score.global.measures[2]
+        .chord_symbols()
+        .expect("Expected chord symbols on third global measure");
     assert_eq!(chords3.len(), 3);
-    assert_eq!(chords3[0].root.alter, Some(1));
+    assert_eq!(chords3[0].root.as_ref().unwrap().alter, Some(1));
     assert_eq!(chords3[0].display_text(), "F#dim");
     assert_eq!(chords3[1].display_text(), "Dsus4");
     assert_eq!(chords3[2].bass.as_ref().unwrap().step, "E");
     assert_eq!(chords3[2].display_text(), "C/E");
 
     // Fourth measure: Eaug, Cadd9 (text override)
-    let chords4 = score.parts[0].measures[3]
-        .chord_symbols
-        .as_ref()
-        .expect("Expected chord symbols on fourth part measure");
+    let chords4 = score.global.measures[3]
+        .chord_symbols()
+        .expect("Expected chord symbols on fourth global measure");
     assert_eq!(chords4.len(), 2);
     assert_eq!(chords4[0].display_text(), "Eaug");
     assert_eq!(chords4[1].text_override, Some("Cadd9".to_string()));
@@ -1168,9 +1164,7 @@ fn test_parse_vendor_ext_pedals() {
 }
 
 #[test]
-fn test_parse_vendor_ext_chord_symbols() {
-    use crate::model::chord_symbol::ChordQuality;
-
+fn test_strict_parse_rejects_part_local_chord_symbols() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
@@ -1190,14 +1184,11 @@ fn test_parse_vendor_ext_chord_symbols() {
         }]}]
     }"#;
 
-    let score = parse_mnx(json).expect("Failed to parse _x.viritura chordSymbols");
-    let chords = score.parts[0].measures[0]
-        .chord_symbols
-        .as_ref()
-        .expect("Expected chord symbols from _x.viritura");
-    assert_eq!(chords.len(), 1);
-    assert_eq!(chords[0].root.step, "C");
-    assert_eq!(chords[0].quality, ChordQuality::Major);
+    assert!(parse_mnx_strict(json).is_err());
+    let score = parse_mnx(json).expect("Lenient parse does not migrate legacy part harmony");
+    assert!(score.global.measures[0].chord_symbols().is_none());
+    let part_measure = serde_json::to_value(&score.parts[0].measures[0]).unwrap();
+    assert!(part_measure.get("chordSymbols").is_none());
 }
 
 #[test]
@@ -1224,6 +1215,97 @@ fn test_parse_vendor_ext_global_chord_symbols() {
         .expect("Expected global chord symbols");
     assert_eq!(chords.len(), 1);
     assert_eq!(chords[0].display_text(), "C");
+}
+
+#[test]
+fn test_parse_global_chord_raw_text_and_part_visibility() {
+    use crate::model::part::ChordSymbolVisibility;
+
+    let json = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "_x": {"viritura": {"chordSymbols": [
+                {"position": {"fraction": [0, 1]}, "rawText": "N.C."},
+                {"position": {"fraction": [1, 4]}, "rawText": "  H#?!  "},
+                {"position": {"fraction": [1, 2]}, "root": {"step": "F"}},
+                {"position": {"fraction": [3, 4]}, "root": {"step": "D"},
+                 "quality": "minor", "extension": 7, "rawText": "Dm7"}
+            ]}}
+        }]},
+        "parts": [
+            {"measures": [{"sequences": [{"content": []}]}]},
+            {"_x": {"viritura": {"chordSymbolVisibility": "auto"}},
+             "measures": [{"sequences": [{"content": []}]}]},
+            {"_x": {"viritura": {"chordSymbolVisibility": "show"}},
+             "measures": [{"sequences": [{"content": []}]}]},
+            {"_x": {"viritura": {"chordSymbolVisibility": "hide"}},
+             "measures": [{"sequences": [{"content": []}]}]}
+        ]
+    });
+    let strict = parse_mnx_strict_value(&json).expect("global harmony contract");
+    let lenient = parse_mnx(&json.to_string()).unwrap();
+    assert_eq!(strict, lenient);
+    let chords = strict.global.measures[0].chord_symbols().unwrap();
+    assert_eq!(chords.len(), 4);
+    for (chord, expected) in chords.iter().zip(["N.C.", "  H#?!  ", "F", "Dm7"]) {
+        assert_eq!(chord.display_text(), expected);
+    }
+    for chord in &chords[..2] {
+        assert!(chord.root.is_none());
+        assert!(chord.quality.is_none());
+        let serialized = serde_json::to_value(chord).unwrap();
+        assert!(serialized.get("root").is_none());
+        assert!(serialized.get("quality").is_none());
+    }
+    assert!(chords[2].quality.is_none());
+    assert_eq!(chords[3].raw_text.as_deref(), Some("Dm7"));
+    assert_eq!(chords[3].position.fraction, (3, 4));
+    let global = serde_json::to_value(&strict.global.measures[0]).unwrap();
+    assert_eq!(
+        global["_x"]["viritura"]["chordSymbols"],
+        json["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"]
+    );
+    for (part, expected) in strict.parts.iter().zip([
+        None,
+        Some(ChordSymbolVisibility::Auto),
+        Some(ChordSymbolVisibility::Show),
+        Some(ChordSymbolVisibility::Hide),
+    ]) {
+        assert_eq!(part.chord_symbol_visibility, expected);
+        assert!(serde_json::to_value(&part.measures[0])
+            .unwrap()
+            .get("chordSymbols")
+            .is_none());
+    }
+}
+
+#[test]
+fn test_strict_parse_rejects_chord_staff_and_layout_visibility_switches() {
+    let valid = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [{
+            "_x": {"viritura": {"chordSymbols": [
+                {"position": {"fraction": [0, 1]}, "root": {"step": "C"}}
+            ]}}
+        }]},
+        "parts": [{"id": "p1", "measures": [{"sequences": [{"content": []}]}]}],
+        "layouts": [{"id": "full", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}]
+    });
+    parse_mnx_strict_value(&valid).expect("baseline global chord and layout");
+    for field in ["staff", "displayStaff"] {
+        let mut invalid = valid.clone();
+        invalid["global"]["measures"][0]["_x"]["viritura"]["chordSymbols"][0][field] =
+            serde_json::json!(1);
+        assert!(parse_mnx_strict_value(&invalid).is_err(), "{field}");
+    }
+    for field in ["chordSymbolVisibility", "globalChordSymbolVisibility"] {
+        let mut invalid = valid.clone();
+        invalid["layouts"][0]["content"][0]["_x"] =
+            serde_json::json!({"viritura": {field: "show"}});
+        assert!(parse_mnx_strict_value(&invalid).is_err(), "{field}");
+    }
 }
 
 #[test]
@@ -1295,7 +1377,7 @@ fn test_parse_no_extensions_returns_none() {
 
     let score = parse_mnx(json).expect("Failed to parse");
     assert!(score.parts[0].measures[0].pedals.is_none());
-    assert!(score.parts[0].measures[0].chord_symbols.is_none());
+    assert!(score.global.measures[0].chord_symbols().is_none());
     assert!(score.parts[0].measures[0].expressions.is_none());
 }
 

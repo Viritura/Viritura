@@ -9,8 +9,9 @@ use crate::model::part::{
 };
 use crate::promote::kit::promote_kit_component;
 use crate::promote::measure::promote_part_measure;
+use crate::promote::vendor_ext::read_viritura_ext;
 use crate::promote::PromoteError;
-use crate::raw;
+use crate::{raw, raw_viritura};
 
 fn promote_interval(r: raw::Interval) -> ModelInterval {
     ModelInterval {
@@ -54,6 +55,15 @@ pub(crate) fn promote_part(
             .collect()
     });
 
+    let chord_symbol_visibility = read_viritura_ext(r.x.as_ref())
+        .and_then(|json| {
+            serde_json::from_value::<raw_viritura::PartExtensions>(serde_json::Value::Object(
+                json.clone(),
+            ))
+            .ok()
+        })
+        .and_then(|ext| ext.chord_symbol_visibility);
+
     Ok(ModelPart {
         id: r.id.map(String::from),
         name: r.name.map(|n| n.0).unwrap_or_default(),
@@ -64,6 +74,7 @@ pub(crate) fn promote_part(
             .map(|s| u32::try_from(s.0).unwrap_or(1))
             .unwrap_or(1),
         transposition: r.transposition.map(promote_transposition),
+        chord_symbol_visibility,
         kit,
     })
 }
@@ -98,6 +109,44 @@ mod tests {
         assert_eq!(p.name, "Violin");
         assert_eq!(p.staves, 1);
         assert_eq!(p.measures.len(), 2);
+        assert!(p.chord_symbol_visibility.is_none());
+        assert!(serde_json::to_value(&p)
+            .unwrap()
+            .get("chordSymbolVisibility")
+            .is_none());
+    }
+
+    #[test]
+    fn promotes_source_part_chord_symbol_visibility() {
+        use crate::model::part::ChordSymbolVisibility;
+
+        for (text, expected) in [
+            ("auto", ChordSymbolVisibility::Auto),
+            ("show", ChordSymbolVisibility::Show),
+            ("hide", ChordSymbolVisibility::Hide),
+        ] {
+            let json = serde_json::json!({
+                "measures": [],
+                "staves": 2,
+                "_x": {"viritura": {"chordSymbolVisibility": text}}
+            });
+            let part = parse(&json.to_string());
+            assert_eq!(part.chord_symbol_visibility, Some(expected));
+            assert_eq!(part.staves, 2);
+            assert_eq!(
+                serde_json::to_value(part).unwrap()["chordSymbolVisibility"],
+                text
+            );
+        }
+    }
+
+    #[test]
+    fn does_not_read_top_level_or_other_vendor_visibility() {
+        let part = parse(
+            r#"{"measures":[],"chordSymbolVisibility":"show",
+                "_x":{"other":{"chordSymbolVisibility":"hide"}}}"#,
+        );
+        assert!(part.chord_symbol_visibility.is_none());
     }
 
     #[test]

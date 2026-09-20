@@ -247,7 +247,7 @@ mod translate_tests {
             ElementKind::Expression
         );
         assert_eq!(
-            classify_element_kind(&element_id::chord_symbol(0, 0, 0)),
+            classify_element_kind(&element_id::global_chord_symbol(0, 0)),
             ElementKind::ChordSymbol
         );
         assert_eq!(

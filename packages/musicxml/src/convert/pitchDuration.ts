@@ -3,6 +3,7 @@ import { Fraction } from "../fraction";
 import { childText, findChild, findChildren } from "../xmlHelpers";
 import type { MnxClef, MnxDuration, MnxPitch, MnxPositionedClef, MnxRhythmicPosition } from "../types";
 import { normalizeMusicXmlColor } from "./colors";
+import { durationFraction } from "./durationFraction";
 
 /**
  * MusicXML `<transpose>` interval: written + interval = sounding.
@@ -131,20 +132,15 @@ export function computeNoteDuration(noteEl: Element, divisions: number): { durOb
   const noteType = findChild(noteEl, "type");
   const dots = findChildren(noteEl, "dot").length;
   const durEl = findChild(noteEl, "duration");
+  const advance = durEl ? durationFraction(Number(durEl.textContent ?? "0"), divisions) : Fraction.ZERO;
 
   let durObj: MnxDuration;
   if (noteType) {
     durObj = convertNoteType(noteType.textContent ?? "quarter", dots);
   } else if (durEl) {
-    const durFrac = new Fraction(parseInt(durEl.textContent ?? "1", 10), divisions * 4);
-    durObj = fractionToDuration(durFrac);
+    durObj = fractionToDuration(advance);
   } else {
     durObj = { base: "quarter" };
-  }
-
-  let advance = Fraction.ZERO;
-  if (durEl) {
-    advance = new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4);
   }
 
   return { durObj, advance };

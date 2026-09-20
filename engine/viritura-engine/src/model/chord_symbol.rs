@@ -96,22 +96,21 @@ pub struct ChordRoot {
 pub struct ChordSymbol {
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
-    /// Optional imported/per-event display-staff override (1-based).
-    #[serde(skip_serializing_if = "Option::is_none", rename = "displayStaff")]
-    pub display_staff: Option<u32>,
     /// Original measure-list index retained when layout filters by staff.
     #[serde(skip)]
     pub source_index: Option<usize>,
     /// Source part retained when a layout staff combines multiple parts.
     #[serde(skip)]
     pub source_part_index: Option<usize>,
-    /// Whether this rendered event originated in the global harmony track.
-    #[serde(skip)]
-    pub source_global: bool,
-    /// Root note (e.g., C, F#, Bb)
-    pub root: ChordRoot,
-    /// Chord quality
-    pub quality: ChordQuality,
+    /// Structured root, absent for unrecognized text and no-chord declarations.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<ChordRoot>,
+    /// Chord quality, when supplied by the author.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality: Option<ChordQuality>,
+    /// Original authored text, including malformed symbols and NC, verbatim.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "rawText")]
+    pub raw_text: Option<String>,
     /// Authored quality spelling retained alongside the normalized quality.
     #[serde(skip_serializing_if = "Option::is_none", rename = "kindText")]
     pub kind_text: Option<String>,
@@ -131,7 +130,7 @@ impl ChordSymbol {
     pub fn suffix_text(&self) -> String {
         let mut suffix = String::new();
         let ext = self.extension.map(|e| e.to_string()).unwrap_or_default();
-        match self.quality {
+        match self.quality.unwrap_or(ChordQuality::Major) {
             ChordQuality::Major => {
                 if self.extension == Some(6) {
                     suffix.push('6');
@@ -196,8 +195,11 @@ impl ChordSymbol {
             return text.clone();
         }
 
-        let mut s = self.root.step.clone();
-        append_ascii_accidental(&mut s, self.root.alter);
+        let Some(root) = self.root.as_ref() else {
+            return self.raw_text.clone().unwrap_or_default();
+        };
+        let mut s = root.step.clone();
+        append_ascii_accidental(&mut s, root.alter);
         s.push_str(&self.suffix_text());
 
         if let Some(ref bass) = self.bass {
@@ -234,15 +236,14 @@ mod tests {
     ) -> ChordSymbol {
         ChordSymbol {
             position: RhythmicPosition { fraction: (0, 1) },
-            display_staff: None,
             source_index: None,
             source_part_index: None,
-            source_global: false,
-            root: ChordRoot {
+            root: Some(ChordRoot {
                 step: step.into(),
                 alter,
-            },
-            quality,
+            }),
+            quality: Some(quality),
+            raw_text: None,
             kind_text: None,
             bass,
             extension: ext,
@@ -330,6 +331,59 @@ mod tests {
         let mut c = make_chord("C", None, ChordQuality::Major, None, None);
         c.text_override = Some("C6/9".into());
         assert_eq!(c.display_text(), "C6/9");
+    }
+
+    #[test]
+    fn test_rootless_authored_text_roundtrip() {
+        for text in ["NC", "N.C.", "  ???♭  ", "H#?!", ""] {
+            let json = serde_json::json!({
+                "position": {"fraction": [1, 4]},
+                "rawText": text
+            });
+            let chord: ChordSymbol = serde_json::from_value(json.clone()).unwrap();
+            assert!(chord.root.is_none());
+            assert!(chord.quality.is_none());
+            assert_eq!(chord.raw_text.as_deref(), Some(text));
+            assert_eq!(chord.display_text(), text);
+            assert_eq!(serde_json::to_value(&chord).unwrap(), json);
+        }
+    }
+
+    #[test]
+    fn test_missing_quality_is_not_materialized() {
+        let json = serde_json::json!({
+            "position": {"fraction": [0, 1]},
+            "root": {"step": "F", "alter": 1}
+        });
+        let chord: ChordSymbol = serde_json::from_value(json.clone()).unwrap();
+        assert!(chord.quality.is_none());
+        assert_eq!(chord.display_text(), "F#");
+        assert_eq!(serde_json::to_value(&chord).unwrap(), json);
+    }
+
+    #[test]
+    fn test_structured_chord_retains_authored_spelling() {
+        let mut chord = make_chord("B", Some(-1), ChordQuality::Major, Some(7), None);
+        chord.raw_text = Some("B♭Δ7".into());
+        assert_eq!(chord.display_text(), "Bbmaj7");
+        let json = serde_json::to_value(&chord).unwrap();
+        assert_eq!(json["rawText"], "B♭Δ7");
+        assert_eq!(serde_json::from_value::<ChordSymbol>(json).unwrap(), chord);
+    }
+
+    #[test]
+    fn test_rootless_text_override_does_not_invent_harmony() {
+        let mut chord = make_chord("C", None, ChordQuality::Major, None, None);
+        chord.root = None;
+        chord.quality = None;
+        chord.raw_text = Some("N.C.".into());
+        chord.text_override = Some("NC".into());
+        assert_eq!(chord.display_text(), "NC");
+        assert_eq!(chord.raw_text.as_deref(), Some("N.C."));
+        assert!(chord.root.is_none());
+        chord.raw_text = None;
+        chord.text_override = None;
+        assert_eq!(chord.display_text(), "");
     }
 
     #[test]

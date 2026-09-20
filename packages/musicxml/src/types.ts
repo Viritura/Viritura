@@ -1,6 +1,6 @@
 // ─── MNX document output types (schema version 35) ──────────────────
 
-import type { ChordSymbol, DynamicGroup } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup, Part } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number };
@@ -80,6 +80,7 @@ export interface MnxPart {
    *  id. Present only when the part is percussion (events use `kitNotes`). */
   kit?: Record<string, MnxKitComponent>;
   measures: MnxPartMeasure[];
+  _x?: { viritura: { chordSymbolVisibility?: Part["chordSymbolVisibility"]; [key: string]: unknown } };
 }
 
 /** A single drum/percussion instrument on a staff (MNX `kit-component`). */
@@ -116,7 +117,7 @@ export interface MnxPartMeasure {
     position?: MnxRhythmicPosition;
     staff?: number;
   }>;
-  _x?: { viritura: { chordSymbols?: ChordSymbol[]; [key: string]: unknown } };
+  _x?: { viritura: Record<string, unknown> };
 }
 
 export interface MnxNonArpeggio {
@@ -325,11 +326,6 @@ export interface MnxLayoutStaff {
   sources: { part: string; staff?: number }[];
   label?: string;
   labelref?: string;
-  _x?: {
-    viritura: {
-      globalChordSymbolVisibility?: "show" | "hide";
-    };
-  };
 }
 
 export interface MnxScore {

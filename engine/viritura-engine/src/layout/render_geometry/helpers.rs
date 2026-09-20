@@ -501,7 +501,7 @@ pub(crate) fn compute_measure_bboxes(
     // from the same resolved frame (which sees the full above-glyph obstacle
     // bands, so the box tracks any horizontal dodge / vertical lift around a
     // co-located direction), so they are NOT recomputed here.
-    bbox_chord_symbols(&mut bboxes, ml, staff_y, sp, part_idx, measure_idx, config);
+    bboxes.extend(chord_symbol_bboxes(ml, staff_y, sp, config));
     // Text expressions (stacked + inline) publish their boxes at emit time in
     // `render_dynamics` / `emit_stacked_expressions`, from the shifted draw
     // position, so they are intentionally NOT recomputed here.

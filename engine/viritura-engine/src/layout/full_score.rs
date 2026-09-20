@@ -139,11 +139,19 @@ pub fn layout_full_score_cached(
     let all_resolved: Vec<Vec<ResolvedMeasure>> = visual_staves
         .iter()
         .map(|&(pi, sn)| {
-            if score.parts[pi].staves >= 2 {
+            let mut resolved = if score.parts[pi].staves >= 2 {
                 resolve_measures_for_staff(score, pi, sn)
             } else {
                 resolve_measures(score, pi)
+            };
+            if pi != 0
+                && score.parts[pi].chord_symbol_visibility != Some(ChordSymbolVisibility::Show)
+            {
+                for measure in &mut resolved {
+                    measure.chord_symbols = None;
+                }
             }
+            resolved
         })
         .collect();
     let all_resolved_ottavas: Vec<Vec<ResolvedOttavaRange>> = all_resolved
@@ -628,6 +636,9 @@ fn render_one_staff_for_system(
             clef_change_measures,
             &mut acc_obstacles,
         );
+        dl.extend_element_bboxes_with_shapes(super::render_geometry::chord_symbol_bboxes(
+            ml, staff_y, sp, config,
+        ));
 
         dl.measure_bounds.push({
             let (total_beats, beat_anchors) = build_beat_anchors(ml);
@@ -770,12 +781,9 @@ pub(super) struct FlatStaff {
     /// For condensed staves: per-source numbers to display stacked vertically.
     /// When non-empty, `label`/`short_label` hold the base instrument name only.
     pub(crate) condensed_numbers: Vec<u32>,
-    /// Explicit layout-staff chord-symbol visibility. None means automatic.
-    pub(crate) chord_symbols_visible: Option<bool>,
-    /// Resolved visibility of the global harmony track on this layout staff.
-    pub(crate) global_chord_symbols_visible: bool,
-    /// Explicit global-harmony visibility. None means automatic.
-    pub(crate) global_chord_symbols_policy: Option<bool>,
+    /// Source part selected for the single global harmony lane on this staff.
+    pub(crate) chord_symbol_source: Option<usize>,
+    pub(crate) chord_symbol_transposition: Option<(i32, i32)>,
 }
 
 #[derive(Clone)]
@@ -784,16 +792,6 @@ pub(super) struct FlatSource {
     pub(crate) staff_number: Option<u32>,
     pub(crate) voice_filter: Option<String>,
     pub(crate) stem_direction: Option<String>,
-    /// Whether this is the first displayed staff for the source part.
-    pub(crate) default_chord_symbol_source: bool,
-    /// Whether this is the first source for its explicit part/staff pair.
-    pub(crate) first_chord_symbol_source_for_staff: bool,
-    /// Whether this is the first source for its part on this layout staff.
-    pub(crate) first_chord_symbol_source_on_layout_staff: bool,
-    /// Whether this part has an explicitly selected chord-symbol layout staff.
-    pub(crate) part_has_explicit_chord_symbol_staff: bool,
-    /// Explicit source-staff numbers represented for this part in the layout.
-    pub(crate) displayed_staff_numbers: Vec<u32>,
 }
 
 impl FlatSource {
@@ -803,11 +801,6 @@ impl FlatSource {
             staff_number: None,
             voice_filter: None,
             stem_direction: None,
-            default_chord_symbol_source: true,
-            first_chord_symbol_source_for_staff: true,
-            first_chord_symbol_source_on_layout_staff: true,
-            part_has_explicit_chord_symbol_staff: false,
-            displayed_staff_numbers: Vec::new(),
         }
     }
 }

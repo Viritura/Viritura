@@ -359,7 +359,7 @@ function parseChordRoot(raw: RawChordRoot): ChordRoot {
   return root;
 }
 
-export function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
+function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   const cs: ChordSymbol = {
     position: parseRhythmicPosition(raw.position),
   };

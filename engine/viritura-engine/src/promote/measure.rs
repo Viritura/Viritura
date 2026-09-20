@@ -224,7 +224,6 @@ pub(crate) fn promote_part_measure(
         measure_repeat,
         staff_configs,
         pedals: vendor.pedals,
-        chord_symbols: vendor.chord_symbols,
         expressions: vendor.expressions,
         condensing_override: vendor.condensing_override,
         grouping_display_overrides: vendor.grouping_display_overrides,
@@ -300,6 +299,7 @@ mod tests {
     #[test]
     fn promotes_part_measure_with_empty_vendor_extensions() {
         let p = parse_part(r#"{"sequences": [], "_x": {"viritura": {}}}"#);
-        assert!(p.chord_symbols.is_none());
+        assert!(p.pedals.is_none());
+        assert!(p.expressions.is_none());
     }
 }
