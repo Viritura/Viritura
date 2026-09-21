@@ -1,7 +1,29 @@
 use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::types::MeasureLayout;
-use crate::model::SequenceContent;
+use crate::model::{MultiStaffOrientation, SequenceContent};
+
+fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
+    layouts.iter().any(|layout| {
+        layout
+            .resolved
+            .part
+            .dynamics
+            .as_ref()
+            .is_some_and(|dynamics| {
+                dynamics
+                    .iter()
+                    .any(|dynamic| dynamic.orient == Some(MultiStaffOrientation::Between))
+            })
+    })
+}
+
+fn layouts_share_part(upper_layouts: &[&MeasureLayout], lower_layouts: &[&MeasureLayout]) -> bool {
+    upper_layouts
+        .first()
+        .zip(lower_layouts.first())
+        .is_some_and(|(upper, lower)| upper.part_index == lower.part_index)
+}
 
 /// Result of content-aware staff-Y placement for a single system.
 #[derive(Clone)]
@@ -52,6 +74,11 @@ pub(super) fn compute_staff_y_offsets_for_system(
                 .as_ref()
                 .is_some_and(|dynamics| !dynamics.is_empty())
         });
+        let has_between_dynamics = layouts_share_part(
+            &all_staff_layouts[staff_index - 1],
+            &all_staff_layouts[staff_index],
+        ) && (has_between_dynamic(&all_staff_layouts[staff_index - 1])
+            || has_between_dynamic(&all_staff_layouts[staff_index]));
         let has_lyrics = all_staff_layouts[staff_index - 1].iter().any(|layout| {
             layout.resolved.part.sequences.iter().any(|sequence| {
                 sequence.content.iter().any(|content| {
@@ -61,7 +88,12 @@ pub(super) fn compute_staff_y_offsets_for_system(
                 })
             })
         });
-        if has_dynamics {
+        if has_between_dynamics {
+            // Standard engraving practice: an inter-staff dynamic reserves a
+            // shared lane large enough for the glyph and clearance on both
+            // adjoining staves, rather than moving outside the grand staff.
+            lowest_above = lowest_above.max(staff_bottom + 5.5 * sp);
+        } else if has_dynamics {
             lowest_above = lowest_above.max(staff_bottom + 4.5 * sp);
         }
         if has_lyrics {
