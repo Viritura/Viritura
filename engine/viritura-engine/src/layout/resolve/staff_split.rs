@@ -95,11 +95,14 @@ pub(super) fn split_part_measure_by_staff_count(
                 })
                 .collect()
         }),
-        ottavas: if staff_num == 1 {
-            pm.ottavas.clone()
-        } else {
-            None
-        },
+        ottavas: pm.ottavas.as_ref().and_then(|ottavas| {
+            let filtered: Vec<_> = ottavas
+                .iter()
+                .filter(|ottava| ottava.staff.unwrap_or(1) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         // A simile sign is engraved on every staff of the part, like a
         // whole-measure rest.
         measure_repeat: pm.measure_repeat.clone(),
@@ -111,11 +114,14 @@ pub(super) fn split_part_measure_by_staff_count(
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
-        pedals: if staff_num == 1 {
-            pm.pedals.clone()
-        } else {
-            None
-        },
+        pedals: pm.pedals.as_ref().and_then(|pedals| {
+            let filtered: Vec<_> = pedals
+                .iter()
+                .filter(|pedal| pedal.staff.unwrap_or(1) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         chord_symbols: pm.chord_symbols.as_ref().and_then(|chords| {
             let filtered: Vec<_> = chords
                 .iter()
