@@ -6,6 +6,7 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::resolve::resolve_measures;
 use crate::layout::spacing::{accidental_bbox_gap, build_log_spacing_for_resolved_measure};
 use crate::layout::{layout_full_score, layout_score, layout_with_mnx_scores};
+use crate::model::SequenceContent;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -855,7 +856,7 @@ fn test_repeated_accidental_suppressed_in_measure() {
 fn test_accidental_resets_at_barline() {
     // C major. Measure 1: F#4. Measure 2: F4 (natural by key). The barline
     // resets accidental state, but the first return to F natural receives a
-    // parenthesized courtesy cancellation for the preceding measure's F#.
+    // courtesy cancellation for the preceding measure's F#.
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
@@ -887,7 +888,95 @@ fn test_accidental_resets_at_barline() {
                     || *codepoint == smufl::ACCIDENTAL_PARENS_RIGHT)
         })
         .count();
-    assert_eq!(parens, 2, "The cancellation natural must be parenthesized");
+    assert_eq!(
+        parens, 0,
+        "Automatic boundary courtesies must not be parenthesized"
+    );
+
+    let resolved = resolve_measures(&score, 0);
+    let SequenceContent::Event(event) = &resolved[1].part.sequences[0].content[0] else {
+        panic!("expected the resolved courtesy event");
+    };
+    let courtesy = event
+        .notes()
+        .first()
+        .unwrap()
+        .accidental_display
+        .as_ref()
+        .unwrap();
+    assert_eq!(courtesy.force, Some(true));
+    assert!(courtesy.enclosure.is_none());
+}
+
+#[test]
+fn test_accidental_change_at_barline_gets_courtesy() {
+    // The automatic boundary policy covers any spelling change, not only a
+    // return to the key-signature alteration.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+        "parts": [{"measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4, "alter": 1}}]}
+            ]}]},
+            {"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4, "alter": -1}}]}
+            ]}]}
+        ]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let SequenceContent::Event(event) = &resolved[1].part.sequences[0].content[0] else {
+        panic!("expected the resolved courtesy event");
+    };
+    let courtesy = event
+        .notes()
+        .first()
+        .unwrap()
+        .accidental_display
+        .as_ref()
+        .unwrap();
+
+    assert_eq!(courtesy.force, Some(true));
+    assert!(courtesy.enclosure.is_none());
+}
+
+#[test]
+fn test_transposed_accidental_change_at_barline_uses_written_pitch() {
+    // For a Bb clarinet, concert F# then F natural is written G# then G
+    // natural. The boundary courtesy must follow that displayed spelling.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+        "parts": [{
+            "transposition": {"interval": {"halfSteps": 2, "staffDistance": 1}},
+            "measures": [
+                {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4, "alter": 1}}]}
+                ]}]},
+                {"sequences": [{"content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4}}]}
+                ]}]}
+            ]
+        }]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let resolved = resolve_measures(&score, 0);
+    let SequenceContent::Event(event) = &resolved[1].part.sequences[0].content[0] else {
+        panic!("expected the resolved transposed courtesy event");
+    };
+    let courtesy = event
+        .notes()
+        .first()
+        .unwrap()
+        .accidental_display
+        .as_ref()
+        .unwrap();
+
+    assert_eq!(courtesy.force, Some(true));
+    assert!(courtesy.enclosure.is_none());
 }
 
 #[test]

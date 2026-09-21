@@ -54,7 +54,6 @@ fn display_pitch_for_accidental(note: &Note, transposition: Option<(i32, i32)>) 
 
 fn apply_courtesy_to_event(
     event: &mut Event,
-    active_key: &KeySignature,
     transposition: Option<(i32, i32)>,
     incoming_ties: &HashSet<String>,
     previous_state: &AccidentalState,
@@ -65,23 +64,20 @@ fn apply_courtesy_to_event(
         let display_pitch = display_pitch_for_accidental(note, transposition);
         let state_key = (display_pitch.step.clone(), display_pitch.octave);
         let alter = display_pitch.alter.unwrap_or(0);
-        let key_alter = active_key.alteration_for_step(&display_pitch.step);
         let tied_continuation = note
             .id
             .as_ref()
             .is_some_and(|id| incoming_ties.contains(id));
 
         if !tied_continuation && seen_independent.insert(state_key.clone()) {
-            let cancels_previous = previous_state
+            let changes_previous = previous_state
                 .get(&state_key)
-                .is_some_and(|previous_alter| *previous_alter != key_alter);
-            if note.accidental_display.is_none() && alter == key_alter && cancels_previous {
+                .is_some_and(|previous_alter| *previous_alter != alter);
+            if note.accidental_display.is_none() && changes_previous {
                 note.accidental_display = Some(AccidentalDisplay {
                     show: true,
                     force: Some(true),
-                    enclosure: Some(AccidentalEnclosure {
-                        symbol: AccidentalEnclosureSymbol::Parentheses,
-                    }),
+                    enclosure: None,
                 });
             }
         }
@@ -91,7 +87,6 @@ fn apply_courtesy_to_event(
 
 fn apply_automatic_courtesy_accidentals(
     measure: &mut PartMeasure,
-    active_key: &KeySignature,
     transposition: Option<(i32, i32)>,
     incoming_ties: &[String],
     previous_state: &AccidentalState,
@@ -102,7 +97,6 @@ fn apply_automatic_courtesy_accidentals(
 
     fn process_content(
         content: &mut [SequenceContent],
-        active_key: &KeySignature,
         transposition: Option<(i32, i32)>,
         incoming_ties: &HashSet<String>,
         previous_state: &AccidentalState,
@@ -113,7 +107,6 @@ fn apply_automatic_courtesy_accidentals(
             match item {
                 SequenceContent::Event(event) => apply_courtesy_to_event(
                     event,
-                    active_key,
                     transposition,
                     incoming_ties,
                     previous_state,
@@ -122,7 +115,6 @@ fn apply_automatic_courtesy_accidentals(
                 ),
                 SequenceContent::Tuplet(tuplet) => process_content(
                     &mut tuplet.content,
-                    active_key,
                     transposition,
                     incoming_ties,
                     previous_state,
@@ -133,7 +125,6 @@ fn apply_automatic_courtesy_accidentals(
                     for event in &mut tremolo.content {
                         apply_courtesy_to_event(
                             event,
-                            active_key,
                             transposition,
                             incoming_ties,
                             previous_state,
@@ -146,7 +137,6 @@ fn apply_automatic_courtesy_accidentals(
                     for event in &mut grace.content {
                         apply_courtesy_to_event(
                             event,
-                            active_key,
                             transposition,
                             incoming_ties,
                             previous_state,
@@ -163,7 +153,6 @@ fn apply_automatic_courtesy_accidentals(
     for sequence in &mut measure.sequences {
         process_content(
             &mut sequence.content,
-            active_key,
             transposition,
             &incoming_ties,
             previous_state,
@@ -387,7 +376,6 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         }
         let current_accidental_state = apply_automatic_courtesy_accidentals(
             &mut part_measure,
-            &display_key,
             display_transposition,
             &incoming_ties,
             &previous_accidental_state,
