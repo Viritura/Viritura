@@ -106,6 +106,7 @@ describe("playbackReducer", () => {
       expect(state.metronomeEnabled).toBe(false);
       expect(state.countInEnabled).toBe(false);
       expect(state.loop).toBeNull();
+      expect(state.selectionStaffCount).toBeNull();
     });
   });
 
@@ -114,6 +115,24 @@ describe("playbackReducer", () => {
       const state = defaultState();
       const next = playbackReducer(state, { type: "PLAY" });
       expect(next.status).toBe("playing");
+    });
+
+    describe("selection playback status", () => {
+      it("preserves the selected-staff count across transport status changes", () => {
+        const filtered = playbackReducer(defaultState(), { type: "SET_SELECTION_STAFF_COUNT", staffCount: 2 });
+        expect(filtered.selectionStaffCount).toBe(2);
+        expect(playbackReducer(filtered, { type: "PLAY" }).selectionStaffCount).toBe(2);
+        expect(playbackReducer(filtered, { type: "PAUSE" }).selectionStaffCount).toBe(2);
+        expect(playbackReducer(filtered, { type: "STOP" }).selectionStaffCount).toBe(2);
+      });
+
+      it("clears the selected-staff count and normalizes invalid values", () => {
+        const filtered = playbackReducer(defaultState(), { type: "SET_SELECTION_STAFF_COUNT", staffCount: 0 });
+        expect(filtered.selectionStaffCount).toBe(1);
+        expect(
+          playbackReducer(filtered, { type: "SET_SELECTION_STAFF_COUNT", staffCount: null }).selectionStaffCount,
+        ).toBeNull();
+      });
     });
 
     it("transitions from paused to playing", () => {

@@ -740,6 +740,10 @@ export function PlaybackProvider({
     [applyViewPartFilter, syncLiveNativeMute],
   );
 
+  const setSelectionStaffCount = useCallback((staffCount: number | null) => {
+    dispatchPlayback({ type: "SET_SELECTION_STAFF_COUNT", staffCount });
+  }, []);
+
   // Prepare the native host for a play and silence the browser voices it owns.
   // In web mode (default) the host is skipped so every part plays in the browser;
   // in native mode all VST and pitched SF2 parts are hosted while the browser
@@ -1440,6 +1444,7 @@ export function PlaybackProvider({
       stop,
       seek,
       setSelectionPartIds,
+      setSelectionStaffCount,
       setTempo,
       setVolume,
       toggleMetronome,
@@ -1472,6 +1477,7 @@ export function PlaybackProvider({
       stop,
       seek,
       setSelectionPartIds,
+      setSelectionStaffCount,
       setTempo,
       setVolume,
       toggleMetronome,

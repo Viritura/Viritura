@@ -7,13 +7,23 @@
  * Wired to PlaybackContext for state.
  */
 
-import { type CSSProperties, useCallback, useState } from "react";
-import { Play as PlayIcon, Pause, Square, Loader2, Metronome, ArrowRightToLine, SkipBack } from "lucide-react";
-import { Tooltip } from "@viritura/ui";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import {
+  Play as PlayIcon,
+  Pause,
+  Square,
+  Loader2,
+  Metronome,
+  ArrowRightToLine,
+  SkipBack,
+  ListMusic,
+} from "lucide-react";
+import { Badge, Tooltip } from "@viritura/ui";
 import { usePlaybackActions, usePlaybackState } from "./usePlayback";
 import { useFollowEnabled, useFollowActions } from "./followStore";
 import { useTransportVisibilityPreferences } from "./transportSettingsStore";
 import type { PlayheadPosition } from "./playbackReducer";
+import { selectionPlaybackStatus } from "./selectionPlaybackStatus";
 
 // ═══════════════════════════════════════════
 // TransportBar (container)
@@ -47,10 +57,46 @@ export function TransportBar({
         <PlayPauseButton />
         <StopButton />
       </div>
+      <SelectionPlaybackBadge />
       {showTimeDisplay && <TimeDisplay />}
       {showFollow && <FollowToggle />}
       {showMetronome && <MetronomeToggle />}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// SelectionPlaybackBadge
+// ═══════════════════════════════════════════
+
+function SelectionPlaybackBadge() {
+  const { selectionStaffCount } = usePlaybackState();
+  const status = selectionPlaybackStatus(selectionStaffCount);
+  const initialStaffCountRef = useRef(selectionStaffCount);
+  const [announcement, setAnnouncement] = useState("");
+
+  useEffect(() => {
+    if (selectionStaffCount === initialStaffCountRef.current) return;
+    initialStaffCountRef.current = selectionStaffCount;
+    setAnnouncement(
+      selectionPlaybackStatus(selectionStaffCount)?.accessibleDescription ?? "Playback filtering cleared.",
+    );
+  }, [selectionStaffCount]);
+
+  return (
+    <>
+      {status && (
+        <span aria-label={status.accessibleDescription}>
+          <Badge variant="accent" testId="selection-playback-badge">
+            <ListMusic size={14} strokeWidth={1.75} aria-hidden="true" />
+            <span style={selectionBadgeTextStyle}>{status.badgeText}</span>
+          </Badge>
+        </span>
+      )}
+      <span aria-live="polite" style={screenReaderOnlyStyle}>
+        {announcement}
+      </span>
+    </>
   );
 }
 
@@ -264,6 +310,22 @@ const groupStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 4,
+};
+
+const selectionBadgeTextStyle: CSSProperties = {
+  marginLeft: 4,
+};
+
+const screenReaderOnlyStyle: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
 };
 
 const transportBtnStyle: CSSProperties = {

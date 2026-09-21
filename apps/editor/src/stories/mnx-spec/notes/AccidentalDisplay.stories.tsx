@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
-import { buildSingleMeasure } from "../../storyFixtures/buildMnx";
+import { buildMnx, buildSingleMeasure } from "../../storyFixtures/buildMnx";
 import accidentalDisplayMnx from "../../../../../../packages/format/fixtures/mnx/accidental-display.mnx?raw";
 
 const meta: Meta = {
@@ -38,6 +38,25 @@ export const AllDisplayModes: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "Parenthesized, bracketed, courtesy, and hidden accidentals",
+};
+
+/** Automatic boundary reminders are derived during layout and do not alter MNX. */
+export const AutomaticBoundaryCourtesy: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          voices: [[{ duration: "whole", notes: [{ step: "F", octave: 4, alter: 1 }] }]],
+        },
+        {
+          voices: [[{ duration: "whole", notes: [{ step: "F", octave: 4, alter: -1 }] }]],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Automatic courtesy after a changed spelling",
 };
 
 type InteractiveArgs = {

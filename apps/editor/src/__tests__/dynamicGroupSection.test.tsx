@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DynamicGroup } from "@viritura/core";
 import { DynamicGroupSection } from "../components/inspector/DynamicGroupSection";
@@ -35,7 +36,10 @@ const handlers = {
   },
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 describe("DynamicGroupSection staff controls", () => {
   it("uses bounded start/end staff dropdowns for a multi-staff hairpin", () => {
@@ -91,5 +95,18 @@ describe("DynamicGroupSection staff controls", () => {
     const voiceLabel = screen.getByText("Voice").closest("label");
     expect(voiceLabel?.querySelector("input")).toBeNull();
     expect(voiceLabel?.querySelector("button")).not.toBeNull();
+  });
+
+  it("sets between-staves orientation and clears it with Auto", async () => {
+    const user = userEvent.setup();
+    render(<DynamicGroupSection dynamic={{ ...hairpin, orient: "above" }} staffCount={2} {...handlers} />);
+
+    await user.click(screen.getByRole("combobox", { name: "Orientation" }));
+    await user.click(screen.getByRole("option", { name: "Between staves" }));
+    expect(handlers.onOrientationChange).toHaveBeenLastCalledWith("between");
+
+    await user.click(screen.getByRole("combobox", { name: "Orientation" }));
+    await user.click(screen.getByRole("option", { name: "Auto" }));
+    expect(handlers.onOrientationChange).toHaveBeenLastCalledWith(undefined);
   });
 });

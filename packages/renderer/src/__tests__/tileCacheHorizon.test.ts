@@ -165,4 +165,51 @@ describe("TileCache horizon bucketing", () => {
 
     expect(sharedRec.clears).toBe(2);
   });
+
+  it("refreshes rendered content for a new display-list version while retaining unchanged tiles", () => {
+    const cache = new TileCache();
+    const canvas = {
+      width: 256,
+      height: 256,
+      getContext: vi.fn(() => makeRecordingCtx(sharedRec)),
+    } as unknown as HTMLCanvasElement;
+    const initial = horizonDisplayList([rect(20, 30)], 6000);
+
+    cache.paintFrame({
+      canvas,
+      displayList: initial,
+      scrollX: 0,
+      scrollY: 0,
+      zoom: 1,
+      version: 1,
+      glyphAtlas: null,
+      viewMode: "horizon",
+    });
+    cache.paintFrame({
+      canvas,
+      displayList: initial,
+      scrollX: 0,
+      scrollY: 0,
+      zoom: 1,
+      version: 1,
+      glyphAtlas: null,
+      viewMode: "horizon",
+    });
+    expect(cache.tilesRendered).toBe(0);
+    expect(cache.tilesCached).toBeGreaterThan(0);
+
+    cache.paintFrame({
+      canvas,
+      displayList: horizonDisplayList([rect(80, 30)], 6000),
+      scrollX: 0,
+      scrollY: 0,
+      zoom: 1,
+      version: 2,
+      glyphAtlas: null,
+      viewMode: "horizon",
+    });
+
+    expect(cache.tilesRendered).toBeGreaterThan(0);
+    expect(sharedRec.rects.some((entry) => entry.x === 80 && entry.w === 30)).toBe(true);
+  });
 });

@@ -15,15 +15,18 @@ import { PromptDialog } from "@viritura/ui";
 import { toast } from "sonner";
 import { getProjectFolderNameError } from "../app/projectFolder";
 import { useModalFlowStore } from "../store/modalFlowStore";
+import { PickupBarDialog } from "./PickupBarDialog";
 
 export function ModalFlowHost(): React.JSX.Element {
   const scoreChooser = useModalFlowStore((s) => s.scoreChooser);
   const folderConfirm = useModalFlowStore((s) => s.folderConfirm);
   const projectName = useModalFlowStore((s) => s.projectName);
+  const pickupDuration = useModalFlowStore((s) => s.pickupDuration);
   const externalChange = useModalFlowStore((s) => s.externalChange);
   const setScoreChooser = useModalFlowStore((s) => s._setScoreChooser);
   const setFolderConfirm = useModalFlowStore((s) => s._setFolderConfirm);
   const setProjectName = useModalFlowStore((s) => s._setProjectName);
+  const setPickupDuration = useModalFlowStore((s) => s._setPickupDuration);
   const setExternalChange = useModalFlowStore((s) => s._setExternalChange);
 
   return (
@@ -93,6 +96,19 @@ export function ModalFlowHost(): React.JSX.Element {
           onClose={() => {
             projectName.resolve(null);
             setProjectName(null);
+          }}
+        />
+      )}
+      {pickupDuration && (
+        <PickupBarDialog
+          meter={pickupDuration.meter}
+          onCreate={(duration) => {
+            pickupDuration.resolve(duration);
+            setPickupDuration(null);
+          }}
+          onClose={() => {
+            pickupDuration.resolve(null);
+            setPickupDuration(null);
           }}
         />
       )}

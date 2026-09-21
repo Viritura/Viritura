@@ -7,12 +7,11 @@
  * so that the Parts tab works out of the box.
  */
 
-import { type Player, type InstrumentFamily, getCatalogInstrument, FAMILY_META } from "./InstrumentCatalog";
+import { type Player, getCatalogInstrument } from "./InstrumentCatalog";
 import {
   generateId,
   resolvePartDisplayNames,
   type GlobalMeasure,
-  type LayoutDefinition,
   type Part,
   type Score,
   type ScoreDefinition,
@@ -20,6 +19,7 @@ import {
 } from "@viritura/core";
 import { serializeMnx } from "@viritura/format";
 import { createCatalogPart, persistedPartNames } from "./catalogPart";
+import { buildLayouts } from "./layoutBuilder";
 
 /** Settings for creating a new blank score. */
 export interface NewScoreSettings {
@@ -100,7 +100,7 @@ export function buildBlankScore(settings: NewScoreSettings): string {
       ...(Object.keys(sounds).length > 0 ? { sounds } : {}),
     },
     parts,
-    layouts: layouts as unknown as LayoutDefinition[],
+    layouts,
     scores: scores as unknown as ScoreDefinition[],
     ...(title ? { metadata: { title } } : {}),
   };
@@ -129,101 +129,6 @@ function buildGlobalMeasures(
     globalMeasures.push(m);
   }
   return globalMeasures;
-}
-
-function buildLayouts(players: Player[], partIds: string[]): Record<string, unknown>[] {
-  const layouts: Record<string, unknown>[] = [];
-  const familyGroups = buildFamilyGroups(players);
-
-  const fullScoreContent: Record<string, unknown>[] = [];
-  for (const group of familyGroups) {
-    const staveEntries = group.playerIndices.map((idx) => buildStaveEntry(players[idx]!, idx, partIds));
-
-    if (group.playerIndices.length > 1) {
-      fullScoreContent.push(buildFamilyBracket(group.family, staveEntries));
-    } else if (staveEntries.length === 1) {
-      fullScoreContent.push(staveEntries[0]!.node);
-    }
-  }
-
-  layouts.push({ id: "FullScore", content: fullScoreContent });
-
-  for (let idx = 0; idx < players.length; idx++) {
-    layouts.push({
-      id: `L-${partIds[idx]}`,
-      content: buildPerPlayerLayoutContent(players[idx]!, idx, partIds),
-    });
-  }
-  return layouts;
-}
-
-function buildStaveEntry(
-  player: Player,
-  idx: number,
-  partIds: string[],
-): { node: Record<string, unknown>; subGroup: string | undefined } {
-  const inst = getCatalogInstrument(player.instrumentId);
-  const numStaves = inst?.staves ?? 1;
-  let node: Record<string, unknown>;
-  if (numStaves > 1 && inst?.bracketSymbol === "brace") {
-    const staffNodes: Record<string, unknown>[] = [];
-    for (let s = 1; s <= numStaves; s++) {
-      staffNodes.push({
-        type: "staff",
-        sources: [{ part: partIds[idx], staff: s, labelref: "name" }],
-      });
-    }
-    node = { type: "group", symbol: "brace", content: staffNodes };
-  } else {
-    node = {
-      type: "staff",
-      sources: [{ part: partIds[idx], labelref: "name" }],
-    };
-  }
-  return { node, subGroup: inst?.subGroup };
-}
-
-function buildFamilyBracket(
-  family: InstrumentFamily,
-  staveEntries: { node: Record<string, unknown>; subGroup: string | undefined }[],
-): Record<string, unknown> {
-  const subGroupRuns = groupConsecutiveBySubGroup(staveEntries);
-  const hasMultipleSubGroups = subGroupRuns.length > 1;
-
-  const content: Record<string, unknown>[] = hasMultipleSubGroups
-    ? subGroupRuns.map((run) =>
-        run.nodes.length > 1 ? { type: "group", symbol: "bracket", content: run.nodes } : run.nodes[0]!,
-      )
-    : staveEntries.map((e) => e.node);
-
-  return {
-    type: "group",
-    symbol: "bracket",
-    label: FAMILY_META[family].label,
-    content,
-  };
-}
-
-function buildPerPlayerLayoutContent(player: Player, idx: number, partIds: string[]): Record<string, unknown>[] {
-  const inst = getCatalogInstrument(player.instrumentId);
-  const numStaves = inst?.staves ?? 1;
-
-  if (numStaves > 1 && inst?.bracketSymbol === "brace") {
-    const staffNodes: Record<string, unknown>[] = [];
-    for (let s = 1; s <= numStaves; s++) {
-      staffNodes.push({
-        type: "staff",
-        sources: [{ part: partIds[idx], staff: s, labelref: "name" }],
-      });
-    }
-    return [{ type: "group", symbol: "brace", content: staffNodes }];
-  }
-  return [
-    {
-      type: "staff",
-      sources: [{ part: partIds[idx], labelref: "name" }],
-    },
-  ];
 }
 
 function buildScores(parts: Part[]): Record<string, unknown>[] {
@@ -259,52 +164,4 @@ function buildScores(parts: Part[]): Record<string, unknown>[] {
     scores.push(scoreObj);
   }
   return scores;
-}
-
-// ─── Helpers ───────────────────────────────────────────────────────
-
-interface FamilyGroup {
-  family: InstrumentFamily;
-  playerIndices: number[];
-}
-
-interface SubGroupRun {
-  subGroup: string | undefined;
-  nodes: Record<string, unknown>[];
-}
-
-/**
- * Group consecutive entries with the same subGroup into runs.
- * Entries without a subGroup are never merged with neighbours.
- */
-function groupConsecutiveBySubGroup(entries: { node: Record<string, unknown>; subGroup?: string }[]): SubGroupRun[] {
-  const runs: SubGroupRun[] = [];
-  for (const entry of entries) {
-    const last = runs[runs.length - 1];
-    if (last && last.subGroup != null && last.subGroup === entry.subGroup) {
-      last.nodes.push(entry.node);
-    } else {
-      runs.push({ subGroup: entry.subGroup, nodes: [entry.node] });
-    }
-  }
-  return runs;
-}
-
-/**
- * Group players by instrument family, preserving the order they appear
- * in the players list. Adjacent players of the same family are merged.
- */
-function buildFamilyGroups(players: Player[]): FamilyGroup[] {
-  const groups: FamilyGroup[] = [];
-  for (let i = 0; i < players.length; i++) {
-    const inst = getCatalogInstrument(players[i]!.instrumentId);
-    const family: InstrumentFamily = inst?.family ?? "keyboards";
-    const last = groups[groups.length - 1];
-    if (last && last.family === family) {
-      last.playerIndices.push(i);
-    } else {
-      groups.push({ family, playerIndices: [i] });
-    }
-  }
-  return groups;
 }

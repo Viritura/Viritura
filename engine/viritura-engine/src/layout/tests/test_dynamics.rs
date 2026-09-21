@@ -262,6 +262,71 @@ fn test_voice_linked_dynamics_use_separate_voice_sides() {
 }
 
 #[test]
+fn test_unscoped_auto_dynamics_resolve_staff_from_voice_or_grand_staff_lane() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"staves": 2, "measures": [{
+            "dynamics": [
+                {"id": "shared", "type": "immediate", "position": {"fraction": [0, 1]},
+                 "value": "mf"},
+                {"id": "voice-lower", "type": "immediate", "position": {"fraction": [1, 2]},
+                 "value": "p", "voice": "lower"},
+                {"id": "staff-wins", "type": "immediate", "position": {"fraction": [3, 4]},
+                 "value": "f", "staff": 1, "voice": "lower"}
+            ],
+            "sequences": [
+                {"staff": 1, "voice": "upper", "content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+                ]},
+                {"staff": 2, "voice": "lower", "content": [
+                    {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
+                ]}
+            ]
+        }]}]
+    }"#;
+    let config = LayoutConfig::default();
+    let dl = layout_score(&parse_mnx(json).unwrap(), 0, &config);
+    let dynamic_y = |id: &str| {
+        dl.commands
+            .iter()
+            .zip(&dl.element_ids)
+            .find_map(|(command, element_id)| {
+                (element_id.as_deref() == Some(id))
+                    .then_some(match command {
+                        RenderCommand::DrawGlyph { y, .. } => Some(*y),
+                        _ => None,
+                    })
+                    .flatten()
+            })
+            .expect("dynamic glyph")
+    };
+    let mut staff_ys: Vec<f64> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bounds| bounds.index == 0)
+        .map(|bounds| bounds.y)
+        .collect();
+    staff_ys.sort_by(f64::total_cmp);
+    staff_ys.dedup_by(|left, right| (*left - *right).abs() < 0.01);
+    assert_eq!(staff_ys.len(), 2, "expected grand-staff measure bounds");
+
+    assert!(
+        dynamic_y("p0/m0/dynshared") > staff_ys[0] + 4.0 * config.sp
+            && dynamic_y("p0/m0/dynshared") < staff_ys[1],
+        "an unscoped automatic dynamic should use the shared inter-staff lane"
+    );
+    assert!(
+        dynamic_y("p0/m0/dynvoice-lower") > staff_ys[1] + 4.0 * config.sp,
+        "a voice-linked automatic dynamic should follow the voice's staff"
+    );
+    assert!(
+        dynamic_y("p0/m0/dynstaff-wins") < staff_ys[1],
+        "an explicit staff must override a voice-linked dynamic's automatic owner"
+    );
+}
+
+#[test]
 fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
     let json = r#"{
         "mnx": {"version": 1},

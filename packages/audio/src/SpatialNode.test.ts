@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { SpatialNode, setListenerPosition } from "./SpatialNode";
+import { getOrchestraPositions, SpatialNode, setListenerPosition } from "./SpatialNode";
 
 // ─── Mock Web Audio API ──────────────────────────────────────────────
 
@@ -158,5 +158,55 @@ describe("setListenerPosition", () => {
     expect(ctx.listener.upX.value).toBe(0);
     expect(ctx.listener.upY.value).toBe(1);
     expect(ctx.listener.upZ.value).toBe(0);
+  });
+});
+
+describe("getOrchestraPositions", () => {
+  it("places auxiliary winds after their primary family in score order", () => {
+    const positions = getOrchestraPositions([
+      "Flute I",
+      "Flute II",
+      "Piccolo",
+      "Alto Flute",
+      "Bass Flute",
+      "Oboe 1",
+      "Oboe 2",
+      "English Horn",
+      "Clarinet 1",
+      "Clarinet 2",
+      "E♭ Clarinet",
+      "Bass Clarinet",
+      "Bassoon 1",
+      "Bassoon 2",
+      "Contrabassoon",
+    ]);
+
+    expect(positions).toEqual([
+      { x: -0.5, y: 6 },
+      { x: -1.5, y: 6 },
+      { x: -2.5, y: 6 },
+      { x: -3.5, y: 6 },
+      { x: -4.5, y: 6 },
+      { x: 0.5, y: 6 },
+      { x: 1.5, y: 6 },
+      { x: 2.5, y: 6 },
+      { x: -0.5, y: 7 },
+      { x: -1.5, y: 7 },
+      { x: -2.5, y: 7 },
+      { x: -3.5, y: 7 },
+      { x: 0.5, y: 7 },
+      { x: 1.5, y: 7 },
+      { x: 2.5, y: 7 },
+    ]);
+  });
+
+  it("places orchestral and auxiliary percussion beside timpani", () => {
+    const positions = getOrchestraPositions(["Timpani", "Orchestral Percussion", "Auxiliary Percussion"]);
+
+    expect(positions).toEqual([
+      { x: 0, y: 10 },
+      { x: -1, y: 10 },
+      { x: -1, y: 10 },
+    ]);
   });
 });

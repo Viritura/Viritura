@@ -9,6 +9,35 @@
 
 use crate::model::*;
 
+fn automatic_dynamic_staff(pm: &PartMeasure, group: &DynamicGroup, staff_count: u32) -> u32 {
+    if let Some(voice) = group.voice.as_deref() {
+        let sequence = pm
+            .sequences
+            .iter()
+            .find(|sequence| sequence.voice.as_deref() == Some(voice))
+            .or_else(|| {
+                voice
+                    .strip_prefix('v')
+                    .and_then(|number| number.parse::<usize>().ok())
+                    .and_then(|number| number.checked_sub(1))
+                    .and_then(|index| pm.sequences.get(index))
+            });
+        if let Some(sequence) = sequence {
+            return sequence.staff.unwrap_or(1);
+        }
+    }
+
+    match group.orient {
+        Some(MultiStaffOrientation::Below) => staff_count,
+        // Standard engraving practice: an unscoped keyboard dynamic belongs
+        // in the uppermost available inter-staff lane, not on every staff.
+        Some(MultiStaffOrientation::Above)
+        | Some(MultiStaffOrientation::Between)
+        | Some(MultiStaffOrientation::Auto)
+        | None => 1,
+    }
+}
+
 /// Split a PartMeasure's sequences and clefs by staff number.
 /// Returns a new PartMeasure containing only sequences and clefs for the given staff.
 /// When no clefs match the target staff but the original had clefs, a conventional
@@ -53,13 +82,11 @@ pub(super) fn split_part_measure_by_staff_count(
         dynamics: pm.dynamics.as_ref().map(|groups| {
             groups
                 .iter()
-                .filter(|group| match group.staff {
-                    Some(target) => target == staff_num,
-                    None if staff_count <= 1 => staff_num == 1,
-                    None => match group.orient {
-                        Some(MultiStaffOrientation::Below) => staff_num == staff_count,
-                        _ => staff_num == 1,
-                    },
+                .filter(|group| {
+                    group
+                        .staff
+                        .unwrap_or_else(|| automatic_dynamic_staff(pm, group, staff_count))
+                        == staff_num
                 })
                 .cloned()
                 .map(|mut group| {

@@ -7,6 +7,7 @@ import {
   type ChordSymbol,
   type NoteEvent,
   type Score,
+  type Sequence,
   type SequenceContent,
 } from "@viritura/core";
 import { useClipboardActions } from "./useClipboardActions";
@@ -100,6 +101,10 @@ function addHistory(): void {
 
 function updatedEvent(updateScore: ReturnType<typeof harness>["updateScore"]): NoteEvent {
   return updateScore.mock.calls[0]![0].parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
+}
+
+function updatedSequence(updateScore: ReturnType<typeof harness>["updateScore"]): Sequence {
+  return updateScore.mock.calls[0]![0].parts[0]!.measures[0]!.sequences[0]!;
 }
 
 beforeEach(() => {
@@ -254,8 +259,12 @@ describe.each([false, true])("JSON-only notation actions (native=%s)", (native) 
         expect(writeText).toHaveBeenCalledExactlyOnceWith(text);
         expect(invoke).not.toHaveBeenCalled();
       }
-      if (action === "handleCut") expect(updatedEvent(updateScore).rest).toEqual({});
-      else expect(updateScore).not.toHaveBeenCalled();
+      if (action === "handleCut") {
+        expect(updatedSequence(updateScore)).toMatchObject({
+          content: [],
+          fullMeasure: { visualDuration: { base: "whole" } },
+        });
+      } else expect(updateScore).not.toHaveBeenCalled();
       expect(score).toEqual(snapshot);
     },
   );
@@ -426,7 +435,10 @@ describe("clipboard history fallback", () => {
     vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
     const { result, updateScore } = harness();
     await act(() => result.current.handleCut());
-    expect(updatedEvent(updateScore).rest).toEqual({});
+    expect(updatedSequence(updateScore)).toMatchObject({
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    });
     const fragment = useClipboardHistoryStore.getState().entries[0]?.fragment;
     expect(fragment?.content[0]).toMatchObject({ notes: [{ pitch: { step: "C" } }] });
     expect(toast.warning).toHaveBeenCalledExactlyOnceWith("Could not write the system clipboard.");
@@ -472,7 +484,10 @@ describe("clipboard history fallback", () => {
     writeText.mockRejectedValue(new DOMException("Permission denied", "NotAllowedError"));
     const { result, updateScore } = harness();
     await act(() => result.current.handleCut());
-    expect(updatedEvent(updateScore).rest).toEqual({});
+    expect(updatedSequence(updateScore)).toMatchObject({
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    });
     const fragment = useClipboardHistoryStore.getState().entries[0]?.fragment;
     expect(fragment?.content[0]).toMatchObject({ notes: [{ pitch: { step: "C" } }] });
     expect(toast.error).not.toHaveBeenCalled();

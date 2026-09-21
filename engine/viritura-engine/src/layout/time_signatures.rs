@@ -13,7 +13,7 @@ pub(crate) mod spanning;
 use crate::layout::render_annotations::AboveGlyphBox;
 use crate::layout::text_styles::{self, FontFamily};
 use crate::layout::types::MeasureLayout;
-use crate::model::measure::PartMeasure;
+use crate::model::measure::{PartMeasure, StaffGroupingDisplayOverride};
 use crate::model::time::{
     resolve_grouping_display, GroupingDisplay, SenzaMisuraDisplay, TimeSignature,
     TimeSignatureDisplay, TimeSignatureDistribution, TimeSignaturePosition,
@@ -336,6 +336,22 @@ pub(crate) fn staff_grouping_override(part: &PartMeasure) -> Option<GroupingDisp
         .as_ref()?
         .first()
         .map(|o| o.grouping_display)
+}
+
+pub(crate) fn staff_grouping_override_for_source(
+    part: &PartMeasure,
+    staff: u32,
+) -> Option<Vec<StaffGroupingDisplayOverride>> {
+    part.grouping_display_overrides
+        .as_ref()?
+        .iter()
+        .find(|override_| override_.staff == staff)
+        .map(|override_| {
+            vec![StaffGroupingDisplayOverride {
+                staff: 1,
+                grouping_display: override_.grouping_display,
+            }]
+        })
 }
 
 /// Numeric (or note-value) styles apply grouping display uniformly: the

@@ -60,6 +60,8 @@ export interface PlaybackState {
   readonly countInEnabled: boolean;
   /** Active loop region, or null if looping is off. */
   readonly loop: LoopRegion | null;
+  /** Number of rendered staves currently limiting playback, or null when unfiltered. */
+  readonly selectionStaffCount: number | null;
   /** Per-part patch info (what sound source each part is using). */
   readonly partPatches: readonly PartPatchInfo[];
 }
@@ -77,6 +79,8 @@ export interface PlaybackActions {
   /** Temporary source-part eligibility. Null clears; [] silences all.
    * Global chords accompany an explicit selection only when it covers every visible instrument. */
   setSelectionPartIds(partIds: readonly string[] | null): void;
+  /** Publish the rendered-staff count associated with the temporary part filter. */
+  setSelectionStaffCount(staffCount: number | null): void;
   /** Override the tempo (BPM). */
   setTempo(bpm: number): void;
   /** Set master volume (0–1, clamped). */
@@ -217,6 +221,7 @@ export type PlaybackAction =
   | { type: "SET_DURATION"; duration: number }
   | { type: "SET_SCORE_TEMPO"; tempo: number }
   | { type: "SET_STATUS"; status: PlaybackState["status"] }
+  | { type: "SET_SELECTION_STAFF_COUNT"; staffCount: number | null }
   | { type: "SET_PART_PATCHES"; patches: PartPatchInfo[] };
 
 /** Initial state factory. */
@@ -231,6 +236,7 @@ export function initialPlaybackState(): PlaybackState {
     metronomeEnabled: false,
     countInEnabled: false,
     loop: null,
+    selectionStaffCount: null,
     partPatches: [],
   };
 }
@@ -312,6 +318,11 @@ const handleSetScoreTempo: ActionHandler<"SET_SCORE_TEMPO"> = (state, action) =>
 const handleSetStatus: ActionHandler<"SET_STATUS"> = (state, action) =>
   action.status === state.status ? state : { ...state, status: action.status };
 
+const handleSetSelectionStaffCount: ActionHandler<"SET_SELECTION_STAFF_COUNT"> = (state, action) => {
+  const staffCount = action.staffCount === null ? null : Math.max(1, Math.floor(action.staffCount));
+  return staffCount === state.selectionStaffCount ? state : { ...state, selectionStaffCount: staffCount };
+};
+
 const handleSetPartPatches: ActionHandler<"SET_PART_PATCHES"> = (state, action) => ({
   ...state,
   partPatches: action.patches,
@@ -336,6 +347,7 @@ const ACTION_HANDLERS: HandlerTable = {
   SET_DURATION: handleSetDuration,
   SET_SCORE_TEMPO: handleSetScoreTempo,
   SET_STATUS: handleSetStatus,
+  SET_SELECTION_STAFF_COUNT: handleSetSelectionStaffCount,
   SET_PART_PATCHES: handleSetPartPatches,
 };
 

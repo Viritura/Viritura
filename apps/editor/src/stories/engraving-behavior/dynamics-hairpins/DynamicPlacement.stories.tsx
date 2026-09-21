@@ -88,3 +88,85 @@ export const ClearsAccentArticulation: StoryObj = {
   },
   name: "Clears accent articulation",
 };
+
+/**
+ * Multi-staff dynamics can occupy the space shared by two staves. The `mf`
+ * and crescendo explicitly request that shared placement, while the `p`
+ * leaves `staff` unset so MNX automatic staff ownership selects its staff.
+ */
+export const BetweenStavesAndAutomaticOwnership: StoryObj = {
+  render: () => {
+    const mnx = JSON.stringify(
+      {
+        mnx: { version: 1 },
+        global: {
+          measures: [{ id: "m1", time: { count: 4, unit: 4 } }],
+        },
+        parts: [
+          {
+            id: "P1",
+            name: "Piano",
+            staves: 2,
+            measures: [
+              {
+                clefs: [
+                  { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+                  { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+                ],
+                sequences: [
+                  {
+                    staff: 1,
+                    content: [
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "D", octave: 5 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "E", octave: 5 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "F", octave: 5 } }] },
+                    ],
+                  },
+                  {
+                    staff: 2,
+                    content: [
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "C", octave: 3 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "D", octave: 3 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "E", octave: 3 } }] },
+                      { duration: { base: "quarter" }, notes: [{ pitch: { step: "F", octave: 3 } }] },
+                    ],
+                  },
+                ],
+                dynamics: [
+                  {
+                    id: "between-mf",
+                    type: "immediate",
+                    value: "mf",
+                    orient: "between",
+                    staff: 1,
+                    position: { fraction: [0, 1] },
+                  },
+                  {
+                    id: "between-crescendo",
+                    type: "gradual",
+                    orient: "between",
+                    staff: 1,
+                    position: { fraction: [1, 4] },
+                    end: { measure: "m1", position: { fraction: [3, 4] } },
+                    wedgeType: "increasing",
+                  },
+                  {
+                    id: "automatic-staff-p",
+                    type: "immediate",
+                    value: "p",
+                    position: { fraction: [3, 4] },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      null,
+      2,
+    );
+    return <ScorePreview mnxJson={mnx} height={500} />;
+  },
+  name: "Between staves and automatic staff ownership",
+};

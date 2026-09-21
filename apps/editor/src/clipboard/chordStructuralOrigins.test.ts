@@ -182,9 +182,11 @@ describe("chord range capture in an extracted root part", () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     const next = applyCut(score, cut!);
     expect.soft(next.parts.slice(0, 2)).toEqual(before.parts.slice(0, 2));
-    expect
-      .soft(next.parts[2]!.measures[0]!.sequences[0]!.content)
-      .toEqual([{ type: "event", duration: { base: "whole" }, rest: {} }]);
+    expect.soft(next.parts[2]!.measures[0]!.sequences[0]).toEqual({
+      staff: 1,
+      content: [],
+      fullMeasure: { visualDuration: { base: "whole" } },
+    });
     expect.soft(next.parts[2]!.measures[1]).toEqual(before.parts[2]!.measures[1]);
     expect.soft(next.global.measures[0]!.chordSymbols ?? []).toEqual([]);
     expect(next.parts.map((part) => part.id)).toEqual(["part-0", "part-1", "part-2"]);
@@ -256,12 +258,15 @@ describe("chord-to-note ranges preserve structural cut sources", () => {
     expect(cut).not.toBeNull();
     const next = applyCut(score, cut!);
     for (const part of [0, 1]) {
-      expect
-        .soft(next.parts[part]!.measures[0]!.sequences[0]!.content)
-        .toEqual([{ type: "event", duration: { base: "whole" }, rest: {} }]);
+      expect.soft(next.parts[part]!.measures[0]!.sequences[0]).toEqual({
+        staff: 1,
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" } },
+      });
       expect.soft(next.parts[part]!.measures[1]).toEqual(before.parts[part]!.measures[1]);
     }
     expect.soft(next.parts[2]).toEqual(before.parts[2]);
+    expect.soft(next.global.measures[0]!.chordSymbols ?? []).toEqual([]);
     expect(score).toEqual(before);
   });
 
@@ -319,13 +324,16 @@ describe("chord-to-note ranges preserve structural cut sources", () => {
       expect
         .soft(next.parts[part]!.measures[measure]!.sequences[0])
         .toEqual(before.parts[part]!.measures[measure]!.sequences[0]);
-      expect
-        .soft(next.parts[part]!.measures[measure]!.sequences[1]!.content)
-        .toEqual([{ type: "event", duration: { base: "whole" }, rest: {} }]);
+      expect.soft(next.parts[part]!.measures[measure]!.sequences[1]).toEqual({
+        staff: 2,
+        content: [],
+        fullMeasure: { visualDuration: { base: "whole" } },
+      });
     }
     for (const hiddenPart of [0, 1, 2].filter((index) => index !== part)) {
       expect.soft(next.parts[hiddenPart]).toEqual(before.parts[hiddenPart]);
     }
+    expect.soft(next.global.measures[0]!.chordSymbols ?? []).toEqual([]);
     expect(score).toEqual(before);
   });
 });

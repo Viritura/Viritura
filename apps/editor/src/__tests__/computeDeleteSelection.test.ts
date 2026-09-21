@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score, NoteEvent, Step, Octave } from "@viritura/core";
 import { computeDeleteSelection } from "../commands/computeDeleteSelection";
+import { toggleDynamic } from "../commands/articulationCommands";
 import type { Selection } from "../store/selectionStore";
 
 function note(id: string, step: Step = "C", octave: Octave = 4): NoteEvent {
@@ -90,6 +91,32 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
     expect(result.score.global.measures[0]!.chordSymbols).toBeUndefined();
     expect(contentAt(result.score, 1).rest).toBeDefined();
     expect(contentAt(result.score, 0).notes).toHaveLength(3);
+  });
+
+  it.each([false, true])("collapses a bar and removes only selected global harmony (selected=%s)", (selectChord) => {
+    const score = makeScore();
+    const chordSymbols = [{ position: { fraction: [0, 1] as [number, number] }, root: { step: "C" as const } }];
+    score.global.measures[0]!.chordSymbols = chordSymbols;
+    toggleDynamic(score, 0, 0, 0, 0, "f");
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: [
+        "p0/m0/s0/ev0",
+        "p0/m0/s0/ev1",
+        "p0/m0/s0/ev2",
+        "p0/m0/s0/ev3",
+        ...(selectChord ? ["m0/chord0", "m0/chord0/p0/staff1"] : []),
+      ],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const sequence = result.score.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+    expect(result.score.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+    expect(result.score.global.measures[0]!.chordSymbols).toEqual(selectChord ? undefined : chordSymbols);
   });
 
   it.each(["p0/m0/chord0", "m0/chord4/p0/staff1", "m0/chord0junk", "m0/chord", "m0/chord0/p0/staff1/extra"])(
@@ -216,6 +243,129 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
     const sequence = result.score.parts[0]!.measures[0]!.sequences[0]!;
     expect(sequence.content).toEqual([]);
     expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+  });
+
+  it("removes a dynamic anchored in a fully deleted tuplet before collapsing its bar", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        outer: { duration: { base: "quarter" }, multiple: 1 },
+        inner: { duration: { base: "eighth" }, multiple: 3 },
+        content: [
+          { ...note("triplet-a"), duration: { base: "eighth" } },
+          { ...note("triplet-b", "D"), duration: { base: "eighth" } },
+          { ...note("triplet-c", "E"), duration: { base: "eighth" } },
+        ],
+      },
+    ];
+    toggleDynamic(score, 0, 0, 0, 1, "f", 0);
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/triplet-a", "p0/m0/s0/triplet-b", "p0/m0/s0/triplet-c"],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const measure = result.score.parts[0]!.measures[0]!;
+    expect(measure.sequences[0]!.content).toEqual([]);
+    expect(measure.sequences[0]!.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+    expect(measure.dynamics).toBeUndefined();
+  });
+
+  it("retains a dynamic when deleting only part of its tuplet", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        outer: { duration: { base: "quarter" }, multiple: 1 },
+        inner: { duration: { base: "eighth" }, multiple: 3 },
+        content: [
+          { ...note("triplet-a"), duration: { base: "eighth" } },
+          { ...note("triplet-b", "D"), duration: { base: "eighth" } },
+          { ...note("triplet-c", "E"), duration: { base: "eighth" } },
+        ],
+      },
+    ];
+    toggleDynamic(score, 0, 0, 0, 1, "f", 0);
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/triplet-b"],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const measure = result.score.parts[0]!.measures[0]!;
+    expect(measure.dynamics).toHaveLength(1);
+    const tuplet = measure.sequences[0]!.content[0];
+    expect(tuplet?.type).toBe("tuplet");
+    if (tuplet?.type !== "tuplet") return;
+    expect(tuplet.content[1]).toMatchObject({ type: "event", rest: {} });
+  });
+
+  it("retains an unscoped dynamic while another voice still supplies its anchor", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences = [
+      {
+        content: [
+          {
+            type: "tuplet",
+            outer: { duration: { base: "quarter" }, multiple: 1 },
+            inner: { duration: { base: "eighth" }, multiple: 3 },
+            content: [
+              { ...note("triplet-a"), duration: { base: "eighth" } },
+              { ...note("triplet-b", "D"), duration: { base: "eighth" } },
+              { ...note("triplet-c", "E"), duration: { base: "eighth" } },
+            ],
+          },
+        ],
+      },
+      { content: [note("other-voice")] },
+    ];
+    measure.dynamics = [{ id: "shared-dynamic", type: "immediate", position: { fraction: [0, 1] }, value: "f" }];
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/triplet-a", "p0/m0/s0/triplet-b", "p0/m0/s0/triplet-c"],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    expect(result.score.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
+  });
+
+  it("removes a selected tuplet bracket and restores its base rest with attached dynamics", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        outer: { duration: { base: "quarter" }, multiple: 1 },
+        inner: { duration: { base: "eighth" }, multiple: 5 },
+        content: Array.from({ length: 5 }, () => ({
+          type: "event" as const,
+          duration: { base: "eighth" as const },
+          rest: {},
+        })),
+      },
+    ];
+    toggleDynamic(score, 0, 0, 0, 0, "f", 0);
+
+    const result = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/tuplet0",
+      elementType: "tuplet",
+    });
+
+    expect(result).toMatchObject({ kind: "single", nextSelection: { kind: "clear" } });
+    if (result.kind !== "single") return;
+    expect(result.score.parts[0]!.measures[0]!.sequences[0]!.content).toMatchObject([
+      { type: "event", duration: { base: "quarter" }, rest: {} },
+    ]);
+    expect(result.score.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
   });
 
   it("returns noop for an empty selection", () => {

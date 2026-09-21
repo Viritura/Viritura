@@ -115,8 +115,13 @@ automatically — you don't need to clear it first.
 
 Accidentals follow standard engraving practice: a pitch altered earlier in the
 measure isn't re‑marked, and a note tied across a barline keeps its accidental
-without restating it. When no accidental key is selected, note input inherits
-the alteration already in force for that pitch in the current measure.
+without restating it. When a note at the start of a new measure changes the
+previous measure's spelling of the same written pitch, Viritura adds an
+unenclosed courtesy accidental automatically. Tied continuations remain
+unmarked, except for a parenthesized reminder at a system or page start. These
+automatic marks are layout-only and do not change the MNX document. When no
+accidental key is selected, note input inherits the alteration already in force
+for that pitch in the current measure.
 
 ## Ties, slurs, and grace notes
 

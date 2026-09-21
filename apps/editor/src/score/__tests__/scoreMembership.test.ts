@@ -180,6 +180,49 @@ describe("createSectionScore", () => {
     const result = createSectionScore(score, ["glk"]);
     expect(result!.score.scores!.at(-1)!.name).toBe("Section Score");
   });
+
+  it("retains conventional nested instrumental brackets for a multi-section score", () => {
+    const score = makePercussionScore();
+    score.parts = [
+      { id: "cl1", name: "Clarinet 1", _x: { viritura: { instrumentId: "bflat-clarinet", family: "woodwinds" } } },
+      { id: "cl2", name: "Clarinet 2", _x: { viritura: { instrumentId: "bflat-clarinet", family: "woodwinds" } } },
+      { id: "bcl", name: "Bass Clarinet", _x: { viritura: { instrumentId: "bass-clarinet", family: "woodwinds" } } },
+      { id: "bsn1", name: "Bassoon 1", _x: { viritura: { instrumentId: "bassoon", family: "woodwinds" } } },
+      { id: "bsn2", name: "Bassoon 2", _x: { viritura: { instrumentId: "bassoon", family: "woodwinds" } } },
+    ] as Score["parts"];
+
+    const result = createSectionScore(score, ["cl1", "cl2", "bcl", "bsn1", "bsn2"]);
+    const layout = result!.score.layouts!.find((entry) => entry.id === result!.score.scores!.at(-1)!.layout)!;
+    const woodwinds = layout.content[0] as Extract<LayoutContent, { type: "group" }>;
+
+    expect(woodwinds.label).toBe("Woodwinds");
+    expect(partOrder(woodwinds.content)).toEqual(["cl1", "cl2", "bcl", "bsn1", "bsn2"]);
+    expect(woodwinds.content.map((node) => (node.type === "group" ? partOrder(node.content) : []))).toEqual([
+      ["cl1", "cl2", "bcl"],
+      ["bsn1", "bsn2"],
+    ]);
+  });
+
+  it("nests a standalone instrumental subgroup inside its section family bracket", () => {
+    const score = makePercussionScore();
+    score.parts = [
+      { id: "fl1", name: "Flute 1", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
+      { id: "fl2", name: "Flute 2", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
+      { id: "picc", name: "Piccolo", _x: { viritura: { instrumentId: "piccolo", family: "woodwinds" } } },
+    ] as Score["parts"];
+
+    const result = createSectionScore(score, ["fl1", "fl2", "picc"]);
+    const woodwinds = result!.score.layouts!.find((entry) => entry.id === result!.score.scores!.at(-1)!.layout)!
+      .content[0] as Extract<LayoutContent, { type: "group" }>;
+
+    expect(woodwinds).toMatchObject({ label: "Woodwinds", symbol: "bracket" });
+    expect(woodwinds.content).toHaveLength(1);
+    expect(partOrder((woodwinds.content[0] as Extract<LayoutContent, { type: "group" }>).content)).toEqual([
+      "fl1",
+      "fl2",
+      "picc",
+    ]);
+  });
 });
 
 describe("setScoreLayoutMembership", () => {

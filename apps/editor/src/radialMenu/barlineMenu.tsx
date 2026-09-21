@@ -25,7 +25,12 @@ export const BARLINE_ITEMS: RadialMenuItem[] = BARLINE_PALETTE_ITEMS.map((p) => 
   icon: <BarlineGlyph glyph={p.glyph} />,
   label: p.label,
   ...keys(BARLINE_SEARCH, p.id),
-}));
+})).concat({
+  id: "create-pickup",
+  icon: <span>P</span>,
+  label: "Create Pickup Bar",
+  searchKeys: ["pickup", "anacrusis", "upbeat"],
+});
 
 export function resolveBarline(id: string): Barline | null {
   const item = BARLINE_PALETTE_ITEMS.find((p) => p.id === id);

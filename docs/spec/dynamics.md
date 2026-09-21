@@ -207,18 +207,24 @@ One dispatch over `DynamicGroup.type` routes glyph/text rendering for
 
 ### 7.1 Multi-staff placement
 
-An omitted `staff` applies the group to every staff in the part (not staff 1).
+An omitted `staff` leaves visual staff ownership automatic. It does not mean
+"staff 1": layout resolves one conventional display lane, while playback still
+applies an unscoped group to every applicable lane in the part.
 
-- Explicit `staff`: scope semantics and placement to that staff.
+- Explicit `staff`: that staff owns the displayed group and its placement.
 - `orient: "above"` / `"below"`: the requested side of the scoped staff, or the
-  outer edge of the all-staff group.
+  corresponding outer edge when layout resolves an unscoped group.
 - `orient: "between"` remains intact in the model and never fails validation
-  based on staff association. Layout uses the gap below the associated staff,
-  or the gap above when it is the last staff. With `staff` omitted, it uses the
-  only gap in a two-staff part or the topmost gap in a larger part. On a
-  single-staff part it degrades to `below`.
-- `orient: "auto"` or omitted: automatic placement; a two-staff keyboard part
-  with all-staff scope prefers the inter-staff gap.
+  based on staff association. Layout uses the gap below its owner, or the gap
+  above when the owner is the bottom staff. With automatic ownership, it uses
+  the topmost gap. On a single-staff part it degrades to `below`.
+- `orient: "auto"` or omitted: automatic placement. A voice-linked group
+  follows that voice's staff unless an explicit `staff` overrides it; otherwise
+  a two-staff keyboard part uses the shared inter-staff lane.
+- Inter-staff dynamics and wedges clear ink on both adjoining staves. Layout
+  expands their shared gap when needed; they do not automatically move to an
+  outer staff side. A cross-system wedge retains the same owner and gap on each
+  segment while clearance is recalculated for that system.
 
 ### 7.2 Condensing
 

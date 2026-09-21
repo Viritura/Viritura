@@ -9,6 +9,7 @@ import type {
   DynamicGroup,
   GlobalLyrics,
   Space,
+  Sequence,
 } from "@viritura/core";
 import { generateId, measureBeats } from "@viritura/core";
 import { deserializeFragment, assignFreshTrackIds } from "../clipboard/deserialize";
@@ -28,7 +29,7 @@ import type {
 import type { ClipboardFragment } from "../clipboard/ClipboardFragment";
 import type { AnnotationLocation } from "../score/ElementPath";
 import { deleteAnnotations } from "./deleteCommands";
-import { sequenceContentBeats } from "./noteCommands";
+import { collapseRestOnlySequence, sequenceContentBeats } from "./noteCommands";
 import {
   addWholeFractions,
   compareWholeFractions,
@@ -692,6 +693,7 @@ export function applyCut(score: Score, cut: CutResult): Score {
   const scoreWithoutRepeats = removeCutMeasureRepeats(score, cut.cutMeasureRepeats);
   if (cut.cutLocations && cut.cutLocations.length > 0) {
     const newScore = structuredClone(scoreWithoutRepeats);
+    const touchedSequences = new Set<Sequence>();
     const ordered = [...cut.cutLocations].sort(
       (left, right) =>
         right.partIndex - left.partIndex ||
@@ -714,7 +716,9 @@ export function applyCut(score: Score, cut: CutResult): Score {
       const event = content?.[location.eventIndex];
       if (!event || event.type !== "event") continue;
       content![location.eventIndex] = { type: "event", duration: { ...event.duration }, rest: {} };
+      touchedSequences.add(sequence);
     }
+    for (const sequence of touchedSequences) collapseRestOnlySequence(sequence);
     return deleteCutAnnotations(newScore, cut);
   }
 
@@ -730,13 +734,16 @@ export function applyCut(score: Score, cut: CutResult): Score {
   const targetSeq = newScore.parts[cut.partIndex]!.measures[cut.measureIndex]!.sequences[cut.sequenceIndex]!;
 
   // Replace each cut event with its rest replacement
+  let replaced = false;
   for (let i = 0; i < cut.replacements.length; i++) {
     const idx = cut.eventIndex + i;
     if (idx < targetSeq.content.length) {
       targetSeq.content[idx] = cut.replacements[i]!;
+      replaced = true;
     }
   }
 
+  if (replaced) collapseRestOnlySequence(targetSeq);
   return deleteCutAnnotations(newScore, cut);
 }
 
