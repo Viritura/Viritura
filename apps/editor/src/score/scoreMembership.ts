@@ -224,14 +224,11 @@ function buildSectionContent(score: Score, chosen: readonly Part[]): LayoutConte
     });
     if (entries.length > 1 && key !== "other") {
       const subGroupRuns = groupConsecutiveBySubGroup(entries);
-      const content: LayoutContent[] =
-        subGroupRuns.length > 1
-          ? subGroupRuns.map((run) =>
-              run.nodes.length > 1
-                ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup)
-                : run.nodes[0]!,
-            )
-          : entries.map((entry) => entry.node);
+      const content: LayoutContent[] = subGroupRuns.map((run) =>
+        run.nodes.length > 1
+          ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup)
+          : run.nodes[0]!,
+      );
       out.push({ type: "group", symbol: "bracket", label: FAMILY_META[key].label, content } as LayoutGroup);
     } else {
       out.push(...entries.map((entry) => entry.node));

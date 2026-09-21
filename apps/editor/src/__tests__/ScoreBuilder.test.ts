@@ -311,8 +311,8 @@ describe("buildBlankScore", () => {
     expect(wwGroup.content[1].content).toHaveLength(2); // 2 oboes
   });
 
-  it("does not nest when only one sub-group exists", () => {
-    // Two flutes only → one flat bracket, no nesting
+  it("nests when only one instrumental sub-group exists", () => {
+    // Two flutes retain their instrument-family bracket inside Woodwinds.
     const settings: NewScoreSettings = {
       title: "Test",
       players: makePlayers("flute", "flute"),
@@ -329,10 +329,10 @@ describe("buildBlankScore", () => {
     const wwGroup = fullLayout.content[0];
     expect(wwGroup.type).toBe("group");
     expect(wwGroup.symbol).toBe("bracket");
-    // All staves should be flat children (no nested bracket groups)
-    for (const child of wwGroup.content) {
-      expect(child.type).toBe("staff");
-    }
+    expect(wwGroup.content).toHaveLength(1);
+    expect(wwGroup.content[0].type).toBe("group");
+    expect(wwGroup.content[0].symbol).toBe("bracket");
+    expect(wwGroup.content[0].content).toHaveLength(2);
   });
 });
 

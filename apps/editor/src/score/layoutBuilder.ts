@@ -74,14 +74,9 @@ function buildFamilyGroupContent(group: FamilyGroup, players: Player[], partIds:
 
   if (group.playerIndices.length > 1) {
     const subGroupRuns = groupConsecutiveBySubGroup(staveEntries);
-    const hasMultipleSubGroups = subGroupRuns.length > 1;
-    const content: LayoutContent[] = hasMultipleSubGroups
-      ? subGroupRuns.map((run) =>
-          run.nodes.length > 1
-            ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup)
-            : run.nodes[0]!,
-        )
-      : staveEntries.map((e) => e.node);
+    const content: LayoutContent[] = subGroupRuns.map((run) =>
+      run.nodes.length > 1 ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup) : run.nodes[0]!,
+    );
 
     return {
       type: "group",

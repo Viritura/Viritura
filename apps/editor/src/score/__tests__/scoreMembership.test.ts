@@ -202,6 +202,27 @@ describe("createSectionScore", () => {
       ["bsn1", "bsn2"],
     ]);
   });
+
+  it("nests a standalone instrumental subgroup inside its section family bracket", () => {
+    const score = makePercussionScore();
+    score.parts = [
+      { id: "fl1", name: "Flute 1", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
+      { id: "fl2", name: "Flute 2", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
+      { id: "picc", name: "Piccolo", _x: { viritura: { instrumentId: "piccolo", family: "woodwinds" } } },
+    ] as Score["parts"];
+
+    const result = createSectionScore(score, ["fl1", "fl2", "picc"]);
+    const woodwinds = result!.score.layouts!.find((entry) => entry.id === result!.score.scores!.at(-1)!.layout)!
+      .content[0] as Extract<LayoutContent, { type: "group" }>;
+
+    expect(woodwinds).toMatchObject({ label: "Woodwinds", symbol: "bracket" });
+    expect(woodwinds.content).toHaveLength(1);
+    expect(partOrder((woodwinds.content[0] as Extract<LayoutContent, { type: "group" }>).content)).toEqual([
+      "fl1",
+      "fl2",
+      "picc",
+    ]);
+  });
 });
 
 describe("setScoreLayoutMembership", () => {
