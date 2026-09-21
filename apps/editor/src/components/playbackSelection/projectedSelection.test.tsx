@@ -34,6 +34,7 @@ const playback = vi.hoisted(() => ({
   state: { status: "stopped" },
   actions: {
     setSelectionPartIds: vi.fn(),
+    setSelectionStaffCount: vi.fn(),
     measureBeatToSeconds: vi.fn((measure: number) => measure * 2),
     seek: vi.fn(),
   },

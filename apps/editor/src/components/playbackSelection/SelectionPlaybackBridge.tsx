@@ -9,19 +9,19 @@ import { computeSelectionStartTime } from "./selectionStartTime";
 /** Whole-measure selections filter parts; live selection changes also seek the transport. */
 export function SelectionPlaybackBridge() {
   const documentStore = useDocumentStoreApi();
-  const { setSelectionPartIds } = usePlaybackActions();
+  const { setSelectionPartIds, setSelectionStaffCount } = usePlaybackActions();
   useEffect(() => {
     const updatePartFilter = () => {
       const { selection, renderedStaffSourcesGetter, renderedStaffSources } = useSelectionStore.getState();
-      setSelectionPartIds(
-        computeSelectionPartIds(
-          selection,
-          documentStore.getState().score,
-          useViewStateStore.getState().selectedScoreIndex,
-          useViewStateStore.getState().selectedPartIds,
-          renderedStaffSourcesGetter ? renderedStaffSourcesGetter() : renderedStaffSources,
-        ),
+      const partIds = computeSelectionPartIds(
+        selection,
+        documentStore.getState().score,
+        useViewStateStore.getState().selectedScoreIndex,
+        useViewStateStore.getState().selectedPartIds,
+        renderedStaffSourcesGetter ? renderedStaffSourcesGetter() : renderedStaffSources,
       );
+      setSelectionPartIds(partIds);
+      setSelectionStaffCount(partIds === null ? null : selectionStaffCount(selection));
     };
     updatePartFilter();
     const unsubscribeSelection = useSelectionStore.subscribe((current, previous) => {
@@ -49,7 +49,13 @@ export function SelectionPlaybackBridge() {
       unsubscribeDocument();
       unsubscribeView();
       setSelectionPartIds(null);
+      setSelectionStaffCount(null);
     };
-  }, [documentStore, setSelectionPartIds]);
+  }, [documentStore, setSelectionPartIds, setSelectionStaffCount]);
   return null;
+}
+
+function selectionStaffCount(selection: ReturnType<typeof useSelectionStore.getState>["selection"]): number {
+  if (selection.kind !== "measure") return 0;
+  return Math.abs(selection.endStaffIndex - selection.startStaffIndex) + 1;
 }

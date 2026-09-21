@@ -11,6 +11,7 @@ const playback = vi.hoisted(() => ({
   state: { status: "stopped" as PlaybackState["status"] },
   actions: {
     setSelectionPartIds: vi.fn<(partIds: readonly string[] | null) => void>(),
+    setSelectionStaffCount: vi.fn<(staffCount: number | null) => void>(),
     measureBeatToSeconds: vi.fn<(measure: number, beat: number) => number | null>(),
     seek: vi.fn<(seconds: number) => void>(),
   },
@@ -95,6 +96,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     select(measure);
     render(<SelectionPlaybackBridge />);
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano-source"]);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(1);
     expect(playback.actions.seek).not.toHaveBeenCalled();
     expect(playback.actions.measureBeatToSeconds).not.toHaveBeenCalled();
   });
@@ -102,6 +104,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
   it("initializes no filter for an empty selection", () => {
     render(<SelectionPlaybackBridge />);
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     expect(playback.actions.setSelectionPartIds.mock.calls.every(([partIds]) => partIds === null)).toBe(true);
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
@@ -114,9 +117,11 @@ describe("SelectionPlaybackBridge part filtering", () => {
       "piano-source",
       "cello-source",
     ]);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(4);
     expect(playback.actions.seek).toHaveBeenCalledExactlyOnceWith(2);
     select(measure);
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano-source"]);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(1);
   });
 
   it("clears the filter without seeking or resetting the retained start position", () => {
@@ -126,6 +131,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     playback.actions.measureBeatToSeconds.mockClear();
     select({ kind: "none" });
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     expect(playback.actions.seek).not.toHaveBeenCalled();
     expect(playback.actions.measureBeatToSeconds).not.toHaveBeenCalled();
   });
@@ -139,6 +145,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     render(<SelectionPlaybackBridge />);
     select(selection);
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
 
@@ -147,6 +154,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     render(<SelectionPlaybackBridge />);
     select({ kind: "single", elementId: "p1/m1/s0/second/n0", elementType: "note" });
     expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     expect(playback.actions.measureBeatToSeconds).toHaveBeenCalledExactlyOnceWith(1, 1);
     expect(playback.actions.seek).toHaveBeenCalledExactlyOnceWith(2.5);
   });
@@ -264,6 +272,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     expect(playback.actions.seek).not.toHaveBeenCalled();
     bridge.unmount();
     expect(publishedAction).toHaveBeenLastCalledWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     playback.actions.setSelectionPartIds = initialAction;
   });
 
@@ -273,6 +282,7 @@ describe("SelectionPlaybackBridge part filtering", () => {
     playback.actions.setSelectionPartIds.mockClear();
     bridge.unmount();
     expect(playback.actions.setSelectionPartIds).toHaveBeenCalledExactlyOnceWith(null);
+    expect(playback.actions.setSelectionStaffCount).toHaveBeenLastCalledWith(null);
     playback.actions.setSelectionPartIds.mockClear();
     select({ ...measure, endPartIndex: 2 });
     act(() => documentStore.setState({ score: makeScore() }));
