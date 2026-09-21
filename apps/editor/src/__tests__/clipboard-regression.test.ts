@@ -706,6 +706,99 @@ describe("grand staff copy → paste", () => {
 // ═══════════════════════════════════════════
 
 describe("cut → paste integration", () => {
+  it("collapses a fully cut single voice to a full-measure rest", () => {
+    const score = makeIdScore();
+    const result = applyCut(score, {
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 0,
+      replacements: score.parts[0]!.measures[0]!.sequences[0]!.content.map((event) => ({
+        type: "event",
+        duration: { ...event.duration },
+        rest: {},
+      })),
+    });
+
+    const sequence = result.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+  });
+
+  it("collapses only the fully cut voice in a multi-voice measure", () => {
+    const score = makeIdScore();
+    score.parts[0]!.measures[0]!.sequences.push({
+      content: [
+        makeNote("lower-a", "C", 3),
+        makeNote("lower-b", "D", 3),
+        makeNote("lower-c", "E", 3),
+        makeNote("lower-d", "F", 3),
+      ],
+    });
+
+    const result = applyCut(score, {
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 0,
+      replacements: [],
+      cutLocations: [0, 1, 2, 3].map((eventIndex) => ({ partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex })),
+    });
+
+    const [upper, lower] = result.parts[0]!.measures[0]!.sequences;
+    expect(upper).toMatchObject({ content: [], fullMeasure: { visualDuration: { base: "whole" } } });
+    expect(lower!.content).toHaveLength(4);
+    expect(lower!.fullMeasure).toBeUndefined();
+  });
+
+  it("collapses each fully cut staff in a cross-staff selection", () => {
+    const score = makeIdScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences[0]!.staff = 1;
+    measure.sequences.push({
+      staff: 2,
+      content: [
+        makeNote("lower-a", "C", 3),
+        makeNote("lower-b", "D", 3),
+        makeNote("lower-c", "E", 3),
+        makeNote("lower-d", "F", 3),
+      ],
+    });
+
+    const result = applyCut(score, {
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 0,
+      replacements: [],
+      cutLocations: [0, 1].flatMap((sequenceIndex) =>
+        [0, 1, 2, 3].map((eventIndex) => ({ partIndex: 0, measureIndex: 0, sequenceIndex, eventIndex })),
+      ),
+    });
+
+    for (const sequence of result.parts[0]!.measures[0]!.sequences) {
+      expect(sequence.content).toEqual([]);
+      expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+    }
+  });
+
+  it("keeps rhythmic rests for a partially cut voice", () => {
+    const score = makeIdScore();
+    const result = applyCut(score, {
+      partIndex: 0,
+      measureIndex: 0,
+      sequenceIndex: 0,
+      eventIndex: 1,
+      replacements: [],
+      cutLocations: [1, 2].map((eventIndex) => ({ partIndex: 0, measureIndex: 0, sequenceIndex: 0, eventIndex })),
+    });
+
+    const sequence = result.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.fullMeasure).toBeUndefined();
+    expect(isRest(sequence.content[1]! as NoteEvent)).toBe(true);
+    expect(isRest(sequence.content[2]! as NoteEvent)).toBe(true);
+  });
+
   it("cut replaces notes with rests, paste inserts them elsewhere", () => {
     const score = makeIdScore();
     // Cut events at m0 positions 1 and 2 (D4, E4)
@@ -1453,9 +1546,9 @@ describe("boundary conditions", () => {
       replacements: [makeRest(), makeRest(), makeRest()],
     };
     const result = applyCut(score, cut);
-    expect(isRest(result.parts[0]!.measures[0]!.sequences[0]!.content[0]! as NoteEvent)).toBe(true);
-    // Should not crash or add extra events
-    expect(result.parts[0]!.measures[0]!.sequences[0]!.content).toHaveLength(1);
+    const sequence = result.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
   });
 
   it("resolveRangeElementIds with identical start and end returns single element", () => {
