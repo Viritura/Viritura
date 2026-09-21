@@ -278,6 +278,21 @@ const AUXILIARY_WIND_FAMILIES: Record<string, string> = {
   contrabassoon: "bassoon",
 };
 
+function isPartNumber(token: string): boolean {
+  return token.length > 0 && [...token].every((character) => character >= "0" && character <= "9");
+}
+
+function isRomanNumeral(token: string): boolean {
+  return token.length > 0 && [...token].every((character) => "ivxlcdm".includes(character));
+}
+
+function stripPartInstanceSuffix(name: string): string {
+  const tokens = name.split(/\s+/).filter(Boolean);
+  const last = tokens.at(-1);
+  if (last && (isPartNumber(last) || isRomanNumeral(last))) tokens.pop();
+  return tokens.join(" ");
+}
+
 /**
  * Resolve orchestral positions for a list of part names, spreading
  * duplicate instruments horizontally so they don't overlap.
@@ -322,10 +337,8 @@ function resolveBasePositions(partNames: string[]): PartBaseInfo {
       .replace(/[♯]/g, "#")
       .replace(/[.-]/g, " ")
       .replace(/\s+/g, " ")
-      .replace(/\s+[ivxlcdm]+\s*$/i, "")
-      .replace(/\s+\d+\s*$/, "")
       .trim();
-    const auxiliaryFamily = AUXILIARY_WIND_FAMILIES[normalizedName];
+    const auxiliaryFamily = AUXILIARY_WIND_FAMILIES[stripPartInstanceSuffix(normalizedName)];
     auxiliaryFamilies.push(auxiliaryFamily);
     const strippedName = lower
       .replace(/\s+in\s+[a-g][b#♭♯]?\s*$/i, "")

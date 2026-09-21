@@ -164,8 +164,8 @@ describe("setListenerPosition", () => {
 describe("getOrchestraPositions", () => {
   it("places auxiliary winds after their primary family in score order", () => {
     const positions = getOrchestraPositions([
-      "Flute 1",
-      "Flute 2",
+      "Flute I",
+      "Flute II",
       "Piccolo",
       "Alto Flute",
       "Bass Flute",
