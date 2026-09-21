@@ -148,6 +148,17 @@ describe("buildLayouts", () => {
     expect((fullScore.content[0] as { symbol?: string }).symbol).toBe("bracket");
   });
 
+  it("nests a standalone instrumental subgroup inside its family bracket", () => {
+    const players = renumberPlayers([createPlayer("flute"), createPlayer("piccolo"), createPlayer("alto-flute")]);
+    const layouts = buildLayouts(players, ["P1", "P2", "P3"]);
+    const woodwinds = layouts[0]!.content[0] as { label?: string; content: { symbol?: string; content: unknown[] }[] };
+
+    expect(woodwinds.label).toBe("Woodwinds");
+    expect(woodwinds.content).toHaveLength(1);
+    expect(woodwinds.content[0]).toMatchObject({ symbol: "bracket" });
+    expect(woodwinds.content[0]!.content).toHaveLength(3);
+  });
+
   it("creates per-player layouts", () => {
     const players = renumberPlayers([createPlayer("flute"), createPlayer("violin")]);
     const partIds = ["P1", "P2"];

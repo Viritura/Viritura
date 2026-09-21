@@ -311,8 +311,8 @@ describe("buildBlankScore", () => {
     expect(wwGroup.content[1].content).toHaveLength(2); // 2 oboes
   });
 
-  it("does not nest when only one sub-group exists", () => {
-    // Two flutes only → one flat bracket, no nesting
+  it("nests when only one instrumental sub-group exists", () => {
+    // Two flutes retain their instrument-family bracket inside Woodwinds.
     const settings: NewScoreSettings = {
       title: "Test",
       players: makePlayers("flute", "flute"),
@@ -329,10 +329,10 @@ describe("buildBlankScore", () => {
     const wwGroup = fullLayout.content[0];
     expect(wwGroup.type).toBe("group");
     expect(wwGroup.symbol).toBe("bracket");
-    // All staves should be flat children (no nested bracket groups)
-    for (const child of wwGroup.content) {
-      expect(child.type).toBe("staff");
-    }
+    expect(wwGroup.content).toHaveLength(1);
+    expect(wwGroup.content[0].type).toBe("group");
+    expect(wwGroup.content[0].symbol).toBe("bracket");
+    expect(wwGroup.content[0].content).toHaveLength(2);
   });
 });
 
@@ -373,6 +373,74 @@ describe("ENSEMBLE_TEMPLATES", () => {
         expect(p.displayName).toBeTruthy();
         expect(p.instrumentId).toBeTruthy();
       }
+    }
+  });
+
+  it("creates conventional nested groups for the default orchestra templates", () => {
+    for (const templateId of ["classical-orchestra", "romantic-orchestra"]) {
+      const parsed = JSON.parse(
+        buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, players: expandTemplate(templateId), measureCount: 1 }),
+      );
+      const partInstrumentIds = new Map(
+        parsed.parts.map((part: { id: string; _x: { viritura: { instrumentId: string } } }) => [
+          part.id,
+          part._x.viritura.instrumentId,
+        ]),
+      );
+      const fullScore = parsed.layouts.find((layout: { id: string }) => layout.id === "FullScore");
+      const groups = fullScore.content.filter((node: { type: string }) => node.type === "group");
+      const woodwinds = groups.find((node: { label?: string }) => node.label === "Woodwinds");
+      const brass = groups.find((node: { label?: string }) => node.label === "Brass");
+      const percussion = groups.find((node: { label?: string }) => node.label === "Percussion");
+      const strings = groups.find((node: { label?: string }) => node.label === "Strings");
+
+      expect(
+        fullScore.content.map(
+          (node: { label?: string; content?: { sources?: { part: string }[] }[]; sources?: { part: string }[] }) =>
+            node.label ?? partInstrumentIds.get((node.content ?? [node])[0]?.sources?.[0]?.part ?? ""),
+        ),
+      ).toEqual(
+        templateId === "classical-orchestra"
+          ? ["Woodwinds", "Brass", "timpani", "Strings"]
+          : ["Woodwinds", "Brass", "Percussion", "harp", "Strings"],
+      );
+      expect(woodwinds.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual(
+        templateId === "classical-orchestra" ? [2, 2, 2, 2] : [3, 3, 3, 3],
+      );
+      expect(
+        woodwinds.content.flatMap((node: { content?: { sources: { part: string }[] }[] }) =>
+          (node.content ?? [node]).flatMap((staff) =>
+            staff.sources.map((source) => partInstrumentIds.get(source.part)),
+          ),
+        ),
+      ).toEqual(
+        templateId === "classical-orchestra"
+          ? ["flute", "flute", "oboe", "oboe", "bflat-clarinet", "bflat-clarinet", "bassoon", "bassoon"]
+          : [
+              "piccolo",
+              "flute",
+              "flute",
+              "oboe",
+              "oboe",
+              "english-horn",
+              "bflat-clarinet",
+              "bflat-clarinet",
+              "bass-clarinet",
+              "bassoon",
+              "bassoon",
+              "contrabassoon",
+            ],
+      );
+      expect(brass.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual(
+        templateId === "classical-orchestra" ? [2, 2] : [4, 3, 3, 1],
+      );
+      if (templateId === "romantic-orchestra") {
+        expect(percussion.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual([
+          1, 1, 1, 1,
+        ]);
+      }
+      expect(strings.content[0].symbol).toBe("bracket");
+      expect(strings.content[0].content).toHaveLength(2);
     }
   });
 });
