@@ -13,8 +13,25 @@ import type { AccidentalType, Part, Score, NoteValueBase, SequenceContent } from
 import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands";
 import type { DotCount, GraceType } from "../store/noteInputStore";
 import { kitComponentFromStaffPosition, mnxStaffPositionFromPosFromTop } from "../score/kitInput";
+import { computePagePlacements } from "./ScoreCanvas/viewportGeometry";
 
 export const OPTIMISTIC_NOTE_INPUT_EVENT = "viritura:optimistic-note-input";
+
+export function mapEnginePointToViewport(
+  point: { x: number; y: number },
+  displayList: DisplayList | null,
+  viewMode: "page" | "spread" | "spread-h" | "horizon",
+): { x: number; y: number } {
+  if (!displayList) return point;
+  const placement = computePagePlacements(displayList, viewMode).find(
+    (page) => point.y >= page.engineYOffset && point.y <= page.engineYOffset + page.height,
+  );
+  if (!placement) return point;
+  return {
+    x: point.x + placement.x,
+    y: point.y - placement.engineYOffset + placement.y,
+  };
+}
 
 export interface OptimisticNoteInputDetail {
   cursor: { measureIndex: number; beatPosition: number; partIndex: number; staffIndex?: number };
@@ -533,6 +550,7 @@ export interface PaintOverlayOptions {
   zoom: number;
   scrollX: number;
   scrollY: number;
+  viewMode?: "page" | "spread" | "spread-h" | "horizon";
   onHoverBeat?: (info: { measureIndex: number; beat: number; scoreX: number } | null) => void;
 }
 
@@ -573,7 +591,14 @@ export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOver
     );
     if (cursorX !== null) {
       const staff = resolveStaffForCursor(cursor, staves, displayList);
-      if (staff) paintBeatCursor(ctx, cursorX, staff, currentVoice);
+      if (staff) {
+        const visualCursor = mapEnginePointToViewport(
+          { x: cursorX, y: staff.y },
+          displayList,
+          opts.viewMode ?? "horizon",
+        );
+        paintBeatCursor(ctx, visualCursor.x, { ...staff, y: visualCursor.y }, currentVoice);
+      }
     }
   }
 
