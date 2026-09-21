@@ -823,7 +823,7 @@ export function addRest(score: Score, params: AddRestParams): Score {
 /**
  * Delete a note event (replace with rest of same duration).
  */
-function collapseRestOnlySequence(sequence: Sequence): void {
+export function collapseRestOnlySequence(sequence: Sequence): void {
   const containsOnlyRests = sequence.content.every((item) => {
     if (item.type === "event") return isRest(item);
     if (item.type === "tuplet" || item.type === "tremolo") {
