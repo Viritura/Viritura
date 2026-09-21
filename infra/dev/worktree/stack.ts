@@ -22,6 +22,7 @@ const dependencyVolumeSuffixes = [
   "package-instrument-profiles",
   "package-midi",
   "package-monaco-react",
+  "package-musescore-clipboard",
   "package-musicxml",
   "package-piano-roll",
   "package-playback",

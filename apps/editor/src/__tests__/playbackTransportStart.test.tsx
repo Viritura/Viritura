@@ -240,6 +240,30 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     await expectStartedAt(3.25);
   });
 
+  it.each(["stopped", "paused", "playing"] as const)(
+    "returns to the start without changing %s transport state",
+    async (status) => {
+      if (status !== "stopped") {
+        await play();
+        if (status === "paused") {
+          act(() => actions().pause());
+        }
+      }
+
+      const seek = status === "stopped" ? null : vi.spyOn(PlaybackEngine.prototype, "seek");
+      act(() => actions().seek(0));
+
+      expect(getPlaybackSnapshot().state.status).toBe(status);
+      expect(getPlaybackSnapshot().state.playheadPosition?.timeSeconds).toBe(0);
+      if (status !== "stopped") {
+        expect(seek).toHaveBeenLastCalledWith(0);
+      }
+      if (audioRenderMode === "native") {
+        expect(host.seek).toHaveBeenLastCalledWith(0);
+      }
+    },
+  );
+
   it("retains a seek after explicit stop across the lazy timeline reload", async () => {
     await play(1);
     act(() => {

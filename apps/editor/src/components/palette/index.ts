@@ -2,6 +2,7 @@ export { SMUFL } from "./smuflGlyphs";
 export {
   type PaletteItem,
   ARTICULATION_ITEMS,
+  BOW_DIRECTION_PALETTE_ITEMS,
   DYNAMIC_ITEMS,
   TUPLET_ITEMS,
   CLEF_PALETTE_ITEMS,

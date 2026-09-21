@@ -53,6 +53,37 @@ export function pointerToMeasure(
   return hit;
 }
 
+/** Resolve a pointer only when it lies inside a measure's actual staff body. */
+export function pointerToMeasureStaff(
+  scoreX: number,
+  scoreY: number,
+  measureBounds: readonly MeasureBounds[] | undefined,
+): MeasureSelectionPoint | null {
+  if (!measureBounds?.length) return null;
+  let hit: MeasureSelectionPoint | null = null;
+  let bestDistance = Infinity;
+  for (const measure of measureBounds) {
+    if (
+      scoreX < measure.x ||
+      scoreX > measure.x + measure.width ||
+      scoreY < measure.y ||
+      scoreY > measure.y + measure.height
+    )
+      continue;
+    const distance = Math.abs(scoreY - (measure.y + measure.height / 2));
+    if (distance >= bestDistance) continue;
+    bestDistance = distance;
+    hit = {
+      partIndex: measure.partIndex,
+      staffIndex: measure.staffIndex,
+      localStaffIndex: partLocalStaffIndex(measureBounds, measure.partIndex, measure.staffIndex),
+      measureIndex: measure.index,
+      isExpansion: measure.isExpansion,
+    };
+  }
+  return hit;
+}
+
 /** Whether the pointer is inside a measure's actual five-line staff body. */
 export function pointerInsideMeasureStaff(
   scoreX: number,

@@ -38,6 +38,11 @@ export { PlayheadOverlay } from "./PlayheadOverlay";
 export type { PlayheadRect } from "./PlayheadOverlay";
 
 export { useFollowEnabled, useFollowActions } from "./followStore";
+export {
+  useTransportVisibilityPreferences,
+  useTransportVisibilityActions,
+  type TransportVisibilityPreferences,
+} from "./transportSettingsStore";
 
 export type { ViewMode } from "./types";
 

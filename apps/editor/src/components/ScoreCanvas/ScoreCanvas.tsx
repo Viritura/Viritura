@@ -1106,6 +1106,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     // Track whether a drag occurred between mousedown and mouseup
     const dragOccurredRef = useRef(false);
     const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+    const panPointerIdRef = useRef<number | null>(null);
 
     // ─── Commit spanner drag (body in commitSpannerDrag.ts) ──────────
     const commitSpannerDrag = useCallback(
@@ -1137,6 +1138,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         perfTrackerRef,
         dragOccurredRef,
         mouseDownPosRef,
+        panPointerIdRef,
         dragLockRef,
         spannerDragRef,
         slurHandleDragRef,
@@ -1225,7 +1227,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     );
     const handleCanvasMouseLeave = useCallback(() => handleCanvasMouseLeaveImpl(canvasHandlerCtx), [canvasHandlerCtx]);
     const handleCanvasPointerCancel = useCallback(
-      () => handleCanvasPointerCancelImpl(canvasHandlerCtx),
+      (e: React.PointerEvent<HTMLCanvasElement>) => handleCanvasPointerCancelImpl(e, canvasHandlerCtx),
       [canvasHandlerCtx],
     );
     const handleCanvasContextMenu = useCallback(

@@ -89,6 +89,7 @@ function buildScore(): Score {
                     markings: {
                       breath: { symbol: "comma" },
                       tremolo: { marks: 2 },
+                      bowDirection: { direction: "down" },
                       fermata: { shape: "normal" },
                       trill: { accidental: 1 },
                       ornaments: ["turn"],
@@ -391,6 +392,27 @@ describe("NotationInspector", () => {
     await user.click(await screen.findByRole("radio", { name: label }));
 
     await waitFor(() => expect(currentScore().global.measures[0]!.barline?.type).toBe(type));
+  });
+
+  it("edits the direction and placement of a selected bow mark", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1/art-bowDirection" />));
+
+    expect(await screen.findByText("Bow Direction")).toBeTruthy();
+    const direction = screen.getByRole("combobox", { name: "Bow direction" });
+    await user.click(direction);
+    await user.click(await screen.findByRole("option", { name: "Up-bow" }));
+
+    const placement = screen.getByRole("combobox", { name: "Bow direction placement" });
+    await user.click(placement);
+    await user.click(await screen.findByRole("option", { name: "Below" }));
+
+    await waitFor(() =>
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        markings: { bowDirection: { direction: "up", orient: "below" } },
+      }),
+    );
+    expect(currentMnx()).toBeTruthy();
   });
 
   it("edits symbolic meter display and removes the selected time signature", async () => {

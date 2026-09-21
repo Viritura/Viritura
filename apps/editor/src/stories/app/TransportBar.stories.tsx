@@ -93,3 +93,15 @@ export const LightTheme: StoryObj = {
   },
   name: "Light Theme",
 };
+
+/** View-level overrides remain available when a transport needs fewer controls. */
+export const ViewOverrides: StoryObj = {
+  render: () => (
+    <PlaybackProvider>
+      <div style={WIDTH_FULL_STYLE}>
+        <TransportBar showTimeDisplay={false} showFollow={false} showMetronome={false} />
+      </div>
+    </PlaybackProvider>
+  ),
+  name: "View overrides",
+};

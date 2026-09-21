@@ -29,12 +29,19 @@ only the score canvases and plan to provide your own chrome.
 ```tsx
 <ScoreViewer
   mnx={mnxJsonString}
-  availableViewModes={["page", "horizontal", "spread", "spread-horizontal"]}
+  availableViewModes={["page", "horizontal", "spread", "spread-horizontal", "horizon"]}
   defaultViewMode="spread"
   defaultFitMode="width"
   controls={{ score: true, viewMode: true, zoom: true, fit: true }}
 />
 ```
+
+`horizon` uses the same continuous, unpaginated layout as the Viritura editor
+and renders only the visible tiles so very long scores remain browser-safe.
+
+Hosts can expose page and staff-size selectors with `pageSizeOptions`,
+`staffSizeOptions`, and the corresponding `controls` flags. These selectors are
+hidden automatically in Horizon because it has no physical pages.
 
 If an MNX document contains multiple `scores[]` entries, hosts can provide
 `scoreOptions` and handle `onScoreIndexChange` to show a score selector in the
@@ -63,7 +70,7 @@ function PlayingScore({ mnx }: { mnx: string }) {
 
   return (
     <ScoreView mnx={mnx} pageWidth={800}>
-      <ScoreView.Playhead beat={beat} partId="p1" style={{ color: "red" }} />
+      <ScoreView.Playhead beat={beat} partId="p1" follow style={{ color: "red" }} />
     </ScoreView>
   );
 }
@@ -136,8 +143,8 @@ desired.
 - **`<ScoreView.Page page={n}>`** — overlay container positioned over
   page `n`. Useful for badges, comments, annotations.
 - **`<ScoreView.Playhead beat={n} partId="p1">`** — vertical playhead
-  line auto-positioned via `engine.beatToCanvas`. Pass `render={fn}`
-  to customize the visual.
+  line auto-positioned via `engine.beatToCanvas`. Pass `follow` to keep it
+  visible while playback advances, or `render={fn}` to customize the visual.
 
 ## License
 

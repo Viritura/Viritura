@@ -8,10 +8,11 @@
  */
 
 import { type CSSProperties, useCallback, useState } from "react";
-import { Play as PlayIcon, Pause, Square, Loader2, Metronome, ArrowRightToLine } from "lucide-react";
+import { Play as PlayIcon, Pause, Square, Loader2, Metronome, ArrowRightToLine, SkipBack } from "lucide-react";
 import { Tooltip } from "@viritura/ui";
 import { usePlaybackActions, usePlaybackState } from "./usePlayback";
 import { useFollowEnabled, useFollowActions } from "./followStore";
+import { useTransportVisibilityPreferences } from "./transportSettingsStore";
 import type { PlayheadPosition } from "./playbackReducer";
 
 // ═══════════════════════════════════════════
@@ -19,22 +20,59 @@ import type { PlayheadPosition } from "./playbackReducer";
 // ═══════════════════════════════════════════
 
 export interface TransportBarProps {
+  /** Per-view override; otherwise the persisted transport preference is used. */
   readonly showTimeDisplay?: boolean;
+  /** Per-view override; otherwise the persisted transport preference is used. */
   readonly showFollow?: boolean;
+  /** Per-view override; otherwise the persisted transport preference is used. */
+  readonly showMetronome?: boolean;
   readonly compact?: boolean;
 }
 
-export function TransportBar({ showTimeDisplay = true, showFollow = true, compact = false }: TransportBarProps = {}) {
+export function TransportBar({
+  showTimeDisplay: showTimeDisplayOverride,
+  showFollow: showFollowOverride,
+  showMetronome: showMetronomeOverride,
+  compact = false,
+}: TransportBarProps = {}) {
+  const preferences = useTransportVisibilityPreferences();
+  const showTimeDisplay = showTimeDisplayOverride ?? preferences.showTimeDisplay;
+  const showFollow = showFollowOverride ?? preferences.showFollow;
+  const showMetronome = showMetronomeOverride ?? preferences.showMetronome;
+
   return (
     <div style={compact ? compactBarStyle : barStyle}>
       <div style={groupStyle}>
+        <BackToStartButton />
         <PlayPauseButton />
         <StopButton />
       </div>
       {showTimeDisplay && <TimeDisplay />}
       {showFollow && <FollowToggle />}
-      <MetronomeToggle />
+      {showMetronome && <MetronomeToggle />}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════
+// BackToStartButton
+// ═══════════════════════════════════════════
+
+function BackToStartButton() {
+  const { status } = usePlaybackState();
+  const { seek } = usePlaybackActions();
+
+  return (
+    <Tooltip content="Back to start">
+      <button
+        style={stopButtonStyle(status === "playing" || status === "paused")}
+        onClick={() => seek(0)}
+        disabled={status === "loading"}
+        aria-label="Back to start"
+      >
+        <SkipBack size={16} />
+      </button>
+    </Tooltip>
   );
 }
 

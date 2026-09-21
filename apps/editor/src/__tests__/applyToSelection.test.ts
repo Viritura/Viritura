@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Score, NoteEvent, Step, Octave } from "@viritura/core";
 import {
   applyArticulationToSelection,
+  applyBowDirectionToSelection,
   applyTremoloToSelection,
   removeTremolosFromSelection,
   applyFingeringToSelection,
@@ -122,6 +123,24 @@ describe("applyArticulationToSelection", () => {
 
   it("returns null for an empty selection", () => {
     expect(applyArticulationToSelection(makeScore(), { kind: "none" }, "staccato")).toBeNull();
+  });
+});
+
+describe("applyBowDirectionToSelection", () => {
+  it("sets a mixed selection to the requested direction, then clears a matching selection", () => {
+    const selection: Selection = { kind: "multi", elementIds: ["p0/m0/s0/ev1", "p0/m0/s0/ev2"] };
+    const seeded = makeScore();
+    const first = seeded.parts[0]!.measures[0]!.sequences[0]!.content[1];
+    if (first?.type !== "event") throw new Error("Expected note event");
+    first.markings = { bowDirection: { direction: "up" } };
+
+    const downBow = applyBowDirectionToSelection(seeded, selection, "down")!;
+    expect(markingsOf(downBow, 1)?.bowDirection).toEqual({ direction: "down" });
+    expect(markingsOf(downBow, 2)?.bowDirection).toEqual({ direction: "down" });
+
+    const cleared = applyBowDirectionToSelection(downBow, selection, "down")!;
+    expect(markingsOf(cleared, 1)?.bowDirection).toBeUndefined();
+    expect(markingsOf(cleared, 2)?.bowDirection).toBeUndefined();
   });
 });
 

@@ -6,7 +6,7 @@
 // canonical primitive that turns any selection kind (single / multi / range /
 // measure) into the de-duplicated, document-ordered list of event locations
 // it covers. These helpers only describe what to do *per event*.
-import type { Score, ScorePatch, OrnamentType, BreathMarkSymbol } from "@viritura/core";
+import type { BowDirection, Score, ScorePatch, OrnamentType, BreathMarkSymbol } from "@viritura/core";
 import { produce } from "immer";
 import type { SelectionState } from "../store/selectionStore";
 import {
@@ -24,6 +24,7 @@ import {
   type ArticulationType,
   type ArpeggioMarkKind,
 } from "../commands/articulationCommands";
+import { setBowDirection } from "../commands/bowDirectionCommands";
 import { getEventAtLocation, type EventLocation } from "../score/ElementPath";
 import { applySelectionWriteback, planSelectionWriteback } from "../score/condensedWriteback";
 
@@ -103,6 +104,49 @@ export function applyArticulationToSelection(
         loc.eventIndex,
         articulationType,
         loc.tupletIndex,
+      );
+    }
+  });
+  return newScore !== score ? newScore : null;
+}
+
+function allHaveBowDirection(
+  score: Score,
+  noteEvents: readonly EventLocation[],
+  direction: BowDirection["direction"],
+): boolean {
+  return noteEvents.every((loc) => {
+    const ev = getEventAtLocation(score, loc);
+    return ev?.type === "event" && ev.markings?.bowDirection?.direction === direction;
+  });
+}
+
+/**
+ * Apply a bow direction uniformly across the selection. Pressing the active
+ * direction again clears it; otherwise every selected note receives that direction.
+ */
+export function applyBowDirectionToSelection(
+  score: Score,
+  selection: SelectionState,
+  direction: BowDirection["direction"],
+  selectedScoreIndex?: number,
+): Score | null {
+  const noteEvents = selectedNoteEvents(score, selection, selectedScoreIndex);
+  if (noteEvents.length === 0) return null;
+  const targetDirection = allHaveBowDirection(score, noteEvents, direction) ? undefined : direction;
+  const newScore = produce(score, (draft) => {
+    for (const loc of noteEvents) {
+      const event = getEventAtLocation(draft, loc);
+      if (event?.type !== "event" || event.markings?.bowDirection?.direction === targetDirection) continue;
+      setBowDirection(
+        draft,
+        loc.partIndex,
+        loc.measureIndex,
+        loc.sequenceIndex,
+        loc.eventIndex,
+        targetDirection,
+        loc.tupletIndex,
+        loc.contentPath,
       );
     }
   });

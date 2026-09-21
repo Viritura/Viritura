@@ -1,5 +1,5 @@
 import type { ArticulationType, DynamicValue } from "../../commands/articulationCommands";
-import type { OrnamentType, ClefSign, BarlineType } from "@viritura/core";
+import type { BowDirection, OrnamentType, ClefSign, BarlineType } from "@viritura/core";
 import { SMUFL } from "./smuflGlyphs";
 
 export interface PaletteItem {
@@ -268,6 +268,23 @@ export const ARTICULATION_ITEMS: (PaletteItem & { articulation: ArticulationType
   },
   { id: "stress", articulation: "stress", label: SMUFL.articStressAbove, title: "Stress", useBravura: true },
   { id: "unstress", articulation: "unstress", label: SMUFL.articUnstressAbove, title: "Unstress", useBravura: true },
+];
+
+export const BOW_DIRECTION_PALETTE_ITEMS: (PaletteItem & { direction: BowDirection["direction"] })[] = [
+  {
+    id: "down-bow",
+    direction: "down",
+    label: SMUFL.stringsDownBow,
+    title: "Down-bow",
+    useBravura: true,
+  },
+  {
+    id: "up-bow",
+    direction: "up",
+    label: SMUFL.stringsUpBow,
+    title: "Up-bow",
+    useBravura: true,
+  },
 ];
 
 export const DYNAMIC_ITEMS: (PaletteItem & { value: DynamicValue })[] = [

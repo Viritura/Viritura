@@ -209,6 +209,19 @@ describe("playbackReducer", () => {
       expect(next.status).toBe("playing");
     });
 
+    it.each(["stopped", "paused", "playing"] as const)("preserves %s state when returning to the start", (status) => {
+      const state: PlaybackState = {
+        ...defaultState(),
+        status,
+        playheadPosition: { measureIndex: 2, beat: 1, timeSeconds: 5 },
+      };
+
+      const next = playbackReducer(state, { type: "SEEK", seconds: 0 });
+
+      expect(next.status).toBe(status);
+      expect(next.playheadPosition?.timeSeconds).toBe(0);
+    });
+
     it("accepts the engine-resolved musical position after an optimistic seek", () => {
       const sought = playbackReducer(defaultState(), {
         type: "SEEK",

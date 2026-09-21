@@ -11,8 +11,7 @@ import {
 import type { ChordSymbol, PageSetup, SlurShape, Score } from "@viritura/core";
 import type { ContextMenuState } from "@viritura/ui";
 
-import { screenToLayout, visualToEngineCoords } from "./viewportGeometry";
-import { findNearbyElement, pointerToBarline, pointerToMeasure } from "./hitTesting";
+import { findNearbyElement, pointerToBarline, pointerToMeasure, pointerToMeasureStaff } from "./hitTesting";
 import {
   ENGRAVE_EYE_SIZE,
   findMarkerHit,
@@ -37,6 +36,8 @@ import { selectBeamAtPoint } from "./beamSelection";
 import type { ViewportInfo } from "./types";
 import { globalChordForElement, previewClickedChord } from "./chordFeedback";
 import { selectCanvasElement } from "./elementSelection";
+import { releaseMiddlePointer } from "./middlePointerPan";
+import { screenToEngine } from "./engineCoordinates";
 
 const PX_PER_MM = 12;
 
@@ -65,6 +66,7 @@ export interface CanvasHandlerCtx {
   perfTrackerRef: Ref<PerfTracker>;
   dragOccurredRef: Ref<boolean>;
   mouseDownPosRef: Ref<{ x: number; y: number } | null>;
+  panPointerIdRef: Ref<number | null>;
   dragLockRef: Ref<boolean>;
   spannerDragRef: Ref<SpannerDragState | null>;
   slurHandleDragRef: Ref<SlurHandleDragState | null>;
@@ -113,32 +115,6 @@ export interface CanvasHandlerCtx {
   setSlurContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>;
 }
 
-/** Resolve screen coords → engine-space (handling visual→engine page transform).
- * Returns null when the point lies outside any page in multi-page modes. */
-function screenToEngine(
-  e: React.MouseEvent<HTMLCanvasElement>,
-  canvas: HTMLCanvasElement,
-  ctx: CanvasHandlerCtx,
-): { scoreX: number; scoreY: number } | null {
-  const rect = canvas.getBoundingClientRect();
-  const dl = ctx.displayListRef.current;
-  let { scoreX, scoreY } = screenToLayout(
-    e.clientX,
-    e.clientY,
-    rect,
-    ctx.viewport.zoom,
-    ctx.viewport.scrollX,
-    ctx.viewport.scrollY,
-  );
-  if (dl) {
-    const eng = visualToEngineCoords(scoreX, scoreY, dl, ctx.viewMode);
-    if (!eng) return null;
-    scoreX = eng.engineX;
-    scoreY = eng.engineY;
-  }
-  return { scoreX, scoreY };
-}
-
 export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
   performance.mark("viritura:input-event");
   // Perf overlay buttons take precedence
@@ -161,7 +137,7 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   const si = ctx.spatialIndexRef.current;
   if (!canvas || !si) return;
 
-  const pt = screenToEngine(e, canvas, ctx);
+  const pt = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
   if (!pt) {
     ctx.clearSelection();
     return;
@@ -361,7 +337,7 @@ function selectMeasureOrClear(
     ctx.clearSelection();
     return;
   }
-  const hitMeasure = pointerToMeasure(scoreX, scoreY, mb);
+  const hitMeasure = pointerToMeasureStaff(scoreX, scoreY, mb);
   if (hitMeasure) {
     if (e.shiftKey) {
       ctx.extendMeasure(
@@ -384,9 +360,12 @@ function selectMeasureOrClear(
 }
 
 export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
-  // Middle-click: let viewport pan handle it
+  // Capture the middle pointer so the viewport's native drag listener keeps
+  // receiving movement after the pointer leaves the canvas.
   if (e.button === 1) {
     e.preventDefault();
+    capturePointer(e);
+    ctx.panPointerIdRef.current = e.pointerId;
     return;
   }
   // Thumb back button: toggle note-input
@@ -403,7 +382,7 @@ export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElemen
   const canvas = ctx.canvasRef.current;
   const si = ctx.spatialIndexRef.current;
   if (!canvas || !si) return;
-  const pt = screenToEngine(e, canvas, ctx);
+  const pt = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
   if (!pt) return;
   const { scoreX, scoreY } = pt;
 
@@ -728,6 +707,10 @@ function commitSlurShapeDrag(ctx: CanvasHandlerCtx, drag: SlurHandleDragState): 
 }
 
 export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  if (e.button === 1) {
+    releaseMiddlePointer(e, ctx.panPointerIdRef);
+    return;
+  }
   if (e.button !== 0) return;
   const start = ctx.mouseDownPosRef.current;
   if (start) {
@@ -741,7 +724,8 @@ export function handleCanvasMouseUpImpl(e: React.PointerEvent<HTMLCanvasElement>
   ctx.mouseDownPosRef.current = null;
 }
 
-export function handleCanvasPointerCancelImpl(ctx: CanvasHandlerCtx): void {
+export function handleCanvasPointerCancelImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
+  releaseMiddlePointer(e, ctx.panPointerIdRef);
   ctx.mouseDownPosRef.current = null;
   ctx.dragOccurredRef.current = true;
 }
@@ -759,7 +743,7 @@ export function handleCanvasMouseMoveImpl(e: React.PointerEvent<HTMLCanvasElemen
   const canvas = ctx.canvasRef.current;
   if (!canvas) return;
   const dl = ctx.displayListRef.current;
-  const pt = screenToEngine(e, canvas, ctx);
+  const pt = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
   if (!pt) {
     if (ctx.engraveBarlineHoverRef.current) {
       ctx.engraveBarlineHoverRef.current = null;
@@ -891,7 +875,7 @@ export function handleCanvasContextMenuImpl(e: React.MouseEvent<HTMLCanvasElemen
   const si = ctx.spatialIndexRef.current;
   const dl = ctx.displayListRef.current;
   if (!canvas || !si || !dl) return;
-  const pt = screenToEngine(e, canvas, ctx);
+  const pt = screenToEngine(e, canvas, ctx.viewport, ctx.displayListRef.current, ctx.viewMode);
   if (!pt) return;
   const { scoreX, scoreY } = pt;
 

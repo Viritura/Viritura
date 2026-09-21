@@ -28,6 +28,7 @@ import {
   planSetArpeggioMark,
   planSetArpeggioDirection,
 } from "../commands/articulationCommands";
+import { setBowDirection } from "../commands/bowDirectionCommands";
 
 // ═══════════════════════════════════════════
 // Helpers
@@ -192,6 +193,20 @@ describe("event marking setters", () => {
     expect(ev.markings?.breath?.symbol).toBe("tick");
     setBreathMark(score, 0, 0, 0, 0);
     expect(ev.markings?.breath).toBeUndefined();
+  });
+
+  it("sets, replaces, and clears a bow direction without losing placement", () => {
+    const score = makeScoreWithNote();
+    setBowDirection(score, 0, 0, 0, 0, "down");
+    const event = getEvent(score, 0);
+    if (event.type !== "event") throw new Error("Expected note event");
+    event.markings!.bowDirection!.orient = "below";
+
+    setBowDirection(score, 0, 0, 0, 0, "up");
+    expect(event.markings?.bowDirection).toEqual({ direction: "up", orient: "below" });
+
+    setBowDirection(score, 0, 0, 0, 0);
+    expect(event.markings?.bowDirection).toBeUndefined();
   });
 
   it("sets and clears single-note tremolo marks", () => {

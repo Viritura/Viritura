@@ -7,6 +7,7 @@ import {
   pointerInsideMeasureStaff,
   pointerToBarline,
   pointerToMeasure,
+  pointerToMeasureStaff,
 } from "../hitTesting";
 
 function measure(staffIndex: number, y: number, partIndex = staffIndex): MeasureBounds {
@@ -44,6 +45,16 @@ describe("pointerToMeasure", () => {
       staffIndex: 7,
       localStaffIndex: 0,
       measureIndex: 2,
+    });
+  });
+
+  describe("pointerToMeasureStaff", () => {
+    it("rejects padded space above a measure instead of snapping to that bar", () => {
+      expect(pointerToMeasureStaff(180, 80, [measure(0, 100)])).toBeNull();
+    });
+
+    it("resolves blank space within the actual staff body", () => {
+      expect(pointerToMeasureStaff(180, 124, [measure(0, 100)])).toMatchObject({ measureIndex: 2 });
     });
   });
 
