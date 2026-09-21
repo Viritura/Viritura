@@ -7,6 +7,7 @@ import {
   generateEventId,
   sequenceContentBeats,
   decomposeDuration,
+  createRest,
 } from "./noteCommands";
 
 // ═══════════════════════════════════════════
@@ -335,6 +336,51 @@ export function createTupletFromEvent(score: Score, params: CreateTupletFromEven
   }
 
   return score;
+}
+
+export interface RemoveTupletParams {
+  measureIndex: number;
+  partIndex: number;
+  voice: number;
+  /** Zero-based ordinal among tuplets in the sequence, as used by bracket selection IDs. */
+  tupletOrdinal: number;
+}
+
+/**
+ * Remove a selected tuplet bracket and restore its pre-tuplet base value.
+ *
+ * A tuplet made from a rest becomes one regular rest spanning its outer
+ * duration. A tuplet made from one selected note restores that note across the
+ * same duration. Tuplets containing several sounded events cannot be flattened
+ * without changing their rhythm, so this operation leaves them unchanged.
+ */
+export function removeTuplet(score: Score, params: RemoveTupletParams): boolean {
+  const sequence = score.parts[params.partIndex]?.measures[params.measureIndex]?.sequences[params.voice];
+  if (!sequence) return false;
+
+  let tupletIndex = -1;
+  let ordinal = -1;
+  for (let index = 0; index < sequence.content.length; index++) {
+    if (sequence.content[index]?.type !== "tuplet") continue;
+    ordinal++;
+    if (ordinal === params.tupletOrdinal) {
+      tupletIndex = index;
+      break;
+    }
+  }
+  if (tupletIndex === -1) return false;
+
+  const tuplet = sequence.content[tupletIndex];
+  if (!tuplet || tuplet.type !== "tuplet" || tuplet.span) return false;
+  const duration = beatsToDuration(sequenceContentBeats(tuplet));
+  if (!duration) return false;
+
+  const soundedEvents = tuplet.content.filter((item): item is NoteEvent => item.type === "event" && !isRest(item));
+  if (soundedEvents.length > 1) return false;
+
+  const restored = soundedEvents[0] ? { ...soundedEvents[0], duration } : createRest(duration);
+  sequence.content.splice(tupletIndex, 1, restored);
+  return true;
 }
 
 export interface CreateTupletFromRangeParams {
