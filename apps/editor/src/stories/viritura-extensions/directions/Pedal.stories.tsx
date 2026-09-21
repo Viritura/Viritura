@@ -73,6 +73,48 @@ export const AllPedalTypes: StoryObj = {
   name: "Sustain, sostenuto, and una corda",
 };
 
+/** A sustain pedal belongs beneath the lower staff of a piano grand staff. */
+export const LowerStaffGrandStaffPedal: StoryObj = {
+  name: "Grand staff lower-staff pedal",
+  render: () => {
+    const mnx = buildMnx({
+      staves: 2,
+      measures: [
+        {
+          id: "m1",
+          time: { count: 4, unit: 4 },
+          clefs: [
+            { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+            { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+          ],
+          voices: [
+            [{ duration: "whole", notes: [{ step: "C", octave: 5 }], staff: 1 }],
+            [{ duration: "whole", notes: [{ step: "C", octave: 3 }], staff: 2 }],
+          ],
+          virituraPartMeasure: {
+            pedals: [
+              {
+                type: "sustain",
+                staff: 2,
+                position: { fraction: [0, 1] },
+                end: { measure: "m2", position: { fraction: [0, 1] } },
+              },
+            ],
+          },
+        },
+        {
+          id: "m2",
+          voices: [
+            [{ duration: "whole", notes: [{ step: "D", octave: 5 }], staff: 1 }],
+            [{ duration: "whole", notes: [{ step: "D", octave: 3 }], staff: 2 }],
+          ],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+};
+
 type InteractiveArgs = { pedalType: string; style: string };
 
 /** Pick pedal type and style with Storybook controls. */

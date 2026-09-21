@@ -125,6 +125,7 @@ export interface MeasureArgs {
     value: number;
     position: { fraction: number[] };
     end: { measure: string; position: { fraction: number[] } };
+    staff?: number;
   }>;
   /** Standard MNX arpeggio markings */
   arpeggios?: Array<{

@@ -878,6 +878,16 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         config,
         false,
     );
+    for staff_number in 1..=num_staves as u32 {
+        crate::layout::cross_system::render_staff_spanner_continuations(
+            &mut dl,
+            score,
+            part_index,
+            staff_number,
+            sp,
+            config,
+        );
+    }
 
     let system_heights: Vec<f64> = vec![single_system_height; system_count];
     dl.pages = compute_page_breaks(&system_heights, config, 0.0);

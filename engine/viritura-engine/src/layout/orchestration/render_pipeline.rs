@@ -132,6 +132,9 @@ pub(in crate::layout) fn render_systems_pass2(
 
     render_cross_system_ties(dl, &global_tie_notes, &slur_bounds, sp, config, false);
     slurs::render_cross_system_slurs(dl, &global_slur_events, &slur_bounds, sp, config, false);
+    crate::layout::cross_system::render_staff_spanner_continuations(
+        dl, score, part_index, 1, sp, config,
+    );
     render_annotations::push_fermatas_clear_of_curves(dl, 0, 0, sp);
 }
 
