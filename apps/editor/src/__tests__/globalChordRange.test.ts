@@ -606,24 +606,38 @@ describe("chord range focus and rhythmic bounds", () => {
       const pitchEvent = transposed.parts[2]!.measures[measureIndex]!.sequences[1]!.content[eventIndex] as NoteEvent;
       pitchEvent.notes![0]!.pitch = { step: "D", octave: 4 };
     }
-    // Adjacent rests are re-spelled at metric boundaries, with fresh IDs.
-    const rest = (base: "quarter" | "half"): NoteEvent => ({
+    // Generated 4/4 rests stay within each quarter-note beat, with fresh IDs.
+    const rest = (): NoteEvent => ({
       type: "event",
       id: expect.any(String),
-      duration: { base },
+      duration: { base: "quarter" },
       rest: {},
     });
-    deleted.parts[2]!.measures[0]!.sequences[1]!.content.splice(1, 3, rest("quarter"), rest("half"));
-    deleted.parts[2]!.measures[1]!.sequences[1]!.content.splice(0, 2, rest("half"));
+    deleted.parts[2]!.measures[0]!.sequences[1]!.content.splice(1, 3, rest(), rest(), rest());
+    deleted.parts[2]!.measures[1]!.sequences[1]!.content.splice(0, 2, rest(), rest());
     const harness = keyboardContext(score, selection);
     transpose(harness);
     expect(harness.current()).toEqual(transposed);
     expect(harness.current().global).toEqual(before.global);
-    expect(computeDeleteSelection(structuredClone(score), selection)).toMatchObject({ kind: "multi", score: deleted });
+    expect(computeDeleteSelection(structuredClone(score), selection)).toEqual({
+      kind: "multi",
+      score: deleted,
+      nextSelection: { kind: "clear" },
+    });
     const deletion = keyboardContext(score, selection);
     handleDelete(new KeyboardEvent("keydown", { key: "Delete" }), false, deletion.ctx);
     expect(deletion.updateScore).toHaveBeenCalledExactlyOnceWith(deleted);
     expect(deletion.current().global).toEqual(before.global);
+    expect(deletion.commitPatches).not.toHaveBeenCalled();
+    expect(deletion.clearSelection).toHaveBeenCalledTimes(1);
+    expect(deletion.ctx.getSelection()).toEqual({ kind: "none" });
+    const deletedSnapshot = structuredClone(deletion.current());
+    expect(deletion.history.getState().historySize).toBe(2);
+    expect(deletion.history.getState().undo()).toBe(JSON.stringify(before));
+    expect(deletion.current()).toEqual(before);
+    expect(deletion.history.getState().canUndo).toBe(false);
+    deletion.history.getState().redo();
+    expect(deletion.current()).toEqual(deletedSnapshot);
     expect(score).toEqual(before);
   });
 
