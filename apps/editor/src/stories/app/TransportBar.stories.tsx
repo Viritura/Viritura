@@ -5,8 +5,8 @@
  * metronome toggle, and time display — in light/dark/midnight themes.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { CSSProperties } from "react";
-import { TransportBar } from "@viritura/playback";
+import { useEffect, type CSSProperties } from "react";
+import { PlaybackProvider, TransportBar, usePlaybackActions } from "@viritura/playback";
 
 const WIDTH_FULL_STYLE: CSSProperties = { width: "100%" };
 const KEY_HINTS_CARD_STYLE: CSSProperties = {
@@ -24,8 +24,6 @@ const KEY_HINTS_LIST_STYLE: CSSProperties = {
   gap: 16,
   flexWrap: "wrap",
 };
-import { PlaybackProvider } from "@viritura/playback";
-
 function TransportBarWrapper() {
   return (
     <PlaybackProvider>
@@ -48,6 +46,16 @@ function TransportBarWrapper() {
       </div>
     </PlaybackProvider>
   );
+}
+
+function FilteredTransportBarWrapper() {
+  const { setSelectionStaffCount } = usePlaybackActions();
+  useEffect(() => {
+    setSelectionStaffCount(2);
+    return () => setSelectionStaffCount(null);
+  }, [setSelectionStaffCount]);
+
+  return <TransportBar />;
 }
 
 const kbdStyle: React.CSSProperties = {
@@ -104,4 +112,16 @@ export const ViewOverrides: StoryObj = {
     </PlaybackProvider>
   ),
   name: "View overrides",
+};
+
+/** Transport status when playback is restricted to a whole-measure staff selection. */
+export const SelectedStaves: StoryObj = {
+  render: () => (
+    <PlaybackProvider>
+      <div style={WIDTH_FULL_STYLE}>
+        <FilteredTransportBarWrapper />
+      </div>
+    </PlaybackProvider>
+  ),
+  name: "Selected staves",
 };

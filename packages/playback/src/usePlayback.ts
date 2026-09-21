@@ -31,6 +31,7 @@ const FALLBACK_ACTIONS: PlaybackActions = {
   stop: noop,
   seek: noop,
   setSelectionPartIds: noop,
+  setSelectionStaffCount: noop,
   setTempo: noop,
   setVolume: noop,
   toggleMetronome: noop,
