@@ -23,6 +23,7 @@ import {
   detectCondensingMode,
   getActiveLayoutId,
 } from "../score/condensingRouter";
+import { mirrorTupletAt, resolveRhythmSlot, type RhythmSlot } from "../score/rhythmLock";
 import { redistributeChordAcrossSources } from "../score/condensingChord";
 import {
   getKeySignatureAlter,
@@ -323,16 +324,15 @@ interface InsertPlan {
   duration: Duration;
   targets: { partIndex: number; voice: number }[];
   cursorTarget: { partIndex: number; voice: number };
+  rhythmSlot?: RhythmSlot;
 }
 
-function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: EntryContext): InsertPlan {
+function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: EntryContext): InsertPlan | null {
   const ni = ctx.getNoteInput();
   const duration: Duration = {
     base: ni.currentDuration,
     ...(ni.dotCount > 0 ? { dots: ni.dotCount } : {}),
   };
-  const noteBeats = durationToBeats(duration);
-
   const cursor = ni.cursorPosition;
   let measureIdx: number;
   let beatPos: number;
@@ -350,6 +350,24 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
     measureIdx++;
     beatPos = 0;
   }
+  let rhythmSlot: RhythmSlot | undefined;
+  if (ni.rhythmSource) {
+    const resolved = resolveRhythmSlot(currentScore, ni.rhythmSource, measureIdx, beatPos);
+    if (resolved.kind === "exhausted") {
+      ctx.setRhythmSource(null);
+      toast.info("Rhythm source ended; switched to manual duration");
+      return null;
+    }
+    if (resolved.kind === "not-at-boundary") {
+      toast.info("Move the input cursor to a source rhythm boundary");
+      return null;
+    }
+    rhythmSlot = resolved.slot;
+    duration.base = rhythmSlot.duration.base;
+    if (rhythmSlot.duration.dots) duration.dots = rhythmSlot.duration.dots;
+    else delete duration.dots;
+  }
+  const resolvedNoteBeats = durationToBeats(duration);
 
   const layoutId = getActiveLayoutId(currentScore, ctx.getConfig().selectedScoreIndex ?? 0);
   const condensingStaff =
@@ -362,7 +380,7 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
       )
     : [{ partIndex: entryCtx.partIndex, voice: entryCtx.voice }];
   const cursorTarget = targets.find((t) => t.partIndex === entryCtx.partIndex) ?? targets[0]!;
-  return { measureIdx, beatPos, noteBeats, duration, targets, cursorTarget };
+  return { measureIdx, beatPos, noteBeats: resolvedNoteBeats, duration, targets, cursorTarget, rhythmSlot };
 }
 
 type InsertKind = "grace-slash" | "grace-acciaccatura" | "rest" | "note";
@@ -377,6 +395,9 @@ function insertKindFor(ctx: KeyboardHandlerContext): InsertKind {
 
 function applyEntryToDraft(draft: Score, kind: InsertKind, pitch: Pitch, plan: InsertPlan, staffIdx: number): void {
   for (const t of plan.targets) {
+    if (plan.rhythmSlot?.tuplet) {
+      mirrorTupletAt(draft, t, plan.measureIdx, plan.rhythmSlot.tuplet.container, plan.rhythmSlot.tuplet.startBeat);
+    }
     if (kind === "grace-slash" || kind === "grace-acciaccatura") {
       addGraceNote(draft, {
         pitch,
@@ -408,6 +429,34 @@ function applyEntryToDraft(draft: Score, kind: InsertKind, pitch: Pitch, plan: I
       });
     }
   }
+}
+
+function consumeLockedRest(
+  ctx: KeyboardHandlerContext,
+  currentScore: Score,
+  entryCtx: EntryContext,
+  plan: InsertPlan,
+): void {
+  const resultScore = produce(currentScore, (draft) => {
+    applyEntryToDraft(
+      draft,
+      "rest",
+      { step: "C", octave: 4 },
+      { ...plan, duration: plan.rhythmSlot!.duration },
+      entryCtx.staffIdx,
+    );
+  });
+  ctx.updateScore(resultScore, { start: plan.measureIdx, end: plan.measureIdx });
+  ctx.setCursor({
+    ...advanceCursorByNotatedDuration(
+      resultScore,
+      { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
+      durationToBeats(plan.rhythmSlot!.duration),
+      entryCtx.voice,
+      1,
+    ),
+    staffIndex: entryCtx.staffIdx,
+  });
 }
 
 function advanceAfterInsert(
@@ -563,6 +612,11 @@ export function handleNoteEntry(step: string, isChord: boolean, ctx: KeyboardHan
   }
 
   const plan = planInsert(ctx, currentScore, entryCtx);
+  if (!plan) return;
+  if (plan.rhythmSlot?.isRest) {
+    consumeLockedRest(ctx, currentScore, entryCtx, plan);
+    return;
+  }
   const plannedEntryCtx = { ...entryCtx, cursorMeasure: plan.measureIdx, cursorBeat: plan.beatPos };
   const { pitch, writtenPitch } = buildEntryPitch(step, ctx, currentScore, plannedEntryCtx);
   insertPlannedPitch(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
@@ -588,6 +642,11 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
   }
 
   const plan = planInsert(ctx, currentScore, entryCtx);
+  if (!plan) return;
+  if (plan.rhythmSlot?.isRest) {
+    consumeLockedRest(ctx, currentScore, entryCtx, plan);
+    return;
+  }
   const plannedKeyFifths = resolveKeyAtMeasure(currentScore, plan.measureIdx);
   const plannedSoundingPitch = midiNoteToPitch(midiNote, plannedKeyFifths);
   const writtenPitch = resolveWrittenPitchFromSounding(

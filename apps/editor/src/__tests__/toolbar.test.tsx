@@ -121,6 +121,11 @@ describe("Toolbar", () => {
     }
   });
 
+  it("renders the rhythm source selector beside duration controls", () => {
+    const c = renderToolbar();
+    expect(getByTestId(c, "toolbar-rhythm-source").getAttribute("aria-label")).toBe("Rhythm source");
+  });
+
   it("orders duration buttons from shortest to longest", () => {
     const c = renderToolbar();
     const durationGroup = c.querySelector('[role="group"][aria-label="Duration"]');

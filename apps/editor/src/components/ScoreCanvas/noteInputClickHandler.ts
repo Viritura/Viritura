@@ -41,6 +41,7 @@ import {
   detectCondensingMode,
 } from "../../score/condensingRouter";
 import { cloneScore, produce } from "../../score/scoreClone";
+import { resolveRhythmSlot } from "../../score/rhythmLock";
 
 export interface AddNoteAtClickArgs {
   info: NoteInputClickInfo;
@@ -53,6 +54,7 @@ export interface AddNoteAtClickArgs {
   setCursor: (cursor: CursorPosition) => void;
   setLastPitch: (pitch: Pitch) => void;
   setAccidental: (accidental: import("@viritura/core").AccidentalType | null) => void;
+  setRhythmSource: (source: import("../../store/noteInputStore").RhythmSource | null) => void;
   setSlurStart: (eventId: string) => void;
   clearSlurStart: () => void;
   toggleSlur: () => void;
@@ -126,6 +128,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     setCursor,
     setLastPitch,
     setAccidental,
+    setRhythmSource,
     setSlurStart,
     clearSlurStart,
     toggleSlur,
@@ -216,11 +219,11 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
   }
 
   // Build duration from note input state
-  const duration = {
+  let duration: import("@viritura/core").Duration = {
     base: noteInputState.currentDuration,
     ...(noteInputState.dotCount > 0 ? { dots: noteInputState.dotCount } : {}),
   };
-  const noteBeats = durationToBeats(duration);
+  let noteBeats = durationToBeats(duration);
 
   // Use shared snapping logic to determine measure and beat position
   let measureIndex = 0;
@@ -255,6 +258,24 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       }
     }
   }
+
+  let sourceRest = false;
+  if (noteInputState.rhythmSource) {
+    const resolved = resolveRhythmSlot(score, noteInputState.rhythmSource, measureIndex, beatPosition);
+    if (resolved.kind === "exhausted") {
+      setRhythmSource(null);
+      toast.info("Rhythm source ended; switched to manual duration");
+      return;
+    }
+    if (resolved.kind === "not-at-boundary") {
+      toast.info("Move the input cursor to a source rhythm boundary");
+      return;
+    }
+    duration = { ...resolved.slot.duration };
+    noteBeats = durationToBeats(duration);
+    sourceRest = resolved.slot.isRest;
+  }
+  const isRestEntry = noteInputState.isRest || sourceRest;
 
   // Resolve active clef for this measure and staff (walk backwards)
   let activeClef: Clef =
@@ -348,7 +369,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
   // the keyboard entry path — so click and keyboard sound identical and the
   // feedback follows the instrument's transposition. (`writtenPitch` equals
   // `pitch` for concert-pitch/percussion parts, so this is a no-op there.)
-  if (!noteInputState.isRest) {
+  if (!isRestEntry) {
     let previewMidi = pitchToMidi(writtenPitch);
     if (percussionPart && kitComponentId) {
       const drumMidi = midiNumberForKitComponent(percussionPart, score.global.sounds, kitComponentId);
@@ -398,7 +419,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         if (chordTargets.length > 0) {
           insertedChordPitch = true;
         }
-      } else if (noteInputState.isRest) {
+      } else if (isRestEntry) {
         newScore = produceScoreMutation(score, (draft) => {
           for (const target of targets) {
             addRest(draft, {
@@ -480,7 +501,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     // duration matches the current note-input duration. If duration mismatches,
     // no-op (conservative behavior; user can change duration and click again).
     // Shift+Click and rest/grace modes keep their existing behavior.
-    if (!info.shiftKey && !noteInputState.isRest && !noteInputState.currentGraceType) {
+    if (!info.shiftKey && !isRestEntry && !noteInputState.currentGraceType) {
       const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[seqIndex];
       if (seq) {
         const ONSET_TOL = 0.005;
@@ -571,7 +592,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       if (loc) {
         insertedChordPitch = true;
       }
-    } else if (noteInputState.isRest) {
+    } else if (isRestEntry) {
       newScore = produceScoreMutation(score, (draft) => {
         addRest(draft, {
           duration,
