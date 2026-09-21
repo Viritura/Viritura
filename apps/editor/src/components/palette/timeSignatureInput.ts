@@ -1,4 +1,5 @@
 import { defaultBeatStructure, type TimeSignature } from "@viritura/core";
+import { parsePickupDuration, type PickupDuration } from "../../commands/pickupBar";
 
 export const TIME_SIGNATURE_UNITS = [1, 2, 4, 8, 16, 32, 64, 128] as const;
 
@@ -9,6 +10,7 @@ export type TimeSignatureInputResult =
       time: TimeSignature;
       error: null;
       enteredBeatStructure?: number[];
+      pickupDuration?: PickupDuration;
     }
   | {
       time: null;
@@ -55,7 +57,12 @@ function parseBeatStructure(input: string, count: number): BeatStructureResult {
 }
 
 export function parseTimeSignatureInputWithError(input: string): TimeSignatureInputResult {
-  const match = TIME_SIGNATURE_RE.exec(input.trim());
+  const trimmed = input.trim();
+  const pickupSeparator = trimmed.lastIndexOf(",");
+  const hasPickup = pickupSeparator >= 0 && trimmed.slice(pickupSeparator + 1).includes("/");
+  const meterInput = hasPickup ? trimmed.slice(0, pickupSeparator).trim() : trimmed;
+  const pickupInput = hasPickup ? trimmed.slice(pickupSeparator + 1).trim() : null;
+  const match = TIME_SIGNATURE_RE.exec(meterInput);
   if (!match) {
     return {
       time: null,
@@ -71,13 +78,18 @@ export function parseTimeSignatureInputWithError(input: string): TimeSignatureIn
   }
 
   const groupingInput = match[3]?.trim();
-  if (!groupingInput) return { time: { count, unit }, error: null };
+  if (!groupingInput) {
+    if (!pickupInput) return { time: { count, unit }, error: null };
+    const pickupDuration = parsePickupDuration(pickupInput);
+    if (!pickupDuration) return { time: null, error: "Use a positive pickup fraction such as 1/4" };
+    return { time: { count, unit }, error: null, pickupDuration };
+  }
 
   const parsedGrouping = parseBeatStructure(groupingInput, count);
   if (!parsedGrouping.groups) return { time: null, error: parsedGrouping.error };
   const groups = parsedGrouping.groups;
   const defaults = defaultBeatStructure(count, unit);
-  return {
+  const result: TimeSignatureInputResult = {
     time: {
       count,
       unit,
@@ -86,6 +98,10 @@ export function parseTimeSignatureInputWithError(input: string): TimeSignatureIn
     error: null,
     enteredBeatStructure: groups,
   };
+  if (!pickupInput) return result;
+  const pickupDuration = parsePickupDuration(pickupInput);
+  if (!pickupDuration) return { time: null, error: "Use a positive pickup fraction such as 1/4" };
+  return { ...result, pickupDuration };
 }
 
 export function parseTimeSignatureInput(input: string): TimeSignature | null {

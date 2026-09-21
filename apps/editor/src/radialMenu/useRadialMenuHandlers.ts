@@ -31,7 +31,9 @@ import {
   applyOrnament,
   applyBreathFermata,
 } from "../radialMenu/radialMenuActions";
-import { resolveInsertMeasureIndex } from "../commands/signatureCommands";
+import { resolveInsertMeasureIndex, timeSignatureMeasureIndexFromSelection } from "../commands/signatureCommands";
+import { createPickupBar, parsePickupDuration } from "../commands/pickupBar";
+import { openPickupDurationPrompt } from "../store/modalFlowStore";
 import { toggleMeasureRepeatForSelection } from "../commands/measureRepeatCommands";
 import {
   applyArticulationToSelection,
@@ -92,10 +94,15 @@ export function useRadialMenuHandlers(deps: RadialMenuHandlersDeps): RadialMenuH
   } = deps;
 
   const handleRadialMenuSelect = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const { score } = store.getState();
       if (!radialMenu || !score) return;
       const selection = radialMenu.selection ?? useSelectionStore.getState().selection;
+      if (radialMenu.category === "barline" && id === "create-pickup") {
+        await createPickupFromRadial(store, updateScore, setRadialMenu);
+        setRadialMenu(null);
+        return;
+      }
       dispatchRadialSelect(radialMenu.category, id, {
         score,
         selection,
@@ -156,9 +163,7 @@ export function useRadialMenuHandlers(deps: RadialMenuHandlersDeps): RadialMenuH
       }
 
       if (radialMenu.category === "time-signature") {
-        const result = parseTimeSignatureInputWithError(expression);
-        if (result.time) handleSetTimeSignature(result.time);
-        else toast.warning(result.error);
+        applyTimeSignatureExpression(expression, selection, score, updateScore, handleSetTimeSignature);
         setRadialMenu(null);
         return;
       }
@@ -232,6 +237,53 @@ interface DispatchDeps {
   handleSetKeySignature: (value: KeySignature) => void;
   handleSetRepeatStart: (value: RepeatStart | null) => void;
   handleSetRepeatEnd: (value: RepeatEnd | null) => void;
+}
+
+async function createPickupFromRadial(
+  store: DocumentStore,
+  updateScore: (score: Score) => void,
+  setRadialMenu: (menu: RadialMenuState | null) => void,
+): Promise<void> {
+  const score = store.getState().workingScore ?? store.getState().score;
+  if (!score) return;
+  if (score.global.measures[0]?.number === 0) {
+    toast.warning("This score already begins with a pickup bar.");
+    return;
+  }
+  const time = score.global.measures[0]?.time ?? { count: 4, unit: 4 };
+  setRadialMenu(null);
+  const entered = await openPickupDurationPrompt(time);
+  const duration = entered ? parsePickupDuration(entered) : null;
+  const latestScore = store.getState().workingScore ?? store.getState().score;
+  if (!duration || !latestScore) return;
+  const pickup = createPickupBar(latestScore, duration);
+  if (pickup.score) updateScore(pickup.score);
+  else toast.warning(pickup.error);
+}
+
+function applyTimeSignatureExpression(
+  expression: string,
+  selection: SelectionState,
+  score: Score,
+  updateScore: (score: Score) => void,
+  setTimeSignature: (time: TimeSignature) => void,
+): void {
+  const result = parseTimeSignatureInputWithError(expression);
+  if (!result.time) {
+    toast.warning(result.error);
+    return;
+  }
+  if (!result.pickupDuration) {
+    setTimeSignature(result.time);
+    return;
+  }
+  if ((timeSignatureMeasureIndexFromSelection(selection, score) ?? 0) !== 0) {
+    toast.warning("A pickup duration can only be entered at the opening meter.");
+    return;
+  }
+  const pickup = createPickupBar(score, result.pickupDuration, result.time);
+  if (pickup.score) updateScore(pickup.score);
+  else toast.warning(pickup.error);
 }
 
 function dispatchRadialSelect(category: RadialMenuCategory, id: string, deps: DispatchDeps): void {

@@ -40,6 +40,10 @@ interface ProjectNameState {
   initialValue: string;
   resolve: (name: string | null) => void;
 }
+interface PickupDurationState {
+  meter: { count: number; unit: number };
+  resolve: (duration: string | null) => void;
+}
 
 export type ExternalChangeChoice = "reload" | "overwrite";
 
@@ -52,10 +56,12 @@ interface ModalFlowStore {
   scoreChooser: ScoreChooserState | null;
   folderConfirm: FolderConfirmState | null;
   projectName: ProjectNameState | null;
+  pickupDuration: PickupDurationState | null;
   externalChange: ExternalChangeState | null;
   _setScoreChooser: (next: ScoreChooserState | null) => void;
   _setFolderConfirm: (next: FolderConfirmState | null) => void;
   _setProjectName: (next: ProjectNameState | null) => void;
+  _setPickupDuration: (next: PickupDurationState | null) => void;
   _setExternalChange: (next: ExternalChangeState | null) => void;
 }
 
@@ -63,10 +69,12 @@ export const useModalFlowStore = create<ModalFlowStore>((set) => ({
   scoreChooser: null,
   folderConfirm: null,
   projectName: null,
+  pickupDuration: null,
   externalChange: null,
   _setScoreChooser: (next) => set({ scoreChooser: next }),
   _setFolderConfirm: (next) => set({ folderConfirm: next }),
   _setProjectName: (next) => set({ projectName: next }),
+  _setPickupDuration: (next) => set({ pickupDuration: next }),
   _setExternalChange: (next) => set({ externalChange: next }),
 }));
 
@@ -102,6 +110,12 @@ export function openFolderConfirm(folderName: string, scoreCount: number): Promi
 export function openProjectNamePrompt(initialValue = "Untitled Project"): Promise<string | null> {
   return new Promise((resolve) => {
     useModalFlowStore.getState()._setProjectName({ initialValue, resolve });
+  });
+}
+
+export function openPickupDurationPrompt(meter: { count: number; unit: number }): Promise<string | null> {
+  return new Promise((resolve) => {
+    useModalFlowStore.getState()._setPickupDuration({ meter, resolve });
   });
 }
 
