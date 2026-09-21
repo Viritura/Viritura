@@ -88,6 +88,7 @@ interface CtxBindings {
   setAccidental: KeyboardHandlerContext["setAccidental"];
   toggleChordLock: KeyboardHandlerContext["toggleChordLock"];
   setChordLock: KeyboardHandlerContext["setChordLock"];
+  setRhythmSource: KeyboardHandlerContext["setRhythmSource"];
   undo: KeyboardHandlerContext["undo"];
   redo: KeyboardHandlerContext["redo"];
   previewPitch: KeyboardHandlerContext["previewPitch"];
@@ -116,6 +117,7 @@ function syncCtxBindings(ctx: KeyboardHandlerContext, b: CtxBindings): void {
   ctx.setAccidental = b.setAccidental;
   ctx.toggleChordLock = b.toggleChordLock;
   ctx.setChordLock = b.setChordLock;
+  ctx.setRhythmSource = b.setRhythmSource;
   ctx.previewPitch = b.previewPitch;
   ctx.undo = b.undo;
   ctx.redo = b.redo;
@@ -193,6 +195,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
     setChordLock,
     setVoice,
     setAccidental,
+    setRhythmSource,
   } = useNoteInput();
   const selection = useSelection();
   const { clearSelection, selectRange, selectElement, extendSelection } = useSelectionActions();
@@ -248,6 +251,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
           slurStartEventId: s.slurStartEventId,
           chordLock: s.chordLock,
           condensingRouting: s.condensingRouting,
+          rhythmSource: s.rhythmSource,
         };
       },
       getConfig: () => configRef.current,
@@ -274,6 +278,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
       setAccidental,
       toggleChordLock,
       setChordLock,
+      setRhythmSource,
       previewPitch: (pitch, partIndex) => previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400),
       undo,
       redo,
@@ -306,6 +311,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
     setAccidental,
     toggleChordLock,
     setChordLock,
+    setRhythmSource,
     previewPitch,
     undo,
     redo,

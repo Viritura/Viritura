@@ -4,7 +4,7 @@
  * Module-level zustand store that owns the editor's note-input mode
  * (active flag, duration, accidental, rest mode, dot count, voice, grace,
  * tie/slur toggles, chord lock, last pitch, cursor position, condensing
- * routing). Replaces the prior `NoteInputContext` + `NoteInputProvider`
+ * routing, rhythm source). Replaces the prior `NoteInputContext` + `NoteInputProvider`
  * pair — there is now exactly one note-input slice for the entire app, and
  * consumers subscribe via the `useNoteInput()` compat hook (returns the
  * full state + action bundle, matching the historical Context API surface).
@@ -37,6 +37,12 @@ import { setLyricMode, setLyricState } from "./overlayStore";
 export type GraceType = "grace" | "appoggiatura";
 export type Voice = 1 | 2 | 3 | 4;
 export type DotCount = 0 | 1 | 2 | 3 | 4;
+/** A physical source timeline whose metrical rhythm drives note input. */
+export interface RhythmSource {
+  partIndex: number;
+  staffIndex: number;
+  voice: Voice;
+}
 /** Non-zero dot counts — the picker's selectable values. */
 type SelectedDotCount = 1 | 2 | 3 | 4;
 
@@ -94,6 +100,8 @@ export interface NoteInputState {
   cursorPosition: CursorPosition | null;
   /** Condensing routing mode for input on condensed staves (null = smart default) */
   condensingRouting: CondensingMode | null;
+  /** Optional physical timeline whose rhythm is followed during note entry. */
+  rhythmSource: RhythmSource | null;
 }
 
 export const initialNoteInputState: NoteInputState = {
@@ -113,6 +121,7 @@ export const initialNoteInputState: NoteInputState = {
   lastPitch: null,
   cursorPosition: null,
   condensingRouting: null,
+  rhythmSource: null,
 };
 
 // ═══════════════════════════════════════════
@@ -142,6 +151,7 @@ export type NoteInputAction =
   | { type: "SET_CURSOR"; position: CursorPosition }
   | { type: "CLEAR_CURSOR" }
   | { type: "SET_CONDENSING_ROUTING"; mode: CondensingMode | null }
+  | { type: "SET_RHYTHM_SOURCE"; source: RhythmSource | null }
   | { type: "RESET" };
 
 // ═══════════════════════════════════════════
@@ -163,6 +173,7 @@ function inputModeReducer(state: NoteInputState, action: NoteInputAction): NoteI
           chordLock: false,
           cursorPosition: null,
           condensingRouting: null,
+          rhythmSource: null,
         };
       }
       // Inherit rhythm atomically with activation; cursor is set externally.
@@ -292,6 +303,9 @@ function inputCursorReducer(state: NoteInputState, action: NoteInputAction): Not
     case "SET_CONDENSING_ROUTING":
       return { ...state, condensingRouting: action.mode };
 
+    case "SET_RHYTHM_SOURCE":
+      return { ...state, rhythmSource: action.source };
+
     default:
       return null;
   }
@@ -407,6 +421,7 @@ export interface NoteInputContextValue {
   setCursor: (position: CursorPosition) => void;
   clearCursor: () => void;
   setCondensingRouting: (mode: CondensingMode | null) => void;
+  setRhythmSource: (source: RhythmSource | null) => void;
   reset: () => void;
 }
 
@@ -434,6 +449,7 @@ const actions = {
   setCursor: (position: CursorPosition) => dispatchNoteInput({ type: "SET_CURSOR", position }),
   clearCursor: () => dispatchNoteInput({ type: "CLEAR_CURSOR" }),
   setCondensingRouting: (mode: CondensingMode | null) => dispatchNoteInput({ type: "SET_CONDENSING_ROUTING", mode }),
+  setRhythmSource: (source: RhythmSource | null) => dispatchNoteInput({ type: "SET_RHYTHM_SOURCE", source }),
   reset: () => dispatchNoteInput({ type: "RESET" }),
 } as const;
 
@@ -464,6 +480,7 @@ export function useNoteInput(): NoteInputContextValue {
   const lastPitch = useNoteInputStore((s) => s.lastPitch);
   const cursorPosition = useNoteInputStore((s) => s.cursorPosition);
   const condensingRouting = useNoteInputStore((s) => s.condensingRouting);
+  const rhythmSource = useNoteInputStore((s) => s.rhythmSource);
 
   const state = useMemo<NoteInputState>(
     () => ({
@@ -483,6 +500,7 @@ export function useNoteInput(): NoteInputContextValue {
       lastPitch,
       cursorPosition,
       condensingRouting,
+      rhythmSource,
     }),
     [
       active,
@@ -501,6 +519,7 @@ export function useNoteInput(): NoteInputContextValue {
       lastPitch,
       cursorPosition,
       condensingRouting,
+      rhythmSource,
     ],
   );
 

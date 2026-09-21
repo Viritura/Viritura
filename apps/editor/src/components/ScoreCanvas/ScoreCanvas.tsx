@@ -258,6 +258,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       setLastPitch,
       setCursor,
       setAccidental,
+      setRhythmSource,
       toggleNoteInput,
     } = useNoteInput();
 
@@ -434,6 +435,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
           setCursor,
           setLastPitch,
           setAccidental,
+          setRhythmSource,
           setSlurStart,
           clearSlurStart,
           toggleSlur,
@@ -450,6 +452,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         setCursor,
         setLastPitch,
         setAccidental,
+        setRhythmSource,
         selectedScoreIndex,
         playbackActions,
       ],

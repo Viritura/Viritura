@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Button, LongPressButton, Select } from "@viritura/ui";
 import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { useNoteInput, type DotCount, type GraceType, type Voice } from "../store/noteInputStore";
@@ -17,6 +17,7 @@ import type { Score, NoteEvent } from "@viritura/core";
 import { Separator } from "@viritura/ui";
 import styles from "./Toolbar.module.css";
 import { produce } from "../score/scoreClone";
+import { rhythmSourceOptions } from "../score/rhythmLock";
 
 const TUPLET_GLYPH_STACK_STYLE: CSSProperties = {
   display: "inline-flex",
@@ -172,6 +173,7 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
     setGraceType,
     toggleGraceActive,
     toggleChordLock,
+    setRhythmSource,
   } = useNoteInput();
   const store = useDocumentStoreApi();
   const updateScore = useDocumentStore((s) => s.updateScore);
@@ -179,6 +181,11 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
   const activeVoice = state.currentVoice;
   const [showExtendedDurations, setShowExtendedDurations] = useState(false);
   const [showExtendedAccidentals, setShowExtendedAccidentals] = useState(false);
+  const workingScore = useDocumentStore((s) => s.workingScore);
+  const rhythmOptions = useMemo(() => (workingScore ? rhythmSourceOptions(workingScore) : []), [workingScore]);
+  const rhythmSourceValue = state.rhythmSource
+    ? `${state.rhythmSource.partIndex}:${state.rhythmSource.staffIndex}:${state.rhythmSource.voice}`
+    : "";
 
   // Auto-expand accidental panel when keyboard steps into double/triple range
   useEffect(() => {
@@ -336,6 +343,18 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
         expanded={showExtendedDurations}
         onToggleExpanded={() => setShowExtendedDurations((v) => !v)}
         onSelect={handleDuration}
+      />
+
+      <Select
+        value={rhythmSourceValue}
+        onValueChange={(value) => {
+          const option = rhythmOptions.find((candidate) => candidate.value === value);
+          setRhythmSource(option?.source ?? null);
+        }}
+        options={[{ value: "", label: "Manual duration" }, ...rhythmOptions]}
+        data-testid="toolbar-rhythm-source"
+        aria-label="Rhythm source"
+        fullWidth={false}
       />
 
       <Separator />

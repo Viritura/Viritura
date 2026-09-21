@@ -345,4 +345,105 @@ describe("handleNoteEntry", () => {
       octave: 7,
     });
   });
+
+  it("uses the selected source timeline's written duration instead of the toolbar duration", () => {
+    let score = makeScore();
+    score.parts.unshift({
+      name: "Source",
+      measures: [
+        {
+          sequences: [
+            {
+              content: [{ type: "event", duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 4 } }] }],
+            },
+          ],
+        },
+      ],
+    });
+    score.parts[1]!.measures[0]!.sequences[0] = {
+      content: [{ type: "event", duration: { base: "whole" }, rest: {} }],
+    };
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice: 1,
+        currentDuration: "quarter",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 1, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+        rhythmSource: { partIndex: 0, staffIndex: 0, voice: 1 },
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setCursor: vi.fn(),
+      setLastPitch: vi.fn(),
+      setAccidental: vi.fn(),
+      setRhythmSource: vi.fn(),
+      previewPitch: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleNoteEntry("C", false, context);
+
+    expect(score.parts[1]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+      duration: { base: "half" },
+      notes: [{ pitch: { step: "C" } }],
+    });
+  });
+
+  it("copies a source rest and advances without entering the attempted pitch", () => {
+    let score = makeScore();
+    score.parts.unshift({
+      name: "Source",
+      measures: [{ sequences: [{ content: [{ type: "event", duration: { base: "quarter" }, rest: {} }] }] }],
+    });
+    score.parts[1]!.measures[0]!.sequences[0] = {
+      content: [{ type: "event", duration: { base: "whole" }, rest: {} }],
+    };
+    const setCursor = vi.fn();
+    const context = {
+      getScore: () => score,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice: 1,
+        currentDuration: "half",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex: 0, beatPosition: 0, partIndex: 1, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+        rhythmSource: { partIndex: 0, staffIndex: 0, voice: 1 },
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: (next: Score) => {
+        score = next;
+      },
+      setCursor,
+      setLastPitch: vi.fn(),
+      setAccidental: vi.fn(),
+      setRhythmSource: vi.fn(),
+      previewPitch: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+
+    handleNoteEntry("C", false, context);
+
+    expect(score.parts[1]!.measures[0]!.sequences[0]!.content.some((item) => item.type === "event" && item.notes)).toBe(
+      false,
+    );
+    expect(setCursor).toHaveBeenCalledWith({ measureIndex: 0, beatPosition: 1, partIndex: 1, staffIndex: 0 });
+  });
 });
