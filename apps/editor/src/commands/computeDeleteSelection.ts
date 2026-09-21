@@ -28,6 +28,7 @@ import {
 import { isLyricId, removeLyricByElementId, removeLyrics } from "./lyricCommands";
 import { removeGlissandoByElementId } from "./glissandoCommands";
 import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
+import { removeTuplet } from "./tupletCommands";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -59,6 +60,9 @@ export function computeDeleteSelection(score: Score | null, selection: Selection
 function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult {
   if (!selection.elementId) return { kind: "noop" };
   const elementId = selection.elementId;
+
+  const tupletResult = deleteSelectedTuplet(score, elementId);
+  if (tupletResult) return tupletResult;
 
   const annotationLocation = resolveAnnotationLocation(elementId);
   if (annotationLocation) {
@@ -127,6 +131,18 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
     score: newScore,
     nextSelection: nextId ? { kind: "select", elementId: nextId } : { kind: "clear" },
   };
+}
+
+function deleteSelectedTuplet(score: Score, elementId: string): DeleteSelectionResult | null {
+  const match = elementId.match(/^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/);
+  if (!match) return null;
+  const removed = removeTuplet(score, {
+    partIndex: Number.parseInt(match[1]!, 10),
+    measureIndex: Number.parseInt(match[2]!, 10),
+    voice: Number.parseInt(match[3]!, 10),
+    tupletOrdinal: Number.parseInt(match[4]!, 10),
+  });
+  return removed ? { kind: "single", score, nextSelection: { kind: "clear" } } : { kind: "noop" };
 }
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */

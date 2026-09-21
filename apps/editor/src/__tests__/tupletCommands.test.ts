@@ -7,6 +7,7 @@ import {
   createTupletFromRange,
   getTupletOuterMultiple,
   parseTupletRatio,
+  removeTuplet,
   tupletTotalBeats,
 } from "../commands/tupletCommands";
 import { resetIdCounter, sequenceContentBeats } from "../commands/noteCommands";
@@ -142,6 +143,28 @@ describe("getTupletOuterMultiple", () => {
 
   it("returns 8 for 9-tuplet (9:8)", () => {
     expect(getTupletOuterMultiple(9)).toBe(8);
+  });
+});
+
+describe("removeTuplet", () => {
+  it("restores the original duration when unwrapping a tuplet made from one note", () => {
+    const score = makeScoreWithNote();
+    createTupletFromEvent(score, {
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      eventIndex: 0,
+      tupletNumber: 3,
+    });
+
+    expect(removeTuplet(score, { measureIndex: 0, partIndex: 0, voice: 0, tupletOrdinal: 0 })).toBe(true);
+
+    expect(seq(score).content[0]).toMatchObject({
+      type: "event",
+      id: "note1",
+      duration: { base: "half" },
+      notes: [{ pitch: { step: "C", octave: 4 } }],
+    });
   });
 });
 

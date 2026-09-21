@@ -245,6 +245,37 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
     expect(result.score.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
   });
 
+  it("removes a selected tuplet bracket and restores its base rest with attached dynamics", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        outer: { duration: { base: "quarter" }, multiple: 1 },
+        inner: { duration: { base: "eighth" }, multiple: 5 },
+        content: Array.from({ length: 5 }, () => ({
+          type: "event" as const,
+          duration: { base: "eighth" as const },
+          rest: {},
+        })),
+      },
+    ];
+    toggleDynamic(score, 0, 0, 0, 0, "f", 0);
+
+    const result = computeDeleteSelection(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/tuplet0",
+      elementType: "tuplet",
+    });
+
+    expect(result).toMatchObject({ kind: "single", nextSelection: { kind: "clear" } });
+    if (result.kind !== "single") return;
+    expect(result.score.parts[0]!.measures[0]!.sequences[0]!.content).toMatchObject([
+      { type: "event", duration: { base: "quarter" }, rest: {} },
+    ]);
+    expect(result.score.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
+  });
+
   it("returns noop for an empty selection", () => {
     expect(computeDeleteSelection(makeScore(), { kind: "none" }).kind).toBe("noop");
   });
