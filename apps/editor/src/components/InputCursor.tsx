@@ -44,6 +44,8 @@ interface InputCursorProps {
   scrollY: number;
   /** Current zoom level. */
   zoom: number;
+  /** Active score view, used to align the persistent cursor with page placements. */
+  viewMode?: "page" | "spread" | "spread-h" | "horizon";
   /** Called when the user clicks in note input mode. */
   onClick?: (info: NoteInputClickInfo) => void;
   /** Spatial index for resolving cursor X from beat position. */
@@ -67,6 +69,7 @@ export function InputCursor({
   scrollX,
   scrollY,
   zoom,
+  viewMode = "horizon",
   onClick,
   spatialIndex,
   score,
@@ -85,7 +88,7 @@ export function InputCursor({
   // force the ResizeObserver + mouse/keyboard listener effects below to tear
   // down and rebind on every micro-move (the source of a passive-effect storm).
   // Updated in a layout effect below (refs must not be written during render).
-  const viewportRef = useRef({ scrollX, scrollY, zoom });
+  const viewportRef = useRef({ scrollX, scrollY, zoom, viewMode });
 
   // Recompute staves when display list changes
   useLayoutEffect(() => {
@@ -99,7 +102,7 @@ export function InputCursor({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const { scrollX: sx, scrollY: sy, zoom: z } = viewportRef.current;
+    const { scrollX: sx, scrollY: sy, zoom: z, viewMode: activeViewMode } = viewportRef.current;
     const dpr = window.devicePixelRatio || 1;
     ensureCanvasSize(canvas, dpr);
     applyOverlayTransform(ctx, canvas, dpr, z, sx, sy);
@@ -122,6 +125,7 @@ export function InputCursor({
       zoom: z,
       scrollX: sx,
       scrollY: sy,
+      viewMode: activeViewMode,
       onHoverBeat,
     });
   }, [inputState, spatialIndex, score, displayList, onHoverBeat]);
@@ -135,10 +139,10 @@ export function InputCursor({
   // synchronously after commit and before requestAnimationFrame callbacks, so
   // the scheduled paint always reads the current scroll/zoom and paint closure.
   useLayoutEffect(() => {
-    viewportRef.current = { scrollX, scrollY, zoom };
+    viewportRef.current = { scrollX, scrollY, zoom, viewMode };
     paintOverlayRef.current = paintOverlay;
     paintOverlay();
-  }, [scrollX, scrollY, zoom, paintOverlay]);
+  }, [scrollX, scrollY, zoom, viewMode, paintOverlay]);
 
   // Schedule repaint on mouse move
   const scheduleRepaint = useCallback(() => {

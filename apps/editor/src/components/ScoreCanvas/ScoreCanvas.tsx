@@ -84,6 +84,7 @@ import { runBackgroundTask } from "../../store/backgroundTaskStore";
 import { useEngraveHoverFade } from "./useEngraveHoverFade";
 import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } from "./relayoutEffects";
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
+import { useInputCursorViewportFollow } from "./useInputCursorViewportFollow";
 import { useFitToWidthZoom, useParentNotifications } from "./parentEffects";
 import { useRenderedStaffSources } from "./renderedStaffSources";
 import { useDocumentScoreRefs } from "./documentScoreRefs";
@@ -335,6 +336,20 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       setScroll,
     });
     followInteractRef.current = follow.onUserInteract;
+
+    useInputCursorViewportFollow({
+      active: noteInputState.active,
+      cursor: noteInputState.cursorPosition,
+      score: docScore,
+      displayList: displayListRef.current,
+      displayListVersion,
+      voice: noteInputState.currentVoice,
+      viewMode,
+      viewport,
+      containerRef,
+      safeArea,
+      setScroll,
+    });
 
     // Keyboard shortcut: Space = play/pause (registered in central registry).
     // Escape no longer stops playback — it's reserved for selection/mode exit
@@ -1300,6 +1315,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
               scrollX={viewport.scrollX}
               scrollY={viewport.scrollY}
               zoom={viewport.zoom}
+              viewMode={viewMode}
               onClick={noteInputState.active ? handleNoteInputClick : undefined}
               spatialIndex={spatialIndexRef.current}
               score={docScoreRef.current}
