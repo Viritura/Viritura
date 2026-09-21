@@ -17,29 +17,34 @@ use viritura_engine::render::svg::{display_list_to_svg_pages, SvgExportConfig};
 use viritura_engine::render::DisplayList;
 use wasm_bindgen::prelude::*;
 
-/// Recursively collect slur target event ids referenced by events in `content`
-/// (descending into tuplet/tremolo/grace containers).
-fn collect_slur_targets(content: &[SequenceContent], out: &mut Vec<String>) {
+/// Recursively collect slur target event ids and tie target note ids referenced
+/// by events in `content` (descending into tuplet/tremolo/grace containers).
+fn collect_connector_targets(content: &[SequenceContent], out: &mut Vec<String>) {
+    fn collect_event_targets(event: &viritura_engine::model::Event, out: &mut Vec<String>) {
+        if let Some(slurs) = &event.slurs {
+            out.extend(slurs.iter().map(|slur| slur.target.clone()));
+        }
+        for note in event.notes() {
+            for tie in note.ties.as_deref().unwrap_or_default() {
+                if let Some(target) = &tie.target {
+                    out.push(target.clone());
+                }
+            }
+        }
+    }
+
     for item in content {
         match item {
-            SequenceContent::Event(ev) => {
-                if let Some(slurs) = &ev.slurs {
-                    out.extend(slurs.iter().map(|s| s.target.clone()));
-                }
-            }
-            SequenceContent::Tuplet(t) => collect_slur_targets(&t.content, out),
+            SequenceContent::Event(event) => collect_event_targets(event, out),
+            SequenceContent::Tuplet(tuplet) => collect_connector_targets(&tuplet.content, out),
             SequenceContent::MultiNoteTremolo(t) => {
-                for ev in &t.content {
-                    if let Some(slurs) = &ev.slurs {
-                        out.extend(slurs.iter().map(|s| s.target.clone()));
-                    }
+                for event in &t.content {
+                    collect_event_targets(event, out);
                 }
             }
-            SequenceContent::Grace(g) => {
-                for ev in &g.content {
-                    if let Some(slurs) = &ev.slurs {
-                        out.extend(slurs.iter().map(|s| s.target.clone()));
-                    }
+            SequenceContent::Grace(grace) => {
+                for event in &grace.content {
+                    collect_event_targets(event, out);
                 }
             }
             SequenceContent::Space(_) | SequenceContent::Other(_) => {}
@@ -47,21 +52,26 @@ fn collect_slur_targets(content: &[SequenceContent], out: &mut Vec<String>) {
     }
 }
 
-/// Find the index of the measure (within `measures`) containing an event
-/// with id `target_id` (descending into tuplet/tremolo/grace containers).
-fn find_event_measure_index(measures: &[PartMeasure], target_id: &str) -> Option<usize> {
+/// Find the index of the measure containing a connector target event or note.
+fn find_connector_target_measure_index(measures: &[PartMeasure], target_id: &str) -> Option<usize> {
+    fn event_has_id(event: &viritura_engine::model::Event, target_id: &str) -> bool {
+        event.id.as_deref() == Some(target_id)
+            || event
+                .notes()
+                .iter()
+                .any(|note| note.id.as_deref() == Some(target_id))
+    }
+
     fn content_has_id(content: &[SequenceContent], target_id: &str) -> bool {
         content.iter().any(|item| match item {
-            SequenceContent::Event(ev) => ev.id.as_deref() == Some(target_id),
-            SequenceContent::Tuplet(t) => content_has_id(&t.content, target_id),
-            SequenceContent::MultiNoteTremolo(t) => t
-                .content
-                .iter()
-                .any(|ev| ev.id.as_deref() == Some(target_id)),
-            SequenceContent::Grace(g) => g
-                .content
-                .iter()
-                .any(|ev| ev.id.as_deref() == Some(target_id)),
+            SequenceContent::Event(event) => event_has_id(event, target_id),
+            SequenceContent::Tuplet(tuplet) => content_has_id(&tuplet.content, target_id),
+            SequenceContent::MultiNoteTremolo(t) => {
+                t.content.iter().any(|event| event_has_id(event, target_id))
+            }
+            SequenceContent::Grace(g) => {
+                g.content.iter().any(|event| event_has_id(event, target_id))
+            }
             SequenceContent::Space(_) | SequenceContent::Other(_) => false,
         })
     }
@@ -73,7 +83,7 @@ fn find_event_measure_index(measures: &[PartMeasure], target_id: &str) -> Option
 }
 
 #[cfg(test)]
-mod slur_dirty_range_tests {
+mod connector_dirty_range_tests {
     use super::*;
 
     fn two_measure_score_with_cross_measure_slur() -> Score {
@@ -96,26 +106,60 @@ mod slur_dirty_range_tests {
     }
 
     #[test]
-    fn collect_slur_targets_finds_cross_measure_target() {
+    fn collect_connector_targets_finds_cross_measure_slur_target() {
         let score = two_measure_score_with_cross_measure_slur();
         let mut ids = Vec::new();
         for seq in &score.parts[0].measures[0].sequences {
-            collect_slur_targets(&seq.content, &mut ids);
+            collect_connector_targets(&seq.content, &mut ids);
         }
         assert_eq!(ids, vec!["ev-tgt".to_string()]);
     }
 
     #[test]
-    fn find_event_measure_index_locates_target_in_later_measure() {
+    fn collect_connector_targets_finds_cross_measure_tie_target() {
+        let score = parse_mnx(
+            r#"{
+                "mnx": {"version": 1},
+                "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}]},
+                "parts": [{"measures": [
+                    {"sequences": [{"content": [{
+                        "duration": {"base": "whole"},
+                        "notes": [{
+                            "id": "source-note",
+                            "pitch": {"step": "C", "octave": 4},
+                            "ties": [{"target": "target-note"}]
+                        }]
+                    }]}]},
+                    {"sequences": [{"content": [{
+                        "duration": {"base": "whole"},
+                        "notes": [{"id": "target-note", "pitch": {"step": "C", "octave": 4}}]
+                    }]}]}
+                ]}]
+            }"#,
+        )
+        .expect("parse");
+        let mut ids = Vec::new();
+        for sequence in &score.parts[0].measures[0].sequences {
+            collect_connector_targets(&sequence.content, &mut ids);
+        }
+        assert_eq!(ids, vec!["target-note".to_string()]);
+        assert_eq!(
+            find_connector_target_measure_index(&score.parts[0].measures, "target-note"),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn find_connector_target_measure_index_locates_event_in_later_measure() {
         let score = two_measure_score_with_cross_measure_slur();
-        let idx = find_event_measure_index(&score.parts[0].measures, "ev-tgt");
+        let idx = find_connector_target_measure_index(&score.parts[0].measures, "ev-tgt");
         assert_eq!(idx, Some(1));
     }
 
     #[test]
-    fn find_event_measure_index_returns_none_for_unknown_id() {
+    fn find_connector_target_measure_index_returns_none_for_unknown_id() {
         let score = two_measure_score_with_cross_measure_slur();
-        let idx = find_event_measure_index(&score.parts[0].measures, "nonexistent");
+        let idx = find_connector_target_measure_index(&score.parts[0].measures, "nonexistent");
         assert_eq!(idx, None);
     }
 
@@ -159,6 +203,69 @@ mod slur_dirty_range_tests {
                 .iter()
                 .any(|id| id.as_deref() == Some("slur/source/target")),
             "The first incremental frame must render the three-measure slur"
+        );
+    }
+
+    #[test]
+    fn source_only_patch_renders_cross_measure_tie_immediately() {
+        let json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [{"time": {"count": 4, "unit": 4}}, {}, {}]},
+            "parts": [{"id": "P1", "name": "Flute", "measures": [
+                {"sequences": [{"content": [{
+                    "id": "source-event", "duration": {"base": "whole"},
+                    "notes": [{"id": "source-note", "pitch": {"step": "C", "octave": 4}}]
+                }]}]},
+                {"sequences": [{"content": [{
+                    "id": "target-event", "duration": {"base": "whole"},
+                    "notes": [{"id": "target-note", "pitch": {"step": "C", "octave": 4}}]
+                }]}]},
+                {"sequences": [{"content": [{
+                    "id": "unrelated-event", "duration": {"base": "whole"},
+                    "notes": [{"id": "unrelated-note", "pitch": {"step": "D", "octave": 4}}]
+                }]}]}
+            ]}],
+            "layouts": [{"id": "full", "content": [{"type": "staff", "sources": [{"part": "P1"}]}]}],
+            "scores": [{"name": "Full Score", "layout": "full"}]
+        }"#;
+        let patch = r#"{
+            "partMeasures": {"0": {"0": {
+                "sequences": [{"content": [{
+                    "id": "source-event", "duration": {"base": "whole"},
+                    "notes": [{
+                        "id": "source-note", "pitch": {"step": "C", "octave": 4},
+                        "ties": [{"target": "target-note"}]
+                    }]
+                }]}]
+            }}}
+        }"#;
+
+        let mut engine = LayoutEngine::default();
+        engine
+            .compute_full_score_layout_cached_dl(json, 10.0, 160.0, None, Some(0))
+            .expect("initial cached layout");
+        let display_list = engine
+            .apply_patch_and_layout_display_list(patch, 10.0, 160.0, None, Some(0))
+            .expect("source-only tie patch");
+        let metrics: serde_json::Value =
+            serde_json::from_str(&engine.layout_metrics_json()).expect("layout metrics parse");
+        assert!(
+            metrics["resolvedCells"].as_u64().unwrap_or_default() >= 2,
+            "the tie target measure must be included in the scoped resolve range"
+        );
+        assert!(
+            metrics["resolvedCells"].as_u64().unwrap_or_default()
+                < metrics["resolvedFullCells"].as_u64().unwrap_or_default(),
+            "the unrelated third measure must remain outside the scoped resolve range"
+        );
+
+        assert!(
+            display_list
+                .element_ids
+                .iter()
+                .flatten()
+                .any(|id| id.starts_with("tie/source-note/target-note")),
+            "The first incremental frame must render the cross-measure tie"
         );
     }
 }
@@ -895,15 +1002,15 @@ impl LayoutEngine {
                                     .measure_repeat
                                     .as_ref()
                                     .map_or(1, |repeat| repeat.number.max(1));
-                                // A slur's target may live in a DIFFERENT measure than the one
-                                // being patched. Collect targets from both the OLD content
-                                // (being replaced) and the NEW content, so a slur added,
-                                // retargeted, or removed here also widens the dirty range to
-                                // cover its target's measure — otherwise that measure's cached
-                                // layout segment never learns about the (dis)connected curve.
-                                let mut slur_target_ids: Vec<String> = Vec::new();
+                                // A slur or tie target may live in a different measure.
+                                // Collect both old and new targets so adding, retargeting,
+                                // or removing a connector refreshes both endpoint measures.
+                                let mut connector_target_ids: Vec<String> = Vec::new();
                                 for seq in &score.parts[pi].measures[mi].sequences {
-                                    collect_slur_targets(&seq.content, &mut slur_target_ids);
+                                    collect_connector_targets(
+                                        &seq.content,
+                                        &mut connector_target_ids,
+                                    );
                                 }
                                 let pm = promote_part_measure_json(pm_json).map_err(|e| {
                                     JsValue::from_str(&format!(
@@ -912,7 +1019,10 @@ impl LayoutEngine {
                                     ))
                                 })?;
                                 for seq in &pm.sequences {
-                                    collect_slur_targets(&seq.content, &mut slur_target_ids);
+                                    collect_connector_targets(
+                                        &seq.content,
+                                        &mut connector_target_ids,
+                                    );
                                 }
                                 let new_repeat_span = pm
                                     .measure_repeat
@@ -926,8 +1036,8 @@ impl LayoutEngine {
                                         .min(score.parts[pi].measures.len() - 1);
                                 changed_end =
                                     Some(changed_end.map_or(repeat_end, |e| e.max(repeat_end)));
-                                for target_id in &slur_target_ids {
-                                    if let Some(target_mi) = find_event_measure_index(
+                                for target_id in &connector_target_ids {
+                                    if let Some(target_mi) = find_connector_target_measure_index(
                                         &score.parts[pi].measures,
                                         target_id,
                                     ) {
