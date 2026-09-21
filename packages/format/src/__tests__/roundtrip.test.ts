@@ -21,6 +21,33 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("preserves an explicit dotted rest", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 3, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [{ duration: { base: "half", dots: 1 }, rest: {} }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const parsed = parseMnx(source);
+    const serialized = serializeMnx(parsed);
+    expect(serialized.parts[0]!.measures[0]!.sequences[0]!.content).toMatchObject(
+      source.parts[0]!.measures[0]!.sequences[0]!.content,
+    );
+    expect(parseMnx(serialized)).toEqual(parsed);
+  });
+
   it("preserves recursive beams and beamlet directions", () => {
     const source = {
       mnx: { version: 1 },

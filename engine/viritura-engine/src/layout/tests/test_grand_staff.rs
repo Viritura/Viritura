@@ -11,6 +11,7 @@ use crate::model::*;
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+use std::collections::HashSet;
 
 // ═══════════════════════════════════════
 // Grand Staff (Piano) Tests
@@ -89,6 +90,124 @@ fn test_grand_staff_split_by_staff() {
         1,
         "Staff 2 should have 1 clef"
     );
+}
+
+#[test]
+fn test_grand_staff_staff_local_ottavas_and_pedals_stay_on_lower_staff() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"id": "m1", "time": {"count": 4, "unit": 4}}]},
+        "parts": [{"staves": 2, "measures": [{
+            "clefs": [
+                {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+            ],
+            "ottavas": [{
+                "value": -1, "staff": 2, "position": {"fraction": [0, 1]},
+                "end": {"measure": "m1", "position": {"fraction": [1, 1]}}
+            }],
+            "_x": {"viritura": {"pedals": [{
+                "type": "sustain", "staff": 2, "position": {"fraction": [0, 1]},
+                "end": {"measure": "m1", "position": {"fraction": [1, 1]}}
+            }]}},
+            "sequences": [
+                {"staff": 1, "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                {"staff": 2, "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+            ]
+        }]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+    let top_staff_y = config.margin_top * config.sp;
+    let bottom_staff_y = top_staff_y + 11.0 * config.sp;
+
+    let ottava_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawGlyph {
+            codepoint: smufl::OTTAVA_BASSA_VB,
+            y,
+            ..
+        } => Some(*y),
+        _ => None,
+    });
+    assert!(
+        ottava_y.is_some_and(|y| y > bottom_staff_y + 4.0 * config.sp),
+        "8vb must be below its lower-staff owner, not the upper staff"
+    );
+    let pedal_y = dl.commands.iter().find_map(|command| match command {
+        RenderCommand::DrawGlyph {
+            codepoint: smufl::KEYBOARD_PEDAL_PED,
+            y,
+            ..
+        } => Some(*y),
+        _ => None,
+    });
+    assert!(
+        pedal_y.is_some_and(|y| y > bottom_staff_y + 4.0 * config.sp),
+        "pedal must be below its lower-staff owner, not the upper staff"
+    );
+}
+
+#[test]
+fn test_lower_staff_ottava_and_bracket_pedal_continue_across_systems() {
+    let json = r#"{
+        "mnx":{"version":1},
+        "global":{"measures":[
+            {"id":"m1","time":{"count":4,"unit":4}}, {"id":"m2"}, {"id":"m3"}
+        ]},
+        "parts":[{"staves":2,"measures":[
+            {"clefs":[{"clef":{"sign":"G","staffPosition":-2},"staff":1},{"clef":{"sign":"F","staffPosition":2},"staff":2}],
+             "ottavas":[{"value":-1,"staff":2,"position":{"fraction":[0,1]},"end":{"measure":"m3","position":{"fraction":[1,1]}}}],
+             "_x":{"viritura":{"pedals":[{"type":"sustain","style":"bracket","staff":2,"position":{"fraction":[0,1]},"end":{"measure":"m3","position":{"fraction":[1,1]}}}]}},
+             "sequences":[{"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":5}}]}]},{"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":3}}]}]}]},
+            {"sequences":[{"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":5}}]}]},{"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":3}}]}]}]},
+            {"sequences":[{"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"E","octave":5}}]}]},{"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"E","octave":3}}]}]}]}
+        ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(180.0),
+        page_margin_left: 1.0,
+        page_margin_right: 1.0,
+        ..LayoutConfig::default()
+    };
+    let dl = layout_score(&score, 0, &config);
+    let lower_systems: HashSet<_> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bound| bound.staff_index == 1)
+        .map(|bound| bound.system_index)
+        .collect();
+    assert!(
+        lower_systems.len() >= 2,
+        "fixture must break across systems"
+    );
+
+    for id_fragment in ["/ottava0", "/pedal0"] {
+        let systems: HashSet<_> = dl
+            .commands
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| {
+                dl.element_ids[*index]
+                    .as_deref()
+                    .is_some_and(|id| id.contains(id_fragment))
+            })
+            .filter_map(|(_, command)| match command {
+                RenderCommand::DrawLine { y1, .. } => dl
+                    .measure_bounds
+                    .iter()
+                    .filter(|bound| bound.staff_index == 1)
+                    .min_by(|a, b| (a.y - y1).abs().total_cmp(&(b.y - y1).abs()))
+                    .map(|bound| bound.system_index),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            systems.len() >= 2,
+            "{id_fragment} must emit lower-staff continuation segments on both systems; got {systems:?}"
+        );
+    }
 }
 
 #[test]

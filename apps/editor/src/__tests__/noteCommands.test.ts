@@ -248,45 +248,46 @@ describe("decomposeDuration", () => {
 });
 
 describe("decomposeRestsAtPosition", () => {
-  const ts44 = { count: 4, unit: 4 }; // 4/4: beatUnit = 1 quarter
+  const ts44 = { count: 4, unit: 4 };
 
-  it("3.75 beats at beat 0.25 in 4/4 → [16th, dotted-8th, half, quarter] (not double-dotted-half)", () => {
+  it("splits a non-compound rest at every resolved beat boundary without dots", () => {
     const result = decomposeRestsAtPosition(3.75, 0.25, ts44);
     const beats = result.map(durationToBeats);
     expect(beats.reduce((a, b) => a + b, 0)).toBeCloseTo(3.75);
-    // No single rest should span beat 2 (the half-bar), which starts at beat 2
-    // relative to measure start = beat 0.25 relative to our start.
-    // Max allowed rest touching beat 0.25 is a dotted-8th (0.75 beats).
-    expect(beats[0]).toBeLessThanOrEqual(0.75 + 1e-9);
+    expect(result.every((duration) => duration.dots === undefined)).toBe(true);
+    expect(beats).toEqual([0.5, 0.25, 1, 1, 1]);
   });
 
-  it("3.75 beats at beat 0.25 does NOT produce a double-dotted-half", () => {
-    const result = decomposeRestsAtPosition(3.75, 0.25, ts44);
-    expect(result.some((d) => d.base === "half" && d.dots === 2)).toBe(false);
+  it("keeps generated dotted rests in compound meter beat groups", () => {
+    const result = decomposeRestsAtPosition(3, 0, { count: 6, unit: 8 });
+    expect(result).toEqual([
+      { base: "quarter", dots: 1 },
+      { base: "quarter", dots: 1 },
+    ]);
   });
 
-  it("3.25 beats at beat 0.75 in 4/4 decomposes without crossing half-bar", () => {
-    const result = decomposeRestsAtPosition(3.25, 0.75, ts44);
-    const beats = result.map(durationToBeats);
-    expect(beats.reduce((a, b) => a + b, 0)).toBeCloseTo(3.25);
-    // First rest starts at 0.75; half-bar is beat 2 → only 1.25 beats away,
-    // so no rest longer than 1.25 should start at 0.75
-    expect(beats[0]).toBeLessThanOrEqual(1.25 + 1e-9);
+  it("uses authored asymmetric beat groups without dotted rests", () => {
+    const result = decomposeRestsAtPosition(2.5, 0, {
+      count: 5,
+      unit: 8,
+      beatStructure: [2, 3],
+    });
+    expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }, { base: "eighth" }]);
   });
 
-  it("2 beats at beat 0 in 4/4 → [half] (metrically clean, no split needed)", () => {
+  it("splits a two-beat rest at the intervening 4/4 beat boundary", () => {
     const result = decomposeRestsAtPosition(2, 0, ts44);
-    expect(result).toEqual([{ base: "half" }]);
+    expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }]);
   });
 
-  it("2 beats at beat 1 in 4/4 → [quarter, quarter] (crosses half-bar)", () => {
+  it("does not create a rest across a 4/4 beat boundary", () => {
     const result = decomposeRestsAtPosition(2, 1, ts44);
     expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }]);
   });
 
-  it("4 beats at beat 0 in 4/4 → [whole]", () => {
+  it("splits a full ordinary 4/4 rest into beats", () => {
     const result = decomposeRestsAtPosition(4, 0, ts44);
-    expect(result).toEqual([{ base: "whole" }]);
+    expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }, { base: "quarter" }, { base: "quarter" }]);
   });
 
   it("sums match total beats for a 16th note at beat 0 in 4/4", () => {
@@ -827,7 +828,7 @@ describe("deleteNote", () => {
     expect(seq(score).fullMeasure).toEqual({ visualDuration: { base: "whole" } });
   });
 
-  it("merges adjacent rests after deletion", () => {
+  it("spells adjacent restored rests by the meter after deletion", () => {
     const score = makeScoreWithQuarterRests();
     // Add notes at beats 0 and 2
     addNote(score, {
@@ -847,7 +848,7 @@ describe("deleteNote", () => {
       beatPosition: 2,
     });
 
-    // Delete note at index 0 — now beats 0,1 are rests → should merge to half rest
+    // Delete note at index 0 — beats 0 and 1 are restored as separate 4/4 beats.
     deleteNote(score, {
       measureIndex: 0,
       partIndex: 0,
@@ -856,9 +857,9 @@ describe("deleteNote", () => {
     });
 
     const s = seq(score);
-    // First event should be a merged half rest
+    // The restored rest span must not cross a non-compound beat boundary.
     expect(isRest(s.content[0]!)).toBe(true);
-    expect(durationToBeats(s.content[0]!.duration)).toBe(2);
+    expect(s.content.slice(0, 2).map((event) => event.duration)).toEqual([{ base: "quarter" }, { base: "quarter" }]);
   });
 
   it("throws on invalid event index", () => {

@@ -94,6 +94,46 @@ export const AllOttavaTypes: StoryObj = {
   name: "All ottava types (8va, 8vb, 15ma, 15mb)",
 };
 
+/** A lower-staff 8vb remains part-local in a piano grand staff. */
+export const LowerStaff8vb: StoryObj = {
+  name: "Grand staff lower-staff 8vb",
+  render: () => {
+    const mnx = buildMnx({
+      staves: 2,
+      measures: [
+        {
+          id: "m1",
+          time: { count: 4, unit: 4 },
+          clefs: [
+            { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+            { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+          ],
+          ottavas: [
+            {
+              value: -1,
+              staff: 2,
+              position: { fraction: [0, 1] },
+              end: { measure: "m2", position: { fraction: [0, 1] } },
+            },
+          ],
+          voices: [
+            [{ duration: "whole", notes: [{ step: "C", octave: 5 }], staff: 1 }],
+            [{ duration: "whole", notes: [{ step: "C", octave: 3 }], staff: 2 }],
+          ],
+        },
+        {
+          id: "m2",
+          voices: [
+            [{ duration: "whole", notes: [{ step: "D", octave: 5 }], staff: 1 }],
+            [{ duration: "whole", notes: [{ step: "D", octave: 3 }], staff: 2 }],
+          ],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+};
+
 type InteractiveArgs = { value: number };
 
 /** Pick the ottava value with Storybook controls. */

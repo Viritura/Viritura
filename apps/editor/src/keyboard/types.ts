@@ -10,7 +10,7 @@ import type { Score, Pitch, AccidentalType, ScorePatch } from "@viritura/core";
 import type { NoteValueBase } from "@viritura/core";
 import type { EditorKeyboardConfig } from "./useEditorKeyboard";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
-import type { GraceType } from "../store/noteInputStore";
+import type { GraceType, RhythmSource } from "../store/noteInputStore";
 import type { RadialMenuCategory } from "../radialMenu/types";
 import type { MeasureSelectionPoint, Selection } from "../store/selectionStore";
 
@@ -37,6 +37,7 @@ interface NoteInputSnapshot {
   chordLock: boolean;
   /** Active condensing-staff routing override (Alt+C popover). null = no override. */
   condensingRouting?: import("../components/CondensingPopover").CondensingMode | null;
+  rhythmSource: RhythmSource | null;
 }
 
 export interface KeyboardHandlerContext {
@@ -75,6 +76,7 @@ export interface KeyboardHandlerContext {
   setAccidental: (accidental: AccidentalType | null) => void;
   toggleChordLock: () => void;
   setChordLock: (enabled: boolean) => void;
+  setRhythmSource: (source: RhythmSource | null) => void;
 
   // Audio preview
   previewPitch: (pitch: Pitch, partIndex?: number) => void;

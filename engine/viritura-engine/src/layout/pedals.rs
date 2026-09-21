@@ -52,10 +52,11 @@ pub(crate) fn render_pedals(
             let start_x = find_event_x(ml, x_origin, content_width, total_beats, start_beat);
 
             // Compute end x from measure-rhythmic-position
-            let end_mi = measure_id_map
-                .get(&ped.end.measure)
-                .copied()
-                .unwrap_or(start_mi);
+            // Cross-system pedals are emitted by the dedicated post-pass once
+            // all system measure bounds are known.
+            let Some(&end_mi) = measure_id_map.get(&ped.end.measure) else {
+                continue;
+            };
             let end_ml = &measure_layouts[end_mi];
             let end_total_beats = end_ml.resolved.active_time.measure_beats();
             let end_content_width = super::render_barlines::rhythmic_content_width(end_ml, sp);

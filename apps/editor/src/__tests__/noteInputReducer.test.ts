@@ -20,6 +20,7 @@ describe("noteInputReducer", () => {
       lastPitch: null,
       cursorPosition: null,
       condensingRouting: null,
+      rhythmSource: null,
     });
   });
 

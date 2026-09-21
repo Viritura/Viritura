@@ -307,10 +307,11 @@ pub(crate) fn render_ottavas(
             };
 
             // Compute end x from measure-rhythmic-position
-            let end_mi = measure_id_map
-                .get(&ott.end.measure)
-                .copied()
-                .unwrap_or(start_mi);
+            // Cross-system ottavas are emitted by the dedicated post-pass once
+            // all system measure bounds are known.
+            let Some(&end_mi) = measure_id_map.get(&ott.end.measure) else {
+                continue;
+            };
             let end_ml = &measure_layouts[end_mi];
             let end_total_beats = end_ml.resolved.active_time.measure_beats();
             let end_content_width = super::render_barlines::rhythmic_content_width(end_ml, sp);
