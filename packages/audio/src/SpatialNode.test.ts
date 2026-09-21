@@ -162,20 +162,48 @@ describe("setListenerPosition", () => {
 });
 
 describe("getOrchestraPositions", () => {
-  it("places bass clarinet as the third clarinet and auxiliary percussion beside timpani", () => {
+  it("places auxiliary winds after their primary family in score order", () => {
     const positions = getOrchestraPositions([
+      "Flute 1",
+      "Flute 2",
+      "Piccolo",
+      "Alto Flute",
+      "Bass Flute",
+      "Oboe 1",
+      "Oboe 2",
+      "English Horn",
       "Clarinet 1",
       "Clarinet 2",
+      "E♭ Clarinet",
       "Bass Clarinet",
-      "Timpani",
-      "Orchestral Percussion",
-      "Auxiliary Percussion",
+      "Bassoon 1",
+      "Bassoon 2",
+      "Contrabassoon",
     ]);
 
     expect(positions).toEqual([
+      { x: -0.5, y: 6 },
+      { x: -1.5, y: 6 },
+      { x: -2.5, y: 6 },
+      { x: -3.5, y: 6 },
+      { x: -4.5, y: 6 },
+      { x: 0.5, y: 6 },
+      { x: 1.5, y: 6 },
+      { x: 2.5, y: 6 },
       { x: -0.5, y: 7 },
       { x: -1.5, y: 7 },
       { x: -2.5, y: 7 },
+      { x: -3.5, y: 7 },
+      { x: 0.5, y: 7 },
+      { x: 1.5, y: 7 },
+      { x: 2.5, y: 7 },
+    ]);
+  });
+
+  it("places orchestral and auxiliary percussion beside timpani", () => {
+    const positions = getOrchestraPositions(["Timpani", "Orchestral Percussion", "Auxiliary Percussion"]);
+
+    expect(positions).toEqual([
       { x: 0, y: 10 },
       { x: -1, y: 10 },
       { x: -1, y: 10 },

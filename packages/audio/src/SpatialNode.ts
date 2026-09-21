@@ -262,15 +262,20 @@ const INSTRUMENT_FAMILIES: Record<string, string> = {
 };
 
 /**
- * Auxiliary wind instruments and which principal they sit next to.
- * "side" is where the auxiliary goes relative to the outermost principal:
- *   "away" = further from x=0 (same direction principals spread)
+ * Auxiliary wind instruments are placed after every principal player in their
+ * family, in score order. This follows conventional orchestral score order:
+ * primary players first, then doubles and auxiliary instruments.
  */
-const AUXILIARY_WINDS: Record<string, { principal: string }> = {
-  piccolo: { principal: "flute" },
-  "english horn": { principal: "oboe" },
-  "bass clarinet": { principal: "clarinet" },
-  contrabassoon: { principal: "bassoon" },
+const AUXILIARY_WIND_FAMILIES: Record<string, string> = {
+  piccolo: "flute",
+  "alto flute": "flute",
+  "bass flute": "flute",
+  "english horn": "oboe",
+  "eb clarinet": "clarinet",
+  "e flat clarinet": "clarinet",
+  "eflat clarinet": "clarinet",
+  "bass clarinet": "clarinet",
+  contrabassoon: "bassoon",
 };
 
 /**
@@ -281,30 +286,29 @@ const AUXILIARY_WINDS: Record<string, { principal: string }> = {
  * the lead player (first in score order) is positioned closest to x=0
  * and subsequent players spread outward from center — away from x=0.
  *
- * Auxiliary winds (piccolo, english horn, bass clarinet, contrabassoon) are
- * placed just beyond the outermost principal of their parent section.
+ * Auxiliary winds are placed just beyond the outermost principal of their
+ * family, preserving their score order after the primary players.
  *
  * @returns Array of positions, one per input part name.
  */
 export function getOrchestraPositions(partNames: string[]): SpatialPosition[] {
-  const { basePositions, canonicals, hasOwnEntry, groups } = resolveBasePositions(partNames);
+  const { basePositions, auxiliaryFamilies, hasOwnEntry, groups } = resolveBasePositions(partNames);
   const result = basePositions.map((p) => ({ ...p }));
   spreadPrincipalGroups(result, basePositions, groups, hasOwnEntry);
-  positionAuxiliaryWinds(result, canonicals, groups);
-  spreadDuplicateAuxiliaries(result, groups);
+  positionAuxiliaryWinds(result, auxiliaryFamilies, groups);
   return result;
 }
 
 interface PartBaseInfo {
+  auxiliaryFamilies: (string | undefined)[];
   basePositions: SpatialPosition[];
-  canonicals: string[];
   hasOwnEntry: boolean[];
   groups: Map<string, number[]>;
 }
 
 function resolveBasePositions(partNames: string[]): PartBaseInfo {
+  const auxiliaryFamilies: (string | undefined)[] = [];
   const basePositions: SpatialPosition[] = [];
-  const canonicals: string[] = [];
   const hasOwnEntry: boolean[] = [];
   const groups = new Map<string, number[]>();
 
@@ -313,6 +317,16 @@ function resolveBasePositions(partNames: string[]): PartBaseInfo {
     basePositions.push(getOrchestraPosition(name));
 
     const lower = name.toLowerCase().trim();
+    const normalizedName = lower
+      .replace(/[♭]/g, "b")
+      .replace(/[♯]/g, "#")
+      .replace(/[.-]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\s+[ivxlcdm]+\s*$/i, "")
+      .replace(/\s+\d+\s*$/, "")
+      .trim();
+    const auxiliaryFamily = AUXILIARY_WIND_FAMILIES[normalizedName];
+    auxiliaryFamilies.push(auxiliaryFamily);
     const strippedName = lower
       .replace(/\s+in\s+[a-g][b#♭♯]?\s*$/i, "")
       .replace(/^[a-g][b#♭♯]?\s+/i, "")
@@ -321,14 +335,13 @@ function resolveBasePositions(partNames: string[]): PartBaseInfo {
       .trim();
     hasOwnEntry.push(lower in ORCHESTRAL_POSITIONS && lower !== strippedName);
 
-    const canonical = INSTRUMENT_FAMILIES[strippedName] ?? strippedName;
-    canonicals.push(canonical);
+    const canonical = auxiliaryFamily ? normalizedName : (INSTRUMENT_FAMILIES[strippedName] ?? strippedName);
     const group = groups.get(canonical);
     if (group) group.push(i);
     else groups.set(canonical, [i]);
   }
 
-  return { basePositions, canonicals, hasOwnEntry, groups };
+  return { auxiliaryFamilies, basePositions, hasOwnEntry, groups };
 }
 
 function spreadStringRanks(
@@ -358,7 +371,7 @@ function spreadPrincipalGroups(
   hasOwnEntry: boolean[],
 ): void {
   for (const [canonical, indices] of groups) {
-    if (AUXILIARY_WINDS[canonical]) continue;
+    if (AUXILIARY_WIND_FAMILIES[canonical]) continue;
 
     const spreadable = indices.filter((i) => !hasOwnEntry[i]);
     if (spreadable.length <= 1) continue;
@@ -378,33 +391,25 @@ function spreadPrincipalGroups(
   }
 }
 
-function positionAuxiliaryWinds(result: SpatialPosition[], canonicals: string[], groups: Map<string, number[]>): void {
-  for (let i = 0; i < canonicals.length; i++) {
-    const canonical = canonicals[i]!;
-    const aux = AUXILIARY_WINDS[canonical];
-    if (!aux) continue;
+function positionAuxiliaryWinds(
+  result: SpatialPosition[],
+  auxiliaryFamilies: readonly (string | undefined)[],
+  groups: Map<string, number[]>,
+): void {
+  for (const family of new Set(auxiliaryFamilies)) {
+    if (!family) continue;
+    const principalGroup = groups.get(family);
+    if (!principalGroup || principalGroup.length === 0) continue;
 
-    const principalGroup = groups.get(aux.principal);
-    if (principalGroup && principalGroup.length > 0) {
-      const lastPrincipalIdx = principalGroup[principalGroup.length - 1]!;
-      const lastPrincipalPos = result[lastPrincipalIdx]!;
-      const sign = lastPrincipalPos.x >= 0 ? 1 : -1;
-      result[i]!.x = lastPrincipalPos.x + sign * SECTION_SPREAD;
-      result[i]!.y = lastPrincipalPos.y;
-    }
-  }
-}
-
-function spreadDuplicateAuxiliaries(result: SpatialPosition[], groups: Map<string, number[]>): void {
-  for (const [canonical, indices] of groups) {
-    if (!AUXILIARY_WINDS[canonical]) continue;
-    if (indices.length <= 1) continue;
-
-    const baseX = result[indices[0]!]!.x;
-    const sign = baseX >= 0 ? 1 : -1;
-    for (let rank = 1; rank < indices.length; rank++) {
-      const idx = indices[rank]!;
-      result[idx]!.x = baseX + sign * rank * SECTION_SPREAD;
+    const lastPrincipal = result[principalGroup[principalGroup.length - 1]!]!;
+    const sign = lastPrincipal.x >= 0 ? 1 : -1;
+    const auxiliaryIndices = auxiliaryFamilies.flatMap((auxiliaryFamily, index) =>
+      auxiliaryFamily === family ? [index] : [],
+    );
+    for (let rank = 0; rank < auxiliaryIndices.length; rank++) {
+      const index = auxiliaryIndices[rank]!;
+      result[index]!.x = lastPrincipal.x + sign * (rank + 1) * SECTION_SPREAD;
+      result[index]!.y = lastPrincipal.y;
     }
   }
 }
