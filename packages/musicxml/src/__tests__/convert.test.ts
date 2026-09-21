@@ -164,6 +164,28 @@ describe("convertMusicXmlToMnx — basics", () => {
     expect((content[0]! as { duration: { base: string } }).duration).toEqual({ base: "half" });
   });
 
+  it("preserves an imported dotted rest spelling", () => {
+    const xml = wrapScore(
+      `
+      <note>
+        <rest/>
+        <duration>3</duration>
+        <type>half</type>
+        <dot/>
+      </note>
+    `,
+      { time: "<beats>3</beats><beat-type>4</beat-type>" },
+    );
+
+    const result = convertMusicXmlToMnx(xml);
+    const event = result.parts[0]!.measures[0]!.sequences![0]!.content[0] as {
+      duration: { base: string; dots?: number };
+      rest: unknown;
+    };
+    expect(event.rest).toBeDefined();
+    expect(event.duration).toEqual({ base: "half", dots: 1 });
+  });
+
   it("imports a rest display position relative to the active clef", () => {
     const xml = wrapScore(`
       <note>

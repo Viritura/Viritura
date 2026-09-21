@@ -97,6 +97,12 @@ Press `0` in note input to insert a rest of the current duration. In normal
 mode, `Delete` / `Backspace` replaces the selected event(s) with a rest of the
 same duration.
 
+When Viritura creates or repairs ordinary rests, it spells generated rests at
+the active meter's beat-group boundaries. In non-compound meters these
+generated rests are undotted; compound meters may use dotted rests within their
+three-unit beat groups. This does not alter explicitly entered or imported rest
+spellings, full-measure rests, or rests inside tuplets.
+
 When you click a note onto an empty measure, the full‑measure rest is replaced
 automatically — you don't need to clear it first.
 

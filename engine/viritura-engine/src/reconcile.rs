@@ -101,7 +101,6 @@ fn reconcile_measure(
     global_time_at: &[TimeSignature],
     staff_meter_tables: &[Vec<HashMap<u32, EffectiveStaffMeter>>],
 ) {
-    let expected = global_time_at[m].measure_beats();
     let is_pickup_measure = m == 0 && matches!(score.global.measures[m].number, Some(0));
     let is_senza_misura = score.global.measures[m]
         .time
@@ -127,11 +126,11 @@ fn reconcile_measure(
         let pm = &mut part.measures[m];
         for seq in &mut pm.sequences {
             let staff = seq.staff.unwrap_or(1);
-            let seq_expected = staff_meters_at_measure
+            let seq_time = staff_meters_at_measure
                 .and_then(|staves| staves.get(&staff))
-                .map(|effective| effective.time_signature.measure_beats())
-                .unwrap_or(expected);
-            reconcile_sequence(seq, seq_expected, is_pickup_measure);
+                .map(|effective| &effective.time_signature)
+                .unwrap_or(&global_time_at[m]);
+            reconcile_sequence(seq, seq_time.measure_beats(), seq_time, is_pickup_measure);
         }
     }
 }
@@ -163,7 +162,12 @@ fn content_beats(item: &SequenceContent) -> f64 {
 }
 
 /// Reconcile a single sequence to match the expected measure beats.
-fn reconcile_sequence(seq: &mut Sequence, expected_beats: f64, preserve_short_measure: bool) {
+fn reconcile_sequence(
+    seq: &mut Sequence,
+    expected_beats: f64,
+    time_signature: &TimeSignature,
+    preserve_short_measure: bool,
+) {
     // Skip sequences with fullMeasure flag and no explicit content
     if seq.full_measure.is_some() && seq.content.is_empty() {
         return;
@@ -177,20 +181,23 @@ fn reconcile_sequence(seq: &mut Sequence, expected_beats: f64, preserve_short_me
             return;
         }
         // Too short — fill with rests
-        fill_with_rests(seq, diff);
+        fill_with_rests(seq, diff, current, time_signature);
     } else if diff < -1e-9 {
         // Too long — trim trailing rests
-        trim_trailing_rests(seq, -diff);
+        trim_trailing_rests(seq, -diff, time_signature);
     }
 }
 
 /// Append rests to fill the given number of beats.
-fn fill_with_rests(seq: &mut Sequence, mut beats: f64) {
-    while beats > 1e-9 {
-        let base = largest_base_fitting(beats);
-        let base_beats = base.beats();
+fn fill_with_rests(
+    seq: &mut Sequence,
+    beats: f64,
+    start_beat: f64,
+    time_signature: &TimeSignature,
+) {
+    for duration in decompose_generated_rests(beats, start_beat, time_signature) {
         seq.content.push(SequenceContent::Event(Event {
-            duration: Duration { base, dots: None },
+            duration,
             id: None,
             notes: None,
             rest: Some(Rest {
@@ -205,12 +212,11 @@ fn fill_with_rests(seq: &mut Sequence, mut beats: f64) {
             stem_direction: None,
             orient: None,
         }));
-        beats -= base_beats;
     }
 }
 
 /// Trim trailing rests to remove the given excess beats.
-fn trim_trailing_rests(seq: &mut Sequence, mut excess: f64) {
+fn trim_trailing_rests(seq: &mut Sequence, mut excess: f64, time_signature: &TimeSignature) {
     while excess > 1e-9 && !seq.content.is_empty() {
         let last = seq.content.last().unwrap();
         // Only trim rests, never notes
@@ -230,9 +236,63 @@ fn trim_trailing_rests(seq: &mut Sequence, mut excess: f64) {
             // Shrink the rest
             seq.content.pop();
             let new_beats = last_beats - excess;
-            fill_with_rests(seq, new_beats);
+            let rest_start = sequence_beats(seq);
+            fill_with_rests(seq, new_beats, rest_start, time_signature);
             excess = 0.0;
         }
+    }
+}
+
+fn decompose_generated_rests(
+    beats: f64,
+    start_beat: f64,
+    time_signature: &TimeSignature,
+) -> Vec<Duration> {
+    let meter = time_signature
+        .resolve_meter()
+        .expect("reconciliation requires a valid time-signature beat structure");
+    let allow_dots =
+        !meter.beat_structure.is_empty() && meter.beat_structure.iter().all(|group| *group == 3);
+    let mut durations = Vec::new();
+    let mut remaining = beats;
+    let mut position = start_beat;
+
+    while remaining > 1e-9 {
+        let next_boundary = meter
+            .beat_boundaries
+            .iter()
+            .copied()
+            .find(|boundary| *boundary > position + 1e-9);
+        let span = next_boundary
+            .map(|boundary| (boundary - position).min(remaining))
+            .unwrap_or(remaining);
+        decompose_rest_span(span, allow_dots, &mut durations);
+        remaining -= span;
+        position += span;
+    }
+
+    durations
+}
+
+fn decompose_rest_span(beats: f64, allow_dots: bool, durations: &mut Vec<Duration>) {
+    let mut remaining = beats;
+    while remaining > 1e-9 {
+        let base = largest_base_fitting(remaining);
+        let base_beats = base.beats();
+        let dots = if allow_dots && base_beats * 1.75 <= remaining + 1e-9 {
+            Some(2)
+        } else if allow_dots && base_beats * 1.5 <= remaining + 1e-9 {
+            Some(1)
+        } else {
+            None
+        };
+        let multiplier = match dots {
+            Some(2) => 1.75,
+            Some(1) => 1.5,
+            _ => 1.0,
+        };
+        durations.push(Duration { base, dots });
+        remaining -= base_beats * multiplier;
     }
 }
 
@@ -334,13 +394,141 @@ mod tests {
             source_part_index: None,
             source_seq_index: None,
         };
-        reconcile_sequence(&mut seq, 4.0, false); // 4/4
+        reconcile_sequence(&mut seq, 4.0, &TimeSignature::default(), false); // 4/4
         let total: f64 = seq.content.iter().map(content_beats).sum();
         assert!(
             (total - 4.0).abs() < 1e-9,
             "Expected 4 beats, got {}",
             total
         );
+    }
+
+    #[test]
+    fn test_fill_non_compound_measure_splits_rests_at_beats() {
+        let mut seq = Sequence {
+            content: vec![],
+            full_measure: None,
+            staff: None,
+            voice: None,
+            orient: None,
+            forced_stem_up: None,
+            source_part_index: None,
+            source_seq_index: None,
+        };
+        let time = TimeSignature {
+            count: 3,
+            unit: 4,
+            display: None,
+            beat_structure: None,
+            grouping_display: None,
+        };
+
+        reconcile_sequence(&mut seq, 3.0, &time, false);
+
+        let durations: Vec<&Duration> = seq
+            .content
+            .iter()
+            .map(|item| match item {
+                SequenceContent::Event(event) => &event.duration,
+                _ => panic!("reconciliation should create only rest events"),
+            })
+            .collect();
+        assert_eq!(durations.len(), 3);
+        assert!(durations.iter().all(|duration| {
+            duration.base == NoteValueBase::Quarter && duration.dots.is_none()
+        }));
+    }
+
+    #[test]
+    fn test_fill_compound_measure_allows_dotted_rests_within_beat_groups() {
+        let mut seq = Sequence {
+            content: vec![],
+            full_measure: None,
+            staff: None,
+            voice: None,
+            orient: None,
+            forced_stem_up: None,
+            source_part_index: None,
+            source_seq_index: None,
+        };
+        let time = TimeSignature {
+            count: 6,
+            unit: 8,
+            display: None,
+            beat_structure: None,
+            grouping_display: None,
+        };
+
+        reconcile_sequence(&mut seq, 3.0, &time, false);
+
+        let durations: Vec<&Duration> = seq
+            .content
+            .iter()
+            .map(|item| match item {
+                SequenceContent::Event(event) => &event.duration,
+                _ => panic!("reconciliation should create only rest events"),
+            })
+            .collect();
+        assert_eq!(
+            durations,
+            vec![
+                &Duration {
+                    base: NoteValueBase::Quarter,
+                    dots: Some(1),
+                },
+                &Duration {
+                    base: NoteValueBase::Quarter,
+                    dots: Some(1),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_reconciliation_preserves_authored_dotted_rest() {
+        let mut seq = Sequence {
+            content: vec![SequenceContent::Event(Event {
+                duration: Duration {
+                    base: NoteValueBase::Half,
+                    dots: Some(1),
+                },
+                id: None,
+                notes: None,
+                rest: Some(Rest {
+                    staff_position: None,
+                }),
+                staff: None,
+                slurs: None,
+                glissandos: None,
+                markings: None,
+                fermata: None,
+                lyrics: None,
+                stem_direction: None,
+                orient: None,
+            })],
+            full_measure: None,
+            staff: None,
+            voice: None,
+            orient: None,
+            forced_stem_up: None,
+            source_part_index: None,
+            source_seq_index: None,
+        };
+        let time = TimeSignature {
+            count: 3,
+            unit: 4,
+            display: None,
+            beat_structure: None,
+            grouping_display: None,
+        };
+
+        reconcile_sequence(&mut seq, 3.0, &time, false);
+
+        let SequenceContent::Event(event) = &seq.content[0] else {
+            panic!("authored rest should remain an event");
+        };
+        assert_eq!(seq.content.len(), 1);
+        assert_eq!(event.duration.dots, Some(1));
     }
 
     #[test]
@@ -358,7 +546,7 @@ mod tests {
             source_part_index: None,
             source_seq_index: None,
         };
-        reconcile_sequence(&mut seq, 4.0, false);
+        reconcile_sequence(&mut seq, 4.0, &TimeSignature::default(), false);
         let total: f64 = seq.content.iter().map(content_beats).sum();
         assert!(
             (total - 4.0).abs() < 1e-9,
@@ -386,7 +574,7 @@ mod tests {
             source_part_index: None,
             source_seq_index: None,
         };
-        reconcile_sequence(&mut seq, 4.0, false);
+        reconcile_sequence(&mut seq, 4.0, &TimeSignature::default(), false);
         assert!(
             seq.content.is_empty(),
             "fullMeasure sequences should stay empty"
@@ -406,7 +594,7 @@ mod tests {
             source_seq_index: None,
         };
 
-        reconcile_sequence(&mut seq, 4.0, true);
+        reconcile_sequence(&mut seq, 4.0, &TimeSignature::default(), true);
 
         assert_eq!(
             seq.content.len(),

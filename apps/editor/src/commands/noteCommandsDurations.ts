@@ -5,7 +5,7 @@
  */
 
 import type { Duration, NoteEvent, NoteValueBase, SequenceContent } from "@viritura/core";
-import { DURATION_BEATS, generateId } from "@viritura/core";
+import { DURATION_BEATS, generateId, resolveMeter } from "@viritura/core";
 
 // ═══════════════════════════════════════════
 // Duration math helpers
@@ -20,36 +20,6 @@ export function durationToBeats(d: Duration): number {
     dotValue /= 2;
   }
   return beats;
-}
-
-/** Try to express `beats` as a single Duration (with up to 2 dots). */
-function singleDurationFor(beats: number): Duration | null {
-  const bases: NoteValueBase[] = [
-    "duplexMaxima",
-    "maxima",
-    "longa",
-    "breve",
-    "whole",
-    "half",
-    "quarter",
-    "eighth",
-    "16th",
-    "32nd",
-    "64th",
-    "128th",
-    "256th",
-    "512th",
-    "1024th",
-    "2048th",
-    "4096th",
-  ];
-  for (const base of bases) {
-    const baseB = DURATION_BEATS[base];
-    if (Math.abs(baseB - beats) < 1e-9) return { base };
-    if (Math.abs(baseB * 1.5 - beats) < 1e-9) return { base, dots: 1 };
-    if (Math.abs(baseB * 1.75 - beats) < 1e-9) return { base, dots: 2 };
-  }
-  return null;
 }
 
 /** Find the largest NoteValueBase that fits within the given beat count. */
@@ -140,36 +110,19 @@ export function decomposeDuration(beats: number): Duration[] {
   return result;
 }
 
-/**
- * Maximum beats of a single rest that may start at `pos` in a measure whose
- * beat unit is `beatUnit`, limited by `remaining`.
- */
-function maxRestLengthAt(pos: number, remaining: number, beatUnit: number): number {
-  const units = pos / beatUnit;
-  const onGrid = Math.abs(units - Math.round(units)) < 1e-9;
-  if (!onGrid) {
-    const nextBeat = Math.ceil(units + 1e-9) * beatUnit;
-    return Math.min(nextBeat - pos, remaining);
-  }
-  const strength = metricBoundaryStrength(pos, beatUnit);
-  if (!isFinite(strength)) return remaining;
-  return Math.min(strength, remaining);
+function isCompoundMeter(beatStructure: readonly number[]): boolean {
+  return beatStructure.length > 0 && beatStructure.every((group) => group === 3);
 }
 
-/**
- * Strength (in beats) of a beat-grid-aligned position: the largest power-of-2
- * multiple of `beatUnit` that evenly divides `pos`.  Bar start (pos ≈ 0) → ∞.
- */
-function metricBoundaryStrength(pos: number, beatUnit: number): number {
-  if (pos < 1e-9) return Infinity;
-  let strength = beatUnit;
-  let next = beatUnit * 2;
-  while (Math.abs(pos / next - Math.round(pos / next)) < 1e-9) {
-    strength = next;
-    next *= 2;
-    if (next > 1024) break;
+function decomposeUndottedDuration(beats: number): Duration[] {
+  const result: Duration[] = [];
+  let remaining = beats;
+  while (remaining > 1e-9) {
+    const base = beatsToNoteValueBase(remaining);
+    result.push({ base });
+    remaining -= DURATION_BEATS[base];
   }
-  return strength;
+  return result;
 }
 
 /**
@@ -182,26 +135,19 @@ export function decomposeRestsAtPosition(
   ts: import("@viritura/core").TimeSignature,
 ): Duration[] {
   if (beats <= 1e-9) return [];
-  const beatUnit = 4 / ts.unit;
+  const meter = resolveMeter(ts);
+  const allowDots = isCompoundMeter(meter.beatStructure);
   const result: Duration[] = [];
   let remaining = beats;
   let pos = startBeat;
 
   while (remaining > 1e-9) {
-    const maxLen = maxRestLengthAt(pos, remaining, beatUnit);
-    const single = singleDurationFor(maxLen);
-    if (single) {
-      result.push(single);
-      remaining -= maxLen;
-      pos += maxLen;
-    } else {
-      const sub = decomposeDuration(maxLen);
-      for (const d of sub) {
-        result.push(d);
-        pos += durationToBeats(d);
-      }
-      remaining -= maxLen;
-    }
+    const nextBoundary = meter.beatBoundaries.find((boundary) => boundary > pos + 1e-9);
+    const span = Math.min(nextBoundary === undefined ? remaining : nextBoundary - pos, remaining);
+    const durations = allowDots ? decomposeDuration(span) : decomposeUndottedDuration(span);
+    result.push(...durations);
+    remaining -= span;
+    pos += span;
   }
   return result;
 }
