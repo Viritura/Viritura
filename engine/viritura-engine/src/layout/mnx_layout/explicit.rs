@@ -40,7 +40,7 @@ use super::explicit_system_layouts::{
     build_explicit_system_layouts, ExplicitSystemLayouts, PersistentStaffState,
 };
 use super::explicit_widths::compute_explicit_max_widths;
-use super::instrument_labels::{explicit_label_margins, policy_for_system};
+use super::instrument_labels::{explicit_label_margins, policy_for_system, render_staff_labels};
 use super::page_turn_planning::single_source_part_index;
 use super::shared::*;
 use super::system_connectors::{
