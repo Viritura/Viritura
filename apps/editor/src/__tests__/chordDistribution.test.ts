@@ -404,6 +404,55 @@ describe("applyDistribution", () => {
     expect(steps(result!.score, 1).flat()).toEqual([]);
     expect(steps(result!.score, 3).flat()).toEqual([]);
   });
+
+  it("reduces a canvas range through the condensed projection's canonical events", () => {
+    const part = (id: string, step: Pitch["step"], octave: number, prefix: string) => ({
+      id,
+      measures: [
+        {
+          sequences: [
+            {
+              content: [
+                chord("half", [note(step, octave)], `${prefix}1`),
+                chord("half", [note(step, octave + 1)], `${prefix}2`),
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [part("P1", "G", 4, "fl1-"), part("P2", "E", 4, "fl2-")],
+      layouts: [
+        {
+          id: "condensed",
+          content: [{ type: "staff", sources: [{ part: "P1" }, { part: "P2" }] }],
+        },
+      ],
+      scores: [{ name: "Condensed", layout: "condensed" }],
+    };
+    // This is the range shape emitted by two Shift-clicks on the canvas. The
+    // pointer metadata identifies the visual condensed row; unlike the older
+    // tests, it is not a fabricated bare event selection.
+    const selection: Selection = {
+      kind: "range",
+      startElementId: "p0/m0/s0/fl1-1",
+      endElementId: "p0/m0/s0/fl1-2",
+      measureAnchor: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
+      measureFocus: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
+    };
+
+    const result = applyDistribution(score, selection, "reduce", 0);
+
+    expect(result?.changed).toBe(true);
+    expect(steps(result!.score, 0)).toEqual([
+      ["E4", "G4"],
+      ["E5", "G5"],
+    ]);
+    expect(steps(result!.score, 1).flat()).toEqual([]);
+  });
 });
 
 describe("mergeNotesIntoEvent", () => {

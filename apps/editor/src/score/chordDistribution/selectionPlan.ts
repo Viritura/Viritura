@@ -19,7 +19,8 @@ import { buildBeatGrid, maxSimultaneity } from "./beatGrid";
 import { extendVisibleDownward, layoutStaffOrder, visibleStavesFor, type VisibleStaff } from "./layoutStaffOrder";
 import { redistributeStaves, type RedistributeResult } from "./redistribute";
 import { selectionWindows, snapWindow, type MeasureWindow } from "./selectionRange";
-import { selectionStaffRefs, type StaffRef } from "./staffOrder";
+import { distributionSourceEvents } from "./selectionSources";
+import { eventStaffRefs, type StaffRef } from "./staffOrder";
 
 export type DistributionMode = "explode" | "reduce" | "redistribute";
 
@@ -63,8 +64,9 @@ function planDistribution(
   mode: DistributionMode,
   selectedScoreIndex: number,
 ): DistributionPlan | null {
-  const refs = selectionStaffRefs(score, selection);
-  const raw = selectionWindows(score, selection);
+  const events = distributionSourceEvents(score, selection, selectedScoreIndex);
+  const refs = eventStaffRefs(score, events);
+  const raw = selectionWindows(score, selection, events);
   if (refs.length === 0 || raw.length === 0) return null;
 
   const order = layoutStaffOrder(score, selectedScoreIndex);

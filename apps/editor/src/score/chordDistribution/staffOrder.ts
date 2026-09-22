@@ -8,8 +8,7 @@
  */
 
 import type { Score } from "@viritura/core";
-import { resolveSelectionEvents } from "../../store/selectionUtils";
-import type { Selection } from "../../store/selectionStore";
+import type { EventLocation } from "../ElementPath";
 
 /** A physical staff: a part plus its one-based staff number. */
 export interface StaffRef {
@@ -50,9 +49,9 @@ export function staffVoiceCount(score: Score, ref: StaffRef, measureIndex: numbe
 }
 
 /** The distinct staves a selection touches, ordered top to bottom. */
-export function selectionStaffRefs(score: Score, selection: Selection): StaffRef[] {
+export function eventStaffRefs(score: Score, locations: readonly EventLocation[]): StaffRef[] {
   const refs = new Map<string, StaffRef>();
-  for (const loc of resolveSelectionEvents(selection, score)) {
+  for (const loc of locations) {
     const staff = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.staff ?? 1;
     refs.set(`${loc.partIndex}/${staff}`, { partIndex: loc.partIndex, staff });
   }
