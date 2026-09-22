@@ -21,7 +21,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { computeHorizonPaperGeometry, detectStaves, TileCache } from "@viritura/renderer";
+import { computeHorizonPaperGeometry, detectStavesForViewMode, TileCache } from "@viritura/renderer";
 import type {
   DisplayList,
   Engine,
@@ -115,6 +115,8 @@ interface ScoreViewContextValue {
   zoom: number;
   pageLayouts: readonly PageLayout[];
   pagePositions: readonly ScorePagePosition[];
+  /** Current view mode, so overlays can resolve staff rows the same way the surface lays them out. */
+  viewMode: ScoreViewMode;
 }
 
 const ScoreViewContext = createContext<ScoreViewContextValue | null>(null);
@@ -422,8 +424,13 @@ function ScorePlayheadMarker({ left, top, height, follow, className, style, chil
 }
 
 function ScorePlayhead({ beat, position, partId, follow = false, render, className, style }: ScorePlayheadProps) {
-  const { engine, displayList, zoom, pageLayouts, pagePositions } = useScoreView();
-  const staves = useMemo(() => (displayList ? detectStaves(displayList) : []), [displayList]);
+  const { engine, displayList, zoom, pageLayouts, pagePositions, viewMode } = useScoreView();
+  // Bounds-aware detection so staves with non-standard line counts (e.g.
+  // single-line percussion) still yield a row for the playhead to span.
+  const staves = useMemo(
+    () => (displayList ? detectStavesForViewMode(displayList, viewMode === "horizon" ? "horizon" : "page") : []),
+    [displayList, viewMode],
+  );
   const geometry = resolveScorePlayheadGeometry({
     engine,
     displayList,
@@ -588,6 +595,7 @@ export function ScoreView({
     zoom,
     pageLayouts,
     pagePositions: pageLayoutResult.positions,
+    viewMode,
   };
 
   if (viewMode === "horizon") {

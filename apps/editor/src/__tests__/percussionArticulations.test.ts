@@ -7,6 +7,8 @@ import {
   setSingleTremoloMarks,
   setFermataShape,
   setOrnaments,
+  setArpeggioMark,
+  planSetArpeggioMark,
 } from "../commands/articulationCommands";
 
 // Percussion events carry their noteheads in `kitNotes`, never in `notes`.
@@ -108,5 +110,54 @@ describe("articulations on percussion (kit) events", () => {
     expect(setSingleTremoloMarks(makeKitScore(), 0, 0, 0, 0, 3)).not.toBeNull();
     expect(setFermataShape(makeKitScore(), 0, 0, 0, 0, "normal")).not.toBeNull();
     expect(setOrnaments(makeKitScore(), 0, 0, 0, 0, ["trill"])).not.toBeNull();
+  });
+});
+
+describe("arpeggio on a multi-drum percussion chord", () => {
+  function makeKitChordScore(): Score {
+    const score = makeKitScore();
+    // One event holding two simultaneous drums — the percussion equivalent of
+    // a chord, which is what an arpeggio/non-arpeggio spans.
+    eventAt(score, 0).kitNotes = [{ kitComponent: "snare" }, { kitComponent: "kick" }];
+    return score;
+  }
+
+  it("applies an arpeggio across the kit notes", () => {
+    const result = setArpeggioMark(makeKitChordScore(), 0, 0, 0, 0, "up");
+    expect(result).not.toBeNull();
+    expect(result!.parts[0]!.measures[0]!.arpeggios).toHaveLength(1);
+  });
+
+  it("spans from the first kit note to the last, assigning ids", () => {
+    const result = setArpeggioMark(makeKitChordScore(), 0, 0, 0, 0, "up")!;
+    const kitNotes = eventAt(result, 0).kitNotes;
+    const span = result.parts[0]!.measures[0]!.arpeggios![0]!.span;
+
+    expect(kitNotes[0].id).toBeDefined();
+    expect(kitNotes[1].id).toBeDefined();
+    expect(span.start).toBe(kitNotes[0].id);
+    expect(span.end).toBe(kitNotes[1].id);
+  });
+
+  it("applies a non-arpeggio bracket too", () => {
+    const result = setArpeggioMark(makeKitChordScore(), 0, 0, 0, 0, "nonArpeggio")!;
+    expect(result.parts[0]!.measures[0]!.nonArpeggios).toHaveLength(1);
+  });
+
+  it("still refuses a single-drum event", () => {
+    // One kit note is not a chord — nothing to arpeggiate across.
+    expect(setArpeggioMark(makeKitScore(), 0, 0, 0, 0, "up")).toBeNull();
+  });
+
+  it("plans an arpeggio patch once the kit notes carry ids", () => {
+    const score = makeKitChordScore();
+    eventAt(score, 0).kitNotes = [
+      { kitComponent: "snare", id: "kn1" },
+      { kitComponent: "kick", id: "kn2" },
+    ];
+    const patches = planSetArpeggioMark(score, 0, 0, 0, 0, "up");
+    expect(patches).not.toBeNull();
+    const next = applyPatchesToScore(score, patches!);
+    expect(next.parts[0]!.measures[0]!.arpeggios).toHaveLength(1);
   });
 });

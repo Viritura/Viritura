@@ -11,7 +11,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
 import { generateTimeline } from "@viritura/midi";
-import { handleNoteEntry } from "../keyboard/noteEntryHandler";
+import { handleMidiChordEntry, handleMidiNoteEntry, handleNoteEntry } from "../keyboard/noteEntryHandler";
 import type { KeyboardHandlerContext } from "../keyboard/types";
 
 /** Snare on the middle line (the single-line-staff shape from the catalog). */
@@ -211,5 +211,141 @@ describe("percussion entry playback", () => {
     // number, MIDI 67 — High Agogo on the drum channel.
     expect(noteOns[0]!.midiNote).toBe(38);
     expect(noteOns[0]!.midiNote).not.toBe(67);
+  });
+
+  it("falls back to previewing the pitch when the drum has no mapped sound", () => {
+    // Kit component with no `sound`, so no MIDI number resolves.
+    let score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Unmapped Drum",
+          kit: { hit: { staffPosition: 0 } },
+          measures: [{ sequences: [{ content: [] }] }],
+        },
+      ],
+    } as unknown as Score;
+    const { context, previewMidi, previewPitch } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    vi.useFakeTimers();
+    handleNoteEntry("B", false, context);
+    vi.runAllTimers();
+    vi.useRealTimers();
+
+    // Silence would be worse than an approximate preview — the user needs
+    // audible confirmation that the key registered.
+    expect(previewMidi).not.toHaveBeenCalled();
+    expect(previewPitch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("percussion MIDI-device entry", () => {
+  it("maps a drum pad's GM number to its kit component", () => {
+    let score = makeDrumKitScore();
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    handleMidiNoteEntry(38, context); // acoustic snare pad
+
+    const event = firstEvent(score);
+    // Reading 38 as a pitch would notate D2 and play whatever GM percussion
+    // occupies MIDI 38's chromatic slot.
+    expect(event.notes).toBeUndefined();
+    expect(event.kitNotes).toEqual([{ kitComponent: "snare" }]);
+  });
+
+  it("maps the kick pad to the kick component", () => {
+    let score = makeDrumKitScore();
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    handleMidiNoteEntry(36, context);
+
+    expect(firstEvent(score).kitNotes).toEqual([{ kitComponent: "kick" }]);
+  });
+
+  it("round-trips a pad hit to the same GM number through playback", () => {
+    let score = makeDrumKitScore();
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    handleMidiNoteEntry(38, context);
+    const noteOns = generateTimeline(score).events.filter((e) => e.type === "noteOn");
+
+    expect(noteOns).toHaveLength(1);
+    expect(noteOns[0]!.midiNote).toBe(38);
+  });
+
+  it("enters simultaneous pads as one multi-drum event", () => {
+    let score = makeDrumKitScore();
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+      { chordLock: true },
+    );
+
+    handleMidiChordEntry([36, 38], context);
+
+    const components = generateTimeline(score)
+      .events.filter((e) => e.type === "noteOn")
+      .map((e) => e.midiNote)
+      .sort((a, b) => a - b);
+    expect(components).toEqual([36, 38]);
+  });
+
+  it("drops an unmapped pad rather than notating an arbitrary drum", () => {
+    let score = makeDrumKitScore();
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    // 51 (ride cymbal) is not in this kit. Treble-reading its pitch would have
+    // snapped it to whichever drum sits nearest — silently wrong.
+    handleMidiNoteEntry(51, context);
+
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content).toHaveLength(0);
+  });
+
+  it("leaves pitched parts untouched by MIDI entry", () => {
+    let score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [{ name: "Piano", measures: [{ sequences: [{ content: [] }] }] }],
+    } as unknown as Score;
+    const { context } = makeContext(
+      () => score,
+      (next) => {
+        score = next;
+      },
+    );
+
+    handleMidiNoteEntry(60, context);
+
+    const event = firstEvent(score);
+    expect(event.kitNotes).toBeUndefined();
+    expect(event.notes![0]!.pitch.step).toBe("C");
   });
 });

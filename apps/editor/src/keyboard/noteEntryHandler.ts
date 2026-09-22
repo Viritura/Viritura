@@ -35,7 +35,12 @@ import {
 import { prevailingAlterationAtPosition } from "../commands/accidentalCommands";
 import { getActiveTimeSignature, computeUsedBeats, advanceCursorByNotatedDuration } from "../commands/cursorCommands";
 import { closestOctave, aboveOctave, defaultPitchForClef } from "../input/octaveLogic";
-import { isPercussionPart, kitComponentForPitch, midiNumberForKitComponent } from "../score/kitInput";
+import {
+  isPercussionPart,
+  kitComponentForMidiNumber,
+  kitComponentForPitch,
+  midiNumberForKitComponent,
+} from "../score/kitInput";
 import { cloneScore, produce } from "../score/scoreClone";
 import type { KeyboardHandlerContext } from "./types";
 import {
@@ -160,14 +165,16 @@ function buildEntryPitch(
   if (!ni.isRest) {
     // Percussion previews the mapped drum, not the pitch: the part plays on the
     // GM drum channel, where a pitch would sound as an unrelated instrument.
+    // If the drum can't be resolved we still preview the pitch rather than go
+    // silent — a wrong-sounding preview is better than no feedback at all.
     const part = currentScore.parts[entryCtx.partIndex];
     const kitComponent = part && isPercussionPart(part) ? kitComponentForPitch(part, writtenPitch) : null;
     const kitMidi =
       part && kitComponent ? midiNumberForKitComponent(part, currentScore.global?.sounds, kitComponent) : null;
-    if (kitMidi !== null && ctx.previewMidi) {
-      const previewMidi = ctx.previewMidi;
+    const previewMidi = ctx.previewMidi;
+    if (kitMidi !== null && previewMidi) {
       setTimeout(() => previewMidi(kitMidi, entryCtx.partIndex), 0);
-    } else if (kitComponent === null) {
+    } else {
       setTimeout(() => ctx.previewPitch(writtenPitch, entryCtx.partIndex), 0);
     }
   }
@@ -268,6 +275,7 @@ function tryChordEntry(
   pitch: Pitch,
   writtenPitch: Pitch,
   stackAbove = true,
+  kitComponentOverride?: string | null,
 ): boolean {
   const ni = ctx.getNoteInput();
   const cursor = ni.cursorPosition;
@@ -299,7 +307,7 @@ function tryChordEntry(
   }
 
   if (loc) {
-    const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch);
+    const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch, kitComponentOverride);
     const newScore = produce(currentScore, (draft) => {
       const targetEv =
         draft.parts[entryCtx.partIndex]?.measures[loc.measureIndex]?.sequences[entryCtx.voice]?.content[loc.eventIndex];
@@ -413,19 +421,41 @@ type InsertKind = "grace-slash" | "grace-acciaccatura" | "rest" | "note";
  * keyboard entry through the same percussion map the click path already uses.
  *
  * Returns null for pitched parts, which keep the normal pitch path.
+ *
+ * `explicitKitComponent` bypasses the letter→line mapping for gestures that
+ * already name a drum directly, such as a MIDI pad transmitting a GM
+ * percussion number.
  */
 function resolvePercussionEntry(
   score: Score,
   partIndex: number,
   writtenPitch: Pitch,
+  explicitKitComponent?: string | null,
 ): { kitComponent: string; previewStaffPosition: number } | null {
   const part = score.parts[partIndex];
   if (!part || !isPercussionPart(part)) return null;
-  const kitComponent = kitComponentForPitch(part, writtenPitch);
-  if (!kitComponent) return null;
+  const kitComponent = explicitKitComponent ?? kitComponentForPitch(part, writtenPitch);
+  if (!kitComponent || !part.kit?.[kitComponent]) return null;
   // Engine convention for kit noteheads: pos-from-top = 4 - MNX staffPosition.
-  const previewStaffPosition = 4 - (part.kit?.[kitComponent]?.staffPosition ?? 0);
+  const previewStaffPosition = 4 - (part.kit[kitComponent]?.staffPosition ?? 0);
   return { kitComponent, previewStaffPosition };
+}
+
+/**
+ * Kit routing for a performed MIDI number.
+ *
+ * Returns null for pitched parts, which take the normal pitch path. On a
+ * percussion part the result always describes the pad: a matched component, or
+ * `null` when the pad isn't in the kit at all.
+ */
+function percussionMidiRouting(
+  score: Score,
+  partIndex: number,
+  midiNote: number,
+): { kitComponent: string | null } | null {
+  const part = score.parts[partIndex];
+  if (!part || !isPercussionPart(part)) return null;
+  return { kitComponent: kitComponentForMidiNumber(part, score.global?.sounds, midiNote) };
 }
 
 function insertKindFor(ctx: KeyboardHandlerContext): InsertKind {
@@ -638,11 +668,12 @@ function insertPlannedPitch(
   plan: InsertPlan,
   pitch: Pitch,
   writtenPitch: Pitch,
+  kitComponentOverride?: string | null,
 ): void {
   const ts = getActiveTimeSignature(currentScore, plan.measureIdx);
   const maxBeats = measureBeats(ts);
   const ni = ctx.getNoteInput();
-  const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch);
+  const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch, kitComponentOverride);
   const inBounds =
     plan.measureIdx < currentScore.global.measures.length &&
     plan.beatPos + plan.noteBeats <= maxBeats + 1e-9 &&
@@ -685,6 +716,13 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
   const entryCtx = buildEntryContext(ctx, currentScore);
   const entryKeyFifths = resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure);
   const soundingPitch = midiNoteToPitch(midiNote, entryKeyFifths);
+  // A drum pad names its instrument by GM percussion number, not by pitch. An
+  // unmapped pad is dropped rather than notated as an arbitrary nearby drum:
+  // there is no correct notation for it, and silently entering the wrong drum
+  // is harder to notice than nothing happening.
+  const routing = percussionMidiRouting(currentScore, entryCtx.partIndex, midiNote);
+  if (routing && !routing.kitComponent) return;
+  const kitComponent = routing?.kitComponent ?? null;
 
   if (ctx.getNoteInput().chordLock) {
     const writtenPitch = resolveWrittenPitchFromSounding(
@@ -693,7 +731,7 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
       entryCtx.partIndex,
       entryKeyFifths,
     );
-    tryChordEntry(ctx, currentScore, entryCtx, soundingPitch, writtenPitch, false);
+    tryChordEntry(ctx, currentScore, entryCtx, soundingPitch, writtenPitch, false, kitComponent);
     return;
   }
 
@@ -711,7 +749,7 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
     entryCtx.partIndex,
     plannedKeyFifths,
   );
-  insertPlannedPitch(ctx, currentScore, entryCtx, plan, plannedSoundingPitch, writtenPitch);
+  insertPlannedPitch(ctx, currentScore, entryCtx, plan, plannedSoundingPitch, writtenPitch, kitComponent);
 }
 
 /** Enter one released MIDI-key gesture as a single note or chord and advance once. */
@@ -761,7 +799,17 @@ export function handleMidiChordEntry(midiNotes: readonly number[], ctx: Keyboard
     const keyFifths = resolveKeyAtMeasure(workingScore, entryCtx.cursorMeasure);
     const soundingPitch = midiNoteToPitch(note, keyFifths);
     const writtenPitch = resolveWrittenPitchFromSounding(soundingPitch, workingScore, entryCtx.partIndex, keyFifths);
-    tryChordEntry(batchedContext, workingScore, entryCtx, soundingPitch, writtenPitch, false);
+    const routing = percussionMidiRouting(workingScore, entryCtx.partIndex, note);
+    if (routing && !routing.kitComponent) continue;
+    tryChordEntry(
+      batchedContext,
+      workingScore,
+      entryCtx,
+      soundingPitch,
+      writtenPitch,
+      false,
+      routing?.kitComponent ?? null,
+    );
   }
 
   if (workingScore !== initialScore) ctx.updateScore(workingScore, affectedMeasures);

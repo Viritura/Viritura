@@ -132,3 +132,29 @@ export function midiNumberForKitComponent(
   if (!sound || typeof sound.midiNumber !== "number") return null;
   return sound.midiNumber;
 }
+
+/**
+ * Inverse of {@link midiNumberForKitComponent}: the kit component a performed
+ * MIDI number refers to.
+ *
+ * A drum pad transmits the GM percussion number of the drum it represents (38
+ * for an acoustic snare), not a pitch. Reading that as a pitch would notate a
+ * snare hit as D2 and then play whatever GM percussion sits on D2's chromatic
+ * number, so percussion MIDI entry matches on the mapped number instead.
+ *
+ * Exact matches only — a pad that isn't in the kit returns null rather than
+ * snapping to the nearest drum, since GM percussion numbering is categorical
+ * and "nearest number" carries no musical meaning.
+ */
+export function kitComponentForMidiNumber(
+  part: Part,
+  globalSounds: Record<string, { midiNumber?: number }> | undefined,
+  midiNumber: number,
+): string | null {
+  const kit = part.kit;
+  if (!kit) return null;
+  for (const id of Object.keys(kit)) {
+    if (midiNumberForKitComponent(part, globalSounds, id) === midiNumber) return id;
+  }
+  return null;
+}

@@ -409,13 +409,14 @@ export function setArpeggioMark(
 
   const ev = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
   if (!ev) return null;
-  if (kind !== undefined && (!ev.notes || ev.notes.length < 2)) return null;
+  const spanNotes = spannableNotes(ev);
+  if (kind !== undefined && spanNotes.length < 2) return null;
 
   const position = computeEventPosition(seq.content as SequenceContent[], eventIndex, tupletIndex);
   if (!position) return null;
 
-  const firstNote = ev.notes?.[0];
-  const lastNote = ev.notes?.[ev.notes.length - 1];
+  const firstNote = spanNotes[0];
+  const lastNote = spanNotes[spanNotes.length - 1];
   const span = firstNote && lastNote ? ensureIdSpan(firstNote, lastNote) : undefined;
 
   clearArpeggioObjectsAt(partMeasure, position, span);
@@ -651,6 +652,18 @@ function ensureIdSpan(firstNote: { id?: string }, lastNote: { id?: string }): { 
   firstNote.id ??= generateNoteId();
   lastNote.id ??= generateNoteId();
   return { start: firstNote.id, end: lastNote.id };
+}
+
+/**
+ * Noteheads an arpeggio/non-arpeggio can span, in the engine's notehead order:
+ * pitched `notes` first, then percussion `kitNotes` (matching `promote_event`).
+ *
+ * Kit notes carry an optional `id` that survives promotion into the model's
+ * note list, so they can anchor a span exactly like pitched notes — which is
+ * what lets a multi-drum percussion chord take an arpeggio or non-arpeggio.
+ */
+function spannableNotes(ev: NoteEvent): { id?: string }[] {
+  return [...(ev.notes ?? []), ...(ev.kitNotes ?? [])];
 }
 
 function samePosition(a: RhythmicPosition, b: RhythmicPosition): boolean {
@@ -942,11 +955,12 @@ export function planSetArpeggioMark(
   if (!partMeasure || !seq) return null;
   const ev = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
   if (!ev) return null;
-  if (kind !== undefined && (!ev.notes || ev.notes.length < 2)) return null;
+  const spanNotes = spannableNotes(ev);
+  if (kind !== undefined && spanNotes.length < 2) return null;
   const position = computeEventPosition(seq.content as SequenceContent[], eventIndex, tupletIndex);
   if (!position) return null;
-  const firstNote = ev.notes?.[0];
-  const lastNote = ev.notes?.[ev.notes.length - 1];
+  const firstNote = spanNotes[0];
+  const lastNote = spanNotes[spanNotes.length - 1];
   if (!firstNote?.id || !lastNote?.id) return null;
   const span = { start: firstNote.id, end: lastNote.id };
   return [patch.setMeasureArpeggio(measurePath, position, span, kind)];
