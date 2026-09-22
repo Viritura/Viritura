@@ -177,13 +177,31 @@ function spliceWindow(sequence: Sequence, window: MeasureWindow, content: NoteEv
   ];
 }
 
-function collectVoiceWarnings(score: Score, refs: readonly StaffRef[], measureIndex: number, into: Set<string>): void {
+function uniqueStaves(refs: readonly StaffRef[]): StaffRef[] {
+  const unique: StaffRef[] = [];
   for (const ref of refs) {
-    if (staffVoiceCount(score, ref, measureIndex) > 1) {
-      const name = score.parts[ref.partIndex]?.name ?? `Part ${ref.partIndex + 1}`;
-      into.add(`${name} staff ${ref.staff} has more than one voice; only the first voice was redistributed.`);
-    }
+    if (!unique.some((entry) => sameStaff(entry, ref))) unique.push(ref);
   }
+  return unique;
+}
+
+function formatList(values: readonly string[]): string {
+  if (values.length <= 1) return values[0] ?? "";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function multiVoiceWarning(score: Score, refs: readonly StaffRef[], windows: readonly MeasureWindow[]): string | null {
+  const affected = uniqueStaves(refs).filter((ref) =>
+    windows.some((window) => staffVoiceCount(score, ref, window.measureIndex) > 1),
+  );
+  if (affected.length === 0) return null;
+  const labels = affected.map((ref) => {
+    const name = score.parts[ref.partIndex]?.name ?? `Part ${ref.partIndex + 1}`;
+    return `${name} staff ${ref.staff}`;
+  });
+  const verb = labels.length === 1 ? "has" : "have";
+  return `Nothing was redistributed: ${formatList(labels)} ${verb} more than one voice. Multi-voice distribution is not supported yet.`;
 }
 
 /**
@@ -197,6 +215,11 @@ export function redistributeStaves(score: Score, params: RedistributeParams): Re
   }
 
   const sourceStaves = sources.flatMap((staff) => staff.members);
+  const targetStaves = targets.flatMap((staff) => staff.members);
+  const unsupportedVoices = multiVoiceWarning(score, [...sourceStaves, ...targetStaves], windows);
+  if (unsupportedVoices) {
+    return { score, warnings: [unsupportedVoices], changed: false };
+  }
   const grid = buildBeatGrid(score, sourceStaves, windows);
   if (grid.measures.length === 0) {
     return {
@@ -220,7 +243,6 @@ export function redistributeStaves(score: Score, params: RedistributeParams): Re
     for (const measure of grid.measures) {
       const time = getEffectiveTimeSignature(draft, measure.measureIndex);
       const primaries = targets.map((staff) => staff.members[0]!);
-      collectVoiceWarnings(draft, [...primaries, ...silenced], measure.measureIndex, warnings);
       const content = buildTargetContent(measure, targets.length, time);
       for (const [index, ref] of primaries.entries()) {
         const sequence = ensureStaffSequence(draft, ref, measure.measureIndex);

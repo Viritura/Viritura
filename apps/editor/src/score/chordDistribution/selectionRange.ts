@@ -15,7 +15,7 @@
 
 import { measureBeats, type Score, type Sequence } from "@viritura/core";
 import { getEffectiveTimeSignature, sequenceContentBeats } from "../../commands/noteCommands";
-import type { EventLocation } from "../ElementPath";
+import { resolveSelectionEvents } from "../../store/selectionUtils";
 import type { Selection } from "../../store/selectionStore";
 import { staffSequenceIndex, type StaffRef } from "./staffOrder";
 
@@ -99,11 +99,7 @@ function fullMeasure(score: Score, measureIndex: number): MeasureWindow {
  * the span of the selected events, which is what keeps an explode from
  * rewriting music the user never selected.
  */
-export function selectionWindows(
-  score: Score,
-  selection: Selection,
-  locations: readonly EventLocation[],
-): MeasureWindow[] {
+export function selectionWindows(score: Score, selection: Selection): MeasureWindow[] {
   if (selection.kind === "measure") {
     const start = Math.min(selection.startMeasure, selection.endMeasure);
     const end = Math.max(selection.startMeasure, selection.endMeasure);
@@ -111,7 +107,7 @@ export function selectionWindows(
   }
 
   const windows = new Map<number, MeasureWindow>();
-  for (const loc of locations) {
+  for (const loc of resolveSelectionEvents(selection, score)) {
     const sequence = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
     if (!sequence) continue;
     // Events inside a tuplet/tremolo are addressed by their container; those

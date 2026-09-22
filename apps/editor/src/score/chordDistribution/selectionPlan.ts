@@ -19,8 +19,7 @@ import { buildBeatGrid, maxSimultaneity } from "./beatGrid";
 import { extendVisibleDownward, layoutStaffOrder, visibleStavesFor, type VisibleStaff } from "./layoutStaffOrder";
 import { redistributeStaves, type RedistributeResult } from "./redistribute";
 import { selectionWindows, snapWindow, type MeasureWindow } from "./selectionRange";
-import { distributionSourceEvents } from "./selectionSources";
-import { eventStaffRefs, type StaffRef } from "./staffOrder";
+import { selectionStaffRefs, type StaffRef } from "./staffOrder";
 
 export type DistributionMode = "explode" | "reduce" | "redistribute";
 
@@ -64,9 +63,8 @@ function planDistribution(
   mode: DistributionMode,
   selectedScoreIndex: number,
 ): DistributionPlan | null {
-  const events = distributionSourceEvents(score, selection, selectedScoreIndex);
-  const refs = eventStaffRefs(score, events);
-  const raw = selectionWindows(score, selection, events);
+  const refs = selectionStaffRefs(score, selection);
+  const raw = selectionWindows(score, selection);
   if (refs.length === 0 || raw.length === 0) return null;
 
   const order = layoutStaffOrder(score, selectedScoreIndex);
@@ -98,9 +96,11 @@ export function applyDistribution(
   const plan = planDistribution(score, selection, mode, selectedScoreIndex);
   if (!plan) return null;
   const result = redistributeStaves(score, plan);
-  if (plan.overflow > 0 && result.changed) {
-    const staves = plan.targets.length === 1 ? "1 staff" : `${plan.targets.length} staves`;
-    result.warnings.push(`Only ${staves} were available for distribution${OVERFLOW_NOTE}.`);
+  if (plan.mode !== "reduce" && plan.overflow > 0 && result.changed) {
+    const count = plan.targets.length;
+    const staves = count === 1 ? "1 staff" : `${count} staves`;
+    const verb = count === 1 ? "was" : "were";
+    result.warnings.push(`Only ${staves} ${verb} available for distribution${OVERFLOW_NOTE}.`);
   }
   return result;
 }

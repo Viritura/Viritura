@@ -314,6 +314,104 @@ describe("applyDistribution", () => {
     const result = applyDistribution(score, selectTop, "reduce");
     expect(steps(result!.score, 0)).toEqual([["C4", "E4", "G4"]]);
     expect(steps(result!.score, 1)).toEqual([[]]);
+    expect(result!.warnings).toEqual([]);
+  });
+
+  it("uses singular grammar when an explode has only one available staff", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [chord("whole", [note("C", 4), note("E", 4), note("G", 4)], "only")],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = applyDistribution(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/only", elementType: "event" },
+      "explode",
+    );
+
+    expect(result!.warnings).toEqual([
+      "Only 1 staff was available for distribution; extra notes were stacked on the last staff.",
+    ]);
+  });
+
+  it("refuses to redistribute a multi-voice staff instead of rewriting its primary voice", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              sequences: [
+                {
+                  staff: 1,
+                  voice: "v1",
+                  content: [
+                    rest("quarter", "upper-primary-rest"),
+                    chord("quarter", [note("A", 3)], "upper-primary-note"),
+                    rest("half", "upper-primary-tail"),
+                  ],
+                },
+                {
+                  staff: 1,
+                  voice: "v2",
+                  content: [
+                    chord("quarter", [note("E", 3)], "upper-selected"),
+                    chord("quarter", [note("F", 3)], "upper-secondary-2"),
+                    chord("half", [note("G", 3)], "upper-secondary-3"),
+                  ],
+                },
+                {
+                  staff: 2,
+                  voice: "v4",
+                  content: [
+                    chord("half", [note("A", 2)], "lower-primary-1"),
+                    chord("half", [note("A", 2)], "lower-primary-2"),
+                  ],
+                },
+                {
+                  staff: 2,
+                  voice: "v5",
+                  content: [
+                    chord("quarter", [note("A", 1)], "lower-selected"),
+                    chord("quarter", [note("D", 2)], "lower-secondary-2"),
+                    chord("half", [note("A", 1)], "lower-secondary-3"),
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const selection: Selection = {
+      kind: "multi",
+      elementIds: ["p0/m0/s1/upper-selected/n0", "p0/m0/s3/lower-selected/n0"],
+    };
+
+    const result = applyDistribution(score, selection, "reduce");
+
+    expect(result).toEqual({
+      score,
+      changed: false,
+      warnings: [
+        "Nothing was redistributed: Piano staff 1 and Piano staff 2 have more than one voice. Multi-voice distribution is not supported yet.",
+      ],
+    });
   });
 
   it("returns null when nothing is selected", () => {
@@ -403,55 +501,6 @@ describe("applyDistribution", () => {
     // The condensed siblings are silenced (rest granularity is not significant).
     expect(steps(result!.score, 1).flat()).toEqual([]);
     expect(steps(result!.score, 3).flat()).toEqual([]);
-  });
-
-  it("reduces a canvas range through the condensed projection's canonical events", () => {
-    const part = (id: string, step: Pitch["step"], octave: number, prefix: string) => ({
-      id,
-      measures: [
-        {
-          sequences: [
-            {
-              content: [
-                chord("half", [note(step, octave)], `${prefix}1`),
-                chord("half", [note(step, octave + 1)], `${prefix}2`),
-              ],
-            },
-          ],
-        },
-      ],
-    });
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [part("P1", "G", 4, "fl1-"), part("P2", "E", 4, "fl2-")],
-      layouts: [
-        {
-          id: "condensed",
-          content: [{ type: "staff", sources: [{ part: "P1" }, { part: "P2" }] }],
-        },
-      ],
-      scores: [{ name: "Condensed", layout: "condensed" }],
-    };
-    // This is the range shape emitted by two Shift-clicks on the canvas. The
-    // pointer metadata identifies the visual condensed row; unlike the older
-    // tests, it is not a fabricated bare event selection.
-    const selection: Selection = {
-      kind: "range",
-      startElementId: "p0/m0/s0/fl1-1",
-      endElementId: "p0/m0/s0/fl1-2",
-      measureAnchor: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
-      measureFocus: { partIndex: 0, staffIndex: 0, localStaffIndex: 0, measureIndex: 0 },
-    };
-
-    const result = applyDistribution(score, selection, "reduce", 0);
-
-    expect(result?.changed).toBe(true);
-    expect(steps(result!.score, 0)).toEqual([
-      ["E4", "G4"],
-      ["E5", "G5"],
-    ]);
-    expect(steps(result!.score, 1).flat()).toEqual([]);
   });
 });
 
