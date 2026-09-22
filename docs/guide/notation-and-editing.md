@@ -42,8 +42,37 @@ modes:
 | `Alt+Shift+↑` / `Alt+Shift+↓` | Chromatic step (semitone) |
 | `Mod+Alt+↑` / `Mod+Alt+↓`     | Octave                    |
 
-Use **Edit → Transpose Selection…** when you need a named interval or more
+Use **Edit → Transpose Selection** when you need a named interval or more
 control than the direct arrow-key transposition commands.
+
+## Spread chords across staves
+
+Explode and reduce move pitches between staves without retyping them.
+
+| Command                                 | Key           | Effect                                                                   |
+| --------------------------------------- | ------------- | ------------------------------------------------------------------------ |
+| **Edit → Explode to Staves**            | `Alt+E`       | Fans the selected chords out, one pitch per staff, top note on top staff |
+| **Edit → Reduce to Staff**              | `Alt+R`       | Collects the selected staves' music back onto the topmost selected staff |
+| **Edit → Select Top Note of Chords**    | `Mod+Shift+↑` | Narrows the selection to the highest notehead of every selected chord    |
+| **Edit → Select Bottom Note of Chords** | `Mod+Shift+↓` | Narrows the selection to the lowest notehead of every selected chord     |
+| **Edit → Paste and Merge**              | `Mod+Shift+V` | Pastes pitches _into_ the destination chords rather than replacing them  |
+
+Explode works downward: it uses as many staves below the selection as the
+tallest chord needs. When a chord has more pitches than there are target
+staves, the surplus stacks on the last staff; when it has fewer, the leftover
+staves get rests. Reduce applies the same allocation in reverse. Selecting more
+than one source staff before exploding pools all of their pitches first, so any
+number of staves can be redistributed onto any other number.
+
+The selection and paste commands cover the manual case. Select the top note of
+a line, cut it, then paste it into another staff to move one voice by hand; use
+**Paste and Merge** to fold a line back into chords that already exist.
+
+> [!NOTE]
+> Both commands rewrite whole measures of the first voice on each affected
+> staff. Additional voices are left untouched and reported as a warning.
+> Measures containing tuplets, tremolos, or grace notes are skipped rather than
+> re-rhythmed, and condensed staves must be edited through their source parts.
 
 ## Palettes and radial menus
 

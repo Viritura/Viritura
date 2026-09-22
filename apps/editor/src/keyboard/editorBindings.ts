@@ -47,6 +47,11 @@ export interface EditorBindingConfig {
     onCopy: () => void;
     onCut: () => void;
     onPaste: () => void;
+    onPasteMerge?: () => void;
+    onExplodeSelection?: () => void;
+    onReduceSelection?: () => void;
+    onSelectChordTopNote?: () => void;
+    onSelectChordBottomNote?: () => void;
     onTogglePanels?: () => void;
     onToggleCondensingPopover?: () => void;
     onSetTempo?: () => void;
@@ -232,6 +237,36 @@ function buildGlobalGuardedBindings(cfg: EditorBindingConfig): KeyBinding[] {
       key: "Ctrl+V",
       context: "global",
       handler: () => cb.onPaste(),
+    },
+    {
+      id: "global.pasteMerge",
+      key: "Ctrl+Shift+V",
+      context: "global",
+      handler: () => cb.onPasteMerge?.(),
+    },
+    {
+      id: "global.explodeSelection",
+      key: "Alt+E",
+      context: "global",
+      handler: () => cb.onExplodeSelection?.(),
+    },
+    {
+      id: "global.reduceSelection",
+      key: "Alt+R",
+      context: "global",
+      handler: () => cb.onReduceSelection?.(),
+    },
+    {
+      id: "global.selectChordTopNote",
+      key: "Ctrl+Shift+ArrowUp",
+      context: "global",
+      handler: () => cb.onSelectChordTopNote?.(),
+    },
+    {
+      id: "global.selectChordBottomNote",
+      key: "Ctrl+Shift+ArrowDown",
+      context: "global",
+      handler: () => cb.onSelectChordBottomNote?.(),
     },
     {
       id: "global.togglePanels",

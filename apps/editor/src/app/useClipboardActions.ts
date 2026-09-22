@@ -48,6 +48,8 @@ export interface ClipboardActions {
   handleCopy: () => Promise<void>;
   handleCut: () => Promise<void>;
   handlePaste: () => Promise<void>;
+  /** Paste, adding pitches to destination chords instead of replacing them. */
+  handlePasteMerge: () => Promise<void>;
   handleRepeat: () => void;
 }
 
@@ -171,63 +173,74 @@ export function useClipboardActions({
     }
   }, [getClipboardSelection, store, selection, updateScore, buildClipboardSourceRef, clearSelection]);
 
-  const handlePaste = useCallback(async () => {
-    const { score } = store.getState();
-    if (!score) return;
-    if (selection.kind === "single" && resolveSelectedLyric(score, selection.elementId)) {
-      try {
-        const clipboard = await readNotationClipboard();
-        if (clipboard.museScore || looksLikeMuseScoreXml(clipboard.text) || deserializeFragment(clipboard.text)) {
-          toast.info("Select a note or rhythmic position to paste notation.");
-          return;
+  const runPaste = useCallback(
+    async (merge: boolean) => {
+      const { score } = store.getState();
+      if (!score) return;
+      if (selection.kind === "single" && resolveSelectedLyric(score, selection.elementId)) {
+        try {
+          const clipboard = await readNotationClipboard();
+          if (clipboard.museScore || looksLikeMuseScoreXml(clipboard.text) || deserializeFragment(clipboard.text)) {
+            toast.info("Select a note or rhythmic position to paste notation.");
+            return;
+          }
+          const next = pasteTextIntoSelectedLyric(score, selection, clipboard.text);
+          if (next) updateScore(next);
+        } catch {
+          toast.error("Could not paste into the selected lyric.");
         }
-        const next = pasteTextIntoSelectedLyric(score, selection, clipboard.text);
-        if (next) updateScore(next);
-      } catch {
-        toast.error("Could not paste into the selected lyric.");
+        return;
       }
-      return;
-    }
-    let systemPaste: Awaited<ReturnType<typeof pasteFromClipboard>>;
-    const warnings: string[] = [];
-    try {
-      systemPaste = await pasteFromClipboard((message) => warnings.push(message));
-    } catch (error) {
-      if (error instanceof MuseScoreConversionError) toast.error(error.userMessage());
-      else if (error instanceof NotationClipboardError) toast.error(error.message);
-      else toast.error("Could not read notation from the clipboard.");
-      return;
-    }
-    const paste =
-      systemPaste ??
-      (() => {
-        const latest = useClipboardHistoryStore.getState().entries[0];
-        return latest ? pasteResultFromFragment(latest.fragment) : null;
-      })();
-    if (!paste) {
-      showClipboardWarnings(warnings);
-      return;
-    }
-    const noteInput = useNoteInputStore.getState();
-    const pasteCursor =
-      noteInput.active && noteInput.cursorPosition
-        ? { ...noteInput.cursorPosition, voice: noteInput.currentVoice - 1 }
-        : undefined;
-    try {
-      const result = computePasteResult(score, selection, paste, pasteCursor);
-      if (!result) {
+      let systemPaste: Awaited<ReturnType<typeof pasteFromClipboard>>;
+      const warnings: string[] = [];
+      try {
+        systemPaste = await pasteFromClipboard((message) => warnings.push(message));
+      } catch (error) {
+        if (error instanceof MuseScoreConversionError) toast.error(error.userMessage());
+        else if (error instanceof NotationClipboardError) toast.error(error.message);
+        else toast.error("Could not read notation from the clipboard.");
+        return;
+      }
+      const paste =
+        systemPaste ??
+        (() => {
+          const latest = useClipboardHistoryStore.getState().entries[0];
+          return latest ? pasteResultFromFragment(latest.fragment) : null;
+        })();
+      if (!paste) {
         showClipboardWarnings(warnings);
         return;
       }
-      updateScore(result.newScore);
-      if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
-      applyResultSelection(result.selection);
-      showClipboardWarnings([...warnings, ...result.warnings]);
-    } catch (error) {
-      console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor });
-      toast.error(error instanceof Error ? error.message : "Could not paste notation.");
-    }
-  }, [store, selection, updateScore, applyResultSelection]);
+      const noteInput = useNoteInputStore.getState();
+      const pasteCursor =
+        noteInput.active && noteInput.cursorPosition
+          ? { ...noteInput.cursorPosition, voice: noteInput.currentVoice - 1 }
+          : undefined;
+      try {
+        const result = computePasteResult(score, selection, paste, pasteCursor, { merge });
+        if (!result) {
+          showClipboardWarnings(warnings);
+          return;
+        }
+        updateScore(result.newScore);
+        if (result.cursorAfterPaste) noteInputActions.setCursor(result.cursorAfterPaste);
+        applyResultSelection(result.selection);
+        showClipboardWarnings([...warnings, ...result.warnings]);
+      } catch (error) {
+        console.error("[Viritura paste] Paste failed", { error, selection, pasteCursor, merge });
+        toast.error(error instanceof Error ? error.message : "Could not paste notation.");
+      }
+    },
+    [store, selection, updateScore, applyResultSelection],
+  );
+
+  const handlePaste = useCallback(async () => {
+    await runPaste(false);
+  }, [runPaste]);
+
+  const handlePasteMerge = useCallback(async () => {
+    await runPaste(true);
+  }, [runPaste]);
 
   const handleRepeat = useCallback(() => {
     const sel = getClipboardSelection();
@@ -250,6 +263,7 @@ export function useClipboardActions({
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
     handleRepeat,
   };
 }

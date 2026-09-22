@@ -13,6 +13,7 @@ import { applyPaste, type PasteResult } from "../commands/clipboardCommands";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import { advanceCursor } from "../commands/cursorCommands";
 import { findPlacedAnnotationIds } from "./annotations";
+import { mergeDestinationIntoPaste, pasteMergeWarnings } from "./pasteMerge";
 
 interface PasteCursor extends CursorPosition {
   voice: number;
@@ -384,12 +385,16 @@ function resolvePasteAnchor(
  * Apply a paste at the anchor derived from the current selection. Returns the
  * new score and complete placed selection (with a legacy range), or null if
  * the selection can't anchor a paste.
+ *
+ * With `options.merge`, destination chords absorb the pasted pitches instead of
+ * being replaced — the manual counterpart to a staff reduction.
  */
 export function computePasteResult(
   score: Score,
   selection: SelectionState,
   paste: PasteResult,
   cursor?: PasteCursor,
+  options?: { merge?: boolean },
 ): {
   newScore: Score;
   range: { start: string; end: string } | null;
@@ -412,6 +417,9 @@ export function computePasteResult(
     undefined,
     (message) => warnings.push(message),
   );
+  if (options?.merge) {
+    warnings.push(...pasteMergeWarnings(mergeDestinationIntoPaste(score, newScore, placedContent)));
+  }
   const startBeat =
     score.parts[anchor.partIndex]?.measures[anchor.measureIndex]?.sequences[anchor.sequenceIndex]?.content
       .slice(0, anchor.eventIndex)
