@@ -64,6 +64,12 @@ staves get rests. Reduce applies the same allocation in reverse. Selecting more
 than one source staff before exploding pools all of their pitches first, so any
 number of staves can be redistributed onto any other number.
 
+Both commands follow the staves as they are laid out in the score you are
+viewing. On a condensed score, a staff that renders several parts on one line
+counts as a single staff: its parts are pooled together as one source, and
+"the staff below" is the next line the reader sees rather than a part hidden
+inside the same line.
+
 The selection and paste commands cover the manual case. Select the top note of
 a line, cut it, then paste it into another staff to move one voice by hand; use
 **Paste and Merge** to fold a line back into chords that already exist.
@@ -73,8 +79,9 @@ a line, cut it, then paste it into another staff to move one voice by hand; use
 > outward to whole events, on the first voice of each affected staff. Music
 > before and after that span, and additional voices, are left untouched;
 > extra voices are reported as a warning. Measures containing tuplets,
-> tremolos, or grace notes are skipped rather than re-rhythmed, and condensed
-> staves must be edited through their source parts.
+> tremolos, or grace notes are skipped rather than re-rhythmed. Music landing
+> on a condensed staff is written to the first of its parts and the remaining
+> parts rest.
 
 ## Palettes and radial menus
 

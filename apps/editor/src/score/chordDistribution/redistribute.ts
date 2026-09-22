@@ -36,13 +36,16 @@ import { allocateTopDown, pitchKey, sortByPitchDescending } from "./allocation";
 import { buildBeatGrid, type MeasureGrid, type SoundingNote } from "./beatGrid";
 import { cloneNoteForChord } from "./chordMerge";
 import type { MeasureWindow } from "./selectionRange";
+import { visibleStaffHas, type VisibleStaff } from "./layoutStaffOrder";
 import { sameStaff, staffSequenceIndex, staffVoiceCount, type StaffRef } from "./staffOrder";
 
 const EPSILON = 1e-9;
 
 export interface RedistributeParams {
-  sources: readonly StaffRef[];
-  targets: readonly StaffRef[];
+  /** Rendered staves whose pitches are pooled. */
+  sources: readonly VisibleStaff[];
+  /** Rendered staves that receive a share, in page order. */
+  targets: readonly VisibleStaff[];
   /** The beat spans to rewrite; music outside them is preserved. */
   windows: readonly MeasureWindow[];
 }
@@ -193,7 +196,8 @@ export function redistributeStaves(score: Score, params: RedistributeParams): Re
     return { score, warnings: [], changed: false };
   }
 
-  const grid = buildBeatGrid(score, sources, windows);
+  const sourceStaves = sources.flatMap((staff) => staff.members);
+  const grid = buildBeatGrid(score, sourceStaves, windows);
   if (grid.measures.length === 0) {
     return {
       score,
@@ -207,18 +211,23 @@ export function redistributeStaves(score: Score, params: RedistributeParams): Re
     const list = grid.skippedMeasures.map((index) => index + 1).join(", ");
     warnings.add(`Measures ${list} contain tuplets, tremolos, or grace notes and were left unchanged.`);
   }
-  const silenced = sources.filter((source) => !targets.some((target) => sameStaff(target, source)));
+  // Canonical staves that contributed pitches but receive none back, plus the
+  // non-primary members of every target: both fall silent across the window.
+  const silenced = sourceStaves.filter((ref) => !targets.some((staff) => visibleStaffHas(staff, ref)));
+  const demoted = targets.flatMap((staff) => staff.members.slice(1));
 
   const next = produce(score, (draft) => {
     for (const measure of grid.measures) {
       const time = getEffectiveTimeSignature(draft, measure.measureIndex);
-      collectVoiceWarnings(draft, [...targets, ...silenced], measure.measureIndex, warnings);
+      const primaries = targets.map((staff) => staff.members[0]!);
+      collectVoiceWarnings(draft, [...primaries, ...silenced], measure.measureIndex, warnings);
       const content = buildTargetContent(measure, targets.length, time);
-      for (const [index, ref] of targets.entries()) {
+      for (const [index, ref] of primaries.entries()) {
         const sequence = ensureStaffSequence(draft, ref, measure.measureIndex);
         if (sequence) writeSequence(sequence, measure.window, content[index]!, time);
       }
-      for (const ref of silenced) {
+      const rested = [...silenced, ...demoted].filter((ref) => !primaries.some((primary) => sameStaff(primary, ref)));
+      for (const ref of rested) {
         const sequence = ensureStaffSequence(draft, ref, measure.measureIndex);
         const rests = emitRests(measure.window.start, measure.window.end - measure.window.start, time);
         if (sequence) writeSequence(sequence, measure.window, rests, time);

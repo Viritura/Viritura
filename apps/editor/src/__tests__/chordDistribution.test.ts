@@ -6,7 +6,7 @@ import type { MeasureWindow } from "../score/chordDistribution/selectionRange";
 import { mergeNotesIntoEvent } from "../score/chordDistribution/chordMerge";
 import { redistributeStaves } from "../score/chordDistribution/redistribute";
 import { applyDistribution } from "../score/chordDistribution/selectionPlan";
-import { scoreStaffOrder } from "../score/chordDistribution/staffOrder";
+import { scoreStaffOrder, type StaffRef } from "../score/chordDistribution/staffOrder";
 import type { Selection } from "../store/selectionStore";
 
 function pitch(step: Pitch["step"], octave: number): Pitch {
@@ -64,6 +64,8 @@ function steps(score: Score, partIndex: number): string[][] {
 }
 
 const allStaves = (score: Score) => scoreStaffOrder(score);
+/** Wrap canonical staves as one-member visible staves (the uncondensed case). */
+const visible = (refs: readonly StaffRef[]) => refs.map((ref) => ({ members: [ref] }));
 
 describe("allocateTopDown", () => {
   it("gives one entry to each slot and stacks overflow on the last", () => {
@@ -143,8 +145,8 @@ describe("redistributeStaves", () => {
     const score = chordOnTopStaff();
     const staves = allStaves(score);
     const { score: next, changed } = redistributeStaves(score, {
-      sources: [staves[0]!],
-      targets: staves,
+      sources: visible([staves[0]!]),
+      targets: visible(staves),
       windows: wholeMeasures(0, 0),
     });
 
@@ -158,8 +160,8 @@ describe("redistributeStaves", () => {
     const score = chordOnTopStaff();
     const staves = allStaves(score);
     const { score: next } = redistributeStaves(score, {
-      sources: [staves[0]!],
-      targets: [staves[0]!, staves[1]!],
+      sources: visible([staves[0]!]),
+      targets: visible([staves[0]!, staves[1]!]),
       windows: wholeMeasures(0, 0),
     });
 
@@ -178,8 +180,8 @@ describe("redistributeStaves", () => {
     };
     const staves = allStaves(score);
     const { score: next } = redistributeStaves(score, {
-      sources: [staves[0]!],
-      targets: staves,
+      sources: visible([staves[0]!]),
+      targets: visible(staves),
       windows: wholeMeasures(0, 0),
     });
 
@@ -200,8 +202,8 @@ describe("redistributeStaves", () => {
     };
     const staves = allStaves(score);
     const { score: next } = redistributeStaves(score, {
-      sources: staves,
-      targets: [staves[0]!],
+      sources: visible(staves),
+      targets: visible([staves[0]!]),
       windows: wholeMeasures(0, 0),
     });
 
@@ -230,8 +232,8 @@ describe("redistributeStaves", () => {
     };
     const staves = allStaves(score);
     const { score: next } = redistributeStaves(score, {
-      sources: staves,
-      targets: staves,
+      sources: visible(staves),
+      targets: visible(staves),
       windows: wholeMeasures(0, 0),
     });
 
@@ -283,8 +285,8 @@ describe("redistributeStaves", () => {
     };
     const staves = allStaves(score);
     const result = redistributeStaves(score, {
-      sources: [staves[0]!],
-      targets: staves,
+      sources: visible([staves[0]!]),
+      targets: visible(staves),
       windows: wholeMeasures(0, 1),
     });
 
@@ -355,6 +357,52 @@ describe("applyDistribution", () => {
     // The unselected second half of both staves survives verbatim.
     expect(steps(result!.score, 0)).toEqual([["E4"], ["D4"]]);
     expect(steps(result!.score, 1)).toEqual([["C4"], ["A3"]]);
+  });
+
+  /**
+   * A condensed staff renders several parts as one line. Distribution has to
+   * follow the *rendered* order: pooling both halves of the condensed staff as
+   * one source, and treating the next staff down as the next visible staff —
+   * not the hidden sibling sharing the staff the notes came from.
+   */
+  it("pools a condensed staff and explodes onto the next visible staff", () => {
+    const part = (id: string, name: string, step: Pitch["step"], octave: number, eventId: string) => ({
+      id,
+      name,
+      measures: [{ sequences: [{ content: [chord("whole", [note(step, octave)], eventId)] }] }],
+    });
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        part("P1", "Flute", "G", 5, "fl1"),
+        part("P2", "Flute", "D", 5, "fl2"),
+        part("P3", "Oboe", "G", 4, "ob1"),
+        part("P4", "Oboe", "D", 4, "ob2"),
+      ],
+      layouts: [
+        {
+          id: "condensed",
+          content: [
+            { type: "staff", sources: [{ part: "P1" }, { part: "P2" }] },
+            { type: "staff", sources: [{ part: "P3" }, { part: "P4" }] },
+          ],
+        },
+      ],
+      scores: [{ name: "Condensed", layout: "condensed" }],
+    };
+
+    const selection: Selection = { kind: "single", elementId: "p0/m0/s0/fl1", elementType: "event" };
+    const result = applyDistribution(score, selection, "explode", 0);
+
+    expect(result?.changed).toBe(true);
+    // Both flute parts pool into one source, so the pair explodes across the
+    // two *visible* staves rather than vanishing into the condensed sibling.
+    expect(steps(result!.score, 0)).toEqual([["G5"]]);
+    expect(steps(result!.score, 2)).toEqual([["D5"]]);
+    // The condensed siblings are silenced (rest granularity is not significant).
+    expect(steps(result!.score, 1).flat()).toEqual([]);
+    expect(steps(result!.score, 3).flat()).toEqual([]);
   });
 });
 

@@ -58,21 +58,3 @@ export function selectionStaffRefs(score: Score, selection: Selection): StaffRef
   }
   return [...refs.values()].sort(compareStaffRefs);
 }
-
-/**
- * Extend `sources` downward through the document until `count` staves are
- * addressed. Returns fewer than `count` staves when the score runs out, which
- * is the signal that overflow has to chord-stack on the last target.
- */
-export function extendStavesDownward(score: Score, sources: readonly StaffRef[], count: number): StaffRef[] {
-  const targets = [...sources];
-  if (targets.length >= count) return targets;
-  const order = scoreStaffOrder(score);
-  const lastSource = targets.at(-1);
-  const startIndex = lastSource ? order.findIndex((ref) => sameStaff(ref, lastSource)) + 1 : 0;
-  for (let index = startIndex; index < order.length && targets.length < count; index++) {
-    const candidate = order[index]!;
-    if (!targets.some((ref) => sameStaff(ref, candidate))) targets.push(candidate);
-  }
-  return targets;
-}

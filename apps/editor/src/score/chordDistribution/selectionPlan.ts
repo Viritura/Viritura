@@ -16,25 +16,31 @@
 import type { Score } from "@viritura/core";
 import type { Selection } from "../../store/selectionStore";
 import { buildBeatGrid, maxSimultaneity } from "./beatGrid";
+import { extendVisibleDownward, layoutStaffOrder, visibleStavesFor, type VisibleStaff } from "./layoutStaffOrder";
 import { redistributeStaves, type RedistributeResult } from "./redistribute";
 import { selectionWindows, snapWindow, type MeasureWindow } from "./selectionRange";
-import { extendStavesDownward, selectionStaffRefs, type StaffRef } from "./staffOrder";
+import { selectionStaffRefs, type StaffRef } from "./staffOrder";
 
 export type DistributionMode = "explode" | "reduce" | "redistribute";
 
 interface DistributionPlan {
   mode: DistributionMode;
-  sources: StaffRef[];
-  targets: StaffRef[];
+  sources: VisibleStaff[];
+  targets: VisibleStaff[];
   windows: MeasureWindow[];
   /** Notes in the widest simultaneity that could not be given their own staff. */
   overflow: number;
 }
 
-function resolveTargets(score: Score, mode: DistributionMode, sources: StaffRef[], required: number): StaffRef[] {
+function resolveTargets(
+  order: readonly VisibleStaff[],
+  mode: DistributionMode,
+  sources: VisibleStaff[],
+  required: number,
+): VisibleStaff[] {
   switch (mode) {
     case "explode":
-      return extendStavesDownward(score, sources, required);
+      return extendVisibleDownward(order, sources, required);
     case "reduce":
       return sources.slice(0, 1);
     case "redistribute":
@@ -42,21 +48,38 @@ function resolveTargets(score: Score, mode: DistributionMode, sources: StaffRef[
   }
 }
 
+/** Every canonical staff behind a set of rendered staves. */
+function canonicalStaves(staves: readonly VisibleStaff[]): StaffRef[] {
+  return staves.flatMap((staff) => staff.members);
+}
+
 /**
  * Describe what a distribution would do, without touching the score. Returns
  * null when the selection cannot anchor one (no staves, or no measure scope).
  */
-function planDistribution(score: Score, selection: Selection, mode: DistributionMode): DistributionPlan | null {
-  const sources = selectionStaffRefs(score, selection);
+function planDistribution(
+  score: Score,
+  selection: Selection,
+  mode: DistributionMode,
+  selectedScoreIndex: number,
+): DistributionPlan | null {
+  const refs = selectionStaffRefs(score, selection);
   const raw = selectionWindows(score, selection);
-  if (sources.length === 0 || raw.length === 0) return null;
+  if (refs.length === 0 || raw.length === 0) return null;
+
+  const order = layoutStaffOrder(score, selectedScoreIndex);
+  const sources = visibleStavesFor(order, refs);
+  if (sources.length === 0) return null;
 
   // Snap against the sources first so the grid reads whole events, then widen
   // once more over the targets so every splice lands on a real boundary.
-  const sourceWindows = raw.map((window) => snapWindow(score, window, sources));
-  const required = maxSimultaneity(buildBeatGrid(score, sources, sourceWindows));
-  const targets = resolveTargets(score, mode, sources, required);
-  const windows = sourceWindows.map((window) => snapWindow(score, window, [...sources, ...targets]));
+  const sourceStaves = canonicalStaves(sources);
+  const sourceWindows = raw.map((window) => snapWindow(score, window, sourceStaves));
+  const required = maxSimultaneity(buildBeatGrid(score, sourceStaves, sourceWindows));
+  const targets = resolveTargets(order, mode, sources, required);
+  const windows = sourceWindows.map((window) =>
+    snapWindow(score, window, [...sourceStaves, ...canonicalStaves(targets)]),
+  );
 
   return { mode, sources, targets, windows, overflow: Math.max(0, required - targets.length) };
 }
@@ -68,8 +91,9 @@ export function applyDistribution(
   score: Score,
   selection: Selection,
   mode: DistributionMode,
+  selectedScoreIndex = 0,
 ): RedistributeResult | null {
-  const plan = planDistribution(score, selection, mode);
+  const plan = planDistribution(score, selection, mode, selectedScoreIndex);
   if (!plan) return null;
   const result = redistributeStaves(score, plan);
   if (plan.overflow > 0 && result.changed) {

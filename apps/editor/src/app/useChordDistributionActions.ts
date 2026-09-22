@@ -4,6 +4,7 @@ import type { Score } from "@viritura/core";
 import { applyDistribution, type DistributionMode } from "../score/chordDistribution";
 import { chordLineNoteIds, type ChordEdge } from "../store/chordNoteSelection";
 import { useSelectionActions, type SelectionState } from "../store/selectionStore";
+import { useViewStateStore } from "../store/viewStateStore";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 
 interface UseChordDistributionActionsArgs {
@@ -32,6 +33,7 @@ export function useChordDistributionActions({
   updateScore,
 }: UseChordDistributionActionsArgs): ChordDistributionActions {
   const { selectElements } = useSelectionActions();
+  const selectedScoreIndex = useViewStateStore((state) => state.selectedScoreIndex);
 
   const distribute = useCallback(
     (mode: DistributionMode) => {
@@ -40,7 +42,7 @@ export function useChordDistributionActions({
         toast.info(EMPTY_SELECTION_MESSAGE);
         return;
       }
-      const result = applyDistribution(score, selection, mode);
+      const result = applyDistribution(score, selection, mode, selectedScoreIndex);
       if (!result) {
         toast.info(EMPTY_SELECTION_MESSAGE);
         return;
@@ -48,7 +50,7 @@ export function useChordDistributionActions({
       if (result.changed) updateScore(result.score);
       for (const warning of result.warnings) toast.warning(warning);
     },
-    [store, selection, updateScore],
+    [store, selection, updateScore, selectedScoreIndex],
   );
 
   const selectChordLine = useCallback(
