@@ -204,6 +204,40 @@ pub(crate) fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec
     }
 }
 
+pub(crate) fn consume_tie_targets(content: &[SequenceContent], targets: &mut HashSet<String>) {
+    for item in content {
+        match item {
+            SequenceContent::Event(event) => {
+                for note in event.notes() {
+                    if let Some(id) = &note.id {
+                        targets.remove(id);
+                    }
+                }
+            }
+            SequenceContent::Tuplet(tuplet) => consume_tie_targets(&tuplet.content, targets),
+            SequenceContent::MultiNoteTremolo(tremolo) => {
+                for event in &tremolo.content {
+                    for note in event.notes() {
+                        if let Some(id) = &note.id {
+                            targets.remove(id);
+                        }
+                    }
+                }
+            }
+            SequenceContent::Grace(grace) => {
+                for event in &grace.content {
+                    for note in event.notes() {
+                        if let Some(id) = &note.id {
+                            targets.remove(id);
+                        }
+                    }
+                }
+            }
+            SequenceContent::Space(_) | SequenceContent::Other(_) => {}
+        }
+    }
+}
+
 fn incoming_tie_targets(measures: &[PartMeasure], index: usize) -> Vec<String> {
     let mut targets = Vec::new();
     for measure in measures.iter().take(index) {

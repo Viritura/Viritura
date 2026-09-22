@@ -717,6 +717,7 @@ pub(super) fn resolve_one_measure_phase1(
     );
     let mut new_tie_targets = Vec::new();
     for sequence in &virtual_pm.sequences {
+        crate::layout::resolve::consume_tie_targets(&sequence.content, &mut state.tie_targets);
         crate::layout::resolve::collect_tie_targets(&sequence.content, &mut new_tie_targets);
     }
     state.tie_targets.extend(new_tie_targets);

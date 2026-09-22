@@ -175,6 +175,90 @@ fn test_mnx_grand_staff_lower_ottava_keeps_owner_and_y_across_system_break() {
     );
 }
 
+#[test]
+fn test_explicit_system_layout_changes_keep_lower_ottava_owner() {
+    let json = r#"{
+        "mnx":{"version":1},
+        "global":{"measures":[
+            {"id":"m1","time":{"count":4,"unit":4}}, {"id":"m2"}
+        ]},
+        "layouts":[
+            {"id":"upper-lower","content":[
+                {"type":"staff","sources":[{"part":"piano","staff":1}]},
+                {"type":"staff","sources":[{"part":"piano","staff":2}]}
+            ]},
+            {"id":"lower-upper","content":[
+                {"type":"staff","sources":[{"part":"piano","staff":2}]},
+                {"type":"staff","sources":[{"part":"piano","staff":1}]}
+            ]}
+        ],
+        "scores":[{"name":"Piano","layout":"upper-lower","pages":[{"systems":[
+            {"measure":"m1","layout":"upper-lower"},
+            {"measure":"m2","layout":"lower-upper"}
+        ]}]}],
+        "parts":[{"id":"piano","staves":2,"measures":[
+            {"clefs":[
+                {"clef":{"sign":"G","staffPosition":-2},"staff":1},
+                {"clef":{"sign":"F","staffPosition":2},"staff":2}
+             ],
+             "ottavas":[{"value":-1,"staff":2,"position":{"fraction":[0,1]},
+                         "end":{"measure":"m2","position":{"fraction":[1,1]}}}],
+             "sequences":[
+                {"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":5}}]}]},
+                {"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":3}}]}]}
+             ]},
+            {"sequences":[
+                {"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":5}}]}]},
+                {"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":3}}]}]}
+             ]}
+        ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(280.0),
+        page_margin_left: 1.0,
+        page_margin_right: 1.0,
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let lower_bounds: Vec<_> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bound| {
+            (bound.system_index == 0 && bound.staff_index == 1)
+                || (bound.system_index == 1 && bound.staff_index == 0)
+        })
+        .collect();
+    assert_eq!(lower_bounds.len(), 2);
+
+    let mut routed_systems = HashSet::new();
+    for (index, command) in dl.commands.iter().enumerate() {
+        if !dl.element_ids[index]
+            .as_deref()
+            .is_some_and(|id| id.contains("/ottava0"))
+        {
+            continue;
+        }
+        let RenderCommand::DrawLine { y1, y2, .. } = command else {
+            continue;
+        };
+        if (y1 - y2).abs() > 0.01 {
+            continue;
+        }
+        let owner = lower_bounds
+            .iter()
+            .min_by(|left, right| {
+                (left.y + 6.0 * config.sp - y1)
+                    .abs()
+                    .total_cmp(&(right.y + 6.0 * config.sp - y1).abs())
+            })
+            .expect("lower-staff bounds");
+        assert!((owner.y + 6.0 * config.sp - y1).abs() < 0.01);
+        routed_systems.insert(owner.system_index);
+    }
+    assert_eq!(routed_systems, HashSet::from([0, 1]));
+}
+
 // ═══════════════════════════════════════════
 // Regression: hairpins in MNX score layout
 // ═══════════════════════════════════════════
