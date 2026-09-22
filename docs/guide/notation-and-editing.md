@@ -76,12 +76,13 @@ a line, cut it, then paste it into another staff to move one voice by hand; use
 
 > [!NOTE]
 > Both commands rewrite only the span of music the selection covers, widened
-> outward to whole events, on the first voice of each affected staff. Music
-> before and after that span, and additional voices, are left untouched;
-> extra voices are reported as a warning. Measures containing tuplets,
-> tremolos, or grace notes are skipped rather than re-rhythmed. Music landing
-> on a condensed staff is written to the first of its parts and the remaining
-> parts rest.
+> outward to whole events. Music before and after that span is left untouched.
+> Measures containing tuplets, tremolos, or grace notes are skipped rather than
+> re-rhythmed. Music landing on a condensed staff is written to the first of
+> its parts and the remaining parts rest.
+>
+> Staves carrying more than one voice are not supported yet: rather than
+> rewrite the wrong voice, both commands refuse the whole operation and say so.
 
 ## Palettes and radial menus
 
