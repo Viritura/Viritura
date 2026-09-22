@@ -898,6 +898,32 @@ pub fn layout_with_mnx_scores_cached(
         config,
         false,
     );
+    let staff_routes: Vec<_> = system_flat_staves
+        .iter()
+        .enumerate()
+        .flat_map(|(system_index, (staves, _))| {
+            staves
+                .iter()
+                .enumerate()
+                .flat_map(move |(bounds_staff_index, staff)| {
+                    staff.sources.iter().map(move |source| {
+                        super::super::cross_system::LayoutStaffRoute {
+                            system_index,
+                            part_index: source.part_index,
+                            staff_number: source.staff_number.unwrap_or(1),
+                            bounds_staff_index,
+                        }
+                    })
+                })
+        })
+        .collect();
+    super::super::cross_system::render_routed_staff_spanner_continuations(
+        &mut dl,
+        score,
+        &staff_routes,
+        sp,
+        config,
+    );
 
     dl.pages = pages;
 

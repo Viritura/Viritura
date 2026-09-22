@@ -7,6 +7,7 @@ use crate::model::key::KeySignature;
 use crate::model::measure::{PartMeasure, ResolvedMeasure};
 use crate::model::staff_meter::{EffectiveStaffMeter, StaffMeterSynchronization};
 use crate::model::time::TimeSignature;
+use std::collections::{HashMap, HashSet};
 
 /// Compute a content fingerprint for a ResolvedMeasure.
 ///
@@ -103,6 +104,8 @@ pub(crate) struct BoundaryState {
     pub prev_display_key: KeySignature,
     pub active_staff_lines: u32,
     pub effective_staff_meter: Option<EffectiveStaffMeter>,
+    pub accidental_state: HashMap<(String, i32), i32>,
+    pub tie_targets: HashSet<String>,
 }
 
 /// Compute a fingerprint over carried resolve state and staff transposition.
@@ -135,6 +138,17 @@ pub(crate) fn boundary_state_fingerprint(
         }
     }
     state.active_staff_lines.hash(&mut h);
+    let mut accidentals: Vec<_> = state.accidental_state.iter().collect();
+    accidentals.sort_by(|left, right| left.0.cmp(right.0));
+    for (pitch, alter) in accidentals {
+        pitch.hash(&mut h);
+        alter.hash(&mut h);
+    }
+    let mut tie_targets: Vec<_> = state.tie_targets.iter().collect();
+    tie_targets.sort();
+    for target in tie_targets {
+        target.hash(&mut h);
+    }
     match &state.effective_staff_meter {
         None => 0u8.hash(&mut h),
         Some(meter) => {

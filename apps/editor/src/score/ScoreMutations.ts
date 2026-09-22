@@ -39,6 +39,7 @@ export {
   synchronizePartScoreDefinitions,
 } from "./instrumentMutations";
 export { buildLayouts, buildScoreDefinitions } from "./layoutBuilder";
+export { addEnsembleToScore } from "./ensembleMutations";
 export {
   addPartToScoreLayout,
   collectConductorScores,

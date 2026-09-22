@@ -93,7 +93,7 @@ describe("ScoreCanvas pointer behavior", () => {
 
     handleCanvasMouseDownImpl(down, ctx);
 
-    expect(down.preventDefault).toHaveBeenCalledOnce();
+    expect(down.preventDefault).not.toHaveBeenCalled();
     expect(target.setPointerCapture).toHaveBeenCalledWith(4);
     expect(ctx.panPointerIdRef.current).toBe(4);
     expect(selectMeasure).not.toHaveBeenCalled();

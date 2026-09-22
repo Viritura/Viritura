@@ -250,12 +250,12 @@ describe("decomposeDuration", () => {
 describe("decomposeRestsAtPosition", () => {
   const ts44 = { count: 4, unit: 4 };
 
-  it("splits a non-compound rest at every resolved beat boundary without dots", () => {
+  it("exposes the next beat and half-bar boundary without dots in 4/4", () => {
     const result = decomposeRestsAtPosition(3.75, 0.25, ts44);
     const beats = result.map(durationToBeats);
     expect(beats.reduce((a, b) => a + b, 0)).toBeCloseTo(3.75);
     expect(result.every((duration) => duration.dots === undefined)).toBe(true);
-    expect(beats).toEqual([0.5, 0.25, 1, 1, 1]);
+    expect(beats).toEqual([0.25, 0.5, 1, 2]);
   });
 
   it("keeps generated dotted rests in compound meter beat groups", () => {
@@ -275,9 +275,9 @@ describe("decomposeRestsAtPosition", () => {
     expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }, { base: "eighth" }]);
   });
 
-  it("splits a two-beat rest at the intervening 4/4 beat boundary", () => {
+  it("uses a half rest within one half of a 4/4 bar", () => {
     const result = decomposeRestsAtPosition(2, 0, ts44);
-    expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }]);
+    expect(result).toEqual([{ base: "half" }]);
   });
 
   it("does not create a rest across a 4/4 beat boundary", () => {
@@ -285,9 +285,14 @@ describe("decomposeRestsAtPosition", () => {
     expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }]);
   });
 
-  it("splits a full ordinary 4/4 rest into beats", () => {
+  it("shows the middle of an ordinary 4/4 bar", () => {
     const result = decomposeRestsAtPosition(4, 0, ts44);
-    expect(result).toEqual([{ base: "quarter" }, { base: "quarter" }, { base: "quarter" }, { base: "quarter" }]);
+    expect(result).toEqual([{ base: "half" }, { base: "half" }]);
+  });
+
+  it("spells the pictured 4/4 remainder as eighth, quarter, half", () => {
+    const result = decomposeRestsAtPosition(3.5, 0.5, ts44);
+    expect(result).toEqual([{ base: "eighth" }, { base: "quarter" }, { base: "half" }]);
   });
 
   it("sums match total beats for a 16th note at beat 0 in 4/4", () => {
@@ -303,6 +308,55 @@ describe("decomposeRestsAtPosition", () => {
 
 describe("addNote", () => {
   beforeEach(() => resetIdCounter());
+
+  it("groups the remaining 4/4 rests without obscuring beats or the half-bar", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+
+    addNote(score, {
+      pitch: { step: "C", octave: 4 },
+      duration: { base: "eighth" },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: 0,
+    });
+    addNote(score, {
+      pitch: { step: "D", octave: 4 },
+      duration: { base: "quarter" },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: 1,
+    });
+
+    expect(
+      seq(score).content.map((event) => ({
+        duration: event.duration,
+        rest: isRest(event),
+      })),
+    ).toEqual([
+      { duration: { base: "eighth" }, rest: false },
+      { duration: { base: "eighth" }, rest: true },
+      { duration: { base: "quarter" }, rest: false },
+      { duration: { base: "half" }, rest: true },
+    ]);
+  });
+
+  it("preserves dots on authored notes in non-compound meter", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+
+    addNote(score, {
+      pitch: { step: "C", octave: 4 },
+      duration: { base: "quarter", dots: 1 },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: 0,
+    });
+
+    expect(contentAt(score, 0).duration).toEqual({ base: "quarter", dots: 1 });
+    expect(isRest(contentAt(score, 0))).toBe(false);
+  });
 
   it("adds a quarter note at beat 0, replacing whole rest", () => {
     const score = makeEmptyScore({ count: 4, unit: 4 });
@@ -780,6 +834,68 @@ describe("addRest", () => {
     }
     expect(total).toBeCloseTo(4);
   });
+
+  it("normalizes an authored dotted rest to undotted values in non-compound meter", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "target",
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "event",
+        id: "following",
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      },
+    ];
+
+    addRest(score, {
+      duration: { base: "quarter", dots: 1 },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: 0,
+    });
+
+    expect(
+      seq(score)
+        .content.slice(0, 2)
+        .map((event) => event.duration),
+    ).toEqual([{ base: "quarter" }, { base: "quarter" }]);
+    expect(seq(score).content.slice(0, 2).every(isRest)).toBe(true);
+  });
+
+  it("retains an authored dotted rest within a compound beat group", () => {
+    const score = makeEmptyScore({ count: 6, unit: 8 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "target",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "event",
+        id: "following",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      },
+    ];
+
+    addRest(score, {
+      duration: { base: "quarter", dots: 1 },
+      measureIndex: 0,
+      partIndex: 0,
+      voice: 0,
+      beatPosition: 0,
+    });
+
+    expect(seq(score).content[0]!.duration).toEqual({ base: "quarter", dots: 1 });
+    expect(isRest(seq(score).content[0]!)).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════
@@ -839,6 +955,7 @@ describe("deleteNote", () => {
       voice: 0,
       beatPosition: 0,
     });
+
     addNote(score, {
       pitch: { step: "E", octave: 4 },
       duration: { base: "quarter" },
@@ -848,7 +965,7 @@ describe("deleteNote", () => {
       beatPosition: 2,
     });
 
-    // Delete note at index 0 — beats 0 and 1 are restored as separate 4/4 beats.
+    // Delete note at index 0 — the first half of 4/4 can use one half rest.
     deleteNote(score, {
       measureIndex: 0,
       partIndex: 0,
@@ -857,9 +974,93 @@ describe("deleteNote", () => {
     });
 
     const s = seq(score);
-    // The restored rest span must not cross a non-compound beat boundary.
+    // The half rest ends at, and therefore does not obscure, the bar midpoint.
     expect(isRest(s.content[0]!)).toBe(true);
-    expect(s.content.slice(0, 2).map((event) => event.duration)).toEqual([{ base: "quarter" }, { base: "quarter" }]);
+    expect(s.content.slice(0, 2).map((event) => event.duration)).toEqual([{ base: "half" }, { base: "quarter" }]);
+  });
+
+  it("replaces a dotted note with undotted rests in non-compound meter", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "dotted",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "event",
+        id: "following",
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      },
+    ];
+
+    deleteNote(score, { measureIndex: 0, partIndex: 0, voice: 0, eventIndex: 0 });
+
+    const rests = seq(score).content.slice(0, 2) as NoteEvent[];
+    expect(rests.map((event) => event.duration)).toEqual([{ base: "quarter" }, { base: "eighth" }]);
+    expect(rests.every(isRest)).toBe(true);
+    expect((seq(score).content[2] as NoteEvent).duration).toEqual({ base: "half" });
+  });
+
+  it("keeps a generated dotted rest in compound meter", () => {
+    const score = makeEmptyScore({ count: 6, unit: 8 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "dotted",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "event",
+        id: "following",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      },
+    ];
+
+    deleteNote(score, { measureIndex: 0, partIndex: 0, voice: 0, eventIndex: 0 });
+
+    expect((seq(score).content[0] as NoteEvent).duration).toEqual({ base: "quarter", dots: 1 });
+    expect(isRest(seq(score).content[0]!)).toBe(true);
+  });
+
+  it("unwraps a tuplet after its final sounded member is deleted", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "lead",
+        duration: { base: "quarter" },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "tuplet",
+        inner: { multiple: 5, duration: { base: "16th" } },
+        outer: { multiple: 4, duration: { base: "16th" } },
+        content: ["D", "E", "F", "G", "A"].map((step, index) => ({
+          type: "event" as const,
+          id: `quint-${index}`,
+          duration: { base: "16th" as const },
+          notes: [{ pitch: { step: step as "D" | "E" | "F" | "G" | "A", octave: 4 as const } }],
+        })),
+      },
+      {
+        type: "event",
+        id: "tail",
+        duration: { base: "half" },
+        notes: [{ pitch: { step: "B", octave: 4 } }],
+      },
+    ];
+
+    for (let eventIndex = 0; eventIndex < 5; eventIndex++) {
+      deleteNote(score, { measureIndex: 0, partIndex: 0, voice: 0, eventIndex, tupletIndex: 1 });
+    }
+
+    expect(seq(score).content.map((item) => item.type)).toEqual(["event", "event", "event"]);
+    expect(seq(score).content[1]).toMatchObject({ duration: { base: "quarter" }, rest: {} });
   });
 
   it("throws on invalid event index", () => {
@@ -1712,6 +1913,31 @@ describe("backspaceInNoteInput", () => {
     expect(s.content.length).toBe(1);
     expect(isRest(s.content[0]!)).toBe(false);
     expect(s.content[0]!.notes![0]!.pitch.step).toBe("C");
+  });
+
+  it("removes a dotted last note without materializing a dotted rest", () => {
+    const score = makeEmptyScore({ count: 4, unit: 4 });
+    seq(score).content = [
+      {
+        type: "event",
+        id: "kept",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "C", octave: 4 } }],
+      },
+      {
+        type: "event",
+        id: "removed",
+        duration: { base: "quarter", dots: 1 },
+        notes: [{ pitch: { step: "D", octave: 4 } }],
+      },
+      { type: "event", id: "tail", duration: { base: "quarter" }, rest: {} },
+    ];
+
+    expect(backspaceInNoteInput(score, 0, 0)).toBe(true);
+
+    expect(seq(score).content).toHaveLength(1);
+    expect(seq(score).content[0]!.duration).toEqual({ base: "quarter", dots: 1 });
+    expect(isRest(seq(score).content[0]!)).toBe(false);
   });
 
   it("skips trailing rests to find the last note", () => {

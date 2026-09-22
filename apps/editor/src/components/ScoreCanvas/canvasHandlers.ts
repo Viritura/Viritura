@@ -361,9 +361,10 @@ function selectMeasureOrClear(
 
 export function handleCanvasMouseDownImpl(e: React.PointerEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
   // Capture the middle pointer so the viewport's native drag listener keeps
-  // receiving movement after the pointer leaves the canvas.
+  // receiving movement after the pointer leaves the canvas. Do not prevent
+  // this pointerdown: useViewport starts panning from its compatibility
+  // mousedown event and prevents the browser's auto-scroll there.
   if (e.button === 1) {
-    e.preventDefault();
     capturePointer(e);
     ctx.panPointerIdRef.current = e.pointerId;
     return;

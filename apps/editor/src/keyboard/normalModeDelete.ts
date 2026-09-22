@@ -51,6 +51,7 @@ import {
   expandCondensedSubElementIds,
 } from "../score/condensedWriteback";
 import { isLyricId, removeLyricByElementId, removeLyricsByElementId } from "../commands/lyricCommands";
+import { removeTuplet } from "../commands/tupletCommands";
 function applyDeletion(e: KeyboardEvent, ctx: KeyboardHandlerContext, newScore: Score | null): boolean {
   if (!newScore) return false;
   e.preventDefault();
@@ -181,6 +182,17 @@ function deleteCondensedWholeEvent(
 }
 
 function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreIndex: number): Score | null | undefined {
+  const tupletMatch = /^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/.exec(elementId);
+  if (tupletMatch) {
+    const next = cloneScore(score);
+    const removed = removeTuplet(next, {
+      partIndex: Number(tupletMatch[1]),
+      measureIndex: Number(tupletMatch[2]),
+      voice: Number(tupletMatch[3]),
+      tupletOrdinal: Number(tupletMatch[4]),
+    });
+    return removed ? next : null;
+  }
   if (isLyricId(elementId)) return removeLyricByElementId(score, elementId);
   if (elementId.endsWith("/measurerepeat")) return deleteMeasureRepeatByElementId(score, elementId);
   if (elementId.endsWith("/key")) return deleteKeySignatureByElementId(score, elementId);

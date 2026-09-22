@@ -7,6 +7,7 @@ import {
   type TimeSignature,
 } from "@viritura/core";
 import { generateEventId, sequenceContentBeats } from "./noteCommands";
+import { primaryMetricBoundaries } from "./metricGrouping";
 
 interface BeamEvent {
   event: NoteEvent;
@@ -62,12 +63,6 @@ function boundaryIndex(beat: number, boundaries: readonly number[]): number {
   return Math.max(0, boundaries.length - 2);
 }
 
-function sensitivityBoundaries(meter: ResolvedMeter): readonly number[] {
-  if (meter.source === "authored") return meter.beatBoundaries;
-  const measureDuration = (meter.count * 4) / meter.unit;
-  return meter.count % 2 === 0 ? [0, measureDuration / 2, measureDuration] : [0, measureDuration];
-}
-
 function isBoundary(beat: number, boundaries: readonly number[]): boolean {
   return boundaries.some((boundary) => Math.abs(beat - boundary) < 0.01);
 }
@@ -102,7 +97,7 @@ function autoBeamRun(
         continue;
       }
       const effectiveFlags = Math.max(
-        regionMaxFlags.get(boundaryIndex(item.beat, sensitivityBoundaries(meter))) ?? 0,
+        regionMaxFlags.get(boundaryIndex(item.beat, primaryMetricBoundaries(meter))) ?? 0,
         groupMaxFlags,
         flags,
       );
@@ -174,7 +169,7 @@ export function resolveAutomaticBeamGroups(
   const timedEvents: BeamEvent[] = [];
   collectTimedEvents(content, 0, 1, timedEvents);
   const regionMaxFlags = new Map<number, number>();
-  const regionBoundaries = sensitivityBoundaries(meter);
+  const regionBoundaries = primaryMetricBoundaries(meter);
   for (const item of timedEvents) {
     if (!item.event.notes?.length) continue;
     if (item.event.id && excludeIds.has(item.event.id)) continue;

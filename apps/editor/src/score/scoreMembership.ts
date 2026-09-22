@@ -20,6 +20,7 @@
  */
 
 import type { Score, LayoutContent, LayoutGroup, LayoutStaff, ScoreDefinition, Part } from "@viritura/core";
+import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
 import { FAMILY_META, getCatalogInstrument, type InstrumentFamily } from "./InstrumentCatalog";
 import { appendStaffToFullScoreContent, buildStaffNodeForPart, removePartFromContent } from "./instrumentMutations";
 
@@ -33,11 +34,6 @@ export interface ConductorScore {
   name: string;
   /** Number of staves currently in the layout. */
   staffCount: number;
-}
-
-interface SubGroupRun {
-  subGroup: string | undefined;
-  nodes: LayoutContent[];
 }
 
 /** Resolve the layout id a score definition renders (top-level or first page). */
@@ -184,19 +180,6 @@ function staffNodeFor(score: Score, part: Part): LayoutContent {
     : ({ type: "staff", sources: [{ part: part.id!, labelref: "name" }] } as LayoutStaff);
 }
 
-function groupConsecutiveBySubGroup(entries: { node: LayoutContent; subGroup: string | undefined }[]): SubGroupRun[] {
-  const runs: SubGroupRun[] = [];
-  for (const entry of entries) {
-    const last = runs[runs.length - 1];
-    if (last && last.subGroup != null && last.subGroup === entry.subGroup) {
-      last.nodes.push(entry.node);
-    } else {
-      runs.push({ subGroup: entry.subGroup, nodes: [entry.node] });
-    }
-  }
-  return runs;
-}
-
 /**
  * Build family-grouped layout content from a chosen subset of parts.
  *
@@ -207,34 +190,16 @@ function groupConsecutiveBySubGroup(entries: { node: LayoutContent; subGroup: st
  * bracketed alone but glock + timpani share a Percussion bracket.
  */
 function buildSectionContent(score: Score, chosen: readonly Part[]): LayoutContent[] {
-  const buckets = new Map<InstrumentFamily | "other", Part[]>();
-  for (const p of chosen) {
-    const key = partFamily(p) ?? "other";
-    const list = buckets.get(key) ?? [];
-    list.push(p);
-    buckets.set(key, list);
-  }
-  const order = (k: InstrumentFamily | "other") => (k === "other" ? 99 : FAMILY_META[k].order);
-  const out: LayoutContent[] = [];
-  for (const key of [...buckets.keys()].sort((a, b) => order(a) - order(b))) {
-    const parts = buckets.get(key)!;
-    const entries = parts.map((part) => {
+  return buildOrchestralLayoutGroups(
+    chosen.map((part) => {
       const inst = part.id ? resolvePartInstrument(score, part.id) : undefined;
-      return { node: staffNodeFor(score, part), subGroup: inst?.subGroup };
-    });
-    if (entries.length > 1 && key !== "other") {
-      const subGroupRuns = groupConsecutiveBySubGroup(entries);
-      const content: LayoutContent[] = subGroupRuns.map((run) =>
-        run.nodes.length > 1
-          ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup)
-          : run.nodes[0]!,
-      );
-      out.push({ type: "group", symbol: "bracket", label: FAMILY_META[key].label, content } as LayoutGroup);
-    } else {
-      out.push(...entries.map((entry) => entry.node));
-    }
-  }
-  return out;
+      return {
+        family: partFamily(part),
+        subGroup: orchestralInstrumentGroup(inst?.id),
+        node: staffNodeFor(score, part),
+      };
+    }),
+  );
 }
 
 /**

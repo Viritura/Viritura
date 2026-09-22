@@ -72,9 +72,6 @@ export interface CatalogInstrument {
   rangeHigh: number;
   /** Layout bracket symbol: "bracket" for orchestra sections, "brace" for keyboards. */
   bracketSymbol?: "bracket" | "brace";
-  /** Line bracket grouping key within a family (e.g., "flute", "oboe").
-   *  Instruments sharing the same subGroup get a nested line bracket in orchestral layouts. */
-  subGroup?: string;
   /** Drum-kit components for unpitched percussion. When present, ScoreBuilder
    *  emits a Part.kit array and contributes Sound entries to global.sounds. */
   kit?: KitComponentDef[];

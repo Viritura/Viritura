@@ -45,6 +45,69 @@ describe("addMixedExpression", () => {
     expect(pm.dynamics![0]!.value).toBe("p");
   });
 
+  describe("addDynamic", () => {
+    it("places a dynamic at the start of a selected tuplet bracket", () => {
+      const score = makeSimpleScore();
+      score.parts[0]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "event",
+          id: "lead",
+          duration: { base: "quarter" },
+          notes: [{ pitch: { step: "C", octave: 4 } }],
+        },
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: ["a", "b", "c"].map((id) => ({
+            type: "event" as const,
+            id,
+            duration: { base: "eighth" as const },
+            notes: [{ pitch: { step: "D" as const, octave: 4 as const } }],
+          })),
+        },
+      ];
+
+      const result = addDynamic(score, { kind: "single", elementId: "p0/m0/s0/tuplet0", elementType: "tuplet" }, "f");
+
+      expect(result?.parts[0]!.measures[0]!.dynamics?.[0]).toMatchObject({
+        type: "immediate",
+        value: "f",
+        position: { fraction: [1, 4] },
+      });
+      expect(score.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+    });
+
+    it("places dynamics at selected event onsets inside a tuplet", () => {
+      const score = makeSimpleScore();
+      score.parts[0]!.measures[0]!.sequences[0]!.content = [
+        {
+          type: "event",
+          id: "lead",
+          duration: { base: "quarter" },
+          notes: [{ pitch: { step: "C", octave: 4 } }],
+        },
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: ["inner-a", "inner-b", "inner-c"].map((id) => ({
+            type: "event" as const,
+            id,
+            duration: { base: "eighth" as const },
+            notes: [{ pitch: { step: "D" as const, octave: 4 as const } }],
+          })),
+        },
+      ];
+
+      const first = addDynamic(score, { kind: "single", elementId: "p0/m0/s0/inner-a" }, "f");
+      const second = addDynamic(score, { kind: "single", elementId: "p0/m0/s0/inner-b" }, "p");
+
+      expect(first?.parts[0]!.measures[0]!.dynamics?.[0]?.position).toEqual({ fraction: [1, 4] });
+      expect(second?.parts[0]!.measures[0]!.dynamics?.[0]?.position).toEqual({ fraction: [1, 3] });
+    });
+  });
+
   it("places text expression without inline when no dynamic", () => {
     const score = makeSimpleScore();
     const tokens: MixedExpressionToken[] = [{ type: "text", value: "lovingly" }];

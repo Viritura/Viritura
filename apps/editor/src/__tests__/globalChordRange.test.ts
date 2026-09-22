@@ -606,15 +606,15 @@ describe("chord range focus and rhythmic bounds", () => {
       const pitchEvent = transposed.parts[2]!.measures[measureIndex]!.sequences[1]!.content[eventIndex] as NoteEvent;
       pitchEvent.notes![0]!.pitch = { step: "D", octave: 4 };
     }
-    // Generated 4/4 rests stay within each quarter-note beat, with fresh IDs.
-    const rest = (): NoteEvent => ({
+    // Generated 4/4 rests expose the half-bar while combining aligned spans.
+    const rest = (base: "quarter" | "half"): NoteEvent => ({
       type: "event",
       id: expect.any(String),
-      duration: { base: "quarter" },
+      duration: { base },
       rest: {},
     });
-    deleted.parts[2]!.measures[0]!.sequences[1]!.content.splice(1, 3, rest(), rest(), rest());
-    deleted.parts[2]!.measures[1]!.sequences[1]!.content.splice(0, 2, rest(), rest());
+    deleted.parts[2]!.measures[0]!.sequences[1]!.content.splice(1, 3, rest("quarter"), rest("half"));
+    deleted.parts[2]!.measures[1]!.sequences[1]!.content.splice(0, 2, rest("half"));
     const harness = keyboardContext(score, selection);
     transpose(harness);
     expect(harness.current()).toEqual(transposed);

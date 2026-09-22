@@ -82,15 +82,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     // several parts to one staff. Marking every FlatStaff whose source set
     // intersects the patch's parts is conservative and captures all of them.
     if let Some(region) = dirty_region.as_mut() {
-        region.affected_flat_staves = flat_staves
-            .iter()
-            .map(|staff| {
-                staff
-                    .sources
-                    .iter()
-                    .any(|source| region.affects_part(source.part_index))
-            })
-            .collect();
+        resolve_dirty_flat_staves(region, flat_staves);
     }
     let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
@@ -315,6 +307,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         flat_staves,
         group_ranges,
         &all_staff_resolved,
+        &all_staff_ottavas,
         &mmr,
         mmr_label_map,
         &budget,
@@ -896,6 +889,14 @@ pub(super) fn layout_auto_flow_mnx_score(
             chunked,
         );
         tick!("  cross_system_slurs");
+        super::super::cross_system::render_layout_staff_spanner_continuations(
+            &mut dl,
+            score,
+            flat_staves,
+            sp,
+            config,
+        );
+        tick!("  cross_system_staff_spanners");
 
         // Store only the fresh cross-system tail. The patch-frame overlay
         // extracted later still includes both these commands and the current

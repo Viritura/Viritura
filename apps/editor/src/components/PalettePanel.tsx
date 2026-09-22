@@ -154,6 +154,8 @@ import {
   SEARCH_INPUT_STYLE,
   eventPositionFraction,
   resolveSpannerPositions,
+  withSpannerStaff,
+  type SpannerTarget,
   SortablePaletteSection,
 } from "./palette";
 import { LyricsPanel } from "./lyrics/LyricsPanel";
@@ -707,7 +709,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     (
       onMutate: (
         draft: Score,
-        loc: NonNullable<ReturnType<typeof resolveEventLocation>>,
+        loc: SpannerTarget,
         partMeasure: PartMeasure,
         position: { fraction: [number, number] },
         end: { measure: string; position: { fraction: [number, number] } },
@@ -779,9 +781,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   const handleAddPedal = useCallback(
     (type: "sustain" | "sostenuto" | "una-corda") => () => {
-      computeSpannerPositions((draft, _loc, partMeasure, position, end) => {
+      computeSpannerPositions((draft, loc, partMeasure, position, end) => {
         const existing = partMeasure.pedals ?? [];
-        existing.push({ type, position, end });
+        existing.push(withSpannerStaff(loc, { type, position, end }));
         partMeasure.pedals = existing;
       });
     },
@@ -980,9 +982,9 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
 
   const handleAddOttava = useCallback(
     (value: number) => () => {
-      computeSpannerPositions((draft, _loc, partMeasure, position, end) => {
+      computeSpannerPositions((draft, loc, partMeasure, position, end) => {
         const existing = partMeasure.ottavas ?? [];
-        existing.push({ value, position, end });
+        existing.push(withSpannerStaff(loc, { value, position, end }));
         partMeasure.ottavas = existing;
       });
     },

@@ -17,6 +17,7 @@ import {
 } from "./InstrumentCatalog";
 import { buildLayouts, buildScoreDefinitions } from "./layoutBuilder";
 import { buildInitialStaffConfigs, createCatalogPart, persistedPartNames } from "./catalogPart";
+import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
 
 // ─── Extract players from an existing Score ──────────────────────
 
@@ -360,7 +361,8 @@ export function appendStaffToFullScoreContent(
 function collectFullScoreLayoutIds(score: Score): Set<string> {
   const ids = new Set<string>();
   for (const sd of score.scores ?? []) {
-    if ((sd.name === "Full Score" || sd.name === "Condensed Score") && sd.layout) {
+    const name = sd.name?.trim().toLocaleLowerCase();
+    if ((name === "full score" || name === "condensed score") && sd.layout) {
       ids.add(sd.layout);
     }
   }
@@ -368,6 +370,60 @@ function collectFullScoreLayoutIds(score: Score): Set<string> {
     ids.add(score.layouts![0]!.id);
   }
   return ids;
+}
+
+function catalogInstrumentForPart(part: Part) {
+  const explicitId = part._x?.viritura?.instrumentId;
+  const instrumentId = (explicitId && getCatalogInstrument(explicitId) ? explicitId : null) ?? guessInstrumentId(part);
+  return instrumentId ? getCatalogInstrument(instrumentId) : undefined;
+}
+
+function sortPartsInScoreOrder(parts: readonly Part[]): Part[] {
+  return parts
+    .map((part, index) => ({ part, index, instrument: catalogInstrumentForPart(part) }))
+    .sort((left, right) => {
+      if (!left.instrument && !right.instrument) return left.index - right.index;
+      if (!left.instrument) return 1;
+      if (!right.instrument) return -1;
+      return (
+        FAMILY_META[left.instrument.family].order - FAMILY_META[right.instrument.family].order ||
+        left.instrument.scoreOrder - right.instrument.scoreOrder ||
+        left.index - right.index
+      );
+    })
+    .map(({ part }) => part);
+}
+
+function collectLayoutPartIds(content: readonly LayoutContent[], out = new Set<string>()): Set<string> {
+  for (const node of content) {
+    if (node.type === "group") collectLayoutPartIds(node.content, out);
+    else for (const source of node.sources) out.add(source.part);
+  }
+  return out;
+}
+
+function canonicalLayoutContent(
+  score: Score,
+  layout: { content: LayoutContent[] },
+  newPartId: string,
+): LayoutContent[] {
+  const members = collectLayoutPartIds(layout.content);
+  members.add(newPartId);
+  return buildOrchestralLayoutGroups(
+    score.parts
+      .filter((part) => part.id && members.has(part.id))
+      .map((part) => {
+        const instrument = catalogInstrumentForPart(part);
+        return {
+          family: instrument?.family,
+          subGroup: orchestralInstrumentGroup(instrument?.id),
+          node:
+            instrument && part.id
+              ? buildStaffNodeForPart(instrument, part.id)
+              : ({ type: "staff", sources: [{ part: part.id!, labelref: "name" }] } as LayoutStaff),
+        };
+      }),
+  );
 }
 
 /** Synchronize per-part score definitions with derived part display names. */
@@ -403,10 +459,10 @@ export function synchronizePartScoreDefinitions(
 }
 
 /**
- * Incrementally add a new instrument (Part) to an existing Score
- * without rebuilding existing layouts. Creates the Part with empty measures,
- * appends a staff to the chosen conductor layout(s), creates a per-part layout,
- * and adds a per-part score definition.
+ * Add a new instrument (Part) in catalog score order. Canonical Full Score and
+ * Condensed Score targets are rebuilt with conventional family/subfamily
+ * grouping; custom targets retain their authored structure and receive one
+ * appended staff. A per-part layout and score definition are always created.
  *
  * `targetLayoutIds` selects which existing layouts receive the new staff. When
  * omitted, the canonical full-/condensed-score layout(s) are used (legacy
@@ -431,13 +487,21 @@ export function addInstrumentToScore(score: Score, instrumentId: string, targetL
     score.parts.length,
   );
 
+  const newParts = sortPartsInScoreOrder([...score.parts.map((p) => ({ ...p })), newPart]);
+  const scoreWithPart = { ...score, parts: newParts };
   const newStaffNode = buildStaffNodeForPart(inst, newPartId);
   const familyLabel = FAMILY_META[inst.family]?.label;
   const targetIds = targetLayoutIds ? new Set(targetLayoutIds) : collectFullScoreLayoutIds(score);
+  const canonicalIds = collectFullScoreLayoutIds(score);
 
   const newLayouts = (score.layouts ?? []).map((layout) =>
     targetIds.has(layout.id)
-      ? { ...layout, content: appendStaffToFullScoreContent(layout.content, familyLabel, newStaffNode) }
+      ? {
+          ...layout,
+          content: canonicalIds.has(layout.id)
+            ? canonicalLayoutContent(scoreWithPart, layout, newPartId)
+            : appendStaffToFullScoreContent(layout.content, familyLabel, newStaffNode),
+        }
       : layout,
   );
 
@@ -450,7 +514,6 @@ export function addInstrumentToScore(score: Score, instrumentId: string, targetL
     layout: `L-${newPartId}`,
     ...(inst.transposition ? { useWritten: true } : {}),
   };
-  const newParts = [...score.parts.map((p) => ({ ...p })), newPart];
   const newScores = synchronizePartScoreDefinitions(newParts, [...(score.scores ?? []), newScoreDef]);
 
   let newGlobal = score.global;

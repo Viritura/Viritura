@@ -212,4 +212,31 @@ describe("TileCache horizon bucketing", () => {
     expect(cache.tilesRendered).toBeGreaterThan(0);
     expect(sharedRec.rects.some((entry) => entry.x === 80 && entry.w === 30)).toBe(true);
   });
+
+  it("does not show stale grouping content while a published WASM list still has the prior UI version", () => {
+    const cache = new TileCache();
+    const canvas = {
+      width: 256,
+      height: 256,
+      getContext: vi.fn(() => makeRecordingCtx(sharedRec)),
+    } as unknown as HTMLCanvasElement;
+    const paint = (displayList: DisplayList) =>
+      cache.paintFrame({
+        canvas,
+        displayList,
+        scrollX: 0,
+        scrollY: 0,
+        zoom: 1,
+        version: 7,
+        glyphAtlas: null,
+        viewMode: "horizon",
+      });
+
+    // The first rectangle represents the old left-of-staff grouping symbol.
+    paint(horizonDisplayList([rect(20, 30)], 6000));
+    paint(horizonDisplayList([rect(80, 30)], 6000));
+
+    expect(cache.tilesRendered).toBeGreaterThan(0);
+    expect(sharedRec.rects.some((entry) => entry.x === 80 && entry.w === 30)).toBe(true);
+  });
 });

@@ -51,18 +51,51 @@ pub(crate) fn prefer_target(
 /// measure bounds. Unlike ties and slurs these spanners are authored as
 /// measure-qualified ranges rather than endpoint ids, so their continuation
 /// geometry is resolved from those bounds directly.
-pub(crate) fn render_staff_spanner_continuations(
+#[derive(Clone, Copy)]
+pub(crate) struct LayoutStaffRoute {
+    pub(crate) system_index: usize,
+    pub(crate) part_index: usize,
+    pub(crate) staff_number: u32,
+    pub(crate) bounds_staff_index: usize,
+}
+
+enum StaffRouting<'a> {
+    Fixed(usize),
+    PerSystem(&'a [LayoutStaffRoute]),
+}
+
+impl StaffRouting<'_> {
+    fn matches(
+        &self,
+        system_index: usize,
+        part_index: usize,
+        staff_number: u32,
+        bounds_staff_index: usize,
+    ) -> bool {
+        match self {
+            Self::Fixed(index) => bounds_staff_index == *index,
+            Self::PerSystem(routes) => routes.iter().any(|route| {
+                route.system_index == system_index
+                    && route.part_index == part_index
+                    && route.staff_number == staff_number
+                    && route.bounds_staff_index == bounds_staff_index
+            }),
+        }
+    }
+}
+
+fn render_staff_spanner_continuations_with_routing(
     dl: &mut DisplayList,
     score: &Score,
     part_index: usize,
     staff_number: u32,
+    routing: &StaffRouting<'_>,
     sp: f64,
     config: &LayoutConfig,
 ) {
     let Some(part) = score.parts.get(part_index) else {
         return;
     };
-    let staff_index = staff_number.saturating_sub(1) as usize;
     let measure_index = |id: &str| {
         score
             .global
@@ -84,7 +117,8 @@ pub(crate) fn render_staff_spanner_continuations(
             render_ottava_fragments(
                 dl,
                 part_index,
-                staff_index,
+                staff_number,
+                routing,
                 start_measure,
                 end_measure,
                 ottava.position.beats(),
@@ -108,7 +142,8 @@ pub(crate) fn render_staff_spanner_continuations(
             render_pedal_fragments(
                 dl,
                 part_index,
-                staff_index,
+                staff_number,
+                routing,
                 start_measure,
                 end_measure,
                 pedal.position.beats(),
@@ -123,18 +158,89 @@ pub(crate) fn render_staff_spanner_continuations(
     }
 }
 
+pub(crate) fn render_staff_spanner_continuations(
+    dl: &mut DisplayList,
+    score: &Score,
+    part_index: usize,
+    staff_number: u32,
+    bounds_staff_index: usize,
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    render_staff_spanner_continuations_with_routing(
+        dl,
+        score,
+        part_index,
+        staff_number,
+        &StaffRouting::Fixed(bounds_staff_index),
+        sp,
+        config,
+    );
+}
+
+pub(crate) fn render_routed_staff_spanner_continuations(
+    dl: &mut DisplayList,
+    score: &Score,
+    routes: &[LayoutStaffRoute],
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    let mut sources = std::collections::HashSet::new();
+    for route in routes {
+        if sources.insert((route.part_index, route.staff_number)) {
+            render_staff_spanner_continuations_with_routing(
+                dl,
+                score,
+                route.part_index,
+                route.staff_number,
+                &StaffRouting::PerSystem(routes),
+                sp,
+                config,
+            );
+        }
+    }
+}
+
+pub(crate) fn render_layout_staff_spanner_continuations(
+    dl: &mut DisplayList,
+    score: &Score,
+    flat_staves: &[super::full_score::FlatStaff],
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    for (bounds_staff_index, staff) in flat_staves.iter().enumerate() {
+        for source in &staff.sources {
+            render_staff_spanner_continuations(
+                dl,
+                score,
+                source.part_index,
+                source.staff_number.unwrap_or(1),
+                bounds_staff_index,
+                sp,
+                config,
+            );
+        }
+    }
+}
+
 fn staff_bounds(
     dl: &DisplayList,
     part_index: usize,
-    staff_index: usize,
+    staff_number: u32,
+    routing: &StaffRouting<'_>,
     measure_index: usize,
 ) -> Vec<crate::render::MeasureBounds> {
     dl.measure_bounds
         .iter()
         .filter(|bound| {
             bound.part_index == part_index
-                && bound.staff_index == staff_index
                 && bound.index == measure_index
+                && routing.matches(
+                    bound.system_index,
+                    part_index,
+                    staff_number,
+                    bound.staff_index,
+                )
         })
         .cloned()
         .collect()
@@ -158,16 +264,22 @@ fn beat_x(bound: &crate::render::MeasureBounds, beat: f64) -> f64 {
 fn system_staff_bounds(
     dl: &DisplayList,
     part_index: usize,
-    staff_index: usize,
+    staff_number: u32,
+    routing: &StaffRouting<'_>,
     first_system: usize,
     last_system: usize,
 ) -> Vec<(usize, f64, f64, f64)> {
     let mut systems: Vec<(usize, f64, f64, f64)> = Vec::new();
     for bound in dl.measure_bounds.iter().filter(|bound| {
         bound.part_index == part_index
-            && bound.staff_index == staff_index
             && bound.system_index >= first_system
             && bound.system_index <= last_system
+            && routing.matches(
+                bound.system_index,
+                part_index,
+                staff_number,
+                bound.staff_index,
+            )
     }) {
         if let Some((_, left, right, _)) = systems
             .iter_mut()
@@ -186,7 +298,8 @@ fn system_staff_bounds(
 fn render_ottava_fragments(
     dl: &mut DisplayList,
     part_index: usize,
-    staff_index: usize,
+    staff_number: u32,
+    routing: &StaffRouting<'_>,
     start_measure: usize,
     end_measure: usize,
     start_beat: f64,
@@ -196,8 +309,8 @@ fn render_ottava_fragments(
     source_index: usize,
     sp: f64,
 ) {
-    let starts = staff_bounds(dl, part_index, staff_index, start_measure);
-    let ends = staff_bounds(dl, part_index, staff_index, end_measure);
+    let starts = staff_bounds(dl, part_index, staff_number, routing, start_measure);
+    let ends = staff_bounds(dl, part_index, staff_number, routing, end_measure);
     let (Some(start), Some(end)) = (starts.first(), ends.first()) else {
         return;
     };
@@ -228,7 +341,8 @@ fn render_ottava_fragments(
     let fragments: Vec<_> = system_staff_bounds(
         dl,
         part_index,
-        staff_index,
+        staff_number,
+        routing,
         start.system_index,
         end.system_index,
     )
@@ -286,7 +400,8 @@ fn render_ottava_fragments(
 fn render_pedal_fragments(
     dl: &mut DisplayList,
     part_index: usize,
-    staff_index: usize,
+    staff_number: u32,
+    routing: &StaffRouting<'_>,
     start_measure: usize,
     end_measure: usize,
     start_beat: f64,
@@ -297,8 +412,8 @@ fn render_pedal_fragments(
     sp: f64,
     config: &LayoutConfig,
 ) {
-    let starts = staff_bounds(dl, part_index, staff_index, start_measure);
-    let ends = staff_bounds(dl, part_index, staff_index, end_measure);
+    let starts = staff_bounds(dl, part_index, staff_number, routing, start_measure);
+    let ends = staff_bounds(dl, part_index, staff_number, routing, end_measure);
     let (Some(start), Some(end)) = (starts.first(), ends.first()) else {
         return;
     };
@@ -357,7 +472,8 @@ fn render_pedal_fragments(
     let fragments: Vec<_> = system_staff_bounds(
         dl,
         part_index,
-        staff_index,
+        staff_number,
+        routing,
         start.system_index,
         end.system_index,
     )

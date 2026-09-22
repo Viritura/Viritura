@@ -1,6 +1,6 @@
 import type { Score } from "@viritura/core";
 import { describe, expect, it } from "vitest";
-import { eventPositionFraction, resolveSpannerPositions } from "./spannerPositions";
+import { eventPositionFraction, resolveSpannerPositions, withSpannerStaff } from "./spannerPositions";
 
 const SCORE: Score = {
   mnx: { version: 1 },
@@ -67,5 +67,64 @@ describe("palette spanner positions", () => {
     const positions = resolveSpannerPositions(SCORE, { kind: "single", elementId: "p0/m1/s0/c" }, 0);
 
     expect(positions?.end).toEqual({ measure: "second", position: { fraction: [3, 8] } });
+  });
+
+  it("preserves lower-staff ownership for grand-staff spanners", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ id: "first", time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "Piano",
+          staves: 2,
+          measures: [
+            {
+              sequences: [
+                {
+                  staff: 1,
+                  content: [
+                    {
+                      type: "event",
+                      id: "upper",
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 5 } }],
+                    },
+                  ],
+                },
+                {
+                  staff: 2,
+                  content: [
+                    {
+                      type: "event",
+                      id: "lower",
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 3 } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const positions = resolveSpannerPositions(score, { kind: "single", elementId: "p0/m0/s1/lower" }, 0);
+
+    expect(positions?.targets).toEqual([
+      expect.objectContaining({ partIndex: 0, measureIndex: 0, sequenceIndex: 1, staff: 2 }),
+    ]);
+    expect(
+      withSpannerStaff(positions!.targets[0]!, {
+        value: 1,
+        position: positions!.position,
+        end: positions!.end,
+      }),
+    ).toEqual({
+      value: 1,
+      position: { fraction: [0, 4] },
+      end: { measure: "first", position: { fraction: [4, 4] } },
+      staff: 2,
+    });
   });
 });

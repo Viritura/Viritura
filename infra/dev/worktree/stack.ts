@@ -31,6 +31,7 @@ const dependencyVolumeSuffixes = [
   "package-score-engine",
   "package-score-viewer-react",
   "package-sound-profiles",
+  "package-stb-vorbis-shim",
   "package-ui",
   "package-video-sync",
   "example-score-viewer",

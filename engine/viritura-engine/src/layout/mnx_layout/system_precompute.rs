@@ -50,6 +50,7 @@ pub(super) fn precompute_system_layouts(
     flat_staves: &[FlatStaff],
     group_ranges: &[GroupRange],
     all_staff_resolved: &[ResolvedStaffSnapshot],
+    all_staff_ottavas: &[Arc<[ResolvedOttavaRange]>],
     mmr: &MmrPlan,
     mmr_label_map: &HashMap<usize, String>,
     budget: &MeasureWidthBudget,
@@ -507,12 +508,7 @@ pub(super) fn precompute_system_layouts(
         let mut all_staff_hashes: Vec<Vec<u64>> = Vec::with_capacity(flat_staves.len());
         let mut all_staff_restore: Vec<Vec<(usize, u64)>> = Vec::with_capacity(flat_staves.len());
         for (staff_idx, flat_staff) in flat_staves.iter().enumerate() {
-            // Ottavas are only needed to lay a measure out fresh; on the reuse
-            // path (the common case during editing) they are never read, so
-            // compute them lazily — `resolve_all_ottavas` scans the whole staff
-            // and, run per-staff-per-system every pass, would dominate the warm
-            // cost otherwise.
-            let mut staff_ottavas: Option<Vec<ResolvedOttavaRange>> = None;
+            let staff_ottavas = &all_staff_ottavas[staff_idx];
             let mut sys_x = margin_left;
             let mut measure_layouts = Vec::with_capacity(sys_measure_indices.len());
             let mut measure_hashes: Vec<u64> = Vec::with_capacity(sys_measure_indices.len());
@@ -546,6 +542,7 @@ pub(super) fn precompute_system_layouts(
                     rm.global.time.is_some(),
                     config.time_signature_settings,
                 );
+                let content_hash = ottava_aware_hash(content_hash, staff_ottavas, mi);
                 let prefix = fp.unwrap_or_default();
                 let empty_beats: Vec<f64> = Vec::new();
                 let pmcb = sys_clef_beats.get(&mi).map_or(&empty_beats[..], |v| &v[..]);
@@ -633,8 +630,6 @@ pub(super) fn precompute_system_layouts(
                     ml
                 } else {
                     system_all_reused = false;
-                    let staff_ottavas = staff_ottavas
-                        .get_or_insert_with(|| resolve_all_ottavas(&all_staff_resolved[staff_idx]));
                     let mut ml = layout_measure_with_shared_spacing(
                         rm,
                         sp,

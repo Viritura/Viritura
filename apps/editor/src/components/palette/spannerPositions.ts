@@ -1,17 +1,26 @@
 import type { Duration, Score } from "@viritura/core";
 import { durationToBeats } from "../../commands/noteCommands";
+import { dynamicStaffAtLocation } from "../../commands/dynamicStaff";
 import { resolveCondensedEventTargets } from "../../score/condensedWriteback";
 import { resolveEventLocation, type EventLocation } from "../../score/ElementPath";
 import type { SelectionState } from "../../store/selectionStore";
 
+export interface SpannerTarget extends EventLocation {
+  readonly staff?: number;
+}
+
 export interface SpannerPositions {
   readonly start: EventLocation;
-  readonly targets: readonly EventLocation[];
+  readonly targets: readonly SpannerTarget[];
   readonly position: { readonly fraction: [number, number] };
   readonly end: {
     readonly measure: string;
     readonly position: { readonly fraction: [number, number] };
   };
+}
+
+export function withSpannerStaff<T extends object>(target: SpannerTarget, spanner: T): T & { staff?: number } {
+  return { ...spanner, ...(target.staff !== undefined && { staff: target.staff }) };
 }
 
 function beatToFraction(beat: number): [number, number] {
@@ -78,7 +87,10 @@ export function resolveSpannerPositions(
 
   return {
     start,
-    targets: resolveCondensedEventTargets(score, selectedScoreIndex, start),
+    targets: resolveCondensedEventTargets(score, selectedScoreIndex, start).map((target) => {
+      const staff = dynamicStaffAtLocation(score, target);
+      return { ...target, ...(staff !== undefined && { staff }) };
+    }),
     position: { fraction: eventPositionFraction(score, start) },
     end: { measure: endMeasureId, position: { fraction: endFraction } },
   };

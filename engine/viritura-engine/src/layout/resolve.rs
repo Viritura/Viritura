@@ -21,7 +21,7 @@ pub(crate) fn measure_is_covered_by_repeat(measures: &[PartMeasure], index: usiz
 }
 use std::collections::{HashMap, HashSet};
 
-type AccidentalState = HashMap<(String, i32), i32>;
+pub(crate) type AccidentalState = HashMap<(String, i32), i32>;
 
 pub(crate) fn resolve_display_key(
     active_key: &KeySignature,
@@ -85,7 +85,7 @@ fn apply_courtesy_to_event(
     }
 }
 
-fn apply_automatic_courtesy_accidentals(
+pub(crate) fn apply_automatic_courtesy_accidentals(
     measure: &mut PartMeasure,
     transposition: Option<(i32, i32)>,
     incoming_ties: &[String],
@@ -163,7 +163,7 @@ fn apply_automatic_courtesy_accidentals(
     final_state
 }
 
-fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec<String>) {
+pub(crate) fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec<String>) {
     for item in content {
         match item {
             SequenceContent::Event(event) => {
@@ -200,6 +200,40 @@ fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec<String>) {
                 }
             }
             SequenceContent::Space(_) | SequenceContent::Grace(_) | SequenceContent::Other(_) => {}
+        }
+    }
+}
+
+pub(crate) fn consume_tie_targets(content: &[SequenceContent], targets: &mut HashSet<String>) {
+    for item in content {
+        match item {
+            SequenceContent::Event(event) => {
+                for note in event.notes() {
+                    if let Some(id) = &note.id {
+                        targets.remove(id);
+                    }
+                }
+            }
+            SequenceContent::Tuplet(tuplet) => consume_tie_targets(&tuplet.content, targets),
+            SequenceContent::MultiNoteTremolo(tremolo) => {
+                for event in &tremolo.content {
+                    for note in event.notes() {
+                        if let Some(id) = &note.id {
+                            targets.remove(id);
+                        }
+                    }
+                }
+            }
+            SequenceContent::Grace(grace) => {
+                for event in &grace.content {
+                    for note in event.notes() {
+                        if let Some(id) = &note.id {
+                            targets.remove(id);
+                        }
+                    }
+                }
+            }
+            SequenceContent::Space(_) | SequenceContent::Other(_) => {}
         }
     }
 }

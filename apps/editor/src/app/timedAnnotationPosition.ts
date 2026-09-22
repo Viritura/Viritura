@@ -23,6 +23,24 @@ export function eventBeatPosition(sequence: Sequence, target: TimedAnnotationTar
   return beat;
 }
 
+export function eventEndBeatPosition(sequence: Sequence, target: TimedAnnotationTarget): number {
+  const start = eventBeatPosition(sequence, target);
+  const containerIndex = target.tupletIndex ?? target.graceContainerIndex;
+  if (containerIndex === undefined) {
+    const event = sequence.content[target.eventIndex];
+    return start + (event ? sequenceContentBeats(event) : 0);
+  }
+
+  const container = sequence.content[containerIndex];
+  if (container?.type !== "tuplet") return start;
+  const event = container.content[target.eventIndex];
+  if (!event) return start;
+  const outerBeats = container.outer.multiple * durationToBeats(container.outer.duration);
+  const innerBeats = container.inner.multiple * durationToBeats(container.inner.duration);
+  const scale = innerBeats > 0 ? outerBeats / innerBeats : 1;
+  return start + sequenceContentBeats(event) * scale;
+}
+
 export function beatPositionToFraction(beat: number): [number, number] {
   const wholeNotes = beat / 4;
   let bestNumerator = 0;

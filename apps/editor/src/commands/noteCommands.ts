@@ -722,7 +722,9 @@ export function addRest(score: Score, params: AddRestParams): Score {
     }
   }
 
-  const newRestEvent = createRest(duration);
+  const authoredRestEvents = decomposeRestsAtPosition(restBeats, beatPosition, measureTs).map((restDuration) =>
+    createRest(restDuration),
+  );
 
   if (targetIdx === -1) {
     // Beyond existing content — fill gap with rests, then add rest
@@ -734,7 +736,7 @@ export function addRest(score: Score, params: AddRestParams): Score {
         sequence.content.push(createRest(d));
       }
     }
-    sequence.content.push(newRestEvent);
+    sequence.content.push(...authoredRestEvents);
   } else {
     const targetPos = positions[targetIdx]!;
     const targetEvent = targetPos.event;
@@ -791,8 +793,9 @@ export function addRest(score: Score, params: AddRestParams): Score {
         }
       }
 
-      // The rest itself
-      newContent.push(newRestEvent);
+      // The rest itself. Non-compound meters use undotted values split at
+      // metric boundaries; compound beat groups may retain a dotted rest.
+      newContent.push(...authoredRestEvents);
 
       // Post-rest: remaining beats after the rest
       const postBeats = consumedEndBeat - restEndBeat;
@@ -834,6 +837,16 @@ export function collapseRestOnlySequence(sequence: Sequence): void {
   if (!containsOnlyRests) return;
   sequence.content = [];
   sequence.fullMeasure = { visualDuration: { base: "whole" } };
+}
+
+function collapseRestOnlyTuplet(score: Score, sequence: Sequence, measureIndex: number, tupletIndex: number): void {
+  const tuplet = sequence.content[tupletIndex];
+  if (tuplet?.type !== "tuplet" || !tuplet.content.every((item) => item.type === "event" && isRest(item))) return;
+  const startBeat = sequence.content.slice(0, tupletIndex).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
+  const time = getEffectiveTimeSignature(score, measureIndex);
+  const rests = decomposeRestsAtPosition(sequenceContentBeats(tuplet), startBeat, time).map(createRest);
+  sequence.content.splice(tupletIndex, 1, ...rests);
+  mergeAdjacentRests(sequence, undefined, time);
 }
 
 export function deleteNote(score: Score, params: DeleteNoteParams): Score {
@@ -879,14 +892,19 @@ export function deleteNote(score: Score, params: DeleteNoteParams): Score {
     return score;
   }
 
-  // Replace note with rest of same duration
-  const rest = createRest(event.duration);
-  contentArray[eventIndex] = rest;
-
-  // Merge adjacent rests only in the top-level sequence (not inside tuplets).
   if (tupletIndex === undefined) {
     const ts = getEffectiveTimeSignature(score, measureIndex);
+    const startBeat = sequence.content.slice(0, eventIndex).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
+    const rests = decomposeRestsAtPosition(durationToBeats(event.duration), startBeat, ts).map((duration) =>
+      createRest(duration),
+    );
+    contentArray.splice(eventIndex, 1, ...rests);
     mergeAdjacentRests(sequence, undefined, ts);
+  } else {
+    // Tuplet members retain their written inner duration; meter boundaries
+    // apply to the tuplet's outer span, not to each member.
+    contentArray[eventIndex] = createRest(event.duration);
+    collapseRestOnlyTuplet(score, sequence, measureIndex, tupletIndex);
   }
   collapseRestOnlySequence(sequence);
 

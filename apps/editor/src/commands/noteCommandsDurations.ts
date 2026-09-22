@@ -6,6 +6,7 @@
 
 import type { Duration, NoteEvent, NoteValueBase, SequenceContent } from "@viritura/core";
 import { DURATION_BEATS, generateId, resolveMeter } from "@viritura/core";
+import { primaryMetricBoundaries } from "./metricGrouping";
 
 // ═══════════════════════════════════════════
 // Duration math helpers
@@ -114,13 +115,40 @@ function isCompoundMeter(beatStructure: readonly number[]): boolean {
   return beatStructure.length > 0 && beatStructure.every((group) => group === 3);
 }
 
-function decomposeUndottedDuration(beats: number): Duration[] {
+const UNDOTTED_REST_BASES: readonly NoteValueBase[] = [
+  "duplexMaxima",
+  "maxima",
+  "longa",
+  "breve",
+  "whole",
+  "half",
+  "quarter",
+  "eighth",
+  "16th",
+  "32nd",
+  "64th",
+  "128th",
+  "256th",
+  "512th",
+  "1024th",
+  "2048th",
+  "4096th",
+];
+
+function decomposeUndottedDuration(beats: number, startBeat: number): Duration[] {
   const result: Duration[] = [];
   let remaining = beats;
+  let pos = startBeat;
   while (remaining > 1e-9) {
-    const base = beatsToNoteValueBase(remaining);
+    const base =
+      UNDOTTED_REST_BASES.find((candidate) => {
+        const duration = DURATION_BEATS[candidate];
+        return duration <= remaining + 1e-9 && Math.abs(pos / duration - Math.round(pos / duration)) < 1e-9;
+      }) ?? "4096th";
     result.push({ base });
-    remaining -= DURATION_BEATS[base];
+    const duration = DURATION_BEATS[base];
+    remaining -= duration;
+    pos += duration;
   }
   return result;
 }
@@ -140,11 +168,14 @@ export function decomposeRestsAtPosition(
   const result: Duration[] = [];
   let remaining = beats;
   let pos = startBeat;
+  const primaryBoundaries = primaryMetricBoundaries(meter);
 
   while (remaining > 1e-9) {
-    const nextBoundary = meter.beatBoundaries.find((boundary) => boundary > pos + 1e-9);
+    const onBeatBoundary = meter.beatBoundaries.some((boundary) => Math.abs(boundary - pos) < 1e-9);
+    const boundaries = onBeatBoundary ? primaryBoundaries : meter.beatBoundaries;
+    const nextBoundary = boundaries.find((boundary) => boundary > pos + 1e-9);
     const span = Math.min(nextBoundary === undefined ? remaining : nextBoundary - pos, remaining);
-    const durations = allowDots ? decomposeDuration(span) : decomposeUndottedDuration(span);
+    const durations = allowDots ? decomposeDuration(span) : decomposeUndottedDuration(span, pos);
     result.push(...durations);
     remaining -= span;
     pos += span;
