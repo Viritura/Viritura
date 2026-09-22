@@ -35,6 +35,7 @@ import { isLyricId, removeLyricByElementId, removeLyrics } from "./lyricCommands
 import { removeGlissandoByElementId } from "./glissandoCommands";
 import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
 import { removeTuplet } from "./tupletCommands";
+import { cloneScore } from "../score/scoreClone";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -142,13 +143,14 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
 function deleteSelectedTuplet(score: Score, elementId: string): DeleteSelectionResult | null {
   const match = elementId.match(/^p(\d+)\/m(\d+)\/s(\d+)\/tuplet(\d+)$/);
   if (!match) return null;
-  const removed = removeTuplet(score, {
+  const newScore = cloneScore(score);
+  const removed = removeTuplet(newScore, {
     partIndex: Number.parseInt(match[1]!, 10),
     measureIndex: Number.parseInt(match[2]!, 10),
     voice: Number.parseInt(match[3]!, 10),
     tupletOrdinal: Number.parseInt(match[4]!, 10),
   });
-  return removed ? { kind: "single", score, nextSelection: { kind: "clear" } } : { kind: "noop" };
+  return removed ? { kind: "single", score: newScore, nextSelection: { kind: "clear" } } : { kind: "noop" };
 }
 
 /** Delete a selected leaf or global property that must never fall through to its parent event. */

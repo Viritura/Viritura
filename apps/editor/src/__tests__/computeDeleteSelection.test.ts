@@ -366,6 +366,7 @@ describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
       { type: "event", duration: { base: "quarter" }, rest: {} },
     ]);
     expect(result.score.parts[0]!.measures[0]!.dynamics).toHaveLength(1);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("tuplet");
   });
 
   it("returns noop for an empty selection", () => {

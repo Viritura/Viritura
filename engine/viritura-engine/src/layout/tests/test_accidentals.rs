@@ -943,6 +943,38 @@ fn test_accidental_change_at_barline_gets_courtesy() {
 }
 
 #[test]
+fn test_accidental_change_at_barline_gets_courtesy_in_mnx_score_layout() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "m1", "time": {"count": 4, "unit": 4}},
+            {"id": "m2"}
+        ]},
+        "layouts": [{"id": "L", "content": [
+            {"type": "staff", "sources": [{"part": "p1"}]}
+        ]}],
+        "scores": [{"name": "Score", "layout": "L"}],
+        "parts": [{"id": "p1", "measures": [
+            {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4, "alter": 1}}]}
+            ]}]},
+            {"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "F", "octave": 4}}]}
+            ]}]}
+        ]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+
+    assert_eq!(
+        count_accidentals(&dl),
+        2,
+        "MNX score layout must retain the automatic boundary courtesy natural"
+    );
+}
+
+#[test]
 fn test_transposed_accidental_change_at_barline_uses_written_pitch() {
     // For a Bb clarinet, concert F# then F natural is written G# then G
     // natural. The boundary courtesy must follow that displayed spelling.

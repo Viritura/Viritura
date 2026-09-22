@@ -884,6 +884,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
             score,
             part_index,
             staff_number,
+            staff_number.saturating_sub(1) as usize,
             sp,
             config,
         );

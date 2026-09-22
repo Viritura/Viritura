@@ -147,7 +147,7 @@ describe("getTupletOuterMultiple", () => {
 });
 
 describe("removeTuplet", () => {
-  it("restores the original duration when unwrapping a tuplet made from one note", () => {
+  it("replaces a tuplet made from one note with a rest of the outer duration", () => {
     const score = makeScoreWithNote();
     createTupletFromEvent(score, {
       measureIndex: 0,
@@ -159,12 +159,34 @@ describe("removeTuplet", () => {
 
     expect(removeTuplet(score, { measureIndex: 0, partIndex: 0, voice: 0, tupletOrdinal: 0 })).toBe(true);
 
-    expect(seq(score).content[0]).toMatchObject({
-      type: "event",
-      id: "note1",
-      duration: { base: "half" },
-      notes: [{ pitch: { step: "C", octave: 4 } }],
-    });
+    expect(seq(score).content).toHaveLength(2);
+    expect(seq(score).content).toEqual([
+      expect.objectContaining({ type: "event", duration: { base: "half" }, rest: {} }),
+      expect.objectContaining({ type: "event", duration: { base: "half" }, rest: {} }),
+    ]);
+  });
+
+  it("deletes every sounded note when collapsing a quintuplet", () => {
+    const score = makeScoreWithNote();
+    seq(score).content = [
+      {
+        type: "tuplet",
+        inner: { multiple: 5, duration: { base: "16th" } },
+        outer: { multiple: 4, duration: { base: "16th" } },
+        content: ["C", "D", "E", "F", "G"].map((step, index) => ({
+          type: "event" as const,
+          id: `quint-${index}`,
+          duration: { base: "16th" as const },
+          notes: [{ pitch: { step: step as "C" | "D" | "E" | "F" | "G", octave: 4 as const } }],
+        })),
+      },
+    ];
+
+    expect(removeTuplet(score, { measureIndex: 0, partIndex: 0, voice: 0, tupletOrdinal: 0 })).toBe(true);
+
+    expect(seq(score).content).toEqual([
+      expect.objectContaining({ type: "event", duration: { base: "quarter" }, rest: {} }),
+    ]);
   });
 });
 

@@ -5,45 +5,8 @@
  */
 
 import type { LayoutContent, LayoutDefinition, LayoutGroup, LayoutStaff, ScoreDefinition } from "@viritura/core";
-import { FAMILY_META, getCatalogInstrument, type InstrumentFamily, type Player } from "./InstrumentCatalog";
-
-interface FamilyGroup {
-  family: InstrumentFamily;
-  playerIndices: number[];
-}
-
-interface SubGroupRun {
-  subGroup: string | undefined;
-  nodes: LayoutContent[];
-}
-
-function buildFamilyGroups(players: Player[]): FamilyGroup[] {
-  const groups: FamilyGroup[] = [];
-  for (let i = 0; i < players.length; i++) {
-    const inst = getCatalogInstrument(players[i]!.instrumentId);
-    const family: InstrumentFamily = inst?.family ?? "keyboards";
-    const last = groups[groups.length - 1];
-    if (last && last.family === family) {
-      last.playerIndices.push(i);
-    } else {
-      groups.push({ family, playerIndices: [i] });
-    }
-  }
-  return groups;
-}
-
-function groupConsecutiveBySubGroup(entries: { node: LayoutContent; subGroup: string | undefined }[]): SubGroupRun[] {
-  const runs: SubGroupRun[] = [];
-  for (const entry of entries) {
-    const last = runs[runs.length - 1];
-    if (last && last.subGroup != null && last.subGroup === entry.subGroup) {
-      last.nodes.push(entry.node);
-    } else {
-      runs.push({ subGroup: entry.subGroup, nodes: [entry.node] });
-    }
-  }
-  return runs;
-}
+import { getCatalogInstrument, type Player } from "./InstrumentCatalog";
+import { buildOrchestralLayoutGroups, orchestralInstrumentGroup } from "./layoutGrouping";
 
 /** Build a brace-grouped multi-staff node (e.g. piano), or a single staff node. */
 function buildPlayerStaffNode(player: Player, partId: string): LayoutContent {
@@ -65,42 +28,21 @@ function buildPlayerStaffNode(player: Player, partId: string): LayoutContent {
   } as LayoutStaff;
 }
 
-/** Build content for one family group within the full-score layout. */
-function buildFamilyGroupContent(group: FamilyGroup, players: Player[], partIds: string[]): LayoutContent | null {
-  const staveEntries = group.playerIndices.map((idx) => {
-    const inst = getCatalogInstrument(players[idx]!.instrumentId);
-    return { node: buildPlayerStaffNode(players[idx]!, partIds[idx]!), subGroup: inst?.subGroup };
-  });
-
-  if (group.playerIndices.length > 1) {
-    const subGroupRuns = groupConsecutiveBySubGroup(staveEntries);
-    const content: LayoutContent[] = subGroupRuns.map((run) =>
-      run.nodes.length > 1 ? ({ type: "group", symbol: "bracket", content: run.nodes } as LayoutGroup) : run.nodes[0]!,
-    );
-
-    return {
-      type: "group",
-      symbol: "bracket",
-      label: FAMILY_META[group.family].label,
-      content,
-    } as LayoutGroup;
-  }
-  if (staveEntries.length === 1) return staveEntries[0]!.node;
-  return null;
-}
-
 /**
  * Build full-score and per-player layouts from a player list and part IDs.
  */
 export function buildLayouts(players: Player[], partIds: string[]): LayoutDefinition[] {
   const layouts: LayoutDefinition[] = [];
-  const familyGroups = buildFamilyGroups(players);
-
-  const fullScoreContent: LayoutContent[] = [];
-  for (const group of familyGroups) {
-    const node = buildFamilyGroupContent(group, players, partIds);
-    if (node) fullScoreContent.push(node);
-  }
+  const fullScoreContent = buildOrchestralLayoutGroups(
+    players.map((player, index) => {
+      const instrument = getCatalogInstrument(player.instrumentId);
+      return {
+        family: instrument?.family,
+        subGroup: orchestralInstrumentGroup(player.instrumentId),
+        node: buildPlayerStaffNode(player, partIds[index]!),
+      };
+    }),
+  );
 
   layouts.push({ id: "FullScore", content: fullScoreContent });
 

@@ -5,9 +5,13 @@
 
 import type { DynamicGroup, FermataSymbol, Score, RhythmicPosition, TextExpression } from "@viritura/core";
 import { createDynamicGroup, createRelativeDynamicGroup, generateId } from "@viritura/core";
-import { getEventAtLocation, resolveEventLocation, resolveFullMeasureRestLocation } from "../score/ElementPath";
+import {
+  getEventAtLocation,
+  resolveEventLocation,
+  resolveFullMeasureRestLocation,
+  type EventLocation,
+} from "../score/ElementPath";
 import { ensureMeasureId } from "../score/spanUtils";
-import { sequenceContentBeats } from "../commands/noteCommands";
 import { getActiveTimeSignature } from "../commands/cursorCommands";
 import { dynamicStaffAtLocation } from "../commands/dynamicStaff";
 import {
@@ -27,6 +31,8 @@ import {
 import type { OrnamentSelection } from "./ornamentMenu";
 import type { BreathFermataSelection } from "./breathFermataMenu";
 import type { ExpressionToken, MixedExpressionToken } from "./dynamicExpressionParser";
+import { firstTupletEventLocation, resolveTupletSelectionLocation } from "./tupletSelection";
+import { beatPositionToFraction, eventBeatPosition, eventEndBeatPosition } from "../app/timedAnnotationPosition";
 
 // ═══════════════════════════════════════════
 // Position helpers
@@ -71,43 +77,17 @@ function relativeValueForQualifier(prefix: string | undefined, spelling: string)
 }
 
 /** Compute the rhythmic position (fraction of a whole note) of an event. */
-function computeEventPosition(
-  score: Score,
-  partIndex: number,
-  measureIndex: number,
-  sequenceIndex: number,
-  eventIndex: number,
-): RhythmicPosition {
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
+function computeEventPosition(score: Score, location: EventLocation): RhythmicPosition {
+  const seq = score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
   if (!seq) return { fraction: [0, 1] };
-  let beatSum = 0;
-  for (let i = 0; i < eventIndex && i < seq.content.length; i++) {
-    beatSum += sequenceContentBeats(seq.content[i]!);
-  }
-  const num = Math.round(beatSum * 256);
-  const den = 1024;
-  const g = gcd(num, den);
-  return { fraction: [num / g, den / g] };
+  return { fraction: beatPositionToFraction(eventBeatPosition(seq, location)) };
 }
 
 /** Compute the rhythmic position at the END of an event (start + duration). */
-function computeEventEndPosition(
-  score: Score,
-  partIndex: number,
-  measureIndex: number,
-  sequenceIndex: number,
-  eventIndex: number,
-): RhythmicPosition {
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
+function computeEventEndPosition(score: Score, location: EventLocation): RhythmicPosition {
+  const seq = score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
   if (!seq) return { fraction: [1, 1] };
-  let beatSum = 0;
-  for (let i = 0; i <= eventIndex && i < seq.content.length; i++) {
-    beatSum += sequenceContentBeats(seq.content[i]!);
-  }
-  const num = Math.round(beatSum * 256);
-  const den = 1024;
-  const g = gcd(num, den);
-  return { fraction: [num / g, den / g] };
+  return { fraction: beatPositionToFraction(eventEndBeatPosition(seq, location)) };
 }
 
 // ═══════════════════════════════════════════
@@ -128,6 +108,18 @@ interface DynamicTarget {
 interface DynamicBoundary {
   measureIndex: number;
   position: RhythmicPosition;
+}
+
+function tupletDynamicTarget(score: Score, elementId: string): DynamicTarget | null {
+  const location = resolveTupletSelectionLocation(score, elementId);
+  if (!location) return null;
+  const firstEvent = firstTupletEventLocation(location);
+  return {
+    partIndex: location.partIndex,
+    staff: dynamicStaffAtLocation(score, firstEvent),
+    startMeasureIndex: location.measureIndex,
+    startPosition: computeEventPosition(score, firstEvent),
+  };
 }
 
 function measureRepeatElementLocation(elementId: string): { partIndex: number; measureIndex: number } | null {
@@ -189,7 +181,7 @@ function resolveMultiTargets(score: Score, selection: Extract<Selection, { kind:
       (left, right) =>
         left.measureIndex - right.measureIndex ||
         left.sequenceIndex - right.sequenceIndex ||
-        left.eventIndex - right.eventIndex,
+        fractionValue(computeEventPosition(score, left)) - fractionValue(computeEventPosition(score, right)),
     );
     const first = locations[0];
     const last = locations.at(-1);
@@ -199,21 +191,9 @@ function resolveMultiTargets(score: Score, selection: Extract<Selection, { kind:
         partIndex: first.partIndex,
         staff: dynamicStaffAtLocation(score, first),
         startMeasureIndex: first.measureIndex,
-        startPosition: computeEventPosition(
-          score,
-          first.partIndex,
-          first.measureIndex,
-          first.sequenceIndex,
-          first.eventIndex,
-        ),
+        startPosition: computeEventPosition(score, first),
         endMeasureIndex: last.measureIndex,
-        endPosition: computeEventEndPosition(
-          score,
-          last.partIndex,
-          last.measureIndex,
-          last.sequenceIndex,
-          last.eventIndex,
-        ),
+        endPosition: computeEventEndPosition(score, last),
       },
     ];
   });
@@ -284,6 +264,8 @@ function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
   if (repeatTargets) return repeatTargets;
 
   if (selection.kind === "single") {
+    const tupletTarget = tupletDynamicTarget(score, selection.elementId);
+    if (tupletTarget) return [tupletTarget];
     const loc = resolveEventLocation(selection.elementId, score);
     if (!loc) {
       const barRest = resolveFullMeasureRestLocation(selection.elementId, score);
@@ -302,7 +284,7 @@ function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
         partIndex: loc.partIndex,
         staff: dynamicStaffAtLocation(score, loc),
         startMeasureIndex: loc.measureIndex,
-        startPosition: computeEventPosition(score, loc.partIndex, loc.measureIndex, loc.sequenceIndex, loc.eventIndex),
+        startPosition: computeEventPosition(score, loc),
       },
     ];
   }
@@ -318,24 +300,12 @@ function resolveTargets(score: Score, selection: Selection): DynamicTarget[] {
         ? [startLoc, endLoc]
         : startLoc.measureIndex > endLoc.measureIndex
           ? [endLoc, startLoc]
-          : startLoc.eventIndex <= endLoc.eventIndex
+          : fractionValue(computeEventPosition(score, startLoc)) <= fractionValue(computeEventPosition(score, endLoc))
             ? [startLoc, endLoc]
             : [endLoc, startLoc];
 
-    const startPos = computeEventPosition(
-      score,
-      first.partIndex,
-      first.measureIndex,
-      first.sequenceIndex,
-      first.eventIndex,
-    );
-    const endPos = computeEventEndPosition(
-      score,
-      last.partIndex,
-      last.measureIndex,
-      last.sequenceIndex,
-      last.eventIndex,
-    );
+    const startPos = computeEventPosition(score, first);
+    const endPos = computeEventEndPosition(score, last);
 
     // If cross-part range, apply to each part
     const minPart = Math.min(first.partIndex, last.partIndex);
@@ -409,6 +379,10 @@ function resolveImmediateDynamicTargets(
   const repeatTargets = resolveMeasureRepeatTargets(score, selection);
   if (repeatTargets) return repeatTargets;
   if (selection.kind === "measure") return resolveTargets(score, selection);
+  if (selection.kind === "single") {
+    const tupletTarget = tupletDynamicTarget(score, selection.elementId);
+    if (tupletTarget) return [tupletTarget];
+  }
   const events =
     selectedScoreIndex === undefined
       ? resolveSelectionEvents(selection, score)
@@ -422,13 +396,7 @@ function resolveImmediateDynamicTargets(
       partIndex: location.partIndex,
       staff: dynamicStaffAtLocation(score, location),
       startMeasureIndex: location.measureIndex,
-      startPosition: computeEventPosition(
-        score,
-        location.partIndex,
-        location.measureIndex,
-        location.sequenceIndex,
-        location.eventIndex,
-      ),
+      startPosition: computeEventPosition(score, location),
     }));
   return [
     ...new Map(

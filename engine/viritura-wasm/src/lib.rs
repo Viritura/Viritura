@@ -82,6 +82,38 @@ fn find_connector_target_measure_index(measures: &[PartMeasure], target_id: &str
     })
 }
 
+fn collect_staff_spanner_end_measure_indices(
+    measure: &PartMeasure,
+    global_measure_indices: &[(String, usize)],
+    out: &mut Vec<usize>,
+) {
+    let mut collect = |measure_id: &str| {
+        if let Some((_, index)) = global_measure_indices
+            .iter()
+            .find(|(id, _)| id == measure_id)
+        {
+            out.push(*index);
+        }
+    };
+    for ottava in measure.ottavas.iter().flatten() {
+        collect(&ottava.end.measure);
+    }
+    for pedal in measure.pedals.iter().flatten() {
+        collect(&pedal.end.measure);
+    }
+}
+
+fn staff_spanner_dependency_indices(
+    old_measure: &PartMeasure,
+    new_measure: &PartMeasure,
+    global_measure_indices: &[(String, usize)],
+) -> Vec<usize> {
+    let mut indices = Vec::new();
+    collect_staff_spanner_end_measure_indices(old_measure, global_measure_indices, &mut indices);
+    collect_staff_spanner_end_measure_indices(new_measure, global_measure_indices, &mut indices);
+    indices
+}
+
 #[cfg(test)]
 mod connector_dirty_range_tests {
     use super::*;
@@ -161,6 +193,47 @@ mod connector_dirty_range_tests {
         let score = two_measure_score_with_cross_measure_slur();
         let idx = find_connector_target_measure_index(&score.parts[0].measures, "nonexistent");
         assert_eq!(idx, None);
+    }
+
+    #[test]
+    fn collect_staff_spanner_ends_finds_ottava_and_pedal_targets() {
+        let score = parse_mnx(
+            r#"{
+                "mnx": {"version": 1},
+                "global": {"measures": [
+                    {"id": "m1", "time": {"count": 4, "unit": 4}},
+                    {"id": "m2"},
+                    {"id": "m3"}
+                ]},
+                "parts": [{"measures": [
+                    {
+                        "ottavas": [{
+                            "value": -1,
+                            "position": {"fraction": [0, 1]},
+                            "end": {"measure": "m3", "position": {"fraction": [1, 1]}}
+                        }],
+                        "_x": {"viritura": {"pedals": [{
+                            "type": "sustain",
+                            "position": {"fraction": [0, 1]},
+                            "end": {"measure": "m2", "position": {"fraction": [1, 1]}}
+                        }]}},
+                        "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
+                    },
+                    {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
+                    {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]}
+                ]}]
+            }"#,
+        )
+        .expect("parse");
+        let indices = vec![
+            ("m1".to_string(), 0),
+            ("m2".to_string(), 1),
+            ("m3".to_string(), 2),
+        ];
+        let mut ends = Vec::new();
+        collect_staff_spanner_end_measure_indices(&score.parts[0].measures[0], &indices, &mut ends);
+        ends.sort_unstable();
+        assert_eq!(ends, vec![1, 2]);
     }
 
     #[test]
@@ -266,6 +339,126 @@ mod connector_dirty_range_tests {
                 .flatten()
                 .any(|id| id.starts_with("tie/source-note/target-note")),
             "The first incremental frame must render the cross-measure tie"
+        );
+    }
+
+    #[test]
+    fn ottava_patch_relayouts_lower_staff_notes_through_end_measure() {
+        let json = r#"{
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m1", "time": {"count": 4, "unit": 4}},
+                {"id": "m2"},
+                {"id": "m3"}
+            ]},
+            "parts": [{"id": "piano", "name": "Piano", "staves": 2, "measures": [
+                {
+                    "clefs": [
+                        {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                        {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+                    ],
+                    "sequences": [
+                        {"staff": 1, "content": [{"id": "upper-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                        {"staff": 2, "content": [{"id": "lower-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+                    ]
+                },
+                {"sequences": [
+                    {"staff": 1, "content": [{"id": "upper-2", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "D", "octave": 5}}]}]},
+                    {"staff": 2, "content": [{"id": "lower-2", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "D", "octave": 3}}]}]}
+                ]},
+                {"sequences": [
+                    {"staff": 1, "content": [{"id": "upper-3", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}]},
+                    {"staff": 2, "content": [{"id": "lower-3", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "E", "octave": 3}}]}]}
+                ]}
+            ]}],
+            "layouts": [{"id": "piano-layout", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]}],
+            "scores": [{"name": "Piano", "layout": "piano-layout"}]
+        }"#;
+        let patch = r#"{
+            "partMeasures": {"0": {"0": {
+                "clefs": [
+                    {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                    {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+                ],
+                "ottavas": [{
+                    "value": -1,
+                    "staff": 2,
+                    "position": {"fraction": [0, 1]},
+                    "end": {"measure": "m3", "position": {"fraction": [1, 1]}}
+                }],
+                "sequences": [
+                    {"staff": 1, "content": [{"id": "upper-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                    {"staff": 2, "content": [{"id": "lower-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+                ]
+            }}}
+        }"#;
+
+        let event_staff_y = |display_list: &DisplayList, suffix: &str, measure_index: usize| {
+            let event_y = display_list
+                .element_bboxes
+                .iter()
+                .find(|entry| entry.element_id.ends_with(suffix))
+                .map(|entry| entry.bbox.y)
+                .unwrap_or_else(|| panic!("missing event bbox for {suffix}"));
+            let staff_y = display_list
+                .measure_bounds
+                .iter()
+                .find(|bound| bound.index == measure_index && bound.staff_index == 1)
+                .map(|bound| bound.y)
+                .unwrap_or_else(|| {
+                    panic!("missing lower-staff bounds for measure {measure_index}")
+                });
+            event_y - staff_y
+        };
+
+        let mut engine = LayoutEngine::default();
+        let initial = engine
+            .compute_full_score_layout_cached_dl(json, 10.0, 280.0, None, Some(0))
+            .expect("initial cached layout");
+        let initial_second_measure_y = event_staff_y(&initial, "/lower-2", 1);
+        let patched = engine
+            .apply_patch_and_layout_display_list(patch, 10.0, 280.0, None, Some(0))
+            .expect("ottava patch");
+        let patched_second_measure_y = event_staff_y(&patched, "/lower-2", 1);
+        let patched_third_measure_y = event_staff_y(&patched, "/lower-3", 2);
+
+        assert_ne!(
+            patched_second_measure_y, initial_second_measure_y,
+            "the warm-cache frame must transpose the second measure immediately"
+        );
+        assert!(
+            patched_third_measure_y.is_finite(),
+            "the end measure must remain present after range invalidation"
+        );
+        let metrics: serde_json::Value =
+            serde_json::from_str(&engine.layout_metrics_json()).expect("layout metrics parse");
+        assert!(
+            metrics["resolvedCells"].as_u64().unwrap_or_default() >= 6,
+            "both grand staves through the ottava end measure must be re-resolved"
+        );
+
+        let remove_patch = r#"{
+            "partMeasures": {"0": {"0": {
+                "clefs": [
+                    {"clef": {"sign": "G", "staffPosition": -2}, "staff": 1},
+                    {"clef": {"sign": "F", "staffPosition": 2}, "staff": 2}
+                ],
+                "sequences": [
+                    {"staff": 1, "content": [{"id": "upper-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}]},
+                    {"staff": 2, "content": [{"id": "lower-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}]}
+                ]
+            }}}
+        }"#;
+        let restored = engine
+            .apply_patch_and_layout_display_list(remove_patch, 10.0, 280.0, None, Some(0))
+            .expect("remove ottava patch");
+        assert_eq!(
+            event_staff_y(&restored, "/lower-2", 1),
+            initial_second_measure_y,
+            "removing the start-measure ottava must restore later cached measures"
         );
     }
 }
@@ -452,6 +645,81 @@ mod grouping_display_patch_tests {
         assert!(
             cache_stats[0] > 0,
             "unaffected measures must continue using the retained layout cache"
+        );
+    }
+}
+
+#[cfg(test)]
+mod layout_structure_cache_tests {
+    use super::*;
+    use viritura_engine::render::{smufl::smufl, RenderCommand};
+
+    fn bracket_terminal_count(display_list: &DisplayList) -> usize {
+        display_list
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    RenderCommand::DrawGlyph { codepoint, .. }
+                        if *codepoint == smufl::BRACKET_TOP || *codepoint == smufl::BRACKET_BOTTOM
+                )
+            })
+            .count()
+    }
+
+    fn score_json(grouped: bool) -> String {
+        let content = if grouped {
+            r#"[{"type":"group","symbol":"bracket","content":[
+                {"type":"staff","sources":[{"part":"P1"}]},
+                {"type":"staff","sources":[{"part":"P2"}]}
+            ]}]"#
+        } else {
+            r#"[
+                {"type":"staff","sources":[{"part":"P1"}]},
+                {"type":"staff","sources":[{"part":"P2"}]}
+            ]"#
+        };
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "parts": [
+                    {{"id":"P1","measures":[{{"sequences":[{{"content":[{{"duration":{{"base":"whole"}},"notes":[{{"pitch":{{"step":"C","octave":5}}}}]}}]}}]}}]}},
+                    {{"id":"P2","measures":[{{"sequences":[{{"content":[{{"duration":{{"base":"whole"}},"notes":[{{"pitch":{{"step":"C","octave":4}}}}]}}]}}]}}]}}
+                ],
+                "layouts": [{{"id":"L","content":{content}}}],
+                "scores": [{{"name":"Full Score","layout":"L"}}]
+            }}"#
+        )
+    }
+
+    #[test]
+    fn full_layout_refreshes_added_and_removed_staff_groups_without_view_switch() {
+        let mut engine = LayoutEngine::default();
+        let ungrouped_json = score_json(false);
+        let grouped_json = score_json(true);
+
+        let initial = engine
+            .compute_full_score_layout_cached_dl(&ungrouped_json, 10.0, 800.0, None, Some(0))
+            .expect("initial ungrouped layout");
+        assert_eq!(bracket_terminal_count(&initial), 0);
+
+        let grouped = engine
+            .compute_full_score_layout_cached_dl(&grouped_json, 10.0, 800.0, None, Some(0))
+            .expect("grouped layout");
+        assert!(
+            bracket_terminal_count(&grouped) >= 2,
+            "adding a bracket group must refresh the current score immediately"
+        );
+
+        let ungrouped = engine
+            .compute_full_score_layout_cached_dl(&ungrouped_json, 10.0, 800.0, None, Some(0))
+            .expect("ungrouped layout");
+        assert_eq!(
+            bracket_terminal_count(&ungrouped),
+            0,
+            "removing the bracket group must also refresh immediately"
         );
     }
 }
@@ -960,6 +1228,13 @@ impl LayoutEngine {
         let mut has_global_measure_patch = false;
         let mut has_time_signature_settings_patch = false;
         let mut affected_parts = vec![false; score.parts.len()];
+        let global_measure_indices: Vec<(String, usize)> = score
+            .global
+            .measures
+            .iter()
+            .enumerate()
+            .filter_map(|(index, measure)| measure.id.clone().map(|id| (id, index)))
+            .collect();
 
         if let Some(settings_json) = patch.get("timeSignatures") {
             let settings = serde_json::from_value(settings_json.clone()).map_err(|e| {
@@ -1024,6 +1299,11 @@ impl LayoutEngine {
                                         &mut connector_target_ids,
                                     );
                                 }
+                                let staff_spanner_end_indices = staff_spanner_dependency_indices(
+                                    &score.parts[pi].measures[mi],
+                                    &pm,
+                                    &global_measure_indices,
+                                );
                                 let new_repeat_span = pm
                                     .measure_repeat
                                     .as_ref()
@@ -1036,6 +1316,12 @@ impl LayoutEngine {
                                         .min(score.parts[pi].measures.len() - 1);
                                 changed_end =
                                     Some(changed_end.map_or(repeat_end, |e| e.max(repeat_end)));
+                                for target_mi in staff_spanner_end_indices {
+                                    changed_start =
+                                        Some(changed_start.map_or(target_mi, |s| s.min(target_mi)));
+                                    changed_end =
+                                        Some(changed_end.map_or(target_mi, |e| e.max(target_mi)));
+                                }
                                 for target_id in &connector_target_ids {
                                     if let Some(target_mi) = find_connector_target_measure_index(
                                         &score.parts[pi].measures,
@@ -1304,6 +1590,11 @@ impl LayoutEngine {
         let mut score = parse_mnx(mnx_json)
             .map_err(|e| JsValue::from_str(&format!("MNX parse error: {}", e)))?;
         reconcile_score(&mut score);
+        if self.score.as_ref().is_some_and(|previous| {
+            previous.layouts != score.layouts || previous.scores != score.scores
+        }) {
+            self.cache.invalidate();
+        }
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 

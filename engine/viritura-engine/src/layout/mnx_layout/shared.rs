@@ -32,7 +32,9 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
-pub(super) use super::cache_hashing::{compound_layout_hash, time_signature_aware_hash};
+pub(super) use super::cache_hashing::{
+    compound_layout_hash, ottava_aware_hash, time_signature_aware_hash,
+};
 pub(super) use super::instrument_labels::{
     build_label_lines, label_gutter_extent, split_label_transposition, EXPANSION_COLOR,
 };

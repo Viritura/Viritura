@@ -1,5 +1,6 @@
 use super::super::measure::AlignedPrefix;
 use super::super::spacing::LogSpacing;
+use super::super::types::ResolvedOttavaRange;
 use crate::model::TimeSignatureSettings;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -43,5 +44,24 @@ pub(super) fn time_signature_aware_hash(
     settings.grand_staff.hash(&mut hasher);
     settings.position.hash(&mut hasher);
     settings.scale.to_bits().hash(&mut hasher);
+    hasher.finish()
+}
+
+pub(super) fn ottava_aware_hash(
+    content_hash: u64,
+    ottavas: &[ResolvedOttavaRange],
+    measure_index: usize,
+) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    content_hash.hash(&mut hasher);
+    for ottava in ottavas.iter().filter(|ottava| {
+        measure_index >= ottava.start_measure && measure_index <= ottava.end_measure
+    }) {
+        ottava.start_measure.hash(&mut hasher);
+        ottava.start_beat.to_bits().hash(&mut hasher);
+        ottava.end_measure.hash(&mut hasher);
+        ottava.end_beat.to_bits().hash(&mut hasher);
+        ottava.value.hash(&mut hasher);
+    }
     hasher.finish()
 }

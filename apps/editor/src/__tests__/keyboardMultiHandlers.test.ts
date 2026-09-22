@@ -79,6 +79,36 @@ function makeCtx(score: Score, selection: Selection): { ctx: KeyboardHandlerCont
 const noopEvent = { preventDefault() {} } as unknown as KeyboardEvent;
 
 describe("keyboard edit handlers — multi-aware", () => {
+  it("deletes a selected tuplet bracket through the keyboard command path", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [
+      {
+        type: "tuplet",
+        inner: { duration: { base: "16th" }, multiple: 5 },
+        outer: { duration: { base: "16th" }, multiple: 4 },
+        content: ["C", "D", "E", "F", "G"].map((step, index) => ({
+          type: "event" as const,
+          id: `quint-${index}`,
+          duration: { base: "16th" as const },
+          notes: [{ pitch: { step: step as "C" | "D" | "E" | "F" | "G", octave: 4 as const } }],
+        })),
+      },
+    ];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/tuplet0",
+      elementType: "tuplet",
+    });
+
+    handleDelete(noopEvent, false, ctx);
+
+    expect(latest()).not.toBe(score);
+    expect(latest().parts[0]!.measures[0]!.sequences[0]!.content).toEqual([
+      expect.objectContaining({ type: "event", duration: { base: "quarter" }, rest: {} }),
+    ]);
+    expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.type).toBe("tuplet");
+  });
+
   it("deletes a selected measure-repeat sign", () => {
     const score = makeScore();
     score.parts[0]!.measures[0]!.measureRepeat = { number: 2 };

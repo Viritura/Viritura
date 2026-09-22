@@ -21,7 +21,7 @@ pub(crate) fn measure_is_covered_by_repeat(measures: &[PartMeasure], index: usiz
 }
 use std::collections::{HashMap, HashSet};
 
-type AccidentalState = HashMap<(String, i32), i32>;
+pub(crate) type AccidentalState = HashMap<(String, i32), i32>;
 
 pub(crate) fn resolve_display_key(
     active_key: &KeySignature,
@@ -85,7 +85,7 @@ fn apply_courtesy_to_event(
     }
 }
 
-fn apply_automatic_courtesy_accidentals(
+pub(crate) fn apply_automatic_courtesy_accidentals(
     measure: &mut PartMeasure,
     transposition: Option<(i32, i32)>,
     incoming_ties: &[String],
@@ -163,7 +163,7 @@ fn apply_automatic_courtesy_accidentals(
     final_state
 }
 
-fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec<String>) {
+pub(crate) fn collect_tie_targets(content: &[SequenceContent], targets: &mut Vec<String>) {
     for item in content {
         match item {
             SequenceContent::Event(event) => {

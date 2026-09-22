@@ -2,9 +2,10 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import type { Score, LayoutContent, LayoutStaff, Part } from "@viritura/core";
 import { resolvePartDisplayName } from "@viritura/core";
-import { createPlayer, expandTemplate, getCatalogInstrument, ENSEMBLE_TEMPLATES } from "../score/InstrumentCatalog";
+import { createPlayer, getCatalogInstrument, ENSEMBLE_TEMPLATES } from "../score/InstrumentCatalog";
 import {
   addInstrumentToScore,
+  addEnsembleToScore,
   removeInstrumentFromScore,
   reorderInstrumentInScore,
   synchronizePartScoreDefinitions,
@@ -230,9 +231,7 @@ export function useScoreListActions(deps: ScoreListActionsDeps): ScoreListAction
     (templateId: string) => {
       const { score } = store.getState();
       if (!score) return;
-      const players = expandTemplate(templateId);
-      if (players.length === 0) return;
-      const updated = players.reduce<Score>((acc, player) => addInstrumentToScore(acc, player.instrumentId), score);
+      const updated = addEnsembleToScore(score, templateId);
       if (updated === score) return;
       updateScore(updated);
       const name = ENSEMBLE_TEMPLATES.find((t) => t.id === templateId)?.name ?? "ensemble";

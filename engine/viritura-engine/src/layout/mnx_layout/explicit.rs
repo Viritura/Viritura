@@ -898,6 +898,15 @@ pub fn layout_with_mnx_scores_cached(
         config,
         false,
     );
+    if let Some((flat_staves, _)) = system_flat_staves.first() {
+        super::super::cross_system::render_layout_staff_spanner_continuations(
+            &mut dl,
+            score,
+            flat_staves,
+            sp,
+            config,
+        );
+    }
 
     dl.pages = pages;
 

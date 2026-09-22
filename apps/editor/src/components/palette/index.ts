@@ -16,7 +16,8 @@ export { SingleNoteTremoloIcon, TwoNoteTremoloIcon, NonArpeggioIcon } from "./pa
 export { resolveTwoNoteTremoloSelection } from "./tremoloSelection";
 export { BarlineGlyph, ClefGlyph, KeySigGlyph, TimeSigGlyph, TimeSignatureStaffPreview } from "./GlyphRenderers";
 export { parseTimeSignatureInput, parseTimeSignatureInputWithError, TIME_SIGNATURE_UNITS } from "./timeSignatureInput";
-export { eventPositionFraction, resolveSpannerPositions } from "./spannerPositions";
+export { eventPositionFraction, resolveSpannerPositions, withSpannerStaff } from "./spannerPositions";
+export type { SpannerTarget } from "./spannerPositions";
 export { SortablePaletteSection } from "./SortablePaletteSection";
 export {
   panelStyle,

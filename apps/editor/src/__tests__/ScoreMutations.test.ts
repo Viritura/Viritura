@@ -331,6 +331,8 @@ describe("addInstrumentToScore", () => {
     const perPartLayoutCount = score.layouts!.length - 1; // FullScore excluded
 
     const result = addInstrumentToScore(score, "oboe");
+    const priorIds = new Set(score.parts.map((part) => part.id));
+    const newPartId = result.parts.find((part) => !priorIds.has(part.id))!.id!;
 
     // Per-part layouts for original instruments should be unchanged in content
     for (let i = 1; i <= perPartLayoutCount; i++) {
@@ -339,13 +341,13 @@ describe("addInstrumentToScore", () => {
       expect(updatedLayout).toBeDefined();
       // Per-part layouts should NOT have the new staff
       const allPartIds = collectPartIds(updatedLayout!.content);
-      expect(allPartIds).not.toContain(result.parts[2]!.id);
+      expect(allPartIds).not.toContain(newPartId);
     }
 
     // Full-score layout should have the new staff
     const fullScoreLayout = result.layouts![0]!;
     const allPartIds = collectPartIds(fullScoreLayout.content);
-    expect(allPartIds).toContain(result.parts[2]!.id);
+    expect(allPartIds).toContain(newPartId);
   });
 
   it("sets useWritten for transposing instruments", () => {

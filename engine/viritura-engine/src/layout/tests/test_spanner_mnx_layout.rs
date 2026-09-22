@@ -7,6 +7,8 @@ use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::layout::mnx_layout::layout_with_mnx_scores;
 use crate::parse::parse_mnx;
+use crate::render::RenderCommand;
+use std::collections::HashSet;
 
 /// Helper: build a minimal 2-part score with MNX layouts/scores definitions.
 /// Extensions are added to the specified part's first measure via `_x.viritura`.
@@ -81,6 +83,96 @@ fn build_mnx_score_with_dynamics(part_index: usize, dynamics_json: &str) -> Stri
     value["parts"][part_index]["measures"][0]["dynamics"] =
         serde_json::from_str(dynamics_json).unwrap();
     serde_json::to_string(&value).unwrap()
+}
+
+#[test]
+fn test_mnx_grand_staff_lower_ottava_keeps_owner_and_y_across_system_break() {
+    let json = r#"{
+        "mnx":{"version":1},
+        "global":{"measures":[
+            {"id":"m1","time":{"count":4,"unit":4}}, {"id":"m2"}, {"id":"m3"}
+        ]},
+        "layouts":[{"id":"Piano","content":[
+            {"type":"staff","sources":[{"part":"piano","staff":1}]},
+            {"type":"staff","sources":[{"part":"piano","staff":2}]}
+        ]}],
+        "scores":[{"name":"Piano","layout":"Piano"}],
+        "parts":[{"id":"piano","staves":2,"measures":[
+            {"clefs":[
+                {"clef":{"sign":"G","staffPosition":-2},"staff":1},
+                {"clef":{"sign":"F","staffPosition":2},"staff":2}
+             ],
+             "ottavas":[{"value":-1,"staff":2,"position":{"fraction":[0,1]},
+                         "end":{"measure":"m3","position":{"fraction":[1,1]}}}],
+             "sequences":[
+                {"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":5}}]}]},
+                {"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"C","octave":3}}]}]}
+             ]},
+            {"sequences":[
+                {"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":5}}]}]},
+                {"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"D","octave":3}}]}]}
+             ]},
+            {"sequences":[
+                {"staff":1,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"E","octave":5}}]}]},
+                {"staff":2,"content":[{"duration":{"base":"whole"},"notes":[{"pitch":{"step":"E","octave":3}}]}]}
+             ]}
+        ]}]
+    }"#;
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(280.0),
+        page_margin_left: 1.0,
+        page_margin_right: 1.0,
+        ..LayoutConfig::default()
+    };
+    let dl = layout_with_mnx_scores(&score, &config, 0);
+    let lower_bounds: Vec<_> = dl
+        .measure_bounds
+        .iter()
+        .filter(|bound| bound.staff_index == 1)
+        .collect();
+    let expected_systems: HashSet<_> = lower_bounds
+        .iter()
+        .map(|bound| bound.system_index)
+        .collect();
+    assert!(
+        expected_systems.len() >= 2,
+        "fixture must break across systems"
+    );
+
+    let mut ottava_systems = HashSet::new();
+    for (index, command) in dl.commands.iter().enumerate() {
+        if !dl.element_ids[index]
+            .as_deref()
+            .is_some_and(|id| id.contains("/ottava0"))
+        {
+            continue;
+        }
+        let RenderCommand::DrawLine { y1, y2, .. } = command else {
+            continue;
+        };
+        if (y1 - y2).abs() > 0.01 {
+            continue;
+        }
+        let owner = lower_bounds
+            .iter()
+            .min_by(|left, right| {
+                (left.y + 6.0 * config.sp - y1)
+                    .abs()
+                    .total_cmp(&(right.y + 6.0 * config.sp - y1).abs())
+            })
+            .expect("lower-staff bounds");
+        assert!(
+            (owner.y + 6.0 * config.sp - y1).abs() < 0.01,
+            "8vb line at y={y1} must be measured from lower staff y={}",
+            owner.y
+        );
+        ottava_systems.insert(owner.system_index);
+    }
+    assert_eq!(
+        ottava_systems, expected_systems,
+        "lower-staff 8vb must retain ownership on every system"
+    );
 }
 
 // ═══════════════════════════════════════════

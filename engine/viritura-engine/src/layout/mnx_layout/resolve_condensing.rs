@@ -162,6 +162,21 @@ pub(super) fn has_incompatible_staff_meters(flat_staff: &FlatStaff, score: &Scor
             .any(|state| !state.compatible)
 }
 
+pub(super) fn resolve_dirty_flat_staves(
+    region: &mut cache::DirtyRegion,
+    flat_staves: &[FlatStaff],
+) {
+    region.affected_flat_staves = flat_staves
+        .iter()
+        .map(|staff| {
+            staff
+                .sources
+                .iter()
+                .any(|source| region.affects_part(source.part_index))
+        })
+        .collect();
+}
+
 pub(super) fn build_resolved_staff_aux(
     resolved: &[ResolvedMeasure],
 ) -> (Arc<[ResolvedOttavaRange]>, DurationHistogram) {
@@ -295,6 +310,8 @@ pub(super) fn resolve_staves_with_condensing_labels(
             prev_display_key: KeySignature::default(),
             active_staff_lines: super::super::staff_lines::DEFAULT_STAFF_LINES,
             effective_staff_meter: None,
+            accidental_state: HashMap::new(),
+            tie_targets: HashSet::new(),
         };
 
         // Affected non-condensing staff: restart at the dirty boundary and stop
@@ -686,6 +703,23 @@ pub(super) fn resolve_one_measure_phase1(
         transposition,
         key_fifths_flip_at,
     );
+    if display_key != state.prev_display_key {
+        state.accidental_state.clear();
+    }
+    let display_transposition = transposition
+        .map(|(staff_distance, half_steps)| (staff_distance + diatonic_adjustment, half_steps));
+    let incoming_ties: Vec<_> = state.tie_targets.iter().cloned().collect();
+    state.accidental_state = crate::layout::resolve::apply_automatic_courtesy_accidentals(
+        &mut virtual_pm,
+        display_transposition,
+        &incoming_ties,
+        &state.accidental_state,
+    );
+    let mut new_tie_targets = Vec::new();
+    for sequence in &virtual_pm.sequences {
+        crate::layout::resolve::collect_tie_targets(&sequence.content, &mut new_tie_targets);
+    }
+    state.tie_targets.extend(new_tie_targets);
     let rm = ResolvedMeasure {
         index: mi,
         chord_symbols: super::chord_symbols::visible_global_chord_symbols(score, mi, flat_staff),

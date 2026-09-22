@@ -244,8 +244,8 @@ function trimTrailingRests(content: SequenceContent[]): void {
 
 /**
  * Backspace in note input mode: find the last non-rest event
- * across all measures for the given part/voice, replace with a
- * rest, and trim trailing rests so the implicit cursor moves back.
+ * across all measures for the given part/voice, remove it, and trim trailing
+ * rests so the implicit cursor moves back.
  *
  * Returns true if a note was found and removed.
  */
@@ -260,12 +260,7 @@ export function backspaceInNoteInput(score: Score, partIndex: number, voice: num
     for (let i = sequence.content.length - 1; i >= 0; i--) {
       const event = sequence.content[i]! as NoteEvent;
       if (!isRest(event)) {
-        sequence.content[i] = {
-          type: "event",
-          id: generateEventId(),
-          duration: { ...event.duration },
-          rest: {},
-        };
+        sequence.content.splice(i, 1);
         trimTrailingRests(sequence.content);
         return true;
       }

@@ -235,6 +235,7 @@ export class TileCache {
   private tiles = new Map<string, HTMLCanvasElement>();
   private tileSize: number;
   private cachedVersion = -1;
+  private cachedDisplayList: DisplayList | null = null;
   private cachedZoom = -1;
   private cachedDpr = -1;
   private cachedViewMode: "page" | "spread" | "spread-h" | "horizon" = "page";
@@ -609,10 +610,15 @@ export class TileCache {
     displayList: DisplayList,
     viewMode: TileRenderOpts["viewMode"],
   ): void {
-    if (version !== this.cachedVersion) {
+    // The display list is published from an async WASM layout before React has
+    // necessarily committed the matching version state. Treat object identity
+    // as a second revision signal so that one paint with the previous numeric
+    // version can never blit tiles from the previous list.
+    if (version !== this.cachedVersion || displayList !== this.cachedDisplayList) {
       this.invalidate();
       this.prevMeasureBounds = displayList.measureBounds ?? [];
       this.cachedVersion = version;
+      this.cachedDisplayList = displayList;
       this.contentBounds = this.computeContentBounds(displayList);
       this.pageCommands = viewMode === "page" ? splitCommandsByPage(displayList).map((p) => p.commands) : null;
       this.horizonBuckets = viewMode === "horizon" ? this.buildHorizonBuckets(displayList) : null;

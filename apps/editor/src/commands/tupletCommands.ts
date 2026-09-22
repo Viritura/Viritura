@@ -7,7 +7,9 @@ import {
   generateEventId,
   sequenceContentBeats,
   decomposeDuration,
+  decomposeRestsAtPosition,
   createRest,
+  getEffectiveTimeSignature,
 } from "./noteCommands";
 
 // ═══════════════════════════════════════════
@@ -349,10 +351,8 @@ export interface RemoveTupletParams {
 /**
  * Remove a selected tuplet bracket and restore its pre-tuplet base value.
  *
- * A tuplet made from a rest becomes one regular rest spanning its outer
- * duration. A tuplet made from one selected note restores that note across the
- * same duration. Tuplets containing several sounded events cannot be flattened
- * without changing their rhythm, so this operation leaves them unchanged.
+ * Deleting the bracket removes the entire rhythmic unit, including its notes,
+ * and leaves ordinary meter-spelled rests spanning the outer duration.
  */
 export function removeTuplet(score: Score, params: RemoveTupletParams): boolean {
   const sequence = score.parts[params.partIndex]?.measures[params.measureIndex]?.sequences[params.voice];
@@ -372,14 +372,11 @@ export function removeTuplet(score: Score, params: RemoveTupletParams): boolean 
 
   const tuplet = sequence.content[tupletIndex];
   if (!tuplet || tuplet.type !== "tuplet" || tuplet.span) return false;
-  const duration = beatsToDuration(sequenceContentBeats(tuplet));
-  if (!duration) return false;
-
-  const soundedEvents = tuplet.content.filter((item): item is NoteEvent => item.type === "event" && !isRest(item));
-  if (soundedEvents.length > 1) return false;
-
-  const restored = soundedEvents[0] ? { ...soundedEvents[0], duration } : createRest(duration);
-  sequence.content.splice(tupletIndex, 1, restored);
+  const tupletBeats = sequenceContentBeats(tuplet);
+  const startBeat = sequence.content.slice(0, tupletIndex).reduce((sum, item) => sum + sequenceContentBeats(item), 0);
+  const time = getEffectiveTimeSignature(score, params.measureIndex);
+  const rests = decomposeRestsAtPosition(tupletBeats, startBeat, time).map(createRest);
+  sequence.content.splice(tupletIndex, 1, ...rests);
   return true;
 }
 

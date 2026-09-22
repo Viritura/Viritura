@@ -377,7 +377,69 @@ describe("ENSEMBLE_TEMPLATES", () => {
   });
 
   it("creates conventional nested groups for the default orchestra templates", () => {
-    for (const templateId of ["classical-orchestra", "romantic-orchestra"]) {
+    const expected = {
+      "classical-orchestra": [
+        {
+          group: "Woodwinds",
+          symbol: "bracket",
+          content: [
+            { symbol: "bracket", content: ["flute", "flute"] },
+            { symbol: "bracket", content: ["oboe", "oboe"] },
+            { symbol: "bracket", content: ["bflat-clarinet", "bflat-clarinet"] },
+            { symbol: "bracket", content: ["bassoon", "bassoon"] },
+          ],
+        },
+        {
+          group: "Brass",
+          symbol: "bracket",
+          content: [
+            { symbol: "bracket", content: ["horn", "horn"] },
+            { symbol: "bracket", content: ["trumpet", "trumpet"] },
+          ],
+        },
+        "timpani",
+        {
+          group: "Strings",
+          symbol: "bracket",
+          content: [{ symbol: "bracket", content: ["violin", "violin"] }, "viola", "cello", "double-bass"],
+        },
+      ],
+      "romantic-orchestra": [
+        {
+          group: "Woodwinds",
+          symbol: "bracket",
+          content: [
+            { symbol: "bracket", content: ["piccolo", "flute", "flute"] },
+            { symbol: "bracket", content: ["oboe", "oboe", "english-horn"] },
+            { symbol: "bracket", content: ["bflat-clarinet", "bflat-clarinet", "bass-clarinet"] },
+            { symbol: "bracket", content: ["bassoon", "bassoon", "contrabassoon"] },
+          ],
+        },
+        {
+          group: "Brass",
+          symbol: "bracket",
+          content: [
+            { symbol: "bracket", content: ["horn", "horn", "horn", "horn"] },
+            { symbol: "bracket", content: ["trumpet", "trumpet", "trumpet"] },
+            { symbol: "bracket", content: ["trombone", "trombone", "trombone"] },
+            "tuba",
+          ],
+        },
+        {
+          group: "Percussion",
+          symbol: "bracket",
+          content: ["timpani", "snare-drum", "cymbals", "triangle"],
+        },
+        { symbol: "brace", content: ["harp", "harp"] },
+        {
+          group: "Strings",
+          symbol: "bracket",
+          content: [{ symbol: "bracket", content: ["violin", "violin"] }, "viola", "cello", "double-bass"],
+        },
+      ],
+    } as const;
+
+    for (const templateId of ["classical-orchestra", "romantic-orchestra"] as const) {
       const parsed = JSON.parse(
         buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, players: expandTemplate(templateId), measureCount: 1 }),
       );
@@ -388,59 +450,22 @@ describe("ENSEMBLE_TEMPLATES", () => {
         ]),
       );
       const fullScore = parsed.layouts.find((layout: { id: string }) => layout.id === "FullScore");
-      const groups = fullScore.content.filter((node: { type: string }) => node.type === "group");
-      const woodwinds = groups.find((node: { label?: string }) => node.label === "Woodwinds");
-      const brass = groups.find((node: { label?: string }) => node.label === "Brass");
-      const percussion = groups.find((node: { label?: string }) => node.label === "Percussion");
-      const strings = groups.find((node: { label?: string }) => node.label === "Strings");
+      const normalize = (node: {
+        type: "staff" | "group";
+        label?: string;
+        symbol?: string;
+        sources?: { part: string }[];
+        content?: unknown[];
+      }): unknown => {
+        if (node.type === "staff") return partInstrumentIds.get(node.sources![0]!.part);
+        return {
+          ...(node.label ? { group: node.label } : {}),
+          ...(node.symbol ? { symbol: node.symbol } : {}),
+          content: node.content!.map((child) => normalize(child as Parameters<typeof normalize>[0])),
+        };
+      };
 
-      expect(
-        fullScore.content.map(
-          (node: { label?: string; content?: { sources?: { part: string }[] }[]; sources?: { part: string }[] }) =>
-            node.label ?? partInstrumentIds.get((node.content ?? [node])[0]?.sources?.[0]?.part ?? ""),
-        ),
-      ).toEqual(
-        templateId === "classical-orchestra"
-          ? ["Woodwinds", "Brass", "timpani", "Strings"]
-          : ["Woodwinds", "Brass", "Percussion", "harp", "Strings"],
-      );
-      expect(woodwinds.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual(
-        templateId === "classical-orchestra" ? [2, 2, 2, 2] : [3, 3, 3, 3],
-      );
-      expect(
-        woodwinds.content.flatMap((node: { content?: { sources: { part: string }[] }[] }) =>
-          (node.content ?? [node]).flatMap((staff) =>
-            staff.sources.map((source) => partInstrumentIds.get(source.part)),
-          ),
-        ),
-      ).toEqual(
-        templateId === "classical-orchestra"
-          ? ["flute", "flute", "oboe", "oboe", "bflat-clarinet", "bflat-clarinet", "bassoon", "bassoon"]
-          : [
-              "piccolo",
-              "flute",
-              "flute",
-              "oboe",
-              "oboe",
-              "english-horn",
-              "bflat-clarinet",
-              "bflat-clarinet",
-              "bass-clarinet",
-              "bassoon",
-              "bassoon",
-              "contrabassoon",
-            ],
-      );
-      expect(brass.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual(
-        templateId === "classical-orchestra" ? [2, 2] : [4, 3, 3, 1],
-      );
-      if (templateId === "romantic-orchestra") {
-        expect(percussion.content.map((node: { content?: unknown[] }) => node.content?.length ?? 1)).toEqual([
-          1, 1, 1, 1,
-        ]);
-      }
-      expect(strings.content[0].symbol).toBe("bracket");
-      expect(strings.content[0].content).toHaveLength(2);
+      expect(fullScore.content.map(normalize)).toEqual(expected[templateId]);
     }
   });
 });

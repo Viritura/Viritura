@@ -56,13 +56,13 @@ pub(crate) fn render_staff_spanner_continuations(
     score: &Score,
     part_index: usize,
     staff_number: u32,
+    bounds_staff_index: usize,
     sp: f64,
     config: &LayoutConfig,
 ) {
     let Some(part) = score.parts.get(part_index) else {
         return;
     };
-    let staff_index = staff_number.saturating_sub(1) as usize;
     let measure_index = |id: &str| {
         score
             .global
@@ -84,7 +84,7 @@ pub(crate) fn render_staff_spanner_continuations(
             render_ottava_fragments(
                 dl,
                 part_index,
-                staff_index,
+                bounds_staff_index,
                 start_measure,
                 end_measure,
                 ottava.position.beats(),
@@ -108,7 +108,7 @@ pub(crate) fn render_staff_spanner_continuations(
             render_pedal_fragments(
                 dl,
                 part_index,
-                staff_index,
+                bounds_staff_index,
                 start_measure,
                 end_measure,
                 pedal.position.beats(),
@@ -116,6 +116,28 @@ pub(crate) fn render_staff_spanner_continuations(
                 &pedal.pedal_type,
                 pedal.style.as_ref(),
                 index,
+                sp,
+                config,
+            );
+        }
+    }
+}
+
+pub(crate) fn render_layout_staff_spanner_continuations(
+    dl: &mut DisplayList,
+    score: &Score,
+    flat_staves: &[super::full_score::FlatStaff],
+    sp: f64,
+    config: &LayoutConfig,
+) {
+    for (bounds_staff_index, staff) in flat_staves.iter().enumerate() {
+        for source in &staff.sources {
+            render_staff_spanner_continuations(
+                dl,
+                score,
+                source.part_index,
+                source.staff_number.unwrap_or(1),
+                bounds_staff_index,
                 sp,
                 config,
             );
