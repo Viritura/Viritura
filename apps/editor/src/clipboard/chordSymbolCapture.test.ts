@@ -7,7 +7,8 @@ import { captureChordSymbols, captureSelectedChordSymbols, clipboardAnnotationLo
 import { findPlacedAnnotationIds } from "./annotations/placedSelection";
 import { serializeFragment } from "./serialize";
 import { deserializeFragment } from "./deserialize";
-import type { PasteResult } from "../commands/clipboardCommands";
+import { applyCut, type PasteResult, type CutResult } from "../commands/clipboardCommands";
+import { computePasteResult } from "./computePasteResult";
 
 function fixture(): Score {
   return {
@@ -130,6 +131,69 @@ describe("global chord capture", () => {
     expect(captured[0]).toMatchObject({ partOffset: 1, staffOffset: 3, offset: [1, 4] });
     expect(captured[0]!.chordSymbol).toEqual(score.global.measures[0]!.chordSymbols![1]);
     expect(captured[0]!.chordSymbol).not.toBe(score.global.measures[0]!.chordSymbols![1]);
+  });
+
+  it("copies a directly selected chord-symbol annotation without note events", () => {
+    const score = fixture();
+    const captured = buildClipboardSelection(score, {
+      kind: "single",
+      elementId: "m0/chord1/p0/staff1",
+      elementType: "chord-symbol",
+    })!;
+
+    expect(captured.events).toEqual([]);
+    expect(captured.chordSymbols).toHaveLength(1);
+    expect(captured.chordSymbols![0]).toMatchObject({
+      measureOffset: 0,
+      offset: [0, 1],
+      chordSymbol: { position: { fraction: [0, 1] }, root: { step: "G" }, bass: { step: "B" } },
+    });
+    expect(captured.cutAnnotationLocations).toEqual([
+      { kind: "global", type: "chord", measureIndex: 0, annotationIndex: 1 },
+    ]);
+  });
+
+  it("cuts a directly selected chord-symbol annotation", () => {
+    const score = fixture();
+    const captured = buildClipboardSelection(score, {
+      kind: "single",
+      elementId: "m0/chord1/p0/staff1",
+      elementType: "chord-symbol",
+    })!;
+    const cut: CutResult = {
+      partIndex: captured.partIndex,
+      measureIndex: captured.measureIndex,
+      sequenceIndex: captured.sequenceIndex,
+      eventIndex: captured.eventIndex,
+      replacements: [],
+      cutAnnotationLocations: captured.cutAnnotationLocations,
+    };
+
+    const next = applyCut(score, cut);
+
+    expect(next.global.measures[0]!.chordSymbols).toEqual([score.global.measures[0]!.chordSymbols![0]]);
+  });
+
+  it("pastes a directly copied chord-symbol annotation at a selected note", () => {
+    const score = fixture();
+    const captured = buildClipboardSelection(score, {
+      kind: "single",
+      elementId: "m0/chord1/p0/staff1",
+      elementType: "chord-symbol",
+    })!;
+    const result = computePasteResult(score, noteSelection(0), {
+      content: captured.events,
+      sourceTimeSignature: captured.timeSignature,
+      sourceKeySignature: captured.keySignature,
+      chordSymbols: captured.chordSymbols,
+    })!;
+
+    expect(result.newScore.global.measures[0]!.chordSymbols![0]).toMatchObject({
+      position: { fraction: [0, 1] },
+      root: { step: "G" },
+      bass: { step: "B" },
+    });
+    expect(result.selection).toEqual({ kind: "single", elementId: "m0/chord0", elementType: "chord-symbol" });
   });
 
   it("inherits authored system layouts and respects within-system changes without remapping parts", () => {

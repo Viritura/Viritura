@@ -146,6 +146,8 @@ export interface AddTieParams {
   eventIndex: number;
   /** If the event is inside a tuplet, the index of the tuplet in seq.content. */
   tupletIndex?: number;
+  /** If a specific notehead is selected, tie only that note. Undefined ties the whole event. */
+  noteIndex?: number;
   /** If the event is a grace note, the index of its grace container in seq.content. */
   graceContainerIndex?: number;
 }
@@ -204,6 +206,12 @@ function firstNoteEventInFollowingMeasures(
   return null;
 }
 
+function selectedTieNotes(notes: NonNullable<NoteEvent["notes"]>, noteIndex: number | undefined) {
+  if (noteIndex === undefined) return notes;
+  const note = notes[noteIndex];
+  return note ? [note] : [];
+}
+
 /**
  * Add ties from the source event's notes to the next note event's notes.
  * Returns the mutated score, or null if no valid target found.
@@ -246,7 +254,10 @@ export function addTie(score: Score, params: AddTieParams): Score | null {
   }
   if (!targetEv || !targetEv.notes) return null;
 
-  for (const note of sourceEv.notes) {
+  const sourceNotes = selectedTieNotes(sourceEv.notes, params.noteIndex);
+  if (sourceNotes.length === 0) return null;
+
+  for (const note of sourceNotes) {
     if (!note.id) note.id = generateNoteId();
   }
   for (const note of targetEv.notes) {
@@ -254,7 +265,7 @@ export function addTie(score: Score, params: AddTieParams): Score | null {
   }
 
   let anyTied = false;
-  for (const srcNote of sourceEv.notes) {
+  for (const srcNote of sourceNotes) {
     const matchingTarget = targetEv.notes.find(
       (t) =>
         t.pitch.step === srcNote.pitch.step &&
@@ -288,14 +299,15 @@ export function removeTies(score: Score, params: AddTieParams): Score | null {
   }
   if (!ev || ev.type !== "event" || !ev.notes) return null;
 
-  for (const note of ev.notes) {
+  const notes = selectedTieNotes(ev.notes, params.noteIndex);
+  if (notes.length === 0) return null;
+  for (const note of notes) {
     delete note.ties;
   }
   return score;
 }
 
 export interface SetTiePropertiesParams extends AddTieParams {
-  noteIndex?: number;
   tieIndex?: number;
   target?: string | null;
   targetType?: string | null;

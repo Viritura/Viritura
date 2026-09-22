@@ -58,6 +58,7 @@ import {
   type CapturedSelection,
 } from "./annotations";
 import { captureTimedSelection } from "./captureTimedSelection";
+import { buildChordAnnotationClipboardSelection } from "./chordAnnotationSelection";
 import { getActiveClef, resolveActiveTimeKey } from "./sourceContext";
 export { buildClipboardSourceRef } from "./sourceContext";
 
@@ -75,6 +76,8 @@ export function buildClipboardSelection(
 ): ClipboardSelection | null {
   if (!score) return null;
   if (selection.kind === "single" && isLyricId(selection.elementId)) return null;
+  const chordAnnotationSelection = buildChordAnnotationClipboardSelection(score, selection, selectedScoreIndex);
+  if (chordAnnotationSelection) return chordAnnotationSelection;
   const repeatSelection = buildMeasureRepeatClipboardSelection(score, selection);
   const regularSelection =
     selection.kind === "single"

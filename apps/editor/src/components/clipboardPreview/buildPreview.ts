@@ -1,4 +1,4 @@
-import type { SequenceContent, NoteEvent, Pitch, Clef, Score } from "@viritura/core";
+import type { SequenceContent, NoteEvent, Pitch, Clef, Score, ChordSymbol } from "@viritura/core";
 import type { ClipboardFragment } from "../../clipboard/ClipboardFragment";
 import { sequenceContentBeats } from "../../commands/noteCommands";
 
@@ -79,6 +79,67 @@ function distributeAcrossMeasures(
   return result;
 }
 
+type WholeFraction = [number, number];
+
+function compareFractions(left: WholeFraction, right: WholeFraction): number {
+  return left[0] * right[1] - right[0] * left[1];
+}
+
+function subtractFractions(left: WholeFraction, right: WholeFraction): WholeFraction {
+  const numerator = left[0] * right[1] - right[0] * left[1];
+  const denominator = left[1] * right[1];
+  const divisor = gcd(Math.abs(numerator), denominator);
+  return [numerator / divisor, denominator / divisor];
+}
+
+function gcd(left: number, right: number): number {
+  let a = left;
+  let b = right;
+  while (b !== 0) [a, b] = [b, a % b];
+  return a || 1;
+}
+
+function previewChordSymbols(
+  fragment: ClipboardFragment,
+  time: ClipboardFragment["timeSignature"],
+): Map<number, ChordSymbol[]> {
+  const byMeasure = new Map<number, ChordSymbol[]>();
+  const capacity: WholeFraction = [time.count, time.unit];
+  for (const captured of fragment.chordSymbols ?? []) {
+    let measureIndex = captured.measureOffset;
+    let fraction = captured.chordSymbol.position.fraction;
+    if (captured.offset) {
+      measureIndex = 0;
+      fraction = captured.offset;
+      while (compareFractions(fraction, capacity) >= 0) {
+        fraction = subtractFractions(fraction, capacity);
+        measureIndex += 1;
+      }
+    }
+    if (measureIndex < 0 || compareFractions(fraction, [0, 1]) < 0) continue;
+    const chordSymbol = structuredClone(captured.chordSymbol);
+    chordSymbol.position = { ...chordSymbol.position, fraction };
+    const measure = byMeasure.get(measureIndex);
+    if (measure) measure.push(chordSymbol);
+    else byMeasure.set(measureIndex, [chordSymbol]);
+  }
+  return byMeasure;
+}
+
+function buildGlobalMeasures(
+  fragment: ClipboardFragment,
+  time: ClipboardFragment["timeSignature"],
+  contentMeasureCount: number,
+): Score["global"]["measures"] {
+  const chordSymbols = previewChordSymbols(fragment, time);
+  const chordMeasureCount = chordSymbols.size > 0 ? Math.max(...chordSymbols.keys()) + 1 : 0;
+  const measureCount = Math.max(1, contentMeasureCount, chordMeasureCount);
+  return Array.from({ length: measureCount }, (_, measureIndex) => ({
+    ...(measureIndex === 0 ? { time } : {}),
+    ...(chordSymbols.has(measureIndex) ? { chordSymbols: chordSymbols.get(measureIndex) } : {}),
+  }));
+}
+
 /**
  * Build a minimal preview Score from a ClipboardFragment.
  *
@@ -107,7 +168,9 @@ function buildSingleTrackPreview(
     return clone;
   });
   const totalBeats = events.reduce((s, ev) => s + sequenceContentBeats(ev), 0);
-  const measureCount = Math.max(1, Math.ceil(totalBeats / beatsPerMeasure));
+  const contentMeasureCount = Math.max(1, Math.ceil(totalBeats / beatsPerMeasure));
+  const globalMeasures = buildGlobalMeasures(fragment, ts, contentMeasureCount);
+  const measureCount = globalMeasures.length;
   const perMeasure = distributeAcrossMeasures(events, beatsPerMeasure, measureCount);
   const clef = fragment.clef ?? inferClef(events);
   const transposition = fragment.transposition ? { ...fragment.transposition, prefersWrittenPitches: true } : undefined;
@@ -115,12 +178,13 @@ function buildSingleTrackPreview(
   return {
     mnx: { version: 1 },
     global: {
-      measures: perMeasure.map((_, m) => (m === 0 ? { time: ts } : {})),
+      measures: globalMeasures,
       ...(fragment.lyrics ? { lyrics: structuredClone(fragment.lyrics) } : {}),
     },
     parts: [
       {
         name: "Preview",
+        chordSymbolVisibility: "show",
         ...(transposition ? { transposition } : {}),
         measures: perMeasure.map((seqContent, m) => ({
           ...(m === 0 ? { clefs: [{ clef }] } : {}),
@@ -150,9 +214,9 @@ function buildMultiTrackPreview(
     const beats = track.content.reduce((s, ev) => s + sequenceContentBeats(ev), 0);
     if (beats > maxBeats) maxBeats = beats;
   }
-  const measureCount = Math.max(1, Math.ceil(maxBeats / beatsPerMeasure));
-
-  const globalMeasures = Array.from({ length: measureCount }, (_, m) => (m === 0 ? { time: ts } : {}));
+  const contentMeasureCount = Math.max(1, Math.ceil(maxBeats / beatsPerMeasure));
+  const globalMeasures = buildGlobalMeasures(fragment, ts, contentMeasureCount);
+  const measureCount = globalMeasures.length;
 
   const parts: Score["parts"] = sortedOffsets.map((offset) =>
     buildPartForOffset(partMap.get(offset)!, offset, measureCount, beatsPerMeasure),
@@ -198,6 +262,7 @@ function buildPartForOffset(
 
   return {
     name: `Part ${offset + 1}`,
+    chordSymbolVisibility: "show",
     ...(transposition ? { transposition } : {}),
     measures: sequencesPerMeasure.map((seqs, m) => ({
       ...(m === 0 ? { clefs: [{ clef }] } : {}),

@@ -699,10 +699,49 @@ function tieSelectedEvents(currentScore: Score, events: EventLocation[]): Score 
   return changed ? newScore : null;
 }
 
+function resolveSameEventSelection(
+  score: Score,
+  sel: ReturnType<KeyboardHandlerContext["getSelection"]>,
+): EventLocation | null {
+  if (sel.kind === "single") return resolveEventLocation(sel.elementId, score);
+  const ids =
+    sel.kind === "multi" ? sel.elementIds : sel.kind === "range" ? [sel.startElementId, sel.endElementId] : [];
+  const ancestors = [...new Set(ids.map(getEventAncestorId))];
+  return ancestors.length === 1 ? resolveEventLocation(ancestors[0]!, score) : null;
+}
+
+function toggleTiesAtEvents(currentScore: Score, events: readonly EventLocation[]): Score | null {
+  const hasTies = events.every((target) => {
+    const targetEvent = getEventAtLocation(currentScore, target);
+    if (targetEvent?.type !== "event" || !targetEvent.notes) return false;
+    return target.noteIndex === undefined
+      ? targetEvent.notes.some((note) => note.ties?.length)
+      : !!targetEvent.notes[target.noteIndex]?.ties?.length;
+  });
+  const newScore = cloneScore(currentScore);
+  let changed = false;
+  for (const target of events) {
+    const result = hasTies ? removeTies(newScore, target) : addTie(newScore, target);
+    changed = result !== null || changed;
+  }
+  return changed ? newScore : null;
+}
+
 export function handleTieKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): void {
   const sel = ctx.getSelection();
   const currentScore = ctx.getScore();
   if (!currentScore) return;
+
+  const sameEvent = resolveSameEventSelection(currentScore, sel);
+  if (sameEvent && sel.kind !== "measure") {
+    const event = getEventAtLocation(currentScore, sameEvent);
+    if (!event || event.type !== "event" || !event.notes || event.notes.length === 0) return;
+    e.preventDefault();
+    const targets = resolveCondensedSelectionNotes(currentScore, sel, ctx.getConfig?.().selectedScoreIndex ?? 0);
+    const newScore = toggleTiesAtEvents(currentScore, targets.length > 0 ? targets : [sameEvent]);
+    if (newScore) ctx.updateScore(newScore);
+    return;
+  }
 
   if (sel.kind === "range" || sel.kind === "multi" || sel.kind === "measure") {
     const events = resolveCondensedSelectionEvents(currentScore, sel, ctx.getConfig?.().selectedScoreIndex ?? 0);
@@ -712,35 +751,14 @@ export function handleTieKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): voi
     if (newScore) ctx.updateScore(newScore);
     return;
   }
-
-  if (sel.kind === "single") {
-    const loc = resolveEventLocation(sel.elementId, currentScore);
-    if (!loc) return;
-    const event = getEventAtLocation(currentScore, loc);
-    if (!event || event.type !== "event" || !event.notes || event.notes.length === 0) return;
-    e.preventDefault();
-    const targets = resolveCondensedSelectionEvents(currentScore, sel, ctx.getConfig?.().selectedScoreIndex ?? 0);
-    const hasTies = targets.every((target) => {
-      const targetEvent = getEventAtLocation(currentScore, target);
-      return targetEvent?.type === "event" && targetEvent.notes?.some((note) => note.ties?.length);
-    });
-    const newScore = cloneScore(currentScore);
-    let changed = false;
-    for (const target of targets) {
-      const result = hasTies ? removeTies(newScore, target) : addTie(newScore, target);
-      changed = result !== null || changed;
-    }
-    if (changed) ctx.updateScore(newScore);
-  }
 }
 
 /** Duration key 1-7: change selected note's duration. */
 export function handleDurationChange(e: KeyboardEvent, base: string, ctx: KeyboardHandlerContext): void {
   const sel = ctx.getSelection();
-  if (sel.kind !== "single") return;
   const currentScore = ctx.getScore();
   if (!currentScore) return;
-  const loc = resolveEventLocation(sel.elementId, currentScore);
+  const loc = resolveSameEventSelection(currentScore, sel);
   if (!loc) return;
   // Changing duration of an event inside a tuplet would require resizing the
   // tuplet's inner sequence — not currently supported. Block to avoid corruption.

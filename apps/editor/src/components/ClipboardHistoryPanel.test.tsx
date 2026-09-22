@@ -55,6 +55,15 @@ describe("clipboard history interoperability", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("lets inline previews determine clipboard entry height", () => {
+    addClipboardEntry(fragment());
+    renderPanel();
+
+    const entry = screen.getByRole("button", { name: /Score preview/ });
+    expect(entry.style.height).toBe("auto");
+    expect(entry.style.overflow).toBe("visible");
+  });
+
   it("restores JSON without an export warning callback", async () => {
     addClipboardEntry(fragment());
     renderPanel();
@@ -72,5 +81,23 @@ describe("clipboard history interoperability", () => {
     fireEvent.click(screen.getByRole("button", { name: /Score preview/ }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not restore this clipboard entry."));
     expect(screen.queryByText("Copied")).toBeNull();
+  });
+
+  it("describes annotation-only chord-symbol entries", () => {
+    addClipboardEntry({
+      ...fragment(),
+      content: [],
+      chordSymbols: [
+        {
+          measureOffset: 0,
+          offset: [0, 1],
+          chordSymbol: { position: { fraction: [0, 1] }, root: { step: "C" } },
+        },
+      ],
+    });
+
+    renderPanel();
+
+    expect(screen.getByText("1 chord symbol")).toBeTruthy();
   });
 });

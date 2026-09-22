@@ -24,6 +24,7 @@ const dependencyVolumeSuffixes = [
   "package-monaco-react",
   "package-musescore-clipboard",
   "package-musicxml",
+  "package-musx-import",
   "package-piano-roll",
   "package-playback",
   "package-renderer",
