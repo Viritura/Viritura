@@ -26,7 +26,7 @@ export interface SoundingNote {
   continuation: boolean;
 }
 
-export interface GridSlot {
+interface GridSlot {
   beat: number;
   beats: number;
   notes: SoundingNote[];

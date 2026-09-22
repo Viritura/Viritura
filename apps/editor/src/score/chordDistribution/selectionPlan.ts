@@ -22,7 +22,7 @@ import { extendStavesDownward, selectionStaffRefs, type StaffRef } from "./staff
 
 export type DistributionMode = "explode" | "reduce" | "redistribute";
 
-export interface DistributionPlan {
+interface DistributionPlan {
   mode: DistributionMode;
   sources: StaffRef[];
   targets: StaffRef[];
@@ -47,7 +47,7 @@ function resolveTargets(score: Score, mode: DistributionMode, sources: StaffRef[
  * Describe what a distribution would do, without touching the score. Returns
  * null when the selection cannot anchor one (no staves, or no measure scope).
  */
-export function planDistribution(score: Score, selection: Selection, mode: DistributionMode): DistributionPlan | null {
+function planDistribution(score: Score, selection: Selection, mode: DistributionMode): DistributionPlan | null {
   const sources = selectionStaffRefs(score, selection);
   const scope = resolveSelectionScope(selection, score);
   if (sources.length === 0 || !scope) return null;

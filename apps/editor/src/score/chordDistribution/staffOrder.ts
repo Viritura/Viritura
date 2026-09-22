@@ -28,7 +28,7 @@ export function sameStaff(left: StaffRef, right: StaffRef): boolean {
   return left.partIndex === right.partIndex && left.staff === right.staff;
 }
 
-export function compareStaffRefs(left: StaffRef, right: StaffRef): number {
+function compareStaffRefs(left: StaffRef, right: StaffRef): number {
   return left.partIndex - right.partIndex || left.staff - right.staff;
 }
 

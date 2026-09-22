@@ -85,8 +85,8 @@ export interface TopLevelMenu {
   readonly items: MenuItemDef[];
 }
 
-export const IS_MAC = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
-export const MOD = IS_MAC ? "⌘" : "Ctrl+";
+const IS_MAC = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
+const MOD = IS_MAC ? "⌘" : "Ctrl+";
 
 const SEPARATOR: MenuItemDef = { label: "separator", separator: true };
 
