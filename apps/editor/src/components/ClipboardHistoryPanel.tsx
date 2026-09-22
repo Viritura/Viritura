@@ -179,8 +179,12 @@ function clipboardItemRowStyle(hovered: boolean): CSSProperties {
 const itemStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
+  alignItems: "stretch",
+  justifyContent: "flex-start",
   gap: "4px",
   padding: "6px 8px",
+  height: "auto",
+  overflow: "visible",
   border: "1px solid rgba(20, 20, 28, 0.06)",
   borderRadius: "8px",
   background: "rgba(255, 255, 255, 0.30)",

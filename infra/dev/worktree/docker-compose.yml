@@ -44,6 +44,7 @@ x-node-volumes: &node-volumes
   - package_monaco_react_node_modules:/workspace/packages/monaco-react/node_modules:ro
   - package_musescore_clipboard_node_modules:/workspace/packages/musescore-clipboard/node_modules:ro
   - package_musicxml_node_modules:/workspace/packages/musicxml/node_modules:ro
+  - package_musx_import_node_modules:/workspace/packages/musx-import/node_modules:ro
   - package_piano_roll_node_modules:/workspace/packages/piano-roll/node_modules:ro
   - package_playback_node_modules:/workspace/packages/playback/node_modules:ro
   - package_renderer_node_modules:/workspace/packages/renderer/node_modules:ro
@@ -317,6 +318,9 @@ volumes:
   package_musicxml_node_modules:
     external: true
     name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-musicxml
+  package_musx_import_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-musx-import
   package_piano_roll_node_modules:
     external: true
     name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-piano-roll

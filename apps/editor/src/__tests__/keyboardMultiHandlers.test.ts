@@ -8,6 +8,7 @@ import {
   stepAccidentalOnSelection,
   handleSlurKey,
   handleTieKey,
+  handleDurationChange,
 } from "../keyboard/normalModeHandlers";
 import { handleDelete } from "../keyboard/normalModeDelete";
 
@@ -164,6 +165,49 @@ describe("keyboard edit handlers — multi-aware", () => {
       expect(events[index]!.notes![0]!.ties).toEqual([{ target: events[index + 1]!.notes![0]!.id }]);
     }
     expect(events[3]!.notes![0]!.ties).toBeUndefined();
+  });
+
+  it("ties every note in a selected note-event chord", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [chord("ev0"), chord("ev1")];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/ev0/n0", "p0/m0/s0/ev0/n1", "p0/m0/s0/ev0/n2"],
+    });
+
+    handleTieKey(noopEvent, ctx);
+
+    const [source, target] = latest().parts[0]!.measures[0]!.sequences[0]!.content as NoteEvent[];
+    expect(source!.notes!.map((note) => note.ties)).toEqual(target!.notes!.map((note) => [{ target: note.id }]));
+  });
+
+  it("ties only one selected notehead in a note-event chord", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content = [chord("ev0"), chord("ev1")];
+    const { ctx, latest } = makeCtx(score, {
+      kind: "single",
+      elementId: "p0/m0/s0/ev0/n0",
+      elementType: "note",
+    });
+
+    handleTieKey(noopEvent, ctx);
+
+    const [source, target] = latest().parts[0]!.measures[0]!.sequences[0]!.content as NoteEvent[];
+    expect(source!.notes![0]!.ties).toEqual([{ target: target!.notes![0]!.id }]);
+    expect(source!.notes![1]!.ties).toBeUndefined();
+    expect(source!.notes![2]!.ties).toBeUndefined();
+  });
+
+  it("changes duration of a selected note-event chord", () => {
+    const score = makeScore();
+    const { ctx, latest } = makeCtx(score, {
+      kind: "multi",
+      elementIds: ["p0/m0/s0/ev0/n0", "p0/m0/s0/ev0/n1", "p0/m0/s0/ev0/n2"],
+    });
+
+    handleDurationChange(noopEvent, "half", ctx);
+
+    expect(contentAt(latest(), 0).duration).toEqual({ base: "half" });
   });
 
   it("deletes a single visual A2 note from every merged source", () => {
