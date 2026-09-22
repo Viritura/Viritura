@@ -14,7 +14,7 @@ import type {
   EventLocator,
   MeasurePath,
 } from "@viritura/core";
-import { createDynamicGroup, dynamicSpelling, patch, type AuthoredDynamicValue } from "@viritura/core";
+import { createDynamicGroup, dynamicSpelling, isRest, patch, type AuthoredDynamicValue } from "@viritura/core";
 import { durationToBeats, generateNoteId, sequenceContentBeats } from "./noteCommands";
 import { dynamicStaffAtLocation } from "./dynamicStaff";
 
@@ -54,7 +54,7 @@ export function toggleArticulation(
   tupletIndex?: number,
 ): Score | null {
   const ev = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
-  if (!ev || !ev.notes || ev.notes.length === 0) return null;
+  if (!ev || !hasPlayableNotes(ev)) return null;
 
   if (!ev.markings) {
     ev.markings = {};
@@ -572,8 +572,15 @@ function getEvent(
   return ev;
 }
 
+/**
+ * True when the event carries something an articulation can attach to.
+ *
+ * Percussion events hold their noteheads in `kitNotes` rather than `notes`, so
+ * this defers to the kit-aware `isRest` rather than inspecting `notes` alone —
+ * otherwise every articulation silently no-ops on a percussion staff.
+ */
 function hasPlayableNotes(ev: NoteEvent): boolean {
-  return !!ev.notes && ev.notes.length > 0;
+  return !isRest(ev);
 }
 
 function updateMarkings(ev: NoteEvent, fn: (markings: Markings) => void): void {
@@ -735,7 +742,7 @@ export function planToggleArticulation(
   const locator = resolveEventLocator(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
   if (!locator) return null;
   const ev = getEvent(score, partIndex, measureIndex, seqIndex, eventIndex, tupletIndex);
-  if (!ev || !ev.notes || ev.notes.length === 0) return null;
+  if (!ev || !hasPlayableNotes(ev)) return null;
   const present = ev.markings?.[articulation] !== undefined;
   return [patch.setEventMarking(locator, articulation, present ? undefined : defaultMarkingValue<ArticulationType>())];
 }
