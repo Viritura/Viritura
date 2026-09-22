@@ -35,6 +35,7 @@ import {
 import { prevailingAlterationAtPosition } from "../commands/accidentalCommands";
 import { getActiveTimeSignature, computeUsedBeats, advanceCursorByNotatedDuration } from "../commands/cursorCommands";
 import { closestOctave, aboveOctave, defaultPitchForClef } from "../input/octaveLogic";
+import { isPercussionPart, kitComponentForPitch, midiNumberForKitComponent } from "../score/kitInput";
 import { cloneScore, produce } from "../score/scoreClone";
 import type { KeyboardHandlerContext } from "./types";
 import {
@@ -157,7 +158,18 @@ function buildEntryPitch(
     }
   }
   if (!ni.isRest) {
-    setTimeout(() => ctx.previewPitch(writtenPitch, entryCtx.partIndex), 0);
+    // Percussion previews the mapped drum, not the pitch: the part plays on the
+    // GM drum channel, where a pitch would sound as an unrelated instrument.
+    const part = currentScore.parts[entryCtx.partIndex];
+    const kitComponent = part && isPercussionPart(part) ? kitComponentForPitch(part, writtenPitch) : null;
+    const kitMidi =
+      part && kitComponent ? midiNumberForKitComponent(part, currentScore.global?.sounds, kitComponent) : null;
+    if (kitMidi !== null && ctx.previewMidi) {
+      const previewMidi = ctx.previewMidi;
+      setTimeout(() => previewMidi(kitMidi, entryCtx.partIndex), 0);
+    } else if (kitComponent === null) {
+      setTimeout(() => ctx.previewPitch(writtenPitch, entryCtx.partIndex), 0);
+    }
   }
   return { pitch: sounding, writtenPitch };
 }
@@ -287,10 +299,13 @@ function tryChordEntry(
   }
 
   if (loc) {
+    const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch);
     const newScore = produce(currentScore, (draft) => {
       const targetEv =
         draft.parts[entryCtx.partIndex]?.measures[loc.measureIndex]?.sequences[entryCtx.voice]?.content[loc.eventIndex];
-      if (stackAbove && targetEv && targetEv.type === "event" && targetEv.notes?.length) {
+      // Percussion letters name a staff line directly, so there is nothing to
+      // stack above — the drum mapped to that line is the note being added.
+      if (!percussion && stackAbove && targetEv && targetEv.type === "event" && targetEv.notes?.length) {
         const highest = targetEv.notes.reduce((hi, n) =>
           n.pitch.octave * 7 + "CDEFGAB".indexOf(n.pitch.step) > hi.pitch.octave * 7 + "CDEFGAB".indexOf(hi.pitch.step)
             ? n
@@ -304,6 +319,7 @@ function tryChordEntry(
         partIndex: entryCtx.partIndex,
         voice: entryCtx.voice,
         eventIndex: loc.eventIndex,
+        ...(percussion ? { kitComponent: percussion.kitComponent } : {}),
       });
     });
     if (newScore !== currentScore) {
@@ -385,6 +401,33 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
 
 type InsertKind = "grace-slash" | "grace-acciaccatura" | "rest" | "note";
 
+/**
+ * Percussion routing for an entered letter.
+ *
+ * Unpitched-percussion parts store hits as `kitNotes` naming a kit component,
+ * never as pitches. Entering a pitch on one is wrong twice over: it renders at
+ * a clef-derived line instead of the drum's mapped line, and playback sends the
+ * raw chromatic number to the GM drum channel, where it sounds as whatever
+ * percussion instrument happens to occupy it (a typed G becomes MIDI 67, High
+ * Agogo) instead of the mapped drum. Resolving the component here routes
+ * keyboard entry through the same percussion map the click path already uses.
+ *
+ * Returns null for pitched parts, which keep the normal pitch path.
+ */
+function resolvePercussionEntry(
+  score: Score,
+  partIndex: number,
+  writtenPitch: Pitch,
+): { kitComponent: string; previewStaffPosition: number } | null {
+  const part = score.parts[partIndex];
+  if (!part || !isPercussionPart(part)) return null;
+  const kitComponent = kitComponentForPitch(part, writtenPitch);
+  if (!kitComponent) return null;
+  // Engine convention for kit noteheads: pos-from-top = 4 - MNX staffPosition.
+  const previewStaffPosition = 4 - (part.kit?.[kitComponent]?.staffPosition ?? 0);
+  return { kitComponent, previewStaffPosition };
+}
+
 function insertKindFor(ctx: KeyboardHandlerContext): InsertKind {
   const ni = ctx.getNoteInput();
   if (ni.currentGraceType) {
@@ -393,7 +436,14 @@ function insertKindFor(ctx: KeyboardHandlerContext): InsertKind {
   return ni.isRest ? "rest" : "note";
 }
 
-function applyEntryToDraft(draft: Score, kind: InsertKind, pitch: Pitch, plan: InsertPlan, staffIdx: number): void {
+function applyEntryToDraft(
+  draft: Score,
+  kind: InsertKind,
+  pitch: Pitch,
+  plan: InsertPlan,
+  staffIdx: number,
+  kitComponent?: string,
+): void {
   for (const t of plan.targets) {
     if (plan.rhythmSlot?.tuplet) {
       mirrorTupletAt(draft, t, plan.measureIdx, plan.rhythmSlot.tuplet.container, plan.rhythmSlot.tuplet.startBeat);
@@ -407,6 +457,7 @@ function applyEntryToDraft(draft: Score, kind: InsertKind, pitch: Pitch, plan: I
         voice: t.voice,
         beatPosition: plan.beatPos,
         slash: kind === "grace-slash",
+        ...(kitComponent ? { kitComponent } : {}),
       });
     } else if (kind === "rest") {
       addRest(draft, {
@@ -426,6 +477,7 @@ function applyEntryToDraft(draft: Score, kind: InsertKind, pitch: Pitch, plan: I
         voice: t.voice,
         beatPosition: plan.beatPos,
         staffNumber: staffIdx + 1,
+        ...(kitComponent ? { kitComponent } : {}),
       });
     }
   }
@@ -487,6 +539,7 @@ function performInBoundsInsert(
   plan: InsertPlan,
   pitch: Pitch,
   writtenPitch: Pitch,
+  percussion: { kitComponent: string; previewStaffPosition: number } | null,
 ): void {
   const ni = ctx.getNoteInput();
   emitOptimisticNoteInput({
@@ -496,15 +549,15 @@ function performInBoundsInsert(
       partIndex: entryCtx.partIndex,
       staffIndex: entryCtx.staffIdx,
     },
-    staffPosition: staffPositionForPitch(writtenPitch, entryCtx.activeClef),
+    staffPosition: percussion?.previewStaffPosition ?? staffPositionForPitch(writtenPitch, entryCtx.activeClef),
     duration: ni.currentDuration,
-    accidental: ni.currentAccidental,
+    accidental: percussion ? null : ni.currentAccidental,
     isRest: ni.isRest,
   });
   const kind = insertKindFor(ctx);
   try {
     const resultScore = produce(currentScore, (draft) => {
-      applyEntryToDraft(draft, kind, pitch, plan, entryCtx.staffIdx);
+      applyEntryToDraft(draft, kind, pitch, plan, entryCtx.staffIdx, percussion?.kitComponent);
     });
     ctx.updateScore(resultScore, { start: plan.measureIdx, end: plan.measureIdx });
     advanceAfterInsert(ctx, resultScore, writtenPitch, plan, entryCtx);
@@ -521,6 +574,7 @@ function performFallbackInsert(
   plan: InsertPlan,
   pitch: Pitch,
   writtenPitch: Pitch,
+  percussion: { kitComponent: string; previewStaffPosition: number } | null,
 ): void {
   const ni = ctx.getNoteInput();
   emitOptimisticNoteInput({
@@ -530,9 +584,9 @@ function performFallbackInsert(
       partIndex: entryCtx.partIndex,
       staffIndex: entryCtx.staffIdx,
     },
-    staffPosition: staffPositionForPitch(writtenPitch, entryCtx.activeClef),
+    staffPosition: percussion?.previewStaffPosition ?? staffPositionForPitch(writtenPitch, entryCtx.activeClef),
     duration: ni.currentDuration,
-    accidental: ni.currentAccidental,
+    accidental: percussion ? null : ni.currentAccidental,
     isRest: ni.isRest,
   });
 
@@ -559,6 +613,7 @@ function performFallbackInsert(
           voice: t.voice,
           beatPosition: plan.beatPos,
           staffNumber: entryCtx.staffIdx + 1,
+          ...(percussion ? { kitComponent: percussion.kitComponent } : {}),
         });
       }
       wirePostEntrySlur(resultScore, plan.cursorTarget.partIndex, plan.cursorTarget.voice, ctx);
@@ -566,7 +621,7 @@ function performFallbackInsert(
       advanceAfterInsert(ctx, resultScore, writtenPitch, plan, entryCtx);
       return;
     }
-    applyEntryToDraft(newScore, kind, pitch, plan, entryCtx.staffIdx);
+    applyEntryToDraft(newScore, kind, pitch, plan, entryCtx.staffIdx, percussion?.kitComponent);
     ctx.updateScore(newScore, fallbackAffectedMeasures);
     wirePostEntrySlur(newScore, plan.cursorTarget.partIndex, plan.cursorTarget.voice, ctx);
     advanceAfterInsert(ctx, newScore, writtenPitch, plan, entryCtx);
@@ -587,16 +642,17 @@ function insertPlannedPitch(
   const ts = getActiveTimeSignature(currentScore, plan.measureIdx);
   const maxBeats = measureBeats(ts);
   const ni = ctx.getNoteInput();
+  const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch);
   const inBounds =
     plan.measureIdx < currentScore.global.measures.length &&
     plan.beatPos + plan.noteBeats <= maxBeats + 1e-9 &&
     !ni.slurActive;
 
   if (inBounds) {
-    performInBoundsInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+    performInBoundsInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch, percussion);
     return;
   }
-  performFallbackInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+  performFallbackInsert(ctx, currentScore, entryCtx, plan, pitch, writtenPitch, percussion);
 }
 
 /** Enter a note by letter name. */

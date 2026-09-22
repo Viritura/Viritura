@@ -6,7 +6,7 @@
  * The caller applies the viewport transform before calling these functions.
  */
 
-import { computeNotePreview, type DisplayList, type NotePreviewInput } from "./wasm";
+import { computeNotePreview, type DisplayList, type MeasureBounds, type NotePreviewInput } from "./wasm";
 import { paintCommand } from "./displayListPainter";
 
 type ContentPointSnapper = (x: number, y: number) => { x: number; y: number };
@@ -140,32 +140,30 @@ export function detectStaves(displayList: DisplayList): StaffInfo[] {
 }
 
 /**
- * Derive unique physical staff rows for stitched Horizon. Every render chunk
- * repeats five staff-line commands, so generic detection returns
- * `chunks × staves`. Measure bounds already carry stable flattened staff IDs
- * and exact row geometry, avoiding the full command sort and duplicate rows.
+ * Group measure bounds into physical staff rows. Set `groupBySystem` for
+ * paginated view modes (page/spread), where the same `staffIndex` recurs once
+ * per system and must stay a separate row; Horizon stitches every system into
+ * one continuous stream, so `staffIndex` alone identifies the row there.
  */
-export function detectHorizonStaves(displayList: DisplayList): StaffInfo[] {
-  const bounds = displayList.measureBounds;
-  if (!bounds?.length) return detectStaves(displayList);
-
-  const rows = new Map<number, { x: number; xEnd: number; y: number; height: number }>();
+function groupMeasureBoundsIntoStaves(bounds: readonly MeasureBounds[], groupBySystem: boolean): StaffInfo[] {
+  const rows = new Map<string, { x: number; xEnd: number; y: number; height: number }>();
   for (const bound of bounds) {
     if (bound.isHidden) continue;
+    const key = groupBySystem ? `${bound.systemIndex ?? 0}:${bound.staffIndex}` : `${bound.staffIndex}`;
     const xEnd = bound.x + bound.width;
-    const row = rows.get(bound.staffIndex);
+    const row = rows.get(key);
     if (row) {
       row.x = Math.min(row.x, bound.x);
       row.xEnd = Math.max(row.xEnd, xEnd);
       row.y = Math.min(row.y, bound.y);
       row.height = Math.max(row.height, bound.height);
     } else {
-      rows.set(bound.staffIndex, { x: bound.x, xEnd, y: bound.y, height: bound.height });
+      rows.set(key, { x: bound.x, xEnd, y: bound.y, height: bound.height });
     }
   }
 
   return [...rows.values()]
-    .sort((left, right) => left.y - right.y)
+    .sort((left, right) => left.y - right.y || left.x - right.x)
     .map((row, index) => ({
       x: row.x,
       xEnd: row.xEnd,
@@ -174,6 +172,62 @@ export function detectHorizonStaves(displayList: DisplayList): StaffInfo[] {
       height: row.height,
       index,
     }));
+}
+
+/**
+ * Derive unique physical staff rows for stitched Horizon. Every render chunk
+ * repeats five staff-line commands, so generic detection returns
+ * `chunks × staves`. Measure bounds already carry stable flattened staff IDs
+ * and exact row geometry, avoiding the full command sort and duplicate rows.
+ */
+export function detectHorizonStaves(displayList: DisplayList): StaffInfo[] {
+  const bounds = displayList.measureBounds;
+  if (!bounds?.length) return detectStaves(displayList);
+  return groupMeasureBoundsIntoStaves(bounds, false);
+}
+
+/**
+ * A staff row is "covered" by a line-detected staff when their vertical
+ * spans overlap and their horizontal spans overlap — i.e. the same physical
+ * row, however it was found.
+ */
+function isCoveredByLineStaff(bound: StaffInfo, lineStaves: readonly StaffInfo[]): boolean {
+  return lineStaves.some((line) => {
+    const tolerance = Math.max(line.height, bound.height, 1) * 0.6;
+    const yOverlaps = Math.abs(line.y - bound.y) < tolerance;
+    const xOverlaps = line.x < bound.xEnd && line.xEnd > bound.x;
+    return yOverlaps && xOverlaps;
+  });
+}
+
+/**
+ * Resolve staff regions honoring the current view mode. Measure bounds carry
+ * a fixed nominal 4-space staff height regardless of how many lines are
+ * actually drawn (see `staff_lines.rs`), so bounds-derived rows are the only
+ * way to see staves configured with fewer than 5 lines — e.g. single-line
+ * unpitched-percussion staves, which `detectStaves`'s 5-line grouping
+ * heuristic can never find. Line-detected staves still take precedence where
+ * both agree, since they reflect whatever has actually been repainted (which
+ * can briefly lead measure bounds during a large-score reflow); bounds-only
+ * rows are appended for staves the line heuristic can't see at all. Falls
+ * back entirely to the line heuristic when a display list carries no measure
+ * bounds (e.g. hand-built test fixtures).
+ */
+export function detectStavesForViewMode(
+  displayList: DisplayList,
+  viewMode: "page" | "spread" | "spread-h" | "horizon" = "horizon",
+): StaffInfo[] {
+  const lineStaves = detectStaves(displayList);
+  const bounds = displayList.measureBounds;
+  if (!bounds?.length) return lineStaves;
+
+  const boundStaves = groupMeasureBoundsIntoStaves(bounds, viewMode !== "horizon");
+  const uncoveredBoundStaves = boundStaves.filter((bound) => !isCoveredByLineStaff(bound, lineStaves));
+  if (uncoveredBoundStaves.length === 0) return lineStaves;
+
+  return [...lineStaves, ...uncoveredBoundStaves]
+    .sort((left, right) => left.y - right.y || left.x - right.x)
+    .map((staff, index) => ({ ...staff, index }));
 }
 
 /**

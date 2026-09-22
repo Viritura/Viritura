@@ -543,8 +543,13 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
                 return;
               }
             }
-            // Found an event at this exact beat.
-            const isNote = !!(item.notes && item.notes.length > 0);
+            // Found an event at this exact beat. Percussion hits live in
+            // `item.kitNotes` rather than `item.notes` — an occupied kit-note
+            // beat must count as "not a rest" too, or a plain click on a
+            // second drum at the same beat falls through to the default add
+            // flow below and overwrites the first hit instead of layering
+            // onto it (see addPitchToChord below for the merge itself).
+            const isNote = !!(item.notes && item.notes.length > 0) || !!(item.kitNotes && item.kitNotes.length > 0);
             if (!isNote) break; // rest at this beat → fall through to default add flow
             const sameDur = item.duration.base === duration.base && (item.duration.dots ?? 0) === (duration.dots ?? 0);
             if (!sameDur) {

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   detectStaves,
   detectHorizonStaves,
+  detectStavesForViewMode,
   extractStickyClefInfo,
   findStaffAtPosition,
   snapToStaffPosition,
@@ -169,6 +170,84 @@ describe("detectHorizonStaves", () => {
       { x: 50, xEnd: 550, y: 100, spatium: 12, height: 48, index: 0 },
       { x: 50, xEnd: 550, y: 200, spatium: 12, height: 48, index: 1 },
     ]);
+  });
+});
+
+describe("detectStavesForViewMode", () => {
+  /** A single-line percussion staff has no 5-line group for `detectStaves`'s
+   *  line-counting heuristic to find, but measure bounds carry a fixed
+   *  nominal 4-space staff height regardless of drawn line count. */
+  it("resolves a single-line staff that the line-counting heuristic can't see", () => {
+    const dl: DisplayList = {
+      commands: [{ type: "DrawLine", x1: 50, y1: 124, x2: 500, y2: 124, width: 1.5, color: "#000" }],
+      width: 550,
+      height: 200,
+      measureBounds: [
+        {
+          index: 0,
+          partIndex: 0,
+          staffIndex: 0,
+          systemIndex: 0,
+          x: 50,
+          width: 450,
+          y: 100,
+          height: 48,
+          prefixWidth: 20,
+          totalBeats: 4,
+          beatAnchors: [],
+        },
+      ],
+    };
+
+    expect(detectStaves(dl)).toHaveLength(0); // old line-heuristic still can't see it
+    expect(detectStavesForViewMode(dl, "page")).toEqual([
+      { x: 50, xEnd: 500, y: 100, spatium: 12, height: 48, index: 0 },
+    ]);
+  });
+
+  it("keeps distinct systems as separate rows in page mode, unlike Horizon", () => {
+    const dl: DisplayList = {
+      commands: [],
+      width: 600,
+      height: 400,
+      measureBounds: [
+        {
+          index: 0,
+          partIndex: 0,
+          staffIndex: 0,
+          systemIndex: 0,
+          x: 50,
+          width: 200,
+          y: 100,
+          height: 48,
+          prefixWidth: 20,
+          totalBeats: 4,
+          beatAnchors: [],
+        },
+        {
+          index: 1,
+          partIndex: 0,
+          staffIndex: 0,
+          systemIndex: 1,
+          x: 50,
+          width: 200,
+          y: 300,
+          height: 48,
+          prefixWidth: 20,
+          totalBeats: 4,
+          beatAnchors: [],
+        },
+      ],
+    };
+
+    expect(detectStavesForViewMode(dl, "page")).toHaveLength(2);
+    // Horizon stitches every system into one continuous row per staffIndex.
+    expect(detectStavesForViewMode(dl, "horizon")).toHaveLength(1);
+  });
+
+  it("falls back to the line-counting heuristic when no measure bounds are present", () => {
+    const dl = makeStaffDisplayList(50, 500, 100, 12);
+    expect(detectStavesForViewMode(dl, "page")).toHaveLength(1);
   });
 });
 
