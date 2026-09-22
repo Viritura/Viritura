@@ -7,6 +7,7 @@
 // measure) into the de-duplicated, document-ordered list of event locations
 // it covers. These helpers only describe what to do *per event*.
 import type { BowDirection, Score, ScorePatch, OrnamentType, BreathMarkSymbol } from "@viritura/core";
+import { isRest } from "@viritura/core";
 import { produce } from "immer";
 import type { SelectionState } from "../store/selectionStore";
 import {
@@ -45,11 +46,16 @@ function applyToSelectedEvents(
   return applySelectionWriteback(score, selection, mutate, selectedScoreIndex);
 }
 
-/** Note-bearing events the selection covers (rests can't hold articulations). */
+/**
+ * Note-bearing events the selection covers (rests can't hold articulations).
+ *
+ * Uses the kit-aware `isRest` so percussion events — whose noteheads live in
+ * `kitNotes`, not `notes` — are not mistaken for rests and filtered out.
+ */
 function selectedNoteEvents(score: Score, selection: SelectionState, selectedScoreIndex?: number): EventLocation[] {
   return mutationEvents(score, selection, selectedScoreIndex).filter((loc) => {
     const ev = getEventAtLocation(score, loc);
-    return ev?.type === "event" && !!ev.notes && ev.notes.length > 0;
+    return ev?.type === "event" && !isRest(ev);
   });
 }
 

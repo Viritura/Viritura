@@ -80,6 +80,9 @@ export interface KeyboardHandlerContext {
 
   // Audio preview
   previewPitch: (pitch: Pitch, partIndex?: number) => void;
+  /** Play a raw MIDI note. Used for percussion entry, where the sounding note
+   *  is the kit component's mapped drum rather than a pitch. */
+  previewMidi?: (midiNote: number, partIndex?: number) => void;
 
   // History
   undo: () => void;

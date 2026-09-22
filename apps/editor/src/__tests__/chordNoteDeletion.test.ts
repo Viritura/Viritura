@@ -168,3 +168,96 @@ describe("computeDeleteSelection — chord notes", () => {
     expect(eventAt(score, 1).rest).toBeDefined();
   });
 });
+
+/**
+ * Percussion hits live in `kitNotes`, not `notes`. The engine numbers
+ * noteheads across both (pitched first, then kit), so removal has to address
+ * that combined sequence — reading only `notes` made Delete a silent no-op on
+ * a drum staff.
+ */
+const KIT_CHORD = "p0/m0/s0/k1";
+
+function makeKitScore(): Score {
+  return {
+    mnx: { version: 1 },
+    global: { measures: [{ time: { count: 4, unit: 4 } }] },
+    parts: [
+      {
+        name: "Drum Kit",
+        kit: {
+          kick: { staffPosition: -4, sound: "kick-sound" },
+          snare: { staffPosition: 0, sound: "snare-sound" },
+        },
+        measures: [
+          {
+            sequences: [
+              {
+                content: [
+                  {
+                    type: "event",
+                    id: "k1",
+                    duration: { base: "quarter" },
+                    kitNotes: [{ kitComponent: "kick" }, { kitComponent: "snare" }],
+                  },
+                  {
+                    type: "event",
+                    id: "k2",
+                    duration: { base: "quarter" },
+                    kitNotes: [{ kitComponent: "snare" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as Score;
+}
+
+function kitComponents(score: Score, index: number): string[] {
+  return (eventAt(score, index).kitNotes ?? []).map((k) => k.kitComponent);
+}
+
+describe("removeChordNotes — percussion kit notes", () => {
+  it("removes one drum and leaves the other sounding", () => {
+    const score = makeKitScore();
+    expect(removeChordNotes(score, KIT_CHORD, [0])).toBe("removed");
+    expect(kitComponents(score, 0)).toEqual(["snare"]);
+    expect(eventAt(score, 0).rest).toBeUndefined();
+  });
+
+  it("reports a full kit-chord selection instead of emptying the event", () => {
+    const score = makeKitScore();
+    expect(removeChordNotes(score, KIT_CHORD, [0, 1])).toBe("wholeEvent");
+    expect(kitComponents(score, 0)).toEqual(["kick", "snare"]);
+  });
+
+  it("drops the kitNotes array once its last hit goes", () => {
+    const score = makeKitScore();
+    // A lone remaining hit removed one at a time, rather than as a full selection.
+    expect(removeChordNotes(score, KIT_CHORD, [1])).toBe("removed");
+    expect(removeChordNotes(score, KIT_CHORD, [0])).toBe("wholeEvent");
+    expect(kitComponents(score, 0)).toEqual(["kick"]);
+  });
+});
+
+describe("computeDeleteSelection — percussion kit notes", () => {
+  it("deleting one drum notehead is no longer a silent no-op", () => {
+    const result = computeDeleteSelection(makeKitScore(), {
+      kind: "single",
+      elementId: `${KIT_CHORD}/n0`,
+    } as never);
+    expect(result.kind).toBe("single");
+    expect(kitComponents(resultScore(result), 0)).toEqual(["snare"]);
+  });
+
+  it("selecting the last remaining drum blanks the event to a rest", () => {
+    const score = makeKitScore();
+    score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.kitNotes = [{ kitComponent: "snare" }];
+    const result = computeDeleteSelection(score, { kind: "single", elementId: `${KIT_CHORD}/n0` } as never);
+    const ev = eventAt(resultScore(result), 0);
+    expect(ev.rest).toBeDefined();
+    expect(ev.kitNotes).toBeUndefined();
+  });
+});

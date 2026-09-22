@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import {
-  detectStaves,
+  detectStavesForViewMode,
   findStaffAtPosition,
   snapToStaffPosition,
   getStaffPosition,
@@ -90,10 +90,14 @@ export function InputCursor({
   // Updated in a layout effect below (refs must not be written during render).
   const viewportRef = useRef({ scrollX, scrollY, zoom, viewMode });
 
-  // Recompute staves when display list changes
+  // Recompute staves when display list or view mode changes. Bounds-based
+  // detection (rather than counting 5 drawn staff lines) is required for any
+  // staff configured with a non-standard line count — e.g. single-line
+  // unpitched-percussion staves — or the cursor/click hit-testing below can
+  // never resolve a StaffInfo for that staff.
   useLayoutEffect(() => {
-    stavesRef.current = displayList ? detectStaves(displayList) : [];
-  }, [displayList]);
+    stavesRef.current = displayList ? detectStavesForViewMode(displayList, viewMode) : [];
+  }, [displayList, viewMode]);
 
   // Paint overlay
   const paintOverlay = useCallback(() => {

@@ -82,6 +82,7 @@ export type {
 export {
   detectStaves,
   detectHorizonStaves,
+  detectStavesForViewMode,
   findStaffAtPosition,
   snapToStaffPosition,
   getStaffPosition,

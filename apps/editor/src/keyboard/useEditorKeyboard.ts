@@ -92,6 +92,7 @@ interface CtxBindings {
   undo: KeyboardHandlerContext["undo"];
   redo: KeyboardHandlerContext["redo"];
   previewPitch: KeyboardHandlerContext["previewPitch"];
+  previewMidi: KeyboardHandlerContext["previewMidi"];
 }
 
 function syncCtxBindings(ctx: KeyboardHandlerContext, b: CtxBindings): void {
@@ -119,6 +120,7 @@ function syncCtxBindings(ctx: KeyboardHandlerContext, b: CtxBindings): void {
   ctx.setChordLock = b.setChordLock;
   ctx.setRhythmSource = b.setRhythmSource;
   ctx.previewPitch = b.previewPitch;
+  ctx.previewMidi = b.previewMidi;
   ctx.undo = b.undo;
   ctx.redo = b.redo;
 }
@@ -280,6 +282,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
       setChordLock,
       setRhythmSource,
       previewPitch: (pitch, partIndex) => previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400),
+      previewMidi: (midiNote, partIndex) => previewNoteRef.current(midiNote, partIndex, 80, 400),
       undo,
       redo,
       openRadialMenu: (cat) => configRef.current.onOpenRadialMenu?.(cat),
@@ -288,6 +291,8 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
   const ctx = ctxRef.current;
   const previewPitch: KeyboardHandlerContext["previewPitch"] = (pitch, partIndex) =>
     previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400);
+  const previewMidi: KeyboardHandlerContext["previewMidi"] = (midiNote, partIndex) =>
+    previewNoteRef.current(midiNote, partIndex, 80, 400);
   syncCtxBindings(ctx, {
     updateScore,
     commitPatches,
@@ -313,6 +318,7 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
     setChordLock,
     setRhythmSource,
     previewPitch,
+    previewMidi,
     undo,
     redo,
   });

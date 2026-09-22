@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, type CSSProperties } from "react";
 import {
-  detectStaves,
+  detectStavesForViewMode,
   paintPlayheadAtPosition,
   beatToX,
   findSystemYExtent,
@@ -89,14 +89,16 @@ export function PlayheadOverlay({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stavesRef = useRef<StaffInfo[]>([]);
 
-  // Detect staves whenever the display list changes
+  // Detect staves whenever the display list changes. Bounds-aware so staves
+  // with non-standard line counts (e.g. single-line percussion) are included —
+  // the line-count heuristic alone cannot see them.
   useEffect(() => {
     if (displayList) {
-      stavesRef.current = detectStaves(displayList);
+      stavesRef.current = detectStavesForViewMode(displayList, viewMode === "horizon" ? "horizon" : "page");
     } else {
       stavesRef.current = [];
     }
-  }, [displayList]);
+  }, [displayList, viewMode]);
 
   // Effect Event: always sees the latest committed prop values when called from
   // inside an Effect, without forcing the rAF loop to restart on every render.

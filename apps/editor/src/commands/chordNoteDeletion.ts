@@ -66,6 +66,12 @@ export type ChordNoteRemoval = "removed" | "wholeEvent" | "none";
 /**
  * Remove `noteIndexes` from the event addressed by `eventElementId`, mutating
  * `score` in place.
+ *
+ * Indexes address the engine's notehead numbering, which is a single sequence
+ * over pitched `notes` followed by percussion `kitNotes` — the order
+ * `promote_event` builds its note list in. Unpitched-percussion events carry
+ * only `kitNotes`, so ignoring them here made Delete a silent no-op on a
+ * drum staff.
  */
 export function removeChordNotes(
   score: Score,
@@ -77,20 +83,29 @@ export function removeChordNotes(
   const event = getEventAtLocation(score, loc);
   if (!event || event.type !== "event") return "none";
   const notes = event.notes;
-  if (!notes || notes.length === 0) return "none";
+  const kitNotes = event.kitNotes;
+  const pitchedCount = notes?.length ?? 0;
+  const total = pitchedCount + (kitNotes?.length ?? 0);
+  if (total === 0) return "none";
 
-  const targets = [...new Set(noteIndexes)].filter((i) => i >= 0 && i < notes.length);
+  const targets = [...new Set(noteIndexes)].filter((i) => i >= 0 && i < total);
   if (targets.length === 0) return "none";
-  if (targets.length >= notes.length) return "wholeEvent";
+  if (targets.length >= total) return "wholeEvent";
 
   const removedIds = new Set<string>();
   // Descending so each splice leaves the lower indices addressing the same notes.
   for (const index of [...targets].sort((a, b) => b - a)) {
-    const id = notes[index]!.id;
-    if (id) removedIds.add(id);
-    notes.splice(index, 1);
+    if (index < pitchedCount) {
+      const id = notes![index]!.id;
+      if (id) removedIds.add(id);
+      notes!.splice(index, 1);
+    } else {
+      kitNotes!.splice(index - pitchedCount, 1);
+    }
   }
 
+  if (notes && notes.length === 0) delete event.notes;
+  if (kitNotes && kitNotes.length === 0) delete event.kitNotes;
   if (removedIds.size > 0) dropReferencesToNotes(score, removedIds);
   return "removed";
 }
