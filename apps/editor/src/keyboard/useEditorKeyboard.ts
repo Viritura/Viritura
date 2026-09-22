@@ -47,10 +47,6 @@ export interface EditorKeyboardConfig {
   onCut: () => void;
   onPaste: () => void;
   onPasteMerge?: () => void;
-  onExplodeSelection?: () => void;
-  onReduceSelection?: () => void;
-  onSelectChordTopNote?: () => void;
-  onSelectChordBottomNote?: () => void;
   onToggleRepeatStart?: () => void;
   onToggleRepeatEnd?: () => void;
   onEditEnding?: () => void;
@@ -145,10 +141,6 @@ function buildAppCallbacks(configRef: {
     onCut: () => configRef.current.onCut(),
     onPaste: () => configRef.current.onPaste(),
     onPasteMerge: () => configRef.current.onPasteMerge?.(),
-    onExplodeSelection: () => configRef.current.onExplodeSelection?.(),
-    onReduceSelection: () => configRef.current.onReduceSelection?.(),
-    onSelectChordTopNote: () => configRef.current.onSelectChordTopNote?.(),
-    onSelectChordBottomNote: () => configRef.current.onSelectChordBottomNote?.(),
     onTogglePanels: () => configRef.current.onTogglePanels?.(),
     onToggleCondensingPopover: () => configRef.current.onToggleCondensingPopover?.(),
     onSetTempo: () => configRef.current.onSetTempo?.(),

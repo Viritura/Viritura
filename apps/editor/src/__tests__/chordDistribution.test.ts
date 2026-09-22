@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Note, NoteEvent, Pitch, Score } from "@viritura/core";
 import { allocateTopDown } from "../score/chordDistribution/allocation";
 import { buildBeatGrid, maxSimultaneity } from "../score/chordDistribution/beatGrid";
+import type { MeasureWindow } from "../score/chordDistribution/selectionRange";
 import { mergeNotesIntoEvent } from "../score/chordDistribution/chordMerge";
 import { redistributeStaves } from "../score/chordDistribution/redistribute";
 import { applyDistribution } from "../score/chordDistribution/selectionPlan";
@@ -10,6 +11,15 @@ import type { Selection } from "../store/selectionStore";
 
 function pitch(step: Pitch["step"], octave: number): Pitch {
   return { step, octave: octave as Pitch["octave"] };
+}
+
+/** Windows covering whole 4/4 measures, the scope these fixtures all use. */
+function wholeMeasures(start: number, end: number): MeasureWindow[] {
+  return Array.from({ length: end - start + 1 }, (_, offset) => ({
+    measureIndex: start + offset,
+    start: 0,
+    end: 4,
+  }));
 }
 
 function note(step: Pitch["step"], octave: number, id?: string): Note {
@@ -86,7 +96,7 @@ describe("buildBeatGrid", () => {
         },
       ],
     };
-    const grid = buildBeatGrid(score, allStaves(score), 0, 0);
+    const grid = buildBeatGrid(score, allStaves(score), wholeMeasures(0, 0));
     expect(grid.measures[0]!.slots.map((slot) => [slot.beat, slot.beats])).toEqual([
       [0, 2],
       [2, 2],
@@ -122,7 +132,7 @@ describe("buildBeatGrid", () => {
         },
       ],
     };
-    const grid = buildBeatGrid(score, allStaves(score), 0, 0);
+    const grid = buildBeatGrid(score, allStaves(score), wholeMeasures(0, 0));
     expect(grid.measures).toHaveLength(0);
     expect(grid.skippedMeasures).toEqual([0]);
   });
@@ -135,8 +145,7 @@ describe("redistributeStaves", () => {
     const { score: next, changed } = redistributeStaves(score, {
       sources: [staves[0]!],
       targets: staves,
-      startMeasure: 0,
-      endMeasure: 0,
+      windows: wholeMeasures(0, 0),
     });
 
     expect(changed).toBe(true);
@@ -151,8 +160,7 @@ describe("redistributeStaves", () => {
     const { score: next } = redistributeStaves(score, {
       sources: [staves[0]!],
       targets: [staves[0]!, staves[1]!],
-      startMeasure: 0,
-      endMeasure: 0,
+      windows: wholeMeasures(0, 0),
     });
 
     expect(steps(next, 0)).toEqual([["G4"]]);
@@ -172,8 +180,7 @@ describe("redistributeStaves", () => {
     const { score: next } = redistributeStaves(score, {
       sources: [staves[0]!],
       targets: staves,
-      startMeasure: 0,
-      endMeasure: 0,
+      windows: wholeMeasures(0, 0),
     });
 
     expect(steps(next, 0)).toEqual([["C5"]]);
@@ -195,8 +202,7 @@ describe("redistributeStaves", () => {
     const { score: next } = redistributeStaves(score, {
       sources: staves,
       targets: [staves[0]!],
-      startMeasure: 0,
-      endMeasure: 0,
+      windows: wholeMeasures(0, 0),
     });
 
     expect(steps(next, 0)).toEqual([["C4", "E4", "G4"]]);
@@ -226,8 +232,7 @@ describe("redistributeStaves", () => {
     const { score: next } = redistributeStaves(score, {
       sources: staves,
       targets: staves,
-      startMeasure: 0,
-      endMeasure: 0,
+      windows: wholeMeasures(0, 0),
     });
 
     const top = notesOf(next, 0);
@@ -280,8 +285,7 @@ describe("redistributeStaves", () => {
     const result = redistributeStaves(score, {
       sources: [staves[0]!],
       targets: staves,
-      startMeasure: 0,
-      endMeasure: 1,
+      windows: wholeMeasures(0, 1),
     });
 
     expect(steps(result.score, 0)).toEqual([["G4"]]);
@@ -312,6 +316,45 @@ describe("applyDistribution", () => {
 
   it("returns null when nothing is selected", () => {
     expect(applyDistribution(chordOnTopStaff(), { kind: "none" }, "explode")).toBeNull();
+  });
+
+  it("rewrites only the selected span and leaves the target staff's other music alone", () => {
+    const score: Score = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          name: "A",
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [chord("half", [note("C", 4), note("E", 4)], "src"), chord("half", [note("D", 4)], "keepA")],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          name: "B",
+          measures: [
+            {
+              sequences: [{ content: [chord("half", [note("B", 3)], "b1"), chord("half", [note("A", 3)], "keepB")] }],
+            },
+          ],
+        },
+      ],
+    };
+    const result = applyDistribution(
+      score,
+      { kind: "single", elementId: "p0/m0/s0/src", elementType: "event" },
+      "explode",
+    );
+
+    expect(result?.changed).toBe(true);
+    // The unselected second half of both staves survives verbatim.
+    expect(steps(result!.score, 0)).toEqual([["E4"], ["D4"]]);
+    expect(steps(result!.score, 1)).toEqual([["C4"], ["A3"]]);
   });
 });
 

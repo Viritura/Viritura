@@ -168,20 +168,17 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
     SEPARATOR,
     {
       label: "Explode to Staves",
-      shortcut: "Alt+E",
       action: callbacks.onExplodeSelection,
       disabled: !state.hasSelection,
     },
-    { label: "Reduce to Staff", shortcut: "Alt+R", action: callbacks.onReduceSelection, disabled: !state.hasSelection },
+    { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !state.hasSelection },
     {
       label: "Select Top Note of Chords",
-      shortcut: IS_MAC ? "⇧⌘↑" : "Ctrl+Shift+Up",
       action: callbacks.onSelectChordTopNote,
       disabled: !state.hasSelection,
     },
     {
       label: "Select Bottom Note of Chords",
-      shortcut: IS_MAC ? "⇧⌘↓" : "Ctrl+Shift+Down",
       action: callbacks.onSelectChordBottomNote,
       disabled: !state.hasSelection,
     },

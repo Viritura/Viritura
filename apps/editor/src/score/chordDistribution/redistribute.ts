@@ -7,9 +7,10 @@
  * are not also targets are emptied to rests, which is what makes a reduce
  * actually reduce.
  *
- * Distribution rewrites whole measures of each target staff's primary voice.
- * Additional voices on a target staff are left alone and reported, because
- * silently folding them in would discard authored part-writing.
+ * Distribution rewrites only the beat window the selection covers, splicing
+ * around whatever each target staff already holds. Additional voices on a
+ * target staff are left alone and reported, because silently folding them in
+ * would discard authored part-writing.
  */
 
 import {
@@ -19,6 +20,7 @@ import {
   type NoteEvent,
   type Score,
   type Sequence,
+  type SequenceContent,
   type TimeSignature,
 } from "@viritura/core";
 import {
@@ -27,19 +29,22 @@ import {
   decomposeRestsAtPosition,
   generateEventId,
   getEffectiveTimeSignature,
+  sequenceContentBeats,
 } from "../../commands/noteCommands";
 import { produce } from "../scoreClone";
 import { allocateTopDown, pitchKey, sortByPitchDescending } from "./allocation";
 import { buildBeatGrid, type MeasureGrid, type SoundingNote } from "./beatGrid";
 import { cloneNoteForChord } from "./chordMerge";
+import type { MeasureWindow } from "./selectionRange";
 import { sameStaff, staffSequenceIndex, staffVoiceCount, type StaffRef } from "./staffOrder";
+
+const EPSILON = 1e-9;
 
 export interface RedistributeParams {
   sources: readonly StaffRef[];
   targets: readonly StaffRef[];
-  /** Inclusive measure range; distribution always rewrites whole measures. */
-  startMeasure: number;
-  endMeasure: number;
+  /** The beat spans to rewrite; music outside them is preserved. */
+  windows: readonly MeasureWindow[];
 }
 
 export interface RedistributeResult {
@@ -120,9 +125,53 @@ function ensureStaffSequence(draft: Score, ref: StaffRef, measureIndex: number):
   return created;
 }
 
-function writeSequence(sequence: Sequence, content: NoteEvent[]): void {
-  delete sequence.fullMeasure;
-  sequence.content = content;
+function writeSequence(sequence: Sequence, window: MeasureWindow, content: NoteEvent[], time: TimeSignature): void {
+  // A full-measure sequence has no explicit content to splice around.
+  if (sequence.fullMeasure) {
+    delete sequence.fullMeasure;
+    sequence.content = [
+      ...emitRests(0, window.start, time),
+      ...content,
+      ...emitRests(window.end, measureBeats(time) - window.end, time),
+    ];
+    return;
+  }
+  spliceWindow(sequence, window, content, time);
+}
+
+/**
+ * Replace `window` within `sequence` with `content`, keeping everything
+ * outside it. The window was snapped to event boundaries on the source staves,
+ * but a target staff may still straddle an edge, so the target's own enclosing
+ * events are absorbed and the uncovered remainder is re-filled with rests.
+ */
+function spliceWindow(sequence: Sequence, window: MeasureWindow, content: NoteEvent[], time: TimeSignature): void {
+  const head: SequenceContent[] = [];
+  const tail: SequenceContent[] = [];
+  let coveredStart = window.start;
+  let coveredEnd = window.end;
+  let beat = 0;
+
+  for (const item of sequence.content) {
+    const itemStart = beat;
+    const itemEnd = beat + sequenceContentBeats(item);
+    beat = itemEnd;
+    if (itemEnd <= window.start + EPSILON) head.push(item);
+    else if (itemStart >= window.end - EPSILON) tail.push(item);
+    else {
+      // Straddles the window: absorbed, and its overhang becomes rests.
+      coveredStart = Math.min(coveredStart, itemStart);
+      coveredEnd = Math.max(coveredEnd, itemEnd);
+    }
+  }
+
+  sequence.content = [
+    ...head,
+    ...emitRests(coveredStart, window.start - coveredStart, time),
+    ...content,
+    ...emitRests(window.end, coveredEnd - window.end, time),
+    ...tail,
+  ];
 }
 
 function collectVoiceWarnings(score: Score, refs: readonly StaffRef[], measureIndex: number, into: Set<string>): void {
@@ -139,12 +188,12 @@ function collectVoiceWarnings(score: Score, refs: readonly StaffRef[], measureIn
  * the range. Returns the original score untouched when there is nothing to do.
  */
 export function redistributeStaves(score: Score, params: RedistributeParams): RedistributeResult {
-  const { sources, targets, startMeasure, endMeasure } = params;
-  if (sources.length === 0 || targets.length === 0) {
+  const { sources, targets, windows } = params;
+  if (sources.length === 0 || targets.length === 0 || windows.length === 0) {
     return { score, warnings: [], changed: false };
   }
 
-  const grid = buildBeatGrid(score, sources, startMeasure, endMeasure);
+  const grid = buildBeatGrid(score, sources, windows);
   if (grid.measures.length === 0) {
     return {
       score,
@@ -167,11 +216,12 @@ export function redistributeStaves(score: Score, params: RedistributeParams): Re
       const content = buildTargetContent(measure, targets.length, time);
       for (const [index, ref] of targets.entries()) {
         const sequence = ensureStaffSequence(draft, ref, measure.measureIndex);
-        if (sequence) writeSequence(sequence, content[index]!);
+        if (sequence) writeSequence(sequence, measure.window, content[index]!, time);
       }
       for (const ref of silenced) {
         const sequence = ensureStaffSequence(draft, ref, measure.measureIndex);
-        if (sequence) writeSequence(sequence, emitRests(0, measureBeats(time), time));
+        const rests = emitRests(measure.window.start, measure.window.end - measure.window.start, time);
+        if (sequence) writeSequence(sequence, measure.window, rests, time);
       }
     }
   });

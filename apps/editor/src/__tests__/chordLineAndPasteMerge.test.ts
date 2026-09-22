@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NoteEvent, Pitch, Score } from "@viritura/core";
 import { computePasteResult } from "../clipboard/computePasteResult";
+import { projectNoteheadSelection, removeSelectedNoteheads } from "../clipboard/noteheadScope";
 import type { PasteResult } from "../commands/clipboardCommands";
 import { chordLineNoteIds } from "../store/chordNoteSelection";
 import type { Selection } from "../store/selectionStore";
@@ -90,6 +91,45 @@ describe("chordLineNoteIds", () => {
     ]);
     const range: Selection = { kind: "range", startElementId: "p0/m0/s0/e0", endElementId: "p0/m0/s0/e1" };
     expect(chordLineNoteIds(score, range, "top", 1)).toEqual(["p0/m0/s0/e0/n1"]);
+  });
+});
+
+describe("notehead-scoped copy and cut", () => {
+  const threeNoteChord = () =>
+    singleMeasureScore([
+      chord(
+        "e0",
+        [
+          ["C", 4],
+          ["E", 4],
+          ["G", 4],
+        ],
+        "whole",
+      ),
+    ]);
+  const topNote: Selection = { kind: "multi", elementIds: ["p0/m0/s0/e0/n2"] };
+
+  it("narrows the copied chord to the selected notehead", () => {
+    expect(stepsAt(projectNoteheadSelection(threeNoteChord(), topNote), 0)).toEqual(["G4"]);
+  });
+
+  it("leaves a whole-event selection untouched", () => {
+    const score = threeNoteChord();
+    expect(projectNoteheadSelection(score, selectFirst)).toBe(score);
+    expect(removeSelectedNoteheads(score, selectFirst)).toBeNull();
+  });
+
+  it("cuts only the selected notehead and keeps the rest of the chord", () => {
+    const cut = removeSelectedNoteheads(threeNoteChord(), topNote)!;
+    expect(stepsAt(cut, 0)).toEqual(["C4", "E4"]);
+  });
+
+  it("turns the event into a rest when its last notehead is cut", () => {
+    const score = singleMeasureScore([chord("e0", [["C", 4]], "whole")]);
+    const cut = removeSelectedNoteheads(score, { kind: "multi", elementIds: ["p0/m0/s0/e0/n0"] })!;
+    const event = cut.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(event.type === "event" && event.rest).toEqual({});
+    expect(event.type === "event" && event.notes).toBeUndefined();
   });
 });
 

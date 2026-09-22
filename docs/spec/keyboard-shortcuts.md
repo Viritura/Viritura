@@ -117,8 +117,6 @@ Always available. Browser-style shortcuts (clipboard, save, undo, etc.) fire eve
 | `Space`           | Play / pause (suppressed in note input)       |
 | `Alt+1` … `Alt+4` | Switch active voice (1–4)                     |
 | `Alt+C`           | Toggle condensing popover                     |
-| `Alt+E`           | Explode the selected chords onto staves below |
-| `Alt+R`           | Reduce the selected staves onto the top staff |
 
 In the jump bar, type `m125` or `b125` to go to measure 125. Type `rA` or
 `r125` to go to the rehearsal mark with that label.
@@ -362,10 +360,7 @@ These keys are claimed for the listed commands. Some are shipped today (see tabl
 | ------------------ | ------------------------------------- | ------- |
 | `Alt+1` … `Alt+4`  | `voice.select1`–`voice.select4`       | shipped |
 | `Alt+C`            | `condensing.popover`                  | shipped |
-| `Alt+E`            | `global.explodeSelection`             | shipped |
-| `Alt+R`            | `global.reduceSelection`              | shipped |
 | `Mod+Shift+V`      | `global.pasteMerge`                   | shipped |
-| `Mod+Shift+↑`/`↓`  | `global.selectChordTopNote`/`Bottom`  | shipped |
 | `Mod+Alt+M`        | `measures.add`                        | shipped |
 | `Shift+K` (normal) | `chordSymbol.add`                     | shipped |
 | `Shift+T` (normal) | `tempo.set` (note input: tuplet menu) | shipped |

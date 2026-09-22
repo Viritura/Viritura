@@ -14,6 +14,7 @@ import {
   buildClipboardSourceRef as buildClipboardSourceRefImpl,
 } from "../clipboard/buildClipboardSelection";
 import { computePasteResult } from "../clipboard/computePasteResult";
+import { projectNoteheadSelection, removeSelectedNoteheads } from "../clipboard/noteheadScope";
 import { computeRepeatResult } from "../clipboard/computeRepeatResult";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { useHistoryStoreInstance } from "../store/historyStore";
@@ -53,6 +54,24 @@ export interface ClipboardActions {
   handleRepeat: () => void;
 }
 
+/** The clipboard-history entry for a captured selection, shared by copy and cut. */
+function historyFragment(sel: ClipboardSelection) {
+  return {
+    type: "viritura/fragment" as const,
+    version: FRAGMENT_VERSION,
+    timeSignature: sel.timeSignature,
+    keySignature: sel.keySignature,
+    content: sel.events,
+    ...(sel.clef ? { clef: sel.clef } : {}),
+    ...(sel.transposition ? { transposition: sel.transposition } : {}),
+    ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
+    ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
+    ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
+    ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
+    tracks: sel.tracks,
+  };
+}
+
 function showClipboardWarnings(warnings: readonly string[]): void {
   const messages = [...new Set(warnings)];
   if (messages.length === 0) return;
@@ -80,7 +99,11 @@ export function useClipboardActions({
     [selectElement, selectRange, selectElements],
   );
   const getClipboardSelection = useCallback((): ClipboardSelection | null => {
-    return buildClipboardSelection(store.getState().score, selection, selectedScoreIndex);
+    const score = store.getState().score;
+    if (!score) return null;
+    // Notehead selections capture from a projection holding only those notes,
+    // so the ordinary event-level capture rules still apply.
+    return buildClipboardSelection(projectNoteheadSelection(score, selection), selection, selectedScoreIndex);
   }, [store, selection, selectedScoreIndex]);
 
   const buildClipboardSourceRef = useCallback((): ClipboardSourceRef | undefined => {
@@ -108,23 +131,7 @@ export function useClipboardActions({
     }
     if (copied) {
       const source = buildClipboardSourceRef();
-      addClipboardEntry(
-        {
-          type: "viritura/fragment" as const,
-          version: FRAGMENT_VERSION,
-          timeSignature: sel.timeSignature,
-          keySignature: sel.keySignature,
-          content: sel.events,
-          ...(sel.clef ? { clef: sel.clef } : {}),
-          ...(sel.transposition ? { transposition: sel.transposition } : {}),
-          ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
-          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
-          ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
-          ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
-          tracks: sel.tracks,
-        },
-        source,
-      );
+      addClipboardEntry(historyFragment(sel), source);
     }
   }, [store, selection, getClipboardSelection, buildClipboardSourceRef]);
 
@@ -151,25 +158,10 @@ export function useClipboardActions({
     if (!sel) return;
     const result = await cutToClipboard(sel, (message) => toast.warning(message));
     if (result) {
-      addClipboardEntry(
-        {
-          type: "viritura/fragment",
-          version: FRAGMENT_VERSION,
-          timeSignature: sel.timeSignature,
-          keySignature: sel.keySignature,
-          content: sel.events,
-          ...(sel.clef ? { clef: sel.clef } : {}),
-          ...(sel.transposition ? { transposition: sel.transposition } : {}),
-          ...(sel.dynamics && sel.dynamics.length > 0 ? { dynamics: sel.dynamics } : {}),
-          ...(sel.chordSymbols && sel.chordSymbols.length > 0 ? { chordSymbols: sel.chordSymbols } : {}),
-          ...(sel.measureRepeats && sel.measureRepeats.length > 0 ? { measureRepeats: sel.measureRepeats } : {}),
-          ...(sel.lyrics ? { lyrics: sel.lyrics } : {}),
-          tracks: sel.tracks,
-        },
-        buildClipboardSourceRef(),
-      );
-      const newScore = applyCut(score, result);
-      updateScore(newScore);
+      addClipboardEntry(historyFragment(sel), buildClipboardSourceRef());
+      const noteheadCut = removeSelectedNoteheads(score, selection);
+      updateScore(noteheadCut ?? applyCut(score, result));
+      if (noteheadCut) clearSelection();
     }
   }, [getClipboardSelection, store, selection, updateScore, buildClipboardSourceRef, clearSelection]);
 

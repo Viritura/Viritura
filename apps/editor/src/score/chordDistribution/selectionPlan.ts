@@ -15,9 +15,9 @@
 
 import type { Score } from "@viritura/core";
 import type { Selection } from "../../store/selectionStore";
-import { resolveSelectionScope } from "../../store/selectionUtils";
 import { buildBeatGrid, maxSimultaneity } from "./beatGrid";
 import { redistributeStaves, type RedistributeResult } from "./redistribute";
+import { selectionWindows, snapWindow, type MeasureWindow } from "./selectionRange";
 import { extendStavesDownward, selectionStaffRefs, type StaffRef } from "./staffOrder";
 
 export type DistributionMode = "explode" | "reduce" | "redistribute";
@@ -26,8 +26,7 @@ interface DistributionPlan {
   mode: DistributionMode;
   sources: StaffRef[];
   targets: StaffRef[];
-  startMeasure: number;
-  endMeasure: number;
+  windows: MeasureWindow[];
   /** Notes in the widest simultaneity that could not be given their own staff. */
   overflow: number;
 }
@@ -49,20 +48,17 @@ function resolveTargets(score: Score, mode: DistributionMode, sources: StaffRef[
  */
 function planDistribution(score: Score, selection: Selection, mode: DistributionMode): DistributionPlan | null {
   const sources = selectionStaffRefs(score, selection);
-  const scope = resolveSelectionScope(selection, score);
-  if (sources.length === 0 || !scope) return null;
+  const raw = selectionWindows(score, selection);
+  if (sources.length === 0 || raw.length === 0) return null;
 
-  const { startMeasure, endMeasure } = scope;
-  const required = maxSimultaneity(buildBeatGrid(score, sources, startMeasure, endMeasure));
+  // Snap against the sources first so the grid reads whole events, then widen
+  // once more over the targets so every splice lands on a real boundary.
+  const sourceWindows = raw.map((window) => snapWindow(score, window, sources));
+  const required = maxSimultaneity(buildBeatGrid(score, sources, sourceWindows));
   const targets = resolveTargets(score, mode, sources, required);
-  return {
-    mode,
-    sources,
-    targets,
-    startMeasure,
-    endMeasure,
-    overflow: Math.max(0, required - targets.length),
-  };
+  const windows = sourceWindows.map((window) => snapWindow(score, window, [...sources, ...targets]));
+
+  return { mode, sources, targets, windows, overflow: Math.max(0, required - targets.length) };
 }
 
 const OVERFLOW_NOTE = "; extra notes were stacked on the last staff";

@@ -14,6 +14,7 @@
 
 import { isRest, measureBeats, type Note, type Pitch, type Score, type Sequence } from "@viritura/core";
 import { getEffectiveTimeSignature, sequenceContentBeats } from "../../commands/noteCommands";
+import type { MeasureWindow } from "./selectionRange";
 import { staffSequenceIndex, type StaffRef } from "./staffOrder";
 
 const EPSILON = 1e-9;
@@ -34,8 +35,8 @@ interface GridSlot {
 
 export interface MeasureGrid {
   measureIndex: number;
-  /** Total quarter-note beats the measure holds. */
-  capacity: number;
+  /** The beat span this grid covers within the measure. */
+  window: MeasureWindow;
   slots: GridSlot[];
 }
 
@@ -69,11 +70,12 @@ function collectIntervals(sequence: Sequence, capacity: number, into: NoteInterv
   }
 }
 
-function slotBoundaries(intervals: readonly NoteInterval[], capacity: number): number[] {
-  const onsets = new Set<number>([0]);
+function slotBoundaries(intervals: readonly NoteInterval[], window: MeasureWindow): number[] {
+  const onsets = new Set<number>([round(window.start)]);
   for (const interval of intervals) {
-    if (interval.start > EPSILON && interval.start < capacity - EPSILON) onsets.add(round(interval.start));
-    if (interval.end > EPSILON && interval.end < capacity - EPSILON) onsets.add(round(interval.end));
+    for (const beat of [interval.start, interval.end]) {
+      if (beat > window.start + EPSILON && beat < window.end - EPSILON) onsets.add(round(beat));
+    }
   }
   return [...onsets].sort((left, right) => left - right);
 }
@@ -82,22 +84,35 @@ function round(beat: number): number {
   return Math.round(beat * 1e6) / 1e6;
 }
 
-function buildMeasureGrid(score: Score, sources: readonly StaffRef[], measureIndex: number): MeasureGrid | null {
-  const capacity = measureBeats(getEffectiveTimeSignature(score, measureIndex));
-  if (capacity <= 0) return null;
+/**
+ * Build the grid for one window. Intervals are clipped to the window, so a note
+ * sustaining across its edge contributes only the part being redistributed.
+ */
+function buildMeasureGrid(score: Score, sources: readonly StaffRef[], window: MeasureWindow): MeasureGrid | null {
+  const capacity = measureBeats(getEffectiveTimeSignature(score, window.measureIndex));
+  if (capacity <= 0 || window.end <= window.start + EPSILON) return null;
+  const clipped: MeasureWindow = {
+    measureIndex: window.measureIndex,
+    start: Math.max(0, window.start),
+    end: Math.min(capacity, window.end),
+  };
+
   const intervals: NoteInterval[] = [];
   for (const ref of sources) {
-    const sequenceIndex = staffSequenceIndex(score, ref, measureIndex);
-    const sequence = score.parts[ref.partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
+    const sequenceIndex = staffSequenceIndex(score, ref, clipped.measureIndex);
+    const sequence = score.parts[ref.partIndex]?.measures[clipped.measureIndex]?.sequences[sequenceIndex];
     if (!sequence) continue;
     if (hasUnsupportedContainer(sequence)) return null;
     collectIntervals(sequence, capacity, intervals);
   }
 
-  const boundaries = slotBoundaries(intervals, capacity);
+  const inWindow = intervals.filter(
+    (interval) => interval.end > clipped.start + EPSILON && interval.start < clipped.end - EPSILON,
+  );
+  const boundaries = slotBoundaries(inWindow, clipped);
   const slots: GridSlot[] = boundaries.map((beat, index) => {
-    const beats = (boundaries[index + 1] ?? capacity) - beat;
-    const notes = intervals
+    const beats = (boundaries[index + 1] ?? clipped.end) - beat;
+    const notes = inWindow
       .filter((interval) => interval.start <= beat + EPSILON && interval.end >= beat + beats - EPSILON)
       .map((interval) => ({
         note: interval.note,
@@ -106,22 +121,17 @@ function buildMeasureGrid(score: Score, sources: readonly StaffRef[], measureInd
       }));
     return { beat, beats, notes };
   });
-  return { measureIndex, capacity, slots };
+  return { measureIndex: clipped.measureIndex, window: clipped, slots };
 }
 
-/** Build the union-of-onsets grid for `sources` across an inclusive measure range. */
-export function buildBeatGrid(
-  score: Score,
-  sources: readonly StaffRef[],
-  startMeasure: number,
-  endMeasure: number,
-): BeatGrid {
+/** Build the union-of-onsets grid for `sources` across the given windows. */
+export function buildBeatGrid(score: Score, sources: readonly StaffRef[], windows: readonly MeasureWindow[]): BeatGrid {
   const measures: MeasureGrid[] = [];
   const skippedMeasures: number[] = [];
-  for (let measureIndex = startMeasure; measureIndex <= endMeasure; measureIndex++) {
-    const grid = buildMeasureGrid(score, sources, measureIndex);
+  for (const window of windows) {
+    const grid = buildMeasureGrid(score, sources, window);
     if (grid) measures.push(grid);
-    else skippedMeasures.push(measureIndex);
+    else skippedMeasures.push(window.measureIndex);
   }
   return { measures, skippedMeasures };
 }

@@ -302,10 +302,6 @@ export interface AppKeyboardWiringDeps {
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
   handlePasteMerge: () => void | Promise<void>;
-  handleExplodeSelection: () => void;
-  handleReduceSelection: () => void;
-  handleSelectChordTopNote: () => void;
-  handleSelectChordBottomNote: () => void;
   handleSetRepeatStart: (value: import("@viritura/core").RepeatStart | null) => void;
   handleSetRepeatEnd: (value: import("@viritura/core").RepeatEnd | null) => void;
   handleSetEnding: (value: import("@viritura/core").Ending | null) => void;
@@ -367,10 +363,6 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     handleCut,
     handlePaste,
     handlePasteMerge,
-    handleExplodeSelection,
-    handleReduceSelection,
-    handleSelectChordTopNote,
-    handleSelectChordBottomNote,
     handleSetRepeatStart,
     handleSetRepeatEnd,
     handleSetEnding,
@@ -495,10 +487,6 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     onPasteMerge: () => {
       void handlePasteMerge();
     },
-    onExplodeSelection: handleExplodeSelection,
-    onReduceSelection: handleReduceSelection,
-    onSelectChordTopNote: handleSelectChordTopNote,
-    onSelectChordBottomNote: handleSelectChordBottomNote,
     onToggleRepeatStart: measureShortcuts.onToggleRepeatStart,
     onToggleRepeatEnd: measureShortcuts.onToggleRepeatEnd,
     onEditEnding: measureShortcuts.onEditEnding,
