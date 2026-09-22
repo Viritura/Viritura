@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
-import { parseMnx, serializeMnx } from "@viritura/format";
+import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 import { readMuseScoreClipboard } from "@viritura/musescore-clipboard";
 import { applyPaste } from "../../commands/clipboardCommands";
 import { partStaffOffset, selectionStaffAnchor } from "../clipboardTrackMapping";
@@ -48,7 +48,8 @@ describe("MuseScore StaffList paste integration", () => {
     const parsed = readMuseScoreClipboard(USER_STAFF_LIST);
     const score = applyPaste(destinationScore(), parsed, 0, 0, 0, 0);
     expect(score.parts[0]!.measures[0]!.sequences[0]!.content).toHaveLength(8);
-    expect(score.parts[0]!.measures[0]!.chordSymbols?.[0]).toMatchObject({
+    expect(score.global.measures[0]!.chordSymbols).toHaveLength(1);
+    expect(score.global.measures[0]!.chordSymbols?.[0]).toMatchObject({
       root: { step: "C" },
       quality: "minor",
     });
@@ -61,25 +62,48 @@ describe("MuseScore StaffList paste integration", () => {
       position: { fraction: [0, 16] },
     });
     const mnx = serializeMnx(score);
+    expect(validateRawScore(mnx)).toMatchObject({ ok: true });
+    expect(mnx).toHaveProperty("global.measures.0._x.viritura.chordSymbols", score.global.measures[0]!.chordSymbols);
+    expect(mnx).not.toHaveProperty("parts.0.measures.0._x.viritura.chordSymbols");
+    expect(parseMnx(mnx).global.measures[0]!.chordSymbols).toEqual(score.global.measures[0]!.chordSymbols);
     expect(mnx).toHaveProperty("parts.0.measures.0.dynamics", score.parts[0]!.measures[0]!.dynamics);
     expect(parseMnx(mnx).parts[0]!.measures[0]!.dynamics).toEqual(score.parts[0]!.measures[0]!.dynamics);
   });
 
-  it("places imported melody, Cm, and mf on the selected lower destination staff", () => {
-    const parsed = readMuseScoreClipboard(USER_STAFF_LIST);
-    const score = destinationScore();
-    score.parts[0]!.staves = 2;
-    score.parts[0]!.measures[0]!.sequences.push({
-      staff: 2,
-      content: [{ type: "event", duration: { base: "whole" }, rest: {} }],
-    });
-    const pasted = applyPaste(score, parsed, 0, 0, 1, 0);
-    expect(pasted.parts[0]!.measures[0]!.chordSymbols?.[0]?.displayStaff).toBe(2);
-    expect(pasted.parts[0]!.measures[0]!.dynamics?.[0]?.staff).toBe(2);
-    expect(pasted.parts[0]!.measures[0]!.sequences[0]).toEqual(score.parts[0]!.measures[0]!.sequences[0]);
-  });
+  it.each(["auto", "show", "hide"] as const)(
+    "keeps harmony global and enables visibility from %s when pasting onto the lower staff",
+    (visibility) => {
+      const parsed = readMuseScoreClipboard(USER_STAFF_LIST);
+      const score = destinationScore();
+      score.parts[0]!.staves = 2;
+      score.parts[0]!.chordSymbolVisibility = visibility;
+      score.parts[0]!.measures[0]!.sequences.push({
+        staff: 2,
+        content: [{ type: "event", duration: { base: "whole" }, rest: {} }],
+      });
+      const pasted = applyPaste(score, parsed, 0, 0, 1, 0);
+      expect(pasted.global.measures[0]!.chordSymbols).toHaveLength(1);
+      expect(pasted.global.measures[0]!.chordSymbols?.[0]).toMatchObject({
+        root: { step: "C" },
+        quality: "minor",
+      });
+      const fraction = pasted.global.measures[0]!.chordSymbols![0]!.position.fraction;
+      expect(fraction[0] / fraction[1]).toBe(0);
+      expect(pasted.global.measures[0]!.chordSymbols?.[0]).not.toHaveProperty("displayStaff");
+      expect(pasted.parts[0]!.measures[0]).not.toHaveProperty("chordSymbols");
+      expect(pasted.parts[0]!.chordSymbolVisibility).toBe("show");
+      expect(pasted.parts[0]!.measures[0]!.dynamics?.[0]?.staff).toBe(2);
+      expect(pasted.parts[0]!.measures[0]!.sequences[0]).toEqual(score.parts[0]!.measures[0]!.sequences[0]);
+      const mnx = serializeMnx(pasted);
+      expect(validateRawScore(mnx)).toMatchObject({ ok: true });
+      expect(mnx).toHaveProperty("parts.0._x.viritura.chordSymbolVisibility", "show");
+      const decoded = parseMnx(mnx);
+      expect(decoded.parts[0]!.chordSymbolVisibility).toBe("show");
+      expect(decoded.global.measures[0]!.chordSymbols).toEqual(pasted.global.measures[0]!.chordSymbols);
+    },
+  );
 
-  it("keeps primary harmony ownership explicit when StaffList contains multiple voices", () => {
+  it("stores global harmony only once when StaffList contains multiple voices", () => {
     const xml = USER_STAFF_LIST.replace(
       "</Staff>",
       `<location><voices>1</voices><fractions>-1/1</fractions></location>
@@ -88,11 +112,13 @@ describe("MuseScore StaffList paste integration", () => {
     const parsed = readMuseScoreClipboard(xml);
     expect(parsed.tracks).toHaveLength(2);
     const pasted = applyPaste(destinationScore(), parsed, 0, 0, 0, 0);
-    expect(pasted.parts[0]!.measures[0]!.chordSymbols?.[0]).toMatchObject({
-      displayStaff: 1,
+    expect(pasted.global.measures[0]!.chordSymbols).toHaveLength(1);
+    expect(pasted.global.measures[0]!.chordSymbols?.[0]).toMatchObject({
       root: { step: "C" },
       quality: "minor",
     });
+    expect(pasted.global.measures[0]!.chordSymbols?.[0]).not.toHaveProperty("displayStaff");
+    expect(pasted.parts[0]!.measures[0]).not.toHaveProperty("chordSymbols");
     expect(pasted.parts[0]!.measures[0]!.dynamics?.[0]).toMatchObject({ staff: 1, value: "mf" });
   });
 

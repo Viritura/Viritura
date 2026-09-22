@@ -1,8 +1,26 @@
 import type { DynamicGroup, Score, SequenceContent } from "@viritura/core";
 import type { AnnotationLocation, GraceLocation } from "../score/ElementPath";
-import { getEventAtLocation, resolveEventLocation } from "../score/ElementPath";
+import { getEventAtLocation, resolveEventLocation, resolveAnnotationLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
 import { condensedStaffSourcePartIndices } from "../score/condensedWriteback";
+import { canonicalNavigationId } from "../navigation";
+
+/** Rendered chord copies address the same global annotation as their root. */
+export function resolveDeletableAnnotationLocation(elementId: string): AnnotationLocation | null {
+  const canonicalId = canonicalNavigationId(elementId);
+  if (/^m\d+\/chord/.test(canonicalId) && !/^m\d+\/chord\d+$/.test(canonicalId)) return null;
+  const location = resolveAnnotationLocation(canonicalId);
+  return location?.type === "chord" && location.kind !== "global" ? null : location;
+}
+
+/** Delete explicitly selected global chords, coalescing all copies of each root. */
+export function deleteChordSymbolsByElementIds(score: Score, elementIds: readonly string[]): Score | null {
+  const locations = elementIds.flatMap((id) => {
+    const location = resolveDeletableAnnotationLocation(id);
+    return location?.type === "chord" ? [location] : [];
+  });
+  return locations.length > 0 ? deleteAnnotations(score, locations) : null;
+}
 
 type GlobalMeasure = Score["global"]["measures"][number];
 type PartMeasure = Score["parts"][number]["measures"][number];
@@ -13,7 +31,7 @@ function removeAnnotationFromArray<K extends keyof GlobalMeasure | keyof PartMea
   index: number | undefined,
 ): boolean {
   const arr = container[key] as unknown[] | undefined;
-  if (!arr || index === undefined) return false;
+  if (!arr || index === undefined || !Number.isInteger(index) || index < 0 || index >= arr.length) return false;
   const next = arr.filter((_, i) => i !== index);
   if (next.length === 0) delete container[key];
   else container[key] = next;
@@ -54,7 +72,6 @@ function deleteGlobalAnnotation(gm: GlobalMeasure, loc: AnnotationLocation): boo
 
 const PART_ANNOTATION_KEYS: Partial<Record<AnnotationLocation["type"], keyof PartMeasure>> = {
   expr: "expressions",
-  chord: "chordSymbols",
   pedal: "pedals",
   ottava: "ottavas",
 };
@@ -240,16 +257,17 @@ export function deleteAnnotations(score: Score, locations: readonly AnnotationLo
   const newScore = cloneScore(score);
   let removed = false;
 
-  const ordered = locations
-    .map((loc) => ({
-      loc,
-      index: loc.type === "dyn" || loc.type === "hairpin" ? dynamicGroupIndex(score, loc) : (loc.annotationIndex ?? -1),
-    }))
-    .sort((left, right) => {
-      const leftKey = annotationContainerKey(left.loc);
-      const rightKey = annotationContainerKey(right.loc);
-      return leftKey === rightKey ? right.index - left.index : leftKey.localeCompare(rightKey);
-    });
+  const unique = new Map<string, { loc: AnnotationLocation; index: number }>();
+  for (const loc of locations) {
+    const index =
+      loc.type === "dyn" || loc.type === "hairpin" ? dynamicGroupIndex(score, loc) : (loc.annotationIndex ?? -1);
+    unique.set(`${annotationContainerKey(loc)}/${index}`, { loc, index });
+  }
+  const ordered = [...unique.values()].sort((left, right) => {
+    const leftKey = annotationContainerKey(left.loc);
+    const rightKey = annotationContainerKey(right.loc);
+    return leftKey === rightKey ? right.index - left.index : leftKey.localeCompare(rightKey);
+  });
 
   for (const { loc } of ordered) {
     if (loc.partIndex === undefined) {

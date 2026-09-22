@@ -42,14 +42,7 @@ import type {
   StaffMeterChange as RawStaffMeterChange,
 } from "@viritura/core/raw-viritura";
 
-import {
-  parseDynamicGroup,
-  parseOttava,
-  parseChordSymbol,
-  parseTextExpression,
-  parsePedal,
-  parseRhythmicPosition,
-} from "./parseGlobal";
+import { parseDynamicGroup, parseOttava, parseTextExpression, parsePedal, parseRhythmicPosition } from "./parseGlobal";
 import { parseSequences } from "./parseContent";
 
 // ═══════════════════════════════════════════
@@ -86,6 +79,9 @@ function parsePart(raw: RawPart): Part {
   // _x.viritura vendor extensions (instrument identity + spatial placement)
   const viritura = raw._x?.["viritura"] as RawPartExt | undefined;
   if (viritura) {
+    if (viritura.chordSymbolVisibility !== undefined) {
+      part.chordSymbolVisibility = viritura.chordSymbolVisibility;
+    }
     const ext: { instrumentId?: string; midiProgram?: number; family?: string; spatial?: { x: number; y: number } } =
       {};
     if (typeof viritura.instrumentId === "string") ext.instrumentId = viritura.instrumentId;
@@ -164,9 +160,6 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
   if (viritura) {
     if (viritura.pedals) {
       pm.pedals = viritura.pedals.map(parsePedal);
-    }
-    if (viritura.chordSymbols) {
-      pm.chordSymbols = viritura.chordSymbols.map(parseChordSymbol);
     }
     if (viritura.expressions) {
       pm.expressions = viritura.expressions.map(parseTextExpression);

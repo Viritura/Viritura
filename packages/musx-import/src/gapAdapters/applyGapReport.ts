@@ -1,4 +1,5 @@
 import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapOutcome, DenigmaGapReport } from "../types";
+import { applyChordSymbolGaps } from "./chordSymbols";
 import {
   asDocumentRecord,
   ensureArrayProperty,
@@ -13,7 +14,6 @@ import {
   isNoteheadGap,
   isRecord,
   isSmartShapeGap,
-  type ChordPayload,
   type ExpressionPayload,
   type GapAdaptationResult,
   type GapApplication,
@@ -30,50 +30,6 @@ function subtypeOf(gap: DenigmaGap): string | undefined {
   return undefined;
 }
 
-interface ChordMapping {
-  quality:
-    | "major"
-    | "minor"
-    | "dominant"
-    | "diminished"
-    | "augmented"
-    | "half-diminished"
-    | "minor-major"
-    | "power"
-    | "suspended2"
-    | "suspended4"
-    | "other";
-  extension?: 6 | 7 | 9 | 11 | 13;
-}
-
-const CHORD_QUALITY_MAP: Readonly<Record<string, ChordMapping>> = {
-  major: { quality: "major" },
-  minor: { quality: "minor" },
-  augmented: { quality: "augmented" },
-  diminished: { quality: "diminished" },
-  dominant: { quality: "dominant", extension: 7 },
-  "augmented-seventh": { quality: "augmented", extension: 7 },
-  "major-seventh": { quality: "major", extension: 7 },
-  "minor-seventh": { quality: "minor", extension: 7 },
-  "diminished-seventh": { quality: "diminished", extension: 7 },
-  "half-diminished": { quality: "half-diminished", extension: 7 },
-  "major-minor": { quality: "minor-major", extension: 7 },
-  "major-sixth": { quality: "major", extension: 6 },
-  "minor-sixth": { quality: "minor", extension: 6 },
-  "dominant-ninth": { quality: "dominant", extension: 9 },
-  "major-ninth": { quality: "major", extension: 9 },
-  "minor-ninth": { quality: "minor", extension: 9 },
-  "dominant-11th": { quality: "dominant", extension: 11 },
-  "major-11th": { quality: "major", extension: 11 },
-  "minor-11th": { quality: "minor", extension: 11 },
-  "dominant-13th": { quality: "dominant", extension: 13 },
-  "major-13th": { quality: "major", extension: 13 },
-  "minor-13th": { quality: "minor", extension: 13 },
-  power: { quality: "power" },
-  "suspended-second": { quality: "suspended2" },
-  "suspended-fourth": { quality: "suspended4" },
-};
-
 const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangleUp" | "triangleDown">> = {
   noteheadCircleX: "circleX",
   noteheadCircleXBlack: "circleX",
@@ -89,60 +45,6 @@ const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangleUp" | "tr
   noteheadTriangleDownWhole: "triangleDown",
   noteheadTriangleDownDoubleWhole: "triangleDown",
 };
-
-function chordPitch(pitch: ChordPayload["root"]): JsonRecord | undefined {
-  const step = pitch.step.toUpperCase();
-  if (!/^[A-G]$/.test(step) || !Number.isInteger(pitch.alteration)) return undefined;
-  return {
-    step,
-    ...(pitch.alteration !== 0 ? { alter: pitch.alteration } : {}),
-  };
-}
-
-function chordPitchText(pitch: ChordPayload["root"], lowerCase: boolean): string {
-  const step = lowerCase ? pitch.step.toLowerCase() : pitch.step.toUpperCase();
-  const accidental = pitch.alteration > 0 ? "#".repeat(pitch.alteration) : "b".repeat(Math.abs(pitch.alteration));
-  return `${step}${accidental}`;
-}
-
-function chordText(chord: ChordPayload): string {
-  const root = chord.showRoot ? chordPitchText(chord.root, chord.rootLowerCase) : "";
-  const suffix = chord.showSuffix ? chord.suffix.suffixText : "";
-  const bass = chord.bass ? `/${chordPitchText(chord.bass, chord.bassLowerCase === true)}` : "";
-  return `${root}${suffix}${bass}`;
-}
-
-function hasComplexChordPresentation(chord: ChordPayload, mapping: ChordMapping | undefined): boolean {
-  return (
-    mapping === undefined ||
-    chord.rootLowerCase ||
-    chord.bassLowerCase === true ||
-    !chord.showRoot ||
-    !chord.showSuffix ||
-    chord.suffix.strings.some((part) => part.position !== "inline") ||
-    chord.suffix.degrees.length > 0 ||
-    chord.suffix.parenthesizeDegrees ||
-    chord.suffix.stackDegrees ||
-    chord.suffix.hasOuterParentheses ||
-    chord.suffix.hasUnrecognizedGlyphs ||
-    (chord.bassArrangement !== undefined && chord.bassArrangement !== "horizontal")
-  );
-}
-
-function sameChordSymbol(candidate: unknown, chord: JsonRecord): boolean {
-  if (!isRecord(candidate)) return false;
-  const keys = [
-    "position",
-    "displayStaff",
-    "root",
-    "quality",
-    "kindText",
-    "bass",
-    "extension",
-    "textOverride",
-  ] as const;
-  return keys.every((key) => JSON.stringify(candidate[key]) === JSON.stringify(chord[key]));
-}
 
 function tempoDisplayText(expression: ExpressionPayload): string | undefined {
   const runs = expression.text?.runs;
@@ -448,43 +350,6 @@ function applySmartShapeGap(gap: DenigmaGap, index: TargetIndex): GapApplication
   return outcome("unhandled", `Unsupported smart-shape kind ${gap.smartShape.kind}.`);
 }
 
-function applyChordSymbolGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
-  if (!isChordGap(gap)) return outcome("unhandled", "Malformed chord-symbol payload.");
-  const target = index.measure(gap.anchor);
-  const root = chordPitch(gap.chord.root);
-  const bass = gap.chord.bass ? chordPitch(gap.chord.bass) : undefined;
-  if (!target?.partMeasure || !root || (gap.chord.bass && !bass)) {
-    return outcome("unhandled", "Chord-symbol target or pitch spelling is unavailable.");
-  }
-
-  const quality = gap.chord.suffix.quality;
-  const mapping = quality ? CHORD_QUALITY_MAP[quality] : undefined;
-  const chordSymbol: JsonRecord = {
-    position: gapPosition(gap),
-    root,
-    quality: mapping?.quality ?? "other",
-  };
-  if (gap.staff !== undefined) chordSymbol["displayStaff"] = gap.staff;
-  if (gap.chord.suffix.suffixText) chordSymbol["kindText"] = gap.chord.suffix.suffixText;
-  if (bass) chordSymbol["bass"] = bass;
-  if (mapping?.extension !== undefined) chordSymbol["extension"] = mapping.extension;
-
-  const complexPresentation = hasComplexChordPresentation(gap.chord, mapping);
-  if (complexPresentation) chordSymbol["textOverride"] = chordText(gap.chord);
-
-  const extensions = ensureViritura(target.partMeasure);
-  const chordSymbols = ensureArrayProperty(extensions, "chordSymbols");
-  const duplicate = chordSymbols.some((candidate) => sameChordSymbol(candidate, chordSymbol));
-  if (!duplicate) chordSymbols.push(chordSymbol);
-
-  return outcome(
-    complexPresentation ? "handled-partially" : "handled",
-    complexPresentation
-      ? "Preserved harmonic meaning and plain display text but not Finale suffix typography or visibility fields."
-      : undefined,
-  );
-}
-
 function noteheadShape(payload: NoteheadPayload): {
   shape?: "normal" | "x" | "circleX" | "diamond" | "slash" | "triangleUp" | "triangleDown";
   reason?: string;
@@ -540,7 +405,6 @@ function applyNoteheadGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
 type GapAdapter = (gap: DenigmaGap, index: TargetIndex) => GapApplication;
 
 const SCHEMA_V1_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
-  "chord-symbol": applyChordSymbolGap,
   expression: applyExpressionGap,
   notehead: applyNoteheadGap,
   "playback-only": applyPlaybackOnlyGap,
@@ -577,8 +441,9 @@ export function applyDenigmaGapReport(
   const document = assertMnxEnvelope(parsed);
   const index = new TargetIndex(document);
   const diagnostics: DenigmaDiagnostic[] = [];
+  const chordApplications = applyChordSymbolGaps(report.gaps, index, diagnostics);
   const outcomes = report.gaps.map((gap, gapIndex) => {
-    const application = applyGap(gap, index);
+    const application = chordApplications.get(gapIndex) ?? applyGap(gap, index);
     const result: DenigmaGapOutcome = {
       gapIndex,
       type: gap.type,

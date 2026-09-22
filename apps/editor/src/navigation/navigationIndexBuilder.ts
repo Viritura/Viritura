@@ -15,7 +15,7 @@
  *   Pedal:      p{part}/m{measure}/pedal{i}
  *   Ottava:     p{part}/m{measure}/ottava{i}
  *   Expression: p{part}/m{measure}/expr{i}
- *   Chord sym:  p{part}/m{measure}/chord{i}
+ *   Chord sym:  m{measure}/chord{i}
  *   Tempo:      m{measure}/tempo{i}
  *   Rehearsal:  m{measure}/rehearsal
  *   Jump:       m{measure}/jump0
@@ -42,9 +42,9 @@ import {
   pedalId,
   ottavaId,
   expressionId,
-  chordSymbolId,
 } from "../score/ElementPath";
 import type { NavigationEntry, NavigationIndex } from "./NavigationIndex";
+import { globalChordNavigationId } from "./chordNavigationId";
 
 // ═══════════════════════════════════════════
 // Sort keys for ordering elements within a measure.
@@ -136,6 +136,14 @@ function collectGlobalEntries(score: Score, entries: NavigationEntry[]): void {
       });
     }
     pushGlobalTempos(entries, m, gm.tempos);
+    pushPositionedItems(
+      gm.chordSymbols,
+      -1,
+      m,
+      "chord-symbol",
+      (_p, measure, i) => globalChordNavigationId(measure, i),
+      entries,
+    );
     if (gm.rehearsalMark) {
       pushNonEvent(entries, {
         elementId: rehearsalId(m),
@@ -376,7 +384,7 @@ function collectEventEntries(
 }
 
 // ───────────────────────────────────────────
-// Per-part: positioned annotations (dynamics, hairpins, pedals, ottavas, expressions, chord symbols)
+// Positioned annotations (global chord symbols and part-level directions)
 // ───────────────────────────────────────────
 
 interface PositionedItem {
@@ -425,7 +433,6 @@ function collectPartAnnotations(
   pushPositionedItems(measure.pedals, p, m, "pedal", pedalId, entries);
   pushPositionedItems(measure.ottavas, p, m, "ottava", ottavaId, entries);
   pushPositionedItems(measure.expressions, p, m, "expression", expressionId, entries);
-  pushPositionedItems(measure.chordSymbols, p, m, "chord-symbol", chordSymbolId, entries);
 }
 
 // ───────────────────────────────────────────

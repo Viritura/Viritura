@@ -1,4 +1,5 @@
 import type { SelectableElementType } from "../score/elementTypes";
+import { canonicalNavigationId, chordCopyPartIndex } from "./chordNavigationId";
 
 /**
  * A single navigable entry in the score.
@@ -60,7 +61,8 @@ function matchesFilter(entry: NavigationEntry, filter?: readonly SelectableEleme
  * Returns -1 if not found.
  */
 export function findEntryIndex(navIndex: NavigationIndex, elementId: string): number {
-  return navIndex.entries.findIndex((e) => e.elementId === elementId);
+  const canonicalId = canonicalNavigationId(elementId);
+  return navIndex.entries.findIndex((e) => e.elementId === canonicalId);
 }
 
 /**
@@ -277,17 +279,21 @@ export function findAdjacentVoice(
  * Find the corresponding event in an adjacent part (staff) at the same
  * measure and closest sequence/event position.
  * "up" means lower partIndex (the staff above), "down" means higher.
+ * Global annotations need an explicitly resolved source part.
  */
 export function findAdjacentPart(
   navIndex: NavigationIndex,
   currentId: string,
   direction: "up" | "down",
+  sourcePartIndex?: number,
 ): string | undefined {
   const idx = findEntryIndex(navIndex, currentId);
   if (idx < 0) return undefined;
   const current = navIndex.entries[idx]!;
 
-  const targetPart = direction === "up" ? current.partIndex - 1 : current.partIndex + 1;
+  const partIndex = sourcePartIndex ?? current.partIndex;
+  if (partIndex < 0) return undefined;
+  const targetPart = direction === "up" ? partIndex - 1 : partIndex + 1;
   if (targetPart < 0) return undefined;
 
   // Find the first event in the target part at the same measure
@@ -376,11 +382,12 @@ export function findEntriesInMeasure(
   const idx = findEntryIndex(navIndex, elementId);
   if (idx < 0) return [];
   const current = navIndex.entries[idx]!;
+  const partIndex = chordCopyPartIndex(elementId) ?? current.partIndex;
 
   return navIndex.entries.filter(
     (entry) =>
       entry.measureIndex === current.measureIndex &&
-      (current.partIndex === -1 || entry.partIndex === -1 || entry.partIndex === current.partIndex) &&
+      (partIndex === -1 || entry.partIndex === -1 || entry.partIndex === partIndex) &&
       matchesFilter(entry, filter),
   );
 }
@@ -405,6 +412,7 @@ export function findNextAtPosition(navIndex: NavigationIndex, currentId: string)
   const idx = findEntryIndex(navIndex, currentId);
   if (idx < 0) return undefined;
   const current = navIndex.entries[idx]!;
+  const partIndex = chordCopyPartIndex(currentId) ?? current.partIndex;
 
   // Collect all entries at the same position (same measure, compatible part, ~same beat)
   const atPosition: NavigationEntry[] = [];
@@ -412,7 +420,7 @@ export function findNextAtPosition(navIndex: NavigationIndex, currentId: string)
     if (
       entry.measureIndex === current.measureIndex &&
       // Match same part, or either side is global (partIndex -1)
-      (entry.partIndex === current.partIndex || entry.partIndex === -1 || current.partIndex === -1) &&
+      (entry.partIndex === partIndex || entry.partIndex === -1 || partIndex === -1) &&
       Math.abs(entry.sortKey - current.sortKey) < BEAT_TOLERANCE
     ) {
       atPosition.push(entry);
@@ -422,13 +430,13 @@ export function findNextAtPosition(navIndex: NavigationIndex, currentId: string)
   if (atPosition.length <= 1) return undefined;
 
   // Find current entry's position within this group
-  const currentIdx = atPosition.findIndex((e) => e.elementId === currentId);
+  const currentIdx = atPosition.findIndex((e) => e.elementId === current.elementId);
   if (currentIdx < 0) return undefined;
 
   // Wrap around to next entry in the group
   const nextIdx = (currentIdx + 1) % atPosition.length;
   const next = atPosition[nextIdx];
-  return next && next.elementId !== currentId ? next.elementId : undefined;
+  return next && next.elementId !== current.elementId ? next.elementId : undefined;
 }
 
 /**
@@ -441,13 +449,14 @@ export function findPrevAtPosition(navIndex: NavigationIndex, currentId: string)
   const idx = findEntryIndex(navIndex, currentId);
   if (idx < 0) return undefined;
   const current = navIndex.entries[idx]!;
+  const partIndex = chordCopyPartIndex(currentId) ?? current.partIndex;
 
   // Collect all entries at the same position (same measure, compatible part, ~same beat)
   const atPosition: NavigationEntry[] = [];
   for (const entry of navIndex.entries) {
     if (
       entry.measureIndex === current.measureIndex &&
-      (entry.partIndex === current.partIndex || entry.partIndex === -1 || current.partIndex === -1) &&
+      (entry.partIndex === partIndex || entry.partIndex === -1 || partIndex === -1) &&
       Math.abs(entry.sortKey - current.sortKey) < BEAT_TOLERANCE
     ) {
       atPosition.push(entry);
@@ -456,11 +465,11 @@ export function findPrevAtPosition(navIndex: NavigationIndex, currentId: string)
 
   if (atPosition.length <= 1) return undefined;
 
-  const currentIdx = atPosition.findIndex((e) => e.elementId === currentId);
+  const currentIdx = atPosition.findIndex((e) => e.elementId === current.elementId);
   if (currentIdx < 0) return undefined;
 
   // Wrap around to previous entry in the group
   const prevIdx = (currentIdx - 1 + atPosition.length) % atPosition.length;
   const prev = atPosition[prevIdx];
-  return prev && prev.elementId !== currentId ? prev.elementId : undefined;
+  return prev && prev.elementId !== current.elementId ? prev.elementId : undefined;
 }

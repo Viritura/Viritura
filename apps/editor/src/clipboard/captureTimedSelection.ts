@@ -1,7 +1,6 @@
 import type { Score, SequenceContent } from "@viritura/core";
 import type { SelectionRhythmicRange, SelectionState } from "../store/selectionStore";
 import {
-  resolveAnnotationLocation,
   resolveEventLocation,
   resolveGraceLocation,
   type AnnotationLocation,
@@ -18,7 +17,14 @@ import {
 } from "./annotations";
 import { partStaffOffset, voiceIndexWithinStaff } from "./clipboardTrackMapping";
 import { assignDynamicsToTracks, captureSelectedDynamics, dynamicStaffAtLocation } from "./dynamicCapture";
-import { captureSelectedChordSymbols, chordSymbolStaffAtLocation } from "./chordSymbolCapture";
+import {
+  captureSelectedChordSymbols,
+  chordSymbolStaffAtLocation,
+  chordCaptureStaff,
+  clipboardAnnotationLocation,
+  resolveClipboardChordLocations,
+  chordCutLocations,
+} from "./chordSymbolCapture";
 
 interface SelectedUnit extends EventLocation {
   content: SequenceContent;
@@ -148,6 +154,7 @@ function timedAnnotationLocations(
   span: SelectionRhythmicRange,
   tracks: ClipboardTrack[],
   startPart: number,
+  selectedScoreIndex?: number,
 ): AnnotationLocation[] {
   const locations: AnnotationLocation[] = [];
   for (const partOffset of new Set(tracks.map((track) => track.partOffset))) {
@@ -166,9 +173,12 @@ function timedAnnotationLocations(
           annotationInTrackRanges(span.tracks, partIndex, staff, measureIndex, beat)
         );
       };
-      for (const [annotationIndex, symbol] of (measure.chordSymbols ?? []).entries()) {
-        if (includes(symbol.displayStaff ?? 1, symbol.position.fraction)) {
-          locations.push({ kind: "part", type: "chord", partIndex, measureIndex, annotationIndex });
+      const chordStaff = chordCaptureStaff(score, partIndex, selectedScoreIndex, measureIndex);
+      for (const [annotationIndex, symbol] of (score.global.measures[measureIndex]?.chordSymbols ?? []).entries()) {
+        if (chordStaff !== undefined && includes(chordStaff, symbol.position.fraction)) {
+          locations.push(
+            clipboardAnnotationLocation(`m${measureIndex}/chord${annotationIndex}/p${partIndex}/staff${chordStaff}`)!,
+          );
         }
       }
       for (const dynamic of measure.dynamics ?? []) {
@@ -192,24 +202,28 @@ export function captureTimedSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "multi" }>,
   span: SelectionRhythmicRange,
+  selectedScoreIndex?: number,
 ): CapturedSelection | null {
   const units = selectedUnits(score, selection.elementIds, span);
   if (units.length === 0) return null;
-  const explicitLocations = selection.elementIds.flatMap((elementId) => {
-    const location = resolveAnnotationLocation(elementId);
-    return location ? [location] : [];
-  });
+  const unitStaves = units.map((unit) => ({
+    partIndex: unit.partIndex,
+    staff: score.parts[unit.partIndex]!.measures[unit.measureIndex]!.sequences[unit.sequenceIndex]!.staff ?? 1,
+  }));
+  const explicitLocations = resolveClipboardChordLocations(
+    score,
+    selection.elementIds.flatMap((elementId) => {
+      const location = clipboardAnnotationLocation(elementId);
+      return location ? [location] : [];
+    }),
+    unitStaves,
+    selectedScoreIndex,
+  );
   const annotationStaves = explicitLocations.flatMap((location) => {
     const staff = dynamicStaffAtLocation(score, location) ?? chordSymbolStaffAtLocation(score, location);
     return staff === undefined || location.partIndex === undefined ? [] : [{ partIndex: location.partIndex, staff }];
   });
-  const sourceStaves = [
-    ...units.map((unit) => ({
-      partIndex: unit.partIndex,
-      staff: score.parts[unit.partIndex]!.measures[unit.measureIndex]!.sequences[unit.sequenceIndex]!.staff ?? 1,
-    })),
-    ...annotationStaves,
-  ];
+  const sourceStaves = [...unitStaves, ...annotationStaves];
   const startPart = Math.min(...sourceStaves.map((source) => source.partIndex));
   const anchorStaffOffset = Math.min(
     ...sourceStaves.map((source) => partStaffOffset(score, startPart, source.partIndex, source.staff)),
@@ -217,7 +231,10 @@ export function captureTimedSelection(
   const tracks = timedTracks(score, units, span, startPart, anchorStaffOffset);
   // Explicit identities survive outside note intervals; incidental annotations still
   // belong only to occupied tracks, never untouched music before a lead-in.
-  const annotationLocations = [...explicitLocations, ...timedAnnotationLocations(score, span, tracks, startPart)];
+  const annotationLocations = [
+    ...explicitLocations,
+    ...timedAnnotationLocations(score, span, tracks, startPart, selectedScoreIndex),
+  ];
   const dynamics = captureSelectedDynamics(score, annotationLocations, span.start);
   assignDynamicsToTracks(score, startPart, tracks, dynamics, anchorStaffOffset);
   let timeSignature = { count: 4, unit: 4 };
@@ -248,7 +265,7 @@ export function captureTimedSelection(
     measureIndex: span.start.measureIndex,
     sequenceIndex: first.sequenceIndex,
     eventIndex: first.eventIndex,
-    cutAnnotationLocations: explicitLocations,
+    cutAnnotationLocations: chordCutLocations(explicitLocations),
     cutLocations: units.every((unit) => unit.content.type === "event" || unit.content.type === "space")
       ? units
           .filter((unit) => unit.content.type === "event")

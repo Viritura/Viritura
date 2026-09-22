@@ -24,7 +24,9 @@ pub(crate) mod substrate_obstacles;
 #[path = "render_annotations/tempo.rs"]
 mod tempo;
 
-pub(crate) use chord_symbols::{chord_symbol_dimensions, render_chord_symbols};
+pub(crate) use chord_symbols::{
+    chord_symbol_dimensions, chord_symbol_for_display, render_chord_symbols,
+};
 use curve_clearance::slur_upper_edge_over_span;
 #[cfg(test)]
 pub(crate) use curve_clearance::tie_lower_edge_over_span;

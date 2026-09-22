@@ -1,9 +1,26 @@
-import { describe, it, expect } from "vitest";
-import { pitchToMidi } from "@viritura/core";
+import { act, cleanup, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { parseChordSymbolText, pitchToMidi } from "@viritura/core";
 import type { Score } from "@viritura/core";
 import { resolveEventFromSubElement, getNoteEventAtLocation, extractNoteIndex } from "../../score/ElementPath";
 import { parseElementType } from "../../score/elementTypes";
 import { midiToFrequency } from "../../hooks/NotePreviewEngine";
+import { resetSelectionStore, useSelectionStore } from "../../store/selectionStore";
+import { useNotePreview } from "../useNotePreview";
+
+const { useDocumentMock, previewNote, previewChord } = vi.hoisted(() => ({
+  useDocumentMock: vi.fn<() => { score: Score }>(),
+  previewNote: vi.fn(),
+  previewChord: vi.fn(),
+}));
+
+vi.mock("../../store/DocumentContext", () => ({
+  useDocument: useDocumentMock,
+}));
+
+vi.mock("@viritura/playback", () => ({
+  usePlaybackActions: () => ({ previewNote, previewChord }),
+}));
 
 /**
  * Tests for the note preview resolution logic:
@@ -229,5 +246,81 @@ describe("Note preview resolution pipeline", () => {
       expect(freqs[1]).toBeCloseTo(329.63, 1); // E4
       expect(freqs[2]).toBeCloseTo(392.0, 1); // G4
     });
+  });
+});
+
+describe("useNotePreview chord-symbol selection", () => {
+  const chordIds = ["g/m0/chord0", "g/m0/chord0/p0/staff0", "m0/chord0", "m0/chord0/p0/staff0"];
+  let score: Score;
+
+  function select(elementId: string): void {
+    act(() => {
+      useSelectionStore.getState()._dispatch({ type: "SELECT_ELEMENT", elementId });
+    });
+  }
+
+  function expectNoAudition(): void {
+    expect(previewNote).not.toHaveBeenCalled();
+    expect(previewChord).not.toHaveBeenCalled();
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetSelectionStore();
+    score = makeScore();
+    score.global.measures[0]!.chordSymbols = [parseChordSymbolText("C", { fraction: [0, 1] })];
+    useDocumentMock.mockReturnValue({ score });
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetSelectionStore();
+  });
+
+  it.each(chordIds)("does not audition auto-selection or re-selection of %s", (elementId) => {
+    renderHook(() => useNotePreview());
+
+    select(elementId);
+    expectNoAudition();
+
+    select(elementId);
+    expectNoAudition();
+  });
+
+  it.each(chordIds)("does not audition selected %s on a score rerender", (elementId) => {
+    const { rerender } = renderHook(() => useNotePreview());
+    select(elementId);
+
+    useDocumentMock.mockReturnValue({ score: structuredClone(score) });
+    rerender();
+    expectNoAudition();
+  });
+
+  it.each(chordIds)("does not audition invalid authored chord typing at %s", (elementId) => {
+    const { rerender } = renderHook(() => useNotePreview());
+    select(elementId);
+
+    for (const rawText of ["", "H", "H7", "Cgarbage"]) {
+      const editedScore = structuredClone(score);
+      editedScore.global.measures[0]!.chordSymbols = [parseChordSymbolText(rawText, { fraction: [0, 1] })];
+      useDocumentMock.mockReturnValue({ score: editedScore });
+      rerender();
+      expectNoAudition();
+
+      select(elementId);
+      expectNoAudition();
+    }
+  });
+
+  it("still auditions note selection, but not a subsequent chord-symbol selection", () => {
+    renderHook(() => useNotePreview());
+
+    select("p0/m0/s0/ev1/n0");
+    expect(previewNote).toHaveBeenCalledExactlyOnceWith(60, 0, 80, 400);
+    expect(previewChord).not.toHaveBeenCalled();
+
+    previewNote.mockClear();
+    select("g/m0/chord0");
+    expectNoAudition();
   });
 });

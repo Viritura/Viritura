@@ -1,11 +1,16 @@
 import { useCallback, type RefObject, type MutableRefObject } from "react";
-import type { Barline, Clef, Score } from "@viritura/core";
+import type { Barline, Clef, LayoutSource, Score } from "@viritura/core";
 import { type PanelImperativeHandle } from "react-resizable-panels";
 import { useEditorKeyboard, type EditorKeyboardActions } from "../keyboard/useEditorKeyboard";
 import { requestPanelToggle } from "../keyboard/panelToggle";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { DocumentStore } from "../store/documentStore";
-import type { SelectionState } from "../store/selectionStore";
+import {
+  useSelectionStore,
+  type MeasureSelectionPoint,
+  type RenderedStaffSources,
+  type SelectionState,
+} from "../store/selectionStore";
 import type { RadialMenuCategory } from "../radialMenu";
 import { sequenceContentBeats } from "../commands/noteCommands";
 import {
@@ -15,8 +20,11 @@ import {
   resolveFullMeasureRestLocation,
 } from "../score/ElementPath";
 import { resolveCondensedFullMeasureRestTargets } from "../score/condensedWriteback";
+import { chordViewSources, anchoredChordSources } from "../score/chordSourceContext";
 import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
+import { buildNavigationIndex } from "../navigation";
+import { useViewStateStore } from "../store/viewStateStore";
 
 export interface TempoPopoverState {
   position: { x: number; y: number };
@@ -82,13 +90,182 @@ export function resolveStaffTextTargets(
   return { ...targetWithStaff(location), ...(targets && { targets }) };
 }
 
+function resolveMeasureChordTarget(
+  score: Score,
+  selection: Extract<SelectionState, { kind: "measure" }>,
+  position: { x: number; y: number },
+  selectedScoreIndex: number,
+): ChordSymbolPopoverState | null {
+  const measureIndex = selection.startMeasure;
+  const source = resolveChordSymbolSource(score, selection, selectedScoreIndex, measureIndex);
+  if (!source) return null;
+  const { partIndex, staff } = source;
+  const sequenceIndex = score.parts[partIndex]?.measures[measureIndex]?.sequences.findIndex(
+    (sequence) => (sequence.staff ?? 1) === staff,
+  );
+  if (sequenceIndex === undefined || sequenceIndex < 0) return null;
+  const anchor = buildNavigationIndex(score).entries.find(
+    (entry) =>
+      entry.partIndex === partIndex &&
+      entry.measureIndex === measureIndex &&
+      entry.sequenceIndex === sequenceIndex &&
+      (entry.elementType === "event" || entry.elementType === "rest"),
+  );
+  return {
+    position,
+    partIndex,
+    measureIndex,
+    sequenceIndex,
+    eventIndex: 0,
+    anchorStaff: staff,
+    rhythmicPosition: { fraction: [0, 1] },
+    anchorElementId: anchor?.elementId,
+  };
+}
+
+function harmonySources(score: Score, staves: LayoutSource[][]): LayoutSource[] {
+  const validStaves = staves.map((staff) =>
+    staff.filter((source) => score.parts.some((part) => part.id === source.part)),
+  );
+  const automaticPart = validStaves.flat()[0]?.part;
+  const seenParts = new Set<string>();
+  return validStaves.flatMap((staff) => {
+    let harmony: LayoutSource | undefined;
+    for (const source of staff) {
+      const firstStaff = !seenParts.has(source.part);
+      // Match the renderer: every source is consumed, even after this staff has a harmony owner.
+      seenParts.add(source.part);
+      const visibility = score.parts.find((part) => part.id === source.part)?.chordSymbolVisibility;
+      const visible = visibility === "show" || (visibility !== "hide" && source.part === automaticPart);
+      if (firstStaff && visible && !harmony) harmony = source;
+    }
+    return harmony ? [harmony] : [];
+  });
+}
+
+function chordSourceAnchor(selection: SelectionState): MeasureSelectionPoint | undefined {
+  if (selection.kind === "single") return selection.measureAnchor;
+  if (selection.kind !== "measure") return undefined;
+  return {
+    partIndex: selection.startPartIndex,
+    staffIndex: selection.startStaffIndex,
+    localStaffIndex: selection.startLocalStaffIndex,
+    measureIndex: selection.startMeasure,
+  };
+}
+
+function renderedChordStaves(
+  score: Score,
+  staves: LayoutSource[][],
+  rendered: RenderedStaffSources,
+  measureIndex: number,
+): LayoutSource[][] | undefined {
+  const mapped = rendered?.filter((staff) => staff.measureIndex === measureIndex);
+  if (!mapped?.length) return staves;
+  const resolved = mapped
+    .sort((left, right) => left.staffIndex - right.staffIndex)
+    .map((staff) =>
+      anchoredChordSources(
+        score,
+        {
+          partIndex: score.parts.findIndex((part) => part.id === staff.partIds[0]),
+          staffIndex: staff.staffIndex,
+          measureIndex,
+        },
+        staves,
+        rendered,
+      ),
+    );
+  if (resolved.some((staff) => !staff)) return undefined;
+  return resolved as LayoutSource[][];
+}
+
+export function resolveChordSymbolSource(
+  score: Score,
+  selection: SelectionState,
+  selectedScoreIndex: number,
+  measureIndex: number,
+  selectedPartIds: readonly string[] = useViewStateStore.getState().selectedPartIds,
+): { partIndex: number; staff: number } | undefined {
+  const staves = chordViewSources(score, selectedScoreIndex, measureIndex, selectedPartIds);
+  const anchor = chordSourceAnchor(selection);
+  if (anchor && anchor.measureIndex !== measureIndex) return undefined;
+  const part = anchor && score.parts[anchor.partIndex];
+  const state = useSelectionStore.getState();
+  const rendered = state.renderedStaffSourcesGetter ? state.renderedStaffSourcesGetter() : state.renderedStaffSources;
+  if (anchor && part && !rendered && !staves.some((staff) => staff.some((source) => source.part === part.id))) {
+    return { partIndex: anchor.partIndex, staff: (anchor.localStaffIndex ?? 0) + 1 };
+  }
+  // Copy suffixes are not source coordinates. Use source bounds and authored
+  // layout identities; never substitute a document-array index for a visual one.
+  const candidates = anchor ? anchoredChordSources(score, anchor, staves, rendered) : undefined;
+  if (anchor && !candidates) return undefined;
+  let source: LayoutSource | undefined;
+  if (selection.kind === "measure") {
+    source = candidates?.find((candidate) => candidate.part === part?.id);
+  } else {
+    const harmonyStaves = renderedChordStaves(score, staves, rendered, measureIndex);
+    if (!harmonyStaves) return undefined;
+    const harmonies = harmonySources(score, harmonyStaves.length ? harmonyStaves : candidates ? [candidates] : []);
+    source = harmonies.find(
+      (candidate) =>
+        !candidates ||
+        candidates.includes(candidate) ||
+        (!staves.length &&
+          candidates.some((source) => source.part === candidate.part && source.staff === candidate.staff)),
+    );
+  }
+  if (!source) return undefined;
+  const partIndex = score.parts.findIndex((part) => part.id === source.part);
+  return partIndex < 0 ? undefined : { partIndex, staff: source.staff ?? 1 };
+}
+
+function resolveExistingChordTarget(
+  score: Score,
+  selection: Extract<SelectionState, { kind: "single" }>,
+  selectedScoreIndex: number,
+  position: { x: number; y: number },
+  chordMatch: RegExpMatchArray,
+): ChordSymbolPopoverState | null {
+  const measureIndex = Number(chordMatch[1]);
+  const chord = score.global.measures[measureIndex]?.chordSymbols?.[Number(chordMatch[2])];
+  if (!chord) return null;
+  const source = resolveChordSymbolSource(score, selection, selectedScoreIndex, measureIndex);
+  if (!source) return null;
+  const { partIndex, staff } = source;
+  const entries = buildNavigationIndex(score).entries.filter(
+    (entry) =>
+      entry.partIndex === partIndex &&
+      entry.measureIndex === measureIndex &&
+      (entry.elementType === "event" || entry.elementType === "rest") &&
+      (score.parts[partIndex]?.measures[measureIndex]?.sequences[entry.sequenceIndex]?.staff ?? 1) === staff,
+  );
+  const beat = (chord.position.fraction[0] / chord.position.fraction[1]) * 4;
+  const anchor = entries.findLast((entry) => entry.sortKey <= beat) ?? entries[0];
+  if (!anchor) return null;
+  return {
+    position,
+    partIndex,
+    measureIndex,
+    sequenceIndex: anchor.sequenceIndex,
+    eventIndex: anchor.eventIndex,
+    ...(anchor.tupletIndex !== undefined && { tupletIndex: anchor.tupletIndex }),
+    anchorStaff: staff,
+    anchorElementId: anchor.elementId,
+    rhythmicPosition: chord.position,
+  };
+}
+
 export function resolveChordSymbolTarget(
   score: Score,
   selection: SelectionState,
   selectedScoreIndex: number,
   position: { x: number; y: number },
 ): ChordSymbolPopoverState | null {
+  if (selection.kind === "measure") return resolveMeasureChordTarget(score, selection, position, selectedScoreIndex);
   if (selection.kind !== "single") return null;
+  const chordMatch = selection.elementId.match(/^m(\d+)\/chord(\d+)(?:\/p(\d+)\/staff(\d+))?$/);
+  if (chordMatch) return resolveExistingChordTarget(score, selection, selectedScoreIndex, position, chordMatch);
   const target = resolveStaffTextTargets(score, selection, selectedScoreIndex);
   if (!target) return null;
   return {

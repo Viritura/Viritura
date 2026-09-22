@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { Part } from "@viritura/core";
 import type { PartDisplayInfo } from "@viritura/core";
-import { FormField, FormInput, SettingsRow } from "@viritura/ui";
+import { FormField, FormInput, Select, SettingsRow } from "@viritura/ui";
 import { isPercussionPart } from "../../../score/kitInput";
 import { KitMappingPreview, type KitComponentEdit } from "../../DrumKitDialog";
 import { buildTransposition, partEditBuffersFor, type PartUpdate } from "./transposition";
@@ -10,6 +10,7 @@ import { RosterPartTransposeFields } from "./RosterPartTransposeFields";
 import { RosterPartActions } from "./RosterPartActions";
 import { getCatalogInstrument } from "../../../score/InstrumentCatalog";
 import styles from "./RosterPartRow.module.css";
+import { CHORD_SYMBOL_VISIBILITY_OPTIONS } from "../chordSymbolVisibility";
 
 export interface RosterPartRowProps {
   part: Part;
@@ -113,6 +114,19 @@ export function RosterPartRow({
               />
             </FormField>
           </div>
+          <FormField label="Chord symbols">
+            <Select
+              aria-label={`Chord symbols for ${displayName}`}
+              value={part.chordSymbolVisibility ?? "auto"}
+              options={CHORD_SYMBOL_VISIBILITY_OPTIONS}
+              disabled={!part.id || !onUpdate}
+              onValueChange={(value) => {
+                if (part.id && (value === "auto" || value === "show" || value === "hide")) {
+                  onUpdate?.(part.id, { chordSymbolVisibility: value });
+                }
+              }}
+            />
+          </FormField>
           {isPercussion ? (
             // Percussion parts don't transpose — show the drum-kit mapping
             // instead, with editing deferred to the full Drum Kit dialog.

@@ -33,12 +33,11 @@ function dynamic(id: string, beat: number, staff?: number): DynamicGroup {
   return { id, type: "immediate", value: "mf", position: { fraction: [beat, 4] }, ...(staff ? { staff } : {}) };
 }
 
-function harmony(staff?: number, step: "C" | "D" | "E" | "F" | "G" = "C"): ChordSymbol {
+function harmony(step: "C" | "D" | "E" | "F" | "G" = "C"): ChordSymbol {
   return {
     root: { step },
     quality: "minor",
     position: { fraction: [0, 1] },
-    ...(staff === undefined ? {} : { displayStaff: staff }),
   };
 }
 
@@ -89,27 +88,27 @@ function onsets(content: SequenceContent[]): [string | undefined, number][] {
 }
 
 describe("clipboard annotation source staff metadata", () => {
-  it("keeps a staff-2 Cm below the only copied staff-1 note sequence", () => {
+  it("captures global Cm on the first staff without changing the uncopied second sequence", () => {
     const source = score([2]);
     source.parts[0]!.measures[0]!.sequences.splice(1);
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(2)];
+    source.global.measures[0]!.chordSymbols = [harmony()];
     const selection = copy(source);
     const paste = roundTrip(selection);
     expect(paste.tracks).toMatchObject([{ staffOffset: 0, sourceStaff: 1 }]);
-    expect(paste.chordSymbols).toMatchObject([{ staffOffset: 1, chordSymbol: { displayStaff: 2 } }]);
+    expect(paste.chordSymbols).toMatchObject([{ staffOffset: 0, chordSymbol: harmony() }]);
     const target = score([2]);
+    target.parts[0]!.chordSymbolVisibility = "hide";
     const result = applyPaste(target, paste, 0, 0, 0, 0);
     expect(result.parts[0]!.measures[0]!.sequences[0]!.content[0]).toEqual(paste.content[0]);
     expect(result.parts[0]!.measures[0]!.sequences[1]).toEqual(target.parts[0]!.measures[0]!.sequences[1]);
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toMatchObject([
-      { displayStaff: 2, root: { step: "C" }, quality: "minor" },
-    ]);
+    expect(result.global.measures[0]!.chordSymbols).toMatchObject([{ root: { step: "C" }, quality: "minor" }]);
+    expect(result.parts[0]!.chordSymbolVisibility).toBe("show");
   });
 
-  it("maps a singleton lower-staff range's harmony and dynamics into a single staff", () => {
+  it("maps a singleton lower-staff range's dynamics without capturing first-staff harmony", () => {
     const source = score([2], 2);
+    for (const measure of source.global.measures) measure.chordSymbols = [harmony()];
     for (const measure of source.parts[0]!.measures) {
-      measure.chordSymbols = [harmony(2)];
       measure.dynamics = [dynamic("same-id-in-different-measures", 0, 2)];
     }
     const selection = copy(source, {
@@ -119,74 +118,153 @@ describe("clipboard annotation source staff metadata", () => {
     });
     expect(selection.tracks).toBeUndefined();
     const paste = roundTrip(selection);
-    expect(paste.chordSymbols?.map((item) => item.staffOffset)).toEqual([0, 0]);
+    expect(paste.chordSymbols ?? []).toEqual([]);
     expect(paste.dynamics?.map((item) => item.staffOffset)).toEqual([0, 0]);
-    const result = applyPaste(score([1], 2), paste, 0, 0, 0, 0);
+    const target = score([1], 2);
+    target.parts[0]!.chordSymbolVisibility = "hide";
+    for (const measure of target.global.measures) measure.chordSymbols = [harmony("D")];
+    const result = applyPaste(target, paste, 0, 0, 0, 0);
     for (const [index, measure] of result.parts[0]!.measures.entries()) {
       expect(measure.sequences[0]!.content[0]).toEqual(paste.content[index]);
       expect(measure.dynamics).toMatchObject([{ staff: 1, position: { fraction: [0, 16] } }]);
-      expect(measure.chordSymbols).toMatchObject([{ displayStaff: 1, root: { step: "C" } }]);
+      expect(result.global.measures[index]!.chordSymbols).toEqual([harmony("D")]);
     }
+    expect(result.parts[0]!.chordSymbolVisibility).toBe("hide");
   });
 
-  it("retains a single lower-staff note's harmony source coordinate without tracks", () => {
+  it("does not attach first-staff harmony to a single lower-staff note without tracks", () => {
     const source = score([2]);
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(2)];
+    source.global.measures[0]!.chordSymbols = [harmony()];
     const selection = copy(source, { kind: "single", elementId: "p0/m0/s1/p0m0s1" });
     expect(selection.tracks).toBeUndefined();
-    const result = applyPaste(score([1]), roundTrip(selection), 0, 0, 0, 0);
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toMatchObject([{ displayStaff: 1 }]);
+    const paste = roundTrip(selection);
+    expect(paste.chordSymbols ?? []).toEqual([]);
+    const result = applyPaste(score([1]), paste, 0, 0, 0, 0);
+    expect(result.parts[0]!.measures[0]!.sequences[0]!.content[0]).toEqual(paste.content[0]);
+    expect(result.global.measures[0]!.chordSymbols).toBeUndefined();
   });
 
-  it.each([undefined, 1])(
-    "aligns a singleton's default/explicit staff %s harmony with the destination staff",
-    (staff) => {
-      const source = score([1]);
-      source.parts[0]!.measures[0]!.chordSymbols = [harmony(staff)];
-      source.parts[0]!.measures[0]!.dynamics = [dynamic("default-staff", 0, staff)];
-      for (const selection of [
-        { kind: "single", elementId: "p0/m0/s0/p0m0s0" } as const,
-        { kind: "range", startElementId: "p0/m0/s0/p0m0s0", endElementId: "p0/m0/s0/p0m0s0" } as const,
-      ]) {
-        const result = applyPaste(score([2]), roundTrip(copy(source, selection)), 0, 0, 1, 0);
-        expect(result.parts[0]!.measures[0]!.chordSymbols).toMatchObject([{ displayStaff: 2 }]);
-        if (selection.kind === "range") {
-          expect(result.parts[0]!.measures[0]!.dynamics).toMatchObject([{ staff: 2 }]);
-        }
+  it.each([undefined, 1])("maps default/explicit staff %s dynamics while keeping singleton harmony global", (staff) => {
+    const source = score([1]);
+    source.global.measures[0]!.chordSymbols = [harmony()];
+    source.parts[0]!.measures[0]!.dynamics = [dynamic("default-staff", 0, staff)];
+    for (const selection of [
+      { kind: "single", elementId: "p0/m0/s0/p0m0s0" } as const,
+      { kind: "range", startElementId: "p0/m0/s0/p0m0s0", endElementId: "p0/m0/s0/p0m0s0" } as const,
+    ]) {
+      const target = score([2]);
+      target.parts[0]!.chordSymbolVisibility = "hide";
+      const result = applyPaste(target, roundTrip(copy(source, selection)), 0, 0, 1, 0);
+      expect(result.global.measures[0]!.chordSymbols).toMatchObject([harmony()]);
+      expect(result.parts[0]!.chordSymbolVisibility).toBe("show");
+      if (selection.kind === "range") {
+        expect(result.parts[0]!.measures[0]!.dynamics).toMatchObject([{ staff: 2 }]);
       }
-    },
-  );
+    }
+  });
 
   it("maps five physical staves across mismatched multipart layouts without counting annotations", () => {
     const source = score([2, 1, 2]);
     const roots = ["C", "D", "E", "F", "G"] as const;
-    let physicalStaff = 0;
     for (const part of source.parts) {
       const measure = part.measures[0]!;
-      measure.chordSymbols = [];
       measure.dynamics = [];
       for (let staff = 1; staff <= part.staves!; staff++) {
-        measure.chordSymbols.push(harmony(staff, roots[physicalStaff]!));
         measure.dynamics.push(dynamic("same-id-across-staves-and-parts", 0, staff));
-        physicalStaff++;
       }
     }
-    const paste = roundTrip(copy(source));
-    expect(paste.chordSymbols?.map((item) => item.staffOffset)).toEqual([0, 1, 2, 3, 4]);
-    const result = applyPaste(score([1, 2, 1, 1]), paste, 0, 0, 0, 0);
-    physicalStaff = 0;
+    const selection = copy(source);
+    // Imported harmony can retain several source staves before global conflict resolution.
+    selection.chordSymbols = roots
+      .map((root, staffOffset) => ({
+        staffOffset,
+        sourceStaff: [1, 2, 1, 1, 2][staffOffset]!,
+        measureOffset: 0,
+        chordSymbol: {
+          ...harmony(root),
+          bass: { step: "G" as const, alter: 1 },
+          position: { fraction: [staffOffset + 1, 3 * (staffOffset + 1)] as [number, number] },
+        },
+      }))
+      .reverse();
+    const paste = roundTrip(selection);
+    expect(paste.chordSymbols?.map((item) => item.staffOffset)).toEqual([4, 3, 2, 1, 0]);
+    const target = score([1, 2, 1, 1]);
+    for (const part of target.parts) {
+      part.chordSymbolVisibility = "hide";
+      part.transposition = { interval: { halfSteps: 2, staffDistance: 1 } };
+    }
+    const untouched = { ...harmony("F"), position: { fraction: [1, 4] as [number, number] } };
+    target.global.measures[0]!.chordSymbols = [untouched, { ...harmony("D"), position: { fraction: [2, 6] } }];
+    const snapshot = structuredClone(target);
+    const warnings: string[] = [];
+    const result = applyPaste(target, paste, 0, 0, 0, 0, undefined, undefined, (warning) => warnings.push(warning));
+    expect(result.global.measures[0]!.chordSymbols).toEqual([
+      untouched,
+      { ...harmony("C"), bass: { step: "G", alter: 1 }, position: { fraction: [1, 3] } },
+    ]);
+    expect(warnings).toHaveLength(4);
+    expect(warnings.every((warning) => /conflict/i.test(warning))).toBe(true);
+    expect(target).toEqual(snapshot);
+    let physicalStaff = 0;
     for (const part of result.parts) {
       const measure = part.measures[0]!;
       for (let staff = 1; staff <= part.staves!; staff++) {
-        expect(measure.chordSymbols?.find((item) => item.displayStaff === staff)?.root.step).toBe(roots[physicalStaff]);
         expect(measure.dynamics?.filter((item) => item.staff === staff)).toHaveLength(1);
         expect(measure.sequences[staff - 1]!.content[0]).toEqual(paste.tracks![physicalStaff]!.content[0]);
         physicalStaff++;
       }
+      expect(part.chordSymbolVisibility).toBe("show");
+      for (const measure of part.measures) expect(measure).not.toHaveProperty("chordSymbols");
     }
   });
 
-  it("rejects legacy physical annotations without a source-staff coordinate instead of guessing", () => {
+  it("deduplicates equivalent harmony without warnings and shows every mapped destination", () => {
+    const selection = copy(score([1, 1]));
+    selection.chordSymbols = [1, 0].map((staffOffset) => ({
+      staffOffset,
+      sourceStaff: 1,
+      measureOffset: 0,
+      chordSymbol: {
+        ...harmony(),
+        root: { step: "C", ...(staffOffset === 1 ? { alter: 0 } : {}) },
+        position: { fraction: [staffOffset + 1, 3 * (staffOffset + 1)] },
+      },
+    }));
+    const target = score([1, 1]);
+    for (const part of target.parts) part.chordSymbolVisibility = "hide";
+    const warnings: string[] = [];
+    const result = applyPaste(target, roundTrip(selection), 0, 0, 0, 0, undefined, undefined, (warning) =>
+      warnings.push(warning),
+    );
+    expect(result.global.measures[0]!.chordSymbols).toEqual([{ ...harmony(), position: { fraction: [1, 3] } }]);
+    expect(result.parts.map((part) => part.chordSymbolVisibility)).toEqual(["show", "show"]);
+    expect(warnings).toEqual([]);
+  });
+
+  it.each(["hide", "show"] as const)("captures harmony only from the scoped %s part", (visibility) => {
+    const source = score([1, 2]);
+    source.global.measures[0]!.chordSymbols = [harmony()];
+    source.parts[0]!.chordSymbolVisibility = "show";
+    source.parts[1]!.chordSymbolVisibility = visibility;
+    const paste = roundTrip(
+      copy(source, {
+        kind: "measure",
+        startPartIndex: 1,
+        endPartIndex: 1,
+        startMeasure: 0,
+        endMeasure: 0,
+      }),
+    );
+    expect(paste.tracks?.map((track) => track.staffOffset)).toEqual([0, 1]);
+    if (visibility === "hide") {
+      expect(paste.chordSymbols ?? []).toEqual([]);
+    } else {
+      expect(paste.chordSymbols).toMatchObject([{ staffOffset: 0, chordSymbol: harmony() }]);
+    }
+  });
+
+  it("rejects legacy physical tracks without a source-staff coordinate instead of guessing", () => {
     const target = score([2]);
     const snapshot = structuredClone(target);
     expect(() =>
@@ -195,7 +273,7 @@ describe("clipboard annotation source staff metadata", () => {
         {
           content: [note("legacy")],
           tracks: [{ partOffset: 0, staffOffset: 0, voiceIndex: 0, content: [note("legacy")] }],
-          chordSymbols: [{ measureOffset: 0, chordSymbol: harmony(2) }],
+          chordSymbols: [{ measureOffset: 0, sourceStaff: 2, chordSymbol: harmony() }],
         },
         0,
         0,
@@ -209,18 +287,24 @@ describe("clipboard annotation source staff metadata", () => {
   it("uses explicit track sourceStaff when an older annotation has no physical offset", () => {
     const source = score([2]);
     source.parts[0]!.measures[0]!.sequences.splice(1);
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(2)];
-    const paste = roundTrip(copy(source));
+    const selection = copy(source);
+    selection.chordSymbols = [{ measureOffset: 0, staffOffset: 1, sourceStaff: 2, chordSymbol: harmony() }];
+    const paste = roundTrip(selection);
+    expect(paste.chordSymbols![0]!.sourceStaff).toBe(2);
     delete paste.chordSymbols![0]!.staffOffset;
-    const result = applyPaste(score([2]), paste, 0, 0, 0, 0);
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toMatchObject([{ displayStaff: 2 }]);
+    const target = score([1, 1]);
+    for (const part of target.parts) part.chordSymbolVisibility = "hide";
+    const result = applyPaste(target, paste, 0, 0, 0, 0);
+    expect(result.global.measures[0]!.chordSymbols).toMatchObject([harmony()]);
+    expect(result.parts.map((part) => part.chordSymbolVisibility)).toEqual(["show", "show"]);
+    expect(result.parts[1]!.measures[0]!.sequences).toEqual(target.parts[1]!.measures[0]!.sequences);
   });
 
   it("uses the lower selection anchor across multiple source parts with different destination grouping", () => {
     const source = score([3, 2]);
     source.parts[0]!.measures[0]!.sequences.splice(0, 1);
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(2, "C"), harmony(3, "D")];
-    source.parts[1]!.measures[0]!.chordSymbols = [harmony(undefined, "E"), harmony(2, "F")];
+    source.global.measures[0]!.chordSymbols = [harmony("E")];
+    source.parts[1]!.chordSymbolVisibility = "show";
     const paste = roundTrip(
       copy(source, {
         kind: "range",
@@ -228,14 +312,15 @@ describe("clipboard annotation source staff metadata", () => {
         endElementId: "p1/m0/s1/p1m0s1",
       }),
     );
-    expect(paste.chordSymbols?.map((item) => item.staffOffset)).toEqual([0, 1, 2, 3]);
-    const result = applyPaste(score([1, 3]), paste, 0, 0, 0, 0);
-    expect(result.parts[0]!.measures[0]!.chordSymbols).toMatchObject([{ displayStaff: 1, root: { step: "C" } }]);
-    expect(result.parts[1]!.measures[0]!.chordSymbols).toMatchObject([
-      { displayStaff: 1, root: { step: "D" } },
-      { displayStaff: 2, root: { step: "E" } },
-      { displayStaff: 3, root: { step: "F" } },
-    ]);
+    expect(paste.chordSymbols?.map((item) => item.staffOffset)).toEqual([2]);
+    expect(paste.tracks?.map((track) => track.staffOffset)).toEqual([0, 1, 2, 3]);
+    const target = score([1, 3]);
+    for (const part of target.parts) part.chordSymbolVisibility = "hide";
+    const result = applyPaste(target, paste, 0, 0, 0, 0);
+    expect(result.global.measures[0]!.chordSymbols).toMatchObject([harmony("E")]);
+    expect(result.parts.map((part) => part.chordSymbolVisibility)).toEqual(["hide", "show"]);
+    const sequences = result.parts.flatMap((part) => part.measures[0]!.sequences);
+    expect(sequences.map((sequence) => sequence.content[0])).toEqual(paste.tracks!.map((track) => track.content[0]));
   });
 });
 
@@ -244,10 +329,10 @@ describe("clipboard common annotation and note origin", () => {
     "keeps harmony before the first selected note in a %s selection",
     (kind) => {
       const source = score([1], 2);
-      source.parts[0]!.measures[0]!.chordSymbols = [{ ...harmony(), position: { fraction: [3, 4] } }, harmony(1, "D")];
-      source.parts[0]!.measures[1]!.chordSymbols = [harmony(1, "E")];
+      source.global.measures[0]!.chordSymbols = [{ ...harmony(), position: { fraction: [3, 4] } }, harmony("D")];
+      source.global.measures[1]!.chordSymbols = [harmony("E")];
       const snapshot = structuredClone(source);
-      const chordId = "p0/m0/chord0";
+      const chordId = "m0/chord0";
       const noteId = "p0/m1/s0/p0m1s0";
       const selection = copy(
         source,
@@ -261,9 +346,8 @@ describe("clipboard common annotation and note origin", () => {
       );
       expect(selection).toMatchObject({ captureOrigin: { measureIndex: 0, beat: 3 } });
       expect(selection.cutAnnotationLocations).toContainEqual({
-        kind: "part",
+        kind: "global",
         type: "chord",
-        partIndex: 0,
         measureIndex: 0,
         annotationIndex: 0,
       });
@@ -546,9 +630,9 @@ describe("clipboard exact capture timing", () => {
       { type: "space", duration: [1, 8] },
       note("selected", "quarter"),
     ];
-    source.parts[0]!.measures[0]!.chordSymbols = [{ ...harmony(), position: { fraction: [1, 24] } }];
+    source.global.measures[0]!.chordSymbols = [{ ...harmony(), position: { fraction: [1, 24] } }];
     source.parts[0]!.measures[0]!.dynamics = [dynamic("selected", 0.5)];
-    const elementIds = ["p0/m0/chord0", "p0/m0/s0/selected", "p0/m0/dynselected"];
+    const elementIds = ["m0/chord0", "p0/m0/s0/selected", "p0/m0/dynselected"];
     const selection: SelectionState =
       kind === "range"
         ? { kind: "range", startElementId: elementIds[0]!, endElementId: elementIds[1]! }

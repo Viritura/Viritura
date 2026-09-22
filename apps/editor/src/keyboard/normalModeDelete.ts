@@ -16,6 +16,7 @@ import {
   deleteArpeggioByElementId,
   deleteGraceNote,
   expandCondensedDynamicLocations,
+  resolveDeletableAnnotationLocation,
 } from "../commands/deleteCommands";
 import { isAccidentalId, removeAccidental } from "../commands/accidentalCommands";
 import { isArticulationId, removeArticulation } from "../commands/articulationDeletion";
@@ -23,7 +24,6 @@ import { isCaesuraId, partitionMarkingIds, removeCaesura, removeMarkings } from 
 import { isNoteheadId, removeChordNoteById, thinSelectedChords } from "../commands/chordNoteDeletion";
 import {
   resolveEventLocation,
-  resolveAnnotationLocation,
   resolveGraceLocation,
   getEventAtLocation,
   addressesWholeEvent,
@@ -38,6 +38,7 @@ import {
   removeMeasureRangeFromScore,
 } from "./normalModeDeleteHelpers";
 import type { KeyboardHandlerContext } from "./types";
+import type { Selection } from "../store/selectionStore";
 import { deleteKeySignatureByElementId } from "../commands/signatureCommands";
 import {
   deleteMeasureRepeatByElementId,
@@ -204,7 +205,7 @@ function deleteSingleSelection(
   if (!currentScore) return;
 
   // Try annotation deletion first
-  const annotLoc = resolveAnnotationLocation(sel.elementId);
+  const annotLoc = resolveDeletableAnnotationLocation(sel.elementId);
   if (annotLoc) {
     applyDeletion(e, ctx, deleteAnnotation(currentScore, annotLoc, ctx.getConfig().selectedScoreIndex ?? 0));
     return;
@@ -355,16 +356,12 @@ function deleteRangeSelection(
   e: KeyboardEvent,
   ctrlHeld: boolean,
   ctx: KeyboardHandlerContext,
-  sel: { kind: "range"; startElementId?: string; endElementId?: string },
+  sel: Extract<Selection, { kind: "range" }>,
 ): void {
   const currentScore = ctx.getScore();
   if (!currentScore) return;
   if (!sel.startElementId || !sel.endElementId) return;
-  const rangeSelection = {
-    kind: "range" as const,
-    startElementId: sel.startElementId,
-    endElementId: sel.endElementId,
-  };
+  const rangeSelection = sel;
   if (!ctrlHeld) {
     const repeatIds = measureRepeatElementIdsForSelection(currentScore, rangeSelection);
     if (repeatIds.length > 0) {
@@ -372,7 +369,13 @@ function deleteRangeSelection(
       return;
     }
   }
-  const range = resolveSelectionMeasureRange(sel.startElementId, sel.endElementId, currentScore);
+  const range = resolveSelectionMeasureRange(
+    sel.startElementId,
+    sel.endElementId,
+    currentScore,
+    sel.measureAnchor,
+    sel.measureFocus,
+  );
   if (!range) return;
 
   if (ctrlHeld) {
@@ -388,10 +391,7 @@ function deleteRangeSelection(
   // A range is an event-to-event selection, not a rectangular bar command.
   // Only the resolved covered events are replaced with rests; Ctrl/Cmd+Delete
   // above remains the explicit whole-measure removal action.
-  const events = resolveSelectionEvents(
-    { kind: "range", startElementId: sel.startElementId, endElementId: sel.endElementId },
-    currentScore,
-  );
+  const events = resolveSelectionEvents(sel, currentScore);
   if (events.length === 0) return;
   for (const loc of [...events].reverse()) {
     try {
@@ -444,8 +444,8 @@ function deleteMultiSelection(e: KeyboardEvent, ctx: KeyboardHandlerContext): vo
   const connectorIds = selectedIds.filter((id) => id.startsWith("slur/") || id.startsWith("tie/"));
   const lyricIds = selectedIds.filter(isLyricId);
   const graceIds = selectedIds.filter((id) => resolveGraceLocation(id, currentScore) !== null);
-  const annotationLocations = selectedIds.map(resolveAnnotationLocation).filter((loc) => loc !== null);
-  const annotationIds = new Set(selectedIds.filter((id) => resolveAnnotationLocation(id) !== null));
+  const annotationLocations = selectedIds.map(resolveDeletableAnnotationLocation).filter((loc) => loc !== null);
+  const annotationIds = new Set(selectedIds.filter((id) => resolveDeletableAnnotationLocation(id) !== null));
   const { markingIds, eventIds } = partitionMarkingIds(
     selectedIds.filter((id) => !annotationIds.has(id) && !connectorIds.includes(id) && !lyricIds.includes(id)),
   );

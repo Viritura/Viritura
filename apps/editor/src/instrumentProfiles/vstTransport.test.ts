@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Score } from "@viritura/core";
+import { CHORDS_PART_ID, voiceChordSymbol, type Score } from "@viritura/core";
 import type { PerformanceEvent } from "@viritura/midi";
 import type { VstPreparePlan } from "@viritura/playback";
 import type { FxChainsConfig } from "./fxChainStore";
+import chordMidiFixture from "../../../desktop/src-tauri/tests/fixtures/derived-chords-midi.json";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -100,6 +101,25 @@ function plan(kind: "vst" | "sf2"): VstPreparePlan {
         ],
         sf2Parts: [],
       };
+}
+
+function chordFixture() {
+  const document = score();
+  document.global.measures[0] = {
+    time: { count: 4, unit: 4 },
+    tempos: [{ bpm: 120, value: { base: "quarter" } }],
+    repeatStart: {},
+    repeatEnd: { times: 2 },
+    chordSymbols: [{ root: { step: "C" }, position: { fraction: [0, 1] } }],
+  };
+  const preparation: VstPreparePlan = {
+    vstParts: [],
+    sf2Parts: [
+      { partIndex: 0, program: 73, isDrum: false },
+      { partIndex: document.parts.length, program: 0, isDrum: false },
+    ],
+  };
+  return { document, preparation };
 }
 
 function selectionFixture(kind: "vst" | "sf2" | "shared vst", step: "C" | "D" = "C") {
@@ -215,6 +235,102 @@ describe("native mixer reconciliation", () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it("routes the real global repeat timeline to the shared Rust SF2 fixture without a persisted Part", async () => {
+    const { document, preparation } = chordFixture();
+    const original = structuredClone(document);
+    const { createVstTransport } = await import("./vstTransport");
+    const owned = await createVstTransport()!.prepare(document, preparation);
+    expect(owned).toEqual(new Set([0, document.parts.length]));
+    const slots = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load")?.[1]
+      ?.slots as LoadSlot[];
+    const chords = slots.find((slot) => slot.slotKey === CHORDS_PART_ID)!;
+    expect(chords).toMatchObject({
+      kind: "sf2",
+      program: 0,
+      isDrum: false,
+      pluginPath: "",
+      soundfontPath: "F:\\fonts\\piano.sf2",
+    });
+    // The Rust routing test deserializes this exact payload and renders its GM0
+    // schedule, including the second repeat visit and final release.
+    expect(chords.events).toEqual(chordMidiFixture);
+    expect(mocks.compileMapper).not.toHaveBeenCalled();
+    expect(document).toEqual(original);
+  });
+
+  it("retains chord controls across stop, seek, edits, removal and restore independently of authored parts", async () => {
+    const { document, preparation } = chordFixture();
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    await transport.setPartGain(1, 0.3);
+    await transport.setMutedParts(new Set([1]));
+    await transport.prepare(document, preparation);
+    await transport.start(0);
+    await transport.seek(2.5);
+    await transport.stop();
+    document.global.measures[0]!.chordSymbols![0]!.root = { step: "D" };
+    await transport.prepare(document, preparation);
+    expect(strips.get(CHORDS_PART_ID)?.gain).toBe(0.3);
+    expect(strips.get("sf2:0")?.gain).toBe(1);
+    expect(muted).toEqual(new Set([1]));
+    const symbols = document.global.measures[0]!.chordSymbols;
+    delete document.global.measures[0]!.chordSymbols;
+    await transport.prepare(document, preparation);
+    expect(strips.has(CHORDS_PART_ID)).toBe(false);
+    document.global.measures[0]!.chordSymbols = symbols;
+    await transport.prepare(document, preparation);
+    expect(strips.get(CHORDS_PART_ID)?.gain).toBe(0.3);
+    expect(muted).toEqual(new Set([1]));
+    await transport.release();
+    await transport.prepare(document, preparation);
+    expect(strips.get(CHORDS_PART_ID)?.gain).toBe(0.3);
+    // Soloing Chords is an effective mute of the authored part, not of the lane.
+    await transport.setMutedParts(new Set([0]));
+    expect(muted).toEqual(new Set([0]));
+  });
+
+  it("provisions unsupported global symbols as silent piano and rejects invalid or VST derived indices", async () => {
+    const { document, preparation } = chordFixture();
+    document.global.measures[0]!.chordSymbols = [{ rawText: "C7alt", position: { fraction: [0, 1] } }];
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    const owned = await transport.prepare(document, {
+      vstParts: [{ ...plan("vst").vstParts[0]!, partIndex: 1 }],
+      sf2Parts: [-1, 1, 2, 0.5].map((partIndex) => ({ partIndex, program: 48, isDrum: true })),
+    });
+    expect(owned).toEqual(new Set([1]));
+    const slots = mocks.invoke.mock.calls.find(([command]) => command === "vst_playback_load")?.[1]
+      ?.slots as LoadSlot[];
+    expect(slots).toHaveLength(1);
+    expect(slots[0]).toMatchObject({ slotKey: CHORDS_PART_ID, program: 0, isDrum: false, events: [] });
+    expect(mocks.compileMapper).not.toHaveBeenCalled();
+    await transport.prepare(document, { ...preparation, sf2Parts: [] });
+    expect(strips.size).toBe(0);
+  });
+
+  it("auditions the same piano voicing atomically and respects mixer mute and released ownership", async () => {
+    const { document, preparation } = chordFixture();
+    const { createVstTransport } = await import("./vstTransport");
+    const transport = createVstTransport()!;
+    const voice = voiceChordSymbol(document.global.measures[0]!.chordSymbols![0]!);
+    const notes = [...voice.leftHand, ...voice.rightHand];
+    expect(await transport.previewChord(1, notes, 80, 600)).toBe(false);
+    await transport.prepare(document, preparation);
+    for (let click = 0; click < 2; click++) expect(await transport.previewChord(1, notes, 80, 600)).toBe(true);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_preview_chord")).toHaveLength(2);
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      "vst_playback_preview_chord",
+      { slotKey: CHORDS_PART_ID, partIndex: 1, notes: [36, 60, 64, 67], velocity: 80, durationMs: 600 },
+      undefined,
+    );
+    await transport.setMutedParts(new Set([1]));
+    expect(await transport.previewChord(1, notes, 80, 600)).toBe(true);
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === "vst_playback_preview_chord")).toHaveLength(2);
+    await transport.setMutedParts(new Set());
+    await transport.release();
+    expect(await transport.previewChord(1, notes, 80, 600)).toBe(false);
+  });
 
   it("sends repeated score IDs as separate SF2 lifetimes without the VST mapper", async () => {
     const document = score();
@@ -435,7 +551,11 @@ describe("native mixer reconciliation", () => {
       expect(await transport.previewNote(1, 72, 100, 200)).toBe(true);
       expect(await transport.previewNote(2, 84, 100, 200)).toBe(true);
       expect(mocks.invoke.mock.calls).toEqual([
-        ["vst_playback_preview", { slotKey: slotKeys[0], note: 60, velocity: 100, durationMs: 200 }, undefined],
+        [
+          "vst_playback_preview",
+          { slotKey: slotKeys[0], partIndex: 0, note: 60, velocity: 100, durationMs: 200 },
+          undefined,
+        ],
       ]);
 
       mocks.invoke.mockClear();
@@ -453,7 +573,11 @@ describe("native mixer reconciliation", () => {
       expect(await transport.previewNote(1, 72, 100, 200)).toBe(true);
       expect(await transport.previewNote(2, 84, 100, 200)).toBe(true);
       expect(mocks.invoke.mock.calls).toEqual([
-        ["vst_playback_preview", { slotKey: slotKeys[2], note: 84, velocity: 100, durationMs: 200 }, undefined],
+        [
+          "vst_playback_preview",
+          { slotKey: slotKeys[2], partIndex: 2, note: 84, velocity: 100, durationMs: 200 },
+          undefined,
+        ],
       ]);
 
       mocks.invoke.mockClear();

@@ -164,6 +164,58 @@ Browser builds retain their existing local soundfont behavior,
 and hosted browser builds retain their separately configured CDN externalization.
 Desktop release CI does not inject hosted API or asset URLs.
 
+### Native chord audition
+
+The shared playback API exposes `previewChord(chord: ChordSymbol): Promise<void>`
+for committed edits and click-to-hear. `getChordPlaybackPart(score)` (exported by
+`@viritura/playback` and `@viritura/midi`) returns the runtime mixer index and
+`CHORDS_PART_ID` from `@viritura/core`, or `undefined` when there are no global
+symbols. Unsupported symbols still create the lane and terminate preceding
+harmony. Preview uses the same resolved GM0 SoundFont piano and semantic voicing
+as playback, lasts 400 ms, respects the effective mixer mute/solo and gain,
+and only sounds while transport is not playing. New clicks, transport changes,
+score changes, and audio-mode changes cancel the previous audition.
+
+Selection policy is identical on browser and native: full-score playback and a
+current-part/view extract include global chords regardless of visual Hide.
+Explicit instrument selections exclude chords unless they include **every source
+part visible in the current view**; an explicit empty selection includes nothing.
+In a single-part view, explicitly selecting that part therefore includes chords.
+Selection gates audio only; it does not overwrite saved mixer controls. The
+runtime lane is never persisted as a `Part` or assigned a user instrument profile.
+
+`vst_playback_preview_chord({ slotKey, partIndex, notes, velocity, durationMs })` auditions
+an already-loaded slot through the existing native mixer. The derived-chords
+runtime lane uses an SF2 piano slot (program 0) and the extra part index
+`score.parts.length`; it does not add an authored score part. Its stable slot key
+is `viritura:derived:chords`, including when all symbols are unsupported and the
+schedule is silent. It uses the existing bundled SoundFont resolver, not a VST.
+
+Both this command and
+`vst_playback_preview({ slotKey, partIndex, note, velocity, durationMs })`
+require `partIndex` (a `u32`, exposed in camelCase over Tauri IPC). It identifies
+the originating part, independently of the slot's scheduled events, including
+the derived SF2 lane when its schedule is empty.
+
+The editor transport exposes
+`previewChord(partIndex, notes, velocity, durationMs): Promise<boolean>`.
+The caller prepares the lane using `sf2Parts` first, then supplies the combined
+`voiceChordSymbol(chord).leftHand` and `.rightHand` pitches. A missing native
+lane returns `false`; mixer-muted lanes return `true` without sounding.
+
+The command accepts 1–16 integer MIDI notes (0–127), velocity 1–127, and duration
+1–10000 ms. Duplicate pitches sound once. It accepts no asset paths and never
+starts the host or loads a plugin. Unknown slots and active transport return an
+error: audition cannot release scheduled notes. A chord atomically releases and
+replaces the same slot's previous audition; other slots are unaffected.
+The single-note command remains additive for distinct pitches, but retriggering
+one pitch replaces its deadline. Load, retain, start, stop, seek, and release
+cancel all pending auditions before changing slot or transport ownership.
+Muting a part cancels only auditions originating from that part, not all
+auditions on a shared slot. This also applies to the derived SF2 lane with an
+empty schedule: preview ownership comes from the required `partIndex`, not
+from scheduled notes.
+
 ## Windows release downloads
 
 Publishing a [GitHub Release](https://github.com/Viritura/Viritura/releases)

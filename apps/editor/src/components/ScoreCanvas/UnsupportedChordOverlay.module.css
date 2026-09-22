@@ -1,0 +1,40 @@
+.root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.outline {
+  position: absolute;
+  box-sizing: border-box;
+  border-bottom: 2px solid #d32f2f;
+}
+
+.marker {
+  position: absolute;
+  right: -14px;
+  top: -8px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: #d32f2f;
+  background: var(--color-surface, white);
+  font: bold 11px/12px sans-serif;
+  cursor: help;
+  pointer-events: auto;
+}
+
+.marker:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media print {
+  .root {
+    display: none;
+  }
+}

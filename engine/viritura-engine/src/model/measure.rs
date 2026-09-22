@@ -143,9 +143,6 @@ pub struct PartMeasure {
     /// Piano pedal markings in this measure (Viritura extension `_x.viritura.pedals[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pedals: Option<Vec<Pedal>>,
-    /// Part-local chord symbols retained as exceptions to global harmony.
-    #[serde(skip_serializing_if = "Option::is_none", rename = "chordSymbols")]
-    pub chord_symbols: Option<Vec<ChordSymbol>>,
     /// Text expressions in this measure (Viritura extension `_x.viritura.expressions[]`)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expressions: Option<Vec<TextExpression>>,
@@ -266,6 +263,8 @@ pub struct ResolvedMeasure {
     pub index: usize,
     pub global: GlobalMeasure,
     pub part: PartMeasure,
+    /// Layout-only harmony lane cloned from global events; never part-measure data.
+    pub(crate) chord_symbols: Option<Vec<ChordSymbol>>,
     /// This measure is represented by a measure-repeat sign at this index or an
     /// earlier index in the same part. Derived during resolution; never stored.
     pub measure_repeat_covered: bool,

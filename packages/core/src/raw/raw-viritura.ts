@@ -171,20 +171,15 @@ export interface components {
             /** @description Chromatic alteration in semitones (-1 = flat, 1 = sharp). */
             alter?: number;
         };
-        /** @description A chord symbol above the staff (e.g. 'Cmaj7', 'Dm', 'G7', 'F#dim'). */
+        /** @description A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root. */
         "chord-symbol": {
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
-            /** @description Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff. */
-            displayStaff?: number;
-            /**
-             * @deprecated
-             * @description Deprecated alias for displayStaff. Accepted on read for compatibility.
-             */
-            staff?: number;
-            /** @description Root note of the chord. */
-            root: components["schemas"]["chord-root"];
-            quality: components["schemas"]["chord-quality"];
+            /** @description Structured root note, optional for raw authored symbols and no-chord declarations. When present, it must agree semantically with rawText. */
+            root?: components["schemas"]["chord-root"];
+            /** @description Original authored chord text, preserved verbatim even when structured fields are available. Rootless text preserves malformed or unrecognized symbols and NC. The semantic resolver checks agreement with any structured fields. */
+            rawText?: string;
+            quality?: components["schemas"]["chord-quality"];
             /** @description Authored quality spelling retained alongside the normalized quality. */
             kindText?: string;
             /** @description Bass note for slash chords (e.g. the 'E' in 'C/E'). */
@@ -194,7 +189,7 @@ export interface components {
              * @enum {integer}
              */
             extension?: 6 | 7 | 9 | 11 | 13;
-            /** @description Override the computed display text (e.g. 'Cadd9'). */
+            /** @description Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides. */
             textOverride?: string;
         };
         /** @description Score-wide chord-symbol engraving choices. */
@@ -350,8 +345,6 @@ export interface components {
         "part-measure-extensions": {
             /** @description Piano pedal markings. */
             pedals?: components["schemas"]["pedal"][];
-            /** @description Chord symbols above the staff. */
-            chordSymbols?: components["schemas"]["chord-symbol"][];
             /** @description Text expressions and performance directions. */
             expressions?: components["schemas"]["text-expression"][];
             /**
@@ -451,6 +444,11 @@ export interface components {
             family?: string;
             /** @description Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload. */
             spatial?: components["schemas"]["stage-position"];
+            /**
+             * @description Source-part display policy for the score-wide harmony track. Unset or auto uses automatic placement; show or hide explicitly controls this part. This is not a layout-staff or per-chord switch.
+             * @enum {string}
+             */
+            chordSymbolVisibility?: "auto" | "show" | "hide";
         };
         /** @description Viritura extensions on a standard MNX system-layout object. */
         "system-layout-extensions": {
@@ -458,18 +456,7 @@ export interface components {
             derived?: true;
         };
         /** @description Viritura engraving properties on a layout staff. */
-        "layout-staff-extensions": {
-            /**
-             * @description Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part.
-             * @enum {string}
-             */
-            chordSymbolVisibility?: "auto" | "show" | "hide";
-            /**
-             * @description Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout.
-             * @enum {string}
-             */
-            globalChordSymbolVisibility?: "auto" | "show" | "hide";
-        };
+        "layout-staff-extensions": Record<string, never>;
         "page-turn-weights": {
             density?: number;
             turn?: number;

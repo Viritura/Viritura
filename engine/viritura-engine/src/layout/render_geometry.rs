@@ -5,5 +5,6 @@ mod bbox_articulations;
 mod bbox_notes;
 mod helpers;
 
+pub(crate) use bbox_annotations::chord_symbol_bboxes;
 pub(crate) use bbox_articulations::measure_articulation_extent;
 pub(crate) use helpers::*;

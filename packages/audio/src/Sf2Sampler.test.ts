@@ -134,6 +134,82 @@ describe("Sf2Sampler", () => {
     expect(synth.noteOff).toHaveBeenCalledWith(3, 60, { time: 10.2 });
   });
 
+  it("holds a polyphonic audition for three audio-clock seconds then releases without panic", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0);
+    const notes = [48, 60, 64, 67];
+    const start = h.sf2Synth.context.currentTime;
+    for (const note of notes) {
+      sampler.noteOn(note, 90, start);
+      sampler.noteOff(note, start + 3);
+    }
+
+    for (const elapsed of [0.25, 0.4, 2.999]) {
+      h.advance(start + elapsed);
+      expect(h.channels[3]!.voices).toEqual(new Set(notes));
+    }
+    h.advance(start + 3);
+    expect(h.channels[3]!.voices.size).toBe(0);
+    expect(h.received.filter((event) => (event.data.messageData[0]! & 0xf0) === 0x80)).toHaveLength(4);
+    expect(h.channels[3]!.controllers.has(120)).toBe(false);
+    expect(h.channels[3]!.controllers.has(123)).toBe(false);
+    expect(h.cancel).not.toHaveBeenCalled();
+  });
+
+  it("cancels an audition deadline before a same-pitch replacement gets its own full hold", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0);
+    sampler.noteOn(60, 90);
+    sampler.noteOff(60, 13);
+    h.advance(11);
+
+    sampler.allNotesOff();
+    sampler.noteOn(60, 90);
+    sampler.noteOff(60, 14);
+
+    h.advance(13);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    h.advance(14);
+    expect(h.channels[3]!.voices.size).toBe(0);
+    expect(h.attacks).toEqual([
+      { channel: 3, note: 60, time: 10 },
+      { channel: 3, note: 60, time: 11 },
+    ]);
+  });
+
+  it("requires pedal-up for a bounded audition after inherited sustain", () => {
+    const h = createSamplerWorkletHarness();
+    const sampler = new Sf2Sampler(h.sf2Synth, 3, 0);
+    sampler.sendControl(64, 127);
+    sampler.allNotesOff();
+    sampler.resetTechniqueState();
+    sampler.noteOn(60, 90);
+    sampler.noteOff(60, 13);
+
+    h.advance(13);
+    expect(h.channels[3]!.voices).toEqual(new Set([60]));
+    expect(h.channels[3]!.released).toEqual(new Set([60]));
+    sampler.sendControl(64, 0);
+    expect(h.channels[3]!.voices.size).toBe(0);
+  });
+
+  it("isolates a replacement on another channel from the old audition deadline", () => {
+    const h = createSamplerWorkletHarness();
+    const first = new Sf2Sampler(h.sf2Synth, 3, 0);
+    const next = new Sf2Sampler(h.sf2Synth, 4, 0);
+    first.noteOn(60, 80, 10);
+    first.noteOff(60, 13);
+    h.advance(12.9);
+    first.allNotesOff();
+    next.noteOn(60, 80, 12.9);
+    next.noteOff(60, 15.9);
+    h.advance(13);
+    expect(h.channels[3]!.voices.size).toBe(0);
+    expect(h.channels[4]!.voices).toEqual(new Set([60]));
+    h.advance(15.9);
+    expect(h.channels[4]!.voices.size).toBe(0);
+  });
+
   it("configures an allocated non-channel-9 lane as percussion", () => {
     const { synth, sf2Synth } = createMockSf2Synth();
     const sampler = new Sf2Sampler(sf2Synth, 4, 0, { isDrum: true, drumKitProgram: 48 });

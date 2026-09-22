@@ -82,16 +82,6 @@ function parseLayoutStaff(raw: RawStaff): LayoutStaff {
   };
   if (raw.label) staff.label = raw.label;
   if (raw.labelref) staff.labelref = raw.labelref;
-  const viritura = raw._x?.["viritura"] as
-    | {
-        chordSymbolVisibility?: "auto" | "show" | "hide";
-        globalChordSymbolVisibility?: "auto" | "show" | "hide";
-      }
-    | undefined;
-  if (viritura?.chordSymbolVisibility) staff.chordSymbolVisibility = viritura.chordSymbolVisibility;
-  if (viritura?.globalChordSymbolVisibility) {
-    staff.globalChordSymbolVisibility = viritura.globalChordSymbolVisibility;
-  }
   return staff;
 }
 

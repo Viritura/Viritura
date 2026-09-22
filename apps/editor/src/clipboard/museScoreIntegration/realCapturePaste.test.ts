@@ -80,10 +80,10 @@ const sourcePlaybackHairpinXml = hairpinXml
 interface NativeMeasure {
   sequences: Array<{ staff?: number; content: Array<Omit<NoteEvent, "type">> }>;
   dynamics?: RawDynamicGroup[];
-  _x?: { viritura?: { chordSymbols?: ChordSymbol[] } };
 }
 
 interface NativeScore {
+  global: { measures: Array<{ _x?: { viritura?: { chordSymbols?: ChordSymbol[] } } }> };
   parts: Array<{ transposition?: Transposition; measures: NativeMeasure[] }>;
 }
 
@@ -157,6 +157,12 @@ function expectMusic(events: Array<Pick<NoteEvent, "notes" | "duration">>, pitch
 function persisted(score: Score) {
   const wire = serializeMnx(score);
   expect(validateRawScore(wire)).toMatchObject({ ok: true });
+  for (const part of wire.parts) {
+    for (const measure of part.measures) {
+      expect(measure).not.toHaveProperty("chordSymbols");
+      expect(measure).not.toHaveProperty("_x.viritura.chordSymbols");
+    }
+  }
   const decoded = parseMnx(JSON.parse(JSON.stringify(wire)));
   return { wire: wire as NativeScore, decoded };
 }
@@ -555,7 +561,7 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
         position: { fraction: [0, 16] },
       },
     ]);
-    expectHarmonies(result.wire.parts[0]!.measures[1]!._x?.viritura?.chordSymbols, 1);
+    expectHarmonies(result.wire.global.measures[1]!._x?.viritura?.chordSymbols);
     const copied = captureClipboardSelection(result.captured);
     expect(copied.reimported.tracks?.map((track) => track.staffOffset)).toEqual([0, 1]);
     expectMusic(pitched(copied.reimported.tracks![0]!.content), UPPER_PITCHES, [3 / 8, 3 / 8]);
@@ -610,7 +616,7 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
   it.each([
     { name: "grand staff", layout: [2], lowerPart: 0, lowerStaff: 2 },
     { name: "separate parts", layout: [1, 1], lowerPart: 1, lowerStaff: 1 },
-  ])("routes secondary harmonies into $name", ({ layout, lowerPart, lowerStaff }) => {
+  ])("globalizes secondary harmonies in $name", ({ layout, lowerPart, lowerStaff }) => {
     const harmonies = [...pianoXml.matchAll(/ {4}<Harmony>[\s\S]*? {6}<\/Harmony>\r?\n/g)].map((match) => match[0]);
     expect(harmonies).toHaveLength(2);
     let variant = pianoXml;
@@ -626,32 +632,37 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
       [1, 3 / 8],
     ]);
     const result = place(parsed, destination(layout));
-    expectPiano(result.score, lowerPart, lowerStaff, true);
-    expectPiano(result.decoded, lowerPart, lowerStaff, true);
-    expectHarmonies(result.wire.parts[lowerPart]!.measures[1]!._x?.viritura?.chordSymbols, lowerStaff);
+    expectPiano(result.score, lowerPart, lowerStaff);
+    expectPiano(result.decoded, lowerPart, lowerStaff);
+    expectHarmonies(result.wire.global.measures[1]!._x?.viritura?.chordSymbols);
     const copied = captureClipboardSelection(result.captured);
     expect(copied.reimported.chordSymbols?.map((symbol) => [symbol.staffOffset, fractionValue(symbol.offset)])).toEqual(
       [
-        [1, 0],
-        [1, 3 / 8],
+        [0, 0],
+        [0, 3 / 8],
       ],
     );
-    expect(copied.document.querySelectorAll("Staff")[0]!.querySelectorAll("Harmony")).toHaveLength(0);
-    expect(copied.document.querySelectorAll("Staff")[1]!.querySelectorAll("Harmony")).toHaveLength(2);
-    expectPiano(place(copied.reimported, destination(layout)).decoded, lowerPart, lowerStaff, true);
+    expect(copied.document.querySelectorAll("Staff")[0]!.querySelectorAll("Harmony")).toHaveLength(2);
+    expect(copied.document.querySelectorAll("Staff")[1]!.querySelectorAll("Harmony")).toHaveLength(0);
+    expectPiano(place(copied.reimported, destination(layout)).decoded, lowerPart, lowerStaff);
+    expectPiano(place(pasteResultFromFragment(copied.fragment), destination(layout)).decoded, lowerPart, lowerStaff);
   });
 });
 
-function expectHarmonies(symbols: ChordSymbol[] | undefined, staff: number) {
+function expectHarmonies(symbols: ChordSymbol[] | undefined) {
   expect(symbols).toHaveLength(2);
   expect(symbols).toMatchObject([
-    { root: { step: "C" }, quality: "minor", displayStaff: staff },
-    { root: { step: "E", alter: -1 }, quality: "major", displayStaff: staff },
+    { root: { step: "C" }, quality: "minor" },
+    { root: { step: "E", alter: -1 }, quality: "major" },
   ]);
+  for (const symbol of symbols!) {
+    expect(symbol).not.toHaveProperty("displayStaff");
+    expect(symbol).not.toHaveProperty("sourceStaff");
+  }
   expect(symbols!.map((symbol) => fractionValue(symbol.position.fraction))).toEqual([0, 3 / 8]);
 }
 
-function expectPiano(score: Score, lowerPart: number, lowerStaff: number, lowerHarmony = false) {
+function expectPiano(score: Score, lowerPart: number, lowerStaff: number) {
   expectMusic(staffEvents(score), UPPER_PITCHES, [3 / 8, 3 / 8]);
   expectMusic(staffEvents(score, lowerPart, lowerStaff), LOWER_PITCHES, Array<number>(6).fill(1 / 8));
   const dynamics = score.parts.flatMap((part) => part.measures.flatMap((measure) => measure.dynamics ?? []));
@@ -666,6 +677,9 @@ function expectPiano(score: Score, lowerPart: number, lowerStaff: number, lowerH
     },
   ]);
   expect(fractionValue(dynamics[0]!.position.fraction)).toBe(0);
-  expectHarmonies(score.parts[lowerHarmony ? lowerPart : 0]!.measures[1]!.chordSymbols, lowerHarmony ? lowerStaff : 1);
-  expect(score.parts.flatMap((part) => part.measures.flatMap((measure) => measure.chordSymbols ?? []))).toHaveLength(2);
+  expectHarmonies(score.global.measures[1]!.chordSymbols);
+  expect(score.global.measures.flatMap((measure) => measure.chordSymbols ?? [])).toHaveLength(2);
+  for (const part of score.parts) {
+    for (const measure of part.measures) expect(measure).not.toHaveProperty("chordSymbols");
+  }
 }

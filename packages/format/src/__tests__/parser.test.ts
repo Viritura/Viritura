@@ -1415,7 +1415,7 @@ describe("parseMnx _x.viritura extensions", () => {
     }
   });
 
-  it("should parse chord symbols from _x.viritura", () => {
+  it("should reject removed part-measure chord symbols rather than migrate them", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
@@ -1431,7 +1431,6 @@ describe("parseMnx _x.viritura extensions", () => {
                   chordSymbols: [
                     {
                       position: { fraction: [0, 1] },
-                      displayStaff: 2,
                       root: { step: "C" },
                       quality: "other",
                       kindText: "Neapolitan",
@@ -1445,13 +1444,7 @@ describe("parseMnx _x.viritura extensions", () => {
         },
       ],
     };
-    const score = parseMnx(mnx);
-    const cs = score.parts[0]?.measures[0]?.chordSymbols;
-    expect(cs).toHaveLength(1);
-    expect(cs?.[0]?.root.step).toBe("C");
-    expect(cs?.[0]?.displayStaff).toBe(2);
-    expect(cs?.[0]?.quality).toBe("other");
-    expect(cs?.[0]?.kindText).toBe("Neapolitan");
+    expect(() => parseMnx(mnx)).toThrow();
   });
 
   it("should round-trip global harmony events from _x.viritura", () => {
@@ -1478,14 +1471,14 @@ describe("parseMnx _x.viritura extensions", () => {
     };
 
     const parsed = parseMnx(mnx);
-    expect(parsed.global.measures[0]?.chordSymbols?.[0]?.root.step).toBe("C");
+    expect(parsed.global.measures[0]?.chordSymbols?.[0]?.root?.step).toBe("C");
     const serialized = serializeMnx(parsed) as {
       global: { measures: Array<{ _x?: { viritura?: { chordSymbols?: unknown[] } } }> };
     };
     expect(serialized.global.measures[0]?._x?.viritura?.chordSymbols).toHaveLength(1);
   });
 
-  it("should round-trip global harmony visibility on layout staffs", () => {
+  it("should reject removed global harmony visibility on layout staffs", () => {
     const mnx = {
       mnx: { version: 1 },
       global: { measures: [{}] },
@@ -1504,87 +1497,66 @@ describe("parseMnx _x.viritura extensions", () => {
       parts: [{ id: "p1", measures: [{ sequences: [{ content: [] }] }] }],
     };
 
-    const parsed = parseMnx(mnx);
-    const staff = parsed.layouts?.[0]?.content[0];
-    expect(staff?.type).toBe("staff");
-    if (staff?.type !== "staff") return;
-    expect(staff.globalChordSymbolVisibility).toBe("show");
-    expect(serializeMnx(parsed)).toMatchObject({
-      layouts: [
-        {
-          content: [
-            {
-              _x: { viritura: { globalChordSymbolVisibility: "show" } },
-            },
-          ],
-        },
-      ],
-    });
+    expect(() => parseMnx(mnx)).toThrow();
   });
 
-  it("should migrate the legacy chord-symbol staff field to displayStaff", () => {
+  it("should reject the legacy chord-symbol staff field rather than migrate it", () => {
     const mnx = {
       mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        {
-          measures: [
-            {
-              _x: {
-                viritura: {
-                  chordSymbols: [
-                    {
-                      position: { fraction: [0, 1] },
-                      staff: 2,
-                      root: { step: "C" },
-                      quality: "major",
-                    },
-                  ],
-                },
+      global: {
+        measures: [
+          {
+            _x: {
+              viritura: {
+                chordSymbols: [
+                  {
+                    position: { fraction: [0, 1] },
+                    staff: 2,
+                    root: { step: "C" },
+                    quality: "major",
+                  },
+                ],
               },
-              sequences: [{ content: [] }],
             },
-          ],
-        },
-      ],
+          },
+        ],
+      },
+      parts: [{ measures: [{ sequences: [{ content: [] }] }] }],
     };
 
-    expect(parseMnx(mnx).parts[0]?.measures[0]?.chordSymbols?.[0]?.displayStaff).toBe(2);
+    expect(() => parseMnx(mnx)).toThrow();
   });
 
   it("should preserve an empty chord-symbol text override", () => {
     const mnx = {
       mnx: { version: 1 },
-      global: { measures: [{}] },
-      parts: [
-        {
-          measures: [
-            {
-              sequences: [{ content: [] }],
-              _x: {
-                viritura: {
-                  chordSymbols: [
-                    {
-                      position: { fraction: [0, 1] },
-                      root: { step: "C" },
-                      quality: "major",
-                      textOverride: "",
-                    },
-                  ],
-                },
+      global: {
+        measures: [
+          {
+            _x: {
+              viritura: {
+                chordSymbols: [
+                  {
+                    position: { fraction: [0, 1] },
+                    root: { step: "C" },
+                    quality: "major",
+                    textOverride: "",
+                  },
+                ],
               },
             },
-          ],
-        },
-      ],
+          },
+        ],
+      },
+      parts: [{ measures: [{ sequences: [{ content: [] }] }] }],
     };
 
     const parsed = parseMnx(mnx);
     const serialized = serializeMnx(parsed) as {
-      parts: Array<{ measures: Array<{ _x: { viritura: { chordSymbols: Array<{ textOverride?: string }> } } }> }>;
+      global: { measures: Array<{ _x: { viritura: { chordSymbols: Array<{ textOverride?: string }> } } }> };
     };
-    expect(parsed.parts[0]?.measures[0]?.chordSymbols?.[0]?.textOverride).toBe("");
-    expect(serialized.parts[0]?.measures[0]?._x.viritura.chordSymbols[0]?.textOverride).toBe("");
+    expect(parsed.global.measures[0]?.chordSymbols?.[0]?.textOverride).toBe("");
+    expect(serialized.global.measures[0]?._x.viritura.chordSymbols[0]?.textOverride).toBe("");
   });
 
   it("should parse text expressions from _x.viritura", () => {

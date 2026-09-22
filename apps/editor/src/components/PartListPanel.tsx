@@ -37,7 +37,7 @@ export interface PartListPanelProps {
   onRemoveDoubling?: (staffPath: NodePath, sourceIndex: number) => void;
   onPartUpdate?: (
     partId: string,
-    updates: Partial<Pick<Part, "name" | "shortName" | "staves" | "transposition">>,
+    updates: Partial<Pick<Part, "name" | "shortName" | "staves" | "transposition" | "chordSymbolVisibility">>,
   ) => void;
   onAddScore?: (type: "full" | "condensed" | "custom" | "part", partId?: string) => void;
   onDeleteScore?: (index: number) => void;
@@ -64,7 +64,7 @@ export function PartListPanel({
   onRemoveInstrumentFromScore,
   onAddDoubling,
   onRemoveDoubling,
-  onPartUpdate: _onPartUpdate,
+  onPartUpdate,
   onAddScore,
   onCreateSectionScore,
   onSetScoreMembership,
@@ -118,7 +118,6 @@ export function PartListPanel({
     partsSectionStart,
     removeGroup,
     updateGroupProp,
-    updateStaffChordSymbolVisibility,
     ungroupStaff,
     createGroupFromSelection: createGroupFromSelectionRaw,
     dragState,
@@ -179,7 +178,8 @@ export function PartListPanel({
     setContextMenu,
     removeGroup,
     updateGroupProp,
-    updateStaffChordSymbolVisibility,
+    sourceParts: score?.parts ?? [],
+    onPartUpdate,
     setEditingGroup,
     setEditingGroupLabel,
     partIdToScoreIndex,

@@ -1,7 +1,15 @@
 import { produce } from "../score/scoreClone";
 import { resolveEventLocation, resolveEventFromSubElement } from "../score/ElementPath";
 import { findCondensingStaff } from "../score/condensingRouter";
-import { parseChordSymbolText, type LayoutContent, type Score, type NoteValueBase, type Tempo } from "@viritura/core";
+import {
+  parseChordSymbolText,
+  compareChordSymbolPositions,
+  transposeChordSymbol,
+  upsertGlobalChordSymbol,
+  type Score,
+  type NoteValueBase,
+  type Tempo,
+} from "@viritura/core";
 import type { ChordSymbolPopoverState, TempoPopoverState, StaffTextPopoverState } from "../store/overlayStore";
 import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
@@ -90,59 +98,40 @@ export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState,
   });
 }
 
-function showGlobalHarmonyOnStaff(content: LayoutContent[], partId: string, staff: number): void {
-  for (const item of content) {
-    if (item.type === "group") {
-      showGlobalHarmonyOnStaff(item.content, partId, staff);
-      continue;
-    }
-    if (item.sources.some((source) => source.part === partId && (source.staff ?? 1) === staff)) {
-      item.globalChordSymbolVisibility = "show";
-    }
-  }
-}
-
 /** Insert or replace a global harmony event at the selected rhythmic position. */
 export function applyChordSymbolEdit(
   score: Score,
   popover: ChordSymbolPopoverState,
   rawValue: string,
+  selectedScoreIndex = 0,
 ): Score | undefined {
-  const pm = score.parts[popover.partIndex]?.measures[popover.measureIndex];
+  const part = score.parts[popover.partIndex];
+  const pm = part?.measures[popover.measureIndex];
   const sequence = pm?.sequences[popover.sequenceIndex];
-  if (!pm || !sequence) return undefined;
+  const measure = score.global.measures[popover.measureIndex];
+  if (!part || !pm || !sequence || !measure || !rawValue.trim()) return undefined;
 
   const position = popover.rhythmicPosition ?? {
     fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)),
   };
-  const chord = parseChordSymbolText(rawValue, position);
-  if (!chord) return undefined;
+  const useWritten = score.scores?.[selectedScoreIndex]?.useWritten || part.transposition?.prefersWrittenPitches;
+  const interval = useWritten ? part.transposition?.interval : undefined;
+  const parsed = parseChordSymbolText(rawValue, position);
+  const parsedConcert = interval
+    ? transposeChordSymbol(parsed, { halfSteps: -interval.halfSteps, staffDistance: -interval.staffDistance })
+    : parsed;
+  const existing = measure.chordSymbols?.find(
+    (candidate) => compareChordSymbolPositions(candidate.position, position) === 0,
+  );
+  const chord = {
+    ...parsedConcert,
+    ...(existing?.textOverride !== undefined && { textOverride: existing.textOverride }),
+  };
+  const updated = upsertGlobalChordSymbol(measure, chord);
 
   return produce(score, (draft) => {
-    const measure = draft.global.measures[popover.measureIndex];
-    if (!measure) return;
-    const chords = measure.chordSymbols ?? [];
-    const atSamePosition = (candidate: (typeof chords)[number]) =>
-      candidate.position.fraction[0] * chord.position.fraction[1] ===
-      chord.position.fraction[0] * candidate.position.fraction[1];
-    const replaceIndex = chords.findIndex(atSamePosition);
-    if (replaceIndex >= 0) {
-      chords[replaceIndex] = chord;
-    } else {
-      chords.push(chord);
-    }
-    chords.sort(
-      (left, right) =>
-        left.position.fraction[0] / left.position.fraction[1] - right.position.fraction[0] / right.position.fraction[1],
-    );
-    measure.chordSymbols = chords;
-
-    const partId = draft.parts[popover.partIndex]?.id;
-    if (partId) {
-      for (const layout of draft.layouts ?? []) {
-        showGlobalHarmonyOnStaff(layout.content, partId, popover.anchorStaff ?? 1);
-      }
-    }
+    draft.global.measures[popover.measureIndex] = updated;
+    draft.parts[popover.partIndex]!.chordSymbolVisibility = "show";
   });
 }
 

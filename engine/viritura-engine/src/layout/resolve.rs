@@ -300,37 +300,36 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             measure_repeat: None,
             staff_configs: None,
             pedals: None,
-            chord_symbols: None,
             expressions: None,
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
         });
-        if part_index == 0 {
-            if let Some(global_chords) = global.chord_symbols() {
-                let mut resolved_chords = global_chords
+        // A direct resolve call displays this selected part. Full-score layout
+        // coordinates automatic visibility across its displayed parts separately.
+        let chord_symbols = if part.chord_symbol_visibility == Some(ChordSymbolVisibility::Hide) {
+            None
+        } else {
+            global.chord_symbols().map(|global_chords| {
+                global_chords
                     .iter()
                     .enumerate()
                     .map(|(index, chord)| {
-                        let mut chord = chord.clone();
+                        // Written-pitch preference alone (octave instruments) must
+                        // not change the concert harmony lane.
+                        let chord_transposition = transposition
+                            .filter(|(_, half_steps)| use_written && half_steps % 12 != 0);
+                        let mut chord = super::render_annotations::chord_symbol_for_display(
+                            chord,
+                            chord_transposition,
+                        );
                         chord.source_index = Some(index);
-                        chord.source_global = true;
+                        chord.source_part_index = Some(part_index);
                         chord
                     })
-                    .collect::<Vec<_>>();
-                if let Some(local_chords) = part_measure.chord_symbols.take() {
-                    for chord in local_chords {
-                        if !resolved_chords
-                            .iter()
-                            .any(|existing| existing.position == chord.position)
-                        {
-                            resolved_chords.push(chord);
-                        }
-                    }
-                }
-                part_measure.chord_symbols = Some(resolved_chords);
-            }
-        }
+                    .collect()
+            })
+        };
 
         if let Some(ref t) = global.time {
             active_time = t.clone();
@@ -389,6 +388,7 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             index: i,
             global,
             part: part_measure,
+            chord_symbols,
             measure_repeat_covered: measure_is_covered_by_repeat(&part.measures, i),
             next_has_repeat_start: globals
                 .get(i + 1)
@@ -582,6 +582,10 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
     let cur = &resolved[i];
     let g = &cur.global;
     let starts_here = g.time.is_some()
+        || cur
+            .chord_symbols
+            .as_ref()
+            .is_some_and(|chords| !chords.is_empty())
         || g.key.is_some()
         || g.tempos.as_ref().is_some_and(|t| !t.is_empty())
         || g.rehearsal_mark().is_some()
@@ -606,6 +610,10 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
         )
     );
     let ends_prev = prev_barline_breaks
+        || prev
+            .chord_symbols
+            .as_ref()
+            .is_some_and(|chords| !chords.is_empty())
         || pg.repeat_start.is_some()
         || pg.repeat_end.is_some()
         || pg.fine.is_some()

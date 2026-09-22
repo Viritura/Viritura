@@ -6,6 +6,7 @@ import { DynamicGroupSection } from "./DynamicGroupSection";
 import { OttavaInspector } from "./OttavaInspector";
 import { ChordSymbolSection } from "./ChordSymbolSection";
 import { useChordSymbolInspector } from "./useChordSymbolInspector";
+import { ChordSymbolEntryAction } from "./ChordSymbolEntryAction";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -54,6 +55,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
 
   return (
     <>
+      {!chordSymbol.chord && <ChordSymbolEntryAction score={score} />}
       {isDynamicSelected && selectedDynamic && (
         <DynamicGroupSection
           dynamic={selectedDynamic}
@@ -123,9 +125,10 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
       )}
       {chordSymbol.chord && (
         <ChordSymbolSection
+          key={chordSymbol.editorKey}
           chord={chordSymbol.chord}
-          staffCount={staffCount}
-          isGlobal={chordSymbol.isGlobal}
+          sourcePart={chordSymbol.sourcePart}
+          onTextChange={chordSymbol.setText}
           onRootStepChange={chordSymbol.setRootStep}
           onRootAlterChange={chordSymbol.setRootAlter}
           onQualityChange={chordSymbol.setQuality}
@@ -133,7 +136,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           onExtensionChange={chordSymbol.setExtension}
           onBassStepChange={chordSymbol.setBassStep}
           onBassAlterChange={chordSymbol.setBassAlter}
-          onDisplayStaffChange={chordSymbol.setDisplayStaff}
+          onVisibilityChange={chordSymbol.setVisibility}
           onTextOverrideChange={chordSymbol.setTextOverride}
         />
       )}

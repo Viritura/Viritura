@@ -1,5 +1,4 @@
 import type {
-  GlobalMeasure,
   Grace,
   MultiNoteTremolo,
   Note,
@@ -15,11 +14,14 @@ import { isRest, pitchToMidi } from "@viritura/core";
 import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
 import { buildHoldSchedule } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
-import { buildTempoMap, buildTempoModel } from "./tempoMap";
+import { buildTempoModel, type TempoBuild } from "./tempoMap";
 import { durationBeats, expandMeasureOrder, fractionToBeats, type TimelineOptions } from "./timeline";
 import { detectToCodaMeasureIndex } from "./repeatExpansion";
 import type { TempoModel } from "./tempoModel";
 import { resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
+import { compileChordPlayback, realizeChordPlayback } from "./chordPlayback";
+import { expandScoreMeasureRepeats } from "./measureRepeats";
+import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTiming";
 
 export interface Articulations {
   staccato: boolean;
@@ -431,11 +433,47 @@ function sortPerformanceEvents(events: readonly TimedEvent[]): PerformanceEvent[
     .map(({ event }) => event);
 }
 
+function buildPerformanceTiming(score: Score, measureOrder: readonly number[]): TempoBuild {
+  const expandedGlobal = playbackGlobalMeasures(score, measureOrder);
+  const holds = suppressCadenzaFermataHolds(
+    expandedGlobal,
+    buildHoldSchedule(score, measureOrder, score.global.measures),
+  );
+  return buildTempoModel(expandedGlobal, holds);
+}
+
+function generateChordPerformanceEvents(score: Score, options?: TimelineOptions): PerformanceEvent[] {
+  const program = compileChordPlayback(score, options?.includeGlobalChords);
+  const events: PerformanceEvent[] = [{ kind: "reset", time: 0 }];
+  if (!program) return events;
+  const measureOrder = expandMeasureOrder(score.global.measures, {
+    toCodaMeasureIndex: detectToCodaMeasureIndex(score),
+  });
+  const timing = buildPerformanceTiming(score, measureOrder);
+  for (const chordNote of realizeChordPlayback(program, measureOrder, timing)) {
+    const note: PerformanceNote = {
+      ...chordNote,
+      dynamics: 80 / 127,
+      articulations: { ...DEFAULT_ARTICULATIONS },
+      state: { ...DEFAULT_PLAYING_STATE },
+    };
+    events.push(
+      { kind: "noteOn", time: note.startTime, note },
+      { kind: "noteOff", time: note.startTime + note.duration, note },
+    );
+  }
+  const order = { reset: 0, noteOff: 1, dynamics: 2, technique: 2, noteOn: 3 };
+  return events.sort((a, b) => a.time - b.time || order[a.kind] - order[b.kind]);
+}
+
+/** The derived Chords stream is addressed at score.parts.length, without a Part. */
 export function generatePerformanceEvents(
-  score: Score,
+  inputScore: Score,
   partIndex: number,
   options?: TimelineOptions,
 ): PerformanceEvent[] {
+  const score = expandScoreMeasureRepeats(inputScore);
+  if (partIndex === score.parts.length) return generateChordPerformanceEvents(score, options);
   const globalMeasures = score.global.measures;
   const part = score.parts[partIndex];
   if (!part || globalMeasures.length === 0) return [{ kind: "reset", time: 0 }];
@@ -448,10 +486,7 @@ export function generatePerformanceEvents(
   const measureOrder = expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
   if (measureOrder.length === 0) return [{ kind: "reset", time: 0 }];
 
-  const expandedGlobal: GlobalMeasure[] = measureOrder.map((idx) => globalMeasures[idx]!).filter(Boolean);
-  const holdSchedule = buildHoldSchedule(score, measureOrder, globalMeasures);
-  buildTempoMap(expandedGlobal, holdSchedule);
-  const { model, measureStartBeats } = buildTempoModel(expandedGlobal, holdSchedule);
+  const { model, measureStartBeats } = buildPerformanceTiming(score, measureOrder);
   const staffMeterTable = resolvePartStaffMeterTable(part, globalMeasures);
   const dynamicsEnvelope = buildDynamicsEnvelope(
     part,

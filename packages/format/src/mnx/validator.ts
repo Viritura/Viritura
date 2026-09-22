@@ -13,6 +13,7 @@
 
 import type { ValidateFunction, ErrorObject } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
+import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph } from "@viritura/core";
 import {
   mnxDocument,
@@ -105,6 +106,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
     const extensionErrors = validateVirituraExtensions(json);
     if (extensionErrors.length > 0) return { ok: false, errors: extensionErrors };
     const semanticErrors = [
+      ...validateChordSymbols(value),
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
       ...validateBeatStructures(value),
@@ -427,6 +429,35 @@ function validateTupletDurations(document: unknown): RawScoreValidationError[] {
         };
         visit(sequence["content"], `/parts/${partIndex}/measures/${measureIndex}/sequences/${sequenceIndex}/content`);
       });
+    });
+  });
+  return errors;
+}
+
+function validateChordSymbols(score: RawScore): RawScoreValidationError[] {
+  const errors: RawScoreValidationError[] = [];
+  score.global.measures.forEach((measure, measureIndex) => {
+    const extension = measure._x?.["viritura"] as MeasureGlobalExtensions | undefined;
+    extension?.chordSymbols?.forEach((chord, chordIndex) => {
+      const pointer = `/global/measures/${measureIndex}/_x/viritura/chordSymbols/${chordIndex}`;
+      // Required-property unions cannot be faithfully represented by both wire generators.
+      if (chord.root === undefined && chord.rawText === undefined) {
+        errors.push({ pointer, message: "chord symbol requires root or rawText", keyword: "required" });
+      }
+      const [numerator, denominator] = chord.position.fraction;
+      if (
+        !Number.isSafeInteger(numerator) ||
+        numerator! < 0 ||
+        !Number.isSafeInteger(denominator) ||
+        denominator! <= 0
+      ) {
+        errors.push({
+          pointer: `${pointer}/position/fraction`,
+          message:
+            "chord position requires a nonnegative safe-integer numerator and a positive safe-integer denominator",
+          keyword: "range",
+        });
+      }
     });
   });
   return errors;

@@ -20,6 +20,8 @@ import { type ConvertFlags, type OttavaEvent, type TupletAccumulator, processMea
 import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
+import type { Interval } from "@viritura/core";
+import type { ImportedHarmonySource } from "./harmonyConsolidation";
 
 // Parse `<transpose>` from a part's first measure.
 //
@@ -179,8 +181,10 @@ export function buildParts(
   mnxParts: MnxPart[];
   lyricLineIds: Set<string>;
   lyricLineMetadata: Record<string, { label?: string; lang?: string }>;
+  harmonySources: ImportedHarmonySource[];
 } {
   const mnxParts: MnxPart[] = [];
+  const harmonySources: ImportedHarmonySource[] = [];
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
   const openSlurs = new Map<string, SlurState>();
@@ -188,7 +192,13 @@ export function buildParts(
   // Tie pairing persists across measures so ties spanning a barline resolve.
   const tieIds = new Map<string, MnxTie>();
 
-  for (const [partIdx, partEl] of findChildren(root, "part").entries()) {
+  const partOrder = new Map(partsInfo.map((part, index) => [part.id, index]));
+  const sourceParts = findChildren(root, "part").sort(
+    (a, b) =>
+      (partOrder.get(a.getAttribute("id") ?? "") ?? partsInfo.length) -
+      (partOrder.get(b.getAttribute("id") ?? "") ?? partsInfo.length),
+  );
+  for (const [partIdx, partEl] of sourceParts.entries()) {
     const pid = partEl.getAttribute("id") ?? `P${partIdx + 1}`;
     const info: PartInfo = partsInfo[partIdx] ?? {
       id: pid,
@@ -217,6 +227,7 @@ export function buildParts(
     }
 
     let divisions = 4;
+    const harmonyTranspositions = new Map<number, Interval>();
     const activeClefs = new Map<number, MnxClef>();
     const activeTuplets = new Map<string, TupletAccumulator>();
     const activeBeams = new Map<string, ActiveBeam[]>();
@@ -260,7 +271,7 @@ export function buildParts(
       if (attrs) {
         const divEl = findChild(attrs, "divisions");
         if (divEl) {
-          divisions = parseInt(divEl.textContent ?? "4", 10);
+          divisions = Number(divEl.textContent);
         }
 
         // Multi-staff detection (can appear in later measures too).
@@ -288,7 +299,7 @@ export function buildParts(
         partMeasureEls.length,
         vendorExt,
         partTranspose,
-        flags,
+        { ...flags, harmonyTranspositions },
         activeClefs,
         activeTuplets,
         activeBeams,
@@ -315,7 +326,10 @@ export function buildParts(
       }
 
       if (result.chordSymbols.length > 0) {
-        mnxMeasure._x = { viritura: { chordSymbols: result.chordSymbols } };
+        mnxPart._x = { ...mnxPart._x, viritura: { ...mnxPart._x?.viritura, chordSymbolVisibility: "show" } };
+        for (const { chord, staff } of result.chordSymbols) {
+          harmonySources.push({ partIndex: partIdx, staff, measureIndex: mi, chordSymbols: [chord] });
+        }
       }
 
       // Pair octave-shift boundaries into spans. Unlike hairpins/pedals (vendor
@@ -496,5 +510,5 @@ export function buildParts(
     if (candidates.languages.size === 1) entry.lang = [...candidates.languages][0];
     lyricLineMetadata[lineId] = entry;
   }
-  return { mnxParts, lyricLineIds, lyricLineMetadata };
+  return { mnxParts, lyricLineIds, lyricLineMetadata, harmonySources };
 }

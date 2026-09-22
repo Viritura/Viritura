@@ -13,6 +13,7 @@ export interface MeasureTarget {
   measureIndex: number;
   globalMeasure: JsonRecord;
   partIndex?: number;
+  part?: JsonRecord;
   partMeasure?: JsonRecord;
 }
 
@@ -139,7 +140,7 @@ export class TargetIndex {
         const globalMeasure = globalMeasures[measureIndex];
         if (!isRecord(globalMeasure)) return;
         const anchor = `P${partIndex + 1}.m${measureIndex + 1}`;
-        const target = { partIndex, measureIndex, partMeasure: measureValue, globalMeasure };
+        const target = { partIndex, part: partValue, measureIndex, partMeasure: measureValue, globalMeasure };
         this.measures.set(anchor, target);
         this.register(measureValue);
 

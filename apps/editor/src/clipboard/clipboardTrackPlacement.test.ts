@@ -399,7 +399,7 @@ describe("exact clipboard track positions", () => {
     const score = destination();
     const snapshot = structuredClone({ score, paste });
     const result = applyPaste(score, paste, 0, 0, 0, 0);
-    expect(result.parts[0]!.measures[0]!.chordSymbols![0]!.position.fraction).toEqual(offset);
+    expect(result.global.measures[0]!.chordSymbols![0]!.position.fraction).toEqual(offset);
     expect(validateRawScore(serializeMnx(result))).toMatchObject({ ok: true });
     expect({ score, paste }).toEqual(snapshot);
   });
@@ -445,7 +445,7 @@ describe("exact clipboard track positions", () => {
       );
       const snapshot = structuredClone({ score, paste });
       const result = applyPaste(score, paste, 0, 0, 0, 1);
-      expect(result.parts[0]!.measures[measureIndex]!.chordSymbols![0]!.position.fraction).toEqual([5, 12]);
+      expect(result.global.measures[measureIndex]!.chordSymbols![0]!.position.fraction).toEqual([5, 12]);
       expect(validateRawScore(serializeMnx(result))).toMatchObject({ ok: true });
       expect({ score, paste }).toEqual(snapshot);
     },

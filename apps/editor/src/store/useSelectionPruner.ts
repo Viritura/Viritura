@@ -19,8 +19,10 @@ import {
   resolveEventFromSubElement,
   resolveAnnotationLocation,
   resolveGraceLocation,
+  resolveFullMeasureRestLocation,
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
+import { canonicalNavigationId } from "../navigation";
 
 /** True when the element ID still resolves against the current score. */
 export function isSelectionIdValid(elementId: string, score: Score): boolean {
@@ -45,12 +47,14 @@ export function isSelectionIdValid(elementId: string, score: Score): boolean {
     }
     const location = resolveEventFromSubElement(elementId, score);
     const event = location ? getNoteEventAtLocation(score, location) : undefined;
-    if (!event) return false;
     const suffix = elementId.split("/").slice(4).join("/");
+    if (!event) return suffix === "" && resolveFullMeasureRestLocation(elementId, score) !== null;
     return suffix === "" || eventSubElementExists(suffix, event);
   }
 
-  const annotation = resolveAnnotationLocation(elementId);
+  const canonicalId = canonicalNavigationId(elementId);
+  if (/^m\d+\/chord/.test(canonicalId) && !/^m\d+\/chord\d+$/.test(canonicalId)) return false;
+  const annotation = resolveAnnotationLocation(canonicalId);
   if (annotation) return annotationExists(annotation, score);
 
   const partElement = elementId.match(/^p(\d+)\/m(\d+)\/(clef|key|beam|gracebeam|measurerepeat)(\d*)$/);
@@ -109,8 +113,6 @@ function annotationExists(location: AnnotationLocation, score: Score): boolean {
       );
     case "expr":
       return measure.expressions?.[index] !== undefined;
-    case "chord":
-      return measure.chordSymbols?.[index] !== undefined;
     case "pedal":
       return measure.pedals?.[index] !== undefined;
     case "ottava":
@@ -127,7 +129,7 @@ function globalAnnotationExists(location: AnnotationLocation, score: Score): boo
     case "tempo":
       return measure.tempos?.[location.annotationIndex ?? 0] !== undefined;
     case "chord":
-      return measure.chordSymbols?.[location.annotationIndex ?? 0] !== undefined;
+      return measure.chordSymbols?.[location.annotationIndex ?? -1] !== undefined;
     case "rehearsal":
       return measure.rehearsalMark !== undefined;
     case "jump":

@@ -4,7 +4,7 @@
  * so React Fast Refresh can keep the .tsx file as components-only.
  */
 
-import type { Score } from "@viritura/core";
+import type { ChordSymbol, Score } from "@viritura/core";
 
 // ═══════════════════════════════════════════
 // Types
@@ -76,7 +76,8 @@ export interface PlaybackActions {
   stop(): void;
   /** Seek to an absolute score time in seconds. */
   seek(seconds: number): void;
-  /** Temporary source-part eligibility, independent of mixer state. Null clears; [] silences all parts. */
+  /** Temporary source-part eligibility. Null clears; [] silences all.
+   * Global chords accompany an explicit selection only when it covers every visible instrument. */
   setSelectionPartIds(partIds: readonly string[] | null): void;
   /** Publish the rendered-staff count associated with the temporary part filter. */
   setSelectionStaffCount(staffCount: number | null): void;
@@ -94,8 +95,7 @@ export interface PlaybackActions {
   clearLoop(): void;
   /** Apply mixer settings to a specific part's sampler. */
   applyMix(partIndex: number, volume: number, pan: number, muted: boolean, stageDepthEnabled: boolean): void;
-  /** Set which part indices are effectively muted, for the native VST host
-   *  (mixer mute/solo). No-op on the web build (no VST transport). */
+  /** Effective mixer mute/solo mask for native playback and chord audition. */
   setVstMutedParts(mutedParts: ReadonlySet<number>): void;
   /** Update a part's spatial position. */
   applySpatialPosition(partIndex: number, x: number, y: number): void;
@@ -125,6 +125,13 @@ export interface PlaybackActions {
   previewInstrumentAllNotesOff(): void;
   /** Preview a GM/GS percussion hit independently of the currently loaded score. */
   previewPercussion(midiNote: number, drumKitProgram?: number, velocity?: number, durationMs?: number): Promise<void>;
+  /** Audition global harmony while stopped. Commit handlers must pass the
+   * updated score to wait for its deferred publication; clicks may omit it.
+   * A queued request resolves on enqueue, and cancels on changed score content
+   * or devices, not equivalent immutable snapshots. Piano keys release after
+   * three seconds into the instrument's natural tail; transport, mute, and the
+   * next audition cancel immediately. */
+  previewChord(chord: ChordSymbol, updatedScore?: Score): Promise<void>;
   /** Convert a measure index and beat to absolute time in seconds. Returns null if unavailable. */
   /** Convert an authored score measure and beat to its first performed occurrence. */
   measureBeatToSeconds(measureIndex: number, beat: number): number | null;

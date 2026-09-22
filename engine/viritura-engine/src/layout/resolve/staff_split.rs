@@ -1,7 +1,7 @@
 //! Per-staff measure splitting for grand-staff/multi-staff parts.
 //!
 //! A part with more than one staff (piano, organ, condensed grand staff)
-//! authors its sequences, clefs, dynamics, chord symbols, and staff-local
+//! authors its sequences, clefs, dynamics, and staff-local
 //! meter declarations across all its staves in one flat `PartMeasure`. This
 //! module derives the single-staff view the layout engine actually lays
 //! out: filtering every staff-taggable field down to one staff number, and
@@ -119,25 +119,6 @@ pub(super) fn split_part_measure_by_staff_count(
                 .iter()
                 .filter(|pedal| pedal.staff.unwrap_or(1) == staff_num)
                 .cloned()
-                .collect();
-            (!filtered.is_empty()).then_some(filtered)
-        }),
-        chord_symbols: pm.chord_symbols.as_ref().and_then(|chords| {
-            let filtered: Vec<_> = chords
-                .iter()
-                .enumerate()
-                .filter(|(_, chord)| {
-                    chord
-                        .display_staff
-                        .filter(|display_staff| *display_staff <= staff_count)
-                        .unwrap_or(1)
-                        == staff_num
-                })
-                .map(|(index, chord)| {
-                    let mut chord = chord.clone();
-                    chord.source_index = Some(index);
-                    chord
-                })
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
@@ -272,6 +253,11 @@ pub(crate) fn resolve_measures_for_staff(
                 index: rm.index,
                 global: rm.global,
                 part: split,
+                chord_symbols: if staff_num == 1 {
+                    rm.chord_symbols
+                } else {
+                    None
+                },
                 tie_continuation_ids: rm.tie_continuation_ids.clone(),
                 measure_repeat_covered: rm.measure_repeat_covered,
                 next_has_repeat_start: rm.next_has_repeat_start,

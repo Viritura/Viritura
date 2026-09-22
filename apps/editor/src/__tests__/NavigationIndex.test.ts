@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Score } from "@viritura/core";
 import {
   buildNavigationIndex,
+  findEntryIndex,
   findNextInVoice,
   findNextNoteInVoice,
   findPrevInVoice,
@@ -95,6 +96,7 @@ function makeAnnotatedScore(): Score {
           barline: { type: "final" } as NonNullable<Score["global"]["measures"][0]["barline"]>,
           ending: { numbers: [1], duration: 1 },
           jump: { type: "dsalfine" } as NonNullable<Score["global"]["measures"][0]["jump"]>,
+          chordSymbols: [{ position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" }],
         },
       ],
     },
@@ -166,13 +168,6 @@ function makeAnnotatedScore(): Score {
                 end: { fraction: [1, 1] as [number, number] },
               },
             ] as unknown as NonNullable<Score["parts"][0]["measures"][0]["pedals"]>,
-            chordSymbols: [
-              {
-                position: { fraction: [0, 1] as [number, number] },
-                root: { step: "C" },
-                quality: "major",
-              },
-            ] as NonNullable<Score["parts"][0]["measures"][0]["chordSymbols"]>,
             ottavas: [
               {
                 position: { fraction: [0, 1] as [number, number] },
@@ -526,6 +521,89 @@ describe("getEntry", () => {
     expect(entry!.elementType).toBe("event");
   });
 
+  describe("global chord navigation entries", () => {
+    function makeChordScore(): Score {
+      return {
+        mnx: { version: 1 },
+        global: {
+          measures: [
+            {
+              chordSymbols: [
+                { position: { fraction: [0, 1] }, root: { step: "C" } },
+                { position: { fraction: [1, 4] }, rawText: "NC" },
+              ],
+            },
+            { chordSymbols: [{ position: { fraction: [0, 1] }, root: { step: "G" } }] },
+          ],
+        },
+        parts: [0, 1].map(() => ({
+          measures: [{ sequences: [{ fullMeasure: true, content: [] }] }],
+        })),
+      };
+    }
+
+    it("indexes each chord once globally, independent of part count", () => {
+      const score = makeChordScore();
+      const before = structuredClone(score);
+      const chords = buildNavigationIndex(score).entries.filter((entry) => entry.elementType === "chord-symbol");
+      expect(chords.map((entry) => [entry.elementId, entry.partIndex, entry.sortKey])).toEqual([
+        ["m0/chord0", -1, 0],
+        ["m0/chord1", -1, 1],
+        ["m1/chord0", -1, 0],
+      ]);
+      expect(score).toEqual(before);
+      score.parts = [];
+      expect(buildNavigationIndex(score).entries).toEqual(chords);
+    });
+
+    it.each(["m0/chord0/p0/staff1", "m0/chord0/p1/staff2"])("resolves %s to the existing canonical entry", (id) => {
+      const nav = buildNavigationIndex(makeChordScore());
+      expect(findEntryIndex(nav, id)).toBe(findEntryIndex(nav, "m0/chord0"));
+      expect(getEntry(nav, id)).toBe(getEntry(nav, "m0/chord0"));
+      expect(getEntry(nav, id)?.elementId).toBe("m0/chord0");
+      expect(findNext(nav, id, ["chord-symbol"])?.elementId).toBe("m0/chord1");
+      expect(findPrev(nav, "m0/chord1/p1/staff2", ["chord-symbol"])?.elementId).toBe("m0/chord0");
+    });
+
+    it("includes canonical global chords when querying either part", () => {
+      const nav = buildNavigationIndex(makeChordScore());
+      for (const part of [0, 1]) {
+        expect(
+          findEntriesInMeasure(nav, `p${part}/m0/s0/__auto_m0_v0_e0`, ["chord-symbol"]).map((entry) => entry.elementId),
+        ).toEqual(["m0/chord0", "m0/chord1"]);
+      }
+    });
+
+    it("keeps rendered-copy measure and position queries in the displayed part", () => {
+      const nav = buildNavigationIndex(makeChordScore());
+      const restId = "p1/m0/s0/__auto_m0_v0_e0";
+      const copyId = "m0/chord0/p1/staff2";
+      expect(findEntriesInMeasure(nav, copyId).map((entry) => entry.elementId)).toEqual([restId]);
+      expect(findEntriesInMeasure(nav, "m0/chord0")).toHaveLength(2);
+      expect(findNextAtPosition(nav, copyId)).toBe(restId);
+      expect(findPrevAtPosition(nav, copyId)).toBe(restId);
+      expect(findNextAtPosition(nav, restId)).toBe("m0/chord0");
+      expect(findPrevAtPosition(nav, restId)).toBe("m0/chord0");
+    });
+
+    it("does not cycle a lone chord back to its canonical self", () => {
+      const nav = buildNavigationIndex(makeChordScore());
+      expect(findNextAtPosition(nav, "m0/chord1/p1/staff2")).toBeUndefined();
+      expect(findPrevAtPosition(nav, "m0/chord1/p1/staff2")).toBeUndefined();
+    });
+
+    it.each(["p0/m0/chord0", "m0/chord9/p1/staff2", "m0/chord0/p1", "m0/chord0/p1/staff2/unknown"])(
+      "does not resolve unsupported or stale ID %s",
+      (id) => {
+        const nav = buildNavigationIndex(makeChordScore());
+        expect(findEntryIndex(nav, id)).toBe(-1);
+        expect(getEntry(nav, id)).toBeUndefined();
+        expect(findNextAtPosition(nav, id)).toBeUndefined();
+        expect(findPrevAtPosition(nav, id)).toBeUndefined();
+      },
+    );
+  });
+
   it("returns undefined for invalid ID", () => {
     expect(getEntry(nav, "nonexistent")).toBeUndefined();
   });
@@ -616,7 +694,7 @@ describe("buildNavigationIndex with non-event elements", () => {
   });
 
   it("includes chord symbol entries", () => {
-    const entry = getEntry(nav, "p0/m1/chord0");
+    const entry = getEntry(nav, "m1/chord0");
     expect(entry).toBeDefined();
     expect(entry!.elementType).toBe("chord-symbol");
   });

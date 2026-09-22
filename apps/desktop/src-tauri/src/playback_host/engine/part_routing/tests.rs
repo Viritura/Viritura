@@ -4,6 +4,7 @@ use crate::playback_host::mixer::tests::{routing_midi, routing_peak, routing_str
 use crate::playback_host::schedule::{resolve_schedule, PartScheduledMidi};
 
 mod controller_routing;
+mod derived_chords;
 mod mapper_lifetimes;
 mod note_identity;
 mod sf2_lifetimes;

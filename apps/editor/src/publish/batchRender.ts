@@ -59,11 +59,11 @@ export function getScoreDisplayName(score: Score, scoreIndex: number): string {
 
 /**
  * Compute a DisplayList for one score using the given PageSetup.
- * Mirrors the routing logic in `ScoreCanvas.computeDisplayList` for
- * the "no patches, no selection filter, no expanded condensing" path
- * — Publish mode always renders the full, unfiltered layout.
+ * Render canonical MNX, never the editor's diagnostic-tinted display list.
+ * The engine resolves source-part visibility and written-pitch spelling
+ * for the requested score definition.
  */
-function renderScoreDisplayList(mnxJson: string, scoreIndex: number, pageSetup: PageSetup): DisplayList {
+export function renderScoreDisplayList(mnxJson: string, scoreIndex: number, pageSetup: PageSetup): DisplayList {
   const sp = pageSetup.spatiumMm * PX_PER_MM;
   const pageWidthPx = Math.round(pageSetup.width * PX_PER_MM);
 
@@ -77,7 +77,7 @@ function renderScoreDisplayList(mnxJson: string, scoreIndex: number, pageSetup: 
   });
 
   const info = getScoreInfo(mnxJson);
-  if (info.scoreCount > 1) {
+  if (info.scoreCount > 0) {
     return wasmComputeMnxScoreLayout(mnxJson, sp, pageWidthPx, scoreIndex, pageSetupJson);
   }
   if (info.partCount === 1) {

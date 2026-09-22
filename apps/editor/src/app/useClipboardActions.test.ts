@@ -2,7 +2,14 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import type { ChordSymbol, NoteEvent, Score, Sequence, SequenceContent } from "@viritura/core";
+import {
+  parseChordSymbolText,
+  type ChordSymbol,
+  type NoteEvent,
+  type Score,
+  type Sequence,
+  type SequenceContent,
+} from "@viritura/core";
 import { useClipboardActions } from "./useClipboardActions";
 import { createDocumentStore } from "../store/documentStore";
 import { createHistoryStore } from "../store/historyStore";
@@ -310,9 +317,7 @@ describe.each([false, true])("best-effort MuseScore paste (native=%s)", (native)
     ]);
     expect(updatedEvent(updateScore).markings).toHaveProperty("staccato");
     expect(measure.dynamics).toHaveLength(1);
-    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(
-      expect.stringContaining("Skipped unsupported MuseScore notation:"),
-    );
+    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("MuseScore notation warnings:"));
     expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining("unsupported-articulation"));
     expect(toast.error).not.toHaveBeenCalled();
     expect(score).toEqual(snapshot);
@@ -500,7 +505,7 @@ describe("clipboard chord symbol placement", () => {
       root: { step: "G" },
       quality: "major",
     };
-    score.parts[0]!.measures[0]!.chordSymbols = [existing];
+    score.global.measures[0]!.chordSymbols = [existing];
     const chordSymbol: ChordSymbol = {
       position: { fraction: [numerator, denominator] },
       root: { step: "C" },
@@ -517,11 +522,117 @@ describe("clipboard chord symbol placement", () => {
     readText.mockResolvedValue(JSON.stringify(fragment));
     const { result, updateScore } = harness(noteSelection, score);
     await act(() => result.current.handlePaste());
-    const placed = updateScore.mock.calls[0]![0].parts[0]!.measures[0]!.chordSymbols!;
+    const placed = updateScore.mock.calls[0]![0].global.measures[0]!.chordSymbols!;
     expect(placed).toHaveLength(2);
     expect(placed[0]).toEqual(existing);
     expect(placed[1]).toMatchObject(chordSymbol);
-    expect(score.parts[0]!.measures[0]!.chordSymbols).toEqual([existing]);
+    expect(score.global.measures[0]!.chordSymbols).toEqual([existing]);
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+
+  it.each(["system", "history", "note-input"] as const)(
+    "shows deduplicated placement warnings for %s paste",
+    async (source) => {
+      const chordSymbol = parseChordSymbolText("mystery harmony", { fraction: [0, 1] });
+      const fragment: ClipboardFragment = {
+        type: "viritura/fragment",
+        version: FRAGMENT_VERSION,
+        timeSignature: { count: 4, unit: 4 },
+        keySignature: { fifths: 0 },
+        content: [],
+        chordSymbols: [0, 1].map((measureOffset) => ({ measureOffset, chordSymbol })),
+      };
+      if (source === "history") addClipboardEntry(fragment);
+      else readText.mockResolvedValue(JSON.stringify(fragment));
+      if (source === "note-input") {
+        useNoteInputStore.setState({
+          active: true,
+          currentVoice: 1,
+          cursorPosition: { partIndex: 0, measureIndex: 0, beatPosition: 0 },
+        });
+      }
+      const { result, updateScore, score } = harness();
+      const snapshot = structuredClone(score);
+      await act(() => result.current.handlePaste());
+      expect(updateScore).toHaveBeenCalledOnce();
+      expect(updateScore.mock.calls[0]![0].global.measures.map((measure) => measure.chordSymbols)).toEqual([
+        [chordSymbol],
+        [chordSymbol],
+      ]);
+      expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Unsupported chord"));
+      expect(score).toEqual(snapshot);
+    },
+  );
+
+  it("shows unsupported chord warnings after an atomic repeat", () => {
+    const score = scoreWithLyric();
+    score.global.measures[0]!.chordSymbols = [parseChordSymbolText("mystery harmony", { fraction: [0, 1] })];
+    const snapshot = structuredClone(score);
+    const { result, updateScore } = harness(noteSelection, score);
+    act(() => result.current.handleRepeat());
+    expect(updateScore).toHaveBeenCalledOnce();
+    expect(updateScore.mock.calls[0]![0].global.measures[0]!.chordSymbols).toHaveLength(2);
+    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Unsupported chord"));
+    expect(score).toEqual(snapshot);
+  });
+
+  it("combines clipboard access and conflicting harmony warnings into one toast", async () => {
+    vi.stubGlobal("__TAURI_INTERNALS__", {});
+    vi.mocked(invoke).mockRejectedValue("failed to open clipboard: Access is denied. (os error 5)");
+    const fragment: ClipboardFragment = {
+      type: "viritura/fragment",
+      version: FRAGMENT_VERSION,
+      timeSignature: { count: 4, unit: 4 },
+      keySignature: { fifths: 0 },
+      content: [],
+      chordSymbols: ["C", "D"].map((text, partOffset) => ({
+        measureOffset: 0,
+        partOffset,
+        chordSymbol: parseChordSymbolText(text, { fraction: [0, 1] }),
+      })),
+    };
+    addClipboardEntry(fragment);
+    const score = scoreWithLyric();
+    score.parts.push({ measures: [{ sequences: [{ content: [] }] }] });
+    const snapshot = structuredClone(score);
+    const { result, updateScore } = harness(noteSelection, score);
+    await act(() => result.current.handlePaste());
+    expect(updateScore).toHaveBeenCalledOnce();
+    expect(updateScore.mock.calls[0]![0].global.measures[0]!.chordSymbols).toEqual([
+      parseChordSymbolText("C", { fraction: [0, 1] }),
+    ]);
+    expect(toast.warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("topmost"));
+    expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining("Could not read the system clipboard."));
+    expect(score).toEqual(snapshot);
+  });
+
+  it("does not commit a partial paste or emit placement warnings when a later chord is invalid", async () => {
+    const fragment: ClipboardFragment = {
+      type: "viritura/fragment",
+      version: FRAGMENT_VERSION,
+      timeSignature: { count: 4, unit: 4 },
+      keySignature: { fifths: 0 },
+      content: [],
+      chordSymbols: [
+        { measureOffset: 0, chordSymbol: parseChordSymbolText("mystery harmony", { fraction: [0, 1] }) },
+        { measureOffset: 0, partOffset: 99, chordSymbol: parseChordSymbolText("C", { fraction: [1, 4] }) },
+      ],
+    };
+    readText.mockResolvedValue(JSON.stringify(fragment));
+    const { result, updateScore, selectElement, selectRange, score } = harness();
+    const snapshot = structuredClone(score);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await act(() => result.current.handlePaste());
+      expect(updateScore).not.toHaveBeenCalled();
+      expect(selectElement).not.toHaveBeenCalled();
+      expect(selectRange).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledOnce();
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(score).toEqual(snapshot);
+    } finally {
+      vi.mocked(console.error).mockRestore();
+    }
   });
 });
 

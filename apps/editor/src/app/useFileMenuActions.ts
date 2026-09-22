@@ -24,6 +24,7 @@ import type { DocumentStore } from "../store/documentStore";
 import type { ScoreSample } from "../scoreSamples";
 import { isFolderProjectSupported } from "./projectFolder";
 import type { InitialScoreSettings } from "../score/ScoreBuilder";
+import { formatImportWarning } from "./importDiagnostics";
 
 export interface FileMenuDeps {
   store: DocumentStore;
@@ -48,7 +49,7 @@ export interface FileMenuDeps {
 
 export interface FileMenuActions {
   handleOpenFile: () => Promise<void>;
-  /** Import a MusicXML/MXL file, converting it to MNX and loading it. */
+  /** Import a MusicXML/MXL/MUSX file, converting it to MNX and loading it. */
   handleImportFile: () => Promise<void>;
   handleDismissTrackBanner: (permanent: boolean) => void;
   handleSelectRecent: (entry: RecentScore) => Promise<void>;
@@ -127,10 +128,9 @@ export function useFileMenuActions(deps: FileMenuDeps): FileMenuActions {
       if (!result) return;
       setOpenedFile(result);
       void useProjectStore.getState().setAdapter(null);
-      const warningCount =
-        result.importDiagnostics?.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
-      if (warningCount > 0) {
-        toast.warning(`Imported ${result.filename} with ${warningCount} warning${warningCount === 1 ? "" : "s"}`);
+      const warning = formatImportWarning(result);
+      if (warning) {
+        toast.warning(warning.message, { description: warning.description });
       } else {
         toast.success(`Imported ${result.filename}`);
       }

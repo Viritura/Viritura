@@ -243,7 +243,15 @@ export function findPlacedSelection(
   for (const { event } of walkSequenceEvents(pasteContent)) {
     if (event.id) ids.add(event.id);
   }
-  if (ids.size === 0) return { range: null, selection: null };
+  if (ids.size === 0) {
+    const selection: SelectionState | null =
+      annotationIds.length === 1
+        ? { kind: "single", elementId: annotationIds[0]!, elementType: parseElementType(annotationIds[0]!) }
+        : annotationIds.length > 1
+          ? { kind: "multi", elementIds: [...annotationIds] }
+          : null;
+    return { range: null, selection };
+  }
 
   const matches: PlacedSelectionEvent[] = [];
   const tracks = placedTrackRanges(newScore, new Set(pasteContent), measureIndex);
@@ -387,10 +395,12 @@ export function computePasteResult(
   range: { start: string; end: string } | null;
   selection: SelectionState | null;
   cursorAfterPaste?: CursorPosition;
+  warnings: string[];
 } | null {
   const anchor = resolvePasteAnchor(score, selection, cursor);
   if (!anchor) return null;
   const placedContent: SequenceContent[] = [];
+  const warnings: string[] = [];
   const newScore = applyPaste(
     score,
     paste,
@@ -399,6 +409,8 @@ export function computePasteResult(
     anchor.sequenceIndex,
     anchor.eventIndex,
     placedContent,
+    undefined,
+    (message) => warnings.push(message),
   );
   const startBeat =
     score.parts[anchor.partIndex]?.measures[anchor.measureIndex]?.sequences[anchor.sequenceIndex]?.content
@@ -414,5 +426,5 @@ export function computePasteResult(
   const placed = findPlacedSelection(newScore, placedContent, anchor.measureIndex, startBeat, annotationIds);
   const pastedBeats = paste.content.reduce((beats, item) => beats + sequenceContentBeats(item), 0);
   const cursorAfterPaste = cursor && pastedBeats > 0 ? advanceCursor(newScore, cursor, pastedBeats) : undefined;
-  return { newScore, ...placed, cursorAfterPaste };
+  return { newScore, ...placed, cursorAfterPaste, warnings: [...new Set(warnings)] };
 }

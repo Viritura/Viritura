@@ -3,7 +3,7 @@ import { DiagnosticCollector } from "@viritura/core";
 import type { MnxDocument } from "../types";
 import { collectLossyDiagnostics } from "./diagnostics";
 import { buildGlobalMeasures } from "./globalMeasures";
-import { applyGlobalHarmonyVisibility, consolidateImportedHarmony } from "./harmonyConsolidation";
+import { consolidateImportedHarmony } from "./harmonyConsolidation";
 import { IdGenerator } from "./idGenerator";
 import { buildLayout, buildLayoutsAndScores } from "./layout";
 import { extractMetadata } from "./metadata";
@@ -76,12 +76,19 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   const { parts: partsInfo, groups } = getPartsInfo(root);
   const metadata = extractMetadata(root);
   const globalMeasures = buildGlobalMeasures(root, ids, vendorExt, hideMetronomeWhenTempoText);
-  const { mnxParts, lyricLineIds, lyricLineMetadata } = buildParts(root, partsInfo, globalMeasures, ids, vendorExt, {
-    discardStemDirections,
-  });
+  const { mnxParts, lyricLineIds, lyricLineMetadata, harmonySources } = buildParts(
+    root,
+    partsInfo,
+    globalMeasures,
+    ids,
+    vendorExt,
+    {
+      discardStemDirections,
+      diagnostics: opts.diagnostics,
+    },
+  );
   const layoutContent = buildLayout(partsInfo, groups);
-  const harmonyConsolidation = consolidateImportedHarmony(mnxParts, globalMeasures);
-  applyGlobalHarmonyVisibility(layoutContent, harmonyConsolidation.globalTargets);
+  consolidateImportedHarmony(harmonySources, globalMeasures, opts.diagnostics);
 
   const result: MnxDocument = {
     mnx: { version: 7 },
@@ -110,7 +117,6 @@ export function convertMusicXmlToMnx(xmlString: string, options?: ConvertOptions
   // same-instrument pairs merged onto shared staves), and one score per part.
   if (layoutContent.length > 0) {
     const { layouts, scores } = buildLayoutsAndScores(layoutContent, partsInfo, mnxParts, globalMeasures);
-    for (const layout of layouts) applyGlobalHarmonyVisibility(layout.content, harmonyConsolidation.globalTargets);
     result.layouts = layouts;
     result.scores = scores;
   }

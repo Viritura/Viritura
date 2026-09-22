@@ -87,23 +87,13 @@ function shiftedFirstGlobalMeasure(first: GlobalMeasure): GlobalMeasure {
 
 function pickupPartMeasure(first: PartMeasure | undefined, pickupBeats: number): PartMeasure {
   const restDurations = decomposeDuration(pickupBeats);
-  const {
-    clefs,
-    dynamics,
-    ottavas,
-    pedals,
-    chordSymbols,
-    expressions,
-    staffConfigs,
-    groupingDisplayOverrides,
-    staffMeters,
-  } = first ?? { sequences: [] };
+  const { clefs, dynamics, ottavas, pedals, expressions, staffConfigs, groupingDisplayOverrides, staffMeters } =
+    first ?? { sequences: [] };
   return {
     ...(clefs ? { clefs } : {}),
     ...(dynamics ? { dynamics } : {}),
     ...(ottavas ? { ottavas } : {}),
     ...(pedals ? { pedals } : {}),
-    ...(chordSymbols ? { chordSymbols } : {}),
     ...(expressions ? { expressions } : {}),
     ...(staffConfigs ? { staffConfigs } : {}),
     ...(groupingDisplayOverrides ? { groupingDisplayOverrides } : {}),
@@ -119,7 +109,6 @@ function shiftedFirstPartMeasure(first: PartMeasure | undefined): PartMeasure {
     dynamics: _dynamics,
     ottavas: _ottavas,
     pedals: _pedals,
-    chordSymbols: _chordSymbols,
     expressions: _expressions,
     staffConfigs: _staffConfigs,
     groupingDisplayOverrides: _groupingDisplayOverrides,

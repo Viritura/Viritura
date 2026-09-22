@@ -94,11 +94,16 @@ export function expressionId(part: number, measure: number, index: number): stri
   return `p${part}/m${measure}/expr${index}`;
 }
 
-export function chordSymbolId(part: number, measure: number, index: number): string {
-  return `p${part}/m${measure}/chord${index}`;
+// ── Global measure elements ────────────────────────────────────────
+
+export function chordSymbolId(measure: number, index: number): string {
+  return `m${measure}/chord${index}`;
 }
 
-// ── Global measure elements ────────────────────────────────────────
+/** Strip only a chord's rendered-copy suffix; its source index is always explicit. */
+export function canonicalChordSymbolId(elementId: string): string | null {
+  return elementId.match(/^(m\d+\/chord\d+)(?:\/p\d+\/staff\d+)?$/)?.[1] ?? null;
+}
 
 export function timeSigId(measure: number): string {
   return `m${measure}/time`;
@@ -200,7 +205,7 @@ export interface AnnotationLocation {
 }
 
 /** Part-scoped annotation prefixes (last segment starts with these). */
-const PART_ANNOTATION_PREFIXES = ["dyn", "expr", "chord", "hairpin", "pedal", "ottava"] as const;
+const PART_ANNOTATION_PREFIXES = ["dyn", "expr", "hairpin", "pedal", "ottava"] as const;
 
 /** Global annotation suffixes (2-segment IDs: m{N}/{suffix}). */
 const GLOBAL_ANNOTATION_SUFFIXES = [
@@ -428,7 +433,8 @@ export function getEventAncestorId(elementId: string): string {
  * Returns null if not a recognized annotation ID.
  */
 export function resolveAnnotationLocation(elementId: string): AnnotationLocation | null {
-  const segments = elementId.split("/");
+  const chordId = canonicalChordSymbolId(elementId);
+  const segments = (chordId ?? elementId).split("/");
 
   // Part-level: "p{part}/m{measure}/{type}{index}"
   if (segments.length === 3) {
@@ -464,6 +470,7 @@ export function resolveAnnotationLocation(elementId: string): AnnotationLocation
       const suffix = segments[1]!;
 
       for (const s of GLOBAL_ANNOTATION_SUFFIXES) {
+        if (s === "chord" && !chordId) continue;
         if (suffix.startsWith(s)) {
           const rest = suffix.slice(s.length);
           const annotationIndex = rest ? parseInt(rest, 10) : undefined;
@@ -513,6 +520,7 @@ export function isEngraveTextAnnotationId(elementId: string): boolean {
  * the notehead was the event's last note.
  */
 export function addressesWholeEvent(elementId: string): boolean {
+  if (canonicalChordSymbolId(elementId)) return false;
   const segments = elementId.split("/");
   if (segments.length === 4) return true;
   // `{event}/n{index}` — a chord note, deletable in its own right.

@@ -1,6 +1,8 @@
 import type { Part } from "@viritura/core";
 
-export type PartUpdate = Partial<Pick<Part, "name" | "shortName" | "staves" | "transposition">>;
+export type PartUpdate = Partial<
+  Pick<Part, "name" | "shortName" | "staves" | "transposition" | "chordSymbolVisibility">
+>;
 
 /** Suggest a sensible default `keyFifthsFlipAt` for a given chromatic
  *  transposition. See engine/.../model/key.rs for the underlying math. */

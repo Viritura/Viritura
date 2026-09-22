@@ -13,7 +13,29 @@ import {
   findLast,
 } from "../navigation/NavigationIndex";
 import { getEventAncestorId } from "../score/ElementPath";
+import { findNextAnnotation, findPrevAnnotation, isAnnotationId } from "../navigation/annotationNav";
 import type { KeyboardHandlerContext } from "./types";
+
+/** Alt+ArrowLeft/Right: cycle annotations without discarding harmony's source staff. */
+export function handleAnnotationNavigation(direction: "next" | "previous", ctx: KeyboardHandlerContext): void {
+  const selection = ctx.getSelection();
+  if (selection.kind !== "single" || !isAnnotationId(selection.elementId)) return;
+  const score = ctx.getScore();
+  if (!score) return;
+  const target =
+    direction === "next"
+      ? findNextAnnotation(score, selection.elementId)
+      : findPrevAnnotation(score, selection.elementId);
+  if (!target) return;
+
+  // Copy suffixes identify rendered staves; only the existing anchor identifies
+  // the mapped source in reordered/condensed layouts. Never derive one from a copy.
+  if (/^m\d+\/chord\d+(?:\/p\d+\/staff\d+)?$/.test(target) && selection.measureAnchor) {
+    ctx.selectElement(target, selection.measureAnchor);
+  } else {
+    ctx.selectElement(target);
+  }
+}
 
 /** ArrowLeft/Right: navigate between elements. */
 export function handleArrowLeftRight(e: KeyboardEvent, mod: boolean, ctx: KeyboardHandlerContext): void {

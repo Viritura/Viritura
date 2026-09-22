@@ -33,7 +33,6 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 pub(super) use super::cache_hashing::{compound_layout_hash, time_signature_aware_hash};
-use super::chord_symbols::{extend_visible_chord_symbols, visible_global_chord_symbols};
 pub(super) use super::instrument_labels::{
     build_label_lines, label_gutter_extent, split_label_transposition, EXPANSION_COLOR,
 };
@@ -339,7 +338,6 @@ pub(super) fn build_virtual_part_measure(
     let mut pedals: Option<Vec<Pedal>> = None;
     let mut ottavas: Option<Vec<Ottava>> = None;
     let mut measure_repeat: Option<MeasureRepeat> = None;
-    let mut chord_symbols = visible_global_chord_symbols(score, measure_index, flat_staff);
     let mut arpeggios: Option<Vec<MnxArpeggio>> = None;
     let mut non_arpeggios: Option<Vec<NonArpeggio>> = None;
     let mut staff_configs: Option<Vec<PositionedStaffConfig>> = None;
@@ -591,7 +589,6 @@ pub(super) fn build_virtual_part_measure(
         if measure_repeat.is_none() {
             measure_repeat.clone_from(&pm.measure_repeat);
         }
-        extend_visible_chord_symbols(&mut chord_symbols, pm, flat_staff, source);
         if let Some(ref source_beams) = pm.beams {
             beams.extend(source_beams.clone());
         }
@@ -655,7 +652,6 @@ pub(super) fn build_virtual_part_measure(
             measure_repeat,
             staff_configs,
             pedals,
-            chord_symbols,
             expressions,
             condensing_override: None,
             grouping_display_overrides,

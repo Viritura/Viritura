@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use rustysynth::SoundFont;
 use tauri::{AppHandle, Emitter};
 use vst3_host::plugin::Plugin;
-use vst3_host::{MidiChannel, MidiEvent, Vst3Host};
+use vst3_host::Vst3Host;
 
 use super::fx_chain::{configure_effect, EffectSpec, FxChannel};
 use super::mixer::{Mixer, StripSource};
@@ -34,6 +34,9 @@ use super::{SlotKind, BLOCK_SIZE, OUTPUT_CHANNELS, SAMPLE_RATE};
 
 mod part_routing;
 use part_routing::{dispatch_event, seek_slot, SlotSeq};
+mod audition;
+pub(super) use audition::validate_preview;
+use audition::{PreviewNotes, PreviewRequest};
 
 /// How often the host thread wakes to dispatch due MIDI when no command arrives.
 const TICK: Duration = Duration::from_millis(2);
@@ -199,20 +202,20 @@ pub(super) enum HostCommand {
     /// `duration_ms`, so a preview sounds exactly like playback (VST + reverb).
     Preview {
         slot_key: String,
+        part_index: u32,
         note: u8,
         velocity: u8,
         duration_ms: u64,
         reply: Sender<Result<(), String>>,
     },
-}
-
-/// A preview note-off the host owes a strip at `due`, so a click-to-hear note
-/// released after its duration even while the transport is stopped.
-struct PreviewOff {
-    due: Instant,
-    slot_key: String,
-    channel: u8,
-    note: u8,
+    PreviewChord {
+        slot_key: String,
+        part_index: u32,
+        notes: Vec<u8>,
+        velocity: u8,
+        duration_ms: u64,
+        reply: Sender<Result<(), String>>,
+    },
 }
 
 struct Engine {
@@ -234,7 +237,7 @@ struct Engine {
     /// Parsing a full GM font is expensive, so each is loaded once and reused.
     soundfonts: HashMap<String, Arc<SoundFont>>,
     /// Pending preview note-offs, released on their `due` tick regardless of play.
-    previews: Vec<PreviewOff>,
+    previews: PreviewNotes,
     /// Open modeless FX editor windows, each tagged with which chain plugin it
     /// hosts. Pumped each tick; when the user closes one, that plugin's state is
     /// captured and emitted to the frontend. Several can be open at once (e.g. an
@@ -304,7 +307,7 @@ impl Engine {
             generation: 0,
             app,
             soundfonts: HashMap::new(),
-            previews: Vec::new(),
+            previews: PreviewNotes::default(),
             fx_editors: Vec::new(),
         })
     }
@@ -382,13 +385,37 @@ impl Engine {
             }
             HostCommand::Preview {
                 slot_key,
+                part_index,
                 note,
                 velocity,
                 duration_ms,
                 reply,
             } => {
-                self.preview(&slot_key, note, velocity, duration_ms);
-                let _ = reply.send(Ok(()));
+                let _ = reply.send(self.preview(PreviewRequest {
+                    slot_key: &slot_key,
+                    part_index,
+                    notes: &[note],
+                    velocity,
+                    duration_ms,
+                    replace: false,
+                }));
+            }
+            HostCommand::PreviewChord {
+                slot_key,
+                part_index,
+                notes,
+                velocity,
+                duration_ms,
+                reply,
+            } => {
+                let _ = reply.send(self.preview(PreviewRequest {
+                    slot_key: &slot_key,
+                    part_index,
+                    notes: &notes,
+                    velocity,
+                    duration_ms,
+                    replace: true,
+                }));
             }
         }
     }
@@ -397,6 +424,7 @@ impl Engine {
     /// unchanged (just refresh its schedule), otherwise (re)instantiate it
     /// lazily (§3.4). Slots not listed are left loaded for reuse across plays.
     fn load(&mut self, specs: Vec<SlotSpec>) -> Result<(), String> {
+        self.cancel_previews();
         // Instantiating a plugin is the slow part of a cold play (seconds each),
         // so report progress to the frontend as we go. Count only the slots that
         // actually need loading (new, or whose plugin path changed) — reused slots
@@ -456,6 +484,7 @@ impl Engine {
     /// it the orphaned strip keeps replaying its old schedule in sync with the
     /// current ones, which is heard as a doubled voice.
     fn retain_slots(&mut self, keys: &[String]) {
+        self.cancel_previews();
         let keep: HashSet<&str> = keys.iter().map(String::as_str).collect();
         let stale: Vec<String> = self
             .slots
@@ -685,6 +714,7 @@ impl Engine {
     /// Begin a transport epoch at `origin_seconds`: reconstruct each slot's state
     /// at that point (§3.5 seek fast-forward) and start the clock.
     fn start(&mut self, origin_seconds: f64) -> u64 {
+        self.cancel_previews();
         self.generation += 1;
         let muted = &self.muted_parts;
         let mut core = self.mixer.lock();
@@ -731,62 +761,11 @@ impl Engine {
         }
     }
 
-    /// Play one note immediately on a loaded slot and queue its release. Requires
-    /// the slot to be loaded (the audio stream running); a no-op otherwise. The
-    /// strip is forced into the playing state so VST plugins that gate rendering
-    /// on transport still voice the preview while the transport is stopped.
-    fn preview(&mut self, slot_key: &str, note: u8, velocity: u8, duration_ms: u64) {
-        let Some(channel) = MidiChannel::from_index(0) else {
-            return;
-        };
-        let mut core = self.mixer.lock();
-        let Some(strip) = core.strip_mut(slot_key) else {
-            return;
-        };
-        strip.set_playing(true);
-        strip.send_midi(MidiEvent::NoteOn {
-            channel,
-            note,
-            velocity,
-        });
-        drop(core);
-        self.previews.push(PreviewOff {
-            due: Instant::now() + Duration::from_millis(duration_ms),
-            slot_key: slot_key.to_owned(),
-            channel: 0,
-            note,
-        });
-    }
-
-    /// Release any preview notes whose duration has elapsed. Runs every tick so
-    /// previews sound even while the transport is stopped.
-    fn tick_previews(&mut self) {
-        if self.previews.is_empty() {
-            return;
-        }
-        let now = Instant::now();
-        let mut core = self.mixer.lock();
-        self.previews.retain(|preview| {
-            if preview.due > now {
-                return true;
-            }
-            if let Some(channel) = MidiChannel::from_index(preview.channel) {
-                if let Some(strip) = core.strip_mut(&preview.slot_key) {
-                    strip.send_midi(MidiEvent::NoteOff {
-                        channel,
-                        note: preview.note,
-                        velocity: 0,
-                    });
-                }
-            }
-            false
-        });
-    }
-
     /// Halt transport and flush: all-notes-off every plugin, advancing the
     /// generation so any late reply is recognizable as stale. Instances stay
     /// loaded for the next play.
     fn stop(&mut self) {
+        self.cancel_previews();
         self.mixer.lock().for_each_strip(|strip| strip.panic());
         for seq in self.slots.values_mut() {
             seq.clear_notes();
@@ -799,6 +778,7 @@ impl Engine {
     /// Move the transport to `seconds`. Flushes prior-generation notes, then — if
     /// playing — restarts the clock at the new point; otherwise just records it.
     fn seek(&mut self, seconds: f64) -> u64 {
+        self.cancel_previews();
         self.mixer.lock().for_each_strip(|strip| strip.panic());
         for seq in self.slots.values_mut() {
             seq.clear_notes();
@@ -821,6 +801,7 @@ impl Engine {
     }
 
     fn release_all(&mut self) {
+        self.cancel_previews();
         // The reverb/master chains are about to be unloaded; drop every editor
         // window first (no state emit — this is a teardown, not a user save).
         self.finish_all_fx_editors(false);

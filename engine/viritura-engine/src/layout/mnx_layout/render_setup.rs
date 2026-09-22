@@ -62,6 +62,8 @@ pub(super) fn score_render_salt(
     lyric_line_order.hash(&mut hasher);
     instrument_name_display.hash(&mut hasher);
     for staff in flat_staves {
+        staff.chord_symbol_source.hash(&mut hasher);
+        staff.chord_symbol_transposition.hash(&mut hasher);
         staff.label.hash(&mut hasher);
         staff.short_label.hash(&mut hasher);
         staff.resolved_full_label.hash(&mut hasher);

@@ -8,7 +8,6 @@ import type {
   Transposition,
   DynamicGroup,
   GlobalLyrics,
-  ChordSymbol,
   Space,
   Sequence,
 } from "@viritura/core";
@@ -42,6 +41,7 @@ import {
   subtractWholeFractions,
 } from "../clipboard/clipboardTrackPlacement";
 import { ensurePasteMeasure, pasteTrackIntoScore, sequenceForStaffVoice } from "../clipboard/pasteContent";
+import { applyCapturedChordSymbols } from "../clipboard/chordSymbolPlacement";
 import {
   capturedAnnotationDestination,
   resolvePhysicalStaffDestination,
@@ -198,7 +198,7 @@ export async function pasteFromClipboard(onWarning?: (message: string) => void):
     if (data.diagnostics?.length) {
       const messages = [...new Set(data.diagnostics.map((diagnostic) => diagnostic.message))];
       const remaining = messages.length > 3 ? ` (+${messages.length - 3} more)` : "";
-      onWarning?.(`Skipped unsupported MuseScore notation: ${messages.slice(0, 3).join("; ")}${remaining}.`);
+      onWarning?.(`MuseScore notation warnings: ${messages.slice(0, 3).join("; ")}${remaining}.`);
     }
     return pasteResultFromMuseScore(data);
   }
@@ -259,6 +259,7 @@ export function applyPaste(
   placedContent?: SequenceContent[],
   /** Rhythmic origin for physical tracks, before their individual lead-ins. */
   physicalTrackStartBeat?: number,
+  onWarning?: (message: string) => void,
 ): Score {
   const part = score.parts[partIndex];
   if (!part) return score;
@@ -295,15 +296,7 @@ export function applyPaste(
       paste.tracks,
       (sequence.staff ?? 1) - 1,
     );
-    applyCapturedChordSymbols(
-      newScore,
-      partIndex,
-      measureIndex,
-      pasteStartFraction,
-      paste.chordSymbols,
-      paste.tracks,
-      (sequence.staff ?? 1) - 1,
-    );
+    pasteChords();
     return newScore;
   }
 
@@ -421,16 +414,26 @@ export function applyPaste(
       (sequence.staff ?? 1) - 1,
     );
   }
-  applyCapturedChordSymbols(
-    newScore,
-    partIndex,
-    measureIndex,
-    pasteStartFraction,
-    paste.chordSymbols,
-    undefined,
-    (sequence.staff ?? 1) - 1,
-  );
+  pasteChords();
   return newScore;
+
+  function pasteChords(): void {
+    applyCapturedChordSymbols(newScore, paste.chordSymbols, {
+      partIndex,
+      anchorStaffIndex: (sequence!.staff ?? 1) - 1,
+      tracks: paste.tracks,
+      onWarning,
+      positionFor: (item) =>
+        item.offset
+          ? resolveExactOffsetPosition(newScore, measureIndex, pasteStartFraction, item.offset)
+          : resolveExactOffsetPosition(
+              newScore,
+              measureIndex + item.measureOffset,
+              item.measureOffset === 0 ? pasteStartFraction : [0, 1],
+              item.chordSymbol.position.fraction,
+            ),
+    });
+  }
 }
 
 function eventIndexAtBeat(
@@ -502,52 +505,6 @@ function activeTimeSignature(score: Score, measureIndex: number): TimeSignature 
     if (score.global.measures[index]?.time) time = score.global.measures[index]!.time!;
   }
   return time;
-}
-
-function applyCapturedChordSymbols(
-  score: Score,
-  partIndex: number,
-  measureIndex: number,
-  pasteStartFraction: Space["duration"],
-  captured: CapturedChordSymbol[] | undefined,
-  tracks?: ClipboardTrack[],
-  anchorStaffIndex = 0,
-): void {
-  for (const item of captured ?? []) {
-    const destination = capturedAnnotationDestination(
-      score,
-      partIndex,
-      anchorStaffIndex,
-      tracks,
-      item.partOffset ?? 0,
-      item.chordSymbol.displayStaff ?? 1,
-      item.staffOffset,
-    );
-    const position = item.offset
-      ? resolveExactOffsetPosition(score, measureIndex, pasteStartFraction, item.offset)
-      : {
-          measureIndex: measureIndex + item.measureOffset,
-          fraction: addWholeFractions(
-            item.measureOffset === 0 ? pasteStartFraction : [0, 1],
-            item.chordSymbol.position.fraction,
-          ),
-        };
-    const measure = score.parts[destination.partIndex]?.measures[position.measureIndex];
-    if (!measure) continue;
-    const chordSymbol: ChordSymbol = {
-      ...structuredClone(item.chordSymbol),
-      ...(destination.staff === undefined ? {} : { displayStaff: destination.staff }),
-      position: { fraction: position.fraction },
-    };
-    measure.chordSymbols ??= [];
-    measure.chordSymbols = measure.chordSymbols.filter(
-      (existing) =>
-        (existing.displayStaff ?? 1) !== (chordSymbol.displayStaff ?? 1) ||
-        existing.position.fraction[0] / existing.position.fraction[1] !==
-          chordSymbol.position.fraction[0] / chordSymbol.position.fraction[1],
-    );
-    measure.chordSymbols.push(chordSymbol);
-  }
 }
 
 function mergeClipboardLyrics(score: Score, lyrics: GlobalLyrics | undefined): void {

@@ -4,7 +4,14 @@
 import type { Score, NoteEvent, SequenceContent, Sequence } from "@viritura/core";
 import { isRest } from "@viritura/core";
 import type { SelectionState } from "../store/selectionStore";
-import { deleteAnnotation, deleteAnnotations, deleteArpeggioByElementId, deleteGraceNote } from "./deleteCommands";
+import {
+  deleteAnnotation,
+  deleteAnnotations,
+  deleteChordSymbolsByElementIds,
+  deleteArpeggioByElementId,
+  deleteGraceNote,
+  resolveDeletableAnnotationLocation,
+} from "./deleteCommands";
 import { deleteNote, sequenceContentBeats } from "./noteCommands";
 import { isAccidentalId, removeAccidental } from "./accidentalCommands";
 import { isArticulationId, removeArticulation } from "./articulationDeletion";
@@ -14,7 +21,6 @@ import { resolveSelectionEvents } from "../store/selectionUtils";
 import {
   resolveEventLocation,
   getEventAtLocation,
-  resolveAnnotationLocation,
   resolveGraceLocation,
   addressesWholeEvent,
 } from "../score/ElementPath";
@@ -64,7 +70,7 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
   const tupletResult = deleteSelectedTuplet(score, elementId);
   if (tupletResult) return tupletResult;
 
-  const annotationLocation = resolveAnnotationLocation(elementId);
+  const annotationLocation = resolveDeletableAnnotationLocation(elementId);
   if (annotationLocation) {
     const withoutAnnotation = deleteAnnotation(score, annotationLocation);
     if (!withoutAnnotation) return { kind: "noop" };
@@ -287,7 +293,12 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
   const lyricIds = selection.kind === "multi" ? selection.elementIds.filter(isLyricId) : [];
   const graceIds =
     selection.kind === "multi" ? selection.elementIds.filter((id) => resolveGraceLocation(id, score) !== null) : [];
-  const deletableIds = selection.kind === "multi" ? selection.elementIds.filter(addressesWholeEvent) : [];
+  const deletableIds =
+    selection.kind === "multi"
+      ? selection.elementIds.filter(
+          (id) => addressesWholeEvent(id) && resolveDeletableAnnotationLocation(id)?.type !== "chord",
+        )
+      : [];
 
   // Noteheads thin their chords first; a chord whose every notehead is selected
   // (or which is also selected as a whole event) is left to the event pass,
@@ -313,12 +324,13 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
       ? []
       : resolveSelectionEvents(eventSelection, score);
 
-  const lyricResult = removeLyrics(score, lyricIds);
+  const chordSymbolsResult = deleteSelectedChordSymbols(score, selection);
+  const lyricResult = removeLyrics(chordSymbolsResult.score, lyricIds);
   let newScore = lyricResult.score;
   const markingsRemoved = markingIds.length > 0 && removeMarkings(newScore, markingIds);
   const annotationResult = deleteTimedAnnotationsAnchoredToCollapsedSequences(newScore, events);
   newScore = annotationResult.score;
-  const leavesRemoved = [markingsRemoved, lyricResult.removed].includes(true);
+  const leavesRemoved = [markingsRemoved, lyricResult.removed, chordSymbolsResult.removed].includes(true);
   if (events.length === 0) {
     const graceRemoved = deleteSelectedGraceNotes(newScore, graceIds);
     return didDeleteSelectionLeaves(leavesRemoved, annotationResult.removed, chordsThinned, graceRemoved !== newScore)
@@ -360,6 +372,11 @@ function deleteMultiOrRange(score: Score, selection: MultiOrRangeSel): DeleteSel
     }
   }
   return { kind: "multi", score: deleteSelectedGraceNotes(newScore, graceIds), nextSelection: { kind: "clear" } };
+}
+
+function deleteSelectedChordSymbols(score: Score, selection: MultiOrRangeSel): { score: Score; removed: boolean } {
+  const next = selection.kind === "multi" ? deleteChordSymbolsByElementIds(score, selection.elementIds) : null;
+  return { score: next ?? score, removed: next !== null };
 }
 
 function didDeleteSelectionLeaves(
@@ -483,11 +500,6 @@ function timedAnnotationLocationsAtSelectedRoots(
   for (const [index, expression] of (measure.expressions ?? []).entries()) {
     if (isAnchoredInSequence(expression))
       locations.push({ kind: "part", type: "expr", partIndex, measureIndex, annotationIndex: index });
-  }
-  for (const [index, chordSymbol] of (measure.chordSymbols ?? []).entries()) {
-    if (isAnchoredInSequence(chordSymbol)) {
-      locations.push({ kind: "part", type: "chord", partIndex, measureIndex, annotationIndex: index });
-    }
   }
   return locations;
 }

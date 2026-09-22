@@ -234,9 +234,8 @@ fn test_chord_symbol_accidentals_use_smufl_glyphs() {
     let score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
-            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-            "parts": [{"measures": [{
-                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
                 "_x": {"viritura": {"chordSymbols": [{
                     "position": {"fraction": [0, 1]},
                     "root": {"step": "F", "alter": 2},
@@ -244,12 +243,15 @@ fn test_chord_symbol_accidentals_use_smufl_glyphs() {
                     "kindText": "7b9",
                     "bass": {"step": "B", "alter": -2}
                 }]}}
+            }]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
             }]}]
         }"#,
     )
     .unwrap();
     let dl = layout_score(&score, 0, &LayoutConfig::default());
-    let chord_id = "p0/m0/chord0";
+    let chord_id = "m0/chord0";
     let glyphs: Vec<(u32, &str)> = dl
         .commands
         .iter()
@@ -291,15 +293,17 @@ fn test_default_chord_style_uses_quality_glyphs_and_superscripts() {
     let score = crate::parse::parse_mnx(
         r#"{
             "mnx": {"version": 1},
-            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-            "parts": [{"measures": [{
-                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
                 "_x": {"viritura": {"chordSymbols": [
                     {"position": {"fraction": [0, 1]}, "root": {"step": "C"}, "quality": "major", "extension": 7},
                     {"position": {"fraction": [1, 4]}, "root": {"step": "D"}, "quality": "diminished", "extension": 7},
                     {"position": {"fraction": [2, 4]}, "root": {"step": "E"}, "quality": "half-diminished", "extension": 7},
                     {"position": {"fraction": [3, 4]}, "root": {"step": "F"}, "quality": "augmented"}
                 ]}}
+            }]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
             }]}]
         }"#,
     )
@@ -355,15 +359,17 @@ fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension
                 "minor": "none",
                 "extensions": "baseline"
             }}},
-            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-            "parts": [{"measures": [{
-                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
                 "_x": {"viritura": {"chordSymbols": [{
                     "position": {"fraction": [0, 1]},
                     "root": {"step": "D"},
                     "quality": "minor",
                     "extension": 7
                 }]}}
+            }]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
             }]}]
         }"#,
     )
@@ -375,7 +381,7 @@ fn test_plain_text_chord_house_style_uses_lowercase_minor_and_baseline_extension
         .iter()
         .zip(dl.element_ids.iter())
         .filter_map(|(command, id)| match command {
-            RenderCommand::DrawText { text, size, .. } if id.as_deref() == Some("p0/m0/chord0") => {
+            RenderCommand::DrawText { text, size, .. } if id.as_deref() == Some("m0/chord0") => {
                 Some((text.as_str(), *size))
             }
             _ => None,
@@ -394,15 +400,17 @@ fn test_half_diminished_fallback_honors_minor_house_style() {
                 "minor": "minus",
                 "halfDiminished": "minorFlatFive"
             }}},
-            "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
-            "parts": [{"measures": [{
-                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}],
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
                 "_x": {"viritura": {"chordSymbols": [{
                     "position": {"fraction": [0, 1]},
                     "root": {"step": "E"},
                     "quality": "half-diminished",
                     "extension": 7
                 }]}}
+            }]},
+            "parts": [{"measures": [{
+                "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]
             }]}]
         }"#,
     )
@@ -413,7 +421,7 @@ fn test_half_diminished_fallback_honors_minor_house_style() {
         .iter()
         .zip(dl.element_ids.iter())
         .filter_map(|(command, id)| match command {
-            RenderCommand::DrawGlyph { codepoint, .. } if id.as_deref() == Some("p0/m0/chord0") => {
+            RenderCommand::DrawGlyph { codepoint, .. } if id.as_deref() == Some("m0/chord0") => {
                 Some(*codepoint)
             }
             _ => None,
@@ -692,7 +700,7 @@ fn test_chord_symbol_element_ids_tagged() {
         .element_ids
         .iter()
         .filter_map(|id| id.as_ref())
-        .filter(|id| id.contains("/chord"))
+        .filter(|id| id.starts_with('m') && id.contains("/chord"))
         .collect();
     assert!(
         chord_ids.len() >= 4,
@@ -701,12 +709,7 @@ fn test_chord_symbol_element_ids_tagged() {
         chord_ids
     );
 
-    // Format: p{part}/m{measure}/chord{index}
-    assert!(
-        chord_ids[0].starts_with("p0/m0/chord"),
-        "First chord ID should start with p0/m0/chord, got {}",
-        chord_ids[0]
-    );
+    assert_eq!(chord_ids[0].as_str(), "m0/chord0");
 }
 
 // ═══════════════════════════════════════

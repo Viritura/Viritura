@@ -42,6 +42,14 @@ pub(in crate::playback_host) fn routing_strip() -> Strip {
     routing_sf2_strip(0, false)
 }
 
+pub(in crate::playback_host) fn audition_core(keys: &[&str]) -> MixerCore {
+    let mut core = MixerCore::new();
+    for &key in keys {
+        core.strips.insert(key.to_owned(), routing_strip());
+    }
+    core
+}
+
 pub(in crate::playback_host) fn routing_sf2_strip(program: u8, is_drum: bool) -> Strip {
     let mut core = MixerCore::new();
     core.insert(

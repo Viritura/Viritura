@@ -193,11 +193,11 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
   });
 
-  it("preserves layout-staff chord-symbol visibility", () => {
+  it("preserves source-part chord-symbol visibility without layout switches", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [] },
-      parts: [{ id: "piano", name: "Piano", measures: [] }],
+      parts: [{ id: "piano", name: "Piano", measures: [], _x: { viritura: { chordSymbolVisibility: "show" } } }],
       layouts: [
         {
           id: "piano-part",
@@ -206,14 +206,17 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
             {
               type: "staff",
               sources: [{ part: "piano", staff: 2 }],
-              _x: { viritura: { chordSymbolVisibility: "show" } },
             },
           ],
         },
       ],
     };
 
-    expect(serializeMnx(parseMnx(source)).layouts).toEqual(source.layouts);
+    const parsed = parseMnx(source);
+    const serialized = serializeMnx(parsed);
+    expect(parsed.parts[0]?.chordSymbolVisibility).toBe("show");
+    expect(serialized.parts).toEqual(source.parts);
+    expect(serialized.layouts).toEqual(source.layouts);
   });
 
   it("preserves chord-symbol house style", () => {

@@ -2234,16 +2234,17 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
 
     expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-kind");
     expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
-      {
+      expect.objectContaining({
         position: { fraction: [0, 1] },
         root: { step: "C" },
         quality: "other",
         kindText: "Neapolitan",
-      },
+        rawText: expect.any(String),
+      }),
     ]);
   });
 
-  it("consolidates matching staff lanes globally and retains differing staff lanes locally", () => {
+  it("merges matching staff harmonies globally and warns when a lower staff conflicts", () => {
     const xml = wrapScore(
       `
       <harmony>
@@ -2271,7 +2272,8 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
       { divisions: 1, staves: 2 },
     );
 
-    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const diagnostics = new DiagnosticCollector();
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
     expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
       {
@@ -2279,36 +2281,25 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
         root: { step: "C" },
         quality: "major",
       },
-    ]);
-    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [1, 4] },
-        displayStaff: 1,
         root: { step: "D" },
         quality: "minor",
       },
-      {
-        position: { fraction: [1, 4] },
-        displayStaff: 2,
-        root: { step: "E" },
-        quality: "minor",
-      },
+    ]);
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    expect(converted.parts[0]!._x?.viritura.chordSymbolVisibility).toBe("show");
+    expect(diagnostics.all()).toEqual([
+      expect.objectContaining({ severity: "warning", code: "musicxml-harmony-conflict" }),
     ]);
 
     const staffs = converted.layouts![0]!.content[0]!;
     expect(staffs.type).toBe("group");
     if (staffs.type !== "group") return;
-    expect(staffs.content[0]).toMatchObject({
-      type: "staff",
-      _x: { viritura: { globalChordSymbolVisibility: "show" } },
-    });
-    expect(staffs.content[1]).toMatchObject({
-      type: "staff",
-      _x: { viritura: { globalChordSymbolVisibility: "show" } },
-    });
+    expect(staffs.content.every((item) => item.type === "staff" && !("_x" in item))).toBe(true);
   });
 
-  it("keeps conflicting MusicXML staff harmonies local", () => {
+  it("keeps only the top staff harmony globally when MusicXML staff harmonies conflict", () => {
     const xml = wrapScore(
       `
       <harmony>
@@ -2328,28 +2319,26 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
       { staves: 2 },
     );
 
-    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const diagnostics = new DiagnosticCollector();
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
-    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
-    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toEqual([
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
       {
         position: { fraction: [0, 1] },
-        displayStaff: 1,
         root: { step: "C" },
         quality: "major",
       },
-      {
-        position: { fraction: [0, 1] },
-        displayStaff: 2,
-        root: { step: "D" },
-        quality: "minor",
-      },
+    ]);
+    expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    expect(converted.parts[0]!._x?.viritura.chordSymbolVisibility).toBe("show");
+    expect(diagnostics.all()).toEqual([
+      expect.objectContaining({ severity: "warning", code: "musicxml-harmony-conflict" }),
     ]);
 
     const group = converted.layouts![0]!.content[0]!;
     expect(group.type).toBe("group");
     if (group.type !== "group") return;
-    expect(group.content.every((item) => item.type === "staff" && item._x === undefined)).toBe(true);
+    expect(group.content.every((item) => item.type === "staff" && !("_x" in item))).toBe(true);
   });
 
   it("collapses equivalent MusicXML staff harmony lanes into one global track", () => {
@@ -2372,19 +2361,20 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
       { staves: 2 },
     );
 
-    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const diagnostics = new DiagnosticCollector();
+    const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
     expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toHaveLength(1);
     expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
+    expect(converted.parts[0]!._x?.viritura.chordSymbolVisibility).toBe("show");
+    expect(diagnostics.all()).toEqual([]);
     const group = converted.layouts![0]!.content[0]!;
     expect(group.type).toBe("group");
     if (group.type !== "group") return;
-    expect(
-      group.content.map((item) => (item.type === "staff" ? item._x?.viritura.globalChordSymbolVisibility : undefined)),
-    ).toEqual(["show", "show"]);
+    expect(group.content.every((item) => item.type === "staff" && !("_x" in item))).toBe(true);
   });
 
-  it("reports harmony representations that the chord lane cannot preserve", () => {
+  it("preserves unsupported numeral harmony as global raw text with a warning", () => {
     const xml = wrapScore(`
       <harmony><numeral><numeral-root>5</numeral-root></numeral><kind>dominant</kind></harmony>
       <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
@@ -2394,7 +2384,11 @@ describe("convertMusicXmlToMnx — chord symbols", () => {
     const converted = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
 
     expect(converted.parts[0]!.measures[0]!._x?.viritura.chordSymbols).toBeUndefined();
-    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toContain("musicxml-harmony-dropped");
+    expect(converted.global.measures[0]!._x?.viritura.chordSymbols).toEqual([
+      expect.objectContaining({ position: { fraction: [0, 1] }, rawText: expect.stringMatching(/\S/) }),
+    ]);
+    expect(diagnostics.all()).toEqual([expect.objectContaining({ severity: "warning" })]);
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).not.toContain("musicxml-harmony-dropped");
   });
 });
 

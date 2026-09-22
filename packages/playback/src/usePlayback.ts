@@ -50,6 +50,7 @@ const FALLBACK_ACTIONS: PlaybackActions = {
   previewInstrumentNoteOff: noop,
   previewInstrumentAllNotesOff: noop,
   previewPercussion: noopAsync,
+  previewChord: noopAsync,
   measureBeatToSeconds: () => null,
   setEnsembleLayer: noop,
   setAirEQGain: noop,

@@ -15,7 +15,9 @@ sound assignments. Unpitched percussion uses its instrument's percussion map.
 
 ## Mixer
 
-The mixer has one channel for each instrument. Use it to adjust:
+The mixer has one channel for each instrument, plus a derived **Chords**
+channel when the document contains chord symbols. Use instrument channels to
+adjust:
 
 - output level;
 - mute and solo state;
@@ -25,6 +27,30 @@ The mixer has one channel for each instrument. Use it to adjust:
 
 Mute and solo remain active when you switch away from Play because they belong
 to the playback engine, not just the visible mixer.
+
+### Chords channel
+
+**Chords** starts unmuted and plays the document-wide progression through a
+SoundFont piano (General MIDI program 0) in both browser and desktop playback.
+It is a playback channel, not an added instrument or a notated piano part, and
+does not use an instrument-profile sound assignment.
+
+Its fixed voicing places one root or slash bass in MIDI notes 36–47 and all
+chord tones, including the root, in MIDI notes 60–71, sorted from low to high
+without duplicates. A slash bass that is not a chord tone sounds only in the
+low register. Unsupported symbols and no-chord changes produce no notes but
+end the preceding harmony.
+
+Clicking a supported chord symbol or committing a chord edit auditions the
+same voicing for 400 ms while transport is stopped, respecting effective mute,
+solo, and level settings.
+
+Full-score playback and instrumental-part views include chords even when the
+symbols are visually hidden. An explicit selection includes chords only if it
+covers every instrument visible in the current view; partial selections exclude
+them and an explicitly empty selection plays nothing. This temporary playback
+filter does not change saved mixer controls. See
+[Chord Symbols](/docs/chord-symbols) for entry and visibility.
 
 ## Sound assignments
 

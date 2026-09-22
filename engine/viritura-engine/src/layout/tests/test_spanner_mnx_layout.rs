@@ -1,7 +1,7 @@
-// Regression tests for hairpin/pedal/ottava rendering through the MNX score layout pipeline.
+// Regression tests for hairpin/pedal/ottava/harmony rendering through the MNX score layout pipeline.
 //
 // These test the fix for build_virtual_part_measure() which previously dropped
-// hairpins, pedals, ottavas, and chord_symbols (hardcoded to None).
+// hairpins, pedals, and ottavas (hardcoded to None), plus global harmony projection.
 
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
@@ -194,19 +194,19 @@ fn test_pedal_renders_in_mnx_score_layout() {
 
 #[test]
 fn test_chord_symbols_render_in_mnx_score_layout() {
-    let json = build_mnx_score_with_extension(
-        0,
-        r#"
-        "chordSymbols": [{
+    let base = build_mnx_score_with_extension(0, "");
+    let mut value: serde_json::Value = serde_json::from_str(&base).unwrap();
+    value["global"]["measures"][0]["_x"] = serde_json::json!({
+        "viritura": {"chordSymbols": [{
             "position": {"fraction": [0, 1]},
             "root": {"step": "C"},
             "quality": "major"
-        }]
-    "#,
-    );
+        }]}
+    });
+    let json = serde_json::to_string(&value).unwrap();
     let score = parse_mnx(&json).expect("Failed to parse");
     assert!(
-        score.parts[0].measures[0].chord_symbols.is_some(),
+        score.global.measures[0].chord_symbols().is_some(),
         "Chord symbols should parse"
     );
 
@@ -217,10 +217,12 @@ fn test_chord_symbols_render_in_mnx_score_layout() {
         .element_ids
         .iter()
         .filter_map(|id| id.as_ref())
-        .filter(|id| id.contains("chord"))
+        .filter(|id| id.as_str() == "m0/chord0")
         .collect();
-    assert!(!chord_ids.is_empty(),
-        "Chord symbols should render in layout_with_mnx_scores (was a regression: build_virtual_part_measure dropped them)");
+    assert!(
+        !chord_ids.is_empty(),
+        "Global chord symbols should project into layout_with_mnx_scores"
+    );
 }
 
 // ═══════════════════════════════════════════

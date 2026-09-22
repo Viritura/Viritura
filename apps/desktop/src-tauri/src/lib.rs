@@ -208,11 +208,25 @@ fn vst_playback_set_pan(
 fn vst_playback_preview(
     host: tauri::State<'_, PlaybackHost>,
     slot_key: String,
+    part_index: u32,
     note: u8,
     velocity: u8,
     duration_ms: u64,
 ) -> Result<(), String> {
-    playback_host::preview(&host, slot_key, note, velocity, duration_ms)
+    playback_host::preview(&host, slot_key, part_index, note, velocity, duration_ms)
+}
+
+/// Replace the audition chord on an already-loaded slot without loading assets.
+#[tauri::command]
+fn vst_playback_preview_chord(
+    host: tauri::State<'_, PlaybackHost>,
+    slot_key: String,
+    part_index: u32,
+    notes: Vec<u8>,
+    velocity: u8,
+    duration_ms: u64,
+) -> Result<(), String> {
+    playback_host::preview_chord(&host, slot_key, part_index, notes, velocity, duration_ms)
 }
 
 /// Resolve the absolute filesystem path of the bundled GM SoundFont, so the
@@ -268,6 +282,7 @@ pub fn run() {
             vst_playback_set_gain,
             vst_playback_set_pan,
             vst_playback_preview,
+            vst_playback_preview_chord,
             vst_soundfont_path,
             desktop_soundfont_bytes,
             notation_clipboard::notation_clipboard_read,

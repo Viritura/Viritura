@@ -1,8 +1,9 @@
 import { useCallback } from "react";
-import type { LayoutContent, LayoutGroup, PartDisplayInfo } from "@viritura/core";
+import type { LayoutContent, LayoutGroup, Part, PartDisplayInfo } from "@viritura/core";
 import type { ContextMenuState, MenuItemDef } from "@viritura/ui";
 import { type NodePath } from "./treeOps";
 import { buildGroupContextMenuItems, buildStaffContextMenuItems } from "./contextMenus";
+import type { PartChordSymbolUpdate } from "./chordSymbolVisibility";
 
 export interface UsePartListContextMenusArgs {
   selectedPaths: Set<string>;
@@ -10,10 +11,8 @@ export interface UsePartListContextMenusArgs {
   setContextMenu: (state: ContextMenuState | null) => void;
   removeGroup: (path: NodePath) => void;
   updateGroupProp: (path: NodePath, prop: "symbol" | "label", value: string) => void;
-  updateStaffChordSymbolVisibility: (
-    path: NodePath,
-    value: import("@viritura/core").LayoutStaff["chordSymbolVisibility"],
-  ) => void;
+  sourceParts: readonly Part[];
+  onPartUpdate?: (partId: string, updates: PartChordSymbolUpdate) => void;
   setEditingGroup: (key: string | null) => void;
   setEditingGroupLabel: (label: string) => void;
   partIdToScoreIndex: Map<string, number>;
@@ -44,7 +43,8 @@ export function usePartListContextMenus(args: UsePartListContextMenusArgs): UseP
     setContextMenu,
     removeGroup,
     updateGroupProp,
-    updateStaffChordSymbolVisibility,
+    sourceParts = [],
+    onPartUpdate,
     setEditingGroup,
     setEditingGroupLabel,
     partIdToScoreIndex,
@@ -102,7 +102,8 @@ export function usePartListContextMenus(args: UsePartListContextMenusArgs): UseP
         partIdToScoreIndex,
         onSelectScore,
         ungroupStaff,
-        updateStaffChordSymbolVisibility,
+        sourceParts,
+        onPartUpdate,
         onAddDoubling,
         onRemoveDoubling,
         onRemoveInstrument,
@@ -124,6 +125,8 @@ export function usePartListContextMenus(args: UsePartListContextMenusArgs): UseP
       partIdToScoreIndex,
       onSelectScore,
       ungroupStaff,
+      sourceParts,
+      onPartUpdate,
       onAddDoubling,
       onRemoveDoubling,
       onRemoveInstrument,

@@ -345,27 +345,21 @@
 
     "chord-symbol": {
       "type": "object",
-      "description": "A chord symbol above the staff (e.g. 'Cmaj7', 'Dm', 'G7', 'F#dim').",
-      "required": ["position", "root", "quality"],
+      "description": "A score-wide harmony event on a global measure. Either a structured root or authored rawText is required; rawText may preserve malformed or unrecognized symbols and no-chord (NC) declarations without inventing a root.",
+      "$comment": "The parser enforces root or rawText. The code generators cannot represent the anyOf required-property constraint while preserving both fields.",
+      "required": ["position"],
       "properties": {
         "position": {
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
         },
-        "displayStaff": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Optional imported/per-event display-staff override (1-based). Layout policy otherwise chooses the display staff."
-        },
-        "staff": {
-          "type": "integer",
-          "minimum": 1,
-          "deprecated": true,
-          "description": "Deprecated alias for displayStaff. Accepted on read for compatibility."
-        },
         "root": {
           "$ref": "#/$defs/chord-root",
-          "description": "Root note of the chord."
+          "description": "Structured root note, optional for raw authored symbols and no-chord declarations. When present, it must agree semantically with rawText."
+        },
+        "rawText": {
+          "type": "string",
+          "description": "Original authored chord text, preserved verbatim even when structured fields are available. Rootless text preserves malformed or unrecognized symbols and NC. The semantic resolver checks agreement with any structured fields."
         },
         "quality": {
           "$ref": "#/$defs/chord-quality"
@@ -385,7 +379,7 @@
         },
         "textOverride": {
           "type": "string",
-          "description": "Override the computed display text (e.g. 'Cadd9')."
+          "description": "Visual override of the computed display text, not a semantic replacement. The semantic resolver rejects parseable contradictions or unsupported non-equivalent overrides."
         }
       },
       "additionalProperties": false
@@ -689,11 +683,6 @@
           "items": { "$ref": "#/$defs/pedal" },
           "description": "Piano pedal markings."
         },
-        "chordSymbols": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/chord-symbol" },
-          "description": "Chord symbols above the staff."
-        },
         "expressions": {
           "type": "array",
           "items": { "$ref": "#/$defs/text-expression" },
@@ -891,6 +880,11 @@
         "spatial": {
           "$ref": "#/$defs/stage-position",
           "description": "Spatial-audio stage position in concert-hall meters, persisted from Play mode so a user's instrument arrangement survives reload."
+        },
+        "chordSymbolVisibility": {
+          "type": "string",
+          "enum": ["auto", "show", "hide"],
+          "description": "Source-part display policy for the score-wide harmony track. Unset or auto uses automatic placement; show or hide explicitly controls this part. This is not a layout-staff or per-chord switch."
         }
       },
       "additionalProperties": false
@@ -908,18 +902,7 @@
     "layout-staff-extensions": {
       "type": "object",
       "description": "Viritura engraving properties on a layout staff.",
-      "properties": {
-        "chordSymbolVisibility": {
-          "type": "string",
-          "enum": ["auto", "show", "hide"],
-          "description": "Whether this layout staff displays chord symbols. Auto uses the first displayed staff for each source part."
-        },
-        "globalChordSymbolVisibility": {
-          "type": "string",
-          "enum": ["auto", "show", "hide"],
-          "description": "Whether this layout staff displays the global harmony track. Auto uses the first displayed staff in the layout."
-        }
-      },
+      "properties": {},
       "additionalProperties": false
     },
 

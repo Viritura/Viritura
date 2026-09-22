@@ -6,6 +6,7 @@ export {
   type Sf2Layer,
   type UnsupportedSf2Sound,
 } from "./resolvePartSounds";
+export { resolveScorePlaybackParts } from "./resolveScorePlaybackParts";
 export {
   resolveSoundProfilePickerView,
   type SoundProfilePickerOption,

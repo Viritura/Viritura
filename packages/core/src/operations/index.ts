@@ -22,4 +22,22 @@ export {
   isSupportedDynamicGlyph,
   type AuthoredDynamicValue,
 } from "./dynamicGroups";
-export { parseChordSymbolText } from "./chordSymbols";
+export {
+  CHORDS_PART_ID,
+  UNSUPPORTED_CHORD_MESSAGE,
+  parseChordSymbolText,
+  formatChordSymbolText,
+  rewriteChordSymbolBase,
+  resolveChordSymbol,
+  transposeChordSymbol,
+  voiceChordSymbol,
+  compareChordSymbolPositions,
+  upsertGlobalChordSymbol,
+  mergeGlobalChordSymbols,
+  type ChordSymbolResolution,
+  type SupportedChordSymbol,
+  type ChordSymbolVoicing,
+  type ChordSymbolSource,
+  type ChordSymbolConflict,
+  type ChordSymbolMergeResult,
+} from "./chordSymbols";

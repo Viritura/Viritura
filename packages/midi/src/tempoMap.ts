@@ -185,6 +185,8 @@ export interface TempoBuild {
    *  holds are time insertions, not beats). Add a measure-relative beat offset
    *  to get the global beat for `model.timeAtBeat`. */
   measureStartBeats: number[];
+  /** End of the final measure on the same beat axis, including inherited meters. */
+  totalBeats: number;
 }
 
 /**
@@ -289,7 +291,7 @@ export function buildTempoModel(globalMeasures: readonly GlobalMeasure[], holds?
 
   const model = insertions.length > 0 ? TempoModel.build(regions, insertions) : regionsModel;
   const measureStartTimes = measureStartBeats.map((b) => model.timeAtBeat(b));
-  return { model, measureStartTimes, measureStartBeats };
+  return { model, measureStartTimes, measureStartBeats, totalBeats: cumBeats };
 }
 
 /** A rhythmic-position fraction (of a whole note) → quarter-note beats. */

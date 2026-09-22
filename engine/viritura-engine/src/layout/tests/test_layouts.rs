@@ -604,7 +604,6 @@ fn test_split_part_measure_default_clef_for_unassigned_staff() {
         measure_repeat: None,
         staff_configs: None,
         pedals: None,
-        chord_symbols: None,
         expressions: None,
         condensing_override: None,
         grouping_display_overrides: None,

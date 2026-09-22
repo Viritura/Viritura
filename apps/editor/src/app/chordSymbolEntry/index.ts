@@ -1,0 +1,1 @@
+export { ChordSymbolEntryPopover } from "./ChordSymbolEntryPopover";

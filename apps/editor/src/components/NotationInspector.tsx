@@ -207,7 +207,9 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {target && <DirectionTextSections score={score} target={target} updateScore={updateScore} />}
+        {(target || selection.kind === "measure") && (
+          <DirectionTextSections score={score} target={target} updateScore={updateScore} />
+        )}
 
         {lyric.selected && (
           <LyricSection

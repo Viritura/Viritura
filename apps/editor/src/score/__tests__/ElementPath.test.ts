@@ -29,6 +29,8 @@ import {
   voltaId,
   measureNumberId,
   // Parsing
+  canonicalChordSymbolId,
+  addressesWholeEvent,
   extractPartIndex,
   extractMeasureIndex,
   extractSequenceIndex,
@@ -121,9 +123,9 @@ describe("ID construction", () => {
   it("pedalId", () => expect(pedalId(0, 1, 2)).toBe("p0/m1/pedal2"));
   it("ottavaId", () => expect(ottavaId(1, 0, 0)).toBe("p1/m0/ottava0"));
   it("expressionId", () => expect(expressionId(0, 0, 3)).toBe("p0/m0/expr3"));
-  it("chordSymbolId", () => expect(chordSymbolId(0, 1, 0)).toBe("p0/m1/chord0"));
 
   // Global
+  it("chordSymbolId", () => expect(chordSymbolId(1, 2)).toBe("m1/chord2"));
   it("timeSigId", () => expect(timeSigId(0)).toBe("m0/time"));
   it("barlineId", () => expect(barlineId(2)).toBe("m2/barline"));
   it("tempoId", () => expect(tempoId(0, 1)).toBe("m0/tempo1"));
@@ -141,9 +143,42 @@ describe("ID construction", () => {
 // ═══════════════════════════════════════════
 
 describe("extraction helpers", () => {
+  it("keeps rendered chord placement separate from source ownership", () => {
+    expect(extractPartIndex("m3/chord2/p7/staff1")).toBeUndefined();
+    expect(extractMeasureIndex("m3/chord2/p7/staff1")).toBe(3);
+    expect(extractSequenceIndex("m3/chord2/p7/staff1")).toBeUndefined();
+  });
   it("extractPartIndex from event ID", () => {
     expect(extractPartIndex("p0/m1/s0/ev1")).toBe(0);
     expect(extractPartIndex("p2/m0/clef")).toBe(2);
+  });
+
+  describe("canonicalChordSymbolId", () => {
+    it.each(["m12/chord3", "m12/chord3/p0/staff1", "m12/chord3/p9/staff2"])(
+      "canonicalizes %s without changing the source index",
+      (id) => {
+        expect(canonicalChordSymbolId(id)).toBe(chordSymbolId(12, 3));
+      },
+    );
+
+    it.each([
+      "p0/m12/chord3",
+      "g/m12/chord3",
+      "g12/chord3",
+      "m12/chord",
+      "m12/chord3extra",
+      "m12/chord-1",
+      "m12/chord3/p0",
+      "m12/chord3/staff1",
+      "m12/chord3/p0/staff1/extra",
+      "m12/chord3/p0/staff",
+      "m12/tempo3/p0/staff1",
+      "p0/m12/s0/chord3",
+      "",
+    ])("does not invent a chord location for %s", (id) => {
+      expect(canonicalChordSymbolId(id)).toBeNull();
+      expect(resolveAnnotationLocation(id)).toBeNull();
+    });
   });
 
   it("extractPartIndex returns undefined for global IDs", () => {
@@ -220,6 +255,11 @@ describe("resolveEventLocation", () => {
     const score = makeScore();
     expect(resolveEventLocation("p0/m0/dyn0", score)).toBeNull();
     expect(resolveEventLocation("m0/time", score)).toBeNull();
+    for (const id of ["m0/chord0", "m0/chord0/p1/staff1"]) {
+      expect(resolveEventLocation(id, score)).toBeNull();
+      expect(resolveEventFromSubElement(id, score)).toBeNull();
+      expect(addressesWholeEvent(id)).toBe(false);
+    }
   });
 
   it("returns null for invalid IDs", () => {
@@ -258,6 +298,18 @@ describe("resolveEventFromSubElement", () => {
 // ═══════════════════════════════════════════
 
 describe("resolveAnnotationLocation", () => {
+  it.each(["m12/chord3", "m12/chord3/p0/staff1", "m12/chord3/p9/staff2"])(
+    "resolves %s to the global chord, not its display part",
+    (id) => {
+      expect(resolveAnnotationLocation(id)).toEqual({
+        kind: "global",
+        type: "chord",
+        measureIndex: 12,
+        annotationIndex: 3,
+      });
+    },
+  );
+
   it("resolves part-level annotations", () => {
     expect(resolveAnnotationLocation("p0/m2/dyn0")).toEqual({
       kind: "part",

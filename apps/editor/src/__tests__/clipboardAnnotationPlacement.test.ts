@@ -31,8 +31,8 @@ function dynamic(id: string, staff?: number): DynamicGroup {
   return { id, type: "immediate", value: "mf", staff, position: { fraction: [0, 1] } };
 }
 
-function harmony(staff?: number, step: "C" | "D" | "E" = "C"): ChordSymbol {
-  return { displayStaff: staff, position: { fraction: [0, 1] }, root: { step }, quality: "major" };
+function harmony(step: "C" | "D" | "E" = "C"): ChordSymbol {
+  return { position: { fraction: [0, 1] }, root: { step }, quality: "major" };
 }
 
 function copyMeasures(source: Score): PasteResult {
@@ -61,13 +61,14 @@ function copyMeasures(source: Score): PasteResult {
 }
 
 describe("clipboard physical annotation destinations", () => {
-  it.each([undefined, 1])("moves staff %s notes, dynamics and harmony to piano staff 2", (staff) => {
+  it.each([undefined, 1])("moves staff %s notes and dynamics to piano staff 2 with global harmony", (staff) => {
     const source = score([1]);
     source.parts[0]!.measures[0]!.dynamics = [dynamic("source-dynamic", staff)];
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(staff, "E")];
+    source.global.measures[0]!.chordSymbols = [harmony("E")];
     const target = score([2]);
-    const upperHarmony = harmony(undefined, "C");
-    target.parts[0]!.measures[0]!.chordSymbols = [upperHarmony, harmony(2, "D")];
+    const laterHarmony: ChordSymbol = { ...harmony("C"), position: { fraction: [1, 2] } };
+    target.global.measures[0]!.chordSymbols = [harmony("D"), laterHarmony];
+    target.parts[0]!.chordSymbolVisibility = "hide";
     const original = structuredClone(target);
     const paste = copyMeasures(source);
     const pasteSnapshot = structuredClone(paste);
@@ -79,26 +80,28 @@ describe("clipboard physical annotation destinations", () => {
     expect(measure.dynamics).toHaveLength(1);
     expect(measure.dynamics![0]).toMatchObject({ staff: 2, value: "mf" });
     expect(measure.dynamics![0]!.id).not.toBe("source-dynamic");
-    expect(measure.chordSymbols).toEqual([upperHarmony, { ...harmony(2, "E"), position: { fraction: [0, 1] } }]);
+    expect(result.global.measures[0]!.chordSymbols).toEqual([harmony("E"), laterHarmony]);
+    expect(result.parts[0]!.chordSymbolVisibility).toBe("show");
+    expect(measure).not.toHaveProperty("chordSymbols");
     expect(target).toEqual(original);
     expect(paste).toEqual(pasteSnapshot);
   });
 
   it.each([false, true])("maps piano annotations into separate parts (dynamics: %s)", (withDynamics) => {
     const source = score([2]);
-    source.parts[0]!.measures[0]!.chordSymbols = [harmony(1, "C"), harmony(2, "D")];
+    source.global.measures[0]!.chordSymbols = [harmony("C")];
     if (withDynamics) {
       source.parts[0]!.measures[0]!.dynamics = [dynamic("upper", 1), dynamic("lower", 2)];
     }
     const paste = copyMeasures(source);
-    const result = applyPaste(score([1, 1]), paste, 0, 0, 0, 0);
+    const target = score([1, 1]);
+    for (const part of target.parts) part.chordSymbolVisibility = "hide";
+    const result = applyPaste(target, paste, 0, 0, 0, 0);
+    expect(result.global.measures[0]!.chordSymbols).toEqual([harmony("C")]);
     for (const [partIndex, part] of result.parts.entries()) {
       const measure = part.measures[0]!;
-      expect(measure.chordSymbols).toHaveLength(1);
-      expect(measure.chordSymbols![0]).toMatchObject({
-        displayStaff: 1,
-        root: { step: partIndex === 0 ? "C" : "D" },
-      });
+      expect(measure).not.toHaveProperty("chordSymbols");
+      expect(part.chordSymbolVisibility).toBe("show");
       expect(measure.sequences[0]!.content[0]).toMatchObject({
         id: (paste.tracks![partIndex]!.content[0] as NoteEvent).id,
       });
@@ -111,17 +114,16 @@ describe("clipboard physical annotation destinations", () => {
 
   it.each([false, true])("maps separate parts' annotations into piano staves (dynamics: %s)", (withDynamics) => {
     const source = score([1, 1]);
+    source.global.measures[0]!.chordSymbols = [harmony("C")];
     for (const [partIndex, part] of source.parts.entries()) {
-      part.measures[0]!.chordSymbols = [harmony(undefined, partIndex === 0 ? "C" : "D")];
+      part.chordSymbolVisibility = "show";
       if (withDynamics) part.measures[0]!.dynamics = [dynamic(`dynamic-${partIndex}`)];
     }
     const result = applyPaste(score([2]), copyMeasures(source), 0, 0, 0, 0);
     const measure = result.parts[0]!.measures[0]!;
-    expect(measure.chordSymbols).toHaveLength(2);
-    expect(measure.chordSymbols).toMatchObject([
-      { displayStaff: 1, root: { step: "C" } },
-      { displayStaff: 2, root: { step: "D" } },
-    ]);
+    expect(result.global.measures[0]!.chordSymbols).toEqual([harmony("C")]);
+    expect(measure).not.toHaveProperty("chordSymbols");
+    expect(result.parts[0]!.chordSymbolVisibility).toBe("show");
     if (withDynamics) expect(measure.dynamics?.map((item) => item.staff)).toEqual([1, 2]);
   });
 
@@ -140,11 +142,12 @@ describe("clipboard physical annotation destinations", () => {
           ...(withDynamics ? { dynamics: [{ measureOffset: 0, dynamic: sourceDynamic }] } : {}),
         },
       ],
-      chordSymbols: [{ measureOffset: 0, chordSymbol: harmony(2, "D") }],
+      chordSymbols: [{ measureOffset: 0, staffOffset: 0, sourceStaff: 2, chordSymbol: harmony("D") }],
     };
     const result = applyPaste(score([1]), paste, 0, 0, 0, 0);
     if (withDynamics) expect(result.parts[0]!.measures[0]!.dynamics![0]!.staff).toBe(1);
-    expect(result.parts[0]!.measures[0]!.chordSymbols![0]!.displayStaff).toBe(1);
+    expect(result.global.measures[0]!.chordSymbols).toEqual([harmony("D")]);
+    expect(result.parts[0]!.chordSymbolVisibility).toBe("show");
   });
 
   it("routes top-level dynamics through physical tracks rather than source part offsets", () => {
@@ -184,14 +187,16 @@ describe("clipboard physical annotation destinations", () => {
     const annotationPaste: PasteResult = {
       content: [],
       dynamics: [{ partOffset: 1, measureOffset: 0, dynamic: dynamic("legacy", 2) }],
-      chordSymbols: [{ partOffset: 1, measureOffset: 0, chordSymbol: harmony(2) }],
+      chordSymbols: [{ partOffset: 1, measureOffset: 0, sourceStaff: 2, chordSymbol: harmony() }],
     };
     for (const tracks of [undefined, [{ partOffset: 0, voiceIndex: 0, content: [] }]]) {
       const result = applyPaste(target, { ...annotationPaste, tracks }, 0, 0, 0, 0);
       expect(result.parts[0]).toEqual(target.parts[0]);
       expect(result.parts[1]!.measures[0]!.sequences).toEqual(target.parts[1]!.measures[0]!.sequences);
       expect(result.parts[1]!.measures[0]!.dynamics![0]!.staff).toBe(2);
-      expect(result.parts[1]!.measures[0]!.chordSymbols![0]!.displayStaff).toBe(2);
+      expect(result.global.measures[0]!.chordSymbols).toEqual([harmony()]);
+      expect(result.parts[1]!.chordSymbolVisibility).toBe("show");
+      expect(result.parts[1]!.measures[0]).not.toHaveProperty("chordSymbols");
     }
   });
 });

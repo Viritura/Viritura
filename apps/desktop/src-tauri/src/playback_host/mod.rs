@@ -407,11 +407,13 @@ pub fn set_pan(host: &PlaybackHost, slot_key: String, pan: f32) -> Result<(), St
 pub fn preview(
     host: &PlaybackHost,
     slot_key: String,
+    part_index: u32,
     note: u8,
     velocity: u8,
     duration_ms: u64,
 ) -> Result<(), String> {
     let _operation = host.operation()?;
+    engine::validate_preview(&[note], velocity, duration_ms)?;
     let sender = {
         let guard = host.sender.lock().map_err(|_| DEAD.to_owned())?;
         match guard.as_ref() {
@@ -423,7 +425,39 @@ pub fn preview(
     sender
         .send(HostCommand::Preview {
             slot_key,
+            part_index,
             note,
+            velocity,
+            duration_ms,
+            reply,
+        })
+        .map_err(|_| DEAD.to_owned())?;
+    rx.recv().map_err(|_| DEAD.to_owned())?
+}
+
+/// Atomically replace a loaded slot's audition chord. Never starts the host.
+pub fn preview_chord(
+    host: &PlaybackHost,
+    slot_key: String,
+    part_index: u32,
+    notes: Vec<u8>,
+    velocity: u8,
+    duration_ms: u64,
+) -> Result<(), String> {
+    let _operation = host.operation()?;
+    engine::validate_preview(&notes, velocity, duration_ms)?;
+    let sender = host
+        .sender
+        .lock()
+        .map_err(|_| DEAD.to_owned())?
+        .clone()
+        .ok_or_else(|| "preview slot is not loaded".to_owned())?;
+    let (reply, rx) = mpsc::channel();
+    sender
+        .send(HostCommand::PreviewChord {
+            slot_key,
+            part_index,
+            notes,
             velocity,
             duration_ms,
             reply,
@@ -458,6 +492,91 @@ fn release_if_running(host: &PlaybackHost) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chord_preview_requires_existing_host_and_validates_before_dispatch() {
+        let host = PlaybackHost::default();
+        assert!(preview_chord(&host, "chords".to_owned(), 3, vec![60], 90, 500).is_err());
+        assert!(host.sender.lock().unwrap().is_none());
+        let (tx, commands) = mpsc::channel();
+        *host.sender.lock().unwrap() = Some(tx);
+        for notes in [vec![], vec![60; 17], vec![128]] {
+            assert!(preview_chord(&host, "chords".to_owned(), 3, notes, 90, 500).is_err());
+        }
+        assert!(preview_chord(&host, "chords".to_owned(), 3, vec![60], 0, 500).is_err());
+        assert!(preview_chord(&host, "chords".to_owned(), 3, vec![60], 90, 10_001).is_err());
+        assert!(commands.try_recv().is_err());
+    }
+
+    #[test]
+    fn chord_preview_dispatches_one_batch_and_propagates_host_errors() {
+        let host = PlaybackHost::default();
+        let (tx, commands) = mpsc::channel();
+        *host.sender.lock().unwrap() = Some(tx);
+        let worker = std::thread::spawn(move || {
+            let command = commands
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+            let HostCommand::PreviewChord {
+                slot_key,
+                part_index,
+                notes,
+                velocity,
+                duration_ms,
+                reply,
+            } = command
+            else {
+                panic!("expected one chord command");
+            };
+            assert_eq!(slot_key, "sf2:chords");
+            assert_eq!(part_index, 3);
+            assert_eq!(notes, vec![60, 64, 67]);
+            assert_eq!(velocity, 90);
+            assert_eq!(duration_ms, 500);
+            reply.send(Err("slot no longer loaded".to_owned())).unwrap();
+            assert!(commands.try_recv().is_err());
+        });
+        assert_eq!(
+            preview_chord(&host, "sf2:chords".to_owned(), 3, vec![60, 64, 67], 90, 500),
+            Err("slot no longer loaded".to_owned()),
+        );
+        worker.join().unwrap();
+    }
+
+    #[test]
+    fn single_note_preview_forwards_part_and_propagates_host_errors() {
+        let host = PlaybackHost::default();
+        let (tx, commands) = mpsc::channel();
+        *host.sender.lock().unwrap() = Some(tx);
+        let worker = std::thread::spawn(move || {
+            let command = commands
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap();
+            let HostCommand::Preview {
+                slot_key,
+                part_index,
+                note,
+                velocity,
+                duration_ms,
+                reply,
+            } = command
+            else {
+                panic!("expected one note command");
+            };
+            assert_eq!(slot_key, "shared:piano");
+            assert_eq!(part_index, 7);
+            assert_eq!(note, 64);
+            assert_eq!(velocity, 80);
+            assert_eq!(duration_ms, 400);
+            reply.send(Err("slot no longer loaded".to_owned())).unwrap();
+            assert!(commands.try_recv().is_err());
+        });
+        assert_eq!(
+            preview(&host, "shared:piano".to_owned(), 7, 64, 80, 400),
+            Err("slot no longer loaded".to_owned()),
+        );
+        worker.join().unwrap();
+    }
 
     #[test]
     fn slot_spec_defaults_pan_to_center() {

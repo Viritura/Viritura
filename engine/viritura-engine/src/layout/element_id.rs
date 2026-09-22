@@ -155,11 +155,6 @@ pub fn expression(part: usize, measure: usize, index: usize) -> String {
     format!("p{}/m{}/expr{}", part, measure, index)
 }
 
-/// Chord symbol: `p{part}/m{measure}/chord{index}`
-pub fn chord_symbol(part: usize, measure: usize, index: usize) -> String {
-    format!("p{}/m{}/chord{}", part, measure, index)
-}
-
 /// Global harmony event: `m{measure}/chord{index}`.
 pub fn global_chord_symbol(measure: usize, index: usize) -> String {
     format!("m{}/chord{}", measure, index)

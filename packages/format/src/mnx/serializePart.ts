@@ -14,7 +14,6 @@ import type {
   NonArpeggio,
   MeasureRepeat,
   Pedal,
-  ChordSymbol,
   TextExpression,
   Sequence,
   Beam,
@@ -43,17 +42,18 @@ export function serializePart(part: Part, helpers: PartSerializerHelpers): Obj {
   if (part.kit && Object.keys(part.kit).length > 0) {
     partObj["kit"] = serializeKit(part.kit);
   }
-  // _x.viritura vendor extensions (instrument identity)
+  // Instrument identity remains nested in the model; display policy is hoisted.
   const partExt = part._x?.viritura;
+  const ext: Obj = {};
   if (partExt) {
-    const ext: Obj = {};
     if (partExt.instrumentId !== undefined) ext["instrumentId"] = partExt.instrumentId;
     if (partExt.midiProgram !== undefined) ext["midiProgram"] = partExt.midiProgram;
     if (partExt.family !== undefined) ext["family"] = partExt.family;
     if (partExt.spatial !== undefined) ext["spatial"] = { x: partExt.spatial.x, y: partExt.spatial.y };
-    if (Object.keys(ext).length > 0) {
-      partObj["_x"] = { viritura: ext };
-    }
+  }
+  if (part.chordSymbolVisibility !== undefined) ext["chordSymbolVisibility"] = part.chordSymbolVisibility;
+  if (Object.keys(ext).length > 0) {
+    partObj["_x"] = { viritura: ext };
   }
   return partObj;
 }
@@ -206,31 +206,9 @@ function serializePedal(p: Pedal): Obj {
   return out;
 }
 
-function serializeChordSymbol(cs: ChordSymbol): Obj {
-  const csObj: Obj = {
-    position: cs.position,
-    root: { step: cs.root.step } as Obj,
-    quality: cs.quality,
-  };
-  if (cs.displayStaff !== undefined) csObj["displayStaff"] = cs.displayStaff;
-  if (cs.kindText) csObj["kindText"] = cs.kindText;
-  if (cs.root.alter !== undefined) (csObj["root"] as Obj)["alter"] = cs.root.alter;
-  if (cs.bass) {
-    const bassObj: Obj = { step: cs.bass.step };
-    if (cs.bass.alter !== undefined) bassObj["alter"] = cs.bass.alter;
-    csObj["bass"] = bassObj;
-  }
-  if (cs.extension !== undefined) csObj["extension"] = cs.extension;
-  if (cs.textOverride !== undefined) csObj["textOverride"] = cs.textOverride;
-  return csObj;
-}
-
 function collectPartMeasureVendorExt(pm: PartMeasure, helpers: PartSerializerHelpers): Obj {
   const ext: Obj = {};
   if (pm.pedals && pm.pedals.length > 0) ext["pedals"] = pm.pedals.map(serializePedal);
-  if (pm.chordSymbols && pm.chordSymbols.length > 0) {
-    ext["chordSymbols"] = pm.chordSymbols.map(serializeChordSymbol);
-  }
   if (pm.expressions && pm.expressions.length > 0) {
     ext["expressions"] = pm.expressions.map(helpers.serializeTextExpression);
   }

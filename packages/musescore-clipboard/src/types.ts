@@ -1,7 +1,7 @@
 import type { ChordSymbol, DynamicGroup, MeasureRepeat, SequenceContent, Transposition } from "@viritura/core";
 
 export interface MuseScoreClipboardReadOptions {
-  /** Strict by default. Skip only unsupported notation with known recovery boundaries. */
+  /** Strict by default; skip only known recovery boundaries. Raw harmony is diagnosed and retained in either mode. */
   unsupported?: "skip" | "error";
 }
 
@@ -32,14 +32,17 @@ export interface MuseScoreClipboardDynamic {
   endOffset?: [number, number];
 }
 
-/** Harmony with part/staff ownership and exact whole-note-fraction timing. */
+/** Concert-pitch harmony with transient source origins, never part-local score storage. */
 export interface MuseScoreClipboardChordSymbol {
   /** Relative source part, not a physical staff or voice. Defaults to zero. */
   partOffset?: number;
   /** Zero-based physical staff offset from the copied range's top staff. */
   staffOffset?: number;
+  /** One-based source staff within its part, for export routing when staffOffset is absent. */
+  sourceStaff?: number;
   /** Relative source measure; without offset, only measure zero has unambiguous export timing. */
   measureOffset: number;
+  /** Both root and slash bass are already sounding; do not apply destination transposition. */
   chordSymbol: ChordSymbol;
   /** [Numerator, denominator] whole notes from the copied range's start. */
   offset?: [number, number];
@@ -66,7 +69,7 @@ export interface MuseScoreClipboardTrack {
 
 /** Decoded notation only; assigning destination locations and clipboard IO belong to callers. */
 export interface MuseScoreClipboardData {
-  /** Notation discarded during opt-in best-effort import; never persisted in the score. */
+  /** Discarded notation or retained unsupported raw harmony; never persisted in the score. */
   diagnostics?: MuseScoreClipboardDiagnostic[];
   /** Primary voice, in sounding pitch. Tracks take precedence when present. */
   content: SequenceContent[];
@@ -74,6 +77,11 @@ export interface MuseScoreClipboardData {
   transposition?: Transposition;
   tracks?: MuseScoreClipboardTrack[];
   dynamics?: MuseScoreClipboardDynamic[];
+  /**
+   * Unmerged source occurrences. After locating destination measures, callers merge
+   * by physical staffOffset (StaffList has no part boundaries), enable "show" on
+   * every source-mapped part, and forward merge warnings through diagnostics.
+   */
   chordSymbols?: MuseScoreClipboardChordSymbol[];
 }
 
@@ -93,5 +101,6 @@ export interface MuseScoreClipboardWriteInput {
 /** A null XML result leaves callers free to preserve their own lossless clipboard format. */
 export interface MuseScoreClipboardWriteResult {
   xml: string | null;
+  /** May accompany non-null XML when unsupported harmony was preserved as raw text. */
   warning?: string;
 }

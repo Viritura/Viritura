@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Score } from "@viritura/core";
 import { isSelectionIdValid } from "./useSelectionPruner";
+import { buildNavigationIndex } from "../navigation";
 
 function score(): Score {
   return {
@@ -37,6 +38,41 @@ function score(): Score {
 }
 
 describe("isSelectionIdValid", () => {
+  it("keeps global chord roots and copies while their canonical chord exists", () => {
+    const current = score();
+    current.global.measures[0]!.chordSymbols = [
+      { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+    ];
+    for (const id of ["m0/chord0", "m0/chord0/p0/staff1", "m0/chord0/p9/staff2"]) {
+      expect(isSelectionIdValid(id, current)).toBe(true);
+    }
+    for (const id of [
+      "p0/m0/chord0",
+      "m0/chord1",
+      "m9/chord0/p0/staff1",
+      "m0/chord0/p0/staff1/extra",
+      "m0/chord0junk",
+      "m0/chord",
+    ]) {
+      expect(isSelectionIdValid(id, current)).toBe(false);
+    }
+    delete current.global.measures[0]!.chordSymbols;
+    expect(isSelectionIdValid("m0/chord0", current)).toBe(false);
+    expect(isSelectionIdValid("m0/chord0/p0/staff1", current)).toBe(false);
+  });
+
+  it("keeps a navigable full-measure rest but rejects nonexistent sub-elements", () => {
+    const current = score();
+    const sequence = current.parts[0]!.measures[0]!.sequences[0]!;
+    sequence.content = [];
+    sequence.fullMeasure = { visualDuration: { base: "whole" } };
+    const id = buildNavigationIndex(current).entries.find((entry) => entry.isRest)!.elementId;
+    expect(isSelectionIdValid(id, current)).toBe(true);
+    expect(isSelectionIdValid(`${id}/n0`, current)).toBe(false);
+    delete sequence.fullMeasure;
+    expect(isSelectionIdValid(id, current)).toBe(false);
+  });
+
   it("validates the concrete event sub-element", () => {
     const current = score();
     expect(isSelectionIdValid("p0/m0/s0/ev1/art-staccato", current)).toBe(true);

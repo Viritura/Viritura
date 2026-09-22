@@ -18,6 +18,116 @@ fn hbar_count(dl: &DisplayList, sp: f64) -> usize {
 }
 
 #[test]
+fn test_global_harmony_survives_auto_and_authored_multimeasure_rests() {
+    for authored in [false, true] {
+        for visible in [false, true] {
+            let mut value = serde_json::json!({
+                "mnx": {"version": 1},
+                "global": {"measures": [
+                    {"id": "m0", "time": {"count": 4, "unit": 4}},
+                    {"id": "m1"},
+                    {"id": "m2", "_x": {"viritura": {"chordSymbols": [
+                        {"position": {"fraction": [1, 4]},
+                         "root": {"step": "C"}, "bass": {"step": "G"}},
+                        {"position": {"fraction": [3, 4]}, "rawText": "  H#?!  "}
+                    ]}}},
+                    {"id": "m3"}, {"id": "m4"}
+                ]},
+                "parts": [{
+                    "id": "solo",
+                    "_x": {"viritura": {"chordSymbolVisibility":
+                        if visible { "show" } else { "hide" }}},
+                    "measures": vec![serde_json::json!({
+                        "sequences": [{"content": [
+                            {"duration": {"base": "whole"}, "rest": {}}
+                        ]}]
+                    }); 5]
+                }],
+                "layouts": [{"id": "solo-layout", "content": [
+                    {"type": "staff", "sources": [{"part": "solo"}]}
+                ]}],
+                "scores": [{"name": "Solo", "layout": "solo-layout"}]
+            });
+            if authored {
+                value["scores"][0]["multimeasureRests"] =
+                    serde_json::json!([{"start": "m0", "duration": 5}]);
+            }
+            let score = parse_mnx(&value.to_string()).unwrap();
+            let canonical = score.global.measures[2].chord_symbols().unwrap().to_vec();
+            let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+            let expected = if visible {
+                vec![(0, 2), (3, 2)]
+            } else {
+                vec![(0, 5)]
+            };
+            assert_eq!(
+                crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+                expected,
+                "visible harmony must isolate its bar on both sides"
+            );
+            let ranges = std::collections::HashMap::from([(0usize, 5u32)]);
+            let (starts, skip) =
+                crate::layout::resolve::split_authored_mmr_ranges(&ranges, &resolved);
+            let mut starts: Vec<_> = starts
+                .into_iter()
+                .map(|(start, count)| (start, count as usize))
+                .collect();
+            starts.sort();
+            assert_eq!(starts, expected);
+            assert_eq!(skip.contains(&2), !visible);
+
+            for page_width in [None, Some(1200.0)] {
+                let config = LayoutConfig {
+                    multimeasure_rests: true,
+                    page_width,
+                    ..LayoutConfig::default()
+                };
+                for dl in [
+                    layout_score(&score, 0, &config),
+                    layout_with_mnx_scores(&score, &config, 0),
+                ] {
+                    assert_eq!(hbar_count(&dl, config.sp), if visible { 2 } else { 1 });
+                    let mut chord_xs = Vec::new();
+                    for (index, expected_text) in ["C/G", "  H#?!  "].iter().enumerate() {
+                        let id = format!("m2/chord{index}");
+                        let text: String = dl
+                            .commands
+                            .iter()
+                            .zip(&dl.element_ids)
+                            .filter_map(|(command, element_id)| match command {
+                                RenderCommand::DrawText { text, .. }
+                                    if element_id.as_deref() == Some(id.as_str()) =>
+                                {
+                                    Some(text.as_str())
+                                }
+                                _ => None,
+                            })
+                            .collect();
+                        assert_eq!(text, if visible { *expected_text } else { "" });
+                        let boxes: Vec<_> = dl
+                            .element_bboxes
+                            .iter()
+                            .filter(|bbox| bbox.element_id == id)
+                            .collect();
+                        assert_eq!(boxes.len(), usize::from(visible));
+                        if visible {
+                            chord_xs.push(boxes[0].bbox.x);
+                        }
+                    }
+                    if visible {
+                        assert!(chord_xs[0] < chord_xs[1], "preserve midmeasure positions");
+                    }
+                    assert!(dl.element_ids.iter().flatten().all(|id| {
+                        !id.contains("/chord") || id == "m2/chord0" || id == "m2/chord1"
+                    }));
+                }
+            }
+            assert_eq!(score.global.measures[2].chord_symbols().unwrap(), canonical);
+        }
+    }
+}
+
+#[test]
 fn test_part_layout_does_not_collapse_measure_repeats_into_mmr() {
     let json = r#"{
         "mnx": {"version": 1},

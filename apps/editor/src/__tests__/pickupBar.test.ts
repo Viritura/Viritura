@@ -51,6 +51,21 @@ describe("createPickupBar", () => {
     expect(result.score?.parts[0]?.measures[0]?.sequences[0]?.content).toHaveLength(1);
   });
 
+  it("moves opening global harmony into the pickup without creating part-local chords", () => {
+    const source = score();
+    source.global.measures[0]!.chordSymbols = [{ position: { fraction: [0, 1] }, root: { step: "C" } }];
+    const original = structuredClone(source);
+
+    const result = createPickupBar(source, { numerator: 1, denominator: 4 });
+
+    expect(result.error).toBeNull();
+    expect(result.score?.global.measures[0]?.chordSymbols).toEqual(source.global.measures[0]!.chordSymbols);
+    expect(result.score?.global.measures[1]?.chordSymbols).toBeUndefined();
+    expect(result.score?.parts[0]?.measures[0]).not.toHaveProperty("chordSymbols");
+    expect(result.score?.parts[0]?.measures[1]).not.toHaveProperty("chordSymbols");
+    expect(source).toEqual(original);
+  });
+
   it("rejects full or duplicate pickups", () => {
     expect(createPickupBar(score(), { numerator: 1, denominator: 1 }).error).toContain("shorter");
     const existing = score();

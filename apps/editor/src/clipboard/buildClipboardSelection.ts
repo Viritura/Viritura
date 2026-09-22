@@ -1,21 +1,20 @@
 // Pure extraction of clipboard-selection building from App.tsx.
 // Builds a ClipboardSelection / ClipboardSourceRef from a Score + Selection,
 // with no React or store dependencies. Consumed by useClipboardActions in App.tsx.
-import type { Score, TimeSignature, KeySignature, SequenceContent } from "@viritura/core";
+import type { Score, SequenceContent, ChordSymbol, TimeSignature } from "@viritura/core";
 import { measureBeats } from "@viritura/core";
 import type { ClipboardSelection } from "../commands/clipboardCommands";
-import type { CapturedMeasureRepeat, ClipboardTrack } from "./ClipboardFragment";
-import type { ClipboardSourceRef } from "../store/clipboardHistoryStore";
+import type { CapturedChordSymbol, CapturedMeasureRepeat, ClipboardTrack } from "./ClipboardFragment";
 import type { SelectionState } from "../store/selectionStore";
 import {
   resolveEventLocation,
   resolveEventFromSubElement,
   getEventAtLocation,
-  resolveAnnotationLocation,
   type AnnotationLocation,
   type EventLocation,
 } from "../score/ElementPath";
 import { resolveSelectionMeasureRange, resolveRangeElementIds } from "../store/selectionUtils";
+import type { ChordRange } from "../store/chordRange";
 import { resolveCondensedSelectionEvents } from "../score/condensedWriteback";
 import { expandCondensedDynamicLocations } from "../commands/deleteCommands";
 import { sequenceContentBeats, decomposeDuration, generateEventId } from "../commands/noteCommands";
@@ -27,7 +26,15 @@ import {
   captureChordSymbols,
   captureSelectedChordSymbols,
   chordSymbolStaffAtLocation,
+  selectedChordStaffOffset,
   selectedChordSymbolOrigin,
+  clipboardAnnotationLocation,
+  resolveClipboardChordLocations,
+  resolveChordClipboardRange,
+  chordCutLocations,
+  eventChordSources,
+  captureEventChordSymbols,
+  captureMeasureChordSymbols,
 } from "./chordSymbolCapture";
 import {
   assignDynamicsToTracks,
@@ -51,15 +58,8 @@ import {
   type CapturedSelection,
 } from "./annotations";
 import { captureTimedSelection } from "./captureTimedSelection";
-
-/** Walk backwards from measureIndex to find the most recent clef on partIndex. */
-function getActiveClef(score: Score, partIndex: number, measureIndex: number) {
-  for (let m = measureIndex; m >= 0; m--) {
-    const clefs = score.parts[partIndex]?.measures[m]?.clefs;
-    if (clefs && clefs.length > 0) return clefs[0]!.clef;
-  }
-  return undefined;
-}
+import { getActiveClef, resolveActiveTimeKey } from "./sourceContext";
+export { buildClipboardSourceRef } from "./sourceContext";
 
 /**
  * Build a ClipboardSelection from the current Score + Selection.
@@ -84,7 +84,7 @@ export function buildClipboardSelection(
         : selection.kind === "multi"
           ? buildMultiClipboardSelection(score, selection, selectedScoreIndex)
           : selection.kind === "measure"
-            ? buildMeasureClipboardSelection(score, selection)
+            ? buildMeasureClipboardSelection(score, selection, selectedScoreIndex)
             : null;
   const combined = !repeatSelection
     ? regularSelection
@@ -177,17 +177,6 @@ function buildMeasureRepeatClipboardSelection(score: Score, selection: Selection
   };
 }
 
-function resolveActiveTimeKey(score: Score, measureIndex: number): { time: TimeSignature; key: KeySignature } {
-  let activeTime: TimeSignature | undefined;
-  let activeKey: KeySignature | undefined;
-  for (let m = measureIndex; m >= 0; m--) {
-    const gm = score.global.measures[m];
-    if (gm?.time && !activeTime) activeTime = gm.time;
-    if (gm?.key && !activeKey) activeKey = gm.key;
-  }
-  return { time: activeTime ?? { count: 4, unit: 4 }, key: activeKey ?? { fifths: 0 } };
-}
-
 function buildSingleClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "single" }>,
@@ -240,17 +229,7 @@ function buildSingleClipboardSelection(
       endBeat,
       sourceStaves,
     ).map((captured) => ({ ...captured, staffOffset: 0 })),
-    chordSymbols: captureChordSymbols(
-      score,
-      loc.partIndex,
-      loc.measureIndex,
-      loc.measureIndex,
-      startBeat,
-      endBeat,
-      0,
-      sourceStaff - 1,
-      sourceStaves,
-    ),
+    chordSymbols: captureEventChordSymbols(score, loc, startBeat, endBeat, selectedScoreIndex),
     cutLocations: routed,
   };
 }
@@ -260,7 +239,8 @@ function buildMultiClipboardSelection(
   selection: Extract<SelectionState, { kind: "multi" }>,
   selectedScoreIndex?: number,
 ): CapturedSelection | null {
-  if (selection.rhythmicRange) return captureTimedSelection(score, selection, selection.rhythmicRange);
+  if (selection.rhythmicRange)
+    return captureTimedSelection(score, selection, selection.rhythmicRange, selectedScoreIndex);
   const events: SequenceContent[] = [];
   let firstLoc: { partIndex: number; measureIndex: number; sequenceIndex: number; eventIndex: number } | null = null;
   const locations =
@@ -272,9 +252,14 @@ function buildMultiClipboardSelection(
             return location ? [location] : [];
           })
       : resolveCondensedSelectionEvents(score, withoutSelectedLyrics(selection), selectedScoreIndex);
-  const annotationLocations = selection.elementIds
-    .map(resolveAnnotationLocation)
-    .filter((location): location is AnnotationLocation => location !== null);
+  const annotationLocations = resolveClipboardChordLocations(
+    score,
+    selection.elementIds
+      .map(clipboardAnnotationLocation)
+      .filter((location): location is AnnotationLocation => location !== null),
+    eventChordSources(score, locations),
+    selectedScoreIndex,
+  );
   const cutAnnotationLocations =
     selectedScoreIndex === undefined
       ? annotationLocations
@@ -339,7 +324,7 @@ function buildMultiClipboardSelection(
     dynamics: tracks[0]?.dynamics,
     chordSymbols: captureSelectedChordSymbols(score, cutAnnotationLocations, origin, startPart, anchorStaffOffset),
     cutLocations: locations,
-    cutAnnotationLocations,
+    cutAnnotationLocations: chordCutLocations(cutAnnotationLocations),
   };
 }
 
@@ -354,6 +339,7 @@ function eventStartBeat(score: Score, location: EventLocation): number {
 interface RangeResolved {
   range: NonNullable<ReturnType<typeof resolveSelectionMeasureRange>>;
   selectedIds: Set<string>;
+  chordSources?: ChordRange["chordSources"];
 }
 
 function eventIdAtLocation(score: Score, location: EventLocation): string | undefined {
@@ -367,9 +353,32 @@ function resolveRangeAndIds(
   selection: Extract<SelectionState, { kind: "range" }>,
   selectedScoreIndex?: number,
 ): RangeResolved | null {
-  const selectedIds = new Set(resolveRangeElementIds(selection.startElementId, selection.endElementId, score));
+  const chordRange = resolveChordClipboardRange(
+    score,
+    selection.startElementId,
+    selection.endElementId,
+    selectedScoreIndex,
+    selection.measureAnchor,
+    selection.measureFocus,
+  );
+  if (chordRange !== undefined) return chordRange;
+  const selectedIds = new Set(
+    resolveRangeElementIds(
+      selection.startElementId,
+      selection.endElementId,
+      score,
+      selection.measureAnchor,
+      selection.measureFocus,
+    ),
+  );
   const range =
-    resolveSelectionMeasureRange(selection.startElementId, selection.endElementId, score) ??
+    resolveSelectionMeasureRange(
+      selection.startElementId,
+      selection.endElementId,
+      score,
+      selection.measureAnchor,
+      selection.measureFocus,
+    ) ??
     (() => {
       const entries = buildNavigationIndex(score).entries.filter((entry) => selectedIds.has(entry.elementId));
       if (entries.length === 0) return null;
@@ -575,14 +584,31 @@ function buildRangeClipboardSelection(
       return `${partIndex}:${staff}`;
     }),
   );
-  const annotationLocations = [...selectedIds]
-    .map((id) => {
-      const location = resolveAnnotationLocation(id);
-      if (!location || id === selection.startElementId || id === selection.endElementId) return location;
-      const staff = dynamicStaffAtLocation(score, location) ?? chordSymbolStaffAtLocation(score, location);
-      return staff === undefined || selectedStaves.has(`${location.partIndex}:${staff}`) ? location : null;
-    })
-    .filter((location): location is AnnotationLocation => location !== null);
+  const annotationLocations = resolveClipboardChordLocations(
+    score,
+    [...selectedIds]
+      .map((id) => {
+        const annotation = clipboardAnnotationLocation(id);
+        const source = resolved.chordSources?.get(id);
+        const location =
+          annotation && source ? { ...annotation, partIndex: source.partIndex, sourceStaff: source.staff } : annotation;
+        if (!location || id === selection.startElementId || id === selection.endElementId) return location;
+        const staff = dynamicStaffAtLocation(score, location) ?? chordSymbolStaffAtLocation(score, location);
+        return staff === undefined ||
+          location.partIndex === undefined ||
+          selectedStaves.has(`${location.partIndex}:${staff}`)
+          ? location
+          : null;
+      })
+      .filter((location): location is AnnotationLocation => location !== null),
+    trackedEvents.map((event) => ({
+      partIndex: range.startPart + event.partOffset,
+      staff:
+        score.parts[range.startPart + event.partOffset]?.measures[event.measureIndex]?.sequences[event.voiceIndex]
+          ?.staff ?? 1,
+    })),
+    selectedScoreIndex,
+  );
   const cutAnnotationLocations =
     selectedScoreIndex === undefined
       ? annotationLocations
@@ -604,7 +630,10 @@ function buildRangeClipboardSelection(
   const anchorPart = range.startPart + trackAnchor.partOffset;
   const anchorStaff =
     score.parts[anchorPart]?.measures[trackAnchor.measureIndex]?.sequences[trackAnchor.voiceIndex]?.staff ?? 1;
-  const anchorStaffOffset = partStaffOffset(score, range.startPart, anchorPart, anchorStaff);
+  const anchorStaffOffset = Math.min(
+    partStaffOffset(score, range.startPart, anchorPart, anchorStaff),
+    selectedChordStaffOffset(score, annotationLocations, range.startPart),
+  );
   for (const [, events] of trackMap) {
     tracks.push(buildTrackFromEvents(score, range, events, anchorStaffOffset, selectionStartBeat));
   }
@@ -633,6 +662,7 @@ function buildRangeClipboardSelection(
     ).map((captured) => ({ ...captured, partIndex, sourceMeasureIndex: origin.measureIndex + captured.measureOffset })),
   );
   assignDynamicsToTracks(score, range.startPart, tracks, [...selectedDynamics, ...dynamics], anchorStaffOffset);
+  const seenChords = new Map<ChordSymbol, CapturedChordSymbol>();
   const chordSymbols = Array.from(
     { length: range.endPart - range.startPart + 1 },
     (_, offset) => range.startPart + offset,
@@ -647,7 +677,7 @@ function buildRangeClipboardSelection(
       partIndex - range.startPart,
       anchorStaffOffset,
       sourceStavesForPart(tracks, partIndex - range.startPart),
-      { locations: cutAnnotationLocations },
+      { locations: cutAnnotationLocations, selectedScoreIndex, seen: seenChords },
     ),
   );
 
@@ -659,7 +689,7 @@ function buildRangeClipboardSelection(
     keySignature: key,
     clef: getActiveClef(score, range.startPart, range.startMeasure),
     transposition: score.parts[range.startPart]?.transposition,
-    tracks: tracks.length > 1 || tracks[0]?.leadIn ? tracks : undefined,
+    tracks: tracks.length > 1 || tracks[0]?.leadIn || tracks[0]?.staffOffset ? tracks : undefined,
     dynamics: tracks[0]?.partOffset === 0 ? tracks[0].dynamics : undefined,
     chordSymbols,
     partIndex: range.startPart,
@@ -669,7 +699,7 @@ function buildRangeClipboardSelection(
     cutLocations: trackedEvents.every((event) => event.location !== undefined)
       ? trackedEvents.map((event) => event.location!)
       : undefined,
-    cutAnnotationLocations,
+    cutAnnotationLocations: chordCutLocations(cutAnnotationLocations),
   };
 }
 
@@ -751,6 +781,7 @@ function collectMeasureTracks(
 function buildMeasureClipboardSelection(
   score: Score,
   selection: Extract<SelectionState, { kind: "measure" }>,
+  selectedScoreIndex?: number,
 ): CapturedSelection | null {
   const startP = Math.min(selection.startPartIndex, selection.endPartIndex);
   const endP = Math.max(selection.startPartIndex, selection.endPartIndex);
@@ -759,9 +790,7 @@ function buildMeasureClipboardSelection(
   const { tracks, locations: cutLocations, exact: exactCut } = collectMeasureTracks(score, startP, endP, startM, endM);
   const primaryEvents = tracks[0]?.content ?? [];
   if (primaryEvents.length === 0) return null;
-  const chordSymbols = Array.from({ length: endP - startP + 1 }, (_, offset) => startP + offset).flatMap((partIndex) =>
-    captureChordSymbols(score, partIndex, startM, endM, 0, Infinity, partIndex - startP),
-  );
+  const chordSymbols = captureMeasureChordSymbols(score, startP, endP, startM, endM, selectedScoreIndex);
 
   const { time, key } = resolveActiveTimeKey(score, startM);
 
@@ -779,66 +808,4 @@ function buildMeasureClipboardSelection(
     eventIndex: 0,
     cutLocations: exactCut ? cutLocations : undefined,
   };
-}
-
-/**
- * Compute the snapshot reference (history snapshot id + part/measure range)
- * for the current selection at copy time. The preview uses this to render
- * the actual measures from the source score, preserving instrument names,
- * clefs, transpositions, and other engraving context that would otherwise
- * be lost when reducing to bare events.
- *
- * Returns undefined when no selection is resolvable; preview falls back to
- * the synthetic snippet rendering in that case.
- */
-export function buildClipboardSourceRef(
-  score: Score | null,
-  selection: SelectionState,
-  historyId: number | undefined,
-): ClipboardSourceRef | undefined {
-  if (!score) return undefined;
-  if (historyId === undefined) return undefined;
-
-  let partStart: number | undefined;
-  let partEnd: number | undefined;
-  let measureStart: number | undefined;
-  let measureEnd: number | undefined;
-
-  if (selection.kind === "single") {
-    const loc = resolveEventLocation(selection.elementId, score);
-    if (!loc) return undefined;
-    partStart = partEnd = loc.partIndex;
-    measureStart = measureEnd = loc.measureIndex;
-  } else if (selection.kind === "range") {
-    const range = resolveSelectionMeasureRange(selection.startElementId, selection.endElementId, score);
-    if (!range) return undefined;
-    partStart = Math.min(range.startPart, range.endPart);
-    partEnd = Math.max(range.startPart, range.endPart);
-    measureStart = Math.min(range.startMeasure, range.endMeasure);
-    measureEnd = Math.max(range.startMeasure, range.endMeasure);
-  } else if (selection.kind === "measure") {
-    partStart = Math.min(selection.startPartIndex, selection.endPartIndex);
-    partEnd = Math.max(selection.startPartIndex, selection.endPartIndex);
-    measureStart = Math.min(selection.startMeasure, selection.endMeasure);
-    measureEnd = Math.max(selection.startMeasure, selection.endMeasure);
-  } else if (selection.kind === "multi") {
-    // Walk all selected elements to compute the bounding part/measure box.
-    for (const elementId of selection.elementIds) {
-      const loc = resolveEventFromSubElement(elementId, score) ?? resolveEventLocation(elementId, score);
-      if (!loc) continue;
-      partStart = partStart === undefined ? loc.partIndex : Math.min(partStart, loc.partIndex);
-      partEnd = partEnd === undefined ? loc.partIndex : Math.max(partEnd, loc.partIndex);
-      measureStart = measureStart === undefined ? loc.measureIndex : Math.min(measureStart, loc.measureIndex);
-      measureEnd = measureEnd === undefined ? loc.measureIndex : Math.max(measureEnd, loc.measureIndex);
-    }
-  }
-
-  if (partStart === undefined || partEnd === undefined || measureStart === undefined || measureEnd === undefined) {
-    return undefined;
-  }
-
-  const partIndices: number[] = [];
-  for (let p = partStart; p <= partEnd; p++) partIndices.push(p);
-
-  return { historyId, partIndices, startMeasure: measureStart, endMeasure: measureEnd };
 }

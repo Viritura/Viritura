@@ -12,6 +12,7 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
+import { CHORDS_PART_ID } from "@viritura/core";
 import { MIXER_DEFAULT_GAIN, MIXER_MAX_GAIN } from "./mixerGain";
 
 // ═════════════════════════════════════════════
@@ -57,6 +58,10 @@ export interface MixerGroupState {
 export interface MixerState {
   /** Per-part channel states, indexed by part index. */
   channels: MixerChannelState[];
+  /** Runtime-only cache; hidden derived channels do not participate in solo. */
+  derivedChannels?: Partial<Record<typeof CHORDS_PART_ID, MixerChannelState>>;
+  /** Visible Chords runtime index, never an index into the persisted score. */
+  chordsPartIndex?: number;
   /** Per-group bus state, keyed by group id (family label). */
   groups: Record<string, MixerGroupState>;
   /** Group id per part index ("" if a part is ungrouped). */
@@ -84,7 +89,7 @@ export type MixerAction =
   | { type: "SYNC_GROUPS"; groupIds: string[]; partGroups: string[] }
   | { type: "SET_MASTER_VOLUME"; volume: number }
   | { type: "TOGGLE_MASTER_MUTE" }
-  | { type: "SYNC_PARTS"; partCount: number }
+  | { type: "SYNC_PARTS"; partCount: number; hasChords?: boolean }
   | { type: "RESET" };
 
 // ═════════════════════════════════════════════
@@ -110,6 +115,8 @@ function defaultGroup(): MixerGroupState {
 export function initialMixerState(): MixerState {
   return {
     channels: [],
+    derivedChannels: {},
+    chordsPartIndex: undefined,
     groups: {},
     partGroups: [],
     masterVolume: 1.0,
@@ -247,12 +254,22 @@ function syncReducer(state: MixerState, action: MixerAction): MixerState | null 
     }
     case "SYNC_PARTS": {
       const { partCount } = action;
-      if (partCount === state.channels.length) return state;
+      const wasVisible = state.chordsPartIndex !== undefined;
+      const hasChords = action.hasChords ?? wasVisible;
+      const realPartCount = state.channels.length - Number(wasVisible);
+      if (partCount === realPartCount && hasChords === wasVisible) return state;
+      const chords = state.derivedChannels?.[CHORDS_PART_ID] ?? defaultChannel();
       const channels: MixerChannelState[] = [];
       for (let i = 0; i < partCount; i++) {
-        channels.push(state.channels[i] ?? defaultChannel());
+        channels.push((i < realPartCount ? state.channels[i] : undefined) ?? defaultChannel());
       }
-      return { ...state, channels };
+      if (hasChords) channels.push(chords);
+      return {
+        ...state,
+        channels,
+        chordsPartIndex: hasChords ? partCount : undefined,
+        derivedChannels: hasChords ? { ...state.derivedChannels, [CHORDS_PART_ID]: chords } : state.derivedChannels,
+      };
     }
     case "SET_MASTER_VOLUME":
       return { ...state, masterVolume: clamp(action.volume, 0, MIXER_MAX_GAIN) };
@@ -266,7 +283,10 @@ function syncReducer(state: MixerState, action: MixerAction): MixerState | null 
 }
 
 export function mixerReducer(state: MixerState, action: MixerAction): MixerState {
-  return channelReducer(state, action) ?? groupReducer(state, action) ?? syncReducer(state, action) ?? state;
+  const next = channelReducer(state, action) ?? groupReducer(state, action) ?? syncReducer(state, action) ?? state;
+  const chords = next.chordsPartIndex === undefined ? undefined : next.channels[next.chordsPartIndex];
+  if (!chords || next.derivedChannels?.[CHORDS_PART_ID] === chords) return next;
+  return { ...next, derivedChannels: { ...next.derivedChannels, [CHORDS_PART_ID]: chords } };
 }
 
 // ═════════════════════════════════════════════
@@ -339,11 +359,12 @@ const actions: MixerActionsValue = {
 /** Read-only access to mixer state. Re-renders on any mixer change. */
 export function useMixer(): MixerState {
   const channels = useMixerStore((s) => s.channels);
+  const chordsPartIndex = useMixerStore((s) => s.chordsPartIndex);
   const groups = useMixerStore((s) => s.groups);
   const partGroups = useMixerStore((s) => s.partGroups);
   const masterVolume = useMixerStore((s) => s.masterVolume);
   const masterMuted = useMixerStore((s) => s.masterMuted);
-  return { channels, groups, partGroups, masterVolume, masterMuted };
+  return { channels, chordsPartIndex, groups, partGroups, masterVolume, masterMuted };
 }
 
 /** Mixer action creators. Identity is stable across renders. */
@@ -352,11 +373,12 @@ export function useMixerActions(): MixerActionsValue {
 }
 
 /**
- * Keeps the mixer channel count in sync with the current score's part count.
- * Mount this inside PlayView so SYNC_PARTS fires on partCount changes.
+ * Sync real parts plus an optional runtime-only Chords channel. Omitted
+ * hasChords preserves managed visibility; explicit false hides (and caches) it.
+ * Duplicate calls from the panel and bridge are idempotent.
  */
-export function useMixerPartSync(partCount: number): void {
+export function useMixerPartSync(partCount: number, hasChords?: boolean): void {
   useEffect(() => {
-    dispatchMixer({ type: "SYNC_PARTS", partCount });
-  }, [partCount]);
+    dispatchMixer({ type: "SYNC_PARTS", partCount, hasChords });
+  }, [partCount, hasChords]);
 }

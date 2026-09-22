@@ -317,14 +317,16 @@ export interface ChordRoot {
 /** A time-anchored harmony event rendered as a chord symbol above the staff. */
 export interface ChordSymbol {
   position: RhythmicPosition;
-  /** Optional imported/per-event display-staff override (1-based). */
-  displayStaff?: number;
-  root: ChordRoot;
-  quality: ChordQuality;
-  /** Authored quality spelling retained alongside the normalized quality. */
+  /** Structured root; may be absent for raw authored symbols and NC. Root or rawText is required. */
+  root?: ChordRoot;
+  /** Original authored text, preserved verbatim and checked against structured fields by the semantic resolver. */
+  rawText?: string;
+  quality?: ChordQuality;
+  /** Authored suffix, including add/no/omit degrees; quality/extension describe its base harmony. */
   kindText?: string;
   bass?: ChordRoot;
   extension?: 6 | 7 | 9 | 11 | 13;
+  /** Visual override only; the semantic resolver rejects contradictory or unsupported non-equivalent text. */
   textOverride?: string;
 }
 
@@ -393,8 +395,6 @@ export interface PartMeasure {
   ottavas?: Ottava[];
   /** Piano pedal markings in this measure */
   pedals?: Pedal[];
-  /** Part-local chord symbols, retained for imported or authored exceptions to global harmony. */
-  chordSymbols?: ChordSymbol[];
   /** Text expressions in this measure (e.g. "dolce", "rit.", "a tempo") */
   expressions?: TextExpression[];
   /** Simile marking: repeat the previous N measures (MNX `measureRepeat`). */

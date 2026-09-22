@@ -234,6 +234,31 @@ describe("PlaybackEngine", () => {
 
       expect(sampler.allNotesOffCalls).toBe(0);
     });
+
+    it("resets a paused timeline without silencing an audition started after Pause", () => {
+      const engine = new PlaybackEngine(audioCtx);
+      const sampler = createMockSampler();
+      const samplers = new Map<number, ISampler>([[0, sampler]]);
+      engine.loadTimeline(createTestTimeline(), samplers);
+      engine.play();
+      setTime(1);
+      engine.pause();
+      const pausedSilences = sampler.allNotesOffCalls;
+      sampler.noteOn(60, 80, 1);
+      sampler.noteOff(60, 4);
+      const states: StateEventDetail[] = [];
+      engine.on("state", (detail) => states.push(detail));
+
+      engine.loadTimeline(createTestTimeline(), samplers);
+
+      expect(sampler.allNotesOffCalls).toBe(pausedSilences);
+      expect(engine.getState()).toBe("stopped");
+      expect(engine.getScoreTimeSeconds()).toBe(0);
+      expect(states).toMatchObject([{ previousState: "paused", state: "stopped" }]);
+      engine.stop();
+      expect(sampler.allNotesOffCalls).toBe(pausedSilences + 1);
+      engine.dispose();
+    });
   });
 
   describe("play", () => {

@@ -21,6 +21,15 @@ pub(crate) fn measure_content_hash(rm: &ResolvedMeasure) -> u64 {
     if let Ok(json) = serde_json::to_string(&rm.part) {
         json.hash(&mut hasher);
     }
+    if let Some(chords) = &rm.chord_symbols {
+        if let Ok(json) = serde_json::to_string(chords) {
+            json.hash(&mut hasher);
+        }
+        for chord in chords {
+            chord.source_index.hash(&mut hasher);
+            chord.source_part_index.hash(&mut hasher);
+        }
+    }
     rm.measure_repeat_covered.hash(&mut hasher);
     rm.next_has_repeat_start.hash(&mut hasher);
     rm.active_staff_lines.hash(&mut hasher);

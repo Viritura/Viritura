@@ -1,5 +1,5 @@
 import { TYPE_MAP } from "../constants";
-import { createDynamicGroup, type ChordSymbol } from "@viritura/core";
+import { createDynamicGroup, resolveChordSymbol, type DiagnosticCollector, type Interval } from "@viritura/core";
 import { Fraction } from "../fraction";
 import { childElements, childText, findChild, findChildren, notationChildren } from "../xmlHelpers";
 import type {
@@ -18,8 +18,9 @@ import type {
   MnxTuplet,
 } from "../types";
 import { IdGenerator } from "./idGenerator";
-import { extractChordSymbol } from "./chordSymbols";
+import { extractHarmony, updateHarmonyTranspositions, type ImportedHarmony } from "./chordSymbols";
 import { normalizeMusicXmlColor } from "./colors";
+import { durationFraction } from "./durationFraction";
 import {
   buildNote,
   extractFermata,
@@ -46,6 +47,9 @@ import { processBeamMarks, type ActiveBeam, type CompletedBeam } from "./beamImp
 export interface ConvertFlags {
   /** Drop explicit `<stem>up|down</stem>` overrides; let the engine decide. */
   discardStemDirections?: boolean;
+  /** Persistent source representation metadata; not part of the output model. */
+  harmonyTranspositions?: Map<number, Interval>;
+  diagnostics?: DiagnosticCollector;
 }
 
 /** A crescendo/decrescendo wedge boundary (start or stop). Paired into a
@@ -93,7 +97,7 @@ export interface MeasureResult {
   hairpinEvents: HairpinEvent[];
   pedalEvents: PedalEvent[];
   nonArpeggios: MnxNonArpeggio[];
-  chordSymbols: ChordSymbol[];
+  chordSymbols: ImportedHarmony[];
 }
 
 export interface TupletAccumulator {
@@ -310,7 +314,8 @@ export function processMeasureNotes(
   const hairpinEvents: MeasureResult["hairpinEvents"] = [];
   const pedalEvents: MeasureResult["pedalEvents"] = [];
   const nonArpeggios: MnxNonArpeggio[] = [];
-  const chordSymbols: ChordSymbol[] = [];
+  const chordSymbols: ImportedHarmony[] = [];
+  const harmonyTranspositions = flags.harmonyTranspositions ?? new Map<number, Interval>();
 
   const cumulative = new Map<string, Fraction>();
   let currentPos = Fraction.ZERO;
@@ -684,7 +689,7 @@ export function processMeasureNotes(
       const voiceEl = findChild(el, "voice");
       const voiceNum = voiceEl?.textContent ?? "1";
       if (durEl) {
-        const adv = new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4);
+        const adv = durationFraction(Number(durEl.textContent ?? "0"), divisions);
         if (adv.n > 0) {
           // A <forward> advances the shared cursor. Only the slice beyond the
           // voice's already-written content becomes a real `space`; a
@@ -714,15 +719,21 @@ export function processMeasureNotes(
       }
     } else if (el.tagName === "harmony") {
       if (vendorExt) {
-        const offsetText = childText(el, "offset");
-        const offset = offsetText === null ? Fraction.ZERO : new Fraction(parseInt(offsetText, 10), divisions * 4);
-        const chord = extractChordSymbol(el, makePosition(currentPos.add(offset)));
-        if (chord) chordSymbols.push(chord);
+        const harmony = extractHarmony(el, currentPos, divisions, harmonyTranspositions);
+        chordSymbols.push(harmony);
+        const resolution = resolveChordSymbol(harmony.chord);
+        if (resolution.status === "unsupported") {
+          flags.diagnostics?.warn(
+            "/harmony",
+            `MusicXML harmony preserved as text. ${resolution.message}`,
+            "musicxml-harmony-kind",
+          );
+        }
       }
     } else if (el.tagName === "backup") {
       const durEl = findChild(el, "duration");
       if (durEl) {
-        const backupDur = new Fraction(parseInt(durEl.textContent ?? "0", 10), divisions * 4);
+        const backupDur = durationFraction(Number(durEl.textContent ?? "0"), divisions);
         currentPos = currentPos.subtract(backupDur);
         if (currentPos.isNegative()) currentPos = Fraction.ZERO;
       }
@@ -863,10 +874,12 @@ export function processMeasureNotes(
         }
       }
     } else if (el.tagName === "attributes") {
+      if (vendorExt) updateHarmonyTranspositions(el, harmonyTranspositions);
       // Handle mid-measure attribute changes (divisions)
       const divEl = findChild(el, "divisions");
       if (divEl) {
-        divisions = parseInt(divEl.textContent ?? "4", 10);
+        divisions = Number(divEl.textContent);
+        if (!Number.isFinite(divisions) || divisions <= 0) throw new Error("Invalid MusicXML divisions");
       }
       // Clefs may appear in the measure-initial `<attributes>` (currentPos == 0,
       // emitted unpositioned) or in a later `<attributes>` block mid-measure

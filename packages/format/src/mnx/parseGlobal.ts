@@ -39,7 +39,6 @@ import type {
   ExpressionPlacement,
   ChordSymbol,
   ChordRoot,
-  ChordQuality,
 } from "@viritura/core";
 import type { TimeSignature } from "@viritura/core";
 import type { KeySignature } from "@viritura/core";
@@ -360,16 +359,14 @@ function parseChordRoot(raw: RawChordRoot): ChordRoot {
   return root;
 }
 
-export function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
+function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
   const cs: ChordSymbol = {
     position: parseRhythmicPosition(raw.position),
-    root: parseChordRoot(raw.root),
-    quality: raw.quality as ChordQuality,
   };
-  if (raw.displayStaff !== undefined || raw.staff !== undefined) {
-    cs.displayStaff = raw.displayStaff ?? raw.staff;
-  }
-  if (raw.kindText) cs.kindText = raw.kindText;
+  if (raw.root !== undefined) cs.root = parseChordRoot(raw.root);
+  if (raw.rawText !== undefined) cs.rawText = raw.rawText;
+  if (raw.quality !== undefined) cs.quality = raw.quality;
+  if (raw.kindText !== undefined) cs.kindText = raw.kindText;
   if (raw.bass) cs.bass = parseChordRoot(raw.bass);
   if (raw.extension !== undefined) cs.extension = raw.extension;
   if (raw.textOverride !== undefined) cs.textOverride = raw.textOverride;

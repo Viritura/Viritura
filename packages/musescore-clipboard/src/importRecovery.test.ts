@@ -422,26 +422,32 @@ describe("public annotation recovery", () => {
       ),
     ],
     ["polychord", harmony("m", "<harmonyInfo><name>7</name><root>15</root></harmonyInfo>")],
-  ])(
-    "drops an unsupported semantic %s, retaining preceding and following supported annotations",
-    (_name, unsupported) => {
-      const before = dynamic("p") + harmony("m") + chord();
-      const after = chord() + dynamic("f") + harmony("7") + rest();
-      const xml = staffList(before + unsupported + after);
-      const data = recover(xml);
-      expectDiagnostics(data, 1);
-      expect(semantic(data)).toEqual(semantic(readMuseScoreClipboard(staffList(before + after))));
-      expect(data.dynamics).toMatchObject([
-        { offset: [0, 1], dynamic: { value: "p" } },
-        { offset: [1, 2], dynamic: { value: "f" } },
-      ]);
-      expect(data.chordSymbols).toMatchObject([
-        { offset: [0, 1], chordSymbol: { quality: "minor" } },
-        { offset: [1, 2], chordSymbol: { quality: "dominant", extension: 7 } },
-      ]);
-      expectFailure(xml, "unsupported-content", ERROR);
-    },
-  );
+  ])("diagnoses unsupported semantic %s, retaining raw harmony and surrounding annotations", (_name, unsupported) => {
+    const before = dynamic("p") + harmony("m") + chord();
+    const after = chord() + dynamic("f") + harmony("7") + rest();
+    const xml = staffList(before + unsupported + after);
+    const data = recover(xml);
+    expectDiagnostics(data, 1);
+    const expected = readMuseScoreClipboard(staffList(before + after));
+    expect(data.content).toHaveLength(expected.content.length);
+    expect(data.dynamics).toMatchObject([
+      { offset: [0, 1], dynamic: { value: "p" } },
+      { offset: [1, 2], dynamic: { value: "f" } },
+    ]);
+    expect(data.chordSymbols).toMatchObject([
+      { offset: [0, 1], chordSymbol: { quality: "minor" } },
+      ...(_name.startsWith("dynamic")
+        ? []
+        : [{ offset: [1, 4], chordSymbol: { rawText: expect.any(String), quality: "other" } }]),
+      { offset: [1, 2], chordSymbol: { quality: "dominant", extension: 7 } },
+    ]);
+    if (_name.startsWith("dynamic")) expectFailure(xml, "unsupported-content", ERROR);
+    else {
+      const strict = readMuseScoreClipboard(xml, undefined, ERROR);
+      expect(strict.chordSymbols).toEqual(data.chordSymbols);
+      expectDiagnostics(strict, 1);
+    }
+  });
 
   it.each([
     "<fontSize>18</fontSize>",
@@ -735,7 +741,7 @@ describe("recovery cannot guess invalid rhythmic structure", () => {
     ],
     ["nested symbol name", chord("<Symbol><name><text>ornamentTrill</text></name></Symbol>"), "invalid-structure"],
     ["missing harmony info", "<Harmony><fontSize>12</fontSize></Harmony>", "invalid-structure"],
-    ["missing harmony root", "<Harmony><harmonyInfo><name>m</name></harmonyInfo></Harmony>", "invalid-structure"],
+    ["missing harmony root and name", "<Harmony><harmonyInfo><name/></harmonyInfo></Harmony>", "invalid-structure"],
     [
       "nested harmony root",
       "<Harmony><harmonyInfo><root><text>14</text></root></harmonyInfo></Harmony>",

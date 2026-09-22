@@ -37,7 +37,7 @@ export function injectExpandedStaves(mnxJson: string, scoreIdx: number, expanded
           for (const src of sources) {
             result.push({
               type: "staff",
-              sources: [{ part: src.part, labelref: "name" }],
+              sources: [{ ...src, labelref: "name" }],
               _expansion: true,
             });
           }
@@ -57,9 +57,9 @@ export function injectExpandedStaves(mnxJson: string, scoreIdx: number, expanded
 
 /**
  * Inject a filtered synthetic layout (id `__viritura_multi_select`) that
- * preserves group structure but keeps only staves whose part id is in
- * `partIds`. Used for ctrl/shift-staff selection. Returns the patched
- * MNX JSON plus the index of the synthetic score entry.
+ * preserves group structure and all sources of staves with any part in
+ * `partIds`. Used for ctrl/shift-staff selection, not individual source
+ * extraction. Returns the patched MNX JSON and synthetic score index.
  */
 export function injectSyntheticLayout(
   mnxJson: string,
@@ -85,7 +85,7 @@ export function injectSyntheticLayout(
         }
       } else if (node.type === "staff") {
         const sources = node.sources as Array<{ part: string }>;
-        if (sources?.some((s) => partSet.has(s.part))) {
+        if (sources?.some((source) => partSet.has(source.part))) {
           result.push(node);
         }
       }
@@ -93,12 +93,15 @@ export function injectSyntheticLayout(
     return result;
   }
 
+  const sourcePartIds = new Set((parsed.parts ?? []).map((part: { id?: string }) => part.id));
   const filteredContent = sourceLayout?.content
     ? filterContent(sourceLayout.content)
-    : partIds.map((pid) => ({
-        type: "staff",
-        sources: [{ part: pid, labelref: "name" }],
-      }));
+    : [...partSet]
+        .filter((id) => sourcePartIds.has(id))
+        .map((pid) => ({
+          type: "staff",
+          sources: [{ part: pid, labelref: "name" }],
+        }));
 
   const syntheticLayout = { id: syntheticLayoutId, content: filteredContent };
   if (!parsed.layouts) parsed.layouts = [];

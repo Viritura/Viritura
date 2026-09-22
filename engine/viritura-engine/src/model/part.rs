@@ -3,6 +3,9 @@ use super::measure::PartMeasure;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Source-part display policy for the score-wide harmony track.
+pub use crate::raw_viritura::PartExtensionsChordSymbolVisibility as ChordSymbolVisibility;
+
 /// MNX interval — chromatic + diatonic components.
 /// Convention: sounding pitch + interval = written pitch.
 /// Ref: MNX spec objects/interval
@@ -46,6 +49,12 @@ pub struct Part {
     pub measures: Vec<PartMeasure>,
     /// Number of staves for this part (default 1; grand staff = 2, organ = 3).
     pub staves: u32,
+    /// Unset or auto uses automatic placement of score-wide chord symbols.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        rename = "chordSymbolVisibility"
+    )]
+    pub chord_symbol_visibility: Option<ChordSymbolVisibility>,
     /// Transposition for transposing instruments (MNX `transposition`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transposition: Option<Transposition>,

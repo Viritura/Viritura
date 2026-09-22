@@ -41,6 +41,98 @@ function contentAt(score: Score, i: number): NoteEvent {
 }
 
 describe("computeDeleteSelection (migrated to resolveSelectionEvents)", () => {
+  it.each(["m0/chord0", "m0/chord0/p0/staff1"])(
+    "deletes global harmony from %s without deleting music",
+    (elementId) => {
+      const score = makeScore();
+      score.global.measures[0]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      ];
+      const original = structuredClone(score);
+      const result = computeDeleteSelection(score, { kind: "single", elementId, elementType: "chord-symbol" });
+      expect(result.kind).toBe("single");
+      if (result.kind !== "single") return;
+      expect(result.score.global.measures[0]!.chordSymbols).toBeUndefined();
+      expect(result.score.parts).toEqual(original.parts);
+      expect(score).toEqual(original);
+      expect(result.nextSelection).toEqual({ kind: "clear" });
+    },
+  );
+
+  it("deduplicates roots and rendered copies before deleting global chords in descending order", () => {
+    const score = makeScore();
+    score.global.measures[0]!.chordSymbols = [
+      { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      { position: { fraction: [1, 4] }, root: { step: "D" }, quality: "minor" },
+      { position: { fraction: [1, 2] }, root: { step: "E" }, quality: "minor" },
+    ];
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["m0/chord0", "m0/chord0/p0/staff1", "m0/chord0/p1/staff2", "m0/chord1/p0/staff1"],
+    });
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    expect(result.score.global.measures[0]!.chordSymbols?.map((symbol) => symbol.root.step)).toEqual(["E"]);
+    expect(result.score.parts).toEqual(score.parts);
+    expect(score.global.measures[0]!.chordSymbols).toHaveLength(3);
+  });
+
+  it("deletes mixed chord-copy and event selections", () => {
+    const score = makeScore();
+    score.global.measures[0]!.chordSymbols = [
+      { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+    ];
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: ["m0/chord0/p0/staff1", "p0/m0/s0/ev1"],
+    });
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    expect(result.score.global.measures[0]!.chordSymbols).toBeUndefined();
+    expect(contentAt(result.score, 1).rest).toBeDefined();
+    expect(contentAt(result.score, 0).notes).toHaveLength(3);
+  });
+
+  it.each([false, true])("collapses a bar and removes only selected global harmony (selected=%s)", (selectChord) => {
+    const score = makeScore();
+    const chordSymbols = [{ position: { fraction: [0, 1] as [number, number] }, root: { step: "C" as const } }];
+    score.global.measures[0]!.chordSymbols = chordSymbols;
+    toggleDynamic(score, 0, 0, 0, 0, "f");
+
+    const result = computeDeleteSelection(score, {
+      kind: "multi",
+      elementIds: [
+        "p0/m0/s0/ev0",
+        "p0/m0/s0/ev1",
+        "p0/m0/s0/ev2",
+        "p0/m0/s0/ev3",
+        ...(selectChord ? ["m0/chord0", "m0/chord0/p0/staff1"] : []),
+      ],
+    });
+
+    expect(result.kind).toBe("multi");
+    if (result.kind !== "multi") return;
+    const sequence = result.score.parts[0]!.measures[0]!.sequences[0]!;
+    expect(sequence.content).toEqual([]);
+    expect(sequence.fullMeasure).toEqual({ visualDuration: { base: "whole" } });
+    expect(result.score.parts[0]!.measures[0]!.dynamics).toBeUndefined();
+    expect(result.score.global.measures[0]!.chordSymbols).toEqual(selectChord ? undefined : chordSymbols);
+  });
+
+  it.each(["p0/m0/chord0", "m0/chord4/p0/staff1", "m0/chord0junk", "m0/chord", "m0/chord0/p0/staff1/extra"])(
+    "ignores invalid or removed chord paths: %s",
+    (elementId) => {
+      const score = makeScore();
+      score.global.measures[0]!.chordSymbols = [
+        { position: { fraction: [0, 1] }, root: { step: "C" }, quality: "major" },
+      ];
+      expect(computeDeleteSelection(score, { kind: "single", elementId, elementType: "chord-symbol" })).toEqual({
+        kind: "noop",
+      });
+      expect(score.global.measures[0]!.chordSymbols).toHaveLength(1);
+    },
+  );
+
   it("deletes a selected glissando without deleting its notes", () => {
     const score = makeScore();
     contentAt(score, 0).glissandos = [{ target: "ev1", kind: "portamento", text: "port." }];

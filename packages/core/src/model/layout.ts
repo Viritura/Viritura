@@ -440,10 +440,6 @@ export interface LayoutStaff {
   sources: LayoutSource[];
   label?: string;
   labelref?: StaffLabelRef;
-  /** Chord-symbol visibility for this layout staff. Unset/auto uses the first staff for each source part. */
-  chordSymbolVisibility?: "auto" | "show" | "hide";
-  /** Global-harmony visibility for this layout staff. Unset/auto uses the first displayed staff. */
-  globalChordSymbolVisibility?: "auto" | "show" | "hide";
 }
 
 /** A source mapping a part (and optionally a staff/voice within it) to a layout staff. */

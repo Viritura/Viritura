@@ -157,8 +157,9 @@ function expectCmAndMf(parsed: ReturnType<typeof readMuseScoreClipboard>, offset
     staffOffset: 0,
     measureOffset: 0,
     offset,
-    chordSymbol: { root: { step: "C" }, quality: "minor", position: { fraction: [0, 1] } },
+    chordSymbol: { root: { step: "C" }, quality: "minor", rawText: "Cm", position: { fraction: [0, 1] } },
   });
+  expect(parsed.chordSymbols?.[0]?.chordSymbol).not.toHaveProperty("textOverride");
   expect(parsed.dynamics).toHaveLength(1);
   expect(parsed.dynamics?.[0]).toMatchObject({
     staffOffset: 0,

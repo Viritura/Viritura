@@ -18,6 +18,8 @@ export interface MeasureSelectionPoint {
   readonly partIndex: number;
   readonly staffIndex: number;
   readonly localStaffIndex?: number;
+  /** Authored source staff (1-based), resolved from the displayed layout; null is unresolved. */
+  readonly sourceStaff?: number | null;
   readonly measureIndex: number;
   /** The pointer landed on a synthetic source staff under condensed notation. */
   readonly isExpansion?: boolean;
@@ -43,6 +45,8 @@ interface SelectionRange {
   readonly endElementId: string;
   /** Visual staff location of the range's fixed start anchor. */
   readonly measureAnchor?: MeasureSelectionPoint;
+  /** Source staff context of the range's moving pointer endpoint. */
+  readonly measureFocus?: MeasureSelectionPoint;
 }
 
 interface SelectionRhythmicSpan {
@@ -109,6 +113,7 @@ interface SelectElementsAction {
 interface ExtendSelectionAction {
   readonly type: "EXTEND_SELECTION";
   readonly elementId: string;
+  readonly measureAnchor?: MeasureSelectionPoint;
 }
 
 interface ClearSelectionAction {
@@ -154,6 +159,7 @@ function extendElementSelection(state: Selection, action: ExtendSelectionAction)
       kind: "single",
       elementId: action.elementId,
       elementType: parseElementType(action.elementId),
+      ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
     };
   }
   if (state.kind === "single") {
@@ -163,6 +169,7 @@ function extendElementSelection(state: Selection, action: ExtendSelectionAction)
       startElementId: state.elementId,
       endElementId: action.elementId,
       ...(state.measureAnchor && { measureAnchor: state.measureAnchor }),
+      ...(action.measureAnchor && { measureFocus: action.measureAnchor }),
     };
   }
   if (state.kind === "measure") {
@@ -187,6 +194,7 @@ function extendElementSelection(state: Selection, action: ExtendSelectionAction)
       kind: "single",
       elementId: action.elementId,
       elementType: parseElementType(action.elementId),
+      ...(action.measureAnchor && { measureAnchor: action.measureAnchor }),
     };
   }
   // Already a range — extend the end
@@ -195,6 +203,7 @@ function extendElementSelection(state: Selection, action: ExtendSelectionAction)
     startElementId: state.startElementId,
     endElementId: action.elementId,
     ...(state.measureAnchor && { measureAnchor: state.measureAnchor }),
+    ...(action.measureAnchor && { measureFocus: action.measureAnchor }),
   };
 }
 
@@ -431,7 +440,7 @@ interface SelectionActionsValue {
     measureAnchor?: MeasureSelectionPoint,
     rhythmicRange?: SelectionRhythmicRange,
   ) => void;
-  extendSelection: (elementId: string) => void;
+  extendSelection: (elementId: string, measureAnchor?: MeasureSelectionPoint) => void;
   toggleSelection: (elementId: string) => void;
   selectMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
   extendMeasure: (partIndex: number, staffIndex: number, measureIndex: number, localStaffIndex?: number) => void;
@@ -450,7 +459,8 @@ const actions: SelectionActionsValue = {
       ...(measureAnchor && { measureAnchor }),
       ...(rhythmicRange && { rhythmicRange }),
     }),
-  extendSelection: (elementId) => dispatchSelection({ type: "EXTEND_SELECTION", elementId }),
+  extendSelection: (elementId, measureAnchor) =>
+    dispatchSelection({ type: "EXTEND_SELECTION", elementId, ...(measureAnchor && { measureAnchor }) }),
   toggleSelection: (elementId) => dispatchSelection({ type: "TOGGLE_SELECTION", elementId }),
   selectMeasure: (partIndex, staffIndex, measureIndex, localStaffIndex) =>
     dispatchSelection({

@@ -48,6 +48,7 @@ impl SlotSeq {
 impl Engine {
     pub(super) fn set_muted(&mut self, parts: Vec<u32>) {
         self.muted_parts = parts.into_iter().collect();
+        self.cancel_muted_previews();
         if !self.playing {
             return;
         }
