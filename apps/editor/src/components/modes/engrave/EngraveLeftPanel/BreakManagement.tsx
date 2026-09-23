@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@viritura/ui";
+import { PanelActionButton, PanelHeader } from "@viritura/ui";
 import { ConfirmationDialog } from "../../../ConfirmationDialog";
 import styles from "./EngraveLeftPanel.module.css";
 
@@ -27,21 +27,29 @@ export function BreakManagement({
         : `No forced break after measure ${selectedAfterMeasureNumber}.`;
 
   return (
-    <section className={styles.breakManagement} aria-labelledby="forced-breaks-heading">
-      <div>
-        <h3 id="forced-breaks-heading" className={styles.sectionTitle}>
-          Forced breaks
-        </h3>
-        <p className={styles.sectionDescription}>{selectionDescription}</p>
-      </div>
-      <div className={styles.breakActions}>
-        <Button variant="danger" size="sm" disabled={selectedBreakKind === null} onClick={onRemoveSelectedBreak}>
-          Remove selected break
-        </Button>
-        <Button variant="ghost" size="sm" disabled={!hasLayoutOverrides} onClick={() => setConfirmReset(true)}>
-          Reset all layout overrides
-        </Button>
-      </div>
+    <section className={styles.breakManagement} aria-label="Forced breaks">
+      <PanelHeader
+        title="Forced breaks"
+        subtitle={selectionDescription}
+        actions={
+          <>
+            <PanelActionButton
+              disabled={selectedBreakKind === null}
+              onClick={onRemoveSelectedBreak}
+              tooltip="Remove selected break"
+            >
+              Remove
+            </PanelActionButton>
+            <PanelActionButton
+              disabled={!hasLayoutOverrides}
+              onClick={() => setConfirmReset(true)}
+              tooltip="Reset all layout overrides"
+            >
+              Reset all
+            </PanelActionButton>
+          </>
+        }
+      />
       <ConfirmationDialog
         open={confirmReset}
         title="Reset all layout overrides?"

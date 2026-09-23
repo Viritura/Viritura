@@ -484,7 +484,6 @@ function AppInner({
     handleLyricCommit,
     handleLyricNavigate,
     handleLyricExit,
-    handleEnterLyrics,
     enterMidiNotes,
     moveMidiCursor,
   } = useInteractionHandlers({
@@ -721,8 +720,6 @@ function AppInner({
             writeLeftTab,
             setWriteLeftTab,
             paletteSectionRequest,
-            lyricMode,
-            onToggleLyrics: handleEnterLyrics,
           });
   /* eslint-enable react-hooks/refs */
 

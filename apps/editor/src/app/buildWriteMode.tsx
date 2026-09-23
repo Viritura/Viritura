@@ -57,8 +57,6 @@ export interface BuildWriteModeArgs {
   writeLeftTab: WriteLeftTab;
   setWriteLeftTab: (tab: WriteLeftTab) => void;
   paletteSectionRequest: { id: string; requestId: number } | null;
-  lyricMode: boolean;
-  onToggleLyrics: () => void;
 }
 
 export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
@@ -115,7 +113,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
     toolbar: (
       <WorkspaceToolbar
         left={<ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />}
-        center={<Toolbar lyricMode={args.lyricMode} onToggleLyrics={args.onToggleLyrics} />}
+        center={<Toolbar />}
         right={<TransportBar />}
       />
     ),

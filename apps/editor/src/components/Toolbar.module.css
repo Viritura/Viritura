@@ -5,9 +5,16 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  flex-shrink: 0;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   user-select: none;
   transition: box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .toolbarActive {
@@ -30,4 +37,15 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+@container notation-toolbar (max-width: 700px) {
+  .toolbar {
+    gap: 2px;
+    padding-inline: var(--space-1);
+  }
+
+  .group {
+    gap: 2px;
+  }
 }

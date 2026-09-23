@@ -60,7 +60,7 @@ export function LeftPanel({
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onTabHover={handleTabHover}
-        className={styles.tabBar}
+        variant="panel"
       >
         {activeTab === "palettes" && <PalettePanel openSectionRequest={paletteSectionRequest} />}
         {activeTab === "clipboard" && <ClipboardHistoryPanel />}

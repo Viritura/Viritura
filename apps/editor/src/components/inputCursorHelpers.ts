@@ -380,7 +380,7 @@ export function computeSnappedBeat(
  * Uses the same buildBeatMap pipeline as the ruler and hover snap
  * so all three are always in agreement.
  */
-function resolveCursorX(
+export function resolveCursorX(
   measureIndex: number,
   beatPosition: number,
   partIndex: number,

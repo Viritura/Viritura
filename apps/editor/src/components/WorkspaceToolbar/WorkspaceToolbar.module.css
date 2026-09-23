@@ -1,6 +1,6 @@
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   width: 100%;
   min-width: 0;
@@ -25,6 +25,8 @@
 
 .center {
   justify-content: center;
+  overflow: hidden;
+  container: notation-toolbar / inline-size;
 }
 
 .right {

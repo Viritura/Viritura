@@ -35,16 +35,15 @@ const PROJECT_HINT_STYLE: CSSProperties = {
 interface MetaFieldDef {
   key: keyof ScoreMetadata;
   label: string;
-  placeholder: string;
 }
 
 const META_FIELDS: readonly MetaFieldDef[] = [
-  { key: "title", label: "Title", placeholder: "e.g. Symphony No. 5" },
-  { key: "subtitle", label: "Subtitle", placeholder: "e.g. A Sea Symphony" },
-  { key: "composer", label: "Composer", placeholder: "e.g. L. van Beethoven" },
-  { key: "lyricist", label: "Lyricist", placeholder: "e.g. words by F. Schiller" },
-  { key: "arranger", label: "Arranger", placeholder: "e.g. arr. J. Smith" },
-  { key: "copyright", label: "Copyright", placeholder: "e.g. © 2026 Viritura" },
+  { key: "title", label: "Title" },
+  { key: "subtitle", label: "Subtitle" },
+  { key: "composer", label: "Composer" },
+  { key: "lyricist", label: "Lyricist" },
+  { key: "arranger", label: "Arranger" },
+  { key: "copyright", label: "Copyright" },
 ];
 
 /**
@@ -122,7 +121,6 @@ function MetadataField({ score, field, value, updateScore }: MetadataFieldProps)
     <FormField label={field.label}>
       <FormInput
         value={draft}
-        placeholder={field.placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {

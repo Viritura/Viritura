@@ -32,7 +32,7 @@ export function SetupPanel({ onAddEnsemble, ...props }: SetupPanelProps) {
 
   return (
     <div className={styles.root}>
-      <Tabs tabs={TAB_DEFS} activeTab={activeTab} onTabChange={handleTabChange} className={styles.tabBar}>
+      <Tabs tabs={TAB_DEFS} activeTab={activeTab} onTabChange={handleTabChange} variant="panel">
         {activeTab === "project" && <ProjectMode />}
         {activeTab === "instruments" && <InstrumentsMode {...props} onAddEnsemble={onAddEnsemble} />}
         {activeTab === "scores" && <PartListPanel {...props} />}

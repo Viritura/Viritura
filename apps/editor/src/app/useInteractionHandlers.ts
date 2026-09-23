@@ -122,7 +122,6 @@ export interface InteractionHandlers extends RadialMenuHandlers, DragAndDropHand
   handleLyricCommit: LyricHandlers["handleLyricCommit"];
   handleLyricNavigate: LyricHandlers["handleLyricNavigate"];
   handleLyricExit: LyricHandlers["handleLyricExit"];
-  handleEnterLyrics: () => void;
 }
 
 /**
@@ -325,5 +324,5 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
 
   const dnd = useDragAndDrop({ openFolderHandle, setIsDragOver, setFileError, setOpenedFile });
 
-  return { ...radial, ...dnd, jumpBarActions, ...lyric, handleEnterLyrics, enterMidiNotes, moveMidiCursor };
+  return { ...radial, ...dnd, jumpBarActions, ...lyric, enterMidiNotes, moveMidiCursor };
 }

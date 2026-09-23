@@ -25,6 +25,8 @@ export interface TabsProps {
   children?: ReactNode;
   /** Additional className for the tab bar */
   className?: string;
+  /** Standard tabs or the padded/divided treatment used at the top of docked panels. */
+  variant?: "default" | "panel";
 }
 
 export function Tabs({
@@ -35,6 +37,7 @@ export function Tabs({
   onTabHover,
   children,
   className,
+  variant = "default",
 }: TabsProps) {
   const [internalTab, setInternalTab] = useState(defaultTab ?? tabs[0]?.id ?? "");
   const activeTab = controlledTab ?? internalTab;
@@ -46,7 +49,10 @@ export function Tabs({
 
   return (
     <>
-      <div className={`${styles.tabBar} ${className ?? ""}`} role="tablist">
+      <div
+        className={`${styles.tabBar} ${variant === "panel" ? styles.panelTabBar : ""} ${className ?? ""}`}
+        role="tablist"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}

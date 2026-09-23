@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Select } from "./Select";
-import { LayoutGrid } from "lucide-react";
+import { Glasses, LayoutGrid } from "lucide-react";
 
 const WRAPPER_200_STYLE: CSSProperties = { width: 200 };
 const WRAPPER_160_STYLE: CSSProperties = { width: 160 };
@@ -95,5 +95,23 @@ export const AutoWidthWithLeadingIcon: Story = {
   render: function Render(args) {
     const [value, setValue] = useState(args.value);
     return <Select {...args} fullWidth={false} value={value} onValueChange={setValue} />;
+  },
+};
+
+export const IconButtonTrigger: Story = {
+  args: {
+    value: "source",
+    options: [
+      { value: "manual", label: "Manual duration", triggerLabel: <Glasses size={16} aria-hidden="true" /> },
+      { value: "source", label: "Violin 1 — Staff 1, Voice 1", triggerLabel: <Glasses size={16} aria-hidden="true" /> },
+    ],
+    fullWidth: false,
+    triggerVariant: "icon-button",
+    active: true,
+    "aria-label": "Rhythm reading on: Violin 1 — Staff 1, Voice 1",
+  },
+  render: function Render(args) {
+    const [value, setValue] = useState(args.value);
+    return <Select {...args} value={value} active={value !== "manual"} onValueChange={setValue} />;
   },
 };
