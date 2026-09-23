@@ -52,6 +52,33 @@ export const BARLINE_STYLE_MAP: Record<string, string> = {
   none: "noBarline",
 };
 
+// ─── MusicXML notehead token → Viritura notehead shape vendor extension ──
+// (normal | x | circleX | diamond | slash | triangleUp | triangleDown).
+// MNX has no notehead field on note, kit-note, or kit-component (W3C MNX
+// issue #249); Viritura tracks it via `_x.viritura.notehead` (see
+// `note-extensions` / `kit-component-extensions` in viritura-extensions.json).
+// Tokens not listed (square, cluster, none, …) have no Viritura equivalent and
+// fall back to the default `normal` notehead.
+
+const NOTEHEAD_MAP: Record<string, string> = {
+  x: "x",
+  cross: "x",
+  "circle-x": "circleX",
+  diamond: "diamond",
+  slash: "slash",
+  slashed: "slash",
+  triangle: "triangleUp",
+  "inverted triangle": "triangleDown",
+};
+
+/** Map a raw MusicXML notehead token to a Viritura notehead shape, or
+ *  undefined for the default (normal) head. */
+export function noteheadShape(token: string | undefined): string | undefined {
+  if (!token) return undefined;
+  const shape = NOTEHEAD_MAP[token];
+  return shape && shape !== "normal" ? shape : undefined;
+}
+
 // ─── MusicXML accidental text → normalized name ─────────────────────
 
 export const ACCIDENTAL_MAP: Record<string, string> = {

@@ -375,9 +375,15 @@ export function buildParts(
       const realSequences = sequences.filter((s) => !isSpaceOnly(s));
       const finalSequences = realSequences.length > 0 ? realSequences : sequences;
 
-      if (finalSequences.length > 0) {
-        mnxMeasure.sequences = finalSequences;
-      }
+      // `sequences` is required by the MNX schema on every part measure. A
+      // measure with no voices at all (e.g. an implicit filler bar — ScanScore
+      // and Finale both omit content for a tacet staff rather than writing an
+      // explicit whole-measure rest) is real silence, not missing data, so it
+      // must still carry `sequences: []` rather than being emitted bare.
+      // Whether that silence is engraved as a full-measure rest glyph or
+      // consolidated into a multimeasure rest is a layout/rendering decision,
+      // not something the importer should decide by omitting the field.
+      mnxMeasure.sequences = finalSequences;
 
       // Collect lyric line IDs
       for (const seq of finalSequences) {
