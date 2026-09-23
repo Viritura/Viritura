@@ -1,12 +1,12 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"7dd6d0316fd9bd19327e79f622e729dcfe790012","musicXmlCommit":"0e07478fa86d6b7561e2e5a3f9f037ceb310018c","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-23","virituraAuditedAt":"2026-09-13"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"7dd6d0316fd9bd19327e79f622e729dcfe790012","musicXmlCommit":"0e07478fa86d6b7561e2e5a3f9f037ceb310018c","virituraCommit":"9381ef133cf9d0ed364c8e5b6603cd508a842c69","upstreamSyncedAt":"2026-09-23","virituraAuditedAt":"2026-09-23"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
 > · MNX matrix: [`mnx@7dd6d03`](https://github.com/w3c-cg/mnx/commit/7dd6d0316fd9bd19327e79f622e729dcfe790012)
 > · MusicXML matrix: [`musicxml@0e07478`](https://github.com/w3c-cg/musicxml/commit/0e07478fa86d6b7561e2e5a3f9f037ceb310018c)
-> · Viritura source: [`e75616c`](https://github.com/Viritura/Viritura/commit/e75616c4c65eeffd62134e54e729c0f978f6b5e3)
-> · Upstream synced 2026-09-23; Viritura audited 2026-09-13.
+> · Viritura source: [`9381ef1`](https://github.com/Viritura/Viritura/commit/9381ef133cf9d0ed364c8e5b6603cd508a842c69)
+> · Upstream synced 2026-09-23; Viritura audited 2026-09-23.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
 Reference to the current Viritura MNX ingest/model/engraving pipeline and the
