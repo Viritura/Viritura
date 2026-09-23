@@ -356,7 +356,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         }
     }
 

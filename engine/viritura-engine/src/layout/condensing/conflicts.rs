@@ -282,7 +282,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         }
     }
 
@@ -301,7 +300,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         }
     }
 
@@ -312,7 +310,7 @@ mod tests {
                 full_measure: None,
                 staff: None,
                 voice: None,
-                orient: None,
+                direction_hint: None,
                 forced_stem_up: None,
                 source_part_index: None,
                 source_seq_index: None,
@@ -344,7 +342,7 @@ mod tests {
             accent_suffix: None,
             end: None,
             glyphs: None,
-            orient: None,
+            placement: None,
             prefix: None,
             relative_value: None,
             staff: None,
@@ -482,7 +480,7 @@ mod tests {
                 full_measure: None,
                 staff: None,
                 voice: None,
-                orient: None,
+                direction_hint: None,
                 forced_stem_up: None,
                 source_part_index: None,
                 source_seq_index: None,
@@ -511,7 +509,7 @@ mod tests {
                 full_measure: None,
                 staff: None,
                 voice: None,
-                orient: None,
+                direction_hint: None,
                 forced_stem_up: None,
                 source_part_index: None,
                 source_seq_index: None,
@@ -906,14 +904,14 @@ mod tests {
                     bracket: None,
                     show_number: None,
                     show_value: None,
-                    orient: None,
+                    placement: None,
                     staff: None,
                     span: None,
                 })],
                 full_measure: None,
                 staff: None,
                 voice: None,
-                orient: None,
+                direction_hint: None,
                 forced_stem_up: None,
                 source_part_index: None,
                 source_seq_index: None,
@@ -1229,7 +1227,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         };
         let ev_b = Event {
             duration: Duration {
@@ -1283,7 +1280,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         };
         let pm_a = make_pm(vec![ev_a]);
         let pm_b = make_pm(vec![ev_b]);
@@ -1346,7 +1342,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         };
         let ev_b = Event {
             duration: Duration {
@@ -1400,7 +1395,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         };
         let pm_a = make_pm(vec![ev_a]);
         let pm_b = make_pm(vec![ev_b]);
@@ -1598,7 +1592,7 @@ mod tests {
         ev_a.markings = Some(Markings {
             tremolo: Some(Tremolo {
                 marks: 2,
-                orient: None,
+                placement: None,
             }),
             ..Default::default()
         });
@@ -1606,7 +1600,7 @@ mod tests {
         ev_b.markings = Some(Markings {
             tremolo: Some(Tremolo {
                 marks: 3,
-                orient: None,
+                placement: None,
             }),
             ..Default::default()
         });
@@ -1621,7 +1615,7 @@ mod tests {
         ev_a.markings = Some(Markings {
             tremolo: Some(Tremolo {
                 marks: 1,
-                orient: None,
+                placement: None,
             }),
             ..Default::default()
         });
@@ -1637,7 +1631,7 @@ mod tests {
         ev_a.markings = Some(Markings {
             tremolo: Some(Tremolo {
                 marks: 2,
-                orient: None,
+                placement: None,
             }),
             ..Default::default()
         });
@@ -1645,7 +1639,7 @@ mod tests {
         ev_b.markings = Some(Markings {
             tremolo: Some(Tremolo {
                 marks: 2,
-                orient: None,
+                placement: None,
             }),
             ..Default::default()
         });

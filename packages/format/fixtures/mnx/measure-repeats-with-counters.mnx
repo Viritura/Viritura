@@ -24,15 +24,15 @@
           ]
         },
         {
-          "measureRepeat": { "number": 1, "counter": { "count": 2, "orient": "above" } },
+          "measureRepeat": { "number": 1, "counter": { "count": 2, "placement": "above" } },
           "sequences": [{ "content": [] }]
         },
         {
-          "measureRepeat": { "number": 1, "counter": { "count": 3, "orient": "above" } },
+          "measureRepeat": { "number": 1, "counter": { "count": 3, "placement": "above" } },
           "sequences": [{ "content": [] }]
         },
         {
-          "measureRepeat": { "number": 1, "counter": { "count": 4, "orient": "above" } },
+          "measureRepeat": { "number": 1, "counter": { "count": 4, "placement": "above" } },
           "sequences": [{ "content": [] }]
         }
       ]

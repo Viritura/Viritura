@@ -96,7 +96,7 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(true);
 
-    expect(sourceEvent(latest()).orient).toBe("below");
+    expect(sourceEvent(latest()).stemDirection).toBe("down");
   });
 
   it("flips an automatic slur to the opposite explicit side", () => {
@@ -121,7 +121,7 @@ describe("context-sensitive F flip", () => {
     expect(handleFlip(ctx)).toBe(true);
 
     const tuplet = latest().parts[0]!.measures[0]!.sequences[0]!.content[2] as Tuplet;
-    expect(tuplet.orient).toBe("below");
+    expect(tuplet.placement).toBe("below");
   });
 
   it("flips a selected articulation without flipping its note stem", () => {
@@ -129,8 +129,8 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(true);
 
-    expect(sourceEvent(latest()).markings!.staccato!.orient).toBe("above");
-    expect(sourceEvent(latest()).orient).toBeUndefined();
+    expect(sourceEvent(latest()).markings!.staccato!.placement).toBe("above");
+    expect(sourceEvent(latest()).stemDirection).toBeUndefined();
   });
 
   it("flips a selected fermata", () => {
@@ -138,7 +138,7 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(true);
 
-    expect(sourceEvent(latest()).fermata!.orient).toBe("below");
+    expect(sourceEvent(latest()).fermata!.placement).toBe("below");
   });
 
   it.each([
@@ -149,7 +149,7 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(true);
 
-    expect(latest().parts[0]!.measures[0]!.dynamics![dynamicIndex]!.orient).toBe("above");
+    expect(latest().parts[0]!.measures[0]!.dynamics![dynamicIndex]!.placement).toBe("above");
   });
 
   it("flips a positive ottava from its automatic above placement to below", () => {
@@ -157,7 +157,7 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(true);
 
-    expect(latest().parts[0]!.measures[0]!.ottavas![0]!.orient).toBe("below");
+    expect(latest().parts[0]!.measures[0]!.ottavas![0]!.placement).toBe("below");
   });
 
   it("flips a text expression from its default below placement to above", () => {
@@ -174,6 +174,6 @@ describe("context-sensitive F flip", () => {
 
     expect(handleFlip(ctx)).toBe(false);
     expect(latest()).toBe(score);
-    expect(sourceEvent(latest()).orient).toBeUndefined();
+    expect(sourceEvent(latest()).stemDirection).toBeUndefined();
   });
 });

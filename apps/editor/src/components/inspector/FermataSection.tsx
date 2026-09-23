@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Fermata, FermataDuration, FermataSymbol, Orientation } from "@viritura/core";
+import type { Fermata, FermataDuration, FermataSymbol, Placement } from "@viritura/core";
 import { Select } from "@viritura/ui";
 import { resolveNotationSelectionTarget, setFermataProperties } from "../../commands/notationInspectorCommands";
 import { useDocument, useDocumentActions } from "../../store/DocumentContext";
@@ -29,7 +29,7 @@ const DURATION_OPTIONS = [
   { value: "veryLong", label: "Very long" },
 ] as const;
 
-const ORIENTATION_OPTIONS = [
+const PLACEMENT_OPTIONS = [
   { value: "auto", label: "Auto" },
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
@@ -45,7 +45,7 @@ export function FermataSection() {
   const { selectedFermata: fermata } = useNotationInspectorSelection(selection, score, target);
   if (selectedElementType !== "fermata" || !fermata || !score || !target) return null;
 
-  const updateFermata = (patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>) => {
+  const updateFermata = (patch: Partial<Pick<Fermata, "symbol" | "duration" | "placement">>) => {
     const result = setFermataProperties(score, target, patch, selectedScoreIndex);
     if (result.score) updateScore(result.score);
   };
@@ -72,12 +72,12 @@ export function FermataSection() {
         />
       </label>
       <label style={labelStyle}>
-        Orientation
+        Placement
         <Select
-          data-testid="notation-fermata-orientation"
-          value={fermata.orient ?? "auto"}
-          options={ORIENTATION_OPTIONS}
-          onValueChange={(value) => updateFermata({ orient: value as Orientation })}
+          data-testid="notation-fermata-placement"
+          value={fermata.placement ?? "auto"}
+          options={PLACEMENT_OPTIONS}
+          onValueChange={(value) => updateFermata({ placement: value as Placement })}
         />
       </label>
     </fieldset>

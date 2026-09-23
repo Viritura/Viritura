@@ -3,7 +3,7 @@ use super::beam::Beam;
 use super::chord_symbol::ChordSymbol;
 use super::clef::{PositionedClef, RhythmicPosition};
 use super::direction::{
-    Coda, DynamicGroup, Fine, Jump, MultiStaffOrientation, Ottava, Pedal, RehearsalMark, Segno,
+    Coda, DynamicGroup, Fine, Jump, MultiStaffPlacement, Ottava, Pedal, RehearsalMark, Segno,
     Tempo, TextExpression,
 };
 use super::event::{ArpeggioDirection, Sequence};
@@ -211,7 +211,7 @@ pub struct IdPair {
 pub struct MeasureRepeatCounter {
     pub count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<MultiStaffOrientation>,
+    pub placement: Option<MultiStaffPlacement>,
 }
 
 /// A simile marking: "repeat all music in the previous N measures"

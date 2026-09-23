@@ -109,7 +109,7 @@ export interface MeasureArgs {
     position: { fraction: number[] };
     glyph?: string;
     glyphs?: string[];
-    orient?: "above" | "auto" | "below" | "between";
+    placement?: "above" | "auto" | "below" | "between";
     prefix?: string;
     staff?: number;
     staffEnd?: number;

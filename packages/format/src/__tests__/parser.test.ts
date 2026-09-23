@@ -337,7 +337,7 @@ describe("parseMnx", () => {
                     {
                       duration: { base: "quarter" },
                       notes: [{ pitch: { step: "D", octave: 5 } }],
-                      fermata: { symbol: "square", orient: "below" },
+                      fermata: { symbol: "square", placement: "below" },
                     },
                     {
                       duration: { base: "half" },
@@ -359,7 +359,7 @@ describe("parseMnx", () => {
       expect(content[0].fermata).toEqual({ symbol: "angled" });
     }
     if (content?.[1]?.type === "event") {
-      expect(content[1].fermata).toEqual({ symbol: "square", orient: "below" });
+      expect(content[1].fermata).toEqual({ symbol: "square", placement: "below" });
     }
     if (content?.[2]?.type === "event") {
       expect(content[2].fermata).toEqual({ duration: "veryLong" });

@@ -62,8 +62,8 @@ pub mod error {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -81,7 +81,7 @@ pub struct Accent {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -99,7 +99,7 @@ impl ::std::default::Default for Accent {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -790,8 +790,8 @@ impl ::std::convert::From<::std::vec::Vec<Beam>> for BeamList {
 ///    "direction": {
 ///      "$ref": "#/$defs/up-down"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -810,7 +810,7 @@ pub struct BowDirection {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -899,8 +899,8 @@ impl ::std::fmt::Display for Bpm {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    },
 ///    "symbol": {
 ///      "$ref": "#/$defs/breath-mark-symbol"
@@ -921,7 +921,7 @@ pub struct BreathMark {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub symbol: ::std::option::Option<BreathMarkSymbol>,
     #[serde(
@@ -941,7 +941,7 @@ impl ::std::default::Default for BreathMark {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             symbol: Default::default(),
             x: Default::default(),
         }
@@ -1419,6 +1419,92 @@ impl ::std::fmt::Display for Color {
         self.0.fmt(f)
     }
 }
+///`DirectionHint`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "upper",
+///    "lower",
+///    "auto"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum DirectionHint {
+    #[serde(rename = "upper")]
+    Upper,
+    #[serde(rename = "lower")]
+    Lower,
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl ::std::convert::From<&Self> for DirectionHint {
+    fn from(value: &DirectionHint) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for DirectionHint {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Upper => f.write_str("upper"),
+            Self::Lower => f.write_str("lower"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+impl ::std::str::FromStr for DirectionHint {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "upper" => Ok(Self::Upper),
+            "lower" => Ok(Self::Lower),
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for DirectionHint {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for DirectionHint {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DirectionHint {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`DynamicGroup`
 ///
 /// <details><summary>JSON schema</summary>
@@ -1451,8 +1537,8 @@ impl ::std::fmt::Display for Color {
 ///        "$ref": "#/$defs/smufl-glyph"
 ///      }
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/multi-staff-orientation"
+///    "placement": {
+///      "$ref": "#/$defs/multi-staff-placement"
 ///    },
 ///    "position": {
 ///      "$ref": "#/$defs/rhythmic-position"
@@ -1522,7 +1608,7 @@ pub struct DynamicGroup {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<MultiStaffOrientation>,
+    pub placement: ::std::option::Option<MultiStaffPlacement>,
     pub position: RhythmicPosition,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub prefix: ::std::option::Option<String>,
@@ -2276,9 +2362,6 @@ impl ::std::fmt::Display for EndingOpen {
 ///        "$ref": "#/$defs/note"
 ///      }
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
-///    },
 ///    "rest": {
 ///      "$ref": "#/$defs/rest"
 ///    },
@@ -2328,8 +2411,6 @@ pub struct Event {
     pub markings: ::std::option::Option<EventMarkings>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub notes: ::std::vec::Vec<Note>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub rest: ::std::option::Option<Rest>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -2788,8 +2869,8 @@ impl ::std::default::Default for EventMarkings {
 ///    "duration": {
 ///      "$ref": "#/$defs/fermata-duration"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    },
 ///    "pointing": {
 ///      "$ref": "#/$defs/up-down-auto"
@@ -2815,7 +2896,7 @@ pub struct Fermata {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub pointing: ::std::option::Option<UpDownAuto>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2838,7 +2919,7 @@ impl ::std::default::Default for Fermata {
             c: Default::default(),
             duration: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             pointing: Default::default(),
             symbol: Default::default(),
             x: Default::default(),
@@ -5316,8 +5397,8 @@ impl ::std::fmt::Display for MeasureRepeatCount {
 ///    "count": {
 ///      "$ref": "#/$defs/positive-integer"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/multi-staff-orientation"
+///    "placement": {
+///      "$ref": "#/$defs/multi-staff-placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -5336,7 +5417,7 @@ pub struct MeasureRepeatCounter {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<MultiStaffOrientation>,
+    pub placement: ::std::option::Option<MultiStaffPlacement>,
     #[serde(
         rename = "_x",
         default,
@@ -5522,7 +5603,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/38",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/39",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -5629,7 +5710,7 @@ impl ::std::convert::From<&MultiNoteTremolo> for MultiNoteTremolo {
         value.clone()
     }
 }
-///`MultiStaffOrientation`
+///`MultiStaffPlacement`
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -5657,7 +5738,7 @@ impl ::std::convert::From<&MultiNoteTremolo> for MultiNoteTremolo {
     PartialEq,
     PartialOrd
 )]
-pub enum MultiStaffOrientation {
+pub enum MultiStaffPlacement {
     #[serde(rename = "above")]
     Above,
     #[serde(rename = "auto")]
@@ -5667,12 +5748,12 @@ pub enum MultiStaffOrientation {
     #[serde(rename = "between")]
     Between,
 }
-impl ::std::convert::From<&Self> for MultiStaffOrientation {
-    fn from(value: &MultiStaffOrientation) -> Self {
+impl ::std::convert::From<&Self> for MultiStaffPlacement {
+    fn from(value: &MultiStaffPlacement) -> Self {
         value.clone()
     }
 }
-impl ::std::fmt::Display for MultiStaffOrientation {
+impl ::std::fmt::Display for MultiStaffPlacement {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Above => f.write_str("above"),
@@ -5682,7 +5763,7 @@ impl ::std::fmt::Display for MultiStaffOrientation {
         }
     }
 }
-impl ::std::str::FromStr for MultiStaffOrientation {
+impl ::std::str::FromStr for MultiStaffPlacement {
     type Err = self::error::ConversionError;
     fn from_str(
         value: &str,
@@ -5696,7 +5777,7 @@ impl ::std::str::FromStr for MultiStaffOrientation {
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for MultiStaffOrientation {
+impl ::std::convert::TryFrom<&str> for MultiStaffPlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &str,
@@ -5704,7 +5785,7 @@ impl ::std::convert::TryFrom<&str> for MultiStaffOrientation {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<&::std::string::String> for MultiStaffOrientation {
+impl ::std::convert::TryFrom<&::std::string::String> for MultiStaffPlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &::std::string::String,
@@ -5712,7 +5793,7 @@ impl ::std::convert::TryFrom<&::std::string::String> for MultiStaffOrientation {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for MultiStaffOrientation {
+impl ::std::convert::TryFrom<::std::string::String> for MultiStaffPlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -6228,92 +6309,6 @@ impl ::std::fmt::Display for Octave {
         self.0.fmt(f)
     }
 }
-///`Orientation`
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "type": "string",
-///  "enum": [
-///    "above",
-///    "below",
-///    "auto"
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum Orientation {
-    #[serde(rename = "above")]
-    Above,
-    #[serde(rename = "below")]
-    Below,
-    #[serde(rename = "auto")]
-    Auto,
-}
-impl ::std::convert::From<&Self> for Orientation {
-    fn from(value: &Orientation) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for Orientation {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Above => f.write_str("above"),
-            Self::Below => f.write_str("below"),
-            Self::Auto => f.write_str("auto"),
-        }
-    }
-}
-impl ::std::str::FromStr for Orientation {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "above" => Ok(Self::Above),
-            "below" => Ok(Self::Below),
-            "auto" => Ok(Self::Auto),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for Orientation {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for Orientation {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for Orientation {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
 ///`Ottava`
 ///
 /// <details><summary>JSON schema</summary>
@@ -6335,8 +6330,8 @@ impl ::std::convert::TryFrom<::std::string::String> for Orientation {
 ///    "end": {
 ///      "$ref": "#/$defs/measure-rhythmic-position"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    },
 ///    "position": {
 ///      "$ref": "#/$defs/rhythmic-position"
@@ -6367,7 +6362,7 @@ pub struct Ottava {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     pub position: RhythmicPosition,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<StaffNumber>,
@@ -7036,6 +7031,92 @@ pub struct Pitch {
 impl ::std::convert::From<&Pitch> for Pitch {
     fn from(value: &Pitch) -> Self {
         value.clone()
+    }
+}
+///`Placement`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "above",
+///    "below",
+///    "auto"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum Placement {
+    #[serde(rename = "above")]
+    Above,
+    #[serde(rename = "below")]
+    Below,
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl ::std::convert::From<&Self> for Placement {
+    fn from(value: &Placement) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for Placement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Above => f.write_str("above"),
+            Self::Below => f.write_str("below"),
+            Self::Auto => f.write_str("auto"),
+        }
+    }
+}
+impl ::std::str::FromStr for Placement {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "above" => Ok(Self::Above),
+            "below" => Ok(Self::Below),
+            "auto" => Ok(Self::Auto),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for Placement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for Placement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for Placement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`PositionedClef`
@@ -7857,11 +7938,11 @@ impl ::std::convert::From<&Segno> for Segno {
 ///    "content": {
 ///      "$ref": "#/$defs/sequence-content"
 ///    },
+///    "directionHint": {
+///      "$ref": "#/$defs/direction-hint"
+///    },
 ///    "fullMeasure": {
 ///      "$ref": "#/$defs/full-measure-rest"
-///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
 ///    },
 ///    "staff": {
 ///      "$ref": "#/$defs/staff-number"
@@ -7884,6 +7965,12 @@ pub struct Sequence {
     pub c: ::std::option::Option<String>,
     pub content: SequenceContent,
     #[serde(
+        rename = "directionHint",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub direction_hint: ::std::option::Option<DirectionHint>,
+    #[serde(
         rename = "fullMeasure",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -7891,8 +7978,6 @@ pub struct Sequence {
     pub full_measure: ::std::option::Option<FullMeasureRest>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<StaffNumber>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -8388,8 +8473,8 @@ impl ::std::fmt::Display for SmuflGlyph {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -8407,7 +8492,7 @@ pub struct SoftAccent {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -8425,7 +8510,7 @@ impl ::std::default::Default for SoftAccent {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -8683,8 +8768,8 @@ impl ::std::convert::From<&Space> for Space {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -8702,7 +8787,7 @@ pub struct Spiccato {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -8720,7 +8805,7 @@ impl ::std::default::Default for Spiccato {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -8738,8 +8823,8 @@ impl ::std::default::Default for Spiccato {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -8757,7 +8842,7 @@ pub struct Staccatissimo {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -8775,7 +8860,7 @@ impl ::std::default::Default for Staccatissimo {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -8793,8 +8878,8 @@ impl ::std::default::Default for Staccatissimo {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -8812,7 +8897,7 @@ pub struct Staccato {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -8830,7 +8915,7 @@ impl ::std::default::Default for Staccato {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -9802,8 +9887,8 @@ impl ::std::convert::TryFrom<::std::string::String> for Step {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -9821,7 +9906,7 @@ pub struct StressMarking {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -9839,7 +9924,7 @@ impl ::std::default::Default for StressMarking {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -9912,8 +9997,8 @@ impl ::std::fmt::Display for String {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    },
 ///    "pointing": {
 ///      "$ref": "#/$defs/up-down-auto"
@@ -9934,7 +10019,7 @@ pub struct StrongAccent {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub pointing: ::std::option::Option<UpDownAuto>,
     #[serde(
@@ -9954,7 +10039,7 @@ impl ::std::default::Default for StrongAccent {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             pointing: Default::default(),
             x: Default::default(),
         }
@@ -10293,8 +10378,8 @@ impl ::std::convert::From<&Tempo> for Tempo {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -10312,7 +10397,7 @@ pub struct Tenuto {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -10330,7 +10415,7 @@ impl ::std::default::Default for Tenuto {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }
@@ -10759,8 +10844,8 @@ impl<'de> ::serde::Deserialize<'de> for TimeSignatureUnit {
 ///    "marks": {
 ///      "$ref": "#/$defs/positive-integer"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -10779,7 +10864,7 @@ pub struct TremoloSingle {
     pub id: ::std::option::Option<Id>,
     pub marks: PositiveInteger,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -10820,11 +10905,11 @@ impl ::std::convert::From<&TremoloSingle> for TremoloSingle {
 ///    "inner": {
 ///      "$ref": "#/$defs/note-value-quantity"
 ///    },
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
-///    },
 ///    "outer": {
 ///      "$ref": "#/$defs/note-value-quantity"
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    },
 ///    "showNumber": {
 ///      "$ref": "#/$defs/tuplet-display-setting"
@@ -10858,9 +10943,9 @@ pub struct Tuplet {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     pub inner: NoteValueQuantity,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
     pub outer: NoteValueQuantity,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "showNumber",
         default,
@@ -10988,8 +11073,8 @@ impl ::std::convert::TryFrom<::std::string::String> for TupletDisplaySetting {
 ///    }
 ///  ],
 ///  "properties": {
-///    "orient": {
-///      "$ref": "#/$defs/orientation"
+///    "placement": {
+///      "$ref": "#/$defs/placement"
 ///    }
 ///  },
 ///  "unevaluatedProperties": false
@@ -11007,7 +11092,7 @@ pub struct UnstressMarking {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<Orientation>,
+    pub placement: ::std::option::Option<Placement>,
     #[serde(
         rename = "_x",
         default,
@@ -11025,7 +11110,7 @@ impl ::std::default::Default for UnstressMarking {
         Self {
             c: Default::default(),
             id: Default::default(),
-            orient: Default::default(),
+            placement: Default::default(),
             x: Default::default(),
         }
     }

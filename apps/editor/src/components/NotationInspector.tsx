@@ -85,7 +85,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     selectedSlur,
     selectedGlissando,
     selectedTrill,
-    selectedSequence,
     selectedContent,
     isTuplet,
     isEvent,
@@ -364,7 +363,6 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             updateScore={updateScore}
             focusedSection={focusedSection}
             sectionRef={layoutSectionRef}
-            selectedSequence={selectedSequence}
             selectedContent={selectedContent}
             isTuplet={isTuplet}
             isEvent={isEvent}

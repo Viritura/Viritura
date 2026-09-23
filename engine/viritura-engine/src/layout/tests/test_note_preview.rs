@@ -113,7 +113,6 @@ fn note_preview_committed_grace_parity() {
                             fermata: None,
                             lyrics: None,
                             stem_direction: None,
-                            orient: None,
                         },
                         note_positions: vec![pos],
                         display_pitches: vec![Pitch {

@@ -81,7 +81,7 @@ export type Staccatissimo = RawStaccatissimo;
 
 /** Staccatissimo wedge variant (Viritura extension; not in MNX spec). */
 export interface StaccatissimoWedge {
-  orient?: Orientation;
+  placement?: Placement;
 }
 
 /** Spiccato marking (staccatissimo stroke, SMuFL U+E4AA). Derived from MNX raw. */
@@ -90,7 +90,7 @@ export type Spiccato = RawSpiccato;
 /** Tenuto marking. Derived from MNX raw. */
 export type Tenuto = RawTenuto;
 
-/** Accent marking (MNX `accent`). Has only `orient` per MNX v15 spec. */
+/** Accent marking (MNX `accent`). Has only `placement` per MNX v15 spec. */
 export type Accent = RawAccent;
 
 /** Strong accent (marcato) marking. Derived from MNX raw. */
@@ -121,7 +121,7 @@ export type BreathMarkSymbol = "comma" | "tick" | "upbow" | "salzedo" | "auto";
 export interface BreathMark {
   /** Symbol style. Omitted and `auto` both leave the choice to the engraver. */
   symbol?: BreathMarkSymbol;
-  orient?: Orientation;
+  placement?: Placement;
 }
 
 /** Arpeggio marking — wavy line to the left of a chord.
@@ -153,14 +153,19 @@ export type FermataSymbol = NonNullable<RawFermata["symbol"]>;
 /** Fermata pause duration (MNX `fermata-duration`). Derived from MNX raw. */
 export type FermataDuration = NonNullable<RawFermata["duration"]>;
 
-/** Symbol orientation (MNX `orientation` — above/below/auto). */
-export type Orientation = NonNullable<RawStaccato["orient"]>;
+/** Symbol placement (MNX `placement` — above/below/auto). */
+export type Placement = NonNullable<RawStaccato["placement"]>;
 
 /** Up/down/auto direction (MNX `up-down-auto`). */
 export type UpDownAuto = NonNullable<RawStrongAccent["pointing"]>;
 
 /** Up/down direction (MNX `up-down`). */
 export type UpDown = RawBowDirection["direction"];
+
+/** Direction hint for a sequence's stem/notation side (MNX `direction-hint`).
+ *  Descriptive metadata only — Viritura derives actual stem direction from
+ *  array order / pitch, not from this hint. */
+export type DirectionHint = import("../raw").DirectionHint;
 
 /** Fermata (hold) marking on a note or rest. Derived from MNX raw. */
 export type Fermata = RawFermata;
@@ -317,8 +322,6 @@ export interface NoteEvent {
   staff?: number;
   /** Stem direction override */
   stemDirection?: StemDirection;
-  /** Vertical orientation (MNX `orient`, above/below/auto). Forces stem direction. */
-  orient?: Orientation;
   /** Slurs starting from this event */
   slurs?: Slur[];
   /** Glissando lines starting from this event */
@@ -380,8 +383,9 @@ export interface Tuplet {
   showNumber?: TupletDisplaySetting;
   /** Which note value(s) to display (MNX `showValue`). Default: absent. */
   showValue?: TupletDisplaySetting;
-  /** Vertical orientation (MNX `orient`, above/below/auto). */
-  orient?: Orientation;
+  /** Vertical placement (MNX `placement`, above/below/auto) for the tuplet
+   *  bracket/number. */
+  placement?: Placement;
   /** Cross-staff tuplet: render on the specified staff number (1-indexed). */
   staff?: number;
   /** Cross-barline relationship (Viritura extension `_x.viritura.span`). */
@@ -426,9 +430,9 @@ export interface Sequence {
   staff?: number;
   /** Voice name for this sequence (MNX voice identifier) */
   voice?: string;
-  /** Vertical orientation (MNX `orient`, above/below/auto). Forces stem direction
-   *  for all events in this sequence. */
-  orient?: Orientation;
+  /** Descriptive stem/notation-side hint for this sequence (MNX `directionHint`).
+   *  Non-authoritative — does not force stem direction. */
+  directionHint?: DirectionHint;
 }
 
 /**

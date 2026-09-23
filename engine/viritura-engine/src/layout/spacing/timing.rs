@@ -1,4 +1,4 @@
-use crate::model::{Event, Orientation, Sequence, SequenceContent};
+use crate::model::{Event, Placement, Sequence, SequenceContent};
 use std::collections::HashMap;
 
 const BEAT_KEY_SCALE: f64 = 1_000_000.0;
@@ -66,10 +66,7 @@ pub(super) fn sequence_timeline(
     };
     let mut beat = 0.0;
     let mut pending_graces = Vec::new();
-    let forced_stem_up = sequence
-        .orient
-        .and_then(Orientation::force_stem_up)
-        .or(sequence.forced_stem_up);
+    let forced_stem_up = sequence.forced_stem_up;
     walk_content(
         &sequence.content,
         &mut beat,
@@ -122,8 +119,8 @@ fn walk_content<'a>(
                 let outer = tuplet.outer.duration.total_beats() * f64::from(tuplet.outer.multiple);
                 let scale = if inner > 0.0 { outer / inner } else { 1.0 };
                 let tuplet_forced = tuplet
-                    .orient
-                    .and_then(Orientation::force_stem_up)
+                    .placement
+                    .and_then(Placement::force_stem_up)
                     .or(forced_stem_up);
                 walk_content(
                     &tuplet.content,

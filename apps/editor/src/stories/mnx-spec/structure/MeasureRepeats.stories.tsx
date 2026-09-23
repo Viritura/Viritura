@@ -91,9 +91,9 @@ export const WithCounters: StoryObj = {
     <ScorePreview
       mnxJson={makeScore([
         { sequences: [{ content: [half("C", 5), half("G", 4)] }] },
-        { ...empty, measureRepeat: { number: 1, counter: { count: 2, orient: "above" } } },
-        { ...empty, measureRepeat: { number: 1, counter: { count: 3, orient: "above" } } },
-        { ...empty, measureRepeat: { number: 1, counter: { count: 4, orient: "above" } } },
+        { ...empty, measureRepeat: { number: 1, counter: { count: 2, placement: "above" } } },
+        { ...empty, measureRepeat: { number: 1, counter: { count: 3, placement: "above" } } },
+        { ...empty, measureRepeat: { number: 1, counter: { count: 4, placement: "above" } } },
       ])}
     />
   ),
@@ -111,11 +111,11 @@ export const TwoBarWithIterationCounters: StoryObj = {
       mnxJson={makeScore([
         { sequences: [{ content: [half("C", 5), half("E", 5)] }] },
         { sequences: [{ content: [half("G", 4), half("C", 5)] }] },
-        { ...empty, measureRepeat: { number: 2, counter: { count: 2, orient: "above" } } },
+        { ...empty, measureRepeat: { number: 2, counter: { count: 2, placement: "above" } } },
         empty,
-        { ...empty, measureRepeat: { number: 2, counter: { count: 3, orient: "above" } } },
+        { ...empty, measureRepeat: { number: 2, counter: { count: 3, placement: "above" } } },
         empty,
-        { ...empty, measureRepeat: { number: 2, counter: { count: 4, orient: "above" } } },
+        { ...empty, measureRepeat: { number: 2, counter: { count: 4, placement: "above" } } },
         empty,
       ])}
     />
@@ -166,7 +166,7 @@ export const Interactive: StoryObj<InteractiveArgs> = {
             measureRepeat: {
               number,
               displayNumber,
-              ...(counter > 0 ? { counter: { count: counter, orient: "above" } } : {}),
+              ...(counter > 0 ? { counter: { count: counter, placement: "above" } } : {}),
             },
           },
           ...covered,

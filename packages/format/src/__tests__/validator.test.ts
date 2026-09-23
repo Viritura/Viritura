@@ -45,7 +45,7 @@ function betweenDynamicScore(staff: number) {
                 position: { fraction: [0, 1] },
                 value: "p",
                 staff,
-                orient: "between",
+                placement: "between",
               },
             ],
             sequences: [],

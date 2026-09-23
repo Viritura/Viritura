@@ -1476,8 +1476,8 @@ impl ::std::default::Default for EventExtensions {
 ///      "description": "Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge).",
 ///      "type": "object",
 ///      "properties": {
-///        "orient": {
-///          "description": "Vertical orientation relative to the staff.",
+///        "placement": {
+///          "description": "Vertical placement relative to the staff.",
 ///          "type": "string",
 ///          "enum": [
 ///            "above",
@@ -1543,8 +1543,8 @@ impl ::std::default::Default for EventMarkingsExtensions {
 ///  "description": "Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge).",
 ///  "type": "object",
 ///  "properties": {
-///    "orient": {
-///      "description": "Vertical orientation relative to the staff.",
+///    "placement": {
+///      "description": "Vertical placement relative to the staff.",
 ///      "type": "string",
 ///      "enum": [
 ///        "above",
@@ -1560,9 +1560,11 @@ impl ::std::default::Default for EventMarkingsExtensions {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct EventMarkingsExtensionsStaccatissimoWedge {
-    ///Vertical orientation relative to the staff.
+    ///Vertical placement relative to the staff.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub orient: ::std::option::Option<EventMarkingsExtensionsStaccatissimoWedgeOrient>,
+    pub placement: ::std::option::Option<
+        EventMarkingsExtensionsStaccatissimoWedgePlacement,
+    >,
 }
 impl ::std::convert::From<&EventMarkingsExtensionsStaccatissimoWedge>
 for EventMarkingsExtensionsStaccatissimoWedge {
@@ -1572,16 +1574,18 @@ for EventMarkingsExtensionsStaccatissimoWedge {
 }
 impl ::std::default::Default for EventMarkingsExtensionsStaccatissimoWedge {
     fn default() -> Self {
-        Self { orient: Default::default() }
+        Self {
+            placement: Default::default(),
+        }
     }
 }
-///Vertical orientation relative to the staff.
+///Vertical placement relative to the staff.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Vertical orientation relative to the staff.",
+///  "description": "Vertical placement relative to the staff.",
 ///  "type": "string",
 ///  "enum": [
 ///    "above",
@@ -1603,7 +1607,7 @@ impl ::std::default::Default for EventMarkingsExtensionsStaccatissimoWedge {
     PartialEq,
     PartialOrd
 )]
-pub enum EventMarkingsExtensionsStaccatissimoWedgeOrient {
+pub enum EventMarkingsExtensionsStaccatissimoWedgePlacement {
     #[serde(rename = "above")]
     Above,
     #[serde(rename = "below")]
@@ -1611,12 +1615,12 @@ pub enum EventMarkingsExtensionsStaccatissimoWedgeOrient {
     #[serde(rename = "auto")]
     Auto,
 }
-impl ::std::convert::From<&Self> for EventMarkingsExtensionsStaccatissimoWedgeOrient {
-    fn from(value: &EventMarkingsExtensionsStaccatissimoWedgeOrient) -> Self {
+impl ::std::convert::From<&Self> for EventMarkingsExtensionsStaccatissimoWedgePlacement {
+    fn from(value: &EventMarkingsExtensionsStaccatissimoWedgePlacement) -> Self {
         value.clone()
     }
 }
-impl ::std::fmt::Display for EventMarkingsExtensionsStaccatissimoWedgeOrient {
+impl ::std::fmt::Display for EventMarkingsExtensionsStaccatissimoWedgePlacement {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Above => f.write_str("above"),
@@ -1625,7 +1629,7 @@ impl ::std::fmt::Display for EventMarkingsExtensionsStaccatissimoWedgeOrient {
         }
     }
 }
-impl ::std::str::FromStr for EventMarkingsExtensionsStaccatissimoWedgeOrient {
+impl ::std::str::FromStr for EventMarkingsExtensionsStaccatissimoWedgePlacement {
     type Err = self::error::ConversionError;
     fn from_str(
         value: &str,
@@ -1638,7 +1642,8 @@ impl ::std::str::FromStr for EventMarkingsExtensionsStaccatissimoWedgeOrient {
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for EventMarkingsExtensionsStaccatissimoWedgeOrient {
+impl ::std::convert::TryFrom<&str>
+for EventMarkingsExtensionsStaccatissimoWedgePlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &str,
@@ -1647,7 +1652,7 @@ impl ::std::convert::TryFrom<&str> for EventMarkingsExtensionsStaccatissimoWedge
     }
 }
 impl ::std::convert::TryFrom<&::std::string::String>
-for EventMarkingsExtensionsStaccatissimoWedgeOrient {
+for EventMarkingsExtensionsStaccatissimoWedgePlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &::std::string::String,
@@ -1656,7 +1661,7 @@ for EventMarkingsExtensionsStaccatissimoWedgeOrient {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String>
-for EventMarkingsExtensionsStaccatissimoWedgeOrient {
+for EventMarkingsExtensionsStaccatissimoWedgePlacement {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,

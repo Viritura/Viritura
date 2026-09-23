@@ -45,7 +45,6 @@ fn test_grace_score_renderer_preserves_plain_ink() {
                     fermata: None,
                     lyrics: None,
                     stem_direction: None,
-                    orient: None,
                 };
                 let pos = if stem_up { 10.0 } else { -2.0 };
                 let gn = GraceNoteLayout {
@@ -291,8 +290,8 @@ fn grace_flag_spacing_score(stems: [bool; 2], after: bool, beam_mode: &str) -> c
     let mut second = grace_collision_event("g2", 0, 0);
     first["notes"][0]["pitch"] = serde_json::json!({"step": "B", "octave": 4});
     second["notes"][0]["pitch"] = serde_json::json!({"step": "D", "octave": 5});
-    first["orient"] = serde_json::json!(if stems[0] { "above" } else { "below" });
-    second["orient"] = serde_json::json!(if stems[1] { "above" } else { "below" });
+    first["stemDirection"] = serde_json::json!(if stems[0] { "up" } else { "down" });
+    second["stemDirection"] = serde_json::json!(if stems[1] { "up" } else { "down" });
     if beam_mode == "singleton" {
         // Auto-beaming is enabled, but the quarter breaks the eligible run.
         let unflagged = if stems[0] { &mut second } else { &mut first };

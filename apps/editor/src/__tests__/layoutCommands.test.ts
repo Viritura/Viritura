@@ -43,27 +43,24 @@ function makeScore(): Score {
 }
 
 describe("layoutCommands", () => {
-  it("applies event and sequence overrides", () => {
+  it("applies event overrides", () => {
     const score = applyLayoutOverrides(makeScore(), "p0/m0/s0/ev1", {
-      event: { staff: 2, stemDirection: "down", orient: "below" },
-      sequence: { orient: "above" },
+      event: { staff: 2, stemDirection: "down" },
     });
 
     const sequence = score.parts[0]!.measures[0]!.sequences[0]!;
     const event = sequence.content[0];
-    expect(sequence.orient).toBe("above");
     expect(event?.type).toBe("event");
     if (event?.type === "event") {
       expect(event.staff).toBe(2);
       expect(event.stemDirection).toBe("down");
-      expect(event.orient).toBe("below");
     }
   });
 
   it("applies and clears tuplet overrides", () => {
     const applied = applyLayoutOverrides(makeScore(), "p0/m0/s0/e1", {
       tuplet: {
-        orient: "above",
+        placement: "above",
         bracket: "yes",
         showNumber: "both",
         showValue: "inner",
@@ -73,7 +70,7 @@ describe("layoutCommands", () => {
     const tuplet = applied.parts[0]!.measures[0]!.sequences[0]!.content[1];
     expect(tuplet?.type).toBe("tuplet");
     if (tuplet?.type === "tuplet") {
-      expect(tuplet.orient).toBe("above");
+      expect(tuplet.placement).toBe("above");
       expect(tuplet.bracket).toBe("yes");
       expect(tuplet.showNumber).toBe("both");
       expect(tuplet.showValue).toBe("inner");
@@ -81,7 +78,7 @@ describe("layoutCommands", () => {
 
     const cleared = applyLayoutOverrides(applied, "p0/m0/s0/e1", {
       tuplet: {
-        orient: null,
+        placement: null,
         bracket: null,
         showNumber: null,
         showValue: null,
@@ -91,7 +88,7 @@ describe("layoutCommands", () => {
     const clearedTuplet = cleared.parts[0]!.measures[0]!.sequences[0]!.content[1];
     expect(clearedTuplet?.type).toBe("tuplet");
     if (clearedTuplet?.type === "tuplet") {
-      expect(clearedTuplet.orient).toBeUndefined();
+      expect(clearedTuplet.placement).toBeUndefined();
       expect(clearedTuplet.bracket).toBeUndefined();
       expect(clearedTuplet.showNumber).toBeUndefined();
       expect(clearedTuplet.showValue).toBeUndefined();

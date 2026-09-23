@@ -25,7 +25,6 @@ import type {
   Fermata,
   Markings,
   Note,
-  Orientation,
   SequenceContent,
   Slur,
   Tie,
@@ -142,7 +141,6 @@ export interface RemoveNoteFromEventPatch {
 export type EventScalarField =
   | { field: "duration"; value: Duration }
   | { field: "stemDirection"; value: StemDirection | undefined }
-  | { field: "orient"; value: Orientation | undefined }
   | { field: "staff"; value: number | undefined }
   | { field: "slurs"; value: Slur[] | undefined }
   | { field: "fermata"; value: Fermata | undefined };

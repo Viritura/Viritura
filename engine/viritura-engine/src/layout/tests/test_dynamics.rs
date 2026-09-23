@@ -107,7 +107,7 @@ fn test_vocal_staff_defaults_dynamics_above_across_measures() {
                     {"id": "automatic", "type": "immediate", "position": {"fraction": [0, 1]},
                      "value": "f"},
                     {"id": "explicit-below", "type": "immediate", "position": {"fraction": [1, 2]},
-                     "value": "p", "orient": "below"}
+                     "value": "p", "placement": "below"}
                 ],
                 "sequences": [{"content": [
                     {"duration": {"base": "half"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]},
@@ -163,7 +163,7 @@ fn test_unoriented_dynamic_on_bottom_part_defaults_below() {
                     {"id": "automatic", "type": "immediate", "position": {"fraction": [0, 1]},
                      "value": "mf", "staff": 2},
                     {"id": "explicit-below", "type": "immediate", "position": {"fraction": [1, 2]},
-                     "value": "mf", "staff": 2, "orient": "below"}
+                     "value": "mf", "staff": 2, "placement": "below"}
                 ],
                 "sequences": [
                     {"staff": 1, "content": [
@@ -334,13 +334,13 @@ fn test_between_dynamics_use_nearest_gap_with_downward_preference() {
         "parts": [{"staves": 3, "measures": [{
             "dynamics": [
                 {"id": "top", "type": "immediate", "position": {"fraction": [0, 1]},
-                 "value": "p", "staff": 1, "orient": "between"},
+                 "value": "p", "staff": 1, "placement": "between"},
                 {"id": "middle", "type": "immediate", "position": {"fraction": [1, 4]},
-                 "value": "p", "staff": 2, "orient": "between"},
+                 "value": "p", "staff": 2, "placement": "between"},
                 {"id": "bottom", "type": "immediate", "position": {"fraction": [1, 4]},
-                 "value": "p", "staff": 3, "orient": "between"},
+                 "value": "p", "staff": 3, "placement": "between"},
                 {"id": "unscoped", "type": "immediate", "position": {"fraction": [3, 4]},
-                 "value": "p", "orient": "between"}
+                 "value": "p", "placement": "between"}
             ],
             "sequences": [
                 {"staff": 1, "content": [
@@ -404,7 +404,7 @@ fn test_between_dynamic_on_single_staff_degrades_below() {
         "parts": [{"measures": [{
             "dynamics": [
                 {"id": "single", "type": "immediate", "position": {"fraction": [0, 1]},
-                 "value": "p", "staff": 1, "orient": "between"}
+                 "value": "p", "staff": 1, "placement": "between"}
             ],
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}
@@ -569,7 +569,7 @@ fn test_dynamic_orient_above_places_glyph_above_staff() {
                 "type": "immediate",
                 "position": { "fraction": [0, 1] },
                 "value": "f",
-                "orient": "above"
+                "placement": "above"
             }]
         }] }]
     }"#;

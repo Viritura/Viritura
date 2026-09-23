@@ -584,7 +584,6 @@ pub(super) fn layout_voice_for_measure(
             fermata: fm.fermata.clone(),
             lyrics: None,
             stem_direction: None,
-            orient: None,
         };
         events.push(EventLayout {
             x: bar_rest_center_x,
@@ -650,10 +649,7 @@ pub(super) fn layout_voice_for_measure(
             rm.index,
             resolved_ottavas,
             log_spacing,
-            // sequence.orient overrides forced_stem_up from layout source
-            seq.orient
-                .and_then(|o| o.force_stem_up())
-                .or(seq.forced_stem_up),
+            seq.forced_stem_up,
             seq_staff,
             rm.display_transposition(),
             rm.kit.as_ref(),

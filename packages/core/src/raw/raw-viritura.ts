@@ -376,10 +376,10 @@ export interface components {
             /** @description Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge). */
             staccatissimoWedge?: {
                 /**
-                 * @description Vertical orientation relative to the staff.
+                 * @description Vertical placement relative to the staff.
                  * @enum {string}
                  */
-                orient?: "above" | "below" | "auto";
+                placement?: "above" | "below" | "auto";
             };
             trill?: components["schemas"]["trill"];
             /** @description Ornament markings (turn, mordent, etc.). */

@@ -7,7 +7,7 @@ import type {
   NonArpeggio,
   NoteEvent,
   OrnamentType,
-  Orientation,
+  Placement,
   PartMeasureArpeggio,
   Pedal,
   PedalLineStyle,
@@ -221,9 +221,9 @@ export function useSelectedMarking({
       mutateEvent((event) => {
         if (event.markings?.breath) event.markings.breath.symbol = symbol;
       }),
-    setBreathOrientation: (orient: Orientation | undefined) =>
+    setBreathPlacement: (placement: Placement | undefined) =>
       mutateEvent((event) => {
-        if (event.markings?.breath) event.markings.breath.orient = orient;
+        if (event.markings?.breath) event.markings.breath.placement = placement;
       }),
     setBowDirection: (direction: BowDirection["direction"]) =>
       mutateEvent((event) => {
@@ -231,10 +231,10 @@ export function useSelectedMarking({
           bowDirection.direction = direction;
         });
       }),
-    setBowDirectionOrientation: (orient: Orientation | undefined) =>
+    setBowDirectionPlacement: (placement: Placement | undefined) =>
       mutateEvent((event) => {
         mutateBowDirection(event, (bowDirection) => {
-          bowDirection.orient = orient;
+          bowDirection.placement = placement;
         });
       }),
     setFingeringValue: (finger: Fingering["finger"]) =>

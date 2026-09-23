@@ -195,7 +195,7 @@ function parseMeasureRepeat(raw: RawMeasureRepeat): MeasureRepeat {
   const measureRepeat: MeasureRepeat = { number: raw.number };
   if (raw.counter !== undefined) {
     const counter: MeasureRepeatCounter = { count: raw.counter.count };
-    if (raw.counter.orient !== undefined) counter.orient = raw.counter.orient;
+    if (raw.counter.placement !== undefined) counter.placement = raw.counter.placement;
     measureRepeat.counter = counter;
   }
   if (raw.displayNumber !== undefined) measureRepeat.displayNumber = raw.displayNumber;

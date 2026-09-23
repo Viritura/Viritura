@@ -443,7 +443,6 @@ fn test_skyline_min_content_width() {
                 fermata: None,
                 lyrics: None,
                 stem_direction: None,
-                orient: None,
             }),
             SequenceContent::Event(Event {
                 duration: Duration {
@@ -477,13 +476,12 @@ fn test_skyline_min_content_width() {
                 fermata: None,
                 lyrics: None,
                 stem_direction: None,
-                orient: None,
             }),
         ],
         full_measure: None,
         staff: None,
         voice: None,
-        orient: None,
+        direction_hint: None,
         forced_stem_up: None,
         source_part_index: None,
         source_seq_index: None,
@@ -561,7 +559,6 @@ fn test_skyline_reserves_full_stacked_accidental_column() {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         })
     }
 
@@ -571,7 +568,7 @@ fn test_skyline_reserves_full_stacked_accidental_column() {
             full_measure: None,
             staff: None,
             voice: None,
-            orient: None,
+            direction_hint: None,
             forced_stem_up: None,
             source_part_index: None,
             source_seq_index: None,
@@ -680,7 +677,6 @@ fn test_skyline_min_does_not_globally_inflate_for_one_tight_pair() {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         })
     }
 
@@ -707,7 +703,7 @@ fn test_skyline_min_does_not_globally_inflate_for_one_tight_pair() {
         full_measure: None,
         staff: None,
         voice: None,
-        orient: None,
+        direction_hint: None,
         forced_stem_up: None,
         source_part_index: None,
         source_seq_index: None,

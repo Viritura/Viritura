@@ -9,7 +9,7 @@ use crate::model::direction::{
     DynamicGroup, Fine, Jump, JumpType, MeasureRhythmicPosition, Ottava, Segno, Tempo,
     TempoNoteValue,
 };
-use crate::model::event::Orientation;
+use crate::model::event::Placement;
 use crate::promote::clef::promote_rhythmic_position;
 use crate::promote::duration::promote_note_value_base;
 use crate::promote::vendor_ext::read_viritura_ext;
@@ -117,7 +117,7 @@ pub(crate) fn promote_dynamic_group(raw: raw::DynamicGroup) -> DynamicGroup {
         accent_suffix: raw.accent_suffix,
         end: raw.end.map(promote_measure_rhythmic_position),
         glyphs: (!glyphs.is_empty()).then_some(glyphs),
-        orient: raw.orient,
+        placement: raw.placement,
         prefix: raw.prefix.map(|value| value.0),
         relative_value: raw.relative_value,
         staff: raw.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
@@ -151,15 +151,15 @@ pub(crate) fn promote_ottava(raw: raw::Ottava) -> Ottava {
         value: i32::try_from(*raw.value).unwrap_or(0),
         staff: raw.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
         voice: raw.voice.map(|v| v.0),
-        orient: raw.orient.map(promote_orientation),
+        placement: raw.placement.map(promote_placement),
     }
 }
 
-pub(crate) fn promote_orientation(raw: raw::Orientation) -> Orientation {
+pub(crate) fn promote_placement(raw: raw::Placement) -> Placement {
     match raw {
-        raw::Orientation::Above => Orientation::Above,
-        raw::Orientation::Below => Orientation::Below,
-        raw::Orientation::Auto => Orientation::Auto,
+        raw::Placement::Above => Placement::Above,
+        raw::Placement::Below => Placement::Below,
+        raw::Placement::Auto => Placement::Auto,
     }
 }
 

@@ -120,8 +120,8 @@ pub use crate::raw::DynamicPrefix;
 pub use crate::raw::DynamicSuffix;
 /// Standard absolute dynamic values.
 pub use crate::raw::DynamicValue;
-/// Multi-staff dynamic orientation.
-pub use crate::raw::MultiStaffOrientation;
+/// Multi-staff dynamic placement.
+pub use crate::raw::MultiStaffPlacement;
 /// Standard relative dynamic direction.
 pub use crate::raw::RelativeDynamicValue;
 /// Standard gradual wedge direction.
@@ -154,7 +154,7 @@ pub struct DynamicGroup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glyphs: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<MultiStaffOrientation>,
+    pub placement: Option<MultiStaffPlacement>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prefix: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "relativeValue")]
@@ -229,24 +229,24 @@ impl DynamicGroup {
         self.group_type == DynamicGroupType::Gradual
     }
 
-    /// Resolve an authored orientation to the side of its associated staff.
+    /// Resolve an authored placement to the side of its associated staff.
     pub fn resolved_placement_above(&self, staff_count: u32, staff: u32) -> Option<bool> {
-        match self.orient {
-            Some(MultiStaffOrientation::Above) => Some(true),
-            Some(MultiStaffOrientation::Below) => Some(false),
-            Some(MultiStaffOrientation::Between) => Some(staff_count > 1 && staff == staff_count),
-            Some(MultiStaffOrientation::Auto) | None => self.placement_above,
+        match self.placement {
+            Some(MultiStaffPlacement::Above) => Some(true),
+            Some(MultiStaffPlacement::Below) => Some(false),
+            Some(MultiStaffPlacement::Between) => Some(staff_count > 1 && staff == staff_count),
+            Some(MultiStaffPlacement::Auto) | None => self.placement_above,
         }
     }
 
     /// Resolve the requested vertical side. Inter-staff layout refines `between`
     /// against the available staff gaps; this is its single-staff fallback.
     pub fn places_above(&self) -> bool {
-        match self.orient {
-            Some(MultiStaffOrientation::Above) => true,
-            Some(MultiStaffOrientation::Between) => self.placement_above == Some(true),
-            Some(MultiStaffOrientation::Below) => false,
-            Some(MultiStaffOrientation::Auto) | None => self.placement_above == Some(true),
+        match self.placement {
+            Some(MultiStaffPlacement::Above) => true,
+            Some(MultiStaffPlacement::Between) => self.placement_above == Some(true),
+            Some(MultiStaffPlacement::Below) => false,
+            Some(MultiStaffPlacement::Auto) | None => self.placement_above == Some(true),
         }
     }
 
@@ -260,7 +260,7 @@ impl DynamicGroup {
             && self.accent_suffix == other.accent_suffix
             && self.end == other.end
             && self.glyphs == other.glyphs
-            && self.orient == other.orient
+            && self.placement == other.placement
             && self.prefix == other.prefix
             && self.relative_value == other.relative_value
             && self.staff == other.staff
@@ -301,9 +301,9 @@ pub struct Ottava {
     /// Optional voice name
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<String>,
-    /// Vertical orientation override (MNX `orient`, above/below/auto).
+    /// Vertical placement override (MNX `placement`, above/below/auto).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<crate::model::Orientation>,
+    pub placement: Option<crate::model::Placement>,
 }
 
 /// Caesura style variants (MNX `caesura-shape` — native since schema v36).

@@ -10,16 +10,17 @@
 use crate::model::duration::Duration as ModelDuration;
 use crate::model::event::Glissando as ModelGlissando;
 use crate::model::event::{
-    Event as ModelEvent, FullMeasure as ModelFullMeasure, Grace as ModelGrace,
-    GraceType as ModelGraceType, LyricLine as ModelLyricLine, LyricLineType as ModelLyricLineType,
-    Lyrics as ModelLyrics, MultiNoteTremolo as ModelMultiNoteTremolo, Note as ModelNote,
-    Rest as ModelRest, Sequence as ModelSequence, SequenceContent as ModelSequenceContent,
-    Space as ModelSpace, StemDirection as ModelStemDirection, Tuplet as ModelTuplet,
+    DirectionHint as ModelDirectionHint, Event as ModelEvent, FullMeasure as ModelFullMeasure,
+    Grace as ModelGrace, GraceType as ModelGraceType, LyricLine as ModelLyricLine,
+    LyricLineType as ModelLyricLineType, Lyrics as ModelLyrics,
+    MultiNoteTremolo as ModelMultiNoteTremolo, Note as ModelNote, Rest as ModelRest,
+    Sequence as ModelSequence, SequenceContent as ModelSequenceContent, Space as ModelSpace,
+    StemDirection as ModelStemDirection, Tuplet as ModelTuplet,
     TupletBracket as ModelTupletBracket, TupletDisplaySetting as ModelTupletDisplaySetting,
     TupletDuration as ModelTupletDuration, TupletSpan as ModelTupletSpan,
     TupletSpanType as ModelTupletSpanType,
 };
-use crate::promote::articulation::{promote_fermata, promote_markings, promote_orientation};
+use crate::promote::articulation::{promote_fermata, promote_markings, promote_placement};
 use crate::promote::duration::promote_duration;
 use crate::promote::note::{promote_kit_note_to_note, promote_note};
 use crate::promote::slur::promote_slur;
@@ -153,7 +154,6 @@ pub(crate) fn promote_event(r: raw::Event) -> Result<ModelEvent, PromoteError> {
         fermata: r.fermata.map(promote_fermata),
         lyrics: r.lyrics.map(promote_lyrics),
         stem_direction: r.stem_direction.map(promote_stem_direction),
-        orient: r.orient.map(promote_orientation),
     })
 }
 
@@ -206,7 +206,7 @@ pub(crate) fn promote_tuplet(
         bracket: r.bracket.map(promote_tuplet_bracket),
         show_number: r.show_number.map(promote_tuplet_display_setting),
         show_value: r.show_value.map(promote_tuplet_display_setting),
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
         staff: r.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
         span,
     })
@@ -299,6 +299,14 @@ pub(crate) fn promote_sequence_content_item(
     }
 }
 
+pub(crate) fn promote_direction_hint(r: raw::DirectionHint) -> ModelDirectionHint {
+    match r {
+        raw::DirectionHint::Upper => ModelDirectionHint::Upper,
+        raw::DirectionHint::Lower => ModelDirectionHint::Lower,
+        raw::DirectionHint::Auto => ModelDirectionHint::Auto,
+    }
+}
+
 pub(crate) fn promote_sequence(
     r: raw::Sequence,
     content_json: serde_json::Value,
@@ -316,7 +324,7 @@ pub(crate) fn promote_sequence(
         full_measure: r.full_measure.map(promote_full_measure_rest).transpose()?,
         staff: r.staff.map(|s| u32::try_from(s.0).unwrap_or(1)),
         voice: r.voice.map(|v| v.0),
-        orient: r.orient.map(promote_orientation),
+        direction_hint: r.direction_hint.map(promote_direction_hint),
         forced_stem_up: None,
         source_part_index: None,
         source_seq_index: None,

@@ -159,7 +159,7 @@ export interface MnxSequence {
   content: MnxSequenceContent[];
   voice?: string;
   staff?: number;
-  orient?: string;
+  directionHint?: string;
 }
 
 export type MnxSequenceContent = MnxEvent | MnxGraceEvent | MnxTuplet | MnxSpace | MnxMultiNoteTremolo;
@@ -179,7 +179,7 @@ export interface MnxEvent {
   fermata?: {
     symbol?: string;
     duration?: string;
-    orient?: "above" | "below" | "auto";
+    placement?: "above" | "below" | "auto";
     pointing?: "up" | "down" | "auto";
   };
   lyrics?: MnxEventLyrics;
@@ -215,7 +215,7 @@ export interface MnxTuplet {
   bracket?: string; // yes, no, auto
   showNumber?: string; // noNumber, inner, both
   showValue?: string;
-  orient?: string;
+  placement?: string;
   staff?: number;
   _x?: { viritura: { span: { id: string; type: "start" | "continue" | "stop" } } };
 }

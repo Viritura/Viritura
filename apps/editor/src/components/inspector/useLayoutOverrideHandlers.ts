@@ -40,25 +40,15 @@ export function useLayoutOverrideHandlers({ score, target, updateScore }: UseLay
         { event: { stemDirection: value === "" ? null : (value as "up" | "down" | "auto") } },
         "Unable to update stem direction.",
       ),
-    handleEventOrientChange: (value: string) =>
-      applyOverride(
-        { event: { orient: value === "" ? null : (value as "up" | "down") } },
-        "Unable to update event orient.",
-      ),
     handleEventStaffChange: (value: string) =>
       applyOverride(
         { event: { staff: value === "" ? null : Number.parseInt(value, 10) } },
         "Unable to update cross-staff.",
       ),
-    handleSequenceOrientChange: (value: string) =>
+    handleTupletPlacementChange: (value: string) =>
       applyOverride(
-        { sequence: { orient: value === "" ? null : (value as "up" | "down") } },
-        "Unable to update sequence orient.",
-      ),
-    handleTupletOrientChange: (value: string) =>
-      applyOverride(
-        { tuplet: { orient: value === "" ? null : (value as "up" | "down") } },
-        "Unable to update tuplet orient.",
+        { tuplet: { placement: value === "" ? null : (value as "up" | "down") } },
+        "Unable to update tuplet placement.",
       ),
     handleTupletBracketChange: (value: string) =>
       applyOverride(

@@ -7,7 +7,7 @@ import {
   type DynamicGroup,
   type MeasureRepeat,
   type MeasureRepeatDisplayNumber,
-  type MultiStaffOrientation,
+  type MultiStaffPlacement,
   type NoteValueBase,
   type RehearsalMark,
   type Score,
@@ -57,7 +57,7 @@ export interface MeasureRepeatHandlers {
   handleDisplayNumberChange: (value: MeasureRepeatDisplayNumber) => void;
   handleCounterEnabledChange: (enabled: boolean) => void;
   handleCounterCountChange: (count: number) => void;
-  handleCounterOrientChange: (orient: MultiStaffOrientation) => void;
+  handleCounterPlacementChange: (placement: MultiStaffPlacement) => void;
 }
 
 export function useRestPositionHandlers({ score, target, updateScore }: SelectionArgs) {
@@ -206,9 +206,9 @@ export function useMeasureRepeatHandlers({ score, target, updateScore }: Selecti
         repeat.counter = { ...(repeat.counter ?? {}), count: Math.floor(count) };
       });
     },
-    handleCounterOrientChange: (orient) =>
+    handleCounterPlacementChange: (placement) =>
       mutateMeasureRepeat((repeat) => {
-        repeat.counter = { ...(repeat.counter ?? { count: 2 }), orient };
+        repeat.counter = { ...(repeat.counter ?? { count: 2 }), placement };
       }),
   };
 }

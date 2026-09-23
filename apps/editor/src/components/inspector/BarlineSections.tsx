@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Button, ButtonGroup, Checkbox, FormInput, GlyphButtonGroup } from "@viritura/ui";
-import type { MeasureRepeat, MeasureRepeatDisplayNumber, MultiStaffOrientation, Note } from "@viritura/core";
+import type { MeasureRepeat, MeasureRepeatDisplayNumber, MultiStaffPlacement, Note } from "@viritura/core";
 import type { AccidentalDisplayMode } from "../../commands/noteCommands";
 import { sectionStyle, legendStyle, labelStyle, mergeFocusedSectionStyle } from "./types";
 import type { InspectorSection } from "./notationInspectorMeta";
@@ -72,7 +72,7 @@ const DISPLAY_NUMBER_OPTIONS: { value: MeasureRepeatDisplayNumber; label: string
   { value: "no", label: "Hide", tooltip: "Hide" },
 ];
 
-const COUNTER_ORIENT_OPTIONS: { value: MultiStaffOrientation; label: string; tooltip: string }[] = [
+const COUNTER_PLACEMENT_OPTIONS: { value: MultiStaffPlacement; label: string; tooltip: string }[] = [
   { value: "above", label: "Above", tooltip: "Above" },
   { value: "below", label: "Below", tooltip: "Below" },
 ];
@@ -168,7 +168,7 @@ export interface MeasureRepeatSectionProps {
   onDisplayNumberChange: (value: MeasureRepeatDisplayNumber) => void;
   onCounterEnabledChange: (enabled: boolean) => void;
   onCounterCountChange: (count: number) => void;
-  onCounterOrientChange: (orient: MultiStaffOrientation) => void;
+  onCounterPlacementChange: (placement: MultiStaffPlacement) => void;
 }
 
 export function MeasureRepeatSection({
@@ -177,7 +177,7 @@ export function MeasureRepeatSection({
   onDisplayNumberChange,
   onCounterEnabledChange,
   onCounterCountChange,
-  onCounterOrientChange,
+  onCounterPlacementChange,
 }: MeasureRepeatSectionProps) {
   return (
     <fieldset style={mergeFocusedSectionStyle("measure", focusedSection)}>
@@ -216,10 +216,10 @@ export function MeasureRepeatSection({
           </label>
           <label style={labelStyle}>
             Counter Position
-            <ButtonGroup<MultiStaffOrientation>
-              options={COUNTER_ORIENT_OPTIONS}
-              value={repeat.counter.orient === "below" ? "below" : "above"}
-              onChange={onCounterOrientChange}
+            <ButtonGroup<MultiStaffPlacement>
+              options={COUNTER_PLACEMENT_OPTIONS}
+              value={repeat.counter.placement === "below" ? "below" : "above"}
+              onChange={onCounterPlacementChange}
               ariaLabel="Counter position"
             />
           </label>

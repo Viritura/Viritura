@@ -837,7 +837,7 @@ mod tests {
                     "end": { "measure": "missing", "position": { "fraction": [1, 1] } },
                     "wedgeType": "increasing",
                     "staff": 2,
-                    "orient": "between",
+                    "placement": "between",
                     "glyphs": ["notARealSmuflGlyph"]
                 }]
             }] }]
@@ -862,7 +862,7 @@ mod tests {
                     "position": { "fraction": [0, 1] },
                     "value": "p",
                     "staff": 2,
-                    "orient": "between"
+                    "placement": "between"
                 }]
             }] }]
         });

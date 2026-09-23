@@ -259,13 +259,14 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
                 const event = getEventAtLocation(score, location);
                 return {
                   location,
-                  sequence: sequence ? { staff: sequence.staff, voice: sequence.voice, orient: sequence.orient } : null,
+                  sequence: sequence
+                    ? { staff: sequence.staff, voice: sequence.voice, directionHint: sequence.directionHint }
+                    : null,
                   event:
                     event?.type === "event"
                       ? {
                           id: event.id,
                           stemDirection: event.stemDirection,
-                          orient: event.orient,
                           notes: event.notes?.map((note) => ({ pitch: note.pitch, ties: note.ties })),
                         }
                       : null,

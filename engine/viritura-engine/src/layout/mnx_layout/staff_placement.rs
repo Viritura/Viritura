@@ -1,7 +1,7 @@
 use super::super::config::LayoutConfig;
 use super::super::full_score::{FlatStaff, GroupRange};
 use super::super::types::MeasureLayout;
-use crate::model::{MultiStaffOrientation, SequenceContent};
+use crate::model::{MultiStaffPlacement, SequenceContent};
 
 fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
     layouts.iter().any(|layout| {
@@ -13,7 +13,7 @@ fn has_between_dynamic(layouts: &[&MeasureLayout]) -> bool {
             .is_some_and(|dynamics| {
                 dynamics
                     .iter()
-                    .any(|dynamic| dynamic.orient == Some(MultiStaffOrientation::Between))
+                    .any(|dynamic| dynamic.placement == Some(MultiStaffPlacement::Between))
             })
     })
 }

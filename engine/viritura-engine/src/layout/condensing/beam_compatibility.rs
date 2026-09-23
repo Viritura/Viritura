@@ -117,7 +117,6 @@ mod tests {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         })
     }
 
@@ -133,7 +132,7 @@ mod tests {
                 full_measure: None,
                 staff: None,
                 voice: None,
-                orient: None,
+                direction_hint: None,
                 forced_stem_up: None,
                 source_part_index: None,
                 source_seq_index: None,

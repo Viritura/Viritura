@@ -50,7 +50,6 @@ fn test_count_leaf_events() {
             fermata: None,
             lyrics: None,
             stem_direction: None,
-            orient: None,
         })
     };
 
@@ -73,7 +72,7 @@ fn test_count_leaf_events() {
             bracket: None,
             show_number: None,
             show_value: None,
-            orient: None,
+            placement: None,
             staff: None,
             span: None,
         }),

@@ -742,10 +742,10 @@
           "type": "object",
           "description": "Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge).",
           "properties": {
-            "orient": {
+            "placement": {
               "type": "string",
               "enum": ["above", "below", "auto"],
-              "description": "Vertical orientation relative to the staff."
+              "description": "Vertical placement relative to the staff."
             }
           },
           "additionalProperties": false

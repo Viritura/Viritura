@@ -24,7 +24,7 @@ pub(crate) fn dynamic_voice_index(ml: &MeasureLayout, dynamic: &DynamicGroup) ->
 }
 
 pub(crate) fn dynamic_places_above(ml: &MeasureLayout, dynamic: &DynamicGroup) -> bool {
-    if dynamic.orient.is_some() || dynamic.placement_above.is_some() {
+    if dynamic.placement.is_some() || dynamic.placement_above.is_some() {
         return dynamic.places_above();
     }
     // Standard engraving practice: vocal staves reserve the area below the
@@ -618,7 +618,7 @@ pub(crate) fn grand_staff_between_y(
     staff_y_offsets: Option<&[f64]>,
     dynamic: &DynamicGroup,
 ) -> Option<f64> {
-    if dynamic.orient != Some(MultiStaffOrientation::Between) {
+    if dynamic.placement != Some(MultiStaffPlacement::Between) {
         return None;
     }
     grand_staff_gap_center(staff_y, sp, staff_y_offsets)

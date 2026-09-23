@@ -169,7 +169,7 @@ pub(crate) fn render_breath_marks(
 
             // Position: just before the subsequent note, or before the barline.
             let bx = next_x - right_padding - glyph_w * sp;
-            let by = if matches!(breath.orient, Some(Orientation::Below)) {
+            let by = if matches!(breath.placement, Some(Placement::Below)) {
                 staff_y + (4.0 + config.breath_mark_above_staff) * sp
             } else {
                 staff_y - config.breath_mark_above_staff * sp

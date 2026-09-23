@@ -760,7 +760,7 @@ describe("convertMusicXmlToMnx — articulations", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("convertMusicXmlToMnx — fermata & ornaments", () => {
-  it("converts upright fermata to native MNX (orient defaults)", () => {
+  it("converts upright fermata to native MNX (placement defaults)", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -770,11 +770,11 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
       </note>
     `);
     const event = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
-      .content[0]! as { markings: { fermata: { orient?: string } } };
+      .content[0]! as { markings: { fermata: { placement?: string } } };
     expect(event.fermata).toEqual({});
   });
 
-  it("converts inverted fermata to native MNX with orient=below", () => {
+  it("converts inverted fermata to native MNX with placement=below", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -784,9 +784,9 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
       </note>
     `);
     const event = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!.sequences![0]!.content[0]! as {
-      markings: { fermata: { orient?: string } };
+      markings: { fermata: { placement?: string } };
     };
-    expect(event.fermata).toEqual({ orient: "below" });
+    expect(event.fermata).toEqual({ placement: "below" });
   });
 
   it("converts trill-mark as vendor extension", () => {

@@ -163,7 +163,7 @@ export function serializeDynamicGroup(d: DynamicGroup): Obj {
   if (d.accentSuffix !== undefined) out["accentSuffix"] = d.accentSuffix;
   if (d.end !== undefined) out["end"] = d.end;
   if (d.glyphs !== undefined && d.glyphs.length > 0) out["glyphs"] = d.glyphs;
-  if (d.orient !== undefined) out["orient"] = d.orient;
+  if (d.placement !== undefined) out["placement"] = d.placement;
   if (d.prefix !== undefined) out["prefix"] = d.prefix;
   if (d.relativeValue !== undefined) out["relativeValue"] = d.relativeValue;
   if (d.staff !== undefined) out["staff"] = d.staff;
@@ -183,7 +183,7 @@ function serializeMeasureRepeat(mr: MeasureRepeat): Obj {
   const out: Obj = { number: mr.number };
   if (mr.counter) {
     const counter: Obj = { count: mr.counter.count };
-    if (mr.counter.orient !== undefined) counter["orient"] = mr.counter.orient;
+    if (mr.counter.placement !== undefined) counter["placement"] = mr.counter.placement;
     out["counter"] = counter;
   }
   if (mr.displayNumber !== undefined) out["displayNumber"] = mr.displayNumber;
@@ -193,7 +193,7 @@ function serializeMeasureRepeat(mr: MeasureRepeat): Obj {
 
 function serializeOttava(o: Ottava): Obj {
   const out: Obj = { end: o.end, position: o.position, value: o.value };
-  if (o.orient !== undefined) out["orient"] = o.orient;
+  if (o.placement !== undefined) out["placement"] = o.placement;
   if (o.staff !== undefined) out["staff"] = o.staff;
   if (o.voice) out["voice"] = o.voice;
   return out;

@@ -15,7 +15,7 @@
 
 use super::config::LayoutConfig;
 use super::element_id;
-use crate::model::{Orientation, Score};
+use crate::model::{Placement, Score};
 use crate::render::smufl::smufl;
 use crate::render::{DisplayList, RenderCommand};
 
@@ -124,7 +124,7 @@ fn render_staff_spanner_continuations_with_routing(
                 ottava.position.beats(),
                 ottava.end.position.beats(),
                 ottava.value,
-                ottava.orient.as_ref(),
+                ottava.placement.as_ref(),
                 index,
                 sp,
             );
@@ -305,7 +305,7 @@ fn render_ottava_fragments(
     start_beat: f64,
     end_beat: f64,
     value: i32,
-    orient: Option<&Orientation>,
+    placement: Option<&Placement>,
     source_index: usize,
     sp: f64,
 ) {
@@ -317,8 +317,8 @@ fn render_ottava_fragments(
     if start.system_index == end.system_index {
         return;
     }
-    let above = !matches!(orient, Some(Orientation::Below)) && value > 0
-        || matches!(orient, Some(Orientation::Above));
+    let above = !matches!(placement, Some(Placement::Below)) && value > 0
+        || matches!(placement, Some(Placement::Above));
     let y = if above {
         start.y - 3.0 * sp
     } else {

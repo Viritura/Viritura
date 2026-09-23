@@ -90,7 +90,7 @@ fn promote_measure_repeat(r: raw::MeasureRepeat) -> ModelMeasureRepeat {
         number: u32::try_from(*r.number).unwrap_or(1).max(1),
         counter: r.counter.map(|c| ModelMeasureRepeatCounter {
             count: u32::try_from(*c.count).unwrap_or(1),
-            orient: c.orient,
+            placement: c.placement,
         }),
         display_number: r.display_number,
         staff_position: r.staff_position.map(|p| i32::try_from(*p).unwrap_or(0)),

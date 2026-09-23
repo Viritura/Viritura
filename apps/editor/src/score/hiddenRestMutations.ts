@@ -83,7 +83,6 @@ export function restMetadataLosses(event: NoteEvent): string[] {
   if (event.rest?.staffPosition !== undefined) losses.push("staff position");
   if (event.staff !== undefined) losses.push("staff assignment");
   if (event.stemDirection !== undefined) losses.push("stem direction");
-  if (event.orient !== undefined) losses.push("orientation");
   if (event.slurs?.length) losses.push("slurs");
   if (event.glissandos?.length) losses.push("glissandos");
   if (event.markings !== undefined) losses.push("markings");

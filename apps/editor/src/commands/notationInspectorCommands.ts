@@ -564,7 +564,7 @@ export function setPrimaryGlissandoProperties(
 export function setFermataProperties(
   score: Score,
   target: NotationSelectionTarget,
-  patch: Partial<Pick<Fermata, "symbol" | "duration" | "orient">>,
+  patch: Partial<Pick<Fermata, "symbol" | "duration" | "placement">>,
   selectedScoreIndex?: number,
 ): EditResult {
   const event = getSelectedEvent(score, target);
@@ -621,13 +621,9 @@ export interface LayoutOverridesInspectorPatch {
   event?: {
     staff?: number | null;
     stemDirection?: StemDirection | null;
-    orient?: "up" | "down" | null;
-  };
-  sequence?: {
-    orient?: "up" | "down" | null;
   };
   tuplet?: {
-    orient?: "up" | "down" | null;
+    placement?: "up" | "down" | null;
     bracket?: TupletBracket | null;
     showNumber?: TupletDisplaySetting | null;
     showValue?: TupletDisplaySetting | null;

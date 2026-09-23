@@ -18,7 +18,7 @@ export function MeasureRepeatInspector({ score, target, focusedSection, updateSc
     handleDisplayNumberChange,
     handleCounterEnabledChange,
     handleCounterCountChange,
-    handleCounterOrientChange,
+    handleCounterPlacementChange,
   } = useMeasureRepeatHandlers({ score, target, updateScore });
 
   if (!isMeasureRepeatSelected || !selectedMeasureRepeat) return null;
@@ -29,7 +29,7 @@ export function MeasureRepeatInspector({ score, target, focusedSection, updateSc
       onDisplayNumberChange={handleDisplayNumberChange}
       onCounterEnabledChange={handleCounterEnabledChange}
       onCounterCountChange={handleCounterCountChange}
-      onCounterOrientChange={handleCounterOrientChange}
+      onCounterPlacementChange={handleCounterPlacementChange}
     />
   );
 }

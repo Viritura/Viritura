@@ -1,4 +1,4 @@
-import type { Orientation, Score } from "@viritura/core";
+import type { Placement, Score } from "@viritura/core";
 import { Select } from "@viritura/ui";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import { labelStyle, legendStyle, sectionStyle } from "./types";
@@ -12,7 +12,7 @@ const DISPLACEMENT_OPTIONS = [
   { value: "3", label: "22ma (up 3 octaves)" },
   { value: "-3", label: "22mb (down 3 octaves)" },
 ] as const;
-const ORIENTATION_OPTIONS = [
+const PLACEMENT_OPTIONS = [
   { value: "", label: "Auto" },
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
@@ -55,12 +55,12 @@ export function OttavaInspector({ score, target, updateScore }: OttavaInspectorP
         />
       </label>
       <label style={labelStyle}>
-        Orientation
+        Placement
         <Select
-          aria-label="Ottava orientation"
-          value={state.ottava.orient ?? ""}
-          options={ORIENTATION_OPTIONS}
-          onValueChange={(value) => state.onOrientationChange((value || undefined) as Orientation | undefined)}
+          aria-label="Ottava placement"
+          value={state.ottava.placement ?? ""}
+          options={PLACEMENT_OPTIONS}
+          onValueChange={(value) => state.onPlacementChange((value || undefined) as Placement | undefined)}
         />
       </label>
       <label style={labelStyle}>

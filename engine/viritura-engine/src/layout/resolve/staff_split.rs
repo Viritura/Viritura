@@ -27,13 +27,13 @@ fn automatic_dynamic_staff(pm: &PartMeasure, group: &DynamicGroup, staff_count: 
         }
     }
 
-    match group.orient {
-        Some(MultiStaffOrientation::Below) => staff_count,
+    match group.placement {
+        Some(MultiStaffPlacement::Below) => staff_count,
         // Standard engraving practice: an unscoped keyboard dynamic belongs
         // in the uppermost available inter-staff lane, not on every staff.
-        Some(MultiStaffOrientation::Above)
-        | Some(MultiStaffOrientation::Between)
-        | Some(MultiStaffOrientation::Auto)
+        Some(MultiStaffPlacement::Above)
+        | Some(MultiStaffPlacement::Between)
+        | Some(MultiStaffPlacement::Auto)
         | None => 1,
     }
 }

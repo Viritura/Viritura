@@ -175,14 +175,14 @@ pub(crate) fn render_fermatas(
                     .unwrap_or(&crate::model::FermataSymbol::Normal),
             );
 
-            // Placement: explicit `orient` wins; otherwise above by default,
-            // below in multi-voice when stem is down. The `pointing` field
-            // (which way the curve faces) is independent of placement; for
-            // now we always use the matched-orientation glyph.
+            // Placement: explicit `placement` wins; otherwise above by
+            // default, below in multi-voice when stem is down. The
+            // `pointing` field (which way the curve faces) is independent of
+            // placement; for now we always use the matched-placement glyph.
             let is_multi_voice = el.num_voices > 1;
-            let place_below = match fermata.orient {
-                Some(crate::model::Orientation::Above) => false,
-                Some(crate::model::Orientation::Below) => true,
+            let place_below = match fermata.placement {
+                Some(crate::model::Placement::Above) => false,
+                Some(crate::model::Placement::Below) => true,
                 _ => is_multi_voice && !el.stem_up,
             };
             let codepoint = if place_below { below_cp } else { above_cp };

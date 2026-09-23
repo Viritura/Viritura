@@ -409,7 +409,7 @@ describe("NotationInspector", () => {
 
     await waitFor(() =>
       expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
-        markings: { bowDirection: { direction: "up", orient: "below" } },
+        markings: { bowDirection: { direction: "up", placement: "below" } },
       }),
     );
     expect(currentMnx()).toBeTruthy();
@@ -749,7 +749,7 @@ describe("NotationInspector", () => {
     await user.click(await screen.findByRole("option", { name: "Below" }));
     await waitFor(() => expect(placement.textContent).toContain("Below"));
     expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
-      markings: { breath: { orient: "below" } },
+      markings: { breath: { placement: "below" } },
     });
 
     unmount();
@@ -848,10 +848,10 @@ describe("NotationInspector", () => {
       expect(screen.getByRole("combobox", { name: "Ottava displacement" }).textContent).toContain("22mb"),
     );
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Ottava orientation" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Ottava placement" }));
     fireEvent.click(await screen.findByRole("option", { name: "Below" }));
     await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: "Ottava orientation" }).textContent).toContain("Below"),
+      expect(screen.getByRole("combobox", { name: "Ottava placement" }).textContent).toContain("Below"),
     );
 
     fireEvent.click(screen.getByRole("combobox", { name: "Ottava staff" }));
@@ -997,36 +997,27 @@ describe("NotationInspector", () => {
 
     await screen.findByTestId("notation-layout-stem");
     expect(screen.queryByText("Tuplet Overrides")).toBeNull();
-    expect(screen.queryByTestId("notation-layout-tuplet-orient")).toBeNull();
+    expect(screen.queryByTestId("notation-layout-tuplet-placement")).toBeNull();
   });
 
-  it("explains layout orientation controls and groups them before cross-staff", async () => {
+  it("explains the stem direction control and groups cross-staff after it", async () => {
     const user = userEvent.setup();
     render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
 
     const stemHelp = await screen.findByRole("button", { name: "About Stem Direction" });
-    expect(screen.getByRole("button", { name: "About Event Orientation" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "About Sequence Orientation" })).toBeTruthy();
     await user.hover(stemHelp);
     expect((await screen.findAllByText(/selected event's stem direction/)).length).toBeGreaterThan(0);
 
-    const layoutControls = [
-      screen.getByTestId("notation-layout-event-orient"),
-      screen.getByTestId("notation-layout-seq-orient"),
-      screen.getByTestId("notation-layout-staff"),
-    ];
+    const layoutControls = [screen.getByTestId("notation-layout-stem"), screen.getByTestId("notation-layout-staff")];
     expect(
       layoutControls[0]!.compareDocumentPosition(layoutControls[1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      layoutControls[1]!.compareDocumentPosition(layoutControls[2]!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      within(layoutControls[2]!)
+      within(layoutControls[1]!)
         .getAllByRole("radio")
         .map((option) => option.textContent),
     ).toEqual(["Auto", "1", "2"]);
-    await user.click(within(layoutControls[2]!).getByRole("radio", { name: "2" }));
+    await user.click(within(layoutControls[1]!).getByRole("radio", { name: "2" }));
     await waitFor(() => {
       const event = currentScore().parts[0]!.measures[0]!.sequences[0]!.content[0];
       expect(event?.type === "event" ? event.staff : undefined).toBe(2);
@@ -1040,7 +1031,7 @@ describe("NotationInspector", () => {
     expect(screen.queryByTestId("notation-layout-staff")).toBeNull();
   });
 
-  it("edits the symbol, duration, and orientation of a selected fermata", async () => {
+  it("edits the symbol, duration, and placement of a selected fermata", async () => {
     const user = userEvent.setup();
     render(withProviders(<Harness elementId="p0/m0/s0/ev1/fermata" />));
 
@@ -1054,10 +1045,10 @@ describe("NotationInspector", () => {
     await user.click(await screen.findByRole("option", { name: "Very long" }));
     await waitFor(() => expect(duration.textContent).toContain("Very long"));
 
-    const orientation = screen.getByTestId("notation-fermata-orientation");
-    await user.click(orientation);
+    const placement = screen.getByTestId("notation-fermata-placement");
+    await user.click(placement);
     await user.click(await screen.findByRole("option", { name: "Below" }));
-    await waitFor(() => expect(orientation.textContent).toContain("Below"));
+    await waitFor(() => expect(placement.textContent).toContain("Below"));
   });
 
   it("authors and resets a selected rest staff position", async () => {

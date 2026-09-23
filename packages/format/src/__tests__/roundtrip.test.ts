@@ -149,7 +149,7 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
               ottavas: [
                 {
                   value: -3,
-                  orient: "below",
+                  placement: "below",
                   staff: 2,
                   voice: "lower",
                   position: { fraction: [1, 4] },

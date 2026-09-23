@@ -330,12 +330,12 @@ export function extractMarkings(noteEl: Element, vendorExt: boolean): MnxEventMa
 }
 
 /** Extract native MNX fermata (event-level since v15) from a <note>'s <notations>. */
-export function extractFermata(noteEl: Element): { orient?: "above" | "below" } | undefined {
+export function extractFermata(noteEl: Element): { placement?: "above" | "below" } | undefined {
   const fermataEl = notationChild(noteEl, "fermata");
   if (!fermataEl) return undefined;
   const fermataType = fermataEl.getAttribute("type") ?? "upright";
-  const fermata: { orient?: "above" | "below" } = {};
-  if (fermataType === "inverted") fermata.orient = "below";
+  const fermata: { placement?: "above" | "below" } = {};
+  if (fermataType === "inverted") fermata.placement = "below";
   return fermata;
 }
 

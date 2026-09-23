@@ -29,28 +29,28 @@ export const Basic: StoryObj = {
   name: "Up-bow and down-bow marks",
 };
 
-/** Explicit `orient: "below"` forces the glyph below the staff. */
-export const OrientBelow: StoryObj = {
+/** Explicit `placement: "below"` forces the glyph below the staff. */
+export const PlacementBelow: StoryObj = {
   render: () => {
     const mnx = buildSingleMeasure([
       {
         duration: "quarter",
-        markings: { bowDirection: { direction: "down", orient: "below" } },
+        markings: { bowDirection: { direction: "down", placement: "below" } },
         notes: [{ step: "G", octave: 4 }],
       },
       {
         duration: "quarter",
-        markings: { bowDirection: { direction: "up", orient: "below" } },
+        markings: { bowDirection: { direction: "up", placement: "below" } },
         notes: [{ step: "A", octave: 4 }],
       },
       {
         duration: "quarter",
-        markings: { bowDirection: { direction: "down", orient: "above" } },
+        markings: { bowDirection: { direction: "down", placement: "above" } },
         notes: [{ step: "B", octave: 4 }],
       },
       {
         duration: "quarter",
-        markings: { bowDirection: { direction: "up", orient: "above" } },
+        markings: { bowDirection: { direction: "up", placement: "above" } },
         notes: [{ step: "C", octave: 5 }],
       },
     ]);

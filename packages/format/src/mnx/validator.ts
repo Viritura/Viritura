@@ -297,7 +297,7 @@ function validateTupletSpans(document: unknown): RawScoreValidationError[] {
                     bracket: object["bracket"],
                     showNumber: object["showNumber"],
                     showValue: object["showValue"],
-                    orient: object["orient"],
+                    placement: object["placement"],
                     staff: object["staff"],
                   }),
                   pointer: `${itemPointer}/_x/viritura/span`,

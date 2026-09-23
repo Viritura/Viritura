@@ -117,10 +117,6 @@ function applyOnePatch(draft: Draft<Score>, p: ScorePatch): void {
           if (p.update.value === undefined) delete event.stemDirection;
           else event.stemDirection = p.update.value;
           return;
-        case "orient":
-          if (p.update.value === undefined) delete event.orient;
-          else event.orient = p.update.value;
-          return;
         case "staff":
           if (p.update.value === undefined) delete event.staff;
           else event.staff = p.update.value;
