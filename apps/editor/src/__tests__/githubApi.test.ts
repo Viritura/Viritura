@@ -6,6 +6,7 @@ import {
   findGitHubRepository,
   listGitHubRepositories,
   getGitHubGitProxyUrl,
+  getGitHubInstallationStartUrl,
   getGitHubLoginUrl,
   getGitHubOAuthPopupReturnUrl,
   getGitHubSession,
@@ -90,6 +91,20 @@ describe("GitHub API client", () => {
 
   it("builds the git smart HTTP proxy URL", () => {
     expect(getGitHubGitProxyUrl("https://localhost:5001")).toBe("https://localhost:5001/github/git");
+  });
+
+  it("builds a stateful GitHub App installation start URL", () => {
+    expect(
+      getGitHubInstallationStartUrl(
+        "https://github.com/settings/installations/123",
+        "http://editor.feature-a.viritura.localhost/",
+        "http://api.viritura.localhost",
+      ),
+    ).toBe(
+      "http://api.viritura.localhost/github/auth/install?" +
+        "target=https%3A%2F%2Fgithub.com%2Fsettings%2Finstallations%2F123&" +
+        "returnTo=http%3A%2F%2Feditor.feature-a.viritura.localhost%2F",
+    );
   });
 
   it("tracks one boot after returning from GitHub OAuth", () => {

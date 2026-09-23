@@ -85,6 +85,15 @@ export function getGitHubGitProxyUrl(apiBaseUrl = getVirituraApiBaseUrl()): stri
   return `${apiBaseUrl}/github/git`;
 }
 
+export function getGitHubInstallationStartUrl(
+  installationUrl: string,
+  returnTo = window.location.href,
+  apiBaseUrl = getVirituraApiBaseUrl(),
+): string {
+  const params = new URLSearchParams({ target: installationUrl, returnTo });
+  return `${apiBaseUrl}/github/auth/install?${params.toString()}`;
+}
+
 export function getGitHubLoginUrl(apiBaseUrl = getVirituraApiBaseUrl(), returnTo = currentLocation()): string {
   return `${apiBaseUrl}/github/auth/start?returnTo=${encodeURIComponent(returnTo)}`;
 }

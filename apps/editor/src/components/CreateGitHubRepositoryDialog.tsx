@@ -16,6 +16,7 @@ import {
 } from "@viritura/ui";
 import { toast } from "sonner";
 import type { CreatedGitHubRepository, GitHubInstallationStatus } from "../github/api";
+import { getGitHubInstallationStartUrl } from "../github/api";
 import type { RemoteCompatibility } from "../git/ProjectAdapter";
 import { describeCompatibility, type RepositoryVisibility } from "./githubRepositoryConnection";
 import { useGitHubRepositoryConnection } from "./useGitHubRepositoryConnection";
@@ -268,7 +269,7 @@ function ConnectionActions({
 
 function InstallationHint({ installUrl, installed }: { installUrl: string; installed: boolean }) {
   return (
-    <a className={styles.installHint} href={installUrl} target="_blank" rel="noreferrer">
+    <a className={styles.installHint} href={getGitHubInstallationStartUrl(installUrl)} target="_blank" rel="noreferrer">
       <ExternalLink size={14} aria-hidden="true" />
       <span>{installed ? "Select repository in GitHub" : "Install App and select repository"}</span>
     </a>

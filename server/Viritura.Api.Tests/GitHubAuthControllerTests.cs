@@ -86,6 +86,38 @@ public sealed class GitHubAuthControllerTests : IClassFixture<WebApplicationFact
     }
 
     [Fact]
+    public async Task InstallSetup_RedirectsBackToInitiatingWorktree()
+    {
+        using var client = CreateClient();
+        const string returnTo = "http://editor.feature-a.viritura.localhost/";
+        var startUrl = "/github/auth/install?target=" +
+            Uri.EscapeDataString("https://github.com/apps/viritura-dev/installations/new") +
+            "&returnTo=" + Uri.EscapeDataString(returnTo);
+
+        var start = await client.GetAsync(startUrl);
+
+        Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(start.Headers.Location!.Query);
+        var state = Assert.Single(query["state"]);
+        var callback = await client.GetAsync(
+            $"/github/auth/callback?installation_id=123&setup_action=install&state={Uri.EscapeDataString(state!)}");
+
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        Assert.Equal(returnTo, callback.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task InstallSetup_RejectsNonGitHubTarget()
+    {
+        using var client = CreateClient();
+
+        var response = await client.GetAsync(
+            "/github/auth/install?target=" + Uri.EscapeDataString("https://example.com/install"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Callback_WithoutOAuthOrSetupParameters_ReturnsBadRequest()
     {
         using var client = CreateClient();
