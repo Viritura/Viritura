@@ -173,7 +173,7 @@ const caesura = documentSource([
           {
             content: [
               note("half", { step: "C", octave: 5 }),
-              note("half", { step: "G", octave: 4 }, { markings: { _x: { viritura: { caesura: {} } } } }),
+              note("half", { step: "G", octave: 4 }, { markings: { caesura: {} } }),
             ],
           },
         ],
@@ -211,10 +211,10 @@ export const playgroundDocuments: readonly PlaygroundDocument[] = [
   { id: "piano", title: "Piano staves", description: "Treble and bass staves in one part.", source: piano },
   {
     id: "caesura",
-    title: "Viritura caesura extension",
-    description: "A documented _x.viritura event marking.",
+    title: "Caesura",
+    description: "A native MNX event marking (railroad-tracks break).",
     source: caesura,
-    examplePath: "/mnx/examples/?path=/story/viritura-extensions-breaks-pauses-caesuras--default-caesura",
+    examplePath: "/mnx/examples/?path=/story/mnx-spec-articulations-marks-caesura--default-caesura",
   },
 ];
 

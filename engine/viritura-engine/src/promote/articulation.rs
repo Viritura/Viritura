@@ -2,10 +2,12 @@
 //!
 //! - Standard MNX articulations (staccato/accent/etc.) are pulled from
 //!   `raw::EventMarkings` top-level fields.
-//! - Viritura-only markings (trill, ornaments, arpeggio, caesura,
-//!   fingerings, staccatissimoWedge) come from
+//! - Viritura-only markings (trill, ornaments, arpeggio, fingerings,
+//!   staccatissimoWedge) come from
 //!   `raw::EventMarkings._x.viritura`, deserialized into
 //!   [`crate::raw_viritura::EventMarkingsExtensions`].
+//! - Caesura is native MNX (schema v36+) and comes from
+//!   `raw::EventMarkings.caesura` directly.
 //! - Tie / Fermata / AccidentalDisplay / UpDown(Auto) are leaf promotes.
 
 use crate::model::direction::Caesura as ModelCaesura;
