@@ -252,9 +252,9 @@ function ConnectionActions({
       {connection.step === "link" && (
         <DialogPrimaryButton
           onClick={() => void connection.checkExisting()}
-          disabled={Boolean(connection.repositoryInputError)}
+          disabled={Boolean(connection.repositoryInputError) || connection.checkingExisting}
         >
-          Check repository
+          {connection.checkingExisting ? "Checking" : "Check repository"}
         </DialogPrimaryButton>
       )}
       {connection.step === "result" && connection.canConnect && (

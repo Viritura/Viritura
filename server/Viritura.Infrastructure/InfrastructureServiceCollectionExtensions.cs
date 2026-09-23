@@ -66,6 +66,7 @@ public static class InfrastructureServiceCollectionExtensions
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<VirituraDbContext>()
+            .AddUserValidator<UniqueNonNullEmailUserValidator>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
 

@@ -46,6 +46,12 @@ public class VirituraDbContext(
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        builder.Entity<AppUser>()
+            .HasIndex(user => user.NormalizedEmail)
+            .HasDatabaseName("EmailIndex")
+            .IsUnique()
+            .HasFilter("\"NormalizedEmail\" IS NOT NULL");
     }
 
     private string? ProtectToken(string? value) =>
