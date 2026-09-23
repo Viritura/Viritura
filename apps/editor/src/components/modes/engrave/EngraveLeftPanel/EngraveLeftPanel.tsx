@@ -57,7 +57,7 @@ export function EngraveLeftPanel({
 
   return (
     <aside className={styles.root} data-testid="engrave-left-panel">
-      <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} className={styles.tabBar}>
+      <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} variant="panel">
         {activeTab === "house-style" ? (
           <HouseStylePanel />
         ) : activeTab === "layouts" ? (

@@ -48,7 +48,7 @@
 /* Dropdown panel */
 .dropdown {
   min-width: 220px;
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   border: none;
   border-radius: 10px;
   box-shadow: var(--elevation-2);
@@ -105,7 +105,7 @@
 /* Submenu panel */
 .submenu {
   min-width: 180px;
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   border: none;
   border-radius: 10px;
   box-shadow: var(--elevation-2);

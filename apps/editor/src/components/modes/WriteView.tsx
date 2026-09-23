@@ -239,7 +239,7 @@ function AppInner({
   const githubInstallation = githubAccount.session?.installation ?? null;
   const githubInstallUrl = githubInstallation?.htmlUrl ?? githubAccount.app?.installUrl ?? null;
   const githubViewer = githubAccount.session?.connected === true ? githubAccount.session.viewer : null;
-  const canCreateGitHubRepository = githubInstallation?.canCreateRepositories === true;
+  const canSetUpGitHubRepository = githubViewer !== null;
   const activeProjectStatus = useProjectStore((s) => s.status);
   const {
     store,
@@ -387,7 +387,7 @@ function AppInner({
     setExpandedCondensingStaves,
     pageSetupTargetIndex,
     updateScore,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     canvasRef,
     onOpenSetup,
   });
@@ -423,7 +423,7 @@ function AppInner({
     setFileHandle,
     setOpenedFile,
     setFileError,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     suppressTrackBanner,
     suppressStartCenter,
     fileHandle,
@@ -438,6 +438,12 @@ function AppInner({
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    canDistribute,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     handleSetTimeSignature,
     handleSetKeySignature,
@@ -478,7 +484,6 @@ function AppInner({
     handleLyricCommit,
     handleLyricNavigate,
     handleLyricExit,
-    handleEnterLyrics,
     enterMidiNotes,
     moveMidiCursor,
   } = useInteractionHandlers({
@@ -509,6 +514,11 @@ function AppInner({
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     handleAddMeasures,
     handleSetRepeatStart,
@@ -553,7 +563,7 @@ function AppInner({
       canTranspose: getTransposeSelectionInfo(s.score, selection).noteCount > 0,
     })),
   );
-  useMenuBarWiring({
+  const { buildSelectionMenuItems } = useMenuBarWiring({
     isActiveView,
     supportsWritePanels: modeKind === "write",
     hasDocument,
@@ -561,6 +571,7 @@ function AppInner({
     canRedo,
     selection,
     canTranspose,
+    canDistribute,
     recentScores,
     handleOpenFile,
     handleImportFile,
@@ -573,6 +584,11 @@ function AppInner({
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleDeleteSelection,
     handleSelectAll,
     handleZoomIn,
@@ -689,6 +705,7 @@ function AppInner({
             handleSelectScore,
             expandedCondensingStaves,
             handleExpandCondensingStave,
+            buildSelectionMenuItems,
             viewMode,
             setViewMode,
             currentZoom,
@@ -703,8 +720,6 @@ function AppInner({
             writeLeftTab,
             setWriteLeftTab,
             paletteSectionRequest,
-            lyricMode,
-            onToggleLyrics: handleEnterLyrics,
           });
   /* eslint-enable react-hooks/refs */
 

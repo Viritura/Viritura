@@ -9,12 +9,13 @@
  * old modal New Score wizard could not do, because the wizard edited a
  * throwaway `Player[]` draft with no score to render.
  *
- * The mode contributes no toolbar: Setup has no note input, and the empty
- * toolbar slot is itself a useful signal that this is not a writing surface.
+ * Setup has no note-input controls, but it uses the same workspace toolbar
+ * shell as the other score modes so the shared score picker stays aligned.
  */
 import type { ComponentType, Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { Panel, WriteStatusBar, type WriteViewMode as ViewMode } from "@viritura/ui";
 import { SetupPanel } from "../components/modes/setup/SetupPanel";
+import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
 import { ScoreSwitcher } from "../scoreSwitcher";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import { formatZoomPercent } from "../zoomScale";
@@ -126,9 +127,9 @@ export function buildSetupMode(args: BuildSetupModeArgs): WorkspaceMode {
     // Setup has no note input, so its toolbar carries only the score
     // switcher — which doubles as the "you are previewing X" indicator.
     toolbar: (
-      <>
-        <ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />
-      </>
+      <WorkspaceToolbar
+        left={<ScoreSwitcher selectedScoreIndex={args.selectedScoreIndex} onSelectScore={args.handleSelectScore} />}
+      />
     ),
     statusBar: (
       <WriteStatusBar

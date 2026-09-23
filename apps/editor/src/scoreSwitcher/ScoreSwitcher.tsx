@@ -12,7 +12,7 @@
  */
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { Check, LayoutGrid } from "lucide-react";
+import { Check, ListMusic } from "lucide-react";
 import { Button, ListRow, SearchInput, SelectTrigger } from "@viritura/ui";
 import { useDocumentStore } from "../store/DocumentContext";
 import { buildScoreEntries, type ScoreEntry } from "./scoreEntries";
@@ -121,7 +121,7 @@ export function ScoreSwitcher({ selectedScoreIndex, onSelectScore, onScoreContex
         <Popover.Trigger asChild>
           <SelectTrigger
             className={styles.trigger}
-            leading={<LayoutGrid size={13} style={ICON_STYLE} aria-hidden="true" />}
+            leading={<ListMusic size={13} style={ICON_STYLE} aria-hidden="true" />}
             aria-label={`Select score or part: ${currentLabel}`}
           >
             <span className={styles.triggerLabel}>{currentLabel}</span>

@@ -5,8 +5,8 @@
   min-width: 220px;
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 10px 28px rgba(20, 20, 28, 0.14);
+  composes: vi-glass-floating from global;
+  box-shadow: var(--elevation-2);
   padding: var(--space-1) 0;
   z-index: 1000;
   color: var(--text);
@@ -16,11 +16,11 @@
   pointer-events: auto;
 }
 
+/* The fill and elevation already resolve per theme through their tokens; only
+ * the hairline border needs to flip to a light-on-dark rim. */
 [data-theme="dark"] .dropdown,
 [data-theme="midnight"] .dropdown {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(30, 30, 40, 0.85);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }
 
 /* Menu item */
@@ -78,7 +78,7 @@
   min-width: 180px;
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.78);
+  composes: vi-glass-floating from global;
   box-shadow: 0 10px 28px rgba(20, 20, 28, 0.14);
   padding: var(--space-1) 0;
   z-index: 1001;
@@ -88,6 +88,5 @@
 [data-theme="dark"] .submenu,
 [data-theme="midnight"] .submenu {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(30, 30, 40, 0.85);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }

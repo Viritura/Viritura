@@ -11,6 +11,8 @@ import { MIN_ZOOM, MAX_ZOOM } from "../../viewport";
 import { ButtonGroup, PanelActionButton, PreviewStatusBar } from "@viritura/ui";
 import { toast } from "sonner";
 import { CreateGitHubRepositoryDialog } from "../CreateGitHubRepositoryDialog";
+import { connectAndPublishRemote } from "../../git/connectAndPublishRemote";
+import { getGitHubGitProxyUrl } from "../../github/api";
 import { HistorySidebar } from "./review/HistorySidebar";
 import { DiffMainPane } from "./review/DiffMainPane";
 import { useReviewSession } from "./review/useReviewSession";
@@ -77,6 +79,9 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
       handlePushChanges={() => {
         void session.handlePushChanges();
       }}
+      handleDisconnectRemote={() => {
+        void session.handleDisconnectRemote();
+      }}
       totalChanges={totalChanges}
       changeCounts={changeCounts}
       changeSummary={changeSummary}
@@ -87,8 +92,6 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
         show: session.needsGitHubRemote,
         githubViewer: session.githubViewer,
         githubAccount: session.githubAccount,
-        canCreateGitHubRepository: session.canCreateGitHubRepository,
-        githubInstallUrl: session.githubInstallUrl,
         setGitHubSetupOpen: session.setGitHubSetupOpen,
       }}
     />
@@ -170,15 +173,31 @@ export function ReviewView({ originalJson, modifiedJson }: ReviewViewProps) {
         installation={session.githubInstallation}
         defaultRepositoryName={session.status?.name ?? undefined}
         onClose={() => session.setGitHubSetupOpen(false)}
-        onCreate={async (request) => {
+        onInspect={async (repository) => {
           if (!session.adapter?.isVersioned()) {
             throw new Error("Open a local project before setting up GitHub.");
           }
-          const repository = await session.githubAccount.createRepository(request);
-          await session.adapter.setRemoteUrl("origin", repository.cloneUrl);
+          return await session.adapter.inspectRemote({
+            url: repository.cloneUrl,
+            defaultBranch: repository.defaultBranch,
+            corsProxy: getGitHubGitProxyUrl(),
+          });
+        }}
+        onConnect={async (request) => {
+          if (!session.adapter?.isVersioned()) {
+            throw new Error("Open a local project before setting up GitHub.");
+          }
+          if (!session.githubViewer?.login) {
+            throw new Error("Sign in with GitHub before connecting a repository.");
+          }
+          await connectAndPublishRemote(session.adapter, {
+            remote: "origin",
+            url: request.repository.cloneUrl,
+            compatibility: request.compatibility,
+            corsProxy: getGitHubGitProxyUrl(),
+          });
           await session.refresh();
-          toast.success(`Connected origin to ${repository.fullName}`);
-          return repository;
+          toast.success(`Published project to ${request.repository.fullName}`);
         }}
       />
     </>

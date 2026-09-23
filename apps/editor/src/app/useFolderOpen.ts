@@ -22,7 +22,7 @@ export interface FolderOpenDeps {
   setFileHandle: (h: FileSystemFileHandle | null) => void;
   setOpenedFile: (f: OpenFileResult | null) => void;
   setFileError: (s: string | null) => void;
-  canCreateGitHubRepository: boolean;
+  canSetUpGitHubRepository: boolean;
 }
 
 export interface FolderOpenActions {
@@ -61,7 +61,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
     setFileHandle,
     setOpenedFile,
     setFileError,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
   } = deps;
 
   const openFolderHandle = useCallback(
@@ -109,7 +109,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
           setFileHandle(null);
           setTrackBannerFile(null);
           toast.success(hasGit ? `Opened project ${handle.name}` : `Initialised version history for ${handle.name}`);
-          if (!hasGit && canCreateGitHubRepository) {
+          if (!hasGit && canSetUpGitHubRepository) {
             openDialog("projectGitHubSetup");
           }
           try {
@@ -145,7 +145,7 @@ export function useFolderOpen(deps: FolderOpenDeps): FolderOpenActions {
         toast.error("Failed to open folder");
       }
     },
-    [loadScore, resetHistory, store, canCreateGitHubRepository, setSelectedScoreIndex, setFileHandle, setOpenedFile],
+    [loadScore, resetHistory, store, canSetUpGitHubRepository, setSelectedScoreIndex, setFileHandle, setOpenedFile],
   );
 
   const handleOpenProject = useCallback(async () => {

@@ -7,6 +7,8 @@ import { SelectTrigger } from "./SelectTrigger";
 export interface SelectOption {
   readonly value: string;
   readonly label: string;
+  /** Optional compact label used only in the closed trigger. */
+  readonly triggerLabel?: ReactNode;
   /** Optional leading icon rendered next to the label (in trigger and items). */
   readonly icon?: ReactNode;
   /** Disable selection for this option (e.g. "coming soon" placeholders). */
@@ -33,6 +35,12 @@ export interface SelectProps {
   readonly "aria-describedby"?: string;
   readonly "data-testid"?: string;
   readonly className?: string;
+  /** Whether the trigger represents an enabled mode. */
+  readonly active?: boolean;
+  /** Trigger affordance override. Defaults according to triggerVariant. */
+  readonly indicator?: "chevron" | "corner";
+  /** Standard form trigger or compact square toolbar button. */
+  readonly triggerVariant?: "default" | "icon-button";
 }
 
 // Radix Select disallows empty-string item values, so we map "" ↔ sentinel.
@@ -58,6 +66,9 @@ export function Select({
   "aria-describedby": ariaDescribedBy,
   "data-testid": testId,
   className,
+  active = false,
+  indicator,
+  triggerVariant = "default",
 }: SelectProps) {
   const selected = options.find((o) => o.value === value);
   return (
@@ -76,9 +87,12 @@ export function Select({
           aria-labelledby={ariaLabelledBy}
           aria-describedby={ariaDescribedBy}
           data-testid={testId}
+          data-active={active ? "true" : undefined}
+          indicator={indicator}
+          variant={triggerVariant}
           leading={selected?.icon}
         >
-          <RadixSelect.Value placeholder={placeholder} />
+          <RadixSelect.Value placeholder={placeholder}>{selected?.triggerLabel}</RadixSelect.Value>
         </SelectTrigger>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>

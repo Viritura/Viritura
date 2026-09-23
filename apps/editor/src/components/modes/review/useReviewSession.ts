@@ -71,7 +71,6 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
   const githubViewer = githubAccount.session?.connected === true ? githubAccount.session.viewer : null;
   const githubInstallation = githubAccount.session?.installation ?? null;
   const githubInstallUrl = githubInstallation?.htmlUrl ?? githubAccount.app?.installUrl ?? null;
-  const canCreateGitHubRepository = githubInstallation?.canCreateRepositories === true;
   const githubRepository = useMemo(() => getGitHubRepositoryLink(status?.remoteUrl ?? null), [status?.remoteUrl]);
 
   // `useTransition` replaces the hand-rolled `pushing` / `fetching` boolean
@@ -158,7 +157,7 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
         init: { initialJson: currentJson, initialMessage: "Initial draft" },
       });
       toast.success(`Version history enabled in ${handle.name}`);
-      if (canCreateGitHubRepository) {
+      if (githubViewer) {
         setGitHubSetupOpen(true);
       }
     } catch (err) {
@@ -179,6 +178,18 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
         toast.error(err instanceof Error ? err.message : "Failed to fetch from GitHub");
       }
     });
+  };
+
+  const handleDisconnectRemote = async () => {
+    if (!adapter?.isVersioned() || !status?.remoteUrl) return;
+    try {
+      await adapter.removeRemote("origin");
+      await refresh();
+      toast.success("Disconnected this project from GitHub");
+    } catch (error) {
+      console.error("GitHub disconnect failed:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to disconnect this project from GitHub");
+    }
   };
 
   const handlePushChanges = () => {
@@ -223,7 +234,6 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     githubViewer,
     githubInstallation,
     githubInstallUrl,
-    canCreateGitHubRepository,
     githubRepository,
     pushing,
     fetching,
@@ -233,6 +243,7 @@ export function useReviewSession(modifiedJson: string | undefined, originalJson:
     sideOf,
     handleSetupProject,
     handleFetchRemote,
+    handleDisconnectRemote,
     handlePushChanges,
     handleRowClick,
     handleRevisionChange,

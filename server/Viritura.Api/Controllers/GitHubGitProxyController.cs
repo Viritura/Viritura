@@ -236,6 +236,11 @@ public sealed class GitHubGitProxyController(
             return false;
         }
 
+        if (environment.IsDevelopment() && DevelopmentFrontendOrigin.IsWorktreeEditor(uri))
+        {
+            return true;
+        }
+
         return EnumerateAllowedOrigins(authOptions).Any(origin =>
             Uri.TryCreate(origin, UriKind.Absolute, out var allowed) &&
             string.Equals(uri.GetLeftPart(UriPartial.Authority), allowed.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase));

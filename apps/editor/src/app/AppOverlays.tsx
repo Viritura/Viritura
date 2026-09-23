@@ -32,6 +32,8 @@ import { setStartCenterOpen } from "../store/onboardingStore";
 import type { StartCenterView } from "../store/onboardingStore";
 import { openSettings } from "../components/SettingsDialog";
 import { useGitHubAccount } from "../github/useGitHubAccount";
+import { getGitHubGitProxyUrl, type GitHubInstallationStatus } from "../github/api";
+import { connectAndPublishRemote } from "../git/connectAndPublishRemote";
 import type { VirituraAccountState } from "../auth";
 import { defaultPageSetupForScore, type Score, type PageSetup } from "@viritura/core";
 import type { DocumentStore } from "../store/documentStore";
@@ -50,7 +52,6 @@ import {
   getMenuSearchPlaceholder,
 } from "../radialMenu";
 import type { LyricStateRef } from "./useLyricHandlers";
-import type { GitHubInstallationStatus } from "../github/api";
 
 /**
  * Effective page setup for the Page Setup dialog: the engine-resolved defaults
@@ -325,16 +326,33 @@ export function AppOverlays(props: AppOverlaysProps) {
         installation={githubInstallation}
         defaultRepositoryName={activeProjectStatus?.name ?? undefined}
         onClose={() => closeDialog("projectGitHubSetup")}
-        onCreate={async (request) => {
+        onInspect={async (repository) => {
           const adapter = useProjectStore.getState().adapter;
           if (!adapter?.isVersioned()) {
             throw new Error("Open a local project before setting up GitHub.");
           }
-          const repository = await githubAccount.createRepository(request);
-          await adapter.setRemoteUrl("origin", repository.cloneUrl);
+          return await adapter.inspectRemote({
+            url: repository.cloneUrl,
+            defaultBranch: repository.defaultBranch,
+            corsProxy: getGitHubGitProxyUrl(),
+          });
+        }}
+        onConnect={async (request) => {
+          const adapter = useProjectStore.getState().adapter;
+          if (!adapter?.isVersioned()) {
+            throw new Error("Open a local project before setting up GitHub.");
+          }
+          if (!githubViewer?.login) {
+            throw new Error("Sign in with GitHub before connecting a repository.");
+          }
+          await connectAndPublishRemote(adapter, {
+            remote: "origin",
+            url: request.repository.cloneUrl,
+            compatibility: request.compatibility,
+            corsProxy: getGitHubGitProxyUrl(),
+          });
           await useProjectStore.getState().refresh();
-          toast.success(`Connected origin to ${repository.fullName}`);
-          return repository;
+          toast.success(`Published project to ${request.repository.fullName}`);
         }}
       />
 

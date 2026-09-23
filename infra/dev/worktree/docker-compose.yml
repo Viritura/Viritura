@@ -19,10 +19,10 @@ x-wasm-image: &wasm-image
   image: viritura-wasm-dev:rust-1.93.1-wasm-pack-0.14.0
 
 x-public-environment: &public-environment
-  VIRITURA_PUBLIC_EDITOR_URL: http://editor.${VIRITURA_SLUG}.localhost
-  VIRITURA_PUBLIC_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
-  VIRITURA_PUBLIC_API_URL: http://api.${VIRITURA_SLUG}.localhost
-  VIRITURA_INTERNAL_API_URL: http://api:8080
+  VIRITURA_PUBLIC_EDITOR_URL: http://editor.${VIRITURA_SLUG}.viritura.localhost
+  VIRITURA_PUBLIC_WEBSITE_URL: http://web.${VIRITURA_SLUG}.viritura.localhost
+  VIRITURA_PUBLIC_API_URL: http://api.viritura.localhost
+  VIRITURA_INTERNAL_API_URL: http://viritura-dev-api:8080
   VIRITURA_CACHE_ROOT: /tmp/viritura-cache
   VIRITURA_VITE_CACHE_DIR: /tmp/viritura-vite
 
@@ -148,15 +148,15 @@ services:
     command: ["pnpm", "--filter", "@viritura/editor", "dev", "--configLoader", "runner"]
     environment:
       <<: *public-environment
-      VIRITURA_CONTAINER_HOST: editor.${VIRITURA_SLUG}.localhost
-      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
-      VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.localhost
+      VIRITURA_CONTAINER_HOST: editor.${VIRITURA_SLUG}.viritura.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
+      VITE_VIRITURA_WEBSITE_URL: http://web.${VIRITURA_SLUG}.viritura.localhost
     networks: *proxy-networks
     labels:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-editor.rule=Host(`editor.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-editor.rule=Host(`editor.${VIRITURA_SLUG}.viritura.localhost`)
       - traefik.http.routers.${VIRITURA_SLUG}-editor.entryPoints=web
       - traefik.http.services.${VIRITURA_SLUG}-editor.loadbalancer.server.port=5173
 
@@ -168,20 +168,20 @@ services:
     command: ["pnpm", "--filter", "@viritura/website", "dev", "--configLoader", "runner", "--ignore-lock"]
     environment:
       <<: *public-environment
-      VIRITURA_CONTAINER_HOST: web.${VIRITURA_SLUG}.localhost
-      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+      VIRITURA_CONTAINER_HOST: web.${VIRITURA_SLUG}.viritura.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
     networks: *proxy-networks
     labels:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-web.rule=Host(`web.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-web.rule=Host(`web.${VIRITURA_SLUG}.viritura.localhost`)
       - traefik.http.routers.${VIRITURA_SLUG}-web.entryPoints=web
       - traefik.http.services.${VIRITURA_SLUG}-web.loadbalancer.server.port=5180
 
   server-ui:
     <<: *node-service
-    profiles: ["app", "backend", "website", "full"]
+    profiles: ["backend", "full"]
     command:
       - sh
       - -c
@@ -192,7 +192,8 @@ services:
 
   api:
     <<: *api-build
-    profiles: ["app", "backend", "website", "full"]
+    container_name: viritura-dev-api
+    profiles: ["backend", "full"]
     depends_on:
       - server-ui
     env_file:
@@ -207,13 +208,11 @@ services:
       Development__SeedTestAccount: "true"
       ConnectionStrings__VirituraDb: Data Source=/var/lib/viritura/data/viritura.dev.db
       Auth__RequireEmailVerification: "false"
-      Auth__WebsiteBaseUrl: http://web.${VIRITURA_SLUG}.localhost
+      Auth__WebsiteBaseUrl: http://web.${VIRITURA_SLUG}.viritura.localhost
       ForwardedHeaders__KnownNetworks__0: "172.16.0.0/12"
       DataProtection__KeysDirectory: /var/lib/viritura/data-protection-keys
-      Viritura__GitHub__RedirectUri: http://api.${VIRITURA_SLUG}.localhost/github/auth/callback
-      Viritura__GitHub__FrontendBaseUrl: http://editor.${VIRITURA_SLUG}.localhost
-      Viritura__GitHub__AllowedFrontendOrigins__0: http://editor.${VIRITURA_SLUG}.localhost
-      Viritura__GitHub__AllowedFrontendOrigins__1: http://web.${VIRITURA_SLUG}.localhost
+      Viritura__GitHub__RedirectUri: http://api.viritura.localhost/github/auth/callback
+      Viritura__GitHub__FrontendBaseUrl: http://editor.${VIRITURA_SLUG}.viritura.localhost
     volumes:
       - ../../..:/workspace
       - nuget_packages:/root/.nuget/packages
@@ -224,14 +223,18 @@ services:
       - github_obj:/workspace/server/Viritura.GitHub/obj
       - infrastructure_bin:/workspace/server/Viritura.Infrastructure/bin
       - infrastructure_obj:/workspace/server/Viritura.Infrastructure/obj
-    networks: *proxy-networks
+    networks:
+      default:
+      proxy:
+        aliases:
+          - viritura-dev-api
     labels:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-api.rule=Host(`api.${VIRITURA_SLUG}.localhost`)
-      - traefik.http.routers.${VIRITURA_SLUG}-api.entryPoints=web
-      - traefik.http.services.${VIRITURA_SLUG}-api.loadbalancer.server.port=8080
+      - traefik.http.routers.viritura-dev-api.rule=Host(`api.viritura.localhost`)
+      - traefik.http.routers.viritura-dev-api.entryPoints=web
+      - traefik.http.services.viritura-dev-api.loadbalancer.server.port=8080
 
   storybook-ui:
     <<: *node-service
@@ -246,7 +249,7 @@ services:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule=Host(`ui.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.rule=Host(`ui.${VIRITURA_SLUG}.viritura.localhost`)
       - traefik.http.routers.${VIRITURA_SLUG}-storybook-ui.entryPoints=web
       - traefik.http.services.${VIRITURA_SLUG}-storybook-ui.loadbalancer.server.port=6005
 
@@ -257,14 +260,14 @@ services:
     environment:
       <<: *public-environment
       CI: "true"
-      VIRITURA_CONTAINER_HOST: mnx.${VIRITURA_SLUG}.localhost
-      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+      VIRITURA_CONTAINER_HOST: mnx.${VIRITURA_SLUG}.viritura.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
     networks: *proxy-networks
     labels:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule=Host(`mnx.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.rule=Host(`mnx.${VIRITURA_SLUG}.viritura.localhost`)
       - traefik.http.routers.${VIRITURA_SLUG}-storybook-mnx.entryPoints=web
       - traefik.http.services.${VIRITURA_SLUG}-storybook-mnx.loadbalancer.server.port=6006
 
@@ -275,13 +278,13 @@ services:
     environment:
       <<: *public-environment
       CI: "true"
-      VITE_VIRITURA_API_BASE_URL: http://api.${VIRITURA_SLUG}.localhost
+      VITE_VIRITURA_API_BASE_URL: http://api.viritura.localhost
     networks: *proxy-networks
     labels:
       - com.viritura.dev.managed=true
       - traefik.enable=true
       - traefik.docker.network=viritura-dev-proxy
-      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule=Host(`storybook.${VIRITURA_SLUG}.localhost`)
+      - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.rule=Host(`storybook.${VIRITURA_SLUG}.viritura.localhost`)
       - traefik.http.routers.${VIRITURA_SLUG}-storybook-app.entryPoints=web
       - traefik.http.services.${VIRITURA_SLUG}-storybook-app.loadbalancer.server.port=6007
 

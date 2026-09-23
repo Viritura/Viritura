@@ -64,7 +64,11 @@
   gap: 1px;
   padding: var(--space-1);
   border-radius: 10px;
-  background: rgba(28, 30, 42, 0.96);
+  /* Tier 3 refraction, but this is a deliberately theme-independent dark pill
+     primitive, so it keeps its own fill instead of --glass-floating-bg. */
+  background: rgba(28, 30, 42, 0.82);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     0 10px 24px rgba(0, 0, 0, 0.35),

@@ -42,8 +42,72 @@ modes:
 | `Alt+Shift+↑` / `Alt+Shift+↓` | Chromatic step (semitone) |
 | `Mod+Alt+↑` / `Mod+Alt+↓`     | Octave                    |
 
-Use **Edit → Transpose Selection…** when you need a named interval or more
+Use **Edit → Transpose Selection** when you need a named interval or more
 control than the direct arrow-key transposition commands.
+
+## Spread chords across staves
+
+Explode and reduce redistribute copied music at a destination without changing
+the source.
+
+| Command                                 | Key           | Effect                                                                       |
+| --------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
+| **Edit → Explode to Staves**            | —             | Fans copied pitches out from the selected destination, top note on top staff |
+| **Edit → Reduce to Staff**              | —             | Merges copied staves into chords on the selected destination staff           |
+| **Edit → Select Top Note of Chords**    | —             | Narrows the selection to the highest notehead of every selected chord        |
+| **Edit → Select Bottom Note of Chords** | —             | Narrows the selection to the lowest notehead of every selected chord         |
+| **Edit → Paste and Merge**              | `Mod+Shift+V` | Pastes pitches _into_ the destination chords rather than replacing them      |
+
+To use either command:
+
+1. Select the source music and copy it.
+2. Select the note, rest, rhythmic position, or measure where the result should
+   begin.
+3. Choose **Explode to Staves** or **Reduce to Staff** from the Edit menu.
+
+Every command in this section is also available from the jump bar (`Ctrl+Space`)
+and from the right-click menu on the score. Right-clicking a note that isn't
+already selected selects it first; right-clicking inside an existing selection
+keeps that selection, so the command applies to everything you highlighted.
+
+Reduce pools simultaneous pitches from all copied staves and writes them as
+chords on one destination staff. Explode works downward from the destination:
+it uses as many staves as the tallest copied chord needs. Select an explicit
+multi-staff destination range to choose a different staff count. When a chord
+has more pitches than the destination has staves, the surplus stacks on the
+last staff; when it has fewer, the leftover staves get rests.
+
+Both commands use the normal paste behavior for destination placement, clefs,
+transposition, dynamics, ties, voices, and condensed-score writeback.
+
+Expression travels with the music. Articulations, fermatas, and lyrics on a
+copied chord are reproduced on every staff the chord is exploded onto, and
+dynamics are written to all of them, so the exploded lines phrase and balance
+the way the chord did. Reduce is the mirror image: the destination chord
+absorbs the articulations of every line feeding it, and duplicate dynamics
+collapse into one. Where the sources disagree at the same moment — two
+different dynamics, or a marking present on one staff only — the topmost copied
+staff wins.
+
+Tuplets are redistributed as a unit: each destination staff receives its own
+copy of the tuplet, keeping the ratio, bracket, and number settings of the
+original. A staff that ends up with nothing to play inside a tuplet gets an
+ordinary rest for that span rather than a bracket over rests.
+
+The selection and paste commands cover the manual case. Select the top note of
+a line, cut it, then paste it into another staff to move one voice by hand; use
+**Paste and Merge** to fold a line back into chords that already exist.
+
+> [!NOTE]
+> Tremolos and grace notes cannot be redistributed yet. Both commands leave the
+> score unchanged and report the limitation instead.
+>
+> Tuplets have to line up across the copied staves. A triplet sounding against
+> a different rhythm, or against a different tuplet ratio, has no correct
+> re-notation, so both commands refuse rather than re-bar the music.
+>
+> Staves carrying more than one voice are not supported yet: rather than
+> rewrite the wrong voice, both commands refuse the whole operation and say so.
 
 ## Palettes and radial menus
 

@@ -4,7 +4,7 @@ import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { Toolbar } from "../components/Toolbar";
-import { resetNoteInputStore } from "../store/noteInputStore";
+import { noteInputActions, resetNoteInputStore } from "../store/noteInputStore";
 import { DocumentProvider, useDocument, useDocumentActions } from "../store/DocumentContext";
 import { useSelectionActions, resetSelectionStore } from "../store/selectionStore";
 import { TooltipPrimitives } from "@viritura/ui";
@@ -123,7 +123,45 @@ describe("Toolbar", () => {
 
   it("renders the rhythm source selector beside duration controls", () => {
     const c = renderToolbar();
-    expect(getByTestId(c, "toolbar-rhythm-source").getAttribute("aria-label")).toBe("Rhythm source");
+    const rhythmSource = getByTestId(c, "toolbar-rhythm-source");
+    const durationGroup = c.querySelector('[role="group"][aria-label="Duration"]');
+    expect(rhythmSource.getAttribute("aria-label")).toBe("Rhythm reading off; using manual duration");
+    expect(rhythmSource.getAttribute("data-active")).toBeNull();
+    expect(rhythmSource.querySelector("svg")).not.toBeNull();
+    expect(rhythmSource.querySelector("[data-select-corner]")).not.toBeNull();
+    expect(rhythmSource.querySelectorAll("svg")).toHaveLength(1);
+    expect(rhythmSource.textContent).not.toContain("Manual");
+    expect(rhythmSource.compareDocumentPosition(durationGroup!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("makes rhythm reading and manual durations mutually exclusive", () => {
+    const c = renderToolbar();
+    act(() => {
+      noteInputActions.setRhythmSource({ partIndex: 0, staffIndex: 0, voice: 1 });
+    });
+    const rhythmSource = getByTestId(c, "toolbar-rhythm-source");
+    const halfNote = getByTestId(c, "toolbar-duration-2");
+    expect(rhythmSource.getAttribute("data-active")).toBe("true");
+    expect(c.querySelector('[data-testid^="toolbar-duration-"][aria-pressed="true"]')).toBeNull();
+
+    click(halfNote);
+
+    expect(rhythmSource.getAttribute("data-active")).toBeNull();
+    expect(halfNote.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps lyric entry in the palette instead of duplicating it in the toolbar", () => {
+    const c = renderToolbar();
+    expect(c.querySelector('[data-testid="toolbar-lyrics"]')).toBeNull();
+  });
+
+  it("uses a compact accessible voice selector", () => {
+    const c = renderToolbar();
+    const voice = getByTestId(c, "toolbar-voice");
+    expect(voice.getAttribute("aria-label")).toBe("Voice");
+    expect(voice.textContent).toContain("V1");
+    expect(voice.querySelector("[data-select-corner]")).not.toBeNull();
+    expect(voice.querySelector("svg")).toBeNull();
   });
 
   it("orders duration buttons from shortest to longest", () => {

@@ -47,6 +47,7 @@ export interface EditorBindingConfig {
     onCopy: () => void;
     onCut: () => void;
     onPaste: () => void;
+    onPasteMerge?: () => void;
     onTogglePanels?: () => void;
     onToggleCondensingPopover?: () => void;
     onSetTempo?: () => void;
@@ -232,6 +233,12 @@ function buildGlobalGuardedBindings(cfg: EditorBindingConfig): KeyBinding[] {
       key: "Ctrl+V",
       context: "global",
       handler: () => cb.onPaste(),
+    },
+    {
+      id: "global.pasteMerge",
+      key: "Ctrl+Shift+V",
+      context: "global",
+      handler: () => cb.onPasteMerge?.(),
     },
     {
       id: "global.togglePanels",

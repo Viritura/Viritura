@@ -105,6 +105,9 @@ Always available. Browser-style shortcuts (clipboard, save, undo, etc.) fire eve
 | `Mod+C`           | Copy                                          |
 | `Mod+X`           | Cut                                           |
 | `Mod+V`           | Paste                                         |
+| `Mod+Shift+V`     | Paste and merge into the destination chords   |
+| `Mod+Shift+↑`     | Select the top note of the selected chords    |
+| `Mod+Shift+↓`     | Select the bottom note of the selected chords |
 | `Mod+=` / `Mod++` | Zoom in                                       |
 | `Mod+-`           | Zoom out                                      |
 | `Mod+0`           | Reset viewport                                |
@@ -357,6 +360,7 @@ These keys are claimed for the listed commands. Some are shipped today (see tabl
 | ------------------ | ------------------------------------- | ------- |
 | `Alt+1` … `Alt+4`  | `voice.select1`–`voice.select4`       | shipped |
 | `Alt+C`            | `condensing.popover`                  | shipped |
+| `Mod+Shift+V`      | `global.pasteMerge`                   | shipped |
 | `Mod+Alt+M`        | `measures.add`                        | shipped |
 | `Shift+K` (normal) | `chordSymbol.add`                     | shipped |
 | `Shift+T` (normal) | `tempo.set` (note input: tuplet menu) | shipped |

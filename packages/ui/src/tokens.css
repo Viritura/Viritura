@@ -297,6 +297,16 @@
   --border-input: rgba(20, 20, 28, 0.14);
   --border-hairline: rgba(20, 20, 28, 0.08);
   --border-soft: rgba(20, 20, 28, 0.1);
+
+  /* Glass materials. Tier 1 is the ambient panel the user lives in; Tier 3 is
+     the transient overlay (menu, popover, tooltip). Both refract what is
+     behind them, so both must be able to sit over the score canvas — raw
+     black-on-white notation — without letting staff lines read through. The
+     smaller blur on the floating tier keeps its edge crisp at popover size.
+     Tier 1 carries its own gradient fill, so only its filter is shared. */
+  --glass-panel-filter: blur(40px) saturate(180%);
+  --glass-floating-bg: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  --glass-floating-filter: blur(24px) saturate(180%);
 }
 
 /* ═══════════════════════════════════════════
@@ -476,4 +486,30 @@
   --border-input: rgba(255, 255, 255, 0.14);
   --border-hairline: rgba(255, 255, 255, 0.08);
   --border-soft: rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════
+   Material classes
+
+   Tokens alone let each component reassemble a material slightly
+   differently — that is how the floating surfaces drifted to five
+   different opacities. These classes are the material itself, so a
+   surface opts in rather than restating the recipe:
+
+     .content {
+       composes: vi-glass-floating from global;
+     }
+
+   Defined here because tokens.css is the one stylesheet every app and
+   Storybook already loads globally, which is what lets CSS-Module
+   components in any package compose against it.
+   ═══════════════════════════════════════════ */
+
+/* Tier 3 (Floating) — menus, dropdowns, popovers, tooltips. Live glass:
+   these are portaled above arbitrary content, including the score canvas,
+   where a merely translucent fill lets staff lines read through. */
+.vi-glass-floating {
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
 }

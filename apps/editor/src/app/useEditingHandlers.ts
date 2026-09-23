@@ -1,6 +1,7 @@
 import { useClipboardActions, type ClipboardActions } from "./useClipboardActions";
 import { useSignatureActions, type SignatureActions } from "./useSignatureActions";
 import { useEditorMiscActions, type EditorMiscActions } from "./useEditorMiscActions";
+import { useChordDistributionActions, type ChordDistributionActions } from "./useChordDistributionActions";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { useSelection } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
@@ -22,7 +23,8 @@ interface UseEditingHandlersParams {
   currentZoom: number;
 }
 
-export interface EditingHandlers extends ClipboardActions, SignatureActions, EditorMiscActions {}
+export interface EditingHandlers
+  extends ClipboardActions, SignatureActions, EditorMiscActions, ChordDistributionActions {}
 
 /**
  * Bundles clipboard, signature, and editor misc actions into a single
@@ -64,5 +66,13 @@ export function useEditingHandlers(params: UseEditingHandlersParams): EditingHan
     currentZoom,
   });
 
-  return { ...clipboard, ...signature, ...misc };
+  const distribution = useChordDistributionActions({
+    store,
+    selection,
+    updateScore,
+    selectRange,
+    selectElement,
+  });
+
+  return { ...clipboard, ...signature, ...misc, ...distribution };
 }

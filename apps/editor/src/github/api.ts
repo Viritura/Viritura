@@ -85,6 +85,15 @@ export function getGitHubGitProxyUrl(apiBaseUrl = getVirituraApiBaseUrl()): stri
   return `${apiBaseUrl}/github/git`;
 }
 
+export function getGitHubInstallationStartUrl(
+  installationUrl: string,
+  returnTo = window.location.href,
+  apiBaseUrl = getVirituraApiBaseUrl(),
+): string {
+  const params = new URLSearchParams({ target: installationUrl, returnTo });
+  return `${apiBaseUrl}/github/auth/install?${params.toString()}`;
+}
+
 export function getGitHubLoginUrl(apiBaseUrl = getVirituraApiBaseUrl(), returnTo = currentLocation()): string {
   return `${apiBaseUrl}/github/auth/start?returnTo=${encodeURIComponent(returnTo)}`;
 }
@@ -283,6 +292,32 @@ export async function createGitHubRepository(
   return readRepository(payload);
 }
 
+export async function findGitHubRepository(
+  owner: string,
+  name: string,
+  apiBaseUrl = getVirituraApiBaseUrl(),
+): Promise<CreatedGitHubRepository | null> {
+  try {
+    const payload = await apiFetch<Record<string, unknown>>(
+      `${apiBaseUrl}/github/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
+      { method: "GET" },
+    );
+    return readRepository(payload);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export async function listGitHubRepositories(apiBaseUrl = getVirituraApiBaseUrl()): Promise<CreatedGitHubRepository[]> {
+  const payload = await apiFetch<unknown>(`${apiBaseUrl}/github/repositories`, { method: "GET" });
+  if (!Array.isArray(payload)) throw new GitHubApiError("GitHub repository list response was invalid");
+  return payload.map((repository) => {
+    if (!isRecord(repository)) throw new GitHubApiError("GitHub repository list response was invalid");
+    return readRepository(repository);
+  });
+}
+
 async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -297,10 +332,10 @@ async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  const payload = await readJsonObject(response);
+  const payload = await readJsonValue(response);
   if (!response.ok) {
     throw new GitHubApiError(
-      getPayloadMessage(payload) ?? `Viritura API returned ${response.status}.`,
+      (isRecord(payload) ? getPayloadMessage(payload) : null) ?? `Viritura API returned ${response.status}.`,
       response.status,
     );
   }
@@ -308,11 +343,10 @@ async function apiFetch<T>(url: string, init: RequestInit): Promise<T> {
   return payload as T;
 }
 
-async function readJsonObject(response: Response): Promise<Record<string, unknown>> {
+async function readJsonValue(response: Response): Promise<unknown> {
   const text = await response.text();
   if (!text) return {};
-  const parsed: unknown = JSON.parse(text);
-  return isRecord(parsed) ? parsed : {};
+  return JSON.parse(text) as unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

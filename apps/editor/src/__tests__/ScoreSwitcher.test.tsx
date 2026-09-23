@@ -44,6 +44,7 @@ describe("ScoreSwitcher", () => {
     const trigger = screen.getByRole("button", { name: "Select score or part: Chamber Score" });
     expect(trigger).toBeTruthy();
     expect(trigger.textContent).toBe("Chamber Score");
+    expect(trigger.querySelector(".lucide-list-music")).not.toBeNull();
   });
 
   it("shows and permanently dismisses the multi-view coachmark", async () => {

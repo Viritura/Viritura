@@ -1,5 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Part } from "@viritura/core";
 import { TooltipPrimitives } from "@viritura/ui";
@@ -13,32 +12,27 @@ const PART: Part = {
   measures: [],
 };
 
-describe("RosterPartRow actions", () => {
-  it("groups change and remove as explicit instrument actions", async () => {
-    const onChangeInstrument = vi.fn();
-    const onRemove = vi.fn();
-    const user = userEvent.setup();
+describe("RosterPartRow", () => {
+  it("keeps editable properties in the expanded row without command actions", () => {
+    const onContextMenu = vi.fn();
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
         <RosterPartRow
           part={PART}
           expanded
-          canRemove
           onToggle={() => {}}
-          onChangeInstrument={onChangeInstrument}
-          onRemove={onRemove}
+          onContextMenu={onContextMenu}
+          onOpenMenu={onContextMenu}
         />
       </TooltipPrimitives.Provider>,
     );
 
-    const actions = screen.getByRole("region", { name: "Actions for Flute" });
-    expect(actions).toBeTruthy();
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Flute" }));
+    fireEvent.click(screen.getByRole("button", { name: "Instrument actions for Flute" }));
     expect(screen.getByRole("region", { name: "Transposition" })).toBeTruthy();
     expect(screen.getByText("Concert pitch")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Change instrument" }));
-    await user.click(screen.getByRole("button", { name: "Remove instrument" }));
-
-    expect(onChangeInstrument).toHaveBeenCalledWith("flute");
-    expect(onRemove).toHaveBeenCalledWith("flute");
+    expect(screen.queryByText("Change instrument")).toBeNull();
+    expect(screen.queryByText("Remove instrument")).toBeNull();
+    expect(onContextMenu).toHaveBeenCalledTimes(2);
   });
 });

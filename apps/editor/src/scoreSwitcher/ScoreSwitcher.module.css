@@ -19,7 +19,7 @@
 .popover {
   min-width: 240px;
   max-width: 320px;
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   border-radius: var(--radius-lg);
   box-shadow: var(--elevation-2);
   padding: 6px;

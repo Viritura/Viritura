@@ -167,10 +167,13 @@ describe("GitProjectAdapter end-to-end", () => {
 
     expect((await adapter.status()).remoteUrl).toBeNull();
 
-    await adapter.setRemoteUrl("origin", "https://github.com/peter/quartet.git");
+    await adapter.setRemoteUrl("origin", "https://github.com/viritura/quartet.git");
+    await adapter.setRemoteUrl("backup", "https://example.com/viritura/quartet.git");
+    await git.setConfig({ fs, dir: "/", path: "branch.main.remote", value: "origin" });
+    await git.setConfig({ fs, dir: "/", path: "branch.main.merge", value: "refs/heads/main" });
 
     let status = await adapter.status();
-    expect(status.remoteUrl).toBe("https://github.com/peter/quartet.git");
+    expect(status.remoteUrl).toBe("https://github.com/viritura/quartet.git");
     expect(status.aheadCount).toBe(1);
 
     await adapter.writeScore(SCORE_V2);
@@ -178,6 +181,106 @@ describe("GitProjectAdapter end-to-end", () => {
 
     status = await adapter.status();
     expect(status.aheadCount).toBe(2);
+
+    await adapter.removeRemote("origin");
+
+    status = await adapter.status();
+    expect(status.remoteUrl).toBeNull();
+    expect(status.aheadCount).toBeNull();
+    const config = await fs.readFile("/.git/config", { encoding: "utf8" });
+    expect(config).not.toContain('[remote "origin"]');
+    expect(config).not.toContain("github.com/viritura/quartet");
+    expect(config).not.toContain("remote = origin");
+    expect(config).not.toContain("merge = refs/heads/main");
+    expect(config).toContain('[remote "backup"]');
+    expect(config).toContain("example.com/viritura/quartet");
+  });
+
+  it("recognizes an empty remote without configuring origin", async () => {
+    const fs = new InMemoryFs();
+    const adapter = await initRepo({
+      fs,
+      name: "p",
+      scorePath: "score.mnx",
+      initialJson: SCORE_V1,
+    });
+    vi.spyOn(git, "listServerRefs").mockResolvedValue([]);
+
+    const compatibility = await adapter.inspectRemote({
+      url: "https://github.com/viritura/quartet.git",
+      defaultBranch: "main",
+      corsProxy: "https://api.example.test/github/git",
+    });
+
+    expect(compatibility).toEqual({ kind: "empty", branch: "main", localAhead: 1, remoteAhead: 0 });
+    expect((await adapter.status()).remoteUrl).toBeNull();
+  });
+
+  it("tracks and reuses a remote branch whose name differs from the local branch", async () => {
+    const fs = new InMemoryFs();
+    const adapter = await initRepo({
+      fs,
+      name: "p",
+      scorePath: "score.mnx",
+      initialJson: SCORE_V1,
+    });
+    await adapter.setRemoteUrl("origin", "https://github.com/viritura/quartet.git");
+    const push = vi.spyOn(git, "push").mockResolvedValue({ ok: ["unpack"], errors: [] });
+
+    await adapter.push({
+      remote: "origin",
+      remoteRef: "master",
+      corsProxy: "https://api.example.test/github/git",
+    });
+
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ ref: "main", remoteRef: "master" }));
+    expect(await git.getConfig({ fs, dir: "/", path: "branch.main.merge" })).toBe("refs/heads/master");
+    expect((await adapter.status()).aheadCount).toBe(0);
+
+    const fetch = vi.spyOn(git, "fetch").mockResolvedValue({
+      defaultBranch: "master",
+      fetchHead: (await adapter.log())[0]!.sha,
+      fetchHeadDescription: "branch 'master'",
+    });
+    await adapter.fetch({ remote: "origin", corsProxy: "https://api.example.test/github/git" });
+
+    expect(fetch).toHaveBeenCalledWith(expect.objectContaining({ ref: "master", remoteRef: "master" }));
+  });
+
+  it("recognizes a previously connected remote that is behind local history", async () => {
+    const fs = new InMemoryFs();
+    const adapter = await initRepo({
+      fs,
+      name: "p",
+      scorePath: "score.mnx",
+      initialJson: SCORE_V1,
+    });
+    await adapter.writeScore(SCORE_V2);
+    await adapter.commit("v2");
+    const log = await adapter.log();
+    const remoteOid = log[1]!.sha;
+    await git.setConfig({ fs, dir: "/", path: "branch.main.remote", value: "origin" });
+    await git.setConfig({ fs, dir: "/", path: "branch.main.merge", value: "refs/heads/main" });
+    vi.spyOn(git, "listServerRefs").mockResolvedValue([{ ref: "refs/heads/main", oid: remoteOid }]);
+    const fetch = vi.spyOn(git, "fetch").mockResolvedValue({
+      defaultBranch: "main",
+      fetchHead: remoteOid,
+      fetchHeadDescription: "branch 'main'",
+    });
+
+    const compatibility = await adapter.inspectRemote({
+      url: "https://github.com/viritura/quartet.git",
+      defaultBranch: "main",
+      corsProxy: "https://api.example.test/github/git",
+    });
+
+    expect(compatibility).toEqual({ kind: "remote-behind", branch: "main", localAhead: 1, remoteAhead: 0 });
+    expect((await adapter.status()).remoteUrl).toBeNull();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ remote: expect.stringMatching(/^viritura-inspect-/) }),
+    );
+    const config = await fs.readFile("/.git/config", { encoding: "utf8" });
+    expect(config).not.toContain('[remote "viritura-inspect-');
   });
 
   it("openRepo reopens a previously-initialised filesystem", async () => {

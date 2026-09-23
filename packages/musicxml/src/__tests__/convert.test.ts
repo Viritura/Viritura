@@ -1504,6 +1504,46 @@ describe("convertMusicXmlToMnx — forward skips", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
+// Wholly empty measures (implicit filler / tacet bars)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe("convertMusicXmlToMnx — wholly empty measures", () => {
+  it("emits sequences: [] for a measure with no notes, rests, or forwards", () => {
+    // Some exporters (e.g. ScanScore) leave a tacet bar with no explicit
+    // <note>/<forward> content at all, relying on the notation app to supply
+    // an implicit full-measure rest. `sequences` is required by the MNX
+    // schema, so the measure must still carry `sequences: []` rather than
+    // omitting the field — the absence of events is real silence, not
+    // missing data, and whether it renders as a full-measure rest glyph is an
+    // engraving concern, not something the importer should decide.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+    </measure>
+    <measure number="2">
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>16</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.measures[0]!.sequences).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
 // Multi-staff, transposition, beams
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -2698,6 +2738,27 @@ describe("convertMusicXmlToMnx — percussion", () => {
     const result = convertMusicXmlToMnx(xml);
     const comp = Object.values(result.parts[0]!.kit!)[0]!;
     expect(comp._x?.viritura.notehead).toBe("x");
+  });
+
+  it("maps a MusicXML <notehead> on a pitched (non-percussion) note onto the per-note vendor extension", () => {
+    // MNX has no `notehead` field on `note` (W3C MNX issue #249) — a raw
+    // MusicXML notehead token must never be carried through as a bare
+    // `notehead` property (invalid per the MNX schema's
+    // `unevaluatedProperties: false`); it must be mapped into
+    // `_x.viritura.notehead` instead, matching Viritura's per-note notehead
+    // override extension.
+    const xml = wrapScore(`
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <notehead>diamond</notehead>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    const note = (result.parts[0]!.measures[0]!.sequences![0]!.content[0]! as { notes: { _x?: unknown }[] }).notes[0]!;
+    expect((note as { notehead?: unknown }).notehead).toBeUndefined();
+    expect((note._x as { viritura: { notehead?: string } })?.viritura.notehead).toBe("diamond");
   });
 
   it("separates same-line hits with different noteheads into distinct components", () => {

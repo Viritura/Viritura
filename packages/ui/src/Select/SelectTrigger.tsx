@@ -7,12 +7,25 @@ export interface SelectTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButton
   readonly leading?: ReactNode;
   readonly size?: "md" | "lg";
   readonly fullWidth?: boolean;
+  readonly indicator?: "chevron" | "corner";
+  readonly variant?: "default" | "icon-button";
 }
 
 export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(function SelectTrigger(
-  { children, leading, size = "md", fullWidth = false, className, type = "button", ...props },
+  {
+    children,
+    leading,
+    size = "md",
+    fullWidth = false,
+    indicator,
+    variant = "default",
+    className,
+    type = "button",
+    ...props
+  },
   ref,
 ) {
+  const resolvedIndicator = indicator ?? (variant === "icon-button" ? "corner" : "chevron");
   return (
     <button
       ref={ref}
@@ -21,6 +34,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(f
         styles.trigger,
         size === "lg" ? styles.triggerLg : "",
         fullWidth ? styles.fullWidth : "",
+        variant === "icon-button" ? styles.iconButton : "",
         className ?? "",
       ]
         .filter(Boolean)
@@ -31,7 +45,11 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(f
         {leading ? <span className={styles.leading}>{leading}</span> : null}
         {children}
       </span>
-      <ChevronDown className={styles.chevron} size={12} aria-hidden="true" />
+      {resolvedIndicator === "corner" ? (
+        <span className={styles.corner} data-select-corner aria-hidden="true" />
+      ) : (
+        <ChevronDown className={styles.chevron} size={12} aria-hidden="true" />
+      )}
     </button>
   );
 });

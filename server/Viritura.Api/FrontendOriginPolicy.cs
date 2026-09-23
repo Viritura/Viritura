@@ -8,9 +8,13 @@ namespace Viritura.Api;
 public sealed class FrontendOriginPolicy
 {
     private readonly string[] _allowedAuthorities;
+    private readonly Func<Uri, bool>? _additionalOriginPredicate;
 
-    public FrontendOriginPolicy(IEnumerable<string> allowedOrigins)
+    public FrontendOriginPolicy(
+        IEnumerable<string> allowedOrigins,
+        Func<Uri, bool>? additionalOriginPredicate = null)
     {
+        _additionalOriginPredicate = additionalOriginPredicate;
         _allowedAuthorities = allowedOrigins
             .Select(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri) ? uri.GetLeftPart(UriPartial.Authority) : null)
             .Where(authority => authority is not null)
@@ -30,7 +34,8 @@ public sealed class FrontendOriginPolicy
     public string PrimaryBaseUrl { get; }
 
     public bool IsAllowed(Uri uri) =>
-        _allowedAuthorities.Contains(uri.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase);
+        _allowedAuthorities.Contains(uri.GetLeftPart(UriPartial.Authority), StringComparer.OrdinalIgnoreCase) ||
+        (_additionalOriginPredicate?.Invoke(uri) ?? false);
 
     public bool TryResolveReturnUrl(string? returnTo, out string resolved)
     {

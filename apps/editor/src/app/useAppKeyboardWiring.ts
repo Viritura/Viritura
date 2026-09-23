@@ -25,6 +25,7 @@ import { openDialog, toggleDialog } from "../store/dialogStore";
 import type { RadialMenuState } from "../store/overlayStore";
 import { buildNavigationIndex } from "../navigation";
 import { useViewStateStore } from "../store/viewStateStore";
+import { measureAttributeShortcuts } from "./measureAttributeShortcuts";
 
 export interface TempoPopoverState {
   position: { x: number; y: number };
@@ -300,6 +301,7 @@ export interface AppKeyboardWiringDeps {
   handleCopy: () => void | Promise<void>;
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
+  handlePasteMerge: () => void | Promise<void>;
   handleSetRepeatStart: (value: import("@viritura/core").RepeatStart | null) => void;
   handleSetRepeatEnd: (value: import("@viritura/core").RepeatEnd | null) => void;
   handleSetEnding: (value: import("@viritura/core").Ending | null) => void;
@@ -360,6 +362,7 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
     handleSetRepeatStart,
     handleSetRepeatEnd,
     handleSetEnding,
@@ -447,6 +450,17 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     [store, selectedScoreIndex, onSwitchScore],
   );
 
+  const measureShortcuts = measureAttributeShortcuts({
+    getScore: () => store.getState().score ?? undefined,
+    getSelectedMeasureIndex,
+    getSelectedPartIndex,
+    handleSetRepeatStart,
+    handleSetRepeatEnd,
+    handleSetEnding,
+    handleSetBarline,
+    handleSetClef,
+  });
+
   return useEditorKeyboard({
     canvasRef,
     currentZoom,
@@ -470,69 +484,14 @@ export function useAppKeyboardWiring(deps: AppKeyboardWiringDeps): EditorKeyboar
     onPaste: () => {
       void handlePaste();
     },
-    onToggleRepeatStart: () => {
-      const { score } = store.getState();
-      if (!score) return;
-      const idx = getSelectedMeasureIndex();
-      if (idx === null) return;
-      const gm = score.global.measures[idx];
-      handleSetRepeatStart(gm?.repeatStart ? null : {});
+    onPasteMerge: () => {
+      void handlePasteMerge();
     },
-    onToggleRepeatEnd: () => {
-      const { score } = store.getState();
-      if (!score) return;
-      const idx = getSelectedMeasureIndex();
-      if (idx === null) return;
-      const gm = score.global.measures[idx];
-      handleSetRepeatEnd(gm?.repeatEnd ? null : {});
-    },
-    onEditEnding: () => {
-      const { score } = store.getState();
-      if (!score) return;
-      const idx = getSelectedMeasureIndex();
-      if (idx === null) return;
-      const gm = score.global.measures[idx];
-      handleSetEnding(gm?.ending ? null : { duration: 1, numbers: [1] });
-    },
-    onCycleBarline: () => {
-      const { score } = store.getState();
-      if (!score) return;
-      const idx = getSelectedMeasureIndex();
-      if (idx === null) return;
-      const gm = score.global.measures[idx];
-      const CYCLE: Barline[] = [
-        { type: "regular" },
-        { type: "double" },
-        { type: "final" },
-        { type: "dashed" },
-        { type: "heavy" },
-        { type: "dotted" },
-      ];
-      const curType = gm?.barline?.type ?? "regular";
-      const curIdx = CYCLE.findIndex((b) => b.type === curType);
-      const next = CYCLE[(curIdx + 1) % CYCLE.length]!;
-      handleSetBarline(next);
-    },
-    onInsertClef: () => {
-      const { score } = store.getState();
-      if (!score) return;
-      const CLEFS: Clef[] = [
-        { sign: "G", staffPosition: -2 },
-        { sign: "F", staffPosition: 2 },
-        { sign: "C", staffPosition: 0 },
-        { sign: "C", staffPosition: 2 },
-      ];
-      const idx = getSelectedMeasureIndex();
-      if (idx === null) return;
-      const pIdx = getSelectedPartIndex();
-      const pm = score.parts[pIdx ?? 0]?.measures[idx];
-      const curClef = pm?.clefs?.[0];
-      const curSign = curClef?.clef?.sign ?? "G";
-      const curPos = curClef?.clef?.staffPosition ?? -2;
-      const curClefIdx = CLEFS.findIndex((c) => c.sign === curSign && c.staffPosition === curPos);
-      const next = CLEFS[(curClefIdx + 1) % CLEFS.length]!;
-      handleSetClef(next);
-    },
+    onToggleRepeatStart: measureShortcuts.onToggleRepeatStart,
+    onToggleRepeatEnd: measureShortcuts.onToggleRepeatEnd,
+    onEditEnding: measureShortcuts.onEditEnding,
+    onCycleBarline: measureShortcuts.onCycleBarline,
+    onInsertClef: measureShortcuts.onInsertClef,
     onTogglePanels: requestPanelToggle,
     onOpenRadialMenu: (category: RadialMenuCategory) => {
       setRadialMenu({ category, position: { ...mousePositionRef.current }, selection });

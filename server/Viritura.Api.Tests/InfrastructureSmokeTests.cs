@@ -60,6 +60,58 @@ public sealed class InfrastructureSmokeTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
+    public async Task IdentityAllowsMultipleOAuthUsersWithoutEmail()
+    {
+        using var _ = _factory.CreateClient();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        await db.Database.MigrateAsync();
+
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var first = new AppUser
+        {
+            UserName = $"github-{Guid.NewGuid():N}",
+            Email = null,
+            EmailConfirmed = true,
+            DisplayName = "GitHub User"
+        };
+        var second = new AppUser
+        {
+            UserName = $"github-{Guid.NewGuid():N}",
+            Email = null,
+            EmailConfirmed = true,
+            DisplayName = "Another GitHub User"
+        };
+
+        var firstCreate = await users.CreateAsync(first);
+        var secondCreate = await users.CreateAsync(second);
+
+        Assert.True(firstCreate.Succeeded, string.Join(", ", firstCreate.Errors.Select(e => e.Description)));
+        Assert.True(secondCreate.Succeeded, string.Join(", ", secondCreate.Errors.Select(e => e.Description)));
+    }
+
+    [Fact]
+    public async Task IdentityRejectsDuplicateNonNullEmail()
+    {
+        using var _ = _factory.CreateClient();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        await db.Database.MigrateAsync();
+
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var email = $"unique.{Guid.NewGuid():N}@viritura.test";
+        var first = new AppUser { UserName = email, Email = email };
+        var second = new AppUser { UserName = $"other-{Guid.NewGuid():N}", Email = email };
+
+        var firstCreate = await users.CreateAsync(first);
+        var secondCreate = await users.CreateAsync(second);
+
+        Assert.True(firstCreate.Succeeded, string.Join(", ", firstCreate.Errors.Select(e => e.Description)));
+        Assert.False(secondCreate.Succeeded);
+        Assert.Contains(secondCreate.Errors, error => error.Code == "DuplicateEmail");
+    }
+
+    [Fact]
     public void Infrastructure_RejectsConsoleEmailOutsideDevelopment()
     {
         var configuration = new ConfigurationBuilder()

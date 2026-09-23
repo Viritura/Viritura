@@ -166,8 +166,11 @@ public sealed class GitHubOAuthClient(
         response.EnsureSuccessStatusCode();
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var root = document.RootElement;
-        return new GitHubCreatedRepository(
+        return ReadRepository(document.RootElement);
+    }
+
+    private static GitHubCreatedRepository ReadRepository(JsonElement root) =>
+        new(
             root.GetProperty("id").GetInt64(),
             root.GetProperty("name").GetString() ?? string.Empty,
             root.GetProperty("full_name").GetString() ?? string.Empty,
@@ -175,6 +178,101 @@ public sealed class GitHubOAuthClient(
             root.GetProperty("clone_url").GetString() ?? string.Empty,
             root.GetProperty("private").GetBoolean(),
             root.GetProperty("default_branch").GetString() ?? string.Empty);
+
+    public async Task<GitHubCreatedRepository?> FindRepositoryAsync(
+        string accessToken,
+        string owner,
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var url = new Uri(
+            $"https://api.github.com/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(name)}",
+            UriKind.Absolute);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        AddGitHubHeaders(request, accessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        return ReadRepository(document.RootElement);
+    }
+
+    public async Task<IReadOnlyList<GitHubCreatedRepository>> ListRepositoriesAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        var repositories = new Dictionary<long, GitHubCreatedRepository>();
+        for (var installationsPage = 1; ; installationsPage++)
+        {
+            var installationsUrl = new Uri(
+                $"https://api.github.com/user/installations?per_page=100&page={installationsPage}",
+                UriKind.Absolute);
+            using var installationsRequest = new HttpRequestMessage(HttpMethod.Get, installationsUrl);
+            AddGitHubHeaders(installationsRequest, accessToken);
+            using var installationsResponse = await httpClient.SendAsync(installationsRequest, cancellationToken);
+            installationsResponse.EnsureSuccessStatusCode();
+            using var installationsStream = await installationsResponse.Content.ReadAsStreamAsync(cancellationToken);
+            using var installationsDocument = await JsonDocument.ParseAsync(
+                installationsStream,
+                cancellationToken: cancellationToken);
+            var installations = installationsDocument.RootElement.GetProperty("installations");
+
+            foreach (var installation in installations.EnumerateArray())
+            {
+                if (!IsAppInstallation(installation) ||
+                    !installation.TryGetProperty("id", out var idElement) ||
+                    !idElement.TryGetInt64(out var installationId))
+                {
+                    continue;
+                }
+
+                await AddInstallationRepositoriesAsync(
+                    accessToken,
+                    installationId,
+                    repositories,
+                    cancellationToken);
+            }
+
+            if (installations.GetArrayLength() < 100) break;
+        }
+
+        return repositories.Values
+            .OrderBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private async Task AddInstallationRepositoriesAsync(
+        string accessToken,
+        long installationId,
+        Dictionary<long, GitHubCreatedRepository> repositories,
+        CancellationToken cancellationToken)
+    {
+        for (var page = 1; ; page++)
+        {
+            var url = new Uri(
+                $"https://api.github.com/user/installations/{installationId}/repositories?per_page=100&page={page}",
+                UriKind.Absolute);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            AddGitHubHeaders(request, accessToken);
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var pageRepositories = document.RootElement.GetProperty("repositories");
+            foreach (var repositoryElement in pageRepositories.EnumerateArray())
+            {
+                var repository = ReadRepository(repositoryElement);
+                repositories[repository.Id] = repository;
+            }
+
+            if (pageRepositories.GetArrayLength() < 100) break;
+        }
     }
 
     private async Task<GitHubTokenBundle> ExchangeTokenAsync(Dictionary<string, string> payload, CancellationToken cancellationToken)
@@ -223,15 +321,7 @@ public sealed class GitHubOAuthClient(
 
     private bool IsViewerInstallation(JsonElement installation, GitHubViewer viewer)
     {
-        if (installation.TryGetProperty("app_slug", out var appSlug))
-        {
-            var expectedSlug = options.Value.AppSlug;
-            if (!string.IsNullOrWhiteSpace(expectedSlug)
-                && !string.Equals(appSlug.GetString(), expectedSlug, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-        }
+        if (!IsAppInstallation(installation)) return false;
 
         if (!installation.TryGetProperty("account", out var account)
             || !account.TryGetProperty("id", out var accountId)
@@ -241,6 +331,14 @@ public sealed class GitHubOAuthClient(
         }
 
         return id == viewer.Id;
+    }
+
+    private bool IsAppInstallation(JsonElement installation)
+    {
+        if (!installation.TryGetProperty("app_slug", out var appSlug)) return true;
+        var expectedSlug = options.Value.AppSlug;
+        return string.IsNullOrWhiteSpace(expectedSlug) ||
+            string.Equals(appSlug.GetString(), expectedSlug, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasWritePermission(JsonElement permissions, string key)

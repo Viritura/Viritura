@@ -113,6 +113,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       selectedPartIds,
       expandedCondensingStaves,
       onToggleCondensedStaff,
+      buildSelectionMenuItems,
       onViewportChange,
       onScoreInfoChange,
       onHoverBeat,
@@ -196,6 +197,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     onEngraveSlurShapeEditRef.current = onEngraveSlurShapeEdit;
     const onEngraveSlurShapeResetRef = useRef(onEngraveSlurShapeReset);
     onEngraveSlurShapeResetRef.current = onEngraveSlurShapeReset;
+    const buildSelectionMenuItemsRef = useRef(buildSelectionMenuItems);
+    buildSelectionMenuItemsRef.current = buildSelectionMenuItems;
     const onEngraveSlurReanchorRef = useRef(onEngraveSlurReanchor);
     onEngraveSlurReanchorRef.current = onEngraveSlurReanchor;
     const onEngraveSlurSelectionChangeRef = useRef(onEngraveSlurSelectionChange);
@@ -921,8 +924,8 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
       },
       [docScoreRef, selectElement, setSelectedSlurId, updateScore],
     );
-    /** Open context menu (anchored at the right-clicked screen pos) for the selected slur. */
-    const [slurContextMenu, setSlurContextMenu] = useState<ContextMenuState | null>(null);
+    /** Right-click menu, anchored at the click position: editing commands in write mode, slur shape in engrave. */
+    const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
     /**
      * Build snap points for the spanner drag ruler — body lives in
@@ -1180,6 +1183,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         onEngraveEmptyClickRef,
         onEngraveSlurShapeEditRef,
         onEngraveSlurShapeResetRef,
+        buildSelectionMenuItemsRef,
         onEngraveTextExpressionOffsetEditRef,
         docScoreRef,
         repaint,
@@ -1198,7 +1202,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         buildDragSnapPoints,
         startEngraveHoverFade,
         setEngraveHoverCursor,
-        setSlurContextMenu,
+        setContextMenu,
       }),
       [
         viewport,
@@ -1380,7 +1384,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
             />
           )}
         </div>
-        <ContextMenu state={slurContextMenu} onClose={() => setSlurContextMenu(null)} />
+        <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       </div>
     );
   },

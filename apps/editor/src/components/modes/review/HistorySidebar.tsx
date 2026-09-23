@@ -1,5 +1,5 @@
 import React, { useMemo, useState, type CSSProperties } from "react";
-import { ExternalLink, FolderPlus } from "lucide-react";
+import { ExternalLink, FolderPlus, Unplug } from "lucide-react";
 import { Button, Collapsible, PanelFooter, Tabs, Tooltip } from "@viritura/ui";
 import { DiffTreeView } from "../../DiffTreeView";
 import { useProjectStore, WORKING_TREE_SHA } from "../../../store/projectStore";
@@ -31,7 +31,6 @@ import {
   setupCardOuterStyle,
   setupTitleStyle,
   setupHintStyle,
-  setupLinkButtonStyle,
   repoCardOuterStyle,
   repoCardStyle,
   repoTextStyle,
@@ -39,6 +38,8 @@ import {
   repoNameStyle,
   repoStatusStyle,
   repoActionsStyle,
+  repoDisconnectConfirmationStyle,
+  repoDisconnectMessageStyle,
   repoOpenLinkStyle,
   comparisonCardStyle,
   comparisonRowStyle,
@@ -64,8 +65,6 @@ interface GitHubSetupCardProps {
   show: boolean;
   githubViewer: { login: string } | null;
   githubAccount: GitHubAccount;
-  canCreateGitHubRepository: boolean;
-  githubInstallUrl: string | null;
   setGitHubSetupOpen: (open: boolean) => void;
 }
 
@@ -83,18 +82,11 @@ function GitHubSetupCard(props: GitHubSetupCardProps) {
           <GitHubMark size={14} />
           Sign in with GitHub
         </Button>
-      ) : props.canCreateGitHubRepository ? (
+      ) : (
         <Button onClick={() => props.setGitHubSetupOpen(true)}>
           <GitHubMark size={14} />
           Set up GitHub…
         </Button>
-      ) : props.githubInstallUrl ? (
-        <a href={props.githubInstallUrl} target="_blank" rel="noreferrer" style={setupLinkButtonStyle}>
-          <GitHubMark size={14} />
-          Install GitHub App…
-        </a>
-      ) : (
-        <p style={setupHintStyle}>GitHub is not configured for this environment.</p>
       )}
     </div>
   );
@@ -107,9 +99,11 @@ interface RepoCardProps {
   onFetch: () => void;
   pushing: boolean;
   onPush: () => void;
+  onDisconnect: () => void;
 }
 
-function RepoCard({ githubRepository, status, fetching, onFetch, pushing, onPush }: RepoCardProps) {
+function RepoCard({ githubRepository, status, fetching, onFetch, pushing, onPush, onDisconnect }: RepoCardProps) {
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   return (
     <div style={repoCardOuterStyle}>
       <div style={repoCardStyle}>
@@ -145,8 +139,31 @@ function RepoCard({ githubRepository, status, fetching, onFetch, pushing, onPush
               <ExternalLink size={14} aria-hidden="true" />
             </a>
           </Tooltip>
+          {!confirmingDisconnect && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirmingDisconnect(true)}
+              tooltip="Remove this project's GitHub remote without deleting the repository"
+            >
+              <Unplug size={14} aria-hidden="true" />
+            </Button>
+          )}
         </div>
       </div>
+      {confirmingDisconnect && (
+        <div style={repoDisconnectConfirmationStyle}>
+          <span style={repoDisconnectMessageStyle}>
+            Disconnect this project only. The GitHub repository stays intact.
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => setConfirmingDisconnect(false)}>
+            Keep
+          </Button>
+          <Button size="sm" variant="danger" onClick={onDisconnect}>
+            Disconnect
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -348,6 +365,7 @@ export interface HistorySidebarProps extends HistorySectionProps {
   pushing: boolean;
   handleFetchRemote: () => void;
   handlePushChanges: () => void;
+  handleDisconnectRemote: () => void;
   totalChanges: number;
   changeCounts: { added: number; removed: number; modified: number };
   changeSummary: string;
@@ -378,6 +396,7 @@ export function HistorySidebar(props: HistorySidebarProps) {
       onFetch={props.handleFetchRemote}
       pushing={props.pushing}
       onPush={props.handlePushChanges}
+      onDisconnect={props.handleDisconnectRemote}
     />
   ) : (
     <GitHubSetupCard {...props.githubSetupCardProps} />
@@ -387,6 +406,7 @@ export function HistorySidebar(props: HistorySidebarProps) {
       {props.isVersioned ? (
         <div style={panelBodyStyle}>
           <Tabs
+            variant="panel"
             tabs={[
               { id: "changes", label: props.totalChanges > 0 ? `Changes · ${props.totalChanges}` : "Changes" },
               { id: "versions", label: `Versions · ${props.log.length + 1}` },
