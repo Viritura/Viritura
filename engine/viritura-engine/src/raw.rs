@@ -5603,7 +5603,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/39",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/40",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"
@@ -8278,7 +8278,8 @@ impl ::std::convert::From<&Slur> for Slur {
 ///  "type": "string",
 ///  "enum": [
 ///    "up",
-///    "down"
+///    "down",
+///    "auto"
 ///  ]
 ///}
 /// ```
@@ -8300,6 +8301,8 @@ pub enum SlurSide {
     Up,
     #[serde(rename = "down")]
     Down,
+    #[serde(rename = "auto")]
+    Auto,
 }
 impl ::std::convert::From<&Self> for SlurSide {
     fn from(value: &SlurSide) -> Self {
@@ -8311,6 +8314,7 @@ impl ::std::fmt::Display for SlurSide {
         match *self {
             Self::Up => f.write_str("up"),
             Self::Down => f.write_str("down"),
+            Self::Auto => f.write_str("auto"),
         }
     }
 }
@@ -8322,6 +8326,7 @@ impl ::std::str::FromStr for SlurSide {
         match value {
             "up" => Ok(Self::Up),
             "down" => Ok(Self::Down),
+            "auto" => Ok(Self::Auto),
             _ => Err("invalid value".into()),
         }
     }

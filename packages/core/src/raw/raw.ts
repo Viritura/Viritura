@@ -437,7 +437,7 @@ export interface components {
             target: components["schemas"]["id"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "slur-side": "up" | "down";
+        "slur-side": "up" | "down" | "auto";
         "smufl-font": string;
         "smufl-glyph": string;
         "soft-accent": {

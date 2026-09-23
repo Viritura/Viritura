@@ -112,7 +112,7 @@ pub(crate) fn collect_slur_participation(
                             voice.events.num_voices(event_index),
                             voice.events.stem_up(event_index),
                         );
-                        if slur.side.is_none() {
+                        if super::side_is_auto(&slur.side) {
                             if let Some(source_id) = event_id {
                                 if voice_span_total_hs(
                                     &voice_span,

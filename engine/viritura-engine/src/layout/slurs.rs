@@ -27,6 +27,14 @@
 // Slur layout
 // ═══════════════════════════════════════════
 
+/// Whether a slur/tie `side`/`sideEnd` value means "let the engraver decide".
+/// MNX v40 added an explicit `"auto"` literal alongside the pre-existing
+/// convention of omitting the field entirely; both mean the same thing, so
+/// every "is this side explicit?" check must treat them identically.
+pub(crate) fn side_is_auto(side: &Option<String>) -> bool {
+    !matches!(side.as_deref(), Some("up") | Some("down"))
+}
+
 /// Deterministic engraving relationship between a slur endpoint and an
 /// articulation attached to that endpoint.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

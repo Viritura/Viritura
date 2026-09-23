@@ -62,6 +62,11 @@ function oppositeSide(isAbove: boolean): "up" | "down" {
   return isAbove ? "down" : "up";
 }
 
+/** MNX `"auto"` and an omitted side are equivalent; both defer to automatic placement. */
+function isAutoSide(side: string | undefined): boolean {
+  return side === undefined || side === "auto";
+}
+
 function resolveClefForFlip(score: Score, partIndex: number, staffIndex: number, measureIndex: number): Clef {
   const staffNumber = staffIndex + 1;
   const defaultClef: Clef = staffNumber >= 2 ? { sign: "F", staffPosition: 2 } : { sign: "G", staffPosition: -2 };
@@ -168,8 +173,8 @@ function flipSlur(score: Score, elementId: string): boolean {
       )
     : sourceStemUp;
   const autoAbove = sourceStemUp !== targetStemUp || !sourceStemUp;
-  const startAbove = slur.side === "up" || (slur.side === undefined && autoAbove);
-  const endAbove = slur.sideEnd === "up" || (slur.sideEnd === undefined && startAbove);
+  const startAbove = slur.side === "up" || (isAutoSide(slur.side) && autoAbove);
+  const endAbove = slur.sideEnd === "up" || (isAutoSide(slur.sideEnd) && startAbove);
   slur.side = oppositeSide(startAbove);
   slur.sideEnd = oppositeSide(endAbove);
   return true;
@@ -208,7 +213,7 @@ function flipTie(score: Score, elementId: string): boolean {
   const tie = event?.notes?.[target.noteIndex]?.ties?.[target.tieIndex];
   if (!event || !tie) return false;
   const autoAbove = computeAutoTieAbove(score, target, event, target.noteIndex);
-  const currentAbove = tie.side === "up" || (tie.side === undefined && autoAbove);
+  const currentAbove = tie.side === "up" || (isAutoSide(tie.side) && autoAbove);
   tie.side = oppositeSide(currentAbove);
   return true;
 }

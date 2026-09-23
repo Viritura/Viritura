@@ -254,8 +254,8 @@ export interface Lyrics {
 /** Slur line type (MNX lineType). */
 export type SlurLineType = "solid" | "dashed" | "dotted";
 
-/** Slur side (MNX side / sideEnd). */
-export type SlurSide = "up" | "down";
+/** Slur side (MNX side / sideEnd). `"auto"` and omission both mean automatic placement. */
+export type SlurSide = "up" | "down" | "auto";
 
 /**
  * Per-slur shape override stored in `_x.viritura.shape`.
