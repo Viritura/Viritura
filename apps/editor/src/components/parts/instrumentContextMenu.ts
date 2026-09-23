@@ -10,7 +10,7 @@ export interface InstrumentContextMenuArgs {
   onRemove?: (partId: string) => void;
 }
 
-export function instrumentContextMenuState(
+function instrumentContextMenuState(
   event: MouseEvent<HTMLButtonElement>,
   args: InstrumentContextMenuArgs,
 ): ContextMenuState {
