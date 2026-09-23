@@ -47,39 +47,41 @@ control than the direct arrow-key transposition commands.
 
 ## Spread chords across staves
 
-Explode and reduce move pitches between staves without retyping them.
+Explode and reduce redistribute copied music at a destination without changing
+the source.
 
-| Command                                 | Key           | Effect                                                                   |
-| --------------------------------------- | ------------- | ------------------------------------------------------------------------ |
-| **Edit → Explode to Staves**            | —             | Fans the selected chords out, one pitch per staff, top note on top staff |
-| **Edit → Reduce to Staff**              | —             | Collects the selected staves' music back onto the topmost selected staff |
-| **Edit → Select Top Note of Chords**    | —             | Narrows the selection to the highest notehead of every selected chord    |
-| **Edit → Select Bottom Note of Chords** | —             | Narrows the selection to the lowest notehead of every selected chord     |
-| **Edit → Paste and Merge**              | `Mod+Shift+V` | Pastes pitches _into_ the destination chords rather than replacing them  |
+| Command                                 | Key           | Effect                                                                       |
+| --------------------------------------- | ------------- | ---------------------------------------------------------------------------- |
+| **Edit → Explode to Staves**            | —             | Fans copied pitches out from the selected destination, top note on top staff |
+| **Edit → Reduce to Staff**              | —             | Merges copied staves into chords on the selected destination staff           |
+| **Edit → Select Top Note of Chords**    | —             | Narrows the selection to the highest notehead of every selected chord        |
+| **Edit → Select Bottom Note of Chords** | —             | Narrows the selection to the lowest notehead of every selected chord         |
+| **Edit → Paste and Merge**              | `Mod+Shift+V` | Pastes pitches _into_ the destination chords rather than replacing them      |
 
-Explode works downward: it uses as many staves below the selection as the
-tallest chord needs. When a chord has more pitches than there are target
-staves, the surplus stacks on the last staff; when it has fewer, the leftover
-staves get rests. Reduce applies the same allocation in reverse. Selecting more
-than one source staff before exploding pools all of their pitches first, so any
-number of staves can be redistributed onto any other number.
+To use either command:
 
-Both commands follow the staves as they are laid out in the score you are
-viewing. On a condensed score, a staff that renders several parts on one line
-counts as a single staff: its parts are pooled together as one source, and
-"the staff below" is the next line the reader sees rather than a part hidden
-inside the same line.
+1. Select the source music and copy it.
+2. Select the note, rest, rhythmic position, or measure where the result should
+   begin.
+3. Choose **Explode to Staves** or **Reduce to Staff** from the Edit menu.
+
+Reduce pools simultaneous pitches from all copied staves and writes them as
+chords on one destination staff. Explode works downward from the destination:
+it uses as many staves as the tallest copied chord needs. Select an explicit
+multi-staff destination range to choose a different staff count. When a chord
+has more pitches than the destination has staves, the surplus stacks on the
+last staff; when it has fewer, the leftover staves get rests.
+
+Both commands use the normal paste behavior for destination placement, clefs,
+transposition, dynamics, ties, voices, and condensed-score writeback.
 
 The selection and paste commands cover the manual case. Select the top note of
 a line, cut it, then paste it into another staff to move one voice by hand; use
 **Paste and Merge** to fold a line back into chords that already exist.
 
 > [!NOTE]
-> Both commands rewrite only the span of music the selection covers, widened
-> outward to whole events. Music before and after that span is left untouched.
-> Measures containing tuplets, tremolos, or grace notes are skipped rather than
-> re-rhythmed. Music landing on a condensed staff is written to the first of
-> its parts and the remaining parts rest.
+> Tuplets, tremolos, and grace notes cannot be redistributed yet. Both commands
+> leave the score unchanged and report the limitation instead.
 >
 > Staves carrying more than one voice are not supported yet: rather than
 > rewrite the wrong voice, both commands refuse the whole operation and say so.

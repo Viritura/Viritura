@@ -66,7 +66,13 @@ export function useEditingHandlers(params: UseEditingHandlersParams): EditingHan
     currentZoom,
   });
 
-  const distribution = useChordDistributionActions({ store, selection, updateScore });
+  const distribution = useChordDistributionActions({
+    store,
+    selection,
+    updateScore,
+    selectRange,
+    selectElement,
+  });
 
   return { ...clipboard, ...signature, ...misc, ...distribution };
 }

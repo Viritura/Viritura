@@ -1,10 +1,11 @@
-/**
- * Chord distribution: moving pitches between staves.
- *
- * The folder's public surface is deliberately narrow — the explode, reduce,
- * and redistribute commands all enter through `applyDistribution`, and the
- * clipboard's paste-and-merge reuses `mergeNotesIntoEvent`.
- */
+/** Clipboard-driven chord distribution and paste-and-merge chord assembly. */
 
 export { mergeNotesIntoEvent } from "./chordMerge";
-export { applyDistribution, type DistributionMode } from "./selectionPlan";
+export {
+  explodeFragment,
+  explodePasteResult,
+  FragmentDistributionError,
+  reduceFragment,
+  reducePasteResult,
+} from "./fragmentDistribution";
+export { destinationStaffCount } from "./destinationStaffCount";

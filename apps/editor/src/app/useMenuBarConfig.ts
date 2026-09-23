@@ -16,6 +16,7 @@ export interface MenuBarConfigDeps {
   canRedo: boolean;
   selection: SelectionState;
   canTranspose: boolean;
+  canDistribute: boolean;
   recentScores: readonly RecentScore[];
   handleOpenFile: () => void | Promise<void>;
   handleImportFile: () => void | Promise<void>;
@@ -29,8 +30,8 @@ export interface MenuBarConfigDeps {
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
   handlePasteMerge: () => void | Promise<void>;
-  handleExplodeSelection: () => void;
-  handleReduceSelection: () => void;
+  handleExplodeSelection: () => void | Promise<void>;
+  handleReduceSelection: () => void | Promise<void>;
   handleSelectChordTopNote: () => void;
   handleSelectChordBottomNote: () => void;
   handleDeleteSelection: () => void;
@@ -68,6 +69,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     canRedo,
     selection,
     canTranspose,
+    canDistribute,
     recentScores,
     handleOpenFile,
     handleImportFile,
@@ -139,8 +141,12 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onPasteMerge: () => {
         void handlePasteMerge();
       },
-      onExplodeSelection: handleExplodeSelection,
-      onReduceSelection: handleReduceSelection,
+      onExplodeSelection: () => {
+        void handleExplodeSelection();
+      },
+      onReduceSelection: () => {
+        void handleReduceSelection();
+      },
       onSelectChordTopNote: handleSelectChordTopNote,
       onSelectChordBottomNote: handleSelectChordBottomNote,
       onDelete: handleDeleteSelection,
@@ -217,8 +223,9 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canRedo,
       hasSelection: selection.kind !== "none",
       canTranspose,
+      canDistribute,
     }),
-    [hasDocument, canUndo, canRedo, selection, canTranspose],
+    [hasDocument, canUndo, canRedo, selection, canTranspose, canDistribute],
   );
 
   const recentMenuEntries = useMemo(() => {

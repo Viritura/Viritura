@@ -1,14 +1,7 @@
 import { useCallback } from "react";
-import {
-  copyToClipboard,
-  cutToClipboard,
-  pasteFromClipboard,
-  pasteResultFromFragment,
-  applyCut,
-  type ClipboardSelection,
-} from "../commands/clipboardCommands";
+import { copyToClipboard, cutToClipboard, applyCut, type ClipboardSelection } from "../commands/clipboardCommands";
 import { FRAGMENT_VERSION } from "../clipboard/ClipboardFragment";
-import { addClipboardEntry, useClipboardHistoryStore, type ClipboardSourceRef } from "../store/clipboardHistoryStore";
+import { addClipboardEntry, type ClipboardSourceRef } from "../store/clipboardHistoryStore";
 import {
   buildClipboardSelection,
   buildClipboardSourceRef as buildClipboardSourceRefImpl,
@@ -32,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { readNotationClipboard, writeNotationClipboard, NotationClipboardError } from "../clipboard/notationClipboard";
 import { looksLikeMuseScoreXml, MuseScoreConversionError } from "@viritura/musescore-clipboard";
+import { acquireClipboardPaste } from "./clipboardPasteAcquisition";
 
 interface UseClipboardActionsArgs {
   store: ReturnType<typeof useDocumentStoreApi>;
@@ -183,22 +177,16 @@ export function useClipboardActions({
         }
         return;
       }
-      let systemPaste: Awaited<ReturnType<typeof pasteFromClipboard>>;
       const warnings: string[] = [];
+      let paste;
       try {
-        systemPaste = await pasteFromClipboard((message) => warnings.push(message));
+        paste = await acquireClipboardPaste((message) => warnings.push(message));
       } catch (error) {
         if (error instanceof MuseScoreConversionError) toast.error(error.userMessage());
         else if (error instanceof NotationClipboardError) toast.error(error.message);
         else toast.error("Could not read notation from the clipboard.");
         return;
       }
-      const paste =
-        systemPaste ??
-        (() => {
-          const latest = useClipboardHistoryStore.getState().entries[0];
-          return latest ? pasteResultFromFragment(latest.fragment) : null;
-        })();
       if (!paste) {
         showClipboardWarnings(warnings);
         return;

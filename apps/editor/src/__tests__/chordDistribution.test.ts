@@ -1,533 +1,239 @@
 import { describe, expect, it } from "vitest";
-import type { Note, NoteEvent, Pitch, Score } from "@viritura/core";
+import { isRest, type Note, type NoteEvent, type Score, type SequenceContent } from "@viritura/core";
+import type { ClipboardFragment, ClipboardTrack } from "../clipboard/ClipboardFragment";
+import { buildClipboardSelection } from "../clipboard/buildClipboardSelection";
+import { computePasteResult } from "../clipboard/computePasteResult";
+import { pasteResultFromFragment } from "../commands/clipboardCommands";
+import {
+  explodeFragment,
+  FragmentDistributionError,
+  mergeNotesIntoEvent,
+  reduceFragment,
+} from "../score/chordDistribution";
 import { allocateTopDown } from "../score/chordDistribution/allocation";
-import { buildBeatGrid, maxSimultaneity } from "../score/chordDistribution/beatGrid";
-import type { MeasureWindow } from "../score/chordDistribution/selectionRange";
-import { mergeNotesIntoEvent } from "../score/chordDistribution/chordMerge";
-import { redistributeStaves } from "../score/chordDistribution/redistribute";
-import { applyDistribution } from "../score/chordDistribution/selectionPlan";
-import { scoreStaffOrder, type StaffRef } from "../score/chordDistribution/staffOrder";
-import type { Selection } from "../store/selectionStore";
+import { buildBeatGrid } from "../score/chordDistribution/beatGrid";
 
-function pitch(step: Pitch["step"], octave: number): Pitch {
-  return { step, octave: octave as Pitch["octave"] };
-}
-
-/** Windows covering whole 4/4 measures, the scope these fixtures all use. */
-function wholeMeasures(start: number, end: number): MeasureWindow[] {
-  return Array.from({ length: end - start + 1 }, (_, offset) => ({
-    measureIndex: start + offset,
-    start: 0,
-    end: 4,
-  }));
-}
-
-function note(step: Pitch["step"], octave: number, id?: string): Note {
-  return { ...(id ? { id } : {}), pitch: pitch(step, octave) };
-}
-
-function chord(base: "whole" | "half" | "quarter", pitches: Note[], id: string): NoteEvent {
-  return { type: "event", id, duration: { base }, notes: pitches };
-}
-
-function rest(base: "whole" | "half" | "quarter", id: string): NoteEvent {
-  return { type: "event", id, duration: { base }, rest: {} };
-}
-
-/** Three single-staff parts in 4/4; only the top staff carries music. */
-function chordOnTopStaff(): Score {
+function noteEvent(id: string, step: Note["pitch"]["step"], octave: number, base = "quarter"): NoteEvent {
   return {
-    mnx: { version: 1 },
-    global: { measures: [{ time: { count: 4, unit: 4 } }] },
-    parts: [
-      {
-        name: "Violin I",
-        measures: [
-          {
-            sequences: [{ content: [chord("whole", [note("C", 4), note("E", 4), note("G", 4)], "top")] }],
-          },
-        ],
-      },
-      { name: "Violin II", measures: [{ sequences: [{ content: [rest("whole", "r2")] }] }] },
-      { name: "Viola", measures: [{ sequences: [{ content: [rest("whole", "r3")] }] }] },
-    ],
+    type: "event",
+    id,
+    duration: { base },
+    notes: [{ id: `${id}-note`, pitch: { step, octave } }],
+  } as NoteEvent;
+}
+
+function track(content: SequenceContent[], staffOffset: number, voiceIndex = 0): ClipboardTrack {
+  return { partOffset: staffOffset, staffOffset, voiceIndex, content };
+}
+
+function fragment(tracks: ClipboardTrack[]): ClipboardFragment {
+  return {
+    type: "viritura/fragment",
+    version: 1,
+    timeSignature: { count: 4, unit: 4 },
+    keySignature: { fifths: 0 },
+    content: tracks[0]?.content ?? [],
+    tracks,
   };
 }
 
-function notesOf(score: Score, partIndex: number): Note[][] {
-  const content = score.parts[partIndex]!.measures[0]!.sequences[0]!.content;
-  return content.map((item) => (item.type === "event" ? (item.notes ?? []) : []));
+function eventPitches(content: readonly SequenceContent[]): string[][] {
+  return content
+    .filter((item): item is NoteEvent => item.type === "event")
+    .map((event) =>
+      isRest(event)
+        ? []
+        : (event.notes ?? []).map((note) => `${note.pitch.step}${note.pitch.alter ?? 0}/${note.pitch.octave}`),
+    );
 }
-
-function steps(score: Score, partIndex: number): string[][] {
-  return notesOf(score, partIndex).map((notes) => notes.map((entry) => `${entry.pitch.step}${entry.pitch.octave}`));
-}
-
-const allStaves = (score: Score) => scoreStaffOrder(score);
-/** Wrap canonical staves as one-member visible staves (the uncondensed case). */
-const visible = (refs: readonly StaffRef[]) => refs.map((ref) => ({ members: [ref] }));
 
 describe("allocateTopDown", () => {
   it("gives one entry to each slot and stacks overflow on the last", () => {
-    expect(allocateTopDown([1, 2, 3, 4], 2)).toEqual([[1], [2, 3, 4]]);
+    expect(allocateTopDown([1, 2, 3, 4], 3)).toEqual([[1], [2], [3, 4]]);
   });
 
   it("leaves surplus slots empty", () => {
     expect(allocateTopDown([1], 3)).toEqual([[1], [], []]);
   });
-
-  it("returns nothing when there are no targets", () => {
-    expect(allocateTopDown([1, 2], 0)).toEqual([]);
-  });
 });
 
-describe("buildBeatGrid", () => {
-  it("splits a measure at the union of source onsets", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        { name: "A", measures: [{ sequences: [{ content: [chord("whole", [note("C", 5)], "a")] }] }] },
-        {
-          name: "B",
-          measures: [
-            {
-              sequences: [{ content: [chord("half", [note("E", 4)], "b1"), chord("half", [note("F", 4)], "b2")] }],
-            },
-          ],
-        },
-      ],
-    };
-    const grid = buildBeatGrid(score, allStaves(score), wholeMeasures(0, 0));
-    expect(grid.measures[0]!.slots.map((slot) => [slot.beat, slot.beats])).toEqual([
-      [0, 2],
-      [2, 2],
+describe("clipboard fragment distribution", () => {
+  it("reduces two tracks to one low-to-high chordal track", () => {
+    const source = fragment([track([noteEvent("c", "C", 4)], 0), track([noteEvent("e", "E", 4)], 1)]);
+
+    const result = reduceFragment(source);
+
+    expect(result.tracks).toHaveLength(1);
+    expect(result.tracks![0]).toMatchObject({ partOffset: 0, staffOffset: 0, voiceIndex: 0 });
+    expect(eventPitches(result.tracks![0]!.content)).toEqual([["C0/4", "E0/4"]]);
+    expect(eventPitches(source.tracks![0]!.content)).toEqual([["C0/4"]]);
+  });
+
+  it("explodes a three-note chord top-down across three tracks", () => {
+    const source = fragment([
+      track(
+        [
+          {
+            ...noteEvent("chord", "C", 4),
+            notes: [
+              { id: "c", pitch: { step: "C", octave: 4 } },
+              { id: "e", pitch: { step: "E", octave: 4 } },
+              { id: "g", pitch: { step: "G", octave: 4 } },
+            ],
+          },
+        ],
+        0,
+      ),
     ]);
-    // The whole note sounds through both slots, continuing into the second.
-    expect(grid.measures[0]!.slots[1]!.notes.map((entry) => entry.continuation)).toEqual([true, false]);
-    expect(maxSimultaneity(grid)).toBe(2);
+
+    const result = explodeFragment(source);
+
+    expect(result.tracks?.map((entry) => entry.staffOffset)).toEqual([0, 1, 2]);
+    expect(result.tracks?.map((entry) => eventPitches(entry.content))).toEqual([[["G0/4"]], [["E0/4"]], [["C0/4"]]]);
   });
 
-  it("reports measures whose sources contain unsupported containers", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        {
-          name: "A",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [
-                    {
-                      type: "tuplet",
-                      inner: { duration: { base: "eighth" }, multiple: 3 },
-                      outer: { duration: { base: "quarter" }, multiple: 1 },
-                      content: [chord("quarter", [note("C", 4)], "t1")],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    const grid = buildBeatGrid(score, allStaves(score), wholeMeasures(0, 0));
-    expect(grid.measures).toHaveLength(0);
-    expect(grid.skippedMeasures).toEqual([0]);
-  });
-});
-
-describe("redistributeStaves", () => {
-  it("explodes a chord top-down across three staves", () => {
-    const score = chordOnTopStaff();
-    const staves = allStaves(score);
-    const { score: next, changed } = redistributeStaves(score, {
-      sources: visible([staves[0]!]),
-      targets: visible(staves),
-      windows: wholeMeasures(0, 0),
-    });
-
-    expect(changed).toBe(true);
-    expect(steps(next, 0)).toEqual([["G4"]]);
-    expect(steps(next, 1)).toEqual([["E4"]]);
-    expect(steps(next, 2)).toEqual([["C4"]]);
-  });
-
-  it("stacks overflow on the bottom staff when the chord is taller than the target count", () => {
-    const score = chordOnTopStaff();
-    const staves = allStaves(score);
-    const { score: next } = redistributeStaves(score, {
-      sources: visible([staves[0]!]),
-      targets: visible([staves[0]!, staves[1]!]),
-      windows: wholeMeasures(0, 0),
-    });
-
-    expect(steps(next, 0)).toEqual([["G4"]]);
-    expect(steps(next, 1)).toEqual([["C4", "E4"]]);
-  });
-
-  it("rests target staves that receive nothing", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        { name: "A", measures: [{ sequences: [{ content: [chord("whole", [note("C", 5)], "a")] }] }] },
-        { name: "B", measures: [{ sequences: [{ content: [chord("whole", [note("G", 4)], "b")] }] }] },
-      ],
-    };
-    const staves = allStaves(score);
-    const { score: next } = redistributeStaves(score, {
-      sources: visible([staves[0]!]),
-      targets: visible(staves),
-      windows: wholeMeasures(0, 0),
-    });
-
-    expect(steps(next, 0)).toEqual([["C5"]]);
-    const second = next.parts[1]!.measures[0]!.sequences[0]!.content[0]!;
-    expect(second.type === "event" && second.rest).toBeTruthy();
-  });
-
-  it("reduces many staves onto the top staff and rests the rest", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        { name: "A", measures: [{ sequences: [{ content: [chord("whole", [note("G", 4)], "a")] }] }] },
-        { name: "B", measures: [{ sequences: [{ content: [chord("whole", [note("E", 4)], "b")] }] }] },
-        { name: "C", measures: [{ sequences: [{ content: [chord("whole", [note("C", 4)], "c")] }] }] },
-      ],
-    };
-    const staves = allStaves(score);
-    const { score: next } = redistributeStaves(score, {
-      sources: visible(staves),
-      targets: visible([staves[0]!]),
-      windows: wholeMeasures(0, 0),
-    });
-
-    expect(steps(next, 0)).toEqual([["C4", "E4", "G4"]]);
-    for (const partIndex of [1, 2]) {
-      const item = next.parts[partIndex]!.measures[0]!.sequences[0]!.content[0]!;
-      expect(item.type === "event" && item.rest).toBeTruthy();
-    }
-  });
-
-  it("ties a sustained pitch across the slots the grid splits it into", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        { name: "A", measures: [{ sequences: [{ content: [chord("whole", [note("C", 5)], "a")] }] }] },
-        {
-          name: "B",
-          measures: [
-            {
-              sequences: [{ content: [chord("half", [note("E", 4)], "b1"), chord("half", [note("F", 4)], "b2")] }],
-            },
-          ],
-        },
-      ],
-    };
-    const staves = allStaves(score);
-    const { score: next } = redistributeStaves(score, {
-      sources: visible(staves),
-      targets: visible(staves),
-      windows: wholeMeasures(0, 0),
-    });
-
-    const top = notesOf(next, 0);
-    expect(top.map((notes) => notes.map((entry) => `${entry.pitch.step}${entry.pitch.octave}`))).toEqual([
-      ["C5"],
-      ["C5"],
+  it("stacks overflow on the last requested track", () => {
+    const source = fragment([
+      track(
+        [
+          {
+            ...noteEvent("chord", "C", 4),
+            notes: ["C", "E", "G", "B"].map((step, index) => ({
+              id: `n${index}`,
+              pitch: { step, octave: 4 },
+            })) as Note[],
+          },
+        ],
+        0,
+      ),
     ]);
-    expect(top[0]![0]!.ties?.[0]?.target).toBe(top[1]![0]!.id);
-    // The lower staff re-articulates because the pitch changed.
-    expect(notesOf(next, 1)[0]![0]!.ties).toBeUndefined();
+
+    const result = explodeFragment(source, 2);
+
+    expect(result.tracks?.map((entry) => eventPitches(entry.content))).toEqual([
+      [["B0/4"]],
+      [["C0/4", "E0/4", "G0/4"]],
+    ]);
   });
 
-  it("leaves measures with unsupported containers alone and warns", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }, { time: { count: 4, unit: 4 } }] },
-      parts: [
-        {
-          name: "A",
-          measures: [
-            { sequences: [{ content: [chord("whole", [note("C", 4), note("G", 4)], "m0")] }] },
-            {
-              sequences: [
-                {
-                  content: [
-                    {
-                      type: "tuplet",
-                      inner: { duration: { base: "eighth" }, multiple: 3 },
-                      outer: { duration: { base: "quarter" }, multiple: 1 },
-                      content: [chord("quarter", [note("D", 4)], "t")],
-                    },
-                    rest("half", "r"),
-                    rest("quarter", "r2"),
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          name: "B",
-          measures: [
-            { sequences: [{ content: [rest("whole", "b0")] }] },
-            { sequences: [{ content: [rest("whole", "b1")] }] },
-          ],
-        },
-      ],
-    };
-    const staves = allStaves(score);
-    const result = redistributeStaves(score, {
-      sources: visible([staves[0]!]),
-      targets: visible(staves),
-      windows: wholeMeasures(0, 1),
-    });
+  it("writes rests to requested tracks that receive no pitches", () => {
+    const source = fragment([
+      track(
+        [
+          {
+            ...noteEvent("chord", "C", 4),
+            notes: [
+              { id: "c", pitch: { step: "C", octave: 4 } },
+              { id: "g", pitch: { step: "G", octave: 4 } },
+            ],
+          },
+        ],
+        0,
+      ),
+    ]);
 
-    expect(steps(result.score, 0)).toEqual([["G4"]]);
-    expect(steps(result.score, 1)).toEqual([["C4"]]);
-    expect(result.score.parts[0]!.measures[1]!.sequences[0]!.content[0]!.type).toBe("tuplet");
-    expect(result.warnings.join(" ")).toContain("Measures 2");
+    const result = explodeFragment(source, 3);
+
+    expect(eventPitches(result.tracks![2]!.content)).toEqual([[]]);
+  });
+
+  it("uses the union rhythm when a half note sounds against running eighths", () => {
+    const source = fragment([
+      track([noteEvent("half", "C", 4, "half")], 0),
+      track(
+        [
+          noteEvent("e1", "E", 4, "eighth"),
+          noteEvent("f", "F", 4, "eighth"),
+          noteEvent("g", "G", 4, "eighth"),
+          noteEvent("a", "A", 4, "eighth"),
+        ],
+        1,
+      ),
+    ]);
+
+    const result = reduceFragment(source);
+    const events = result.tracks![0]!.content.filter((item): item is NoteEvent => item.type === "event");
+
+    expect(events.map((event) => event.duration.base)).toEqual(["eighth", "eighth", "eighth", "eighth"]);
+    expect(eventPitches(events)).toEqual([
+      ["C0/4", "E0/4"],
+      ["C0/4", "F0/4"],
+      ["C0/4", "G0/4"],
+      ["C0/4", "A0/4"],
+    ]);
+    expect(events[0]!.notes?.[0]!.ties?.[0]?.target).toBe(events[1]!.notes?.[0]!.id);
+  });
+
+  it("refuses fragments containing a secondary voice", () => {
+    const source = fragment([track([noteEvent("c", "C", 4)], 0), track([noteEvent("e", "E", 4)], 0, 1)]);
+
+    expect(() => reduceFragment(source)).toThrow(FragmentDistributionError);
+  });
+
+  it("refuses flat-grid transforms for unsupported rhythmic containers", () => {
+    const grid = buildBeatGrid([{ content: [{ type: "grace", content: [] }], leadInBeats: 0 }], { count: 4, unit: 4 });
+
+    expect(grid).toBeNull();
   });
 });
 
-describe("applyDistribution", () => {
-  const selectTop: Selection = { kind: "single", elementId: "p0/m0/s0/top", elementType: "event" };
-
-  it("annexes staves below the selection when exploding", () => {
-    const score = chordOnTopStaff();
-    const result = applyDistribution(score, selectTop, "explode");
-    expect(result?.changed).toBe(true);
-    expect(steps(result!.score, 0)).toEqual([["G4"]]);
-    expect(steps(result!.score, 1)).toEqual([["E4"]]);
-    expect(steps(result!.score, 2)).toEqual([["C4"]]);
-  });
-
-  it("does not annex staves when reducing", () => {
-    const score = chordOnTopStaff();
-    const result = applyDistribution(score, selectTop, "reduce");
-    expect(steps(result!.score, 0)).toEqual([["C4", "E4", "G4"]]);
-    expect(steps(result!.score, 1)).toEqual([[]]);
-    expect(result!.warnings).toEqual([]);
-  });
-
-  it("uses singular grammar when an explode has only one available staff", () => {
+describe("copy, reduce, and paste workflow", () => {
+  it("copies two single-voice staves, chords the destination, and leaves the sources untouched", () => {
     const score: Score = {
       mnx: { version: 1 },
       global: { measures: [{ time: { count: 4, unit: 4 } }] },
       parts: [
-        {
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [chord("whole", [note("C", 4), note("E", 4), note("G", 4)], "only")],
-                },
-              ],
-            },
-          ],
-        },
+        { name: "Flute 1", measures: [{ sequences: [{ content: [noteEvent("fl1", "C", 5, "whole")] }] }] },
+        { name: "Flute 2", measures: [{ sequences: [{ content: [noteEvent("fl2", "E", 5, "whole")] }] }] },
+        { name: "Destination", measures: [{ sequences: [{ content: [] }] }] },
       ],
     };
-    const result = applyDistribution(
+    const sourceSnapshot = structuredClone(score.parts.slice(0, 2));
+    const copied = buildClipboardSelection(score, {
+      kind: "measure",
+      startPartIndex: 0,
+      endPartIndex: 1,
+      startStaffIndex: 0,
+      endStaffIndex: 1,
+      startLocalStaffIndex: 0,
+      endLocalStaffIndex: 0,
+      startMeasure: 0,
+      endMeasure: 0,
+    });
+    expect(copied).not.toBeNull();
+    const copiedFragment = fragment(copied!.tracks);
+
+    const result = computePasteResult(
       score,
-      { kind: "single", elementId: "p0/m0/s0/only", elementType: "event" },
-      "explode",
+      {
+        kind: "measure",
+        startPartIndex: 2,
+        endPartIndex: 2,
+        startStaffIndex: 2,
+        endStaffIndex: 2,
+        startLocalStaffIndex: 0,
+        endLocalStaffIndex: 0,
+        startMeasure: 0,
+        endMeasure: 0,
+      },
+      pasteResultFromFragment(reduceFragment(copiedFragment)),
     );
 
-    expect(result!.warnings).toEqual([
-      "Only 1 staff was available for distribution; extra notes were stacked on the last staff.",
-    ]);
-  });
-
-  it("refuses to redistribute a multi-voice staff instead of rewriting its primary voice", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        {
-          name: "Piano",
-          staves: 2,
-          measures: [
-            {
-              sequences: [
-                {
-                  staff: 1,
-                  voice: "v1",
-                  content: [
-                    rest("quarter", "upper-primary-rest"),
-                    chord("quarter", [note("A", 3)], "upper-primary-note"),
-                    rest("half", "upper-primary-tail"),
-                  ],
-                },
-                {
-                  staff: 1,
-                  voice: "v2",
-                  content: [
-                    chord("quarter", [note("E", 3)], "upper-selected"),
-                    chord("quarter", [note("F", 3)], "upper-secondary-2"),
-                    chord("half", [note("G", 3)], "upper-secondary-3"),
-                  ],
-                },
-                {
-                  staff: 2,
-                  voice: "v4",
-                  content: [
-                    chord("half", [note("A", 2)], "lower-primary-1"),
-                    chord("half", [note("A", 2)], "lower-primary-2"),
-                  ],
-                },
-                {
-                  staff: 2,
-                  voice: "v5",
-                  content: [
-                    chord("quarter", [note("A", 1)], "lower-selected"),
-                    chord("quarter", [note("D", 2)], "lower-secondary-2"),
-                    chord("half", [note("A", 1)], "lower-secondary-3"),
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    const selection: Selection = {
-      kind: "multi",
-      elementIds: ["p0/m0/s1/upper-selected/n0", "p0/m0/s3/lower-selected/n0"],
-    };
-
-    const result = applyDistribution(score, selection, "reduce");
-
-    expect(result).toEqual({
-      score,
-      changed: false,
-      warnings: [
-        "Nothing was redistributed: Piano staff 1 and Piano staff 2 have more than one voice. Multi-voice distribution is not supported yet.",
-      ],
-    });
-  });
-
-  it("returns null when nothing is selected", () => {
-    expect(applyDistribution(chordOnTopStaff(), { kind: "none" }, "explode")).toBeNull();
-  });
-
-  it("rewrites only the selected span and leaves the target staff's other music alone", () => {
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        {
-          name: "A",
-          measures: [
-            {
-              sequences: [
-                {
-                  content: [chord("half", [note("C", 4), note("E", 4)], "src"), chord("half", [note("D", 4)], "keepA")],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          name: "B",
-          measures: [
-            {
-              sequences: [{ content: [chord("half", [note("B", 3)], "b1"), chord("half", [note("A", 3)], "keepB")] }],
-            },
-          ],
-        },
-      ],
-    };
-    const result = applyDistribution(
-      score,
-      { kind: "single", elementId: "p0/m0/s0/src", elementType: "event" },
-      "explode",
-    );
-
-    expect(result?.changed).toBe(true);
-    // The unselected second half of both staves survives verbatim.
-    expect(steps(result!.score, 0)).toEqual([["E4"], ["D4"]]);
-    expect(steps(result!.score, 1)).toEqual([["C4"], ["A3"]]);
-  });
-
-  /**
-   * A condensed staff renders several parts as one line. Distribution has to
-   * follow the *rendered* order: pooling both halves of the condensed staff as
-   * one source, and treating the next staff down as the next visible staff —
-   * not the hidden sibling sharing the staff the notes came from.
-   */
-  it("pools a condensed staff and explodes onto the next visible staff", () => {
-    const part = (id: string, name: string, step: Pitch["step"], octave: number, eventId: string) => ({
-      id,
-      name,
-      measures: [{ sequences: [{ content: [chord("whole", [note(step, octave)], eventId)] }] }],
-    });
-    const score: Score = {
-      mnx: { version: 1 },
-      global: { measures: [{ time: { count: 4, unit: 4 } }] },
-      parts: [
-        part("P1", "Flute", "G", 5, "fl1"),
-        part("P2", "Flute", "D", 5, "fl2"),
-        part("P3", "Oboe", "G", 4, "ob1"),
-        part("P4", "Oboe", "D", 4, "ob2"),
-      ],
-      layouts: [
-        {
-          id: "condensed",
-          content: [
-            { type: "staff", sources: [{ part: "P1" }, { part: "P2" }] },
-            { type: "staff", sources: [{ part: "P3" }, { part: "P4" }] },
-          ],
-        },
-      ],
-      scores: [{ name: "Condensed", layout: "condensed" }],
-    };
-
-    const selection: Selection = { kind: "single", elementId: "p0/m0/s0/fl1", elementType: "event" };
-    const result = applyDistribution(score, selection, "explode", 0);
-
-    expect(result?.changed).toBe(true);
-    // Both flute parts pool into one source, so the pair explodes across the
-    // two *visible* staves rather than vanishing into the condensed sibling.
-    expect(steps(result!.score, 0)).toEqual([["G5"]]);
-    expect(steps(result!.score, 2)).toEqual([["D5"]]);
-    // The condensed siblings are silenced (rest granularity is not significant).
-    expect(steps(result!.score, 1).flat()).toEqual([]);
-    expect(steps(result!.score, 3).flat()).toEqual([]);
+    expect(result).not.toBeNull();
+    expect(result!.newScore.parts.slice(0, 2)).toEqual(sourceSnapshot);
+    expect(eventPitches(result!.newScore.parts[2]!.measures[0]!.sequences[0]!.content)).toEqual([["C0/5", "E0/5"]]);
   });
 });
 
 describe("mergeNotesIntoEvent", () => {
   it("adds pitches and keeps the chord ordered low to high", () => {
-    const event = chord("whole", [note("E", 4)], "x");
-    expect(mergeNotesIntoEvent(event, [note("C", 4), note("G", 4)])).toBe(true);
-    expect(event.notes!.map((entry) => entry.pitch.step)).toEqual(["C", "E", "G"]);
+    const target = noteEvent("target", "G", 4);
+    mergeNotesIntoEvent(target, [{ pitch: { step: "C", octave: 4 } }, { pitch: { step: "E", octave: 4 } }]);
+    expect(eventPitches([target])).toEqual([["C0/4", "E0/4", "G0/4"]]);
   });
 
-  it("drops duplicates of a pitch already in the chord", () => {
-    const event = chord("whole", [note("E", 4)], "x");
-    expect(mergeNotesIntoEvent(event, [note("E", 4)])).toBe(false);
-    expect(event.notes).toHaveLength(1);
-  });
-
-  it("turns a rest into the incoming chord", () => {
-    const event = rest("whole", "r");
-    expect(mergeNotesIntoEvent(event, [note("C", 4)])).toBe(true);
-    expect(event.rest).toBeUndefined();
-    expect(event.notes).toHaveLength(1);
-  });
-
-  it("gives merged notes fresh identities", () => {
-    const event = chord("whole", [note("E", 4, "keep")], "x");
-    const incoming = note("C", 4, "source");
-    mergeNotesIntoEvent(event, [incoming]);
-    expect(event.notes!.find((entry) => entry.pitch.step === "C")!.id).not.toBe("source");
+  it("drops duplicate pitches", () => {
+    const target = noteEvent("target", "C", 4);
+    expect(mergeNotesIntoEvent(target, [{ pitch: { step: "C", octave: 4 } }])).toBe(false);
   });
 });

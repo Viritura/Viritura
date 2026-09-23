@@ -48,8 +48,8 @@ export interface MenuBarCallbacks {
   readonly onZoomOut?: () => void;
   readonly onResetZoom?: () => void;
   readonly onTranspose?: () => void;
-  readonly onExplodeSelection?: () => void;
-  readonly onReduceSelection?: () => void;
+  readonly onExplodeSelection?: () => void | Promise<void>;
+  readonly onReduceSelection?: () => void | Promise<void>;
   readonly onSelectChordTopNote?: () => void;
   readonly onSelectChordBottomNote?: () => void;
   readonly onSplitOrchestralStaves?: () => void;
@@ -77,6 +77,7 @@ export interface MenuBarState {
   readonly hasSelection?: boolean;
   readonly canTranspose?: boolean;
   readonly hasDocument?: boolean;
+  readonly canDistribute?: boolean;
 }
 
 export interface TopLevelMenu {
@@ -169,9 +170,9 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
     {
       label: "Explode to Staves",
       action: callbacks.onExplodeSelection,
-      disabled: !state.hasSelection,
+      disabled: !state.canDistribute,
     },
-    { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !state.hasSelection },
+    { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !state.canDistribute },
     {
       label: "Select Top Note of Chords",
       action: callbacks.onSelectChordTopNote,
