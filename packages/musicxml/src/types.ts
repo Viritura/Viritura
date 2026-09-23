@@ -286,10 +286,12 @@ export interface MnxNote {
   id?: string;
   ties?: MnxTie[];
   staff?: number;
-  /** Raw MusicXML `<notehead>` token (e.g. "x", "diamond"), preserved for
-   *  percussion conversion. MNX has no notehead on a note; only kit-components
-   *  carry it (via `_x.viritura.notehead`), so this is consumed there. */
-  notehead?: string;
+  /** Vendor-extension per-note notehead override (mapped from a MusicXML
+   *  `<notehead>` token). MNX has no notehead field on a note (W3C MNX issue
+   *  #249). Percussion conversion reads this back off the note to build
+   *  kit-components, then discards the note entirely (replaced by
+   *  `kitNotes`), so it never survives onto a drum hit. */
+  _x?: { viritura: { notehead?: string } };
 }
 
 export interface MnxTie {

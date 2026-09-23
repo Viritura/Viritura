@@ -25,29 +25,6 @@ const G4_DIATONIC = 32;
 
 const STEP_INDEX: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
 
-// MusicXML `<notehead>` token → Viritura notehead shape (vendor extension enum:
-// normal | x | circleX | diamond | slash | triangleUp | triangleDown). Tokens
-// not listed (square, cluster, none, …) have no Viritura equivalent and fall
-// back to the default `normal` notehead.
-const NOTEHEAD_MAP: Record<string, string> = {
-  x: "x",
-  cross: "x",
-  "circle-x": "circleX",
-  diamond: "diamond",
-  slash: "slash",
-  slashed: "slash",
-  triangle: "triangleUp",
-  "inverted triangle": "triangleDown",
-};
-
-/** Map a raw MusicXML notehead token to a Viritura notehead shape, or undefined
- *  for the default (normal) head. */
-function noteheadShape(token: string | undefined): string | undefined {
-  if (!token) return undefined;
-  const shape = NOTEHEAD_MAP[token];
-  return shape && shape !== "normal" ? shape : undefined;
-}
-
 /** General MIDI percussion note → human-readable name (channel 10 key map). */
 const GM_PERCUSSION_NAMES: Record<number, string> = {
   35: "Acoustic Bass Drum",
@@ -231,7 +208,10 @@ function convertPart(part: MnxPart, info: PartInfo | undefined, sounds: Record<s
         for (const note of event.notes) {
           if (!note.pitch) continue;
           const staffPosition = diatonic(note.pitch) + writtenCorrection - G4_DIATONIC;
-          const notehead = noteheadShape(note.notehead);
+          // Already mapped to a Viritura shape by `buildNote` (see notes.ts) —
+          // consumed here to key the kit-component, then the note (and its
+          // vendor extension) is discarded below in favor of `kitNotes`.
+          const notehead = note._x?.viritura.notehead;
           const componentId = componentForPosition(builder, part.id, staffPosition, notehead, fixedGm, sounds);
           const kitNote: MnxKitNote = { kitComponent: componentId };
           if (note.staff !== undefined) kitNote.staff = note.staff;

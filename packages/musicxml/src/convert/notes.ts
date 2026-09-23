@@ -1,4 +1,4 @@
-import { ACCIDENTAL_MAP, ARTICULATION_MAP } from "../constants";
+import { ACCIDENTAL_MAP, ARTICULATION_MAP, noteheadShape } from "../constants";
 import { childElements, childText, findChild, findChildren, notationChild, notationChildren } from "../xmlHelpers";
 import type { MnxEvent, MnxEventMarkings, MnxGlissando, MnxNote, MnxSlur, MnxTie } from "../types";
 import { IdGenerator } from "./idGenerator";
@@ -181,13 +181,16 @@ export function buildNote(
     }
   }
 
-  // Notehead shape (`<notehead>x</notehead>`, etc.). Only meaningful for
-  // percussion conversion, which maps it onto the kit-component; carried raw
-  // so the mapping lives next to the rest of the kit logic.
+  // Notehead shape (`<notehead>x</notehead>`, etc.). MNX has no notehead
+  // field on note (W3C MNX issue #249), so a mapped shape is carried as the
+  // `_x.viritura.notehead` vendor extension — a per-note override matching
+  // Viritura's kit-component notehead extension. Percussion conversion reads
+  // it back off the note to build kit-components, then discards the note
+  // entirely (replaced by `kitNotes`), so this never leaks onto a drum hit.
   const noteheadEl = findChild(noteEl, "notehead");
   if (noteheadEl) {
-    const shape = (noteheadEl.textContent ?? "").trim().toLowerCase();
-    if (shape) note.notehead = shape;
+    const shape = noteheadShape((noteheadEl.textContent ?? "").trim().toLowerCase());
+    if (shape) note._x = { viritura: { notehead: shape } };
   }
 
   return note;
