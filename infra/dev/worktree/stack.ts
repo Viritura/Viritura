@@ -50,6 +50,7 @@ const sharedBuildVolumes = [
 
 interface StackContext {
   readonly repositoryRoot: string;
+  readonly primaryRepositoryRoot: string;
   readonly proxyCompose: string;
   readonly worktreeCompose: string;
   readonly stateRoot: string;
@@ -72,15 +73,20 @@ async function gitOutput(runner: CommandRunner, args: readonly string[], cwd: st
 async function createContext(runner: CommandRunner): Promise<StackContext> {
   const cwd = process.cwd();
   const repositoryRoot = await gitOutput(runner, ["rev-parse", "--show-toplevel"], cwd);
+  const gitCommonDirectory = await gitOutput(
+    runner,
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    repositoryRoot,
+  );
+  const primaryRepositoryRoot = dirname(gitCommonDirectory);
   const branch = await gitOutput(runner, ["rev-parse", "--abbrev-ref", "HEAD"], repositoryRoot);
   const slug = deriveSlug(repositoryRoot, branch);
   const project = `viritura-${slug}`;
   const stateRoot = getStateRoot(process.platform, process.env, homedir());
   const dependencyHash = getContentTag(repositoryRoot, getNodeDependencyInputs(repositoryRoot));
   const apiRestoreHash = getContentTag(repositoryRoot, getApiRestoreInputs(repositoryRoot));
-  const apiConfigDirectory = join(stateRoot, slug);
-  const apiEnvFile = join(apiConfigDirectory, "api.env");
-  mkdirSync(apiConfigDirectory, { recursive: true, mode: 0o700 });
+  const apiEnvFile = join(stateRoot, "api.env");
+  mkdirSync(stateRoot, { recursive: true, mode: 0o700 });
   const env = {
     ...process.env,
     VIRITURA_SLUG: slug,
@@ -92,6 +98,7 @@ async function createContext(runner: CommandRunner): Promise<StackContext> {
   const scriptDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   return {
     repositoryRoot,
+    primaryRepositoryRoot,
     proxyCompose: join(scriptDirectory, "proxy", "docker-compose.yml"),
     worktreeCompose: join(scriptDirectory, "worktree", "docker-compose.yml"),
     stateRoot,
@@ -210,15 +217,29 @@ function profileArgs(targets: readonly string[]): string[] {
 
 function showUrls(context: StackContext): void {
   console.log(`\nWorktree slug: ${context.slug}`);
-  console.log(`  Editor       http://editor.${context.slug}.localhost`);
-  console.log(`  API          http://api.${context.slug}.localhost`);
-  console.log(`  Website      http://web.${context.slug}.localhost`);
-  console.log(`  UI stories   http://ui.${context.slug}.localhost`);
-  console.log(`  MNX stories  http://mnx.${context.slug}.localhost`);
-  console.log(`  App stories  http://storybook.${context.slug}.localhost`);
+  console.log(`  Editor       http://editor.${context.slug}.viritura.localhost`);
+  console.log("  API          http://api.viritura.localhost  (shared from primary checkout)");
+  console.log(`  Website      http://web.${context.slug}.viritura.localhost`);
+  console.log(`  UI stories   http://ui.${context.slug}.viritura.localhost`);
+  console.log(`  MNX stories  http://mnx.${context.slug}.viritura.localhost`);
+  console.log(`  App stories  http://storybook.${context.slug}.viritura.localhost`);
   console.log("  Traefik      http://traefik.localhost  (dashboard http://127.0.0.1:8080)");
-  console.log("\n  Container API URL: http://api:8080");
-  console.log(`  API secrets file: ${context.apiEnvFile}\n`);
+  console.log("\n  Container API URL: http://viritura-dev-api:8080");
+  console.log(`  Shared API source: ${context.primaryRepositoryRoot}`);
+  console.log(`  API secrets file:  ${context.apiEnvFile}\n`);
+}
+
+function targetsIncludeBackend(targets: readonly string[]): boolean {
+  return getProfiles(targets).some((profile) => profile === "backend" || profile === "full");
+}
+
+function requirePrimaryCheckoutForBackend(context: StackContext, targets: readonly string[]): void {
+  if (!targetsIncludeBackend(targets)) return;
+  if (resolve(context.repositoryRoot) === resolve(context.primaryRepositoryRoot)) return;
+  throw new Error(
+    `The shared development API must run from the primary checkout at '${context.primaryRepositoryRoot}'. ` +
+      "Run 'pnpm dev:stack up backend' there; normal worktrees should use 'pnpm dev:stack up'.",
+  );
 }
 
 async function prepareStack(docker: DockerClient, context: StackContext, targets: readonly string[]): Promise<void> {
@@ -238,6 +259,9 @@ export async function runStackCommand(
   runner: CommandRunner,
 ): Promise<void> {
   const context = await createContext(runner);
+  if (["up", "watch", "restart", "rebuild"].includes(command)) {
+    requirePrimaryCheckoutForBackend(context, targets);
+  }
   if (command === "slug") {
     console.log(context.slug);
     return;

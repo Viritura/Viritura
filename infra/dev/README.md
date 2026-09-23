@@ -1,19 +1,25 @@
 # Parallel Git-worktree development
 
-Run any number of worktrees behind one shared Traefik proxy. Every worktree gets
-its own Compose project, internal network, compiler output, and
-`*.<slug>.localhost` routes. Worktrees with the same dependency manifests share
-one read-only Node dependency set; all worktrees share package-download caches,
-one development API database, and one Data Protection key ring. Application
-containers do not publish host ports.
+Run any number of frontend worktrees behind one shared Traefik proxy. Every
+worktree gets its own Compose project, compiler output, and
+`*.<slug>.viritura.localhost` UI routes. A single API from the primary checkout serves
+every worktree at `api.viritura.localhost`. Worktrees with the same dependency
+manifests share one read-only Node dependency set; all worktrees share
+package-download caches, the development API database, and one Data Protection
+key ring. Application containers do not publish host ports.
 
 ## Quick start
 
-Run from any worktree after starting Docker Desktop, Docker Engine, or another
-compatible Docker service:
+Start the shared backend once from the primary checkout:
 
 ```bash
-pnpm dev:stack up     # app: editor + API + server UI watcher
+pnpm dev:stack up backend
+```
+
+Then run the frontend from any worktree:
+
+```bash
+pnpm dev:stack up     # app: editor using the shared API
 pnpm dev:stack watch  # app plus continuous Rust/WASM rebuilding
 pnpm dev:stack status
 ```
@@ -25,19 +31,19 @@ The wrapper prints the worktree slug and routes. Chromium browsers resolve
 
 Targets select Compose profiles and can be combined:
 
-| Target          | Services                                                    |
-| --------------- | ----------------------------------------------------------- |
-| `app`           | Editor, API, and server UI watcher (default)                |
-| `core`          | Compatibility alias for `app`                               |
-| `editor`        | Editor only                                                 |
-| `ui`            | Editor and marketing website                                |
-| `website`       | Website, API, and server UI watcher                         |
-| `backend`       | Hot-reload API and server UI watcher                        |
-| `storybook-ui`  | UI design-system Storybook                                  |
-| `storybook-mnx` | MNX and Viritura extension Storybook                        |
-| `storybook-app` | Composed-app Storybook                                      |
-| `storybook`     | All three Storybooks                                        |
-| `full`          | Editor, website, API, server UI watcher, and all Storybooks |
+| Target          | Services                                                            |
+| --------------- | ------------------------------------------------------------------- |
+| `app`           | Editor using the shared API (default)                               |
+| `core`          | Compatibility alias for `app`                                       |
+| `editor`        | Editor only                                                         |
+| `ui`            | Editor and marketing website                                        |
+| `website`       | Website using the shared API                                        |
+| `backend`       | Shared hot-reload API and server UI watcher (primary checkout only) |
+| `storybook-ui`  | UI design-system Storybook                                          |
+| `storybook-mnx` | MNX and Viritura extension Storybook                                |
+| `storybook-app` | Composed-app Storybook                                              |
+| `storybook`     | All three Storybooks                                                |
+| `full`          | All UI surfaces plus the shared backend (primary checkout only)     |
 
 Use `pnpm dev:stack watch [targets]` instead of `up [targets]` when Rust/WASM
 changes should rebuild continuously. UI and API watching is enabled in both
@@ -71,14 +77,14 @@ to render scores or run the API.
 
 For a slug such as `feature-collab-a1b2`:
 
-| Service       | Public browser URL                               | Internal container URL      |
-| ------------- | ------------------------------------------------ | --------------------------- |
-| Editor        | `http://editor.feature-collab-a1b2.localhost`    | `http://editor:5173`        |
-| API           | `http://api.feature-collab-a1b2.localhost`       | `http://api:8080`           |
-| Website       | `http://web.feature-collab-a1b2.localhost`       | `http://website:5180`       |
-| UI Storybook  | `http://ui.feature-collab-a1b2.localhost`        | `http://storybook-ui:6005`  |
-| MNX Storybook | `http://mnx.feature-collab-a1b2.localhost`       | `http://storybook-mnx:6006` |
-| App Storybook | `http://storybook.feature-collab-a1b2.localhost` | `http://storybook-app:6007` |
+| Service       | Public browser URL                                        | Internal container URL         |
+| ------------- | --------------------------------------------------------- | ------------------------------ |
+| Editor        | `http://editor.feature-collab-a1b2.viritura.localhost`    | `http://editor:5173`           |
+| API           | `http://api.viritura.localhost`                           | `http://viritura-dev-api:8080` |
+| Website       | `http://web.feature-collab-a1b2.viritura.localhost`       | `http://website:5180`          |
+| UI Storybook  | `http://ui.feature-collab-a1b2.viritura.localhost`        | `http://storybook-ui:6005`     |
+| MNX Storybook | `http://mnx.feature-collab-a1b2.viritura.localhost`       | `http://storybook-mnx:6006`    |
+| App Storybook | `http://storybook.feature-collab-a1b2.viritura.localhost` | `http://storybook-app:6007`    |
 
 The Traefik dashboard is at <http://traefik.localhost> or
 <http://127.0.0.1:8080>.
@@ -88,31 +94,32 @@ The Traefik dashboard is at <http://traefik.localhost> or
 Compose injects these values into services:
 
 ```text
-VIRITURA_PUBLIC_EDITOR_URL=http://editor.<slug>.localhost
-VIRITURA_PUBLIC_WEBSITE_URL=http://web.<slug>.localhost
-VIRITURA_PUBLIC_API_URL=http://api.<slug>.localhost
-VIRITURA_INTERNAL_API_URL=http://api:8080
+VIRITURA_PUBLIC_EDITOR_URL=http://editor.<slug>.viritura.localhost
+VIRITURA_PUBLIC_WEBSITE_URL=http://web.<slug>.viritura.localhost
+VIRITURA_PUBLIC_API_URL=http://api.viritura.localhost
+VIRITURA_INTERNAL_API_URL=http://viritura-dev-api:8080
 ```
 
 The distinction is important:
 
 - Browser code receives `VITE_VIRITURA_API_BASE_URL` with the public Traefik
   URL. A browser cannot resolve Docker service names.
-- Server-side container calls should use `VIRITURA_INTERNAL_API_URL`; Compose
-  DNS resolves `api` inside only that worktree's isolated network.
-- The API receives exact editor and website origins for CORS and OAuth return
-  validation, plus its worktree-specific public redirect URL.
+- Server-side container calls use `VIRITURA_INTERNAL_API_URL`; the shared
+  proxy network resolves `viritura-dev-api`.
+- In Development, the API accepts only routed `http://editor.<slug>.viritura.localhost`
+  and `http://web.<slug>.viritura.localhost` frontend origins in addition to explicit
+  local origins. Production retains its exact-origin allowlist.
 
 Optional local settings are split to avoid leaking backend secrets into
 frontend processes:
 
-- Copy entries from `.env.api.example` to the external per-worktree path shown
+- Copy entries from `.env.api.example` to the machine-wide external path shown
   by `pnpm dev:stack url` for API secrets such as GitHub or Google OAuth
-  credentials. It is `%LOCALAPPDATA%\Viritura\dev\<slug>\api.env` on Windows,
-  `~/Library/Application Support/Viritura/dev/<slug>/api.env` on macOS, and
-  `$XDG_STATE_HOME/viritura/dev/<slug>/api.env` (or
-  `~/.local/state/viritura/dev/<slug>/api.env`) on Linux. Never place API secrets inside
-  the repository: frontend containers bind-mount the source tree.
+  credentials. It is `%LOCALAPPDATA%\Viritura\dev\api.env` on Windows,
+  `~/Library/Application Support/Viritura/dev/api.env` on macOS, and
+  `$XDG_STATE_HOME/viritura/dev/api.env` (or
+  `~/.local/state/viritura/dev/api.env`) on Linux. Never place API secrets
+  inside the repository: frontend containers bind-mount the source tree.
 - Copy entries from `.env.frontend.example` to ignored
   `.env.frontend.local` for non-secret browser build settings. Every `VITE_`
   value is public.
@@ -160,7 +167,7 @@ startup compilation substantially smaller while preserving fast incremental
 Rust rebuilds. Use `pnpm dev:stack wasm` when you need the optimized release
 artifact.
 
-The API's SQLite database and Data Protection keys live in the machine-wide
+The shared API's SQLite database and Data Protection keys live in the machine-wide
 external volume `viritura-dev-api-data`. Sharing both is required because
 Identity and provider tokens stored in the database are encrypted with the Data
 Protection key ring. Local email registration skips mailbox verification in the
@@ -179,10 +186,10 @@ branch-dependent compiler output remain worktree-specific. Normal `stop` and
 `down` preserve this output; `prune` removes it. All lifecycle commands preserve
 the shared API volume.
 
-Because every running API migrates the same SQLite schema at startup, avoid
-running worktrees whose branches contain incompatible database migrations at
-the same time. The shared database also contains OpenIddict and GitHub
-installation records in addition to Identity accounts.
+Only the primary checkout may start the backend profile, preventing competing
+worktree APIs from migrating the shared SQLite schema. The shared database also
+contains OpenIddict and GitHub installation records in addition to Identity
+accounts.
 
 ## Troubleshooting
 
@@ -210,7 +217,7 @@ transformed. To confirm, ask the server directly rather than trusting the file o
 disk:
 
 ```bash
-curl.exe -s -H "Host: editor.<slug>.localhost" http://127.0.0.1/src/main.tsx
+curl.exe -s -H "Host: editor.<slug>.viritura.localhost" http://127.0.0.1/src/main.tsx
 ```
 
 If that output is stale, restart the service:

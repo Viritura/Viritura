@@ -373,6 +373,18 @@ public sealed class GitHubAuthControllerTests : IClassFixture<WebApplicationFact
 
     private sealed class RevokedInstallationOAuthClient : IGitHubOAuthClient
     {
+        public Task<GitHubCreatedRepository?> FindRepositoryAsync(
+            string accessToken,
+            string owner,
+            string name,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<GitHubCreatedRepository>> ListRepositoriesAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<GitHubTokenBundle> ExchangeCodeAsync(string code, string redirectUri, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

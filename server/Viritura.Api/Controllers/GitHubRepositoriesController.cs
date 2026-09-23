@@ -24,6 +24,101 @@ public sealed class GitHubRepositoriesController(
     UserManager<AppUser> userManager,
     IAntiforgery antiforgery) : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<GitHubCreatedRepository>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> List(CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var installation = await installationStore.FindAsync(userId, cancellationToken);
+        if (installation is null)
+        {
+            return Unauthorized(new { error = "No Viritura GitHub installation is linked to this account." });
+        }
+
+        GitHubSessionEnvelope refreshed;
+        try
+        {
+            refreshed = await refresher.RefreshAsync(installation, cancellationToken);
+        }
+        catch (GitHubSessionExpiredException)
+        {
+            await installationStore.DeleteAsync(userId, cancellationToken);
+            return Unauthorized(new { error = "The Viritura GitHub session has expired. Sign in again." });
+        }
+        catch (HttpRequestException exception) when (IsTransient(exception.StatusCode))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "GitHub is temporarily unavailable." });
+        }
+
+        try
+        {
+            return Ok(await oauthClient.ListRepositoriesAsync(refreshed.TokenBundle.AccessToken, cancellationToken));
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await installationStore.DeleteAsync(userId, cancellationToken);
+            return Unauthorized(new { error = "The Viritura GitHub session has expired. Sign in again." });
+        }
+        catch (HttpRequestException exception) when (IsTransient(exception.StatusCode))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "GitHub is temporarily unavailable." });
+        }
+    }
+
+    [HttpGet("{owner}/{name}")]
+    [ProducesResponseType(typeof(GitHubCreatedRepository), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Find(
+        [FromRoute, RegularExpression("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")] string owner,
+        [FromRoute, RegularExpression("^[A-Za-z0-9._-]{1,100}$")] string name,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        var userId = userManager.GetUserId(User);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var installation = await installationStore.FindAsync(userId, cancellationToken);
+        if (installation is null)
+        {
+            return Unauthorized(new { error = "No Viritura GitHub installation is linked to this account." });
+        }
+
+        GitHubSessionEnvelope refreshed;
+        try
+        {
+            refreshed = await refresher.RefreshAsync(installation, cancellationToken);
+        }
+        catch (GitHubSessionExpiredException)
+        {
+            await installationStore.DeleteAsync(userId, cancellationToken);
+            return Unauthorized(new { error = "The Viritura GitHub session has expired. Sign in again." });
+        }
+        catch (HttpRequestException exception) when (IsTransient(exception.StatusCode))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "GitHub is temporarily unavailable." });
+        }
+
+        try
+        {
+            var repository = await oauthClient.FindRepositoryAsync(
+                refreshed.TokenBundle.AccessToken,
+                owner,
+                name,
+                cancellationToken);
+            return repository is null ? NotFound() : Ok(repository);
+        }
+        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await installationStore.DeleteAsync(userId, cancellationToken);
+            return Unauthorized(new { error = "The Viritura GitHub session has expired. Sign in again." });
+        }
+        catch (HttpRequestException exception) when (IsTransient(exception.StatusCode))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "GitHub is temporarily unavailable." });
+        }
+    }
+
     public sealed record CreateRepositoryRequest
     {
         [Required, StringLength(100, MinimumLength = 1)]

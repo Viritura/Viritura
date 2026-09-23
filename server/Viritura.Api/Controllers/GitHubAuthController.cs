@@ -469,7 +469,7 @@ public sealed class GitHubAuthController(
         MaxAge = TimeSpan.FromMinutes(10)
     };
 
-    private static string ResolveReturnUrl(string returnTo, GitHubAuthOptions options)
+    private string ResolveReturnUrl(string returnTo, GitHubAuthOptions options)
     {
         if (IsSafeRelativeReturnUrl(returnTo) &&
             Uri.TryCreate(returnTo, UriKind.Relative, out var relativeUri))
@@ -497,8 +497,13 @@ public sealed class GitHubAuthController(
         !returnTo.Contains('\\', StringComparison.Ordinal) &&
         Uri.TryCreate(returnTo, UriKind.Relative, out _);
 
-    private static bool IsAllowedOrigin(Uri uri, GitHubAuthOptions options)
+    private bool IsAllowedOrigin(Uri uri, GitHubAuthOptions options)
     {
+        if (environment.IsDevelopment() && DevelopmentFrontendOrigin.IsWorktreeEditor(uri))
+        {
+            return true;
+        }
+
         if (Uri.TryCreate(options.FrontendBaseUrl, UriKind.Absolute, out var frontendBase) &&
             string.Equals(uri.GetLeftPart(UriPartial.Authority), frontendBase.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
         {

@@ -3,6 +3,8 @@ import {
   beginGitHubLogin,
   consumeGitHubOAuthReturnIntent,
   createGitHubRepository,
+  findGitHubRepository,
+  listGitHubRepositories,
   getGitHubGitProxyUrl,
   getGitHubLoginUrl,
   getGitHubOAuthPopupReturnUrl,
@@ -151,6 +153,55 @@ describe("GitHub API client", () => {
       }),
     );
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("token-123");
+  });
+
+  it("finds an accessible GitHub repository and treats 404 as not ready", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 })).mockResolvedValueOnce(
+      jsonResponse({
+        id: 42,
+        name: "viritura-score",
+        fullName: "peter/viritura-score",
+        htmlUrl: "https://github.com/peter/viritura-score",
+        cloneUrl: "https://github.com/peter/viritura-score.git",
+        private: true,
+        defaultBranch: "main",
+      }),
+    );
+
+    await expect(findGitHubRepository("peter", "viritura-score", "https://localhost:5001")).resolves.toBeNull();
+    await expect(findGitHubRepository("peter", "viritura-score", "https://localhost:5001")).resolves.toMatchObject({
+      fullName: "peter/viritura-score",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://localhost:5001/github/repositories/peter/viritura-score",
+      expect.objectContaining({ credentials: "include", method: "GET" }),
+    );
+  });
+
+  it("lists repositories accessible to the GitHub App", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([
+        {
+          id: 42,
+          name: "viritura-score",
+          fullName: "peter/viritura-score",
+          htmlUrl: "https://github.com/peter/viritura-score",
+          cloneUrl: "https://github.com/peter/viritura-score.git",
+          private: true,
+          defaultBranch: "main",
+        },
+      ]),
+    );
+
+    await expect(listGitHubRepositories("https://localhost:5001")).resolves.toMatchObject([
+      { fullName: "peter/viritura-score", private: true },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://localhost:5001/github/repositories",
+      expect.objectContaining({ credentials: "include", method: "GET" }),
+    );
   });
 
   it("explains GitHub App installation permission failures", async () => {

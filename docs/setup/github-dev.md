@@ -1,12 +1,12 @@
 # GitHub Dev Setup
 
-This page explains how to run the local Viritura GitHub integration without committing credentials. The normal editor, renderer, engine, and most tests do not require GitHub credentials. These steps are only needed for live OAuth, GitHub App install, and repository creation testing.
+This page explains how to run the local Viritura GitHub integration without committing credentials. The normal editor, renderer, engine, and most tests do not require GitHub credentials. These steps are only needed for live OAuth, GitHub App install, and repository synchronization testing.
 
 ## What Each Contributor Needs
 
 Each contributor who wants to test the live GitHub integration should create their own development GitHub App. Do not commit shared app secrets to the repository.
 
-A maintainer can also distribute credentials for a shared development app out-of-band, but that should be treated like any other secret. For an open source repository, the safe default is: every contributor uses their own GitHub App and local user-secrets.
+A maintainer can also distribute credentials for a shared development app out-of-band, but that should be treated like any other secret. For an open source repository, the safe default is: every contributor uses their own GitHub App and the machine-wide external API environment file.
 
 ## Create A Development GitHub App
 
@@ -16,20 +16,19 @@ Recommended local values:
 
 ```text
 GitHub App name:       viritura-dev-<your-login>
-Homepage URL:          http://localhost:5173
-Callback URL:          https://localhost:5001/github/auth/callback
-Setup URL:             https://localhost:5001/github/auth/callback
+Homepage URL:          http://editor.<any-worktree-slug>.viritura.localhost
+Callback URL:          http://api.viritura.localhost/github/auth/callback
+Setup URL:             http://api.viritura.localhost/github/auth/callback
 Webhook:               Disabled for local development
 Expire user tokens:    Enabled, if GitHub offers the option
 ```
 
 The callback URL and setup URL intentionally point at the same local API route. OAuth returns include `code` and `state`; GitHub App installation returns include `installation_id` and `setup_action`. The API detects the installation setup callback and redirects back to the editor instead of treating it as a failed OAuth callback.
 
-For the current admin repository creation flow, configure these permissions:
+Configure these permissions:
 
 ```text
 Repository permissions:
-- Administration: Read and write
 - Contents: Read and write
 - Metadata: Read-only
 
@@ -37,9 +36,10 @@ Account permissions:
 - Email addresses: Read-only, optional
 ```
 
-The lower-permission future flow should avoid `Administration: Read and write` and require users to create/install repositories themselves. The current dev flow intentionally exercises the broader one-click repository creation path.
-
-GitHub App sign-in and installation are separate. Signing in authorizes Viritura to act as the user, but repository creation also requires the app to be installed on the target account with the `Administration: Read and write` permission. After OAuth, the API checks `GET /user/installations` and reports whether the app is installed on the signed-in personal account with repository administration access. If GitHub returns `Resource not available by integration`, install the app on that account, then refresh the account popover or sign out and sign in again so the user token reflects the current app permissions.
+GitHub App sign-in and installation are separate. Signing in authorizes Viritura
+to act as the user. Repository synchronization also requires the app to be
+installed for that repository. Viritura sends users to GitHub's native new
+repository form and never needs `Administration: Read and write`.
 
 After creating the app, note:
 
@@ -55,118 +55,43 @@ The private key is not used by the current OAuth/token broker yet, but it is nee
 
 The editor does not hard-code the development app slug. It reads `/github/app` from the API, and the API builds the install URL from `Viritura:GitHub:AppSlug`. Local development can point at `viritura-dev`; production should use the production API's own GitHub App config when that app exists.
 
-## Store The Private Key Locally
+## Configure The Shared Dev-Stack API
 
-From the repository root:
-
-```powershell
-New-Item -ItemType Directory -Force -Path ".secrets\github" | Out-Null
-Copy-Item -LiteralPath "C:\Path\To\your-dev-app.private-key.pem" -Destination ".secrets\github\viritura-dev.private-key.pem"
-git check-ignore -v ".secrets/github/viritura-dev.private-key.pem"
-```
-
-The repository ignores `.secrets/` and `*.private-key.pem`. `git check-ignore` should report a matching `.gitignore` rule.
-
-## Configure .NET User-Secrets
-
-Initialize user-secrets once for the API project. If the project already has a `UserSecretsId`, this step can be skipped.
+The primary checkout owns one shared backend at
+`http://api.viritura.localhost`. Every worktree editor uses that backend. Copy
+the required entries from `infra/dev/.env.api.example` to the external path
+printed by:
 
 ```powershell
-dotnet user-secrets init --project server/Viritura.Api
+pnpm dev:stack url
 ```
 
-Then set your local GitHub App values:
-
-```powershell
-dotnet user-secrets set "Viritura:GitHub:ClientId" "<client-id>" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:ClientSecret" "<client-secret>" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:RedirectUri" "https://localhost:5001/github/auth/callback" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:FrontendBaseUrl" "http://localhost:5173" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:AppSlug" "<app-slug>" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:AppId" "<app-id>" --project server/Viritura.Api
-dotnet user-secrets set "Viritura:GitHub:PrivateKeyPath" ".secrets/github/viritura-dev.private-key.pem" --project server/Viritura.Api
-```
-
-Check that the keys exist without printing the client secret value:
-
-```powershell
-dotnet user-secrets list --project server/Viritura.Api |
-  ForEach-Object { ($_ -split '\s*=\s*', 2)[0].Trim() } |
-  Sort-Object
-```
-
-Expected keys:
+On Windows this is `%LOCALAPPDATA%\Viritura\dev\api.env`. Add:
 
 ```text
-Viritura:GitHub:AppId
-Viritura:GitHub:AppSlug
-Viritura:GitHub:ClientId
-Viritura:GitHub:ClientSecret
-Viritura:GitHub:FrontendBaseUrl
-Viritura:GitHub:PrivateKeyPath
-Viritura:GitHub:RedirectUri
+Viritura__GitHub__ClientId=<client-id>
+Viritura__GitHub__ClientSecret=<client-secret>
+Viritura__GitHub__AppSlug=<app-slug>
 ```
-
-## Trust The Local HTTPS Certificate
-
-The local API runs on HTTPS so secure auth cookies work during OAuth. Trust the ASP.NET Core development certificate once per machine:
-
-```powershell
-dotnet dev-certs https --trust
-dotnet dev-certs https --check --trust
-```
-
-On Windows and macOS, the first command may open an OS trust prompt. Approve it. Browser-based OAuth testing may fail until the host OS trusts the certificate.
-
-### Lifetime & renewal
-
-ASP.NET Core dev certificates are valid for **1 year** from generation (this is fixed by the SDK and not configurable). There is **no auto-renewal** — when the cert expires (or after `dotnet dev-certs https --clean`, an SDK reinstall, or a profile change), you regenerate and re-trust it manually:
-
-```powershell
-dotnet dev-certs https --clean   # remove the old/expired cert
-dotnet dev-certs https --trust   # regenerate + trust (approve the OS prompt)
-```
-
-After re-trusting, **fully restart the browser** (not just the tab — Chrome caches cert-trust per session) and restart the **Viritura: API** task so Kestrel re-binds with the new cert.
-
-### Troubleshooting: `ERR_CERT_AUTHORITY_INVALID`
-
-If the editor console shows `net::ERR_CERT_AUTHORITY_INVALID` on `https://localhost:5001` calls (`/auth/me`, `/github/app`, `/github/session`, …), the dev cert exists but the host OS no longer trusts it (commonly after a cert regeneration). Diagnose and fix:
-
-```powershell
-dotnet dev-certs https --check --trust   # exit 0 = trusted; non-zero (e.g. 7) = exists but untrusted
-dotnet dev-certs https --trust           # re-trust the existing cert (approve the OS prompt)
-```
-
-Then hard-restart the browser. If it persists, run the full clean/regenerate above.
 
 ## Run The Local GitHub Flow
 
-Start the API with hot reload. The `Viritura.Api` launch profile sets `Development` and binds HTTPS to `localhost:5001`:
+Start the shared API with hot reload from the primary checkout:
 
 ```powershell
-dotnet watch --project server/Viritura.Api run --launch-profile Viritura.Api
+pnpm dev:stack up backend
 ```
 
-In VS Code, use **Run and Debug → Viritura: API (hot reload)**, or choose `api` in **Viritura: Dev (pick services)**.
-
-Start the editor:
+Start an editor from any worktree:
 
 ```powershell
-pnpm --filter @viritura/editor dev -- --host 127.0.0.1 --port 5173
+pnpm dev:stack up
 ```
 
-Open:
-
-```text
-http://localhost:5173
-```
-
-Use the Start Center GitHub panel or the bottom-left activity-bar account button to sign in. Install the local GitHub App on the account that will own test repositories, then refresh the account panel if needed. Before sign-in, the API should report:
+Use the Start Center GitHub panel or the bottom-left activity-bar account button to sign in. Install the local GitHub App on the account that will own test repositories, then refresh the account panel if needed. Before sign-in, the shared API should report:
 
 ```powershell
-Invoke-RestMethod -SkipCertificateCheck -Uri "https://localhost:5001/github/app" | ConvertTo-Json -Compress
-Invoke-RestMethod -SkipCertificateCheck -Uri "https://localhost:5001/github/session" | ConvertTo-Json -Compress
+Invoke-RestMethod -Uri "http://api.viritura.localhost/github/app" | ConvertTo-Json -Compress
 ```
 
 Expected shape:

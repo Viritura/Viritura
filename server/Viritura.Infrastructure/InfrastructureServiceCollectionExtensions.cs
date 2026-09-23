@@ -53,7 +53,10 @@ public static class InfrastructureServiceCollectionExtensions
         services
             .AddIdentityCore<AppUser>(options =>
             {
-                options.User.RequireUniqueEmail = true;
+                // OAuth-only accounts may not expose an email address. Password registration
+                // and email changes enforce uniqueness in their application flows, while
+                // Identity must still accept a null email for provider-only users.
+                options.User.RequireUniqueEmail = false;
                 options.Password.RequiredLength = 12;
                 // When Auth:RequireEmailVerification = true, PasswordSignInAsync returns
                 // IsNotAllowed for users whose EmailConfirmed=false. Default to true in prod;

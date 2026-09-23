@@ -12,15 +12,18 @@ public sealed class GitHubTokenService(
     public string BuildAuthorizationUrl(string state)
     {
         var authOptions = options.Value;
-        var query = string.Join("&", new[]
+        var parameters = new List<string>
         {
             $"client_id={Uri.EscapeDataString(authOptions.ClientId)}",
             $"redirect_uri={Uri.EscapeDataString(authOptions.RedirectUri)}",
-            $"state={Uri.EscapeDataString(state)}",
-            $"scope={Uri.EscapeDataString(authOptions.Scope)}"
-        });
+            $"state={Uri.EscapeDataString(state)}"
+        };
+        if (!string.IsNullOrWhiteSpace(authOptions.Scope))
+        {
+            parameters.Add($"scope={Uri.EscapeDataString(authOptions.Scope)}");
+        }
 
-        return $"{authOptions.AuthorizeUrl}?{query}";
+        return $"{authOptions.AuthorizeUrl}?{string.Join("&", parameters)}";
     }
 
     public async Task<GitHubSessionEnvelope> CreateSessionFromAuthorizationCodeAsync(string code, CancellationToken cancellationToken = default)

@@ -23,7 +23,7 @@ interface UseScoreHandlersParams {
   setExpandedCondensingStaves: React.Dispatch<React.SetStateAction<Set<string>>>;
   pageSetupTargetIndex: number | null;
   updateScore: (next: Score) => void;
-  canCreateGitHubRepository: boolean;
+  canSetUpGitHubRepository: boolean;
   canvasRef: RefObject<ScoreCanvasHandle | null>;
   /** Navigate to Setup mode once a new score exists. */
   onOpenSetup?: (() => void) | undefined;
@@ -50,7 +50,7 @@ export function useScoreHandlers(params: UseScoreHandlersParams): ScoreHandlers 
     setExpandedCondensingStaves,
     pageSetupTargetIndex,
     updateScore,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     canvasRef,
     onOpenSetup,
   } = params;
@@ -61,7 +61,7 @@ export function useScoreHandlers(params: UseScoreHandlersParams): ScoreHandlers 
     resetHistory,
     setSelectedScoreIndex,
     setFileHandle,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     onOpenSetup,
   });
 

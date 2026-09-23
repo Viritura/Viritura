@@ -20,7 +20,7 @@ interface UseFileHandlersParams {
   setFileHandle: React.Dispatch<React.SetStateAction<FileSystemFileHandle | null>>;
   setOpenedFile: React.Dispatch<React.SetStateAction<OpenFileResult | null>>;
   setFileError: React.Dispatch<React.SetStateAction<string | null>>;
-  canCreateGitHubRepository: boolean;
+  canSetUpGitHubRepository: boolean;
   suppressTrackBanner: boolean;
   suppressStartCenter: boolean;
   fileHandle: FileSystemFileHandle | null;
@@ -51,7 +51,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     setFileHandle,
     setOpenedFile,
     setFileError,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     suppressTrackBanner,
     suppressStartCenter,
     fileHandle,
@@ -86,7 +86,7 @@ export function useFileHandlers(params: UseFileHandlersParams): FileHandlers {
     setFileHandle,
     setOpenedFile,
     setFileError,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
   });
 
   const fileMenu = useFileMenuActions({

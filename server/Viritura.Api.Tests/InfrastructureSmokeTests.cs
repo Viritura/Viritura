@@ -60,6 +60,28 @@ public sealed class InfrastructureSmokeTests : IClassFixture<WebApplicationFacto
     }
 
     [Fact]
+    public async Task IdentityAllowsOAuthUserWithoutEmail()
+    {
+        using var _ = _factory.CreateClient();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<VirituraDbContext>();
+        await db.Database.MigrateAsync();
+
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var user = new AppUser
+        {
+            UserName = $"github-{Guid.NewGuid():N}",
+            Email = null,
+            EmailConfirmed = true,
+            DisplayName = "GitHub User"
+        };
+
+        var create = await users.CreateAsync(user);
+
+        Assert.True(create.Succeeded, string.Join(", ", create.Errors.Select(e => e.Description)));
+    }
+
+    [Fact]
     public void Infrastructure_RejectsConsoleEmailOutsideDevelopment()
     {
         var configuration = new ConfigurationBuilder()

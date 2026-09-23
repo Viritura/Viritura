@@ -81,6 +81,14 @@ export class StandaloneProjectAdapter implements ProjectAdapter {
     throw new StandaloneNotSupportedError("setRemoteUrl");
   }
 
+  async removeRemote(): Promise<void> {
+    throw new StandaloneNotSupportedError("removeRemote");
+  }
+
+  async inspectRemote(): Promise<never> {
+    throw new StandaloneNotSupportedError("inspectRemote");
+  }
+
   async push(): Promise<void> {
     throw new StandaloneNotSupportedError("push");
   }

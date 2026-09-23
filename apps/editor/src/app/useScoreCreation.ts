@@ -15,7 +15,7 @@ export interface ScoreCreationDeps {
   resetHistory: (json: string) => void;
   setSelectedScoreIndex: (i: number) => void;
   setFileHandle: (h: FileSystemFileHandle | null) => void;
-  canCreateGitHubRepository: boolean;
+  canSetUpGitHubRepository: boolean;
   /** Navigate to Setup mode once the new score exists. */
   onOpenSetup?: (() => void) | undefined;
 }
@@ -36,7 +36,7 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
     resetHistory,
     setSelectedScoreIndex,
     setFileHandle,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     onOpenSetup,
   } = deps;
   /**
@@ -105,7 +105,7 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
         });
         if (!finalize(json, projectName)) throw new Error("The new score could not be loaded.");
         toast.success(`Project created in ${parentHandle.name}/${projectHandle.name}`);
-        if (canCreateGitHubRepository) openDialog("projectGitHubSetup");
+        if (canSetUpGitHubRepository) openDialog("projectGitHubSetup");
         return true;
       } catch (err) {
         if ((err as DOMException)?.name === "AbortError") return false;
@@ -124,7 +124,7 @@ export function useScoreCreation(deps: ScoreCreationDeps): ScoreCreationActions 
     [
       loadScore,
       resetHistory,
-      canCreateGitHubRepository,
+      canSetUpGitHubRepository,
       store,
       setSelectedScoreIndex,
       setFileHandle,

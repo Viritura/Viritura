@@ -239,7 +239,7 @@ function AppInner({
   const githubInstallation = githubAccount.session?.installation ?? null;
   const githubInstallUrl = githubInstallation?.htmlUrl ?? githubAccount.app?.installUrl ?? null;
   const githubViewer = githubAccount.session?.connected === true ? githubAccount.session.viewer : null;
-  const canCreateGitHubRepository = githubInstallation?.canCreateRepositories === true;
+  const canSetUpGitHubRepository = githubViewer !== null;
   const activeProjectStatus = useProjectStore((s) => s.status);
   const {
     store,
@@ -387,7 +387,7 @@ function AppInner({
     setExpandedCondensingStaves,
     pageSetupTargetIndex,
     updateScore,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     canvasRef,
     onOpenSetup,
   });
@@ -423,7 +423,7 @@ function AppInner({
     setFileHandle,
     setOpenedFile,
     setFileError,
-    canCreateGitHubRepository,
+    canSetUpGitHubRepository,
     suppressTrackBanner,
     suppressStartCenter,
     fileHandle,

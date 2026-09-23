@@ -1,9 +1,10 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useFileSaveActions } from "./useFileSaveActions";
 
 const openExternalChangeConfirm = vi.fn();
 const commitCurrent = vi.fn().mockResolvedValue("commit-sha");
+const toastError = vi.hoisted(() => vi.fn());
 const projectState: {
   adapter: null | {
     isVersioned: () => boolean;
@@ -22,7 +23,7 @@ vi.mock("../store/projectStore", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: toastError },
 }));
 
 const DISK_JSON = JSON.stringify({
@@ -69,6 +70,8 @@ describe("useFileSaveActions external changes", () => {
   beforeEach(() => {
     openExternalChangeConfirm.mockReset();
     commitCurrent.mockClear();
+    commitCurrent.mockResolvedValue("commit-sha");
+    toastError.mockClear();
     projectState.adapter = null;
   });
 
@@ -125,5 +128,19 @@ describe("useFileSaveActions external changes", () => {
     expect(writeScore).toHaveBeenCalledOnce();
     expect(writeScore).toHaveBeenCalledWith(EDITOR_JSON);
     expect(commitCurrent).toHaveBeenCalledWith(EDITOR_JSON, { auto: false });
+  });
+
+  it("reports when the file saves but the background commit fails", async () => {
+    const readScore = vi.fn().mockResolvedValue(DISK_JSON);
+    const writeScore = vi.fn().mockResolvedValue(undefined);
+    projectState.adapter = { isVersioned: () => true, readScore, writeScore };
+    commitCurrent.mockRejectedValueOnce(new Error("Commit failed"));
+    const { result } = createHarness();
+
+    await act(() => result.current.handleSave());
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith("Saved, but version history could not be updated");
+    });
   });
 });

@@ -10,6 +10,16 @@ public interface IGitHubOAuthClient
 
     Task<GitHubInstallationStatus> GetViewerInstallationAsync(string accessToken, GitHubViewer viewer, CancellationToken cancellationToken = default);
 
+    Task<GitHubCreatedRepository?> FindRepositoryAsync(
+        string accessToken,
+        string owner,
+        string name,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<GitHubCreatedRepository>> ListRepositoriesAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default);
+
     Task<GitHubCreatedRepository> CreateRepositoryAsync(
         string accessToken,
         GitHubCreateRepository repository,
