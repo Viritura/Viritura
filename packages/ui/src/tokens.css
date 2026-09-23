@@ -297,6 +297,16 @@
   --border-input: rgba(20, 20, 28, 0.14);
   --border-hairline: rgba(20, 20, 28, 0.08);
   --border-soft: rgba(20, 20, 28, 0.1);
+
+  /* Glass materials. Tier 1 is the ambient panel the user lives in; Tier 3 is
+     the transient overlay (menu, popover, tooltip). Both refract what is
+     behind them, so both must be able to sit over the score canvas — raw
+     black-on-white notation — without letting staff lines read through. The
+     smaller blur on the floating tier keeps its edge crisp at popover size.
+     Tier 1 carries its own gradient fill, so only its filter is shared. */
+  --glass-panel-filter: blur(40px) saturate(180%);
+  --glass-floating-bg: color-mix(in srgb, var(--surface-raised) 72%, transparent);
+  --glass-floating-filter: blur(24px) saturate(180%);
 }
 
 /* ═══════════════════════════════════════════

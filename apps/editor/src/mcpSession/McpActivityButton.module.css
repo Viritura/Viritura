@@ -29,7 +29,9 @@
   width: min(360px, calc(100vw - 24px));
   overflow: hidden;
   border-radius: 10px;
-  background: var(--surface-raised);
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
   color: var(--text);
   box-shadow: var(--elevation-2);
 }

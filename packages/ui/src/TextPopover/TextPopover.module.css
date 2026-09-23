@@ -20,7 +20,9 @@
   max-width: 320px;
   border: 1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.45);
   border-radius: var(--radius-xl);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
   box-shadow:
     0 8px 24px rgba(20, 20, 28, 0.18),
     0 1px 3px rgba(20, 20, 28, 0.08);
@@ -33,7 +35,6 @@
 [data-theme="dark"] .popover,
 [data-theme="midnight"] .popover {
   border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.55);
-  background: rgba(30, 30, 40, 0.88);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 

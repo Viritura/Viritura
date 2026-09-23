@@ -155,7 +155,9 @@ export function Tier2Sample() {
 
 const TIER3_POPOVER_STYLE: CSSProperties = {
   padding: "10px 12px",
-  background: "color-mix(in srgb, var(--surface-raised, #ffffff) 92%, transparent)",
+  background: "var(--glass-floating-bg)",
+  backdropFilter: "var(--glass-floating-filter)",
+  WebkitBackdropFilter: "var(--glass-floating-filter)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-sm, 6px)",
   boxShadow: "var(--elevation-2, 0 6px 18px rgba(0,0,0,0.18))",

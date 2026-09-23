@@ -23,7 +23,9 @@
 .popover {
   padding: var(--space-3);
   border-radius: 10px;
-  background: var(--surface-raised);
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
   box-shadow: var(--elevation-2);
   color: var(--text);
   z-index: 1200;

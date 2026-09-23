@@ -20,13 +20,13 @@ catches simulated overhead light.
 
 ## The tier table
 
-| Tier            | Role                               | Material                                                                  | Shadow                     | Lit rim?                       | Examples                                              |
-| --------------- | ---------------------------------- | ------------------------------------------------------------------------- | -------------------------- | ------------------------------ | ----------------------------------------------------- |
-| **0** Workspace | The world                          | Solid radial gradient mesh                                                | —                          | —                              | Canvas backdrop                                       |
-| **1** Glass     | Ambient surfaces the user lives in | `rgba(surface, 0.55–0.82)` + `backdrop-filter: blur(40px) saturate(180%)` | `--elevation-1`            | Subtle (via internal gradient) | Side panels, palette, transport bar, inspector, mixer |
-| **2** Chrome    | Frames the app                     | Opaque `var(--surface)`                                                   | None or `--shadow-toolbar` | No                             | Menu bar, activity bar, status bar                    |
-| **3** Floating  | Transient, small footprint         | Translucent raised surfaces, no live blur                                 | `--elevation-2`            | Very subtle                    | Tooltips, popovers, context menus, dropdowns          |
-| **4** Modal     | Demands focus, blocks input        | **Opaque `var(--surface-raised)`**                                        | `--elevation-3`            | **Yes**                        | Dialogs, alerts, prompts                              |
+| Tier            | Role                               | Material                                                        | Shadow                     | Lit rim?                       | Examples                                              |
+| --------------- | ---------------------------------- | --------------------------------------------------------------- | -------------------------- | ------------------------------ | ----------------------------------------------------- |
+| **0** Workspace | The world                          | Solid radial gradient mesh                                      | —                          | —                              | Canvas backdrop                                       |
+| **1** Glass     | Ambient surfaces the user lives in | `rgba(surface, 0.55–0.82)` + `--glass-panel-filter` (blur 40px) | `--elevation-1`            | Subtle (via internal gradient) | Side panels, palette, transport bar, inspector, mixer |
+| **2** Chrome    | Frames the app                     | Opaque `var(--surface)`                                         | None or `--shadow-toolbar` | No                             | Menu bar, activity bar, status bar                    |
+| **3** Floating  | Transient, small footprint         | `--glass-floating-bg` + `--glass-floating-filter` (blur 24px)   | `--elevation-2`            | Very subtle                    | Tooltips, popovers, context menus, dropdowns          |
+| **4** Modal     | Demands focus, blocks input        | **Opaque `var(--surface-raised)`**                              | `--elevation-3`            | **Yes**                        | Dialogs, alerts, prompts                              |
 
 ## Live samples
 
@@ -58,11 +58,16 @@ dark) to see how the tier holds up in both.
 
 ### Glass-on-glass is mush
 
-Stacking two `backdrop-filter` layers (a glass panel behind a glass
-dialog) double-blurs the workspace beneath. The result reads as a fuzzy
-grey blob; neither layer's edge is legible. This is why **dialogs are
-opaque** — they sit above a dim overlay that has _already_ obscured the
-workspace, so there's nothing useful to see through to.
+Where a blur layer sits directly on top of another blur layer sampling
+the _same_ region — a glass card inside a glass panel, or a glass dialog
+over a blurred application root — the blur compounds. The result reads
+as a fuzzy grey blob and neither layer's edge stays legible. This is why
+**dialogs are opaque**: they sit above a dim overlay that has _already_
+obscured the workspace, so there is nothing useful to see through to.
+
+This is a rule about **nesting**, not about floating surfaces in
+general. Tier-3 overlays do carry their own blur — see
+"Overlaying glass is fine; nesting it is not" below.
 
 <GlassOnGlassComparison />
 
@@ -81,12 +86,46 @@ any edge. They're the canonical "raised object on top of everything".
 The lit rim sells the floating quality and reinforces the "object on
 top, deal with me" semantic.
 
-### Floating surfaces should stay lightweight
+### Floating surfaces refract too
 
-Tooltips and popovers retain translucent fills, borders, and elevation,
-but do not create their own backdrop-filter layers. They frequently appear
-over Tier-1 panels; keeping them compositor-light avoids nested blur while
-preserving the same visual hierarchy.
+Menus, popovers, and tooltips are **overlays**, not panel contents. They
+are portaled above whatever happens to be beneath them, and the harshest
+backdrop in the app is the score canvas: raw black-on-white line art. A
+merely translucent fill lets staff lines and noteheads read straight
+through the surface, so the menu stops looking like an object and starts
+looking like text floating on the music.
+
+Blur fixes this where opacity alone cannot. It destroys the
+high-frequency detail that competes with the menu's own text while still
+letting the colour and brightness of the backdrop show through, which is
+what keeps the surface feeling like glass rather than a pasted card. The
+floating tier uses a **smaller blur radius than Tier 1** (24px vs 40px):
+a popover is a fraction of a panel's size, and a 40px sample radius on a
+200px-wide surface pulls in so much surrounding colour that the edges
+wash out.
+
+Consume this as `--glass-floating-bg` + `--glass-floating-filter` rather
+than hand-rolling values — the five floating surfaces in the library had
+drifted to five different opacities before these tokens existed.
+
+### Overlaying glass is fine; nesting it is not
+
+These two look similar and are not:
+
+- **Overlay** — a Tier-3 menu portaled _above_ a Tier-1 panel. The
+  menu's `backdrop-filter` samples the panel's already-composited
+  output, which is a smooth low-frequency wash. Blurring a smooth wash
+  costs one extra compositor layer and changes almost nothing visually.
+  This is fine, and it is what makes a menu legible when it happens to
+  open over the canvas instead.
+- **Nesting** — a card or control _inside_ a Tier-1 panel adding its own
+  `backdrop-filter`. Here both layers sample the same workspace pixels
+  in the same region, so the blur genuinely compounds and the inner
+  edge dissolves. See the anti-pattern below.
+
+Tier 4 stays opaque for a related reason: a modal sits above an overlay
+that has _already_ dimmed and blurred the application root, so there is
+nothing informative left to see through to.
 
 ## Implementation map
 
@@ -94,7 +133,7 @@ preserving the same visual hierarchy.
 /* Tier 1 — Glass panel */
 .glassPanel {
   background: rgba(var(--surface-rgb), 0.65);
-  backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: var(--glass-panel-filter);
   box-shadow: var(--elevation-1);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -107,7 +146,8 @@ preserving the same visual hierarchy.
 
 /* Tier 3 — Floating */
 .popover {
-  background: rgba(var(--surface-raised-rgb), 0.92);
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
   box-shadow: var(--elevation-2);
 }
 
@@ -158,10 +198,12 @@ tier of the host.
 ### Two anti-patterns
 
 **Glass-on-glass nesting.** Never add `backdrop-filter: blur` to controls
-or cards inside a Tier-1 `<Panel>`. The host already blurs the workspace;
-a second blur layer double-blurs the same pixels and adds another compositor
-surface. `<GlassCard>` deliberately keeps only its translucent fill, border,
-and shadow so it can group content without creating nested live glass.
+or cards nested _inside_ a Tier-1 `<Panel>`. The host already blurs the
+workspace; a second blur layer over the same region double-blurs the same
+pixels and adds another compositor surface. `<GlassCard>` deliberately keeps
+only its translucent fill, border, and shadow so it can group content without
+creating nested live glass. This does not apply to Tier-3 overlays, which are
+portaled above the panel rather than nested within it.
 
 **Wrong-context input wells.** `--surface-input` (translucent) is for
 glass hosts; `--surface-sunken` (opaque) is for opaque hosts. Crossing

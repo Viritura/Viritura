@@ -48,7 +48,11 @@
 /* Dropdown panel */
 .dropdown {
   min-width: 220px;
-  background: var(--surface-raised);
+  /* Tier 3 (Floating) live glass — matches the shared Menu/ContextMenu
+     surface so the menu bar and the score right-click menu read alike. */
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
   border: none;
   border-radius: 10px;
   box-shadow: var(--elevation-2);
