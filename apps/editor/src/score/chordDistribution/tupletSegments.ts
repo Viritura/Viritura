@@ -14,7 +14,7 @@
  * it is refused rather than silently re-barred.
  */
 
-import { isRest, type SequenceContent, type Tuplet } from "@viritura/core";
+import { isRest, type SequenceContent, type Tuplet, type TupletDuration } from "@viritura/core";
 import { sequenceContentBeats } from "../../commands/noteCommands";
 import { buildBeatGrid, tupletRhythm, type BeatGrid, type ContentGridSource, type RhythmContext } from "./beatGrid";
 import { FragmentDistributionError } from "./distributionError";
@@ -82,13 +82,16 @@ function collectSpans(placements: readonly PlacedItem[][]): Span[] {
   return ordered;
 }
 
-function sameTupletShape(left: Tuplet, right: Tuplet): boolean {
+function sameDuration(left: TupletDuration, right: TupletDuration): boolean {
   return (
-    left.inner.multiple === right.inner.multiple &&
-    left.outer.multiple === right.outer.multiple &&
-    JSON.stringify(left.inner.duration) === JSON.stringify(right.inner.duration) &&
-    JSON.stringify(left.outer.duration) === JSON.stringify(right.outer.duration)
+    left.multiple === right.multiple &&
+    left.duration.base === right.duration.base &&
+    (left.duration.dots ?? 0) === (right.duration.dots ?? 0)
   );
+}
+
+function sameTupletShape(left: Tuplet, right: Tuplet): boolean {
+  return sameDuration(left.inner, right.inner) && sameDuration(left.outer, right.outer);
 }
 
 /**

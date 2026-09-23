@@ -1,5 +1,6 @@
 import {
   isRest,
+  measureBeats,
   pitchToMidi,
   type Note,
   type NoteEvent,
@@ -50,10 +51,13 @@ function distributionSegments(
 }
 
 function emitRests(beat: number, beats: number, rhythm: RhythmContext): NoteEvent[] {
-  const durations = rhythm.metered
-    ? decomposeRestsAtPosition(beats, rhythm.startBeat + beat, rhythm.timeSignature)
-    : decomposeDuration(beats);
-  return durations.map((duration) => createRest(duration));
+  if (!rhythm.metered) return decomposeDuration(beats).map((duration) => createRest(duration));
+  // Rests are spelled from their position *within* the measure, so a timeline
+  // beat past the first barline has to be folded back into measure-local terms.
+  const capacity = measureBeats(rhythm.timeSignature);
+  const absolute = rhythm.startBeat + beat;
+  const position = capacity > 0 ? absolute % capacity : absolute;
+  return decomposeRestsAtPosition(beats, position, rhythm.timeSignature).map((duration) => createRest(duration));
 }
 
 function emitChord(beats: number, assigned: readonly SoundingNote[], carry: TieCarry): NoteEvent[] {
