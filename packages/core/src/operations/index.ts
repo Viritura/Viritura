@@ -9,6 +9,7 @@ export {
   setBarline,
   setRepeatEnd,
   setClef,
+  setClefHidden,
   setEnding,
   setGroupingDisplayOverride,
   setStaffMeter,

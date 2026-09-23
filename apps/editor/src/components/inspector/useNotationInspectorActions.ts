@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import {
   setBarline,
+  setClefHidden,
   setRepeatStart,
   setRepeatEnd,
   type Barline as BarlineModel,
@@ -526,6 +527,29 @@ export function useBarlineHandlers(
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
   };
+}
+
+export interface ClefHandlers {
+  clefHidden: boolean;
+  handleClefHiddenChange: (hidden: boolean) => void;
+}
+
+export function useClefHandlers({ score, target, updateScore }: SelectionArgs, isClefSelected: boolean): ClefHandlers {
+  const clefHidden = useMemo(() => {
+    if (!isClefSelected || !target || !score) return false;
+    const clefs = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs;
+    return clefs !== undefined && clefs.length > 0 && clefs.every((entry) => entry.clef.hide === true);
+  }, [isClefSelected, target, score]);
+
+  const handleClefHiddenChange = useCallback(
+    (hidden: boolean) => {
+      if (!target || !score) return;
+      updateScore(setClefHidden(score, target.measureIndex, target.partIndex, hidden));
+    },
+    [target, score, updateScore],
+  );
+
+  return { clefHidden, handleClefHiddenChange };
 }
 
 export interface AccidentalAndTrillHandlers {

@@ -84,7 +84,15 @@ export interface MeasureArgs {
   /** Full-measure rest (replaces voices with a single fullMeasure sequence) */
   fullMeasure?: { visualDuration?: string; staffPosition?: number };
   /** Clef for this measure */
-  clef?: { sign: string; staffPosition: number; glyph?: string; octave?: number; showOctave?: boolean; color?: string };
+  clef?: {
+    sign: string;
+    staffPosition: number;
+    glyph?: string;
+    octave?: number;
+    showOctave?: boolean;
+    color?: string;
+    hide?: boolean;
+  };
   /** Multiple/positioned clefs, including mid-measure changes. */
   clefs?: Array<{
     clef: {
@@ -94,6 +102,7 @@ export interface MeasureArgs {
       octave?: number;
       showOctave?: boolean;
       color?: string;
+      hide?: boolean;
     };
     position?: { fraction: number[] };
     staff?: number;

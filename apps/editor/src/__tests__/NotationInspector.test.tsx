@@ -195,6 +195,27 @@ function TimeSignatureHarness() {
   );
 }
 
+function ClefHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
+  const { selectElement } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    initial.parts[0]!.measures[0]!.clefs = [{ clef: { sign: "G", staffPosition: -2 } }];
+    loadScore(initial, "clef.mnx");
+    selectElement("p0/m0/clef");
+  }, [loadScore, selectElement]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
 function MeasureSelectionHarness() {
   const { loadScore } = useDocumentActions();
   const { score } = useDocument();
@@ -392,6 +413,20 @@ describe("NotationInspector", () => {
     await user.click(await screen.findByRole("radio", { name: label }));
 
     await waitFor(() => expect(currentScore().global.measures[0]!.barline?.type).toBe(type));
+  });
+
+  it("toggles the hide flag on a selected clef", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<ClefHarness />));
+
+    const checkbox = await screen.findByRole("checkbox", { name: "Hide clef" });
+    expect((checkbox as HTMLInputElement).checked).toBe(false);
+
+    await user.click(checkbox);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.clefs?.[0]!.clef.hide).toBe(true));
+
+    await user.click(checkbox);
+    await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.clefs?.[0]!.clef.hide).toBeUndefined());
   });
 
   it("edits the direction and placement of a selected bow mark", async () => {

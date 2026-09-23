@@ -9,6 +9,7 @@ import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
 import { GlissandoSection } from "./inspector/GlissandoSection";
 import { BarlineSection, TrillSection, AccidentalDisplaySection } from "./inspector/BarlineSections";
+import { ClefSection } from "./inspector/ClefSection";
 import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
@@ -24,6 +25,7 @@ import { useInspectorAutoScroll, useTieSlurHandlers, useColorHandlers } from "./
 import {
   useTempoHandlers,
   useBarlineHandlers,
+  useClefHandlers,
   useAccidentalAndTrillHandlers,
   useNoteheadHandler,
 } from "./inspector/useNotationInspectorActions";
@@ -115,6 +117,11 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
   } = useBarlineHandlers({ score, target, updateScore }, selectedElementType === "barline");
+
+  const { clefHidden, handleClefHiddenChange } = useClefHandlers(
+    { score, target, updateScore },
+    selectedElementType === "clef",
+  );
 
   const {
     handleAccidentalDisplayModeChange,
@@ -245,6 +252,10 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onToggleRepeatStart={handleToggleRepeatStart}
             onRepeatEndTimesChange={handleRepeatEndTimesChange}
           />
+        )}
+
+        {selectedElementType === "clef" && (
+          <ClefSection focusedSection={focusedSection} hidden={clefHidden} onHiddenChange={handleClefHiddenChange} />
         )}
 
         {measureNumber.isAvailable && measureNumber.measureIndex !== null && (

@@ -11,6 +11,7 @@ import {
   setBarline,
   setRepeatEnd,
   setClef,
+  setClefHidden,
   setEnding,
   setGroupingDisplayOverride,
   setStaffMeter,
@@ -642,6 +643,50 @@ describe("setClef", () => {
         staff: 1,
       },
     ]);
+  });
+});
+
+describe("setClefHidden", () => {
+  it("sets hide: true on the clef at a measure boundary", () => {
+    const score = setClef(twoMeasureScore(), 1, 0, { sign: "G", staffPosition: -2 });
+    const result = setClefHidden(score, 1, 0, true);
+
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ clef: { sign: "G", staffPosition: -2, hide: true } }]);
+  });
+
+  it("removes hide when set back to false", () => {
+    const score = setClefHidden(setClef(twoMeasureScore(), 1, 0, { sign: "G", staffPosition: -2 }), 1, 0, true);
+    const result = setClefHidden(score, 1, 0, false);
+
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([{ clef: { sign: "G", staffPosition: -2 } }]);
+  });
+
+  it("applies to every positioned clef entry at the measure", () => {
+    const score = twoMeasureScore();
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[1]!.clefs = [
+      { clef: { sign: "G", staffPosition: -2 }, staff: 1 },
+      { clef: { sign: "F", staffPosition: 2 }, staff: 2 },
+    ];
+
+    const result = setClefHidden(score, 1, 0, true);
+
+    expect(result.parts[0]!.measures[1]!.clefs).toEqual([
+      { clef: { sign: "G", staffPosition: -2, hide: true }, staff: 1 },
+      { clef: { sign: "F", staffPosition: 2, hide: true }, staff: 2 },
+    ]);
+  });
+
+  it("is a no-op when the measure has no clef entry", () => {
+    const score = twoMeasureScore();
+    const result = setClefHidden(score, 1, 0, true);
+
+    expect(result).toBe(score);
+  });
+
+  it("throws on out-of-range part index", () => {
+    const score = twoMeasureScore();
+    expect(() => setClefHidden(score, 0, 9, true)).toThrow(RangeError);
   });
 });
 
