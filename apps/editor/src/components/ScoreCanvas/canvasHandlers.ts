@@ -34,7 +34,7 @@ import type { MeasureSelectionPoint } from "../../store/selectionStore";
 import { listenForPointerDrag } from "./pointerDrag";
 import { selectBeamAtPoint } from "./beamSelection";
 import type { SelectionMenuContext, ViewportInfo } from "./types";
-import { globalChordForElement, previewClickedChord } from "./chordFeedback";
+import { previewClickedChord } from "./chordFeedback";
 import { resolveCanvasSelectionElementId, selectCanvasElement } from "./elementSelection";
 import { selectEngraveTextOrChord } from "./engraveTextSelection";
 import { releaseMiddlePointer } from "./middlePointerPan";
