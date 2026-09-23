@@ -487,3 +487,29 @@
   --border-hairline: rgba(255, 255, 255, 0.08);
   --border-soft: rgba(255, 255, 255, 0.1);
 }
+
+/* ═══════════════════════════════════════════
+   Material classes
+
+   Tokens alone let each component reassemble a material slightly
+   differently — that is how the floating surfaces drifted to five
+   different opacities. These classes are the material itself, so a
+   surface opts in rather than restating the recipe:
+
+     .content {
+       composes: vi-glass-floating from global;
+     }
+
+   Defined here because tokens.css is the one stylesheet every app and
+   Storybook already loads globally, which is what lets CSS-Module
+   components in any package compose against it.
+   ═══════════════════════════════════════════ */
+
+/* Tier 3 (Floating) — menus, dropdowns, popovers, tooltips. Live glass:
+   these are portaled above arbitrary content, including the score canvas,
+   where a merely translucent fill lets staff lines read through. */
+.vi-glass-floating {
+  background: var(--glass-floating-bg);
+  backdrop-filter: var(--glass-floating-filter);
+  -webkit-backdrop-filter: var(--glass-floating-filter);
+}

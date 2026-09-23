@@ -35,7 +35,7 @@
   padding: var(--space-1);
   border-radius: 10px;
   border: 1px solid rgba(20, 20, 28, 0.08);
-  background: rgba(255, 255, 255, 0.7);
+  composes: vi-glass-floating from global;
   box-shadow: 0 8px 24px rgba(20, 20, 28, 0.12);
   z-index: 100;
   white-space: nowrap;
@@ -44,6 +44,5 @@
 [data-theme="dark"] .popup,
 [data-theme="midnight"] .popup {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(30, 30, 40, 0.75);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }

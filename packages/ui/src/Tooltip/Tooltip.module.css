@@ -6,9 +6,7 @@
   line-height: var(--type-small-lh);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(20, 20, 28, 0.08);
-  background: var(--glass-floating-bg);
-  backdrop-filter: var(--glass-floating-filter);
-  -webkit-backdrop-filter: var(--glass-floating-filter);
+  composes: vi-glass-floating from global;
   color: var(--text);
   box-shadow: 0 4px 14px rgba(20, 20, 28, 0.12);
   z-index: 1200;

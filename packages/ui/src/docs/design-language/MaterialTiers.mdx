@@ -25,7 +25,7 @@ catches simulated overhead light.
 | **0** Workspace | The world                          | Solid radial gradient mesh                                      | —                          | —                              | Canvas backdrop                                       |
 | **1** Glass     | Ambient surfaces the user lives in | `rgba(surface, 0.55–0.82)` + `--glass-panel-filter` (blur 40px) | `--elevation-1`            | Subtle (via internal gradient) | Side panels, palette, transport bar, inspector, mixer |
 | **2** Chrome    | Frames the app                     | Opaque `var(--surface)`                                         | None or `--shadow-toolbar` | No                             | Menu bar, activity bar, status bar                    |
-| **3** Floating  | Transient, small footprint         | `--glass-floating-bg` + `--glass-floating-filter` (blur 24px)   | `--elevation-2`            | Very subtle                    | Tooltips, popovers, context menus, dropdowns          |
+| **3** Floating  | Transient, small footprint         | `composes: vi-glass-floating from global` (blur 24px)           | `--elevation-2`            | Very subtle                    | Tooltips, popovers, context menus, dropdowns          |
 | **4** Modal     | Demands focus, blocks input        | **Opaque `var(--surface-raised)`**                              | `--elevation-3`            | **Yes**                        | Dialogs, alerts, prompts                              |
 
 ## Live samples
@@ -129,6 +129,20 @@ nothing informative left to see through to.
 
 ## Implementation map
 
+Tier 3 is a **class**, not a recipe to reassemble. Compose it:
+
+```css
+.myPopover {
+  composes: vi-glass-floating from global;
+  box-shadow: var(--elevation-2);
+}
+```
+
+`vi-glass-floating` lives in `tokens.css`, which every app and Storybook
+already loads globally, so CSS Modules in any package can compose it.
+Do not hand-write `background` + `backdrop-filter` on a floating
+surface — that is exactly how these drifted to five different opacities.
+
 ```css
 /* Tier 1 — Glass panel */
 .glassPanel {
@@ -146,8 +160,7 @@ nothing informative left to see through to.
 
 /* Tier 3 — Floating */
 .popover {
-  background: var(--glass-floating-bg);
-  backdrop-filter: var(--glass-floating-filter);
+  composes: vi-glass-floating from global;
   box-shadow: var(--elevation-2);
 }
 

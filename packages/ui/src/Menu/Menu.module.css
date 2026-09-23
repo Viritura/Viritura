@@ -5,12 +5,7 @@
   min-width: 220px;
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
-  /* Tier 3 (Floating): live glass. Portaled overlays land over whatever is
-   * beneath them — most punishingly the score canvas, where a merely
-   * translucent fill lets staff lines read straight through the menu. */
-  background: var(--glass-floating-bg);
-  backdrop-filter: var(--glass-floating-filter);
-  -webkit-backdrop-filter: var(--glass-floating-filter);
+  composes: vi-glass-floating from global;
   box-shadow: var(--elevation-2);
   padding: var(--space-1) 0;
   z-index: 1000;
@@ -83,7 +78,7 @@
   min-width: 180px;
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.78);
+  composes: vi-glass-floating from global;
   box-shadow: 0 10px 28px rgba(20, 20, 28, 0.14);
   padding: var(--space-1) 0;
   z-index: 1001;
@@ -93,6 +88,5 @@
 [data-theme="dark"] .submenu,
 [data-theme="midnight"] .submenu {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(30, 30, 40, 0.85);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
 }

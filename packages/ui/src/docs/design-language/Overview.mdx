@@ -52,15 +52,15 @@ section for the full recipe.
 
 Five tiers, ordered by visual prominence:
 
-| Tier | Role      | Examples                                        | Material                                                                        |
-| ---- | --------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| 0    | Workspace | Canvas, gradient background                     | Solid radial mesh                                                               |
-| 1    | Glass     | Side panels, palette, transport                 | Translucent fill + `--glass-panel-filter` (blur 40px)                           |
-| 2    | Chrome    | Menu, activity, status bars                     | Opaque `var(--surface)`, no blur, no lift                                       |
-| 3    | Floating  | Tooltips, popovers, dropdowns                   | `--glass-floating-bg` + `--glass-floating-filter` (blur 24px) + `--elevation-2` |
-| 4    | Modal     | Dialogs, alerts                                 | Opaque `var(--surface-raised)` + lit + `--elevation-3`                          |
-| —    | Paper     | Palette tiles, library cards, score pages       | Cream + fiber + bounce-tinted shadow + lit rim (`--paper-*`)                    |
-| —    | Sphere    | Instrument dots, future waypoints / graph nodes | Glossy volumetric ball + separate ground shadow (`<Sphere>`)                    |
+| Tier | Role      | Examples                                        | Material                                                                |
+| ---- | --------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| 0    | Workspace | Canvas, gradient background                     | Solid radial mesh                                                       |
+| 1    | Glass     | Side panels, palette, transport                 | Translucent fill + `--glass-panel-filter` (blur 40px)                   |
+| 2    | Chrome    | Menu, activity, status bars                     | Opaque `var(--surface)`, no blur, no lift                               |
+| 3    | Floating  | Tooltips, popovers, dropdowns                   | `composes: vi-glass-floating from global` (blur 24px) + `--elevation-2` |
+| 4    | Modal     | Dialogs, alerts                                 | Opaque `var(--surface-raised)` + lit + `--elevation-3`                  |
+| —    | Paper     | Palette tiles, library cards, score pages       | Cream + fiber + bounce-tinted shadow + lit rim (`--paper-*`)            |
+| —    | Sphere    | Instrument dots, future waypoints / graph nodes | Glossy volumetric ball + separate ground shadow (`<Sphere>`)            |
 
 See [Material Tiers](?path=/docs/design-language-material-tiers--docs) for
 the full rationale and rules.

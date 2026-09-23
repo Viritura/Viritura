@@ -153,11 +153,10 @@ export function Tier2Sample() {
   );
 }
 
+// The sample wears the real global class rather than restating the recipe, so
+// the swatch cannot drift from the material shipped by the components.
 const TIER3_POPOVER_STYLE: CSSProperties = {
   padding: "10px 12px",
-  background: "var(--glass-floating-bg)",
-  backdropFilter: "var(--glass-floating-filter)",
-  WebkitBackdropFilter: "var(--glass-floating-filter)",
   border: "1px solid rgba(255,255,255,0.18)",
   borderRadius: "var(--radius-sm, 6px)",
   boxShadow: "var(--elevation-2, 0 6px 18px rgba(0,0,0,0.18))",
@@ -173,7 +172,7 @@ const KBD_STYLE: CSSProperties = { fontFamily: "inherit", fontWeight: 600 };
 export function Tier3Sample() {
   return (
     <Stage caption="Tier 3 · Floating (popover/tooltip)">
-      <div style={TIER3_POPOVER_STYLE}>
+      <div className="vi-glass-floating" style={TIER3_POPOVER_STYLE}>
         Hold <kbd style={KBD_STYLE}>⌥</kbd> to drag a duplicate.
       </div>
     </Stage>
