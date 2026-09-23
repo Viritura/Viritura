@@ -80,13 +80,31 @@ last staff; when it has fewer, the leftover staves get rests.
 Both commands use the normal paste behavior for destination placement, clefs,
 transposition, dynamics, ties, voices, and condensed-score writeback.
 
+Expression travels with the music. Articulations, fermatas, and lyrics on a
+copied chord are reproduced on every staff the chord is exploded onto, and
+dynamics are written to all of them, so the exploded lines phrase and balance
+the way the chord did. Reduce is the mirror image: the destination chord
+absorbs the articulations of every line feeding it, and duplicate dynamics
+collapse into one. Where the sources disagree at the same moment — two
+different dynamics, or a marking present on one staff only — the topmost copied
+staff wins.
+
+Tuplets are redistributed as a unit: each destination staff receives its own
+copy of the tuplet, keeping the ratio, bracket, and number settings of the
+original. A staff that ends up with nothing to play inside a tuplet gets an
+ordinary rest for that span rather than a bracket over rests.
+
 The selection and paste commands cover the manual case. Select the top note of
 a line, cut it, then paste it into another staff to move one voice by hand; use
 **Paste and Merge** to fold a line back into chords that already exist.
 
 > [!NOTE]
-> Tuplets, tremolos, and grace notes cannot be redistributed yet. Both commands
-> leave the score unchanged and report the limitation instead.
+> Tremolos and grace notes cannot be redistributed yet. Both commands leave the
+> score unchanged and report the limitation instead.
+>
+> Tuplets have to line up across the copied staves. A triplet sounding against
+> a different rhythm, or against a different tuplet ratio, has no correct
+> re-notation, so both commands refuse rather than re-bar the music.
 >
 > Staves carrying more than one voice are not supported yet: rather than
 > rewrite the wrong voice, both commands refuse the whole operation and say so.
