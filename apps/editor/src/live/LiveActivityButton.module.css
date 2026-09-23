@@ -23,7 +23,7 @@
 .popover {
   padding: var(--space-3);
   border-radius: 10px;
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   box-shadow: var(--elevation-2);
   color: var(--text);
   z-index: 1200;

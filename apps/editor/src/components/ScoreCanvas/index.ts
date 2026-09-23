@@ -8,3 +8,4 @@ export {
   type BarlineHit,
   type EngraveClickModifiers,
 } from "./ScoreCanvas";
+export type { SelectionMenuContext } from "./types";

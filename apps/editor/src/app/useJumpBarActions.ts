@@ -18,6 +18,7 @@ import {
   type StaffTextPopoverState,
 } from "./useAppKeyboardWiring";
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
+import { radialMenuJumpBarCallbacks } from "./radialMenuJumpBarCallbacks";
 
 export interface JumpBarActionsDeps {
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
@@ -42,6 +43,11 @@ export interface JumpBarActionsDeps {
   handleCopy: () => void | Promise<void>;
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
+  handlePasteMerge: () => void | Promise<void>;
+  handleExplodeSelection: () => void | Promise<void>;
+  handleReduceSelection: () => void | Promise<void>;
+  handleSelectChordTopNote: () => void;
+  handleSelectChordBottomNote: () => void;
   handleRepeat: () => void;
   getSelectedMeasureIndex: () => number | null;
   setRadialMenu: (m: { category: RadialMenuCategory; position: { x: number; y: number } } | null) => void;
@@ -76,6 +82,11 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     getSelectedMeasureIndex,
     setRadialMenu,
@@ -121,6 +132,17 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           paste: () => {
             void handlePaste();
           },
+          pasteMerge: () => {
+            void handlePasteMerge();
+          },
+          explodeSelection: () => {
+            void handleExplodeSelection();
+          },
+          reduceSelection: () => {
+            void handleReduceSelection();
+          },
+          selectChordTopNote: handleSelectChordTopNote,
+          selectChordBottomNote: handleSelectChordBottomNote,
           selectAll: () => {
             const { score } = store.getState();
             if (score) {
@@ -159,21 +181,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
           toggleNoteInput: () => {
             window.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true }));
           },
-          openClefMenu: () => setRadialMenu({ category: "clef", position: { ...mousePositionRef.current } }),
-          openBarlineMenu: () => setRadialMenu({ category: "barline", position: { ...mousePositionRef.current } }),
-          openKeySignatureMenu: () =>
-            setRadialMenu({ category: "key-signature", position: { ...mousePositionRef.current } }),
-          openTimeSignatureMenu: () =>
-            setRadialMenu({ category: "time-signature", position: { ...mousePositionRef.current } }),
-          openDynamicsMenu: () => setRadialMenu({ category: "dynamic", position: { ...mousePositionRef.current } }),
-          openOrnamentsMenu: () => setRadialMenu({ category: "ornament", position: { ...mousePositionRef.current } }),
-          openTupletMenu: () => setRadialMenu({ category: "tuplet", position: { ...mousePositionRef.current } }),
-          openBreathFermataMenu: () =>
-            setRadialMenu({ category: "breath-fermata", position: { ...mousePositionRef.current } }),
-          openFingeringMenu: () => setRadialMenu({ category: "fingering", position: { ...mousePositionRef.current } }),
-          openArticulationMenu: () =>
-            setRadialMenu({ category: "articulation", position: { ...mousePositionRef.current } }),
-          openRepeatsMenu: () => setRadialMenu({ category: "repeat", position: { ...mousePositionRef.current } }),
+          ...radialMenuJumpBarCallbacks(setRadialMenu, mousePositionRef),
           setTempo: () => {
             const idx = getSelectedMeasureIndex() ?? 0;
             const { score } = store.getState();
@@ -228,6 +236,11 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
       handleCopy,
       handleCut,
       handlePaste,
+      handlePasteMerge,
+      handleExplodeSelection,
+      handleReduceSelection,
+      handleSelectChordTopNote,
+      handleSelectChordBottomNote,
       handleRepeat,
       getSelectedMeasureIndex,
       canvasRef,

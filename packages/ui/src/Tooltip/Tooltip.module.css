@@ -1,4 +1,4 @@
-/* Radix Tooltip — translucent surface to match floating menus. */
+/* Radix Tooltip — Tier 3 live glass, matching floating menus. */
 
 .content {
   padding: var(--space-1) var(--space-2);
@@ -6,7 +6,7 @@
   line-height: var(--type-small-lh);
   border-radius: var(--radius-lg);
   border: 1px solid rgba(20, 20, 28, 0.08);
-  background: rgba(255, 255, 255, 0.85);
+  composes: vi-glass-floating from global;
   color: var(--text);
   box-shadow: 0 4px 14px rgba(20, 20, 28, 0.12);
   z-index: 1200;
@@ -18,17 +18,14 @@
 [data-theme="dark"] .content,
 [data-theme="midnight"] .content {
   border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(30, 30, 40, 0.85);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
+/* backdrop-filter cannot apply to the SVG arrow, so a translucent fill would
+ * show a sharp, unblurred notch of the backdrop at the tooltip's tip. The
+ * opaque raised surface is the closest match to the blurred body. */
 .arrow {
-  fill: rgba(255, 255, 255, 0.85);
-}
-
-[data-theme="dark"] .arrow,
-[data-theme="midnight"] .arrow {
-  fill: rgba(30, 30, 40, 0.85);
+  fill: var(--surface-raised);
 }
 
 @keyframes fadeIn {

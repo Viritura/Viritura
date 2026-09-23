@@ -4,13 +4,19 @@
  * only, per the `react-refresh/only-export-components` rule and AGENTS.md.
  */
 import type { SlurShape } from "@viritura/core";
-import type { WriteViewMode as ViewMode } from "@viritura/ui";
+import type { WriteViewMode as ViewMode, MenuItemDef } from "@viritura/ui";
 import type { ScrollAnchor, ScrollAnchorAxes } from "../../viewport";
 
 export interface ViewportInfo {
   zoom: number;
   scrollX: number;
   scrollY: number;
+}
+
+/** Selection state a right-click established, for building its context menu. */
+export interface SelectionMenuContext {
+  /** True when the click targeted an element or landed inside a live selection. */
+  readonly hasSelection: boolean;
 }
 
 // ─── Engrave-mode public types ────────────────────────────────
@@ -135,6 +141,13 @@ export interface ScoreCanvasProps {
    * expand condensed staves in place; omit to render no handles.
    */
   onToggleCondensedStaff?: (pathKey: string) => void;
+  /**
+   * Build the editing commands shown when right-clicking the score in write
+   * mode. Called each time the menu opens, with the selection state the click
+   * established (which the React store has not observed yet); omit to suppress
+   * the context menu.
+   */
+  buildSelectionMenuItems?: (context: SelectionMenuContext) => readonly MenuItemDef[];
   /** Called whenever the viewport (zoom/scroll) changes */
   onViewportChange?: (info: ViewportInfo) => void;
   /** Called when score info text changes */

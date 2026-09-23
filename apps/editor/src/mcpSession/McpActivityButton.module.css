@@ -29,7 +29,7 @@
   width: min(360px, calc(100vw - 24px));
   overflow: hidden;
   border-radius: 10px;
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   color: var(--text);
   box-shadow: var(--elevation-2);
 }

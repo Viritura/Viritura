@@ -33,11 +33,20 @@
   padding: var(--space-1);
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.96);
   box-shadow:
     0 10px 24px rgba(20, 20, 28, 0.14),
     0 2px 6px rgba(20, 20, 28, 0.08);
   z-index: 1100;
+}
+
+/* `composes` is only valid on a single-class rule, so the shared material is
+   applied to each selector separately rather than in the block above. */
+.content {
+  composes: vi-glass-floating from global;
+}
+
+.subContent {
+  composes: vi-glass-floating from global;
 }
 
 [data-theme="dark"] .content,
@@ -45,7 +54,6 @@
 [data-theme="midnight"] .content,
 [data-theme="midnight"] .subContent {
   border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(40, 42, 56, 0.98);
 }
 
 .item {

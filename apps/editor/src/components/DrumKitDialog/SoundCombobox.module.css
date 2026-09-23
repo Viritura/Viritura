@@ -74,7 +74,7 @@
   padding: var(--space-2);
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  composes: vi-glass-floating from global;
   box-shadow: 0 12px 32px rgba(20, 20, 28, 0.18);
   /* Portaled to <body>, which a modal dialog sets to pointer-events:none. */
   pointer-events: auto;

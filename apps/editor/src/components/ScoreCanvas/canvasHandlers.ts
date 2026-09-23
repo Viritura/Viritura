@@ -9,7 +9,7 @@ import {
   type SlurGeometry,
 } from "@viritura/renderer";
 import type { ChordSymbol, PageSetup, SlurShape, Score } from "@viritura/core";
-import type { ContextMenuState } from "@viritura/ui";
+import type { ContextMenuState, MenuItemDef } from "@viritura/ui";
 
 import { findNearbyElement, pointerToBarline, pointerToMeasure, pointerToMeasureStaff } from "./hitTesting";
 import {
@@ -33,11 +33,12 @@ import type { SpannerDragState, SlurHandleDragState, TextExpressionDragState } f
 import type { MeasureSelectionPoint } from "../../store/selectionStore";
 import { listenForPointerDrag } from "./pointerDrag";
 import { selectBeamAtPoint } from "./beamSelection";
-import type { ViewportInfo } from "./types";
+import type { ViewportInfo, SelectionMenuContext } from "./types";
 import { globalChordForElement, previewClickedChord } from "./chordFeedback";
 import { selectCanvasElement } from "./elementSelection";
 import { releaseMiddlePointer } from "./middlePointerPan";
 import { screenToEngine } from "./engineCoordinates";
+import { openWriteSelectionContextMenu } from "./selectionContextMenu";
 
 const PX_PER_MM = 12;
 
@@ -112,7 +113,9 @@ export interface CanvasHandlerCtx {
   buildDragSnapPoints: (partIdx: number, altKey: boolean) => SpannerSnapPoint[];
   startEngraveHoverFade: () => void;
   setEngraveHoverCursor: React.Dispatch<React.SetStateAction<boolean>>;
-  setSlurContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>;
+  setContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>;
+  /** Builds the write-mode context-menu items; undefined suppresses the menu. */
+  buildSelectionMenuItemsRef: Ref<((context: SelectionMenuContext) => readonly MenuItemDef[]) | undefined>;
 }
 
 export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
@@ -871,7 +874,10 @@ function updateSlurHandleHover(
 }
 
 export function handleCanvasContextMenuImpl(e: React.MouseEvent<HTMLCanvasElement>, ctx: CanvasHandlerCtx): void {
-  if (ctx.interactionModeRef.current !== "engrave") return;
+  if (ctx.interactionModeRef.current !== "engrave") {
+    openWriteSelectionContextMenu(e, ctx);
+    return;
+  }
   const canvas = ctx.canvasRef.current;
   const si = ctx.spatialIndexRef.current;
   const dl = ctx.displayListRef.current;
@@ -894,7 +900,7 @@ export function handleCanvasContextMenuImpl(e: React.MouseEvent<HTMLCanvasElemen
   if (!targetSlurId) return;
   e.preventDefault();
   const slurId = targetSlurId;
-  ctx.setSlurContextMenu({
+  ctx.setContextMenu({
     x: e.clientX,
     y: e.clientY,
     items: [
@@ -902,7 +908,7 @@ export function handleCanvasContextMenuImpl(e: React.MouseEvent<HTMLCanvasElemen
         label: "Reset shape",
         action: () => {
           ctx.onEngraveSlurShapeResetRef.current?.(slurId);
-          ctx.setSlurContextMenu(null);
+          ctx.setContextMenu(null);
         },
       },
     ],

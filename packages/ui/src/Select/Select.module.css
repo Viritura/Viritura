@@ -2,7 +2,7 @@
 
 .content {
   min-width: var(--radix-select-trigger-width);
-  background: rgba(255, 255, 255, 0.92);
+  composes: vi-glass-floating from global;
   border: 1px solid rgba(20, 20, 28, 0.08);
   border-radius: 10px;
   box-shadow:
@@ -15,7 +15,6 @@
 
 [data-theme="dark"] .content,
 [data-theme="midnight"] .content {
-  background: rgba(40, 42, 56, 0.96);
   border-color: rgba(255, 255, 255, 0.08);
 }
 

@@ -48,7 +48,7 @@
   border: 1px solid rgba(255, 255, 255, 0.55);
   /* Translucent glass — refracts the workspace mesh underneath. */
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.35) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: var(--glass-panel-filter);
   /* Three-layer shadow — contact + medium + ambient — for honest depth.
      The crisp inner top stroke is the lit rim catching overhead light. */
   box-shadow:

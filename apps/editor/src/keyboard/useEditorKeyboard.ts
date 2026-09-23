@@ -46,6 +46,7 @@ export interface EditorKeyboardConfig {
   onCopy: () => void;
   onCut: () => void;
   onPaste: () => void;
+  onPasteMerge?: () => void;
   onToggleRepeatStart?: () => void;
   onToggleRepeatEnd?: () => void;
   onEditEnding?: () => void;
@@ -139,6 +140,7 @@ function buildAppCallbacks(configRef: {
     onCopy: () => configRef.current.onCopy(),
     onCut: () => configRef.current.onCut(),
     onPaste: () => configRef.current.onPaste(),
+    onPasteMerge: () => configRef.current.onPasteMerge?.(),
     onTogglePanels: () => configRef.current.onTogglePanels?.(),
     onToggleCondensingPopover: () => configRef.current.onToggleCondensingPopover?.(),
     onSetTempo: () => configRef.current.onSetTempo?.(),
