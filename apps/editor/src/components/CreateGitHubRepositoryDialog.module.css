@@ -1,3 +1,7 @@
+.dialogBody {
+  padding: 0;
+}
+
 .repoOwnerRow {
   display: inline-flex;
   align-items: center;
@@ -12,6 +16,54 @@
   box-shadow: var(--inset-soft);
   color: var(--text-muted);
   font-size: var(--type-eyebrow-size);
+}
+
+.flowChoices {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.flowChoice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  height: auto;
+  min-height: 64px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.flowChoice:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.flowChoice > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.flowChoice > span {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-align: left;
+}
+
+.flowChoice small {
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.4;
 }
 
 .installHint {
@@ -35,10 +87,77 @@
   white-space: nowrap;
 }
 
-.checkboxStack {
+.stepDescription {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--type-body-size);
+  line-height: 1.4;
+}
+
+.detectedStatus {
   display: flex;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 8px;
+  background: rgba(38, 142, 92, 0.12);
+  color: var(--text);
+}
+
+.detectedStatus > svg {
+  flex: 0 0 auto;
+  color: rgb(38, 142, 92);
+}
+
+.detectedStatus > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.detectedStatus span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blockedStatus {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border-radius: 8px;
+  background: rgba(180, 35, 24, 0.1);
+  color: var(--text);
+}
+
+.blockedStatus > svg {
+  flex: 0 0 auto;
+  color: var(--danger-text, #b42318);
+}
+
+.blockedStatus > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.blockedStatus span {
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+  line-height: 1.4;
+}
+
+.detectionError {
+  margin: var(--space-2) 0 0;
+  color: var(--danger-text, #b42318);
+  font-size: var(--type-eyebrow-size);
 }
 
 .createdLink {

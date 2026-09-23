@@ -264,6 +264,24 @@ export const repoActionsStyle: CSSProperties = {
   flexShrink: 0,
 };
 
+export const repoDisconnectConfirmationStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 6,
+  marginTop: 8,
+  paddingLeft: 26,
+  minWidth: 0,
+};
+
+export const repoDisconnectMessageStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.68rem",
+  lineHeight: 1.35,
+};
+
 export const repoOpenLinkStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -284,27 +302,4 @@ export const setupTitleStyle: CSSProperties = {
   fontSize: "0.78rem",
   fontWeight: 650,
   textAlign: "center",
-};
-
-const setupButtonStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  width: "100%",
-  padding: "7px 12px",
-  border: "1px solid rgba(var(--accent-rgb, 33, 94, 78), 0.45)",
-  borderRadius: 999,
-  background: "rgba(var(--accent-rgb, 33, 94, 78), 0.12)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: "0.76rem",
-  fontWeight: 600,
-  cursor: "pointer",
-  transition: "background-color 0.15s ease-out, border-color 0.15s ease-out",
-};
-
-export const setupLinkButtonStyle: CSSProperties = {
-  ...setupButtonStyle,
-  textDecoration: "none",
 };

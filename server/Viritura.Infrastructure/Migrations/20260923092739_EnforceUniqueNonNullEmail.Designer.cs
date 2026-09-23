@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Viritura.Infrastructure;
 
@@ -10,9 +11,11 @@ using Viritura.Infrastructure;
 namespace Viritura.Infrastructure.Migrations
 {
     [DbContext(typeof(VirituraDbContext))]
-    partial class VirituraDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260923092739_EnforceUniqueNonNullEmail")]
+    partial class EnforceUniqueNonNullEmail
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");

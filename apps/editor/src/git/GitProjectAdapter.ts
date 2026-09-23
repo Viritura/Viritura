@@ -8,10 +8,12 @@
  * in-memory map).
  */
 
-import git, { type GitHttpRequest, type GitHttpResponse, type HttpClient } from "isomorphic-git";
+import git from "isomorphic-git";
 import type { IsoGitFs } from "./fs/types";
-import { type CommitInfo, type ProjectAdapter, type ProjectStatus } from "./ProjectAdapter";
+import { type CommitInfo, type ProjectAdapter, type ProjectStatus, type RemoteCompatibility } from "./ProjectAdapter";
 import { getIdentity } from "./identity";
+import { removeRemoteConfig } from "./remoteConfig";
+import { createCredentialedGitHttpClient } from "./gitHttpClient";
 
 const DEFAULT_BRANCH = "main";
 const SCORE_HISTORY_CACHE_SIZE = 8;
@@ -159,8 +161,9 @@ export class GitProjectAdapter implements ProjectAdapter {
     const commits = await this.readCommitLog(1000);
     commitCount = commits.length;
     if (remoteUrl && branch) {
+      const remoteBranch = await this.getTrackedRemoteBranch(branch, "origin");
       const counts = await this.countAheadBehind(
-        branch,
+        remoteBranch,
         commits.map((commit) => commit.oid),
       );
       aheadCount = counts.ahead;
@@ -285,39 +288,131 @@ export class GitProjectAdapter implements ProjectAdapter {
     });
   }
 
-  async push(options: { remote?: string; corsProxy: string }): Promise<void> {
+  async removeRemote(remote: string): Promise<void> {
+    await removeRemoteConfig(this.fs, remote);
+  }
+
+  async inspectRemote(options: {
+    url: string;
+    defaultBranch: string;
+    corsProxy: string;
+  }): Promise<RemoteCompatibility> {
+    const refs = await git.listServerRefs({
+      http: credentialedHttp,
+      url: options.url,
+      corsProxy: options.corsProxy,
+      symrefs: true,
+    });
+    const branchRefs = refs.filter((ref) => ref.ref.startsWith("refs/heads/"));
+    const branch =
+      options.defaultBranch ||
+      refs.find((ref) => ref.ref === "HEAD")?.target?.replace(/^refs\/heads\//, "") ||
+      DEFAULT_BRANCH;
+    if (branchRefs.length === 0) {
+      return { kind: "empty", branch, localAhead: (await this.readCommitLog(1000)).length, remoteAhead: 0 };
+    }
+
+    const remoteBranch = branchRefs.find((ref) => ref.ref === `refs/heads/${branch}`);
+    if (!remoteBranch) {
+      throw new Error(`GitHub's default branch '${branch}' was not advertised by the repository.`);
+    }
+
+    const inspectionRemote = `viritura-inspect-${Math.random().toString(36).slice(2)}`;
+    await this.setRemoteUrl(inspectionRemote, options.url);
+    let fetched: Awaited<ReturnType<typeof git.fetch>>;
+    try {
+      fetched = await git.fetch({
+        fs: this.fs,
+        http: credentialedHttp,
+        dir: "/",
+        remote: inspectionRemote,
+        ref: branch,
+        remoteRef: branch,
+        singleBranch: true,
+        tags: false,
+        corsProxy: options.corsProxy,
+      });
+    } finally {
+      await this.removeRemote(inspectionRemote);
+    }
+    const remoteOid = fetched.fetchHead ?? remoteBranch.oid;
+    const localOid = await git.resolveRef({ fs: this.fs, dir: "/", ref: "HEAD" });
+    return await this.classifyRemoteHistory(branch, localOid, remoteOid);
+  }
+
+  async push(options: { remote?: string; remoteRef?: string; corsProxy: string }): Promise<void> {
     const remote = options.remote ?? "origin";
     const branch = (await git.currentBranch({ fs: this.fs, dir: "/", fullname: false })) ?? DEFAULT_BRANCH;
+    const remoteBranch = options.remoteRef ?? (await this.getTrackedRemoteBranch(branch, remote));
     await git.push({
       fs: this.fs,
       http: credentialedHttp,
       dir: "/",
       remote,
       ref: branch,
-      remoteRef: branch,
+      remoteRef: remoteBranch,
       corsProxy: options.corsProxy,
     });
     const head = await git.resolveRef({ fs: this.fs, dir: "/", ref: "HEAD" });
-    await git.writeRef({ fs: this.fs, dir: "/", ref: `refs/remotes/${remote}/${branch}`, value: head, force: true });
+    await git.writeRef({
+      fs: this.fs,
+      dir: "/",
+      ref: `refs/remotes/${remote}/${remoteBranch}`,
+      value: head,
+      force: true,
+    });
     await git.setConfig({ fs: this.fs, dir: "/", path: `branch.${branch}.remote`, value: remote });
-    await git.setConfig({ fs: this.fs, dir: "/", path: `branch.${branch}.merge`, value: `refs/heads/${branch}` });
+    await git.setConfig({
+      fs: this.fs,
+      dir: "/",
+      path: `branch.${branch}.merge`,
+      value: `refs/heads/${remoteBranch}`,
+    });
   }
 
   async fetch(options: { remote?: string; corsProxy: string }): Promise<void> {
     const remote = options.remote ?? "origin";
     const branch = (await git.currentBranch({ fs: this.fs, dir: "/", fullname: false })) ?? DEFAULT_BRANCH;
+    const remoteBranch = await this.getTrackedRemoteBranch(branch, remote);
     await git.fetch({
       fs: this.fs,
       http: credentialedHttp,
       dir: "/",
       remote,
-      ref: branch,
+      ref: remoteBranch,
+      remoteRef: remoteBranch,
       singleBranch: true,
       tags: false,
       corsProxy: options.corsProxy,
     });
     await git.setConfig({ fs: this.fs, dir: "/", path: `branch.${branch}.remote`, value: remote });
-    await git.setConfig({ fs: this.fs, dir: "/", path: `branch.${branch}.merge`, value: `refs/heads/${branch}` });
+    await git.setConfig({
+      fs: this.fs,
+      dir: "/",
+      path: `branch.${branch}.merge`,
+      value: `refs/heads/${remoteBranch}`,
+    });
+  }
+
+  private async getTrackedRemoteBranch(branch: string, remote: string): Promise<string> {
+    try {
+      const configuredRemote = await git.getConfig({
+        fs: this.fs,
+        dir: "/",
+        path: `branch.${branch}.remote`,
+      });
+      const mergeRef = await git.getConfig({
+        fs: this.fs,
+        dir: "/",
+        path: `branch.${branch}.merge`,
+      });
+      if (configuredRemote === remote && mergeRef?.startsWith("refs/heads/")) {
+        return mergeRef.slice("refs/heads/".length);
+      }
+    } catch {
+      // Missing tracking configuration falls back to the local branch name.
+    }
+    return branch;
   }
 
   private async readCommitLog(limit: number): Promise<Awaited<ReturnType<typeof git.log>>> {
@@ -329,13 +424,13 @@ export class GitProjectAdapter implements ProjectAdapter {
   }
 
   private async countAheadBehind(
-    branch: string,
+    remoteBranch: string,
     localOids: readonly string[],
   ): Promise<{ ahead: number; behind: number | null }> {
     if (localOids.length === 0) return { ahead: 0, behind: null };
     let remoteLog: Awaited<ReturnType<typeof git.log>>;
     try {
-      remoteLog = await git.log({ fs: this.fs, dir: "/", ref: `refs/remotes/origin/${branch}`, depth: 1000 });
+      remoteLog = await git.log({ fs: this.fs, dir: "/", ref: `refs/remotes/origin/${remoteBranch}`, depth: 1000 });
     } catch {
       return { ahead: localOids.length, behind: null };
     }
@@ -349,62 +444,48 @@ export class GitProjectAdapter implements ProjectAdapter {
       behind: commonRemoteIndex === -1 ? remoteOids.length : commonRemoteIndex,
     };
   }
-}
 
-const credentialedHttp: HttpClient = {
-  async request(request: GitHttpRequest): Promise<GitHttpResponse> {
-    const body = request.body ? await collectBody(request.body) : undefined;
-    const response = await fetch(request.url, {
-      method: request.method ?? "GET",
-      headers: request.headers,
-      body,
-      credentials: "include",
-    });
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-    return {
-      url: response.url,
-      method: request.method,
-      statusCode: response.status,
-      statusMessage: response.statusText,
-      headers,
-      body: response.body ? streamChunks(response.body) : singleChunk(new Uint8Array(await response.arrayBuffer())),
-    };
-  },
-};
-
-async function collectBody(body: AsyncIterableIterator<Uint8Array>): Promise<ArrayBuffer> {
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-  for await (const chunk of body) {
-    chunks.push(chunk);
-    byteLength += chunk.byteLength;
-  }
-  const buffer = new ArrayBuffer(byteLength);
-  const collected = new Uint8Array(buffer);
-  let offset = 0;
-  for (const chunk of chunks) {
-    collected.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return buffer;
-}
-
-async function* streamChunks(stream: ReadableStream<Uint8Array>): AsyncIterableIterator<Uint8Array> {
-  const reader = stream.getReader();
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) return;
-      if (value) yield value;
+  private async classifyRemoteHistory(
+    branch: string,
+    localOid: string,
+    remoteOid: string,
+  ): Promise<RemoteCompatibility> {
+    if (localOid === remoteOid) {
+      return { kind: "up-to-date", branch, localAhead: 0, remoteAhead: 0 };
     }
-  } finally {
-    reader.releaseLock();
+
+    const localDescendsFromRemote = await git.isDescendent({
+      fs: this.fs,
+      dir: "/",
+      oid: localOid,
+      ancestor: remoteOid,
+    });
+    if (localDescendsFromRemote) {
+      const localLog = await git.log({ fs: this.fs, dir: "/", ref: localOid });
+      const remoteIndex = localLog.findIndex((commit) => commit.oid === remoteOid);
+      return { kind: "remote-behind", branch, localAhead: remoteIndex, remoteAhead: 0 };
+    }
+
+    const remoteDescendsFromLocal = await git.isDescendent({
+      fs: this.fs,
+      dir: "/",
+      oid: remoteOid,
+      ancestor: localOid,
+    });
+    if (remoteDescendsFromLocal) {
+      const remoteLog = await git.log({ fs: this.fs, dir: "/", ref: remoteOid });
+      const localIndex = remoteLog.findIndex((commit) => commit.oid === localOid);
+      return { kind: "remote-ahead", branch, localAhead: 0, remoteAhead: localIndex };
+    }
+
+    const mergeBases = await git.findMergeBase({ fs: this.fs, dir: "/", oids: [localOid, remoteOid] });
+    return {
+      kind: mergeBases.length > 0 ? "diverged" : "unrelated",
+      branch,
+      localAhead: 0,
+      remoteAhead: 0,
+    };
   }
 }
 
-async function* singleChunk(chunk: Uint8Array): AsyncIterableIterator<Uint8Array> {
-  yield chunk;
-}
+const credentialedHttp = createCredentialedGitHttpClient();

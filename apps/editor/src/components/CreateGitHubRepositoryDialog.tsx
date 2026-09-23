@@ -1,154 +1,333 @@
-/**
- * CreateGitHubRepositoryDialog — modal for provisioning a new repo on a
- * connected GitHub account. Extracted from the (now-retired)
- * `GitHubAccountButton`; the consolidated `AccountButton` no longer
- * embeds repo-creation flow inline.
- */
-import { useEffect, useMemo, useState } from "react";
-import { Check, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Check, ExternalLink, Link, Plus } from "lucide-react";
 import {
-  Checkbox,
+  Button,
   Dialog,
   DialogActions,
   DialogBody,
   DialogCancelButton,
   DialogPrimaryButton,
+  DialogSecondaryButton,
   DialogTitle,
   FormField,
   FormInput,
+  Radio,
+  RadioGroup,
 } from "@viritura/ui";
 import { toast } from "sonner";
 import type { CreatedGitHubRepository, GitHubInstallationStatus } from "../github/api";
+import { getGitHubInstallationStartUrl } from "../github/api";
+import type { RemoteCompatibility } from "../git/ProjectAdapter";
+import { describeCompatibility, type RepositoryVisibility } from "./githubRepositoryConnection";
+import { useGitHubRepositoryConnection } from "./useGitHubRepositoryConnection";
+import { GitHubRepositoryCombobox } from "./GitHubRepositoryCombobox";
 import styles from "./CreateGitHubRepositoryDialog.module.css";
 import { GitHubMark } from "../brand/GitHubMark";
 
-const REPO_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+interface ConnectGitHubRepositoryRequest {
+  readonly repository: CreatedGitHubRepository;
+  readonly compatibility: RemoteCompatibility;
+}
 
-export function CreateGitHubRepositoryDialog({
-  open,
-  ownerLogin,
-  installUrl,
-  installation,
-  defaultRepositoryName,
-  onClose,
-  onCreate,
-}: {
+interface CreateGitHubRepositoryDialogProps {
   readonly open: boolean;
   readonly ownerLogin: string;
   readonly installUrl: string | null;
   readonly installation: GitHubInstallationStatus | null;
   readonly defaultRepositoryName?: string;
   readonly onClose: () => void;
-  readonly onCreate: (request: {
-    name: string;
-    description?: string;
-    private: boolean;
-    autoInit: boolean;
-  }) => Promise<CreatedGitHubRepository>;
-}) {
-  const [name, setName] = useState(() => normalizeDefaultRepositoryName(defaultRepositoryName));
-  const [description, setDescription] = useState("");
-  const [isPrivate, setIsPrivate] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [createdRepository, setCreatedRepository] = useState<CreatedGitHubRepository | null>(null);
+  readonly onInspect: (repository: CreatedGitHubRepository) => Promise<RemoteCompatibility>;
+  readonly onConnect: (request: ConnectGitHubRepositoryRequest) => Promise<void>;
+}
 
-  const validationError = useMemo(() => validateRepositoryName(name), [name]);
+type ConnectionState = ReturnType<typeof useGitHubRepositoryConnection>;
 
-  useEffect(() => {
-    if (!open) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- controlled-sync effect — external source seeds local state when it changes
-    setName(normalizeDefaultRepositoryName(defaultRepositoryName));
-    setDescription("");
-    setIsPrivate(true);
-    setCreatedRepository(null);
-  }, [open, defaultRepositoryName]);
+export function CreateGitHubRepositoryDialog(props: CreateGitHubRepositoryDialogProps) {
+  const connection = useGitHubRepositoryConnection(props);
+  const [connecting, setConnecting] = useState(false);
+  const needsInstallOrSelection =
+    !props.installation?.installed ||
+    props.installation.suspended ||
+    props.installation.repositorySelection === "selected";
 
-  const handleCreate = async () => {
-    if (validationError) return;
-    setSubmitting(true);
-    setCreatedRepository(null);
+  const handleConnect = async () => {
+    if (!connection.detectedRepository || !connection.compatibility || !connection.canConnect) return;
+    setConnecting(true);
     try {
-      const repository = await onCreate({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        private: isPrivate,
-        autoInit: false,
+      await props.onConnect({
+        repository: connection.detectedRepository,
+        compatibility: connection.compatibility,
       });
-      setCreatedRepository(repository);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "GitHub request failed");
+      connection.setStep("connected");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "GitHub connection failed");
     } finally {
-      setSubmitting(false);
+      setConnecting(false);
     }
   };
 
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Create GitHub repository</DialogTitle>
-      <DialogBody>
+    <Dialog open={props.open} onClose={props.onClose}>
+      <DialogTitle>Connect a GitHub repository</DialogTitle>
+      <DialogBody className={styles.dialogBody}>
         <div className={styles.repoOwnerRow}>
           <GitHubMark size={16} aria-hidden="true" />
-          <span>{ownerLogin ? `@${ownerLogin}` : "GitHub account"}</span>
+          <span>{props.ownerLogin ? `@${props.ownerLogin}` : "GitHub account"}</span>
         </div>
-        {installUrl && installation?.canCreateRepositories !== true && (
-          <a className={styles.installHint} href={installUrl} target="_blank" rel="noreferrer">
-            <ExternalLink size={14} aria-hidden="true" />
-            <span>
-              {installation?.installed ? "Update Viritura installation" : "Install Viritura on this account first"}
-            </span>
-          </a>
-        )}
-        <FormField label="Repository name" error={validationError ?? undefined}>
-          <FormInput
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="viritura-score"
-            autoFocus
-          />
-        </FormField>
-        <FormField label="Description">
-          <FormInput
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Score project"
-          />
-        </FormField>
-        <div className={styles.checkboxStack}>
-          <Checkbox label="Private" checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} />
-        </div>
-        {createdRepository && (
-          <a className={styles.createdLink} href={createdRepository.htmlUrl} target="_blank" rel="noreferrer">
-            <Check size={14} aria-hidden="true" />
-            <span>{createdRepository.fullName}</span>
-            <ExternalLink size={13} aria-hidden="true" />
-          </a>
-        )}
+        <ConnectionBody
+          connection={connection}
+          installUrl={props.installUrl}
+          installationInstalled={props.installation?.installed === true}
+          needsInstallOrSelection={needsInstallOrSelection}
+        />
       </DialogBody>
-      <DialogActions>
-        <DialogCancelButton>Close</DialogCancelButton>
-        <DialogPrimaryButton onClick={handleCreate} disabled={Boolean(validationError) || submitting}>
-          {submitting ? "Creating" : "Create"}
-        </DialogPrimaryButton>
-      </DialogActions>
+      <ConnectionActions
+        connection={connection}
+        connecting={connecting}
+        onClose={props.onClose}
+        onConnect={() => void handleConnect()}
+      />
     </Dialog>
   );
 }
 
-function validateRepositoryName(value: string): string | null {
-  const name = value.trim();
-  if (!name) return "Enter a repository name.";
-  if (name.length > 100) return "Use 100 characters or fewer.";
-  if (!REPO_NAME_PATTERN.test(name)) return "Use letters, numbers, dots, underscores, or hyphens.";
-  if (name === "." || name === "..") return "Choose a different repository name.";
-  return null;
+function ConnectionBody({
+  connection,
+  installUrl,
+  installationInstalled,
+  needsInstallOrSelection,
+}: {
+  connection: ConnectionState;
+  installUrl: string | null;
+  installationInstalled: boolean;
+  needsInstallOrSelection: boolean;
+}) {
+  const installationHint =
+    installUrl && needsInstallOrSelection ? (
+      <InstallationHint installUrl={installUrl} installed={installationInstalled} />
+    ) : null;
+
+  switch (connection.step) {
+    case "choose":
+      return (
+        <ConnectionChoices onCreate={() => connection.setStep("create")} onLink={() => connection.setStep("link")} />
+      );
+    case "create":
+      return <CreateRepositoryFields connection={connection} />;
+    case "link":
+      return <ExistingRepositoryFields connection={connection} installationHint={installationHint} />;
+    case "waiting":
+      return (
+        <>
+          <p className={styles.stepDescription} aria-live="polite">
+            We opened GitHub with <strong>{connection.name}</strong> ({connection.visibility}) ready to create. Finish
+            creating the empty repository there, then return here. Viritura is waiting for access.
+          </p>
+          {installationHint}
+          <DetectionError message={connection.detectionError} />
+        </>
+      );
+    case "checking":
+      return (
+        <p className={styles.stepDescription} aria-live="polite">
+          Checking repository history for compatibility.
+        </p>
+      );
+    case "result":
+      return connection.detectedRepository ? (
+        <CompatibilityResult
+          repository={connection.detectedRepository}
+          compatibility={connection.compatibility}
+          error={connection.detectionError}
+        />
+      ) : null;
+    case "connected":
+      return connection.detectedRepository ? <ConnectedRepository repository={connection.detectedRepository} /> : null;
+  }
 }
 
-function normalizeDefaultRepositoryName(value: string | undefined): string {
-  const normalized = (value?.trim() || "viritura-score")
-    .replace(/\.mnx$/i, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^A-Za-z0-9._-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[.-]+|[.-]+$/g, "");
-  return normalized || "viritura-score";
+function ConnectionChoices({ onCreate, onLink }: { onCreate: () => void; onLink: () => void }) {
+  return (
+    <div className={styles.flowChoices}>
+      <Button className={styles.flowChoice} variant="ghost" onClick={onCreate}>
+        <Plus size={18} aria-hidden="true" />
+        <span>
+          <strong>Create new repository</strong>
+          <small>Publish this project to a new, empty GitHub repository.</small>
+        </span>
+      </Button>
+      <Button className={styles.flowChoice} variant="ghost" onClick={onLink}>
+        <Link size={18} aria-hidden="true" />
+        <span>
+          <strong>Link existing repository</strong>
+          <small>Reconnect an empty repository or one that shares this project&apos;s history.</small>
+        </span>
+      </Button>
+    </div>
+  );
+}
+
+function CreateRepositoryFields({ connection }: { connection: ConnectionState }) {
+  return (
+    <>
+      <FormField label="Repository name" error={connection.validationError ?? undefined}>
+        <FormInput
+          value={connection.name}
+          onChange={(event) => connection.setName(event.target.value)}
+          placeholder="viritura-score"
+          autoFocus
+        />
+      </FormField>
+      <FormField label="Visibility">
+        <RadioGroup
+          value={connection.visibility}
+          onChange={(value) => connection.setVisibility(value as RepositoryVisibility)}
+          layout="inline"
+        >
+          <Radio value="private" label="Private" />
+          <Radio value="public" label="Public" />
+        </RadioGroup>
+      </FormField>
+    </>
+  );
+}
+
+function ExistingRepositoryFields({
+  connection,
+  installationHint,
+}: {
+  connection: ConnectionState;
+  installationHint: React.ReactNode;
+}) {
+  return (
+    <>
+      <p className={styles.stepDescription}>
+        Enter an existing repository as <strong>owner/name</strong> or paste its GitHub URL. Viritura checks its history
+        before changing this project.
+      </p>
+      <FormField label="GitHub repository" error={connection.repositoryInputError ?? undefined}>
+        <GitHubRepositoryCombobox
+          value={connection.repositoryInput}
+          repositories={connection.repositories}
+          loading={connection.repositoriesLoading}
+          error={connection.repositoriesError}
+          onChange={connection.setRepositoryInput}
+        />
+      </FormField>
+      <DetectionError message={connection.detectionError} />
+      {installationHint}
+    </>
+  );
+}
+
+function ConnectionActions({
+  connection,
+  connecting,
+  onClose,
+  onConnect,
+}: {
+  connection: ConnectionState;
+  connecting: boolean;
+  onClose: () => void;
+  onConnect: () => void;
+}) {
+  if (connection.step === "connected") {
+    return (
+      <DialogActions>
+        <DialogPrimaryButton onClick={onClose}>Close</DialogPrimaryButton>
+      </DialogActions>
+    );
+  }
+
+  return (
+    <DialogActions>
+      <DialogCancelButton>Close</DialogCancelButton>
+      {connection.step !== "choose" && connection.step !== "checking" && (
+        <DialogSecondaryButton onClick={connection.returnToChoice}>Back</DialogSecondaryButton>
+      )}
+      {connection.step === "create" && (
+        <DialogPrimaryButton onClick={connection.openGitHub} disabled={Boolean(connection.validationError)}>
+          Create on GitHub
+        </DialogPrimaryButton>
+      )}
+      {connection.step === "link" && (
+        <DialogPrimaryButton
+          onClick={() => void connection.checkExisting()}
+          disabled={Boolean(connection.repositoryInputError) || connection.checkingExisting}
+        >
+          {connection.checkingExisting ? "Checking" : "Check repository"}
+        </DialogPrimaryButton>
+      )}
+      {connection.step === "result" && connection.canConnect && (
+        <DialogPrimaryButton onClick={onConnect} disabled={connecting}>
+          {connecting ? "Publishing" : "Connect and publish"}
+        </DialogPrimaryButton>
+      )}
+    </DialogActions>
+  );
+}
+
+function InstallationHint({ installUrl, installed }: { installUrl: string; installed: boolean }) {
+  return (
+    <a className={styles.installHint} href={getGitHubInstallationStartUrl(installUrl)} target="_blank" rel="noreferrer">
+      <ExternalLink size={14} aria-hidden="true" />
+      <span>{installed ? "Select repository in GitHub" : "Install App and select repository"}</span>
+    </a>
+  );
+}
+
+function DetectionError({ message }: { message: string | null }) {
+  return message ? (
+    <p className={styles.detectionError} role="alert">
+      {message}
+    </p>
+  ) : null;
+}
+
+function CompatibilityResult({
+  repository,
+  compatibility,
+  error,
+}: {
+  repository: CreatedGitHubRepository;
+  compatibility: RemoteCompatibility | null;
+  error: string | null;
+}) {
+  if (!compatibility) {
+    return (
+      <div className={styles.blockedStatus} role="alert">
+        <AlertTriangle size={18} aria-hidden="true" />
+        <div>
+          <strong>Could not verify repository history</strong>
+          <span>{error ?? "Try checking the repository again."}</span>
+        </div>
+      </div>
+    );
+  }
+  const result = describeCompatibility(compatibility);
+  return (
+    <div className={result.safe ? styles.detectedStatus : styles.blockedStatus} aria-live="polite">
+      {result.safe ? <Check size={18} aria-hidden="true" /> : <AlertTriangle size={18} aria-hidden="true" />}
+      <div>
+        <strong>{result.title}</strong>
+        <span>{repository.fullName}</span>
+        <span>{result.description}</span>
+      </div>
+    </div>
+  );
+}
+
+function ConnectedRepository({ repository }: { repository: CreatedGitHubRepository }) {
+  return (
+    <>
+      <p className={styles.stepDescription} aria-live="polite">
+        The project is connected and its local history is published to GitHub.
+      </p>
+      <a className={styles.createdLink} href={repository.htmlUrl} target="_blank" rel="noreferrer">
+        <Check size={14} aria-hidden="true" />
+        <span>{repository.fullName}</span>
+        <ExternalLink size={13} aria-hidden="true" />
+      </a>
+    </>
+  );
 }

@@ -78,7 +78,10 @@ export function useFileSaveActions({
         void useProjectStore
           .getState()
           .commitCurrent(json, { auto: false })
-          .catch((err) => console.error("Background commit failed:", err));
+          .catch((err) => {
+            console.error("Background commit failed:", err);
+            toast.error("Saved, but version history could not be updated");
+          });
       } catch (err) {
         console.error("Save failed:", err);
         toast.error("Save failed");

@@ -106,6 +106,7 @@ export {
 export { Slider, type SliderProps } from "./Slider/Slider";
 export { Select, SelectTrigger, type SelectOption, type SelectProps, type SelectTriggerProps } from "./Select";
 export { SearchInput, type SearchInputProps, type SearchInputSize } from "./SearchInput/SearchInput";
+export { Combobox, type ComboboxOption, type ComboboxProps } from "./Combobox";
 export { ButtonGroup, type ButtonGroupProps, type ButtonGroupOption } from "./ButtonGroup/ButtonGroup";
 export { GlyphButtonGroup, type GlyphButtonGroupOption, type GlyphButtonGroupProps } from "./GlyphButtonGroup";
 export { Tooltip, TooltipPrimitives, type TooltipProps } from "./Tooltip/Tooltip";

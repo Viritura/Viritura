@@ -236,7 +236,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("VirituraFrontends", policy =>
     {
         policy
-            .WithOrigins(allowedOrigins)
+            .SetIsOriginAllowed(origin =>
+                IsExactAllowedOrigin(origin, allowedOrigins) ||
+                (builder.Environment.IsDevelopment() && IsDevelopmentWorktreeOrigin(origin, editorOnly: false)))
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -244,14 +246,18 @@ builder.Services.AddCors(options =>
     options.AddPolicy("VirituraEditor", policy =>
     {
         policy
-            .WithOrigins(editorOrigins)
+            .SetIsOriginAllowed(origin =>
+                IsExactAllowedOrigin(origin, editorOrigins) ||
+                (builder.Environment.IsDevelopment() && IsDevelopmentWorktreeOrigin(origin, editorOnly: true)))
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
     });
 });
 
-builder.Services.AddSingleton(new FrontendOriginPolicy(allowedOrigins));
+builder.Services.AddSingleton(new FrontendOriginPolicy(
+    allowedOrigins,
+    builder.Environment.IsDevelopment() ? DevelopmentFrontendOrigin.IsWorktreeFrontend : null));
 builder.Services.Configure<RecentAuthOptions>(builder.Configuration.GetSection("Auth:RecentAuth"));
 builder.Services.AddSingleton<RecentAuthService>();
 builder.Services.AddSingleton<PasswordTimingProtector>();
@@ -515,6 +521,15 @@ static bool IsLocalhostOrigin(string origin)
     return Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
         (uri.IsLoopback || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase));
 }
+
+static bool IsExactAllowedOrigin(string origin, IEnumerable<string> allowedOrigins) =>
+    allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
+
+static bool IsDevelopmentWorktreeOrigin(string origin, bool editorOnly) =>
+    Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+    (editorOnly
+        ? DevelopmentFrontendOrigin.IsWorktreeEditor(uri)
+        : DevelopmentFrontendOrigin.IsWorktreeFrontend(uri));
 
 static string GetRateLimitPartitionKey(HttpContext context) =>
     context.Connection.RemoteIpAddress?.ToString() ?? "unknown";

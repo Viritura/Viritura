@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
 using Viritura.GitHub;
@@ -49,6 +50,25 @@ public sealed class GitHubAuthController(
         return Redirect(authorizationUrl);
     }
 
+    [HttpGet("install")]
+    [AllowAnonymous]
+    public IActionResult Install([FromQuery] string? target, [FromQuery] string? returnTo)
+    {
+        var authOptions = options.Value;
+        if (!authOptions.IsConfigured)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "Viritura GitHub auth is not configured." });
+        }
+        if (!TryResolveInstallationTarget(target, authOptions.AppSlug, out var installationTarget))
+        {
+            return BadRequest(new { error = "GitHub installation target is invalid." });
+        }
+
+        var challenge = oauthStateService.CreateChallenge(returnTo);
+        Response.Cookies.Append(authOptions.StateCookieName, challenge.CookieValue, CreateStateCookieOptions(environment));
+        return Redirect(QueryHelpers.AddQueryString(installationTarget.ToString(), "state", challenge.State));
+    }
+
     [HttpGet("callback")]
     [AllowAnonymous]
     public async Task<IActionResult> Callback(
@@ -66,6 +86,13 @@ public sealed class GitHubAuthController(
 
         if (IsGitHubAppSetupCallback(installationId, setupAction))
         {
+            var setupStateCookie = Request.Cookies[authOptions.StateCookieName];
+            if (!string.IsNullOrWhiteSpace(state) &&
+                oauthStateService.TryValidate(state, setupStateCookie, out var setupReturnTo))
+            {
+                Response.Cookies.Delete(authOptions.StateCookieName, CreateStateCookieOptions(environment));
+                return Redirect(ResolveReturnUrl(setupReturnTo, authOptions));
+            }
             return Redirect(authOptions.FrontendBaseUrl);
         }
 
@@ -469,7 +496,7 @@ public sealed class GitHubAuthController(
         MaxAge = TimeSpan.FromMinutes(10)
     };
 
-    private static string ResolveReturnUrl(string returnTo, GitHubAuthOptions options)
+    private string ResolveReturnUrl(string returnTo, GitHubAuthOptions options)
     {
         if (IsSafeRelativeReturnUrl(returnTo) &&
             Uri.TryCreate(returnTo, UriKind.Relative, out var relativeUri))
@@ -491,14 +518,56 @@ public sealed class GitHubAuthController(
         (string.Equals(setupAction, "install", StringComparison.OrdinalIgnoreCase) ||
          string.Equals(setupAction, "update", StringComparison.OrdinalIgnoreCase));
 
+    private static bool TryResolveInstallationTarget(string? target, string appSlug, out Uri installationTarget)
+    {
+        installationTarget = null!;
+        if (!Uri.TryCreate(target, UriKind.Absolute, out var candidate) ||
+            !string.Equals(candidate.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !candidate.IsDefaultPort ||
+            !string.IsNullOrEmpty(candidate.UserInfo) ||
+            !string.Equals(candidate.Host, "github.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var segments = candidate.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var isNewInstallation = segments.Length == 4 &&
+            string.Equals(segments[0], "apps", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[1], appSlug, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[2], "installations", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[3], "new", StringComparison.OrdinalIgnoreCase);
+        var isPersonalInstallation = segments.Length == 3 &&
+            string.Equals(segments[0], "settings", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[1], "installations", StringComparison.OrdinalIgnoreCase) &&
+            long.TryParse(segments[2], CultureInfo.InvariantCulture, out _);
+        var isOrganizationInstallation = segments.Length == 5 &&
+            string.Equals(segments[0], "organizations", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[2], "settings", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(segments[3], "installations", StringComparison.OrdinalIgnoreCase) &&
+            long.TryParse(segments[4], CultureInfo.InvariantCulture, out _);
+
+        if (!isNewInstallation && !isPersonalInstallation && !isOrganizationInstallation)
+        {
+            return false;
+        }
+
+        installationTarget = candidate;
+        return true;
+    }
+
     private static bool IsSafeRelativeReturnUrl(string returnTo) =>
         returnTo.StartsWith('/') &&
         !returnTo.StartsWith("//", StringComparison.Ordinal) &&
         !returnTo.Contains('\\', StringComparison.Ordinal) &&
         Uri.TryCreate(returnTo, UriKind.Relative, out _);
 
-    private static bool IsAllowedOrigin(Uri uri, GitHubAuthOptions options)
+    private bool IsAllowedOrigin(Uri uri, GitHubAuthOptions options)
     {
+        if (environment.IsDevelopment() && DevelopmentFrontendOrigin.IsWorktreeEditor(uri))
+        {
+            return true;
+        }
+
         if (Uri.TryCreate(options.FrontendBaseUrl, UriKind.Absolute, out var frontendBase) &&
             string.Equals(uri.GetLeftPart(UriPartial.Authority), frontendBase.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
         {

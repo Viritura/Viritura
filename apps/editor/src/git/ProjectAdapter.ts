@@ -43,6 +43,15 @@ export interface ProjectStatus {
   commitCount: number;
 }
 
+type RemoteCompatibilityKind = "empty" | "up-to-date" | "remote-behind" | "remote-ahead" | "diverged" | "unrelated";
+
+export interface RemoteCompatibility {
+  kind: RemoteCompatibilityKind;
+  branch: string;
+  localAhead: number;
+  remoteAhead: number;
+}
+
 export interface ProjectAdapter {
   readonly mode: ProjectMode;
   readonly name: string;
@@ -77,8 +86,14 @@ export interface ProjectAdapter {
   /** Set a git remote URL. Only meaningful in project mode. */
   setRemoteUrl(remote: string, url: string): Promise<void>;
 
+  /** Remove a git remote configuration. Does not delete the remote repository. */
+  removeRemote(remote: string): Promise<void>;
+
+  /** Inspect a remote without configuring it, classifying its relationship to local HEAD. */
+  inspectRemote(options: { url: string; defaultBranch: string; corsProxy: string }): Promise<RemoteCompatibility>;
+
   /** Push the current branch to a configured remote. Only meaningful in project mode. */
-  push(options: { remote?: string; corsProxy: string }): Promise<void>;
+  push(options: { remote?: string; remoteRef?: string; corsProxy: string }): Promise<void>;
 
   /** Fetch remote refs without merging. Only meaningful in project mode. */
   fetch(options: { remote?: string; corsProxy: string }): Promise<void>;

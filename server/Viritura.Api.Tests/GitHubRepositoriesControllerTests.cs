@@ -115,6 +115,51 @@ public sealed class GitHubRepositoriesControllerTests : IClassFixture<WebApplica
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Find_WhenRepositoryIsAccessible_ReturnsRepository()
+    {
+        using var client = CreateClient();
+        var userId = await RegisterAsync(client);
+        await SeedInstallationAsync(userId);
+        using (var scope = _factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<RepositoryOAuthClient>().RepositoryExists = true;
+        }
+
+        var response = await client.GetAsync("/github/repositories/viritura-user/score-project");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("score-project", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Find_WhenRepositoryIsNotAccessible_ReturnsNotFound()
+    {
+        using var client = CreateClient();
+        var userId = await RegisterAsync(client);
+        await SeedInstallationAsync(userId);
+
+        var response = await client.GetAsync("/github/repositories/viritura-user/score-project");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task List_ReturnsRepositoriesAccessibleToTheApp()
+    {
+        using var client = CreateClient();
+        var userId = await RegisterAsync(client);
+        await SeedInstallationAsync(userId);
+
+        var response = await client.GetAsync("/github/repositories");
+        var repositories = await response.Content.ReadFromJsonAsync<GitHubCreatedRepository[]>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Collection(
+            repositories!,
+            repository => Assert.Equal("viritura-user/score-project", repository.FullName));
+    }
+
     private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
     {
         AllowAutoRedirect = false,
@@ -154,6 +199,44 @@ public sealed class GitHubRepositoriesControllerTests : IClassFixture<WebApplica
         public HttpStatusCode? FailureStatus { get; set; }
 
         public string? LastAccessToken { get; private set; }
+
+        public bool RepositoryExists { get; set; }
+
+        public Task<IReadOnlyList<GitHubCreatedRepository>> ListRepositoriesAsync(
+            string accessToken,
+            CancellationToken cancellationToken = default)
+        {
+            LastAccessToken = accessToken;
+            return Task.FromResult<IReadOnlyList<GitHubCreatedRepository>>(
+            [
+                new(
+                    42,
+                    "score-project",
+                    "viritura-user/score-project",
+                    "https://github.com/viritura-user/score-project",
+                    "https://github.com/viritura-user/score-project.git",
+                    true,
+                    "main")
+            ]);
+        }
+
+
+        public Task<GitHubCreatedRepository?> FindRepositoryAsync(
+            string accessToken,
+            string owner,
+            string name,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<GitHubCreatedRepository?>(
+                RepositoryExists
+                    ? new GitHubCreatedRepository(
+                        42,
+                        name,
+                        owner + "/" + name,
+                        "https://github.com/" + owner + "/" + name,
+                        "https://github.com/" + owner + "/" + name + ".git",
+                        true,
+                        "main")
+                    : null);
 
         public Task<GitHubCreatedRepository> CreateRepositoryAsync(
             string accessToken,

@@ -2,7 +2,7 @@ import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode }
 import { AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button, FormField, FormInput } from "@viritura/ui";
-import { beginGitHubLogin } from "../github/api";
+import { beginGitHubLogin, getGitHubInstallationStartUrl } from "../github/api";
 import type { GitHubAccountState } from "../github/useGitHubAccount";
 import {
   changeVirituraPassword,
@@ -211,7 +211,12 @@ function GitHubRow({ github, user }: { readonly github: GitHubAccountState; read
         connected && manageOpen ? (
           <div className={styles.accountManagementActions}>
             {installUrl && (
-              <a className={styles.linkAction} href={installUrl} target="_blank" rel="noreferrer">
+              <a
+                className={styles.linkAction}
+                href={getGitHubInstallationStartUrl(installUrl)}
+                target="_blank"
+                rel="noreferrer"
+              >
                 <ExternalLink size={12} aria-hidden="true" />
                 <span>{installation?.installed ? "Manage app" : "Install app"}</span>
               </a>
