@@ -120,4 +120,20 @@ describe("rhythm lock source resolution", () => {
     score.parts[0]!.measures[1]!.sequences.push({ staff: 1, content: [] });
     expect(rhythmSourceOptions(score).map((option) => option.value)).toContain("0:0:2");
   });
+
+  it("uses compact source labels while keeping full menu descriptions", () => {
+    const score = sourceScore();
+    score.parts[0]!.shortName = "Src.";
+
+    expect(rhythmSourceOptions(score).slice(0, 2)).toMatchObject([
+      {
+        label: "Source — Staff 1, Voice 1",
+        triggerLabel: "Src. V1",
+      },
+      {
+        label: "Source — Staff 1, Voice 2",
+        triggerLabel: "Src. V2",
+      },
+    ]);
+  });
 });

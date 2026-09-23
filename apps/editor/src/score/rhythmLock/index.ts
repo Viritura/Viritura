@@ -1,5 +1,5 @@
 import type { Duration, Score, Tuplet } from "@viritura/core";
-import { isRest } from "@viritura/core";
+import { isRest, resolvePartDisplayNames } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "../../commands/noteCommands";
 import { createTuplet } from "../../commands/tupletCommands";
 import type { RhythmSource } from "../../store/noteInputStore";
@@ -85,10 +85,19 @@ export function resolveRhythmSlot(
   return { kind: "exhausted" };
 }
 
-export function rhythmSourceOptions(score: Score): { value: string; label: string; source: RhythmSource }[] {
-  const options: { value: string; label: string; source: RhythmSource }[] = [];
+export interface RhythmSourceOption {
+  value: string;
+  label: string;
+  triggerLabel: string;
+  source: RhythmSource;
+}
+
+export function rhythmSourceOptions(score: Score): RhythmSourceOption[] {
+  const options: RhythmSourceOption[] = [];
+  const displayNames = resolvePartDisplayNames(score.parts);
   for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
     const part = score.parts[partIndex]!;
+    const displayName = displayNames[partIndex];
     const sequences = part.measures.flatMap((measure) => measure.sequences);
     if (sequences.length === 0) continue;
     const hasStaffNumbers = sequences.some((sequence) => sequence.staff !== undefined);
@@ -107,7 +116,14 @@ export function rhythmSourceOptions(score: Score): { value: string; label: strin
         const source: RhythmSource = { partIndex, staffIndex: staffNumber - 1, voice: voice as RhythmSource["voice"] };
         options.push({
           value: `${partIndex}:${staffNumber - 1}:${voice}`,
-          label: `${part.name ?? `Part ${partIndex + 1}`} — Staff ${staffNumber}, Voice ${voice}`,
+          label: `${displayName?.displayName ?? `Part ${partIndex + 1}`} — Staff ${staffNumber}, Voice ${voice}`,
+          triggerLabel: [
+            displayName?.displayShortName ?? `Part ${partIndex + 1}`,
+            staffNumbers.length > 1 ? `S${staffNumber}` : "",
+            voices > 1 ? `V${voice}` : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
           source,
         });
       }

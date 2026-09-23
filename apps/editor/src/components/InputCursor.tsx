@@ -10,6 +10,7 @@ import {
 } from "@viritura/renderer";
 import type { Score, NoteValueBase } from "@viritura/core";
 import { useNoteInput, type DotCount } from "../store/noteInputStore";
+import { paintRhythmSourceCursor } from "./rhythmSourceCursor";
 import {
   OPTIMISTIC_NOTE_INPUT_EVENT,
   type OptimisticNoteInputDetail,
@@ -111,6 +112,18 @@ export function InputCursor({
     ensureCanvasSize(canvas, dpr);
     applyOverlayTransform(ctx, canvas, dpr, z, sx, sy);
     if (!inputState.active) return;
+
+    if (inputState.cursorPosition && inputState.rhythmSource && spatialIndex && score && stavesRef.current.length > 0) {
+      paintRhythmSourceCursor(ctx, {
+        cursor: inputState.cursorPosition,
+        source: inputState.rhythmSource,
+        staves: stavesRef.current,
+        spatialIndex,
+        score,
+        displayList,
+        viewMode: activeViewMode,
+      });
+    }
 
     paintInputOverlay(ctx, {
       cursor: inputState.cursorPosition,

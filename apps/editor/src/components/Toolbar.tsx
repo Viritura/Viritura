@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Button, LongPressButton, Select } from "@viritura/ui";
-import { ChevronsRight, ChevronsLeft } from "lucide-react";
+import { ChevronsRight, ChevronsLeft, Glasses } from "lucide-react";
 import { useNoteInput, type DotCount, type GraceType, type Voice } from "../store/noteInputStore";
 import type { NoteValueBase, AccidentalType, Duration } from "@viritura/core";
 import { useSelectionStore } from "../store/selectionStore";
@@ -154,13 +154,8 @@ const EXTENDED_ACCIDENTALS: readonly AccidentalType[] = ["double-flat", "triple-
  * Articulations, dynamics, tuplets, grace notes, and colors are in the Palette panel.
  * Streamlined notation-entry toolbar grouped by editing task.
  */
-interface ToolbarProps {
-  readonly lyricMode?: boolean;
-  readonly onToggleLyrics?: () => void;
-}
-
 // eslint-disable-next-line max-lines-per-function -- toolbar render: pulls note-input state and emits one compact button group per editing task.
-export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}) {
+export function Toolbar() {
   const {
     state,
     toggleNoteInput,
@@ -186,6 +181,8 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
   const rhythmSourceValue = state.rhythmSource
     ? `${state.rhythmSource.partIndex}:${state.rhythmSource.staffIndex}:${state.rhythmSource.voice}`
     : "";
+  const rhythmSourceDescription =
+    rhythmOptions.find((option) => option.value === rhythmSourceValue)?.label ?? "Manual duration";
 
   // Auto-expand accidental panel when keyboard steps into double/triple range
   useEffect(() => {
@@ -244,8 +241,9 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
         }
       });
       setDuration(duration);
+      setRhythmSource(null);
     },
-    [setDuration, editSelectedNote],
+    [setDuration, setRhythmSource, editSelectedNote],
   );
 
   const handleAccidental = useCallback(
@@ -311,15 +309,6 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
         tooltip="Toggle note input (N)"
       />
 
-      <Button
-        label="Lyrics"
-        active={lyricMode}
-        onClick={onToggleLyrics}
-        testId="toolbar-lyrics"
-        ariaLabel="Toggle lyric entry (Shift+W)"
-        tooltip="Toggle lyric entry (Shift+W)"
-      />
-
       {/* ── Chord-mode Lock (Q) ── */}
       <Button
         active={state.chordLock}
@@ -338,23 +327,39 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
       <Separator />
 
       {/* ── Duration Buttons ── */}
-      <DurationGroup
-        currentDuration={state.currentDuration}
-        expanded={showExtendedDurations}
-        onToggleExpanded={() => setShowExtendedDurations((v) => !v)}
-        onSelect={handleDuration}
-      />
-
       <Select
         value={rhythmSourceValue}
         onValueChange={(value) => {
           const option = rhythmOptions.find((candidate) => candidate.value === value);
           setRhythmSource(option?.source ?? null);
         }}
-        options={[{ value: "", label: "Manual duration" }, ...rhythmOptions]}
+        options={[
+          {
+            value: "",
+            label: "Manual duration",
+            triggerLabel: <Glasses size={16} aria-hidden="true" />,
+          },
+          ...rhythmOptions.map((option) => ({
+            ...option,
+            triggerLabel: <Glasses size={16} aria-hidden="true" />,
+          })),
+        ]}
         data-testid="toolbar-rhythm-source"
-        aria-label="Rhythm source"
+        aria-label={
+          state.rhythmSource
+            ? `Rhythm reading on: ${rhythmSourceDescription}`
+            : "Rhythm reading off; using manual duration"
+        }
         fullWidth={false}
+        active={state.rhythmSource !== null}
+        triggerVariant="icon-button"
+      />
+
+      <DurationGroup
+        activeDuration={state.rhythmSource ? null : state.currentDuration}
+        expanded={showExtendedDurations}
+        onToggleExpanded={() => setShowExtendedDurations((v) => !v)}
+        onSelect={handleDuration}
       />
 
       <Separator />
@@ -418,9 +423,11 @@ export function Toolbar({ lyricMode = false, onToggleLyrics }: ToolbarProps = {}
       <Select
         value={String(activeVoice)}
         onValueChange={(v) => handleVoiceClick(Number(v) as Voice)}
-        options={VOICES.map((v) => ({ value: String(v), label: `Voice ${v}` }))}
+        options={VOICES.map((v) => ({ value: String(v), label: `Voice ${v}`, triggerLabel: `V${v}` }))}
         data-testid="toolbar-voice"
+        aria-label="Voice"
         fullWidth={false}
+        triggerVariant="icon-button"
       />
     </div>
   );
@@ -505,20 +512,20 @@ function AugmentationDotButton({
 }
 
 interface DurationGroupProps {
-  readonly currentDuration: NoteValueBase;
+  readonly activeDuration: NoteValueBase | null;
   readonly expanded: boolean;
   readonly onToggleExpanded: () => void;
   readonly onSelect: (d: NoteValueBase) => () => void;
 }
 
-function DurationGroup({ currentDuration, expanded, onToggleExpanded, onSelect }: DurationGroupProps) {
+function DurationGroup({ activeDuration, expanded, onToggleExpanded, onSelect }: DurationGroupProps) {
   const renderButton = (btn: DurationButtonDef) => {
     const tip = btn.shortcut ? `${btn.title} (${btn.shortcut})` : btn.title;
     return (
       <Button
         key={btn.duration}
         label={btn.label}
-        active={currentDuration === btn.duration}
+        active={activeDuration === btn.duration}
         onClick={onSelect(btn.duration)}
         useBravura={btn.useBravura}
         // Note durations: each glyph's head+stem bbox is visually centered

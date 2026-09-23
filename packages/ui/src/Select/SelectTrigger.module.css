@@ -1,4 +1,5 @@
 .trigger {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
@@ -21,6 +22,20 @@
 
 .fullWidth {
   width: 100%;
+}
+
+.iconButton {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 6px;
+  flex-shrink: 0;
+  justify-content: center;
+}
+
+.iconButton[data-active="true"] {
+  border-color: rgba(var(--accent-rgb, 33, 94, 78), 0.45);
+  background: rgba(var(--accent-rgb, 33, 94, 78), 0.14);
 }
 
 .trigger:hover:not(:disabled, [data-disabled]) {
@@ -82,4 +97,23 @@
 .chevron {
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.corner {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 3px 0;
+  border-color: currentColor transparent transparent;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.trigger:hover .corner,
+.trigger[data-state="open"] .corner,
+.trigger[data-active="true"] .corner {
+  opacity: 0.85;
 }
