@@ -14,6 +14,10 @@
   border-radius: var(--radius-sm);
   background: var(--surface-input);
   color: var(--text-muted);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .control:hover {
@@ -22,7 +26,7 @@
 
 .controlOpen {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: var(--focus-ring-tight);
 }
 
 .input {
@@ -46,7 +50,7 @@
   border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  box-shadow: 0 12px 32px rgba(20, 20, 28, 0.18);
+  box-shadow: var(--elevation-2);
   pointer-events: auto;
 }
 
@@ -76,7 +80,8 @@
   background: var(--surface-hover);
 }
 
-.optionCheck {
+.optionCheck,
+.optionIcon {
   display: inline-flex;
   color: var(--accent);
 }
@@ -88,7 +93,7 @@
   white-space: nowrap;
 }
 
-.visibility {
+.trailingLabel {
   color: var(--text-muted);
   font-size: var(--type-eyebrow-size);
 }
@@ -104,4 +109,8 @@
 
 .error {
   color: var(--danger-text, #b42318);
+}
+
+.storyFrame {
+  width: 360px;
 }
