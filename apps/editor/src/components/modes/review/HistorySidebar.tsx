@@ -387,6 +387,7 @@ export function HistorySidebar(props: HistorySidebarProps) {
       {props.isVersioned ? (
         <div style={panelBodyStyle}>
           <Tabs
+            variant="panel"
             tabs={[
               { id: "changes", label: props.totalChanges > 0 ? `Changes · ${props.totalChanges}` : "Changes" },
               { id: "versions", label: `Versions · ${props.log.length + 1}` },

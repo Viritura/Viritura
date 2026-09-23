@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type MouseEventHandler } from "react";
 import type { Part } from "@viritura/core";
 import type { PartDisplayInfo } from "@viritura/core";
 import { FormField, FormInput, Select, SettingsRow } from "@viritura/ui";
@@ -7,7 +7,6 @@ import { KitMappingPreview, type KitComponentEdit } from "../../DrumKitDialog";
 import { buildTransposition, partEditBuffersFor, type PartUpdate } from "./transposition";
 import { RosterPartHeader } from "./RosterPartHeader";
 import { RosterPartTransposeFields } from "./RosterPartTransposeFields";
-import { RosterPartActions } from "./RosterPartActions";
 import { getCatalogInstrument } from "../../../score/InstrumentCatalog";
 import styles from "./RosterPartRow.module.css";
 import { CHORD_SYMBOL_VISIBILITY_OPTIONS } from "../chordSymbolVisibility";
@@ -16,30 +15,23 @@ export interface RosterPartRowProps {
   part: Part;
   info?: PartDisplayInfo;
   expanded: boolean;
-  canRemove: boolean;
   onToggle: () => void;
+  onContextMenu?: MouseEventHandler<HTMLButtonElement>;
   onUpdate?: (partId: string, updates: PartUpdate) => void;
-  onRemove?: (partId: string) => void;
-  /** Open the per-part drum-kit editor (only offered for percussion parts). */
-  onEditDrumKit?: (partId: string) => void;
-  onChangeInstrument?: (partId: string) => void;
   /** Resolved kit-mapping rows for a percussion part (drives the inline
    *  preview). Null for non-percussion parts or when not expanded. */
   kitRows?: readonly KitComponentEdit[] | null;
 }
 
 /** Single row in the parts roster. Collapsed shows just the header;
- *  expanded reveals name / short name / transposition / remove. */
+ *  expanded reveals editable identity, notation, and playback properties. */
 export function RosterPartRow({
   part,
   info,
   expanded,
-  canRemove,
   onToggle,
+  onContextMenu,
   onUpdate,
-  onRemove,
-  onEditDrumKit,
-  onChangeInstrument,
   kitRows,
 }: RosterPartRowProps) {
   const initial = partEditBuffersFor(part);
@@ -85,7 +77,12 @@ export function RosterPartRow({
 
   return (
     <div className={styles.root}>
-      <RosterPartHeader displayName={displayName} expanded={expanded} onToggle={onToggle} />
+      <RosterPartHeader
+        displayName={displayName}
+        expanded={expanded}
+        onToggle={onToggle}
+        onContextMenu={onContextMenu}
+      />
       {expanded && (
         <div className={styles.expanded}>
           <SettingsRow label="Instrument">
@@ -153,16 +150,6 @@ export function RosterPartRow({
               setPrefersWritten={setPrefersWritten}
               commit={commit}
               onUpdate={onUpdate}
-            />
-          )}
-          {part.id && (
-            <RosterPartActions
-              partId={part.id}
-              displayName={displayName}
-              canRemove={canRemove}
-              onChangeInstrument={onChangeInstrument}
-              onEditDrumKit={isPercussion ? onEditDrumKit : undefined}
-              onRemove={onRemove}
             />
           )}
         </div>

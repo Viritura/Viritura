@@ -30,6 +30,7 @@ const CHROME_PANEL_STYLE: CSSProperties = {
 };
 
 const NARROW_CHROME_PANEL_STYLE: CSSProperties = { ...CHROME_PANEL_STYLE, width: 220 };
+const PANEL_VARIANT_STYLE: CSSProperties = { ...CHROME_PANEL_STYLE, padding: 0 };
 
 const SURFACE_PAIR_STYLE: CSSProperties = {
   display: "flex",
@@ -119,6 +120,23 @@ export const TwoTabs: Story = {
         defaultTab="source"
       >
         <div style={TAB_CONTENT_STYLE}>Two-tab layout</div>
+      </Tabs>
+    </div>
+  ),
+};
+
+export const PanelTabs: Story = {
+  render: () => (
+    <div style={PANEL_VARIANT_STYLE}>
+      <Tabs
+        variant="panel"
+        tabs={[
+          { id: "changes", label: "Changes · 3" },
+          { id: "versions", label: "Versions · 12" },
+        ]}
+        defaultTab="changes"
+      >
+        <div style={TAB_CONTENT_STYLE}>Docked panel content</div>
       </Tabs>
     </div>
   ),

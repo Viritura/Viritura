@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEventHandler } from "react";
 import { ChevronRight } from "lucide-react";
 import { ListRow } from "@viritura/ui";
 
@@ -14,13 +14,15 @@ interface Props {
   displayName: string;
   expanded: boolean;
   onToggle: () => void;
+  onContextMenu?: MouseEventHandler<HTMLButtonElement>;
 }
 
 /** Collapsed header row in the parts roster — disclosure and instrument name. */
-export function RosterPartHeader({ displayName, expanded, onToggle }: Props) {
+export function RosterPartHeader({ displayName, expanded, onToggle, onContextMenu }: Props) {
   return (
     <ListRow
       onClick={onToggle}
+      onContextMenu={onContextMenu}
       selected={expanded}
       aria-expanded={expanded}
       tooltip={expanded ? "Collapse" : "Edit properties"}

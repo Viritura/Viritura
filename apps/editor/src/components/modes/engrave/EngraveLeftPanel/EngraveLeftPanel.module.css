@@ -5,17 +5,6 @@
   min-height: 0;
 }
 
-.tabBar {
-  padding: var(--space-2) var(--space-2) var(--space-1);
-  background: transparent;
-  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
-}
-
-[data-theme="dark"] .tabBar,
-[data-theme="midnight"] .tabBar {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-}
-
 .layouts {
   flex: 1;
   min-height: 0;
@@ -32,27 +21,5 @@
 }
 
 .breakManagement {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--separator-v);
-}
-
-.sectionTitle {
-  margin: 0;
-  font-size: var(--type-control-size);
-  font-weight: var(--type-control-weight);
-}
-
-.sectionDescription {
-  margin: var(--space-1) 0 0;
-  color: var(--text-muted);
-  font-size: var(--type-caption-size);
-}
-
-.breakActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0;
 }

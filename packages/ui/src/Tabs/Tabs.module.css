@@ -13,6 +13,17 @@
   scrollbar-width: thin;
 }
 
+.panelTabBar {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  background: transparent;
+  border-bottom: 1px solid rgba(20, 20, 28, 0.06);
+}
+
+[data-theme="dark"] .panelTabBar,
+[data-theme="midnight"] .panelTabBar {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
 .tabButton {
   flex: 1 0 auto;
   min-width: max-content;

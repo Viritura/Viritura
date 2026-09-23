@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import type { Score, LayoutContent, LayoutStaff, Part } from "@viritura/core";
+import type { Score, ScoreDefinition, LayoutContent, LayoutStaff, Part } from "@viritura/core";
 import { resolvePartDisplayName } from "@viritura/core";
 import { createPlayer, getCatalogInstrument, ENSEMBLE_TEMPLATES } from "../score/InstrumentCatalog";
 import {
@@ -396,32 +396,58 @@ function computeAddScore(
 ): AddScoreResult | null {
   const layouts = [...(score.layouts ?? [])];
   const scores = [...(score.scores ?? [])];
+  let selectedIndex: number;
   if (type === "full") {
     const existing = layouts[0];
     if (!existing) return null;
     const id = `layout-full-${Date.now()}`;
     layouts.push({ ...existing, id });
-    scores.push({ name: "Full Score (copy)", layout: id });
+    selectedIndex = insertBeforePartScores(scores, layouts, { name: "Full Score (copy)", layout: id });
   } else if (type === "condensed") {
     const fullLayout = layouts.find((l) => l.id === (scores[0]?.layout ?? scores[0]?.pages?.[0]?.systems?.[0]?.layout));
     if (!fullLayout) return null;
     const condensedContent = buildCondensedLayoutContent(fullLayout.content, score.parts);
     const id = addOrReuseLayout(layouts, `layout-condensed-${Date.now()}`, condensedContent);
-    scores.push({ name: "Condensed Score", layout: id });
+    selectedIndex = insertBeforePartScores(scores, layouts, { name: "Condensed Score", layout: id });
   } else if (type === "custom") {
     const id = `layout-custom-${Date.now()}`;
     const fullLayout = layouts[0];
     layouts.push({ id, content: fullLayout ? [...fullLayout.content] : [] });
     scores.push({ name: "Custom Score", layout: id });
+    selectedIndex = scores.length - 1;
   } else if (type === "part" && partId) {
     const partScore = buildPartScoreEntry(score, partId);
     if (!partScore) return null;
     layouts.push(partScore.layout);
     scores.push(partScore.scoreDef);
+    selectedIndex = scores.length - 1;
   } else {
     return null;
   }
-  return { score: { ...score, layouts, scores }, selectedIndex: scores.length - 1 };
+  return { score: { ...score, layouts, scores }, selectedIndex };
+}
+
+function insertBeforePartScores(
+  scores: ScoreDefinition[],
+  layouts: NonNullable<Score["layouts"]>,
+  scoreDefinition: ScoreDefinition,
+): number {
+  const firstPartIndex = scores.findIndex((candidate) => {
+    const layoutId = candidate.layout ?? candidate.pages?.[0]?.systems?.[0]?.layout;
+    const layout = layouts.find((item) => item.id === layoutId);
+    return layout !== undefined && countLayoutStaves(layout.content) <= 1;
+  });
+  const insertionIndex = firstPartIndex < 0 ? scores.length : firstPartIndex;
+  scores.splice(insertionIndex, 0, scoreDefinition);
+  return insertionIndex;
+}
+
+function countLayoutStaves(content: readonly LayoutContent[]): number {
+  let count = 0;
+  for (const node of content) {
+    count += node.type === "staff" ? 1 : countLayoutStaves(node.content);
+  }
+  return count;
 }
 
 function buildPartScoreEntry(

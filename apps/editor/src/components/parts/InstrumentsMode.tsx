@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Button, PanelFooter, SectionLabel } from "@viritura/ui";
+import { Button, ContextMenu, PanelFooter, SectionLabel, type ContextMenuState } from "@viritura/ui";
 import { InstrumentsEmptyState } from "./InstrumentsEmptyState";
 import { resolvePartDisplayNames, type Part, type PartDisplayInfo } from "@viritura/core";
 import { useDocumentStore } from "../../store/DocumentContext";
@@ -11,11 +11,10 @@ import { resolveDrumKitTarget } from "../../commands/drumKitCommands";
 import type { PartListPanelProps } from "../PartListPanel";
 import { usePartListDrumKit } from "./usePartListDrumKit";
 import { useDragAutoscroll } from "../../hooks/useDragAutoscroll";
-import { RosterPartRow } from "./roster/RosterPartRow";
-import { dropIndicatorStyle } from "./styles";
 import { ConfirmationDialog } from "../ConfirmationDialog";
 import { useChangeInstrument } from "./useChangeInstrument";
 import { InstrumentPickerDialog } from "./InstrumentPickerDialog";
+import { InstrumentRosterItem, type InstrumentDropTarget } from "./InstrumentRosterItem";
 
 const INSTRUMENTS_NO_SCORE_STYLE: CSSProperties = {
   padding: 16,
@@ -29,15 +28,6 @@ const INSTRUMENTS_ROOT_STYLE: CSSProperties = {
   minHeight: 0,
 };
 const INSTRUMENTS_LIST_STYLE: CSSProperties = { flex: 1, minHeight: 0, overflowY: "auto" };
-
-function rowWrapStyle(isDragging: boolean): CSSProperties {
-  return { position: "relative", opacity: isDragging ? 0.4 : 1 };
-}
-
-interface DropTarget {
-  partId: string;
-  after: boolean;
-}
 
 /**
  * Instruments mode — manages the score's ensemble (the set of parts)
@@ -72,15 +62,13 @@ export function InstrumentsMode({
   /** Layout ids of the multi-instrument scores that should include it. */
   const [targetLayoutIds, setTargetLayoutIds] = useState<Set<string>>(new Set());
   const [dragPartId, setDragPartId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [dropTarget, setDropTarget] = useState<InstrumentDropTarget | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const { onEditDrumKit } = usePartListDrumKit(score);
   const changeInstrument = useChangeInstrument({ score, updateScore, onAddInstrument });
-
   const conductorScores = useMemo<ConductorScore[]>(() => (score ? collectConductorScores(score) : []), [score]);
-
   // Auto-scroll the roster when a dragged part hovers near the top/bottom edge.
   const { ref: listRef } = useDragAutoscroll<HTMLDivElement>();
-
   // Resolve the drum-kit mapping rows for the expanded percussion part only,
   // so the row can show a read-only mapping preview in place of transposition.
   const expandedKitRows = useMemo(() => {
@@ -100,7 +88,6 @@ export function InstrumentsMode({
     }
     return map;
   }, [score]);
-
   const handleAdd = useCallback(
     (inst: CatalogInstrument) => {
       setPendingInst(inst);
@@ -173,70 +160,32 @@ export function InstrumentsMode({
         {score.parts.length === 0 ? (
           <InstrumentsEmptyState onAddEnsemble={onAddEnsemble} />
         ) : (
-          score.parts.map((part) => {
-            const isExpanded = !!part.id && expandedPartId === part.id;
-            const draggable = reorderable && !!part.id && !isExpanded;
-            const showBefore =
-              !!part.id && dropTarget?.partId === part.id && !dropTarget.after && dragPartId !== part.id;
-            const showAfter = !!part.id && dropTarget?.partId === part.id && dropTarget.after && dragPartId !== part.id;
-            return (
-              <div
-                key={part.id ?? part.name}
-                style={rowWrapStyle(dragPartId === part.id)}
-                draggable={draggable}
-                onDragStart={
-                  draggable
-                    ? (e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", part.id ?? "");
-                        setDragPartId(part.id ?? null);
-                      }
-                    : undefined
-                }
-                onDragOver={
-                  reorderable && !!part.id
-                    ? (e) => {
-                        if (!dragPartId || dragPartId === part.id) return;
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setDropTarget({ partId: part.id!, after: e.clientY - rect.top > rect.height / 2 });
-                      }
-                    : undefined
-                }
-                onDrop={
-                  reorderable
-                    ? (e) => {
-                        e.preventDefault();
-                        handleDrop(score.parts);
-                      }
-                    : undefined
-                }
-                onDragEnd={() => {
-                  setDragPartId(null);
-                  setDropTarget(null);
-                }}
-              >
-                {showBefore && <div style={dropIndicatorStyle} />}
-                <RosterPartRow
-                  part={part}
-                  info={part.id ? partDisplayMap.get(part.id) : undefined}
-                  expanded={isExpanded}
-                  canRemove={canRemove}
-                  onToggle={() => part.id && handleToggle(part.id)}
-                  onUpdate={onPartUpdate}
-                  onRemove={onRemoveInstrument}
-                  onEditDrumKit={onEditDrumKit}
-                  onChangeInstrument={changeInstrument.setPartId}
-                  kitRows={part.id && part.id === expandedPartId ? expandedKitRows : null}
-                />
-                {showAfter && <div style={dropIndicatorStyle} />}
-              </div>
-            );
-          })
+          score.parts.map((part) => (
+            <InstrumentRosterItem
+              key={part.id ?? part.name}
+              part={part}
+              info={part.id ? partDisplayMap.get(part.id) : undefined}
+              expanded={!!part.id && expandedPartId === part.id}
+              canRemove={canRemove}
+              reorderable={reorderable}
+              dragPartId={dragPartId}
+              dropTarget={dropTarget}
+              kitRows={part.id === expandedPartId ? expandedKitRows : null}
+              onToggle={() => part.id && handleToggle(part.id)}
+              onUpdate={onPartUpdate}
+              onChangeInstrument={changeInstrument.setPartId}
+              onEditDrumKit={onEditDrumKit}
+              onRemove={onRemoveInstrument}
+              onDrop={() => handleDrop(score.parts)}
+              setDragPartId={setDragPartId}
+              setDropTarget={setDropTarget}
+              setContextMenu={setContextMenu}
+            />
+          ))
         )}
       </div>
 
+      <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       {onAddInstrument && (
         <AddInstrumentWorkflow
           open={showPicker}
