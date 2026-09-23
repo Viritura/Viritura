@@ -17,6 +17,7 @@ export interface RosterPartRowProps {
   expanded: boolean;
   onToggle: () => void;
   onContextMenu?: MouseEventHandler<HTMLButtonElement>;
+  onOpenMenu?: MouseEventHandler<HTMLButtonElement>;
   onUpdate?: (partId: string, updates: PartUpdate) => void;
   /** Resolved kit-mapping rows for a percussion part (drives the inline
    *  preview). Null for non-percussion parts or when not expanded. */
@@ -31,6 +32,7 @@ export function RosterPartRow({
   expanded,
   onToggle,
   onContextMenu,
+  onOpenMenu,
   onUpdate,
   kitRows,
 }: RosterPartRowProps) {
@@ -82,6 +84,7 @@ export function RosterPartRow({
         expanded={expanded}
         onToggle={onToggle}
         onContextMenu={onContextMenu}
+        onOpenMenu={onOpenMenu}
       />
       {expanded && (
         <div className={styles.expanded}>

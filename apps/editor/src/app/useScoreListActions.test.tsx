@@ -11,6 +11,7 @@ function scoreWithPartEntry(): Score {
     parts: [
       { id: "p1", name: "Flute", measures: [] },
       { id: "p2", name: "Oboe", measures: [] },
+      { id: "p3", name: "Piano", measures: [], staves: 2 },
     ],
     layouts: [
       {
@@ -20,10 +21,28 @@ function scoreWithPartEntry(): Score {
           { type: "staff", sources: [{ part: "p2" }] },
         ],
       },
+      {
+        id: "reduction",
+        content: [{ type: "staff", sources: [{ part: "p1" }, { part: "p2" }] }],
+      },
+      {
+        id: "piano",
+        content: [
+          {
+            type: "group",
+            content: [
+              { type: "staff", sources: [{ part: "p3", staff: 1 }] },
+              { type: "staff", sources: [{ part: "p3", staff: 2 }] },
+            ],
+          },
+        ],
+      },
       { id: "flute", content: [{ type: "staff", sources: [{ part: "p1" }] }] },
     ],
     scores: [
       { name: "Full Score", layout: "full" },
+      { name: "Chamber Reduction", layout: "reduction" },
+      { name: "Piano", layout: "piano" },
       { name: "Flute", layout: "flute" },
     ],
   };
@@ -52,7 +71,13 @@ describe("useScoreListActions", () => {
     act(() => result.current.handleAddScore(type));
 
     const updated = updateScore.mock.calls[0]?.[0] as Score;
-    expect(updated.scores?.map((entry) => entry.name)).toEqual(["Full Score", expectedName, "Flute"]);
-    expect(setSelectedScoreIndex).toHaveBeenCalledWith(1);
+    expect(updated.scores?.map((entry) => entry.name)).toEqual([
+      "Full Score",
+      "Chamber Reduction",
+      expectedName,
+      "Piano",
+      "Flute",
+    ]);
+    expect(setSelectedScoreIndex).toHaveBeenCalledWith(2);
   });
 });

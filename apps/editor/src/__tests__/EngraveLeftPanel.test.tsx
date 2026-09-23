@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
@@ -114,12 +114,12 @@ describe("EngraveLeftPanel", () => {
     await user.click(await screen.findByRole("tab", { name: "Layouts" }));
     expect(screen.getByText("Page break after measure 12.")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Remove selected break" }));
+    await user.click(screen.getByRole("button", { name: "Remove" }));
     expect(onRemoveSelectedBreak).toHaveBeenCalledOnce();
 
-    await user.click(screen.getByRole("button", { name: "Reset all layout overrides" }));
-    expect(screen.getByText("Reset all layout overrides?")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reset all" }));
+    expect(screen.getByText("Reset all layout overrides?")).toBeTruthy();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reset all" }));
     expect(onResetAll).toHaveBeenCalledOnce();
   });
 

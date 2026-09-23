@@ -16,9 +16,10 @@ export function instrumentContextMenuState(
 ): ContextMenuState {
   event.preventDefault();
   event.stopPropagation();
+  const triggerBounds = event.currentTarget.getBoundingClientRect();
   return {
-    x: event.clientX,
-    y: event.clientY,
+    x: event.clientX || triggerBounds.right,
+    y: event.clientY || triggerBounds.bottom,
     items: buildInstrumentContextMenuItems(args),
   };
 }

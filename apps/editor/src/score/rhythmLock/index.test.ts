@@ -136,4 +136,14 @@ describe("rhythm lock source resolution", () => {
       },
     ]);
   });
+
+  it("falls back safely when a legacy part has no name", () => {
+    const score = sourceScore();
+    score.parts[0]!.name = undefined as unknown as string;
+
+    expect(rhythmSourceOptions(score)[0]).toMatchObject({
+      label: "Part 1 — Staff 1, Voice 1",
+      triggerLabel: "Prt1. V1",
+    });
+  });
 });

@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { MenuItem } from "./MenuItem";
 import type { MenuItemDef } from "./index";
@@ -21,11 +28,13 @@ export interface ContextMenuProps {
 
 export function ContextMenu({ state, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   // Position at mouse coords, then clamp to viewport after mount
   useEffect(() => {
     if (!state) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // Start at the click position
     let left = state.x;
     let top = state.y;
@@ -41,9 +50,16 @@ export function ContextMenu({ state, onClose }: ContextMenuProps) {
         top = window.innerHeight - rect.height - 4;
       }
       setPos({ top: Math.max(4, top), left: Math.max(4, left) });
+      el.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
     });
     setPos({ top, left });
   }, [state]);
+
+  const closeAndRestoreFocus = useCallback(() => {
+    const previousFocus = previousFocusRef.current;
+    onClose();
+    requestAnimationFrame(() => previousFocus?.focus());
+  }, [onClose]);
 
   // Close on outside click
   useEffect(() => {
@@ -61,11 +77,30 @@ export function ContextMenu({ state, onClose }: ContextMenuProps) {
   useEffect(() => {
     if (!state) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeAndRestoreFocus();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [state, onClose]);
+  }, [state, closeAndRestoreFocus]);
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [],
+    );
+    if (items.length === 0) return;
+    event.preventDefault();
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : event.key === "ArrowDown"
+            ? (currentIndex + 1) % items.length
+            : (currentIndex <= 0 ? items.length : currentIndex) - 1;
+    items[nextIndex]?.focus();
+  };
 
   if (!state) return null;
 
@@ -80,9 +115,10 @@ export function ContextMenu({ state, onClose }: ContextMenuProps) {
       // "interact outside" and dismisses the whole dialog. Stopping the
       // pointer-down here keeps the interaction scoped to the menu.
       onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={handleKeyDown}
     >
       {state.items.map((item, i) => (
-        <MenuItem key={i} item={item} onClose={onClose} />
+        <MenuItem key={i} item={item} onClose={closeAndRestoreFocus} />
       ))}
     </div>,
     document.body,

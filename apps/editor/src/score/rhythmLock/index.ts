@@ -94,7 +94,12 @@ export interface RhythmSourceOption {
 
 export function rhythmSourceOptions(score: Score): RhythmSourceOption[] {
   const options: RhythmSourceOption[] = [];
-  const displayNames = resolvePartDisplayNames(score.parts);
+  const displayNames = resolvePartDisplayNames(
+    score.parts.map((part, index) => ({
+      ...part,
+      name: part.name || `Part ${index + 1}`,
+    })),
+  );
   for (let partIndex = 0; partIndex < score.parts.length; partIndex++) {
     const part = score.parts[partIndex]!;
     const displayName = displayNames[partIndex];

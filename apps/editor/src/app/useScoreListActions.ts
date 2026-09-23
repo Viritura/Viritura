@@ -6,6 +6,7 @@ import { createPlayer, getCatalogInstrument, ENSEMBLE_TEMPLATES } from "../score
 import {
   addInstrumentToScore,
   addEnsembleToScore,
+  collectPartIdsInLayout,
   removeInstrumentFromScore,
   reorderInstrumentInScore,
   synchronizePartScoreDefinitions,
@@ -435,19 +436,11 @@ function insertBeforePartScores(
   const firstPartIndex = scores.findIndex((candidate) => {
     const layoutId = candidate.layout ?? candidate.pages?.[0]?.systems?.[0]?.layout;
     const layout = layouts.find((item) => item.id === layoutId);
-    return layout !== undefined && countLayoutStaves(layout.content) <= 1;
+    return layout !== undefined && collectPartIdsInLayout(layout.content).size <= 1;
   });
   const insertionIndex = firstPartIndex < 0 ? scores.length : firstPartIndex;
   scores.splice(insertionIndex, 0, scoreDefinition);
   return insertionIndex;
-}
-
-function countLayoutStaves(content: readonly LayoutContent[]): number {
-  let count = 0;
-  for (const node of content) {
-    count += node.type === "staff" ? 1 : countLayoutStaves(node.content);
-  }
-  return count;
 }
 
 function buildPartScoreEntry(

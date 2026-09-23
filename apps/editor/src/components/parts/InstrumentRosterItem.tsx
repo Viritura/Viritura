@@ -59,6 +59,19 @@ export function InstrumentRosterItem({
   const draggable = reorderable && !!part.id && !expanded;
   const showBefore = !!part.id && dropTarget?.partId === part.id && !dropTarget.after && dragPartId !== part.id;
   const showAfter = !!part.id && dropTarget?.partId === part.id && dropTarget.after && dragPartId !== part.id;
+  const menuHandler = part.id
+    ? createInstrumentContextMenuHandler(
+        {
+          partId: part.id,
+          isPercussion: isPercussionPart(part),
+          canRemove,
+          onChangeInstrument,
+          onEditDrumKit,
+          onRemove,
+        },
+        setContextMenu,
+      )
+    : undefined;
 
   return (
     <div
@@ -104,21 +117,8 @@ export function InstrumentRosterItem({
         expanded={expanded}
         onToggle={onToggle}
         onUpdate={onUpdate}
-        onContextMenu={
-          part.id
-            ? createInstrumentContextMenuHandler(
-                {
-                  partId: part.id,
-                  isPercussion: isPercussionPart(part),
-                  canRemove,
-                  onChangeInstrument,
-                  onEditDrumKit,
-                  onRemove,
-                },
-                setContextMenu,
-              )
-            : undefined
-        }
+        onContextMenu={menuHandler}
+        onOpenMenu={menuHandler}
         kitRows={kitRows}
       />
       {showAfter && <div style={dropIndicatorStyle} />}

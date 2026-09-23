@@ -17,15 +17,22 @@ describe("RosterPartRow", () => {
     const onContextMenu = vi.fn();
     render(
       <TooltipPrimitives.Provider delayDuration={0}>
-        <RosterPartRow part={PART} expanded onToggle={() => {}} onContextMenu={onContextMenu} />
+        <RosterPartRow
+          part={PART}
+          expanded
+          onToggle={() => {}}
+          onContextMenu={onContextMenu}
+          onOpenMenu={onContextMenu}
+        />
       </TooltipPrimitives.Provider>,
     );
 
     fireEvent.contextMenu(screen.getByRole("button", { name: "Flute" }));
+    fireEvent.click(screen.getByRole("button", { name: "Instrument actions for Flute" }));
     expect(screen.getByRole("region", { name: "Transposition" })).toBeTruthy();
     expect(screen.getByText("Concert pitch")).toBeTruthy();
     expect(screen.queryByText("Change instrument")).toBeNull();
     expect(screen.queryByText("Remove instrument")).toBeNull();
-    expect(onContextMenu).toHaveBeenCalledOnce();
+    expect(onContextMenu).toHaveBeenCalledTimes(2);
   });
 });

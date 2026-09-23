@@ -2,6 +2,20 @@
   border-bottom: 1px solid var(--border-hairline);
 }
 
+.headerRow {
+  display: flex;
+  align-items: center;
+}
+
+.headerDisclosure {
+  flex: 1;
+}
+
+.headerMenu {
+  flex-shrink: 0;
+  margin-right: var(--space-1);
+}
+
 .expanded {
   display: flex;
   flex-direction: column;
