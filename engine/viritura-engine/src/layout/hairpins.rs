@@ -315,10 +315,9 @@ pub(crate) fn render_hairpins(
                             dynamics.iter().any(|dynamic| {
                                 dynamic.id == *id
                                     && (matches!(
-                                        dynamic.orient,
+                                        dynamic.placement,
                                         Some(
-                                            MultiStaffOrientation::Above
-                                                | MultiStaffOrientation::Below
+                                            MultiStaffPlacement::Above | MultiStaffPlacement::Below
                                         )
                                     ) || dynamic
                                         .manual_offset

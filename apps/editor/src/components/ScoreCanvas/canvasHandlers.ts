@@ -25,7 +25,7 @@ import { hitTestSlurCurve } from "./slurCurveHit";
 import { buildSlurAnchorPoints, nearestSlurAnchor } from "./slurAnchorSnap";
 import { findSlurAnchorInfo } from "../../score/ScoreMutations";
 import { prepareSpannerDrag, updateSpannerDrag } from "./spannerDragSetup";
-import { getNoteEventAtLocation, resolveEventLocation, isEngraveTextAnnotationId } from "../../score/ElementPath";
+import { getNoteEventAtLocation, resolveEventLocation } from "../../score/ElementPath";
 import { getAnnotationOffset, isMovableAnnotationId } from "../../score/annotationOffsetMutations";
 import type { BarlineHit, EngraveAdornments, EngraveClickModifiers, StaffEyeHit } from "./ScoreCanvas";
 import type { WriteViewMode as ViewMode } from "@viritura/ui";
@@ -33,9 +33,10 @@ import type { SpannerDragState, SlurHandleDragState, TextExpressionDragState } f
 import type { MeasureSelectionPoint } from "../../store/selectionStore";
 import { listenForPointerDrag } from "./pointerDrag";
 import { selectBeamAtPoint } from "./beamSelection";
-import type { ViewportInfo, SelectionMenuContext } from "./types";
-import { globalChordForElement, previewClickedChord } from "./chordFeedback";
-import { selectCanvasElement } from "./elementSelection";
+import type { SelectionMenuContext, ViewportInfo } from "./types";
+import { previewClickedChord } from "./chordFeedback";
+import { resolveCanvasSelectionElementId, selectCanvasElement } from "./elementSelection";
+import { selectEngraveTextOrChord } from "./engraveTextSelection";
 import { releaseMiddlePointer } from "./middlePointerPan";
 import { screenToEngine } from "./engineCoordinates";
 import { openWriteSelectionContextMenu } from "./selectionContextMenu";
@@ -183,7 +184,14 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
 
   if (hitId) {
     const isSpannerSegment = hitId.startsWith("slur/") || hitId.startsWith("tie/");
-    const eventId = isSpannerSegment || exactHit === hitId ? hitId : hitId.replace(/\/n\d+$/, "");
+    const baseElementId = isSpannerSegment || exactHit === hitId ? hitId : hitId.replace(/\/n\d+$/, "");
+    const eventId = resolveCanvasSelectionElementId(
+      ctx.docScoreRef.current,
+      ctx.displayListRef.current,
+      baseElementId,
+      measureAnchor ?? undefined,
+      scoreX,
+    );
     if (eventId.startsWith("slur/") && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       ctx.setSelectedSlurId(eventId);
     } else if (ctx.selectedSlurIdRef.current) {
@@ -288,9 +296,7 @@ function handleEngraveClick(
   // shared selection store so the notation-properties inspector opens, mirroring
   // the slur properties panel.
   if (ctx.selectedSlurIdRef.current) ctx.setSelectedSlurId(null);
-  if (hitId && (isEngraveTextAnnotationId(hitId) || globalChordForElement(ctx.docScoreRef.current, hitId))) {
-    selectCanvasElement(e, ctx, hitId, pointerToMeasure(scoreX, scoreY, dl?.measureBounds) ?? undefined);
-    previewClickedChord(ctx.docScoreRef.current, hitId, ctx.previewChord);
+  if (selectEngraveTextOrChord(e, ctx, dl, hitId, scoreX, scoreY)) {
     return true;
   }
   const score = ctx.docScoreRef.current;

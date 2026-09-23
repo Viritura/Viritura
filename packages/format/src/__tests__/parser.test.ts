@@ -100,6 +100,28 @@ describe("parseMnx", () => {
     expect(clefs?.[0]?.clef.staffPosition).toBe(-2);
   });
 
+  it("parses clef.hide and omits it when not set", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      parts: Array<{ measures: Array<Record<string, unknown>> }>;
+    };
+    (mnx.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef.hide = true;
+
+    const score = parseMnx(mnx);
+    expect(score.parts[0]?.measures[0]?.clefs?.[0]?.clef.hide).toBe(true);
+
+    const serialized = serializeMnx(score) as typeof mnx;
+    expect((serialized.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef.hide).toBe(
+      true,
+    );
+
+    const untouched = parseMnx(helloWorldMnx);
+    expect(untouched.parts[0]?.measures[0]?.clefs?.[0]?.clef.hide).toBeUndefined();
+    const untouchedSerialized = serializeMnx(untouched) as typeof mnx;
+    expect(
+      (untouchedSerialized.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef,
+    ).not.toHaveProperty("hide");
+  });
+
   it("parses and round-trips part-measure staffConfigs", () => {
     const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
       parts: Array<{ measures: Array<Record<string, unknown>> }>;
@@ -315,7 +337,7 @@ describe("parseMnx", () => {
                     {
                       duration: { base: "quarter" },
                       notes: [{ pitch: { step: "D", octave: 5 } }],
-                      fermata: { symbol: "square", orient: "below" },
+                      fermata: { symbol: "square", placement: "below" },
                     },
                     {
                       duration: { base: "half" },
@@ -337,7 +359,7 @@ describe("parseMnx", () => {
       expect(content[0].fermata).toEqual({ symbol: "angled" });
     }
     if (content?.[1]?.type === "event") {
-      expect(content[1].fermata).toEqual({ symbol: "square", orient: "below" });
+      expect(content[1].fermata).toEqual({ symbol: "square", placement: "below" });
     }
     if (content?.[2]?.type === "event") {
       expect(content[2].fermata).toEqual({ duration: "veryLong" });
@@ -1376,7 +1398,7 @@ describe("parseMnx _x.viritura extensions", () => {
     expect(gt2?.end.measure).toBe("m2");
   });
 
-  it("should parse caesura from event markings _x.viritura", () => {
+  it("should reject the legacy _x.viritura.caesura form (MNX has no stable version; not supported)", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
@@ -1407,11 +1429,79 @@ describe("parseMnx _x.viritura extensions", () => {
         },
       ],
     };
+    // The legacy vendor extension property was removed entirely, so the
+    // schema's `additionalProperties: false` now rejects it outright.
+    expect(() => parseMnx(mnx)).toThrow(/additional properties/i);
+  });
+
+  it("should parse native MNX caesura shape", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                      markings: { caesura: { shape: "curved" } },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     const score = parseMnx(mnx);
-    const ev = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
-    expect(ev.type).toBe("event");
-    if (ev.type === "event") {
-      expect(ev.markings?.caesura?.style).toBe("thick");
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(event.type).toBe("event");
+    if (event.type === "event") {
+      expect(event.markings?.caesura?.style).toBe("curved");
+      expect(serializeMnx(score).parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        markings: { caesura: { shape: "curved" } },
+      });
+    }
+  });
+
+  it("should parse and round-trip native MNX caesura marks", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                      markings: { caesura: { marks: 1 } },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const score = parseMnx(mnx);
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(event.type).toBe("event");
+    if (event.type === "event") {
+      expect(event.markings?.caesura?.marks).toBe(1);
+      expect(event.markings?.caesura?.style).toBeUndefined();
+      expect(serializeMnx(score).parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        markings: { caesura: { marks: 1 } },
+      });
     }
   });
 

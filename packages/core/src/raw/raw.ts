@@ -13,7 +13,7 @@ export interface components {
          */
         MnxDocument: components["schemas"]["root"];
         accent: {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         "accidental-display": {
             enclosure?: components["schemas"]["accidental-enclosure"];
@@ -47,32 +47,41 @@ export interface components {
         "beam-list": components["schemas"]["beam"][];
         "bow-direction": {
             direction: components["schemas"]["up-down"];
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         bpm: number;
         "breath-mark": {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
             symbol?: components["schemas"]["breath-mark-symbol"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
         "breath-mark-symbol": "comma" | "tick" | "upbow" | "salzedo" | "auto";
+        caesura: {
+            marks?: components["schemas"]["positive-integer"];
+            shape?: components["schemas"]["caesura-shape"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "caesura-shape": "normal" | "thick" | "short" | "curved";
         clef: {
             color?: components["schemas"]["simple-color"];
             glyph?: components["schemas"]["smufl-glyph"];
+            hide?: boolean;
             octave?: components["schemas"]["ottava-amount-or-zero"];
             showOctave?: boolean;
             sign: components["schemas"]["clef-sign"];
             staffPosition: components["schemas"]["staff-position"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "clef-sign": "C" | "F" | "G";
+        "clef-sign": "C" | "F" | "G" | "P";
         color: string;
+        /** @enum {string} */
+        "direction-hint": "upper" | "lower" | "auto";
         "dynamic-group": {
             accentPrefix?: components["schemas"]["dynamic-prefix"];
             accentSuffix?: components["schemas"]["dynamic-suffix"];
             end?: components["schemas"]["measure-rhythmic-position"];
             glyphs?: components["schemas"]["smufl-glyph"][];
-            orient?: components["schemas"]["multi-staff-orientation"];
+            placement?: components["schemas"]["multi-staff-placement"];
             position: components["schemas"]["rhythmic-position"];
             prefix?: components["schemas"]["string"];
             relativeValue?: components["schemas"]["relative-dynamic-value"];
@@ -110,7 +119,6 @@ export interface components {
             lyrics?: components["schemas"]["lyrics"];
             markings?: components["schemas"]["event-markings"];
             notes?: components["schemas"]["note"][];
-            orient?: components["schemas"]["orientation"];
             rest?: components["schemas"]["rest"];
             slurs?: components["schemas"]["slur"][];
             staff?: components["schemas"]["staff-number"];
@@ -131,6 +139,7 @@ export interface components {
             accent?: components["schemas"]["accent"];
             bowDirection?: components["schemas"]["bow-direction"];
             breath?: components["schemas"]["breath-mark"];
+            caesura?: components["schemas"]["caesura"];
             softAccent?: components["schemas"]["soft-accent"];
             spiccato?: components["schemas"]["spiccato"];
             staccatissimo?: components["schemas"]["staccatissimo"];
@@ -143,7 +152,7 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         fermata: {
             duration?: components["schemas"]["fermata-duration"];
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
             pointing?: components["schemas"]["up-down-auto"];
             symbol?: components["schemas"]["fermata-symbol"];
         } & components["schemas"]["global-attrs"];
@@ -265,7 +274,7 @@ export interface components {
         "measure-repeat-count": number;
         "measure-repeat-counter": {
             count: components["schemas"]["positive-integer"];
-            orient?: components["schemas"]["multi-staff-orientation"];
+            placement?: components["schemas"]["multi-staff-placement"];
         } & components["schemas"]["global-attrs"];
         "measure-rhythmic-position": {
             measure: components["schemas"]["id"];
@@ -285,7 +294,7 @@ export interface components {
             type: "tremolo";
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "multi-staff-orientation": "above" | "auto" | "below" | "between";
+        "multi-staff-placement": "above" | "auto" | "below" | "between";
         "multimeasure-rest": {
             duration: components["schemas"]["measure-count"];
             label?: components["schemas"]["string"];
@@ -314,11 +323,9 @@ export interface components {
             multiple: components["schemas"]["positive-integer"];
         } & components["schemas"]["global-attrs"];
         octave: number;
-        /** @enum {string} */
-        orientation: "above" | "below" | "auto";
         ottava: {
             end: components["schemas"]["measure-rhythmic-position"];
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
             position: components["schemas"]["rhythmic-position"];
             staff?: components["schemas"]["staff-number"];
             value: components["schemas"]["ottava-amount"];
@@ -365,6 +372,8 @@ export interface components {
             octave: components["schemas"]["octave"];
             step: components["schemas"]["step"];
         } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        placement: "above" | "below" | "auto";
         "positioned-clef": {
             clef: components["schemas"]["clef"];
             position?: components["schemas"]["rhythmic-position"];
@@ -412,8 +421,8 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         sequence: {
             content: components["schemas"]["sequence-content"];
+            directionHint?: components["schemas"]["direction-hint"];
             fullMeasure?: components["schemas"]["full-measure-rest"];
-            orient?: components["schemas"]["orientation"];
             staff?: components["schemas"]["staff-number"];
             voice?: components["schemas"]["voice-name"];
         } & components["schemas"]["global-attrs"];
@@ -428,11 +437,11 @@ export interface components {
             target: components["schemas"]["id"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "slur-side": "up" | "down";
+        "slur-side": "up" | "down" | "auto";
         "smufl-font": string;
         "smufl-glyph": string;
         "soft-accent": {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         sound: {
             midiNumber?: components["schemas"]["midi-number"];
@@ -447,13 +456,13 @@ export interface components {
             type: "space";
         } & components["schemas"]["global-attrs"];
         spiccato: {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         staccatissimo: {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         staccato: {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         staff: {
             label?: components["schemas"]["staff-label"];
@@ -497,11 +506,11 @@ export interface components {
         /** @enum {string} */
         step: "A" | "B" | "C" | "D" | "E" | "F" | "G";
         "stress-marking": {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         string: string;
         "strong-accent": {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
             pointing?: components["schemas"]["up-down-auto"];
         } & components["schemas"]["global-attrs"];
         support: {
@@ -523,7 +532,7 @@ export interface components {
             value: components["schemas"]["note-value"];
         } & components["schemas"]["global-attrs"];
         tenuto: {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         tie: {
             lv?: boolean;
@@ -545,14 +554,14 @@ export interface components {
         "time-signature-unit": 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128;
         "tremolo-single": {
             marks: components["schemas"]["positive-integer"];
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         tuplet: {
             bracket?: components["schemas"]["yes-no-auto"];
             content: components["schemas"]["sequence-content"];
             inner: components["schemas"]["note-value-quantity"];
-            orient?: components["schemas"]["orientation"];
             outer: components["schemas"]["note-value-quantity"];
+            placement?: components["schemas"]["placement"];
             showNumber?: components["schemas"]["tuplet-display-setting"];
             showValue?: components["schemas"]["tuplet-display-setting"];
             staff?: components["schemas"]["staff-number"];
@@ -562,7 +571,7 @@ export interface components {
         /** @enum {string} */
         "tuplet-display-setting": "noNumber" | "inner" | "both";
         "unstress-marking": {
-            orient?: components["schemas"]["orientation"];
+            placement?: components["schemas"]["placement"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
         "up-down": "up" | "down";
@@ -609,9 +618,12 @@ export type BowDirection = components["schemas"]["bow-direction"];
 export type Bpm = components["schemas"]["bpm"];
 export type BreathMark = components["schemas"]["breath-mark"];
 export type BreathMarkSymbol = components["schemas"]["breath-mark-symbol"];
+export type Caesura = components["schemas"]["caesura"];
+export type CaesuraShape = components["schemas"]["caesura-shape"];
 export type Clef = components["schemas"]["clef"];
 export type ClefSign = components["schemas"]["clef-sign"];
 export type Color = components["schemas"]["color"];
+export type DirectionHint = components["schemas"]["direction-hint"];
 export type DynamicGroup = components["schemas"]["dynamic-group"];
 export type DynamicGroupType = components["schemas"]["dynamic-group-type"];
 export type DynamicPrefix = components["schemas"]["dynamic-prefix"];
@@ -667,7 +679,7 @@ export type MeasureRhythmicPosition = components["schemas"]["measure-rhythmic-po
 export type MidiNumber = components["schemas"]["midi-number"];
 export type Mnx = components["schemas"]["mnx"];
 export type MultiNoteTremolo = components["schemas"]["multi-note-tremolo"];
-export type MultiStaffOrientation = components["schemas"]["multi-staff-orientation"];
+export type MultiStaffPlacement = components["schemas"]["multi-staff-placement"];
 export type MultimeasureRest = components["schemas"]["multimeasure-rest"];
 export type NonArpeggio = components["schemas"]["non-arpeggio"];
 export type Note = components["schemas"]["note"];
@@ -675,7 +687,6 @@ export type NoteValue = components["schemas"]["note-value"];
 export type NoteValueBase = components["schemas"]["note-value-base"];
 export type NoteValueQuantity = components["schemas"]["note-value-quantity"];
 export type Octave = components["schemas"]["octave"];
-export type Orientation = components["schemas"]["orientation"];
 export type Ottava = components["schemas"]["ottava"];
 export type OttavaAmount = components["schemas"]["ottava-amount"];
 export type OttavaAmountOrZero = components["schemas"]["ottava-amount-or-zero"];
@@ -687,6 +698,7 @@ export type PartShortName = components["schemas"]["part-short-name"];
 export type PartTransposition = components["schemas"]["part-transposition"];
 export type PerformOptions = components["schemas"]["perform-options"];
 export type Pitch = components["schemas"]["pitch"];
+export type Placement = components["schemas"]["placement"];
 export type PositionedClef = components["schemas"]["positioned-clef"];
 export type PositionedStaffConfig = components["schemas"]["positioned-staff-config"];
 export type PositiveInteger = components["schemas"]["positive-integer"];

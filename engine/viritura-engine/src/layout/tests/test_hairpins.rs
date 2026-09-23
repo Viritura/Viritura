@@ -130,7 +130,7 @@ fn test_hairpin_orient_above_places_wedge_above_staff() {
                 "position": { "fraction": [0, 1] },
                 "end": { "measure": "m1", "position": { "fraction": [1, 1] } },
                 "wedgeType": "increasing",
-                "orient": "above"
+                "placement": "above"
             }]
         }] }]
     }"#;

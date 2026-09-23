@@ -64,7 +64,7 @@ fn test_slur_inside_inverted_voice_tuplet_clears_number() {
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
             "sequences": [
-                {"voice": "v1", "orient": "above", "content": [
+                {"voice": "v1", "content": [
                     {"type": "tuplet",
                      "inner": {"multiple": 3, "duration": {"base": "quarter"}},
                      "outer": {"multiple": 2, "duration": {"base": "quarter"}},
@@ -75,7 +75,7 @@ fn test_slur_inside_inverted_voice_tuplet_clears_number() {
                      ]},
                     {"duration": {"base": "half"}, "rest": {}}
                 ]},
-                {"voice": "v2", "orient": "below", "content": [
+                {"voice": "v2", "content": [
                     {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 3}}]}
                 ]}
             ]

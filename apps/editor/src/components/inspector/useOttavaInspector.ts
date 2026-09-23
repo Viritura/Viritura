@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { Orientation, Ottava, Score } from "@viritura/core";
+import type { Placement, Ottava, Score } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 
@@ -14,7 +14,7 @@ export interface OttavaInspectorState {
   staffCount: number;
   voiceOptions: readonly string[];
   onValueChange: (value: number) => void;
-  onOrientationChange: (value: Orientation | undefined) => void;
+  onPlacementChange: (value: Placement | undefined) => void;
   onStaffChange: (value: number | undefined) => void;
   onVoiceChange: (value: string) => void;
 }
@@ -46,9 +46,9 @@ export function useOttavaInspector({ score, target, updateScore }: OttavaInspect
     staffCount: score.parts[target.partIndex]?.staves ?? 1,
     voiceOptions: Array.from(new Set([...(ottava.voice ? [ottava.voice] : []), ...voices.filter(Boolean)])),
     onValueChange: (value) => mutateOttava((selected) => void (selected.value = value)),
-    onOrientationChange: (value) =>
+    onPlacementChange: (value) =>
       mutateOttava((selected) => {
-        selected.orient = value;
+        selected.placement = value;
       }),
     onStaffChange: (value) =>
       mutateOttava((selected) => {

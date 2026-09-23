@@ -441,12 +441,15 @@ pub mod smufl {
     pub const BREATH_MARK_SALZEDO: u32 = 0xE4D5;
 
     // ═══════════════════════════════════════
-    // Caesuras (U+E4D1 - U+E4D4)
+    // Caesuras (U+E4D1 - U+E4D4, U+E4D7)
     // ═══════════════════════════════════════
     pub const CAESURA: u32 = 0xE4D1;
     pub const CAESURA_THICK: u32 = 0xE4D2;
     pub const CAESURA_SHORT: u32 = 0xE4D3;
     pub const CAESURA_CURVED: u32 = 0xE4D4;
+    /// SMuFL defines only one single-stroke caesura glyph — there are no
+    /// shape-specific single-stroke variants for thick/curved.
+    pub const CAESURA_SINGLE_STROKE: u32 = 0xE4D7;
 
     // ═══════════════════════════════════════
     // Ornaments (U+E560 - U+E56F)
@@ -1502,14 +1505,33 @@ pub mod smufl {
         }
     }
 
-    /// Get the SMuFL caesura glyph for a given style.
-    pub fn caesura_glyph(style: &Option<crate::model::CaesuraStyle>) -> u32 {
+    /// Get the SMuFL caesura glyph for a given style and mark count.
+    ///
+    /// SMuFL defines exactly one single-stroke caesura glyph
+    /// (`caesuraSingleStroke`, U+E4D7); it has no shape-specific
+    /// counterparts for "thick"/"curved", so `marks: 1` renders distinctly
+    /// only for "normal"/"short" — a `marks: 1` request for "thick"/"curved"
+    /// falls back to that shape's standard double-stroke glyph.
+    pub fn caesura_glyph(style: &Option<crate::model::CaesuraStyle>, marks: Option<u8>) -> u32 {
         use crate::model::CaesuraStyle;
+        let single_stroke = marks == Some(1);
         match style {
             Some(CaesuraStyle::Thick) => CAESURA_THICK,
-            Some(CaesuraStyle::Short) => CAESURA_SHORT,
             Some(CaesuraStyle::Curved) => CAESURA_CURVED,
-            Some(CaesuraStyle::Normal) | None => CAESURA,
+            Some(CaesuraStyle::Short) => {
+                if single_stroke {
+                    CAESURA_SINGLE_STROKE
+                } else {
+                    CAESURA_SHORT
+                }
+            }
+            Some(CaesuraStyle::Normal) | None => {
+                if single_stroke {
+                    CAESURA_SINGLE_STROKE
+                } else {
+                    CAESURA
+                }
+            }
         }
     }
 
@@ -1667,6 +1689,7 @@ pub mod smufl {
             F_CLEF_8VA => (0.0, -2.0, 2.74, 3.52),
             F_CLEF_15MB => (0.0, -1.0, 2.74, 3.52),
             F_CLEF_15MA => (0.0, -2.0, 2.74, 3.52),
+            UNPITCHED_PERCUSSION_CLEF_1 => (0.0, -1.0, 1.528, 2.0),
 
             // Time signatures
             TIME_SIG_COMMON => (0.0, -1.0, 1.69, 2.0),
@@ -1775,6 +1798,7 @@ pub mod smufl {
             CAESURA_THICK => (0.0, -2.128, 2.652, 2.128),
             CAESURA_SHORT => (0.0, -2.132, 0.744, 2.132),
             CAESURA_CURVED => (0.0, -2.12, 1.492, 2.12),
+            CAESURA_SINGLE_STROKE => (0.0, -2.132, 0.204, 2.132),
 
             // Fermatas
             FERMATA_ABOVE => (0.012, -1.316, 2.408, 1.328),

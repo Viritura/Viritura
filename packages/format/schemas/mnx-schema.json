@@ -7,8 +7,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -156,8 +156,8 @@
         "direction": {
           "$ref": "#/$defs/up-down"
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "required": ["direction"],
@@ -175,8 +175,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         },
         "symbol": {
           "$ref": "#/$defs/breath-mark-symbol"
@@ -187,6 +187,29 @@
     },
     "breath-mark-symbol": {
       "enum": ["comma", "tick", "upbow", "salzedo", "auto"],
+      "type": "string"
+    },
+    "caesura": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "marks": {
+          "$ref": "#/$defs/positive-integer",
+          "maximum": 2,
+          "minimum": 1
+        },
+        "shape": {
+          "$ref": "#/$defs/caesura-shape"
+        }
+      },
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "caesura-shape": {
+      "enum": ["normal", "thick", "short", "curved"],
       "type": "string"
     },
     "clef": {
@@ -201,6 +224,9 @@
         },
         "glyph": {
           "$ref": "#/$defs/smufl-glyph"
+        },
+        "hide": {
+          "type": "boolean"
         },
         "octave": {
           "$ref": "#/$defs/ottava-amount-or-zero"
@@ -220,10 +246,14 @@
       "unevaluatedProperties": false
     },
     "clef-sign": {
-      "enum": ["C", "F", "G"],
+      "enum": ["C", "F", "G", "P"],
       "type": "string"
     },
     "color": {
+      "type": "string"
+    },
+    "direction-hint": {
+      "enum": ["upper", "lower", "auto"],
       "type": "string"
     },
     "dynamic-group": {
@@ -248,8 +278,8 @@
           },
           "type": "array"
         },
-        "orient": {
-          "$ref": "#/$defs/multi-staff-orientation"
+        "placement": {
+          "$ref": "#/$defs/multi-staff-placement"
         },
         "position": {
           "$ref": "#/$defs/rhythmic-position"
@@ -393,9 +423,6 @@
           },
           "type": "array"
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
-        },
         "rest": {
           "$ref": "#/$defs/rest"
         },
@@ -467,6 +494,9 @@
         "breath": {
           "$ref": "#/$defs/breath-mark"
         },
+        "caesura": {
+          "$ref": "#/$defs/caesura"
+        },
         "softAccent": {
           "$ref": "#/$defs/soft-accent"
         },
@@ -508,8 +538,8 @@
         "duration": {
           "$ref": "#/$defs/fermata-duration"
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         },
         "pointing": {
           "$ref": "#/$defs/up-down-auto"
@@ -974,8 +1004,8 @@
         "count": {
           "$ref": "#/$defs/positive-integer"
         },
-        "orient": {
-          "$ref": "#/$defs/multi-staff-orientation"
+        "placement": {
+          "$ref": "#/$defs/multi-staff-placement"
         }
       },
       "required": ["count"],
@@ -1056,7 +1086,7 @@
       "type": "object",
       "unevaluatedProperties": false
     },
-    "multi-staff-orientation": {
+    "multi-staff-placement": {
       "enum": ["above", "auto", "below", "between"],
       "type": "string"
     },
@@ -1190,10 +1220,6 @@
     "octave": {
       "type": "integer"
     },
-    "orientation": {
-      "enum": ["above", "below", "auto"],
-      "type": "string"
-    },
     "ottava": {
       "allOf": [
         {
@@ -1204,8 +1230,8 @@
         "end": {
           "$ref": "#/$defs/measure-rhythmic-position"
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         },
         "position": {
           "$ref": "#/$defs/rhythmic-position"
@@ -1406,6 +1432,10 @@
       "required": ["octave", "step"],
       "type": "object",
       "unevaluatedProperties": false
+    },
+    "placement": {
+      "enum": ["above", "below", "auto"],
+      "type": "string"
     },
     "positioned-clef": {
       "allOf": [
@@ -1620,11 +1650,11 @@
         "content": {
           "$ref": "#/$defs/sequence-content"
         },
+        "directionHint": {
+          "$ref": "#/$defs/direction-hint"
+        },
         "fullMeasure": {
           "$ref": "#/$defs/full-measure-rest"
-        },
-        "orient": {
-          "$ref": "#/$defs/orientation"
         },
         "staff": {
           "$ref": "#/$defs/staff-number"
@@ -1694,7 +1724,7 @@
       "unevaluatedProperties": false
     },
     "slur-side": {
-      "enum": ["up", "down"],
+      "enum": ["up", "down", "auto"],
       "type": "string"
     },
     "smufl-font": {
@@ -1710,8 +1740,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -1769,8 +1799,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -1783,8 +1813,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -1797,8 +1827,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -1948,8 +1978,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -1965,8 +1995,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         },
         "pointing": {
           "$ref": "#/$defs/up-down-auto"
@@ -2072,8 +2102,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -2153,8 +2183,8 @@
           "maximum": 8,
           "minimum": 1
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "required": ["marks"],
@@ -2177,11 +2207,11 @@
         "inner": {
           "$ref": "#/$defs/note-value-quantity"
         },
-        "orient": {
-          "$ref": "#/$defs/orientation"
-        },
         "outer": {
           "$ref": "#/$defs/note-value-quantity"
+        },
+        "placement": {
+          "$ref": "#/$defs/placement"
         },
         "showNumber": {
           "$ref": "#/$defs/tuplet-display-setting"
@@ -2212,8 +2242,8 @@
         }
       ],
       "properties": {
-        "orient": {
-          "$ref": "#/$defs/orientation"
+        "placement": {
+          "$ref": "#/$defs/placement"
         }
       },
       "type": "object",
@@ -2269,7 +2299,7 @@
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/40",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

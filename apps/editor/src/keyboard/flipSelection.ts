@@ -6,7 +6,7 @@ import {
   type Clef,
   type Markings,
   type NoteEvent,
-  type Orientation,
+  type Placement,
   type Score,
   type Tuplet,
 } from "@viritura/core";
@@ -31,7 +31,7 @@ interface LocatedEvent {
 }
 
 interface OrientableMarking {
-  orient?: Orientation;
+  placement?: Placement;
 }
 
 function singleSelection(elementId: string) {
@@ -54,12 +54,17 @@ const FLIPPABLE_ARTICULATION_NAMES = new Set<keyof Markings>([
 
 const STEM_ELEMENT_TYPES = new Set(["event", "rest", "note", "grace-note"]);
 
-function oppositeOrientation(isAbove: boolean): Orientation {
+function oppositePlacement(isAbove: boolean): Placement {
   return isAbove ? "below" : "above";
 }
 
 function oppositeSide(isAbove: boolean): "up" | "down" {
   return isAbove ? "down" : "up";
+}
+
+/** MNX `"auto"` and an omitted side are equivalent; both defer to automatic placement. */
+function isAutoSide(side: string | undefined): boolean {
+  return side === undefined || side === "auto";
 }
 
 function resolveClefForFlip(score: Score, partIndex: number, staffIndex: number, measureIndex: number): Clef {
@@ -94,12 +99,8 @@ function computeEffectiveStemUp(
   const sequence = measure?.sequences[sequenceIndex];
   if (!measure || !sequence) return false;
 
-  if (event.orient === "above") return true;
-  if (event.orient === "below") return false;
   if (event.stemDirection === "up") return true;
   if (event.stemDirection === "down") return false;
-  if (sequence.orient === "above") return true;
-  if (sequence.orient === "below") return false;
   if (measure.sequences.length > 1) return sequenceIndex === 0;
   if (!event.notes?.length) return false;
 
@@ -172,8 +173,8 @@ function flipSlur(score: Score, elementId: string): boolean {
       )
     : sourceStemUp;
   const autoAbove = sourceStemUp !== targetStemUp || !sourceStemUp;
-  const startAbove = slur.side === "up" || (slur.side === undefined && autoAbove);
-  const endAbove = slur.sideEnd === "up" || (slur.sideEnd === undefined && startAbove);
+  const startAbove = slur.side === "up" || (isAutoSide(slur.side) && autoAbove);
+  const endAbove = slur.sideEnd === "up" || (isAutoSide(slur.sideEnd) && startAbove);
   slur.side = oppositeSide(startAbove);
   slur.sideEnd = oppositeSide(endAbove);
   return true;
@@ -212,7 +213,7 @@ function flipTie(score: Score, elementId: string): boolean {
   const tie = event?.notes?.[target.noteIndex]?.ties?.[target.tieIndex];
   if (!event || !tie) return false;
   const autoAbove = computeAutoTieAbove(score, target, event, target.noteIndex);
-  const currentAbove = tie.side === "up" || (tie.side === undefined && autoAbove);
+  const currentAbove = tie.side === "up" || (isAutoSide(tie.side) && autoAbove);
   tie.side = oppositeSide(currentAbove);
   return true;
 }
@@ -235,8 +236,8 @@ function flipTuplet(score: Score, elementId: string): boolean {
   const eventCount = tuplet.content.filter((event) => event.type === "event").length;
   const autoAbove = eventCount === 0 || stemsUp * 2 >= eventCount;
   const currentAbove =
-    tuplet.orient === "above" || ((tuplet.orient === undefined || tuplet.orient === "auto") && autoAbove);
-  tuplet.orient = oppositeOrientation(currentAbove);
+    tuplet.placement === "above" || ((tuplet.placement === undefined || tuplet.placement === "auto") && autoAbove);
+  tuplet.placement = oppositePlacement(currentAbove);
   return true;
 }
 
@@ -258,8 +259,8 @@ function getSelectedEvent(score: Score, elementId: string): { event: NoteEvent; 
 
 function flipMarkingOrientation(marking: OrientableMarking, autoAbove: boolean): void {
   const currentAbove =
-    marking.orient === "above" || ((marking.orient === undefined || marking.orient === "auto") && autoAbove);
-  marking.orient = oppositeOrientation(currentAbove);
+    marking.placement === "above" || ((marking.placement === undefined || marking.placement === "auto") && autoAbove);
+  marking.placement = oppositePlacement(currentAbove);
 }
 
 function flipEventSubElement(score: Score, elementId: string): boolean {
@@ -321,7 +322,7 @@ function flipAnnotation(score: Score, elementId: string): boolean {
     const index = resolveAnnotationIndex(measure.dynamics, location);
     const dynamic = measure.dynamics?.[index];
     if (!dynamic) return false;
-    dynamic.orient = dynamic.orient === "above" ? "below" : "above";
+    dynamic.placement = dynamic.placement === "above" ? "below" : "above";
     return true;
   }
   if (location.type === "ottava") {
@@ -329,8 +330,8 @@ function flipAnnotation(score: Score, elementId: string): boolean {
     if (!ottava) return false;
     const autoAbove = ottava.value > 0;
     const currentAbove =
-      ottava.orient === "above" || ((ottava.orient === undefined || ottava.orient === "auto") && autoAbove);
-    ottava.orient = oppositeOrientation(currentAbove);
+      ottava.placement === "above" || ((ottava.placement === undefined || ottava.placement === "auto") && autoAbove);
+    ottava.placement = oppositePlacement(currentAbove);
     return true;
   }
   if (location.type === "expr") {
@@ -377,7 +378,7 @@ function flipSelectedEvents(currentScore: Score, ctx: KeyboardHandlerContext): b
       location.sequenceIndex,
       currentEvent,
     );
-    nextEvent.orient = currentUp ? "below" : "above";
+    nextEvent.stemDirection = currentUp ? "down" : "up";
     changed = true;
   }
   if (!changed) return false;

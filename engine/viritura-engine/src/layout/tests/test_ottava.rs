@@ -118,8 +118,8 @@ fn test_ottava_8va_render() {
 }
 
 #[test]
-fn test_ottava_explicit_orient_below() {
-    use crate::model::Orientation;
+fn test_ottava_explicit_placement_below() {
+    use crate::model::Placement;
     use crate::render::smufl::smufl;
 
     let json = std::fs::read_to_string(concat!(
@@ -128,7 +128,7 @@ fn test_ottava_explicit_orient_below() {
     ))
     .expect("Failed to read ottavas-8va.mnx");
     let mut score = crate::parse::parse_mnx(&json).expect("Failed to parse ottavas-8va.mnx");
-    score.parts[0].measures[0].ottavas.as_mut().unwrap()[0].orient = Some(Orientation::Below);
+    score.parts[0].measures[0].ottavas.as_mut().unwrap()[0].placement = Some(Placement::Below);
 
     let config = LayoutConfig::default();
     let staff_bottom = (config.margin_top + 4.0) * config.sp;

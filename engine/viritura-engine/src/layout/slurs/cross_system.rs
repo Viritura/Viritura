@@ -434,8 +434,8 @@ pub(super) fn emit_cross_system_slur(
     // When the slur spans both a system break AND different staves (e.g.
     // cross-staff piano slur broken across a system), default to curve_below
     // matching the in-system S6 rule so both halves read consistently.
-    let cross_staff_global =
-        slur.side.is_none() && (src.staff_idx != tgt.staff_idx || src.staff_move != tgt.staff_move);
+    let cross_staff_global = super::side_is_auto(&slur.side)
+        && (src.staff_idx != tgt.staff_idx || src.staff_move != tgt.staff_move);
     let curve_above = if cross_staff_global && !grace_collision_above {
         false
     } else {

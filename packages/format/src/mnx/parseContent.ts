@@ -5,9 +5,11 @@
 // note-value, lyrics, slur, event-markings, rest, written, accidental-
 // display) now consume the generated Raw* types. Vendor-extension
 // blocks under `_x.viritura` (glissandos, slur shape overrides, trill,
-// ornaments, arpeggio direction, caesura style, fingerings, staccatissimo
-// wedge) keep narrow VendorObj casts because the MNX schema deliberately
-// leaves vendor dicts opaque.
+// ornaments, arpeggio direction, fingerings, staccatissimo wedge) keep
+// narrow VendorObj casts because the MNX schema deliberately leaves vendor
+// dicts opaque. Caesura is native as of MNX schema version 36; the legacy
+// `_x.viritura.caesura` vendor form is no longer read (MNX has not yet
+// declared a stable version, so pre-v36 documents are not supported).
 
 import type {
   NoteEvent,
@@ -22,7 +24,8 @@ import type {
   Fermata,
   FermataSymbol,
   FermataDuration,
-  Orientation,
+  Placement,
+  DirectionHint,
   UpDownAuto,
   UpDown,
   OrnamentType,
@@ -108,7 +111,7 @@ function parseSequence(raw: RawSequence): Sequence {
   }
   if (raw.staff !== undefined) seq.staff = raw.staff;
   if (raw.voice !== undefined) seq.voice = raw.voice;
-  if (raw.orient !== undefined) seq.orient = raw.orient;
+  if (raw.directionHint !== undefined) seq.directionHint = raw.directionHint as DirectionHint;
   return seq;
 }
 
@@ -162,7 +165,7 @@ function parseTuplet(raw: RawTuplet): Tuplet {
   if (raw.showValue !== undefined) {
     t.showValue = raw.showValue as TupletDisplaySetting;
   }
-  if (raw.orient !== undefined) t.orient = raw.orient;
+  if (raw.placement !== undefined) t.placement = raw.placement as Placement;
   const span = (raw._x?.["viritura"] as RawTupletExt | undefined)?.span;
   if (span) t.span = { id: span.id, type: span.type as TupletSpan["type"] };
   return t;
@@ -223,8 +226,6 @@ function parseEvent(raw: RawEvent): NoteEvent {
 
   if (typeof raw.staff === "number") event.staff = raw.staff;
 
-  if (raw.orient !== undefined) event.orient = raw.orient;
-
   if (raw.rest !== undefined) {
     const restRaw: RawRest = raw.rest;
     const rest: { staffPosition?: number } = {};
@@ -256,7 +257,7 @@ function parseEvent(raw: RawEvent): NoteEvent {
     const fermata: Fermata = {};
     if (f.symbol) fermata.symbol = f.symbol as FermataSymbol;
     if (f.duration) fermata.duration = f.duration as FermataDuration;
-    if (f.orient) fermata.orient = f.orient;
+    if (f.placement) fermata.placement = f.placement as Placement;
     if (f.pointing) fermata.pointing = f.pointing;
     event.fermata = fermata;
   }
@@ -282,44 +283,49 @@ function parseEvent(raw: RawEvent): NoteEvent {
 // Markings
 // ═══════════════════════════════════════════
 
-// Helper: parse the orient field if present.
-function parseOrient(o: { orient?: Orientation } | undefined): { orient?: Orientation } {
-  if (o && o.orient) return { orient: o.orient };
+// Helper: parse the `placement` field if present.
+function parsePlacement(o: { placement?: Placement } | undefined): { placement?: Placement } {
+  if (o && o.placement) return { placement: o.placement };
   return {};
 }
 
 // Parse the standard MNX-spec markings on a marking container.
 function parseStandardMarkings(raw: RawEventMarkings, m: Markings): void {
-  if (raw.staccato !== undefined) m.staccato = parseOrient(raw.staccato);
-  if (raw.staccatissimo !== undefined) m.staccatissimo = parseOrient(raw.staccatissimo);
-  if (raw.spiccato !== undefined) m.spiccato = parseOrient(raw.spiccato);
-  if (raw.tenuto !== undefined) m.tenuto = parseOrient(raw.tenuto);
+  if (raw.staccato !== undefined) m.staccato = parsePlacement(raw.staccato);
+  if (raw.staccatissimo !== undefined) m.staccatissimo = parsePlacement(raw.staccatissimo);
+  if (raw.spiccato !== undefined) m.spiccato = parsePlacement(raw.spiccato);
+  if (raw.tenuto !== undefined) m.tenuto = parsePlacement(raw.tenuto);
   if (raw.accent !== undefined) {
-    // MNX spec: accent has only `orient` — no `pointing`.
-    m.accent = parseOrient(raw.accent);
+    // MNX spec: accent has only `placement` — no `pointing`.
+    m.accent = parsePlacement(raw.accent);
   }
   if (raw.strongAccent !== undefined) {
     const sa = raw.strongAccent;
-    m.strongAccent = parseOrient(sa);
+    m.strongAccent = parsePlacement(sa);
     if (sa.pointing) m.strongAccent.pointing = sa.pointing as UpDownAuto;
   }
   if (raw.tremolo !== undefined) {
     const t = raw.tremolo;
-    m.tremolo = { marks: t.marks, ...parseOrient(t) };
+    m.tremolo = { marks: t.marks, ...parsePlacement(t) };
   }
-  if (raw.softAccent !== undefined) m.softAccent = parseOrient(raw.softAccent);
-  if (raw.stress !== undefined) m.stress = parseOrient(raw.stress);
-  if (raw.unstress !== undefined) m.unstress = parseOrient(raw.unstress);
+  if (raw.softAccent !== undefined) m.softAccent = parsePlacement(raw.softAccent);
+  if (raw.stress !== undefined) m.stress = parsePlacement(raw.stress);
+  if (raw.unstress !== undefined) m.unstress = parsePlacement(raw.unstress);
   if (raw.breath !== undefined) {
     const b = raw.breath;
-    m.breath = parseOrient(b);
+    m.breath = parsePlacement(b);
     if (b.symbol) m.breath.symbol = b.symbol as BreathMarkSymbol;
+  }
+  if (raw.caesura !== undefined) {
+    m.caesura = {};
+    if (raw.caesura.shape) m.caesura.style = raw.caesura.shape as CaesuraStyle;
+    if (raw.caesura.marks) m.caesura.marks = raw.caesura.marks as 1 | 2;
   }
   if (raw.bowDirection !== undefined) {
     const bd = raw.bowDirection;
     m.bowDirection = {
       direction: bd.direction as UpDown,
-      ...parseOrient(bd),
+      ...parsePlacement(bd),
     };
   }
 }
@@ -329,7 +335,7 @@ function parseStandardMarkings(raw: RawEventMarkings, m: Markings): void {
 // existing fixtures use it (legacy shape). Read it through a narrow cast.
 function parseVirituraMarkings(viritura: RawEventMarkingsExt, m: Markings): void {
   if (viritura.staccatissimoWedge !== undefined) {
-    m.staccatissimoWedge = parseOrient(viritura.staccatissimoWedge);
+    m.staccatissimoWedge = parsePlacement(viritura.staccatissimoWedge);
   }
   if (viritura.trill !== undefined) {
     const t = viritura.trill;
@@ -351,10 +357,6 @@ function parseVirituraMarkings(viritura: RawEventMarkingsExt, m: Markings): void
   if (arpeggio !== undefined) {
     m.arpeggio = {};
     if (arpeggio.direction) m.arpeggio.direction = arpeggio.direction as ArpeggioDirection;
-  }
-  if (viritura.caesura !== undefined) {
-    m.caesura = {};
-    if (viritura.caesura.style) m.caesura.style = viritura.caesura.style as CaesuraStyle;
   }
   if (viritura.fingerings !== undefined) {
     m.fingerings = viritura.fingerings.map((f) => ({ finger: f.finger }));

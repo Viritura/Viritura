@@ -5,7 +5,7 @@ use super::super::text_styles::{self, FontFamily};
 use super::super::types::*;
 use super::dynamics::PlacedDynamic;
 use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyphBox};
-use crate::model::{ExpressionPlacement, MultiStaffOrientation};
+use crate::model::{ExpressionPlacement, MultiStaffPlacement};
 use crate::render::*;
 
 /// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
@@ -151,8 +151,8 @@ pub(crate) fn render_text_expressions(
                     !dynamic.is_gradual()
                         && (dynamic.position.beats() - beat).abs() < 0.01
                         && (matches!(
-                            dynamic.orient,
-                            Some(MultiStaffOrientation::Above | MultiStaffOrientation::Below)
+                            dynamic.placement,
+                            Some(MultiStaffPlacement::Above | MultiStaffPlacement::Below)
                         ) || dynamic
                             .manual_offset
                             .is_some_and(|offset| offset != [0.0, 0.0])

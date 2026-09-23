@@ -200,10 +200,10 @@ describe("event marking setters", () => {
     setBowDirection(score, 0, 0, 0, 0, "down");
     const event = getEvent(score, 0);
     if (event.type !== "event") throw new Error("Expected note event");
-    event.markings!.bowDirection!.orient = "below";
+    event.markings!.bowDirection!.placement = "below";
 
     setBowDirection(score, 0, 0, 0, 0, "up");
-    expect(event.markings?.bowDirection).toEqual({ direction: "up", orient: "below" });
+    expect(event.markings?.bowDirection).toEqual({ direction: "up", placement: "below" });
 
     setBowDirection(score, 0, 0, 0, 0);
     expect(event.markings?.bowDirection).toBeUndefined();

@@ -2,10 +2,12 @@
 //!
 //! - Standard MNX articulations (staccato/accent/etc.) are pulled from
 //!   `raw::EventMarkings` top-level fields.
-//! - Viritura-only markings (trill, ornaments, arpeggio, caesura,
-//!   fingerings, staccatissimoWedge) come from
+//! - Viritura-only markings (trill, ornaments, arpeggio, fingerings,
+//!   staccatissimoWedge) come from
 //!   `raw::EventMarkings._x.viritura`, deserialized into
 //!   [`crate::raw_viritura::EventMarkingsExtensions`].
+//! - Caesura is native MNX (schema v36+) and comes from
+//!   `raw::EventMarkings.caesura` directly.
 //! - Tie / Fermata / AccidentalDisplay / UpDown(Auto) are leaf promotes.
 
 use crate::model::direction::Caesura as ModelCaesura;
@@ -16,8 +18,8 @@ use crate::model::event::{
     BowDirection as ModelBowDirection, BreathMark as ModelBreathMark,
     BreathMarkSymbol as ModelBreathMarkSymbol, Fermata as ModelFermata,
     FermataDuration as ModelFermataDuration, FermataSymbol as ModelFermataSymbol,
-    Fingering as ModelFingering, Markings as ModelMarkings, Orientation as ModelOrientation,
-    OrnamentType as ModelOrnamentType, SoftAccent as ModelSoftAccent, Spiccato as ModelSpiccato,
+    Fingering as ModelFingering, Markings as ModelMarkings, OrnamentType as ModelOrnamentType,
+    Placement as ModelPlacement, SoftAccent as ModelSoftAccent, Spiccato as ModelSpiccato,
     Staccatissimo as ModelStaccatissimo, StaccatissimoWedge as ModelStaccatissimoWedge,
     Staccato as ModelStaccato, Stress as ModelStress, StrongAccent as ModelStrongAccent,
     Tenuto as ModelTenuto, Tie as ModelTie, Tremolo as ModelTremolo, Trill as ModelTrill,
@@ -30,11 +32,11 @@ use crate::{raw, raw_viritura};
 
 // ─── Enum leaves ──────────────────────────────────────────────────────
 
-pub(crate) fn promote_orientation(r: raw::Orientation) -> ModelOrientation {
+pub(crate) fn promote_placement(r: raw::Placement) -> ModelPlacement {
     match r {
-        raw::Orientation::Above => ModelOrientation::Above,
-        raw::Orientation::Below => ModelOrientation::Below,
-        raw::Orientation::Auto => ModelOrientation::Auto,
+        raw::Placement::Above => ModelPlacement::Above,
+        raw::Placement::Below => ModelPlacement::Below,
+        raw::Placement::Auto => ModelPlacement::Auto,
     }
 }
 
@@ -101,77 +103,77 @@ pub(crate) fn promote_breath_mark_symbol(r: raw::BreathMarkSymbol) -> ModelBreat
 
 pub(crate) fn promote_staccato(r: raw::Staccato) -> ModelStaccato {
     ModelStaccato {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_staccatissimo(r: raw::Staccatissimo) -> ModelStaccatissimo {
     ModelStaccatissimo {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_spiccato(r: raw::Spiccato) -> ModelSpiccato {
     ModelSpiccato {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_tenuto(r: raw::Tenuto) -> ModelTenuto {
     ModelTenuto {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_accent(r: raw::Accent) -> ModelAccent {
     ModelAccent {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_strong_accent(r: raw::StrongAccent) -> ModelStrongAccent {
     ModelStrongAccent {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
         pointing: r.pointing.map(promote_up_down_auto),
     }
 }
 
 pub(crate) fn promote_soft_accent(r: raw::SoftAccent) -> ModelSoftAccent {
     ModelSoftAccent {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_stress(r: raw::StressMarking) -> ModelStress {
     ModelStress {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_unstress(r: raw::UnstressMarking) -> ModelUnstress {
     ModelUnstress {
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_tremolo_single(r: raw::TremoloSingle) -> ModelTremolo {
     ModelTremolo {
         marks: u32::try_from(r.marks.0).unwrap_or(1),
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_bow_direction(r: raw::BowDirection) -> ModelBowDirection {
     ModelBowDirection {
         direction: promote_up_down(r.direction),
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
 pub(crate) fn promote_breath_mark(r: raw::BreathMark) -> ModelBreathMark {
     ModelBreathMark {
         symbol: r.symbol.map(promote_breath_mark_symbol),
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
     }
 }
 
@@ -212,19 +214,15 @@ pub(crate) fn promote_fingering(r: raw_viritura::Fingering) -> ModelFingering {
     }
 }
 
-pub(crate) fn promote_caesura(r: raw_viritura::Caesura) -> ModelCaesura {
-    ModelCaesura { style: r.style }
-}
-
 pub(crate) fn promote_staccatissimo_wedge(
     r: raw_viritura::EventMarkingsExtensionsStaccatissimoWedge,
 ) -> ModelStaccatissimoWedge {
-    use raw_viritura::EventMarkingsExtensionsStaccatissimoWedgeOrient as O;
+    use raw_viritura::EventMarkingsExtensionsStaccatissimoWedgePlacement as P;
     ModelStaccatissimoWedge {
-        orient: r.orient.map(|o| match o {
-            O::Above => ModelOrientation::Above,
-            O::Below => ModelOrientation::Below,
-            O::Auto => ModelOrientation::Auto,
+        placement: r.placement.map(|p| match p {
+            P::Above => ModelPlacement::Above,
+            P::Below => ModelPlacement::Below,
+            P::Auto => ModelPlacement::Auto,
         }),
     }
 }
@@ -235,7 +233,7 @@ pub(crate) fn promote_fermata(r: raw::Fermata) -> ModelFermata {
     ModelFermata {
         symbol: r.symbol.map(promote_fermata_symbol),
         duration: r.duration.map(promote_fermata_duration),
-        orient: r.orient.map(promote_orientation),
+        placement: r.placement.map(promote_placement),
         pointing: r.pointing.map(promote_up_down_auto),
     }
 }
@@ -274,7 +272,7 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
         .as_ref()
         .and_then(|json| serde_json::from_value(serde_json::Value::Object(json.clone())).ok());
 
-    let (staccatissimo_wedge, trill, ornaments, caesura, fingerings) = match ext {
+    let (staccatissimo_wedge, trill, ornaments, fingerings) = match ext {
         Some(e) => (
             e.staccatissimo_wedge.map(promote_staccatissimo_wedge),
             e.trill.map(promote_trill),
@@ -283,15 +281,22 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
             } else {
                 Some(e.ornaments.into_iter().map(promote_ornament_type).collect())
             },
-            e.caesura.map(promote_caesura),
             if e.fingerings.is_empty() {
                 None
             } else {
                 Some(e.fingerings.into_iter().map(promote_fingering).collect())
             },
         ),
-        None => (None, None, None, None, None),
+        None => (None, None, None, None),
     };
+    // Caesura is native MNX (schema v36+); MNX has not declared a stable
+    // version, so the legacy `_x.viritura.caesura` vendor form is
+    // intentionally not read. `CaesuraStyle` is aliased directly to the
+    // native `raw::CaesuraShape` enum, so no per-variant mapping is needed.
+    let caesura = r.caesura.map(|c| ModelCaesura {
+        style: c.shape,
+        marks: c.marks.map(|m| u8::try_from(i64::from(m)).unwrap_or(2)),
+    });
 
     // Arpeggio is a Viritura-only marking not yet expressed in the
     // viritura-extensions schema. Pull it straight off the raw JSON map
@@ -331,7 +336,7 @@ mod tests {
     fn promotes_basic_markings_with_vendor_ext() {
         let json = r#"{
             "staccato": {},
-            "accent": {"orient": "above"},
+            "accent": {"placement": "above"},
             "_x": {"viritura": {
                 "trill": {"accidental": 1},
                 "fingerings": [{"finger": 3}]
@@ -341,8 +346,8 @@ mod tests {
         let m = promote_markings(r);
         assert!(m.staccato.is_some());
         assert!(matches!(
-            m.accent.as_ref().unwrap().orient,
-            Some(ModelOrientation::Above)
+            m.accent.as_ref().unwrap().placement,
+            Some(ModelPlacement::Above)
         ));
         assert_eq!(m.trill.as_ref().unwrap().accidental, Some(1));
         let fingerings = m.fingerings.expect("fingerings present");

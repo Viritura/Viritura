@@ -392,11 +392,46 @@ describe("convertMusicXmlToMnx — basics", () => {
     );
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const content = result.parts[0]!.measures[0]!.sequences![0]!.content as Array<{
-      markings?: { accent?: unknown; _x?: { viritura?: Record<string, unknown> } };
+      markings?: { accent?: unknown; caesura?: Record<string, unknown> };
     }>;
     const ev = content[1]!;
     expect(ev.markings?.accent).toBeDefined();
-    expect(ev.markings?._x?.viritura?.["caesura"]).toBeDefined();
+    expect(ev.markings?.caesura).toBeDefined();
+  });
+
+  it("preserves a caesura without requiring vendor extensions", () => {
+    // Native MNX caesura (schema v36) is no longer a Viritura-only
+    // extension, so it must survive even with includeVendorExtensions unset.
+    const xml = wrapScore(`
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>1</duration><type>quarter</type>
+        <notations><articulations><caesura/></articulations></notations>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    const content = result.parts[0]!.measures[0]!.sequences![0]!.content as Array<{
+      markings?: { caesura?: Record<string, unknown> };
+    }>;
+    expect(content[0]!.markings?.caesura).toBeDefined();
+  });
+
+  it.each([
+    ["", {}],
+    ["normal", {}],
+    ["thick", { shape: "thick" }],
+    ["short", { shape: "short" }],
+    ["curved", { shape: "curved" }],
+    ["single", { marks: 1 }],
+  ])("maps <caesura>%s</caesura> to %j", (value, expected) => {
+    const xml = wrapScore(`
+      <note><pitch><step>C</step><octave>6</octave></pitch><duration>1</duration><type>quarter</type>
+        <notations><articulations><caesura>${value}</caesura></articulations></notations>
+      </note>
+    `);
+    const result = convertMusicXmlToMnx(xml);
+    const content = result.parts[0]!.measures[0]!.sequences![0]!.content as Array<{
+      markings?: { caesura?: Record<string, unknown> };
+    }>;
+    expect(content[0]!.markings?.caesura).toEqual(expected);
   });
 
   it("converts dotted notes", () => {
@@ -725,7 +760,7 @@ describe("convertMusicXmlToMnx — articulations", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("convertMusicXmlToMnx — fermata & ornaments", () => {
-  it("converts upright fermata to native MNX (orient defaults)", () => {
+  it("converts upright fermata to native MNX (placement defaults)", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -735,11 +770,11 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
       </note>
     `);
     const event = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!.sequences![0]!
-      .content[0]! as { markings: { fermata: { orient?: string } } };
+      .content[0]! as { markings: { fermata: { placement?: string } } };
     expect(event.fermata).toEqual({});
   });
 
-  it("converts inverted fermata to native MNX with orient=below", () => {
+  it("converts inverted fermata to native MNX with placement=below", () => {
     const xml = wrapScore(`
       <note>
         <pitch><step>C</step><octave>4</octave></pitch>
@@ -749,9 +784,9 @@ describe("convertMusicXmlToMnx — fermata & ornaments", () => {
       </note>
     `);
     const event = convertMusicXmlToMnx(xml).parts[0]!.measures[0]!.sequences![0]!.content[0]! as {
-      markings: { fermata: { orient?: string } };
+      markings: { fermata: { placement?: string } };
     };
-    expect(event.fermata).toEqual({ orient: "below" });
+    expect(event.fermata).toEqual({ placement: "below" });
   });
 
   it("converts trill-mark as vendor extension", () => {
@@ -2464,6 +2499,26 @@ describe("convertMusicXmlToMnx — color", () => {
   });
 });
 
+describe("convertMusicXmlToMnx — clef.hide", () => {
+  it('maps <clef print-object="no"> to native clef.hide', () => {
+    const xml = wrapScore(
+      `<note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>`,
+    ).replace("<clef>", '<clef print-object="no">');
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.measures[0]!.clefs?.[0]?.clef.hide).toBe(true);
+  });
+
+  it('omits clef.hide when print-object is not "no"', () => {
+    const xml = wrapScore(
+      `<note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>`,
+    );
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.measures[0]!.clefs?.[0]?.clef.hide).toBeUndefined();
+  });
+});
+
 describe("convertMusicXmlToMnx — lossy diagnostics", () => {
   it("reports features with no implemented conversion target", () => {
     const xml = wrapScore(`
@@ -2495,7 +2550,6 @@ describe("convertMusicXmlToMnx — lossy diagnostics", () => {
         <type>whole</type>
         <notations>
           <ornaments><trill-mark/><shake/></ornaments>
-          <articulations><caesura/></articulations>
         </notations>
       </note>
     `);
@@ -2503,11 +2557,7 @@ describe("convertMusicXmlToMnx — lossy diagnostics", () => {
 
     convertMusicXmlToMnx(xml, { diagnostics });
 
-    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toEqual([
-      "musicxml-shake",
-      "musicxml-trill",
-      "musicxml-caesura",
-    ]);
+    expect(diagnostics.all().map((diagnostic) => diagnostic.code)).toEqual(["musicxml-shake", "musicxml-trill"]);
   });
 });
 

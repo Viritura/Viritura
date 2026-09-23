@@ -657,6 +657,18 @@ describe("buildNavigationIndex with non-event elements", () => {
     expect(entry!.partIndex).toBe(0);
   });
 
+  it("includes separate entries for multiple clef occurrences in one measure", () => {
+    const score = makeAnnotatedScore();
+    score.parts[0]!.measures[0]!.clefs = [
+      { clef: { sign: "G", staffPosition: -2 } },
+      { clef: { sign: "F", staffPosition: 2 }, position: { fraction: [1, 2] } },
+    ];
+
+    const entries = buildNavigationIndex(score).entries.filter((entry) => entry.elementType === "clef");
+
+    expect(entries.map((entry) => entry.elementId)).toContain("p0/m0/clef1");
+  });
+
   it("includes key signature entries", () => {
     const entry = getEntry(nav, "p0/m0/key");
     expect(entry).toBeDefined();

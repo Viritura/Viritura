@@ -66,6 +66,7 @@ pub(super) fn build_spacing_snapshot<'a>(
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         let active_key = active_keys
             .get(staff_index)
@@ -228,7 +229,7 @@ fn collect_event_facts(
         max_entry(
             &mut snapshot.caesura_widths,
             source.key,
-            smufl::glyph_bbox(smufl::caesura_glyph(&caesura.style)).2,
+            smufl::glyph_bbox(smufl::caesura_glyph(&caesura.style, caesura.marks)).2,
         );
     }
     if event.is_rest() {

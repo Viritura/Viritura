@@ -219,12 +219,20 @@ export function extractMarkings(noteEl: Element, vendorExt: boolean): MnxEventMa
           (markings as Record<string, unknown>)[mnxKey] = {};
         }
       } else if (art.tagName === "caesura") {
-        // caesura → vendor extension (only if enabled)
-        if (vendorExt) {
-          hasMarkings = true;
-          if (!markings._x) markings._x = { viritura: {} };
-          markings._x.viritura["caesura"] = {};
+        // Native MNX caesura (schema v36) — always preserved, since it's no
+        // longer a Viritura-only extension. MusicXML's caesura-value enum
+        // (normal/thick/short/curved/single/"") only carries "single" as
+        // richer semantic info matching the `marks` property (single-stroke);
+        // everything else maps to the `shape` default (normal, 2 marks).
+        hasMarkings = true;
+        const value = (art.textContent ?? "").trim().toLowerCase();
+        const caesura: MnxEventMarkings["caesura"] = {};
+        if (value === "thick" || value === "short" || value === "curved") {
+          caesura.shape = value;
+        } else if (value === "single") {
+          caesura.marks = 1;
         }
+        markings.caesura = caesura;
       }
     }
   }
@@ -325,12 +333,12 @@ export function extractMarkings(noteEl: Element, vendorExt: boolean): MnxEventMa
 }
 
 /** Extract native MNX fermata (event-level since v15) from a <note>'s <notations>. */
-export function extractFermata(noteEl: Element): { orient?: "above" | "below" } | undefined {
+export function extractFermata(noteEl: Element): { placement?: "above" | "below" } | undefined {
   const fermataEl = notationChild(noteEl, "fermata");
   if (!fermataEl) return undefined;
   const fermataType = fermataEl.getAttribute("type") ?? "upright";
-  const fermata: { orient?: "above" | "below" } = {};
-  if (fermataType === "inverted") fermata.orient = "below";
+  const fermata: { placement?: "above" | "below" } = {};
+  if (fermataType === "inverted") fermata.placement = "below";
   return fermata;
 }
 

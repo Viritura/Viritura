@@ -6,7 +6,7 @@ import type {
   Fingering,
   NonArpeggio,
   OrnamentType,
-  Orientation,
+  Placement,
   PartMeasureArpeggio,
   Pedal,
   PedalLineStyle,
@@ -27,7 +27,7 @@ const BREATH_SYMBOL_OPTIONS = [
   { value: "upbow", label: "Upbow" },
   { value: "salzedo", label: "Salzedo" },
 ];
-const ORIENTATION_OPTIONS = [
+const PLACEMENT_OPTIONS = [
   { value: "", label: "Auto" },
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
@@ -70,10 +70,10 @@ const FRACTION_STYLE = { display: "flex", gap: "0.4rem", alignItems: "center" };
 interface BreathMarkSectionProps {
   breath: BreathMark;
   onSymbolChange: (symbol: BreathMarkSymbol) => void;
-  onOrientationChange: (orient: Orientation | undefined) => void;
+  onPlacementChange: (placement: Placement | undefined) => void;
 }
 
-function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: BreathMarkSectionProps) {
+function BreathMarkSection({ breath, onSymbolChange, onPlacementChange }: BreathMarkSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Breath Mark</legend>
@@ -90,9 +90,9 @@ function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: Brea
         Placement
         <Select
           aria-label="Breath placement"
-          value={breath.orient ?? ""}
-          options={ORIENTATION_OPTIONS}
-          onValueChange={(value) => onOrientationChange((value || undefined) as Orientation | undefined)}
+          value={breath.placement ?? ""}
+          options={PLACEMENT_OPTIONS}
+          onValueChange={(value) => onPlacementChange((value || undefined) as Placement | undefined)}
         />
       </label>
     </fieldset>
@@ -102,10 +102,10 @@ function BreathMarkSection({ breath, onSymbolChange, onOrientationChange }: Brea
 interface BowDirectionSectionProps {
   bowDirection: BowDirection;
   onDirectionChange: (direction: BowDirection["direction"]) => void;
-  onOrientationChange: (orient: Orientation | undefined) => void;
+  onPlacementChange: (placement: Placement | undefined) => void;
 }
 
-function BowDirectionSection({ bowDirection, onDirectionChange, onOrientationChange }: BowDirectionSectionProps) {
+function BowDirectionSection({ bowDirection, onDirectionChange, onPlacementChange }: BowDirectionSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>Bow Direction</legend>
@@ -122,9 +122,9 @@ function BowDirectionSection({ bowDirection, onDirectionChange, onOrientationCha
         Placement
         <Select
           aria-label="Bow direction placement"
-          value={bowDirection.orient ?? ""}
-          options={ORIENTATION_OPTIONS}
-          onValueChange={(value) => onOrientationChange((value || undefined) as Orientation | undefined)}
+          value={bowDirection.placement ?? ""}
+          options={PLACEMENT_OPTIONS}
+          onValueChange={(value) => onPlacementChange((value || undefined) as Placement | undefined)}
         />
       </label>
     </fieldset>
@@ -365,14 +365,14 @@ export function SelectedMarkingInspectors({
         <BreathMarkSection
           breath={marking.selectedBreath}
           onSymbolChange={marking.setBreathSymbol}
-          onOrientationChange={marking.setBreathOrientation}
+          onPlacementChange={marking.setBreathPlacement}
         />
       )}
       {marking.selectedBowDirection && (
         <BowDirectionSection
           bowDirection={marking.selectedBowDirection}
           onDirectionChange={marking.setBowDirection}
-          onOrientationChange={marking.setBowDirectionOrientation}
+          onPlacementChange={marking.setBowDirectionPlacement}
         />
       )}
       {marking.selectedFingering && (

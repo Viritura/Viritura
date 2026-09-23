@@ -137,7 +137,7 @@ describe("defaultPitchForClef", () => {
   });
 
   it("defaults to treble range for unknown clef signs", () => {
-    const p = defaultPitchForClef({ sign: "G", staffPosition: 0, glyph: "unpitchedPercussionClef1" });
+    const p = defaultPitchForClef({ sign: "P", staffPosition: 0 });
     expect(p).toEqual({ step: "B", octave: 4 });
   });
 

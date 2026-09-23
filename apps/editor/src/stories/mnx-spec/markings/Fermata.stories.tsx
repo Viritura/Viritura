@@ -20,21 +20,21 @@ const meta: Meta = {
   component: ScorePreview,
   argTypes: {
     symbol: { control: "select", options: SYMBOLS },
-    orient: { control: "select", options: ["above", "below", "auto"] },
+    placement: { control: "select", options: ["above", "below", "auto"] },
     duration: { control: "select", options: DURATIONS },
   },
-  args: { symbol: "normal", orient: "above", duration: "auto" },
+  args: { symbol: "normal", placement: "above", duration: "auto" },
 };
 
 export default meta;
 
-type Args = { symbol: string; orient: string; duration: string };
+type Args = { symbol: string; placement: string; duration: string };
 
 export const Default: StoryObj<Args> = {
-  render: ({ symbol, orient, duration }) => {
+  render: ({ symbol, placement, duration }) => {
     const fermata: Record<string, unknown> = {};
     if (symbol !== "normal") fermata.symbol = symbol;
-    if (orient !== "auto") fermata.orient = orient;
+    if (placement !== "auto") fermata.placement = placement;
     if (duration !== "auto") fermata.duration = duration;
     const mnx = buildSingleMeasure([
       { duration: "half", fermata, notes: [{ step: "C", octave: 5 }] },
@@ -58,11 +58,11 @@ export const AllSymbols: StoryObj = {
   name: "All eight fermata symbols",
 };
 
-export const OrientBelow: StoryObj = {
+export const PlacementBelow: StoryObj = {
   render: () => {
     const mnx = buildSingleMeasure([
-      { duration: "half", fermata: { orient: "below" }, notes: [{ step: "G", octave: 5 }] },
-      { duration: "half", fermata: { symbol: "square", orient: "below" }, notes: [{ step: "F", octave: 5 }] },
+      { duration: "half", fermata: { placement: "below" }, notes: [{ step: "G", octave: 5 }] },
+      { duration: "half", fermata: { symbol: "square", placement: "below" }, notes: [{ step: "F", octave: 5 }] },
     ]);
     return <ScorePreview mnxJson={mnx} />;
   },

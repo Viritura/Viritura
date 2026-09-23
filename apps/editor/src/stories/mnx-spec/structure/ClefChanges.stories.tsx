@@ -115,3 +115,43 @@ export const ClefChange: StoryObj = {
   },
   name: "Change from treble to bass clef",
 };
+
+/**
+ * A clef change with `hide: true` (MNX `clef.hide`): the second measure's
+ * bass clef still governs pitch interpretation for its notes but its glyph
+ * is suppressed, reserving no space at the measure boundary — used for
+ * editorial clef changes that shouldn't be visible on the page.
+ */
+export const HiddenClefChange: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          clef: { sign: "G", staffPosition: -2 },
+          voices: [
+            [
+              { duration: "quarter", notes: [{ step: "C", octave: 5 }] },
+              { duration: "quarter", notes: [{ step: "D", octave: 5 }] },
+              { duration: "quarter", notes: [{ step: "E", octave: 5 }] },
+              { duration: "quarter", notes: [{ step: "F", octave: 5 }] },
+            ],
+          ],
+        },
+        {
+          clef: { sign: "F", staffPosition: 2, hide: true },
+          voices: [
+            [
+              { duration: "quarter", notes: [{ step: "C", octave: 3 }] },
+              { duration: "quarter", notes: [{ step: "D", octave: 3 }] },
+              { duration: "quarter", notes: [{ step: "E", octave: 3 }] },
+              { duration: "quarter", notes: [{ step: "F", octave: 3 }] },
+            ],
+          ],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Hidden clef change (clef.hide)",
+};

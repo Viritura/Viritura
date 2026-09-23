@@ -316,7 +316,7 @@ pub(super) fn merge_sequences_as_chords(
         full_measure: any_full_measure,
         staff: None,
         voice: None,
-        orient: None,
+        direction_hint: None,
         forced_stem_up: None,
         source_part_index: None,
         source_seq_index: None,
@@ -535,7 +535,7 @@ pub(super) fn build_virtual_part_measure(
                             None => true,
                             Some(n) => match group.staff {
                                 Some(staff) => staff == n,
-                                None if group.orient == Some(MultiStaffOrientation::Between) => {
+                                None if group.placement == Some(MultiStaffPlacement::Between) => {
                                     n == 1
                                 }
                                 None => true,

@@ -1132,7 +1132,7 @@ fn test_measure_repeat_centers_across_covered_bar_range() {
 #[test]
 fn test_measure_repeat_counter_renders_above_staff() {
     let score = parse_mnx(&measure_repeat_score(
-        r#"{"number": 1, "counter": {"count": 3, "orient": "above"}}"#,
+        r#"{"number": 1, "counter": {"count": 3, "placement": "above"}}"#,
     ))
     .unwrap();
     let dl = layout_score(&score, 0, &LayoutConfig::default());
@@ -1167,7 +1167,7 @@ fn test_measure_repeat_counter_renders_above_staff() {
 #[test]
 fn test_measure_repeat_counter_stacks_above_span_number() {
     let score = parse_mnx(&measure_repeat_score(
-        r#"{"number": 2, "counter": {"count": 3, "orient": "above"}}"#,
+        r#"{"number": 2, "counter": {"count": 3, "placement": "above"}}"#,
     ))
     .unwrap();
     let config = LayoutConfig::default();

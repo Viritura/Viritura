@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import type { Score } from "@viritura/core";
 import { ButtonGroup, IconButton, Select, type ButtonGroupOption, type SelectOption } from "@viritura/ui";
 import { Info } from "lucide-react";
 import type { InspectorSectionProps } from "./types";
@@ -56,13 +55,11 @@ const FIELD_LABEL_HEADER_STYLE: CSSProperties = {
 };
 
 interface LayoutSectionProps extends InspectorSectionProps {
-  /** The selected sequence (if any). */
-  selectedSequence: Score["parts"][number]["measures"][number]["sequences"][number] | null;
   /** The selected content item within the sequence. */
   selectedContent: {
     type: string;
     stemDirection?: string;
-    orient?: string;
+    placement?: string;
     staff?: number;
     bracket?: string;
     showNumber?: string;
@@ -83,7 +80,6 @@ export function LayoutSection({
   updateScore,
   focusedSection,
   sectionRef,
-  selectedSequence,
   selectedContent,
   isTuplet,
   isEvent,
@@ -93,25 +89,16 @@ export function LayoutSection({
   const {
     layoutError,
     handleStemDirectionChange,
-    handleEventOrientChange,
     handleEventStaffChange,
-    handleSequenceOrientChange,
-    handleTupletOrientChange,
+    handleTupletPlacementChange,
     handleTupletBracketChange,
     handleTupletShowNumberChange,
     handleTupletShowValueChange,
   } = useLayoutOverrideHandlers({ score, target, updateScore });
 
   // Pre-compute current-value reads so the JSX stays declarative.
-  const {
-    stemDirectionValue,
-    eventOrientValue,
-    sequenceOrientValue,
-    tupletOrientValue,
-    tupletBracketValue,
-    tupletShowNumberValue,
-    tupletShowValueValue,
-  } = readLayoutOverrideValues({ isEvent, isTuplet, selectedContent, selectedSequence });
+  const { stemDirectionValue, tupletPlacementValue, tupletBracketValue, tupletShowNumberValue, tupletShowValueValue } =
+    readLayoutOverrideValues({ isEvent, isTuplet, selectedContent });
   const staffOptions: ButtonGroupOption[] = [
     { value: "", label: "Auto" },
     ...Array.from({ length: staffCount }, (_, index) => ({
@@ -138,34 +125,6 @@ export function LayoutSection({
         />
       </LayoutOverrideField>
 
-      <LayoutOverrideField
-        label="Event Orientation"
-        tooltip="Places the selected event on the up or down side of the staff and forces that event's stem direction."
-      >
-        <ButtonGroup
-          data-testid="notation-layout-event-orient"
-          ariaLabel="Event Orientation"
-          disabled={!isEvent}
-          value={eventOrientValue}
-          onChange={handleEventOrientChange}
-          options={UP_DOWN_PILL_OPTIONS}
-        />
-      </LayoutOverrideField>
-
-      <LayoutOverrideField
-        label="Sequence Orientation"
-        tooltip="Sets the up or down orientation for the entire voice sequence, supplying a stem direction for its events unless an event overrides it."
-      >
-        <ButtonGroup
-          data-testid="notation-layout-seq-orient"
-          ariaLabel="Sequence Orientation"
-          disabled={!selectedSequence}
-          value={sequenceOrientValue}
-          onChange={handleSequenceOrientChange}
-          options={UP_DOWN_PILL_OPTIONS}
-        />
-      </LayoutOverrideField>
-
       {isEvent && staffCount > 1 && (
         <LayoutOverrideField
           label="Cross-Staff"
@@ -185,11 +144,11 @@ export function LayoutSection({
         <fieldset style={tupletFieldsetStyle()}>
           <legend style={tupletLegendStyle()}>Tuplet Overrides</legend>
           <TupletOverrideControls
-            orient={tupletOrientValue}
+            placement={tupletPlacementValue}
             bracket={tupletBracketValue}
             showNumber={tupletShowNumberValue}
             showValue={tupletShowValueValue}
-            onOrientChange={handleTupletOrientChange}
+            onPlacementChange={handleTupletPlacementChange}
             onBracketChange={handleTupletBracketChange}
             onShowNumberChange={handleTupletShowNumberChange}
             onShowValueChange={handleTupletShowValueChange}
@@ -225,22 +184,22 @@ function LayoutOverrideField({
 }
 
 interface TupletOverrideControlsProps {
-  orient: string;
+  placement: string;
   bracket: string;
   showNumber: string;
   showValue: string;
-  onOrientChange: (value: string) => void;
+  onPlacementChange: (value: string) => void;
   onBracketChange: (value: string) => void;
   onShowNumberChange: (value: string) => void;
   onShowValueChange: (value: string) => void;
 }
 
 function TupletOverrideControls({
-  orient,
+  placement,
   bracket,
   showNumber,
   showValue,
-  onOrientChange,
+  onPlacementChange,
   onBracketChange,
   onShowNumberChange,
   onShowValueChange,
@@ -248,11 +207,11 @@ function TupletOverrideControls({
   return (
     <>
       <label style={labelStyle}>
-        Tuplet Orient
+        Tuplet Placement
         <Select
-          data-testid="notation-layout-tuplet-orient"
-          value={orient}
-          onValueChange={onOrientChange}
+          data-testid="notation-layout-tuplet-placement"
+          value={placement}
+          onValueChange={onPlacementChange}
           options={UP_DOWN_OPTIONS}
         />
       </label>
@@ -298,17 +257,14 @@ interface ReadLayoutValuesArgs {
   isEvent: boolean;
   isTuplet: boolean;
   selectedContent: SelectedContent;
-  selectedSequence: LayoutSectionProps["selectedSequence"];
 }
 
-function readLayoutOverrideValues({ isEvent, isTuplet, selectedContent, selectedSequence }: ReadLayoutValuesArgs) {
+function readLayoutOverrideValues({ isEvent, isTuplet, selectedContent }: ReadLayoutValuesArgs) {
   const eventContent = isEvent && selectedContent?.type === "event" ? selectedContent : null;
   const tupletContent = isTuplet && selectedContent?.type === "tuplet" ? selectedContent : null;
   return {
     stemDirectionValue: eventContent?.stemDirection ?? "",
-    eventOrientValue: eventContent?.orient ?? "",
-    sequenceOrientValue: selectedSequence?.orient ?? "",
-    tupletOrientValue: tupletContent?.orient ?? "",
+    tupletPlacementValue: tupletContent?.placement ?? "",
     tupletBracketValue: tupletContent?.bracket ?? "",
     tupletShowNumberValue: tupletContent?.showNumber ?? "",
     tupletShowValueValue: tupletContent?.showValue ?? "",

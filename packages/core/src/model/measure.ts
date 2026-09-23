@@ -11,7 +11,7 @@ import type {
   Ending as RawEnding,
   PositionedStaffConfig as RawPositionedStaffConfig,
   StaffConfig as RawStaffConfig,
-  MultiStaffOrientation as RawMultiStaffOrientation,
+  MultiStaffPlacement as RawMultiStaffPlacement,
   RelativeDynamicValue as RawRelativeDynamicValue,
   WedgeType as RawWedgeType,
 } from "../raw";
@@ -116,7 +116,7 @@ export type RelativeDynamicValue = RawRelativeDynamicValue;
 export type WedgeType = RawWedgeType;
 
 /** Dynamic placement with support for the inter-staff gap. */
-export type MultiStaffOrientation = RawMultiStaffOrientation;
+export type MultiStaffPlacement = RawMultiStaffPlacement;
 
 /** Fields shared by all standard MNX dynamic groups. */
 export interface DynamicGroupBase {
@@ -133,7 +133,7 @@ export interface DynamicGroupBase {
   accentSuffix?: DynamicSuffix;
   end?: MeasureRhythmicPosition;
   glyphs?: string[];
-  orient?: MultiStaffOrientation;
+  placement?: MultiStaffPlacement;
   prefix?: string;
   relativeValue?: RelativeDynamicValue;
   staff?: number;
@@ -185,8 +185,8 @@ export interface Ottava {
   position: RhythmicPosition;
   end: MeasureRhythmicPosition;
   value: number;
-  /** Vertical orientation (MNX `orient`, above/below/auto). */
-  orient?: import("./event").Orientation;
+  /** Vertical placement (MNX `placement`, above/below/auto). */
+  placement?: import("./event").Placement;
   staff?: number;
   voice?: string;
 }
@@ -455,7 +455,7 @@ export type PositionedStaffConfig = WithVendor<
  */
 export interface MeasureRepeatCounter {
   count: number;
-  orient?: MultiStaffOrientation;
+  placement?: MultiStaffPlacement;
 }
 
 /** MNX `yes-no-auto` override for a measure-repeat span number. */

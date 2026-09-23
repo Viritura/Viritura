@@ -145,9 +145,6 @@ fn resolve_stem_up(
     sequence_count: usize,
     positions: &[f64],
 ) -> bool {
-    if let Some(forced) = event.orient.and_then(Orientation::force_stem_up) {
-        return forced;
-    }
     if let Some(direction) = &event.stem_direction {
         return matches!(direction, StemDirection::Up);
     }

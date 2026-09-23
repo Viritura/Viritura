@@ -207,61 +207,61 @@ pub struct AccidentalDisplay {
     pub enclosure: Option<AccidentalEnclosure>,
 }
 
-/// Staccato marking. Presence indicates the articulation; `orient` controls placement.
+/// Staccato marking. Presence indicates the articulation; `placement` controls placement.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Staccato {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Staccatissimo (wedge staccato) marking.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Staccatissimo {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Staccatissimo wedge variant (SMuFL U+E4A8). Viritura extension —
-/// not in the MNX spec; orient is allowed for parity with other markings.
+/// not in the MNX spec; placement is allowed for parity with other markings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct StaccatissimoWedge {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Spiccato marking (staccatissimo stroke, SMuFL U+E4AA).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Spiccato {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Tenuto marking.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Tenuto {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Accent marking (MNX `accent`).
 ///
-/// Per MNX v15 spec the accent has only `orient` — no `pointing` field.
+/// Per MNX v15 spec the accent has only `placement` (formerly `orient`) — no `pointing` field.
 /// Ref: https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/accent/
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Accent {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Strong accent (marcato) marking (MNX `strong-accent`).
 ///
-/// `orient` controls vertical placement; `pointing` (up/down/auto) controls
+/// `placement` controls vertical placement; `pointing` (up/down/auto) controls
 /// the direction the marcato wedge points.
 /// Ref: https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/strong-accent/
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct StrongAccent {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pointing: Option<UpDownAuto>,
 }
@@ -270,31 +270,31 @@ pub struct StrongAccent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct SoftAccent {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Stress marking.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Stress {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Unstress marking.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Unstress {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Bow direction marking (MNX `bow-direction`). Required `direction` (up = upbow,
-/// down = downbow); optional `orient` for above/below placement.
+/// down = downbow); optional `placement` for above/below placement.
 /// Ref: https://w3c-cg.github.io/mnx/docs/mnx-reference/objects/bow-direction/
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BowDirection {
     pub direction: UpDown,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Fermata visual symbol (MNX `fermata-symbol`) — leaf enum aliased from codegen.
@@ -303,26 +303,23 @@ pub use crate::raw::FermataSymbol;
 /// Fermata pause duration (MNX `fermata-duration`) — leaf enum aliased from codegen.
 pub use crate::raw::FermataDuration;
 
-/// Symbol orientation (MNX `orientation` — above/below/auto).
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Orientation {
-    #[serde(rename = "above")]
-    Above,
-    #[serde(rename = "below")]
-    Below,
-    #[serde(rename = "auto")]
-    Auto,
-}
+/// Symbol placement (MNX `placement` — above/below/auto; formerly `orientation`).
+/// Leaf enum aliased from codegen.
+pub use crate::raw::Placement;
 
-impl Orientation {
-    /// Map an explicit orientation to a forced stem direction.
+/// Whether a sequence represents the upper or lower voice at a rhythmic
+/// position (MNX `direction-hint`).
+pub use crate::raw::DirectionHint;
+
+impl Placement {
+    /// Map an explicit placement to a forced stem direction.
     /// `Above` → `Some(true)` (stems up), `Below` → `Some(false)` (stems down),
     /// `Auto` → `None` (defer to default placement rules).
     pub fn force_stem_up(self) -> Option<bool> {
         match self {
-            Orientation::Above => Some(true),
-            Orientation::Below => Some(false),
-            Orientation::Auto => None,
+            Placement::Above => Some(true),
+            Placement::Below => Some(false),
+            Placement::Auto => None,
         }
     }
 }
@@ -336,7 +333,7 @@ pub use crate::raw::UpDown;
 /// Fermata marking on a note or rest (MNX `fermata` object).
 ///
 /// All fields are optional. The MNX spec defaults are:
-/// `symbol = Normal`, `duration = Auto`, `orient = Auto`, `pointing = Auto`.
+/// `symbol = Normal`, `duration = Auto`, `placement = Auto`, `pointing = Auto`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Fermata {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -344,7 +341,7 @@ pub struct Fermata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration: Option<FermataDuration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pointing: Option<UpDownAuto>,
 }
@@ -402,7 +399,7 @@ pub struct Tremolo {
     /// Number of tremolo slashes (1, 2, or 3).
     pub marks: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Arpeggio direction.
@@ -446,7 +443,7 @@ pub struct BreathMark {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<BreathMarkSymbol>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
 }
 
 /// Fingering annotation — a digit (0–5) placed near a notehead.
@@ -460,7 +457,9 @@ pub struct Fingering {
 ///
 /// Standard MNX markings (staccato, accent, etc.) live at the top level.
 /// Viritura extensions (staccatissimo wedge, trill, ornaments, arpeggio,
-/// fingerings) are read from `_x.viritura` in the MNX JSON.
+/// fingerings) are read from `_x.viritura` in the MNX JSON. Caesura is
+/// native MNX (schema v36+); MNX has not declared a stable version, so the
+/// legacy `_x.viritura.caesura` form is intentionally not read.
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 #[serde(into = "MarkingsRaw")]
 pub struct Markings {
@@ -481,13 +480,13 @@ pub struct Markings {
     pub trill: Option<Trill>,
     pub ornaments: Option<Vec<OrnamentType>>,
     pub arpeggio: Option<Arpeggio>,
-    /// Caesura (break) marking (Viritura extension).
+    /// Caesura (break) marking (native MNX schema v36+).
     pub caesura: Option<Caesura>,
     /// Fingering annotations (digits placed near noteheads).
     pub fingerings: Option<Vec<Fingering>>,
 }
 
-// ── Serde helpers: map _x.viritura ↔ flat Markings fields ──
+// ── Serde helpers: map native markings and _x.viritura ↔ flat fields ──
 
 /// Raw JSON shape for EventMarkings (standard fields + `_x.viritura` nesting).
 #[derive(Serialize, Deserialize)]
@@ -514,6 +513,8 @@ struct MarkingsRaw {
     unstress: Option<Unstress>,
     #[serde(skip_serializing_if = "Option::is_none")]
     breath: Option<BreathMark>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    caesura: Option<NativeCaesura>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "bowDirection")]
     bow_direction: Option<BowDirection>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
@@ -537,14 +538,24 @@ struct MarkingsVirituraExt {
     #[serde(skip_serializing_if = "Option::is_none")]
     arpeggio: Option<Arpeggio>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    caesura: Option<Caesura>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     fingerings: Option<Vec<Fingering>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct NativeCaesura {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shape: Option<crate::model::direction::CaesuraStyle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    marks: Option<u8>,
 }
 
 impl From<MarkingsRaw> for Markings {
     fn from(raw: MarkingsRaw) -> Self {
-        let (staccatissimo_wedge, trill, ornaments, arpeggio, caesura, fingerings) = raw
+        let caesura = raw.caesura.map(|c| Caesura {
+            style: c.shape,
+            marks: c.marks,
+        });
+        let (staccatissimo_wedge, trill, ornaments, arpeggio, fingerings) = raw
             .vendor_ext
             .and_then(|v| v.viritura)
             .map(|h| {
@@ -553,7 +564,6 @@ impl From<MarkingsRaw> for Markings {
                     h.trill,
                     h.ornaments,
                     h.arpeggio,
-                    h.caesura,
                     h.fingerings,
                 )
             })
@@ -587,7 +597,6 @@ impl From<Markings> for MarkingsRaw {
             || m.staccatissimo_wedge.is_some()
             || m.ornaments.is_some()
             || m.arpeggio.is_some()
-            || m.caesura.is_some()
             || m.fingerings.is_some();
         MarkingsRaw {
             staccato: m.staccato,
@@ -602,6 +611,10 @@ impl From<Markings> for MarkingsRaw {
             unstress: m.unstress,
             breath: m.breath,
             bow_direction: m.bow_direction,
+            caesura: m.caesura.map(|c| NativeCaesura {
+                shape: c.style,
+                marks: c.marks,
+            }),
             vendor_ext: if has_ext {
                 Some(MarkingsVendorExt {
                     viritura: Some(MarkingsVirituraExt {
@@ -609,7 +622,6 @@ impl From<Markings> for MarkingsRaw {
                         trill: m.trill,
                         ornaments: m.ornaments,
                         arpeggio: m.arpeggio,
-                        caesura: m.caesura,
                         fingerings: m.fingerings,
                     }),
                 })
@@ -810,10 +822,6 @@ pub struct Event {
     /// Explicit stem direction override (MNX stemDirection).
     #[serde(skip_serializing_if = "Option::is_none", rename = "stemDirection")]
     pub stem_direction: Option<StemDirection>,
-    /// Vertical orientation override (MNX `orient`, above/below/auto).
-    /// Forces stem direction: above → stems up, below → stems down.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
 }
 
 impl Event {
@@ -919,10 +927,10 @@ pub struct Tuplet {
     /// Default: absent means no note values shown.
     #[serde(skip_serializing_if = "Option::is_none", rename = "showValue")]
     pub show_value: Option<TupletDisplaySetting>,
-    /// Vertical orientation override (MNX `orient`, above/below/auto).
+    /// Vertical placement override (MNX `placement`, above/below/auto).
     /// Forces bracket placement and inner stem direction.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    pub placement: Option<Placement>,
     /// Cross-staff tuplet staff number (MNX `staff`, 1-indexed).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub staff: Option<u32>,
@@ -978,10 +986,15 @@ pub struct Sequence {
     /// Voice name for this sequence (MNX voice identifier).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub voice: Option<String>,
-    /// Vertical orientation override for the whole sequence (MNX `orient`,
-    /// above/below/auto). Forces stem direction for all events in this sequence.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub orient: Option<Orientation>,
+    /// Encodes this sequence's vertical position relative to other sequences
+    /// in the same part measure — is it an upper voice, or a lower voice?
+    /// (MNX `directionHint`, formerly `orient`). This is descriptive metadata
+    /// only; it is parsed/serialized for round-tripping but does not yet drive
+    /// stem-direction layout, which still uses the array-order heuristic in
+    /// `resolve_stem_up`. See tracked follow-up issue to properly incorporate
+    /// this hint instead.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "directionHint")]
+    pub direction_hint: Option<DirectionHint>,
     /// Forced stem direction from layout source (internal, not serialized from MNX).
     #[serde(skip)]
     pub forced_stem_up: Option<bool>,

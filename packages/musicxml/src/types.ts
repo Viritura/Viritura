@@ -1,4 +1,4 @@
-// ─── MNX document output types (schema version 35) ──────────────────
+// ─── MNX document output types (schema version 36) ──────────────────
 
 import type { ChordSymbol, DynamicGroup, Part } from "@viritura/core";
 
@@ -137,6 +137,7 @@ export interface MnxClef {
   octave?: number;
   glyph?: string;
   color?: string;
+  hide?: boolean;
 }
 
 export type MnxDynamic = DynamicGroup;
@@ -158,7 +159,7 @@ export interface MnxSequence {
   content: MnxSequenceContent[];
   voice?: string;
   staff?: number;
-  orient?: string;
+  directionHint?: string;
 }
 
 export type MnxSequenceContent = MnxEvent | MnxGraceEvent | MnxTuplet | MnxSpace | MnxMultiNoteTremolo;
@@ -178,7 +179,7 @@ export interface MnxEvent {
   fermata?: {
     symbol?: string;
     duration?: string;
-    orient?: "above" | "below" | "auto";
+    placement?: "above" | "below" | "auto";
     pointing?: "up" | "down" | "auto";
   };
   lyrics?: MnxEventLyrics;
@@ -214,7 +215,7 @@ export interface MnxTuplet {
   bracket?: string; // yes, no, auto
   showNumber?: string; // noNumber, inner, both
   showValue?: string;
-  orient?: string;
+  placement?: string;
   staff?: number;
   _x?: { viritura: { span: { id: string; type: "start" | "continue" | "stop" } } };
 }
@@ -268,6 +269,9 @@ export interface MnxEventMarkings {
   unstress?: Record<string, unknown>;
   breath?: Record<string, unknown>;
   tremolo?: { marks: number };
+  /** Native MNX caesura (schema v36). `shape` defaults to "normal" and
+   *  `marks` defaults to 2 when omitted. */
+  caesura?: { shape?: "thick" | "short" | "curved"; marks?: 1 };
   // Vendor extensions for features not in MNX spec
   _x?: { viritura: Record<string, unknown> };
 }

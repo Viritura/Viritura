@@ -288,6 +288,15 @@ export interface GhostNoteOptions extends Omit<NotePreviewInput, "staffY" | "spa
   staff: StaffInfo;
 }
 
+export interface GhostClefOptions {
+  x: number;
+  y: number;
+  codepoint: number;
+  size: number;
+  color?: string;
+  opacity?: number;
+}
+
 /**
  * Paint the input cursor (thin blue vertical line) at a given X position.
  */
@@ -317,6 +326,27 @@ export function paintGhostNote(ctx: CanvasRenderingContext2D, opts: GhostNoteOpt
   for (const command of commands) {
     paintCommand(ctx, "color" in command ? { ...command, color: "rgb(33, 150, 243)" } : command);
   }
+  ctx.restore();
+}
+
+/**
+ * Paint a translucent clef glyph for a selected hidden clef. The engine omits
+ * hidden-clef commands entirely (`display:none` semantics), so the editor
+ * recreates just the glyph at the logical anchor position for discoverability.
+ */
+export function paintGhostClef(ctx: CanvasRenderingContext2D, opts: GhostClefOptions): void {
+  ctx.save();
+  ctx.globalAlpha *= opts.opacity ?? 0.35;
+  paintCommand(ctx, {
+    type: "DrawGlyph",
+    x: opts.x,
+    y: opts.y,
+    codepoint: opts.codepoint,
+    color: opts.color ?? "rgb(95, 99, 104)",
+    size: opts.size,
+    font: "Bravura",
+    rotation: 0,
+  });
   ctx.restore();
 }
 

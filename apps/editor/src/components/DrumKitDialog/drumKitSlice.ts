@@ -75,7 +75,7 @@ export function buildKitSliceMnx(rows: readonly KitComponentEdit[]): object {
         kit,
         measures: [
           {
-            clefs: [{ clef: { sign: "G", staffPosition: 0, glyph: "unpitchedPercussionClef1" } }],
+            clefs: [{ clef: { sign: "P", staffPosition: 0 } }],
             sequences: [{ content }],
           },
         ],

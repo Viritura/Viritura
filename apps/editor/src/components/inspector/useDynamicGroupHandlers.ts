@@ -4,7 +4,7 @@ import type {
   DynamicPrefix,
   DynamicSuffix,
   DynamicValue,
-  MultiStaffOrientation,
+  MultiStaffPlacement,
   WedgeType,
 } from "@viritura/core";
 
@@ -21,7 +21,7 @@ export interface DynamicGroupHandlers {
   handleDynamicWedgeTypeChange: (value: WedgeType) => void;
   handleDynamicPrefixChange: (value: string) => void;
   handleDynamicSuffixChange: (value: string) => void;
-  handleDynamicOrientationChange: (value: MultiStaffOrientation | undefined) => void;
+  handleDynamicPlacementChange: (value: MultiStaffPlacement | undefined) => void;
   handleDynamicStaffChange: (value: number | undefined) => void;
   handleDynamicStaffEndChange: (value: number | undefined) => void;
   handleDynamicVisuallyContinuesChange: (value: string) => void;
@@ -93,11 +93,11 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
       }),
     [updateSelectedDynamic],
   );
-  const handleDynamicOrientationChange = useCallback(
-    (value: MultiStaffOrientation | undefined) =>
+  const handleDynamicPlacementChange = useCallback(
+    (value: MultiStaffPlacement | undefined) =>
       updateSelectedDynamic((dynamic) => {
-        if (value === undefined) delete dynamic.orient;
-        else dynamic.orient = value;
+        if (value === undefined) delete dynamic.placement;
+        else dynamic.placement = value;
       }),
     [updateSelectedDynamic],
   );
@@ -143,7 +143,7 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
     handleDynamicWedgeTypeChange,
     handleDynamicPrefixChange,
     handleDynamicSuffixChange,
-    handleDynamicOrientationChange,
+    handleDynamicPlacementChange,
     handleDynamicStaffChange,
     handleDynamicStaffEndChange,
     handleDynamicVisuallyContinuesChange,

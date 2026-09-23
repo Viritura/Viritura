@@ -2144,8 +2144,8 @@ fn test_grand_staff_repeat_numbers_and_dynamics_use_distinct_shared_lanes() {
                 "sequences": [{"staff": 1, "content": []}, {"staff": 2, "content": []}],
                 "dynamics": [
                     {"id": "repeat-p", "type": "immediate", "value": "p", "staff": 2,
-                     "orient": "between", "position": {"fraction": [0, 1]}},
-                    {"id": "repeat-cresc", "type": "gradual", "staff": 2, "orient": "between",
+                     "placement": "between", "position": {"fraction": [0, 1]}},
+                    {"id": "repeat-cresc", "type": "gradual", "staff": 2, "placement": "between",
                      "position": {"fraction": [0, 1]},
                      "end": {"measure": "m2", "position": {"fraction": [1, 1]}},
                      "wedgeType": "increasing", "visuallyContinues": "repeat-p"}

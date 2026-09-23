@@ -6,7 +6,7 @@
  *
  * Element IDs match the Rust engine format:
  *   Events:     p{part}/m{measure}/s{seq}/{event_id}
- *   Clef:       p{part}/m{measure}/clef
+ *   Clef:       p{part}/m{measure}/clef[<index>]
  *   Key sig:    p{part}/m{measure}/key
  *   Time sig:   m{measure}/time
  *   Barline:    p{part}/m{measure}/barline
@@ -29,7 +29,6 @@ import type { SelectableElementType } from "../score/elementTypes";
 import {
   eventId,
   eventSuffix,
-  clefId,
   keySigId,
   barlineId,
   timeSigId,
@@ -43,6 +42,7 @@ import {
   ottavaId,
   expressionId,
 } from "../score/ElementPath";
+import { buildClefElementId } from "../score/clefElementId";
 import type { NavigationEntry, NavigationIndex } from "./NavigationIndex";
 import { globalChordNavigationId } from "./chordNavigationId";
 
@@ -186,13 +186,18 @@ function collectPartHeaders(
   entries: NavigationEntry[],
 ): void {
   if (measure.clefs && measure.clefs.length > 0) {
-    pushNonEvent(entries, {
-      elementId: clefId(p, m),
-      elementType: "clef",
-      partIndex: p,
-      measureIndex: m,
-      sortKey: SORT_KEY_CLEF,
-    });
+    for (let clefIndex = 0; clefIndex < measure.clefs.length; clefIndex++) {
+      const clefEntry = measure.clefs[clefIndex]!;
+      const [numerator, denominator] = clefEntry.position?.fraction ?? [0, 1];
+      const sortKey = numerator === 0 ? SORT_KEY_CLEF : fractionToSortKey([numerator, denominator]) - 0.01;
+      pushNonEvent(entries, {
+        elementId: buildClefElementId(p, m, clefIndex),
+        elementType: "clef",
+        partIndex: p,
+        measureIndex: m,
+        sortKey,
+      });
+    }
   }
   const gm = score.global.measures[m];
   if (gm?.key) {

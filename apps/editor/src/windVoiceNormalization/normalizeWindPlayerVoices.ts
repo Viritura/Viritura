@@ -90,7 +90,6 @@ function sequenceHasNotes(sequence: Sequence): boolean {
 
 function clearStemForcing(sequence: Sequence): Sequence {
   const result = structuredClone(sequence);
-  delete result.orient;
   clearContentStemForcing(result.content);
   return result;
 }
@@ -99,10 +98,9 @@ function clearContentStemForcing(content: SequenceContent[]): void {
   for (const item of content) {
     if (item.type === "event") {
       delete item.stemDirection;
-      delete item.orient;
       continue;
     }
-    if (item.type === "tuplet") delete item.orient;
+    if (item.type === "tuplet") delete item.placement;
     if ("content" in item) clearContentStemForcing(item.content);
   }
 }

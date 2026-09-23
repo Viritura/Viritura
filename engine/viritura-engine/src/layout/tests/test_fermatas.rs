@@ -196,7 +196,7 @@ fn test_below_endpoint_fermata_clears_full_slur_span() {
         r#"
             {"id": "fb1", "duration": {"base": "quarter"}, "stemDirection": "up",
              "notes": [{"pitch": {"step": "C", "octave": 4}}],
-             "fermata": {"orient": "below"},
+             "fermata": {"placement": "below"},
              "slurs": [{"target": "fb3", "side": "down"}]},
             {"id": "fb2", "duration": {"base": "quarter"}, "stemDirection": "up",
              "notes": [{"pitch": {"step": "G", "octave": 4}}]},
@@ -708,11 +708,11 @@ fn test_fermata_uses_default_when_note_inside_staff() {
 
 #[test]
 fn test_fermata_below_clears_low_note() {
-    // Low note in voice 2 with stem-down: orient:below should push the
+    // Low note in voice 2 with stem-down: placement:below should push the
     // fermata further below than the default to clear the notehead.
     let json = score_with_events(
         r#"
-        {"duration": {"base": "whole"}, "fermata": {"orient": "below"},
+        {"duration": {"base": "whole"}, "fermata": {"placement": "below"},
          "notes": [{"pitch": {"step": "C", "octave": 3}}]}
     "#,
     );
@@ -745,12 +745,12 @@ fn test_fermata_below_clears_low_note() {
 }
 
 #[test]
-fn test_fermata_explicit_orient_below() {
-    // `orient: "below"` should force the fermata under the staff,
+fn test_fermata_explicit_placement_below() {
+    // `placement: "below"` should force the fermata under the staff,
     // even on a single-voice high note that would otherwise go above.
     let json = score_with_events(
         r#"
-        {"duration": {"base": "whole"}, "fermata": {"orient": "below"},
+        {"duration": {"base": "whole"}, "fermata": {"placement": "below"},
          "notes": [{"pitch": {"step": "G", "octave": 5}}]}
     "#,
     );
@@ -765,7 +765,7 @@ fn test_fermata_explicit_orient_below() {
         )
     });
 
-    assert!(has_below, "orient:below should render the BELOW glyph");
+    assert!(has_below, "placement:below should render the BELOW glyph");
 }
 
 #[test]

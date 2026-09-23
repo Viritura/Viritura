@@ -7,7 +7,7 @@ import {
   type DynamicGroup,
   type MeasureRepeat,
   type MeasureRepeatDisplayNumber,
-  type MultiStaffOrientation,
+  type MultiStaffPlacement,
   type NoteValueBase,
   type RehearsalMark,
   type Score,
@@ -17,6 +17,7 @@ import {
 } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
 import { useDynamicGroupHandlers, type DynamicGroupHandlers } from "./useDynamicGroupHandlers";
+import { setClefHiddenForSelection } from "../../commands/clefCommands";
 import {
   setAnnotationOffsetAxisInScore,
   setAnnotationAvoidCollisionsInScore,
@@ -57,7 +58,7 @@ export interface MeasureRepeatHandlers {
   handleDisplayNumberChange: (value: MeasureRepeatDisplayNumber) => void;
   handleCounterEnabledChange: (enabled: boolean) => void;
   handleCounterCountChange: (count: number) => void;
-  handleCounterOrientChange: (orient: MultiStaffOrientation) => void;
+  handleCounterPlacementChange: (placement: MultiStaffPlacement) => void;
 }
 
 export function useRestPositionHandlers({ score, target, updateScore }: SelectionArgs) {
@@ -206,9 +207,9 @@ export function useMeasureRepeatHandlers({ score, target, updateScore }: Selecti
         repeat.counter = { ...(repeat.counter ?? {}), count: Math.floor(count) };
       });
     },
-    handleCounterOrientChange: (orient) =>
+    handleCounterPlacementChange: (placement) =>
       mutateMeasureRepeat((repeat) => {
-        repeat.counter = { ...(repeat.counter ?? { count: 2 }), orient };
+        repeat.counter = { ...(repeat.counter ?? { count: 2 }), placement };
       }),
   };
 }
@@ -526,6 +527,30 @@ export function useBarlineHandlers(
     handleToggleRepeatEnd,
     handleRepeatEndTimesChange,
   };
+}
+
+export interface ClefHandlers {
+  clefHidden: boolean;
+  handleClefHiddenChange: (hidden: boolean) => void;
+}
+
+export function useClefHandlers({ score, target, updateScore }: SelectionArgs, isClefSelected: boolean): ClefHandlers {
+  const clefHidden = useMemo(() => {
+    if (!isClefSelected || !target || !score) return false;
+    const clef = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs?.[target.clefIndex ?? 0]?.clef;
+    return clef?.hide === true;
+  }, [isClefSelected, target, score]);
+
+  const handleClefHiddenChange = useCallback(
+    (hidden: boolean) => {
+      if (!target || !score) return;
+      const nextScore = setClefHiddenForSelection(score, target, hidden);
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [target, score, updateScore],
+  );
+
+  return { clefHidden, handleClefHiddenChange };
 }
 
 export interface AccidentalAndTrillHandlers {

@@ -102,7 +102,7 @@ export function resolveOttavaShift(
     }
 
     const octaves = (ott.value ?? 8) === 15 ? 2 : 1;
-    const direction = ott.orient === "below" ? -1 : 1;
+    const direction = ott.placement === "below" ? -1 : 1;
     return direction * octaves;
   }
 

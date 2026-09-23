@@ -25,7 +25,7 @@ const DRUM_KIT_MNX: &str = r#"{
                       "_x": {"viritura": {"notehead": "x"}}}
         },
         "measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": 0, "glyph": "unpitchedPercussionClef1"}}],
+            "clefs": [{"clef": {"sign": "P", "staffPosition": 0}}],
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]},
                 {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "snare"}]},
@@ -56,6 +56,66 @@ fn test_percussion_clef_renders() {
         "Expected unpitchedPercussionClef1 (0x{:X}) in render commands",
         smufl::UNPITCHED_PERCUSSION_CLEF_1
     );
+}
+
+/// A native percussion clef combined with a single-line `staffConfig` (the
+/// conventional notation for a single unpitched instrument, e.g. a hi-hat or
+/// bass-drum part) must render both the percussion clef glyph and exactly one
+/// staff line together.
+#[test]
+fn test_percussion_clef_on_single_line_staff_renders() {
+    const SINGLE_LINE_DRUM_MNX: &str = r#"{
+        "mnx": {"version": 1},
+        "global": {
+            "measures": [{"time": {"count": 4, "unit": 4}}],
+            "sounds": {"snd-kick": {"midiNumber": 35, "name": "Bass Drum"}}
+        },
+        "parts": [{
+            "id": "p1",
+            "name": "Bass Drum",
+            "kit": {"kick": {"name": "Kick", "sound": "snd-kick", "staffPosition": 0}},
+            "measures": [{
+                "clefs": [{"clef": {"sign": "P", "staffPosition": 0}}],
+                "staffConfigs": [{"config": {"lines": 1}}],
+                "sequences": [{"content": [
+                    {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]},
+                    {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]},
+                    {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]},
+                    {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]}
+                ]}]
+            }]
+        }]
+    }"#;
+
+    let config = LayoutConfig::default();
+    let score = parse_mnx(SINGLE_LINE_DRUM_MNX).unwrap();
+    let dl = layout_score(&score, 0, &config);
+
+    let cps = glyph_codepoints(&dl);
+    assert!(
+        cps.contains(&smufl::UNPITCHED_PERCUSSION_CLEF_1),
+        "Expected unpitchedPercussionClef1 (0x{:X}) in render commands",
+        smufl::UNPITCHED_PERCUSSION_CLEF_1
+    );
+
+    let expected_width = config.staff_line_width * config.sp;
+    let staff_line_count = dl
+        .commands
+        .iter()
+        .filter(|command| match command {
+            RenderCommand::DrawLine {
+                y1, y2, width, x2, ..
+            } => {
+                let x1 = match command {
+                    RenderCommand::DrawLine { x1, .. } => *x1,
+                    _ => unreachable!(),
+                };
+                (y1 - y2).abs() < 0.001 && (*width - expected_width).abs() < 0.001 && *x2 > x1
+            }
+            _ => false,
+        })
+        .count();
+    assert_eq!(staff_line_count, 1, "expected exactly one staff line");
 }
 
 #[test]
@@ -210,7 +270,7 @@ const DRUM_KIT_MNX_WITH_LAYOUT: &str = r#"{
             "snare": {"name": "Snare", "sound": "snd-snare", "staffPosition": 0}
         },
         "measures": [{
-            "clefs": [{"clef": {"sign": "G", "staffPosition": 0, "glyph": "unpitchedPercussionClef1"}}],
+            "clefs": [{"clef": {"sign": "P", "staffPosition": 0}}],
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "kick"}]},
                 {"duration": {"base": "quarter"}, "kitNotes": [{"kitComponent": "snare"}]},

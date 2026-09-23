@@ -2953,3 +2953,130 @@ fn staff_occurrence_override_wins_over_time_occurrence_and_house_style() {
         "only staff 2's meter is additive (3+2+2 has two pluses); staff 1's override forces standard"
     );
 }
+
+/// MNX `clef.hide: true` suppresses the clef's glyph entirely (like CSS
+/// `display:none`, not `visibility:hidden`) — no G clef glyph should render
+/// for a system's initial clef when hidden.
+#[test]
+fn test_hidden_clef_renders_no_glyph() {
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{
+            "clefs": [{"clef": {"sign": "G", "staffPosition": -2, "hide": true}}],
+            "sequences": [{"content": [
+                {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
+            ]}]
+        }]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let config = LayoutConfig::default();
+    let dl = layout_score(&score, 0, &config);
+
+    let g_clef_glyphs: Vec<_> = dl
+        .commands
+        .iter()
+        .filter(|cmd| matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::G_CLEF))
+        .collect();
+    assert_eq!(
+        g_clef_glyphs.len(),
+        0,
+        "a hidden clef must not render a glyph"
+    );
+}
+
+/// A hidden clef must reserve no horizontal space (MNX: "without any space
+/// allocated for the clef"). Comparing the first note's x position between a
+/// hidden and a visible clef isolates the reclaimed prefix width.
+#[test]
+fn test_hidden_clef_reserves_no_prefix_space() {
+    let make_json = |hide: bool| -> String {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "parts": [{{"measures": [{{
+                    "clefs": [{{"clef": {{"sign": "G", "staffPosition": -2, "hide": {hide}}}}}],
+                    "sequences": [{{"content": [
+                        {{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "C", "octave": 5}}}}]}}
+                    ]}}]
+                }}]}}]
+            }}"#
+        )
+    };
+
+    let config = LayoutConfig::default();
+    let visible_score = parse_mnx(&make_json(false)).unwrap();
+    let hidden_score = parse_mnx(&make_json(true)).unwrap();
+    let visible_dl = layout_score(&visible_score, 0, &config);
+    let hidden_dl = layout_score(&hidden_score, 0, &config);
+
+    let first_notehead_x = |dl: &DisplayList| -> f64 {
+        dl.commands
+            .iter()
+            .find_map(|cmd| {
+                if let RenderCommand::DrawGlyph { x, codepoint, .. } = cmd {
+                    if *codepoint == smufl::NOTEHEAD_WHOLE {
+                        return Some(*x);
+                    }
+                }
+                None
+            })
+            .expect("expected a whole notehead glyph")
+    };
+
+    let visible_x = first_notehead_x(&visible_dl);
+    let hidden_x = first_notehead_x(&hidden_dl);
+    assert!(
+        hidden_x < visible_x,
+        "hidden clef should reclaim its prefix space, moving the first note left (visible x={visible_x}, hidden x={hidden_x})"
+    );
+}
+
+/// A hidden clef still governs pitch placement for notes under it — `hide`
+/// only suppresses the glyph and its reserved space, not the clef's pitch
+/// reference (per MNX semantics, akin to CSS `display:none`).
+#[test]
+fn test_hidden_clef_still_governs_pitch_reference() {
+    let make_json = |hide: bool| -> String {
+        format!(
+            r#"{{
+                "mnx": {{"version": 1}},
+                "global": {{"measures": [{{"time": {{"count": 4, "unit": 4}}}}]}},
+                "parts": [{{"measures": [{{
+                    "clefs": [{{"clef": {{"sign": "F", "staffPosition": 2, "hide": {hide}}}}}],
+                    "sequences": [{{"content": [
+                        {{"duration": {{"base": "whole"}}, "notes": [{{"pitch": {{"step": "C", "octave": 3}}}}]}}
+                    ]}}]
+                }}]}}]
+            }}"#
+        )
+    };
+
+    let config = LayoutConfig::default();
+    let visible_score = parse_mnx(&make_json(false)).unwrap();
+    let hidden_score = parse_mnx(&make_json(true)).unwrap();
+    let visible_dl = layout_score(&visible_score, 0, &config);
+    let hidden_dl = layout_score(&hidden_score, 0, &config);
+
+    let notehead_y = |dl: &DisplayList| -> f64 {
+        dl.commands
+            .iter()
+            .find_map(|cmd| {
+                if let RenderCommand::DrawGlyph { y, codepoint, .. } = cmd {
+                    if *codepoint == smufl::NOTEHEAD_WHOLE {
+                        return Some(*y);
+                    }
+                }
+                None
+            })
+            .expect("expected a whole notehead glyph")
+    };
+
+    assert_eq!(
+        notehead_y(&visible_dl),
+        notehead_y(&hidden_dl),
+        "hiding a clef must not change the pitch reference used to place notes"
+    );
+}

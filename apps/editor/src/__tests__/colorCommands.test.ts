@@ -103,6 +103,21 @@ describe("selection-aware color commands", () => {
     expect(next.parts[0]!.measures[0]!.clefs?.[0]!.clef.color).toBe("#ff0000");
   });
 
+  it("applies clef color to the selected positioned clef instance", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[0]!.clefs = [
+      { clef: { sign: "G", staffPosition: -2 } },
+      { clef: { sign: "F", staffPosition: 2 }, position: { fraction: [1, 2] } },
+    ];
+    const selected = target("p0/m0/clef1", "clef");
+    selected.clefIndex = 1;
+
+    const next = applyColorToSelection(score, selected, "#00aaff");
+
+    expect(next.parts[0]!.measures[0]!.clefs?.[0]!.clef.color).toBeUndefined();
+    expect(next.parts[0]!.measures[0]!.clefs?.[1]!.clef.color).toBe("#00aaff");
+  });
+
   it("applies grace color only when the grace group itself is selected", () => {
     const score = makeScore();
     const selected = target("p0/m0/s0/g1", "event", 0);

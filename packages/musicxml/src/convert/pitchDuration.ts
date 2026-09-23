@@ -96,8 +96,8 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
 
   let clef: MnxClef;
   if (sign === "percussion") {
-    // MNX-compliant percussion clef: valid sign + SMuFL glyph override.
-    clef = { sign: "G", staffPosition: 0, glyph: "unpitchedPercussionClef1" };
+    // Native MNX percussion clef (clef-sign "P"); no glyph override needed.
+    clef = { sign: "P", staffPosition: 0 };
   } else if (sign === "TAB") {
     // No Viritura implementation for TAB — always fall back to G clef.
     clef = convertClef("G", "2", null);
@@ -108,6 +108,9 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
   const result: MnxPositionedClef = { clef };
   const color = normalizeMusicXmlColor(c.getAttribute("color"));
   if (color) result.clef.color = color;
+  // MusicXML `print-object="no"` hides the clef glyph without affecting the
+  // pitch reference notes use; maps to native MNX `clef.hide`.
+  if (c.getAttribute("print-object") === "no") result.clef.hide = true;
   if (clefStaff) result.staff = parseInt(clefStaff, 10);
   if (position) result.position = position;
   return result;
@@ -116,7 +119,7 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
 export function displayPitchToStaffPosition(step: string, octave: number, clef: MnxClef): number | undefined {
   const stepIndex = STEPS.indexOf(step as (typeof STEPS)[number]);
   if (stepIndex < 0 || !Number.isInteger(octave)) return undefined;
-  const reference = clef.sign === "F" ? 3 * 7 + 3 : clef.sign === "C" ? 4 * 7 : 4 * 7 + 4;
+  const reference = clef.sign === "F" ? 3 * 7 + 3 : clef.sign === "C" || clef.sign === "P" ? 4 * 7 : 4 * 7 + 4;
   return clef.staffPosition + (octave * 7 + stepIndex - (reference + (clef.octave ?? 0) * 7));
 }
 

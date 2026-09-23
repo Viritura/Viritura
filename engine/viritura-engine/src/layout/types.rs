@@ -112,9 +112,9 @@ pub(crate) struct TupletGroup {
     pub(crate) show_bracket: bool,
     /// What number(s) to display (resolved from MNX `showNumber`)
     pub(crate) show_number: TupletShowNumber,
-    /// Vertical orientation override (MNX `orient`, above/below/auto) —
+    /// Vertical placement override (MNX `placement`, above/below/auto) —
     /// forces bracket placement.
-    pub(crate) orient: Option<crate::model::Orientation>,
+    pub(crate) placement: Option<crate::model::Placement>,
     /// Shared identity and fragment position for a cross-barline tuplet.
     pub(crate) span: Option<crate::model::TupletSpan>,
 }

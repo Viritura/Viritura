@@ -101,14 +101,9 @@ impl GraceSpacingContext<'_> {
 
     fn grace_flag_extent(&self, event: &Event) -> (f64, f64) {
         let stem_up = event
-            .orient
-            .and_then(Orientation::force_stem_up)
-            .unwrap_or_else(|| {
-                event
-                    .stem_direction
-                    .as_ref()
-                    .is_none_or(|direction| matches!(direction, StemDirection::Up))
-            });
+            .stem_direction
+            .as_ref()
+            .is_none_or(|direction| matches!(direction, StemDirection::Up));
         let Some(flag) = smufl::flag_glyph(event.duration.base.flag_count(), stem_up) else {
             return (0.0, 0.0);
         };

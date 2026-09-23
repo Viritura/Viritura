@@ -37,6 +37,19 @@ describe("deleteClefByElementId", () => {
     expect(out!.parts[0]!.measures[0]!.clefs).toEqual([{ clef: G }]);
   });
 
+  it("removes only the selected positioned clef when a measure has multiple clef entries", () => {
+    const score = makeScore();
+    score.parts[0]!.measures[1]!.clefs = [
+      { clef: { ...F }, staff: 1 },
+      { clef: { sign: "C", staffPosition: 0 }, staff: 2 },
+    ];
+
+    const out = deleteClefByElementId(score, "p0/m1/clef1");
+
+    expect(out).not.toBeNull();
+    expect(out!.parts[0]!.measures[1]!.clefs).toEqual([{ clef: { ...F }, staff: 1 }]);
+  });
+
   it("refuses to delete the part's establishing clef (m0)", () => {
     expect(deleteClefByElementId(makeScore(), "p0/m0/clef")).toBeNull();
   });

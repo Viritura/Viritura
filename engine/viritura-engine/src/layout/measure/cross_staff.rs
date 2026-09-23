@@ -73,6 +73,7 @@ pub(super) fn build_cross_staff_clef_map(
                         glyph: None,
                         octave: None,
                         show_octave: None,
+                        hide: None,
                     }
                 } else {
                     Clef {
@@ -82,6 +83,7 @@ pub(super) fn build_cross_staff_clef_map(
                         glyph: None,
                         octave: None,
                         show_octave: None,
+                        hide: None,
                     }
                 };
                 clef_changes.push((0.0, default_clef));
@@ -223,8 +225,7 @@ pub(super) fn cross_staff_flip_native_stems(
                     if event.is_rest() {
                         continue;
                     }
-                    let stem_forced = event.stem_direction.is_some()
-                        || event.orient.and_then(|o| o.force_stem_up()).is_some();
+                    let stem_forced = event.stem_direction.is_some();
                     // Articulation side follows the native voice's outer side
                     // regardless of a forced stem (a forced stem keeps the user's
                     // stem look but the marking still belongs outside).

@@ -46,13 +46,11 @@ pub(super) fn prepare_tremolo_pair(
         })
         .collect();
     let combined_positions: Vec<f64> = note_positions.iter().flatten().copied().collect();
-    let pair_orient = tremolo.content.iter().find_map(|event| event.orient);
     let pair_stem_direction = tremolo
         .content
         .iter()
         .find_map(|event| event.stem_direction.as_ref());
     let stem_up = resolve_stem_up(
-        pair_orient,
         pair_stem_direction,
         context.forced_stem_up,
         context.num_voices,

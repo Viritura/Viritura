@@ -104,14 +104,6 @@ export interface components {
             /** @description Optional rendering color (CSS hex, e.g. '#FF0000'). */
             color?: string;
         };
-        /** @description A caesura (grand pause / railroad tracks) on an event marking. */
-        caesura: {
-            /**
-             * @description Caesura style variant. Default: 'normal'.
-             * @enum {string}
-             */
-            style?: "normal" | "thick" | "short" | "curved";
-        };
         /** @description Viritura engraving placement extensions on a standard MNX dynamic-group object. */
         "dynamic-group-extensions": {
             /** @description Manual [dx, dy] offset in spatia (sp), applied after automatic placement. */
@@ -384,17 +376,16 @@ export interface components {
             /** @description Staccatissimo wedge articulation variant (SMuFL articStaccatissimoWedge). */
             staccatissimoWedge?: {
                 /**
-                 * @description Vertical orientation relative to the staff.
+                 * @description Vertical placement relative to the staff.
                  * @enum {string}
                  */
-                orient?: "above" | "below" | "auto";
+                placement?: "above" | "below" | "auto";
             };
             trill?: components["schemas"]["trill"];
             /** @description Ornament markings (turn, mordent, etc.). */
             ornaments?: components["schemas"]["ornament-type"][];
             /** @description Fingering annotations. */
             fingerings?: components["schemas"]["fingering"][];
-            caesura?: components["schemas"]["caesura"];
             arpeggio?: components["schemas"]["arpeggio"];
         };
         /** @description A rolled-chord (arpeggio) indication on a chord event: a wavy vertical line to the left of the chord. Created on MusicXML `<arpeggiate>` import and authored natively. */
@@ -803,7 +794,6 @@ export type StaffMeterReset = components["schemas"]["staff-meter-reset"];
 export type StaffMeterChange = components["schemas"]["staff-meter-change"];
 export type RehearsalMark = components["schemas"]["rehearsal-mark"];
 export type Coda = components["schemas"]["coda"];
-export type Caesura = components["schemas"]["caesura"];
 export type DynamicGroupExtensions = components["schemas"]["dynamic-group-extensions"];
 export type TempoExtensions = components["schemas"]["tempo-extensions"];
 export type KeyExtensions = components["schemas"]["key-extensions"];

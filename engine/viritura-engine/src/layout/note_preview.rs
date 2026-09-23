@@ -105,7 +105,6 @@ impl NotePreviewInput {
             fermata: None,
             lyrics: None,
             stem_direction: self.stem_direction,
-            orient: None,
         }
     }
 }

@@ -17,11 +17,7 @@ describe("normalizeWindPlayerVoices", () => {
       part("P2-1", [
         {
           sequences: [
-            sequence(
-              "v5",
-              [event("pitched", [note("high", "C", 5)], { stemDirection: "down", orient: "below" })],
-              "above",
-            ),
+            sequence("v5", [event("pitched", [note("high", "C", 5)], { stemDirection: "down" })]),
             sequence("v2", [rest("shell")]),
           ],
         },
@@ -30,7 +26,7 @@ describe("normalizeWindPlayerVoices", () => {
         {
           sequences: [
             sequence("v5", [rest("first")]),
-            { ...sequence("v2", []), fullMeasure: { visualDuration: { base: "whole" } }, orient: "below" },
+            { ...sequence("v2", []), fullMeasure: { visualDuration: { base: "whole" } } },
           ],
         },
       ]),
@@ -51,9 +47,7 @@ describe("normalizeWindPlayerVoices", () => {
     expect(source).toEqual(snapshot);
     expect(measure(result, "P2-1", 1).sequences).toHaveLength(1);
     expect(measure(result, "P2-1", 1).sequences[0]).toMatchObject({ voice: "v1" });
-    expect(measure(result, "P2-1", 1).sequences[0]).not.toHaveProperty("orient");
     expect(firstEvent(result, "P2-1", 1)).not.toHaveProperty("stemDirection");
-    expect(firstEvent(result, "P2-1", 1)).not.toHaveProperty("orient");
     expect(measure(result, "P2-2", 1).sequences).toEqual([
       expect.objectContaining({ voice: "v1", fullMeasure: { visualDuration: { base: "whole" } } }),
     ]);
@@ -217,11 +211,11 @@ function part(id: string, measures: PartMeasure[]): Part {
   return { id, name: id, measures };
 }
 
-function sequence(voice: string, content: SequenceContent[], orient?: "above" | "below"): Sequence {
-  return { voice, content, ...(orient ? { orient } : {}) };
+function sequence(voice: string, content: SequenceContent[]): Sequence {
+  return { voice, content };
 }
 
-function event(id: string, notes: Note[], overrides: Pick<NoteEvent, "stemDirection" | "orient"> = {}): NoteEvent {
+function event(id: string, notes: Note[], overrides: Pick<NoteEvent, "stemDirection"> = {}): NoteEvent {
   return { type: "event", id, duration: { base: "quarter" }, notes, ...overrides };
 }
 

@@ -977,6 +977,7 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
         paintScoreFrame({
           canvas,
           container: containerRef.current,
+          score: docScoreRef.current,
           displayList: dl,
           forceDirect,
           viewport,

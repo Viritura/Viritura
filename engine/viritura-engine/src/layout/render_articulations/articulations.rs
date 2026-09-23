@@ -24,37 +24,46 @@ pub(super) fn glyph_vertical_offsets_half_spaces(codepoint: u32) -> (f64, f64) {
 }
 
 fn explicit_articulation_place_below(markings: &crate::model::event::Markings) -> Option<bool> {
-    let orientations = [
-        markings.staccato.as_ref().and_then(|m| m.orient.as_ref()),
-        markings.tenuto.as_ref().and_then(|m| m.orient.as_ref()),
-        markings.accent.as_ref().and_then(|m| m.orient.as_ref()),
+    let placements = [
+        markings
+            .staccato
+            .as_ref()
+            .and_then(|m| m.placement.as_ref()),
+        markings.tenuto.as_ref().and_then(|m| m.placement.as_ref()),
+        markings.accent.as_ref().and_then(|m| m.placement.as_ref()),
         markings
             .strong_accent
             .as_ref()
-            .and_then(|m| m.orient.as_ref()),
+            .and_then(|m| m.placement.as_ref()),
         markings
             .staccatissimo
             .as_ref()
-            .and_then(|m| m.orient.as_ref()),
+            .and_then(|m| m.placement.as_ref()),
         markings
             .staccatissimo_wedge
             .as_ref()
-            .and_then(|m| m.orient.as_ref()),
-        markings.spiccato.as_ref().and_then(|m| m.orient.as_ref()),
+            .and_then(|m| m.placement.as_ref()),
+        markings
+            .spiccato
+            .as_ref()
+            .and_then(|m| m.placement.as_ref()),
         markings
             .soft_accent
             .as_ref()
-            .and_then(|m| m.orient.as_ref()),
-        markings.stress.as_ref().and_then(|m| m.orient.as_ref()),
-        markings.unstress.as_ref().and_then(|m| m.orient.as_ref()),
+            .and_then(|m| m.placement.as_ref()),
+        markings.stress.as_ref().and_then(|m| m.placement.as_ref()),
+        markings
+            .unstress
+            .as_ref()
+            .and_then(|m| m.placement.as_ref()),
     ];
-    orientations
+    placements
         .into_iter()
         .flatten()
-        .find_map(|orient| match orient {
-            Orientation::Above => Some(false),
-            Orientation::Below => Some(true),
-            Orientation::Auto => None,
+        .find_map(|placement| match placement {
+            Placement::Above => Some(false),
+            Placement::Below => Some(true),
+            Placement::Auto => None,
         })
 }
 
@@ -538,7 +547,7 @@ pub(super) fn render_staff_anchored_articulations(
 ///
 /// Bow markings always sit *outside* the staff (never near the notehead),
 /// matching industry-standard engravers convention. Default placement is above; the
-/// MNX `orient: "below"` flips it. Clearance is taken from the furthest of
+/// MNX `placement: "below"` flips it. Clearance is taken from the furthest of
 /// (staff edge, notehead, stem tip if on the bow side) plus any
 /// already-placed articulation stack, with 1 sp of breathing room.
 ///
@@ -563,12 +572,12 @@ pub(super) fn render_bow_direction(
     let Some(bd) = markings.bow_direction.as_ref() else {
         return;
     };
-    use crate::model::{Orientation, UpDown};
+    use crate::model::{Placement, UpDown};
     let glyph = match bd.direction {
         UpDown::Up => smufl::STRINGS_UP_BOW,
         UpDown::Down => smufl::STRINGS_DOWN_BOW,
     };
-    let bow_below = matches!(bd.orient, Some(Orientation::Below));
+    let bow_below = matches!(bd.placement, Some(Placement::Below));
     let (glyph_top_off, glyph_bottom_off) = glyph_vertical_offsets_half_spaces(glyph);
     let breathing_room = 2.0_f64;
     let bow_pos = if bow_below {

@@ -270,9 +270,9 @@ pub(crate) fn render_ottavas(
         let measure_idx = ml.resolved.index;
 
         for (oi, ott) in ottavas.iter().enumerate() {
-            let above = match ott.orient {
-                Some(crate::model::Orientation::Above) => true,
-                Some(crate::model::Orientation::Below) => false,
+            let above = match ott.placement {
+                Some(crate::model::Placement::Above) => true,
+                Some(crate::model::Placement::Below) => false,
                 _ => ott.value > 0,
             };
 

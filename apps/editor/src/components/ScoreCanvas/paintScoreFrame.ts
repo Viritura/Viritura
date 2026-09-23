@@ -12,6 +12,7 @@ import {
   detectStaves,
   detectHorizonStaves,
   extractStickyClefInfo,
+  paintGhostClef,
   paintStickyClefs,
   paintMeasureNumber,
   DEFAULT_TILE_SIZE,
@@ -21,12 +22,13 @@ import {
   type SlurGeometry,
   type RenderCommand,
 } from "@viritura/renderer";
-import type { PageSetup } from "@viritura/core";
+import type { PageSetup, Score } from "@viritura/core";
 
 import { PAGE_STACK_GAP, computePagePlacements, placementCommandOffset, drawMarginGuides } from "./viewportGeometry";
 import { getPaperPattern, PAPER_CREAM_FALLBACK } from "./paperPattern";
 import { repaintCanvas } from "./repaintCanvas";
 import { paintEngraveAdornments, paintWriteSlurHandles } from "./paintEngraveAdornments";
+import { resolveSelectedHiddenClefOverlay } from "./selectedHiddenClef";
 import { useLayoutDebugStore } from "../../debug/layoutDebugStore";
 import { paintLayoutDebug } from "../../debug/layoutDebugPainter";
 import type { SelectionState } from "../../store/selectionStore";
@@ -141,6 +143,7 @@ function paintSnapRuler(
 export interface PaintScoreFrameArgs {
   canvas: HTMLCanvasElement;
   container: HTMLElement | null;
+  score: Score | null;
   displayList: DisplayList;
   forceDirect: boolean;
   viewport: ViewportInfo;
@@ -189,6 +192,7 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
   const {
     canvas,
     container,
+    score,
     displayList: dl,
     forceDirect,
     viewport,
@@ -469,6 +473,11 @@ export function paintScoreFrame(args: PaintScoreFrameArgs): void {
           slurHandleDrag.anchor.points,
           slurHandleDrag.anchor.dragY,
         );
+      }
+
+      const hiddenClefOverlay = resolveSelectedHiddenClefOverlay(score, selection, dl.measureBounds);
+      if (hiddenClefOverlay) {
+        paintGhostClef(ctx, hiddenClefOverlay);
       }
     };
 

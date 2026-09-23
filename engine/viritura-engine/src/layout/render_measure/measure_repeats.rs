@@ -130,7 +130,7 @@ pub(crate) fn render_measure_repeat(
 
     if render_numbers {
         if let Some(counter) = repeat.counter.as_ref() {
-            let below = counter.orient == Some(MultiStaffOrientation::Below);
+            let below = counter.placement == Some(MultiStaffPlacement::Below);
             let counter_y = if below {
                 staff_y + 4.0 * sp + 2.0 * sp
             } else if shows_number(repeat) {

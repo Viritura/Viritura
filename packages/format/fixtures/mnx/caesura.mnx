@@ -82,11 +82,7 @@
                     }
                   ],
                   "markings": {
-                    "_x": {
-                      "viritura": {
-                        "caesura": {}
-                      }
-                    }
+                    "caesura": {}
                   }
                 }
               ]
@@ -123,12 +119,8 @@
                     }
                   ],
                   "markings": {
-                    "_x": {
-                      "viritura": {
-                        "caesura": {
-                          "style": "thick"
-                        }
-                      }
+                    "caesura": {
+                      "shape": "thick"
                     }
                   }
                 }
@@ -153,12 +145,8 @@
                     }
                   ],
                   "markings": {
-                    "_x": {
-                      "viritura": {
-                        "caesura": {
-                          "style": "short"
-                        }
-                      }
+                    "caesura": {
+                      "shape": "short"
                     }
                   }
                 }
@@ -183,12 +171,8 @@
                     }
                   ],
                   "markings": {
-                    "_x": {
-                      "viritura": {
-                        "caesura": {
-                          "style": "curved"
-                        }
-                      }
+                    "caesura": {
+                      "shape": "curved"
                     }
                   }
                 }

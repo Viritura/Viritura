@@ -36,7 +36,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     handleDynamicWedgeTypeChange,
     handleDynamicPrefixChange,
     handleDynamicSuffixChange,
-    handleDynamicOrientationChange,
+    handleDynamicPlacementChange,
     handleDynamicStaffChange,
     handleDynamicStaffEndChange,
     handleDynamicVisuallyContinuesChange,
@@ -69,7 +69,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           onWedgeTypeChange={handleDynamicWedgeTypeChange}
           onPrefixChange={handleDynamicPrefixChange}
           onSuffixChange={handleDynamicSuffixChange}
-          onOrientationChange={handleDynamicOrientationChange}
+          onPlacementChange={handleDynamicPlacementChange}
           onStaffChange={handleDynamicStaffChange}
           onStaffEndChange={handleDynamicStaffEndChange}
           onVisuallyContinuesChange={handleDynamicVisuallyContinuesChange}

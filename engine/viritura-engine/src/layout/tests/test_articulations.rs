@@ -74,7 +74,7 @@ fn test_articulation_explicit_orient_below() {
                 "type": "event",
                 "duration": {"base": "quarter"},
                 "notes": [{"pitch": {"step": "E", "octave": 5}}],
-                "markings": {"staccato": {"orient": "below"}}
+                "markings": {"staccato": {"placement": "below"}}
             }]}]
         }]}]
     }"#;
@@ -962,7 +962,7 @@ fn test_breath_marks_above_staff() {
             "sequences": [{"content": [
                 {"duration": {"base": "quarter"}, "markings": {"breath": {}},
                  "notes": [{"pitch": {"step": "E", "octave": 5}}]},
-                {"duration": {"base": "quarter"}, "markings": {"breath": {"orient": "below"}},
+                {"duration": {"base": "quarter"}, "markings": {"breath": {"placement": "below"}},
                  "notes": [{"pitch": {"step": "D", "octave": 5}}]},
                 {"duration": {"base": "half"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}]}

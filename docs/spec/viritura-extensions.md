@@ -21,7 +21,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters                 |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
 | [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, caesura, arpeggiate                          |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                   |
 | [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
 | [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
 | [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                          |
@@ -1025,28 +1025,6 @@ Array of fingering annotations on a note.
 | `finger` | integer (0–5) | **Yes**  | Finger number: 0 = thumb/open, 1–5 = index through pinky |
 
 **SMuFL glyphs**: U+ED10–U+ED15 (fingering digits)
-
-### `caesura`
-
-A caesura (grand pause / railroad tracks) placed on an event.
-
-| Property | Type                                               | Required | Description                        |
-| -------- | -------------------------------------------------- | -------- | ---------------------------------- |
-| `style`  | `"normal"` \| `"thick"` \| `"short"` \| `"curved"` | No       | Style variant. Default: `"normal"` |
-
-```json
-{
-  "duration": { "base": "quarter" },
-  "notes": [{ "pitch": { "step": "C", "octave": 5 } }],
-  "markings": {
-    "_x": {
-      "viritura": {
-        "caesura": { "style": "normal" }
-      }
-    }
-  }
-}
-```
 
 ### `arpeggiate`
 

@@ -139,7 +139,6 @@ export const TripletBracketClearsInnerSlur: StoryObj = {
                 sequences: [
                   {
                     voice: "v1",
-                    orient: "above",
                     content: [
                       {
                         type: "tuplet",
@@ -168,7 +167,6 @@ export const TripletBracketClearsInnerSlur: StoryObj = {
                   },
                   {
                     voice: "v2",
-                    orient: "below",
                     content: [
                       {
                         duration: { base: "whole" },

@@ -23,7 +23,7 @@ const handlers = {
   onWedgeTypeChange: vi.fn(),
   onPrefixChange: vi.fn(),
   onSuffixChange: vi.fn(),
-  onOrientationChange: vi.fn(),
+  onPlacementChange: vi.fn(),
   onStaffChange: vi.fn(),
   onStaffEndChange: vi.fn(),
   onVisuallyContinuesChange: vi.fn(),
@@ -97,16 +97,16 @@ describe("DynamicGroupSection staff controls", () => {
     expect(voiceLabel?.querySelector("button")).not.toBeNull();
   });
 
-  it("sets between-staves orientation and clears it with Auto", async () => {
+  it("sets between-staves placement and clears it with Auto", async () => {
     const user = userEvent.setup();
-    render(<DynamicGroupSection dynamic={{ ...hairpin, orient: "above" }} staffCount={2} {...handlers} />);
+    render(<DynamicGroupSection dynamic={{ ...hairpin, placement: "above" }} staffCount={2} {...handlers} />);
 
-    await user.click(screen.getByRole("combobox", { name: "Orientation" }));
+    await user.click(screen.getByRole("combobox", { name: "Placement" }));
     await user.click(screen.getByRole("option", { name: "Between staves" }));
-    expect(handlers.onOrientationChange).toHaveBeenLastCalledWith("between");
+    expect(handlers.onPlacementChange).toHaveBeenLastCalledWith("between");
 
-    await user.click(screen.getByRole("combobox", { name: "Orientation" }));
+    await user.click(screen.getByRole("combobox", { name: "Placement" }));
     await user.click(screen.getByRole("option", { name: "Auto" }));
-    expect(handlers.onOrientationChange).toHaveBeenLastCalledWith(undefined);
+    expect(handlers.onPlacementChange).toHaveBeenLastCalledWith(undefined);
   });
 });

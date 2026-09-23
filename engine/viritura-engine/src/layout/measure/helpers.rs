@@ -162,21 +162,16 @@ pub(super) fn compute_display_pitches(
         .collect()
 }
 
-/// Resolve stem direction. Precedence order: `event.orient`,
-/// `event.stem_direction`, sequence-level `forced_stem_up`, multi-voice
-/// convention, auto from average pitch position (stems-down for notes above
-/// middle line).
+/// Resolve stem direction. Precedence order: `event.stem_direction`,
+/// sequence-level `forced_stem_up`, multi-voice convention, auto from
+/// average pitch position (stems-down for notes above middle line).
 pub(super) fn resolve_stem_up(
-    orient: Option<Orientation>,
     stem_direction: Option<&StemDirection>,
     forced_stem_up: Option<bool>,
     num_voices: usize,
     voice_index: usize,
     note_positions: &[f64],
 ) -> bool {
-    if let Some(forced) = orient.and_then(|o| o.force_stem_up()) {
-        return forced;
-    }
     if let Some(dir) = stem_direction {
         return matches!(dir, StemDirection::Up);
     }
@@ -239,7 +234,6 @@ pub(crate) fn layout_sequence_content(
                 let display_pitches = compute_display_pitches(notes, transposition);
 
                 let stem_up = resolve_stem_up(
-                    event.orient,
                     event.stem_direction.as_ref(),
                     forced_stem_up,
                     num_voices,
@@ -289,9 +283,9 @@ pub(crate) fn layout_sequence_content(
                 // Record first event index before recursing
                 let first_idx = events.len();
 
-                // Tuplet orient overrides forced_stem_up for events within the tuplet
+                // Tuplet placement overrides forced_stem_up for events within the tuplet
                 let tuplet_forced = tuplet
-                    .orient
+                    .placement
                     .and_then(|o| o.force_stem_up())
                     .or(forced_stem_up);
 
@@ -346,7 +340,7 @@ pub(crate) fn layout_sequence_content(
                         outer_number: tuplet.outer.multiple,
                         show_bracket,
                         show_number,
-                        orient: tuplet.orient,
+                        placement: tuplet.placement,
                         span: tuplet.span.clone(),
                     });
                 }
@@ -436,11 +430,9 @@ pub(crate) fn layout_sequence_content(
                         compute_note_staff_positions(notes, clef, ott_shift, transposition, kit);
                     // Standard engraving practice: grace notes are stem-up by
                     // default regardless of the main note's stem direction or
-                    // staff position. Only an explicit orient/stem-direction
-                    // override flips them.
-                    let stem_up = if let Some(forced) = ev.orient.and_then(|o| o.force_stem_up()) {
-                        forced
-                    } else if let Some(dir) = ev.stem_direction.as_ref() {
+                    // staff position. Only an explicit stem-direction override
+                    // flips them.
+                    let stem_up = if let Some(dir) = ev.stem_direction.as_ref() {
                         matches!(dir, StemDirection::Up)
                     } else {
                         true

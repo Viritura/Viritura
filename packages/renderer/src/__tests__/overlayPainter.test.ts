@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   detectStaves,
   detectHorizonStaves,
@@ -7,6 +7,7 @@ import {
   findStaffAtPosition,
   snapToStaffPosition,
   getStaffPosition,
+  paintGhostClef,
 } from "../overlayPainter";
 import type { DisplayList } from "../wasm";
 
@@ -328,6 +329,27 @@ describe("getStaffPosition", () => {
 
   it("returns >4 for below staff", () => {
     expect(getStaffPosition(160, staff)).toBe(5);
+  });
+});
+
+describe("paintGhostClef", () => {
+  it("paints a translucent Bravura clef glyph", () => {
+    const fillText = vi.fn();
+    const context = {
+      globalAlpha: 1,
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillText,
+    } as unknown as CanvasRenderingContext2D;
+
+    paintGhostClef(context, { x: 72, y: 118, codepoint: 0xe062, size: 48 });
+
+    expect(fillText).toHaveBeenCalledWith(String.fromCodePoint(0xe062), 72, 118);
+    expect(context.globalAlpha).toBe(0.35);
+    expect(context.fillStyle).toBe("rgb(95, 99, 104)");
+    expect(context.font).toBe("48px Bravura");
+    expect(context.save).toHaveBeenCalledOnce();
+    expect(context.restore).toHaveBeenCalledOnce();
   });
 });
 

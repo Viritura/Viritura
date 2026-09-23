@@ -91,12 +91,10 @@ export const ConsecutiveDecoratedGraces: StoryObj = {
                         content: [
                           {
                             duration: { base: "eighth", dots: 1 },
-                            orient: "above",
                             notes: [{ pitch: { step: "C", octave: 5 } }],
                           },
                           {
                             duration: { base: "eighth", dots: 1 },
-                            orient: "above",
                             notes: [{ pitch: { step: "C", octave: 5, alter: 1 } }],
                           },
                         ],

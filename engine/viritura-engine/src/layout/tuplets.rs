@@ -84,7 +84,7 @@ pub(crate) fn render_tuplet_brackets(
             // Record command index before rendering for element ID tagging
             let cmd_start = dl.commands.len();
 
-            // Determine bracket side: orient override > stem side.
+            // Determine bracket side: placement override > stem side.
             // Standard engraving practice: the tuplet bracket/number sits on the
             // STEM side (the beam side for beamed groups) — above when the
             // majority of stems point up, below when they point down.
@@ -96,12 +96,12 @@ pub(crate) fn render_tuplet_brackets(
                 // Ties (equal up/down) resolve above, matching beam convention.
                 stems_up_count * 2 >= total
             };
-            let bracket_above = if let Some(orient) = tg.orient {
-                use crate::model::Orientation;
-                match orient {
-                    Orientation::Above => true,
-                    Orientation::Below => false,
-                    Orientation::Auto => auto_bracket_above(),
+            let bracket_above = if let Some(placement) = tg.placement {
+                use crate::model::Placement;
+                match placement {
+                    Placement::Above => true,
+                    Placement::Below => false,
+                    Placement::Auto => auto_bracket_above(),
                 }
             } else {
                 auto_bracket_above()

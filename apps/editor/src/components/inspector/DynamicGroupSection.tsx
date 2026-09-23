@@ -3,7 +3,7 @@ import type {
   DynamicPrefix,
   DynamicSuffix,
   DynamicValue,
-  MultiStaffOrientation,
+  MultiStaffPlacement,
   WedgeType,
 } from "@viritura/core";
 import { FormInput, Select } from "@viritura/ui";
@@ -46,7 +46,7 @@ const WEDGE_OPTIONS = [
   { value: "increasing", label: "Crescendo" },
   { value: "decreasing", label: "Diminuendo" },
 ] as const;
-const ORIENTATION_OPTIONS = [
+const PLACEMENT_OPTIONS = [
   { value: "", label: "Auto" },
   { value: "above", label: "Above" },
   { value: "below", label: "Below" },
@@ -65,7 +65,7 @@ interface DynamicGroupSectionProps {
   onWedgeTypeChange: (value: WedgeType) => void;
   onPrefixChange: (value: string) => void;
   onSuffixChange: (value: string) => void;
-  onOrientationChange: (value: MultiStaffOrientation | undefined) => void;
+  onPlacementChange: (value: MultiStaffPlacement | undefined) => void;
   onStaffChange: (value: number | undefined) => void;
   onStaffEndChange: (value: number | undefined) => void;
   onVisuallyContinuesChange: (value: string) => void;
@@ -86,7 +86,7 @@ export function DynamicGroupSection({
   onWedgeTypeChange,
   onPrefixChange,
   onSuffixChange,
-  onOrientationChange,
+  onPlacementChange,
   onStaffChange,
   onStaffEndChange,
   onVisuallyContinuesChange,
@@ -192,11 +192,11 @@ export function DynamicGroupSection({
         <FormInput value={dynamic.suffix ?? ""} onChange={(event) => onSuffixChange(event.target.value)} />
       </label>
       <label style={labelStyle}>
-        Orientation
+        Placement
         <Select
-          value={dynamic.orient ?? ""}
-          options={[...ORIENTATION_OPTIONS]}
-          onValueChange={(value) => onOrientationChange((value || undefined) as MultiStaffOrientation | undefined)}
+          value={dynamic.placement ?? ""}
+          options={[...PLACEMENT_OPTIONS]}
+          onValueChange={(value) => onPlacementChange((value || undefined) as MultiStaffPlacement | undefined)}
         />
       </label>
       {staffCount > 1 && (

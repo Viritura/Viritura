@@ -40,7 +40,8 @@ pub(super) fn decide_curve_direction(
     tgt_event_id: &str,
     sp: f64,
 ) -> SlurDirection {
-    let multi_voice = slur.side.is_none() && src.num_voices > 1 && src.voice_idx == tgt.voice_idx;
+    let multi_voice =
+        super::side_is_auto(&slur.side) && src.num_voices > 1 && src.voice_idx == tgt.voice_idx;
     let grace_slur = src.mag < 1.0 || tgt.mag < 1.0;
     let grace_collision_above = grace_slur
         && (src.y_pos <= -2.0
@@ -64,7 +65,7 @@ pub(super) fn decide_curve_direction(
         _ if src.stem_up != tgt.stem_up => true,
         _ => !src.stem_up,
     };
-    let contour_above = if slur.side.is_some() || multi_voice || grace_slur {
+    let contour_above = if !super::side_is_auto(&slur.side) || multi_voice || grace_slur {
         base_above
     } else {
         contour_auto_side(
@@ -79,7 +80,7 @@ pub(super) fn decide_curve_direction(
     };
     let staff_gap_sp = (src.eff_staff_y - tgt.eff_staff_y).abs() / sp;
     let is_cross_staff_geometric = staff_gap_sp > 3.0 || src.staff_move != tgt.staff_move;
-    let curve_above = if slur.side.is_none() && is_cross_staff_geometric {
+    let curve_above = if super::side_is_auto(&slur.side) && is_cross_staff_geometric {
         false
     } else {
         contour_above
@@ -91,7 +92,7 @@ pub(super) fn decide_curve_direction(
     };
     let preserve_endpoint_positions = grace_slur
         || src.stem_up != tgt.stem_up
-        || (slur.side.is_none() && !multi_voice && contour_above != base_above);
+        || (super::side_is_auto(&slur.side) && !multi_voice && contour_above != base_above);
     SlurDirection {
         curve_above,
         end_above,

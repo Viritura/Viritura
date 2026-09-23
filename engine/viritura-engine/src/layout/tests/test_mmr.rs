@@ -498,7 +498,7 @@ fn test_multimeasure_rest_auto_detect_breaks_at_caesura_and_tempo() {
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
             {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
-            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}, "markings": {"_x": {"viritura": {"caesura": {}}}}}]}]},
+            {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}, "markings": {"caesura": {}}}]}]},
             {"sequences": [{"content": [{"duration": {"base": "whole"}, "rest": {}}]}]},
             {"sequences": [{"content": [{"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}]}]}
         ]}]

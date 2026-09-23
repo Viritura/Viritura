@@ -415,7 +415,7 @@ function serializeFermata(fermata: NonNullable<NoteEvent["fermata"]>): Obj {
   const result: Obj = {};
   if (fermata.symbol) result["symbol"] = fermata.symbol;
   if (fermata.duration) result["duration"] = fermata.duration;
-  if (fermata.orient) result["orient"] = fermata.orient;
+  if (fermata.placement) result["placement"] = fermata.placement;
   if (fermata.pointing) result["pointing"] = fermata.pointing;
   return result;
 }
@@ -436,7 +436,7 @@ function serializeSequence(seq: Sequence): Obj {
     }
     seqObj["fullMeasure"] = fmObj;
   }
-  if (seq.orient) seqObj["orient"] = seq.orient;
+  if (seq.directionHint) seqObj["directionHint"] = seq.directionHint;
   if (seq.staff !== undefined) seqObj["staff"] = seq.staff;
   if (seq.voice !== undefined) seqObj["voice"] = seq.voice;
   return seqObj;
@@ -471,7 +471,7 @@ function serializeTuplet(t: Tuplet): Obj {
   if (t.bracket !== undefined) obj.bracket = t.bracket;
   if (t.showNumber !== undefined) obj.showNumber = t.showNumber;
   if (t.showValue !== undefined) obj.showValue = t.showValue;
-  if (t.orient) obj["orient"] = t.orient;
+  if (t.placement) obj["placement"] = t.placement;
   if (t.span) obj["_x"] = { viritura: { span: { id: t.span.id, type: t.span.type } } };
   return obj;
 }
@@ -527,7 +527,6 @@ export function serializeEvent(ev: NoteEvent): Obj {
   };
   if (ev.id) evObj["id"] = ev.id;
   if (typeof ev.staff === "number") evObj["staff"] = ev.staff;
-  if (ev.orient) evObj["orient"] = ev.orient;
   if (ev.lyrics) evObj["lyrics"] = serializeLyrics(ev.lyrics);
   if (ev.markings) evObj["markings"] = serializeMarkings(ev.markings);
   // Native MNX fermata (event-level since v15).
@@ -578,9 +577,9 @@ export function serializeEvent(ev: NoteEvent): Obj {
 // Markings
 // ═══════════════════════════════════════════
 
-function orientObj(mk: { orient?: string } | undefined): Obj {
+function placementObj(mk: { placement?: string } | undefined): Obj {
   const o: Obj = {};
-  if (mk?.orient) o["orient"] = mk.orient;
+  if (mk?.placement) o["placement"] = mk.placement;
   return o;
 }
 
@@ -595,32 +594,38 @@ function serializeMarkings(m: Markings): Obj {
 
 function serializeSpecMarkings(m: Markings): Obj {
   const obj: Obj = {};
-  if (m.accent !== undefined) obj["accent"] = orientObj(m.accent);
-  if (m.staccato !== undefined) obj["staccato"] = orientObj(m.staccato);
-  if (m.staccatissimo !== undefined) obj["staccatissimo"] = orientObj(m.staccatissimo);
-  if (m.spiccato !== undefined) obj["spiccato"] = orientObj(m.spiccato);
+  if (m.accent !== undefined) obj["accent"] = placementObj(m.accent);
+  if (m.staccato !== undefined) obj["staccato"] = placementObj(m.staccato);
+  if (m.staccatissimo !== undefined) obj["staccatissimo"] = placementObj(m.staccatissimo);
+  if (m.spiccato !== undefined) obj["spiccato"] = placementObj(m.spiccato);
   if (m.strongAccent !== undefined) {
-    const sa: Obj = orientObj(m.strongAccent);
+    const sa: Obj = placementObj(m.strongAccent);
     if (m.strongAccent.pointing) sa["pointing"] = m.strongAccent.pointing;
     obj["strongAccent"] = sa;
   }
-  if (m.tenuto !== undefined) obj["tenuto"] = orientObj(m.tenuto);
+  if (m.tenuto !== undefined) obj["tenuto"] = placementObj(m.tenuto);
   if (m.tremolo !== undefined) {
     const t: Obj = { marks: m.tremolo.marks };
-    if (m.tremolo.orient) t["orient"] = m.tremolo.orient;
+    if (m.tremolo.placement) t["placement"] = m.tremolo.placement;
     obj["tremolo"] = t;
   }
-  if (m.softAccent !== undefined) obj["softAccent"] = orientObj(m.softAccent);
-  if (m.stress !== undefined) obj["stress"] = orientObj(m.stress);
-  if (m.unstress !== undefined) obj["unstress"] = orientObj(m.unstress);
+  if (m.softAccent !== undefined) obj["softAccent"] = placementObj(m.softAccent);
+  if (m.stress !== undefined) obj["stress"] = placementObj(m.stress);
+  if (m.unstress !== undefined) obj["unstress"] = placementObj(m.unstress);
   if (m.breath !== undefined) {
-    const b: Obj = orientObj(m.breath);
+    const b: Obj = placementObj(m.breath);
     if (m.breath.symbol) b["symbol"] = m.breath.symbol;
     obj["breath"] = b;
   }
+  if (m.caesura !== undefined) {
+    const c: Obj = {};
+    if (m.caesura.style) c["shape"] = m.caesura.style;
+    if (m.caesura.marks) c["marks"] = m.caesura.marks;
+    obj["caesura"] = c;
+  }
   if (m.bowDirection !== undefined) {
     const bd: Obj = { direction: m.bowDirection.direction };
-    if (m.bowDirection.orient) bd["orient"] = m.bowDirection.orient;
+    if (m.bowDirection.placement) bd["placement"] = m.bowDirection.placement;
     obj["bowDirection"] = bd;
   }
   return obj;
@@ -629,7 +634,7 @@ function serializeSpecMarkings(m: Markings): Obj {
 function serializeVendorMarkings(m: Markings): Obj {
   const ext: Obj = {};
   if (m.staccatissimoWedge !== undefined) {
-    ext["staccatissimoWedge"] = orientObj(m.staccatissimoWedge);
+    ext["staccatissimoWedge"] = placementObj(m.staccatissimoWedge);
   }
   if (m.trill !== undefined) {
     const t: Obj = {};
@@ -650,11 +655,6 @@ function serializeVendorMarkings(m: Markings): Obj {
     const a: Obj = {};
     if (m.arpeggio.direction) a["direction"] = m.arpeggio.direction;
     ext["arpeggio"] = a;
-  }
-  if (m.caesura !== undefined) {
-    const c: Obj = {};
-    if (m.caesura.style) c["style"] = m.caesura.style;
-    ext["caesura"] = c;
   }
   if (m.fingerings !== undefined && m.fingerings.length > 0) {
     ext["fingerings"] = m.fingerings.map((f) => ({ finger: f.finger }));

@@ -6,7 +6,7 @@ import {
   setMeasureNumber,
   setPrimaryNoteAlter,
 } from "../commands/notationInspectorCommands";
-import type { FermataDuration, FermataSymbol, Orientation } from "@viritura/core";
+import type { FermataDuration, FermataSymbol, Placement } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 import { createHistoryStore } from "../store/historyStore";
 
@@ -160,9 +160,9 @@ describe("notationInspectorCommands", () => {
     },
   );
 
-  it.each(["auto", "above", "below"] satisfies Orientation[])(
-    "edits and reopens a selected fermata with %s orientation",
-    (orient) => {
+  it.each(["auto", "above", "below"] satisfies Placement[])(
+    "edits and reopens a selected fermata with %s placement",
+    (placement) => {
       const score = buildScore();
       const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
       if (event.type !== "event") throw new Error("expected note event");
@@ -172,11 +172,11 @@ describe("notationInspectorCommands", () => {
         score,
       )!;
 
-      const result = setFermataProperties(score, target, { orient });
+      const result = setFermataProperties(score, target, { placement });
       const reopened = parseMnx(serializeMnx(result.score!));
       const reopenedEvent = reopened.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
 
-      expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.orient : undefined).toBe(orient);
+      expect(reopenedEvent.type === "event" ? reopenedEvent.fermata?.placement : undefined).toBe(placement);
     },
   );
 
@@ -230,7 +230,7 @@ describe("notationInspectorCommands", () => {
     const edited = setFermataProperties(score, target, {
       symbol: "doubleSquare",
       duration: "veryLong",
-      orient: "below",
+      placement: "below",
     }).score!;
     const initialJson = JSON.stringify(serializeMnx(score));
     const editedJson = JSON.stringify(serializeMnx(edited));
@@ -247,7 +247,7 @@ describe("notationInspectorCommands", () => {
     expect(editedEvent.type === "event" ? editedEvent.fermata : undefined).toEqual({
       symbol: "doubleSquare",
       duration: "veryLong",
-      orient: "below",
+      placement: "below",
     });
   });
 });

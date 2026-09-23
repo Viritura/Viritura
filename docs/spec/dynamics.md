@@ -32,7 +32,7 @@ export type DynamicGroupType = "immediate" | "gradual" | "relative" | "accent";
 export type DynamicValue = "ppp" | "pp" | "p" | "mp" | "mf" | "f" | "ff" | "fff" | "n";
 export type RelativeDynamicValue = "louder" | "softer";
 export type WedgeType = "increasing" | "decreasing";
-export type MultiStaffOrientation = "above" | "auto" | "below" | "between";
+export type MultiStaffPlacement = "above" | "auto" | "below" | "between";
 
 interface DynamicGroupBase {
   id: string;
@@ -45,7 +45,7 @@ interface DynamicGroupBase {
   attackValue?: DynamicValue;
   end?: MeasureRhythmicPosition;
   glyphs?: string[];
-  orient?: MultiStaffOrientation;
+  placement?: MultiStaffPlacement;
   prefix?: string;
   relativeValue?: RelativeDynamicValue;
   staff?: number;
@@ -212,13 +212,13 @@ An omitted `staff` leaves visual staff ownership automatic. It does not mean
 applies an unscoped group to every applicable lane in the part.
 
 - Explicit `staff`: that staff owns the displayed group and its placement.
-- `orient: "above"` / `"below"`: the requested side of the scoped staff, or the
+- `placement: "above"` / `"below"`: the requested side of the scoped staff, or the
   corresponding outer edge when layout resolves an unscoped group.
-- `orient: "between"` remains intact in the model and never fails validation
+- `placement: "between"` remains intact in the model and never fails validation
   based on staff association. Layout uses the gap below its owner, or the gap
   above when the owner is the bottom staff. With automatic ownership, it uses
   the topmost gap. On a single-staff part it degrades to `below`.
-- `orient: "auto"` or omitted: automatic placement. A voice-linked group
+- `placement: "auto"` or omitted: automatic placement. A voice-linked group
   follows that voice's staff unless an explicit `staff` overrides it; otherwise
   a two-staff keyboard part uses the shared inter-staff lane.
 - Inter-staff dynamics and wedges clear ink on both adjoining staves. Layout
@@ -259,7 +259,7 @@ compiler lives in
 - `value: "n"` — CC11 zero, but a held note beginning at niente still starts a
   very-low-velocity voice so a niente crescendo is possible.
 
-`glyphs`, `prefix`, `suffix`, `orient`, `manualOffset`, and `avoidCollisions`
+`glyphs`, `prefix`, `suffix`, `placement`, `manualOffset`, and `avoidCollisions`
 have no playback effect.
 
 ### 8.2 Ordering and scope
@@ -339,7 +339,7 @@ collapsed to a part-wide envelope.
 - `<wedge type="crescendo|diminuendo">` start/stop pairs → gradual groups in
   `dynamics[]`;
 - `niente="yes"` → `value: "n"` at the appropriate wedge endpoint;
-- placement and `<staff>` → `orient` / `staff`;
+- placement and `<staff>` → `placement` / `staff`;
 - associated `<words>` → `prefix`/`suffix` where structurally unambiguous;
 - unknown `<other-dynamics>` → a text expression plus a converter diagnostic,
   unless a standard semantic mapping exists.
