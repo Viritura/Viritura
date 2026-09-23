@@ -108,6 +108,9 @@ export function clefFromElement(c: Element, position?: MnxRhythmicPosition): Mnx
   const result: MnxPositionedClef = { clef };
   const color = normalizeMusicXmlColor(c.getAttribute("color"));
   if (color) result.clef.color = color;
+  // MusicXML `print-object="no"` hides the clef glyph without affecting the
+  // pitch reference notes use; maps to native MNX `clef.hide`.
+  if (c.getAttribute("print-object") === "no") result.clef.hide = true;
   if (clefStaff) result.staff = parseInt(clefStaff, 10);
   if (position) result.position = position;
   return result;

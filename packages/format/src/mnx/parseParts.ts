@@ -267,6 +267,7 @@ function parsePositionedClef(raw: RawPositionedClef): PositionedClef {
   if (rawClef.glyph) clef.glyph = rawClef.glyph;
   if (rawClef.octave !== undefined) clef.octave = rawClef.octave;
   if (rawClef.showOctave !== undefined) clef.showOctave = rawClef.showOctave;
+  if (rawClef.hide !== undefined) clef.hide = rawClef.hide;
 
   const result: PositionedClef = { clef };
 

@@ -67,8 +67,8 @@ or round-trip support unless a row note says so.
 | ------------------------------ | --: | --: | --: | --: | --: |
 | Upstream MNX                   | 307 |  29 | 515 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 438 |  84 | 330 |   0 |   0 |
-| Viritura MusicXML/MXL importer | 277 |  90 | 435 |  50 |   0 |
+| Viritura MNX pipeline          | 439 |  84 | 329 |   0 |   0 |
+| Viritura MusicXML/MXL importer | 278 |  90 | 434 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
 
@@ -77,7 +77,7 @@ or round-trip support unless a row note says so.
 | Notes             |  344 |         187/28/129/0 |       104/55/151/34/0 |
 | Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
-| Measures          |  104 |            66/4/34/0 |           52/0/46/6/0 |
+| Measures          |  104 |            67/4/33/0 |           53/0/45/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
 | Structure         |  117 |           63/21/33/0 |          24/24/67/2/0 |
 | Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
@@ -571,7 +571,7 @@ or round-trip support unless a row note says so.
 | Clefs &gt; Special clefs                                             | Percussion clef (two vertical bars)                                         | `clef-type-percussion`                |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Special clefs                                             | Single-line percussion clef                                                 | `clef-type-percussion-single`         |  S  |    P     |      S       |      N       | -                                                                                        |
 | Clefs &gt; Special clefs                                             | Tablature clef (TAB)                                                        | `clef-type-tab`                       |  N  |    S     |      N       |      N       | -                                                                                        |
-| Clefs &gt; Special clefs                                             | No clef / invisible clef                                                    | `clef-type-none`                      |  S  |    S     |      N       |      N       | -                                                                                        |
+| Clefs &gt; Special clefs                                             | No clef / invisible clef                                                    | `clef-type-none`                      |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Special clefs                                             | Arbitrary clef sign on arbitrary staff line                                 | `clef-type-arbitrary`                 |  P  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Clef positions                                            | Initial clef (start of piece / start of each system)                        | `clef-position-initial`               |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Clef positions                                            | Clef change at start of bar                                                 | `clef-position-bar-start`             |  S  |    S     |      S       |      S       | -                                                                                        |

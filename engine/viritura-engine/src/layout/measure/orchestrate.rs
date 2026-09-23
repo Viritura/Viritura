@@ -742,6 +742,7 @@ pub(super) fn layout_measure_inner(
                 glyph: None,
                 octave: None,
                 show_octave: None,
+                hide: None,
             },
         ));
     }

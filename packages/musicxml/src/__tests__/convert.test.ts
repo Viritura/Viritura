@@ -2459,6 +2459,26 @@ describe("convertMusicXmlToMnx — color", () => {
   });
 });
 
+describe("convertMusicXmlToMnx — clef.hide", () => {
+  it('maps <clef print-object="no"> to native clef.hide', () => {
+    const xml = wrapScore(
+      `<note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>`,
+    ).replace("<clef>", '<clef print-object="no">');
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.measures[0]!.clefs?.[0]?.clef.hide).toBe(true);
+  });
+
+  it('omits clef.hide when print-object is not "no"', () => {
+    const xml = wrapScore(
+      `<note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><type>whole</type></note>`,
+    );
+
+    const result = convertMusicXmlToMnx(xml);
+    expect(result.parts[0]!.measures[0]!.clefs?.[0]?.clef.hide).toBeUndefined();
+  });
+});
+
 describe("convertMusicXmlToMnx — lossy diagnostics", () => {
   it("reports features with no implemented conversion target", () => {
     const xml = wrapScore(`

@@ -1218,6 +1218,9 @@ impl ::std::convert::TryFrom<::std::string::String> for CaesuraShape {
 ///    "glyph": {
 ///      "$ref": "#/$defs/smufl-glyph"
 ///    },
+///    "hide": {
+///      "type": "boolean"
+///    },
 ///    "octave": {
 ///      "$ref": "#/$defs/ottava-amount-or-zero"
 ///    },
@@ -1247,6 +1250,8 @@ pub struct Clef {
     pub color: ::std::option::Option<SimpleColor>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub glyph: ::std::option::Option<SmuflGlyph>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hide: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -5517,7 +5522,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/37",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/38",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"

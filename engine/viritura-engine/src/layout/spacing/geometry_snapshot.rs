@@ -66,6 +66,7 @@ pub(super) fn build_spacing_snapshot<'a>(
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         let active_key = active_keys
             .get(staff_index)

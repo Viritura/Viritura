@@ -11,6 +11,7 @@ pub(crate) fn promote_clef(raw: raw::Clef) -> Clef {
         glyph: raw.glyph.map(|g| g.0),
         octave: raw.octave.map(|o| i32::try_from(*o).unwrap_or(0)),
         show_octave: raw.show_octave,
+        hide: raw.hide,
     }
 }
 

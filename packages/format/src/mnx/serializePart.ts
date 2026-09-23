@@ -133,6 +133,7 @@ function serializePositionedClef(pc: PositionedClef): Obj {
   if (pc.clef.glyph) clefObj["glyph"] = pc.clef.glyph;
   if (pc.clef.octave !== undefined) clefObj["octave"] = pc.clef.octave;
   if (pc.clef.showOctave !== undefined) clefObj["showOctave"] = pc.clef.showOctave;
+  if (pc.clef.hide !== undefined) clefObj["hide"] = pc.clef.hide;
   const clefEntry: Obj = { clef: clefObj };
   if (pc.position) clefEntry["position"] = pc.position;
   if (pc.staff !== undefined) clefEntry["staff"] = pc.staff;

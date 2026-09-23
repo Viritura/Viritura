@@ -9,6 +9,9 @@ use crate::render::smufl::smufl;
 use crate::render::*;
 
 pub(crate) fn render_clef(dl: &mut DisplayList, x: f64, staff_y: f64, sp: f64, clef: &Clef) {
+    if clef.is_hidden() {
+        return;
+    }
     let (codepoint, y_offset) = clef_glyph_and_offset(clef);
 
     dl.push(RenderCommand::DrawGlyph {
@@ -25,8 +28,12 @@ pub(crate) fn render_clef(dl: &mut DisplayList, x: f64, staff_y: f64, sp: f64, c
 /// Horizontal prefix advance for a full-size clef.
 ///
 /// The advance ends at the clef's actual right ink edge plus the standard
-/// inter-signature clearance, rather than at a fixed slot width.
+/// inter-signature clearance, rather than at a fixed slot width. A hidden
+/// clef (`hide: true`) reserves no space at all, per MNX semantics.
 pub(crate) fn clef_prefix_advance_sp(clef: &Clef) -> f64 {
+    if clef.is_hidden() {
+        return 0.0;
+    }
     let (codepoint, _y_offset) = clef_glyph_and_offset(clef);
     let (bbox_x, _bbox_y, bbox_width, _bbox_height) = smufl::glyph_bbox(codepoint);
     (0.5 + bbox_x + bbox_width + 0.8).max(0.0)
@@ -61,8 +68,12 @@ fn clef_glyph_and_offset(clef: &Clef) -> (u32, f64) {
 /// Lowest point (largest Y, +Y down) of a clef glyph, in pixels. Combines the
 /// glyph's origin offset with its Bravura glyphBBox southern extent, so
 /// below-staff annotations (e.g. system bar numbers) can be placed clear of a
-/// descending clef such as the treble clef's tail.
+/// descending clef such as the treble clef's tail. A hidden clef reserves no
+/// vertical extent, so this returns the neutral staff baseline.
 pub(crate) fn clef_bottom_y(clef: &Clef, staff_y: f64, sp: f64) -> f64 {
+    if clef.is_hidden() {
+        return staff_y;
+    }
     let (codepoint, y_offset) = clef_glyph_and_offset(clef);
     // glyph_bbox returns (x, y_top, width, height) in staff spaces, where y_top
     // is signed (+Y down) from the origin; the southern edge is y_top + height.
@@ -73,8 +84,13 @@ pub(crate) fn clef_bottom_y(clef: &Clef, staff_y: f64, sp: f64) -> f64 {
 /// Highest point (smallest Y, +Y down) of a clef glyph, in pixels. Combines the
 /// glyph's origin offset with its Bravura glyphBBox northern extent, so the
 /// system bounding box can reserve for a clef whose top rises above the top
-/// staff line (the treble clef's upper curl reaches ~1sp above line 5).
+/// staff line (the treble clef's upper curl reaches ~1sp above line 5). A
+/// hidden clef reserves no vertical extent, so this returns the neutral staff
+/// baseline.
 pub(crate) fn clef_top_y(clef: &Clef, staff_y: f64, sp: f64) -> f64 {
+    if clef.is_hidden() {
+        return staff_y;
+    }
     let (codepoint, y_offset) = clef_glyph_and_offset(clef);
     let (_x, bbox_top, _w, _h) = smufl::glyph_bbox(codepoint);
     staff_y + (y_offset + bbox_top) * sp
@@ -92,8 +108,12 @@ pub(crate) fn change_clef_width(clef: &Clef, sp: f64) -> f64 {
     change_clef_width_sp(clef) * sp
 }
 
-/// Horizontal ink width of a 2/3-size change clef in staff spaces.
+/// Horizontal ink width of a 2/3-size change clef in staff spaces. A hidden
+/// clef reserves no width, per MNX semantics.
 pub(crate) fn change_clef_width_sp(clef: &Clef) -> f64 {
+    if clef.is_hidden() {
+        return 0.0;
+    }
     let (codepoint, _y_offset) = clef_glyph_and_offset(clef);
     // glyph_bbox width is in staff spaces; the change clef renders at 2/3 size.
     let (_x, _top, bbox_w, _h) = smufl::glyph_bbox(codepoint);
@@ -101,6 +121,9 @@ pub(crate) fn change_clef_width_sp(clef: &Clef) -> f64 {
 }
 
 pub(crate) fn render_change_clef(dl: &mut DisplayList, x: f64, staff_y: f64, sp: f64, clef: &Clef) {
+    if clef.is_hidden() {
+        return;
+    }
     let (codepoint, y_offset) = clef_glyph_and_offset(clef);
 
     // 2/3 of normal staff size per SMuFL clef change convention

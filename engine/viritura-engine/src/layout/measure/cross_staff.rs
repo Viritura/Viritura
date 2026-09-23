@@ -73,6 +73,7 @@ pub(super) fn build_cross_staff_clef_map(
                         glyph: None,
                         octave: None,
                         show_octave: None,
+                        hide: None,
                     }
                 } else {
                     Clef {
@@ -82,6 +83,7 @@ pub(super) fn build_cross_staff_clef_map(
                         glyph: None,
                         octave: None,
                         show_octave: None,
+                        hide: None,
                     }
                 };
                 clef_changes.push((0.0, default_clef));

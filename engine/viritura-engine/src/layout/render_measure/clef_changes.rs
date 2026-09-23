@@ -39,6 +39,8 @@ pub(crate) fn measure_bounds_geometry(
 }
 
 /// Measures carrying a start-of-measure clef change in any resolved shown staff.
+/// A restated clef with `hide: true` reserves no leading gap, consistent with
+/// its glyph being suppressed.
 pub(crate) fn clef_change_measure_set_resolved<R: AsRef<[ResolvedMeasure]>>(
     all_resolved: &[R],
 ) -> HashSet<usize> {
@@ -48,12 +50,11 @@ pub(crate) fn clef_change_measure_set_resolved<R: AsRef<[ResolvedMeasure]>>(
             if measure.index == 0 {
                 continue;
             }
-            if measure
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|clef| clef.position.is_none()))
-            {
+            if measure.part.clefs.as_ref().is_some_and(|clefs| {
+                clefs
+                    .iter()
+                    .any(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+            }) {
                 set.insert(measure.index);
             }
         }
@@ -62,6 +63,8 @@ pub(crate) fn clef_change_measure_set_resolved<R: AsRef<[ResolvedMeasure]>>(
 }
 
 /// Measures carrying a start-of-measure clef change in laid-out shown staves.
+/// A restated clef with `hide: true` reserves no leading gap, consistent with
+/// its glyph being suppressed.
 pub(crate) fn clef_change_measure_set_from_layouts(
     all_staff_layouts: &[Vec<MeasureLayout>],
 ) -> HashSet<usize> {
@@ -71,13 +74,11 @@ pub(crate) fn clef_change_measure_set_from_layouts(
             if measure.resolved.index == 0 {
                 continue;
             }
-            if measure
-                .resolved
-                .part
-                .clefs
-                .as_ref()
-                .is_some_and(|clefs| clefs.iter().any(|clef| clef.position.is_none()))
-            {
+            if measure.resolved.part.clefs.as_ref().is_some_and(|clefs| {
+                clefs
+                    .iter()
+                    .any(|clef| clef.position.is_none() && !clef.clef.is_hidden())
+            }) {
                 set.insert(measure.resolved.index);
             }
         }

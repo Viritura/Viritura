@@ -137,6 +137,7 @@ export interface MnxClef {
   octave?: number;
   glyph?: string;
   color?: string;
+  hide?: boolean;
 }
 
 export type MnxDynamic = DynamicGroup;

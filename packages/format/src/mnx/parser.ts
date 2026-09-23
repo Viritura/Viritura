@@ -707,7 +707,7 @@ const KEYS = {
   nonArpeggio: new Set(["id", "position", "span", "_c", "_x"]),
   idPair: new Set(["start", "end"]),
   positionedClef: new Set(["clef", "position", "staff"]),
-  clef: new Set(["sign", "staffPosition", "color", "glyph", "octave", "showOctave"]),
+  clef: new Set(["sign", "staffPosition", "color", "glyph", "octave", "showOctave", "hide"]),
   beam: new Set(["events", "beams", "direction"]),
   dynamic: new Set(["position", "value", "glyph", "staff", "voice"]),
   ottava: new Set(["position", "end", "value", "staff", "voice"]),

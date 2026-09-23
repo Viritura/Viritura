@@ -65,6 +65,7 @@ export interface components {
         clef: {
             color?: components["schemas"]["simple-color"];
             glyph?: components["schemas"]["smufl-glyph"];
+            hide?: boolean;
             octave?: components["schemas"]["ottava-amount-or-zero"];
             showOctave?: boolean;
             sign: components["schemas"]["clef-sign"];

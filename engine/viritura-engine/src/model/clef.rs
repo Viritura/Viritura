@@ -27,9 +27,21 @@ pub struct Clef {
     /// Defaults to true when `octave` is set. MNX `showOctave`.
     #[serde(rename = "showOctave", skip_serializing_if = "Option::is_none")]
     pub show_octave: Option<bool>,
+    /// Whether this clef should be hidden. MNX `hide`. When true, no glyph is
+    /// rendered and no horizontal space is allocated for it (like CSS
+    /// `display:none`, not `visibility:hidden`) — notes under the clef still
+    /// use its pitch reference. Defaults to false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hide: Option<bool>,
 }
 
 impl Clef {
+    /// Whether this clef's glyph should be suppressed and no space reserved
+    /// for it, per MNX `hide`. Absent/false means visible.
+    pub fn is_hidden(&self) -> bool {
+        self.hide == Some(true)
+    }
+
     /// Returns the effective SMuFL glyph name considering `octave`, `showOctave`,
     /// and explicit `glyph` override. Explicit `glyph` takes priority.
     /// When `octave` is set and `showOctave` is true (default), returns the
@@ -137,6 +149,7 @@ mod tests {
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 32); // G4
         assert_eq!(clef.line_from_bottom(), 1); // second line from bottom
@@ -151,6 +164,7 @@ mod tests {
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 24); // F3
         assert_eq!(clef.line_from_bottom(), 3); // fourth line from bottom
@@ -165,6 +179,7 @@ mod tests {
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), None);
     }
@@ -178,6 +193,7 @@ mod tests {
             glyph: None,
             octave: Some(0),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), None);
     }
@@ -191,6 +207,7 @@ mod tests {
             glyph: None,
             octave: Some(-1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), Some("gClef8vb".into()));
     }
@@ -204,6 +221,7 @@ mod tests {
             glyph: None,
             octave: Some(1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), Some("gClef8va".into()));
     }
@@ -217,6 +235,7 @@ mod tests {
             glyph: None,
             octave: Some(-2),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), Some("gClef15mb".into()));
     }
@@ -230,6 +249,7 @@ mod tests {
             glyph: None,
             octave: Some(1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), Some("fClef8va".into()));
     }
@@ -243,6 +263,7 @@ mod tests {
             glyph: None,
             octave: Some(-1),
             show_octave: Some(false),
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), None);
     }
@@ -256,6 +277,7 @@ mod tests {
             glyph: Some("fClef".into()),
             octave: Some(-1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.effective_glyph(), Some("fClef".into()));
     }
@@ -278,6 +300,7 @@ mod tests {
             glyph: None,
             octave: Some(-1),
             show_octave: Some(true),
+            hide: None,
         };
         let json = serde_json::to_string(&clef).unwrap();
         assert!(json.contains(r#""octave":-1"#));
@@ -293,6 +316,7 @@ mod tests {
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         let json = serde_json::to_string(&clef).unwrap();
         assert!(!json.contains("octave"));
@@ -309,6 +333,7 @@ mod tests {
             glyph: None,
             octave: Some(-1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 25); // G3 = 3*7+4
     }
@@ -323,6 +348,7 @@ mod tests {
             glyph: None,
             octave: Some(1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 39); // G5 = 5*7+4
     }
@@ -337,6 +363,7 @@ mod tests {
             glyph: None,
             octave: Some(-1),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 17); // F2 = 2*7+3
     }
@@ -351,6 +378,7 @@ mod tests {
             glyph: None,
             octave: Some(-2),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 18); // G2 = 2*7+4
     }
@@ -365,6 +393,7 @@ mod tests {
             glyph: None,
             octave: None,
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef.reference_diatonic(), 32); // G4
         let clef0 = Clef {
@@ -374,6 +403,7 @@ mod tests {
             glyph: None,
             octave: Some(0),
             show_octave: None,
+            hide: None,
         };
         assert_eq!(clef0.reference_diatonic(), 32); // octave=0 same as none
     }

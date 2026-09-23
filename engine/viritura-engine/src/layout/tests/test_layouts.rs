@@ -570,6 +570,7 @@ fn test_split_part_measure_default_clef_for_unassigned_staff() {
                 glyph: None,
                 octave: None,
                 show_octave: None,
+                hide: None,
             },
             position: None,
             staff: None,

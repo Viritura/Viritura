@@ -100,6 +100,28 @@ describe("parseMnx", () => {
     expect(clefs?.[0]?.clef.staffPosition).toBe(-2);
   });
 
+  it("parses clef.hide and omits it when not set", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      parts: Array<{ measures: Array<Record<string, unknown>> }>;
+    };
+    (mnx.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef.hide = true;
+
+    const score = parseMnx(mnx);
+    expect(score.parts[0]?.measures[0]?.clefs?.[0]?.clef.hide).toBe(true);
+
+    const serialized = serializeMnx(score) as typeof mnx;
+    expect((serialized.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef.hide).toBe(
+      true,
+    );
+
+    const untouched = parseMnx(helloWorldMnx);
+    expect(untouched.parts[0]?.measures[0]?.clefs?.[0]?.clef.hide).toBeUndefined();
+    const untouchedSerialized = serializeMnx(untouched) as typeof mnx;
+    expect(
+      (untouchedSerialized.parts[0]!.measures[0]!.clefs as Array<{ clef: Record<string, unknown> }>)[0]!.clef,
+    ).not.toHaveProperty("hide");
+  });
+
   it("parses and round-trips part-measure staffConfigs", () => {
     const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
       parts: Array<{ measures: Array<Record<string, unknown>> }>;
