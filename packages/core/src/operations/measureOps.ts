@@ -496,56 +496,6 @@ export function setClef(
 }
 
 /**
- * Toggle whether the clef change(s) at a measure boundary are rendered.
- * `hide` suppresses the clef glyph while preserving its effect on pitch
- * interpretation (per MNX `clef.hide`) — used for editorial clef changes
- * that shouldn't be visible on the page. Applies to every positioned clef
- * entry at that measure (e.g. all staves of a grand-staff part), since
- * clef selection is currently measure-scoped rather than per-entry.
- */
-export function setClefHidden(score: Score, measureIndex: number, partIndex: number, hidden: boolean): Score {
-  const partCount = score.parts.length;
-  if (!Number.isInteger(partIndex) || partIndex < 0 || partIndex >= partCount) {
-    throw new RangeError(`setClefHidden: partIndex ${partIndex} out of range [0, ${partCount - 1}]`);
-  }
-
-  const measureCount = score.global.measures.length;
-  if (!Number.isInteger(measureIndex) || measureIndex < 0 || measureIndex >= measureCount) {
-    throw new RangeError(`setClefHidden: measureIndex ${measureIndex} out of range [0, ${measureCount - 1}]`);
-  }
-
-  const targetPart = score.parts[partIndex]!;
-  const oldMeasure = targetPart.measures[measureIndex]!;
-  const existing = oldMeasure.clefs;
-  if (!existing || existing.length === 0) return score;
-
-  const clefs = existing.map((entry) => {
-    const clef: Clef = { ...entry.clef };
-    if (hidden) {
-      clef.hide = true;
-    } else {
-      delete clef.hide;
-    }
-    return { ...entry, clef };
-  });
-
-  const newMeasure: PartMeasure = { ...oldMeasure, clefs };
-  const newPart: Part = {
-    ...targetPart,
-    measures: [
-      ...targetPart.measures.slice(0, measureIndex),
-      newMeasure,
-      ...targetPart.measures.slice(measureIndex + 1),
-    ],
-  };
-
-  return {
-    ...score,
-    parts: [...score.parts.slice(0, partIndex), newPart, ...score.parts.slice(partIndex + 1)],
-  };
-}
-
-/**
  * Set (or clear) a per-staff grouping-display occurrence override on a part
  * measure. Pass `groupingDisplay: null` to remove any existing override for
  * that staff — the measure then falls back to the time signature's own

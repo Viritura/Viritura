@@ -88,11 +88,12 @@ export {
   getStaffPosition,
   paintInputCursor,
   paintGhostNote,
+  paintGhostClef,
   extractStickyClefInfo,
   paintStickyClefs,
   paintMeasureNumber,
 } from "./overlayPainter";
-export type { StaffInfo, GhostNoteOptions, StickyClefInfo } from "./overlayPainter";
+export type { StaffInfo, GhostNoteOptions, GhostClefOptions, StickyClefInfo } from "./overlayPainter";
 export {
   PerfTracker,
   isPerfEnabled,

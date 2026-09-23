@@ -7,6 +7,7 @@ import type { Score, NoteEvent, Sequence } from "@viritura/core";
 import { walkSequenceEvents, setClef } from "@viritura/core";
 import { cloneScore } from "../score/scoreClone";
 import { resolveEventLocation, getEventAtLocation } from "../score/ElementPath";
+import { parseClefElementId } from "../score/clefElementId";
 
 /**
  * Yield NoteEvents from a single sequence's content, flattening every event
@@ -90,7 +91,7 @@ export function deleteOrnamentOrTrill(score: Score, parentId: string, markingTyp
 }
 
 /**
- * Delete a clef (selection elementId of form `p{part}/m{measure}/clef`).
+ * Delete a clef (selection elementId of form `p{part}/m{measure}/clef` or `.../clefN`).
  *
  * Only a clef *change* can be deleted — removing the entry reverts the staff to
  * the clef inherited from earlier measures. The part's establishing clef (the
@@ -98,22 +99,54 @@ export function deleteOrnamentOrTrill(score: Score, parentId: string, markingTyp
  * clef; selecting it and pressing Delete is a no-op. A selected system-start
  * "running" clef on a measure that has no clef of its own is likewise a no-op.
  */
+function affectsSameStaff(selectedStaff: number | undefined, candidateStaff: number | undefined): boolean {
+  if (selectedStaff === undefined || candidateStaff === undefined) return true;
+  return selectedStaff === candidateStaff;
+}
+
+function hasEarlierClefForStaff(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  clefIndex: number,
+  staff: number | undefined,
+): boolean {
+  const clefs = score.parts[partIndex]!.measures[measureIndex]!.clefs ?? [];
+  for (let index = clefIndex - 1; index >= 0; index--) {
+    if (affectsSameStaff(staff, clefs[index]!.staff)) return true;
+  }
+
+  for (let previousMeasureIndex = measureIndex - 1; previousMeasureIndex >= 0; previousMeasureIndex--) {
+    const previousClefs = score.parts[partIndex]!.measures[previousMeasureIndex]!.clefs ?? [];
+    for (let index = previousClefs.length - 1; index >= 0; index--) {
+      if (affectsSameStaff(staff, previousClefs[index]!.staff)) return true;
+    }
+  }
+
+  return false;
+}
+
 export function deleteClefByElementId(score: Score, elementId: string): Score | null {
-  const parts = elementId.split("/");
-  const partMatch = parts[0]?.match(/^p(\d+)$/);
-  const measureMatch = parts[1]?.match(/^m(\d+)$/);
-  if (!partMatch || !measureMatch || parts[2] !== "clef") return null;
-  const partIndex = Number(partMatch[1]);
-  const measureIndex = Number(measureMatch[1]);
+  const location = parseClefElementId(elementId);
+  if (!location) return null;
+  const { partIndex, measureIndex, clefIndex } = location;
   const part = score.parts[partIndex];
   if (!part) return null;
   const measure = part.measures[measureIndex];
+  const clefs = measure?.clefs;
   // No clef of its own here (inherited/system-start running clef) → nothing to delete.
-  if (!measure?.clefs || measure.clefs.length === 0) return null;
-  // The establishing clef (first clef in the part) must stay — a staff always needs a clef.
-  const isEstablishing = !part.measures.slice(0, measureIndex).some((m) => m.clefs && m.clefs.length > 0);
-  if (isEstablishing) return null;
-  return setClef(score, measureIndex, partIndex, null);
+  if (!clefs || clefs.length === 0) return null;
+  const selectedClef = clefs[clefIndex];
+  if (!selectedClef) return null;
+  // The first clef affecting a staff must stay — a staff always needs a clef.
+  if (!hasEarlierClefForStaff(score, partIndex, measureIndex, clefIndex, selectedClef.staff)) return null;
+  if (clefs.length === 1) return setClef(score, measureIndex, partIndex, null);
+
+  const next = cloneScore(score);
+  const nextMeasure = next.parts[partIndex]!.measures[measureIndex]!;
+  nextMeasure.clefs!.splice(clefIndex, 1);
+  if (nextMeasure.clefs!.length === 0) delete nextMeasure.clefs;
+  return next;
 }
 
 /** Remove measures in [startM, endM] from all parts. Returns null if it would delete all measures. */

@@ -216,6 +216,30 @@ function ClefHarness() {
   );
 }
 
+function MidMeasureClefHarness() {
+  const { loadScore } = useDocumentActions();
+  const { score, mnxJson } = useDocument();
+  const { selectElement } = useSelectionActions();
+
+  useEffect(() => {
+    const initial = buildScore();
+    initial.parts[0]!.measures[0]!.clefs = [
+      { clef: { sign: "G", staffPosition: -2 } },
+      { clef: { sign: "F", staffPosition: 2 }, position: { fraction: [1, 2] } },
+    ];
+    loadScore(initial, "mid-measure-clef.mnx");
+    selectElement("p0/m0/clef1");
+  }, [loadScore, selectElement]);
+
+  return (
+    <>
+      <NotationInspector />
+      <output data-testid="score-snapshot">{JSON.stringify(score)}</output>
+      <output data-testid="mnx-snapshot">{mnxJson}</output>
+    </>
+  );
+}
+
 function MeasureSelectionHarness() {
   const { loadScore } = useDocumentActions();
   const { score } = useDocument();
@@ -427,6 +451,21 @@ describe("NotationInspector", () => {
 
     await user.click(checkbox);
     await waitFor(() => expect(currentScore().parts[0]!.measures[0]!.clefs?.[0]!.clef.hide).toBeUndefined());
+  });
+
+  it("toggles only the selected mid-measure clef change", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<MidMeasureClefHarness />));
+
+    const checkbox = await screen.findByRole("checkbox", { name: "Hide clef" });
+    await user.click(checkbox);
+
+    await waitFor(() =>
+      expect(currentScore().parts[0]!.measures[0]!.clefs).toEqual([
+        { clef: { sign: "G", staffPosition: -2 } },
+        { clef: { sign: "F", staffPosition: 2, hide: true }, position: { fraction: [1, 2] } },
+      ]),
+    );
   });
 
   it("edits the direction and placement of a selected bow mark", async () => {

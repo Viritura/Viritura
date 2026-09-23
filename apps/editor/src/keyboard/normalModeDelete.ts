@@ -28,6 +28,7 @@ import {
   getEventAtLocation,
   addressesWholeEvent,
 } from "../score/ElementPath";
+import { isClefElementId } from "../score/clefElementId";
 import { resolveSelectionEvents, resolveSelectionMeasureRange } from "../store/selectionUtils";
 import { cloneScore } from "../score/scoreClone";
 import {
@@ -246,7 +247,7 @@ function deleteSingleSelection(
   }
 
   // Clef deletion (clef change reverts to the inherited clef)
-  if (sel.elementId.endsWith("/clef")) {
+  if (isClefElementId(sel.elementId)) {
     applyDeletion(e, ctx, deleteClefByElementId(currentScore, sel.elementId));
     return;
   }

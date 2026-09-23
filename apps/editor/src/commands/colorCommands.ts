@@ -1,5 +1,6 @@
 import type { Score } from "@viritura/core";
 import { cloneScore } from "../score/scoreClone";
+import { resolveSelectedClefEntry } from "./clefCommands";
 import type { NotationSelectionTarget } from "./notationInspectorCommands";
 
 export interface ColorSelectionTarget {
@@ -53,7 +54,7 @@ export function resolveColorSelectionTarget(
   const globalTarget = resolveGlobalColorTarget(score.global.measures[target.measureIndex], target.elementType);
   if (globalTarget) return globalTarget;
   if (target.elementType === "clef") {
-    const clef = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs?.[0]?.clef;
+    const clef = resolveSelectedClefEntry(score, target)?.clefEntry.clef;
     return clef ? { kind: "clef", label: "clef", color: clef.color } : null;
   }
   if (
@@ -90,7 +91,7 @@ function getColorable(
     case "coda":
       return globalMeasure.coda!;
     case "clef":
-      return score.parts[target.partIndex]!.measures[target.measureIndex]!.clefs![0]!.clef;
+      return score.parts[target.partIndex]!.measures[target.measureIndex]!.clefs![target.clefIndex ?? 0]!.clef;
     case "grace": {
       const content =
         score.parts[target.partIndex]!.measures[target.measureIndex]!.sequences[target.sequenceIndex!]!.content[

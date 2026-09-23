@@ -20,6 +20,7 @@ import {
 import { parseElementType } from "../score/elementTypes";
 import { setSlurProperties, setTieProperties } from "./noteCommands";
 import { setGlissandoProperties } from "./glissandoCommands";
+import { parseClefElementId } from "../score/clefElementId";
 
 import { applyLayoutOverrides, type LayoutOverrideParams } from "./layoutCommands";
 import { produce } from "../score/scoreClone";
@@ -30,6 +31,7 @@ export interface NotationSelectionTarget {
   elementType: string;
   partIndex: number;
   measureIndex: number;
+  clefIndex?: number;
   sequenceIndex?: number;
   eventIndex?: number;
   /** If the event is inside a tuplet, the index of the tuplet in seq.content. */
@@ -170,13 +172,15 @@ export function resolveNotationSelectionTarget(selection: Selection, score: Scor
     return null;
   }
   const partMatch = elementId.match(/(?:^|\/)p(\d+)(?:\/|$)/);
+  const clefLocation = parseClefElementId(elementId);
   const tokens = elementId.split("/");
-  const elementType = tokens[tokens.length - 1] ?? "measure";
+  const elementType = clefLocation ? "clef" : (tokens[tokens.length - 1] ?? "measure");
   return {
     elementId,
     elementType,
     partIndex: partMatch ? Number.parseInt(partMatch[1]!, 10) : 0,
     measureIndex: Number.parseInt(measureMatch[1]!, 10),
+    ...(clefLocation ? { clefIndex: clefLocation.clefIndex } : {}),
   };
 }
 

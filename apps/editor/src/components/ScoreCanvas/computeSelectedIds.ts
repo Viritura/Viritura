@@ -2,6 +2,7 @@ import type { Score } from "@viritura/core";
 import type { SpatialIndex } from "@viritura/renderer";
 import { resolveRangeElementIds } from "../../store/selectionUtils";
 import { measureRepeatElementIdsForSelection } from "../../commands/measureRepeatCommands";
+import { buildClefElementId, parseClefElementId } from "../../score/clefElementId";
 import type { Selection } from "../../store/selectionStore";
 
 /**
@@ -17,6 +18,10 @@ export function computeSelectedIds(
   const ids = new Set<string>();
   if (selection.kind === "single") {
     ids.add(selection.elementId);
+    const clefLocation = parseClefElementId(selection.elementId);
+    if (clefLocation && clefLocation.clefIndex > 0) {
+      ids.add(buildClefElementId(clefLocation.partIndex, clefLocation.measureIndex, 0));
+    }
     return ids;
   }
   if (selection.kind === "multi") {

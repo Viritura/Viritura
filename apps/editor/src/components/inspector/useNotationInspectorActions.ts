@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import {
   setBarline,
-  setClefHidden,
   setRepeatStart,
   setRepeatEnd,
   type Barline as BarlineModel,
@@ -18,6 +17,7 @@ import {
 } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
 import { useDynamicGroupHandlers, type DynamicGroupHandlers } from "./useDynamicGroupHandlers";
+import { setClefHiddenForSelection } from "../../commands/clefCommands";
 import {
   setAnnotationOffsetAxisInScore,
   setAnnotationAvoidCollisionsInScore,
@@ -537,14 +537,15 @@ export interface ClefHandlers {
 export function useClefHandlers({ score, target, updateScore }: SelectionArgs, isClefSelected: boolean): ClefHandlers {
   const clefHidden = useMemo(() => {
     if (!isClefSelected || !target || !score) return false;
-    const clefs = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs;
-    return clefs !== undefined && clefs.length > 0 && clefs.every((entry) => entry.clef.hide === true);
+    const clef = score.parts[target.partIndex]?.measures[target.measureIndex]?.clefs?.[target.clefIndex ?? 0]?.clef;
+    return clef?.hide === true;
   }, [isClefSelected, target, score]);
 
   const handleClefHiddenChange = useCallback(
     (hidden: boolean) => {
       if (!target || !score) return;
-      updateScore(setClefHidden(score, target.measureIndex, target.partIndex, hidden));
+      const nextScore = setClefHiddenForSelection(score, target, hidden);
+      if (nextScore !== score) updateScore(nextScore);
     },
     [target, score, updateScore],
   );
