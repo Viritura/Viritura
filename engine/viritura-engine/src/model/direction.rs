@@ -306,15 +306,21 @@ pub struct Ottava {
     pub orient: Option<crate::model::Orientation>,
 }
 
-/// Caesura style variants — aliased to the Viritura vendor `caesura-style` schema.
-pub use crate::raw_viritura::CaesuraStyle;
+/// Caesura style variants (MNX `caesura-shape` — native since schema v36).
+pub use crate::raw::CaesuraShape as CaesuraStyle;
 
-/// A caesura (break) on a global measure (Viritura extension).
+/// A caesura (break) marking on an event (native MNX since schema v36).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Caesura {
     /// Style variant (default: Normal).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<CaesuraStyle>,
+    /// Number of strokes (1 or 2; default: 2). SMuFL defines a single-stroke
+    /// glyph (`caesuraSingleStroke`) but no shape-specific single-stroke
+    /// variants, so `marks: 1` only renders distinctly for "normal"/"short"
+    /// shapes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub marks: Option<u8>,
 }
 
 /// Piano pedal type — aliased to the Viritura vendor `pedal-type` schema.

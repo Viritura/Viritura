@@ -1075,7 +1075,9 @@ fn test_parse_global_measure_vendor_extensions_coda() {
 }
 
 #[test]
-fn test_parse_event_markings_vendor_extensions_caesura() {
+fn test_parse_event_markings_ignores_legacy_vendor_extension_caesura() {
+    // MNX has not declared a stable version, so Viritura does not support the
+    // legacy `_x.viritura.caesura` form now that caesura is native MNX (schema v36+).
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
@@ -1090,13 +1092,9 @@ fn test_parse_event_markings_vendor_extensions_caesura() {
         .as_event()
         .expect("Expected event");
     let m = e.markings.as_ref().expect("Expected markings");
-    let caesura = m
-        .caesura
-        .as_ref()
-        .expect("Expected caesura on event markings");
-    assert_eq!(
-        caesura.style,
-        Some(crate::model::direction::CaesuraStyle::Thick)
+    assert!(
+        m.caesura.is_none(),
+        "Legacy vendor-extension caesura should no longer be read"
     );
 }
 

@@ -189,6 +189,29 @@
       "enum": ["comma", "tick", "upbow", "salzedo", "auto"],
       "type": "string"
     },
+    "caesura": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/global-attrs"
+        }
+      ],
+      "properties": {
+        "marks": {
+          "$ref": "#/$defs/positive-integer",
+          "maximum": 2,
+          "minimum": 1
+        },
+        "shape": {
+          "$ref": "#/$defs/caesura-shape"
+        }
+      },
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "caesura-shape": {
+      "enum": ["normal", "thick", "short", "curved"],
+      "type": "string"
+    },
     "clef": {
       "allOf": [
         {
@@ -220,7 +243,7 @@
       "unevaluatedProperties": false
     },
     "clef-sign": {
-      "enum": ["C", "F", "G"],
+      "enum": ["C", "F", "G", "P"],
       "type": "string"
     },
     "color": {
@@ -466,6 +489,9 @@
         },
         "breath": {
           "$ref": "#/$defs/breath-mark"
+        },
+        "caesura": {
+          "$ref": "#/$defs/caesura"
         },
         "softAccent": {
           "$ref": "#/$defs/soft-accent"
@@ -2269,7 +2295,7 @@
       "type": "string"
     }
   },
-  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
+  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/37",
   "$ref": "#/$defs/root",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "An encoding of Common Western Music Notation.",

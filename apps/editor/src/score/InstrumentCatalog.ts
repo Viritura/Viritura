@@ -26,7 +26,7 @@ export const FAMILY_META: Record<InstrumentFamily, { label: string; order: numbe
 export interface ClefDef {
   sign: string;
   staffPosition: number;
-  /** Optional SMuFL glyph override (e.g. "unpitchedPercussionClef1"). */
+  /** Optional SMuFL glyph override for a non-default clef appearance. */
   glyph?: string;
 }
 

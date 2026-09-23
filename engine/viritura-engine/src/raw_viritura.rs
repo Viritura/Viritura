@@ -180,139 +180,6 @@ impl ::std::convert::TryFrom<::std::string::String> for ArpeggioDirection {
         value.parse()
     }
 }
-///A caesura (grand pause / railroad tracks) on an event marking.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "A caesura (grand pause / railroad tracks) on an event marking.",
-///  "type": "object",
-///  "properties": {
-///    "style": {
-///      "description": "Caesura style variant. Default: 'normal'.",
-///      "type": "string",
-///      "enum": [
-///        "normal",
-///        "thick",
-///        "short",
-///        "curved"
-///      ]
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct Caesura {
-    ///Caesura style variant. Default: 'normal'.
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub style: ::std::option::Option<CaesuraStyle>,
-}
-impl ::std::convert::From<&Caesura> for Caesura {
-    fn from(value: &Caesura) -> Self {
-        value.clone()
-    }
-}
-impl ::std::default::Default for Caesura {
-    fn default() -> Self {
-        Self { style: Default::default() }
-    }
-}
-///Caesura style variant. Default: 'normal'.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "Caesura style variant. Default: 'normal'.",
-///  "type": "string",
-///  "enum": [
-///    "normal",
-///    "thick",
-///    "short",
-///    "curved"
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(
-    ::serde::Deserialize,
-    ::serde::Serialize,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    Hash,
-    Ord,
-    PartialEq,
-    PartialOrd
-)]
-pub enum CaesuraStyle {
-    #[serde(rename = "normal")]
-    Normal,
-    #[serde(rename = "thick")]
-    Thick,
-    #[serde(rename = "short")]
-    Short,
-    #[serde(rename = "curved")]
-    Curved,
-}
-impl ::std::convert::From<&Self> for CaesuraStyle {
-    fn from(value: &CaesuraStyle) -> Self {
-        value.clone()
-    }
-}
-impl ::std::fmt::Display for CaesuraStyle {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        match *self {
-            Self::Normal => f.write_str("normal"),
-            Self::Thick => f.write_str("thick"),
-            Self::Short => f.write_str("short"),
-            Self::Curved => f.write_str("curved"),
-        }
-    }
-}
-impl ::std::str::FromStr for CaesuraStyle {
-    type Err = self::error::ConversionError;
-    fn from_str(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        match value {
-            "normal" => Ok(Self::Normal),
-            "thick" => Ok(Self::Thick),
-            "short" => Ok(Self::Short),
-            "curved" => Ok(Self::Curved),
-            _ => Err("invalid value".into()),
-        }
-    }
-}
-impl ::std::convert::TryFrom<&str> for CaesuraStyle {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &str,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<&::std::string::String> for CaesuraStyle {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: &::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
-impl ::std::convert::TryFrom<::std::string::String> for CaesuraStyle {
-    type Error = self::error::ConversionError;
-    fn try_from(
-        value: ::std::string::String,
-    ) -> ::std::result::Result<Self, self::error::ConversionError> {
-        value.parse()
-    }
-}
 ///Harmonic quality of a chord symbol.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1591,9 +1458,6 @@ impl ::std::default::Default for EventExtensions {
 ///    "arpeggio": {
 ///      "$ref": "#/$defs/arpeggio"
 ///    },
-///    "caesura": {
-///      "$ref": "#/$defs/caesura"
-///    },
 ///    "fingerings": {
 ///      "description": "Fingering annotations.",
 ///      "type": "array",
@@ -1637,8 +1501,6 @@ impl ::std::default::Default for EventExtensions {
 pub struct EventMarkingsExtensions {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arpeggio: ::std::option::Option<Arpeggio>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub caesura: ::std::option::Option<Caesura>,
     ///Fingering annotations.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub fingerings: ::std::vec::Vec<Fingering>,
@@ -1665,7 +1527,6 @@ impl ::std::default::Default for EventMarkingsExtensions {
     fn default() -> Self {
         Self {
             arpeggio: Default::default(),
-            caesura: Default::default(),
             fingerings: Default::default(),
             ornaments: Default::default(),
             staccatissimo_wedge: Default::default(),
@@ -9544,9 +9405,6 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "arpeggio": {
 ///      "$ref": "#/$defs/arpeggio"
 ///    },
-///    "caesura": {
-///      "$ref": "#/$defs/caesura"
-///    },
 ///    "chord-quality": {
 ///      "$ref": "#/$defs/chord-quality"
 ///    },
@@ -9806,8 +9664,6 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 pub struct VirituraExtensionsRoot {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub arpeggio: ::std::option::Option<Arpeggio>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub caesura: ::std::option::Option<Caesura>,
     #[serde(
         rename = "chord-quality",
         default,
@@ -10296,7 +10152,6 @@ impl ::std::default::Default for VirituraExtensionsRoot {
     fn default() -> Self {
         Self {
             arpeggio: Default::default(),
-            caesura: Default::default(),
             chord_quality: Default::default(),
             chord_root: Default::default(),
             chord_symbol: Default::default(),

@@ -228,7 +228,7 @@ fn collect_event_facts(
         max_entry(
             &mut snapshot.caesura_widths,
             source.key,
-            smufl::glyph_bbox(smufl::caesura_glyph(&caesura.style)).2,
+            smufl::glyph_bbox(smufl::caesura_glyph(&caesura.style, caesura.marks)).2,
         );
     }
     if event.is_rest() {

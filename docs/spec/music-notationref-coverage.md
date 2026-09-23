@@ -1,12 +1,12 @@
 # Music Notation Reference coverage audit
 
-<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"92f714347d3f721a4f61477cc9665b542ced9be1","musicXmlCommit":"1380e6a9ac61d54ae695cab2c8fc94bba82d101b","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-19","virituraAuditedAt":"2026-09-13"} -->
+<!-- notationref-audit-meta {"taxonomyCommit":"7aca090091a3f25f5ee726ba1f124612f3d39677","mnxCommit":"7dd6d0316fd9bd19327e79f622e729dcfe790012","musicXmlCommit":"0e07478fa86d6b7561e2e5a3f9f037ceb310018c","virituraCommit":"e75616c4c65eeffd62134e54e729c0f978f6b5e3","upstreamSyncedAt":"2026-09-23","virituraAuditedAt":"2026-09-13"} -->
 
 > Taxonomy: [`music-notationref@7aca090`](https://github.com/w3c-cg/music-notationref/commit/7aca090091a3f25f5ee726ba1f124612f3d39677)
-> · MNX matrix: [`mnx@92f7143`](https://github.com/w3c-cg/mnx/commit/92f714347d3f721a4f61477cc9665b542ced9be1)
-> · MusicXML matrix: [`musicxml@1380e6a`](https://github.com/w3c-cg/musicxml/commit/1380e6a9ac61d54ae695cab2c8fc94bba82d101b)
+> · MNX matrix: [`mnx@7dd6d03`](https://github.com/w3c-cg/mnx/commit/7dd6d0316fd9bd19327e79f622e729dcfe790012)
+> · MusicXML matrix: [`musicxml@0e07478`](https://github.com/w3c-cg/musicxml/commit/0e07478fa86d6b7561e2e5a3f9f037ceb310018c)
 > · Viritura source: [`e75616c`](https://github.com/Viritura/Viritura/commit/e75616c4c65eeffd62134e54e729c0f978f6b5e3)
-> · Upstream synced 2026-09-19; Viritura audited 2026-09-13.
+> · Upstream synced 2026-09-23; Viritura audited 2026-09-13.
 
 This source-first audit maps every visible leaf row in the W3C Music Notation
 Reference to the current Viritura MNX ingest/model/engraving pipeline and the
@@ -65,19 +65,19 @@ or round-trip support unless a row note says so.
 
 | Matrix                         |   S |   P |   N |  NA |   ? |
 | ------------------------------ | --: | --: | --: | --: | --: |
-| Upstream MNX                   | 304 |  29 | 518 |   0 |   1 |
+| Upstream MNX                   | 307 |  29 | 515 |   0 |   1 |
 | Upstream MusicXML              | 673 | 126 |  53 |   0 |   0 |
-| Viritura MNX pipeline          | 437 |  85 | 330 |   0 |   0 |
-| Viritura MusicXML/MXL importer | 275 |  91 | 436 |  50 |   0 |
+| Viritura MNX pipeline          | 438 |  84 | 330 |   0 |   0 |
+| Viritura MusicXML/MXL importer | 277 |  90 | 435 |  50 |   0 |
 
 ### Viritura coverage by taxonomy group
 
 | Group             | Rows | MNX pipeline S/P/N/? | MXL import S/P/N/NA/? |
 | ----------------- | ---: | -------------------: | --------------------: |
-| Notes             |  344 |         187/28/129/0 |       102/56/152/34/0 |
+| Notes             |  344 |         187/28/129/0 |       104/55/151/34/0 |
 | Rhythms           |   46 |             38/5/3/0 |           31/2/12/1/0 |
 | Rests             |   30 |             23/2/5/0 |            21/0/8/1/0 |
-| Measures          |  104 |            65/5/34/0 |           52/0/46/6/0 |
+| Measures          |  104 |            66/4/34/0 |           52/0/46/6/0 |
 | Voices and layers |    6 |              4/0/2/0 |             2/0/2/2/0 |
 | Structure         |  117 |           63/21/33/0 |          24/24/67/2/0 |
 | Instruments       |    8 |              5/1/2/0 |             4/0/3/1/0 |
@@ -253,8 +253,8 @@ or round-trip support unless a row note says so.
 | Markings (articulations, ornaments, etc.) &gt; Fermatas                          | Text attached to fermata (e.g., duration indication)                           | `event-fermata-text`                     |  N  |    N     |      N       |      N       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Breath mark                                                                    | `event-breath`                           |  S  |    S     |      S       |      S       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Breath mark symbol (comma, tick, Salzedo, etc.)                                | `event-breath-symbol`                    |  S  |    S     |      S       |      N       | -                                                                                                                                                                                                                                               |
-| Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Caesura (railroad tracks)                                                      | `event-caesura`                          |  N  |    S     |      S       |      P       | Viritura MXL [Extension required]: caesura read only into vendor extension ('dropped — enable vendor extensions')                                                                                                                               |
-| Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Caesura type (normal, thick, short, curved)                                    | `event-caesura-type`                     |  N  |    S     |      S       |      N       | -                                                                                                                                                                                                                                               |
+| Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Caesura (railroad tracks)                                                      | `event-caesura`                          |  N  |    S     |      S       |      S       | -                                                                                                                                                                                                                                               |
+| Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Caesura type (normal, thick, short, curved)                                    | `event-caesura-type`                     |  N  |    S     |      S       |      S       | -                                                                                                                                                                                                                                               |
 | Markings (articulations, ornaments, etc.) &gt; Breath marks and caesuras         | Caesura placement (between notes vs. at barline)                               | `event-caesura-placement`                |  N  |    S     |      P       |      N       | Viritura MNX [Semantic gap]: event placement works, barline placement does not                                                                                                                                                                  |
 | Markings (articulations, ornaments, etc.) &gt; Ornaments                         | Trill (tr)                                                                     | `event-trill`                            |  N  |    S     |      S       |      P       | Viritura MXL [Semantic gap]: vendor-ext gated (stored in \_x.viritura.trill)                                                                                                                                                                    |
 | Markings (articulations, ornaments, etc.) &gt; Ornaments                         | Trill with accidental on auxiliary note                                        | `event-trill-accidental`                 |  N  |    S     |      S       |      P       | Viritura MXL [Extension required]: accidental-mark folds onto the trill extension when vendor extensions are enabled                                                                                                                            |
@@ -568,10 +568,10 @@ or round-trip support unless a row note says so.
 | Clefs &gt; Octave-transposing clefs                                  | F4 ottava bassa (contrabass, etc.)                                          | `clef-type-f4-8vb`                    |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Octave-transposing clefs                                  | F4 ottava alta                                                              | `clef-type-f4-8va`                    |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Octave-transposing clefs                                  | C clef with octave transposition                                            | `clef-type-c-octave`                  |  S  |    S     |      S       |      S       | -                                                                                        |
-| Clefs &gt; Special clefs                                             | Percussion clef (two vertical bars)                                         | `clef-type-percussion`                |  N  |    S     |      S       |      S       | -                                                                                        |
-| Clefs &gt; Special clefs                                             | Single-line percussion clef                                                 | `clef-type-percussion-single`         |  N  |    P     |      P       |      N       | Viritura MNX [Semantic gap]: percussion clef glyph works, but one-line staves do not     |
+| Clefs &gt; Special clefs                                             | Percussion clef (two vertical bars)                                         | `clef-type-percussion`                |  S  |    S     |      S       |      S       | -                                                                                        |
+| Clefs &gt; Special clefs                                             | Single-line percussion clef                                                 | `clef-type-percussion-single`         |  S  |    P     |      S       |      N       | -                                                                                        |
 | Clefs &gt; Special clefs                                             | Tablature clef (TAB)                                                        | `clef-type-tab`                       |  N  |    S     |      N       |      N       | -                                                                                        |
-| Clefs &gt; Special clefs                                             | No clef / invisible clef                                                    | `clef-type-none`                      |  N  |    S     |      N       |      N       | -                                                                                        |
+| Clefs &gt; Special clefs                                             | No clef / invisible clef                                                    | `clef-type-none`                      |  S  |    S     |      N       |      N       | -                                                                                        |
 | Clefs &gt; Special clefs                                             | Arbitrary clef sign on arbitrary staff line                                 | `clef-type-arbitrary`                 |  P  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Clef positions                                            | Initial clef (start of piece / start of each system)                        | `clef-position-initial`               |  S  |    S     |      S       |      S       | -                                                                                        |
 | Clefs &gt; Clef positions                                            | Clef change at start of bar                                                 | `clef-position-bar-start`             |  S  |    S     |      S       |      S       | -                                                                                        |

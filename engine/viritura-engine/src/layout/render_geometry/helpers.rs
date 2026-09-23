@@ -296,6 +296,7 @@ pub(crate) fn compute_measure_bboxes(
                     ClefSign::G => (smufl::G_CLEF, 3.0),
                     ClefSign::F => (smufl::F_CLEF, 1.0),
                     ClefSign::C => (smufl::C_CLEF, 2.0),
+                    ClefSign::P => (smufl::UNPITCHED_PERCUSSION_CLEF_1, 2.0),
                 };
                 let clef_x = ml.x + 0.5 * sp;
                 let clef_y = staff_y + y_offset * sp;

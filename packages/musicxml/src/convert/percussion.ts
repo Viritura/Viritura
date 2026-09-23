@@ -11,16 +11,17 @@ import type {
 } from "../types";
 import type { PercussionImportReview } from "./convertMusicXmlToMnx";
 
-// The glyph the converter stamps on an MNX clef when the MusicXML clef sign is
-// `percussion` (see `clefFromElement` in pitchDuration.ts). A part is treated
-// as an unpitched-percussion (drum-kit) part when any of its clefs use it.
-const PERCUSSION_CLEF_GLYPH = "unpitchedPercussionClef1";
+// A part is treated as an unpitched-percussion (drum-kit) part when any of
+// its clefs use the native MNX percussion sign (see `clefFromElement` in
+// pitchDuration.ts).
 
-// Diatonic position of G4 (the reference the converter's percussion clef
-// inherits — it is emitted as `{ sign: "G", staffPosition: 0 }`). The engine
-// places a pitched note at `4 - (diatonic - 32)` half-spaces from the top line
-// on that clef, and a kit-component at `4 - staffPosition`. Matching the two
-// gives `staffPosition = diatonic - 32`, preserving the rendered position.
+// Diatonic position of G4 (the reference the converter's kit-component
+// positions are computed relative to — this is independent of the clef sign,
+// since kit-note `staffPosition` is placed directly by the engine rather than
+// resolved against the clef's pitch reference). The engine places a
+// kit-component at `4 - staffPosition` half-spaces from the top line, so
+// `staffPosition = diatonic - 32` preserves the rendered position seen in the
+// source MusicXML.
 const G4_DIATONIC = 32;
 
 const STEP_INDEX: Record<string, number> = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
@@ -151,7 +152,7 @@ function fixedGmForPart(info: PartInfo | undefined): number | undefined {
 }
 
 function isPercussionPart(part: MnxPart): boolean {
-  return part.measures.some((m) => m.clefs?.some((c) => c.clef.glyph === PERCUSSION_CLEF_GLYPH));
+  return part.measures.some((m) => m.clefs?.some((c) => c.clef.sign === "P"));
 }
 
 /** Walk every `MnxEvent` (recursing into grace, tuplet and tremolo content). */

@@ -12,7 +12,7 @@ const TREBLE: ClefDef = { sign: "G", staffPosition: -2 };
 const BASS: ClefDef = { sign: "F", staffPosition: 2 };
 const _ALTO: ClefDef = { sign: "C", staffPosition: 0 };
 const _TENOR: ClefDef = { sign: "C", staffPosition: 2 };
-const PERCUSSION_CLEF: ClefDef = { sign: "G", staffPosition: 0, glyph: "unpitchedPercussionClef1" };
+const PERCUSSION_CLEF: ClefDef = { sign: "P", staffPosition: 0 };
 
 export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
   // ═══ WOODWINDS ═══

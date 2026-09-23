@@ -79,7 +79,7 @@ fn test_caesura_is_selectable_with_exact_glyph_bounds() {
         "parts": [{"measures": [{"sequences": [{"content": [
             {"id": "pause", "duration": {"base": "whole"},
              "notes": [{"pitch": {"step": "C", "octave": 5}}],
-             "markings": {"_x": {"viritura": {"caesura": {}}}}}
+             "markings": {"caesura": {}}}
         ]}]}]}]
     }"#;
     let dl = layout_score(&parse_mnx(json).unwrap(), 0, &LayoutConfig::default());
@@ -118,7 +118,7 @@ fn test_caesura_above_staff() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}],
-                 "markings": {"_x": {"viritura": {"caesura": {}}}}}
+                 "markings": {"caesura": {}}}
             ]}]
         }]}]
     }"#;
@@ -169,7 +169,7 @@ fn test_caesura_default_style_is_normal() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}],
-                 "markings": {"_x": {"viritura": {"caesura": {}}}}}
+                 "markings": {"caesura": {}}}
             ]}]
         }]}]
     }"#;
@@ -199,7 +199,7 @@ fn test_caesura_near_measure_end() {
             "sequences": [{"content": [
                 {"duration": {"base": "whole"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}],
-                 "markings": {"_x": {"viritura": {"caesura": {}}}}}
+                 "markings": {"caesura": {}}}
             ]}]
         }]}]
     }"#;
@@ -242,7 +242,7 @@ fn test_caesura_breaks_beam_group() {
             "sequences": [{"content": [
                 {"id": "e1", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
                 {"id": "e2", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "D", "octave": 5}}],
-                 "markings": {"_x": {"viritura": {"caesura": {}}}}},
+                 "markings": {"caesura": {}}},
                 {"id": "e3", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "E", "octave": 5}}]},
                 {"id": "e4", "duration": {"base": "eighth"}, "notes": [{"pitch": {"step": "F", "octave": 5}}]}
             ]}]
@@ -266,7 +266,7 @@ fn test_caesura_reserves_horizontal_space() {
     // 8 quarter notes each carrying a caesura (8/4 time). A caesura reserves its
     // own horizontal footprint (like an accidental), so adjacent caesura glyphs
     // must not overlap and each must clear its preceding notehead.
-    let note = r#"{"duration": {"base": "quarter"}, "markings": {"_x": {"viritura": {"caesura": {}}}}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}"#;
+    let note = r#"{"duration": {"base": "quarter"}, "markings": {"caesura": {}}, "notes": [{"pitch": {"step": "E", "octave": 5}}]}"#;
     let eight_notes = std::iter::repeat_n(note, 8).collect::<Vec<_>>().join(", ");
     let json = format!(
         r#"{{
@@ -325,7 +325,7 @@ fn test_caesura_clears_next_note_accidental() {
             "sequences": [{"content": [
                 {"duration": {"base": "half"},
                  "notes": [{"pitch": {"step": "C", "octave": 5}}],
-                 "markings": {"_x": {"viritura": {"caesura": {}}}}},
+                 "markings": {"caesura": {}}},
                 {"duration": {"base": "half"},
                  "notes": [{"pitch": {"step": "B", "octave": 4, "alter": -1}}]}
             ]}]
@@ -391,7 +391,7 @@ fn test_caesura_ignores_centered_full_bar_rest_in_other_voice() {
                     {"duration": {"base": "quarter"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]},
                     {"duration": {"base": "eighth"},
                      "notes": [{"pitch": {"step": "D", "octave": 5}}],
-                     "markings": {"_x": {"viritura": {"caesura": {}}}}},
+                     "markings": {"caesura": {}}},
                     {"duration": {"base": "eighth"}, "rest": {}}
                 ]},
                 {"voice": "v2", "content": [
@@ -448,5 +448,86 @@ fn test_caesura_ignores_centered_full_bar_rest_in_other_voice() {
     assert!(
         caesura_x < eighth_rest_x,
         "Caesura (x={caesura_x:.1}) must sit BEFORE the following eighth rest (x={eighth_rest_x:.1})",
+    );
+}
+
+// ═══════════════════════════════════════════
+// Caesura `marks` tests — SMuFL only defines a single-stroke glyph
+// (caesuraSingleStroke, U+E4D7) with no shape-specific thick/curved
+// counterpart, so `marks: 1` only renders distinctly for normal/short.
+// ═══════════════════════════════════════════
+#[test]
+fn test_caesura_glyph_all_six_combinations() {
+    use crate::model::CaesuraStyle;
+
+    // 4 shapes at the default marks (2) use their standard double-stroke glyph.
+    assert_eq!(smufl::caesura_glyph(&None, None), smufl::CAESURA);
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Normal), Some(2)),
+        smufl::CAESURA
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Thick), None),
+        smufl::CAESURA_THICK
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Short), None),
+        smufl::CAESURA_SHORT
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Curved), None),
+        smufl::CAESURA_CURVED
+    );
+
+    // normal/short at marks: 1 use the single-stroke glyph.
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Normal), Some(1)),
+        smufl::CAESURA_SINGLE_STROKE
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&None, Some(1)),
+        smufl::CAESURA_SINGLE_STROKE
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Short), Some(1)),
+        smufl::CAESURA_SINGLE_STROKE
+    );
+
+    // thick/curved have no single-stroke counterpart; marks: 1 falls back to
+    // the shape's standard double-stroke glyph.
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Thick), Some(1)),
+        smufl::CAESURA_THICK
+    );
+    assert_eq!(
+        smufl::caesura_glyph(&Some(CaesuraStyle::Curved), Some(1)),
+        smufl::CAESURA_CURVED
+    );
+}
+
+#[test]
+fn test_caesura_native_marks_renders_single_stroke() {
+    // Native MNX caesura with shape: "normal" (implied) and marks: 1 should
+    // render the single-stroke glyph (U+E4D7), not the double-stroke default.
+    let json = r#"{
+        "mnx": {"version": 1},
+        "global": {"measures": [{"time": {"count": 4, "unit": 4}}]},
+        "parts": [{"measures": [{"sequences": [{"content": [
+            {"duration": {"base": "whole"},
+             "notes": [{"pitch": {"step": "C", "octave": 5}}],
+             "markings": {"caesura": {"marks": 1}}}
+        ]}]}]}]
+    }"#;
+
+    let score = parse_mnx(json).unwrap();
+    let dl = layout_score(&score, 0, &LayoutConfig::default());
+
+    let has_single_stroke = dl.commands.iter().any(|cmd| {
+        matches!(cmd, RenderCommand::DrawGlyph { codepoint, .. } if *codepoint == smufl::CAESURA_SINGLE_STROKE)
+    });
+
+    assert!(
+        has_single_stroke,
+        "marks: 1 on a normal-shape caesura should render the single-stroke glyph (U+E4D7)"
     );
 }

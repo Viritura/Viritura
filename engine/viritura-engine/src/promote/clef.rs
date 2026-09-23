@@ -15,12 +15,9 @@ pub(crate) fn promote_clef(raw: raw::Clef) -> Clef {
 }
 
 pub(crate) fn promote_clef_sign(raw: raw::ClefSign) -> ClefSign {
-    match raw {
-        raw::ClefSign::G => ClefSign::G,
-        raw::ClefSign::F => ClefSign::F,
-        raw::ClefSign::C => ClefSign::C,
-        // ClefSign::TAB exists in the model but not in MNX core — engine-only.
-    }
+    // `ClefSign` is aliased directly to `raw::ClefSign`, so this is an
+    // identity mapping kept for promotion-layer symmetry with other fields.
+    raw
 }
 
 pub(crate) fn promote_positioned_clef(raw: raw::PositionedClef) -> PositionedClef {

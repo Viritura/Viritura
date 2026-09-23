@@ -211,19 +211,6 @@
       "additionalProperties": false
     },
 
-    "caesura": {
-      "type": "object",
-      "description": "A caesura (grand pause / railroad tracks) on an event marking.",
-      "properties": {
-        "style": {
-          "type": "string",
-          "enum": ["normal", "thick", "short", "curved"],
-          "description": "Caesura style variant. Default: 'normal'."
-        }
-      },
-      "additionalProperties": false
-    },
-
     "dynamic-group-extensions": {
       "type": "object",
       "description": "Viritura engraving placement extensions on a standard MNX dynamic-group object.",
@@ -774,7 +761,6 @@
           "items": { "$ref": "#/$defs/fingering" },
           "description": "Fingering annotations."
         },
-        "caesura": { "$ref": "#/$defs/caesura" },
         "arpeggio": { "$ref": "#/$defs/arpeggio" }
       },
       "additionalProperties": false

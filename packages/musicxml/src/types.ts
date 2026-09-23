@@ -1,4 +1,4 @@
-// ─── MNX document output types (schema version 35) ──────────────────
+// ─── MNX document output types (schema version 36) ──────────────────
 
 import type { ChordSymbol, DynamicGroup, Part } from "@viritura/core";
 
@@ -268,6 +268,9 @@ export interface MnxEventMarkings {
   unstress?: Record<string, unknown>;
   breath?: Record<string, unknown>;
   tremolo?: { marks: number };
+  /** Native MNX caesura (schema v36). `shape` defaults to "normal" and
+   *  `marks` defaults to 2 when omitted. */
+  caesura?: { shape?: "thick" | "short" | "curved"; marks?: 1 };
   // Vendor extensions for features not in MNX spec
   _x?: { viritura: Record<string, unknown> };
 }

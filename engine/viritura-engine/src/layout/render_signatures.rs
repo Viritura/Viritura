@@ -51,6 +51,9 @@ fn clef_glyph_and_offset(clef: &Clef) -> (u32, f64) {
             // C clef: staffPosition is in half-spaces from center line.
             // Alto (0) → y=2.0, Tenor (2) → y=1.0
             ClefSign::C => (smufl::C_CLEF, 2.0 - clef.staff_position as f64 * 0.5),
+            // Percussion clef (two thick vertical bars): symmetric glyph
+            // centered on the staff middle line.
+            ClefSign::P => (smufl::UNPITCHED_PERCUSSION_CLEF_1, 2.0),
         }
     }
 }

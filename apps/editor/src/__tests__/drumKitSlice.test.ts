@@ -38,7 +38,7 @@ describe("buildKitSliceMnx", () => {
     // Sounds carry the chosen MIDI keys.
     expect(slice.global.sounds["snd-crash"].midiNumber).toBe(49);
     // Percussion clef present.
-    expect(part.measures[0].clefs[0].clef.glyph).toBe("unpitchedPercussionClef1");
+    expect(part.measures[0].clefs[0].clef.sign).toBe("P");
   });
 
   it("emits a whole rest when there are no components so the staff still renders", () => {

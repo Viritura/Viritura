@@ -5,9 +5,11 @@
 // note-value, lyrics, slur, event-markings, rest, written, accidental-
 // display) now consume the generated Raw* types. Vendor-extension
 // blocks under `_x.viritura` (glissandos, slur shape overrides, trill,
-// ornaments, arpeggio direction, caesura style, fingerings, staccatissimo
-// wedge) keep narrow VendorObj casts because the MNX schema deliberately
-// leaves vendor dicts opaque.
+// ornaments, arpeggio direction, fingerings, staccatissimo wedge) keep
+// narrow VendorObj casts because the MNX schema deliberately leaves vendor
+// dicts opaque. Caesura is native as of MNX schema version 36; the legacy
+// `_x.viritura.caesura` vendor form is no longer read (MNX has not yet
+// declared a stable version, so pre-v36 documents are not supported).
 
 import type {
   NoteEvent,
@@ -315,6 +317,11 @@ function parseStandardMarkings(raw: RawEventMarkings, m: Markings): void {
     m.breath = parseOrient(b);
     if (b.symbol) m.breath.symbol = b.symbol as BreathMarkSymbol;
   }
+  if (raw.caesura !== undefined) {
+    m.caesura = {};
+    if (raw.caesura.shape) m.caesura.style = raw.caesura.shape as CaesuraStyle;
+    if (raw.caesura.marks) m.caesura.marks = raw.caesura.marks as 1 | 2;
+  }
   if (raw.bowDirection !== undefined) {
     const bd = raw.bowDirection;
     m.bowDirection = {
@@ -351,10 +358,6 @@ function parseVirituraMarkings(viritura: RawEventMarkingsExt, m: Markings): void
   if (arpeggio !== undefined) {
     m.arpeggio = {};
     if (arpeggio.direction) m.arpeggio.direction = arpeggio.direction as ArpeggioDirection;
-  }
-  if (viritura.caesura !== undefined) {
-    m.caesura = {};
-    if (viritura.caesura.style) m.caesura.style = viritura.caesura.style as CaesuraStyle;
   }
   if (viritura.fingerings !== undefined) {
     m.fingerings = viritura.fingerings.map((f) => ({ finger: f.finger }));

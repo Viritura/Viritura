@@ -232,7 +232,7 @@ pub(crate) fn render_caesuras(
                 None => continue,
             };
 
-            let codepoint = smufl::caesura_glyph(&caesura.style);
+            let codepoint = smufl::caesura_glyph(&caesura.style, caesura.marks);
             let (_, glyph_yoff, glyph_w, glyph_h) = smufl::glyph_bbox(codepoint);
             let next = next_event_after(ml, vl.events.beat_position(i));
             let next_x = next.as_ref().map(|ev| ev.x).unwrap_or(ml.x + ml.width);

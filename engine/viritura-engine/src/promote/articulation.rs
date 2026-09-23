@@ -212,10 +212,6 @@ pub(crate) fn promote_fingering(r: raw_viritura::Fingering) -> ModelFingering {
     }
 }
 
-pub(crate) fn promote_caesura(r: raw_viritura::Caesura) -> ModelCaesura {
-    ModelCaesura { style: r.style }
-}
-
 pub(crate) fn promote_staccatissimo_wedge(
     r: raw_viritura::EventMarkingsExtensionsStaccatissimoWedge,
 ) -> ModelStaccatissimoWedge {
@@ -274,7 +270,7 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
         .as_ref()
         .and_then(|json| serde_json::from_value(serde_json::Value::Object(json.clone())).ok());
 
-    let (staccatissimo_wedge, trill, ornaments, caesura, fingerings) = match ext {
+    let (staccatissimo_wedge, trill, ornaments, fingerings) = match ext {
         Some(e) => (
             e.staccatissimo_wedge.map(promote_staccatissimo_wedge),
             e.trill.map(promote_trill),
@@ -283,15 +279,22 @@ pub(crate) fn promote_markings(r: raw::EventMarkings) -> ModelMarkings {
             } else {
                 Some(e.ornaments.into_iter().map(promote_ornament_type).collect())
             },
-            e.caesura.map(promote_caesura),
             if e.fingerings.is_empty() {
                 None
             } else {
                 Some(e.fingerings.into_iter().map(promote_fingering).collect())
             },
         ),
-        None => (None, None, None, None, None),
+        None => (None, None, None, None),
     };
+    // Caesura is native MNX (schema v36+); MNX has not declared a stable
+    // version, so the legacy `_x.viritura.caesura` vendor form is
+    // intentionally not read. `CaesuraStyle` is aliased directly to the
+    // native `raw::CaesuraShape` enum, so no per-variant mapping is needed.
+    let caesura = r.caesura.map(|c| ModelCaesura {
+        style: c.shape,
+        marks: c.marks.map(|m| u8::try_from(i64::from(m)).unwrap_or(2)),
+    });
 
     // Arpeggio is a Viritura-only marking not yet expressed in the
     // viritura-extensions schema. Pull it straight off the raw JSON map

@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-/// Clef sign type — aliased to the MNX `clef-sign` schema (G, F, C).
+/// Clef sign type — aliased to the MNX `clef-sign` schema (G, F, C, P).
 pub use crate::raw::ClefSign;
 
 /// A clef definition (MNX-aligned).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Clef {
-    /// Clef sign: G (treble), F (bass), C (alto/tenor)
+    /// Clef sign: G (treble), F (bass), C (alto/tenor), P (percussion — unpitched)
     pub sign: ClefSign,
     /// Staff position in half-spaces from center line.
     /// G clef (treble) = -2, F clef (bass) = 2
@@ -63,14 +63,17 @@ impl Clef {
     }
 
     /// Get the diatonic position of the reference note for this clef.
-    /// G clef: G4 (diatonic 32), F clef: F3 (diatonic 24), C clef: C4 (diatonic 28)
+    /// G clef: G4 (diatonic 32), F clef: F3 (diatonic 24), C clef: C4 (diatonic 28).
+    /// Percussion (P) clefs have no pitch reference; pitched notes under a P
+    /// clef (an unusual but structurally valid combination) fall back to the
+    /// same neutral middle-line reference as a C clef.
     /// When `octave` is set, shifts the reference by 7 per octave
     /// (e.g. G clef octave=-1 → G3 = 25, making notes display an octave higher).
     pub fn reference_diatonic(&self) -> i32 {
         let base = match self.sign {
-            ClefSign::G => 4 * 7 + 4, // G4 = 32
-            ClefSign::F => 3 * 7 + 3, // F3 = 24
-            ClefSign::C => 4 * 7,     // C4 = 28
+            ClefSign::G => 4 * 7 + 4,           // G4 = 32
+            ClefSign::F => 3 * 7 + 3,           // F3 = 24
+            ClefSign::C | ClefSign::P => 4 * 7, // C4 = 28
         };
         let octave_shift = self.octave.unwrap_or(0) * 7;
         base + octave_shift

@@ -618,6 +618,12 @@ function serializeSpecMarkings(m: Markings): Obj {
     if (m.breath.symbol) b["symbol"] = m.breath.symbol;
     obj["breath"] = b;
   }
+  if (m.caesura !== undefined) {
+    const c: Obj = {};
+    if (m.caesura.style) c["shape"] = m.caesura.style;
+    if (m.caesura.marks) c["marks"] = m.caesura.marks;
+    obj["caesura"] = c;
+  }
   if (m.bowDirection !== undefined) {
     const bd: Obj = { direction: m.bowDirection.direction };
     if (m.bowDirection.orient) bd["orient"] = m.bowDirection.orient;
@@ -650,11 +656,6 @@ function serializeVendorMarkings(m: Markings): Obj {
     const a: Obj = {};
     if (m.arpeggio.direction) a["direction"] = m.arpeggio.direction;
     ext["arpeggio"] = a;
-  }
-  if (m.caesura !== undefined) {
-    const c: Obj = {};
-    if (m.caesura.style) c["style"] = m.caesura.style;
-    ext["caesura"] = c;
   }
   if (m.fingerings !== undefined && m.fingerings.length > 0) {
     ext["fingerings"] = m.fingerings.map((f) => ({ finger: f.finger }));

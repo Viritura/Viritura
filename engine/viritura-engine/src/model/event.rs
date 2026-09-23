@@ -460,7 +460,9 @@ pub struct Fingering {
 ///
 /// Standard MNX markings (staccato, accent, etc.) live at the top level.
 /// Viritura extensions (staccatissimo wedge, trill, ornaments, arpeggio,
-/// fingerings) are read from `_x.viritura` in the MNX JSON.
+/// fingerings) are read from `_x.viritura` in the MNX JSON. Caesura is
+/// native MNX (schema v36+); MNX has not declared a stable version, so the
+/// legacy `_x.viritura.caesura` form is intentionally not read.
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 #[serde(into = "MarkingsRaw")]
 pub struct Markings {
@@ -481,13 +483,13 @@ pub struct Markings {
     pub trill: Option<Trill>,
     pub ornaments: Option<Vec<OrnamentType>>,
     pub arpeggio: Option<Arpeggio>,
-    /// Caesura (break) marking (Viritura extension).
+    /// Caesura (break) marking (native MNX schema v36+).
     pub caesura: Option<Caesura>,
     /// Fingering annotations (digits placed near noteheads).
     pub fingerings: Option<Vec<Fingering>>,
 }
 
-// ── Serde helpers: map _x.viritura ↔ flat Markings fields ──
+// ── Serde helpers: map native markings and _x.viritura ↔ flat fields ──
 
 /// Raw JSON shape for EventMarkings (standard fields + `_x.viritura` nesting).
 #[derive(Serialize, Deserialize)]
@@ -514,6 +516,8 @@ struct MarkingsRaw {
     unstress: Option<Unstress>,
     #[serde(skip_serializing_if = "Option::is_none")]
     breath: Option<BreathMark>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    caesura: Option<NativeCaesura>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "bowDirection")]
     bow_direction: Option<BowDirection>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "_x")]
@@ -537,14 +541,24 @@ struct MarkingsVirituraExt {
     #[serde(skip_serializing_if = "Option::is_none")]
     arpeggio: Option<Arpeggio>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    caesura: Option<Caesura>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     fingerings: Option<Vec<Fingering>>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct NativeCaesura {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shape: Option<crate::model::direction::CaesuraStyle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    marks: Option<u8>,
 }
 
 impl From<MarkingsRaw> for Markings {
     fn from(raw: MarkingsRaw) -> Self {
-        let (staccatissimo_wedge, trill, ornaments, arpeggio, caesura, fingerings) = raw
+        let caesura = raw.caesura.map(|c| Caesura {
+            style: c.shape,
+            marks: c.marks,
+        });
+        let (staccatissimo_wedge, trill, ornaments, arpeggio, fingerings) = raw
             .vendor_ext
             .and_then(|v| v.viritura)
             .map(|h| {
@@ -553,7 +567,6 @@ impl From<MarkingsRaw> for Markings {
                     h.trill,
                     h.ornaments,
                     h.arpeggio,
-                    h.caesura,
                     h.fingerings,
                 )
             })
@@ -587,7 +600,6 @@ impl From<Markings> for MarkingsRaw {
             || m.staccatissimo_wedge.is_some()
             || m.ornaments.is_some()
             || m.arpeggio.is_some()
-            || m.caesura.is_some()
             || m.fingerings.is_some();
         MarkingsRaw {
             staccato: m.staccato,
@@ -602,6 +614,10 @@ impl From<Markings> for MarkingsRaw {
             unstress: m.unstress,
             breath: m.breath,
             bow_direction: m.bow_direction,
+            caesura: m.caesura.map(|c| NativeCaesura {
+                shape: c.style,
+                marks: c.marks,
+            }),
             vendor_ext: if has_ext {
                 Some(MarkingsVendorExt {
                     viritura: Some(MarkingsVirituraExt {
@@ -609,7 +625,6 @@ impl From<Markings> for MarkingsRaw {
                         trill: m.trill,
                         ornaments: m.ornaments,
                         arpeggio: m.arpeggio,
-                        caesura: m.caesura,
                         fingerings: m.fingerings,
                     }),
                 })

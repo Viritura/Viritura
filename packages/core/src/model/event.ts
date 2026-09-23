@@ -133,13 +133,18 @@ export type Arpeggio = Pick<RawArpeggio, "direction">;
 /** Arpeggio direction. */
 export type ArpeggioDirection = RawArpeggio["direction"];
 
-/** Caesura style variants. */
+/** Caesura style variants (MNX `caesura-shape`). */
 export type CaesuraStyle = "normal" | "thick" | "short" | "curved";
 
-/** A caesura (break) marking on an event (Viritura extension). */
+/** A caesura (break) marking on an event (native MNX since schema v36). */
 export interface Caesura {
   /** Style variant (default: "normal"). */
   style?: CaesuraStyle;
+  /** Number of strokes (default: 2). SMuFL only defines a single-stroke
+   *  glyph (`caesuraSingleStroke`), so `marks: 1` only renders distinctly
+   *  for the "normal"/"short" shapes; "thick"/"curved" fall back to their
+   *  standard double-stroke glyph regardless of `marks`. */
+  marks?: 1 | 2;
 }
 
 /** Fermata visual symbol (MNX `fermata-symbol`). Derived from MNX raw. */
@@ -207,7 +212,7 @@ export interface Markings {
   trill?: Trill;
   ornaments?: OrnamentType[];
   arpeggio?: Arpeggio;
-  /** Caesura (break) marking (Viritura extension). */
+  /** Caesura (break) marking (native MNX since schema v36). */
   caesura?: Caesura;
   /** Fingering annotations (digits placed near noteheads). */
   fingerings?: Fingering[];

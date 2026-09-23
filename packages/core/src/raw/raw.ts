@@ -56,6 +56,12 @@ export interface components {
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
         "breath-mark-symbol": "comma" | "tick" | "upbow" | "salzedo" | "auto";
+        caesura: {
+            marks?: components["schemas"]["positive-integer"];
+            shape?: components["schemas"]["caesura-shape"];
+        } & components["schemas"]["global-attrs"];
+        /** @enum {string} */
+        "caesura-shape": "normal" | "thick" | "short" | "curved";
         clef: {
             color?: components["schemas"]["simple-color"];
             glyph?: components["schemas"]["smufl-glyph"];
@@ -65,7 +71,7 @@ export interface components {
             staffPosition: components["schemas"]["staff-position"];
         } & components["schemas"]["global-attrs"];
         /** @enum {string} */
-        "clef-sign": "C" | "F" | "G";
+        "clef-sign": "C" | "F" | "G" | "P";
         color: string;
         "dynamic-group": {
             accentPrefix?: components["schemas"]["dynamic-prefix"];
@@ -131,6 +137,7 @@ export interface components {
             accent?: components["schemas"]["accent"];
             bowDirection?: components["schemas"]["bow-direction"];
             breath?: components["schemas"]["breath-mark"];
+            caesura?: components["schemas"]["caesura"];
             softAccent?: components["schemas"]["soft-accent"];
             spiccato?: components["schemas"]["spiccato"];
             staccatissimo?: components["schemas"]["staccatissimo"];
@@ -609,6 +616,8 @@ export type BowDirection = components["schemas"]["bow-direction"];
 export type Bpm = components["schemas"]["bpm"];
 export type BreathMark = components["schemas"]["breath-mark"];
 export type BreathMarkSymbol = components["schemas"]["breath-mark-symbol"];
+export type Caesura = components["schemas"]["caesura"];
+export type CaesuraShape = components["schemas"]["caesura-shape"];
 export type Clef = components["schemas"]["clef"];
 export type ClefSign = components["schemas"]["clef-sign"];
 export type Color = components["schemas"]["color"];

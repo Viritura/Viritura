@@ -1043,6 +1043,158 @@ impl ::std::convert::TryFrom<::std::string::String> for BreathMarkSymbol {
         value.parse()
     }
 }
+///`Caesura`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "allOf": [
+///    {
+///      "$ref": "#/$defs/global-attrs"
+///    }
+///  ],
+///  "properties": {
+///    "marks": {
+///      "$ref": "#/$defs/positive-integer"
+///    },
+///    "shape": {
+///      "$ref": "#/$defs/caesura-shape"
+///    }
+///  },
+///  "unevaluatedProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct Caesura {
+    #[serde(
+        rename = "_c",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub c: ::std::option::Option<String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub id: ::std::option::Option<Id>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub marks: ::std::option::Option<PositiveInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub shape: ::std::option::Option<CaesuraShape>,
+    #[serde(
+        rename = "_x",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub x: ::std::option::Option<VendorExtensions>,
+}
+impl ::std::convert::From<&Caesura> for Caesura {
+    fn from(value: &Caesura) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for Caesura {
+    fn default() -> Self {
+        Self {
+            c: Default::default(),
+            id: Default::default(),
+            marks: Default::default(),
+            shape: Default::default(),
+            x: Default::default(),
+        }
+    }
+}
+///`CaesuraShape`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "thick",
+///    "short",
+///    "curved"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum CaesuraShape {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "thick")]
+    Thick,
+    #[serde(rename = "short")]
+    Short,
+    #[serde(rename = "curved")]
+    Curved,
+}
+impl ::std::convert::From<&Self> for CaesuraShape {
+    fn from(value: &CaesuraShape) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for CaesuraShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Thick => f.write_str("thick"),
+            Self::Short => f.write_str("short"),
+            Self::Curved => f.write_str("curved"),
+        }
+    }
+}
+impl ::std::str::FromStr for CaesuraShape {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "thick" => Ok(Self::Thick),
+            "short" => Ok(Self::Short),
+            "curved" => Ok(Self::Curved),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for CaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for CaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for CaesuraShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`Clef`
 ///
 /// <details><summary>JSON schema</summary>
@@ -1130,7 +1282,8 @@ impl ::std::convert::From<&Clef> for Clef {
 ///  "enum": [
 ///    "C",
 ///    "F",
-///    "G"
+///    "G",
+///    "P"
 ///  ]
 ///}
 /// ```
@@ -1151,6 +1304,7 @@ pub enum ClefSign {
     C,
     F,
     G,
+    P,
 }
 impl ::std::convert::From<&Self> for ClefSign {
     fn from(value: &ClefSign) -> Self {
@@ -1163,6 +1317,7 @@ impl ::std::fmt::Display for ClefSign {
             Self::C => f.write_str("C"),
             Self::F => f.write_str("F"),
             Self::G => f.write_str("G"),
+            Self::P => f.write_str("P"),
         }
     }
 }
@@ -1175,6 +1330,7 @@ impl ::std::str::FromStr for ClefSign {
             "C" => Ok(Self::C),
             "F" => Ok(Self::F),
             "G" => Ok(Self::G),
+            "P" => Ok(Self::P),
             _ => Err("invalid value".into()),
         }
     }
@@ -2494,6 +2650,9 @@ impl<'de> ::serde::Deserialize<'de> for EventLyricLinesKey {
 ///    "breath": {
 ///      "$ref": "#/$defs/breath-mark"
 ///    },
+///    "caesura": {
+///      "$ref": "#/$defs/caesura"
+///    },
 ///    "softAccent": {
 ///      "$ref": "#/$defs/soft-accent"
 ///    },
@@ -2545,6 +2704,8 @@ pub struct EventMarkings {
     )]
     pub c: ::std::option::Option<String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub caesura: ::std::option::Option<Caesura>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub id: ::std::option::Option<Id>,
     #[serde(
         rename = "softAccent",
@@ -2591,6 +2752,7 @@ impl ::std::default::Default for EventMarkings {
             bow_direction: Default::default(),
             breath: Default::default(),
             c: Default::default(),
+            caesura: Default::default(),
             id: Default::default(),
             soft_accent: Default::default(),
             spiccato: Default::default(),
@@ -5355,7 +5517,7 @@ impl ::std::convert::From<&Mnx> for Mnx {
 ///
 /// ```json
 ///{
-///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/35",
+///  "$id": "https://w3c-cg.github.io/mnx/docs/mnx-schema.json/version/37",
 ///  "title": "MNX document",
 ///  "description": "An encoding of Common Western Music Notation.",
 ///  "$ref": "#/$defs/root"

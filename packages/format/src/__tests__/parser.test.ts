@@ -1376,7 +1376,7 @@ describe("parseMnx _x.viritura extensions", () => {
     expect(gt2?.end.measure).toBe("m2");
   });
 
-  it("should parse caesura from event markings _x.viritura", () => {
+  it("should reject the legacy _x.viritura.caesura form (MNX has no stable version; not supported)", () => {
     const mnx = {
       mnx: { version: 1 },
       global: {
@@ -1407,11 +1407,79 @@ describe("parseMnx _x.viritura extensions", () => {
         },
       ],
     };
+    // The legacy vendor extension property was removed entirely, so the
+    // schema's `additionalProperties: false` now rejects it outright.
+    expect(() => parseMnx(mnx)).toThrow(/additional properties/i);
+  });
+
+  it("should parse native MNX caesura shape", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                      markings: { caesura: { shape: "curved" } },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
     const score = parseMnx(mnx);
-    const ev = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
-    expect(ev.type).toBe("event");
-    if (ev.type === "event") {
-      expect(ev.markings?.caesura?.style).toBe("thick");
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(event.type).toBe("event");
+    if (event.type === "event") {
+      expect(event.markings?.caesura?.style).toBe("curved");
+      expect(serializeMnx(score).parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        markings: { caesura: { shape: "curved" } },
+      });
+    }
+  });
+
+  it("should parse and round-trip native MNX caesura marks", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  content: [
+                    {
+                      duration: { base: "whole" },
+                      notes: [{ pitch: { step: "C", octave: 4 } }],
+                      markings: { caesura: { marks: 1 } },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const score = parseMnx(mnx);
+    const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;
+    expect(event.type).toBe("event");
+    if (event.type === "event") {
+      expect(event.markings?.caesura?.marks).toBe(1);
+      expect(event.markings?.caesura?.style).toBeUndefined();
+      expect(serializeMnx(score).parts[0]!.measures[0]!.sequences[0]!.content[0]).toMatchObject({
+        markings: { caesura: { marks: 1 } },
+      });
     }
   });
 
