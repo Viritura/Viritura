@@ -516,6 +516,10 @@ function AppInner({
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     handleAddMeasures,
     handleSetRepeatStart,
@@ -560,7 +564,7 @@ function AppInner({
       canTranspose: getTransposeSelectionInfo(s.score, selection).noteCount > 0,
     })),
   );
-  useMenuBarWiring({
+  const { buildSelectionMenuItems } = useMenuBarWiring({
     isActiveView,
     supportsWritePanels: modeKind === "write",
     hasDocument,
@@ -702,6 +706,7 @@ function AppInner({
             handleSelectScore,
             expandedCondensingStaves,
             handleExpandCondensingStave,
+            buildSelectionMenuItems,
             viewMode,
             setViewMode,
             currentZoom,

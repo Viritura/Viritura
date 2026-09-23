@@ -65,6 +65,11 @@ To use either command:
    begin.
 3. Choose **Explode to Staves** or **Reduce to Staff** from the Edit menu.
 
+Every command in this section is also available from the jump bar (`Ctrl+Space`)
+and from the right-click menu on the score. Right-clicking a note that isn't
+already selected selects it first; right-clicking inside an existing selection
+keeps that selection, so the command applies to everything you highlighted.
+
 Reduce pools simultaneous pitches from all copied staves and writes them as
 chords on one destination staff. Explode works downward from the destination:
 it uses as many staves as the tallest copied chord needs. Select an explicit

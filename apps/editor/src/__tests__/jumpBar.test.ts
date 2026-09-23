@@ -101,6 +101,11 @@ describe("buildJumpBarActions", () => {
     copy: noop,
     cut: noop,
     paste: noop,
+    pasteMerge: noop,
+    explodeSelection: noop,
+    reduceSelection: noop,
+    selectChordTopNote: noop,
+    selectChordBottomNote: noop,
     selectAll: noop,
     deleteSelection: noop,
     transpose: noop,
@@ -138,6 +143,32 @@ describe("buildJumpBarActions", () => {
       { index: 1, name: "Flute 1", isScore: false },
     ],
     settings: [{ id: "appearance", label: "Appearance", keywords: ["theme", "dark", "light"] }],
+  });
+
+  describe("chord distribution commands", () => {
+    it.each([
+      ["edit.explode", "Explode to Staves", "explodeSelection"],
+      ["edit.reduce", "Reduce to Staff", "reduceSelection"],
+      ["edit.selectChordTopNote", "Select Top Note of Chords", "selectChordTopNote"],
+      ["edit.selectChordBottomNote", "Select Bottom Note of Chords", "selectChordBottomNote"],
+      ["edit.pasteMerge", "Paste and Merge", "pasteMerge"],
+    ])("registers %s and dispatches to its callback", (id, label, callbackKey) => {
+      const spy = vi.fn();
+      const built = buildJumpBarActions({ ...baseCallbacks, [callbackKey]: spy });
+      const action = built.find((a) => a.id === id);
+      expect(action).toMatchObject({ label, category: "Edit" });
+      action?.execute();
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["explode", "edit.explode"],
+      ["reduce", "edit.reduce"],
+      ["distribute", "edit.explode"],
+      ["merge", "edit.pasteMerge"],
+    ])("surfaces %s in search results", (query, expectedId) => {
+      expect(resolveJumpBarResults(actions, query).map((a) => a.id)).toContain(expectedId);
+    });
   });
 
   describe("compact navigation queries", () => {

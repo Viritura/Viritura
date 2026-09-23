@@ -7,6 +7,7 @@
 
 import type { MenuItemDef } from "@viritura/ui";
 import type { Barline, Clef, RepeatStart, RepeatEnd, Ending } from "@viritura/core";
+import { IS_MAC, MOD } from "./menuShortcutLabels";
 
 export interface SampleScore {
   readonly name: string;
@@ -85,9 +86,6 @@ export interface TopLevelMenu {
   readonly id: string;
   readonly items: MenuItemDef[];
 }
-
-const IS_MAC = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
-const MOD = IS_MAC ? "⌘" : "Ctrl+";
 
 const SEPARATOR: MenuItemDef = { label: "separator", separator: true };
 

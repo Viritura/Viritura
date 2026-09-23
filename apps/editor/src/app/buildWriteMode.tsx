@@ -10,7 +10,7 @@
  * any more.
  */
 import type { ReactNode, RefObject } from "react";
-import { Panel, WriteStatusBar, type WriteViewMode as ViewMode } from "@viritura/ui";
+import { Panel, WriteStatusBar, type WriteViewMode as ViewMode, type MenuItemDef } from "@viritura/ui";
 import { TransportBar } from "@viritura/playback";
 import { Toolbar } from "../components/Toolbar";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
@@ -18,7 +18,7 @@ import { ScoreSwitcher } from "../scoreSwitcher";
 import { LeftPanel, type WriteLeftTab } from "../components/LeftPanel";
 import { NotationInspector } from "../components/NotationInspector";
 import { MnxSourcePanel } from "../components/MnxSourcePanel";
-import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
+import type { ScoreCanvasHandle, SelectionMenuContext } from "../components/ScoreCanvas";
 import { formatZoomPercent } from "../zoomScale";
 import { MIN_ZOOM, MAX_ZOOM } from "../viewport";
 import { closeDialog, openDialog } from "../store/dialogStore";
@@ -39,6 +39,8 @@ export interface BuildWriteModeArgs {
   /** Path keys of condensed staves currently expanded on the canvas. */
   expandedCondensingStaves: Set<string>;
   handleExpandCondensingStave: (pathKey: string) => void;
+  /** Builds the canvas right-click editing commands; called each time the menu opens. */
+  buildSelectionMenuItems: (context: SelectionMenuContext) => readonly MenuItemDef[];
   selectedPartIds: string[];
   viewMode: ViewMode;
   setViewMode: (m: ViewMode) => void;
@@ -107,6 +109,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
       showHiddenRests: true,
       selectedPartIds: args.selectedPartIds,
       onToggleCondensedStaff: args.handleExpandCondensingStave,
+      buildSelectionMenuItems: args.buildSelectionMenuItems,
     },
     panels,
     toolbar: (

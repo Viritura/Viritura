@@ -74,6 +74,10 @@ interface UseInteractionHandlersParams {
   handleCut: () => void | Promise<void>;
   handlePaste: () => void | Promise<void>;
   handlePasteMerge: () => void | Promise<void>;
+  handleExplodeSelection: () => void | Promise<void>;
+  handleReduceSelection: () => void | Promise<void>;
+  handleSelectChordTopNote: () => void;
+  handleSelectChordBottomNote: () => void;
   handleRepeat: () => void;
   handleAddMeasures: () => void;
   handleSetRepeatStart: (value: RepeatStart | null) => void;
@@ -157,6 +161,10 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     handleCut,
     handlePaste,
     handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     handleAddMeasures,
     handleSetRepeatStart,
@@ -255,6 +263,11 @@ export function useInteractionHandlers(params: UseInteractionHandlersParams): In
     handleCopy,
     handleCut,
     handlePaste,
+    handlePasteMerge,
+    handleExplodeSelection,
+    handleReduceSelection,
+    handleSelectChordTopNote,
+    handleSelectChordBottomNote,
     handleRepeat,
     getSelectedMeasureIndex,
     setRadialMenu,

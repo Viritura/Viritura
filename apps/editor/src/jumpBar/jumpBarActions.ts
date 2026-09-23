@@ -45,6 +45,11 @@ export interface JumpBarCallbacks {
   copy: () => void;
   cut: () => void;
   paste: () => void;
+  pasteMerge: () => void;
+  explodeSelection: () => void;
+  reduceSelection: () => void;
+  selectChordTopNote: () => void;
+  selectChordBottomNote: () => void;
   selectAll: () => void;
   deleteSelection: () => void;
 
@@ -179,6 +184,14 @@ export function buildJumpBarActions(
     { id: "edit.copy", label: "Copy", category: "Edit", shortcut: "Ctrl+C", execute: cb.copy },
     { id: "edit.cut", label: "Cut", category: "Edit", shortcut: "Ctrl+X", execute: cb.cut },
     { id: "edit.paste", label: "Paste", category: "Edit", shortcut: "Ctrl+V", execute: cb.paste },
+    {
+      id: "edit.pasteMerge",
+      label: "Paste and Merge",
+      category: "Edit",
+      shortcut: "Ctrl+Shift+V",
+      keywords: ["combine", "chord", "add", "into", "reduce"],
+      execute: cb.pasteMerge,
+    },
     { id: "edit.selectAll", label: "Select All", category: "Edit", shortcut: "Ctrl+A", execute: cb.selectAll },
     {
       id: "edit.delete",
@@ -209,6 +222,34 @@ export function buildJumpBarActions(
       category: "Edit",
       keywords: ["orchestra", "players", "divisi", "parts"],
       execute: cb.splitOrchestralStaves,
+    },
+    {
+      id: "edit.explode",
+      label: "Explode to Staves",
+      category: "Edit",
+      keywords: ["distribute", "fan", "split", "chord", "divisi", "scatter"],
+      execute: cb.explodeSelection,
+    },
+    {
+      id: "edit.reduce",
+      label: "Reduce to Staff",
+      category: "Edit",
+      keywords: ["combine", "merge", "condense", "chord", "collapse"],
+      execute: cb.reduceSelection,
+    },
+    {
+      id: "edit.selectChordTopNote",
+      label: "Select Top Note of Chords",
+      category: "Edit",
+      keywords: ["notehead", "highest", "upper", "line", "voice"],
+      execute: cb.selectChordTopNote,
+    },
+    {
+      id: "edit.selectChordBottomNote",
+      label: "Select Bottom Note of Chords",
+      category: "Edit",
+      keywords: ["notehead", "lowest", "lower", "line", "voice"],
+      execute: cb.selectChordBottomNote,
     },
 
     // ─── View ───────────────────────────
