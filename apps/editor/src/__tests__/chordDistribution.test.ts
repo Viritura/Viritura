@@ -137,7 +137,7 @@ describe("clipboard fragment distribution", () => {
     expect(eventPitches(result.tracks![2]!.content)).toEqual([[]]);
   });
 
-  it("splits a silent staff's rests at the metric boundaries of a later measure", () => {
+  it("spells a silent staff's rest from its position within a later measure", () => {
     const chord = (id: string, base: string): NoteEvent =>
       ({
         type: "event",
@@ -148,28 +148,15 @@ describe("clipboard fragment distribution", () => {
           { id: `${id}-e`, pitch: { step: "E", octave: 4 } },
         ],
       }) as NoteEvent;
-    // Measure 2 leaves the lower staff silent from beat 1 to the barline, so its
-    // rest has to be spelled from that position within the measure, not from the
-    // fragment-absolute beat 5.
-    const source = fragment([
-      track(
-        [
-          chord("m1", "whole"),
-          chord("m2", "quarter"),
-          { ...noteEvent("solo", "E", 4, "half"), duration: { base: "half", dots: 1 } } as NoteEvent,
-        ],
-        0,
-      ),
-    ]);
+    // Measure 2 is a single note, so the lower staff falls silent for that whole
+    // measure. Its rest has to be spelled from beat 0 of the measure, not from
+    // the fragment-absolute beat 4.
+    const source = fragment([track([chord("m1", "whole"), noteEvent("solo", "E", 4, "whole")], 0)]);
 
     const lower = explodeFragment(source, 2).tracks![1]!.content as NoteEvent[];
     const rests = lower.filter((event) => isRest(event));
 
-    expect(rests.map((event) => event.duration)).toEqual([
-      { base: "quarter" },
-      { base: "quarter" },
-      { base: "quarter" },
-    ]);
+    expect(rests.map((event) => event.duration)).toEqual([{ base: "half" }, { base: "half" }]);
   });
 
   it("uses the union rhythm when a half note sounds against running eighths", () => {
