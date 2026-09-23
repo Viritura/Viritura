@@ -21,14 +21,14 @@ describe("connectAndPublishRemote", () => {
 
     await connectAndPublishRemote(adapter, {
       remote: "origin",
-      url: "https://github.com/peter/quartet.git",
+      url: "https://github.com/viritura/quartet.git",
       compatibility: { kind: "empty", branch: "main", localAhead: 1, remoteAhead: 0 },
       corsProxy: "https://api.example.test/github/git",
     });
 
     expect(push).toHaveBeenCalledOnce();
     expect(push).toHaveBeenCalledWith(expect.objectContaining({ remoteRef: "main" }));
-    expect((await adapter.status()).remoteUrl).toBe("https://github.com/peter/quartet.git");
+    expect((await adapter.status()).remoteUrl).toBe("https://github.com/viritura/quartet.git");
   });
 
   it("runs the same publication operation when histories already match", async () => {
@@ -42,7 +42,7 @@ describe("connectAndPublishRemote", () => {
 
     await connectAndPublishRemote(adapter, {
       remote: "origin",
-      url: "https://github.com/peter/quartet.git",
+      url: "https://github.com/viritura/quartet.git",
       compatibility: { kind: "up-to-date", branch: "main", localAhead: 0, remoteAhead: 0 },
       corsProxy: "https://api.example.test/github/git",
     });
@@ -62,7 +62,7 @@ describe("connectAndPublishRemote", () => {
     await expect(
       connectAndPublishRemote(adapter, {
         remote: "origin",
-        url: "https://github.com/peter/quartet.git",
+        url: "https://github.com/viritura/quartet.git",
         compatibility: { kind: "empty", branch: "main", localAhead: 1, remoteAhead: 0 },
         corsProxy: "https://api.example.test/github/git",
       }),

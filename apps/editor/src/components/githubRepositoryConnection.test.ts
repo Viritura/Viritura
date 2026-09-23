@@ -3,16 +3,16 @@ import { describeCompatibility, parseRepositoryInput, validateRepositoryInput } 
 
 describe("GitHub repository connection", () => {
   it.each([
-    ["peter/quartet", { owner: "peter", name: "quartet" }],
-    ["https://github.com/peter/quartet", { owner: "peter", name: "quartet" }],
-    ["https://github.com/peter/quartet.git", { owner: "peter", name: "quartet" }],
-    ["git@github.com:peter/quartet.git", { owner: "peter", name: "quartet" }],
+    ["viritura/quartet", { owner: "viritura", name: "quartet" }],
+    ["https://github.com/viritura/quartet", { owner: "viritura", name: "quartet" }],
+    ["https://github.com/viritura/quartet.git", { owner: "viritura", name: "quartet" }],
+    ["git@github.com:viritura/quartet.git", { owner: "viritura", name: "quartet" }],
   ])("parses repository input %s", (input, expected) => {
     expect(parseRepositoryInput(input)).toEqual(expected);
     expect(validateRepositoryInput(input)).toBeNull();
   });
 
-  it.each(["quartet", "github.com/peter/quartet/extra", "https://example.com/peter/quartet"])(
+  it.each(["quartet", "github.com/viritura/quartet/extra", "https://example.com/viritura/quartet"])(
     "rejects invalid repository input %s",
     (input) => {
       expect(parseRepositoryInput(input)).toBeNull();

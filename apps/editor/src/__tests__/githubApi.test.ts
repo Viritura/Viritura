@@ -109,9 +109,9 @@ describe("GitHub API client", () => {
         jsonResponse({
           id: 42,
           name: "viritura-score",
-          fullName: "peter/viritura-score",
-          htmlUrl: "https://github.com/peter/viritura-score",
-          cloneUrl: "https://github.com/peter/viritura-score.git",
+          fullName: "viritura/viritura-score",
+          htmlUrl: "https://github.com/viritura/viritura-score",
+          cloneUrl: "https://github.com/viritura/viritura-score.git",
           private: true,
           defaultBranch: "main",
         }),
@@ -127,8 +127,8 @@ describe("GitHub API client", () => {
       "https://localhost:5001",
     );
 
-    expect(repository.fullName).toBe("peter/viritura-score");
-    expect(repository.cloneUrl).toBe("https://github.com/peter/viritura-score.git");
+    expect(repository.fullName).toBe("viritura/viritura-score");
+    expect(repository.cloneUrl).toBe("https://github.com/viritura/viritura-score.git");
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "https://localhost:5001/auth/csrf",
@@ -161,20 +161,20 @@ describe("GitHub API client", () => {
       jsonResponse({
         id: 42,
         name: "viritura-score",
-        fullName: "peter/viritura-score",
-        htmlUrl: "https://github.com/peter/viritura-score",
-        cloneUrl: "https://github.com/peter/viritura-score.git",
+        fullName: "viritura/viritura-score",
+        htmlUrl: "https://github.com/viritura/viritura-score",
+        cloneUrl: "https://github.com/viritura/viritura-score.git",
         private: true,
         defaultBranch: "main",
       }),
     );
 
-    await expect(findGitHubRepository("peter", "viritura-score", "https://localhost:5001")).resolves.toBeNull();
-    await expect(findGitHubRepository("peter", "viritura-score", "https://localhost:5001")).resolves.toMatchObject({
-      fullName: "peter/viritura-score",
+    await expect(findGitHubRepository("viritura", "viritura-score", "https://localhost:5001")).resolves.toBeNull();
+    await expect(findGitHubRepository("viritura", "viritura-score", "https://localhost:5001")).resolves.toMatchObject({
+      fullName: "viritura/viritura-score",
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://localhost:5001/github/repositories/peter/viritura-score",
+      "https://localhost:5001/github/repositories/viritura/viritura-score",
       expect.objectContaining({ credentials: "include", method: "GET" }),
     );
   });
@@ -186,9 +186,9 @@ describe("GitHub API client", () => {
         {
           id: 42,
           name: "viritura-score",
-          fullName: "peter/viritura-score",
-          htmlUrl: "https://github.com/peter/viritura-score",
-          cloneUrl: "https://github.com/peter/viritura-score.git",
+          fullName: "viritura/viritura-score",
+          htmlUrl: "https://github.com/viritura/viritura-score",
+          cloneUrl: "https://github.com/viritura/viritura-score.git",
           private: true,
           defaultBranch: "main",
         },
@@ -196,7 +196,7 @@ describe("GitHub API client", () => {
     );
 
     await expect(listGitHubRepositories("https://localhost:5001")).resolves.toMatchObject([
-      { fullName: "peter/viritura-score", private: true },
+      { fullName: "viritura/viritura-score", private: true },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://localhost:5001/github/repositories",

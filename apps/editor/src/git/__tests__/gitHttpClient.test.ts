@@ -15,14 +15,14 @@ describe("credentialed Git HTTP client", () => {
     }));
 
     await client.request({
-      url: "https://api.example.test/github/git/github.com/peter/quartet.git/git-upload-pack",
+      url: "https://api.example.test/github/git/github.com/viritura/quartet.git/git-upload-pack",
       method: "POST",
       headers: { "Content-Type": "application/x-git-upload-pack-request" },
       body: oneChunk(new Uint8Array([1, 2, 3])),
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.example.test/github/git/github.com/peter/quartet.git/git-upload-pack",
+      "https://api.example.test/github/git/github.com/viritura/quartet.git/git-upload-pack",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
@@ -41,7 +41,7 @@ describe("credentialed Git HTTP client", () => {
     const client = createCredentialedGitHttpClient(csrfTokenProvider);
 
     await client.request({
-      url: "https://api.example.test/github/git/github.com/peter/quartet.git/info/refs?service=git-upload-pack",
+      url: "https://api.example.test/github/git/github.com/viritura/quartet.git/info/refs?service=git-upload-pack",
       method: "GET",
       headers: {},
     });
