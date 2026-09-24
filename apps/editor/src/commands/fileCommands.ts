@@ -21,7 +21,7 @@ import {
   type DenigmaDiagnostic,
   type DenigmaGapOutcome,
 } from "@viritura/musx-import";
-import { validateRawScore } from "@viritura/format";
+import { discardMalformedTupletSequences, validateRawScore } from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -41,6 +41,16 @@ export interface OpenFileResult {
   importDiagnostics?: DenigmaDiagnostic[];
   /** Per-gap preservation result retained for the MUSX import report. */
   importGapOutcomes?: DenigmaGapOutcome[];
+}
+
+function recoverMalformedTupletSequences(text: string): { mnxJson: string; discardedSequences: number } {
+  try {
+    const document: unknown = JSON.parse(text);
+    const discardedSequences = discardMalformedTupletSequences(document);
+    return { mnxJson: discardedSequences > 0 ? JSON.stringify(document) : text, discardedSequences };
+  } catch {
+    return { mnxJson: text, discardedSequences: 0 };
+  }
 }
 
 /** Options accepted by the File System Access API picker. */
@@ -81,7 +91,7 @@ async function openWithFileSystemAccess(): Promise<OpenFileResult | null> {
 
     const file = await handle.getFile();
     const text = await file.text();
-    return { mnxJson: text, filename: file.name, fileHandle: handle };
+    return { mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: handle };
   } catch (err: unknown) {
     // User cancelled the picker
     if (err instanceof DOMException && err.name === "AbortError") {
@@ -108,7 +118,7 @@ function openWithInputFallback(): Promise<OpenFileResult | null> {
         return;
       }
       const text = await file.text();
-      resolve({ mnxJson: text, filename: file.name, fileHandle: null });
+      resolve({ mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: null });
     });
 
     // Handle cancel — 'cancel' event fires when user closes dialog without selecting
@@ -138,7 +148,7 @@ export async function openMnxFile(): Promise<OpenFileResult | null> {
  */
 export async function readDroppedMnxFile(file: File): Promise<OpenFileResult> {
   const text = await file.text();
-  return { mnxJson: text, filename: file.name, fileHandle: null };
+  return { mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: null };
 }
 
 // ═══════════════════════════════════════════
@@ -184,15 +194,26 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
       const conversion = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
         includeTempoTool: true,
       });
-      const validationError = validateConvertedMnxJson(conversion.mnxJson);
+      const recovery = recoverMalformedTupletSequences(conversion.mnxJson);
+      const validationError = validateConvertedMnxJson(recovery.mnxJson);
       if (validationError) {
         throw new Error(`Denigma produced invalid MNX: ${validationError}`);
       }
       return {
-        mnxJson: conversion.mnxJson,
+        mnxJson: recovery.mnxJson,
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
         fileHandle: null,
-        importDiagnostics: conversion.diagnostics,
+        importDiagnostics: [
+          ...conversion.diagnostics,
+          ...(recovery.discardedSequences > 0
+            ? [
+                {
+                  severity: "warning" as const,
+                  message: `Discarded ${recovery.discardedSequences} sequence${recovery.discardedSequences === 1 ? "" : "s"} containing malformed tuplets.`,
+                },
+              ]
+            : []),
+        ],
         importGapOutcomes: conversion.gapOutcomes,
       };
     }

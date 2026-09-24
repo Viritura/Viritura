@@ -132,6 +132,42 @@ describe("Finale MUSX import", () => {
     await expect(convertImportedMusicFile(file)).rejects.toThrow(/marks/);
   });
 
+  it("imports valid sequences when Denigma returns a malformed tuplet sequence", async () => {
+    const source = JSON.parse(VALID_MNX) as {
+      parts: Array<{
+        measures: Array<{
+          sequences: Array<{ content: Array<Record<string, unknown>> }>;
+        }>;
+      }>;
+    };
+    source.parts[0]!.measures[0]!.sequences.push({
+      content: [
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: [{ duration: { base: "quarter" }, rest: {} }],
+        },
+      ],
+    });
+    convertMusxToMnx.mockResolvedValue({
+      mnxJson: JSON.stringify(source),
+      gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
+      gapOutcomes: [],
+      diagnostics: [],
+      denigmaVersion: "4.0.0",
+      denigmaCommit: "abc123",
+    });
+
+    const result = await convertImportedMusicFile(new File([new Uint8Array([1])], "tuplets.musx"));
+    const recovered = JSON.parse(result.mnxJson) as typeof source;
+
+    expect(recovered.parts[0]!.measures[0]!.sequences).toHaveLength(1);
+    expect(result.importDiagnostics).toEqual([
+      expect.objectContaining({ severity: "warning", message: "Discarded 1 sequence containing malformed tuplets." }),
+    ]);
+  });
+
   it("rejects oversized MUSX files before reading their bytes", async () => {
     const arrayBuffer = vi.fn();
     const file = {

@@ -8,7 +8,13 @@ export { parseMnx, parseMnxWithDiagnostics } from "./mnx";
 export type { ParseMnxOptions, ParseMnxResult } from "./mnx";
 export { promote, promoteUnknown, promoteWithDiagnostics } from "./mnx";
 export type { RawScore, PromoteOptions, PromoteResult } from "./mnx";
-export { isRawScore, assertRawScore, validateRawScore, RawScoreValidationFailure } from "./mnx";
+export {
+  isRawScore,
+  assertRawScore,
+  validateRawScore,
+  discardMalformedTupletSequences,
+  RawScoreValidationFailure,
+} from "./mnx";
 export type { RawScoreValidationError, RawScoreValidationResult } from "./mnx";
 export { serializeMnx } from "./mnx";
 export {
