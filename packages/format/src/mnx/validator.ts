@@ -434,6 +434,45 @@ function validateTupletDurations(document: unknown): RawScoreValidationError[] {
   return errors;
 }
 
+/**
+ * Removes sequences containing tuplets whose contents cannot occupy their
+ * declared inner duration. A malformed tuplet makes its sequence ambiguous,
+ * but should not prevent otherwise valid parts and measures from loading.
+ *
+ * Returns the number of removed sequences.
+ */
+export function discardMalformedTupletSequences(document: unknown): number {
+  const hasMalformedTuplet = (content: unknown): boolean => {
+    if (!Array.isArray(content)) return false;
+    return content.some((item) => {
+      const object = asObject(item);
+      if (!object) return false;
+      if (object["type"] === "tuplet") {
+        const span = asObject(asObject(asObject(object["_x"])?.["viritura"])?.["span"]);
+        const expected = quantityWholes(object["inner"]);
+        const actual = contentWholes(object["content"]);
+        if (!span && expected !== undefined && actual !== undefined && Math.abs(expected - actual) > 1e-9) return true;
+      }
+      return hasMalformedTuplet(object["content"]);
+    });
+  };
+
+  let discarded = 0;
+  const root = asObject(document);
+  for (const part of asObjects(root?.["parts"])) {
+    for (const measure of asObjects(part["measures"])) {
+      const sequences = measure["sequences"];
+      if (!Array.isArray(sequences)) continue;
+      measure["sequences"] = sequences.filter((sequence) => {
+        const malformed = hasMalformedTuplet(asObject(sequence)?.["content"]);
+        if (malformed) discarded += 1;
+        return !malformed;
+      });
+    }
+  }
+  return discarded;
+}
+
 function validateChordSymbols(score: RawScore): RawScoreValidationError[] {
   const errors: RawScoreValidationError[] = [];
   score.global.measures.forEach((measure, measureIndex) => {

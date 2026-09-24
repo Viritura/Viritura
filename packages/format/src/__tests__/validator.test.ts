@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateRawScore } from "../mnx/validator";
+import { discardMalformedTupletSequences, validateRawScore } from "../mnx/validator";
 
 function percussionScore() {
   return {
@@ -107,6 +107,25 @@ describe("MNX percussion semantic validation", () => {
           }),
         );
       }
+    });
+
+    it("discards only the sequence containing a malformed tuplet", () => {
+      const score = percussionScore();
+      score.parts[0]!.measures[0]!.sequences.push({
+        content: [
+          {
+            type: "tuplet",
+            inner: { duration: { base: "eighth" }, multiple: 3 },
+            outer: { duration: { base: "eighth" }, multiple: 2 },
+            content: [{ duration: { base: "quarter" }, kitNotes: [{ kitComponent: "snare" }] }],
+          } as never,
+        ],
+      });
+
+      expect(validateRawScore(score).ok).toBe(false);
+      expect(discardMalformedTupletSequences(score)).toBe(1);
+      expect(score.parts[0]!.measures[0]!.sequences).toHaveLength(1);
+      expect(validateRawScore(score).ok).toBe(true);
     });
 
     it("validates a part-ID-keyed sound assignment and rejects malformed source choices", () => {

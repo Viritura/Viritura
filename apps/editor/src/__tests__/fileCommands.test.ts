@@ -5,6 +5,7 @@ import {
   fileSave,
   fileSaveAs,
   fileDownload,
+  readDroppedMnxFile,
 } from "../commands/fileCommands";
 
 const VALID_MNX = JSON.stringify({
@@ -66,6 +67,33 @@ describe("validateMnxJson", () => {
   it("accepts minimal valid MNX structure", () => {
     const minimal = JSON.stringify({ global: { measures: [] }, parts: [] });
     expect(validateMnxJson(minimal)).toBeNull();
+  });
+});
+
+describe("readDroppedMnxFile", () => {
+  it("discards the sequence containing a malformed tuplet", async () => {
+    const source = JSON.parse(VALID_MNX) as {
+      parts: Array<{
+        measures: Array<{
+          sequences: Array<{ content: Array<Record<string, unknown>> }>;
+        }>;
+      }>;
+    };
+    source.parts[0]!.measures[0]!.sequences.push({
+      content: [
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: [{ duration: { base: "quarter" }, rest: {} }],
+        },
+      ],
+    });
+
+    const result = await readDroppedMnxFile(new File([JSON.stringify(source)], "tuplets.mnx"));
+    const recovered = JSON.parse(result.mnxJson) as typeof source;
+
+    expect(recovered.parts[0]!.measures[0]!.sequences).toHaveLength(1);
   });
 });
 
