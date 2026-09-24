@@ -10,7 +10,13 @@ export { parseMnx, parseMnxWithDiagnostics } from "./parser";
 export type { ParseMnxOptions, ParseMnxResult } from "./parser";
 export { promote, promoteUnknown, promoteWithDiagnostics } from "./promote";
 export type { RawScore, PromoteOptions, PromoteResult } from "./promote";
-export { isRawScore, assertRawScore, validateRawScore, RawScoreValidationFailure } from "./validator";
+export {
+  isRawScore,
+  assertRawScore,
+  validateRawScore,
+  discardMalformedTupletSequences,
+  RawScoreValidationFailure,
+} from "./validator";
 export type { RawScoreValidationError, RawScoreValidationResult } from "./validator";
 export { serializeMnx, serializeEvent, serializeSequenceContent } from "./serializer";
 export { serializeArpeggio, serializeNonArpeggio, serializeDynamicGroup } from "./serializePart";
