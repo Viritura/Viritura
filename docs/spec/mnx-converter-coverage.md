@@ -4,7 +4,7 @@ For the source-validated, row-by-row comparison against the W3C Music Notation
 Reference, see [music-notationref-coverage.md](./music-notationref-coverage.md).
 
 Status snapshot of how Viritura's MNX parser/serializer and MusicXML → MNX
-converter cover MNX schema version 34, including remaining import and
+converter cover MNX schema version 40, including remaining import and
 editor-integration gaps.
 
 > **Package layout note.** The MusicXML converter lives in
