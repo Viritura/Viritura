@@ -81,7 +81,7 @@ different harmony is reported through import diagnostics.
 
 The pinned Denigma revision classifies both chord roots and slash basses as
 **written** pitches (`KeyContext::Written` in
-[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/5e15a50ed9efeebf5a2e6999b4a574bb8d5c6506/src/formats/mnx/mnx_chords.cpp)).
+[`mnx_chords.cpp`](https://github.com/openmusx/denigma/blob/4456abcc4c1c464863537c996cb4af11e3ec7289/src/formats/mnx/mnx_chords.cpp)).
 The adapter negates the **source** MNX part's sounding-to-written
 `transposition.interval` to store concert harmony, preserving diatonic spelling.
 Absent transposition means unison; `prefersWrittenPitches` does not change this
