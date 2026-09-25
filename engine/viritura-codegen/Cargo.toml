@@ -15,7 +15,7 @@ name = "viritura-codegen"
 path = "src/main.rs"
 
 [dependencies]
-typify = "0.4"
+typify = "0.6"
 schemars = "0.8"
 serde_json = "1"
 prettyplease = "0.3"
