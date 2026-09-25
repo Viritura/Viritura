@@ -47,7 +47,7 @@
     "immer": "^11.1.4",
     "isomorphic-git": "^1.37.6",
     "jszip": "^3.10.1",
-    "lucide-react": "^1.46.0",
+    "lucide-react": "^1.47.0",
     "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.0",

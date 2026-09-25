@@ -48,7 +48,7 @@
     "@viritura/renderer": "workspace:*",
     "@viritura/score-engine": "workspace:*",
     "@viritura/ui": "workspace:*",
-    "lucide-react": "^1.46.0"
+    "lucide-react": "^1.47.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
