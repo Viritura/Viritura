@@ -28,6 +28,7 @@ interface DenigmaModule {
     cueLayer: number,
     selectedOutputs: number,
     selectedOutputCount: number,
+    writeGapReport: number,
   ): number;
   _denigma_result_destroy(result: number): void;
   _denigma_result_success(result: number): number;
@@ -210,6 +211,7 @@ export async function convertWithDenigma(
       options.cueLayer ?? 0,
       0,
       0,
+      1,
     );
     if (!resultPointer) throw new Error("Denigma did not return a conversion result.");
 

@@ -21,8 +21,9 @@ interface DenigmaModule {
     splitInstruments: number,
     indentSpaces: number,
     cueLayer: number,
-    enforceFinaleFontMetrics: number,
-    transposeFinalePercussion: number,
+    selectedOutputs: number,
+    selectedOutputCount: number,
+    writeGapReport: number,
   ): number;
   _denigma_result_success(result: number): number;
   _denigma_result_output_count(result: number): number;
@@ -147,6 +148,7 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
       0,
       0,
       0,
+      1,
     );
     if (!result) throw new Error(`Denigma returned no result for ${testCase.file}.`);
     try {
