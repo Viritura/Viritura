@@ -40,6 +40,7 @@ export interface DisplayList {
   commands: RenderCommand[];
   width: number;
   height: number;
+  parts?: PartSummary[];
   pages?: PageLayout[];
   /** Element IDs parallel to commands. Maps render commands to model paths for hit-testing. */
   elementIds?: (string | null)[];
@@ -61,6 +62,12 @@ export interface DisplayList {
   /** Transient one-shot hook that updates flattened compatibility stores after
    * retained-layer Horizon paint. Never serialized or exported. */
   finalizeRetainedFrame?: () => void;
+}
+
+export interface PartSummary {
+  id: string;
+  index: number;
+  name: string;
 }
 
 export interface SelectionGroup {
@@ -426,6 +433,8 @@ export interface MeasureBounds {
   measureId?: string;
   /** Part index (0-based). */
   partIndex: number;
+  /** Stable source part ID from MNX, or #<partIndex> when absent. */
+  partId: string;
   /** Distinct 0-based Score part indices from the resolved visual staff, in source
    * order, including silent sources. Absent for a sole source: use [partIndex]. */
   sourcePartIndices?: number[];
@@ -463,6 +472,7 @@ export interface MeasureBounds {
 export interface ScoreInfo {
   partCount: number;
   partNames: string[];
+  partIds: string[];
   measureCount: number;
   layoutCount: number;
   scoreCount: number;

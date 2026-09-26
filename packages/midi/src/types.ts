@@ -24,6 +24,12 @@ export interface MidiEvent {
   playbackLaneId?: string;
   /** MIDI channel (0–15) */
   channel: number;
+  /** Written global quarter-note beat, unaffected by humanized onset timing. */
+  scoreBeat?: number;
+  /** Written duration in quarter-note beats, unaffected by articulation. */
+  scoreDurationBeats?: number;
+  /** Score event ID (may have been minted by the parser). */
+  scoreEventId?: string;
   /** GM program number — only present for `type: "programChange"`. */
   program?: number;
   /** GS drum-kit program (bank 128) this note should play on, overriding the
@@ -55,6 +61,8 @@ export interface MidiTimeline {
   events: MidiEvent[];
   /** Total duration of the score in seconds */
   duration: number;
+  /** Total written duration in quarter-note beats. */
+  totalBeats: number;
   /** Tempo map entries for playhead and UI synchronization */
   tempoMap: TempoMapEntry[];
   /** Absolute start time (seconds) of each measure, indexed by measure index */

@@ -93,6 +93,9 @@ impl DisplayList {
     /// segments carry only content stores; page/debug assembly is the
     /// caller's responsibility.
     pub fn append(&mut self, other: DisplayList) {
+        if self.parts.is_empty() {
+            self.parts = other.parts.clone();
+        }
         let cmd_base = self.commands.len();
         self.commands.extend(other.commands);
         let appended = self.commands.len() - cmd_base;

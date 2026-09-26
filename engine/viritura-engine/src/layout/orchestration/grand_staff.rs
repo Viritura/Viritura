@@ -192,6 +192,7 @@ fn push_grand_staff_measure_bounds(
         index: ml.resolved.index,
         measure_id: ml.resolved.global.id.clone(),
         part_index,
+        part_id: dl.parts[0].id.clone(),
         source_part_indices: Vec::new(),
         staff_index,
         system_index,
@@ -757,6 +758,7 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
         };
 
     let mut dl = DisplayList::new(page_w, total_height);
+    dl.set_parts(score, [part_index]);
     let barline_w = config.barline_width * sp;
     let lyric_line_order = score
         .global

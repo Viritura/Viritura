@@ -10,6 +10,7 @@
 import type { DisplayList, PageLayout, RenderCommand } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
 import { traceFilledBezier } from "./displayListPainter";
+import { canvasTextFont } from "./textFont";
 
 /** Sliding window size: current page ± 2. */
 const WINDOW_SIZE = 5;
@@ -368,7 +369,7 @@ function paintSingleCommand(
 
     case "DrawText":
       ctx.fillStyle = cmd.color;
-      ctx.font = `${cmd.size}px ${cmd.font}`;
+      ctx.font = canvasTextFont(cmd.font, cmd.size);
       ctx.textAlign = cmd.align;
       ctx.textBaseline = cmd.baseline;
       ctx.fillText(cmd.text, cmd.x, cmd.y);

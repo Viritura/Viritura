@@ -1,43 +1,48 @@
 /**
- * @viritura/score-engine — public, framework-free score rendering API.
+ * @viritura/score-engine — framework-free music notation rendering kernel.
  *
- * Browser-only (Canvas 2D). Pairs with @viritura/score-viewer-react for a
- * drop-in React component, or use directly for vanilla JS / docs sites.
- *
- * Quick start:
+ * MNX in; layout, ink-only Canvas painting, SVG, geometry queries and a
+ * playback timeline out. Page presentation (paper, zoom, scrolling, view
+ * modes) belongs to `@viritura/score-viewer`.
  *
  * ```ts
  * import { loadEngine } from "@viritura/score-engine";
  *
  * const engine = await loadEngine();
- * const dl = engine.layout(mnxJson, { pageWidth: 800 });
- * engine.paint(canvas.getContext("2d")!, dl, { page: 0 });
+ * const dl = engine.layout(mnx, { pageWidth: 800 });
+ * const ctx = canvas.getContext("2d")!;
+ * ctx.fillStyle = "#fff";
+ * ctx.fillRect(0, 0, canvas.width, canvas.height);
+ * engine.paint(ctx, dl, { page: 0 });
  * ```
- *
- * See https://viritura.com/docs/score-engine for the full guide.
  */
 
-export { loadEngine, isEngineReady, Engine } from "./engine";
+export { loadEngine, isEngineReady } from "./engine";
+export type { Engine } from "./engine";
 export { EngineLoadError, ParseError, LayoutError } from "./errors";
 export type {
-  DisplayList,
-  RenderCommand,
-  PageLayout,
-  BoundingBox,
-  MeasureBounds,
-  ScoreInfo,
-  LayoutPageSetup,
-  LayoutOptions,
-  PaintOptions,
-  LoadEngineOptions,
-  ScoreMeasurements,
-} from "./types";
-export type {
-  Timeline,
-  TimelineOptions,
-  TimedEvent,
-  TempoSegment,
-  DynamicMark,
-  CanvasBeatPosition,
   CanvasBeatHit,
-} from "./timeline";
+  CanvasBeatPosition,
+  DisplayList,
+  EngineVersion,
+  HorizonPaper,
+  LayoutOptions,
+  LayoutPageSetup,
+  LayoutWorker,
+  LayoutWorkerOptions,
+  LoadEngineOptions,
+  MeasureGeometry,
+  PageGeometry,
+  PaintOptions,
+  PartInfo,
+  PlayheadGeometry,
+  Rect,
+  ScoreInfo,
+  ScoreMeasurements,
+  ScorePosition,
+  SvgOptions,
+  SystemGeometry,
+  TilePaintOptions,
+  TileRenderer,
+} from "./types";
+export type { DynamicMark, TempoSegment, TimedEvent, Timeline, TimelineOptions } from "./timeline";

@@ -992,6 +992,7 @@ pub fn get_score_info(mnx_json: &str) -> Result<String, JsValue> {
     let info = serde_json::json!({
         "partCount": score.parts.len(),
         "partNames": score.parts.iter().map(|p| p.name.clone()).collect::<Vec<_>>(),
+        "partIds": (0..score.parts.len()).map(|index| score.stable_part_id(index)).collect::<Vec<_>>(),
         "measureCount": score.global.measures.len(),
         "layoutCount": score.layouts.len(),
         "scoreCount": score.scores.len(),
@@ -1000,6 +1001,27 @@ pub fn get_score_info(mnx_json: &str) -> Result<String, JsValue> {
 
     serde_json::to_string(&info)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+}
+
+#[cfg(test)]
+mod part_identity_tests {
+    use super::get_score_info;
+
+    #[test]
+    fn score_info_reports_stable_part_ids() {
+        let mut score: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../packages/format/fixtures/mnx/parts.mnx"
+        ))
+        .unwrap();
+        score["parts"][0]["id"] = "source-melody".into();
+        let input = score.to_string();
+        let first: serde_json::Value =
+            serde_json::from_str(&get_score_info(&input).unwrap()).unwrap();
+        let second: serde_json::Value =
+            serde_json::from_str(&get_score_info(&input).unwrap()).unwrap();
+        assert_eq!(first["partIds"], serde_json::json!(["source-melody", "#1"]));
+        assert_eq!(first["partIds"], second["partIds"]);
+    }
 }
 
 /// Layout all parts of a score stacked vertically and return a DisplayList as JSON.

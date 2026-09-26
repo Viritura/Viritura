@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Engine } from "../engine";
+import { createEngine } from "../engine";
 
 const MINIMAL_MNX = {
   mnx: { version: 1 },
@@ -46,7 +46,7 @@ const MINIMAL_MNX = {
 };
 
 describe("Engine.timeline", () => {
-  const engine = new Engine();
+  const engine = createEngine();
 
   it("produces a timeline with the public Timeline shape", () => {
     const tl = engine.timeline(MINIMAL_MNX);
@@ -83,41 +83,68 @@ describe("Engine.timeline", () => {
   it("is deterministic — same input → same output", () => {
     const a = engine.timeline(MINIMAL_MNX);
     const b = engine.timeline(MINIMAL_MNX);
-    expect(a.events).toEqual(b.events);
-    expect(a.tempoMap).toEqual(b.tempoMap);
-  });
-});
-
-describe("Engine.beatToCanvas / canvasToBeat", () => {
-  const engine = new Engine();
-
-  it("returns null for an unknown partId", () => {
-    const fakeDl = {
-      width: 800,
-      height: 600,
-      commands: [],
-      measureBounds: [],
-    } as unknown as Parameters<typeof engine.beatToCanvas>[0];
-    expect(engine.beatToCanvas(fakeDl, 0, "p99")).toBeNull();
+    expect(a).toEqual(b);
   });
 
-  it("returns null for malformed partId", () => {
-    const fakeDl = {
-      width: 800,
-      height: 600,
-      commands: [],
-      measureBounds: [],
-    } as unknown as Parameters<typeof engine.beatToCanvas>[0];
-    expect(engine.beatToCanvas(fakeDl, 0, "not-a-part")).toBeNull();
+  it("uses the actual 6/8 and 3/4 meter lengths for beats and tempo changes", () => {
+    const score = structuredClone(MINIMAL_MNX) as Record<string, unknown>;
+    const global = score["global"] as { measures: Record<string, unknown>[] };
+    global.measures = [
+      { time: { count: 6, unit: 8 }, tempos: [{ value: { base: "quarter" }, bpm: 120 }] },
+      { time: { count: 3, unit: 4 }, tempos: [{ value: { base: "quarter" }, bpm: 90 }] },
+    ];
+    const parts = score["parts"] as { measures: { sequences: { content: unknown[] }[] }[] }[];
+    parts[0]!.measures = [
+      {
+        sequences: [
+          {
+            content: [
+              { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "C", octave: 4 } }] },
+              { type: "event", duration: { base: "eighth" }, notes: [{ pitch: { step: "D", octave: 4 } }] },
+            ],
+          },
+        ],
+      },
+      {
+        sequences: [
+          { content: [{ type: "event", duration: { base: "quarter" }, notes: [{ pitch: { step: "E", octave: 4 } }] }] },
+        ],
+      },
+    ];
+    const timeline = engine.timeline(score);
+    expect(timeline.tempoMap.map((segment) => segment.beat)).toEqual([0, 3]);
+    expect(timeline.totalBeats).toBe(6);
+    expect(timeline.events.map((event) => event.beat)).toEqual([0, 0.5, 3]);
+    expect(timeline.events[1]?.durationBeats).toBe(0.5);
   });
 
-  it("returns null when canvas hit lands outside any measure", () => {
-    const fakeDl = {
-      width: 800,
-      height: 600,
-      commands: [],
-      measureBounds: [],
-    } as unknown as Parameters<typeof engine.canvasToBeat>[0];
-    expect(engine.canvasToBeat(fakeDl, 0, 5000, 5000)).toBeNull();
+  it("uses one visual pass when ignoring repeats, and expanded order by default", () => {
+    const score = structuredClone(MINIMAL_MNX) as Record<string, unknown>;
+    const global = score["global"] as { measures: Record<string, unknown>[] };
+    global.measures[0]!["repeatStart"] = {};
+    global.measures[1]!["repeatEnd"] = { times: 2 };
+    const expanded = engine.timeline(score);
+    const ignored = engine.timeline(score, { repeatExpansion: "ignore" });
+    expect(ignored.totalBeats).toBe(8);
+    expect(expanded.totalBeats).toBe(16);
+    expect(ignored.events).toHaveLength(5);
+    expect(expanded.events).toHaveLength(10);
+    expect(engine.timeline(score, { repeatExpansion: "expand" })).toEqual(expanded);
+  });
+
+  it("preserves authored IDs and substitutes #0 for an absent part ID", () => {
+    const score = structuredClone(MINIMAL_MNX) as Record<string, unknown>;
+    const parts = score["parts"] as {
+      id?: string;
+      measures: { sequences: { content: Record<string, unknown>[] }[] }[];
+    }[];
+    delete parts[0]!.id;
+    parts[0]!.measures[0]!.sequences[0]!.content[0]!["id"] = "authored-event";
+    const a = engine.timeline(score);
+    expect(a.partIds).toEqual(["#0"]);
+    expect(a.events.every((event) => event.partId === "#0")).toBe(true);
+    expect(a.events[0]?.eventId).toBe("authored-event");
+    expect(a.events[1]?.eventId).toBeUndefined();
+    expect(engine.timeline(score)).toEqual(a);
   });
 });

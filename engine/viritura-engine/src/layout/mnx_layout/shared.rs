@@ -940,6 +940,7 @@ pub(super) fn render_system_staff_content(
     );
     super::staff_sources::assign_measure_sources(
         &mut dl.measure_bounds[bounds_start..],
+        score,
         flat_staves.get(staff_idx),
         measure_staves,
     );

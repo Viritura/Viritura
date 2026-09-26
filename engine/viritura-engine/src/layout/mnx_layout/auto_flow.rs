@@ -461,6 +461,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     };
 
     let mut dl = DisplayList::new(page_w, total_height);
+    dl.set_parts(score, 0..score.parts.len());
 
     render_head(
         &mut dl,

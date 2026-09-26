@@ -138,6 +138,15 @@ pub struct Score {
 }
 
 impl Score {
+    /// Stable identity of the source part at its position in `parts`.
+    pub fn stable_part_id(&self, index: usize) -> String {
+        self.parts[index]
+            .id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .map_or_else(|| format!("#{index}"), str::to_owned)
+    }
+
     /// Get the score metadata (title, composer, etc.) if present.
     pub fn metadata(&self) -> Option<&ScoreMetadata> {
         self.vendor_ext

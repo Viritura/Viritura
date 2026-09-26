@@ -235,6 +235,7 @@ pub fn layout_full_score_cached(
 
     let total_width = page_w;
     let mut dl = DisplayList::new(total_width, total_height);
+    dl.set_parts(score, 0..score.parts.len());
 
     // Render title block on page 1
     if config.page_width.is_some() {
@@ -649,7 +650,8 @@ fn render_one_staff_for_system(
             crate::render::MeasureBounds {
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
-                part_index: vi,
+                part_index: visual_staves[vi].0,
+                part_id: dl.parts[visual_staves[vi].0].id.clone(),
                 source_part_indices: Vec::new(),
                 staff_index: vi,
                 system_index: sys_idx,

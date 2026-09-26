@@ -8,6 +8,7 @@
 
 import { computeNotePreview, type DisplayList, type MeasureBounds, type NotePreviewInput } from "./wasm";
 import { paintCommand } from "./displayListPainter";
+import { canvasTextFont } from "./textFont";
 
 type ContentPointSnapper = (x: number, y: number) => { x: number; y: number };
 
@@ -527,7 +528,7 @@ function paintStickyStaffLabel(
   const labelX = stickyX + clefWidth;
   const labelY = staff.y - sp * 0.6;
   const labelPoint = snapContentPoint ? snapContentPoint(labelX, labelY) : { x: labelX, y: labelY };
-  ctx.font = `${labelSize}px ${label.font}`;
+  ctx.font = canvasTextFont(label.font, labelSize);
   // Measure text to draw paper background
   const metrics = ctx.measureText(label.text);
   const pad = sp * 0.2;

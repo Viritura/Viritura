@@ -132,4 +132,16 @@ describe("generateTimeline with measure repeats", () => {
     expect(timeline.expandedMeasureToOriginal).toEqual([0, 1, 0, 1, 2]);
     expect(timeline.expandedMeasureToOriginal).toHaveLength(timeline.measureStartBeats.length);
   });
+
+  it("can skip playback navigation without changing the default", () => {
+    const score = buildScore([noteMeasure("C", "e1"), noteMeasure("D", "e2")]);
+    score.global.measures[0]!.repeatStart = {};
+    score.global.measures[1]!.repeatEnd = { times: 2 };
+    const expanded = generateTimeline(score);
+    const ignored = generateTimeline(score, { expandRepeats: false });
+    expect(expanded.expandedMeasureToOriginal).toEqual([0, 1, 0, 1]);
+    expect(ignored.expandedMeasureToOriginal).toEqual([0, 1]);
+    expect(ignored.totalBeats).toBe(8);
+    expect(ignored.events.filter((event) => event.type === "noteOn")).toHaveLength(2);
+  });
 });

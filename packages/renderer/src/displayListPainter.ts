@@ -8,71 +8,87 @@
 import type { DisplayList, RenderCommand } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
 import { resolveBasePath } from "./basePath";
+import { canvasTextFont, TEXT_FONT_FAMILY } from "./textFont";
+
+/** Outcome of {@link loadMusicFont}: names of faces that failed to load. */
+export interface FontLoadResult {
+  readonly failed: readonly string[];
+}
 
 /** Load the Bravura SMuFL font and Libertinus Serif text font so Canvas can use them. */
 let fontLoaded = false;
-let fontLoadPromise: Promise<void> | null = null;
+let fontLoadPromise: Promise<FontLoadResult> | null = null;
 
-export async function loadMusicFont(): Promise<void> {
-  if (fontLoaded) return;
+const FONT_FACE_NAMES = [
+  "Bravura",
+  "Libertinus Serif",
+  "Libertinus Serif Bold",
+  "Libertinus Serif Italic",
+  "Libertinus Serif Bold Italic",
+] as const;
+
+export async function loadMusicFont(): Promise<FontLoadResult> {
+  if (fontLoaded) return { failed: [] };
   if (fontLoadPromise) return fontLoadPromise;
 
-  fontLoadPromise = (async () => {
-    try {
-      const basePath = resolveBasePath();
+  const attempt = (async (): Promise<FontLoadResult> => {
+    const basePath = resolveBasePath();
 
-      const bravura = new FontFace("Bravura", `url(${basePath}fonts/Bravura.otf)`, {
-        // Restrict to SMuFL Private Use Area + Musical Symbols block.
-        // Without this, the browser falls back to Bravura for U+266D (♭) etc.
-        // in "serif" text, rendering oversized music glyphs that obscure text labels.
-        unicodeRange: "U+E000-F8FF, U+F0000-FFFFF",
-      });
+    const bravura = new FontFace("Bravura", `url(${basePath}fonts/Bravura.otf)`, {
+      // Restrict to SMuFL Private Use Area + Musical Symbols block.
+      // Without this, the browser falls back to Bravura for U+266D (♭) etc.
+      // in text runs, rendering oversized music glyphs that obscure text labels.
+      unicodeRange: "U+E000-F8FF, U+F0000-FFFFF",
+    });
 
-      // Libertinus Serif — OFL-licensed text font with ♭♯♮ support.
-      // Registered as "serif" so the engine's DrawText { font: "serif" } uses it.
-      const libertinus = new FontFace("serif", `url(${basePath}fonts/LibertinusSerif-Regular.otf)`);
-      const libertinusBold = new FontFace("serif", `url(${basePath}fonts/LibertinusSerif-Bold.otf)`, {
-        weight: "bold",
-      });
-      const libertinusItalic = new FontFace("serif", `url(${basePath}fonts/LibertinusSerif-Italic.otf)`, {
-        style: "italic",
-      });
-      const libertinusBoldItalic = new FontFace("serif", `url(${basePath}fonts/LibertinusSerif-BoldItalic.otf)`, {
-        weight: "bold",
-        style: "italic",
-      });
+    // Libertinus Serif — OFL-licensed text font with ♭♯♮ support. Registered
+    // under a private family (see textFont.ts) so embedding pages keep their
+    // own generic `serif`; the engine's DrawText { font: "serif" } maps to it.
+    const libertinus = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Regular.otf)`);
+    const libertinusBold = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Bold.otf)`, {
+      weight: "bold",
+    });
+    const libertinusItalic = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Italic.otf)`, {
+      style: "italic",
+    });
+    const libertinusBoldItalic = new FontFace(
+      TEXT_FONT_FAMILY,
+      `url(${basePath}fonts/LibertinusSerif-BoldItalic.otf)`,
+      { weight: "bold", style: "italic" },
+    );
 
-      const results = await Promise.allSettled([
-        bravura.load(),
-        libertinus.load(),
-        libertinusBold.load(),
-        libertinusItalic.load(),
-        libertinusBoldItalic.load(),
-      ]);
+    const results = await Promise.allSettled([
+      bravura.load(),
+      libertinus.load(),
+      libertinusBold.load(),
+      libertinusItalic.load(),
+      libertinusBoldItalic.load(),
+    ]);
 
-      for (const [i, result] of results.entries()) {
-        if (result.status === "fulfilled") {
-          document.fonts.add(result.value);
-        } else {
-          const names = [
-            "Bravura",
-            "Libertinus Serif",
-            "Libertinus Serif Bold",
-            "Libertinus Serif Italic",
-            "Libertinus Serif Bold Italic",
-          ];
-          console.warn(`Failed to load ${names[i]} font:`, result.reason);
-        }
+    const failed: string[] = [];
+    for (const [i, result] of results.entries()) {
+      if (result.status === "fulfilled") {
+        document.fonts.add(result.value);
+      } else {
+        failed.push(FONT_FACE_NAMES[i]!);
+        console.warn(`Failed to load ${FONT_FACE_NAMES[i]} font:`, result.reason);
       }
-
-      fontLoaded = true;
-      console.log("Music and text fonts loaded");
-    } catch (e) {
-      console.warn("Failed to load fonts:", e);
     }
+    return { failed };
   })();
-
-  return fontLoadPromise;
+  fontLoadPromise = attempt;
+  try {
+    const result = await attempt;
+    // Only a successful music-font load is cached; a failed Bravura fetch
+    // (network, CSP, wrong asset base) can be retried by a later caller.
+    if (!result.failed.includes("Bravura")) fontLoaded = true;
+    return result;
+  } catch (e) {
+    console.warn("Failed to load fonts:", e);
+    return { failed: [...FONT_FACE_NAMES] };
+  } finally {
+    if (!fontLoaded && fontLoadPromise === attempt) fontLoadPromise = null;
+  }
 }
 
 /**
@@ -132,11 +148,7 @@ function paintEllipse(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawEllipse
 
 function paintText(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawText">): void {
   ctx.fillStyle = cmd.color;
-  // Parse font style prefix from font name (e.g. "serif italic" → "italic 10px serif")
-  const fontParts = cmd.font.split(" ");
-  const fontFamily = fontParts[0] ?? "serif";
-  const fontStyle = fontParts.slice(1).join(" ");
-  ctx.font = fontStyle ? `${fontStyle} ${cmd.size}px ${fontFamily}` : `${cmd.size}px ${fontFamily}`;
+  ctx.font = canvasTextFont(cmd.font, cmd.size);
   ctx.textAlign = cmd.align;
   ctx.textBaseline = cmd.baseline;
   ctx.fillText(cmd.text, cmd.x, cmd.y);

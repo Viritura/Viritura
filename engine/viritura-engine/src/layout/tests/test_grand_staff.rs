@@ -17,6 +17,43 @@ use std::collections::HashSet;
 // Grand Staff (Piano) Tests
 // ═══════════════════════════════════════
 #[test]
+fn grand_staff_bounds_keep_source_part_id_on_both_staves() {
+    let mut score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/grand-staff.mnx"
+    ))
+    .unwrap();
+    score.parts[0].id = Some("piano-source".into());
+    let display = layout_score(&score, 0, &LayoutConfig::default());
+    assert_eq!(display.parts[0].id, "piano-source");
+    assert!(display
+        .measure_bounds
+        .iter()
+        .any(|bounds| bounds.staff_index == 1));
+    assert!(display
+        .measure_bounds
+        .iter()
+        .all(|bounds| bounds.part_id == "piano-source"));
+}
+
+#[test]
+fn selected_grand_staff_only_summarizes_its_source_part() {
+    let mut score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/parts.mnx"
+    ))
+    .unwrap();
+    score.parts[1].id = Some("second-source".into());
+    score.parts[1].staves = 2;
+    let display = layout_score(&score, 1, &LayoutConfig::default());
+    assert_eq!(display.parts.len(), 1);
+    assert_eq!(display.parts[0].id, "second-source");
+    assert_eq!(display.parts[0].index, 1);
+    assert!(display
+        .measure_bounds
+        .iter()
+        .all(|bounds| bounds.part_id == "second-source" && bounds.part_index == 1));
+}
+
+#[test]
 fn test_grand_staff_parse_staves_field() {
     let json = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -475,7 +475,7 @@ describe("paintBinaryDisplayList", () => {
       [10, 10, 20, 14, black, 0, 3, 2, 4, 116, 101, 115, 116], // "test"
     ]);
     paintBinaryDisplayList(ctx, data);
-    expect(ctx.font).toBe("bold 14px serif");
+    expect(ctx.font).toBe('bold 14px "Viritura Serif", serif');
     expect(ctx.fillText).toHaveBeenCalledWith("test", 10, 20);
   });
 
@@ -570,7 +570,8 @@ describe("element IDs in binary display list", () => {
 
 /** Encode a string ID as [len, ...codepoints] */
 function encodeId(id: string): number[] {
-  return [id.length, ...Array.from(id).map((c) => c.codePointAt(0) ?? 0)];
+  const codepoints = Array.from(id).map((c) => c.codePointAt(0) ?? 0);
+  return [codepoints.length, ...codepoints];
 }
 
 function retainedPatchFrame(placements: number[][]): Float32Array {
@@ -704,6 +705,31 @@ describe("element bounding box decoding", () => {
 });
 
 describe("measure bounds decoding", () => {
+  it("decodes part identities and bounds IDs from the final binary trailer", () => {
+    const bounds = [-1, 0, 1, 0, 0, 10, 200, 50, 40, 25, 4, 0, 0, 0, 0, 0];
+    const base = buildBinaryBuffer(100, 50, [], [], undefined, [], [bounds]);
+    const data = new Float32Array([
+      ...base,
+      0, // selection groups
+      0, // sparse source mappings
+      2, // part summaries
+      0,
+      ...encodeId("Cello 🎻"),
+      ...encodeId("Violoncello"),
+      1,
+      ...encodeId("#1"),
+      ...encodeId("Piano"),
+      1,
+      ...encodeId("#1"), // measure bounds identities
+    ]);
+    const decoded = decodeBinaryDisplayList(data);
+    expect(decoded.parts).toEqual([
+      { id: "Cello 🎻", index: 0, name: "Violoncello" },
+      { id: "#1", index: 1, name: "Piano" },
+    ]);
+    expect(decoded.measureBounds?.[0]?.partId).toBe("#1");
+  });
+
   it("should decode measure bounds from binary", () => {
     const measureId = encodeId("m1");
     const boundsData = [

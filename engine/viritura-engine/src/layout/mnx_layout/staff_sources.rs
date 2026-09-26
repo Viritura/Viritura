@@ -22,6 +22,7 @@ pub(super) fn shared_lane_staff_offsets(
 
 pub(super) fn assign_measure_sources(
     bounds: &mut [MeasureBounds],
+    score: &crate::model::Score,
     staff: Option<&FlatStaff>,
     measure_staves: Option<&HashMap<usize, &FlatStaff>>,
 ) {
@@ -34,6 +35,7 @@ pub(super) fn assign_measure_sources(
         };
         if let Some(source) = staff.sources.first() {
             bounds.part_index = source.part_index;
+            bounds.part_id = score.stable_part_id(source.part_index);
         }
         bounds.source_part_indices.clear();
         for source in &staff.sources {

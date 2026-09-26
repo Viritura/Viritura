@@ -425,6 +425,8 @@ pub struct MeasureBounds {
     pub measure_id: Option<String>,
     /// Part index (0-based) — identifies the source part for note entry.
     pub part_index: usize,
+    /// Stable ID of the source part.
+    pub part_id: String,
     /// Distinct source part indices in resolved visual-staff order, including
     /// silent sources. Empty means the sole source is `part_index`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

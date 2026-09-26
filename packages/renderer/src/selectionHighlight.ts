@@ -17,6 +17,7 @@
 
 import { traceFilledBezier, filledBezierMidline, paintCommand } from "./displayListPainter";
 import type { DisplayList, RenderCommand } from "./wasm";
+import { canvasTextFont } from "./textFont";
 
 type FilledBezier = Extract<RenderCommand, { type: "DrawFilledBezier" }>;
 
@@ -263,10 +264,7 @@ function haloGlyph(ctx: CanvasRenderingContext2D, cmd: Extract<RenderCommand, { 
 
 function haloText(ctx: CanvasRenderingContext2D, cmd: Extract<RenderCommand, { type: "DrawText" }>, w: number): void {
   // Font-string assembly mirrors paintText so the outline traces the same run.
-  const fontParts = cmd.font.split(" ");
-  const fontFamily = fontParts[0] ?? "serif";
-  const fontStyle = fontParts.slice(1).join(" ");
-  ctx.font = fontStyle ? `${fontStyle} ${cmd.size}px ${fontFamily}` : `${cmd.size}px ${fontFamily}`;
+  ctx.font = canvasTextFont(cmd.font, cmd.size);
   ctx.textAlign = cmd.align;
   ctx.textBaseline = cmd.baseline;
   ctx.lineWidth = w;

@@ -143,6 +143,9 @@ impl DisplayList {
     ///    (member_id_len, ...member_id_codepoints)...)...]`.
     /// 3. Sparse source mappings: `[entry_count,
     ///    (bounds_index, source_count, ...part_indices)...]`.
+    /// 4. Part identities: `[part_count, (index, id_len, ...id_codepoints,
+    ///    name_len, ...name_codepoints)..., bounds_count,
+    ///    (id_len, ...id_codepoints)...]`.
     ///
     /// A later trailer requires all earlier counts, including explicit zeros.
     /// Trailing empty sections are omitted. Thus main's pre-source buffers remain
@@ -262,7 +265,10 @@ impl DisplayList {
         // Optional trailers are kept after the command payload so existing
         // command offsets remain stable. Selection groups require an explicit
         // zero measure count when no measure bounds are present.
-        if !self.measure_bounds.is_empty() || !self.selection_groups.is_empty() {
+        if !self.measure_bounds.is_empty()
+            || !self.selection_groups.is_empty()
+            || !self.parts.is_empty()
+        {
             buf.push(self.measure_bounds.len() as f32);
             for mb in &self.measure_bounds {
                 if let Some(measure_id) = &mb.measure_id {
@@ -302,7 +308,11 @@ impl DisplayList {
             .filter(|(_, mb)| !mb.source_part_indices.is_empty())
             .collect();
         // Sources require a group count even when there are no selection groups.
-        if !self.selection_groups.is_empty() || !sources.is_empty() {
+        if !self.selection_groups.is_empty()
+            || !sources.is_empty()
+            || !self.parts.is_empty()
+            || !self.measure_bounds.is_empty()
+        {
             buf.push(self.selection_groups.len() as f32);
             for group in &self.selection_groups {
                 let id: Vec<u32> = group.element_id.chars().map(|c| c as u32).collect();
@@ -321,7 +331,7 @@ impl DisplayList {
             }
         }
 
-        if !sources.is_empty() {
+        if !sources.is_empty() || !self.parts.is_empty() || !self.measure_bounds.is_empty() {
             buf.push(sources.len() as f32);
             for (index, mb) in sources {
                 buf.push(index as f32);
@@ -330,8 +340,26 @@ impl DisplayList {
             }
         }
 
+        if !self.parts.is_empty() || !self.measure_bounds.is_empty() {
+            buf.push(self.parts.len() as f32);
+            for part in &self.parts {
+                buf.push(part.index as f32);
+                encode_identity_string(&mut buf, &part.id);
+                encode_identity_string(&mut buf, &part.name);
+            }
+            buf.push(self.measure_bounds.len() as f32);
+            for bounds in &self.measure_bounds {
+                encode_identity_string(&mut buf, &bounds.part_id);
+            }
+        }
+
         buf
     }
+}
+
+fn encode_identity_string(buf: &mut Vec<f32>, value: &str) {
+    buf.push(value.chars().count() as f32);
+    buf.extend(value.chars().map(|ch| ch as u32 as f32));
 }
 
 #[allow(clippy::too_many_lines)] // flat 1:1 command→wire dispatch: every arm is the same mechanical run of field pushes, and the layout documented in the table above is only checkable with the whole match visible in one place
@@ -552,7 +580,7 @@ fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::{MeasureBounds, PageLayout, SelectionGroup};
+    use crate::render::{MeasureBounds, PageLayout, PartSummary, SelectionGroup};
 
     #[test]
     fn test_encode_decode_color() {
@@ -608,6 +636,34 @@ mod tests {
     }
 
     #[test]
+    fn part_identity_trailer_carries_source_and_fallback_ids() {
+        let mut dl = DisplayList::new(100.0, 50.0);
+        dl.parts = vec![
+            PartSummary {
+                id: "Cello 🎻".into(),
+                index: 0,
+                name: "Violoncello".into(),
+            },
+            PartSummary {
+                id: "#1".into(),
+                index: 1,
+                name: "Piano".into(),
+            },
+        ];
+        let buffer = dl.to_binary();
+        let mut expected = vec![
+            100.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0,
+        ];
+        encode_identity_string(&mut expected, "Cello 🎻");
+        encode_identity_string(&mut expected, "Violoncello");
+        expected.push(1.0);
+        encode_identity_string(&mut expected, "#1");
+        encode_identity_string(&mut expected, "Piano");
+        expected.push(0.0);
+        assert_eq!(buffer, expected);
+    }
+
+    #[test]
     fn test_optional_trailer_order_and_empty_counts() {
         for (has_bounds, has_groups, has_sources) in [
             (false, false, false),
@@ -624,6 +680,7 @@ mod tests {
                     index: 0,
                     measure_id: None,
                     part_index: 2,
+                    part_id: "#2".into(),
                     source_part_indices: vec![],
                     staff_index: 0,
                     system_index: 0,
@@ -668,11 +725,16 @@ mod tests {
                     2.0, 5.0, 98.0, 101.0, 97.0, 109.0, 119070.0, 2.0, 1.0, 97.0, 1.0, 98.0, 5.0,
                     98.0, 101.0, 97.0, 109.0, 50.0, 1.0, 1.0, 99.0,
                 ]);
-            } else if has_sources {
+            } else if has_sources || has_bounds {
                 expected.push(0.0);
             }
             if has_sources {
                 expected.extend([1.0, 1.0, 3.0, 2.0, 5.0, 9.0]);
+            } else if has_bounds {
+                expected.push(0.0);
+            }
+            if has_bounds {
+                expected.extend([0.0, 2.0, 2.0, 35.0, 50.0, 2.0, 35.0, 50.0]);
             }
             assert_eq!(
                 dl.to_binary(),

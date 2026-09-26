@@ -147,6 +147,7 @@ pub(super) fn extract_overlay_segment(
 ) -> DisplayList {
     let (nc, _neid, nbb, nshape, ngroup, nslur, nmb) = marker;
     let mut overlay = DisplayList::new(width, height);
+    overlay.parts = dl.parts.clone();
     overlay.commands = dl.commands[nc..].to_vec();
     // `element_ids` obeys the invariant: empty, or length == commands.len().
     // When non-empty, the overlay-relative ids are the tail aligned to the
@@ -233,6 +234,7 @@ pub(super) fn extract_display_list_range(
     }
 
     let mut segment = DisplayList::new(width, height);
+    segment.parts = dl.parts.clone();
     segment.commands = dl.commands[start.commands..end.commands].to_vec();
     if dl.element_ids.len() == dl.commands.len() {
         segment.element_ids = dl.element_ids[start.commands..end.commands].to_vec();

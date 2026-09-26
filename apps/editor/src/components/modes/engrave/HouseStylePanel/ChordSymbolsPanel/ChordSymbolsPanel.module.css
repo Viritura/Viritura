@@ -38,7 +38,7 @@
   gap: 2px;
   align-content: center;
   min-height: 68px;
-  font-family: serif;
+  font-family: "Viritura Serif", serif;
   font-size: 20px;
   line-height: 1.05;
   text-align: center;
@@ -86,7 +86,7 @@
   align-items: center;
   justify-content: center;
   min-height: 42px;
-  font-family: serif;
+  font-family: "Viritura Serif", serif;
   font-size: 20px;
   line-height: 1;
   white-space: nowrap;

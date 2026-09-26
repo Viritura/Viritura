@@ -10,6 +10,43 @@ use crate::parse::parse_mnx;
 use crate::render::*;
 
 #[test]
+fn stable_part_identities_survive_layout_entry_points() {
+    let mut score = parse_mnx(include_str!(
+        "../../../../../packages/format/fixtures/mnx/parts.mnx"
+    ))
+    .unwrap();
+    score.parts[0].id = Some("melody-source".into());
+    score.parts[1].id = Some(String::new());
+    let config = LayoutConfig::default();
+
+    let full = layout_full_score(&score, &config);
+    let repeated = layout_full_score(&score, &config);
+    let single = layout_score(&score, 1, &config);
+    let mnx = layout_with_mnx_scores(&score, &config, 0);
+
+    assert_eq!(
+        full.parts
+            .iter()
+            .map(|p| (p.id.as_str(), p.index, p.name.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("melody-source", 0, "Melody"), ("#1", 1, "Harmony")]
+    );
+    assert_eq!(full.parts, repeated.parts);
+    assert_eq!(single.parts, vec![full.parts[1].clone()]);
+    assert_eq!(mnx.parts, full.parts);
+    for dl in [&full, &repeated, &single, &mnx] {
+        assert!(!dl.measure_bounds.is_empty());
+        for bound in &dl.measure_bounds {
+            assert_eq!(bound.part_id, score.stable_part_id(bound.part_index));
+        }
+    }
+    let json = serde_json::to_value(&full).unwrap();
+    assert_eq!(json["parts"][0]["id"], "melody-source");
+    assert_eq!(json["measure_bounds"][0]["part_id"], "melody-source");
+    assert_eq!(json["measure_bounds"][0]["part_index"], 0);
+}
+
+#[test]
 fn test_full_score_layout_parts() {
     let json = include_str!("../../../../../packages/format/fixtures/mnx/parts.mnx");
     let score = parse_mnx(json).unwrap();
