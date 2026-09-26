@@ -81,7 +81,7 @@
     "@types/node": "24.0.0",
     "autoprefixer": "^10.5.4",
     "concurrently": "^10.0.5",
-    "esbuild": "0.25.10",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
