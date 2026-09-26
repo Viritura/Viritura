@@ -1,3 +1,4 @@
+use super::super::measure::StemContext;
 use crate::model::{Event, Placement, Sequence, SequenceContent};
 use std::collections::HashMap;
 
@@ -28,9 +29,8 @@ pub(super) struct SpacingEvent<'a> {
     pub key: BeatKey,
     pub event: &'a Event,
     pub duration_beats: f64,
-    pub forced_stem_up: Option<bool>,
+    pub stem: StemContext,
     pub sequence_index: usize,
-    pub sequence_count: usize,
     pub sequence_staff: u32,
 }
 
@@ -56,7 +56,7 @@ pub(super) struct SequenceTimeline<'a> {
 pub(super) fn sequence_timeline(
     sequence: &Sequence,
     sequence_index: usize,
-    sequence_count: usize,
+    contesting_voices: usize,
     ratio: f64,
 ) -> SequenceTimeline<'_> {
     let mut timeline = SequenceTimeline {
@@ -66,14 +66,12 @@ pub(super) fn sequence_timeline(
     };
     let mut beat = 0.0;
     let mut pending_graces = Vec::new();
-    let forced_stem_up = sequence.forced_stem_up;
     walk_content(
         &sequence.content,
         &mut beat,
         ratio,
-        forced_stem_up,
+        StemContext::for_sequence(sequence, contesting_voices),
         sequence_index,
-        sequence_count,
         sequence.staff.unwrap_or(1),
         &mut pending_graces,
         &mut timeline,
@@ -91,9 +89,8 @@ fn walk_content<'a>(
     content: &'a [SequenceContent],
     beat: &mut f64,
     duration_scale: f64,
-    forced_stem_up: Option<bool>,
+    stem: StemContext,
     sequence_index: usize,
-    sequence_count: usize,
     sequence_staff: u32,
     pending_graces: &mut Vec<&'a Event>,
     timeline: &mut SequenceTimeline<'a>,
@@ -105,9 +102,8 @@ fn walk_content<'a>(
                     event,
                     *beat,
                     event.duration.total_beats() * duration_scale,
-                    forced_stem_up,
+                    stem,
                     sequence_index,
-                    sequence_count,
                     sequence_staff,
                     pending_graces,
                     timeline,
@@ -118,17 +114,19 @@ fn walk_content<'a>(
                 let inner = tuplet.inner.duration.total_beats() * f64::from(tuplet.inner.multiple);
                 let outer = tuplet.outer.duration.total_beats() * f64::from(tuplet.outer.multiple);
                 let scale = if inner > 0.0 { outer / inner } else { 1.0 };
-                let tuplet_forced = tuplet
-                    .placement
-                    .and_then(Placement::force_stem_up)
-                    .or(forced_stem_up);
+                let tuplet_stem = StemContext {
+                    forced_stem_up: tuplet
+                        .placement
+                        .and_then(Placement::force_stem_up)
+                        .or(stem.forced_stem_up),
+                    ..stem
+                };
                 walk_content(
                     &tuplet.content,
                     beat,
                     duration_scale * scale,
-                    tuplet_forced,
+                    tuplet_stem,
                     sequence_index,
-                    sequence_count,
                     sequence_staff,
                     pending_graces,
                     timeline,
@@ -147,9 +145,8 @@ fn walk_content<'a>(
                         event,
                         *beat,
                         per_event * duration_scale,
-                        forced_stem_up,
+                        stem,
                         sequence_index,
-                        sequence_count,
                         sequence_staff,
                         pending_graces,
                         timeline,
@@ -171,9 +168,8 @@ fn push_event<'a>(
     event: &'a Event,
     beat: f64,
     duration_beats: f64,
-    forced_stem_up: Option<bool>,
+    stem: StemContext,
     sequence_index: usize,
-    sequence_count: usize,
     sequence_staff: u32,
     pending_graces: &mut Vec<&'a Event>,
     timeline: &mut SequenceTimeline<'a>,
@@ -190,9 +186,8 @@ fn push_event<'a>(
         key,
         event,
         duration_beats,
-        forced_stem_up,
+        stem,
         sequence_index,
-        sequence_count,
         sequence_staff,
     });
 }

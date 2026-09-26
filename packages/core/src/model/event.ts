@@ -163,8 +163,8 @@ export type UpDownAuto = NonNullable<RawStrongAccent["pointing"]>;
 export type UpDown = RawBowDirection["direction"];
 
 /** Direction hint for a sequence's stem/notation side (MNX `direction-hint`).
- *  Descriptive metadata only — Viritura derives actual stem direction from
- *  array order / pitch, not from this hint. */
+ *  Omitting the field means `auto`. The hint resolves stem direction only
+ *  while another sequence in the same part measure engraves visible content. */
 export type DirectionHint = import("../raw").DirectionHint;
 
 /** Fermata (hold) marking on a note or rest. Derived from MNX raw. */
@@ -430,8 +430,8 @@ export interface Sequence {
   staff?: number;
   /** Voice name for this sequence (MNX voice identifier) */
   voice?: string;
-  /** Descriptive stem/notation-side hint for this sequence (MNX `directionHint`).
-   *  Non-authoritative — does not force stem direction. */
+  /** Stem/notation-side hint for this sequence (MNX `directionHint`).
+   *  Omitting the field means `auto`. */
   directionHint?: DirectionHint;
 }
 

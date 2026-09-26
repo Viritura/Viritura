@@ -1,5 +1,7 @@
 use super::super::config::LayoutConfig;
-use super::super::measure::{compute_note_staff_positions, compute_seconds_displacement};
+use super::super::measure::{
+    compute_note_staff_positions, compute_seconds_displacement, resolve_stem_up,
+};
 use super::super::resolve::active_clef_at_beat;
 use super::accidental_visibility::is_suppressed_tied_accidental;
 use super::collectors::spacing_display_pitch;
@@ -117,10 +119,9 @@ fn timed_event<'a>(
             .collect()
     };
     let stem_up = resolve_stem_up(
-        event,
-        source.forced_stem_up,
+        event.stem_direction.as_ref(),
+        source.stem,
         source.sequence_index,
-        source.sequence_count,
         &positions,
     );
     let offsets = compute_seconds_displacement(&positions, stem_up);
@@ -136,30 +137,6 @@ fn timed_event<'a>(
         stem_up,
         is_beamed,
     })
-}
-
-fn resolve_stem_up(
-    event: &Event,
-    forced_stem_up: Option<bool>,
-    sequence_index: usize,
-    sequence_count: usize,
-    positions: &[f64],
-) -> bool {
-    if let Some(direction) = &event.stem_direction {
-        return matches!(direction, StemDirection::Up);
-    }
-    if let Some(forced) = forced_stem_up {
-        return forced;
-    }
-    if sequence_count > 1 {
-        return sequence_index == 0;
-    }
-    let average = if positions.is_empty() {
-        4.0
-    } else {
-        positions.iter().sum::<f64>() / positions.len() as f64
-    };
-    average > 4.0
 }
 
 fn rhythmic_ink(event: &TimedEvent<'_>, config: &LayoutConfig) -> Vec<InkRect> {

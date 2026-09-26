@@ -8,6 +8,9 @@ use super::super::spacing::*;
 use super::super::types::*;
 use super::cross_staff::*;
 use super::orchestrate::*;
+use super::stem_direction::{
+    contesting_voice_count, resolve_stem_up, sequence_stem_intent, StemContext,
+};
 use super::tremolo_pair::*;
 use crate::model::*;
 use crate::render::smufl::smufl;
@@ -162,33 +165,6 @@ pub(super) fn compute_display_pitches(
         .collect()
 }
 
-/// Resolve stem direction. Precedence order: `event.stem_direction`,
-/// sequence-level `forced_stem_up`, multi-voice convention, auto from
-/// average pitch position (stems-down for notes above middle line).
-pub(super) fn resolve_stem_up(
-    stem_direction: Option<&StemDirection>,
-    forced_stem_up: Option<bool>,
-    num_voices: usize,
-    voice_index: usize,
-    note_positions: &[f64],
-) -> bool {
-    if let Some(dir) = stem_direction {
-        return matches!(dir, StemDirection::Up);
-    }
-    if let Some(forced) = forced_stem_up {
-        return forced;
-    }
-    if num_voices > 1 {
-        return voice_index == 0;
-    }
-    let avg_pos = if note_positions.is_empty() {
-        4.0
-    } else {
-        note_positions.iter().sum::<f64>() / note_positions.len() as f64
-    };
-    avg_pos > 4.0
-}
-
 /// Recursively lay out events from sequence content, applying duration scaling for tuplets.
 ///
 /// `duration_scale` is the cumulative tuplet scaling factor. For top-level events it's 1.0.
@@ -211,7 +187,7 @@ pub(crate) fn layout_sequence_content(
     measure_index: usize,
     resolved_ottavas: &[ResolvedOttavaRange],
     log_spacing: &LogSpacing,
-    forced_stem_up: Option<bool>,
+    stem: StemContext,
     sequence_staff: u32,
     transposition: Option<(i32, i32)>,
     kit: Option<&std::collections::HashMap<String, KitComponent>>,
@@ -235,8 +211,7 @@ pub(crate) fn layout_sequence_content(
 
                 let stem_up = resolve_stem_up(
                     event.stem_direction.as_ref(),
-                    forced_stem_up,
-                    num_voices,
+                    stem,
                     voice_index,
                     &note_positions,
                 );
@@ -283,11 +258,15 @@ pub(crate) fn layout_sequence_content(
                 // Record first event index before recursing
                 let first_idx = events.len();
 
-                // Tuplet placement overrides forced_stem_up for events within the tuplet
-                let tuplet_forced = tuplet
-                    .placement
-                    .and_then(|o| o.force_stem_up())
-                    .or(forced_stem_up);
+                // Tuplet placement overrides the sequence-level force for
+                // events within the tuplet.
+                let tuplet_stem = StemContext {
+                    forced_stem_up: tuplet
+                        .placement
+                        .and_then(|o| o.force_stem_up())
+                        .or(stem.forced_stem_up),
+                    ..stem
+                };
 
                 // Recurse into tuplet content with compounded scale
                 layout_sequence_content(
@@ -307,7 +286,7 @@ pub(crate) fn layout_sequence_content(
                     measure_index,
                     resolved_ottavas,
                     log_spacing,
-                    tuplet_forced,
+                    tuplet_stem,
                     sequence_staff,
                     transposition,
                     kit,
@@ -364,8 +343,7 @@ pub(crate) fn layout_sequence_content(
                         clef_changes,
                         resolved_ottavas,
                         measure_index,
-                        forced_stem_up,
-                        num_voices,
+                        stem,
                         voice_index,
                         transposition,
                         kit,
@@ -522,6 +500,7 @@ pub(crate) fn skyline_min_content_width(
         // at or below stem-down voice's highest note, stems visually overlap
         // and one chord is displaced even at wider pitch intervals.
         let mut beat_i_voices: Vec<(usize, bool, Vec<i32>, u32)> = Vec::new();
+        let contesting_voices = contesting_voice_count(sequences);
 
         for (seq_idx, seq) in sequences.iter().enumerate() {
             // Collect all events (including inside tuplets/tremolos) with beat positions
@@ -555,11 +534,18 @@ pub(crate) fn skyline_min_content_width(
                         let positions: Vec<i32> =
                             notes.iter().map(|n| n.pitch.diatonic_position()).collect();
                         if !positions.is_empty() {
-                            // Approximate stem direction per sequence: use the
-                            // explicit forced_stem_up if set (covers divisi);
-                            // otherwise fall back to the auto multi-voice rule
-                            // (voice 0 = up, others = down).
-                            let stem_up = seq.forced_stem_up.unwrap_or(seq_idx == 0);
+                            // Approximate stem direction per sequence using the
+                            // same sequence-level intent the real layout applies
+                            // (layout force, then direction hint, then array
+                            // order), so the reserved displacement matches the
+                            // stems that are actually engraved. An uncontested
+                            // sequence yields no intent, but it also cannot
+                            // collide with anything, so the fallback is unused.
+                            let stem_up = sequence_stem_intent(
+                                StemContext::for_sequence(seq, contesting_voices),
+                                seq_idx,
+                            )
+                            .unwrap_or(seq_idx == 0);
                             // Visual staff (event override, else sequence staff)
                             // so cross-staff voices of a grand staff are not
                             // compared (their pitches never displace each other).

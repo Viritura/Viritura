@@ -21,6 +21,54 @@ const mnxFiles = fs
   .sort();
 
 describe("MNX round-trip (parse → serialize → parse)", () => {
+  it("omits a redundant explicit directionHint of auto", () => {
+    // `auto` is the documented default (w3c-cg/mnx#553), so serializing it
+    // would only add noise.
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                {
+                  directionHint: "auto",
+                  content: [{ duration: { base: "whole" }, rest: {} }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const serialized = serializeMnx(parseMnx(source));
+    expect(serialized.parts[0]!.measures[0]!.sequences[0]).not.toHaveProperty("directionHint");
+  });
+
+  it("preserves upper and lower direction hints", () => {
+    const source = {
+      mnx: { version: 1 },
+      global: { measures: [{ time: { count: 4, unit: 4 } }] },
+      parts: [
+        {
+          measures: [
+            {
+              sequences: [
+                { directionHint: "lower", content: [{ duration: { base: "whole" }, rest: {} }] },
+                { directionHint: "upper", content: [{ duration: { base: "whole" }, rest: {} }] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const serialized = serializeMnx(parseMnx(source));
+    expect(serialized.parts[0]!.measures[0]!.sequences.map((s) => s["directionHint"])).toEqual(["lower", "upper"]);
+  });
+
   it("preserves an explicit dotted rest", () => {
     const source = {
       mnx: { version: 1 },

@@ -11,6 +11,7 @@ use super::cross_staff::*;
 use super::helpers::*;
 use super::prefix_width::{compute_max_prefix_width, prefix_layout, AlignedPrefix, PrefixContext};
 use super::rest_conflicts::resolve_voice_rest_conflicts;
+use super::stem_direction::{contesting_voice_count, StemContext};
 use crate::model::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
@@ -540,6 +541,7 @@ pub(super) fn layout_voice_for_measure(
     vi: usize,
     rm: &ResolvedMeasure,
     num_voices: usize,
+    contesting_voices: usize,
     sp: f64,
     start_x: f64,
     prefix_width: f64,
@@ -649,7 +651,7 @@ pub(super) fn layout_voice_for_measure(
             rm.index,
             resolved_ottavas,
             log_spacing,
-            seq.forced_stem_up,
+            StemContext::for_sequence(seq, contesting_voices),
             seq_staff,
             rm.display_transposition(),
             rm.kit.as_ref(),
@@ -758,6 +760,9 @@ pub(super) fn layout_measure_inner(
     // Layout each voice (sequence)
     let mut voice_layouts = Vec::new();
     let num_voices = rm.part.sequences.len();
+    // Stem hints apply only while another sequence engraves visible content;
+    // `space`-only and absent sequences do not displace anything.
+    let contesting_voices = contesting_voice_count(&rm.part.sequences);
 
     // Build logarithmic spacing map from all voices in this measure,
     // or use a shared spacing map for cross-staff beat alignment.
@@ -826,6 +831,7 @@ pub(super) fn layout_measure_inner(
             vi,
             rm,
             num_voices,
+            contesting_voices,
             sp,
             start_x,
             prefix_width,

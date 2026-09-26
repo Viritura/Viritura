@@ -436,7 +436,9 @@ function serializeSequence(seq: Sequence): Obj {
     }
     seqObj["fullMeasure"] = fmObj;
   }
-  if (seq.directionHint) seqObj["directionHint"] = seq.directionHint;
+  // `auto` is the documented default (MNX w3c-cg/mnx#553), so writing it
+  // explicitly would only add noise.
+  if (seq.directionHint && seq.directionHint !== "auto") seqObj["directionHint"] = seq.directionHint;
   if (seq.staff !== undefined) seqObj["staff"] = seq.staff;
   if (seq.voice !== undefined) seqObj["voice"] = seq.voice;
   return seqObj;

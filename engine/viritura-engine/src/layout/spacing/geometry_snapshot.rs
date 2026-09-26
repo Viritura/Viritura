@@ -1,5 +1,6 @@
 use super::super::config::LayoutConfig;
 use super::super::grace::GraceSpacingContext;
+use super::super::measure::contesting_voice_count;
 use super::accidental_ink::ink_snapshot;
 use super::collectors::notes_contain_second;
 use super::timing::{sequence_timeline, BeatKey, SequenceTimeline, SpacingEvent};
@@ -73,7 +74,7 @@ pub(super) fn build_spacing_snapshot<'a>(
             .copied()
             .unwrap_or(&default_key);
         let changes = clef_changes.get(staff_index).copied().flatten();
-        let sequence_count = sequences.len();
+        let sequence_count = contesting_voice_count(sequences);
         let ratio = staff_ratios.get(staff_index).copied().unwrap_or(1.0);
 
         for (sequence_index, sequence) in sequences.iter().enumerate() {

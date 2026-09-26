@@ -1,3 +1,4 @@
+use super::super::measure::contesting_voice_count;
 use super::timing::sequence_timeline;
 use crate::model::ResolvedMeasure;
 
@@ -11,7 +12,7 @@ use crate::model::ResolvedMeasure;
 pub(crate) fn collect_all_event_durations(measures: &[ResolvedMeasure]) -> Vec<f64> {
     let mut durations = Vec::new();
     for resolved_measure in measures {
-        let sequence_count = resolved_measure.part.sequences.len();
+        let sequence_count = contesting_voice_count(&resolved_measure.part.sequences);
         let ratio = resolved_measure
             .effective_staff_meter
             .as_ref()
