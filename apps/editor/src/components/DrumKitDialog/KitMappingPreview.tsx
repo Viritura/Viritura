@@ -1,6 +1,7 @@
 import { useRef, useMemo, useState, useCallback, useEffect, type CSSProperties } from "react";
 import { ScoreView, useScoreView } from "@viritura/score-viewer-react";
 import { detectStaves, SpatialIndex, getElementType, type ElementBBox } from "@viritura/renderer";
+import { drumKitPreviewLayout } from "./drumKitPreviewLayout";
 import type { KitComponentEdit } from "./types";
 import { buildKitSliceMnx, slicePageWidth, SLICE_SPATIUM } from "./drumKitSlice";
 import styles from "./DrumKitStaff.module.css";
@@ -82,26 +83,33 @@ export function KitMappingPreview({ rows }: KitMappingPreviewProps) {
         className={styles.score}
         style={scoreStyle}
         pageBackground="transparent"
+        bare
         pageStyle={PAGE_STYLE}
         loadingFallback={<div className={styles.loading}>Loading staff…</div>}
       >
-        <StaffBoundsReporter onContentBounds={handleBounds} />
+        <StaffBoundsReporter mnx={sliceMnx} pageWidth={pageWidth} onContentBounds={handleBounds} />
       </ScoreView>
     </div>
   );
 }
 
 interface BoundsProps {
+  readonly mnx: string | object;
+  readonly pageWidth: number;
   readonly onContentBounds: (top: number, bottom: number, left: number, right: number) => void;
 }
 
 /** Read-only sibling that measures the engraved music's content extent so the
  *  host can crop away the engine's page margins (mirrors the bounds reporting
  *  in `DrumKitStaff`'s overlay, minus all pointer interaction). */
-function StaffBoundsReporter({ onContentBounds }: BoundsProps) {
+function StaffBoundsReporter({ mnx, pageWidth, onContentBounds }: BoundsProps) {
   const { displayList } = useScoreView();
-  const staff = useMemo(() => (displayList ? detectStaves(displayList)[0] : undefined), [displayList]);
-  const index = useMemo(() => (displayList ? SpatialIndex.fromDisplayList(displayList) : null), [displayList]);
+  const preview = useMemo(
+    () => (displayList ? drumKitPreviewLayout(mnx, pageWidth) : null),
+    [displayList, mnx, pageWidth],
+  );
+  const staff = useMemo(() => (preview ? detectStaves(preview)[0] : undefined), [preview]);
+  const index = useMemo(() => (preview ? SpatialIndex.fromDisplayList(preview) : null), [preview]);
   const eventBoxes = useMemo<ElementBBox[]>(
     () => (index ? index.all.filter((e) => getElementType(e.id) === "event") : []),
     [index],

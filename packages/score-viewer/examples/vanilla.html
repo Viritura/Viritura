@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Score viewer embed</title>
+    <style>
+      #score {
+        width: 100%;
+        height: 80vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="score"></div>
+    <script type="module">
+      // Release zip layout: score-engine.js, score-viewer.js, wasm/ and fonts/ sit one level up.
+      import { mountScore } from "../score-viewer.js";
+      import { loadEngine } from "../score-engine.js";
+
+      const mnxText = await fetch("./score.mnx").then((response) => response.text());
+      const viewer = mountScore(document.getElementById("score"), mnxText, { zoom: "fit-width" });
+
+      // Engine-only use: the host owns the paper, transform and canvas sizing.
+      async function paintWithoutViewer(canvas) {
+        const engine = await loadEngine();
+        const displayList = engine.layout(mnxText, { pageWidth: 800 });
+        const page = engine.measure(displayList).pages[0];
+        canvas.width = page.width;
+        canvas.height = page.height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        engine.paint(ctx, displayList, { page: 0 });
+      }
+      // Call viewer.destroy() when removing the embed.
+      void viewer;
+      void paintWithoutViewer;
+    </script>
+  </body>
+</html>

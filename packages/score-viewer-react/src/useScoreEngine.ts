@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Engine,
+  type Engine,
   loadEngine,
   EngineLoadError,
   ParseError,

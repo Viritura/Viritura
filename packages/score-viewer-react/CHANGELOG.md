@@ -5,6 +5,12 @@ here. Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0]
+
+- Delegate page arrangement, virtualized painting, zoom, horizon tiles and
+  lifecycle cleanup to `@viritura/score-viewer`.
+- Re-export the new opaque score-engine API; remove obsolete renderer types.
+
 ## [0.0.1] — Phase 5 internal release
 
 ### Added

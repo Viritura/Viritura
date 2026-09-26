@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import type { DisplayList, Engine, EngineLoadError, LayoutError, ParseError } from "@viritura/score-engine";
-import { ScoreView, type ScorePageMargins, type ScoreSpreadFirstPage, type ScoreViewMode } from "./ScoreView";
+import type {
+  DisplayList,
+  Engine,
+  EngineLoadError,
+  LayoutError,
+  ParseError,
+  ScoreMeasurements,
+} from "@viritura/score-engine";
+import { ScoreView } from "./ScoreView";
+import type { ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
 import {
   ScoreViewerControls,
   type ScoreFitMode,
@@ -83,9 +91,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function getPrimaryPageHeight(displayList: DisplayList | null, pageHeight: number, paged: boolean): number {
-  if (!paged) return displayList?.height ?? pageHeight;
-  return displayList?.pages?.[0]?.height ?? displayList?.height ?? pageHeight;
+function getPrimaryPageHeight(measurements: ScoreMeasurements | null, pageHeight: number): number {
+  return measurements?.pages[0]?.height ?? pageHeight;
 }
 
 function getFitContentWidth(viewMode: ScoreViewMode, pageWidth: number, gap: number): number {
@@ -99,7 +106,7 @@ function getViewportPadding(): number {
 function computeFitZoom(args: {
   readonly fitMode: ScoreFitMode;
   readonly viewportSize: ViewportSize;
-  readonly displayList: DisplayList | null;
+  readonly measurements: ScoreMeasurements | null;
   readonly pageWidth: number;
   readonly pageHeight: number;
   readonly viewMode: ScoreViewMode;
@@ -107,14 +114,14 @@ function computeFitZoom(args: {
   readonly minZoom: number;
   readonly maxZoom: number;
 }): number | null {
-  const { fitMode, viewportSize, displayList, pageWidth, pageHeight, viewMode, gap, minZoom, maxZoom } = args;
+  const { fitMode, viewportSize, measurements, pageWidth, pageHeight, viewMode, gap, minZoom, maxZoom } = args;
   if (fitMode === "none" || viewportSize.width <= 0 || viewportSize.height <= 0) return null;
   const padding = getViewportPadding();
   const usableWidth = Math.max(1, viewportSize.width - padding);
   const usableHeight = Math.max(1, viewportSize.height - padding);
-  const layoutWidth = displayList && displayList.width > 0 ? displayList.width : Math.max(1, pageWidth);
+  const layoutWidth = measurements?.pages[0]?.width ?? Math.max(1, pageWidth);
   const contentWidth = getFitContentWidth(viewMode, layoutWidth, gap);
-  const primaryPageHeight = getPrimaryPageHeight(displayList, pageHeight, pageWidth > 0);
+  const primaryPageHeight = getPrimaryPageHeight(measurements, pageHeight);
   const widthZoom = usableWidth / contentWidth;
   const pageZoom = Math.min(widthZoom, usableHeight / primaryPageHeight);
   return clamp(fitMode === "page" ? pageZoom : widthZoom, minZoom, maxZoom);
@@ -197,7 +204,7 @@ export function ScoreViewer({
   const [uncontrolledZoom, setUncontrolledZoom] = useState(defaultZoom);
   const [uncontrolledFitMode, setUncontrolledFitMode] = useState(defaultFitMode);
   const [viewportSize, setViewportSize] = useState<ViewportSize>({ width: 0, height: 0 });
-  const [displayList, setDisplayList] = useState<DisplayList | null>(null);
+  const [measurements, setMeasurements] = useState<ScoreMeasurements | null>(null);
 
   const scoreIndex = controlledScoreIndex ?? uncontrolledScoreIndex;
   const viewMode = controlledViewMode ?? uncontrolledViewMode;
@@ -292,7 +299,7 @@ export function ScoreViewer({
       computeFitZoom({
         fitMode,
         viewportSize,
-        displayList,
+        measurements,
         pageWidth: effectivePageWidth,
         pageHeight: effectivePageHeight,
         viewMode,
@@ -300,7 +307,7 @@ export function ScoreViewer({
         minZoom,
         maxZoom,
       }),
-    [displayList, effectivePageHeight, effectivePageWidth, fitMode, gap, maxZoom, minZoom, viewMode, viewportSize],
+    [measurements, effectivePageHeight, effectivePageWidth, fitMode, gap, maxZoom, minZoom, viewMode, viewportSize],
   );
 
   useEffect(() => {
@@ -313,7 +320,7 @@ export function ScoreViewer({
 
   const handleReady = useCallback(
     (info: { engine: Engine; displayList: DisplayList }) => {
-      setDisplayList(info.displayList);
+      setMeasurements(info.engine.measure(info.displayList));
       onReady?.(info);
     },
     [onReady],
@@ -336,8 +343,7 @@ export function ScoreViewer({
   const viewportBaseStyle: CSSProperties = {
     position: "absolute",
     inset: 0,
-    overflow: "auto",
-    padding: 24,
+    overflow: "hidden",
     boxSizing: "border-box",
     ...viewportStyle,
   };

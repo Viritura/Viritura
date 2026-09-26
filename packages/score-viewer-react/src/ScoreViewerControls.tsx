@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { BookOpen, Columns3, FileText, Maximize2, Minus, MoveRight, Plus, Rows3, Scan } from "lucide-react";
 import { Slider } from "@viritura/ui";
-import type { ScoreViewMode } from "./ScoreView";
+import type { ScoreViewMode } from "@viritura/score-viewer";
 
 function inlineIconButtonStyle(active: boolean, disabled: boolean): CSSProperties {
   return {

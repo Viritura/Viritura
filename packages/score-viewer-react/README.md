@@ -1,7 +1,7 @@
 # @viritura/score-viewer-react
 
 > Embeddable React components (`<ScoreViewer>` and `<ScoreView>`) for rendering MNX music
-> notation in the browser. Powered by [`@viritura/score-engine`](../score-engine).
+> notation in the browser. Thin wrappers over [`@viritura/score-viewer`](../score-viewer).
 
 > **Status:** internal workspace package (`0.x.0`), not currently published to
 > npm. See [`@viritura/score-engine`](../score-engine) for the publishing
@@ -17,12 +17,14 @@ function MyDocs() {
 }
 ```
 
-That's it. The viewer lazy-loads the WASM engine + Bravura font on
+That's it. The DOM viewer lazy-loads the WASM engine + Bravura font on
 first mount; subsequent instances share the same engine.
 
 Use `<ScoreViewer>` when you want the complete embeddable viewer with zoom,
 fit, view-mode controls, and Ctrl-scroll zoom. Use `<ScoreView>` when you want
 only the score canvases and plan to provide your own chrome.
+For cropped fragments embedded in tight panels, pass `bare` to remove the
+viewer's default viewport padding (the Drum Kit editor uses this mode).
 
 ## View Modes
 
@@ -143,7 +145,7 @@ desired.
 - **`<ScoreView.Page page={n}>`** — overlay container positioned over
   page `n`. Useful for badges, comments, annotations.
 - **`<ScoreView.Playhead beat={n} partId="p1">`** — vertical playhead
-  line auto-positioned via `engine.beatToCanvas`. Pass `follow` to keep it
+  line auto-positioned via `engine.playhead`. Pass `follow` to keep it
   visible while playback advances, or `render={fn}` to customize the visual.
 
 ## License

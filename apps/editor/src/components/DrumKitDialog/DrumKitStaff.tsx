@@ -15,6 +15,7 @@ import {
   paintSelectionOverlay,
   type ElementBBox,
 } from "@viritura/renderer";
+import { drumKitPreviewLayout } from "./drumKitPreviewLayout";
 import type { KitComponentEdit } from "./types";
 import { buildKitSliceMnx, orderedSliceComponents, slicePageWidth, SLICE_SPATIUM } from "./drumKitSlice";
 import { staffPositionFromDlY } from "./drumKitStaffInteraction";
@@ -106,10 +107,13 @@ export function DrumKitStaff({ rows, selectedId, onAdd, onMove, onSelect }: Drum
         className={styles.score}
         style={scoreStyle}
         pageBackground="transparent"
+        bare
         pageStyle={PAGE_STYLE}
         loadingFallback={<div className={styles.loading}>Loading staff…</div>}
       >
         <StaffInteractionOverlay
+          mnx={sliceMnx}
+          pageWidth={pageWidth}
           orderedIds={orderedIds}
           selectedId={selectedId}
           onAdd={onAdd}
@@ -123,6 +127,8 @@ export function DrumKitStaff({ rows, selectedId, onAdd, onMove, onSelect }: Drum
 }
 
 interface OverlayProps {
+  readonly mnx: string | object;
+  readonly pageWidth: number;
   readonly orderedIds: readonly string[];
   readonly selectedId: string | null;
   readonly onAdd: (staffPosition: number) => void;
@@ -146,14 +152,27 @@ interface DragState {
  * the staff geometry and a `SpatialIndex` of the display list for notehead
  * hit-testing, so no glyph/staff geometry is re-implemented here.
  */
-function StaffInteractionOverlay({ orderedIds, selectedId, onAdd, onMove, onSelect, onContentBounds }: OverlayProps) {
+function StaffInteractionOverlay({
+  mnx,
+  pageWidth,
+  orderedIds,
+  selectedId,
+  onAdd,
+  onMove,
+  onSelect,
+  onContentBounds,
+}: OverlayProps) {
   const { displayList, zoom, pagePositions } = useScoreView();
   const ref = useRef<HTMLDivElement | null>(null);
   const selCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
 
-  const staff = useMemo(() => (displayList ? detectStaves(displayList)[0] : undefined), [displayList]);
-  const index = useMemo(() => (displayList ? SpatialIndex.fromDisplayList(displayList) : null), [displayList]);
+  const preview = useMemo(
+    () => (displayList ? drumKitPreviewLayout(mnx, pageWidth) : null),
+    [displayList, mnx, pageWidth],
+  );
+  const staff = useMemo(() => (preview ? detectStaves(preview)[0] : undefined), [preview]);
+  const index = useMemo(() => (preview ? SpatialIndex.fromDisplayList(preview) : null), [preview]);
   const eventBoxes = useMemo<ElementBBox[]>(
     () => (index ? index.all.filter((e) => getElementType(e.id) === "event").sort((a, b) => a.x - b.x) : []),
     [index],

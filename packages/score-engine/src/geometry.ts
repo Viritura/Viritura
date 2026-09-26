@@ -29,7 +29,7 @@ function boundsPartId(bounds: MeasureBounds): string {
 }
 
 /** Parts in the layout, in score order. */
-export function layoutParts(displayList: RendererDisplayList): PartInfo[] {
+function layoutParts(displayList: RendererDisplayList): PartInfo[] {
   if (displayList.parts?.length) {
     return displayList.parts.map((part) => ({ id: part.id, index: part.index, name: part.name }));
   }

@@ -28,7 +28,6 @@ describe("@viritura/score-viewer-react public API", () => {
 
   it("re-exports the engine surface", () => {
     expect(typeof api.loadEngine).toBe("function");
-    expect(typeof api.Engine).toBe("function");
     expect(typeof api.EngineLoadError).toBe("function");
     expect(typeof api.ParseError).toBe("function");
     expect(typeof api.LayoutError).toBe("function");

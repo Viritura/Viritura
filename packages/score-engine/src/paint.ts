@@ -25,7 +25,7 @@ const recoloured = new WeakMap<readonly RenderCommand[], Map<string, RenderComma
 const DEFAULT_INK = /^#0{3}(?:0{3})?$/i;
 
 /** Commands of one page, split once per display list. */
-export function pageSlice(displayList: RendererDisplayList, page: number): PageSlice | undefined {
+function pageSlice(displayList: RendererDisplayList, page: number): PageSlice | undefined {
   let slices = pageSlices.get(displayList);
   if (!slices) {
     slices = splitCommandsByPage(displayList);
