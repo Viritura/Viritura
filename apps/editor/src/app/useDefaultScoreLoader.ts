@@ -104,6 +104,7 @@ export function useDefaultScoreLoader({
       .filter((diagnostic) => diagnostic.severity === "warning")
       .map((diagnostic) => diagnostic.message);
     try {
+      if (openedFile.importFailure) throw new Error(openedFile.importFailure);
       const parsed = parseMnx(JSON.parse(recovery.mnxJson));
       setSelectedScoreIndex(0);
       loadScore(parsed, openedFile.filename);

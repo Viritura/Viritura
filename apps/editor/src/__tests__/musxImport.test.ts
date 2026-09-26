@@ -75,7 +75,7 @@ describe("Finale MUSX import", () => {
     });
   });
 
-  it("rejects invalid MNX returned by Denigma", async () => {
+  it("reports invalid MNX returned by Denigma as an import failure", async () => {
     convertMusxToMnx.mockResolvedValue({
       mnxJson: "{}",
       gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
@@ -87,7 +87,9 @@ describe("Finale MUSX import", () => {
 
     const file = new File([new Uint8Array([1])], "broken.musx");
 
-    await expect(convertImportedMusicFile(file)).rejects.toThrow("Denigma produced invalid MNX");
+    const result = await convertImportedMusicFile(file);
+
+    expect(result.importFailure).toContain("Denigma produced invalid MNX");
   });
 
   it("retains actionable chord diagnostics and gap outcomes without duplicating or summarizing them", async () => {
@@ -108,7 +110,7 @@ describe("Finale MUSX import", () => {
     expect(result.importGapOutcomes).toEqual(gapOutcomes);
   });
 
-  it("rejects schema-invalid notation even when Denigma reports success", async () => {
+  it("reports schema-invalid notation as a failure even when Denigma reports success", async () => {
     const invalid = JSON.parse(VALID_MNX) as {
       parts: Array<{
         measures: Array<{
@@ -130,7 +132,9 @@ describe("Finale MUSX import", () => {
 
     const file = new File([new Uint8Array([1])], "tremolo.musx");
 
-    await expect(convertImportedMusicFile(file)).rejects.toThrow(/marks/);
+    const result = await convertImportedMusicFile(file);
+
+    expect(result.importFailure).toMatch(/marks/);
   });
 
   it("empties only the sequence containing a malformed tuplet", async () => {

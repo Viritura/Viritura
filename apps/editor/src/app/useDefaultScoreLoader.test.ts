@@ -62,6 +62,36 @@ describe("useDefaultScoreLoader", () => {
     expect(useImportErrorLogStore.getState().log).toMatchObject({ status: "failed", filename: "legacy-score.mnx" });
   });
 
+  it("reports converter failures in the error log without loading the score", async () => {
+    const loadScore = vi.fn();
+    const setFileError = vi.fn();
+    const openedFile = {
+      filename: "broken.mnx",
+      mnxJson: "{}",
+      fileHandle: null,
+      importRecovery: [],
+      importFailure: "Denigma produced invalid MNX: / must have required property 'mnx'",
+    };
+
+    renderHook(() =>
+      useDefaultScoreLoader({
+        store: { getState: () => ({ mnxJson: "" }) } as never,
+        loadScore,
+        resetHistory: vi.fn(),
+        openedFile,
+        setSelectedScoreIndex: vi.fn(),
+        setFileHandle: vi.fn(),
+        setFileError,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(useImportErrorLogStore.getState().log).toMatchObject({ status: "failed", filename: "broken.mnx" });
+    });
+    expect(setFileError).toHaveBeenCalledWith(expect.stringContaining("Denigma produced invalid MNX"));
+    expect(loadScore).not.toHaveBeenCalled();
+  });
+
   it("opens the valid sequences, drops the file handle, and shows the error log", async () => {
     useImportErrorLogStore.setState({ log: null });
     const loadScore = vi.fn();

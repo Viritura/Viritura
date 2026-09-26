@@ -87,9 +87,17 @@ describe("import error log", () => {
   });
 
   it("truncates long logs in the issue URL", () => {
-    const url = new URL(buildImportIssueUrl(recoveredLog(), "x".repeat(20_000)));
+    const href = buildImportIssueUrl(recoveredLog(), "x".repeat(20_000));
 
-    expect(url.searchParams.get("evidence")!.length).toBeLessThan(5_200);
+    expect(href.length).toBeLessThanOrEqual(8_000);
+    expect(new URL(href).searchParams.get("evidence")).toContain("truncated");
+  });
+
+  it("bounds the encoded issue URL when the log is mostly reserved characters", () => {
+    const href = buildImportIssueUrl(recoveredLog(), "!".repeat(5_000));
+
+    expect(href.length).toBeLessThanOrEqual(8_000);
+    expect(new URL(href).searchParams.get("evidence")).toMatch(/^```text\n!+\n…\(truncated/);
   });
 
   it("shows the log with download and report actions", () => {

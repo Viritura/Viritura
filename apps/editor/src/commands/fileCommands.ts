@@ -46,6 +46,11 @@ export interface OpenFileResult {
    * `mnxJson` is the recovered document and recovery is not repeated.
    */
   importRecovery?: RecoveredSequence[];
+  /**
+   * Set when conversion produced MNX that recovery could not repair. The loader
+   * reports it through the import error log instead of opening the score.
+   */
+  importFailure?: string;
 }
 
 /** Outcome of {@link recoverImportedMnx}. */
@@ -232,9 +237,6 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
         includeTempoTool: true,
       });
       const recovery = recoverImportedMnx(conversion.mnxJson);
-      if (recovery.error) {
-        throw new Error(`Denigma produced invalid MNX: ${recovery.error}`);
-      }
       return {
         mnxJson: recovery.mnxJson,
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
@@ -242,6 +244,7 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
         importDiagnostics: conversion.diagnostics,
         importGapOutcomes: conversion.gapOutcomes,
         importRecovery: recovery.recovered,
+        ...(recovery.error ? { importFailure: `Denigma produced invalid MNX: ${recovery.error}` } : {}),
       };
     }
 

@@ -4,7 +4,9 @@ import type { RawScoreValidationError, RecoveredSequence } from "@viritura/forma
 const IMPORT_ISSUE_URL = "https://github.com/Viritura/Viritura/issues/new";
 
 /** GitHub rejects very long URLs, so only the start of the log is prefilled. */
-const MAX_ISSUE_LOG_CHARS = 5000;
+/** Keeps prefilled issue links under common browser and server URL limits. */
+const MAX_ISSUE_URL_LENGTH = 8000;
+const TRUNCATION_NOTE = "\n…(truncated; attach the downloaded log for the full report)\n";
 
 /** Everything needed to explain an import problem and reproduce it. */
 export interface ImportErrorLog {
@@ -160,17 +162,27 @@ export function importErrorLogFilename(log: ImportErrorLog): string {
 
 /** Prefilled bug-report URL for the repository's issue form. */
 export function buildImportIssueUrl(log: ImportErrorLog, text = formatImportErrorLog(log)): string {
-  const evidence =
-    text.length > MAX_ISSUE_LOG_CHARS
-      ? `${text.slice(0, MAX_ISSUE_LOG_CHARS)}\n…(truncated; attach the downloaded log for the full report)\n`
-      : text;
   const source = log.sourceFilename ?? log.filename;
-  const params = new URLSearchParams({
-    template: "bug.yml",
-    title: `[Bug]: Import error in ${source}`,
-    description: `${summarizeImportErrorLog(log)}\n\nI expected the file to import without errors.`,
-    reproduction: `Import ${source}. Attach the file here if it can be shared.`,
-    evidence: `\`\`\`text\n${evidence}\`\`\``,
-  });
-  return `${IMPORT_ISSUE_URL}?${params.toString()}`;
+  const urlWith = (evidence: string): string => {
+    const params = new URLSearchParams({
+      template: "bug.yml",
+      title: `[Bug]: Import error in ${source}`,
+      description: `${summarizeImportErrorLog(log)}\n\nI expected the file to import without errors.`,
+      reproduction: `Import ${source}. Attach the file here if it can be shared.`,
+      evidence: `\`\`\`text\n${evidence}\`\`\``,
+    });
+    return `${IMPORT_ISSUE_URL}?${params.toString()}`;
+  };
+  const full = urlWith(text);
+  if (full.length <= MAX_ISSUE_URL_LENGTH) return full;
+  // Encoding expands characters unevenly, so search for the longest prefix
+  // whose encoded URL still fits.
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (urlWith(text.slice(0, mid) + TRUNCATION_NOTE).length <= MAX_ISSUE_URL_LENGTH) low = mid;
+    else high = mid - 1;
+  }
+  return urlWith(text.slice(0, low) + TRUNCATION_NOTE);
 }
