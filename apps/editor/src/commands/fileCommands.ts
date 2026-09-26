@@ -21,7 +21,7 @@ import {
   type DenigmaDiagnostic,
   type DenigmaGapOutcome,
 } from "@viritura/musx-import";
-import { discardMalformedTupletSequences, validateRawScore } from "@viritura/format";
+import { recoverInvalidSequences, type RawScoreValidationError, type RecoveredSequence } from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -41,16 +41,67 @@ export interface OpenFileResult {
   importDiagnostics?: DenigmaDiagnostic[];
   /** Per-gap preservation result retained for the MUSX import report. */
   importGapOutcomes?: DenigmaGapOutcome[];
+  /**
+   * Sequences already emptied by {@link recoverImportedMnx}. When present,
+   * `mnxJson` is the recovered document and recovery is not repeated.
+   */
+  importRecovery?: RecoveredSequence[];
 }
 
-function recoverMalformedTupletSequences(text: string): { mnxJson: string; discardedSequences: number } {
-  try {
-    const document: unknown = JSON.parse(text);
-    const discardedSequences = discardMalformedTupletSequences(document);
-    return { mnxJson: discardedSequences > 0 ? JSON.stringify(document) : text, discardedSequences };
-  } catch {
-    return { mnxJson: text, discardedSequences: 0 };
+/** Outcome of {@link recoverImportedMnx}. */
+export interface ImportedMnxRecovery {
+  /** Recovered MNX JSON (the input text when nothing changed). */
+  mnxJson: string;
+  /** Sequences emptied because they failed validation. */
+  recovered: RecoveredSequence[];
+  /** First validation failure left in `mnxJson`, or null when it is valid MNX. */
+  error: string | null;
+}
+
+function countNonEmptySequences(document: unknown): number {
+  const root = document as { parts?: unknown } | null;
+  if (!Array.isArray(root?.parts)) return 0;
+  let count = 0;
+  for (const part of root.parts as Array<{ measures?: unknown }>) {
+    if (!Array.isArray(part?.measures)) continue;
+    for (const measure of part.measures as Array<{ sequences?: unknown }>) {
+      if (!Array.isArray(measure?.sequences)) continue;
+      for (const sequence of measure.sequences as Array<{ content?: unknown }>) {
+        if (!Array.isArray(sequence?.content) || sequence.content.length > 0) count += 1;
+      }
+    }
   }
+  return count;
+}
+
+function describeValidationError(error: RawScoreValidationError | undefined): string {
+  return error ? `${error.pointer || "/"} ${error.message}` : "output does not satisfy the MNX schema";
+}
+
+/**
+ * Empty only the sequences of an MNX document that fail validation, so one
+ * malformed voice does not prevent the rest of the score from opening.
+ * Unparseable JSON and document-level errors are left for the loader to report,
+ * as is a document in which every sequence fails: that indicates a systematic
+ * format problem, and opening an empty score would only hide it.
+ */
+export function recoverImportedMnx(text: string): ImportedMnxRecovery {
+  let document: unknown;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return { mnxJson: text, recovered: [], error: "output is not valid JSON" };
+  }
+  const recovery = recoverInvalidSequences(document);
+  const { recovered, validation } = recovery;
+  if (recovered.length > 0 && recovered.length >= countNonEmptySequences(document)) {
+    return { mnxJson: text, recovered: [], error: describeValidationError(recovered[0]?.errors[0]) };
+  }
+  return {
+    mnxJson: recovered.length > 0 ? JSON.stringify(recovery.document) : text,
+    recovered,
+    error: validation.ok ? null : describeValidationError(validation.errors[0]),
+  };
 }
 
 /** Options accepted by the File System Access API picker. */
@@ -91,7 +142,7 @@ async function openWithFileSystemAccess(): Promise<OpenFileResult | null> {
 
     const file = await handle.getFile();
     const text = await file.text();
-    return { mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: handle };
+    return { mnxJson: text, filename: file.name, fileHandle: handle };
   } catch (err: unknown) {
     // User cancelled the picker
     if (err instanceof DOMException && err.name === "AbortError") {
@@ -118,7 +169,7 @@ function openWithInputFallback(): Promise<OpenFileResult | null> {
         return;
       }
       const text = await file.text();
-      resolve({ mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: null });
+      resolve({ mnxJson: text, filename: file.name, fileHandle: null });
     });
 
     // Handle cancel — 'cancel' event fires when user closes dialog without selecting
@@ -148,7 +199,7 @@ export async function openMnxFile(): Promise<OpenFileResult | null> {
  */
 export async function readDroppedMnxFile(file: File): Promise<OpenFileResult> {
   const text = await file.text();
-  return { mnxJson: recoverMalformedTupletSequences(text).mnxJson, filename: file.name, fileHandle: null };
+  return { mnxJson: text, filename: file.name, fileHandle: null };
 }
 
 // ═══════════════════════════════════════════
@@ -161,20 +212,6 @@ const MUSIC_IMPORT_EXTENSIONS = [".mxl", ".musicxml", ".xml", ".musx"] as const;
 export function isMusicImportFilename(filename: string): boolean {
   const lower = filename.toLowerCase();
   return MUSIC_IMPORT_EXTENSIONS.some((extension) => lower.endsWith(extension));
-}
-
-function validateConvertedMnxJson(text: string): string | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return "output is not valid JSON";
-  }
-  const validation = validateRawScore(parsed);
-  if (validation.ok) return null;
-  const first = validation.errors[0];
-  if (!first) return "output does not satisfy the MNX schema";
-  return `${first.pointer || "/"} ${first.message}`;
 }
 
 /**
@@ -194,27 +231,17 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
       const conversion = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
         includeTempoTool: true,
       });
-      const recovery = recoverMalformedTupletSequences(conversion.mnxJson);
-      const validationError = validateConvertedMnxJson(recovery.mnxJson);
-      if (validationError) {
-        throw new Error(`Denigma produced invalid MNX: ${validationError}`);
+      const recovery = recoverImportedMnx(conversion.mnxJson);
+      if (recovery.error) {
+        throw new Error(`Denigma produced invalid MNX: ${recovery.error}`);
       }
       return {
         mnxJson: recovery.mnxJson,
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
         fileHandle: null,
-        importDiagnostics: [
-          ...conversion.diagnostics,
-          ...(recovery.discardedSequences > 0
-            ? [
-                {
-                  severity: "warning" as const,
-                  message: `Discarded ${recovery.discardedSequences} sequence${recovery.discardedSequences === 1 ? "" : "s"} containing malformed tuplets.`,
-                },
-              ]
-            : []),
-        ],
+        importDiagnostics: conversion.diagnostics,
         importGapOutcomes: conversion.gapOutcomes,
+        importRecovery: recovery.recovered,
       };
     }
 

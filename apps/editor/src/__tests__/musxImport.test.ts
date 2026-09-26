@@ -71,6 +71,7 @@ describe("Finale MUSX import", () => {
       fileHandle: null,
       importDiagnostics: [{ severity: "warning", message: "A Finale-only detail was omitted." }],
       importGapOutcomes: [],
+      importRecovery: [],
     });
   });
 
@@ -132,7 +133,7 @@ describe("Finale MUSX import", () => {
     await expect(convertImportedMusicFile(file)).rejects.toThrow(/marks/);
   });
 
-  it("imports valid sequences when Denigma returns a malformed tuplet sequence", async () => {
+  it("empties only the sequence containing a malformed tuplet", async () => {
     const source = JSON.parse(VALID_MNX) as {
       parts: Array<{
         measures: Array<{
@@ -162,10 +163,14 @@ describe("Finale MUSX import", () => {
     const result = await convertImportedMusicFile(new File([new Uint8Array([1])], "tuplets.musx"));
     const recovered = JSON.parse(result.mnxJson) as typeof source;
 
-    expect(recovered.parts[0]!.measures[0]!.sequences).toHaveLength(1);
-    expect(result.importDiagnostics).toEqual([
-      expect.objectContaining({ severity: "warning", message: "Discarded 1 sequence containing malformed tuplets." }),
+    const sequences = recovered.parts[0]!.measures[0]!.sequences;
+    expect(sequences).toHaveLength(2);
+    expect(sequences[0]!.content.length).toBeGreaterThan(0);
+    expect(sequences[1]!.content).toEqual([]);
+    expect(result.importRecovery).toEqual([
+      expect.objectContaining({ logId: "E1", measureIndex: 0, sequenceIndex: 1 }),
     ]);
+    expect(result.importDiagnostics).toEqual([]);
   });
 
   it("rejects oversized MUSX files before reading their bytes", async () => {

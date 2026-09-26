@@ -80,6 +80,23 @@ MusicXML import may request review when percussion sounds cannot be identified
 reliably. See
 [Percussion Maps — Review an imported map](/docs/percussion-maps#review-an-imported-map).
 
+### Import errors
+
+If one voice in one measure contains notation that Viritura cannot read, for
+example a tuplet whose notes do not fill its stated ratio, only that voice in
+that measure is left empty. The rest of the document opens normally. This
+applies to imported files and to MNX files opened directly.
+
+An **Imported with errors** dialog lists each emptied voice with an identifier
+such as `E1`. The same identifier appears as a text item (“Import error E1”) at
+the start of the affected measure, so you can find it and re-enter the music.
+The original file is not changed, and **Save** asks for a new location.
+
+Use **Download log** to save the full error log, and **Report issue on GitHub**
+to open a pre-filled bug report. Attach the log and, if you can share it, the
+source file. If every voice fails, or the problem is outside individual voices,
+the file does not open, and the same dialog explains why.
+
 ## Rendering and layout diagnostics
 
 Rendering and Layout Debug are advanced diagnostic categories. They expose
