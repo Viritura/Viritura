@@ -1,6 +1,7 @@
 export interface SiteLinks {
   app: string;
   docs: string;
+  developers: string;
   github: string;
 }
 

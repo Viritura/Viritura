@@ -104,6 +104,7 @@ export function SiteNav({ links }: SiteNavProps) {
           </div>
         </div>
         <a href={links.docs}>Docs</a>
+        <a href={links.developers}>Developers</a>
         <a href={links.app} className="btn btn-primary btn-nav">
           Open editor
         </a>
@@ -346,6 +347,7 @@ export function SiteFooter({ links }: { links: SiteLinks }) {
           GitHub
         </a>
         <a href={links.docs}>Docs</a>
+        <a href={links.developers}>Developers</a>
         <a href={links.app}>Editor</a>
       </div>
     </footer>

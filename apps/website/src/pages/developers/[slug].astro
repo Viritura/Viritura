@@ -1,23 +1,24 @@
 ---
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { docSectionRouteParams, findDocPageInSection } from "../../routes/docs/docsManifest";
+import { docSectionHome, docSectionRouteParams, findDocPageInSection } from "../../routes/docs/docsManifest";
 import { DocsPage } from "../../routes/docs/DocsPage";
 import { findSeoRoute } from "../../seo/routeCatalog";
 import { breadcrumbJsonLd, techArticleJsonLd } from "../../seo/structuredData";
 
 export function getStaticPaths() {
-  return docSectionRouteParams("guide");
+  return docSectionRouteParams("developers");
 }
 
 const slug = Astro.params.slug ?? "";
-const docPage = findDocPageInSection("guide", slug);
-const route = findSeoRoute(docPage?.path ?? `/docs/${slug}`);
+const docPage = findDocPageInSection("developers", slug);
+const home = docSectionHome("developers");
+const route = findSeoRoute(docPage?.path ?? `/developers/${slug}`);
 const jsonLd = [
   techArticleJsonLd(route),
   breadcrumbJsonLd([
     { name: "Viritura", path: "/" },
-    { name: "Documentation", path: "/docs" },
-    { name: docPage?.title ?? route.title, path: docPage?.path ?? `/docs/${slug}` },
+    { name: "Developers", path: home.path },
+    { name: docPage?.title ?? route.title, path: docPage?.path ?? `/developers/${slug}` },
   ]),
 ];
 ---
@@ -30,6 +31,6 @@ const jsonLd = [
 >
   {jsonLd.map((entry) => <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(entry)} />)}
   <main id="top" class="route-main docs-route">
-    <DocsPage slug={docPage?.slug ?? slug} client:load />
+    <DocsPage section="developers" slug={docPage?.slug ?? slug} client:load />
   </main>
 </SiteLayout>

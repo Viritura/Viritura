@@ -9,7 +9,8 @@ or [`@viritura/score-viewer-react`](../score-viewer-react).
 
 > **Status:** `0.x`, not published to npm. Embedders outside the monorepo use
 > the prebuilt distribution (see [Distribution](#distribution)). Breaking
-> changes are possible before `1.0.0`.
+> changes are possible before `1.0.0`. Public documentation:
+> [viritura.com/developers](https://viritura.com/developers).
 
 ## Quick start
 

@@ -114,31 +114,32 @@ function CustomViewer({ mnx }: { mnx: string }) {
 
 ## Props
 
-| Prop              | Type                                                          | Default  | Notes                                    |
-| ----------------- | ------------------------------------------------------------- | -------- | ---------------------------------------- |
-| `mnx`             | `string \| object`                                            | —        | MNX JSON (string or parsed)              |
-| `pageWidth`       | `number`                                                      | `800`    | Page width; use `0` for horizon layout   |
-| `pageHeight`      | `number`                                                      | A4 ratio | Page height in display-list units        |
-| `pageMargins`     | `{ top, right, bottom, left }`                                | 15 mm    | Margins scaled to the default A4 width   |
-| `spatium`         | `number`                                                      | `7`      | Staff-space height in display-list units |
-| `scoreIndex`      | `number`                                                      | `0`      | Which `scores[]` entry to render         |
-| `scoreOptions`    | `{ index: number; label: string }[]`                          | `[]`     | Options for the score selector           |
-| `zoom`            | `number`                                                      | `1`      | 1.0 = 1 display-list pixel = 1 CSS px    |
-| `viewMode`        | `"page" \| "horizontal" \| "spread" \| "spread-horizontal"`   | `"page"` | Page arrangement                         |
-| `gap`             | `number`                                                      | `16`     | CSS px between pages                     |
-| `assetBaseUrl`    | `string`                                                      | —        | Base URL containing `wasm/` and `fonts/` |
-| `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                        |
-| `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                          |
-| `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                          |
-| `loadingFallback` | `ReactNode`                                                   | text     | Custom loading UI                        |
-| `errorFallback`   | `(err: Error) => ReactNode`                                   | text     | Custom error UI                          |
-| `className`       | `string`                                                      | —        |                                          |
-| `style`           | `CSSProperties`                                               | —        |                                          |
+| Prop              | Type                                                          | Default  | Notes                                                            |
+| ----------------- | ------------------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `mnx`             | `string \| object`                                            | —        | MNX JSON (string or parsed)                                      |
+| `pageWidth`       | `number`                                                      | `800`    | Page width; ignored in `horizon`                                 |
+| `pageHeight`      | `number`                                                      | A4 ratio | Page height in display-list units                                |
+| `pageMargins`     | `{ top, right, bottom, left }`                                | 15 mm    | Margins scaled to the default A4 width                           |
+| `spatium`         | `number`                                                      | `7`      | Staff-space height in display-list units                         |
+| `scoreIndex`      | `number`                                                      | `0`      | Which `scores[]` entry to render                                 |
+| `scoreOptions`    | `{ index: number; label: string }[]`                          | `[]`     | Options for the score selector                                   |
+| `zoom`            | `number \| "fit-width" \| "fit-page"`                         | `1`      | 1.0 = 1 display-list pixel = 1 CSS px                            |
+| `viewMode`        | `ScoreViewMode`                                               | `"page"` | `page`, `horizontal`, `spread`, `spread-horizontal` or `horizon` |
+| `gap`             | `number`                                                      | `16`     | CSS px between pages                                             |
+| `assetBaseUrl`    | `string`                                                      | —        | Base URL containing `wasm/` and `fonts/`                         |
+| `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                                                |
+| `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                                                  |
+| `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                                                  |
+| `loadingFallback` | `ReactNode`                                                   | text     | Custom loading UI                                                |
+| `errorFallback`   | `(err: Error) => ReactNode`                                   | text     | Custom error UI                                                  |
+| `className`       | `string`                                                      | —        |                                                                  |
+| `style`           | `CSSProperties`                                               | —        |                                                                  |
 
-`viewMode="horizontal"` arranges rendered pages horizontally; it does not
-select the engine's unpaged horizon layout. Pass `pageWidth={0}` for horizon
-layout, and pair it with `viewMode="horizontal"` when horizontal scrolling is
-desired.
+`viewMode="horizontal"` arranges rendered pages in one row; it does not select
+the engine's unpaged layout. Use `viewMode="horizon"` for one continuous,
+unpaged system.
+
+Public documentation: [viritura.com/developers/react](https://viritura.com/developers/react).
 
 ## Composition slots
 
