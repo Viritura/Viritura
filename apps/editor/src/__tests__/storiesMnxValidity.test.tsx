@@ -3,7 +3,7 @@
  * MNX JSON Schema (`packages/format/schemas/mnx-schema.json`).
  *
  * Strategy:
- *   1. Mock `ScorePreview` to capture the `mnxJson` prop.
+ *   1. Mock `ScorePreview` and `EditorScorePreview` to capture the `mnxJson` prop.
  *   2. For every `*.stories.tsx` under `src/stories/`, dynamically import it,
  *      iterate its named exports, and call each story's `render()` (when
  *      present) inside a React test render.
@@ -24,14 +24,15 @@ import addFormats from "ajv-formats";
 const captured: Array<{ json: string; storyKey: string }> = [];
 let currentStoryKey = "";
 
-vi.mock("../stories/storyFixtures/ScorePreview", () => ({
-  ScorePreview: (props: { mnxJson: string }) => {
-    if (props && typeof props.mnxJson === "string") {
-      captured.push({ json: props.mnxJson, storyKey: currentStoryKey });
-    }
-    return null;
-  },
-}));
+function capturePreview(props: { mnxJson: string }) {
+  if (props && typeof props.mnxJson === "string") {
+    captured.push({ json: props.mnxJson, storyKey: currentStoryKey });
+  }
+  return null;
+}
+
+vi.mock("../stories/storyFixtures/ScorePreview", () => ({ ScorePreview: capturePreview }));
+vi.mock("../stories/storyFixtures/EditorScorePreview", () => ({ EditorScorePreview: capturePreview }));
 
 // ── Schema setup ─────────────────────────────────────────────────────────────
 const schemaPath = resolve(__dirname, "../../../../packages/format/schemas/mnx-schema.json");
