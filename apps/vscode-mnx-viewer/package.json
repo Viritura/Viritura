@@ -85,7 +85,7 @@
     "@types/vscode": "^1.138.0",
     "@viritura/score-engine": "0.1.0",
     "@viritura/score-viewer-react": "0.1.0",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@vitejs/plugin-react": "^6.1.1",
     "@vscode/vsce": "^4.0.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "react": "^19.3.0",
