@@ -585,11 +585,17 @@ pub fn layout_with_mnx_scores_cached(
     // When no explicit pages/systems, auto-flow using the score definition's layout
     if all_systems.is_empty() {
         let Some(layout_id) = score_def.layout.as_deref() else {
-            return DisplayList::new(0.0, 0.0);
+            let mut dl = DisplayList::new(0.0, 0.0);
+            dl.set_parts(score, 0..score.parts.len());
+            return dl;
         };
         let layout_def = match layout_map.get(layout_id) {
             Some(l) => l,
-            None => return DisplayList::new(0.0, 0.0),
+            None => {
+                let mut dl = DisplayList::new(0.0, 0.0);
+                dl.set_parts(score, 0..score.parts.len());
+                return dl;
+            }
         };
         let (auto_flat_staves, auto_group_ranges) =
             flatten_layout(&layout_def.content, &part_id_map, score);
@@ -800,6 +806,7 @@ pub fn layout_with_mnx_scores_cached(
     let system_count = system_measure_ranges.len();
 
     let mut dl = DisplayList::new(page_w, total_height);
+    dl.set_parts(score, 0..score.parts.len());
 
     render_explicit_chrome(
         &mut dl,

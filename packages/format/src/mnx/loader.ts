@@ -3,7 +3,7 @@
  */
 
 import type { Score } from "@viritura/core";
-import { parseMnx } from "./parser";
+import { parseMnx } from "./validatedParser";
 
 /**
  * Load and parse an MNX file from a URL (fetch + parse).

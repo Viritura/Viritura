@@ -16,7 +16,10 @@
  * `engine/viritura-engine/src/layout/condensing.rs` is the system under test.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview as BaseScorePreview, type ScorePreviewProps } from "../storyFixtures/ScorePreview";
+import {
+  EditorScorePreview as BaseScorePreview,
+  type EditorScorePreviewProps as ScorePreviewProps,
+} from "../storyFixtures/EditorScorePreview";
 
 // Engraving-matrix stories render the blue source staves below every
 // condensed staff (same affordance as the editor's "expand condensed staff"

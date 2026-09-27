@@ -1,8 +1,8 @@
 {
   "name": "@viritura/score-engine",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
-  "description": "Embeddable music notation engine: WASM-powered layout + Canvas paint + MNX timeline. Layout-independent, audio-free, ships as the rendering kernel for @viritura/score-viewer-react.",
+  "description": "Framework-free music notation rendering kernel: MNX layout (Rust/WASM), ink-only Canvas paint, SVG, geometry queries and a playback timeline.",
   "keywords": [
     "music",
     "notation",
@@ -16,7 +16,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/peteryangio/viritura.git",
+    "url": "https://github.com/Viritura/Viritura.git",
     "directory": "packages/score-engine"
   },
   "type": "module",
@@ -27,18 +27,6 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./errors": {
-      "types": "./src/errors.ts",
-      "import": "./src/errors.ts"
-    },
-    "./timeline": {
-      "types": "./src/timeline.ts",
-      "import": "./src/timeline.ts"
-    },
-    "./types": {
-      "types": "./src/types.ts",
-      "import": "./src/types.ts"
     }
   },
   "files": [

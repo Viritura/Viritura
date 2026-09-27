@@ -20,6 +20,18 @@ use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn identity_trailer_len(dl: &DisplayList) -> usize {
+    2 + dl
+        .parts
+        .iter()
+        .map(|p| 3 + p.id.chars().count() + p.name.chars().count())
+        .sum::<usize>()
+        + dl.measure_bounds
+            .iter()
+            .map(|b| 1 + b.part_id.chars().count())
+            .sum::<usize>()
+}
+
 fn default_config() -> LayoutConfig {
     LayoutConfig {
         page_width: Some(800.0),
@@ -227,24 +239,25 @@ fn condensed_source_identity_survives_json_and_binary_transport() {
 
     let binary = dl.to_binary();
     let legacy_binary = legacy.to_binary();
+    let source_start = legacy_binary.len() - identity_trailer_len(&legacy) - 1;
     assert_eq!(
-        binary[..legacy_binary.len()]
+        binary[..source_start]
             .iter()
             .map(|f| f.to_bits())
             .collect::<Vec<_>>(),
-        legacy_binary
+        legacy_binary[..source_start]
             .iter()
             .map(|f| f.to_bits())
             .collect::<Vec<_>>()
     );
     let mut expected = vec![dl.measure_bounds.len() as f32];
-    if dl.selection_groups.is_empty() {
-        expected.insert(0, 0.0);
-    }
     for index in 0..dl.measure_bounds.len() {
         expected.extend([index as f32, 2.0, 0.0, 1.0]);
     }
-    assert_eq!(&binary[legacy_binary.len()..], expected);
+    assert_eq!(
+        &binary[source_start..binary.len() - identity_trailer_len(&dl)],
+        expected
+    );
 }
 
 #[test]
@@ -378,11 +391,19 @@ fn explicit_layout_changes_preserve_per_measure_source_identity() {
             }
             if count > 0 {
                 expected.insert(0, count as f32);
-                if dl.selection_groups.is_empty() {
-                    expected.insert(0, 0.0);
-                }
             }
-            assert_eq!(&dl.to_binary()[legacy.to_binary().len()..], expected);
+            let binary = dl.to_binary();
+            let legacy_binary = legacy.to_binary();
+            let source_start = legacy_binary.len() - identity_trailer_len(&legacy) - 1;
+            let actual = &binary[source_start..binary.len() - identity_trailer_len(&dl)];
+            assert_eq!(
+                actual,
+                if count > 0 {
+                    expected.as_slice()
+                } else {
+                    &[0.0]
+                }
+            );
         }
         assert!(
             cache.take_pending_patch().is_none(),

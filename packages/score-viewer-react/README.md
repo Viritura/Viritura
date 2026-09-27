@@ -1,7 +1,7 @@
 # @viritura/score-viewer-react
 
 > Embeddable React components (`<ScoreViewer>` and `<ScoreView>`) for rendering MNX music
-> notation in the browser. Powered by [`@viritura/score-engine`](../score-engine).
+> notation in the browser. Thin wrappers over [`@viritura/score-viewer`](../score-viewer).
 
 > **Status:** internal workspace package (`0.x.0`), not currently published to
 > npm. See [`@viritura/score-engine`](../score-engine) for the publishing
@@ -17,12 +17,14 @@ function MyDocs() {
 }
 ```
 
-That's it. The viewer lazy-loads the WASM engine + Bravura font on
+That's it. The DOM viewer lazy-loads the WASM engine + Bravura font on
 first mount; subsequent instances share the same engine.
 
 Use `<ScoreViewer>` when you want the complete embeddable viewer with zoom,
 fit, view-mode controls, and Ctrl-scroll zoom. Use `<ScoreView>` when you want
 only the score canvases and plan to provide your own chrome.
+For cropped fragments embedded in tight panels, pass `bare` to remove the
+viewer's default viewport padding (the Drum Kit editor uses this mode).
 
 ## View Modes
 
@@ -112,38 +114,39 @@ function CustomViewer({ mnx }: { mnx: string }) {
 
 ## Props
 
-| Prop              | Type                                                          | Default  | Notes                                    |
-| ----------------- | ------------------------------------------------------------- | -------- | ---------------------------------------- |
-| `mnx`             | `string \| object`                                            | —        | MNX JSON (string or parsed)              |
-| `pageWidth`       | `number`                                                      | `800`    | Page width; use `0` for horizon layout   |
-| `pageHeight`      | `number`                                                      | A4 ratio | Page height in display-list units        |
-| `pageMargins`     | `{ top, right, bottom, left }`                                | 15 mm    | Margins scaled to the default A4 width   |
-| `spatium`         | `number`                                                      | `7`      | Staff-space height in display-list units |
-| `scoreIndex`      | `number`                                                      | `0`      | Which `scores[]` entry to render         |
-| `scoreOptions`    | `{ index: number; label: string }[]`                          | `[]`     | Options for the score selector           |
-| `zoom`            | `number`                                                      | `1`      | 1.0 = 1 display-list pixel = 1 CSS px    |
-| `viewMode`        | `"page" \| "horizontal" \| "spread" \| "spread-horizontal"`   | `"page"` | Page arrangement                         |
-| `gap`             | `number`                                                      | `16`     | CSS px between pages                     |
-| `assetBaseUrl`    | `string`                                                      | —        | Base URL containing `wasm/` and `fonts/` |
-| `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                        |
-| `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                          |
-| `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                          |
-| `loadingFallback` | `ReactNode`                                                   | text     | Custom loading UI                        |
-| `errorFallback`   | `(err: Error) => ReactNode`                                   | text     | Custom error UI                          |
-| `className`       | `string`                                                      | —        |                                          |
-| `style`           | `CSSProperties`                                               | —        |                                          |
+| Prop              | Type                                                          | Default  | Notes                                                            |
+| ----------------- | ------------------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `mnx`             | `string \| object`                                            | —        | MNX JSON (string or parsed)                                      |
+| `pageWidth`       | `number`                                                      | `800`    | Page width; ignored in `horizon`                                 |
+| `pageHeight`      | `number`                                                      | A4 ratio | Page height in display-list units                                |
+| `pageMargins`     | `{ top, right, bottom, left }`                                | 15 mm    | Margins scaled to the default A4 width                           |
+| `spatium`         | `number`                                                      | `7`      | Staff-space height in display-list units                         |
+| `scoreIndex`      | `number`                                                      | `0`      | Which `scores[]` entry to render                                 |
+| `scoreOptions`    | `{ index: number; label: string }[]`                          | `[]`     | Options for the score selector                                   |
+| `zoom`            | `number \| "fit-width" \| "fit-page"`                         | `1`      | 1.0 = 1 display-list pixel = 1 CSS px                            |
+| `viewMode`        | `ScoreViewMode`                                               | `"page"` | `page`, `horizontal`, `spread`, `spread-horizontal` or `horizon` |
+| `gap`             | `number`                                                      | `16`     | CSS px between pages                                             |
+| `assetBaseUrl`    | `string`                                                      | —        | Base URL containing `wasm/` and `fonts/`                         |
+| `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                                                |
+| `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                                                  |
+| `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                                                  |
+| `loadingFallback` | `ReactNode`                                                   | text     | Custom loading UI                                                |
+| `errorFallback`   | `(err: Error) => ReactNode`                                   | text     | Custom error UI                                                  |
+| `className`       | `string`                                                      | —        |                                                                  |
+| `style`           | `CSSProperties`                                               | —        |                                                                  |
 
-`viewMode="horizontal"` arranges rendered pages horizontally; it does not
-select the engine's unpaged horizon layout. Pass `pageWidth={0}` for horizon
-layout, and pair it with `viewMode="horizontal"` when horizontal scrolling is
-desired.
+`viewMode="horizontal"` arranges rendered pages in one row; it does not select
+the engine's unpaged layout. Use `viewMode="horizon"` for one continuous,
+unpaged system.
+
+Public documentation: [viritura.com/developers/score-viewer-react](https://viritura.com/developers/score-viewer-react).
 
 ## Composition slots
 
 - **`<ScoreView.Page page={n}>`** — overlay container positioned over
   page `n`. Useful for badges, comments, annotations.
 - **`<ScoreView.Playhead beat={n} partId="p1">`** — vertical playhead
-  line auto-positioned via `engine.beatToCanvas`. Pass `follow` to keep it
+  line auto-positioned via `engine.playhead`. Pass `follow` to keep it
   visible while playback advances, or `render={fn}` to customize the visual.
 
 ## License

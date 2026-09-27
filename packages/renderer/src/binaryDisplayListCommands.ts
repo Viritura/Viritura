@@ -7,6 +7,7 @@
  */
 
 import type { RenderCommand } from "./wasm";
+import { canvasFontFamily } from "./textFont";
 
 // ───────────────────────────────────────────────
 // Tag and table constants (must match Rust binary.rs)
@@ -391,7 +392,7 @@ function paintDrawGlyph(ctx: CanvasRenderingContext2D, r: BinaryReader): void {
   const size = r.f32();
   ctx.fillStyle = r.colorFast();
   const rotation = r.f32();
-  ctx.font = `${size}px ${FONT_TABLE[fontId] ?? "serif"}`;
+  ctx.font = `${size}px ${canvasFontFamily(FONT_TABLE[fontId] ?? "serif")}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   if (rotation !== 0) {
@@ -413,7 +414,7 @@ function paintDrawStretchedGlyph(ctx: CanvasRenderingContext2D, r: BinaryReader)
   const size = r.f32();
   ctx.fillStyle = r.colorFast();
   const scaleX = r.f32();
-  ctx.font = `${size}px ${FONT_TABLE[fontId] ?? "serif"}`;
+  ctx.font = `${size}px ${canvasFontFamily(FONT_TABLE[fontId] ?? "serif")}`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.save();
@@ -601,7 +602,7 @@ function paintDrawText(ctx: CanvasRenderingContext2D, r: BinaryReader): void {
   for (let i = 0; i < textLen; i++) {
     text += String.fromCodePoint(r.f32());
   }
-  ctx.font = `${FONT_STYLE_TABLE[fontId] ?? ""}${size}px ${FONT_TABLE[fontId] ?? "serif"}`;
+  ctx.font = `${FONT_STYLE_TABLE[fontId] ?? ""}${size}px ${canvasFontFamily(FONT_TABLE[fontId] ?? "serif")}`;
   ctx.textAlign = ALIGN_TABLE[alignIdx] ?? "left";
   ctx.textBaseline = BASELINE_TABLE[baselineIdx] ?? "alphabetic";
   ctx.fillText(text, x, y);

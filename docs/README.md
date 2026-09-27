@@ -8,13 +8,14 @@ runbooks.
 
 ## Folder map
 
-| Folder                   | Purpose                                                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| [`overview/`](overview/) | What Viritura is, why it exists, and its current technology choices.                                       |
-| [`guide/`](guide/)       | Task-oriented user documentation published at `viritura.com/docs` and linked from in-app Help.             |
-| [`spec/`](spec/)         | Stable reference material: data model, MNX coverage, Viritura extensions, file format, keyboard shortcuts. |
-| [`plans/`](plans/)       | Active or in-flight design documents. Each carries a status banner.                                        |
-| [`setup/`](setup/)       | Local development, authentication, deployment, hosting, and production configuration runbooks.             |
+| Folder                       | Purpose                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| [`overview/`](overview/)     | What Viritura is, why it exists, and its current technology choices.                                               |
+| [`guide/`](guide/)           | Task-oriented user documentation published at `viritura.com/docs` and linked from in-app Help.                     |
+| [`developers/`](developers/) | Documentation for embedding the score engine, viewer and React components, published at `viritura.com/developers`. |
+| [`spec/`](spec/)             | Stable reference material: data model, MNX coverage, Viritura extensions, file format, keyboard shortcuts.         |
+| [`plans/`](plans/)           | Active or in-flight design documents. Each carries a status banner.                                                |
+| [`setup/`](setup/)           | Local development, authentication, deployment, hosting, and production configuration runbooks.                     |
 
 ## Where to start
 
@@ -32,6 +33,7 @@ runbooks.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
+- **Embedding Viritura's renderer in another app:** read [developers/overview.md](developers/overview.md).
 - **Looking at what's next:** browse [plans/](plans/) for in-flight work.
 
 ## Public guide terminology

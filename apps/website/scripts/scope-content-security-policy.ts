@@ -5,6 +5,11 @@ import { relative, resolve } from "node:path";
 const wasmRoutes = new Set(["mnx/index.html", "mnx/mxl-converter/index.html", "mnx/playground/index.html"]);
 const monacoRoutes = new Set(["mnx/mxl-converter/index.html", "mnx/playground/index.html"]);
 
+/** Developer docs upgrade code samples to Monaco, which injects runtime styles. */
+function usesMonaco(route: string): boolean {
+  return monacoRoutes.has(route) || route.startsWith("developers/");
+}
+
 function removeSource(directive: string, source: string): string {
   return directive
     .split(/\s+/)
@@ -21,7 +26,7 @@ export function scopeContentSecurityPolicy(html: string, route: string): string 
         if (directive.startsWith("script-src ") && !wasmRoutes.has(route)) {
           return removeSource(directive, "'wasm-unsafe-eval'");
         }
-        if (directive.startsWith("style-src-elem ") && !monacoRoutes.has(route)) {
+        if (directive.startsWith("style-src-elem ") && !usesMonaco(route)) {
           return removeSource(directive, "'unsafe-inline'");
         }
         return directive;

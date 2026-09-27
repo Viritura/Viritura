@@ -1,16 +1,16 @@
 ---
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { DOC_PAGES, findDocPage } from "../../routes/docs/docsManifest";
+import { docSectionRouteParams, findDocPageInSection } from "../../routes/docs/docsManifest";
 import { DocsPage } from "../../routes/docs/DocsPage";
 import { findSeoRoute } from "../../seo/routeCatalog";
 import { breadcrumbJsonLd, techArticleJsonLd } from "../../seo/structuredData";
 
 export function getStaticPaths() {
-  return DOC_PAGES.filter((page) => page.path !== "/docs").map((page) => ({ params: { slug: page.slug } }));
+  return docSectionRouteParams("guide");
 }
 
 const slug = Astro.params.slug ?? "";
-const docPage = findDocPage(slug);
+const docPage = findDocPageInSection("guide", slug);
 const route = findSeoRoute(docPage?.path ?? `/docs/${slug}`);
 const jsonLd = [
   techArticleJsonLd(route),

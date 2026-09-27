@@ -113,6 +113,8 @@ export interface TimelineOptions {
    *  current-part extracts include it. Explicit selected-instrument callers
    *  must pass false unless the entire visible score is selected. */
   includeGlobalChords?: boolean;
+  /** Expand playback repeats and jumps (default true); false plays measures once in score order. */
+  expandRepeats?: boolean;
 }
 
 /**
@@ -198,6 +200,7 @@ function emptyTimeline(): MidiTimeline {
   return {
     events: [],
     duration: 0,
+    totalBeats: 0,
     tempoMap: [],
     measureStartTimes: [],
     model: TempoModel.build([]),
@@ -228,7 +231,10 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   const chords = compileChordPlayback(score, options?.includeGlobalChords);
   // Step 1: Expand repeats/jumps into linear measure order
   const toCodaMeasureIndex = detectToCodaMeasureIndex(score);
-  const measureOrder = expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
+  const measureOrder =
+    options?.expandRepeats === false
+      ? globalMeasures.map((_, index) => index)
+      : expandMeasureOrder(globalMeasures, { toCodaMeasureIndex });
   if (measureOrder.length === 0) {
     return emptyTimeline();
   }
@@ -298,6 +304,7 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
     tempoMap,
     measureStartTimes,
     model,
+    totalBeats: tempoBuild.totalBeats,
     measureStartBeats,
     expandedMeasureToOriginal: measureOrder,
     measureTimeSignatures,
@@ -905,7 +912,22 @@ function processNoteEvent(
     if (isTiedTo) {
       extendOrFinalizeTie(ctx, midiNote, startTime, durationSec, durationScale, hasTieOut);
     } else {
-      emitFreshNote(ctx, midiNote, startTime, timingOffset, durationSec, durationScale, velocity, hasTieOut, legatoOut);
+      emitFreshNote(
+        ctx,
+        midiNote,
+        startTime,
+        timingOffset,
+        durationSec,
+        durationScale,
+        velocity,
+        hasTieOut,
+        legatoOut,
+        {
+          scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+          scoreDurationBeats: beats * ctx.staffMeterRatio,
+          scoreEventId: event.id,
+        },
+      );
     }
   }
 
@@ -918,7 +940,18 @@ function processNoteEvent(
       // A component may borrow a sound from another GS kit (e.g. Tam-tam from
       // the Ethnic kit); that routes the hit to a dedicated alt drum channel.
       const drumKitProgram = kitAltProgramMap?.get(kn.kitComponent);
-      out.push({ type: "noteOn", time: jitteredStart, midiNote, velocity, partIndex, channel, drumKitProgram });
+      out.push({
+        type: "noteOn",
+        time: jitteredStart,
+        midiNote,
+        velocity,
+        partIndex,
+        channel,
+        drumKitProgram,
+        scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+        scoreDurationBeats: beats * ctx.staffMeterRatio,
+        scoreEventId: event.id,
+      });
       out.push({
         type: "noteOff",
         time: jitteredStart + durationSec * durationScale,
@@ -979,6 +1012,12 @@ function extendOrFinalizeTie(
  * for humanization, then either defer the noteOff (if a tie chain starts
  * here) or emit it inline with articulation scaling.
  */
+interface ScoreNoteMetadata {
+  scoreBeat: number;
+  scoreDurationBeats: number;
+  scoreEventId?: string;
+}
+
 function emitFreshNote(
   ctx: PartCtx,
   midiNote: number,
@@ -989,6 +1028,7 @@ function emitFreshNote(
   velocity: number,
   hasTieOut: boolean,
   legatoOut: boolean,
+  metadata: ScoreNoteMetadata,
 ): void {
   const { partIndex, channel, pendingTieOffs, out } = ctx;
   // Clamp to 0 so early notes don't get negative times.
@@ -1000,6 +1040,7 @@ function emitFreshNote(
     velocity,
     partIndex,
     channel,
+    ...metadata,
   });
 
   if (hasTieOut) {
@@ -1098,7 +1139,18 @@ function processKitRoll(
     if (baseMidi < 0 || baseMidi > 127) continue;
     const midiNote = KIT_ROLL_MIDI[baseMidi] ?? baseMidi;
     const drumKitProgram = kitAltProgramMap?.get(kn.kitComponent);
-    out.push({ type: "noteOn", time: jitteredStart, midiNote, velocity, partIndex, channel, drumKitProgram });
+    out.push({
+      type: "noteOn",
+      time: jitteredStart,
+      midiNote,
+      velocity,
+      partIndex,
+      channel,
+      drumKitProgram,
+      scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+      scoreDurationBeats: beats * ctx.staffMeterRatio,
+      scoreEventId: event.id,
+    });
     out.push({
       type: "noteOff",
       time: jitteredStart + durationSec,
@@ -1163,7 +1215,17 @@ function processSingleNoteTremolo(
     for (const note of notes) {
       const midiNote = noteToMidi(note);
       if (midiNote < 0 || midiNote > 127) continue;
-      out.push({ type: "noteOn", time: jitteredTremStart, midiNote, velocity, partIndex, channel });
+      out.push({
+        type: "noteOn",
+        time: jitteredTremStart,
+        midiNote,
+        velocity,
+        partIndex,
+        channel,
+        scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio,
+        scoreDurationBeats: totalBeats * ctx.staffMeterRatio,
+        scoreEventId: event.id,
+      });
       out.push({ type: "noteOff", time: jitteredTremStart + durationSec, midiNote, velocity: 0, partIndex, channel });
     }
 
@@ -1196,7 +1258,17 @@ function processSingleNoteTremolo(
     for (const note of notes) {
       const midiNote = noteToMidi(note);
       if (midiNote < 0 || midiNote > 127) continue;
-      out.push({ type: "noteOn", time: jitteredSubStart, midiNote, velocity, partIndex, channel });
+      out.push({
+        type: "noteOn",
+        time: jitteredSubStart,
+        midiNote,
+        velocity,
+        partIndex,
+        channel,
+        scoreBeat: ctx.measureStartBeat + subBeatOffset * ctx.staffMeterRatio,
+        scoreDurationBeats: actualSubdivBeats * ctx.staffMeterRatio,
+        scoreEventId: event.id,
+      });
       out.push({
         type: "noteOff",
         time: jitteredSubStart + subDurationSec * 0.9,
@@ -1311,7 +1383,17 @@ function tryProcessTrill(
 
     for (const pair of pairs) {
       const midiNote = useUpper ? pair.upper : pair.lower;
-      out.push({ type: "noteOn", time: jitteredStart, midiNote, velocity, partIndex, channel });
+      out.push({
+        type: "noteOn",
+        time: jitteredStart,
+        midiNote,
+        velocity,
+        partIndex,
+        channel,
+        scoreBeat: ctx.measureStartBeat + subBeatOffset * ctx.staffMeterRatio,
+        scoreDurationBeats: subBeats * ctx.staffMeterRatio,
+        scoreEventId: event.id,
+      });
       out.push({
         type: "noteOff",
         time: jitteredStart + subDurationSec * 0.9,

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useEffect, useRef, useState, useCallback, type CSSProperties } from "react";
-import { ScorePreview } from "../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../storyFixtures/EditorScorePreview";
 import { buildMnx } from "../storyFixtures/buildMnx";
 import {
   initWasm,
@@ -13,7 +13,7 @@ import {
 
 const meta: Meta = {
   title: "App/Tagged Element Verification",
-  component: ScorePreview,
+  component: EditorScorePreview,
   parameters: {
     layout: "fullscreen",
   },
@@ -333,10 +333,10 @@ export const TaggedElementDebug: StoryObj = {
 };
 
 /**
- * Standard ScorePreview rendering for comparison (no debug overlay).
+ * Standard EditorScorePreview rendering for comparison (no debug overlay).
  * Click on elements to verify selection / hit-testing works.
  */
 export const InteractiveSelection: StoryObj = {
-  render: () => <ScorePreview mnxJson={DIVERSE_SCORE_MNX} showEditor={false} />,
+  render: () => <EditorScorePreview mnxJson={DIVERSE_SCORE_MNX} showEditor={false} />,
   name: "Interactive Selection Test",
 };

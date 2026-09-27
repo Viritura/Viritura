@@ -55,6 +55,7 @@ describe("paintHitboxDebug", () => {
         {
           index: 0,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           x: 0,
           y: 0,

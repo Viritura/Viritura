@@ -194,7 +194,7 @@ export const playgroundDocuments: readonly PlaygroundDocument[] = [
     title: "Minimal score",
     description: "A single whole note on one treble staff.",
     source: minimal,
-    examplePath: "/mnx/examples/?path=/story/mnx-spec-basic-hello-world--default",
+    examplePath: "/mnx/examples/?path=/story/mnx-spec-notes-rests-pitch--default",
   },
   {
     id: "accidentals",

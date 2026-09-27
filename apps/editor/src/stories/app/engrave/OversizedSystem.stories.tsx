@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview } from "../../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../../storyFixtures/EditorScorePreview";
 
 /**
  * Engrave Mode — oversized orchestral system respects the page boundary.
@@ -12,7 +12,7 @@ import { ScorePreview } from "../../storyFixtures/ScorePreview";
  */
 const meta: Meta = {
   title: "App/Engrave Mode/Oversized System",
-  component: ScorePreview,
+  component: EditorScorePreview,
 };
 export default meta;
 
@@ -67,7 +67,7 @@ const score = {
 // the configured page remains A4 so the workspace can flag the print overflow.
 export const ThirtyStaffSystemExceedsA4: StoryObj = {
   render: () => (
-    <ScorePreview
+    <EditorScorePreview
       mnxJson={JSON.stringify(
         {
           ...score,

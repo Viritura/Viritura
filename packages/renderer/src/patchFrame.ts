@@ -236,6 +236,7 @@ function cloneSegmentForTranslation(segment: DisplayList): DisplayList {
  * since `target` is freshly allocated by `applyPatch` and we own it.
  */
 function appendSegment(target: DisplayList, other: DisplayList): void {
+  if (!target.parts && other.parts) target.parts = other.parts;
   const cmdBase = target.commands.length;
   // Bulk-push commands. Spread is faster than a per-cmd push loop for
   // medium-large arrays and avoids the function-call-per-element overhead.
@@ -503,6 +504,7 @@ export class PatchReconstructor {
       assembled.width = patch.width;
       assembled.height = patch.height;
       assembled.pages = pages;
+      assembled.parts = patch.prefix.parts;
       delete assembled.finalizeRetainedFrame;
       if (this.assembled === assembled || this.assembled === previousAssembled) {
         this.prefixShape = storeShape(patch.prefix);
@@ -639,6 +641,7 @@ function normalizedIds(displayList: DisplayList): Array<string | null> {
 }
 
 function copyFlattenedStores(target: DisplayList, source: DisplayList): void {
+  target.parts = source.parts;
   target.commands = source.commands.slice();
   if (source.elementIds) target.elementIds = source.elementIds.slice();
   if (source.elementBboxes) target.elementBboxes = source.elementBboxes.slice();

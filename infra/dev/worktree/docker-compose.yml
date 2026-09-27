@@ -49,6 +49,7 @@ x-node-volumes: &node-volumes
   - package_playback_node_modules:/workspace/packages/playback/node_modules:ro
   - package_renderer_node_modules:/workspace/packages/renderer/node_modules:ro
   - package_score_engine_node_modules:/workspace/packages/score-engine/node_modules:ro
+  - package_score_viewer_node_modules:/workspace/packages/score-viewer/node_modules:ro
   - package_score_viewer_react_node_modules:/workspace/packages/score-viewer-react/node_modules:ro
   - package_sound_profiles_node_modules:/workspace/packages/sound-profiles/node_modules:ro
   - package_stb_vorbis_shim_node_modules:/workspace/packages/stb-vorbis-shim/node_modules:ro
@@ -337,6 +338,9 @@ volumes:
   package_score_engine_node_modules:
     external: true
     name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-score-engine
+  package_score_viewer_node_modules:
+    external: true
+    name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-score-viewer
   package_score_viewer_react_node_modules:
     external: true
     name: viritura-dev-node-${VIRITURA_DEPENDENCY_HASH}-package-score-viewer-react

@@ -4,7 +4,7 @@
  * Converts between MNX JSON files and the @viritura/core typed model.
  */
 
-export { parseMnx, parseMnxWithDiagnostics } from "./mnx";
+export { parseMnx, parseMnxUnvalidated, parseMnxWithDiagnostics } from "./mnx";
 export type { ParseMnxOptions, ParseMnxResult } from "./mnx";
 export { promote, promoteUnknown, promoteWithDiagnostics } from "./mnx";
 export type { RawScore, PromoteOptions, PromoteResult } from "./mnx";

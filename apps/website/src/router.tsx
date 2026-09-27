@@ -39,6 +39,7 @@ import { ClientMetadata } from "./seo";
 const links: SiteLinks = {
   app: editorUrl,
   docs: "/docs",
+  developers: "/developers",
   github: "https://github.com/Viritura/Viritura",
 };
 
@@ -60,6 +61,8 @@ const MnxFeatureSupportPage = lazy(() =>
 
 const DocsPage = lazy(() => import("./routes/docs/DocsPage").then((module) => ({ default: module.DocsPage })));
 const DOCS_DEFAULT_SLUG = "getting-started";
+/** Developer page slugs are `developers` (landing) and `developers/<route param>`. */
+const DEVELOPERS_DEFAULT_SLUG = "developers";
 
 const SignUpPage = lazy(() => import("./routes/auth/SignUpPage").then((module) => ({ default: module.SignUpPage })));
 
@@ -257,6 +260,35 @@ const docsPageRoute = createRoute({
   },
 });
 
+const developersIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/developers",
+  component: function DevelopersIndexRoute() {
+    return (
+      <main id="top" className="route-main docs-route">
+        <Suspense fallback={<div className="route-loading">Loading docs…</div>}>
+          <DocsPage section="developers" slug={DEVELOPERS_DEFAULT_SLUG} />
+        </Suspense>
+      </main>
+    );
+  },
+});
+
+const developersPageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/developers/$slug",
+  component: function DevelopersPageRoute() {
+    const { slug } = developersPageRoute.useParams();
+    return (
+      <main id="top" className="route-main docs-route">
+        <Suspense fallback={<div className="route-loading">Loading docs…</div>}>
+          <DocsPage section="developers" slug={`${DEVELOPERS_DEFAULT_SLUG}/${slug}`} />
+        </Suspense>
+      </main>
+    );
+  },
+});
+
 const signUpRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/signup",
@@ -402,6 +434,8 @@ const routeTree = rootRoute.addChildren([
   converterRoute,
   docsIndexRoute,
   docsPageRoute,
+  developersIndexRoute,
+  developersPageRoute,
   signUpRoute,
   checkEmailRoute,
   verifyEmailRoute,

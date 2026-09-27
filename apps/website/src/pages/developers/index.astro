@@ -1,0 +1,29 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import { docSectionHome } from "../../routes/docs/docsManifest";
+import { DocsPage } from "../../routes/docs/DocsPage";
+import { findSeoRoute } from "../../seo/routeCatalog";
+import { breadcrumbJsonLd, techArticleJsonLd } from "../../seo/structuredData";
+
+const home = docSectionHome("developers");
+const route = findSeoRoute(home.path);
+const jsonLd = [
+  techArticleJsonLd(route),
+  breadcrumbJsonLd([
+    { name: "Viritura", path: "/" },
+    { name: "Developers", path: home.path },
+  ]),
+];
+---
+
+<SiteLayout
+  title={route.title}
+  description={route.description}
+  canonicalPath={route.canonicalPath}
+  indexable={route.indexable}
+>
+  {jsonLd.map((entry) => <script slot="head" is:inline type="application/ld+json" set:html={JSON.stringify(entry)} />)}
+  <main id="top" class="route-main docs-route">
+    <DocsPage section="developers" slug={home.slug} client:load />
+  </main>
+</SiteLayout>

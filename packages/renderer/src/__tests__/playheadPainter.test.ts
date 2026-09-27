@@ -10,6 +10,7 @@ function makeMeasureBounds(overrides: Partial<MeasureBounds> = {}): MeasureBound
   return {
     index: 0,
     partIndex: 0,
+    partId: "#0",
     staffIndex: 0,
     x: 50,
     width: 200,

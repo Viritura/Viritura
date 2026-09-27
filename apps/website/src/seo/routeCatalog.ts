@@ -174,6 +174,37 @@ const publicRoutes: readonly SeoRoute[] = [
     canonicalPath: "/docs/keyboard-shortcuts",
     indexable: true,
   },
+  {
+    path: "/developers",
+    title: "Viritura for Developers: Embed MNX Music Notation",
+    description:
+      "Embed Viritura's MNX music notation renderer in your own web page, editor, or extension, and choose the right package.",
+    canonicalPath: "/developers",
+    indexable: true,
+  },
+  {
+    path: "/developers/score-viewer",
+    title: "Score Viewer | Viritura Developers",
+    description:
+      "Embed a scrollable, zoomable MNX score in any web page with the framework-free Viritura score viewer.",
+    canonicalPath: "/developers/score-viewer",
+    indexable: true,
+  },
+  {
+    path: "/developers/score-engine",
+    title: "Score Engine | Viritura Developers",
+    description:
+      "Lay out, paint, hit-test, and export MNX music notation, and build playback timelines with the Viritura score engine.",
+    canonicalPath: "/developers/score-engine",
+    indexable: true,
+  },
+  {
+    path: "/developers/score-viewer-react",
+    title: "Score Viewer React | Viritura Developers",
+    description: "Render MNX music notation in React with Viritura's ScoreViewer and ScoreView components and hooks.",
+    canonicalPath: "/developers/score-viewer-react",
+    indexable: true,
+  },
 ];
 
 const accountRoutes: readonly SeoRoute[] = [

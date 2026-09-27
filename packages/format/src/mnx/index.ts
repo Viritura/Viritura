@@ -6,7 +6,7 @@
  * into this folder directly; the package barrel re-exports through here.
  */
 
-export { parseMnx, parseMnxWithDiagnostics } from "./parser";
+export { parseMnx, parseMnxUnvalidated, parseMnxWithDiagnostics } from "./parser";
 export type { ParseMnxOptions, ParseMnxResult } from "./parser";
 export { promote, promoteUnknown, promoteWithDiagnostics } from "./promote";
 export type { RawScore, PromoteOptions, PromoteResult } from "./promote";

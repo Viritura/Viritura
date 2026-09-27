@@ -145,7 +145,7 @@ interface TileRenderOpts {
   glyphAtlas: GlyphAtlas | null;
   viewMode: "page" | "spread" | "spread-h" | "horizon";
   canvasBg: string;
-  paperFill: string | CanvasPattern;
+  paperFill: string | CanvasPattern | null;
   pageStackGap: number;
   printableInsets: PageInsets;
 }
@@ -167,7 +167,9 @@ export interface PaintFrameOpts {
   glyphAtlas: GlyphAtlas | null;
   viewMode?: "page" | "spread" | "spread-h" | "horizon";
   canvasBg?: string;
-  paperFill?: string | CanvasPattern;
+  /** Page fill; 
+ull paints ink only (no paper or shadow). */
+  paperFill?: string | CanvasPattern | null;
   pageStackGap?: number;
   printableInsets?: PageInsets;
 }
@@ -176,9 +178,9 @@ function paintHorizonPaper(
   ctx: CanvasRenderingContext2D,
   displayList: DisplayList,
   viewMode: TileRenderOpts["viewMode"],
-  paperFill: string | CanvasPattern,
+  paperFill: string | CanvasPattern | null,
 ): void {
-  if (viewMode !== "horizon") return;
+  if (viewMode !== "horizon" || paperFill === null) return;
   const paper = computeHorizonPaperGeometry(displayList);
   paintPaperPage(ctx, paper.x, paper.y, paper.width, paper.height, paperFill);
 }
@@ -188,11 +190,11 @@ function paintPageBackgrounds(
   displayList: DisplayList,
   viewMode: TileRenderOpts["viewMode"],
   pageStackGap: number,
-  paperFill: string | CanvasPattern,
+  paperFill: string | CanvasPattern | null,
   contentY: number,
   contentH: number,
 ): void {
-  if (viewMode !== "page" || !displayList.pages || displayList.pages.length === 0) return;
+  if (viewMode !== "page" || paperFill === null || !displayList.pages || displayList.pages.length === 0) return;
   const pageW = displayList.width;
   for (let pi = 0; pi < displayList.pages.length; pi++) {
     const page = displayList.pages[pi];
@@ -243,7 +245,7 @@ export class TileCache {
   /** Last paper fill (cream string or CanvasPattern) used to render tiles.
    *  Identity comparison — a CanvasPattern object stays stable per theme,
    *  and a transition from cream-string to pattern triggers re-render. */
-  private cachedPaperFill: string | CanvasPattern = "";
+  private cachedPaperFill: string | CanvasPattern | null = "";
   /** Last page-stack gap (px) used. Invalidates tiles on change. */
   private cachedPageStackGap = 0;
   private cachedPrintableInsets = "";
@@ -580,7 +582,7 @@ export class TileCache {
     viewMode: TileRenderOpts["viewMode"],
     dpr: number,
     canvasBg: string,
-    paperFill: string | CanvasPattern,
+    paperFill: string | CanvasPattern | null,
     pageStackGap: number,
     printableInsets: PageInsets,
   ): void {

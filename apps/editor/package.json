@@ -39,6 +39,7 @@
     "@viritura/piano-roll": "workspace:*",
     "@viritura/playback": "workspace:*",
     "@viritura/renderer": "workspace:*",
+    "@viritura/score-viewer": "workspace:*",
     "@viritura/score-viewer-react": "workspace:*",
     "@viritura/sound-profiles": "workspace:*",
     "@viritura/ui": "workspace:^",

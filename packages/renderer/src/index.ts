@@ -5,6 +5,8 @@
 export { ScoreRenderer } from "./ScoreRenderer";
 export { renderScore } from "./renderScore";
 export { paintDisplayList, paintCommand, loadMusicFont } from "./displayListPainter";
+export type { FontLoadResult, LoadMusicFontOptions } from "./displayListPainter";
+export { canvasFontFamily, canvasTextFont, TEXT_FONT_FAMILY } from "./textFont";
 export {
   decodeBinaryDisplayList,
   paintBinaryDisplayList,
@@ -36,11 +38,14 @@ export type { RulerTick, RulerConfig } from "./beatRuler";
 export {
   initWasm,
   isWasmReady,
+  getWasmInitError,
+  getEngineVersion,
   computeLayout as wasmComputeLayout,
   computeFullScoreLayout as wasmComputeFullScoreLayout,
   computeLayoutBinary as wasmComputeLayoutBinary,
   computeFullScoreLayoutBinary as wasmComputeFullScoreLayoutBinary,
   computeMnxScoreLayout as wasmComputeMnxScoreLayout,
+  computeMnxScoreLayoutBinary as wasmComputeMnxScoreLayoutBinary,
   computeSlurPreview as wasmComputeSlurPreview,
   computeNotePreview as wasmComputeNotePreview,
   getScoreInfo,
@@ -55,6 +60,7 @@ export { createLayoutService } from "./worker";
 export type { LayoutService, AsyncCachedLayoutEngine, LayoutWorkerApi } from "./worker";
 export type {
   DisplayList,
+  PartSummary,
   RenderCommand,
   ScoreInfo,
   PageLayout,
@@ -119,4 +125,4 @@ export { exportPdf } from "./pdfPainter";
 export type { PdfExportOptions } from "./pdfPainter";
 export { exportSvg, exportSvgPages } from "./svgPainter";
 export type { SvgExportOptions, SvgPage } from "./svgPainter";
-export { setAssetBasePath } from "./basePath";
+export { resolveBasePath, setAssetBasePath } from "./basePath";

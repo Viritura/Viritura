@@ -45,6 +45,7 @@ COPY packages/piano-roll/package.json ./packages/piano-roll/package.json
 COPY packages/playback/package.json ./packages/playback/package.json
 COPY packages/renderer/package.json ./packages/renderer/package.json
 COPY packages/score-engine/package.json ./packages/score-engine/package.json
+COPY packages/score-viewer/package.json ./packages/score-viewer/package.json
 COPY packages/score-viewer-react/package.json ./packages/score-viewer-react/package.json
 COPY packages/sound-profiles/package.json ./packages/sound-profiles/package.json
 COPY packages/stb-vorbis-shim/package.json ./packages/stb-vorbis-shim/package.json

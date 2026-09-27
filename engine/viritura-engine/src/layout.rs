@@ -401,6 +401,7 @@ pub fn layout_score_cached(
     };
 
     let mut dl = DisplayList::new(total_width, total_height);
+    dl.set_parts(score, [part_index]);
 
     let lyric_line_order = score
         .global
@@ -956,6 +957,7 @@ pub(crate) fn render_system_contents(
                 index: ml.resolved.index,
                 measure_id: ml.resolved.global.id.clone(),
                 part_index: part_idx,
+                part_id: score.stable_part_id(part_idx),
                 source_part_indices: Vec::new(),
                 staff_index: staff_idx.unwrap_or(part_idx),
                 system_index,

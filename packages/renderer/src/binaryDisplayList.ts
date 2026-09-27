@@ -20,6 +20,7 @@ import type {
   SlurGeometry,
   MeasureBounds,
   SelectionGroup,
+  PartSummary,
 } from "./wasm";
 import { BinaryReader, DECODERS, PAINTERS } from "./binaryDisplayListCommands";
 
@@ -121,6 +122,7 @@ function readMeasureBounds(r: BinaryReader, n: number): MeasureBounds[] {
       index,
       ...(measureId !== undefined ? { measureId } : {}),
       partIndex,
+      partId: `#${partIndex}`,
       staffIndex,
       systemIndex,
       x,
@@ -208,6 +210,7 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
   const elementIds = readElementIds(r, numCommands, numStrings);
   const measureBounds = r.pos < data.length ? readMeasureBounds(r, r.f32()) : [];
   const selectionGroups = r.pos < data.length ? readSelectionGroups(r, r.f32()) : [];
+  const parts: PartSummary[] = [];
   if (r.pos < data.length) {
     const entryCount = r.f32();
     for (let i = 0; i < entryCount; i++) {
@@ -219,6 +222,22 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
       if (bounds && sources.length > 0) bounds.sourcePartIndices = sources;
     }
   }
+  if (r.pos < data.length) {
+    const count = r.f32();
+    for (let i = 0; i < count; i++) {
+      parts.push({
+        index: r.f32(),
+        id: readCodepointString(r, r.f32()),
+        name: readCodepointString(r, r.f32()),
+      });
+    }
+    const boundsCount = r.f32();
+    for (let i = 0; i < boundsCount; i++) {
+      const id = readCodepointString(r, r.f32());
+      const bounds = measureBounds[i];
+      if (bounds) bounds.partId = id;
+    }
+  }
 
   const result: DisplayList = { commands, width, height };
   if (pages.length > 0) result.pages = pages;
@@ -226,6 +245,7 @@ export function decodeBinaryDisplayList(data: Float32Array): DisplayList {
   if (elementBboxes.length > 0) result.elementBboxes = elementBboxes;
   if (slurGeometries.length > 0) result.slurGeometries = slurGeometries;
   if (measureBounds.length > 0) result.measureBounds = measureBounds;
+  if (parts.length > 0) result.parts = parts;
   if (selectionGroups.length > 0) result.selectionGroups = selectionGroups;
   return result;
 }

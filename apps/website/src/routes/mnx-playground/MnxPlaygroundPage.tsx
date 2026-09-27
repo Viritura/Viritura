@@ -209,10 +209,9 @@ export function MnxPlaygroundPage() {
                 scoreIndex={scoreIndex}
                 onScoreIndexChange={setScoreIndex}
                 scoreOptions={availableScores}
-                pageWidth={0}
-                pageHeight={0}
                 spatium={8}
-                viewMode="horizontal"
+                viewMode="horizon"
+                contentAlign="center"
                 controls={false}
                 defaultFitMode="width"
                 minZoom={0.05}
@@ -234,10 +233,9 @@ export function MnxPlaygroundPage() {
                   <ScoreViewer
                     mnx={playground.candidateDocument}
                     scoreIndex={scoreIndex}
-                    pageWidth={0}
-                    pageHeight={0}
                     spatium={8}
-                    viewMode="horizontal"
+                    viewMode="horizon"
+                    contentAlign="center"
                     controls={false}
                     minZoom={0.05}
                     maxZoom={1}

@@ -131,6 +131,7 @@ describe("detectHorizonStaves", () => {
         {
           index: 0,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           x: 50,
           width: 200,
@@ -143,6 +144,7 @@ describe("detectHorizonStaves", () => {
         {
           index: 1,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           x: 250,
           width: 300,
@@ -155,6 +157,7 @@ describe("detectHorizonStaves", () => {
         {
           index: 0,
           partIndex: 1,
+          partId: "#1",
           staffIndex: 1,
           x: 50,
           width: 500,
@@ -187,6 +190,7 @@ describe("detectStavesForViewMode", () => {
         {
           index: 0,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           systemIndex: 0,
           x: 50,
@@ -215,6 +219,7 @@ describe("detectStavesForViewMode", () => {
         {
           index: 0,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           systemIndex: 0,
           x: 50,
@@ -228,6 +233,7 @@ describe("detectStavesForViewMode", () => {
         {
           index: 1,
           partIndex: 0,
+          partId: "#0",
           staffIndex: 0,
           systemIndex: 1,
           x: 50,

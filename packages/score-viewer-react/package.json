@@ -1,6 +1,6 @@
 {
   "name": "@viritura/score-viewer-react",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Embeddable React score viewer components for rendering MNX music notation in the browser. Wraps @viritura/score-engine.",
   "keywords": [
@@ -16,7 +16,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/peteryangio/viritura.git",
+    "url": "https://github.com/Viritura/Viritura.git",
     "directory": "packages/score-viewer-react"
   },
   "type": "module",
@@ -39,20 +39,23 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "prepublishOnly": "echo 'PUBLISH BLOCKED: @viritura/score-engine must be published first.' && exit 1"
+    "prepublishOnly": "echo 'PUBLISH BLOCKED: @viritura/score-engine and @viritura/score-viewer must be distributed first.' && exit 1"
   },
   "peerDependencies": {
-    "react": "^18 || ^19"
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
   },
   "dependencies": {
-    "@viritura/renderer": "workspace:*",
     "@viritura/score-engine": "workspace:*",
+    "@viritura/score-viewer": "workspace:*",
     "@viritura/ui": "workspace:*",
     "lucide-react": "^1.47.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.0.0",
     "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   },

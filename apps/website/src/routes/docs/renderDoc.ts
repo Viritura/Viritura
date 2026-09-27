@@ -39,6 +39,8 @@ const EXCLUDED_BLOCK_RE = /<!--\s*docs-site:exclude-start\s*-->[\s\S]*?<!--\s*do
 const INTERACTIVE_BLOCK_RE = /:::interactive\s+id="([a-zA-Z0-9._-]+)"\s*\r?\n:::/g;
 const AVAILABILITY_ALERT_RE =
   /<blockquote>\s*<p>\[!(?:NOTE|IMPORTANT)\]\s*<strong>Availability:\s*([^<]+)<\/strong>\s*<\/p>\s*([\s\S]*?)<\/blockquote>/g;
+/** Fenced samples with a language; the client upgrades these to read-only Monaco views. */
+const CODE_SAMPLE_RE = /(<pre><code class="language-([\w-]+)">[\s\S]*?<\/code><\/pre>)/g;
 
 /** Slugify heading text into a stable anchor id. */
 function slugify(text: string): string {
@@ -70,7 +72,8 @@ export function renderDoc(markdown: string, modifierKeys: ModifierKeyLabels = DE
     .replace(
       AVAILABILITY_ALERT_RE,
       '<aside class="docs-availability"><div class="docs-availability-label"><span>Availability</span>$1</div><div class="docs-availability-body">$2</div></aside>',
-    );
+    )
+    .replace(CODE_SAMPLE_RE, '<div class="docs-code" data-doc-code="$2">$1</div>');
   const toc: TocEntry[] = [];
   const usedIds = new Set<string>();
 

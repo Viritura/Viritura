@@ -30,4 +30,15 @@ describe("generated website CSP", () => {
     expect(result).toContain("'wasm-unsafe-eval'");
     expect(result).toContain("style-src-elem 'self' 'unsafe-inline'");
   });
+
+  it("retains only Monaco runtime styles on developer docs", () => {
+    for (const route of ["developers/index.html", "developers/score-engine/index.html"]) {
+      const result = scopeContentSecurityPolicy(policy, route);
+      expect(result).not.toContain("'wasm-unsafe-eval'");
+      expect(result).toContain("style-src-elem 'self' 'unsafe-inline'");
+    }
+    expect(scopeContentSecurityPolicy(policy, "docs/index.html")).not.toContain(
+      "style-src-elem 'self' 'unsafe-inline'",
+    );
+  });
 });

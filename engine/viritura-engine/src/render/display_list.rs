@@ -15,6 +15,8 @@ pub struct DisplayList {
     pub commands: Vec<RenderCommand>,
     pub width: f64,
     pub height: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<PartSummary>,
     /// Page layout information (empty if paging is not applied).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pages: Vec<PageLayout>,
@@ -52,6 +54,13 @@ pub struct DisplayList {
     pub page_turn_warnings: Option<Vec<PageTurnWarning>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartSummary {
+    pub id: String,
+    pub index: usize,
+    pub name: String,
+}
+
 /// A flagged physical page turn surfaced to the editor (serializable mirror of
 /// the engine-internal `layout::page_turn::TurnWarning`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -70,6 +79,7 @@ impl DisplayList {
             commands: Vec::new(),
             width,
             height,
+            parts: Vec::new(),
             pages: Vec::new(),
             element_ids: Vec::new(),
             element_bboxes: Vec::new(),
@@ -80,6 +90,21 @@ impl DisplayList {
             layout_debug: None,
             page_turn_warnings: None,
         }
+    }
+
+    pub fn set_parts(
+        &mut self,
+        score: &crate::model::Score,
+        indices: impl IntoIterator<Item = usize>,
+    ) {
+        self.parts = indices
+            .into_iter()
+            .map(|index| PartSummary {
+                id: score.stable_part_id(index),
+                index,
+                name: score.parts[index].name.clone(),
+            })
+            .collect();
     }
 
     pub fn push(&mut self, cmd: RenderCommand) {
@@ -645,6 +670,7 @@ mod translate_tests {
             index: 0,
             measure_id: None,
             part_index: 0,
+            part_id: "#0".into(),
             source_part_indices: vec![0, 2],
             staff_index: 0,
             system_index: 0,

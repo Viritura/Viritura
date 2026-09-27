@@ -1,26 +1,42 @@
 /**
- * Docs page metadata — slug, title, group, and source file for every `/docs`
- * page, without importing the markdown content itself. Kept separate from
+ * Docs page metadata — slug, title, group, and source file for every page of
+ * the user guide (`/docs`) and the developer documentation (`/developers`),
+ * without importing the markdown content itself. Kept separate from
  * {@link ./docsManifest} (which pairs this metadata with `?raw` markdown
  * imports) so build-time tooling such as `astro.config.mjs` — which cannot
  * process Vite's `?raw` query — can still resolve a slug to its source file
  * (for example, to compute sitemap `lastmod` from git history).
  */
 
+export type DocSection = "guide" | "developers";
+
 export interface DocPageMeta {
-  /** Stable content identifier used to pair metadata with its markdown source. */
+  /** Stable content identifier, unique across sections. */
   slug: string;
   /** Public URL path. */
   path: string;
   /** Sidebar + page title. */
   title: string;
+  /** Documentation site section; the sidebar and pager stay within it. */
+  section: DocSection;
   /** Sidebar group heading. */
   group: string;
   /** Source markdown path, relative to the repo root. */
   file: string;
 }
 
-export const DOC_PAGE_META: readonly DocPageMeta[] = [
+export const DOC_SECTION_LABELS: Readonly<Record<DocSection, string>> = {
+  guide: "Documentation",
+  developers: "Developers",
+};
+
+/** URL prefix of each section; its landing page is served at the prefix itself. */
+export const DOC_SECTION_ROOTS: Readonly<Record<DocSection, string>> = {
+  guide: "/docs",
+  developers: "/developers",
+};
+
+const GUIDE_PAGES: readonly Omit<DocPageMeta, "section">[] = [
   {
     slug: "getting-started",
     path: "/docs",
@@ -127,4 +143,40 @@ export const DOC_PAGE_META: readonly DocPageMeta[] = [
     group: "Reference",
     file: "docs/spec/keyboard-shortcuts.md",
   },
+];
+
+const DEVELOPER_PAGES: readonly Omit<DocPageMeta, "section">[] = [
+  {
+    slug: "developers",
+    path: "/developers",
+    title: "Overview",
+    group: "Start",
+    file: "docs/developers/overview.md",
+  },
+  {
+    slug: "developers/score-viewer-react",
+    path: "/developers/score-viewer-react",
+    title: "Score Viewer React",
+    group: "Packages",
+    file: "docs/developers/score-viewer-react.md",
+  },
+  {
+    slug: "developers/score-viewer",
+    path: "/developers/score-viewer",
+    title: "Score Viewer",
+    group: "Packages",
+    file: "docs/developers/score-viewer.md",
+  },
+  {
+    slug: "developers/score-engine",
+    path: "/developers/score-engine",
+    title: "Score Engine",
+    group: "Packages",
+    file: "docs/developers/score-engine.md",
+  },
+];
+
+export const DOC_PAGE_META: readonly DocPageMeta[] = [
+  ...GUIDE_PAGES.map((page) => ({ ...page, section: "guide" as const })),
+  ...DEVELOPER_PAGES.map((page) => ({ ...page, section: "developers" as const })),
 ];

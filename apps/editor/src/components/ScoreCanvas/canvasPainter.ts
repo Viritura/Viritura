@@ -1,4 +1,4 @@
-import type { DisplayList, GlyphAtlas } from "@viritura/renderer";
+import { canvasTextFont, type DisplayList, type GlyphAtlas } from "@viritura/renderer";
 
 /** Paint a single render command onto a canvas 2D context. */
 export function paintCommand(ctx: CanvasRenderingContext2D, cmd: DisplayList["commands"][number]): void {
@@ -40,10 +40,7 @@ export function paintCommand(ctx: CanvasRenderingContext2D, cmd: DisplayList["co
       break;
     case "DrawText": {
       ctx.fillStyle = cmd.color;
-      const parts = cmd.font.split(" ");
-      const family = parts[0] || "serif";
-      const mods = parts.slice(1).join(" ");
-      ctx.font = mods ? `${mods} ${cmd.size}px ${family}` : `${cmd.size}px ${family}`;
+      ctx.font = canvasTextFont(cmd.font, cmd.size);
       ctx.textAlign = cmd.align;
       ctx.textBaseline = cmd.baseline;
       ctx.fillText(cmd.text, cmd.x, cmd.y);
