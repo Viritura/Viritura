@@ -1,6 +1,12 @@
 export { ScoreView } from "./ScoreView";
 export { useScoreView } from "./scoreViewContext";
-export type { ScorePageMargins, ScorePagePosition, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
+export type {
+  ScoreContentAlign,
+  ScorePageMargins,
+  ScorePagePosition,
+  ScoreSpreadFirstPage,
+  ScoreViewMode,
+} from "@viritura/score-viewer";
 export type { ScoreViewProps } from "./scoreViewProps";
 export { ScoreViewer } from "./ScoreViewer";
 export type { ScoreViewerProps } from "./ScoreViewer";

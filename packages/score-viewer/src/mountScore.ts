@@ -5,7 +5,7 @@ import {
   type LayoutWorker,
   type ScoreMeasurements,
 } from "@viritura/score-engine";
-import { arrangePages } from "./pageArrangement";
+import { arrangePages, contentOffset } from "./pageArrangement";
 import { followOffset } from "./playheadFollow";
 import { needsArrangement, needsLayout } from "./presentationChanges";
 import type { ScoreArrangement, ScoreViewerHandle, ScoreViewerOptions } from "./types";
@@ -41,6 +41,8 @@ export function mountScore(
   let generation = 0;
   let frame = 0;
   let pixelRatio = 0;
+  let surfaceOffsetX = 0;
+  let surfaceOffsetY = 0;
   let paintedPages = new Set<number>();
   const viewport = document.createElement("div");
   const surface = document.createElement("div");
@@ -92,8 +94,33 @@ export function mountScore(
     };
   }
 
+  // Consumers may override the inline padding (for example a bare embed).
+  function viewportPadding(): number {
+    return Number.parseFloat(viewport.style.paddingLeft) || 0;
+  }
+
   function schedule(): void {
     if (!frame && !destroyed) frame = requestAnimationFrame(paintFrame);
+  }
+
+  /** Size the surface and offset it for `contentAlign`. `horizonHeight` is null outside horizon mode. */
+  function placeSurface(horizonHeight: number | null): void {
+    const centered = options.contentAlign === "center";
+    const inner = {
+      width: Math.max(0, viewport.clientWidth - 2 * viewportPadding()),
+      height: Math.max(0, viewport.clientHeight - 2 * viewportPadding()),
+    };
+    const contentHeight = horizonHeight ?? arrangement.height;
+    const offset = contentOffset(options.contentAlign, inner, { width: arrangement.width, height: contentHeight });
+    surfaceOffsetX = offset.x;
+    surfaceOffsetY = offset.y;
+    surface.style.width = pixel(arrangement.width);
+    surface.style.height = pixel(
+      horizonHeight != null && !centered ? Math.max(contentHeight, inner.height) : contentHeight,
+    );
+    const flush =
+      horizonHeight != null || options.viewMode === "horizontal" || options.viewMode === "spread-horizontal";
+    surface.style.margin = centered ? `${pixel(offset.y)} 0 0 ${pixel(offset.x)}` : flush ? "0" : "0 auto";
   }
 
   function arrange(): void {
@@ -120,14 +147,7 @@ export function mountScore(
     });
     const horizon = options.viewMode === "horizon";
     const paper = horizon ? engine.horizonPaper(displayList) : null;
-    surface.style.width = pixel(arrangement.width);
-    surface.style.height = pixel(
-      horizon
-        ? Math.max((paper?.contentHeight ?? 0) * zoom, viewport.clientHeight - 2 * VIEWPORT_PADDING)
-        : arrangement.height,
-    );
-    surface.style.margin =
-      horizon || options.viewMode === "horizontal" || options.viewMode === "spread-horizontal" ? "0" : "0 auto";
+    placeSurface(horizon ? (paper?.contentHeight ?? 0) * zoom : null);
     paperSheet.hidden = !paper;
     if (paper) {
       paperSheet.style.left = pixel(paper.x * zoom);
@@ -200,8 +220,8 @@ export function mountScore(
       horizonCanvas.style.height = pixel(height);
       // Cover exactly the visible viewport, expressed in surface coordinates,
       // so the canvas never extends the scrollable area.
-      const left = viewport.scrollLeft - VIEWPORT_PADDING;
-      const top = viewport.scrollTop - VIEWPORT_PADDING;
+      const left = viewport.scrollLeft - viewportPadding() - surfaceOffsetX;
+      const top = viewport.scrollTop - viewportPadding() - surfaceOffsetY;
       horizonCanvas.style.left = pixel(left);
       horizonCanvas.style.top = pixel(top);
       const pending = tileRenderer?.paint(horizonCanvas, displayList, {

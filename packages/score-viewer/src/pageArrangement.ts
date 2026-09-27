@@ -1,4 +1,10 @@
-import type { ScoreArrangement, ScorePagePosition, ScoreSpreadFirstPage, ScoreViewMode } from "./types";
+import type {
+  ScoreArrangement,
+  ScoreContentAlign,
+  ScorePagePosition,
+  ScoreSpreadFirstPage,
+  ScoreViewMode,
+} from "./types";
 
 export interface ArrangePagesOptions {
   readonly pages: readonly { readonly width: number; readonly height: number; readonly offsetY: number }[];
@@ -95,4 +101,17 @@ function arrangeSpreads(
     index += 2;
   }
   return positions;
+}
+
+/** Offset that places content inside the viewport's inner box; oversized axes stay at the start so they scroll. */
+export function contentOffset(
+  align: ScoreContentAlign | undefined,
+  viewport: { readonly width: number; readonly height: number },
+  content: { readonly width: number; readonly height: number },
+): { readonly x: number; readonly y: number } {
+  if (align !== "center") return { x: 0, y: 0 };
+  return {
+    x: Math.max(0, (viewport.width - content.width) / 2),
+    y: Math.max(0, (viewport.height - content.height) / 2),
+  };
 }

@@ -211,6 +211,7 @@ export function MnxPlaygroundPage() {
                 scoreOptions={availableScores}
                 spatium={8}
                 viewMode="horizon"
+                contentAlign="center"
                 controls={false}
                 defaultFitMode="width"
                 minZoom={0.05}
@@ -234,6 +235,7 @@ export function MnxPlaygroundPage() {
                     scoreIndex={scoreIndex}
                     spatium={8}
                     viewMode="horizon"
+                    contentAlign="center"
                     controls={false}
                     minZoom={0.05}
                     maxZoom={1}

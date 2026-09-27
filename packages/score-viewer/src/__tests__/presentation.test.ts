@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrangePages } from "../pageArrangement";
+import { arrangePages, contentOffset } from "../pageArrangement";
 import { fitZoom } from "../zoom";
 import { followOffset } from "../playheadFollow";
 import { needsArrangement, needsLayout } from "../presentationChanges";
@@ -34,6 +34,13 @@ describe("page arrangements", () => {
       ),
     ).toEqual([0, 116, 58]);
   });
+
+  it("centres content that fits and keeps oversized axes at the start", () => {
+    const viewport = { width: 400, height: 300 };
+    expect(contentOffset(undefined, viewport, { width: 100, height: 100 })).toEqual({ x: 0, y: 0 });
+    expect(contentOffset("center", viewport, { width: 100, height: 100 })).toEqual({ x: 150, y: 100 });
+    expect(contentOffset("center", viewport, { width: 100, height: 900 })).toEqual({ x: 150, y: 0 });
+  });
 });
 
 describe("zoom and follow", () => {
@@ -53,6 +60,7 @@ describe("zoom and follow", () => {
       expect(needsArrangement({ zoom: 1 }, { zoom: 2 })).toBe(true);
       expect(needsArrangement({ ink: "#000" }, { ink: "#fff" })).toBe(true);
       expect(needsArrangement({ pageBackground: "#fff" }, { pageBackground: "#fff" })).toBe(false);
+      expect(needsArrangement({}, { contentAlign: "center" })).toBe(true);
     });
   });
   it("follows only when the cursor leaves the viewport", () => {

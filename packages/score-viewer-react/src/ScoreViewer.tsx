@@ -8,7 +8,7 @@ import type {
   ScoreMeasurements,
 } from "@viritura/score-engine";
 import { ScoreView } from "./ScoreView";
-import type { ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
+import type { ScoreContentAlign, ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
 import {
   ScoreViewerControls,
   type ScoreFitMode,
@@ -66,6 +66,8 @@ export interface ScoreViewerProps {
   readonly pageClassName?: string;
   readonly pageStyle?: CSSProperties;
   readonly pageBackground?: string;
+  /** Where the score sits when it is smaller than the viewport. Default `"start"`. */
+  readonly contentAlign?: ScoreContentAlign;
   readonly loadingFallback?: ReactNode;
   readonly errorFallback?: (err: Error) => ReactNode;
   readonly onReady?: (info: { engine: Engine; displayList: DisplayList }) => void;
@@ -190,6 +192,7 @@ export function ScoreViewer({
   pageClassName,
   pageStyle,
   pageBackground,
+  contentAlign,
   loadingFallback,
   errorFallback,
   onReady,
@@ -371,6 +374,7 @@ export function ScoreViewer({
           pageClassName={pageClassName}
           pageStyle={pageStyle}
           pageBackground={pageBackground}
+          contentAlign={contentAlign}
           className={scoreClassName}
           style={scoreBaseStyle}
           loadingFallback={loadingFallback}

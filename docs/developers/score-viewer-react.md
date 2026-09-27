@@ -66,7 +66,8 @@ import { ScoreView } from "@viritura/score-viewer-react";
 
 It accepts the viewer's layout and presentation options as props: `pageWidth`,
 `pageHeight`, `pageMargins`, `spatium`, `scoreIndex`, `viewMode`, `zoom`, `gap`,
-`spreadFirstPage`, `pagesPerRow`, `pageBackground`, `ink` and `assetBaseUrl`.
+`spreadFirstPage`, `pagesPerRow`, `pageBackground`, `contentAlign`, `ink` and
+`assetBaseUrl`. `<ScoreViewer>` accepts `contentAlign` too.
 Pass `bare` to remove the viewport padding when embedding a cropped fragment in
 a tight panel.
 

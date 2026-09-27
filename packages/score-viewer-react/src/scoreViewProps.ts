@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { DisplayList, Engine, EngineLoadError, LayoutError, ParseError } from "@viritura/score-engine";
-import type { ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
+import type { ScoreContentAlign, ScorePageMargins, ScoreSpreadFirstPage, ScoreViewMode } from "@viritura/score-viewer";
 
 export interface ScoreViewProps {
   mnx: string | object;
@@ -23,6 +23,8 @@ export interface ScoreViewProps {
   pageClassName?: string;
   pageStyle?: CSSProperties;
   pageBackground?: string;
+  /** Where the score sits when it is smaller than the viewport. Default `"start"`. */
+  contentAlign?: ScoreContentAlign;
   /** Remove viewport padding for embedded, cropped score fragments. */
   bare?: boolean;
   ink?: string;

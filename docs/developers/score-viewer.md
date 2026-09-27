@@ -89,24 +89,25 @@ very long scores stay responsive.
 
 ## Options
 
-| Option           | Default    | Notes                                                                         |
-| ---------------- | ---------- | ----------------------------------------------------------------------------- |
-| `viewMode`       | `page`     | See [View modes](#view-modes)                                                 |
-| `zoom`           | `1`        | A number, `fit-width` or `fit-page`. At `1`, one layout unit is one CSS pixel |
-| `pageWidth`      | `800`      | Page width in layout units; ignored in `horizon`                              |
-| `pageHeight`     | A4 ratio   | Page height in layout units                                                   |
-| `pageMargins`    | 15 mm      | `{ top, right, bottom, left }` in layout units                                |
-| `spatium`        | `7`        | Staff-space height; this sets the staff size                                  |
-| `scoreIndex`     | `0`        | Which entry of the MNX `scores` array to render                               |
-| `pageGap`        | `16`       | CSS pixels between pages                                                      |
-| `pageBackground` | `#fff`     | Paper colour                                                                  |
-| `ink`            | none       | Replaces default black ink, for dark themes; explicit colours are kept        |
-| `background`     | none       | Viewport colour behind the pages                                              |
-| `playhead`       | none       | See [Playhead](#playhead)                                                     |
-| `useWorker`      | `false`    | Run layout in a worker so large documents don't block the page                |
-| `engine`         | none       | Share an already loaded engine                                                |
-| `assetBaseUrl`   | module dir | Base URL containing `wasm/` and `fonts/`                                      |
-| `fonts`          | `true`     | Set to `false` when the host registers the fonts itself                       |
+| Option           | Default    | Notes                                                                          |
+| ---------------- | ---------- | ------------------------------------------------------------------------------ |
+| `viewMode`       | `page`     | See [View modes](#view-modes)                                                  |
+| `zoom`           | `1`        | A number, `fit-width` or `fit-page`. At `1`, one layout unit is one CSS pixel  |
+| `pageWidth`      | `800`      | Page width in layout units; ignored in `horizon`                               |
+| `pageHeight`     | A4 ratio   | Page height in layout units                                                    |
+| `pageMargins`    | 15 mm      | `{ top, right, bottom, left }` in layout units                                 |
+| `spatium`        | `7`        | Staff-space height; this sets the staff size                                   |
+| `scoreIndex`     | `0`        | Which entry of the MNX `scores` array to render                                |
+| `pageGap`        | `16`       | CSS pixels between pages                                                       |
+| `pageBackground` | `#fff`     | Paper colour                                                                   |
+| `contentAlign`   | `"start"`  | `"center"` centres a score smaller than the viewport; larger axes still scroll |
+| `ink`            | none       | Replaces default black ink, for dark themes; explicit colours are kept         |
+| `background`     | none       | Viewport colour behind the pages                                               |
+| `playhead`       | none       | See [Playhead](#playhead)                                                      |
+| `useWorker`      | `false`    | Run layout in a worker so large documents don't block the page                 |
+| `engine`         | none       | Share an already loaded engine                                                 |
+| `assetBaseUrl`   | module dir | Base URL containing `wasm/` and `fonts/`                                       |
+| `fonts`          | `true`     | Set to `false` when the host registers the fonts itself                        |
 
 ### Callbacks
 

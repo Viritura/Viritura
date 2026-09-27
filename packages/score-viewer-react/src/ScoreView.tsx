@@ -105,6 +105,7 @@ function ScoreViewComponent({
   pageClassName,
   pageStyle,
   pageBackground,
+  contentAlign,
   bare = false,
   ink,
   loadingFallback,
@@ -138,6 +139,7 @@ function ScoreViewComponent({
       spreadFirstPage,
       pagesPerRow,
       pageBackground,
+      contentAlign,
       ink,
       onLoading() {
         setStatus({ loading: true, error: null });
@@ -202,6 +204,7 @@ function ScoreViewComponent({
       spreadFirstPage,
       pagesPerRow,
       pageBackground,
+      contentAlign,
       ink,
     });
   }, [
@@ -221,6 +224,7 @@ function ScoreViewComponent({
     spreadFirstPage,
     pagesPerRow,
     pageBackground,
+    contentAlign,
     ink,
   ]);
 

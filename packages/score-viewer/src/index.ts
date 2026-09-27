@@ -7,4 +7,5 @@ export type {
   ScoreViewerHandle,
   ScoreViewerOptions,
   ScoreViewMode,
+  ScoreContentAlign,
 } from "./types";

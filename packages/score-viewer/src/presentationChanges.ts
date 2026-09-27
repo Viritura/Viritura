@@ -23,6 +23,7 @@ export function needsArrangement(previous: ScoreViewerOptions, next: ScoreViewer
     previous.pagesPerRow !== next.pagesPerRow ||
     previous.spreadFirstPage !== next.spreadFirstPage ||
     previous.ink !== next.ink ||
-    previous.pageBackground !== next.pageBackground
+    previous.pageBackground !== next.pageBackground ||
+    previous.contentAlign !== next.contentAlign
   );
 }
