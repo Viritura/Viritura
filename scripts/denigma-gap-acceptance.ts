@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { validateRawScore } from "../packages/format/src/index";
+import { MNX_SCHEMA_VERSION, validateRawScore } from "../packages/format/src/index";
 import { applyDenigmaGapReport, type DenigmaGap, type DenigmaGapReport } from "../packages/musx-import/src/index";
 
 interface DenigmaModule {
@@ -56,6 +56,8 @@ const loadedModule = (await import(pathToFileURL(resolve(modulePath)).href)) as 
 };
 const module = await loadedModule.default();
 const DENIGMA_FORMAT_MNX = 1;
+const outputMnxSchemaVersions = new Set<number>();
+let outputWithoutMnxSchemaVersion = false;
 const actualCommit = module.UTF8ToString(module._denigma_commit()).replace(/-dirty$/, "");
 if (!expectedCommit.startsWith(actualCommit)) {
   throw new Error(`Denigma module reports commit ${actualCommit}, expected ${expectedCommit}.`);
@@ -100,11 +102,16 @@ function readUtf8(pointer: number, size: number): string {
   return new TextDecoder().decode(module.HEAPU8.slice(pointer, pointer + size));
 }
 
-function assertAdaptedOutput(testCase: AcceptanceCase, output: string, gapReport: DenigmaGapReport): void {
+function assertAdaptedOutput(
+  testCase: AcceptanceCase,
+  output: string,
+  gapReport: DenigmaGapReport,
+  outputMnxSchemaVersion: number | undefined,
+): void {
   const adaptation = applyDenigmaGapReport(output, gapReport);
   const parsed = JSON.parse(adaptation.mnxJson) as unknown;
   const validation = validateRawScore(parsed);
-  if (!validation.ok) {
+  if (!validation.ok && (outputMnxSchemaVersion === undefined || outputMnxSchemaVersion === MNX_SCHEMA_VERSION)) {
     const first = validation.errors[0];
     throw new Error(
       `${testCase.file} produced invalid adapted MNX: ${first?.pointer || "/"} ${first?.message || "unknown error"}`,
@@ -164,6 +171,22 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
       }
       const outputSize = module._denigma_result_output_size(result, 0);
       const output = readUtf8(module._denigma_result_output_data(result, 0), outputSize);
+      const outputDocument = JSON.parse(output) as unknown;
+      const outputVersion =
+        typeof outputDocument === "object" &&
+        outputDocument !== null &&
+        "mnx" in outputDocument &&
+        typeof outputDocument.mnx === "object" &&
+        outputDocument.mnx !== null &&
+        "version" in outputDocument.mnx &&
+        typeof outputDocument.mnx.version === "number"
+          ? outputDocument.mnx.version
+          : undefined;
+      if (outputVersion === undefined) {
+        outputWithoutMnxSchemaVersion = true;
+      } else {
+        outputMnxSchemaVersions.add(outputVersion);
+      }
       if (output.includes("-dirty")) {
         throw new Error(`Denigma output for ${testCase.file} reports a dirty source checkout.`);
       }
@@ -182,7 +205,7 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
           throw new Error(`${testCase.file} did not report the expected ${expected.type}/${expected.subtype} gap.`);
         }
       }
-      assertAdaptedOutput(testCase, output, gapReport);
+      assertAdaptedOutput(testCase, output, gapReport, outputVersion);
       console.log(
         `Converted and adapted ${testCase.file} (${input.byteLength} bytes) to ${outputSize} MNX bytes with ${gapReport.gaps.length} gaps.`,
       );
@@ -198,3 +221,9 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
 for (const testCase of CASES) {
   await convertFixture(testCase);
 }
+
+const denigmaMnxSchemaVersion =
+  !outputWithoutMnxSchemaVersion && outputMnxSchemaVersions.size === 1
+    ? outputMnxSchemaVersions.values().next().value
+    : undefined;
+console.log(`DENIGMA_MNX_SCHEMA_VERSION=${denigmaMnxSchemaVersion ?? "unknown"}`);

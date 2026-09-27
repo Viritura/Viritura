@@ -28,6 +28,7 @@ interface DenigmaAssetManifest {
   moduleSha256: string;
   wasmSha256: string;
   wasmBytes: number;
+  mnxSchemaVersion: number | null;
 }
 
 function sha256(path: string): string {

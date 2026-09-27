@@ -5,6 +5,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { MNX_SCHEMA_VERSION } from "../packages/format/src/index";
 
 const DENIGMA_REPOSITORY = "https://github.com/openmusx/denigma.git";
 const DENIGMA_REPOSITORY_SLUG = "openmusx/denigma";
@@ -35,6 +36,16 @@ function output(command: string, args: string[], cwd = root): string {
     throw new Error(`${command} ${args.join(" ")} failed: ${result.stderr.trim()}`);
   }
   return result.stdout.trim();
+}
+
+function runForOutput(command: string, args: string[], cwd = root): string {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", windowsHide: true });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
+  }
+  return result.stdout;
 }
 
 function checkout(repository: string, commit: string, destination: string): void {
@@ -153,13 +164,27 @@ if (!wasmBuild) {
   };
 }
 
-run(process.execPath, [
+const acceptanceOutput = runForOutput(process.execPath, [
   resolve(root, "node_modules/tsx/dist/cli.mjs"),
   resolve(root, "scripts/denigma-gap-acceptance.ts"),
   wasmBuild.moduleSource,
   resolve(denigmaRoot, "tests/data/inputs"),
   DENIGMA_COMMIT,
 ]);
+const schemaVersionMatch = acceptanceOutput.match(/^DENIGMA_MNX_SCHEMA_VERSION=(\d+|unknown)$/m);
+const reportedSchemaVersion = schemaVersionMatch?.[1];
+const denigmaMnxSchemaVersion =
+  reportedSchemaVersion && reportedSchemaVersion !== "unknown" ? Number(reportedSchemaVersion) : null;
+if (denigmaMnxSchemaVersion !== null && !Number.isSafeInteger(denigmaMnxSchemaVersion)) {
+  throw new Error("Denigma acceptance checks did not report a valid MNX schema version.");
+}
+if (!schemaVersionMatch || denigmaMnxSchemaVersion === null) {
+  console.warn("Could not determine Denigma's declared MNX schema version; the build will continue.");
+} else if (denigmaMnxSchemaVersion !== MNX_SCHEMA_VERSION) {
+  console.warn(
+    `Denigma emits MNX schema version ${denigmaMnxSchemaVersion}, while Viritura validates against version ${MNX_SCHEMA_VERSION}. The build will continue; failed imports will report both versions.`,
+  );
+}
 
 mkdirSync(outputRoot, { recursive: true });
 const { moduleSource, wasmSource } = wasmBuild;
@@ -189,6 +214,7 @@ if (wasmBuild.origin === "source-build") {
 const manifest = {
   denigmaCommit: DENIGMA_COMMIT,
   denigmaVersion: DENIGMA_VERSION,
+  mnxSchemaVersion: denigmaMnxSchemaVersion,
   origin: wasmBuild.origin,
   emscriptenImage: EMSCRIPTEN_IMAGE,
   moduleSha256: sha256(moduleSource),

@@ -21,7 +21,12 @@ import {
   type DenigmaDiagnostic,
   type DenigmaGapOutcome,
 } from "@viritura/musx-import";
-import { recoverInvalidSequences, type RawScoreValidationError, type RecoveredSequence } from "@viritura/format";
+import {
+  MNX_SCHEMA_VERSION,
+  recoverInvalidSequences,
+  type RawScoreValidationError,
+  type RecoveredSequence,
+} from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -81,6 +86,26 @@ function countNonEmptySequences(document: unknown): number {
 
 function describeValidationError(error: RawScoreValidationError | undefined): string {
   return error ? `${error.pointer || "/"} ${error.message}` : "output does not satisfy the MNX schema";
+}
+
+function getDeclaredMnxVersion(text: string): number | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "mnx" in parsed &&
+      typeof parsed.mnx === "object" &&
+      parsed.mnx !== null &&
+      "version" in parsed.mnx &&
+      typeof parsed.mnx.version === "number"
+    ) {
+      return parsed.mnx.version;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /**
@@ -237,6 +262,15 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
         includeTempoTool: true,
       });
       const recovery = recoverImportedMnx(conversion.mnxJson);
+      const declaredMnxVersion = recovery.error ? getDeclaredMnxVersion(conversion.mnxJson) : null;
+      let importFailure: string | undefined;
+      if (recovery.error) {
+        const versionDetails =
+          declaredMnxVersion === null
+            ? `Denigma's declared MNX schema version could not be determined; Viritura validates against version ${MNX_SCHEMA_VERSION}.`
+            : `Denigma declares MNX schema version ${declaredMnxVersion}; Viritura validates against version ${MNX_SCHEMA_VERSION}.`;
+        importFailure = `Denigma produced invalid MNX. ${versionDetails} ${recovery.error}`;
+      }
       return {
         mnxJson: recovery.mnxJson,
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
@@ -244,7 +278,7 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
         importDiagnostics: conversion.diagnostics,
         importGapOutcomes: conversion.gapOutcomes,
         importRecovery: recovery.recovered,
-        ...(recovery.error ? { importFailure: `Denigma produced invalid MNX: ${recovery.error}` } : {}),
+        ...(importFailure ? { importFailure } : {}),
       };
     }
 
