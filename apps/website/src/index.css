@@ -2426,6 +2426,59 @@ main {
   background: none;
 }
 
+.docs-code {
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+.docs-code > pre {
+  margin: 0;
+}
+
+.docs-code[data-ready] > pre {
+  display: none;
+}
+
+.docs-code:not([data-ready]) > .docs-code-editor {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
+.docs-code-editor {
+  overflow: hidden;
+  border: 1px solid var(--site-keyline);
+  border-radius: 3px;
+  background: var(--site-paper-raised);
+}
+
+.docs-code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--site-keyline);
+  border-radius: 2px;
+  background: var(--site-paper-raised);
+  color: var(--site-green-dark);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.docs-code:hover .docs-code-copy,
+.docs-code-copy:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .docs-code-copy {
+    opacity: 1;
+  }
+}
+
 .docs-prose blockquote {
   margin: 1.5rem 0;
   padding: 0.9rem 1rem;

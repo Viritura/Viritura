@@ -3,6 +3,15 @@ import shortcutsMarkdown from "../../../../../docs/spec/keyboard-shortcuts.md?ra
 import { renderDoc } from "./renderDoc";
 
 describe("renderDoc", () => {
+  it("marks fenced samples with a language for the Monaco upgrade", () => {
+    const rendered = renderDoc("```tsx\nconst a = <b />;\n```\n\n```\nplain\n```");
+
+    expect(rendered.html).toContain('<div class="docs-code" data-doc-code="tsx"><pre><code class="language-tsx">');
+    expect(rendered.html).toContain("</code></pre></div>");
+    expect(rendered.html).toMatch(/<pre><code>plain/);
+    expect(rendered.html.match(/data-doc-code=/g)).toHaveLength(1);
+  });
+
   it("uses explicit heading ids without exposing the marker", () => {
     const rendered = renderDoc("## Picture Activity {#picture}");
 

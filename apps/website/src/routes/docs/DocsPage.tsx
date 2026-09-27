@@ -5,6 +5,7 @@ import { docGroupsInSection, docPagesInSection, docSectionHome, findDocPage, typ
 import { getModifierKeyLabels, renderDoc, type TocEntry } from "./renderDoc";
 import { useActiveTocHeading } from "./tocScrollSpy";
 import { DocSnippetHost } from "./interactiveSnippets";
+import { DocsCodeHost } from "./DocsCodeHost";
 
 interface DocsPageProps {
   slug: string;
@@ -58,9 +59,17 @@ export function DocsPage({ slug, section = "guide" }: DocsPageProps) {
   );
 }
 
+interface CodeMount {
+  readonly key: string;
+  readonly element: HTMLElement;
+  readonly source: string;
+  readonly fence: string;
+}
+
 function DocsProse({ html }: { html: string }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [mounts, setMounts] = useState<readonly { id: string; element: HTMLElement }[]>([]);
+  const [codeMounts, setCodeMounts] = useState<readonly CodeMount[]>([]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -69,12 +78,23 @@ function DocsProse({ html }: { html: string }) {
       .map((element) => ({ id: element.dataset.docEmbed, element }))
       .filter((mount): mount is { id: string; element: HTMLElement } => Boolean(mount.id));
     setMounts(nextMounts);
+    setCodeMounts(
+      [...content.querySelectorAll<HTMLElement>("[data-doc-code]")].map((element, index) => ({
+        key: `code-${index}`,
+        element,
+        source: (element.querySelector("pre code")?.textContent ?? "").replace(/\n$/, ""),
+        fence: element.dataset.docCode ?? "",
+      })),
+    );
   }, [html]);
 
   return (
     <>
       <div ref={contentRef} className="docs-prose" dangerouslySetInnerHTML={{ __html: html }} />
       {mounts.map(({ id, element }) => createPortal(<DocSnippetHost key={id} id={id} />, element, id))}
+      {codeMounts.map(({ key, element, source, fence }) =>
+        createPortal(<DocsCodeHost host={element} source={source} fence={fence} />, element, key),
+      )}
     </>
   );
 }
