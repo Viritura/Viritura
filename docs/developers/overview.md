@@ -40,6 +40,19 @@ controls.
 - [Score Engine](/developers/score-engine): layout, painting, geometry,
   SVG export and the playback timeline.
 
+## Try it first
+
+- The [MNX Playground](/mnx/playground) is a live `<ScoreViewer>` from
+  [Score Viewer React](/developers/score-viewer-react) in `horizon` view mode.
+  Edit MNX on the left and the score re-engraves as you type. It's the quickest
+  way to see how the renderer handles a document before you embed it.
+- The [example library](/mnx/examples/) shows rendered MNX documents
+  covering the specification, Viritura extensions and engraving behaviour.
+  The MNX documentation examples used in the playground are also available as
+  plain `.mnx` files, for example
+  [`/mnx-samples/beams.mnx`](/mnx-samples/beams.mnx), which you can use as test
+  input while you build your integration.
+
 ## Get the packages
 
 ### Release archive
