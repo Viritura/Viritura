@@ -154,6 +154,13 @@ const DEVELOPER_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     file: "docs/developers/overview.md",
   },
   {
+    slug: "developers/score-viewer-react",
+    path: "/developers/score-viewer-react",
+    title: "Score Viewer React",
+    group: "Packages",
+    file: "docs/developers/score-viewer-react.md",
+  },
+  {
     slug: "developers/score-viewer",
     path: "/developers/score-viewer",
     title: "Score Viewer",
@@ -166,13 +173,6 @@ const DEVELOPER_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     title: "Score Engine",
     group: "Packages",
     file: "docs/developers/score-engine.md",
-  },
-  {
-    slug: "developers/score-viewer-react",
-    path: "/developers/score-viewer-react",
-    title: "Score Viewer React",
-    group: "Packages",
-    file: "docs/developers/score-viewer-react.md",
   },
 ];
 

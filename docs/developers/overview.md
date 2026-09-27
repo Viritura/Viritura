@@ -20,23 +20,25 @@ drop down a layer only when you need more control.
 
 | Package                        | Use it when                                                         | You provide                                    |
 | ------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------- |
-| `@viritura/score-viewer`       | You want a scrollable, zoomable score in any page or framework      | A container element and the MNX document       |
 | `@viritura/score-viewer-react` | You are building a React 18 or 19 app and want components and hooks | Props                                          |
+| `@viritura/score-viewer`       | You want a scrollable, zoomable score in any page or framework      | A container element and the MNX document       |
 | `@viritura/score-engine`       | You draw the score yourself: a custom canvas, overlays, export      | Canvas, paper, zoom, scrolling and interaction |
 
-Everything is built on the engine. The engine lays out the music in
-WebAssembly and draws **ink only**: staves, notes, symbols and text. It never
-paints paper, page shadows, backgrounds or controls.
+The React package wraps the viewer and adds an optional control bar.
 
-The viewer adds page presentation: paper, page arrangements, zoom, scrolling,
-virtualised canvases, loading and error states, and a playhead that can follow
-playback. The React package wraps the viewer and adds an optional control bar.
+The viewer adds page presentation on top of the engine: paper, page
+arrangements, zoom, scrolling, virtualised canvases, loading and error states,
+and a playhead that can follow playback.
 
+The engine lays out the music in WebAssembly and draws **ink only**: staves,
+notes, symbols and text. It never paints paper, page shadows, backgrounds or
+controls.
+
+- [Score Viewer React](/developers/score-viewer-react): `<ScoreViewer>`, `<ScoreView>` and
+  `useScoreEngine`.
 - [Score Viewer](/developers/score-viewer): embed a score with one call.
 - [Score Engine](/developers/score-engine): layout, painting, geometry,
   SVG export and the playback timeline.
-- [Score Viewer React](/developers/score-viewer-react): `<ScoreViewer>`, `<ScoreView>` and
-  `useScoreEngine`.
 
 ## Get the packages
 
