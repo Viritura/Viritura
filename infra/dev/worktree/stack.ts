@@ -12,7 +12,7 @@ import { readLease, removeLease, withLeaseLock, writeLease, type WorktreeLease }
 
 const leaseDurationMilliseconds = 8 * 60 * 60 * 1_000;
 const wasmImage = "viritura-wasm-dev:rust-1.93.1-wasm-pack-0.14.0";
-const dependencyVolumeSuffixes = [
+export const dependencyVolumeSuffixes = [
   "root",
   "package-audio",
   "package-core",
@@ -29,6 +29,7 @@ const dependencyVolumeSuffixes = [
   "package-playback",
   "package-renderer",
   "package-score-engine",
+  "package-score-viewer",
   "package-score-viewer-react",
   "package-sound-profiles",
   "package-stb-vorbis-shim",
