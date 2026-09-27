@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { MNX_SCHEMA_VERSION } from "@viritura/format";
 
 const { convertMusxToMnx } = vi.hoisted(() => ({
   convertMusxToMnx: vi.fn(),
@@ -73,6 +74,25 @@ describe("Finale MUSX import", () => {
       importGapOutcomes: [],
       importRecovery: [],
     });
+  });
+
+  it("includes Denigma and Viritura MNX schema versions when validation fails", async () => {
+    const invalid = JSON.parse(VALID_MNX) as Record<string, unknown>;
+    const mnx = invalid["mnx"] as Record<string, unknown>;
+    mnx["version"] = MNX_SCHEMA_VERSION - 1;
+    invalid["unsupportedProperty"] = true;
+    convertMusxToMnx.mockResolvedValue({
+      mnxJson: JSON.stringify(invalid),
+      diagnostics: [],
+      denigmaVersion: "4.0.0",
+      denigmaCommit: "abc123",
+    });
+
+    const result = await convertImportedMusicFile(new File([new Uint8Array([1])], "older-schema.musx"));
+
+    expect(result.importFailure).toContain(
+      `Denigma declares MNX schema version ${MNX_SCHEMA_VERSION - 1}; Viritura validates against version ${MNX_SCHEMA_VERSION}`,
+    );
   });
 
   it("reports invalid MNX returned by Denigma as an import failure", async () => {

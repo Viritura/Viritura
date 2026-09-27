@@ -35,6 +35,10 @@ const mnxSchema = JSON.parse(readFileSync(resolve(here, "../schemas/mnx-schema.j
 const extensionsSchema = JSON.parse(
   readFileSync(resolve(here, "../schemas/viritura-extensions.json"), "utf8"),
 ) as JsonSchema;
+const mnxSchemaVersion = mnxSchema.$id.match(/\/version\/(\d+)$/)?.[1];
+if (!mnxSchemaVersion) {
+  throw new Error(`MNX schema ID does not declare a numeric version: ${mnxSchema.$id}`);
+}
 const outputPath = resolve(here, "../src/mnx/standaloneValidators.ts");
 
 const ajv = new Ajv2020({
@@ -69,6 +73,8 @@ const banner = [
   "// @ts-nocheck",
   "// AUTO-GENERATED FROM packages/format/schemas/*.json — DO NOT EDIT BY HAND.",
   "// Regenerate with: pnpm --filter @viritura/format gen:validators",
+  "",
+  `export const MNX_SCHEMA_VERSION = ${mnxSchemaVersion};`,
   "",
 ].join("\n");
 writeFileSync(outputPath, banner + esmGenerated);

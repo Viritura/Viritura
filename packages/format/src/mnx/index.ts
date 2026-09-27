@@ -14,6 +14,7 @@ export { isRawScore, assertRawScore, validateRawScore, RawScoreValidationFailure
 export type { RawScoreValidationError, RawScoreValidationResult } from "./validator";
 export { recoverInvalidSequences } from "./sequenceRecovery";
 export type { RecoveredSequence, RecoverInvalidSequencesOptions, SequenceRecoveryResult } from "./sequenceRecovery";
+export { MNX_SCHEMA_VERSION } from "./standaloneValidators";
 export { serializeMnx, serializeEvent, serializeSequenceContent } from "./serializer";
 export { serializeArpeggio, serializeNonArpeggio, serializeDynamicGroup } from "./serializePart";
 export { DeltaSerializer } from "./deltaSerializer";

@@ -12,6 +12,7 @@ export { isRawScore, assertRawScore, validateRawScore, RawScoreValidationFailure
 export type { RawScoreValidationError, RawScoreValidationResult } from "./mnx";
 export { recoverInvalidSequences } from "./mnx";
 export type { RecoveredSequence, RecoverInvalidSequencesOptions, SequenceRecoveryResult } from "./mnx";
+export { MNX_SCHEMA_VERSION } from "./mnx";
 export { serializeMnx } from "./mnx";
 export {
   serializeEvent,
