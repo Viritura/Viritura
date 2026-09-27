@@ -21,7 +21,7 @@ import {
   type DenigmaDiagnostic,
   type DenigmaGapOutcome,
 } from "@viritura/musx-import";
-import { validateRawScore } from "@viritura/format";
+import { recoverInvalidSequences, type RawScoreValidationError, type RecoveredSequence } from "@viritura/format";
 import { runBackgroundTask } from "../store/backgroundTaskStore";
 import { useImportSettingsStore } from "../store/importSettingsStore";
 
@@ -41,6 +41,72 @@ export interface OpenFileResult {
   importDiagnostics?: DenigmaDiagnostic[];
   /** Per-gap preservation result retained for the MUSX import report. */
   importGapOutcomes?: DenigmaGapOutcome[];
+  /**
+   * Sequences already emptied by {@link recoverImportedMnx}. When present,
+   * `mnxJson` is the recovered document and recovery is not repeated.
+   */
+  importRecovery?: RecoveredSequence[];
+  /**
+   * Set when conversion produced MNX that recovery could not repair. The loader
+   * reports it through the import error log instead of opening the score.
+   */
+  importFailure?: string;
+}
+
+/** Outcome of {@link recoverImportedMnx}. */
+export interface ImportedMnxRecovery {
+  /** Recovered MNX JSON (the input text when nothing changed). */
+  mnxJson: string;
+  /** Sequences emptied because they failed validation. */
+  recovered: RecoveredSequence[];
+  /** First validation failure left in `mnxJson`, or null when it is valid MNX. */
+  error: string | null;
+}
+
+function countNonEmptySequences(document: unknown): number {
+  const root = document as { parts?: unknown } | null;
+  if (!Array.isArray(root?.parts)) return 0;
+  let count = 0;
+  for (const part of root.parts as Array<{ measures?: unknown }>) {
+    if (!Array.isArray(part?.measures)) continue;
+    for (const measure of part.measures as Array<{ sequences?: unknown }>) {
+      if (!Array.isArray(measure?.sequences)) continue;
+      for (const sequence of measure.sequences as Array<{ content?: unknown }>) {
+        if (!Array.isArray(sequence?.content) || sequence.content.length > 0) count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+function describeValidationError(error: RawScoreValidationError | undefined): string {
+  return error ? `${error.pointer || "/"} ${error.message}` : "output does not satisfy the MNX schema";
+}
+
+/**
+ * Empty only the sequences of an MNX document that fail validation, so one
+ * malformed voice does not prevent the rest of the score from opening.
+ * Unparseable JSON and document-level errors are left for the loader to report,
+ * as is a document in which every sequence fails: that indicates a systematic
+ * format problem, and opening an empty score would only hide it.
+ */
+export function recoverImportedMnx(text: string): ImportedMnxRecovery {
+  let document: unknown;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return { mnxJson: text, recovered: [], error: "output is not valid JSON" };
+  }
+  const recovery = recoverInvalidSequences(document);
+  const { recovered, validation } = recovery;
+  if (recovered.length > 0 && recovered.length >= countNonEmptySequences(document)) {
+    return { mnxJson: text, recovered: [], error: describeValidationError(recovered[0]?.errors[0]) };
+  }
+  return {
+    mnxJson: recovered.length > 0 ? JSON.stringify(recovery.document) : text,
+    recovered,
+    error: validation.ok ? null : describeValidationError(validation.errors[0]),
+  };
 }
 
 /** Options accepted by the File System Access API picker. */
@@ -153,20 +219,6 @@ export function isMusicImportFilename(filename: string): boolean {
   return MUSIC_IMPORT_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
-function validateConvertedMnxJson(text: string): string | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return "output is not valid JSON";
-  }
-  const validation = validateRawScore(parsed);
-  if (validation.ok) return null;
-  const first = validation.errors[0];
-  if (!first) return "output does not satisfy the MNX schema";
-  return `${first.pointer || "/"} ${first.message}`;
-}
-
 /**
  * Convert an imported MusicXML, MXL, or Finale MUSX `File` into an
  * {@link OpenFileResult} that holds the resulting MNX JSON.
@@ -184,16 +236,15 @@ export async function convertImportedMusicFile(file: File): Promise<OpenFileResu
       const conversion = await convertMusxToMnx(await file.arrayBuffer(), file.name, {
         includeTempoTool: true,
       });
-      const validationError = validateConvertedMnxJson(conversion.mnxJson);
-      if (validationError) {
-        throw new Error(`Denigma produced invalid MNX: ${validationError}`);
-      }
+      const recovery = recoverImportedMnx(conversion.mnxJson);
       return {
-        mnxJson: conversion.mnxJson,
+        mnxJson: recovery.mnxJson,
         filename: `${file.name.replace(/\.musx$/i, "")}.mnx`,
         fileHandle: null,
         importDiagnostics: conversion.diagnostics,
         importGapOutcomes: conversion.gapOutcomes,
+        importRecovery: recovery.recovered,
+        ...(recovery.error ? { importFailure: `Denigma produced invalid MNX: ${recovery.error}` } : {}),
       };
     }
 

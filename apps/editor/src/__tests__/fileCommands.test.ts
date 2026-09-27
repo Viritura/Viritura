@@ -5,6 +5,7 @@ import {
   fileSave,
   fileSaveAs,
   fileDownload,
+  recoverImportedMnx,
 } from "../commands/fileCommands";
 
 const VALID_MNX = JSON.stringify({
@@ -66,6 +67,51 @@ describe("validateMnxJson", () => {
   it("accepts minimal valid MNX structure", () => {
     const minimal = JSON.stringify({ global: { measures: [] }, parts: [] });
     expect(validateMnxJson(minimal)).toBeNull();
+  });
+});
+
+describe("recoverImportedMnx", () => {
+  const malformedTuplet = {
+    type: "tuplet",
+    inner: { duration: { base: "eighth" }, multiple: 3 },
+    outer: { duration: { base: "eighth" }, multiple: 2 },
+    content: [{ id: "bad", duration: { base: "quarter" }, rest: {} }],
+  };
+  const withSequences = (...contents: unknown[][]) =>
+    JSON.stringify({
+      mnx: { version: 1 },
+      global: { measures: [{ id: "m1", time: { count: 2, unit: 4 } }] },
+      parts: [{ measures: [{ sequences: contents.map((content) => ({ content })) }] }],
+    });
+
+  it("returns valid MNX unchanged", () => {
+    const text = withSequences([{ duration: { base: "half" }, rest: {} }]);
+
+    expect(recoverImportedMnx(text)).toEqual({ mnxJson: text, recovered: [], error: null });
+  });
+
+  it("empties the failing sequence and keeps the others", () => {
+    const result = recoverImportedMnx(withSequences([{ duration: { base: "half" }, rest: {} }], [malformedTuplet]));
+    const recovered = JSON.parse(result.mnxJson) as {
+      parts: Array<{ measures: Array<{ sequences: Array<{ content: unknown[] }> }> }>;
+    };
+
+    expect(result.error).toBeNull();
+    expect(result.recovered).toEqual([expect.objectContaining({ logId: "E1", sequenceIndex: 1 })]);
+    expect(recovered.parts[0]!.measures[0]!.sequences.map((sequence) => sequence.content.length)).toEqual([1, 0]);
+  });
+
+  it("does not open a score in which every sequence fails", () => {
+    const text = withSequences([malformedTuplet]);
+    const result = recoverImportedMnx(text);
+
+    expect(result.mnxJson).toBe(text);
+    expect(result.recovered).toEqual([]);
+    expect(result.error).toContain("tuplet content duration");
+  });
+
+  it("reports unparseable JSON without changing it", () => {
+    expect(recoverImportedMnx("{")).toEqual({ mnxJson: "{", recovered: [], error: "output is not valid JSON" });
   });
 });
 

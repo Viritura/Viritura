@@ -13,6 +13,7 @@ import { HelpDialog } from "../components/HelpDialog";
 import { getTransposeSelectionInfo, TransposeDialog } from "../components/TransposeDialog";
 import { OrchestralStaffSplitDialog } from "../orchestralStaffSplit";
 import { DrumKitDialogHost } from "../components/DrumKitDialog";
+import { ImportErrorLogDialogHost } from "../importErrorLog";
 import { CondensingPopover, type CondensingMode } from "../components/CondensingPopover";
 import { LyricInput } from "../components/LyricInput";
 import { RadialMenu, TextPopover } from "@viritura/ui";
@@ -391,6 +392,8 @@ export function AppOverlays(props: AppOverlaysProps) {
       <OrchestralStaffSplitOverlay open={dialogs.orchestralStaffSplit} store={store} updateScore={updateScore} />
 
       <DrumKitDialogHost open={dialogs.drumKit} onClose={() => closeDialog("drumKit")} />
+
+      <ImportErrorLogDialogHost />
 
       <CondensingPopover
         open={dialogs.condensingPopover}

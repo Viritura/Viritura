@@ -71,10 +71,11 @@ describe("Finale MUSX import", () => {
       fileHandle: null,
       importDiagnostics: [{ severity: "warning", message: "A Finale-only detail was omitted." }],
       importGapOutcomes: [],
+      importRecovery: [],
     });
   });
 
-  it("rejects invalid MNX returned by Denigma", async () => {
+  it("reports invalid MNX returned by Denigma as an import failure", async () => {
     convertMusxToMnx.mockResolvedValue({
       mnxJson: "{}",
       gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
@@ -86,7 +87,9 @@ describe("Finale MUSX import", () => {
 
     const file = new File([new Uint8Array([1])], "broken.musx");
 
-    await expect(convertImportedMusicFile(file)).rejects.toThrow("Denigma produced invalid MNX");
+    const result = await convertImportedMusicFile(file);
+
+    expect(result.importFailure).toContain("Denigma produced invalid MNX");
   });
 
   it("retains actionable chord diagnostics and gap outcomes without duplicating or summarizing them", async () => {
@@ -107,7 +110,7 @@ describe("Finale MUSX import", () => {
     expect(result.importGapOutcomes).toEqual(gapOutcomes);
   });
 
-  it("rejects schema-invalid notation even when Denigma reports success", async () => {
+  it("reports schema-invalid notation as a failure even when Denigma reports success", async () => {
     const invalid = JSON.parse(VALID_MNX) as {
       parts: Array<{
         measures: Array<{
@@ -129,7 +132,49 @@ describe("Finale MUSX import", () => {
 
     const file = new File([new Uint8Array([1])], "tremolo.musx");
 
-    await expect(convertImportedMusicFile(file)).rejects.toThrow(/marks/);
+    const result = await convertImportedMusicFile(file);
+
+    expect(result.importFailure).toMatch(/marks/);
+  });
+
+  it("empties only the sequence containing a malformed tuplet", async () => {
+    const source = JSON.parse(VALID_MNX) as {
+      parts: Array<{
+        measures: Array<{
+          sequences: Array<{ content: Array<Record<string, unknown>> }>;
+        }>;
+      }>;
+    };
+    source.parts[0]!.measures[0]!.sequences.push({
+      content: [
+        {
+          type: "tuplet",
+          inner: { duration: { base: "eighth" }, multiple: 3 },
+          outer: { duration: { base: "eighth" }, multiple: 2 },
+          content: [{ duration: { base: "quarter" }, rest: {} }],
+        },
+      ],
+    });
+    convertMusxToMnx.mockResolvedValue({
+      mnxJson: JSON.stringify(source),
+      gapReport: { schemaVersion: 1, producer: { name: "denigma", version: "4.0.0", commit: "abc123" }, gaps: [] },
+      gapOutcomes: [],
+      diagnostics: [],
+      denigmaVersion: "4.0.0",
+      denigmaCommit: "abc123",
+    });
+
+    const result = await convertImportedMusicFile(new File([new Uint8Array([1])], "tuplets.musx"));
+    const recovered = JSON.parse(result.mnxJson) as typeof source;
+
+    const sequences = recovered.parts[0]!.measures[0]!.sequences;
+    expect(sequences).toHaveLength(2);
+    expect(sequences[0]!.content.length).toBeGreaterThan(0);
+    expect(sequences[1]!.content).toEqual([]);
+    expect(result.importRecovery).toEqual([
+      expect.objectContaining({ logId: "E1", measureIndex: 0, sequenceIndex: 1 }),
+    ]);
+    expect(result.importDiagnostics).toEqual([]);
   });
 
   it("rejects oversized MUSX files before reading their bytes", async () => {

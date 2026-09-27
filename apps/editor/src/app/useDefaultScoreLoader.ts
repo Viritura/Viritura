@@ -5,6 +5,8 @@ import { buildBlankScore } from "../score/ScoreBuilder";
 import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
 import type { useDocumentStoreApi } from "../store/DocumentContext";
 import type { OpenFileResult } from "../commands/fileCommands";
+import { recoverImportedMnx } from "../commands/fileCommands";
+import { buildImportErrorLog, showImportErrorLog } from "../importErrorLog";
 import type { Score } from "@viritura/core";
 import { openPercussionReviewForParts } from "../store/drumKitTargetStore";
 import { DEFAULT_SCORE_SAMPLE, type ScoreSample } from "../scoreSamples";
@@ -89,16 +91,37 @@ export function useDefaultScoreLoader({
     });
   }, [loadBundledScore, loadScore, resetHistory, store]);
 
-  // Load opened file into document context
+  // Load opened file into document context. Sequences that fail validation are
+  // emptied so the rest of the score still opens; any error is reported in the
+  // import error log dialog.
   useEffect(() => {
     if (!openedFile) return;
+    const recovery =
+      openedFile.importRecovery !== undefined
+        ? { mnxJson: openedFile.mnxJson, recovered: openedFile.importRecovery }
+        : recoverImportedMnx(openedFile.mnxJson);
+    const converterWarnings = (openedFile.importDiagnostics ?? [])
+      .filter((diagnostic) => diagnostic.severity === "warning")
+      .map((diagnostic) => diagnostic.message);
     try {
-      const parsed = parseMnx(JSON.parse(openedFile.mnxJson));
+      if (openedFile.importFailure) throw new Error(openedFile.importFailure);
+      const parsed = parseMnx(JSON.parse(recovery.mnxJson));
       setSelectedScoreIndex(0);
       loadScore(parsed, openedFile.filename);
-      resetHistory(store.getState().mnxJson || openedFile.mnxJson);
-      setFileHandle(openedFile.fileHandle);
+      resetHistory(store.getState().mnxJson || recovery.mnxJson);
+      // Never let a plain Save overwrite the source with the emptied sequences.
+      setFileHandle(recovery.recovered.length > 0 ? null : openedFile.fileHandle);
       setFileError(null);
+      if (recovery.recovered.length > 0) {
+        showImportErrorLog(
+          buildImportErrorLog({
+            filename: openedFile.filename,
+            mnxJson: openedFile.mnxJson,
+            recovered: recovery.recovered,
+            converterWarnings,
+          }),
+        );
+      }
       if (openedFile.percussionReviewPartIndices?.length) {
         toast.warning(
           `Review ${openedFile.percussionReviewPartIndices.length} percussion ${openedFile.percussionReviewPartIndices.length === 1 ? "map" : "maps"}: MusicXML did not identify every sound.`,
@@ -110,6 +133,15 @@ export function useDefaultScoreLoader({
       console.error("Failed to load opened file:", err);
       setFileError(formatOpenedFileError(openedFile.filename, err));
       toast.error(`Failed to open ${openedFile.filename}`);
+      showImportErrorLog(
+        buildImportErrorLog({
+          filename: openedFile.filename,
+          mnxJson: openedFile.mnxJson,
+          recovered: recovery.recovered,
+          failure: err,
+          converterWarnings,
+        }),
+      );
     }
   }, [openedFile, loadScore, resetHistory, store, setSelectedScoreIndex, setFileHandle, setFileError]);
 

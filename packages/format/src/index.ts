@@ -10,6 +10,8 @@ export { promote, promoteUnknown, promoteWithDiagnostics } from "./mnx";
 export type { RawScore, PromoteOptions, PromoteResult } from "./mnx";
 export { isRawScore, assertRawScore, validateRawScore, RawScoreValidationFailure } from "./mnx";
 export type { RawScoreValidationError, RawScoreValidationResult } from "./mnx";
+export { recoverInvalidSequences } from "./mnx";
+export type { RecoveredSequence, RecoverInvalidSequencesOptions, SequenceRecoveryResult } from "./mnx";
 export { serializeMnx } from "./mnx";
 export {
   serializeEvent,
