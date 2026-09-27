@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
-import { prepareLaneSequence } from "../voiceLanes";
+import { writeToLane } from "../voiceLanes";
 import { useSelection, useSelectionStore, type SelectionState } from "../store/selectionStore";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
@@ -1216,19 +1216,22 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           }
 
           try {
-            const voice = prepareLaneSequence(draft, cursor.partIndex, cursor.measureIndex, {
-              lane: ni.currentVoice,
-              staff: (cursor.staffIndex ?? 0) + 1,
-            });
-            createTuplet(draft, {
-              measureIndex: cursor.measureIndex,
-              partIndex: cursor.partIndex,
-              voice,
-              beatPosition: cursor.beatPosition,
-              tupletNumber,
-              outerMultiple,
-              baseDuration,
-            });
+            writeToLane(
+              draft,
+              cursor.partIndex,
+              cursor.measureIndex,
+              { lane: ni.currentVoice, staff: (cursor.staffIndex ?? 0) + 1 },
+              (voice) =>
+                createTuplet(draft, {
+                  measureIndex: cursor.measureIndex,
+                  partIndex: cursor.partIndex,
+                  voice,
+                  beatPosition: cursor.beatPosition,
+                  tupletNumber,
+                  outerMultiple,
+                  baseDuration,
+                }),
+            );
           } catch (err) {
             console.warn("[Tuplet]", (err as Error).message);
             toast.warning((err as Error).message || "Failed to create tuplet");

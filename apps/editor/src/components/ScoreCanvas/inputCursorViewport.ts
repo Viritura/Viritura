@@ -46,7 +46,7 @@ export function resolveInputCursorViewportTarget(
     cursor.measureIndex,
     score,
     EMPTY_SPATIAL_INDEX,
-    voice - 1,
+    { lane: voice, staff: (cursor.staffIndex ?? 0) + 1 },
     displayList,
     cursor.partIndex,
   );

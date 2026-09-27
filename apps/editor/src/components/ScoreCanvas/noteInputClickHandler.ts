@@ -458,7 +458,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
             resultScore,
             { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
             noteBeats,
-            voice,
+            lane,
             1,
           ),
         );
@@ -476,7 +476,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
           newScore,
           { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
           noteBeats,
-          voice,
+          lane,
           1,
         ),
       );
@@ -700,7 +700,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
           resultScore,
           { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
           noteBeats,
-          voice,
+          lane,
           1,
         ),
       );
@@ -718,7 +718,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         newScore,
         { measureIndex, beatPosition, partIndex, staffIndex: clickedStaffNumber - 1 },
         noteBeats,
-        voice,
+        lane,
         1,
       ),
     );

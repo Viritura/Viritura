@@ -53,3 +53,27 @@ export function prepareLaneSequence(draft: Score, partIndex: number, measureInde
   if (!sequences) return lane.lane - 1;
   return ensureLaneSequence(sequences, lane.lane, lane.staff);
 }
+
+/**
+ * Run `write` against the lane's sequence, creating it first if the bar lacks
+ * one. If `write` throws, a sequence created here is removed again before the
+ * error propagates, so a rejected edit (e.g. a tuplet that does not fit) never
+ * leaves an empty voice behind. Mutates `draft`.
+ */
+export function writeToLane(
+  draft: Score,
+  partIndex: number,
+  measureIndex: number,
+  lane: LaneRef,
+  write: (sequenceIndex: number) => void,
+): void {
+  const sequences = draft.parts[partIndex]?.measures[measureIndex]?.sequences;
+  const before = sequences?.length ?? 0;
+  const sequenceIndex = prepareLaneSequence(draft, partIndex, measureIndex, lane);
+  try {
+    write(sequenceIndex);
+  } catch (error) {
+    if (sequences && sequences.length > before) sequences.splice(before);
+    throw error;
+  }
+}

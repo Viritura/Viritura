@@ -432,7 +432,8 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
     ? resolveEditTargets(
         ni.condensingRouting ?? detectCondensingMode(currentScore, condensingStaff, measureIdx),
         condensingStaff,
-        entryCtx.voice,
+        // Condensing routes by the user's voice (0 = broadcast, N = divisi source N), not the bar's slot.
+        entryCtx.lane.lane - 1,
       )
     : [{ partIndex: entryCtx.partIndex, voice: entryCtx.voice, lane: entryCtx.lane }];
   const cursorTarget = targets.find((t) => t.partIndex === entryCtx.partIndex) ?? targets[0]!;

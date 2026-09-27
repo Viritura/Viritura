@@ -6,7 +6,7 @@ import { measureBeats } from "@viritura/core";
 import type { Score, TimeSignature } from "@viritura/core";
 import type { NoteInputState } from "../store/noteInputStore";
 import type { SelectionState } from "../store/selectionStore";
-import { prepareLaneSequence } from "../voiceLanes";
+import { writeToLane } from "../voiceLanes";
 
 export interface ApplyTupletInput {
   score: Score;
@@ -46,20 +46,23 @@ export function applyTupletFromRadialMenu({
       const maxBeats = measureBeats(activeTime);
       if (cursor.beatPosition + selectedBeats > maxBeats + 1e-9) return;
 
-      const voice = prepareLaneSequence(draft, partIndex, measureIdx, {
-        lane: noteInputState.currentVoice,
-        staff: (cursor.staffIndex ?? 0) + 1,
-      });
       try {
-        createTuplet(draft, {
-          measureIndex: measureIdx,
+        writeToLane(
+          draft,
           partIndex,
-          voice,
-          beatPosition: cursor.beatPosition,
-          tupletNumber,
-          outerMultiple: outerMul,
-          baseDuration,
-        });
+          measureIdx,
+          { lane: noteInputState.currentVoice, staff: (cursor.staffIndex ?? 0) + 1 },
+          (voice) =>
+            createTuplet(draft, {
+              measureIndex: measureIdx,
+              partIndex,
+              voice,
+              beatPosition: cursor.beatPosition,
+              tupletNumber,
+              outerMultiple: outerMul,
+              baseDuration,
+            }),
+        );
       } catch {
         /* invalid tuplet */
       }

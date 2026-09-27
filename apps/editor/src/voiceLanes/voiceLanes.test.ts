@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Sequence } from "@viritura/core";
+import type { Score, Sequence } from "@viritura/core";
 import {
   assignLanes,
   ensureLaneSequence,
@@ -7,6 +7,7 @@ import {
   laneSequenceIndex,
   setSequenceDirectionHint,
   voiceLane,
+  writeToLane,
 } from "./index";
 
 const seq = (extra: Partial<Sequence> = {}): Sequence => ({ content: [], ...extra });
@@ -114,5 +115,41 @@ describe("setSequenceDirectionHint", () => {
     setSequenceDirectionHint(sequences, 1, "upper");
     expect(sequences[1]).toMatchObject({ voice: "v2", directionHint: "upper" });
     expect(laneOfSequence(sequences, 1)).toBe(1);
+  });
+});
+
+describe("writeToLane", () => {
+  const scoreWith = (sequences: Sequence[]): Score => ({
+    mnx: { version: 1 },
+    global: { measures: [{}] },
+    parts: [{ measures: [{ sequences }] }],
+  });
+
+  it("removes a lane sequence it created when the write throws", () => {
+    const score = scoreWith([seq()]);
+    expect(() =>
+      writeToLane(score, 0, 0, { lane: 2 }, () => {
+        throw new Error("does not fit");
+      }),
+    ).toThrow("does not fit");
+    expect(score.parts[0]!.measures[0]!.sequences).toHaveLength(1);
+  });
+
+  it("keeps an existing lane sequence when the write throws", () => {
+    const score = scoreWith([seq(), seq({ voice: "down1" })]);
+    expect(() =>
+      writeToLane(score, 0, 0, { lane: 2 }, () => {
+        throw new Error("nope");
+      }),
+    ).toThrow();
+    expect(score.parts[0]!.measures[0]!.sequences).toHaveLength(2);
+  });
+
+  it("passes the created lane's index to the write", () => {
+    const score = scoreWith([seq()]);
+    let written = -1;
+    writeToLane(score, 0, 0, { lane: 2 }, (index) => (written = index));
+    expect(written).toBe(1);
+    expect(score.parts[0]!.measures[0]!.sequences[1]).toMatchObject({ voice: "down1", directionHint: "lower" });
   });
 });

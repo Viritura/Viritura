@@ -21,7 +21,7 @@ import {
 import { backspaceInNoteInput, durationToBeats } from "../commands/noteCommands";
 import { DURATION_KEY_MAP } from "../commands/noteInputCommands";
 import type { KeyboardHandlerContext } from "./types";
-import { currentLaneRef, resolveSeqIndex, stepAccidental } from "./noteInputShared";
+import { currentLaneRef, stepAccidental } from "./noteInputShared";
 import { navigateNoteInputStaffPart, findTransposeTarget, applyArrowTranspose } from "./noteInputArrows";
 import { handleNoteEntry } from "./noteEntryHandler";
 
@@ -44,9 +44,8 @@ export function handleNoteInputArrowUpDown(e: KeyboardEvent, ctx: KeyboardHandle
     return;
   }
 
-  const voiceIdx = resolveSeqIndex(currentScore, ctx);
-  const loc = findTransposeTarget(currentScore, ctx, cursor, voiceIdx);
-  if (loc) applyArrowTranspose(e, ctx, currentScore, cursor, voiceIdx, loc);
+  const loc = findTransposeTarget(currentScore, ctx, cursor, currentLaneRef(currentScore, ctx));
+  if (loc) applyArrowTranspose(e, ctx, currentScore, cursor, loc);
 }
 
 const LETTER_TO_STEP: Record<string, string> = {
