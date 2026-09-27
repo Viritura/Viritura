@@ -38,6 +38,38 @@ zoom, page gap, colours or the playhead, only repaint. Changes that affect
 engraving, such as page size, margins, staff size, score selection or switching
 into or out of `horizon`, run layout again.
 
+## Use it from a framework
+
+The viewer manages its own DOM inside the container, so any framework can host
+it: mount once, call `update` when the document changes, and `destroy` on
+unmount. In React:
+
+```tsx
+import { useEffect, useRef } from "react";
+import { mountScore, type ScoreViewerHandle } from "/vendor/score-engine/score-viewer.js";
+
+export function Score({ mnx }: { mnx: string }) {
+  const container = useRef<HTMLDivElement>(null);
+  const viewer = useRef<ScoreViewerHandle | null>(null);
+
+  useEffect(() => {
+    viewer.current = mountScore(container.current!, null, { zoom: "fit-width" });
+    return () => viewer.current?.destroy();
+  }, []);
+
+  useEffect(() => viewer.current?.update(mnx), [mnx]);
+
+  return <div ref={container} style={{ height: "80vh" }} />;
+}
+```
+
+Vue (`onMounted` / `onBeforeUnmount`), Svelte (`onMount`) and web components
+(`connectedCallback` / `disconnectedCallback`) follow the same pattern.
+
+For React, [Score Viewer React](/developers/score-viewer-react) does this for
+you and adds components, hooks, a control bar, and playhead and page-overlay
+slots.
+
 ## View modes
 
 | `viewMode`          | Result                                                    |

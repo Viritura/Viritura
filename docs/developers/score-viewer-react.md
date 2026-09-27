@@ -7,8 +7,10 @@ in React components and hooks. It works with React 18 and 19.
 > **Availability: Viritura workspace only**
 >
 > The React package isn't in the release archive yet. Outside the Viritura
-> repository, call `mountScore` from the prebuilt `score-viewer.js` in an
-> effect, as shown in [Without the React package](#without-the-react-package).
+> repository, React apps can use the [Score Viewer](/developers/score-viewer)
+> directly, as shown in
+> [Use it from a framework](/developers/score-viewer#use-it-from-a-framework).
+> You get the same rendering, without these components, hooks and control bar.
 
 ## Complete viewer
 
@@ -124,29 +126,6 @@ the document whenever the inputs change. Use it when you paint with the
 [Score Engine](/developers/score-engine) yourself. The package also
 re-exports the engine's `loadEngine`, error classes and types, so one import
 is enough.
-
-## Without the React package
-
-```tsx
-import { useEffect, useRef } from "react";
-import { mountScore } from "/vendor/score-engine/score-viewer.js";
-
-export function Score({ mnx }: { mnx: string }) {
-  const container = useRef<HTMLDivElement>(null);
-  const viewer = useRef<ReturnType<typeof mountScore> | null>(null);
-
-  useEffect(() => {
-    viewer.current = mountScore(container.current!, null, { zoom: "fit-width" });
-    return () => viewer.current?.destroy();
-  }, []);
-
-  useEffect(() => viewer.current?.update(mnx), [mnx]);
-
-  return <div ref={container} style={{ height: "80vh" }} />;
-}
-```
-
-Mount once, call `update` when the document changes, and `destroy` on unmount.
 
 ## Hosts with rewritten asset URLs
 

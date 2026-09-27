@@ -65,9 +65,9 @@ repository, and import the modules by URL:
 import { mountScore } from "/vendor/score-engine/score-viewer.js";
 ```
 
-The React components are not in the archive yet. React hosts can call
-`mountScore` from an effect, or depend on `@viritura/score-viewer-react` from
-the Viritura workspace.
+The React components are not in the archive yet. React apps can
+[use the viewer directly](/developers/score-viewer#use-it-from-a-framework), or
+depend on `@viritura/score-viewer-react` from the Viritura workspace.
 
 ### Preview builds
 
