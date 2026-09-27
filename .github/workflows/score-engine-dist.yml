@@ -1,18 +1,25 @@
 name: Score engine distribution
 
-# Standalone build of @viritura/score-engine + @viritura/score-viewer for
-# embedders that don't consume the Viritura monorepo (issue #241).
-#  - Pushes to main that touch the bundle's inputs upload a
-#    `score-engine-<version>-<sha>` workflow artifact (a preview build).
-#  - Tags `score-engine-v*` publish a GitHub Release with the zip attached.
-# Paths are the bundle's dependency closure only: score-viewer → score-engine
-# → renderer/format/midi → core, plus the Rust engine and bundled fonts.
+# Standalone builds of @viritura/score-engine, @viritura/score-viewer and
+# @viritura/score-viewer-react for embedders that don't consume the Viritura
+# monorepo (issue #241).
+#  - Pull requests that touch the packages' inputs build the release archive
+#    and the npm packages, then install the packed tarballs into a fresh
+#    project and render with them (scripts/verify-npm-packages.ts).
+#  - Pushes to main also upload a `score-engine-<version>-<sha>` workflow
+#    artifact (a preview build).
+#  - npm-publish.yml publishes engine prereleases on pushes to main and makes
+#    stable releases (npm plus a GitHub Release with the zip attached) when
+#    run manually. It stamps real versions; builds here carry the workspace's
+#    0.0.0-dev placeholder.
+# Paths are the packages' dependency closure only: score-viewer-react →
+# score-viewer → score-engine → renderer/format/midi → core, plus the Rust
+# engine and bundled fonts.
 
 on:
   push:
     branches: [main]
-    tags: ["score-engine-v*"]
-    paths:
+    paths: &package-inputs
       - engine/**
       - packages/core/**
       - packages/format/**
@@ -20,10 +27,17 @@ on:
       - packages/renderer/**
       - packages/score-engine/**
       - packages/score-viewer/**
+      - packages/score-viewer-react/**
       - assets/fonts/**
       - scripts/build-score-engine-dist.ts
+      - scripts/build-npm-packages.ts
+      - scripts/verify-npm-packages.ts
+      - scripts/score-release.ts
+      - scripts/score-packages/**
       - scripts/build-wasm.ts
       - .github/workflows/score-engine-dist.yml
+  pull_request:
+    paths: *package-inputs
   workflow_dispatch:
 
 permissions:
@@ -68,68 +82,37 @@ jobs:
       - name: Build WASM
         run: pnpm wasm:build
 
-      - name: Test engine and viewer
-        run: pnpm turbo run test --filter=@viritura/score-engine --filter=@viritura/score-viewer
+      - name: Check package versions
+        run: pnpm score-release check
+
+      - name: Test engine and viewers
+        run: pnpm turbo run test --filter=@viritura/score-engine --filter=@viritura/score-viewer --filter=@viritura/score-viewer-react
 
       - name: Build distribution
         run: pnpm build:score-engine-dist
 
+      - name: Build npm packages
+        run: pnpm build:npm-packages
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Verify packed npm packages
+        run: pnpm verify:npm-packages --render
+
       - id: meta
+        if: github.event_name != 'pull_request'
         name: Name the archive
         shell: bash
         run: |
-          version=$(node -p "require('./packages/score-engine/package.json').version")
-          if [[ "$GITHUB_REF" == refs/tags/score-engine-v* ]]; then
-            tag_version="${GITHUB_REF#refs/tags/score-engine-v}"
-            if [[ "$tag_version" != "$version" ]]; then
-              echo "::error::Tag version $tag_version does not match package version $version"
-              exit 1
-            fi
-            name="score-engine-$version"
-          else
-            name="score-engine-$version-${GITHUB_SHA::12}"
-          fi
+          name="score-engine-${GITHUB_SHA::12}"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           (cd dist && mv score-engine "$name" && zip -qr "$name.zip" "$name" && sha256sum "$name.zip" > "$name.zip.sha256")
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.meta.outputs.name }}
           path: dist/${{ steps.meta.outputs.name }}
           if-no-files-found: error
           retention-days: 90
-
-      - if: startsWith(github.ref, 'refs/tags/score-engine-v')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: release-zip
-          path: |
-            dist/${{ steps.meta.outputs.name }}.zip
-            dist/${{ steps.meta.outputs.name }}.zip.sha256
-          if-no-files-found: error
-
-    outputs:
-      name: ${{ steps.meta.outputs.name }}
-
-  release:
-    name: Publish GitHub Release
-    if: startsWith(github.ref, 'refs/tags/score-engine-v')
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-zip
-          path: release
-
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NAME: ${{ needs.build.outputs.name }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" release/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$NAME" \
-            --notes "Standalone @viritura/score-engine + @viritura/score-viewer build from ${GITHUB_SHA}. See README.md and manifest.json inside the archive."

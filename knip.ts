@@ -14,6 +14,8 @@ const config: KnipConfig = {
     "packages/format/src/mnx/generated/**",
     "packages/renderer/src/wasmTypes.ts",
     "engine/viritura-wasm/pkg-browser/**",
+    // Copied into a temporary npm project by scripts/verify-npm-packages.ts, where it imports the packed tarballs.
+    "scripts/score-packages/consumer-fixture/**",
   ],
   // `wasm-pack` is invoked from `pnpm wasm:build` (rust toolchain installs it
   // out-of-band); it isn't an npm devDependency by design.

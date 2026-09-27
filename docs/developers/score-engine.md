@@ -8,19 +8,27 @@ or export pipeline.
 
 ## Load the engine
 
-```js
-import { loadEngine } from "./score-engine/score-engine.js";
-
-const engine = await loadEngine();
+```sh
+npm install @viritura/score-engine
 ```
+
+```js
+import { loadEngine } from "@viritura/score-engine";
+
+const engine = await loadEngine({ assetBaseUrl: "/score-engine/" });
+```
+
+Without a bundler, import `score-engine.js` from the
+[release archive](/developers#release-archive) by URL instead, and omit
+`assetBaseUrl`.
 
 `loadEngine` fetches the WebAssembly and fonts once. Concurrent calls share the
 same load, and every later call returns the same engine.
 
-| Option         | Default                    | Notes                                                                 |
-| -------------- | -------------------------- | --------------------------------------------------------------------- |
-| `assetBaseUrl` | the module's own directory | Base URL containing `wasm/` and `fonts/`                              |
-| `fonts`        | `true`                     | `false` when the host registers `Bravura` and `Viritura Serif` itself |
+| Option         | Default                    | Notes                                                              |
+| -------------- | -------------------------- | ------------------------------------------------------------------ |
+| `assetBaseUrl` | the module's own directory | Base URL containing `wasm/`, `fonts/` and `score-engine.worker.js` |
+| `textFont`     | `true`                     | `false` to skip Libertinus Serif and use the page's `serif` font   |
 
 If loading fails, the promise rejects with `EngineLoadError`. Its `code` is
 `wasm` or `font`, and `cause` holds the underlying error. Calling

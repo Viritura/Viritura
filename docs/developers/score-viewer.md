@@ -6,6 +6,13 @@ WebAssembly and fonts on first use.
 
 ## Embed a score
 
+Install it from npm, or use `score-viewer.js` from the
+[release archive](/developers#release-archive) as below:
+
+```sh
+npm install @viritura/score-viewer
+```
+
 ```html
 <div id="score" style="height: 80vh"></div>
 <script type="module">
@@ -46,14 +53,14 @@ unmount. In React:
 
 ```tsx
 import { useEffect, useRef } from "react";
-import { mountScore, type ScoreViewerHandle } from "/vendor/score-engine/score-viewer.js";
+import { mountScore, type ScoreViewerHandle } from "@viritura/score-viewer";
 
 export function Score({ mnx }: { mnx: string }) {
   const container = useRef<HTMLDivElement>(null);
   const viewer = useRef<ScoreViewerHandle | null>(null);
 
   useEffect(() => {
-    viewer.current = mountScore(container.current!, null, { zoom: "fit-width" });
+    viewer.current = mountScore(container.current!, null, { zoom: "fit-width", assetBaseUrl: "/score-engine/" });
     return () => viewer.current?.destroy();
   }, []);
 
@@ -106,8 +113,8 @@ very long scores stay responsive.
 | `playhead`       | none       | See [Playhead](#playhead)                                                          |
 | `useWorker`      | `false`    | Run layout in a worker so large documents don't block the page                     |
 | `engine`         | none       | Share an already loaded engine                                                     |
-| `assetBaseUrl`   | module dir | Base URL containing `wasm/` and `fonts/`                                           |
-| `fonts`          | `true`     | Set to `false` when the host registers the fonts itself                            |
+| `assetBaseUrl`   | module dir | Base URL containing `wasm/`, `fonts/` and `score-engine.worker.js`                 |
+| `textFont`       | `true`     | `false` to skip Libertinus Serif and use the page's `serif` font                   |
 
 ### Callbacks
 

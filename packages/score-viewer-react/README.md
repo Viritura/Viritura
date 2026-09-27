@@ -3,17 +3,32 @@
 > Embeddable React components (`<ScoreViewer>` and `<ScoreView>`) for rendering MNX music
 > notation in the browser. Thin wrappers over [`@viritura/score-viewer`](../score-viewer).
 
-> **Status:** internal workspace package (`0.x.0`), not currently published to
-> npm. See [`@viritura/score-engine`](../score-engine) for the publishing
-> prerequisite.
+> **Status:** `0.x`. Breaking changes are possible before `1.0.0`; pin an
+> exact version. Requires React 19.2 or later.
 
 ## Quick start
+
+```sh
+npm install @viritura/score-viewer-react
+```
+
+Copy the engine's runtime files into your static assets (see the
+[`@viritura/score-engine` README](../score-engine#serving-the-runtime-files)),
+then:
 
 ```tsx
 import { ScoreViewer } from "@viritura/score-viewer-react";
 
 function MyDocs() {
-  return <ScoreViewer mnx={mnxJsonString} defaultFitMode="width" defaultViewMode="page" enableCtrlWheelZoom />;
+  return (
+    <ScoreViewer
+      mnx={mnxJsonString}
+      assetBaseUrl="/score-engine/"
+      defaultFitMode="width"
+      defaultViewMode="page"
+      enableCtrlWheelZoom
+    />
+  );
 }
 ```
 
@@ -126,7 +141,7 @@ function CustomViewer({ mnx }: { mnx: string }) {
 | `zoom`            | `number \| "fit-width" \| "fit-page"`                         | `1`      | 1.0 = 1 display-list pixel = 1 CSS px                            |
 | `viewMode`        | `ScoreViewMode`                                               | `"page"` | `page`, `horizontal`, `spread`, `spread-horizontal` or `horizon` |
 | `gap`             | `number`                                                      | `16`     | CSS px between pages                                             |
-| `assetBaseUrl`    | `string`                                                      | —        | Base URL containing `wasm/` and `fonts/`                         |
+| `assetBaseUrl`    | `string`                                                      | —        | Base URL of the engine's `wasm/`, `fonts/` and worker            |
 | `pagesPerRow`     | `number`                                                      | `1`      | Multi-page layout                                                |
 | `onReady`         | `(info: { engine, displayList }) => void`                     | —        |                                                                  |
 | `onError`         | `(err: EngineLoadError \| ParseError \| LayoutError) => void` | —        |                                                                  |

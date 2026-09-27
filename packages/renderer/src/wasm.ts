@@ -116,7 +116,9 @@ export async function initWasm(): Promise<void> {
 
       // Step 2: Import the same-origin generated glue directly. Avoiding a
       // blob: module lets production enforce `script-src 'self'`.
-      const glue = await import(/* @vite-ignore */ `${basePath}wasm/viritura_wasm${assetHash}.js`);
+      const glue = await import(
+        /* @vite-ignore */ /* webpackIgnore: true */ `${basePath}wasm/viritura_wasm${assetHash}.js`
+      );
 
       // Step 3: Initialize with the binary bytes (avoids a second WASM fetch).
       const wasmModule_ = new WebAssembly.Module(wasmBytes);

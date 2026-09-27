@@ -12,7 +12,7 @@ interface Pending {
 }
 
 export function createLayoutWorker(assetBaseUrl: string, opts: LayoutWorkerOptions = {}): LayoutWorker {
-  const worker = opts.url ? new Worker(opts.url, { type: "module" }) : spawnDefaultLayoutWorker();
+  const worker = opts.url ? new Worker(opts.url, { type: "module" }) : spawnDefaultLayoutWorker(assetBaseUrl);
   const pending = new Map<number, Pending>();
   let nextId = 0;
   let disposed = false;

@@ -46,7 +46,7 @@ engine.playhead(dl, { beat: 12 }); // { page, x, y, height, systemIndex }
 await engine.toSvg(dl, { page: 0 }); // standalone SVG, text as outlines
 ```
 
-If the files are served from a different location than the bundle (for example a rewritten webview URL), pass `loadEngine({ assetBaseUrl })`. Pass `fonts: false` when the host page registers `Bravura` and `Viritura Serif` itself.
+If the files are served from a different location than the bundle (for example a rewritten webview URL), pass `loadEngine({ assetBaseUrl })`. Pass `textFont: false` to skip Libertinus Serif and use the page's own `serif` font.
 
 ## Stability
 

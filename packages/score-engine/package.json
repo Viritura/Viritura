@@ -1,7 +1,6 @@
 {
   "name": "@viritura/score-engine",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.0.0-dev",
   "description": "Framework-free music notation rendering kernel: MNX layout (Rust/WASM), ink-only Canvas paint, SVG, geometry queries and a playback timeline.",
   "keywords": [
     "music",
@@ -31,26 +30,36 @@
   },
   "files": [
     "dist",
-    "src",
     "README.md",
     "CHANGELOG.md"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "test": "vitest run",
-    "prepublishOnly": "echo 'PUBLISH BLOCKED: workspace deps must be inlined or published first. See README.md.' && exit 1"
-  },
-  "dependencies": {
-    "@viritura/format": "workspace:*",
-    "@viritura/midi": "workspace:*",
-    "@viritura/renderer": "workspace:*"
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@viritura/format": "workspace:*",
+    "@viritura/midi": "workspace:*",
+    "@viritura/renderer": "workspace:*",
     "typescript": "^5.7.0",
     "vitest": "^4.1.11"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "homepage": "https://viritura.com/developers",
+  "bugs": {
+    "url": "https://github.com/Viritura/Viritura/issues"
   }
 }

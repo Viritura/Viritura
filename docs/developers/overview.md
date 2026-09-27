@@ -6,23 +6,21 @@ documentation site, a VS Code webview or your own editor without running the
 Viritura app.
 
 > [!NOTE]
-> **Availability: pre-1.0, not on npm**
+> **Availability: pre-1.0**
 >
 > The packages are `0.x`, and breaking changes are possible in any release.
-> They are distributed as a prebuilt archive attached to GitHub Releases rather
-> than through a package registry. Pin a specific release and read its
-> changelog before upgrading.
+> Pin an exact version and read the changelog before upgrading.
 
 ## Choose a layer
 
 The renderer is split into three layers. Pick the highest one that fits, and
 drop down a layer only when you need more control.
 
-| Package                        | Use it when                                                         | You provide                                    |
-| ------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------- |
-| `@viritura/score-viewer-react` | You are building a React 18 or 19 app and want components and hooks | Props                                          |
-| `@viritura/score-viewer`       | You want a scrollable, zoomable score in any page or framework      | A container element and the MNX document       |
-| `@viritura/score-engine`       | You draw the score yourself: a custom canvas, overlays, export      | Canvas, paper, zoom, scrolling and interaction |
+| Package                        | Use it when                                                      | You provide                                    |
+| ------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------- |
+| `@viritura/score-viewer-react` | You are building a React 19.2+ app and want components and hooks | Props                                          |
+| `@viritura/score-viewer`       | You want a scrollable, zoomable score in any page or framework   | A container element and the MNX document       |
+| `@viritura/score-engine`       | You draw the score yourself: a custom canvas, overlays, export   | Canvas, paper, zoom, scrolling and interaction |
 
 The React package wraps the viewer and adds an optional control bar.
 
@@ -55,9 +53,31 @@ controls.
 
 ## Get the packages
 
+### npm
+
+```sh
+npm install @viritura/score-viewer-react   # React components, includes the two below
+npm install @viritura/score-viewer         # framework-free viewer, includes the engine
+npm install @viritura/score-engine         # engine only
+```
+
+Each package is versioned and released on its own, so the engine can ship
+fixes without a viewer release. Each viewer depends on a caret range (`^`) of
+the engine version it was tested with. Every engine change on `main` is also
+published as a prerelease under the `next` tag
+(`npm install @viritura/score-engine@next`); pin an exact prerelease if you
+need a fix before the next stable release. They are ES modules
+with TypeScript declarations, and have no dependencies beyond React (a peer
+dependency of the React package) and `lucide-react` for its control icons.
+
+`@viritura/score-engine` also contains the files the engine loads at runtime:
+`dist/wasm/`, `dist/fonts/` and `dist/score-engine.worker.js`. See
+[Serving the files](#serving-the-files) for how to serve them from a bundled
+app.
+
 ### Release archive
 
-Tags named `score-engine-v<version>` publish a
+Each engine release (tag `score-engine-v<version>`) has a
 [GitHub Release](https://github.com/Viritura/Viritura/releases) with a zip and
 its SHA-256 checksum. The archive contains:
 
@@ -78,9 +98,8 @@ repository, and import the modules by URL:
 import { mountScore } from "/vendor/score-engine/score-viewer.js";
 ```
 
-The React components are not in the archive yet. React apps can
-[use the viewer directly](/developers/score-viewer#use-it-from-a-framework), or
-depend on `@viritura/score-viewer-react` from the Viritura workspace.
+The archive suits pages without a build step and hosts that vendor their
+dependencies. It doesn't include the React components, which are on npm.
 
 ### Preview builds
 
@@ -93,15 +112,35 @@ unreleased fix, and pin a release for anything you ship.
 
 Viritura's own apps depend on the workspace packages directly and build the
 WebAssembly from the same commit with `pnpm wasm:build`. They don't use the
-release archive, so an engine change and the app change that relies on it
+npm packages or the release archive, so an engine change and the app change that relies on it
 always ship together.
 
 ## Serving the files
 
-- **Keep the layout.** The modules find `wasm/`, `fonts/` and
-  `score-engine.worker.js` next to themselves. If your host rewrites asset URLs,
-  as VS Code webviews and some CDNs do, pass the rewritten base URL as
-  `assetBaseUrl`. It must contain `wasm/` and `fonts/`.
+- **Keep the layout.** The engine loads `wasm/`, `fonts/` and
+  `score-engine.worker.js` from one base URL. By default that is the directory
+  of the engine module itself, which works when the files are served as they
+  are published, as with the release archive.
+- **Pass `assetBaseUrl` when you use a bundler.** Vite, webpack and similar
+  tools move the engine's code into their own output, away from its runtime
+  files. Copy the three entries from
+  `node_modules/@viritura/score-engine/dist/` into your static assets as part
+  of your build, and pass their URL:
+
+  ```sh
+  mkdir -p public/score-engine
+  cp -r node_modules/@viritura/score-engine/dist/{wasm,fonts,score-engine.worker.js} public/score-engine/
+  ```
+
+  ```tsx
+  <ScoreViewer mnx={mnx} assetBaseUrl="/score-engine/" />
+  ```
+
+  `loadEngine()` and `mountScore()` accept the same option. Copy the files
+  again whenever you upgrade the package, so they match the engine code.
+
+- **Rewritten URLs.** If your host rewrites asset URLs, as VS Code webviews do,
+  pass the rewritten base URL as `assetBaseUrl`.
 - **Use HTTP.** ES modules and `fetch` don't work from `file://`. Serve the
   directory with any static file server.
 - **Allow WebAssembly in your Content Security Policy.** Compiling the engine
@@ -131,11 +170,14 @@ them without matching part names.
 ## Versioning
 
 `engine.version` reports the WebAssembly engine version, the package version and
-the source commit. `manifest.json` records the same values and the SHA-256 hash
-of every file. Each package's `CHANGELOG.md` lists breaking changes.
+the source commit. The archive's `manifest.json` records the same values and
+the SHA-256 hash of every file. npm releases are published from GitHub Actions
+with [provenance](https://docs.npmjs.com/generating-provenance-statements), so
+npm shows the commit and workflow that built each version. Each package's
+`CHANGELOG.md` lists breaking changes.
 
 ## Licensing
 
 The code is MIT licensed. Bravura and Libertinus Serif are distributed under the
-SIL Open Font License. The archive includes `LICENSE`, `THIRD_PARTY_NOTICES.md`
-and `LICENSES/OFL-1.1.txt`.
+SIL Open Font License. The archive and the `@viritura/score-engine` package
+include `LICENSE`, `THIRD_PARTY_NOTICES.md` and `LICENSES/OFL-1.1.txt`.
