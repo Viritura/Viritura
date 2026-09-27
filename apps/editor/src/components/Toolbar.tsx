@@ -18,6 +18,7 @@ import { Separator } from "@viritura/ui";
 import styles from "./Toolbar.module.css";
 import { produce } from "../score/scoreClone";
 import { rhythmSourceOptions } from "../score/rhythmLock";
+import { voiceLane } from "../voiceLanes";
 
 const TUPLET_GLYPH_STACK_STYLE: CSSProperties = {
   display: "inline-flex",
@@ -423,7 +424,14 @@ export function Toolbar() {
       <Select
         value={String(activeVoice)}
         onValueChange={(v) => handleVoiceClick(Number(v) as Voice)}
-        options={VOICES.map((v) => ({ value: String(v), label: `Voice ${v}`, triggerLabel: `V${v}` }))}
+        options={VOICES.map((v) => {
+          const lane = voiceLane(v);
+          return {
+            value: String(v),
+            label: lane.label,
+            triggerLabel: `${lane.direction === "up" ? "↑" : "↓"}${lane.ordinal}`,
+          };
+        })}
         data-testid="toolbar-voice"
         aria-label="Voice"
         fullWidth={false}

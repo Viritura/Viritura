@@ -552,9 +552,9 @@ export function serializeEvent(ev: NoteEvent): Obj {
   if (ev.slurs && ev.slurs.length > 0) {
     evObj["slurs"] = ev.slurs.map(serializeSlur);
   }
-  // MNX spec: stemDirection enum is only `up | down`. `auto` is Viritura's
-  // internal sentinel for "engine decides"; never emit it.
-  if (ev.stemDirection && ev.stemDirection !== "auto") {
+  // MNX spec: stemDirection is only `up | down`; absence means "engine
+  // decides". Guard against legacy in-memory `auto` values from older sessions.
+  if (ev.stemDirection === "up" || ev.stemDirection === "down") {
     evObj["stemDirection"] = ev.stemDirection;
   }
   // _x.viritura vendor extensions on event

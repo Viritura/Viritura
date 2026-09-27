@@ -147,9 +147,15 @@ while `Shift+T` sets tempo at the selection.
 
 ## Voices
 
-Up to four independent voices share a staff. Switch the active input voice with
-`Alt+1` … `Alt+4`. Voice 1 typically takes stems up, voice 2 stems down; the
-engine handles rest offset and stem direction automatically.
+Up to four independent voices share a staff, organised as directional lanes:
+**Up 1**, **Down 1**, **Up 2** and **Down 2**. Switch the active input voice
+with `Alt+1` … `Alt+4` (in that order). The lane follows its voice from bar to
+bar, even when bars store their voices in a different order.
+
+A lane's direction is a hint, not a force. When two voices share a bar, Up
+voices take stems up and Down voices stems down. When a voice has the bar to
+itself — the other voice is empty or holds only hidden rests — its stems follow
+pitch like a single voice. To force a direction for one note, flip it with `F`.
 
 ## Moving the cursor
 

@@ -37,13 +37,18 @@ export function useLayoutOverrideHandlers({ score, target, updateScore }: UseLay
     layoutError,
     handleStemDirectionChange: (value: string) =>
       applyOverride(
-        { event: { stemDirection: value === "" ? null : (value as "up" | "down" | "auto") } },
+        { event: { stemDirection: value === "" ? null : (value as "up" | "down") } },
         "Unable to update stem direction.",
       ),
     handleEventStaffChange: (value: string) =>
       applyOverride(
         { event: { staff: value === "" ? null : Number.parseInt(value, 10) } },
         "Unable to update cross-staff.",
+      ),
+    handleDirectionHintChange: (value: string) =>
+      applyOverride(
+        { sequence: { directionHint: value === "" ? null : (value as "upper" | "lower") } },
+        "Unable to update voice direction.",
       ),
     handleTupletPlacementChange: (value: string) =>
       applyOverride(

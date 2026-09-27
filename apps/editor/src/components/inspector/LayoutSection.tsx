@@ -1,6 +1,9 @@
 import type { CSSProperties } from "react";
 import { ButtonGroup, IconButton, Select, type ButtonGroupOption, type SelectOption } from "@viritura/ui";
 import { Info } from "lucide-react";
+import type { Score } from "@viritura/core";
+import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
+import { laneOfSequence, voiceLane } from "../../voiceLanes";
 import type { InspectorSectionProps } from "./types";
 
 function tupletFieldsetStyle(): CSSProperties {
@@ -34,6 +37,12 @@ const UP_DOWN_OPTIONS: SelectOption[] = [
   { value: "down", label: "Down" },
 ];
 const UP_DOWN_PILL_OPTIONS: ButtonGroupOption[] = UP_DOWN_OPTIONS;
+
+const DIRECTION_HINT_OPTIONS: ButtonGroupOption[] = [
+  { value: "", label: "Auto" },
+  { value: "upper", label: "Up" },
+  { value: "lower", label: "Down" },
+];
 
 const BRACKET_OPTIONS: SelectOption[] = [
   { value: "", label: "Auto" },
@@ -90,6 +99,7 @@ export function LayoutSection({
     layoutError,
     handleStemDirectionChange,
     handleEventStaffChange,
+    handleDirectionHintChange,
     handleTupletPlacementChange,
     handleTupletBracketChange,
     handleTupletShowNumberChange,
@@ -99,6 +109,7 @@ export function LayoutSection({
   // Pre-compute current-value reads so the JSX stays declarative.
   const { stemDirectionValue, tupletPlacementValue, tupletBracketValue, tupletShowNumberValue, tupletShowValueValue } =
     readLayoutOverrideValues({ isEvent, isTuplet, selectedContent });
+  const voiceDirection = readVoiceDirection(score, target);
   const staffOptions: ButtonGroupOption[] = [
     { value: "", label: "Auto" },
     ...Array.from({ length: staffCount }, (_, index) => ({
@@ -124,6 +135,21 @@ export function LayoutSection({
           options={UP_DOWN_PILL_OPTIONS}
         />
       </LayoutOverrideField>
+
+      {voiceDirection && (
+        <LayoutOverrideField
+          label={`Voice Direction · ${voiceDirection.laneLabel}`}
+          tooltip="Hints which side this voice takes in this bar when it shares the bar with another voice. Auto uses voice order. A voice alone in its bar follows pitch."
+        >
+          <ButtonGroup
+            data-testid="notation-layout-direction-hint"
+            ariaLabel="Voice Direction"
+            value={voiceDirection.value}
+            onChange={handleDirectionHintChange}
+            options={DIRECTION_HINT_OPTIONS}
+          />
+        </LayoutOverrideField>
+      )}
 
       {isEvent && staffCount > 1 && (
         <LayoutOverrideField
@@ -251,6 +277,23 @@ type SelectedContent = LayoutSectionProps["selectedContent"];
 function readCrossStaffValue(isEvent: boolean, selectedContent: SelectedContent): string {
   if (!isEvent || selectedContent?.type !== "event") return "";
   return selectedContent.staff?.toString() ?? "";
+}
+
+/** The selected voice's direction hint and lane in its bar, or null when no voice is selected. */
+function readVoiceDirection(
+  score: Score | null,
+  target: NotationSelectionTarget | null,
+): { value: string; laneLabel: string } | null {
+  if (!score || target?.sequenceIndex === undefined) return null;
+  const sequences = score.parts[target.partIndex]?.measures[target.measureIndex]?.sequences;
+  const sequence = sequences?.[target.sequenceIndex];
+  if (!sequences || !sequence) return null;
+  const lane = laneOfSequence(sequences, target.sequenceIndex);
+  const hint = sequence.directionHint;
+  return {
+    value: hint === "upper" || hint === "lower" ? hint : "",
+    laneLabel: lane === undefined ? "Unassigned" : voiceLane(lane).label,
+  };
 }
 
 interface ReadLayoutValuesArgs {

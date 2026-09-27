@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Sequence } from "@viritura/core";
-import { assignLanes, ensureLaneSequence, laneOfSequence, laneSequenceIndex, voiceLane } from "./index";
+import {
+  assignLanes,
+  ensureLaneSequence,
+  laneOfSequence,
+  laneSequenceIndex,
+  setSequenceDirectionHint,
+  voiceLane,
+} from "./index";
 
 const seq = (extra: Partial<Sequence> = {}): Sequence => ({ content: [], ...extra });
 
@@ -84,5 +91,28 @@ describe("ensureLaneSequence", () => {
     const bar2 = [seq({ voice: "down1", directionHint: "lower" })];
     expect(laneSequenceIndex(bar1, 2)).toBe(1);
     expect(laneSequenceIndex(bar2, 2)).toBe(0);
+  });
+});
+
+describe("setSequenceDirectionHint", () => {
+  it("moves a lane-named voice into the lane its new hint earns", () => {
+    const sequences = [seq({ voice: "up1", directionHint: "upper" }), seq({ voice: "down1", directionHint: "lower" })];
+    setSequenceDirectionHint(sequences, 0, "lower");
+    expect(sequences[0]).toMatchObject({ voice: "down2", directionHint: "lower" });
+    expect(laneOfSequence(sequences, 0)).toBe(4);
+  });
+
+  it("drops the lane name when the hint is cleared", () => {
+    const sequences = [seq({ voice: "down1", directionHint: "lower" })];
+    setSequenceDirectionHint(sequences, 0, null);
+    expect(sequences[0]).toEqual({ content: [] });
+    expect(laneOfSequence(sequences, 0)).toBe(1);
+  });
+
+  it("keeps foreign voice names", () => {
+    const sequences = [seq({ voice: "v1" }), seq({ voice: "v2" })];
+    setSequenceDirectionHint(sequences, 1, "upper");
+    expect(sequences[1]).toMatchObject({ voice: "v2", directionHint: "upper" });
+    expect(laneOfSequence(sequences, 1)).toBe(1);
   });
 });

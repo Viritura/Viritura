@@ -1066,6 +1066,22 @@ describe("NotationInspector", () => {
     });
   });
 
+  it("sets and clears the selected voice's direction hint", async () => {
+    const user = userEvent.setup();
+    render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
+
+    const hintPicker = await screen.findByTestId("notation-layout-direction-hint");
+    expect(screen.getByText(/Voice Direction · Up 1/)).toBeTruthy();
+    await user.click(within(hintPicker).getByRole("radio", { name: "Down" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.directionHint).toBe("lower");
+    });
+    await user.click(within(screen.getByTestId("notation-layout-direction-hint")).getByRole("radio", { name: "Auto" }));
+    await waitFor(() => {
+      expect(currentScore().parts[0]!.measures[0]!.sequences[0]!.directionHint).toBeUndefined();
+    });
+  });
+
   it("hides tuplet overrides for a non-tuplet selection", async () => {
     render(withProviders(<Harness elementId="p0/m0/s0/ev1" />));
 

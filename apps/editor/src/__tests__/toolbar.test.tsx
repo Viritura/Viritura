@@ -159,7 +159,7 @@ describe("Toolbar", () => {
     const c = renderToolbar();
     const voice = getByTestId(c, "toolbar-voice");
     expect(voice.getAttribute("aria-label")).toBe("Voice");
-    expect(voice.textContent).toContain("V1");
+    expect(voice.textContent).toContain("↑1");
     expect(voice.querySelector("[data-select-corner]")).not.toBeNull();
     expect(voice.querySelector("svg")).toBeNull();
   });

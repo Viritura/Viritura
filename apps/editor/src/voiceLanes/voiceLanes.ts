@@ -149,3 +149,30 @@ export function ensureLaneSequence(sequences: Sequence[], laneNumber: number, st
   sequences.push(created);
   return sequences.length - 1;
 }
+
+/**
+ * Set (or clear, with `null`) a sequence's `directionHint`, moving it into a
+ * lane of the new direction. An editor lane name outranks the hint in
+ * `assignLanes`, so a stale `up1` name is replaced by the name of the lane the
+ * hint now earns; clearing the hint drops the name so the voice falls back to
+ * positional order. Foreign voice names (e.g. imported `"v1"`) are kept.
+ * Mutates `sequences`; call on a draft.
+ */
+export function setSequenceDirectionHint(
+  sequences: Sequence[],
+  sequenceIndex: number,
+  hint: "upper" | "lower" | null,
+): void {
+  const sequence = sequences[sequenceIndex];
+  if (!sequence) return;
+  const laneNamed = laneNumberFromName(sequence.voice) !== undefined;
+  if (laneNamed) delete sequence.voice;
+  if (hint === null) {
+    delete sequence.directionHint;
+    return;
+  }
+  sequence.directionHint = hint;
+  if (!laneNamed) return;
+  const lane = laneOfSequence(sequences, sequenceIndex);
+  if (lane !== undefined) sequence.voice = voiceLane(lane).name;
+}
