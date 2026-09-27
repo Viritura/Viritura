@@ -29,7 +29,7 @@ import keyboardShortcuts from "../../../../../docs/spec/keyboard-shortcuts.md?ra
 import developersOverview from "../../../../../docs/developers/overview.md?raw";
 import developersScoreViewer from "../../../../../docs/developers/score-viewer.md?raw";
 import developersScoreEngine from "../../../../../docs/developers/score-engine.md?raw";
-import developersReact from "../../../../../docs/developers/react.md?raw";
+import developersScoreViewerReact from "../../../../../docs/developers/score-viewer-react.md?raw";
 import { DOC_PAGE_META, DOC_SECTION_ROOTS, type DocPageMeta, type DocSection } from "./docPageMeta";
 
 /** Raw markdown source, keyed by slug (mirrors {@link DOC_PAGE_META} order). */
@@ -53,7 +53,7 @@ const rawBySlug: Readonly<Record<string, string>> = {
   developers: developersOverview,
   "developers/score-viewer": developersScoreViewer,
   "developers/score-engine": developersScoreEngine,
-  "developers/react": developersReact,
+  "developers/score-viewer-react": developersScoreViewerReact,
 };
 
 export interface DocPage extends DocPageMeta {

@@ -35,7 +35,7 @@ playback. The React package wraps the viewer and adds an optional control bar.
 - [Score Viewer](/developers/score-viewer): embed a score with one call.
 - [Score Engine](/developers/score-engine): layout, painting, geometry,
   SVG export and the playback timeline.
-- [React Components](/developers/react): `<ScoreViewer>`, `<ScoreView>` and
+- [Score Viewer React](/developers/score-viewer-react): `<ScoreViewer>`, `<ScoreView>` and
   `useScoreEngine`.
 
 ## Get the packages

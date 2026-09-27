@@ -168,11 +168,11 @@ const DEVELOPER_PAGES: readonly Omit<DocPageMeta, "section">[] = [
     file: "docs/developers/score-engine.md",
   },
   {
-    slug: "developers/react",
-    path: "/developers/react",
-    title: "React Components",
+    slug: "developers/score-viewer-react",
+    path: "/developers/score-viewer-react",
+    title: "Score Viewer React",
     group: "Packages",
-    file: "docs/developers/react.md",
+    file: "docs/developers/score-viewer-react.md",
   },
 ];
 

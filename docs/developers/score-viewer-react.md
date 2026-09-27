@@ -1,4 +1,4 @@
-# React Components
+# Score Viewer React
 
 `@viritura/score-viewer-react` wraps the [Score Viewer](/developers/score-viewer)
 in React components and hooks. It works with React 18 and 19.

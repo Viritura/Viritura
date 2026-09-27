@@ -199,10 +199,10 @@ const publicRoutes: readonly SeoRoute[] = [
     indexable: true,
   },
   {
-    path: "/developers/react",
-    title: "React Components | Viritura Developers",
+    path: "/developers/score-viewer-react",
+    title: "Score Viewer React | Viritura Developers",
     description: "Render MNX music notation in React with Viritura's ScoreViewer and ScoreView components and hooks.",
-    canonicalPath: "/developers/react",
+    canonicalPath: "/developers/score-viewer-react",
     indexable: true,
   },
 ];

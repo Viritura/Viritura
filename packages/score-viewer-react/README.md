@@ -139,7 +139,7 @@ function CustomViewer({ mnx }: { mnx: string }) {
 the engine's unpaged layout. Use `viewMode="horizon"` for one continuous,
 unpaged system.
 
-Public documentation: [viritura.com/developers/react](https://viritura.com/developers/react).
+Public documentation: [viritura.com/developers/score-viewer-react](https://viritura.com/developers/score-viewer-react).
 
 ## Composition slots
 
