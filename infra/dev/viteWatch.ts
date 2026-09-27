@@ -32,6 +32,7 @@ export const CONTAINER_WATCH_IGNORED = [
   "**/public/fonts/**",
   "**/public/reference-images/**",
   "**/public/scores/**",
+  "**/public/score-engine/**",
   "**/public/sounds/**",
   "**/*.sf2",
 ];

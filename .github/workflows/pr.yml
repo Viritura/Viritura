@@ -173,7 +173,7 @@ jobs:
           else
             echo "needs_editor=false" >> "$GITHUB_OUTPUT"
           fi
-          if jq -e '.tasks | any(.package == "@viritura/editor" or .package == "@viritura/website" or .package == "mnx-viewer")' turbo-plan.json >/dev/null; then
+          if jq -e '.tasks | any(.package == "@viritura/editor")' turbo-plan.json >/dev/null; then
             echo "needs_wasm=true" >> "$GITHUB_OUTPUT"
           else
             echo "needs_wasm=false" >> "$GITHUB_OUTPUT"
@@ -201,8 +201,8 @@ jobs:
         run: pnpm turbo run build test --affected --filter='!@viritura/desktop'
 
       - if: needs.changes.outputs.engine_consumers == 'true'
-        name: Build and test browser consumers after engine changes
-        run: pnpm turbo run build test --filter=@viritura/editor --filter=@viritura/website --filter=mnx-viewer
+        name: Build and test the editor after engine changes
+        run: pnpm turbo run build test --filter=@viritura/editor
 
       - if: needs.changes.outputs.root_tests == 'true'
         name: Run repository script tests

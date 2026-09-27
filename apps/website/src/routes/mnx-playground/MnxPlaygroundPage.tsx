@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { MnxEditor, type OnValidate } from "@viritura/monaco-react";
 import { Tabs } from "@viritura/ui";
 import { ScoreViewer, type ScoreViewerScoreOption } from "@viritura/score-viewer-react";
+import { SCORE_ENGINE_ASSET_BASE_URL } from "../../scoreEngineAssets";
 import { PlaygroundExampleBrowser } from "./PlaygroundExampleBrowser";
 import { PlaygroundScoreSelect } from "./PlaygroundScoreSelect";
 import { playgroundDocuments } from "./playgroundDocuments";
@@ -205,6 +206,7 @@ export function MnxPlaygroundPage() {
                 </div>
               ) : null}
               <ScoreViewer
+                assetBaseUrl={SCORE_ENGINE_ASSET_BASE_URL}
                 mnx={playground.renderedDocument}
                 scoreIndex={scoreIndex}
                 onScoreIndexChange={setScoreIndex}
@@ -231,6 +233,7 @@ export function MnxPlaygroundPage() {
               {playground.candidateDocument ? (
                 <div className="mnx-playground__candidate" aria-hidden="true">
                   <ScoreViewer
+                    assetBaseUrl={SCORE_ENGINE_ASSET_BASE_URL}
                     mnx={playground.candidateDocument}
                     scoreIndex={scoreIndex}
                     spatium={8}

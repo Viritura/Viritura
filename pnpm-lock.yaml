@@ -333,9 +333,12 @@ importers:
       '@types/vscode':
         specifier: ^1.120.0
         version: 1.120.0
+      '@viritura/score-engine':
+        specifier: 0.1.0
+        version: 0.1.0
       '@viritura/score-viewer-react':
-        specifier: workspace:*
-        version: link:../../packages/score-viewer-react
+        specifier: 0.1.0
+        version: 0.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.0.5
         version: 6.0.5(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.11)(vite@8.3.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0)))(babel-plugin-react-compiler@1.0.0)(vite@8.3.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))
@@ -378,9 +381,12 @@ importers:
       '@viritura/playback':
         specifier: workspace:*
         version: link:../../packages/playback
+      '@viritura/score-engine':
+        specifier: 0.1.0
+        version: 0.1.0
       '@viritura/score-viewer-react':
-        specifier: workspace:*
-        version: link:../../packages/score-viewer-react
+        specifier: 0.1.0
+        version: 0.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@viritura/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -3847,6 +3853,18 @@ packages:
 
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
+
+  '@viritura/score-engine@0.1.0':
+    resolution: {integrity: sha512-UBe6kEvq0ldFB8Mo5RrYTNMCoc6TcaEwVOk7ddRNr7+PSsSnSWf6Bw9KYvxtpGQrMnRXvZq/8KvZ2FQM9QAb5g==}
+
+  '@viritura/score-viewer-react@0.1.0':
+    resolution: {integrity: sha512-Nuor1gJAO4OvCQA+jWIZxLPbrQ0pZxRE86dAyC1AMce+Zw8ECpgfbz8EBWf/7vDcBckWya2rqP6A6xeUxgLZjA==}
+    peerDependencies:
+      react: ^19.2.0
+      react-dom: ^19.2.0
+
+  '@viritura/score-viewer@0.1.0':
+    resolution: {integrity: sha512-Q1+9wNNi89xfZCpO+GW/R1kWeUjIVlfw+i9oitQUE4YVKz1YIR3VM64X+mfPVqT07G+YJucklwQQnbnHzH0Z7Q==}
 
   '@vitejs/plugin-react-swc@4.3.3':
     resolution: {integrity: sha512-bti8ZAcvz4Lh6/e4Uk2k3aa1TiUXbbMsahuqOHvd3MveFTkKDZOA6wQVkpj7J/+tepX/wGfe+lsGh/t24HTXMQ==}
@@ -10232,6 +10250,20 @@ snapshots:
       - supports-color
 
   '@ungap/structured-clone@1.4.0': {}
+
+  '@viritura/score-engine@0.1.0': {}
+
+  '@viritura/score-viewer-react@0.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@viritura/score-engine': 0.1.0
+      '@viritura/score-viewer': 0.1.0
+      lucide-react: 1.47.0(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
+  '@viritura/score-viewer@0.1.0':
+    dependencies:
+      '@viritura/score-engine': 0.1.0
 
   '@vitejs/plugin-react-swc@4.3.3(vite@8.3.0(@types/node@25.9.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))':
     dependencies:

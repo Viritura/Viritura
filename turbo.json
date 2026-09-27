@@ -33,7 +33,6 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/assets/**",
-        "$TURBO_ROOT$/engine/viritura-wasm/pkg-browser/**",
         "$TURBO_ROOT$/packages/musx-import/assets/**",
         "$TURBO_ROOT$/packages/audio/assets/**",
         "$TURBO_ROOT$/packages/format/schemas/mnx-schema.json"
@@ -81,13 +80,6 @@
       "outputs": ["dist/**", "media/viewer.js", "media/viewer.css", "media/assets/**"]
     },
     "mnx-viewer#prepare:assets": {
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/assets/fonts/**",
-        "$TURBO_ROOT$/engine/viritura-wasm/pkg-browser/**",
-        "$TURBO_ROOT$/LICENSES/OFL-1.1.txt",
-        "$TURBO_ROOT$/THIRD_PARTY_NOTICES.md"
-      ],
       "outputs": ["media/fonts/**", "media/wasm/**", "LICENSES/**", "THIRD_PARTY_NOTICES.md"]
     },
     "dev": {

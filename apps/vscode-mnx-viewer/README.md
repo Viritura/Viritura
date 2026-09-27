@@ -27,13 +27,20 @@ corepack pnpm --filter mnx-viewer build
 corepack pnpm --filter mnx-viewer test
 ```
 
-The webview stages fonts from `assets/fonts` and WASM from the canonical
-`engine/viritura-wasm/pkg-browser` producer. For an unpackaged local build, run:
+The webview renders with the published `@viritura/score-viewer-react` and
+`@viritura/score-engine` packages from npm, pinned in `package.json`. Their
+WASM, fonts and OFL notices are staged from the installed engine package, so no
+Rust toolchain is needed. For an unpackaged local build, run:
 
 ```bash
-corepack pnpm wasm:build
 corepack pnpm --filter mnx-viewer prepare:assets
 ```
+
+To try unreleased engine or viewer changes, temporarily point both pins at
+`workspace:*`, run `corepack pnpm install`, `corepack pnpm wasm:build` and
+`corepack pnpm build:npm-packages` (which fills the engine's `dist/` with the
+WASM and fonts this script stages), and restore the pins before committing. Updating to a new release is a normal
+dependency bump of both pins.
 
 ## Build a VSIX for local install
 
@@ -42,7 +49,7 @@ corepack pnpm build:vsix
 ```
 
 The preserved package alias `corepack pnpm --filter mnx-viewer package` invokes
-the same root coordinator. It builds WASM once, uses Turbo for the extension
-host/webview and prepared media outputs, then runs `vsce` as a consumer.
+the same root coordinator. It uses Turbo for the extension host/webview and
+prepared media outputs, then runs `vsce` as a consumer.
 
 Then in VS Code use **Extensions: Install from VSIX...**.

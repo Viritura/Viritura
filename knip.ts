@@ -65,6 +65,9 @@ const config: KnipConfig = {
       // and is bundled by a separate Vite build.
       entry: ["src/extension.ts", "webview/viewer.tsx", "scripts/*.ts"],
       project: ["src/**/*.{ts,tsx}", "webview/**/*.{ts,tsx}"],
+      // scripts/prepare-assets.ts stages the engine's WASM and fonts by
+      // resolving its package directory, which knip cannot see as an import.
+      ignoreDependencies: ["@viritura/score-engine"],
     },
     "apps/server-ui": {
       entry: ["src/main.tsx"],

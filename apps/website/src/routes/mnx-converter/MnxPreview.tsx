@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { MnxDocument } from "@viritura/musicxml";
 import { ScoreViewer } from "@viritura/score-viewer-react";
+import { SCORE_ENGINE_ASSET_BASE_URL } from "../../scoreEngineAssets";
 
 const MNX_PREVIEW_ROOT_STYLE: CSSProperties = {
   position: "relative",
@@ -122,6 +123,7 @@ export function MnxPreview({ document: doc }: MnxPreviewProps) {
   return (
     <div style={MNX_PREVIEW_ROOT_STYLE}>
       <ScoreViewer
+        assetBaseUrl={SCORE_ENGINE_ASSET_BASE_URL}
         mnx={mnxToRender as unknown as object}
         pageWidth={980}
         defaultFitMode="width"
