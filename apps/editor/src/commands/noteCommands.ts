@@ -158,6 +158,8 @@ export interface EditEventLocation {
 export interface NoteEventLocation {
   measureIndex: number;
   eventIndex: number;
+  /** Sequence holding the event, when found by voice lane (slots vary by bar). */
+  sequenceIndex?: number;
 }
 
 /** Replace a meter-independent full-measure rest with explicit rests before editing it. */

@@ -8,6 +8,7 @@
 import type { Score, Pitch, Clef, AccidentalType } from "@viritura/core";
 import { clefLineFromBottom, clefReferencePitch, diatonicPosition } from "@viritura/core";
 import type { KeyboardHandlerContext } from "./types";
+import { resolveVoiceTarget, type LaneRef } from "../voiceLanes";
 
 const OPTIMISTIC_NOTE_INPUT_EVENT = "viritura:optimistic-note-input";
 
@@ -132,33 +133,26 @@ export function stepAccidental(current: string | null, direction: 1 | -1): Accid
   return ACCIDENTAL_LEVELS[next] ?? null;
 }
 
+/** The input lane (voice lane + staff) the note-input cursor is writing into. */
+export function currentLaneRef(currentScore: Score, ctx: KeyboardHandlerContext): LaneRef {
+  const ni = ctx.getNoteInput();
+  const partIndex = ni.cursorPosition?.partIndex ?? 0;
+  const staffIdx = normalizePartLocalStaffIndex(currentScore, partIndex, ni.cursorPosition?.staffIndex ?? 0);
+  return { lane: ni.currentVoice, staff: staffIdx + 1 };
+}
+
 /**
- * Resolve the correct sequence index for the current cursor position and voice.
- * For single-staff instruments: voice = sequence index.
- * For grand staff: finds sequences on the cursor's staff, picks the voice-th one.
+ * Resolve the sequence index of the current voice lane in the cursor's measure.
+ *
+ * Lanes, not array slots, identify voices: a bar may hold its Down 1 voice in
+ * any slot, or not at all. When the lane is absent this returns one past the
+ * last sequence, which is where `prepareLaneSequence` would create it.
  */
 export function resolveSeqIndex(currentScore: Score, ctx: KeyboardHandlerContext): number {
   const ni = ctx.getNoteInput();
   const partIndex = ni.cursorPosition?.partIndex ?? 0;
-  const staffIdx = normalizePartLocalStaffIndex(currentScore, partIndex, ni.cursorPosition?.staffIndex ?? 0);
-  const cursorMeasure = ni.cursorPosition?.measureIndex ?? 0;
-  const voiceWithinStaff = ni.currentVoice - 1;
   const part = currentScore.parts[partIndex];
-  if (!part) return voiceWithinStaff;
-
-  const measure = part.measures[cursorMeasure] ?? part.measures[0];
-  if (!measure) return voiceWithinStaff;
-
-  const hasStaffProp = measure.sequences.some((s) => s.staff != null);
-  if (!hasStaffProp) return voiceWithinStaff;
-
-  const staffNumber = staffIdx + 1;
-  const staffSeqs = measure.sequences.map((s, i) => ({ seq: s, idx: i })).filter((s) => s.seq.staff === staffNumber);
-  if (staffSeqs.length > 0 && voiceWithinStaff < staffSeqs.length) {
-    return staffSeqs[voiceWithinStaff]!.idx;
-  }
-  if (staffSeqs.length > 0) {
-    return measure.sequences.length + (voiceWithinStaff - staffSeqs.length);
-  }
-  return voiceWithinStaff;
+  const measure = part?.measures[ni.cursorPosition?.measureIndex ?? 0] ?? part?.measures[0];
+  if (!measure) return ni.currentVoice - 1;
+  return resolveVoiceTarget(measure.sequences, currentLaneRef(currentScore, ctx)) ?? measure.sequences.length;
 }

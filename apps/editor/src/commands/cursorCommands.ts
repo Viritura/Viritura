@@ -2,12 +2,13 @@ import type { Score, TimeSignature } from "@viritura/core";
 import { measureBeats } from "@viritura/core";
 import { durationToBeats, sequenceContentBeats } from "./noteCommands";
 import type { CursorPosition } from "../store/noteInputStore";
+import { sequenceAt, type VoiceTarget } from "../voiceLanes";
 
 /**
  * Compute the number of beats used in a given measure/voice.
  */
-export function computeUsedBeats(score: Score, measureIndex: number, partIndex: number, voice: number): number {
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[voice];
+export function computeUsedBeats(score: Score, measureIndex: number, partIndex: number, voice: VoiceTarget): number {
+  const seq = sequenceAt(score, partIndex, measureIndex, voice);
   if (!seq) return 0;
   let beats = 0;
   for (const item of seq.content) {
@@ -33,10 +34,10 @@ export function getActiveTimeSignature(score: Score, measureIndex: number): Time
  * a given part/voice, starting from measure 0. Used when entering
  * note input mode to place cursor at the end of existing notes.
  */
-export function computeEndOfContentCursor(score: Score, partIndex: number, voice: number): CursorPosition {
+export function computeEndOfContentCursor(score: Score, partIndex: number, voice: VoiceTarget): CursorPosition {
   // Walk backwards from last measure to find the last one with note (non-rest) content
   for (let m = score.global.measures.length - 1; m >= 0; m--) {
-    const seq = score.parts[partIndex]?.measures[m]?.sequences[voice];
+    const seq = sequenceAt(score, partIndex, m, voice);
     if (!seq) continue;
 
     // Check if this measure has any note events (not just rests)
@@ -151,10 +152,10 @@ export function getTupletScaleAt(
   score: Score,
   measureIndex: number,
   partIndex: number,
-  voice: number,
+  voice: VoiceTarget,
   beatPosition: number,
 ): number {
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[voice];
+  const seq = sequenceAt(score, partIndex, measureIndex, voice);
   if (!seq) return 1;
   let pos = 0;
   const eps = 1e-6;
@@ -188,7 +189,7 @@ export function advanceCursorByNotatedDuration(
   score: Score,
   cursor: CursorPosition,
   notatedBeats: number,
-  voice: number,
+  voice: VoiceTarget,
   direction: 1 | -1 = 1,
 ): CursorPosition {
   const scale = getTupletScaleAt(score, cursor.measureIndex, cursor.partIndex, voice, cursor.beatPosition);
@@ -196,8 +197,8 @@ export function advanceCursorByNotatedDuration(
   return direction > 0 ? advanceCursor(score, cursor, scaled) : moveCursorLeft(score, cursor, scaled);
 }
 
-function eventStartBeats(score: Score, measureIndex: number, partIndex: number, sequenceIndex: number): number[] {
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[sequenceIndex];
+function eventStartBeats(score: Score, measureIndex: number, partIndex: number, voice: VoiceTarget): number[] {
+  const seq = sequenceAt(score, partIndex, measureIndex, voice);
   if (!seq) return [];
 
   const starts: number[] = [];
@@ -231,11 +232,11 @@ function eventStartBeats(score: Score, measureIndex: number, partIndex: number, 
   return starts;
 }
 
-/** Move cursor to the previous event start in the same sequence. */
-export function moveCursorToPreviousEvent(score: Score, cursor: CursorPosition, sequenceIndex: number): CursorPosition {
+/** Move cursor to the previous event start in the same voice, crossing barlines. */
+export function moveCursorToPreviousEvent(score: Score, cursor: CursorPosition, voice: VoiceTarget): CursorPosition {
   const eps = 1e-9;
   for (let m = cursor.measureIndex; m >= 0; m--) {
-    const starts = eventStartBeats(score, m, cursor.partIndex, sequenceIndex);
+    const starts = eventStartBeats(score, m, cursor.partIndex, voice);
     if (starts.length === 0) continue;
     const threshold = m === cursor.measureIndex ? cursor.beatPosition - eps : Number.POSITIVE_INFINITY;
     for (let i = starts.length - 1; i >= 0; i--) {
@@ -248,12 +249,12 @@ export function moveCursorToPreviousEvent(score: Score, cursor: CursorPosition, 
   return { measureIndex: 0, beatPosition: 0, partIndex: cursor.partIndex, staffIndex: cursor.staffIndex };
 }
 
-/** Move cursor to the next event start in the same sequence. */
-export function moveCursorToNextEvent(score: Score, cursor: CursorPosition, sequenceIndex: number): CursorPosition {
+/** Move cursor to the next event start in the same voice, crossing barlines. */
+export function moveCursorToNextEvent(score: Score, cursor: CursorPosition, voice: VoiceTarget): CursorPosition {
   const eps = 1e-9;
   const totalMeasures = score.global.measures.length;
   for (let m = cursor.measureIndex; m < totalMeasures; m++) {
-    const starts = eventStartBeats(score, m, cursor.partIndex, sequenceIndex);
+    const starts = eventStartBeats(score, m, cursor.partIndex, voice);
     if (starts.length === 0) continue;
     const threshold = m === cursor.measureIndex ? cursor.beatPosition + eps : Number.NEGATIVE_INFINITY;
     for (const start of starts) {

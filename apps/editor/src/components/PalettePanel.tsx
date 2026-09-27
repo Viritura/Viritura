@@ -19,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { noteInputActions, useNoteInputStore } from "../store/noteInputStore";
+import { prepareLaneSequence } from "../voiceLanes";
 import { useSelection, useSelectionStore, type SelectionState } from "../store/selectionStore";
 import { keyboardRegistry } from "../keyboard/KeyboardRegistry";
 import { useDocumentStoreApi, useDocumentStore } from "../store/DocumentContext";
@@ -690,9 +691,12 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
       const ni = useNoteInputStore.getState();
       if (ni.active && score) {
         const partIndex = ni.cursorPosition?.partIndex ?? 0;
-        const voice = ni.currentVoice - 1;
-        const loc = findLastNoteEvent(score, partIndex, voice);
-        if (loc) {
+        const loc = findLastNoteEvent(score, partIndex, {
+          lane: ni.currentVoice,
+          staff: (ni.cursorPosition?.staffIndex ?? 0) + 1,
+        });
+        const voice = loc?.sequenceIndex;
+        if (loc && voice !== undefined) {
           const newScore = produce(score, (draft) => {
             toggleDynamic(draft, partIndex, loc.measureIndex, voice, loc.eventIndex, value);
           });
@@ -1200,7 +1204,6 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
         // Mode 3: Note input mode — create a tuplet at the cursor position.
         if (ni.active && ni.cursorPosition) {
           const cursor = ni.cursorPosition;
-          const voice = ni.currentVoice - 1;
 
           const totalDuration: Duration = {
             base: ni.currentDuration,
@@ -1213,6 +1216,10 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           }
 
           try {
+            const voice = prepareLaneSequence(draft, cursor.partIndex, cursor.measureIndex, {
+              lane: ni.currentVoice,
+              staff: (cursor.staffIndex ?? 0) + 1,
+            });
             createTuplet(draft, {
               measureIndex: cursor.measureIndex,
               partIndex: cursor.partIndex,

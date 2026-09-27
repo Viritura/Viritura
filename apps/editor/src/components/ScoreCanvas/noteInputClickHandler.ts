@@ -42,6 +42,7 @@ import {
 } from "../../score/condensingRouter";
 import { cloneScore, produce } from "../../score/scoreClone";
 import { resolveRhythmSlot } from "../../score/rhythmLock";
+import { prepareLaneSequence, resolveVoiceTarget, type LaneRef } from "../../voiceLanes";
 
 export interface AddNoteAtClickArgs {
   info: NoteInputClickInfo;
@@ -190,33 +191,9 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     clickedStaffNumber = partLocalStaffIndex(dl.measureBounds, partIndex, clickedStaffIndexGlobal) + 1;
   }
 
-  // Determine the correct sequence index for this click.
-  // For single-staff instruments: voice directly = sequence index.
-  // For grand staff: each staff has its own set of sequences.
-  //   Voice 1 on staff 1 = first sequence with staff=1
-  //   Voice 2 on staff 1 = second sequence with staff=1 (or needs creating)
-  //   Voice 1 on staff 2 = first sequence with staff=2
-  let seqIndex = voice;
-
-  if (part) {
-    const firstMeasure = part.measures[0];
-    if (firstMeasure) {
-      const hasStaffProp = firstMeasure.sequences.some((s) => s.staff != null);
-      if (hasStaffProp) {
-        // Grand staff: find sequences belonging to this staff, pick the voice-th one
-        const staffSeqs = firstMeasure.sequences
-          .map((s, i) => ({ seq: s, idx: i }))
-          .filter((s) => s.seq.staff === clickedStaffNumber);
-        if (voice < staffSeqs.length) {
-          seqIndex = staffSeqs[voice]!.idx;
-        } else {
-          // Voice doesn't exist yet — will be created at this index
-          seqIndex = firstMeasure.sequences.length + (voice - staffSeqs.length);
-        }
-      }
-      // else: single-staff, voice = sequence index (already set)
-    }
-  }
+  // The voice lane is resolved in the clicked measure once the snap below has
+  // found it — a lane may sit in a different array slot in every bar.
+  const lane: LaneRef = { lane: noteInputState.currentVoice, staff: clickedStaffNumber };
 
   // Build duration from note input state
   let duration: import("@viritura/core").Duration = {
@@ -240,7 +217,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       info.scoreY,
       score,
       si,
-      voice,
+      lane,
       effectiveDuration,
       effectiveDots,
       dl,
@@ -258,6 +235,16 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       }
     }
   }
+
+  const clickedSequences = part?.measures[measureIndex]?.sequences ?? [];
+  const seqIndex = resolveVoiceTarget(clickedSequences, lane) ?? clickedSequences.length;
+  /** `score` with the lane's sequence created (named and hinted) if the bar lacks it. */
+  const withLaneSequence = (base: Score): Score =>
+    seqIndex < clickedSequences.length
+      ? base
+      : produceScoreMutation(base, (draft) => {
+          prepareLaneSequence(draft, partIndex, measureIndex, lane);
+        });
 
   let sourceRest = false;
   if (noteInputState.rhythmSource) {
@@ -582,14 +569,14 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     let newScore: Score;
     if (info.shiftKey) {
       // Shift+Click: add pitch to last entered event (chord entry)
-      const loc = findLastNoteEvent(score, partIndex, seqIndex);
+      const loc = findLastNoteEvent(score, partIndex, lane);
       newScore = produceScoreMutation(score, (draft) => {
-        if (!loc) return;
+        if (!loc || loc.sequenceIndex === undefined) return;
         addPitchToChord(draft, {
           pitch,
           measureIndex: loc.measureIndex,
           partIndex,
-          voice: seqIndex,
+          voice: loc.sequenceIndex,
           eventIndex: loc.eventIndex,
           kitComponent: kitComponentId ?? undefined,
         });
@@ -598,7 +585,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         insertedChordPitch = true;
       }
     } else if (isRestEntry) {
-      newScore = produceScoreMutation(score, (draft) => {
+      newScore = produceScoreMutation(withLaneSequence(score), (draft) => {
         addRest(draft, {
           duration,
           measureIndex,
@@ -609,7 +596,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
         });
       });
     } else if (noteInputState.currentGraceType) {
-      newScore = produceScoreMutation(score, (draft) => {
+      newScore = produceScoreMutation(withLaneSequence(score), (draft) => {
         addGraceNote(draft, {
           pitch,
           duration,
@@ -626,7 +613,7 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
       clearExplicitAccidental();
       return;
     } else {
-      let resultScore = addNoteWithAutoTieImmutable(score, {
+      let resultScore = addNoteWithAutoTieImmutable(withLaneSequence(score), {
         pitch,
         duration,
         measureIndex,

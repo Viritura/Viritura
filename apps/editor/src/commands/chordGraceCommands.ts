@@ -6,6 +6,7 @@
 
 import type { Duration, Grace, Note, NoteEvent, Pitch, Score, SequenceContent } from "@viritura/core";
 import { isRest } from "@viritura/core";
+import { resolveVoiceTarget, type VoiceTarget } from "../voiceLanes";
 import {
   generateEventId,
   generateNoteId,
@@ -98,17 +99,19 @@ export function addPitchToChord(score: Score, params: AddPitchToChordParams): Sc
  * scanning backwards from the last measure.
  * Returns null if no note event exists.
  */
-export function findLastNoteEvent(score: Score, partIndex: number, voice: number): NoteEventLocation | null {
+export function findLastNoteEvent(score: Score, partIndex: number, voice: VoiceTarget): NoteEventLocation | null {
   const part = score.parts[partIndex];
   if (!part) return null;
 
   for (let m = part.measures.length - 1; m >= 0; m--) {
-    const seq = part.measures[m]?.sequences[voice];
+    const sequences = part.measures[m]?.sequences ?? [];
+    const sequenceIndex = resolveVoiceTarget(sequences, voice);
+    const seq = sequenceIndex === undefined ? undefined : sequences[sequenceIndex];
     if (!seq) continue;
     for (let i = seq.content.length - 1; i >= 0; i--) {
       const ev = seq.content[i] as NoteEvent;
       if (ev && !isRest(ev)) {
-        return { measureIndex: m, eventIndex: i };
+        return { measureIndex: m, eventIndex: i, sequenceIndex };
       }
     }
   }
@@ -249,12 +252,14 @@ function trimTrailingRests(content: SequenceContent[]): void {
  *
  * Returns true if a note was found and removed.
  */
-export function backspaceInNoteInput(score: Score, partIndex: number, voice: number): boolean {
+export function backspaceInNoteInput(score: Score, partIndex: number, voice: VoiceTarget): boolean {
   const part = score.parts[partIndex];
   if (!part) return false;
 
   for (let m = part.measures.length - 1; m >= 0; m--) {
-    const sequence = part.measures[m]?.sequences[voice];
+    const sequences = part.measures[m]?.sequences ?? [];
+    const sequenceIndex = resolveVoiceTarget(sequences, voice);
+    const sequence = sequenceIndex === undefined ? undefined : sequences[sequenceIndex];
     if (!sequence || sequence.content.length === 0) continue;
 
     for (let i = sequence.content.length - 1; i >= 0; i--) {

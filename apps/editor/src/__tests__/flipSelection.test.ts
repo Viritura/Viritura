@@ -99,6 +99,35 @@ describe("context-sensitive F flip", () => {
     expect(sourceEvent(latest()).stemDirection).toBe("down");
   });
 
+  it("reads a lower direction hint as down when the bar is contested", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences = [
+      { directionHint: "lower", content: [note("low")] },
+      { directionHint: "upper", content: [note("high", "E")] },
+    ];
+    const { ctx, latest } = makeContext(score, single("p0/m0/s0/low"));
+
+    expect(handleFlip(ctx)).toBe(true);
+
+    expect(sourceEvent(latest()).stemDirection).toBe("up");
+  });
+
+  it("lets a voice beside a space-only sequence follow pitch", () => {
+    const score = makeScore();
+    const measure = score.parts[0]!.measures[0]!;
+    measure.sequences = [
+      { content: [{ type: "space", duration: [1, 4] }] },
+      { directionHint: "lower", content: [note("alone")] },
+    ];
+    const { ctx, latest } = makeContext(score, single("p0/m0/s1/alone"));
+
+    expect(handleFlip(ctx)).toBe(true);
+
+    const flipped = latest().parts[0]!.measures[0]!.sequences[1]!.content[0] as NoteEvent;
+    expect(flipped.stemDirection).toBe("down");
+  });
+
   it("flips an automatic slur to the opposite explicit side", () => {
     const { ctx, latest } = makeContext(makeScore(), single("slur/source/target"));
 
