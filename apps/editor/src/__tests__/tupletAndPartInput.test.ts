@@ -1346,7 +1346,7 @@ describe("full tuplet workflow", () => {
     expect(fnBody).not.toContain("const partIndex = 0");
 
     // Must use the partIndex parameter to look up the sequence
-    expect(fnBody).toContain("score.parts[partIndex]");
+    expect(fnBody).toContain("sequenceAt(score, partIndex, measureIndex, voice)");
   });
 
   it("no hardcoded voice in snap pipeline", () => {

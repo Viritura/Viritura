@@ -50,14 +50,19 @@ import {
   staffPositionForPitch,
   emitOptimisticNoteInput,
   resolveSeqIndex,
+  currentLaneRef,
 } from "./noteInputShared";
+import { prepareLaneSequence, sequenceAt, resolveVoiceTarget, type LaneRef, type VoiceTarget } from "../voiceLanes";
 
 interface EntryContext {
   partIndex: number;
   staffIdx: number;
   cursorMeasure: number;
   cursorBeat: number;
+  /** Sequence index of the lane in the cursor's measure — valid there only. */
   voice: number;
+  /** The voice lane being written; resolve per measure when crossing barlines. */
+  lane: LaneRef;
   activeClef: ReturnType<typeof resolveActiveClefForStaff>;
   ottavaShift: number;
 }
@@ -76,9 +81,10 @@ function buildEntryContext(ctx: KeyboardHandlerContext, currentScore: Score): En
   const cursorMeasure = ni.cursorPosition?.measureIndex ?? 0;
   const cursorBeat = ni.cursorPosition?.beatPosition ?? 0;
   const voice = resolveSeqIndex(currentScore, ctx);
+  const lane = currentLaneRef(currentScore, ctx);
   const activeClef = resolveActiveClefForStaff(currentScore, partIndex, staffIdx, cursorMeasure);
   const ottavaShift = resolveOttavaShift(currentScore, partIndex, staffIdx, cursorMeasure, cursorBeat);
-  return { partIndex, staffIdx, cursorMeasure, cursorBeat, voice, activeClef, ottavaShift };
+  return { partIndex, staffIdx, cursorMeasure, cursorBeat, voice, lane, activeClef, ottavaShift };
 }
 
 function applyAccidentalToPitch(
@@ -183,6 +189,8 @@ function buildEntryPitch(
 
 interface ChordTargetLoc {
   measureIndex: number;
+  /** The lane's sequence in `measureIndex`, which may differ from the cursor bar's slot. */
+  sequenceIndex: number;
   eventIndex: number;
   beatPos: number;
   beats: number;
@@ -194,30 +202,41 @@ function findChordTargetLoc(
   cursorMeasureIdx: number,
   cursorBeat: number,
 ): ChordTargetLoc | null {
+  const laneIn = (m: number): number | undefined =>
+    resolveVoiceTarget(currentScore.parts[entryCtx.partIndex]?.measures[m]?.sequences ?? [], entryCtx.lane);
   let loc: ChordTargetLoc | null = null;
-  const seq = currentScore.parts[entryCtx.partIndex]?.measures[cursorMeasureIdx]?.sequences[entryCtx.voice];
-  if (seq) {
+  const cursorSeqIndex = laneIn(cursorMeasureIdx);
+  const seq = sequenceAt(currentScore, entryCtx.partIndex, cursorMeasureIdx, entryCtx.lane);
+  if (seq && cursorSeqIndex !== undefined) {
     let accBeats = 0;
     for (let i = 0; i < seq.content.length; i++) {
       const ev = seq.content[i];
       if (!ev || ev.type !== "event") continue;
       const evBeats = durationToBeats(ev.duration);
       if (accBeats >= cursorBeat + 1e-9) break;
-      if (!isRest(ev)) loc = { measureIndex: cursorMeasureIdx, eventIndex: i, beatPos: accBeats, beats: evBeats };
+      if (!isRest(ev))
+        loc = {
+          measureIndex: cursorMeasureIdx,
+          sequenceIndex: cursorSeqIndex,
+          eventIndex: i,
+          beatPos: accBeats,
+          beats: evBeats,
+        };
       accBeats += evBeats;
     }
   }
   if (loc) return loc;
   for (let m = cursorMeasureIdx - 1; m >= 0; m--) {
-    const prevSeq = currentScore.parts[entryCtx.partIndex]?.measures[m]?.sequences[entryCtx.voice];
-    if (!prevSeq) continue;
+    const sequenceIndex = laneIn(m);
+    const prevSeq = sequenceAt(currentScore, entryCtx.partIndex, m, entryCtx.lane);
+    if (!prevSeq || sequenceIndex === undefined) continue;
     let accBeats = 0;
     let last: ChordTargetLoc | null = null;
     for (let i = 0; i < prevSeq.content.length; i++) {
       const ev = prevSeq.content[i];
       if (!ev || ev.type !== "event") continue;
       const evBeats = durationToBeats(ev.duration);
-      if (!isRest(ev)) last = { measureIndex: m, eventIndex: i, beatPos: accBeats, beats: evBeats };
+      if (!isRest(ev)) last = { measureIndex: m, sequenceIndex, eventIndex: i, beatPos: accBeats, beats: evBeats };
       accBeats += evBeats;
     }
     if (last) return last;
@@ -310,7 +329,9 @@ function tryChordEntry(
     const percussion = resolvePercussionEntry(currentScore, entryCtx.partIndex, writtenPitch, kitComponentOverride);
     const newScore = produce(currentScore, (draft) => {
       const targetEv =
-        draft.parts[entryCtx.partIndex]?.measures[loc.measureIndex]?.sequences[entryCtx.voice]?.content[loc.eventIndex];
+        draft.parts[entryCtx.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.content[
+          loc.eventIndex
+        ];
       // Percussion letters name a staff line directly, so there is nothing to
       // stack above — the drum mapped to that line is the note being added.
       if (!percussion && stackAbove && targetEv && targetEv.type === "event" && targetEv.notes?.length) {
@@ -325,7 +346,7 @@ function tryChordEntry(
         pitch,
         measureIndex: loc.measureIndex,
         partIndex: entryCtx.partIndex,
-        voice: entryCtx.voice,
+        voice: loc.sequenceIndex,
         eventIndex: loc.eventIndex,
         ...(percussion ? { kitComponent: percussion.kitComponent } : {}),
       });
@@ -341,13 +362,24 @@ function tryChordEntry(
   return true;
 }
 
+/**
+ * A write target. Condensed-staff routing names exact source sequences by
+ * index; ordinary entry names a `lane`, resolved (and created if need be) in
+ * the measure actually being written.
+ */
+interface EntryTarget {
+  partIndex: number;
+  voice: number;
+  lane?: LaneRef;
+}
+
 interface InsertPlan {
   measureIdx: number;
   beatPos: number;
   noteBeats: number;
   duration: Duration;
-  targets: { partIndex: number; voice: number }[];
-  cursorTarget: { partIndex: number; voice: number };
+  targets: EntryTarget[];
+  cursorTarget: EntryTarget;
   rhythmSlot?: RhythmSlot;
 }
 
@@ -365,7 +397,7 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
     beatPos = cursor.beatPosition;
   } else {
     measureIdx = 0;
-    beatPos = computeUsedBeats(currentScore, 0, entryCtx.partIndex, entryCtx.voice);
+    beatPos = computeUsedBeats(currentScore, 0, entryCtx.partIndex, entryCtx.lane);
   }
   // If cursor is at end of measure, advance to next measure start.
   const ts = getActiveTimeSignature(currentScore, measureIdx);
@@ -396,13 +428,14 @@ function planInsert(ctx: KeyboardHandlerContext, currentScore: Score, entryCtx: 
   const layoutId = getActiveLayoutId(currentScore, ctx.getConfig().selectedScoreIndex ?? 0);
   const condensingStaff =
     ni.condensingRouting != null ? findCondensingStaff(currentScore, layoutId, entryCtx.partIndex) : null;
-  const targets: { partIndex: number; voice: number }[] = condensingStaff
+  const targets: EntryTarget[] = condensingStaff
     ? resolveEditTargets(
         ni.condensingRouting ?? detectCondensingMode(currentScore, condensingStaff, measureIdx),
         condensingStaff,
-        entryCtx.voice,
+        // Condensing routes by the user's voice (0 = broadcast, N = divisi source N), not the bar's slot.
+        entryCtx.lane.lane - 1,
       )
-    : [{ partIndex: entryCtx.partIndex, voice: entryCtx.voice }];
+    : [{ partIndex: entryCtx.partIndex, voice: entryCtx.voice, lane: entryCtx.lane }];
   const cursorTarget = targets.find((t) => t.partIndex === entryCtx.partIndex) ?? targets[0]!;
   return { measureIdx, beatPos, noteBeats: resolvedNoteBeats, duration, targets, cursorTarget, rhythmSlot };
 }
@@ -466,6 +499,11 @@ function insertKindFor(ctx: KeyboardHandlerContext): InsertKind {
   return ni.isRest ? "rest" : "note";
 }
 
+/** Sequence index to write `t` into, creating the lane's sequence when absent. */
+function targetSequenceIndex(draft: Score, t: EntryTarget, measureIndex: number): number {
+  return t.lane ? prepareLaneSequence(draft, t.partIndex, measureIndex, t.lane) : t.voice;
+}
+
 function applyEntryToDraft(
   draft: Score,
   kind: InsertKind,
@@ -474,7 +512,8 @@ function applyEntryToDraft(
   staffIdx: number,
   kitComponent?: string,
 ): void {
-  for (const t of plan.targets) {
+  for (const target of plan.targets) {
+    const t = { ...target, voice: targetSequenceIndex(draft, target, plan.measureIdx) };
     if (plan.rhythmSlot?.tuplet) {
       mirrorTupletAt(draft, t, plan.measureIdx, plan.rhythmSlot.tuplet.container, plan.rhythmSlot.tuplet.startBeat);
     }
@@ -534,7 +573,7 @@ function consumeLockedRest(
       resultScore,
       { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
       durationToBeats(plan.rhythmSlot!.duration),
-      entryCtx.voice,
+      entryCtx.lane,
       1,
     ),
     staffIndex: entryCtx.staffIdx,
@@ -554,7 +593,7 @@ function advanceAfterInsert(
       resultScore,
       { measureIndex: plan.measureIdx, beatPosition: plan.beatPos, partIndex: entryCtx.partIndex },
       plan.noteBeats,
-      entryCtx.voice,
+      entryCtx.lane,
       1,
     ),
     staffIndex: entryCtx.staffIdx,
@@ -640,20 +679,25 @@ function performFallbackInsert(
           duration: plan.duration,
           measureIndex: plan.measureIdx,
           partIndex: t.partIndex,
-          voice: t.voice,
+          voice: targetSequenceIndex(resultScore, t, plan.measureIdx),
           beatPosition: plan.beatPos,
           staffNumber: entryCtx.staffIdx + 1,
           ...(percussion ? { kitComponent: percussion.kitComponent } : {}),
         });
       }
-      wirePostEntrySlur(resultScore, plan.cursorTarget.partIndex, plan.cursorTarget.voice, ctx);
+      wirePostEntrySlur(
+        resultScore,
+        plan.cursorTarget.partIndex,
+        plan.cursorTarget.lane ?? plan.cursorTarget.voice,
+        ctx,
+      );
       ctx.updateScore(resultScore, fallbackAffectedMeasures);
       advanceAfterInsert(ctx, resultScore, writtenPitch, plan, entryCtx);
       return;
     }
     applyEntryToDraft(newScore, kind, pitch, plan, entryCtx.staffIdx, percussion?.kitComponent);
     ctx.updateScore(newScore, fallbackAffectedMeasures);
-    wirePostEntrySlur(newScore, plan.cursorTarget.partIndex, plan.cursorTarget.voice, ctx);
+    wirePostEntrySlur(newScore, plan.cursorTarget.partIndex, plan.cursorTarget.lane ?? plan.cursorTarget.voice, ctx);
     advanceAfterInsert(ctx, newScore, writtenPitch, plan, entryCtx);
   } catch (err) {
     console.error("Failed to add note:", err);
@@ -821,14 +865,15 @@ export function handleMidiChordEntry(midiNotes: readonly number[], ctx: Keyboard
 function wirePostEntrySlur(
   scoreAfterEntry: Score,
   partIdx: number,
-  voiceIdx: number,
+  voice: VoiceTarget,
   ctx: KeyboardHandlerContext,
 ): void {
   const ni = ctx.getNoteInput();
   if (!ni.slurActive) return;
-  const loc = findLastNoteEvent(scoreAfterEntry, partIdx, voiceIdx);
-  if (!loc) return;
-  const ev = scoreAfterEntry.parts[partIdx]?.measures[loc.measureIndex]?.sequences[voiceIdx]?.content[loc.eventIndex];
+  const loc = findLastNoteEvent(scoreAfterEntry, partIdx, voice);
+  if (!loc || loc.sequenceIndex === undefined) return;
+  const ev =
+    scoreAfterEntry.parts[partIdx]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.content[loc.eventIndex];
   if (!ev || ev.type !== "event" || !ev.id) return;
 
   const startId = ni.slurStartEventId;

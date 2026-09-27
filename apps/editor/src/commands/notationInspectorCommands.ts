@@ -626,6 +626,9 @@ export interface LayoutOverridesInspectorPatch {
     staff?: number | null;
     stemDirection?: StemDirection | null;
   };
+  sequence?: {
+    directionHint?: "upper" | "lower" | null;
+  };
   tuplet?: {
     placement?: "up" | "down" | null;
     bracket?: TupletBracket | null;

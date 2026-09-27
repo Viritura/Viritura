@@ -52,7 +52,8 @@ export type BarlineType = import("./raw").BarlineType;
 // Stem direction
 // ═══════════════════════════════════════════
 
-export type StemDirection = "up" | "down" | "auto";
+/** MNX `event.stemDirection`. There is no "auto": omit the property instead. */
+export type StemDirection = "up" | "down";
 
 // ═══════════════════════════════════════════
 // Accidentals

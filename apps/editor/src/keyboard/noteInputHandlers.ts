@@ -21,7 +21,7 @@ import {
 import { backspaceInNoteInput, durationToBeats } from "../commands/noteCommands";
 import { DURATION_KEY_MAP } from "../commands/noteInputCommands";
 import type { KeyboardHandlerContext } from "./types";
-import { resolveSeqIndex, stepAccidental } from "./noteInputShared";
+import { currentLaneRef, stepAccidental } from "./noteInputShared";
 import { navigateNoteInputStaffPart, findTransposeTarget, applyArrowTranspose } from "./noteInputArrows";
 import { handleNoteEntry } from "./noteEntryHandler";
 
@@ -44,9 +44,8 @@ export function handleNoteInputArrowUpDown(e: KeyboardEvent, ctx: KeyboardHandle
     return;
   }
 
-  const voiceIdx = resolveSeqIndex(currentScore, ctx);
-  const loc = findTransposeTarget(currentScore, ctx, cursor, voiceIdx);
-  if (loc) applyArrowTranspose(e, ctx, currentScore, cursor, voiceIdx, loc);
+  const loc = findTransposeTarget(currentScore, ctx, cursor, currentLaneRef(currentScore, ctx));
+  if (loc) applyArrowTranspose(e, ctx, currentScore, cursor, loc);
 }
 
 const LETTER_TO_STEP: Record<string, string> = {
@@ -140,14 +139,13 @@ function handleBackspaceKey(e: KeyboardEvent, ctx: KeyboardHandlerContext): bool
   e.preventDefault();
   const currentScore = ctx.getScore();
   if (!currentScore) return true;
+  const lane = currentLaneRef(currentScore, ctx);
   const newScore = produce(currentScore, (draft) => {
-    const voice = resolveSeqIndex(currentScore, ctx);
-    backspaceInNoteInput(draft, 0, voice);
+    backspaceInNoteInput(draft, 0, lane);
   });
   if (newScore !== currentScore) {
     ctx.updateScore(newScore);
-    const voice = resolveSeqIndex(currentScore, ctx);
-    const newCursor = computeEndOfContentCursor(newScore, 0, voice);
+    const newCursor = computeEndOfContentCursor(newScore, 0, lane);
     const ni = ctx.getNoteInput();
     ctx.setCursor({ ...newCursor, staffIndex: ni.cursorPosition?.staffIndex ?? 0 });
   }
@@ -170,7 +168,7 @@ export function moveNoteInputCursor(direction: "left" | "right" | "up" | "down",
     base: ni.currentDuration,
     ...(ni.dotCount > 0 ? { dots: ni.dotCount } : {}),
   });
-  const voice = ni.currentVoice - 1;
+  const voice = currentLaneRef(currentScore, ctx);
   const newCursor = advanceCursorByNotatedDuration(
     currentScore,
     cursor,
@@ -193,7 +191,7 @@ function handleCursorTravel(e: KeyboardEvent, ctx: KeyboardHandlerContext): bool
       base: ni.currentDuration,
       ...(ni.dotCount > 0 ? { dots: ni.dotCount } : {}),
     });
-    const voice = ni.currentVoice - 1;
+    const voice = currentLaneRef(currentScore, ctx);
     const newCursor = advanceCursorByNotatedDuration(currentScore, cursor, stepBeats, voice, 1);
     ctx.setCursor({ ...newCursor, staffIndex: cursor.staffIndex ?? 0 });
     return true;
@@ -208,10 +206,10 @@ function handleCursorTravel(e: KeyboardEvent, ctx: KeyboardHandlerContext): bool
   if ((e.key === "h" || e.key === "H" || e.key === "j" || e.key === "J") && !e.shiftKey) {
     e.preventDefault();
     if (!currentScore || !cursor) return true;
-    const sequenceIndex = resolveSeqIndex(currentScore, ctx);
+    const lane = currentLaneRef(currentScore, ctx);
     const newCursor =
       e.key === "h" || e.key === "H"
-        ? moveCursorToPreviousEvent(currentScore, cursor, sequenceIndex)
+        ? moveCursorToPreviousEvent(currentScore, cursor, lane)
         : moveCursorToNextMeasure(currentScore, cursor);
     ctx.setCursor({ ...newCursor, staffIndex: cursor.staffIndex ?? 0 });
     return true;

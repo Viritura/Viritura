@@ -447,3 +447,105 @@ describe("handleNoteEntry", () => {
     expect(setCursor).toHaveBeenCalledWith({ measureIndex: 0, beatPosition: 1, partIndex: 1, staffIndex: 0 });
   });
 });
+
+describe("voice lanes", () => {
+  function laneContext(
+    getScore: () => Score,
+    setScore: (next: Score) => void,
+    currentVoice: number,
+    measureIndex: number,
+    beatPosition = 0,
+  ): KeyboardHandlerContext {
+    return {
+      getScore,
+      getNoteInput: () => ({
+        active: true,
+        currentVoice,
+        currentDuration: "quarter",
+        dotCount: 0,
+        currentAccidental: null,
+        isRest: false,
+        currentGraceType: null,
+        lastPitch: null,
+        cursorPosition: { measureIndex, beatPosition, partIndex: 0, staffIndex: 0 },
+        slurActive: false,
+        slurStartEventId: null,
+        chordLock: false,
+        condensingRouting: null,
+      }),
+      getConfig: () => ({ selectedScoreIndex: 0 }),
+      updateScore: setScore,
+      setCursor: vi.fn(),
+      setLastPitch: vi.fn(),
+      setAccidental: vi.fn(),
+      setRhythmSource: vi.fn(),
+      previewPitch: vi.fn(),
+    } as unknown as KeyboardHandlerContext;
+  }
+
+  function noteEvents(score: Score, measure: number, sequence: number): number {
+    const content = score.parts[0]!.measures[measure]!.sequences[sequence]?.content ?? [];
+    return content.filter((item) => item.type === "event" && item.notes?.length).length;
+  }
+
+  it("creates a named, hinted Down 1 sequence instead of padding a blank slot", () => {
+    let score = makeScore();
+    handleNoteEntry(
+      "C",
+      false,
+      laneContext(
+        () => score,
+        (next) => (score = next),
+        2,
+        0,
+      ),
+    );
+
+    const sequences = score.parts[0]!.measures[0]!.sequences;
+    expect(sequences).toHaveLength(2);
+    expect(sequences[1]).toMatchObject({ voice: "down1", directionHint: "lower" });
+    expect(noteEvents(score, 0, 1)).toBe(1);
+  });
+
+  it("follows the lane, not the array slot, when a bar stores Down 1 first", () => {
+    let score = makeScore();
+    score.parts[0]!.measures[0]!.sequences = [
+      { voice: "down1", directionHint: "lower", content: [{ type: "event", id: "d", duration: { base: "whole" } }] },
+      { voice: "up1", directionHint: "upper", content: [] },
+    ];
+    handleNoteEntry(
+      "E",
+      false,
+      laneContext(
+        () => score,
+        (next) => (score = next),
+        1,
+        0,
+      ),
+    );
+
+    expect(noteEvents(score, 0, 1)).toBe(1);
+    expect(noteEvents(score, 0, 0)).toBe(0);
+  });
+
+  it("resolves an imported upper-hinted voice to Up 1 regardless of its slot", () => {
+    let score = makeScore();
+    score.parts[0]!.measures[0]!.sequences = [
+      { voice: "v2", directionHint: "lower", content: [{ type: "event", id: "l", duration: { base: "whole" } }] },
+      { voice: "v1", directionHint: "upper", content: [] },
+    ];
+    handleNoteEntry(
+      "G",
+      false,
+      laneContext(
+        () => score,
+        (next) => (score = next),
+        1,
+        0,
+      ),
+    );
+
+    expect(score.parts[0]!.measures[0]!.sequences).toHaveLength(2);
+    expect(noteEvents(score, 0, 1)).toBe(1);
+  });
+});

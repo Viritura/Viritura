@@ -14,6 +14,7 @@ import { sequenceContentBeats } from "../commands/noteCommands";
 import { advanceCursor } from "../commands/cursorCommands";
 import { findPlacedAnnotationIds } from "./annotations";
 import { mergeDestinationIntoPaste, pasteMergeWarnings } from "./pasteMerge";
+import { resolveVoiceTarget } from "../voiceLanes";
 
 interface PasteCursor extends CursorPosition {
   voice: number;
@@ -22,8 +23,11 @@ interface PasteCursor extends CursorPosition {
 function sequenceIndexForCursor(score: Score, cursor: PasteCursor): number {
   const sequences = score.parts[cursor.partIndex]?.measures[cursor.measureIndex]?.sequences;
   if (!sequences) return cursor.voice;
-  if (!sequences.some((sequence) => sequence.staff != null)) return cursor.voice;
   const staffNumber = (cursor.staffIndex ?? 0) + 1;
+  // `cursor.voice` is the 0-based voice lane (Up 1, Down 1, …), not an array slot.
+  const laneIndex = resolveVoiceTarget(sequences, { lane: cursor.voice + 1, staff: staffNumber });
+  if (laneIndex !== undefined) return laneIndex;
+  if (!sequences.some((sequence) => sequence.staff != null)) return cursor.voice;
   const staffSequences = sequences
     .map((sequence, index) => ({ sequence, index }))
     .filter(({ sequence }) => sequence.staff === staffNumber);

@@ -1,11 +1,16 @@
 import type { TupletBracket, TupletDisplaySetting, Placement, Score } from "@viritura/core";
 import { resolveEventLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
+import { setSequenceDirectionHint } from "../voiceLanes";
 
 export interface LayoutOverrideParams {
   event?: {
     staff?: number | null;
-    stemDirection?: "up" | "down" | "auto" | null;
+    stemDirection?: "up" | "down" | null;
+  };
+  /** Scoped to the voice (sequence) holding the element, for its measure. */
+  sequence?: {
+    directionHint?: "upper" | "lower" | null;
   };
   tuplet?: {
     placement?: Placement | null;
@@ -38,11 +43,14 @@ export function applyLayoutOverrides(score: Score, elementId: string, params: La
   }
 
   const nextScore = cloneScore(score);
-  const sequence =
-    nextScore.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
-  if (!sequence) {
+  const sequences = nextScore.parts[location.partIndex]?.measures[location.measureIndex]?.sequences;
+  const sequence = sequences?.[location.sequenceIndex];
+  if (!sequences || !sequence) {
     return score;
   }
+
+  const directionHint = params.sequence?.directionHint;
+  if (directionHint !== undefined) setSequenceDirectionHint(sequences, location.sequenceIndex, directionHint);
 
   // When tupletIndex is set, the target is inside a tuplet — use tupletIndex
   // to find the tuplet container in sequence.content.

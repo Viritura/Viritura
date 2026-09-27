@@ -18,6 +18,7 @@ import { defaultPitchForClef } from "../input/octaveLogic";
 import { produce } from "../score/scoreClone";
 import type { KeyboardHandlerContext } from "./types";
 import { resolveActiveClefForStaff, resolveOttavaShift } from "./noteInputShared";
+import { resolveVoiceTarget, type LaneRef } from "../voiceLanes";
 
 type NoteInputCursorSnapshot = CursorPosition;
 
@@ -65,6 +66,8 @@ export function navigateNoteInputStaffPart(
 
 interface TransposeLoc {
   measureIndex: number;
+  /** The voice lane's sequence in `measureIndex` — lanes move between slots bar to bar. */
+  sequenceIndex: number;
   eventIndex: number;
 }
 
@@ -74,11 +77,13 @@ export function findTransposeTarget(
   currentScore: Score,
   ctx: KeyboardHandlerContext,
   cursor: NoteInputCursorSnapshot,
-  voiceIdx: number,
+  lane: LaneRef,
 ): TransposeLoc | null {
   const partIndex = cursor.partIndex ?? 0;
-  const seq = currentScore.parts[partIndex]?.measures[cursor.measureIndex]?.sequences[voiceIdx];
-  if (seq) {
+  const sequences = currentScore.parts[partIndex]?.measures[cursor.measureIndex]?.sequences ?? [];
+  const voiceIdx = resolveVoiceTarget(sequences, lane);
+  const seq = voiceIdx === undefined ? undefined : sequences[voiceIdx];
+  if (seq && voiceIdx !== undefined) {
     let accBeats = 0;
     for (let i = 0; i < seq.content.length; i++) {
       const ev = seq.content[i];
@@ -92,12 +97,13 @@ export function findTransposeTarget(
       }
       const evBeats = durationToBeats(ev.duration);
       if (accBeats + evBeats >= cursor.beatPosition - 1e-9 && !isRest(ev)) {
-        return { measureIndex: cursor.measureIndex, eventIndex: i };
+        return { measureIndex: cursor.measureIndex, sequenceIndex: voiceIdx, eventIndex: i };
       }
       accBeats += evBeats;
     }
   }
-  return findLastNoteEvent(currentScore, partIndex, voiceIdx);
+  const last = findLastNoteEvent(currentScore, partIndex, lane);
+  return last?.sequenceIndex === undefined ? null : { ...last, sequenceIndex: last.sequenceIndex };
 }
 
 function pickTransposeMode(e: KeyboardEvent): "octave" | "diatonic" | "chromatic" | null {
@@ -129,10 +135,10 @@ function updateOctaveMemoryFromEvent(
   currentScore: Score,
   resultScore: Score,
   partIndex: number,
-  voiceIdx: number,
   loc: TransposeLoc,
 ): void {
-  const ev = resultScore.parts[partIndex]?.measures[loc.measureIndex]?.sequences[voiceIdx]?.content[loc.eventIndex];
+  const ev =
+    resultScore.parts[partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.content[loc.eventIndex];
   if (!ev || ev.type !== "event" || !ev.notes?.length) return;
   const firstNote = ev.notes[0];
   if (!firstNote) return;
@@ -153,7 +159,6 @@ export function applyArrowTranspose(
   ctx: KeyboardHandlerContext,
   currentScore: Score,
   cursor: NoteInputCursorSnapshot,
-  voiceIdx: number,
   loc: TransposeLoc,
 ): void {
   const mode = pickTransposeMode(e);
@@ -163,13 +168,14 @@ export function applyArrowTranspose(
   const keyFifths = resolveKeyAtMeasure(currentScore, cursor.measureIndex ?? 0);
 
   const newScore = produce(currentScore, (draft) => {
-    const ev = draft.parts[partIndex]?.measures[loc.measureIndex]?.sequences[voiceIdx]?.content[loc.eventIndex];
+    const ev =
+      draft.parts[partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex]?.content[loc.eventIndex];
     if (ev && ev.type === "event" && ev.notes?.length) {
       applyTransposeToNotes(ev.notes, mode, direction, keyFifths);
     }
   });
   if (newScore !== currentScore) {
     ctx.updateScore(newScore);
-    updateOctaveMemoryFromEvent(ctx, currentScore, newScore, partIndex, voiceIdx, loc);
+    updateOctaveMemoryFromEvent(ctx, currentScore, newScore, partIndex, loc);
   }
 }

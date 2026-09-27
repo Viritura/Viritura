@@ -84,7 +84,7 @@ export function useCursorOnNoteInputActivate({
         prevActiveRef.current = noteInputState.active;
         return;
       }
-      const voice = noteInputState.currentVoice - 1;
+      const voice = { lane: noteInputState.currentVoice };
 
       const selectionCursor = cursorForSelection(selection, score);
       if (selectionCursor) {

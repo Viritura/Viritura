@@ -88,35 +88,35 @@ Audit actions:
 
 Always available. Browser-style shortcuts (clipboard, save, undo, etc.) fire even while typing in a text field; mode shortcuts (like `N`) are suppressed in text inputs.
 
-| Key               | Action                                        |
-| ----------------- | --------------------------------------------- |
-| `F1`              | Open this help dialog                         |
-| `Esc`             | Exit note input / unselect annotation / clear |
-| `Mod+Space`       | Open jump bar (command palette)               |
-| `Mod+O`           | Open project folder                           |
-| `Mod+Shift+O`     | Open standalone MNX file                      |
-| `Mod+S`           | Save                                          |
-| `Mod+Shift+S`     | Save as                                       |
-| `Mod+P`           | Publish                                       |
-| `Mod+Z`           | Undo                                          |
-| `Mod+Y`           | Redo                                          |
-| `Mod+Shift+Z`     | Redo (alternate)                              |
-| `Mod+A`           | Select all                                    |
-| `Mod+C`           | Copy                                          |
-| `Mod+X`           | Cut                                           |
-| `Mod+V`           | Paste                                         |
-| `Mod+Shift+V`     | Paste and merge into the destination chords   |
-| `Mod+Shift+↑`     | Select the top note of the selected chords    |
-| `Mod+Shift+↓`     | Select the bottom note of the selected chords |
-| `Mod+=` / `Mod++` | Zoom in                                       |
-| `Mod+-`           | Zoom out                                      |
-| `Mod+0`           | Reset viewport                                |
-| `Mod+\`           | Toggle side panels                            |
-| `N`               | Toggle note input mode                        |
-| `Shift+W`         | Toggle lyric entry and open the Text palette  |
-| `Space`           | Play / pause (suppressed in note input)       |
-| `Alt+1` … `Alt+4` | Switch active voice (1–4)                     |
-| `Alt+C`           | Toggle condensing popover                     |
+| Key               | Action                                         |
+| ----------------- | ---------------------------------------------- |
+| `F1`              | Open this help dialog                          |
+| `Esc`             | Exit note input / unselect annotation / clear  |
+| `Mod+Space`       | Open jump bar (command palette)                |
+| `Mod+O`           | Open project folder                            |
+| `Mod+Shift+O`     | Open standalone MNX file                       |
+| `Mod+S`           | Save                                           |
+| `Mod+Shift+S`     | Save as                                        |
+| `Mod+P`           | Publish                                        |
+| `Mod+Z`           | Undo                                           |
+| `Mod+Y`           | Redo                                           |
+| `Mod+Shift+Z`     | Redo (alternate)                               |
+| `Mod+A`           | Select all                                     |
+| `Mod+C`           | Copy                                           |
+| `Mod+X`           | Cut                                            |
+| `Mod+V`           | Paste                                          |
+| `Mod+Shift+V`     | Paste and merge into the destination chords    |
+| `Mod+Shift+↑`     | Select the top note of the selected chords     |
+| `Mod+Shift+↓`     | Select the bottom note of the selected chords  |
+| `Mod+=` / `Mod++` | Zoom in                                        |
+| `Mod+-`           | Zoom out                                       |
+| `Mod+0`           | Reset viewport                                 |
+| `Mod+\`           | Toggle side panels                             |
+| `N`               | Toggle note input mode                         |
+| `Shift+W`         | Toggle lyric entry and open the Text palette   |
+| `Space`           | Play / pause (suppressed in note input)        |
+| `Alt+1` … `Alt+4` | Switch voice lane (Up 1, Down 1, Up 2, Down 2) |
+| `Alt+C`           | Toggle condensing popover                      |
 
 In the jump bar, type `m125` or `b125` to go to measure 125. Type `rA` or
 `r125` to go to the rehearsal mark with that label.
@@ -286,10 +286,10 @@ Active after pressing `N`. Most letter keys enter notes directly; the cursor adv
 
 ### Tuplets & Voices
 
-| Key               | Action             |
-| ----------------- | ------------------ |
-| `Shift+T`         | Open tuplet menu   |
-| `Alt+1` … `Alt+4` | Switch input voice |
+| Key               | Action                                               |
+| ----------------- | ---------------------------------------------------- |
+| `Shift+T`         | Open tuplet menu                                     |
+| `Alt+1` … `Alt+4` | Switch input voice lane (Up 1, Down 1, Up 2, Down 2) |
 
 ---
 

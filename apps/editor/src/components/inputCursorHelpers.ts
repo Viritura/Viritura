@@ -14,6 +14,7 @@ import { durationToBeats, sequenceContentBeats } from "../commands/noteCommands"
 import type { DotCount, GraceType } from "../store/noteInputStore";
 import { kitComponentFromStaffPosition, mnxStaffPositionFromPosFromTop } from "../score/kitInput";
 import { computePagePlacements } from "./ScoreCanvas/viewportGeometry";
+import { sequenceAt, type LaneRef, type VoiceTarget } from "../voiceLanes";
 
 export const OPTIMISTIC_NOTE_INPUT_EVENT = "viritura:optimistic-note-input";
 
@@ -113,7 +114,7 @@ export function buildBeatMap(
   measureIndex: number,
   score: Score,
   si: SpatialIndex,
-  voice: number,
+  voice: VoiceTarget,
   displayList?: DisplayList | null,
   partIndex: number = 0,
 ): { anchors: { beat: number; x: number }[]; measureLeft: number; measureRight: number; totalBeats: number } | null {
@@ -167,7 +168,7 @@ export function buildBeatMap(
   // The engine's anchors may miss tuplet subdivisions (e.g. if the WASM
   // layout was computed before the tuplet was created). This ensures the
   // snap grid and ruler always include tuplet-internal positions.
-  const seq = score.parts[partIndex]?.measures[measureIndex]?.sequences[voice];
+  const seq = sequenceAt(score, partIndex, measureIndex, voice);
   if (seq && anchors.length >= 2) {
     const interpolationAnchors = [...anchors].sort((left, right) => left.beat - right.beat);
     const existingBeats = new Set(anchors.map((a) => Math.round(a.beat * 1000) / 1000));
@@ -333,7 +334,7 @@ export function computeSnappedBeat(
   mouseScoreY: number,
   score: Score,
   si: SpatialIndex,
-  voice: number,
+  voice: VoiceTarget,
   durationBase: NoteValueBase,
   dotCount: DotCount,
   displayList?: DisplayList | null,
@@ -384,7 +385,7 @@ export function resolveCursorX(
   measureIndex: number,
   beatPosition: number,
   partIndex: number,
-  voice: number,
+  voice: VoiceTarget,
   si: SpatialIndex,
   score: Score,
   displayList?: DisplayList | null,
@@ -419,6 +420,11 @@ const VOICE_COLORS: Record<number, string> = {
   3: "#E65100",
   4: "#6A1B9A",
 };
+
+/** The voice lane the cursor paints for, on the cursor's staff. */
+function cursorLane(currentVoice: number, staffIndex: number | undefined): LaneRef {
+  return { lane: currentVoice, staff: (staffIndex ?? 0) + 1 };
+}
 
 /**
  * Paint the beat position cursor — a thicker line with a small triangle.
@@ -466,7 +472,7 @@ function paintRulerGuide(
   staff: StaffInfo,
   noteBeats: number,
   activeBeat: number,
-  voice: number,
+  voice: VoiceTarget,
   displayList?: DisplayList | null,
   partIndex: number = 0,
 ): void {
@@ -577,6 +583,7 @@ function ghostPitch(
 /** Paint the persistent beat cursor + the mouse-following ghost note. */
 export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOverlayOptions): void {
   const { cursor, mouse, altKey, staves, spatialIndex, score, displayList, currentVoice } = opts;
+  const laneTarget = cursorLane(currentVoice, cursor?.staffIndex);
 
   // Persistent beat cursor (independent of mouse)
   if (cursor && spatialIndex && score && staves.length > 0) {
@@ -584,7 +591,7 @@ export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOver
       cursor.measureIndex,
       cursor.beatPosition,
       cursor.partIndex,
-      currentVoice - 1,
+      laneTarget,
       spatialIndex,
       score,
       displayList,
@@ -625,7 +632,7 @@ export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOver
     scoreY,
     score,
     spatialIndex,
-    currentVoice - 1,
+    laneTarget,
     effectiveDuration,
     effectiveDots,
     displayList,
@@ -647,7 +654,7 @@ export function paintInputOverlay(ctx: CanvasRenderingContext2D, opts: PaintOver
       staff,
       noteBeats,
       snapped.beat,
-      currentVoice - 1,
+      laneTarget,
       displayList,
       snapped.partIndex,
     );
@@ -693,11 +700,12 @@ export interface PaintOptimisticOptions {
 export function paintOptimisticOverlay(ctx: CanvasRenderingContext2D, opts: PaintOptimisticOptions): boolean {
   const { detail, staves, spatialIndex, score, displayList } = opts;
   const currentVoice = detail.currentVoice ?? opts.currentVoice;
+  const laneTarget = cursorLane(currentVoice, detail.cursor.staffIndex);
   const cursorX = resolveCursorX(
     detail.cursor.measureIndex,
     detail.cursor.beatPosition,
     detail.cursor.partIndex,
-    currentVoice - 1,
+    laneTarget,
     spatialIndex,
     score,
     displayList,

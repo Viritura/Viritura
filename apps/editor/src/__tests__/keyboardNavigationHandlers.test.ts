@@ -419,8 +419,7 @@ describe("note-input arrow transposition", () => {
       ctx,
       score,
       { partIndex: 0, staffIndex: 0, measureIndex: 0, beatPosition: 0 },
-      0,
-      { measureIndex: 0, eventIndex: 0 },
+      { measureIndex: 0, sequenceIndex: 0, eventIndex: 0 },
     );
 
     const transposed = score.parts[0]!.measures[0]!.sequences[0]!.content[0] as NoteEvent;
@@ -454,8 +453,7 @@ describe("note-input arrow transposition", () => {
       ctx,
       score,
       { partIndex: 0, staffIndex: 0, measureIndex: 0, beatPosition: 0 },
-      0,
-      { measureIndex: 0, eventIndex: 0 },
+      { measureIndex: 0, sequenceIndex: 0, eventIndex: 0 },
     );
 
     expect(score.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch).toEqual({

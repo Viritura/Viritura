@@ -8,6 +8,7 @@ import {
   type NoteEvent,
   type Placement,
   type Score,
+  type Sequence,
   type Tuplet,
 } from "@viritura/core";
 
@@ -88,6 +89,21 @@ function staffPositionFromTop(diatonic: number, clef: Clef): number {
   return (4 - clefLine) * 2 - (diatonic - clefRef);
 }
 
+/**
+ * Whether a sequence puts real notation in its bar. Mirrors the engine's
+ * contest rule: `space` is MNX's hidden-rest encoding, so a space-only
+ * sequence leaves the bar to the other voice; a visible rest does not.
+ */
+function isContesting(sequence: Sequence): boolean {
+  return sequence.fullMeasure !== undefined || sequence.content.some((item) => item.type !== "space");
+}
+
+/**
+ * The stem direction the engraver will draw for `event`, mirroring
+ * `layout::measure::stem_direction`: an explicit `stemDirection` wins; in a
+ * contested bar the sequence's `directionHint` decides, with array order as
+ * the tiebreaker; an uncontested voice follows pitch.
+ */
 function computeEffectiveStemUp(
   score: Score,
   partIndex: number,
@@ -101,7 +117,11 @@ function computeEffectiveStemUp(
 
   if (event.stemDirection === "up") return true;
   if (event.stemDirection === "down") return false;
-  if (measure.sequences.length > 1) return sequenceIndex === 0;
+  if (measure.sequences.filter(isContesting).length > 1) {
+    if (sequence.directionHint === "upper") return true;
+    if (sequence.directionHint === "lower") return false;
+    return sequenceIndex === 0;
+  }
   if (!event.notes?.length) return false;
 
   const staffIndex = (sequence.staff ?? 1) - 1;
