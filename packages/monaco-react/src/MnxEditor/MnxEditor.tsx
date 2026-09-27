@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Editor } from "../Editor";
 import type { EditorProps, MonacoApi, OnMount, OnValidate } from "../types";
-import { configureMnxDiagnostics, loadMnxSchema } from "./diagnostics";
+import { configureMnxDiagnostics, getMnxValidationWorker, loadMnxSchema } from "./diagnostics";
 
 const DEFAULT_MODEL_PATH = "file:///document.mnx";
 const ROOT_STYLE: CSSProperties = { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 };
@@ -142,10 +142,11 @@ export function MnxEditor({
     const request = ++validationRequestRef.current;
     const validatedSource = model.getValue();
     try {
-      const workerAccessor = await monaco.json.getWorker();
-      const worker = await workerAccessor(model.uri);
+      const worker = await getMnxValidationWorker(monaco, model.uri);
+      if (request !== validationRequestRef.current || model.isDisposed()) return;
       const diagnostics = await worker.doValidation(model.uri.toString());
-      if (request !== validationRequestRef.current || model.getValue() !== validatedSource) return;
+      if (request !== validationRequestRef.current || model.isDisposed() || model.getValue() !== validatedSource)
+        return;
       const errorCount = diagnostics.filter((diagnostic) => diagnostic.severity >= monaco.MarkerSeverity.Error).length;
       setValidation(
         errorCount === 0
@@ -153,7 +154,7 @@ export function MnxEditor({
           : { kind: "invalid", count: errorCount, source: validatedSource },
       );
     } catch (error: unknown) {
-      if (request !== validationRequestRef.current) return;
+      if (request !== validationRequestRef.current || model.isDisposed()) return;
       const message = error instanceof Error ? error.message : "The MNX validation worker failed";
       setValidation({ kind: "unavailable", message });
     }

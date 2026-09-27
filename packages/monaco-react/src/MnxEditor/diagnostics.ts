@@ -1,6 +1,9 @@
-import type { MonacoApi } from "../types";
+import type { Uri } from "monaco-editor";
+import type { JsonValidationWorker, MonacoApi } from "../types";
 
 const MNX_SCHEMA_URI = "https://mnx.formats.music/docs/mnx-schema.json";
+const WORKER_STARTUP_TIMEOUT_MS = 10_000;
+const WORKER_RETRY_INTERVAL_MS = 50;
 const schemaPromises = new Map<string, Promise<Record<string, unknown>>>();
 
 export function loadMnxSchema(schemaUrl: string): Promise<Record<string, unknown>> {
@@ -27,4 +30,17 @@ export function configureMnxDiagnostics(monaco: MonacoApi, schema: Record<string
     schemaValidation: "error",
     schemas: [{ uri: MNX_SCHEMA_URI, fileMatch: ["*.mnx"], schema }],
   });
+}
+
+export async function getMnxValidationWorker(monaco: MonacoApi, uri: Uri): Promise<JsonValidationWorker> {
+  const deadline = Date.now() + WORKER_STARTUP_TIMEOUT_MS;
+  while (true) {
+    try {
+      const workerAccessor = await monaco.json.getWorker();
+      return await workerAccessor(uri);
+    } catch (error) {
+      if (error !== "JSON not registered!" || Date.now() >= deadline) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, WORKER_RETRY_INTERVAL_MS));
+    }
+  }
 }

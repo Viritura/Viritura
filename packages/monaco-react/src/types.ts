@@ -1,6 +1,6 @@
 import type * as Monaco from "monaco-editor";
 
-interface JsonValidationWorker {
+export interface JsonValidationWorker {
   doValidation(uri: string): Promise<readonly { readonly severity: number }[]>;
 }
 
