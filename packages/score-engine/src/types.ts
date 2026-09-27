@@ -136,7 +136,7 @@ export interface LoadEngineOptions {
 
 /** Options for `engine.createLayoutWorker()`. */
 export interface LayoutWorkerOptions {
-  /** URL of the engine's worker script. Defaults to the one shipped alongside the engine. */
+  /** URL of the engine's worker script. Defaults to `score-engine.worker.js` in the asset base. */
   url?: string | URL;
 }
 

@@ -1,16 +1,16 @@
 # Score Viewer React
 
 `@viritura/score-viewer-react` wraps the [Score Viewer](/developers/score-viewer)
-in React components and hooks. It works with React 18 and 19.
+in React components and hooks. It needs React 19.2 or later.
 
-> [!NOTE]
-> **Availability: Viritura workspace only**
->
-> The React package isn't in the release archive yet. Outside the Viritura
-> repository, React apps can use the [Score Viewer](/developers/score-viewer)
-> directly, as shown in
-> [Use it from a framework](/developers/score-viewer#use-it-from-a-framework).
-> You get the same rendering, without these components, hooks and control bar.
+```sh
+npm install @viritura/score-viewer-react
+```
+
+The package depends on `@viritura/score-viewer` and `@viritura/score-engine`,
+and re-exports the engine API, so one import is enough. In a bundled app, copy
+the engine's runtime files into your static assets and pass `assetBaseUrl`, as
+described in [Serving the files](/developers#serving-the-files).
 
 ## Complete viewer
 

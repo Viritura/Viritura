@@ -1,7 +1,6 @@
 {
   "name": "@viritura/score-viewer",
   "version": "0.1.0",
-  "private": true,
   "description": "Framework-free DOM score viewer for MNX music notation.",
   "license": "MIT",
   "repository": {
@@ -21,16 +20,13 @@
   },
   "files": [
     "dist",
-    "src",
     "README.md",
-    "CHANGELOG.md",
-    "examples"
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc",
-    "test": "vitest run",
-    "prepublishOnly": "echo 'PUBLISH BLOCKED: workspace deps must be bundled or published first.' && exit 1"
+    "test": "vitest run"
   },
   "dependencies": {
     "@viritura/score-engine": "workspace:*"
@@ -40,6 +36,20 @@
     "vitest": "^4.1.11"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "homepage": "https://viritura.com/developers",
+  "bugs": {
+    "url": "https://github.com/Viritura/Viritura/issues"
   }
 }

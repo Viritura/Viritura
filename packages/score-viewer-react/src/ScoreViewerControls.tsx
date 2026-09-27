@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
 import { BookOpen, Columns3, FileText, Maximize2, Minus, MoveRight, Plus, Rows3, Scan } from "lucide-react";
-import { Slider } from "@viritura/ui";
 import type { ScoreViewMode } from "@viritura/score-viewer";
 
 function inlineIconButtonStyle(active: boolean, disabled: boolean): CSSProperties {
@@ -18,6 +17,12 @@ function inlineIconButtonStyle(active: boolean, disabled: boolean): CSSPropertie
     padding: 0,
   };
 }
+const ZOOM_SLIDER_STYLE: CSSProperties = {
+  width: 116,
+  margin: 0,
+  accentColor: "rgba(255, 255, 255, 0.9)",
+  cursor: "pointer",
+};
 const DIVIDER_STYLE: CSSProperties = { width: 1, height: 22, background: "rgba(255, 255, 255, 0.16)" };
 const SCORE_SELECT_STYLE: CSSProperties = {
   height: 28,
@@ -458,14 +463,15 @@ function ZoomControl({ show, zoom, onZoomChange, minZoom, maxZoom, zoomStep }: Z
       >
         <Minus size={14} />
       </InlineIconButton>
-      <Slider
+      <input
+        type="range"
         min={minZoom}
         max={maxZoom}
         step={zoomStep}
         value={zoom}
-        onChange={onZoomChange}
-        ariaLabel="Zoom"
-        width={116}
+        onChange={(event) => onZoomChange(Number(event.currentTarget.value))}
+        aria-label="Zoom"
+        style={ZOOM_SLIDER_STYLE}
       />
       <InlineIconButton
         title="Zoom in"

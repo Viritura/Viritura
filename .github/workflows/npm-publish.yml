@@ -1,0 +1,147 @@
+name: Publish npm packages
+
+# Publishes @viritura/score-engine, @viritura/score-viewer and
+# @viritura/score-viewer-react to npm when a `score-engine-v<version>` tag is
+# pushed. The three packages share one version (scripts/set-score-packages-version.ts).
+#
+# Authentication is npm trusted publishing (OIDC): each package on npmjs.com
+# trusts this workflow file in the `npm` environment, so no npm token is
+# stored in the repository. npm attaches provenance automatically.
+#
+# Run it manually with `dry_run` to rehearse a release from any branch; real
+# publishes only run from a release tag.
+
+on:
+  push:
+    tags: ["score-engine-v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Pack and verify, then run `npm publish --dry-run` without uploading
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    steps:
+      - name: Refuse real publishes outside a release tag
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run && !startsWith(github.ref, 'refs/tags/score-engine-v')
+        run: |
+          echo "::error::Publishing requires a score-engine-v* tag. Re-run with dry_run, or push a tag."
+          exit 1
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm that supports trusted publishing
+        run: npm install --global npm@^11.5.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check shared package version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/score-engine-v* ]]; then
+            version=$(pnpm --silent version:score-packages --check --tag "$GITHUB_REF_NAME")
+          else
+            version=$(pnpm --silent version:score-packages --check)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Prereleases (0.2.0-beta.1) go to `next` so `npm install` keeps resolving the last stable release.
+          if [[ "$version" == *-* ]]; then echo "dist_tag=next" >> "$GITHUB_OUTPUT"; else echo "dist_tag=latest" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.93.1 --profile minimal --target wasm32-unknown-unknown
+          rustup default 1.93.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: engine
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --version 0.14.0 --locked
+
+      - name: Build WASM
+        run: pnpm wasm:build
+
+      - name: Test engine and viewers
+        run: pnpm turbo run test --filter=@viritura/score-engine --filter=@viritura/score-viewer --filter=@viritura/score-viewer-react
+
+      - name: Build npm packages
+        run: pnpm build:npm-packages
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Verify packed npm packages
+        run: pnpm verify:npm-packages --render
+
+      - name: Pack
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm"
+          for pkg in score-engine score-viewer score-viewer-react; do
+            (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/npm")
+          done
+          ls -l "$RUNNER_TEMP/npm"
+
+      # Dependency order, so each package's dependencies already exist when it lands.
+      # Versions already on the registry are skipped, which makes a failed run safe to retry.
+      - name: Publish
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIST_TAG: ${{ steps.version.outputs.dist_tag }}
+        run: |
+          flags=(--access public --tag "$DIST_TAG")
+          if [[ "$DRY_RUN" == "true" ]]; then flags+=(--dry-run); fi
+          for pkg in score-engine score-viewer score-viewer-react; do
+            name="@viritura/$pkg"
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "$name@$VERSION is already published; skipping."
+              continue
+            fi
+            npm publish "$RUNNER_TEMP/npm/viritura-$pkg-$VERSION.tgz" "${flags[@]}"
+          done
+
+      - name: Summary
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIST_TAG: ${{ steps.version.outputs.dist_tag }}
+        run: |
+          {
+            if [[ "$DRY_RUN" == "true" ]]; then echo "### Dry run: nothing was published"; else echo "### Published $VERSION (\`$DIST_TAG\`)"; fi
+            echo
+            for pkg in score-engine score-viewer score-viewer-react; do
+              echo "- [\`@viritura/$pkg@$VERSION\`](https://www.npmjs.com/package/@viritura/$pkg/v/$VERSION)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
