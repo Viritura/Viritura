@@ -25,7 +25,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `loadEngine({ textFont: false })`; default asset base next to the prebuilt bundle.
   The default layout worker follows `assetBaseUrl`.
 - Published to npm with provenance, versioned independently of
-  `@viritura/score-viewer` and `@viritura/score-viewer-react`. The
+  `@viritura/score-viewer` and `@viritura/score-viewer-react`. Every engine
+  change on `main` also publishes a `-next.<n>` prerelease under the `next`
+  dist-tag. The
   package ships `dist/` only: an ES module with Viritura's internal packages
   inlined (no runtime dependencies), declarations, the layout worker, `wasm/`
   and `fonts/`.

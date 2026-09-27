@@ -3,7 +3,14 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type { ScorePackage } from "./packageVersions";
-import { bumpVersion, planRelease, satisfiesCaret, type Bump, type ReleaseSources } from "./releasePlan";
+import {
+  bumpVersion,
+  planPrerelease,
+  planRelease,
+  satisfiesCaret,
+  type Bump,
+  type ReleaseSources,
+} from "./releasePlan";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -117,4 +124,40 @@ test("a re-run reuses the version already tagged at this commit", () => {
 
 test("refuses to select nothing", () => {
   assert.throws(() => planRelease(root, bumps({}), sources({})), /Select at least one package/);
+});
+
+test("engine prereleases lead up to the next patch and leave the viewers at their npm versions", () => {
+  const plan = planPrerelease(
+    root,
+    412,
+    sources({ latest: { "score-engine": "0.2.3", "score-viewer": "0.2.0", "score-viewer-react": "0.2.1" } }),
+  );
+  assert.equal(plan.distTag, "next");
+  assert.deepEqual(plan.releases, [
+    { pkg: "score-engine", version: "0.2.4-next.412", previousTag: null, published: false },
+  ]);
+  assert.deepEqual(plan.versions, {
+    "score-engine": "0.2.4-next.412",
+    "score-viewer": "0.2.0",
+    "score-viewer-react": "0.2.1",
+  });
+});
+
+test("engine prereleases before the first stable release lead up to 0.1.0", () => {
+  const plan = planPrerelease(root, 7, sources({}));
+  assert.equal(plan.releases[0]!.version, "0.1.0-next.7");
+});
+
+test("a re-run of an engine prerelease is marked as already published", () => {
+  const plan = planPrerelease(root, 7, { ...sources({}), isPublished: (_pkg, version) => version === "0.1.0-next.7" });
+  assert.equal(plan.releases[0]!.published, true);
+});
+
+test("prereleases never satisfy a viewer's caret range", () => {
+  assert.ok(!satisfiesCaret("^0.2.0", "0.2.4-next.412"));
+});
+
+test("stable releases publish to latest", () => {
+  const plan = planRelease(root, bumps({ "score-engine": "patch" }), sources({ latest: { "score-engine": "0.1.0" } }));
+  assert.equal(plan.distTag, "latest");
 });

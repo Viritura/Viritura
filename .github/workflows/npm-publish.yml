@@ -1,6 +1,16 @@
 name: Publish npm packages
 
-# Manually releases any of @viritura/score-engine, @viritura/score-viewer and
+# Two kinds of run, both here because npm trusts this one workflow file:
+#
+#  - Every push to main that changes @viritura/score-engine or its inputs
+#    publishes an engine prerelease `<next patch>-next.<run>` under the npm
+#    dist-tag `next`, with provenance but no git tag or GitHub Release. Apps
+#    can pin one exactly; `npm install` and the viewers' caret ranges ignore
+#    prereleases and keep resolving the latest stable engine.
+#
+#  - A manual run makes stable releases.
+#
+# The manual run releases any of @viritura/score-engine, @viritura/score-viewer and
 # @viritura/score-viewer-react. Pick a bump for each package to release
 # (`skip` leaves it alone); the run takes each selected package's latest npm
 # version, bumps it, and stamps the result into this checkout only
@@ -21,6 +31,23 @@ name: Publish npm packages
 # runs from any branch. Real releases only run from main.
 
 on:
+  push:
+    branches: [main]
+    # The engine package's dependency closure (score-engine → renderer/format/midi → core,
+    # the Rust engine and bundled fonts) plus the scripts that build and publish it.
+    paths:
+      - engine/**
+      - packages/core/**
+      - packages/format/**
+      - packages/midi/**
+      - packages/renderer/**
+      - packages/score-engine/**
+      - assets/fonts/**
+      - scripts/build-wasm.ts
+      - scripts/build-npm-packages.ts
+      - scripts/score-release.ts
+      - scripts/score-packages/**
+      - .github/workflows/npm-publish.yml
   workflow_dispatch:
     inputs:
       score-engine:
@@ -46,8 +73,11 @@ on:
 permissions:
   contents: read
 
+# Prereleases and stable releases publish different versions, so they queue
+# separately: a newer engine change then replaces a waiting prerelease run
+# without ever cancelling a waiting manual release.
 concurrency:
-  group: npm-publish
+  group: npm-publish-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -60,10 +90,10 @@ jobs:
       contents: write
       id-token: write
     env:
-      DRY_RUN: ${{ inputs.dry_run }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     steps:
       - name: Refuse real releases outside main
-        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.dry_run && github.ref != 'refs/heads/main' }}
         run: |
           echo "::error::Releases run from main. Re-run with dry_run, or dispatch from main."
           exit 1
@@ -100,14 +130,19 @@ jobs:
         run: |
           PLAN="$RUNNER_TEMP/release-plan.json"
           echo "PLAN=$PLAN" >> "$GITHUB_ENV"
-          pnpm --silent score-release plan \
-            --score-engine "$ENGINE" --score-viewer "$VIEWER" --score-viewer-react "$REACT" \
-            --out "$PLAN" --apply
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            pnpm --silent score-release next --run "$GITHUB_RUN_NUMBER" --out "$PLAN" --apply
+          else
+            pnpm --silent score-release plan \
+              --score-engine "$ENGINE" --score-viewer "$VIEWER" --score-viewer-react "$REACT" \
+              --out "$PLAN" --apply
+          fi
+          echo "dist_tag=$(jq -r .distTag "$PLAN")" >> "$GITHUB_OUTPUT"
           echo "engine=$(jq -r '[.releases[].pkg] | index("score-engine") != null' "$PLAN")" >> "$GITHUB_OUTPUT"
           {
             if [[ "$DRY_RUN" == "true" ]]; then echo "### Dry run: nothing is published"; else echo "### Release"; fi
             echo
-            jq -r '.releases[] | "- `@viritura/\(.pkg)@\(.version)`"' "$PLAN"
+            jq -r '.distTag as $tag | .releases[] | "- `@viritura/\(.pkg)@\(.version)` (`\($tag)`)"' "$PLAN"
             jq -r '.registry[] | "- verified against `@viritura/\(.pkg)@\(.version)` from npm"' "$PLAN"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -133,7 +168,7 @@ jobs:
         run: pnpm build:npm-packages
 
       - name: Build release archive
-        if: steps.plan.outputs.engine == 'true'
+        if: steps.plan.outputs.engine == 'true' && steps.plan.outputs.dist_tag == 'latest'
         shell: bash
         run: |
           pnpm build:score-engine-dist
@@ -148,10 +183,12 @@ jobs:
 
       # Dependency order, so each package's dependencies are on npm before it lands.
       # A re-run of a partly failed release reuses the tagged version and skips finished steps.
+      # Prereleases stop after `npm publish`: no tag or GitHub Release for every engine change.
       - name: Publish, tag and release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          DIST_TAG: ${{ steps.plan.outputs.dist_tag }}
         run: |
           mkdir -p "$RUNNER_TEMP/npm"
           while read -r release; do
@@ -163,13 +200,17 @@ jobs:
             (cd "packages/$pkg" && pnpm pack --pack-destination "$RUNNER_TEMP/npm")
             tarball="$RUNNER_TEMP/npm/viritura-$pkg-$version.tgz"
             if [[ "$DRY_RUN" == "true" ]]; then
-              npm publish "$tarball" --access public --dry-run
+              npm publish "$tarball" --access public --tag "$DIST_TAG" --dry-run
               continue
             fi
             if [[ "$published" == "true" ]]; then
               echo "@viritura/$pkg@$version is already on npm; skipping publish."
             else
-              npm publish "$tarball" --access public
+              npm publish "$tarball" --access public --tag "$DIST_TAG"
+            fi
+            if [[ "$DIST_TAG" == next ]]; then
+              echo "- [\`@viritura/$pkg@$version\`](https://www.npmjs.com/package/@viritura/$pkg/v/$version) (\`next\`)" >> "$GITHUB_STEP_SUMMARY"
+              continue
             fi
             if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
               echo "Release $tag already exists."

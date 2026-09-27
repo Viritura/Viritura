@@ -8,9 +8,10 @@ name: Score engine distribution
 #    project and render with them (scripts/verify-npm-packages.ts).
 #  - Pushes to main also upload a `score-engine-<version>-<sha>` workflow
 #    artifact (a preview build).
-#  - Releases (npm and the GitHub Release with the zip attached) are made by
-#    the manual npm-publish.yml workflow, which stamps real versions; builds
-#    here carry the workspace's 0.0.0-dev placeholder.
+#  - npm-publish.yml publishes engine prereleases on pushes to main and makes
+#    stable releases (npm plus a GitHub Release with the zip attached) when
+#    run manually. It stamps real versions; builds here carry the workspace's
+#    0.0.0-dev placeholder.
 # Paths are the packages' dependency closure only: score-viewer-react →
 # score-viewer → score-engine → renderer/format/midi → core, plus the Rust
 # engine and bundled fonts.

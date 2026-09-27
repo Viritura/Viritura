@@ -10,16 +10,27 @@
  *        print the versions a release would publish (`skip|patch|minor|major`
  *        per package, default skip); --apply writes them into this checkout,
  *        --out saves the plan for the release workflow
+ *   pnpm score-release next --run <n> [--apply] [--out plan.json]
+ *        plan the engine prerelease `<next patch>-next.<n>` published on
+ *        every engine change
  */
 
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEV_VERSION, packageVersions, SCORE_PACKAGES, type ScorePackage } from "./score-packages/packageVersions";
-import { applyPlan, BUMPS, liveSources, planRelease, type Bump } from "./score-packages/releasePlan";
+import {
+  applyPlan,
+  BUMPS,
+  liveSources,
+  planPrerelease,
+  planRelease,
+  type Bump,
+  type ReleasePlan,
+} from "./score-packages/releasePlan";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const USAGE = `Usage: pnpm score-release check | plan ${SCORE_PACKAGES.map((p) => `[--${p} <${BUMPS.join("|")}>]`).join(" ")} [--apply] [--out <file>]`;
+const USAGE = `Usage: pnpm score-release check | next --run <n> | plan ${SCORE_PACKAGES.map((p) => `[--${p} <${BUMPS.join("|")}>]`).join(" ")} [--apply] [--out <file>]`;
 
 function option(args: readonly string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -38,14 +49,20 @@ function main(args: readonly string[]): void {
     console.log("Score package versions are consistent.");
     return;
   }
-  if (args[0] !== "plan") throw new Error(USAGE);
-  const bumps = {} as Record<ScorePackage, Bump>;
-  for (const pkg of SCORE_PACKAGES) {
-    const bump = option(args, `--${pkg}`) ?? "skip";
-    if (!(BUMPS as readonly string[]).includes(bump)) throw new Error(USAGE);
-    bumps[pkg] = bump as Bump;
+  let plan: ReleasePlan;
+  if (args[0] === "next") {
+    plan = planPrerelease(root, Number(option(args, "--run")), liveSources);
+  } else if (args[0] === "plan") {
+    const bumps = {} as Record<ScorePackage, Bump>;
+    for (const pkg of SCORE_PACKAGES) {
+      const bump = option(args, `--${pkg}`) ?? "skip";
+      if (!(BUMPS as readonly string[]).includes(bump)) throw new Error(USAGE);
+      bumps[pkg] = bump as Bump;
+    }
+    plan = planRelease(root, bumps, liveSources);
+  } else {
+    throw new Error(USAGE);
   }
-  const plan = planRelease(root, bumps, liveSources);
   for (const r of plan.releases) {
     console.error(`release  @viritura/${r.pkg}@${r.version}${r.published ? " (already on npm)" : ""}`);
   }

@@ -93,7 +93,15 @@ with them in headless Chromium.
 
 npm holds the released versions: the workspace manifests carry `0.0.0-dev`,
 and the viewers depend on siblings through `workspace:^`, which packs as a
-caret range. To release, run **Publish npm packages**
+caret range.
+
+Every push to `main` that changes this package or its inputs publishes a
+prerelease `<next patch>-next.<run>` under the `next` dist-tag
+(`npm install @viritura/score-engine@next`), with provenance but no git tag
+or GitHub Release. Pin one exactly to track the engine closely; plain
+`npm install` and the viewers' caret ranges ignore prereleases.
+
+For a stable release, run **Publish npm packages**
 (`.github/workflows/npm-publish.yml`) from `main` and pick `patch`, `minor` or
 `major` for each package to release. The run bumps each selected package from
 its latest npm version (`pnpm score-release plan` shows the result locally),

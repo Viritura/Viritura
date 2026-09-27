@@ -1,7 +1,9 @@
 /**
- * Work out what a release run publishes. Selected packages get the next
- * version after their latest npm release; the rest keep their npm version so
- * the viewers' caret ranges point at something installable.
+ * Work out what a release run publishes. Stable releases bump the selected
+ * packages from their latest npm release; the rest keep their npm version so
+ * the viewers' caret ranges point at something installable. Engine
+ * prereleases (`planPrerelease`) publish every engine change under the `next`
+ * dist-tag without touching stable versions.
  */
 
 import { execFileSync } from "node:child_process";
@@ -30,6 +32,8 @@ interface Release {
 }
 
 export interface ReleasePlan {
+  /** npm dist-tag: `latest` for stable releases, `next` for engine prereleases. */
+  distTag: "latest" | "next";
   releases: Release[];
   /** Unreleased dependencies of a release, installed from npm when verifying. */
   registry: { pkg: ScorePackage; version: string }[];
@@ -60,6 +64,8 @@ export function bumpVersion(latest: string | null, bump: Exclude<Bump, "skip">):
 /** Whether `version` satisfies a caret range such as `^0.2.0`. */
 export function satisfiesCaret(range: string, version: string): boolean {
   if (!range.startsWith("^") || !isSemver(range.slice(1))) return range === version;
+  // npm only matches prereleases against a range that names one on the same major.minor.patch.
+  if (version.includes("-") && !range.includes("-")) return false;
   const [lo, v] = [parse(range.slice(1)), parse(version)];
   const cmp = v[0] - lo[0] || v[1] - lo[1] || v[2] - lo[2];
   if (cmp < 0) return false;
@@ -128,7 +134,34 @@ export function planRelease(root: string, bumps: Record<ScorePackage, Bump>, sou
     }
   }
   if (problems.length) throw new Error(`Cannot release:\n  ${problems.join("\n  ")}`);
-  return { releases, registry, versions };
+  return { distTag: "latest", releases, registry, versions };
+}
+
+/**
+ * The engine prerelease for workflow run `run`: `<next patch>-next.<run>`, or
+ * `0.1.0-next.<run>` before the first stable release. Prereleases sort below
+ * the stable version they lead up to, and caret ranges never match them, so
+ * `npm install` and the viewers' ranges keep resolving stable engines.
+ */
+export function planPrerelease(root: string, run: number, sources: ReleaseSources): ReleasePlan {
+  packageVersions(root);
+  if (!Number.isInteger(run) || run < 1) throw new Error(`Run number must be a positive integer, got ${run}.`);
+  const versions = {} as Record<ScorePackage, string>;
+  for (const pkg of SCORE_PACKAGES) {
+    const onNpm = sources.latest(pkg);
+    versions[pkg] = onNpm && onNpm !== PLACEHOLDER ? onNpm : PLACEHOLDER;
+  }
+  const stable = versions["score-engine"] === PLACEHOLDER ? null : versions["score-engine"];
+  const version = `${stable ? bumpVersion(stable, "patch") : bumpVersion(null, "minor")}-next.${run}`;
+  versions["score-engine"] = version;
+  return {
+    distTag: "next",
+    releases: [
+      { pkg: "score-engine", version, previousTag: null, published: sources.isPublished("score-engine", version) },
+    ],
+    registry: [],
+    versions,
+  };
 }
 
 export function applyPlan(root: string, plan: ReleasePlan): void {

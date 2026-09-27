@@ -63,7 +63,10 @@ npm install @viritura/score-engine         # engine only
 
 Each package is versioned and released on its own, so the engine can ship
 fixes without a viewer release. Each viewer depends on a caret range (`^`) of
-the engine version it was tested with. They are ES modules
+the engine version it was tested with. Every engine change on `main` is also
+published as a prerelease under the `next` tag
+(`npm install @viritura/score-engine@next`); pin an exact prerelease if you
+need a fix before the next stable release. They are ES modules
 with TypeScript declarations, and have no dependencies beyond React (a peer
 dependency of the React package) and `lucide-react` for its control icons.
 
