@@ -12,7 +12,7 @@
   "dependencies": {
     "@viritura/core": "workspace:*",
     "@xmldom/xmldom": "^0.9.12",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.2"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
