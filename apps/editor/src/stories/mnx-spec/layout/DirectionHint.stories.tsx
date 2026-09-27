@@ -26,7 +26,7 @@ function note(step: string, octave: number): unknown {
 const visibleRest = { duration: { base: "whole" }, rest: {} };
 
 /** Silent time. MNX has no way to hide a rest, so `space` is the encoding. */
-const hiddenRest = { type: "space", duration: { base: "whole" } };
+const hiddenRest = { type: "space", duration: [1, 1] };
 
 function buildScore(voices: VoiceSpec[]): string {
   return JSON.stringify(
