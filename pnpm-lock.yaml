@@ -766,7 +766,7 @@ importers:
   packages/score-viewer:
     dependencies:
       '@viritura/score-engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../score-engine
     devDependencies:
       typescript:
@@ -779,10 +779,10 @@ importers:
   packages/score-viewer-react:
     dependencies:
       '@viritura/score-engine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../score-engine
       '@viritura/score-viewer':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../score-viewer
       lucide-react:
         specifier: ^1.47.0
