@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview } from "../../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../../storyFixtures/EditorScorePreview";
 
 /**
  * Engrave Mode — page-turn courtesy hints.
@@ -19,7 +19,7 @@ import { ScorePreview } from "../../storyFixtures/ScorePreview";
  */
 const meta: Meta = {
   title: "App/Engrave Mode/Page Turns",
-  component: ScorePreview,
+  component: EditorScorePreview,
 };
 export default meta;
 
@@ -93,7 +93,7 @@ const mnxJson = JSON.stringify(buildScore(), null, 2);
  * bottom-right margin; page 2 (right) opens with the four-bar rest.
  */
 export const TimeCaseSpread: StoryObj = {
-  render: () => <ScorePreview mnxJson={mnxJson} viewMode="spread" height={620} />,
+  render: () => <EditorScorePreview mnxJson={mnxJson} viewMode="spread" height={620} />,
   name: "Courtesy hint (spread)",
 };
 
@@ -102,6 +102,6 @@ export const TimeCaseSpread: StoryObj = {
  * the rest the hint refers to.
  */
 export const TimeCasePage: StoryObj = {
-  render: () => <ScorePreview mnxJson={mnxJson} viewMode="page" height={620} />,
+  render: () => <EditorScorePreview mnxJson={mnxJson} viewMode="page" height={620} />,
   name: "Courtesy hint (page)",
 };

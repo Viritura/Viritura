@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview } from "../../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../../storyFixtures/EditorScorePreview";
 
 /**
  * Engrave Mode — per-system staff visibility via derived layouts.
@@ -11,7 +11,7 @@ import { ScorePreview } from "../../storyFixtures/ScorePreview";
  */
 const meta: Meta = {
   title: "App/Engrave Mode/Staff Visibility",
-  component: ScorePreview,
+  component: EditorScorePreview,
 };
 export default meta;
 
@@ -98,7 +98,7 @@ const trio = {
 
 export const HideOneStaffOnSystem: StoryObj = {
   render: () => (
-    <ScorePreview
+    <EditorScorePreview
       mnxJson={JSON.stringify(
         {
           ...trio,
@@ -128,7 +128,7 @@ export const HideOneStaffOnSystem: StoryObj = {
 
 export const ProgressiveReveal: StoryObj = {
   render: () => (
-    <ScorePreview
+    <EditorScorePreview
       mnxJson={JSON.stringify(
         {
           ...trio,

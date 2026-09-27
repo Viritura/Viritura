@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview } from "../../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../../storyFixtures/EditorScorePreview";
 
 /**
  * Engrave Mode — forced page/system breaks via `pages[].systems[]`.
@@ -11,7 +11,7 @@ import { ScorePreview } from "../../storyFixtures/ScorePreview";
  */
 const meta: Meta = {
   title: "App/Engrave Mode/Forced Breaks",
-  component: ScorePreview,
+  component: EditorScorePreview,
 };
 export default meta;
 
@@ -68,7 +68,7 @@ const score = {
 
 export const SystemBreaksEveryTwoMeasures: StoryObj = {
   render: () => (
-    <ScorePreview
+    <EditorScorePreview
       mnxJson={JSON.stringify(
         {
           ...score,
@@ -98,7 +98,7 @@ export const SystemBreaksEveryTwoMeasures: StoryObj = {
 
 export const PageBreakAtMidpoint: StoryObj = {
   render: () => (
-    <ScorePreview
+    <EditorScorePreview
       mnxJson={JSON.stringify(
         {
           ...score,

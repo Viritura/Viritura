@@ -12,12 +12,12 @@
  * it would dominate the story for no benefit.
  */
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ScorePreview } from "../storyFixtures/ScorePreview";
+import { EditorScorePreview } from "../storyFixtures/EditorScorePreview";
 import cueMnx from "../../../../../packages/format/fixtures/mnx/caminandes-llamigos-cue.mnx?raw";
 
 const meta: Meta = {
   title: "App/Caminandes Cue",
-  component: ScorePreview,
+  component: EditorScorePreview,
   parameters: { layout: "fullscreen" },
 };
 
@@ -25,6 +25,6 @@ export default meta;
 
 /** The opening: fade-up, title fanfare, and Koro's theme on the ice. */
 export const Opening: StoryObj = {
-  render: () => <ScorePreview mnxJson={cueMnx} showEditor={false} viewMode="horizon" scrollAnchor="start" />,
+  render: () => <EditorScorePreview mnxJson={cueMnx} showEditor={false} viewMode="horizon" scrollAnchor="start" />,
   name: "Full cue (73 bars, 14 parts)",
 };

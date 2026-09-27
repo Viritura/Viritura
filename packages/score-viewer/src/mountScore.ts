@@ -5,6 +5,7 @@ import {
   type LayoutWorker,
   type ScoreMeasurements,
 } from "@viritura/score-engine";
+import { layoutOptionsFor } from "./layoutRequest";
 import { arrangePages, contentOffset } from "./pageArrangement";
 import { followOffset } from "./playheadFollow";
 import { needsArrangement, needsLayout } from "./presentationChanges";
@@ -77,21 +78,7 @@ export function mountScore(
   }
 
   function layoutOptions() {
-    const pageWidth = options.viewMode === "horizon" ? 0 : (options.pageWidth ?? 800);
-    const defaultMargin = pageWidth * (15 / 210);
-    const margins = options.pageMargins ?? {
-      top: defaultMargin,
-      right: defaultMargin,
-      bottom: defaultMargin,
-      left: defaultMargin,
-    };
-    return {
-      pageWidth,
-      spatium: options.spatium ?? 7,
-      scoreIndex: options.scoreIndex ?? 0,
-      pageSetup:
-        pageWidth > 0 ? { height: options.pageHeight ?? pageWidth * (297 / 210), margins: { ...margins } } : undefined,
-    };
+    return layoutOptionsFor(options);
   }
 
   // Consumers may override the inline padding (for example a bare embed).

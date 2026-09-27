@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { layoutOptionsFor } from "../layoutRequest";
 import { arrangePages, contentOffset } from "../pageArrangement";
 import { fitZoom } from "../zoom";
 import { followOffset } from "../playheadFollow";
@@ -67,5 +68,25 @@ describe("zoom and follow", () => {
     expect(followOffset(120, 10, 100, 200, 0.5)).toBe(100);
     expect(followOffset(320, 10, 100, 200, 0.5)).toBe(220);
     expect(followOffset(5, 10, 100, 200, 0.5)).toBe(0);
+  });
+});
+
+describe("layoutOptionsFor", () => {
+  const margins = { top: 10, right: 20, bottom: 30, left: 40 };
+
+  it("lays page views out with default A4 geometry", () => {
+    expect(layoutOptionsFor({ viewMode: "page", pageWidth: 210 })).toEqual({
+      pageWidth: 210,
+      spatium: 7,
+      scoreIndex: 0,
+      pageSetup: { height: 297, margins: { top: 15, right: 15, bottom: 15, left: 15 } },
+    });
+  });
+
+  it("leaves horizon margins to the engine unless the caller sets them", () => {
+    expect(layoutOptionsFor({ viewMode: "horizon" }).pageSetup).toBeUndefined();
+    const opts = layoutOptionsFor({ viewMode: "horizon", pageWidth: 210, pageMargins: margins });
+    expect(opts.pageWidth).toBe(0);
+    expect(opts.pageSetup).toEqual({ height: 297, margins });
   });
 });
