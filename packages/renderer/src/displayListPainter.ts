@@ -15,80 +15,100 @@ export interface FontLoadResult {
   readonly failed: readonly string[];
 }
 
-/** Load the Bravura SMuFL font and Libertinus Serif text font so Canvas can use them. */
-let fontLoaded = false;
-let fontLoadPromise: Promise<FontLoadResult> | null = null;
+/** Options for {@link loadMusicFont}. */
+export interface LoadMusicFontOptions {
+  /**
+   * Also load the bundled Libertinus Serif text face as `Viritura Serif`.
+   * Default true. When false, text falls back to the page's generic `serif`
+   * (or a `Viritura Serif` face the host registers itself).
+   */
+  readonly textFont?: boolean;
+}
 
-const FONT_FACE_NAMES = [
-  "Bravura",
-  "Libertinus Serif",
-  "Libertinus Serif Bold",
-  "Libertinus Serif Italic",
-  "Libertinus Serif Bold Italic",
-] as const;
+interface FaceSpec {
+  readonly name: string;
+  readonly create: (basePath: string) => FontFace;
+}
 
-export async function loadMusicFont(): Promise<FontLoadResult> {
-  if (fontLoaded) return { failed: [] };
-  if (fontLoadPromise) return fontLoadPromise;
+const MUSIC_FACES: readonly FaceSpec[] = [
+  {
+    name: "Bravura",
+    create: (basePath) =>
+      new FontFace("Bravura", `url(${basePath}fonts/Bravura.otf)`, {
+        // Restrict to SMuFL Private Use Area + Musical Symbols block.
+        // Without this, the browser falls back to Bravura for U+266D (♭) etc.
+        // in text runs, rendering oversized music glyphs that obscure text labels.
+        unicodeRange: "U+E000-F8FF, U+F0000-FFFFF",
+      }),
+  },
+];
 
-  const attempt = (async (): Promise<FontLoadResult> => {
+// Libertinus Serif — OFL-licensed text font with ♭♯♮ support. Registered
+// under a private family (see textFont.ts) so embedding pages keep their
+// own generic `serif`; the engine's DrawText { font: "serif" } maps to it.
+const TEXT_FACES: readonly FaceSpec[] = (
+  [
+    ["Libertinus Serif", "Regular", {}],
+    ["Libertinus Serif Bold", "Bold", { weight: "bold" }],
+    ["Libertinus Serif Italic", "Italic", { style: "italic" }],
+    ["Libertinus Serif Bold Italic", "BoldItalic", { weight: "bold", style: "italic" }],
+  ] as const
+).map(([name, file, descriptors]) => ({
+  name,
+  create: (basePath: string) =>
+    new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-${file}.otf)`, descriptors),
+}));
+
+/**
+ * Loads a set of faces once. A result is cached only when the required face
+ * loaded, so a failed fetch (network, CSP, wrong asset base) can be retried.
+ */
+function faceGroupLoader(faces: readonly FaceSpec[], required: string | null): () => Promise<FontLoadResult> {
+  let loaded = false;
+  let pending: Promise<FontLoadResult> | null = null;
+  const load = async (): Promise<FontLoadResult> => {
     const basePath = resolveBasePath();
-
-    const bravura = new FontFace("Bravura", `url(${basePath}fonts/Bravura.otf)`, {
-      // Restrict to SMuFL Private Use Area + Musical Symbols block.
-      // Without this, the browser falls back to Bravura for U+266D (♭) etc.
-      // in text runs, rendering oversized music glyphs that obscure text labels.
-      unicodeRange: "U+E000-F8FF, U+F0000-FFFFF",
-    });
-
-    // Libertinus Serif — OFL-licensed text font with ♭♯♮ support. Registered
-    // under a private family (see textFont.ts) so embedding pages keep their
-    // own generic `serif`; the engine's DrawText { font: "serif" } maps to it.
-    const libertinus = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Regular.otf)`);
-    const libertinusBold = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Bold.otf)`, {
-      weight: "bold",
-    });
-    const libertinusItalic = new FontFace(TEXT_FONT_FAMILY, `url(${basePath}fonts/LibertinusSerif-Italic.otf)`, {
-      style: "italic",
-    });
-    const libertinusBoldItalic = new FontFace(
-      TEXT_FONT_FAMILY,
-      `url(${basePath}fonts/LibertinusSerif-BoldItalic.otf)`,
-      { weight: "bold", style: "italic" },
-    );
-
-    const results = await Promise.allSettled([
-      bravura.load(),
-      libertinus.load(),
-      libertinusBold.load(),
-      libertinusItalic.load(),
-      libertinusBoldItalic.load(),
-    ]);
-
+    const results = await Promise.allSettled(faces.map((face) => face.create(basePath).load()));
     const failed: string[] = [];
     for (const [i, result] of results.entries()) {
       if (result.status === "fulfilled") {
         document.fonts.add(result.value);
       } else {
-        failed.push(FONT_FACE_NAMES[i]!);
-        console.warn(`Failed to load ${FONT_FACE_NAMES[i]} font:`, result.reason);
+        failed.push(faces[i]!.name);
+        console.warn(`Failed to load ${faces[i]!.name} font:`, result.reason);
       }
     }
     return { failed };
-  })();
-  fontLoadPromise = attempt;
-  try {
-    const result = await attempt;
-    // Only a successful music-font load is cached; a failed Bravura fetch
-    // (network, CSP, wrong asset base) can be retried by a later caller.
-    if (!result.failed.includes("Bravura")) fontLoaded = true;
-    return result;
-  } catch (e) {
-    console.warn("Failed to load fonts:", e);
-    return { failed: [...FONT_FACE_NAMES] };
-  } finally {
-    if (!fontLoaded && fontLoadPromise === attempt) fontLoadPromise = null;
-  }
+  };
+  return async () => {
+    if (loaded) return { failed: [] };
+    if (pending) return pending;
+    const attempt = load();
+    pending = attempt;
+    try {
+      const result = await attempt;
+      if (required === null || !result.failed.includes(required)) loaded = true;
+      return result;
+    } catch (e) {
+      console.warn("Failed to load fonts:", e);
+      return { failed: faces.map((face) => face.name) };
+    } finally {
+      if (!loaded && pending === attempt) pending = null;
+    }
+  };
+}
+
+const loadMusicFaces = faceGroupLoader(MUSIC_FACES, "Bravura");
+const loadTextFaces = faceGroupLoader(TEXT_FACES, null);
+
+/**
+ * Load the Bravura SMuFL font (always — layout metrics are Bravura's) and, by
+ * default, the Libertinus Serif text font so Canvas can use them.
+ */
+export async function loadMusicFont(opts: LoadMusicFontOptions = {}): Promise<FontLoadResult> {
+  const groups = opts.textFont === false ? [loadMusicFaces()] : [loadMusicFaces(), loadTextFaces()];
+  const results = await Promise.all(groups);
+  return { failed: results.flatMap((result) => result.failed) };
 }
 
 /**

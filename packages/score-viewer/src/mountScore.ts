@@ -283,7 +283,7 @@ export function mountScore(
     viewport.hidden = true;
     options.onLoading?.();
     try {
-      const loaded = engine ?? (await loadEngine({ assetBaseUrl: options.assetBaseUrl, fonts: options.fonts }));
+      const loaded = engine ?? (await loadEngine({ assetBaseUrl: options.assetBaseUrl, textFont: options.textFont }));
       if (destroyed || current !== generation) return;
       engine = loaded;
       if (options.useWorker && !worker) worker = loaded.createLayoutWorker();

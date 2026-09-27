@@ -95,10 +95,17 @@ always ship together.
   needs `script-src 'wasm-unsafe-eval'`. Off-main-thread layout also needs the
   worker script to be allowed, and `font-src` must allow the `fonts/`
   directory.
-- **Fonts stay private.** The engine registers Bravura and registers its text
-  face under the private family name `Viritura Serif`, so your page's own
-  `serif` font is untouched. Pass `fonts: false` when you register both
-  families yourself.
+- **Bravura is required.** The engine always loads and registers the Bravura
+  music font under the family name `Bravura`. The layout is measured with
+  Bravura's metrics, so other music fonts are not supported and can't be
+  substituted.
+- **The text font is replaceable.** Text such as titles, lyrics and
+  expressions uses Libertinus Serif, registered under the family name
+  `Viritura Serif` so your page's own `serif` font is untouched. Pass
+  `textFont: false` to skip it. Text then uses your page's `serif` font, or a
+  `Viritura Serif` face you register yourself. The engine estimates text widths
+  from typical serif proportions rather than one font's metrics, so any
+  ordinary serif face lays out acceptably.
 
 ## Stable part identifiers
 

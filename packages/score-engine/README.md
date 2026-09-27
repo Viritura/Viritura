@@ -31,12 +31,13 @@ page height and margins in display-list units (CSS pixels at zoom 1).
 
 ## Contract
 
-- **Loading.** `loadEngine({ assetBaseUrl?, fonts? })` loads WASM and fonts
+- **Loading.** `loadEngine({ assetBaseUrl?, textFont? })` loads WASM and fonts
   once. Failures reject with `EngineLoadError` (`wasm` / `font`) carrying the
-  real cause, and a later call retries. `fonts: false` skips font loading when
-  the host registers `Bravura` and `Viritura Serif` itself. The text face is
+  real cause, and a later call retries. Bravura is always loaded: layout uses
+  its metrics, so other music fonts are unsupported. The text face is
   registered under the private family `Viritura Serif`, so the host page's
-  generic `serif` is untouched.
+  generic `serif` is untouched; `textFont: false` skips it and text falls back
+  to the page's `serif`.
 - **Opaque layouts.** `layout()` returns a `DisplayList` handle
   (`width`, `height`, `pageCount`, `paged`). Its internals are not API.
   `createLayoutWorker()` produces the same handles off the main thread.

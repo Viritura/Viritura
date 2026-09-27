@@ -113,7 +113,7 @@ export function loadEngine(opts: LoadEngineOptions = {}): Promise<Engine> {
   const base = opts.assetBaseUrl ?? bundledAssetBase();
   if (base) setAssetBasePath(base);
   if (enginePromise) return enginePromise;
-  const attempt = loadOnce(opts.fonts !== false).then(
+  const attempt = loadOnce(opts.textFont !== false).then(
     (engine) => {
       loadedEngine = engine;
       return engine;
@@ -132,7 +132,7 @@ export function isEngineReady(): boolean {
   return loadedEngine !== null;
 }
 
-async function loadOnce(fonts: boolean): Promise<Engine> {
+async function loadOnce(textFont: boolean): Promise<Engine> {
   await initWasm();
   if (!isWasmReady()) {
     const cause = getWasmInitError();
@@ -142,16 +142,14 @@ async function loadOnce(fonts: boolean): Promise<Engine> {
       cause,
     );
   }
-  if (fonts) {
-    let failed: readonly string[];
-    try {
-      ({ failed } = await loadMusicFont());
-    } catch (err) {
-      throw new EngineLoadError(`Failed to load fonts: ${messageOf(err)}`, "font", err);
-    }
-    if (failed.includes("Bravura")) {
-      throw new EngineLoadError("Failed to load the Bravura music font", "font");
-    }
+  let failed: readonly string[];
+  try {
+    ({ failed } = await loadMusicFont({ textFont }));
+  } catch (err) {
+    throw new EngineLoadError(`Failed to load fonts: ${messageOf(err)}`, "font", err);
+  }
+  if (failed.includes("Bravura")) {
+    throw new EngineLoadError("Failed to load the Bravura music font", "font");
   }
   return createEngine();
 }

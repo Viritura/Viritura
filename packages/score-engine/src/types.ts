@@ -126,11 +126,12 @@ export interface LoadEngineOptions {
    */
   assetBaseUrl?: string;
   /**
-   * Load Bravura and Libertinus Serif. Default true. Pass false when the host
-   * registers the fonts itself (`Bravura`, and `Viritura Serif` for text —
-   * text falls back to the generic `serif` family if absent).
+   * Load the bundled Libertinus Serif text face as `Viritura Serif`. Default
+   * true. Pass false to use the page's generic `serif` family (or register a
+   * `Viritura Serif` face yourself). The Bravura music font is always loaded:
+   * layout is measured with Bravura's metrics, so it cannot be replaced.
    */
-  fonts?: boolean;
+  textFont?: boolean;
 }
 
 /** Options for `engine.createLayoutWorker()`. */

@@ -27,7 +27,7 @@ export interface ScoreArrangement {
 export interface ScoreViewerOptions {
   engine?: Engine;
   assetBaseUrl?: string;
-  fonts?: boolean;
+  textFont?: boolean;
   viewMode?: ScoreViewMode;
   pageWidth?: number;
   pageHeight?: number;

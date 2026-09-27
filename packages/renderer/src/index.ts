@@ -5,7 +5,7 @@
 export { ScoreRenderer } from "./ScoreRenderer";
 export { renderScore } from "./renderScore";
 export { paintDisplayList, paintCommand, loadMusicFont } from "./displayListPainter";
-export type { FontLoadResult } from "./displayListPainter";
+export type { FontLoadResult, LoadMusicFontOptions } from "./displayListPainter";
 export { canvasFontFamily, canvasTextFont, TEXT_FONT_FAMILY } from "./textFont";
 export {
   decodeBinaryDisplayList,
