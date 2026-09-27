@@ -212,9 +212,13 @@ Tauri command that consumes `apps/editor/dist`. Direct
 checkout: Tauri's normal lifecycle hooks prepare those dependencies themselves.
 The package-local `build:prebuilt` command is reserved for root orchestration.
 
-`pnpm build:vsix` similarly prepares WASM, restores/builds the extension host
-and webview through Turbo, stages declared extension media, and packages the
-VSIX without rerunning those producers.
+`pnpm build:vsix` restores/builds the extension host and webview through Turbo,
+stages declared extension media, and packages the VSIX without rerunning those
+producers. It needs no Rust toolchain: the extension and the website render
+with the published `@viritura/score-viewer-react` and `@viritura/score-engine`
+packages pinned in their `package.json`, and stage WASM and fonts from the
+installed engine package. The editor keeps using the workspace packages and
+the local WASM build.
 
 Do not edit package `dist`, Storybook static output, or generated WASM by hand.
 

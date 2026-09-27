@@ -25,6 +25,7 @@ export default tseslint.config(
       "**/storybook-static/**",
       "**/storybook-mnx-static/**",
       "**/public/wasm/**",
+      "**/public/score-engine/**",
       "**/public/denigma/**",
       "**/public/sounds/viritura-sf2-processor.js",
       "engine/viritura-wasm/pkg-browser/**",
@@ -235,9 +236,9 @@ export default tseslint.config(
           patterns: [
             {
               regex:
-                "^@viritura/(audio|crdt|format|midi|musicxml|playback|renderer|score-engine|score-viewer-react|sound-profiles)/(?!.*\\.css$).+",
+                "^@viritura/(audio|crdt|format|midi|musicxml|playback|renderer|score-engine|score-viewer-react|sound-profiles)/(?!.*\\.css$)(?!package\\.json$).+",
               message:
-                "Import the package barrel only (e.g. `@viritura/midi`). Deep imports into a package's internals are forbidden — see AGENTS.md → Module Structure. (Raw `.css` deep imports are allowed for stylesheet entry points.)",
+                "Import the package barrel only (e.g. `@viritura/midi`). Deep imports into a package's internals are forbidden — see AGENTS.md → Module Structure. (Raw `.css` deep imports are allowed for stylesheet entry points, and `package.json` for published packages that export it.)",
             },
             {
               regex: "^@viritura/ui/(?!tokens\\.css$|reset\\.css$).+",

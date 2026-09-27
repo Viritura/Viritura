@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      # The website and VS Code extension pin the published score packages;
+      # bump them together so the engine and viewer never drift apart.
+      viritura-score-packages:
+        patterns:
+          - "@viritura/score-*"
 
   - package-ecosystem: cargo
     directory: /engine

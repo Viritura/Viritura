@@ -27,7 +27,7 @@
     "verify:npm-packages": "tsx scripts/verify-npm-packages.ts",
     "score-release": "tsx scripts/score-release.ts",
     "score-release:test": "tsx --test scripts/score-packages/releasePlan.test.ts",
-    "build:vsix": "pnpm build:wasm && pnpm turbo run build --filter=mnx-viewer && pnpm turbo run prepare:assets --filter=mnx-viewer && pnpm --filter mnx-viewer package:prebuilt",
+    "build:vsix": "pnpm turbo run build --filter=mnx-viewer && pnpm turbo run prepare:assets --filter=mnx-viewer && pnpm --filter mnx-viewer package:prebuilt",
     "build:all": "pnpm build:wasm && pnpm build:ts && concurrently -n RUST,DOTNET -c yellow,blue \"pnpm build:rust\" \"pnpm build:dotnet:prebuilt\"",
     "test": "turbo run test --filter=!@viritura/desktop",
     "test:rust": "tsx scripts/test-rust.ts",

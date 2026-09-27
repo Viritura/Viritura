@@ -31,6 +31,8 @@ apps/editor/public/scores/
 apps/editor/public/sounds/
 
 # Website dev/build assets staged from shared repository roots by @viritura/website scripts
+apps/website/public/score-engine/
+# Legacy website engine staging, no longer produced; kept so stale copies stay untracked
 apps/website/public/wasm/
 apps/website/public/fonts/
 apps/website/public/favicon.svg

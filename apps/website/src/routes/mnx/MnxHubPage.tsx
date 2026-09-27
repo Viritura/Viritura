@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text } from "@viritura/ui";
 import { ScoreViewer } from "@viritura/score-viewer-react";
+import { SCORE_ENGINE_ASSET_BASE_URL } from "../../scoreEngineAssets";
 import { mnxHeroSample } from "./mnxHeroSample";
 import { MnxGuide } from "./MnxGuide";
 import "./mnxHub.css";
@@ -51,6 +52,7 @@ export function MnxHubPage({ appUrl }: { readonly appUrl: string }) {
             <span className="mnx-hub__render-pipeline">MNX → Rust/WASM → Canvas</span>
           </div>
           <ScoreViewer
+            assetBaseUrl={SCORE_ENGINE_ASSET_BASE_URL}
             mnx={mnxHeroSample}
             pageWidth={0}
             pageHeight={0}
