@@ -988,11 +988,12 @@ pub struct Sequence {
     pub voice: Option<String>,
     /// Encodes this sequence's vertical position relative to other sequences
     /// in the same part measure — is it an upper voice, or a lower voice?
-    /// (MNX `directionHint`, formerly `orient`). This is descriptive metadata
-    /// only; it is parsed/serialized for round-tripping but does not yet drive
-    /// stem-direction layout, which still uses the array-order heuristic in
-    /// `resolve_stem_up`. See tracked follow-up issue to properly incorporate
-    /// this hint instead.
+    /// (MNX `directionHint`, formerly `orient`). Omitting the field means
+    /// `auto`.
+    ///
+    /// This is a hint, not a force: it resolves stem direction only while
+    /// another sequence in the part measure engraves visible content. See
+    /// `layout::measure::stem_direction` for the full precedence order.
     #[serde(skip_serializing_if = "Option::is_none", rename = "directionHint")]
     pub direction_hint: Option<DirectionHint>,
     /// Forced stem direction from layout source (internal, not serialized from MNX).

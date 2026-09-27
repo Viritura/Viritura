@@ -169,6 +169,20 @@ function writeOttavaSpans(measures: MnxPartMeasure[], byMeasure: Map<number, Mnx
   }
 }
 
+/**
+ * MusicXML orders voices within a staff, the lowest number being the upper
+ * voice. That ordering is only conventional for the first two voices of a
+ * staff; beyond that the hint stays `auto` (omitted). A staff carrying a
+ * single voice is also unhinted — there is no other voice for it to sit above
+ * or below, so MNX's `auto` resolution should pick the stem side from pitch.
+ */
+function directionHintForRank(rank: number | undefined, voicesOnStaff: number): "upper" | "lower" | undefined {
+  if (voicesOnStaff < 2) return undefined;
+  if (rank === 0) return "upper";
+  if (rank === 1) return "lower";
+  return undefined;
+}
+
 // eslint-disable-next-line max-statements, complexity, max-lines-per-function -- per-part conversion orchestrator wiring transposition, staves, sequences, and cross-measure spans; splitting fragments the stateful measure walk
 export function buildParts(
   root: Element,
@@ -340,28 +354,47 @@ export function buildParts(
 
       // Build sequences from voices
       const sequences = [];
-      for (const voiceNum of Array.from(result.voices.keys()).sort()) {
+      const sortedVoiceNums = Array.from(result.voices.keys()).sort();
+      // MusicXML voice numbers are unique across the whole part (a grand staff
+      // typically uses 1,2 then 5,6), so the upper/lower ranking that feeds
+      // each sequence's `directionHint` must be computed per staff rather than
+      // globally. MNX then carries that intent explicitly, so stem direction
+      // need not be re-derived from array order later.
+      const voiceRankInStaff = new Map<string, number>();
+      const seenPerStaff = new Map<number, number>();
+      for (const voiceNum of sortedVoiceNums) {
+        if (result.voices.get(voiceNum)?.length === 0) continue;
+        const staffKey = result.voiceStaves.get(voiceNum) ?? 1;
+        const rank = seenPerStaff.get(staffKey) ?? 0;
+        voiceRankInStaff.set(voiceNum, rank);
+        seenPerStaff.set(staffKey, rank + 1);
+      }
+      for (const voiceNum of sortedVoiceNums) {
         const events = result.voices.get(voiceNum)!;
-        if (events.length > 0) {
-          const seq: {
-            content: typeof events;
-            voice?: string;
-            staff?: number;
-          } = { content: events };
+        if (events.length === 0) continue;
 
-          // Assign voice name if multiple voices
-          if (result.voices.size > 1) {
-            seq.voice = `v${voiceNum}`;
-          }
+        const seq: {
+          content: typeof events;
+          voice?: string;
+          staff?: number;
+          directionHint?: string;
+        } = { content: events };
 
-          // Staff assignment for multi-staff parts
-          const staffNum = result.voiceStaves.get(voiceNum);
-          if (staffNum) {
-            seq.staff = staffNum;
-          }
-
-          sequences.push(seq);
+        // Assign voice name if multiple voices
+        if (result.voices.size > 1) {
+          seq.voice = `v${voiceNum}`;
+          const staffKey = result.voiceStaves.get(voiceNum) ?? 1;
+          const hint = directionHintForRank(voiceRankInStaff.get(voiceNum), seenPerStaff.get(staffKey) ?? 0);
+          if (hint) seq.directionHint = hint;
         }
+
+        // Staff assignment for multi-staff parts
+        const staffNum = result.voiceStaves.get(voiceNum);
+        if (staffNum) {
+          seq.staff = staffNum;
+        }
+
+        sequences.push(seq);
       }
 
       // Drop phantom voices that hold only `space` placeholders — leftovers

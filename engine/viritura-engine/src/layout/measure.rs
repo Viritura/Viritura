@@ -5,6 +5,7 @@ mod helpers;
 mod orchestrate;
 mod prefix_width;
 mod rest_conflicts;
+mod stem_direction;
 mod tremolo_pair;
 
 /// Fixed breathing room between the final rhythmic spring and the barline.
@@ -14,6 +15,7 @@ pub(crate) use cross_staff::*;
 pub(crate) use helpers::{compute_note_staff_positions, compute_seconds_displacement};
 pub(crate) use orchestrate::*;
 pub(crate) use prefix_width::*;
+pub(crate) use stem_direction::{contesting_voice_count, resolve_stem_up, StemContext};
 
 #[cfg(test)]
 pub(crate) use helpers::skyline_min_content_width;

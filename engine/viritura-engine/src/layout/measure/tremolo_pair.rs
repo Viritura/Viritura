@@ -1,6 +1,7 @@
 use super::super::resolve::*;
 use super::super::types::ResolvedOttavaRange;
-use super::helpers::{compute_note_staff_positions, resolve_stem_up};
+use super::helpers::compute_note_staff_positions;
+use super::stem_direction::{resolve_stem_up, StemContext};
 use crate::model::{Clef, KitComponent, MultiNoteTremolo};
 use std::collections::HashMap;
 
@@ -11,8 +12,7 @@ pub(super) struct TremoloPairContext<'a> {
     pub(super) clef_changes: &'a [(f64, Clef)],
     pub(super) resolved_ottavas: &'a [ResolvedOttavaRange],
     pub(super) measure_index: usize,
-    pub(super) forced_stem_up: Option<bool>,
-    pub(super) num_voices: usize,
+    pub(super) stem: StemContext,
     pub(super) voice_index: usize,
     pub(super) transposition: Option<(i32, i32)>,
     pub(super) kit: Option<&'a HashMap<String, KitComponent>>,
@@ -52,8 +52,7 @@ pub(super) fn prepare_tremolo_pair(
         .find_map(|event| event.stem_direction.as_ref());
     let stem_up = resolve_stem_up(
         pair_stem_direction,
-        context.forced_stem_up,
-        context.num_voices,
+        context.stem,
         context.voice_index,
         &combined_positions,
     );
