@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { validateMusxArchive } from "./archiveLimits";
 import { applyDenigmaGapReport } from "./gapAdapters";
+import { createModuleCache } from "./moduleCache";
 
 interface DenigmaModule {
   HEAPU8: Uint8Array;
@@ -55,8 +56,6 @@ type DenigmaModuleFactory = (options: DenigmaModuleFactoryOptions) => Promise<De
 const severityNames: readonly DenigmaDiagnosticSeverity[] = ["info", "warning", "error", "verbose"];
 const DENIGMA_FORMAT_MNX = 1;
 
-let modulePromise: Promise<DenigmaModule> | undefined;
-
 export class DenigmaConversionError extends Error {
   constructor(
     message: string,
@@ -67,19 +66,16 @@ export class DenigmaConversionError extends Error {
   }
 }
 
-async function loadDenigmaModule(): Promise<DenigmaModule> {
-  modulePromise ??= (async () => {
-    const moduleUrl = new URL("/denigma/denigma.js", self.location.origin).href;
-    const wasmUrl = new URL("/denigma/denigma.wasm", self.location.origin).href;
-    const imported = (await import(/* @vite-ignore */ moduleUrl)) as { default: DenigmaModuleFactory };
-    return imported.default({
-      locateFile: (path) => (path.endsWith(".wasm") ? wasmUrl : path),
-      print: () => undefined,
-      printErr: () => undefined,
-    });
-  })();
-  return modulePromise;
-}
+const moduleCache = createModuleCache(async (): Promise<DenigmaModule> => {
+  const moduleUrl = new URL("/denigma/denigma.js", self.location.origin).href;
+  const wasmUrl = new URL("/denigma/denigma.wasm", self.location.origin).href;
+  const imported = (await import(/* @vite-ignore */ moduleUrl)) as { default: DenigmaModuleFactory };
+  return imported.default({
+    locateFile: (path) => (path.endsWith(".wasm") ? wasmUrl : path),
+    print: () => undefined,
+    printErr: () => undefined,
+  });
+});
 
 function allocateBytes(module: DenigmaModule, bytes: Uint8Array): number {
   const pointer = module._denigma_malloc(bytes.byteLength);
@@ -189,11 +185,12 @@ export async function convertWithDenigma(
   options: MusxImportOptions,
 ): Promise<MusxImportResult> {
   await validateMusxArchive(new Uint8Array(source));
-  const module = await loadDenigmaModule();
+  const module = await moduleCache.get();
   const input = new Uint8Array(source);
   let inputPointer = 0;
   let namePointer = 0;
   let resultPointer = 0;
+  let failed = false;
 
   try {
     inputPointer = allocateBytes(module, input);
@@ -235,9 +232,25 @@ export async function convertWithDenigma(
       denigmaVersion: module.UTF8ToString(module._denigma_version()),
       denigmaCommit: module.UTF8ToString(module._denigma_commit()),
     };
+  } catch (error) {
+    // The failure may have left the instance unusable, so the next conversion loads a fresh one.
+    failed = true;
+    moduleCache.discard();
+    throw error;
   } finally {
-    if (resultPointer) module._denigma_result_destroy(resultPointer);
-    if (inputPointer) module._denigma_free(inputPointer);
-    if (namePointer) module._denigma_free(namePointer);
+    const release = () => {
+      if (resultPointer) module._denigma_result_destroy(resultPointer);
+      if (inputPointer) module._denigma_free(inputPointer);
+      if (namePointer) module._denigma_free(namePointer);
+    };
+    if (failed) {
+      try {
+        release();
+      } catch {
+        // An aborted instance may reject these calls; it has been discarded, and the original error is rethrown.
+      }
+    } else {
+      release();
+    }
   }
 }
