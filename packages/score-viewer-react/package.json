@@ -45,7 +45,7 @@
   "dependencies": {
     "@viritura/score-engine": "workspace:^",
     "@viritura/score-viewer": "workspace:^",
-    "lucide-react": "^1.47.0"
+    "lucide-react": "^1.48.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
