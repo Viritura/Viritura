@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { configureMnxDiagnostics, loadMnxSchema } from "./diagnostics";
+import { configureMnxDiagnostics, getMnxValidationWorker, loadMnxSchema } from "./diagnostics";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -22,6 +22,43 @@ describe("configureMnxDiagnostics", () => {
         ],
       }),
     );
+  });
+});
+
+describe("getMnxValidationWorker", () => {
+  it("waits for Monaco's JSON mode to register on initial load", async () => {
+    const worker = { doValidation: vi.fn() };
+    const uri = { toString: () => "file:///playground.mnx" };
+    const accessor = vi.fn().mockResolvedValue(worker);
+    const getWorker = vi.fn().mockRejectedValueOnce("JSON not registered!").mockResolvedValue(accessor);
+
+    await expect(getMnxValidationWorker({ json: { getWorker } } as never, uri as never)).resolves.toBe(worker);
+    expect(getWorker).toHaveBeenCalledTimes(2);
+    expect(accessor).toHaveBeenCalledWith(uri);
+  });
+
+  it("reports other worker failures instead of retrying them", async () => {
+    const getWorker = vi.fn().mockRejectedValue(new Error("Worker unavailable"));
+
+    await expect(getMnxValidationWorker({ json: { getWorker } } as never, {} as never)).rejects.toThrow(
+      "Worker unavailable",
+    );
+    expect(getWorker).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a JSON mode that never registers", async () => {
+    vi.useFakeTimers();
+    try {
+      const getWorker = vi.fn().mockRejectedValue("JSON not registered!");
+      const result = getMnxValidationWorker({ json: { getWorker } } as never, {} as never);
+      const failure = expect(result).rejects.toBe("JSON not registered!");
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      await failure;
+      expect(getWorker).toHaveBeenCalledTimes(201);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
