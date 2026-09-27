@@ -64,5 +64,7 @@ and `score-viewer.js` with all workspace code inlined, declarations, `wasm/`,
 file. The bundles find `wasm/`, `fonts/` and the worker next to themselves.
 
 CI (`.github/workflows/score-engine-dist.yml`) uploads this as a workflow
-artifact on every push to `main`, and publishes a GitHub Release zip for tags
-`score-engine-v<version>` (the tag must match `package.json`).
+artifact on pushes to `main` that change the bundle's inputs (the Rust engine,
+fonts, or the core/format/midi/renderer/score-engine/score-viewer packages), and
+publishes a GitHub Release zip for tags `score-engine-v<version>` (the tag must
+match `package.json`).

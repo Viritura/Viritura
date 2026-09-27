@@ -2,8 +2,11 @@ name: Score engine distribution
 
 # Standalone build of @viritura/score-engine + @viritura/score-viewer for
 # embedders that don't consume the Viritura monorepo (issue #241).
-#  - Every push to main uploads a `score-engine-<sha>` workflow artifact.
+#  - Pushes to main that touch the bundle's inputs upload a
+#    `score-engine-<version>-<sha>` workflow artifact (a preview build).
 #  - Tags `score-engine-v*` publish a GitHub Release with the zip attached.
+# Paths are the bundle's dependency closure only: score-viewer → score-engine
+# → renderer/format/midi → core, plus the Rust engine and bundled fonts.
 
 on:
   push:
@@ -11,11 +14,15 @@ on:
     tags: ["score-engine-v*"]
     paths:
       - engine/**
-      - packages/**
+      - packages/core/**
+      - packages/format/**
+      - packages/midi/**
+      - packages/renderer/**
+      - packages/score-engine/**
+      - packages/score-viewer/**
       - assets/fonts/**
       - scripts/build-score-engine-dist.ts
       - scripts/build-wasm.ts
-      - pnpm-lock.yaml
       - .github/workflows/score-engine-dist.yml
   workflow_dispatch:
 
