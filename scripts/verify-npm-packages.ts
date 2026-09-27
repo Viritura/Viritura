@@ -12,7 +12,10 @@
  *     render from the self-hosted assets.
  *
  * Run `pnpm build:npm-packages` first. Pass `--keep` to leave the temp
- * directory in place for inspection.
+ * directory in place for inspection. Pass `--plan <file>` (from
+ * `pnpm score-release plan --out`) to install the plan's unreleased
+ * dependencies from npm instead of packing them, so a viewer release is
+ * checked against the engine its users will actually get.
  */
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -22,11 +25,13 @@ import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCORE_PACKAGES, sharedVersion, type ScorePackage } from "./score-packages/packageVersions";
+import { packageVersions, SCORE_PACKAGES, type ScorePackage } from "./score-packages/packageVersions";
+import type { ReleasePlan } from "./score-packages/releasePlan";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = resolve(root, "scripts/score-packages/consumer-fixture");
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
 
 const REQUIRED_FILES: Record<ScorePackage, string[]> = {
   "score-engine": [
@@ -72,6 +77,7 @@ interface PackedManifest {
   main?: string;
   types?: string;
   exports?: Record<string, unknown>;
+  dependencies?: Record<string, string>;
 }
 
 function pack(pkg: ScorePackage, dest: string): string {
@@ -82,7 +88,12 @@ function pack(pkg: ScorePackage, dest: string): string {
   return resolve(dest, created);
 }
 
-function inspectTarball(pkg: ScorePackage, tarball: string, scratch: string, version: string): void {
+function inspectTarball(
+  pkg: ScorePackage,
+  tarball: string,
+  scratch: string,
+  versions: Record<ScorePackage, string>,
+): void {
   const dir = resolve(scratch, pkg);
   mkdirSync(dir, { recursive: true });
   run("tar", ["-xzf", tarball, "-C", dir], root);
@@ -92,7 +103,14 @@ function inspectTarball(pkg: ScorePackage, tarball: string, scratch: string, ver
   const problems: string[] = [];
   if (text.includes("workspace:")) problems.push("manifest still contains workspace: ranges");
   if (manifest.private) problems.push("manifest is private");
-  if (manifest.version !== version) problems.push(`version ${manifest.version}, expected ${version}`);
+  if (manifest.version !== versions[pkg]) problems.push(`version ${manifest.version}, expected ${versions[pkg]}`);
+  // Sibling score packages must pack to a caret range on the version tested here.
+  for (const sibling of SCORE_PACKAGES) {
+    const range = manifest.dependencies?.[`@viritura/${sibling}`];
+    if (range !== undefined && range !== `^${versions[sibling]}`) {
+      problems.push(`depends on @viritura/${sibling}@${range}, expected ^${versions[sibling]}`);
+    }
+  }
   if (manifest.main !== "./dist/index.js") problems.push(`main is ${manifest.main}`);
   if (manifest.types !== "./dist/index.d.ts") problems.push(`types is ${manifest.types}`);
   if (JSON.stringify(manifest.exports ?? {}).includes("./src/")) problems.push("exports point into src/");
@@ -109,9 +127,10 @@ function installedVersion(name: string): string {
   return (JSON.parse(readFileSync(require.resolve(`${name}/package.json`), "utf8")) as { version: string }).version;
 }
 
-function writeConsumer(app: string, tarballs: Record<ScorePackage, string>): void {
+/** `specs` maps each package to a local tarball (`file:`) or a published version. */
+function writeConsumer(app: string, specs: Record<ScorePackage, string>): void {
   cpSync(fixture, app, { recursive: true });
-  const deps = Object.fromEntries(SCORE_PACKAGES.map((pkg) => [`@viritura/${pkg}`, `file:${tarballs[pkg]}`]));
+  const deps = Object.fromEntries(SCORE_PACKAGES.map((pkg) => [`@viritura/${pkg}`, specs[pkg]]));
   writeFileSync(
     resolve(app, "package.json"),
     JSON.stringify(
@@ -126,7 +145,7 @@ function writeConsumer(app: string, tarballs: Record<ScorePackage, string>): voi
           typescript: installedVersion("typescript"),
           vite: installedVersion("vite"),
         },
-        // Resolve the viewers' own dependency on the engine to the local tarball, not the registry.
+        // Resolve the viewers' own dependency on the engine to the same copy the app uses.
         overrides: Object.fromEntries(Object.keys(deps).map((name) => [name, `$${name}`])),
       },
       null,
@@ -205,7 +224,10 @@ async function renderCheck(app: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const version = sharedVersion(root);
+  const versions = packageVersions(root);
+  const planFile = argv[argv.indexOf("--plan") + 1];
+  const plan = args.has("--plan") && planFile ? (JSON.parse(readFileSync(planFile, "utf8")) as ReleasePlan) : null;
+  const fromNpm = new Map((plan?.registry ?? []).map((r) => [r.pkg, r.version]));
   for (const pkg of SCORE_PACKAGES) {
     if (!existsSync(resolve(root, "packages", pkg, "dist/index.js"))) {
       throw new Error(`packages/${pkg}/dist is missing; run \`pnpm build:npm-packages\` first.`);
@@ -215,14 +237,21 @@ async function main(): Promise<void> {
   try {
     const tarballDir = resolve(work, "tarballs");
     mkdirSync(tarballDir);
-    const tarballs = {} as Record<ScorePackage, string>;
+    const specs = {} as Record<ScorePackage, string>;
     for (const pkg of SCORE_PACKAGES) {
-      tarballs[pkg] = pack(pkg, tarballDir);
-      inspectTarball(pkg, tarballs[pkg], resolve(work, "inspect"), version);
+      const published = fromNpm.get(pkg);
+      if (published) {
+        specs[pkg] = published;
+        console.log(`✓ @viritura/${pkg}@${published} from npm`);
+        continue;
+      }
+      const tarball = pack(pkg, tarballDir);
+      inspectTarball(pkg, tarball, resolve(work, "inspect"), versions);
+      specs[pkg] = `file:${tarball}`;
     }
 
     const app = resolve(work, "consumer");
-    writeConsumer(app, tarballs);
+    writeConsumer(app, specs);
     run("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], app);
     console.log("✓ installed into a fresh npm project");
     run(process.execPath, [resolve(app, "node_modules/typescript/bin/tsc"), "-p", "."], app);

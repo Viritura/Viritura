@@ -11,7 +11,7 @@ declare const __SCORE_ENGINE_BUNDLE__: boolean | undefined;
 declare const __SCORE_ENGINE_COMMIT__: string | undefined;
 
 /** Keep in sync with package.json (asserted by tests). */
-export const PACKAGE_VERSION = "0.1.0";
+export const PACKAGE_VERSION = "0.0.0-dev";
 
 const BUNDLE_WORKER_FILE = "score-engine.worker.js";
 

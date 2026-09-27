@@ -1,6 +1,6 @@
 {
   "name": "@viritura/score-viewer-react",
-  "version": "0.1.0",
+  "version": "0.0.0-dev",
   "description": "Embeddable React score viewer components for rendering MNX music notation in the browser. Wraps @viritura/score-engine.",
   "keywords": [
     "react",
@@ -43,8 +43,8 @@
     "react-dom": "^19.2.0"
   },
   "dependencies": {
-    "@viritura/score-engine": "workspace:*",
-    "@viritura/score-viewer": "workspace:*",
+    "@viritura/score-engine": "workspace:^",
+    "@viritura/score-viewer": "workspace:^",
     "lucide-react": "^1.47.0"
   },
   "devDependencies": {

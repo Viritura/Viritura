@@ -1,6 +1,6 @@
 {
   "name": "@viritura/score-viewer",
-  "version": "0.1.0",
+  "version": "0.0.0-dev",
   "description": "Framework-free DOM score viewer for MNX music notation.",
   "license": "MIT",
   "repository": {
@@ -29,7 +29,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@viritura/score-engine": "workspace:*"
+    "@viritura/score-engine": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

@@ -3,7 +3,7 @@
 All notable changes to `@viritura/score-engine` are documented here.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — Unreleased
+## [Unreleased]
 
 ### Breaking
 
@@ -24,8 +24,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `createLayoutWorker()`, `createTileRenderer()`, `ink` colour.
 - `loadEngine({ textFont: false })`; default asset base next to the prebuilt bundle.
   The default layout worker follows `assetBaseUrl`.
-- Published to npm with `@viritura/score-viewer` and
-  `@viritura/score-viewer-react` at one shared version, with provenance. The
+- Published to npm with provenance, versioned independently of
+  `@viritura/score-viewer` and `@viritura/score-viewer-react`. The
   package ships `dist/` only: an ES module with Viritura's internal packages
   inlined (no runtime dependencies), declarations, the layout worker, `wasm/`
   and `fonts/`.

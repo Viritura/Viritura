@@ -1,6 +1,6 @@
 {
   "name": "@viritura/score-engine",
-  "version": "0.1.0",
+  "version": "0.0.0-dev",
   "description": "Framework-free music notation rendering kernel: MNX layout (Rust/WASM), ink-only Canvas paint, SVG, geometry queries and a playback timeline.",
   "keywords": [
     "music",

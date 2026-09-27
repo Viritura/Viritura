@@ -61,8 +61,9 @@ npm install @viritura/score-viewer         # framework-free viewer, includes the
 npm install @viritura/score-engine         # engine only
 ```
 
-The three packages are released together under one version, and each viewer
-depends on the exact engine version it was tested with. They are ES modules
+Each package is versioned and released on its own, so the engine can ship
+fixes without a viewer release. Each viewer depends on a caret range (`^`) of
+the engine version it was tested with. They are ES modules
 with TypeScript declarations, and have no dependencies beyond React (a peer
 dependency of the React package) and `lucide-react` for its control icons.
 
@@ -73,7 +74,7 @@ app.
 
 ### Release archive
 
-Tags named `score-engine-v<version>` publish a
+Each engine release (tag `score-engine-v<version>`) has a
 [GitHub Release](https://github.com/Viritura/Viritura/releases) with a zip and
 its SHA-256 checksum. The archive contains:
 

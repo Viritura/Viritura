@@ -77,8 +77,8 @@ the Content Security Policy and font requirements.
 
 ## Distribution
 
-The engine is published to npm together with `@viritura/score-viewer` and
-`@viritura/score-viewer-react`, all at one shared version, and as a
+The engine is published to npm alongside `@viritura/score-viewer` and
+`@viritura/score-viewer-react`, each versioned independently, and as a
 standalone release archive for pages without a build step.
 
 ### npm
@@ -91,11 +91,19 @@ workspace keeps importing `src/`. `pnpm verify:npm-packages --render` packs
 all three, installs the tarballs into a fresh npm + Vite project and renders
 with them in headless Chromium.
 
-To release, set the shared version with
-`pnpm version:score-packages <version>`, add changelog entries, merge, and
-push the tag `score-engine-v<version>`. `.github/workflows/npm-publish.yml`
-publishes the three packages with npm trusted publishing (no token) and
-provenance; prerelease versions go to the `next` dist-tag.
+npm holds the released versions: the workspace manifests carry `0.0.0-dev`,
+and the viewers depend on siblings through `workspace:^`, which packs as a
+caret range. To release, run **Publish npm packages**
+(`.github/workflows/npm-publish.yml`) from `main` and pick `patch`, `minor` or
+`major` for each package to release. The run bumps each selected package from
+its latest npm version (`pnpm score-release plan` shows the result locally),
+verifies them together, and publishes in dependency order with npm trusted
+publishing (no token) and provenance. Each release gets a
+`<package>-v<version>` tag and GitHub Release; the engine's carries the zip
+archive. A viewer released on its own is verified against the engine from npm,
+and the run refuses releases whose ranges would not resolve. The default
+`dry_run` does everything except upload. Keep changelog entries under
+`Unreleased` and move them under the version after a release.
 
 ### Release archive
 
@@ -107,6 +115,5 @@ file. The bundles find `wasm/`, `fonts/` and the worker next to themselves.
 
 CI (`.github/workflows/score-engine-dist.yml`) uploads this as a workflow
 artifact on pushes to `main` that change the bundle's inputs (the Rust engine,
-fonts, or the core/format/midi/renderer/score-engine/score-viewer packages), and
-publishes a GitHub Release zip for tags `score-engine-v<version>` (the tag must
-match `package.json`).
+fonts, or the core/format/midi/renderer/score-engine/score-viewer packages).
+Release archives are attached to engine releases by the publish workflow.

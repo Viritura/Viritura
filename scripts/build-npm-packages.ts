@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { build, type BuildOptions, type Metafile } from "esbuild";
 import { copyDeclarationClosure, emitDeclarations } from "./score-packages/declarationClosure";
 import { copyEngineAssets, copyFile, copyLicenses } from "./score-packages/engineAssets";
-import { readManifest, SCORE_PACKAGES, sharedVersion, type ScorePackage } from "./score-packages/packageVersions";
+import { packageVersions, readManifest, SCORE_PACKAGES, type ScorePackage } from "./score-packages/packageVersions";
 import { externalPackages, scoreBundleOptions } from "./score-packages/scoreBundle";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,7 +106,7 @@ function declarations(): void {
 }
 
 async function main(): Promise<void> {
-  const version = sharedVersion(root);
+  const versions = packageVersions(root);
   const commit = gitCommit();
   for (const pkg of SCORE_PACKAGES) rmSync(distOf(pkg), { recursive: true, force: true });
   await bundles(commit);
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
   }
   for (const pkg of SCORE_PACKAGES) {
     const size = statSync(resolve(distOf(pkg), "index.js")).size / 1024;
-    console.log(`@viritura/${pkg}@${version}`.padEnd(40), `index.js ${size.toFixed(1)} KB`);
+    console.log(`@viritura/${pkg}@${versions[pkg]}`.padEnd(40), `index.js ${size.toFixed(1)} KB`);
   }
   console.log(`npm package builds written to ${relative(root, resolve(root, "packages"))}/*/dist`);
 }

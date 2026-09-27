@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 import { build, type Plugin } from "esbuild";
 import { copyDeclarationClosure, emitDeclarations } from "./score-packages/declarationClosure";
 import { copyEngineAssets, copyFile, copyLicenses } from "./score-packages/engineAssets";
-import { readManifest, sharedVersion } from "./score-packages/packageVersions";
+import { packageVersions, readManifest } from "./score-packages/packageVersions";
 import { scoreBundleOptions } from "./score-packages/scoreBundle";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -139,7 +139,7 @@ function manifest(commit: string | null): void {
 }
 
 async function main(): Promise<void> {
-  sharedVersion(root);
+  packageVersions(root);
   const commit = gitCommit();
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
