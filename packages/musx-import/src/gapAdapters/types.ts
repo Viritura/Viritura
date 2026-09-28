@@ -12,12 +12,34 @@ export interface GapApplication {
   outcome: Omit<DenigmaGapOutcome, "gapIndex" | "type" | "anchor">;
 }
 
-interface FormattedText {
+/**
+ * A Finale formatted-text payload as Denigma reports it.
+ *
+ * `font.name`, `font.size`, `font.sizeIsPercent` and `font.absolute` are
+ * declared but deliberately not imported: MNX has not settled on a text sizing
+ * unit, and MusicXML cannot contribute a comparable one, so importing Finale
+ * sizes alone would leave the same visual property with two fidelity levels
+ * depending on the source format.
+ */
+export interface FormattedText {
   plain: string;
   runs?: Array<{
     text: string;
     glyphs?: string[];
     insert?: { kind: string; command: string; parameters?: string[] };
+    font?: {
+      name?: string;
+      size?: number;
+      sizeIsPercent?: boolean;
+      absolute?: boolean;
+      bold?: boolean;
+      italic?: boolean;
+      underline?: boolean;
+      strikeout?: boolean;
+      hidden?: boolean;
+      isSymbolFont?: boolean;
+      isSmufl?: boolean;
+    };
   }>;
 }
 

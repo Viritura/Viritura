@@ -169,10 +169,7 @@
       "description": "A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle.",
       "required": ["text"],
       "properties": {
-        "text": {
-          "type": "string",
-          "description": "The rehearsal mark label text."
-        },
+        "text": { "$ref": "#/$defs/text-content" },
         "style": {
           "type": "string",
           "enum": ["boxed", "circled", "plain"],
@@ -231,7 +228,7 @@
       "type": "object",
       "description": "Viritura display and placement extensions on a standard MNX tempo object.",
       "properties": {
-        "text": { "type": "string" },
+        "text": { "$ref": "#/$defs/text-content" },
         "showMetronomeMark": { "type": "boolean" },
         "showText": { "type": "boolean" },
         "manualOffset": { "$ref": "#/$defs/sp-delta" },
@@ -419,10 +416,7 @@
       "description": "A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.",
       "required": ["text", "position"],
       "properties": {
-        "text": {
-          "type": "string",
-          "description": "The expression text."
-        },
+        "text": { "$ref": "#/$defs/text-content" },
         "position": {
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
@@ -560,6 +554,67 @@
       "additionalProperties": false
     },
 
+    "text-run-style": {
+      "type": "object",
+      "description": "Inline text formatting. Omitted fields inherit the owning text role's style.",
+      "properties": {
+        "font": { "type": "string", "enum": ["serif", "sans-serif", "monospace"] },
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 12,
+          "description": "Relative size as a multiple of the owning text role's resolved size (the CSS 'em' equivalent), not an absolute point size. Distinct from text-style.size, which counts staff spaces for a whole role."
+        },
+        "weight": {
+          "oneOf": [
+            { "type": "string", "enum": ["normal", "bold"] },
+            { "type": "number", "minimum": 1, "maximum": 1000 }
+          ]
+        },
+        "fontStyle": { "type": "string", "enum": ["normal", "italic", "oblique"] },
+        "decorations": {
+          "type": "array",
+          "description": "Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.",
+          "items": { "type": "string", "enum": ["underline", "overline", "strikethrough"] },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "enclosure": { "type": "string", "enum": ["box", "circle"] },
+        "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+      },
+      "additionalProperties": false
+    },
+    "text-run": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "style": { "$ref": "#/$defs/text-run-style" }
+      },
+      "additionalProperties": false
+    },
+    "glyph-run": {
+      "type": "object",
+      "required": ["glyphs"],
+      "properties": {
+        "glyphs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "SMuFL glyph names, not private-use Unicode code points."
+        },
+        "style": { "$ref": "#/$defs/text-run-style" },
+        "smuflStyle": { "$ref": "#/$defs/text-run-style" }
+      },
+      "additionalProperties": false
+    },
+    "text-content": {
+      "description": "Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read.",
+      "type": "array",
+      "items": {
+        "oneOf": [{ "$ref": "#/$defs/text-run" }, { "$ref": "#/$defs/glyph-run" }]
+      }
+    },
     "sp-delta": {
       "type": "array",
       "description": "A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point.",
@@ -1013,7 +1068,7 @@
         "size": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "description": "Font size in staff spaces (spatium-relative)."
+          "description": "Absolute font size in staff spaces (spatium-relative) for this whole role. Distinct from text-run-style.size, which is a relative multiplier over the value resolved here."
         },
         "family": {
           "$ref": "#/$defs/font-family"

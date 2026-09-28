@@ -25,7 +25,7 @@ export const Dolce: StoryObj = {
           ],
           dynamics: [{ value: "p", position: { fraction: [0, 1] } }],
           virituraPartMeasure: {
-            expressions: [{ text: "dolce", position: { fraction: [0, 1] } }],
+            expressions: [{ text: [{ text: "dolce" }], position: { fraction: [0, 1] } }],
           },
         },
       ],
@@ -50,8 +50,8 @@ export const MultipleExpressions: StoryObj = {
           ],
           virituraPartMeasure: {
             expressions: [
-              { text: "espressivo", position: { fraction: [0, 1] } },
-              { text: "rit.", position: { fraction: [1, 2] } },
+              { text: [{ text: "espressivo" }], position: { fraction: [0, 1] } },
+              { text: [{ text: "rit." }], position: { fraction: [1, 2] } },
             ],
           },
         },

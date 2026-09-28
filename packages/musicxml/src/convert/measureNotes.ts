@@ -17,10 +17,12 @@ import type {
   MnxTie,
   MnxTuplet,
 } from "../types";
+import type { TextContent } from "@viritura/core";
 import { IdGenerator } from "./idGenerator";
 import { extractHarmony, updateHarmonyTranspositions, type ImportedHarmony } from "./chordSymbols";
 import { normalizeMusicXmlColor } from "./colors";
 import { durationFraction } from "./durationFraction";
+import { plainOf, rehearsalStyleFromDirectionType, textContentFromDirectionType } from "./textRuns";
 import {
   buildNote,
   extractFermata,
@@ -92,8 +94,8 @@ export interface MeasureResult {
   dynamics: MnxDynamic[];
   ottavaEvents: OttavaEvent[];
   beamGroups: CompletedBeam[];
-  rehearsals: { text: string; position: MnxRhythmicPosition }[];
-  expressions: { text: string; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
+  rehearsals: { text: TextContent; position: MnxRhythmicPosition; style?: "circled" | "plain" }[];
+  expressions: { text: TextContent; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
   hairpinEvents: HairpinEvent[];
   pedalEvents: PedalEvent[];
   nonArpeggios: MnxNonArpeggio[];
@@ -745,7 +747,9 @@ export function processMeasureNotes(
       // A single `<direction>` can carry multiple `<direction-type>` children;
       // some exporters emit the identical `<words>` twice (e.g. "pizz." in both
       // direction-types), which would otherwise produce duplicate staff text.
-      // Track the word texts already emitted for this direction to dedupe them.
+      // Track the content already emitted for this direction to dedupe it. The
+      // whole chunk list is the key, not just its prose, so two direction-types
+      // reading the same words with different styling or glyphs both survive.
       const seenWords = new Set<string>();
 
       for (const dt of findChildren(el, "direction-type")) {
@@ -795,16 +799,18 @@ export function processMeasureNotes(
         // Rehearsal marks
         const rehearsal = findChild(dt, "rehearsal");
         if (rehearsal) {
-          const rehearsalText = (rehearsal.textContent ?? "").trim();
+          const rehearsalText = textContentFromDirectionType(dt);
           if (rehearsalText) {
+            const markStyle = rehearsalStyleFromDirectionType(dt);
             rehearsals.push({
               text: rehearsalText,
               position: makePosition(currentPos),
+              ...(markStyle ? { style: markStyle } : {}),
             });
           }
         }
 
-        // Words (text expressions)
+        // Words and interspersed SMuFL symbols (text expressions)
         const wordsEl = findChild(dt, "words");
         if (wordsEl && !dyn) {
           // Only capture standalone words, not words that are part of dynamics.
@@ -812,11 +818,13 @@ export function processMeasureNotes(
           // "Molto moderato") whose text is imported onto the global tempo in
           // globalMeasures; skip it here so the same text isn't also emitted as
           // a staff text expression (double import).
-          const text = wordsEl.textContent?.trim() ?? "";
-          if (text && el.getAttribute("directive") !== "yes" && !seenWords.has(text)) {
-            seenWords.add(text);
+          const content = textContentFromDirectionType(dt);
+          const text = content ? plainOf(content) : "";
+          const key = content ? JSON.stringify(content) : "";
+          if (content && text && el.getAttribute("directive") !== "yes" && !seenWords.has(key)) {
+            seenWords.add(key);
             const placementAttr = el.getAttribute("placement");
-            const expr: MeasureResult["expressions"][number] = { text, position: makePosition(currentPos) };
+            const expr: MeasureResult["expressions"][number] = { text: content, position: makePosition(currentPos) };
             if (placementAttr === "above" || placementAttr === "below") expr.placement = placementAttr;
             // Grand-staff parts authored on staff 2 carry `<staff>2</staff>`;
             // an unspecified staff defaults to staff 1, so only record an
@@ -939,7 +947,10 @@ export function processMeasureNotes(
   });
   const exprSeen = new Set<string>();
   const dedupedExpressions = expressions.filter((e) => {
-    const key = `${e.position.fraction[0]}/${e.position.fraction[1]}|${e.text}|${e.placement ?? ""}`;
+    // The whole chunk list is the key. Interpolating `e.text` directly would
+    // stringify every chunk to "[object Object]", collapsing unrelated
+    // expressions that merely share a position.
+    const key = `${e.position.fraction[0]}/${e.position.fraction[1]}|${JSON.stringify(e.text)}|${e.placement ?? ""}`;
     if (exprSeen.has(key)) return false;
     exprSeen.add(key);
     return true;

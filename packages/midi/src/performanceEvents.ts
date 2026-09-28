@@ -10,7 +10,7 @@ import type {
   TextExpression,
   Tuplet,
 } from "@viritura/core";
-import { isRest, pitchToMidi } from "@viritura/core";
+import { isRest, pitchToMidi, plainTextContent } from "@viritura/core";
 import { buildDynamicsEnvelope, cc11Events, sampleDynamics } from "./dynamicsEnvelope";
 import { buildHoldSchedule } from "./holds";
 import { classifyTechniqueText, type TechniqueAction } from "./technique";
@@ -244,7 +244,7 @@ function measureTechniqueMarks(
 ): TechniqueMark[] {
   return (expressions ?? [])
     .map((expression) => ({
-      action: classifyTechniqueText(expression.text),
+      action: classifyTechniqueText(plainTextContent(expression.text)),
       beat: fractionToBeats(expression.position.fraction) * ratioForStaff(expression.staff),
     }))
     .filter((mark): mark is TechniqueMark => mark.action !== null)

@@ -1,4 +1,4 @@
-import type { Score } from "@viritura/core";
+import { plainTextContent, type Score } from "@viritura/core";
 import { parsePlayerRoutingLabel } from "./routingText";
 import { SPLIT_POLICIES } from "./splitPolicies";
 import { splitOrchestralParts } from "./transform";
@@ -29,7 +29,9 @@ export function analyzeOrchestralPartSplit(score: Score | null): OrchestralPartS
     if (!part || !policy.acceptedNames.includes(part.name)) return [];
     const recognizedRoutingLabelCount = part.measures.reduce(
       (count, measure) =>
-        count + (measure.expressions ?? []).filter((expression) => parsePlayerRoutingLabel(expression.text)).length,
+        count +
+        (measure.expressions ?? []).filter((expression) => parsePlayerRoutingLabel(plainTextContent(expression.text)))
+          .length,
       0,
     );
     return [

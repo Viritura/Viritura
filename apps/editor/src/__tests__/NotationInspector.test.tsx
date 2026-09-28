@@ -943,7 +943,7 @@ describe("NotationInspector", () => {
     const onTextChange = vi.fn();
     render(
       <TempoSection
-        tempo={{ bpm: 120, value: { base: "quarter" }, text: "" }}
+        tempo={{ bpm: 120, value: { base: "quarter" }, text: [] }}
         onBpmChange={vi.fn()}
         onValueBaseChange={vi.fn()}
         onDotsChange={vi.fn()}
@@ -953,17 +953,18 @@ describe("NotationInspector", () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText("e.g. Allegro con brio") as HTMLInputElement;
+    const input = screen.getByRole("textbox", { name: "Text" }) as HTMLDivElement;
     for (const value of ["A", "Al", "All", "Alle", "Alleg", "Allegro", "Allegro con brio"]) {
-      fireEvent.change(input, { target: { value } });
+      input.textContent = value;
+      fireEvent.input(input);
     }
 
-    expect(input.value).toBe("Allegro con brio");
+    expect(input.textContent).toBe("Allegro con brio");
     expect(onTextChange).not.toHaveBeenCalled();
 
     fireEvent.blur(input);
     expect(onTextChange).toHaveBeenCalledOnce();
-    expect(onTextChange).toHaveBeenCalledWith("Allegro con brio");
+    expect(onTextChange).toHaveBeenCalledWith([{ text: "Allegro con brio" }]);
   });
 
   it("allows BPM to be cleared while editing and commits the replacement value", () => {

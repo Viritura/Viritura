@@ -83,8 +83,7 @@ export interface components {
         "staff-meter-change": components["schemas"]["staff-meter-set"] | components["schemas"]["staff-meter-reset"];
         /** @description A rehearsal mark displayed above the staff (e.g. 'A', 'B', '1'). Typically rendered in a box or circle. */
         "rehearsal-mark": {
-            /** @description The rehearsal mark label text. */
-            text: string;
+            text: components["schemas"]["text-content"];
             /**
              * @description Display style. Default: 'boxed'.
              * @enum {string}
@@ -113,7 +112,7 @@ export interface components {
         };
         /** @description Viritura display and placement extensions on a standard MNX tempo object. */
         "tempo-extensions": {
-            text?: string;
+            text?: components["schemas"]["text-content"];
             showMetronomeMark?: boolean;
             showText?: boolean;
             manualOffset?: components["schemas"]["sp-delta"];
@@ -208,8 +207,7 @@ export interface components {
         "expression-placement": "below" | "above";
         /** @description A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font. */
         "text-expression": {
-            /** @description The expression text. */
-            text: string;
+            text: components["schemas"]["text-content"];
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
             placement?: components["schemas"]["expression-placement"];
@@ -276,6 +274,33 @@ export interface components {
             /** @description Whether to display the text label. Default: true. */
             showText?: boolean;
         };
+        /** @description Inline text formatting. Omitted fields inherit the owning text role's style. */
+        "text-run-style": {
+            /** @enum {string} */
+            font?: "serif" | "sans-serif" | "monospace";
+            /** @description Relative size as a multiple of the owning text role's resolved size (the CSS 'em' equivalent), not an absolute point size. Distinct from text-style.size, which counts staff spaces for a whole role. */
+            size?: number;
+            weight?: ("normal" | "bold") | number;
+            /** @enum {string} */
+            fontStyle?: "normal" | "italic" | "oblique";
+            /** @description Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent. */
+            decorations?: ("underline" | "overline" | "strikethrough")[];
+            /** @enum {string} */
+            enclosure?: "box" | "circle";
+            color?: string;
+        };
+        "text-run": {
+            text: string;
+            style?: components["schemas"]["text-run-style"];
+        };
+        "glyph-run": {
+            /** @description SMuFL glyph names, not private-use Unicode code points. */
+            glyphs: string[];
+            style?: components["schemas"]["text-run-style"];
+            smuflStyle?: components["schemas"]["text-run-style"];
+        };
+        /** @description Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read. */
+        "text-content": (components["schemas"]["text-run"] | components["schemas"]["glyph-run"])[];
         /** @description A [dx, dy] delta in spatia (sp) applied on top of an engine-computed point. */
         "sp-delta": number[];
         /** @description Per-handle bezier overrides for a slur. Each field is a [dx, dy] delta in spatia (sp) applied on top of the engine-computed point, so user edits compose with automatic collision avoidance. Used by engrave-mode handle drags. */
@@ -521,7 +546,7 @@ export interface components {
         "text-alignment": "left" | "center" | "right";
         /** @description A partial override of a named text style. Every field is optional: omitted fields fall back to the engine's built-in default for that role, so a document only stores what it changes. */
         "text-style": {
-            /** @description Font size in staff spaces (spatium-relative). */
+            /** @description Absolute font size in staff spaces (spatium-relative) for this whole role. Distinct from text-run-style.size, which is a relative multiplier over the value resolved here. */
             size?: number;
             family?: components["schemas"]["font-family"];
             /** @description Render with a bold weight. */
@@ -813,6 +838,10 @@ export type Fingering = components["schemas"]["fingering"];
 export type GlissandoStyle = components["schemas"]["glissando-style"];
 export type GlissandoKind = components["schemas"]["glissando-kind"];
 export type Glissando = components["schemas"]["glissando"];
+export type TextRunStyle = components["schemas"]["text-run-style"];
+export type TextRun = components["schemas"]["text-run"];
+export type GlyphRun = components["schemas"]["glyph-run"];
+export type TextContent = components["schemas"]["text-content"];
 export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];
 export type SlurExtensions = components["schemas"]["slur-extensions"];

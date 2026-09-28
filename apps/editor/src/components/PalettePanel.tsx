@@ -106,6 +106,9 @@ import {
   setRepeatStart,
   setRepeatEnd,
   setEnding,
+  textContentFromPlain,
+  plainTextContent,
+  type TextContent,
 } from "@viritura/core";
 import {
   measureIndexFromElementId,
@@ -883,11 +886,11 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
     const measureIndex = timeSignatureMeasureIndexFromSelection(sel, score);
     if (measureIndex === null) return;
     const current = (score.global.measures[measureIndex] as Record<string, unknown>)?.rehearsalMark as
-      { text?: string } | undefined;
+      { text?: TextContent } | undefined;
     setPromptState({
       open: true,
       title: "Rehearsal mark",
-      initialValue: current?.text ?? "",
+      initialValue: current?.text ? plainTextContent(current.text) : "",
       type: "text",
       allowEmpty: true,
       onSubmit: (input) => {
@@ -897,7 +900,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
           if (!input.trim()) {
             delete (gm as Record<string, unknown>).rehearsalMark;
           } else {
-            (gm as Record<string, unknown>).rehearsalMark = { text: input.trim() };
+            (gm as Record<string, unknown>).rehearsalMark = { text: textContentFromPlain(input.trim()) };
           }
         });
         if (newScore !== score) updateScore(newScore);
@@ -933,7 +936,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
             partMeasure.expressions = [
               ...(partMeasure.expressions ?? []),
               {
-                text: input.trim(),
+                text: textContentFromPlain(input.trim()),
                 position: { fraction },
                 placement: "above",
                 ...(staff !== undefined && { staff }),

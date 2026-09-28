@@ -418,7 +418,7 @@ describe("PalettePanel", () => {
     await user.type(screen.getByRole("textbox", { name: "Rehearsal mark" }), "B");
     await user.click(screen.getByRole("button", { name: "OK" }));
 
-    expect(screen.getByTestId("rehearsal-mark").textContent).toBe('{"text":"B"}');
+    expect(screen.getByTestId("rehearsal-mark").textContent).toBe('{"text":[{"text":"B"}]}');
   });
 
   it("adds a rehearsal mark at a selected barline rather than the preceding measure", async () => {
@@ -445,6 +445,6 @@ describe("PalettePanel", () => {
     await user.click(screen.getByRole("button", { name: "OK" }));
 
     expect(screen.getByTestId("rehearsal-mark-0").textContent).toBe("");
-    expect(screen.getByTestId("rehearsal-mark").textContent).toBe('{"text":"C"}');
+    expect(screen.getByTestId("rehearsal-mark").textContent).toBe('{"text":[{"text":"C"}]}');
   });
 });

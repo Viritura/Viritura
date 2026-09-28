@@ -10,6 +10,7 @@
  * `timeline.ts`; `beatOffsetToTime` comes from the tempo map.
  */
 import type { TextExpression } from "@viritura/core";
+import { plainTextContent } from "@viritura/core";
 import { type PartCtx, fractionToBeats } from "./timeline";
 
 /** GM program 45 — Pizzicato Strings. */
@@ -142,7 +143,7 @@ export function applyMeasureTechniques(
   // measure resolve in playing order.
   const marks = expressions
     .map((e) => ({
-      action: classifyTechniqueText(e.text),
+      action: classifyTechniqueText(plainTextContent(e.text)),
       beat: fractionToBeats(e.position.fraction) * ratioForStaff(e.staff),
     }))
     .filter((m): m is { action: TechniqueAction; beat: number } => m.action !== null)

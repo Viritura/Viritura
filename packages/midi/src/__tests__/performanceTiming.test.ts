@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createDynamicGroup, type GlobalMeasure, type NoteEvent, type Score } from "@viritura/core";
+import {
+  createDynamicGroup,
+  textContentFromPlain,
+  type GlobalMeasure,
+  type NoteEvent,
+  type Score,
+} from "@viritura/core";
 import { generatePerformanceEvents, generateTimeline } from "../index";
 
 interface TimingCase {
@@ -90,7 +96,7 @@ function timingScore(testCase: TimingCase): Score {
           {
             sequences: [{ content: [note("return", "whole")] }],
             dynamics: [createDynamicGroup("f", { fraction: [0, 1] }, "return-f")],
-            expressions: [{ text: "pizz.", position: { fraction: [0, 1] } }],
+            expressions: [{ text: textContentFromPlain("pizz."), position: { fraction: [0, 1] } }],
           },
           { sequences: [{ content: [note("following")] }] },
         ],

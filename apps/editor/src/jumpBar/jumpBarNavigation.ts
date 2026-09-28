@@ -1,4 +1,4 @@
-import type { Score } from "@viritura/core";
+import { plainTextContent, type Score } from "@viritura/core";
 
 export interface JumpBarNavigationTarget {
   measureIndex: number;
@@ -26,11 +26,13 @@ export function resolveJumpBarNavigationQuery(query: string, score: Score | null
   const requested = rehearsalMatch[1]!.trim();
   if (!requested) return null;
   const measureIndex = score.global.measures.findIndex(
-    (measure) => measure.rehearsalMark?.text.trim().toLocaleLowerCase() === requested.toLocaleLowerCase(),
+    (measure) =>
+      measure.rehearsalMark &&
+      plainTextContent(measure.rehearsalMark.text).trim().toLocaleLowerCase() === requested.toLocaleLowerCase(),
   );
   if (measureIndex < 0) return null;
   return {
     measureIndex,
-    label: `Go to rehearsal ${score.global.measures[measureIndex]!.rehearsalMark!.text}`,
+    label: `Go to rehearsal ${plainTextContent(score.global.measures[measureIndex]!.rehearsalMark!.text)}`,
   };
 }

@@ -9,17 +9,17 @@ import { useState, useEffect, useRef, useCallback } from "react";
  * @param onCommit - Called with the new value after the debounce delay
  * @param delay - Debounce delay in ms (default: 300)
  */
-export function useDebouncedInput(
-  externalValue: string,
-  onCommit: (value: string) => void,
+export function useDebouncedInput<T>(
+  externalValue: T,
+  onCommit: (value: T) => void,
   delay = 300,
 ): {
-  value: string;
-  onChange: (value: string) => void;
+  value: T;
+  onChange: (value: T) => void;
   onBlur: () => void;
   reset: () => void;
 } {
-  const [localValue, setLocalValue] = useState(externalValue);
+  const [localValue, setLocalValue] = useState<T>(externalValue);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commitRef = useRef(onCommit);
   commitRef.current = onCommit;
@@ -33,7 +33,7 @@ export function useDebouncedInput(
   }, [externalValue]);
 
   const onChange = useCallback(
-    (value: string) => {
+    (value: T) => {
       setLocalValue(value);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {

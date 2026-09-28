@@ -92,7 +92,14 @@ export function Select({
           variant={triggerVariant}
           leading={selected?.icon}
         >
-          <RadixSelect.Value placeholder={placeholder}>{selected?.triggerLabel}</RadixSelect.Value>
+          {/*
+            Children must never flip between defined and undefined: Radix uses
+            that to decide whether the selected item portals its own text into
+            this node, and toggling it mid-flight leaves the trigger blank.
+          */}
+          <RadixSelect.Value placeholder={placeholder}>
+            {selected ? (selected.triggerLabel ?? selected.label) : placeholder}
+          </RadixSelect.Value>
         </SelectTrigger>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>

@@ -24,7 +24,11 @@
             },
             "_x": {
               "viritura": {
-                "text": "Allegro con brio"
+                "text": [
+                  {
+                    "text": "Allegro con brio"
+                  }
+                ]
               }
             }
           }

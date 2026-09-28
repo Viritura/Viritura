@@ -36,6 +36,7 @@
 
 import {
   walkSequenceEvents,
+  plainTextContent,
   type DynamicGroup,
   type DynamicValue,
   type GlobalMeasure,
@@ -270,7 +271,7 @@ function collectMeasureGradualTexts(
 ): void {
   for (let index = 0; index < (pm.expressions?.length ?? 0); index++) {
     const expression = pm.expressions![index]!;
-    const dir = gradualTextDirection(expression.text);
+    const dir = gradualTextDirection(plainTextContent(expression.text));
     if (!dir) continue;
     gradualTexts.push({
       id: `text-gradual-${expandedIdx}-${index}`,

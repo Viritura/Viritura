@@ -84,6 +84,29 @@ describe("parseMnx", () => {
     });
   });
 
+  it("round-trips ordered rich text and SMuFL glyph chunks on a text expression", () => {
+    const mnx = structuredClone(helloWorldMnx) as typeof helloWorldMnx & {
+      parts: Array<{ measures: Array<Record<string, unknown>> }>;
+    };
+    const content = [
+      { text: "con ", style: { fontStyle: "italic" } },
+      { glyphs: ["dynamicMF"] },
+      { text: "subito", style: { weight: "bold", size: 1.25 } },
+    ];
+    mnx.parts[0]!.measures[0]!["_x"] = {
+      viritura: {
+        expressions: [{ text: content, position: { fraction: [0, 4] } }],
+      },
+    };
+
+    const score = parseMnx(mnx);
+    expect(score.parts[0]?.measures[0]?.expressions?.[0]?.text).toEqual(content);
+    const serialized = serializeMnx(score) as {
+      parts: Array<{ measures: Array<{ _x?: { viritura?: { expressions?: Array<{ text: unknown }> } } }> }>;
+    };
+    expect(serialized.parts[0]?.measures[0]?._x?.viritura?.expressions?.[0]?.text).toEqual(content);
+  });
+
   it("should parse barline correctly", () => {
     const score = parseMnx(helloWorldMnx);
     const measure = score.global.measures[0];
@@ -1338,7 +1361,7 @@ describe("parseMnx _x.viritura extensions", () => {
       ],
     };
     const score = parseMnx(mnx);
-    expect(score.global.measures[0].rehearsalMark?.text).toBe("A");
+    expect(score.global.measures[0].rehearsalMark?.text).toEqual([{ text: "A" }]);
     expect(score.global.measures[0].rehearsalMark?.style).toBe("boxed");
   });
 
@@ -1680,7 +1703,7 @@ describe("parseMnx _x.viritura extensions", () => {
     const score = parseMnx(mnx);
     const expr = score.parts[0]?.measures[0]?.expressions;
     expect(expr).toHaveLength(1);
-    expect(expr?.[0]?.text).toBe("dolce");
+    expect(expr?.[0]?.text).toEqual([{ text: "dolce" }]);
     expect(expr?.[0]?.placement).toBe("below");
   });
 

@@ -65,7 +65,7 @@ function groupingScoreJson(options: {
                   {
                     bpm: 120,
                     value: { base: "quarter" },
-                    _x: { viritura: { text: "Allegro" } },
+                    _x: { viritura: { text: [{ text: "Allegro" }] } },
                   },
                 ],
               }

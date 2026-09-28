@@ -62,7 +62,7 @@ function makeScore(): Score {
                 value: 1,
               },
             ],
-            expressions: [{ text: "dolce", position: { fraction: [0, 1] } }],
+            expressions: [{ text: [{ text: "dolce" }], position: { fraction: [0, 1] } }],
           },
         ],
       },

@@ -20,7 +20,7 @@ import { type ConvertFlags, type OttavaEvent, type TupletAccumulator, processMea
 import type { ActiveBeam } from "./beamImport";
 import { type GlissandoState, type SlurState } from "./notes";
 import { type TransposeInterval } from "./pitchDuration";
-import type { Interval } from "@viritura/core";
+import type { Interval, TextContent } from "@viritura/core";
 import type { ImportedHarmonySource } from "./harmonyConsolidation";
 
 // Parse `<transpose>` from a part's first measure.
@@ -264,7 +264,7 @@ export function buildParts(
     const ottavasByMeasure = new Map<number, MnxOttava[]>();
     const exprByMeasure = new Map<
       number,
-      { text: string; position: Pos; placement?: "above" | "below"; staff?: number }[]
+      { text: TextContent; position: Pos; placement?: "above" | "below"; staff?: number }[]
     >();
     let openHairpin: { mi: number; position: Pos; type: string; staff?: number; voice?: string } | null = null;
     let openPedal: { mi: number; position: Pos; type: string; staff?: number } | null = null;
@@ -476,7 +476,8 @@ export function buildParts(
           if (gm) {
             const gx = (gm["_x"] ??= { viritura: {} }) as { viritura: Record<string, unknown> };
             if (gx.viritura["rehearsalMark"] === undefined) {
-              gx.viritura["rehearsalMark"] = { text: result.rehearsals[0]!.text };
+              const mark = result.rehearsals[0]!;
+              gx.viritura["rehearsalMark"] = { text: mark.text, ...(mark.style ? { style: mark.style } : {}) };
             }
           }
         }

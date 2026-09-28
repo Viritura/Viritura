@@ -19,6 +19,7 @@ pub mod pitch;
 pub mod repeat;
 pub mod score;
 pub mod staff_meter;
+pub mod text;
 pub mod time;
 
 pub use barline::*;
@@ -37,4 +38,5 @@ pub use pitch::*;
 pub use repeat::*;
 pub use score::*;
 pub use staff_meter::*;
+pub use text::*;
 pub use time::*;

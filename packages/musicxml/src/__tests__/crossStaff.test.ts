@@ -106,9 +106,9 @@ describe("convertMusicXmlToMnx — direction staff assignment", () => {
     const mnx = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const measure = mnx.parts[0]!.measures[0]! as unknown as Record<string, unknown>;
     const ext = measure["_x"] as { viritura: Record<string, unknown> };
-    const exprs = ext.viritura["expressions"] as { text: string; staff?: number }[];
+    const exprs = ext.viritura["expressions"] as { text: { text: string }[]; staff?: number }[];
     expect(exprs).toHaveLength(1);
-    expect(exprs[0]!.text).toBe("dolce");
+    expect(exprs[0]!.text).toEqual([{ text: "dolce" }]);
     expect(exprs[0]!.staff).toBe(2);
   });
 });

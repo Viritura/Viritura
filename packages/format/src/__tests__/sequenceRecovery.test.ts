@@ -106,7 +106,13 @@ describe("recoverInvalidSequences", () => {
     expect(measure.sequences[1]!.content[0]!["id"]).toBe("good1");
     expect(recovered.parts[0]!.measures[1]).toEqual(original.parts[0]!.measures[1]);
     expect(measure._x?.viritura?.expressions).toEqual([
-      { text: "Import error E1", position: { fraction: [0, 1] }, placement: "above", staff: 1, voice: "v1" },
+      {
+        text: [{ text: "Import error E1" }],
+        position: { fraction: [0, 1] },
+        placement: "above",
+        staff: 1,
+        voice: "v1",
+      },
     ]);
   });
 
@@ -163,6 +169,6 @@ describe("recoverInvalidSequences", () => {
     expect(measure1!.sequences[0]!.content).toHaveLength(5);
     expect(measure2!.sequences[0]!.content).toEqual([]);
     expect(measure2!.sequences[1]!.content).toHaveLength(7);
-    expect(measure2!.expressions?.[0]?.text).toBe("Import error E1");
+    expect(measure2!.expressions?.[0]?.text).toEqual([{ text: "Import error E1" }]);
   });
 });

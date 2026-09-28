@@ -6,8 +6,8 @@ describe("analyzeOrchestralPartSplit", () => {
   it("previews resulting named Parts and routing-label counts without mutating the score", () => {
     const score = makeScore();
     score.parts[0]!.measures[0]!.expressions = [
-      { text: "I.II.", position: { fraction: [0, 1] } },
-      { text: "dolce", position: { fraction: [1, 4] } },
+      { text: [{ text: "I.II." }], position: { fraction: [0, 1] } },
+      { text: [{ text: "dolce" }], position: { fraction: [1, 4] } },
     ];
     const before = structuredClone(score);
 

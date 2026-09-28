@@ -24,7 +24,14 @@ fn test_rehearsal_marks_parse_and_render() {
         score.global.measures[0].rehearsal_mark().is_some(),
         "Measure 0 should have rehearsal mark A"
     );
-    assert_eq!(score.global.measures[0].rehearsal_mark().unwrap().text, "A");
+    assert_eq!(
+        score.global.measures[0]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "A"
+    );
     assert!(
         score.global.measures[1].rehearsal_mark().is_none(),
         "Measure 1 should have no rehearsal mark"
@@ -68,7 +75,7 @@ fn test_rehearsal_mark_boxed_has_border() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "A"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -131,7 +138,7 @@ fn test_rehearsal_mark_above_staff() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "1", "style": "plain"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "1"}], "style": "plain"}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -169,9 +176,9 @@ fn test_rehearsal_mark_styles_parse() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [
-            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"rehearsalMark": {"text": "A", "style": "boxed"}}}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "B", "style": "circled"}}}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "C", "style": "plain"}}}}
+            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}], "style": "boxed"}}}},
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "B"}], "style": "circled"}}}},
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "C"}], "style": "plain"}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -218,7 +225,7 @@ fn test_rehearsal_mark_default_style_is_boxed() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "A"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -310,7 +317,7 @@ fn test_rehearsal_mark_box_centers_on_interior_barline() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "B"}}}}
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "B"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -373,7 +380,7 @@ fn test_rehearsal_mark_box_left_aligns_at_system_start() {
     let json = r#"{
         "mnx": {"version": 1},
         "global": {"measures": [
-            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"rehearsalMark": {"text": "B"}}}}
+            {"time": {"count": 4, "unit": 4}, "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "B"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -420,7 +427,7 @@ fn test_rehearsal_mark_circled_background_is_transparent() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "A", "style": "circled"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}], "style": "circled"}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -464,7 +471,7 @@ fn test_rehearsal_mark_clears_articulation() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "13"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "13"}]}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -540,7 +547,7 @@ fn test_rehearsal_mark_text_centered_in_box() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "13"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "13"}]}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -630,7 +637,7 @@ fn test_rehearsal_mark_clears_system_start_measure_number() {
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
             "number": 17,
-            "_x": {"viritura": {"rehearsalMark": {"text": "C"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "C"}]}}}
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -711,12 +718,12 @@ fn test_rehearsal_mark_dodges_left_over_direction() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "11"}}}}
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "11"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}]}]},
-            {"expressions": [{"text": "arco", "position": {"fraction": [0, 4]}, "placement": "above"}],
+            {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]}]}]}
         ]}]
     }"#;
@@ -815,12 +822,12 @@ fn test_rehearsal_mark_bbox_tracks_dodge_over_direction() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "11"}}}}
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "11"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}]}]},
-            {"expressions": [{"text": "arco", "position": {"fraction": [0, 4]}, "placement": "above"}],
+            {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 4]}, "placement": "above"}],
              "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]}]}]}
         ]}]
     }"#;
@@ -963,7 +970,7 @@ fn test_rehearsal_mark_dodge_clears_ledger_lines() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "6"}}}}
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "6"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -1035,7 +1042,7 @@ fn test_rehearsal_mark_floats_over_previous_measure_note_ink() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
-            {"_x": {"viritura": {"rehearsalMark": {"text": "12"}}}}
+            {"_x": {"viritura": {"rehearsalMark": {"text": [{"text": "12"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [

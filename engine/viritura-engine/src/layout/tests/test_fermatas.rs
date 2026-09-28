@@ -533,7 +533,7 @@ fn test_horizon_tempo_clears_fermata_across_following_bar() {
             {"time": {"count": 2, "unit": 4}, "tempos": [{
                 "bpm": 108,
                 "value": {"base": "half"},
-                "_x": {"viritura": {"text": "Allegro con brio"}}
+                "_x": {"viritura": {"text": [{"text": "Allegro con brio"}]}}
             }]},
             {},
             {}

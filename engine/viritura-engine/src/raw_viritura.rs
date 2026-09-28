@@ -2098,6 +2098,133 @@ impl ::std::convert::TryFrom<::std::string::String> for GlissandoStyle {
         value.parse()
     }
 }
+///`GlyphRun`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "glyphs"
+///  ],
+///  "properties": {
+///    "glyphs": {
+///      "description": "SMuFL glyph names, not private-use Unicode code points.",
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "minLength": 1
+///      },
+///      "minItems": 1
+///    },
+///    "smuflStyle": {
+///      "$ref": "#/$defs/text-run-style"
+///    },
+///    "style": {
+///      "$ref": "#/$defs/text-run-style"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct GlyphRun {
+    ///SMuFL glyph names, not private-use Unicode code points.
+    pub glyphs: ::std::vec::Vec<GlyphRunGlyphsItem>,
+    #[serde(
+        rename = "smuflStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub smufl_style: ::std::option::Option<TextRunStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub style: ::std::option::Option<TextRunStyle>,
+}
+impl ::std::convert::From<&GlyphRun> for GlyphRun {
+    fn from(value: &GlyphRun) -> Self {
+        value.clone()
+    }
+}
+///`GlyphRunGlyphsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct GlyphRunGlyphsItem(::std::string::String);
+impl ::std::ops::Deref for GlyphRunGlyphsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<GlyphRunGlyphsItem> for ::std::string::String {
+    fn from(value: GlyphRunGlyphsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&GlyphRunGlyphsItem> for GlyphRunGlyphsItem {
+    fn from(value: &GlyphRunGlyphsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for GlyphRunGlyphsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for GlyphRunGlyphsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for GlyphRunGlyphsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GlyphRunGlyphsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for GlyphRunGlyphsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.
 ///
 /// <details><summary>JSON schema</summary>
@@ -5924,8 +6051,7 @@ impl ::std::default::Default for PositionedStaffConfigExtensions {
 ///      ]
 ///    },
 ///    "text": {
-///      "description": "The rehearsal mark label text.",
-///      "type": "string"
+///      "$ref": "#/$defs/text-content"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -5952,8 +6078,7 @@ pub struct RehearsalMark {
     ///Display style. Default: 'boxed'.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub style: ::std::option::Option<RehearsalMarkStyle>,
-    ///The rehearsal mark label text.
-    pub text: ::std::string::String,
+    pub text: TextContent,
 }
 impl ::std::convert::From<&RehearsalMark> for RehearsalMark {
     fn from(value: &RehearsalMark) -> Self {
@@ -7207,7 +7332,7 @@ impl ::std::default::Default for SystemLayoutExtensions {
 ///      "type": "boolean"
 ///    },
 ///    "text": {
-///      "type": "string"
+///      "$ref": "#/$defs/text-content"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -7242,7 +7367,7 @@ pub struct TempoExtensions {
     )]
     pub show_text: ::std::option::Option<bool>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub text: ::std::option::Option<::std::string::String>,
+    pub text: ::std::option::Option<TextContent>,
 }
 impl ::std::convert::From<&TempoExtensions> for TempoExtensions {
     fn from(value: &TempoExtensions) -> Self {
@@ -7347,6 +7472,89 @@ impl ::std::convert::TryFrom<::std::string::String> for TextAlignment {
         value.parse()
     }
 }
+///Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Ordered text and SMuFL glyph runs. Always an array: a bare string is not valid, so consumers never branch on representation. Legacy documents storing a plain string are widened to a single text run on read.",
+///  "type": "array",
+///  "items": {
+///    "oneOf": [
+///      {
+///        "$ref": "#/$defs/text-run"
+///      },
+///      {
+///        "$ref": "#/$defs/glyph-run"
+///      }
+///    ]
+///  }
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct TextContent(pub ::std::vec::Vec<TextContentItem>);
+impl ::std::ops::Deref for TextContent {
+    type Target = ::std::vec::Vec<TextContentItem>;
+    fn deref(&self) -> &::std::vec::Vec<TextContentItem> {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextContent> for ::std::vec::Vec<TextContentItem> {
+    fn from(value: TextContent) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextContent> for TextContent {
+    fn from(value: &TextContent) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<::std::vec::Vec<TextContentItem>> for TextContent {
+    fn from(value: ::std::vec::Vec<TextContentItem>) -> Self {
+        Self(value)
+    }
+}
+///`TextContentItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/text-run"
+///    },
+///    {
+///      "$ref": "#/$defs/glyph-run"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum TextContentItem {
+    TextRun(TextRun),
+    GlyphRun(GlyphRun),
+}
+impl ::std::convert::From<&Self> for TextContentItem {
+    fn from(value: &TextContentItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::convert::From<TextRun> for TextContentItem {
+    fn from(value: TextRun) -> Self {
+        Self::TextRun(value)
+    }
+}
+impl ::std::convert::From<GlyphRun> for TextContentItem {
+    fn from(value: GlyphRun) -> Self {
+        Self::GlyphRun(value)
+    }
+}
 ///A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font.
 ///
 /// <details><summary>JSON schema</summary>
@@ -7380,8 +7588,7 @@ impl ::std::convert::TryFrom<::std::string::String> for TextAlignment {
 ///      "type": "integer"
 ///    },
 ///    "text": {
-///      "description": "The expression text.",
-///      "type": "string"
+///      "$ref": "#/$defs/text-content"
 ///    },
 ///    "voice": {
 ///      "description": "Voice name.",
@@ -7416,8 +7623,7 @@ pub struct TextExpression {
     ///Staff number (1-based).
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub staff: ::std::option::Option<i64>,
-    ///The expression text.
-    pub text: ::std::string::String,
+    pub text: TextContent,
     ///Voice name.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub voice: ::std::option::Option<::std::string::String>,
@@ -7425,6 +7631,741 @@ pub struct TextExpression {
 impl ::std::convert::From<&TextExpression> for TextExpression {
     fn from(value: &TextExpression) -> Self {
         value.clone()
+    }
+}
+///`TextRun`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "text"
+///  ],
+///  "properties": {
+///    "style": {
+///      "$ref": "#/$defs/text-run-style"
+///    },
+///    "text": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextRun {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub style: ::std::option::Option<TextRunStyle>,
+    pub text: ::std::string::String,
+}
+impl ::std::convert::From<&TextRun> for TextRun {
+    fn from(value: &TextRun) -> Self {
+        value.clone()
+    }
+}
+///Inline text formatting. Omitted fields inherit the owning text role's style.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Inline text formatting. Omitted fields inherit the owning text role's style.",
+///  "type": "object",
+///  "properties": {
+///    "color": {
+///      "type": "string",
+///      "pattern": "^#[0-9a-fA-F]{6}$"
+///    },
+///    "decorations": {
+///      "description": "Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.",
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "enum": [
+///          "underline",
+///          "overline",
+///          "strikethrough"
+///        ]
+///      },
+///      "minItems": 1,
+///      "uniqueItems": true
+///    },
+///    "enclosure": {
+///      "type": "string",
+///      "enum": [
+///        "box",
+///        "circle"
+///      ]
+///    },
+///    "font": {
+///      "type": "string",
+///      "enum": [
+///        "serif",
+///        "sans-serif",
+///        "monospace"
+///      ]
+///    },
+///    "fontStyle": {
+///      "type": "string",
+///      "enum": [
+///        "normal",
+///        "italic",
+///        "oblique"
+///      ]
+///    },
+///    "size": {
+///      "description": "Relative size as a multiple of the owning text role's resolved size (the CSS 'em' equivalent), not an absolute point size. Distinct from text-style.size, which counts staff spaces for a whole role.",
+///      "type": "number"
+///    },
+///    "weight": {
+///      "oneOf": [
+///        {
+///          "type": "string",
+///          "enum": [
+///            "normal",
+///            "bold"
+///          ]
+///        },
+///        {
+///          "type": "number"
+///        }
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextRunStyle {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub color: ::std::option::Option<TextRunStyleColor>,
+    ///Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub decorations: ::std::option::Option<Vec<TextRunStyleDecorationsItem>>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub enclosure: ::std::option::Option<TextRunStyleEnclosure>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub font: ::std::option::Option<TextRunStyleFont>,
+    #[serde(
+        rename = "fontStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub font_style: ::std::option::Option<TextRunStyleFontStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub size: ::std::option::Option<f64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub weight: ::std::option::Option<TextRunStyleWeight>,
+}
+impl ::std::convert::From<&TextRunStyle> for TextRunStyle {
+    fn from(value: &TextRunStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for TextRunStyle {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            decorations: Default::default(),
+            enclosure: Default::default(),
+            font: Default::default(),
+            font_style: Default::default(),
+            size: Default::default(),
+            weight: Default::default(),
+        }
+    }
+}
+///`TextRunStyleColor`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "pattern": "^#[0-9a-fA-F]{6}$"
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TextRunStyleColor(::std::string::String);
+impl ::std::ops::Deref for TextRunStyleColor {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextRunStyleColor> for ::std::string::String {
+    fn from(value: TextRunStyleColor) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextRunStyleColor> for TextRunStyleColor {
+    fn from(value: &TextRunStyleColor) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextRunStyleColor {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        static PATTERN: ::std::sync::LazyLock<::regress::Regex> = ::std::sync::LazyLock::new(||
+        { ::regress::Regex::new("^#[0-9a-fA-F]{6}$").unwrap() });
+        if PATTERN.find(value).is_none() {
+            return Err("doesn't match pattern \"^#[0-9a-fA-F]{6}$\"".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleColor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleColor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleColor {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TextRunStyleColor {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TextRunStyleDecorationsItem`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "underline",
+///    "overline",
+///    "strikethrough"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextRunStyleDecorationsItem {
+    #[serde(rename = "underline")]
+    Underline,
+    #[serde(rename = "overline")]
+    Overline,
+    #[serde(rename = "strikethrough")]
+    Strikethrough,
+}
+impl ::std::convert::From<&Self> for TextRunStyleDecorationsItem {
+    fn from(value: &TextRunStyleDecorationsItem) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleDecorationsItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Underline => f.write_str("underline"),
+            Self::Overline => f.write_str("overline"),
+            Self::Strikethrough => f.write_str("strikethrough"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextRunStyleDecorationsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "underline" => Ok(Self::Underline),
+            "overline" => Ok(Self::Overline),
+            "strikethrough" => Ok(Self::Strikethrough),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleDecorationsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleDecorationsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleDecorationsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TextRunStyleEnclosure`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "box",
+///    "circle"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextRunStyleEnclosure {
+    #[serde(rename = "box")]
+    Box,
+    #[serde(rename = "circle")]
+    Circle,
+}
+impl ::std::convert::From<&Self> for TextRunStyleEnclosure {
+    fn from(value: &TextRunStyleEnclosure) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleEnclosure {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Box => f.write_str("box"),
+            Self::Circle => f.write_str("circle"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextRunStyleEnclosure {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "box" => Ok(Self::Box),
+            "circle" => Ok(Self::Circle),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleEnclosure {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TextRunStyleFont`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "serif",
+///    "sans-serif",
+///    "monospace"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextRunStyleFont {
+    #[serde(rename = "serif")]
+    Serif,
+    #[serde(rename = "sans-serif")]
+    SansSerif,
+    #[serde(rename = "monospace")]
+    Monospace,
+}
+impl ::std::convert::From<&Self> for TextRunStyleFont {
+    fn from(value: &TextRunStyleFont) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleFont {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Serif => f.write_str("serif"),
+            Self::SansSerif => f.write_str("sans-serif"),
+            Self::Monospace => f.write_str("monospace"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextRunStyleFont {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "serif" => Ok(Self::Serif),
+            "sans-serif" => Ok(Self::SansSerif),
+            "monospace" => Ok(Self::Monospace),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleFont {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleFont {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleFont {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TextRunStyleFontStyle`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "italic",
+///    "oblique"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextRunStyleFontStyle {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "italic")]
+    Italic,
+    #[serde(rename = "oblique")]
+    Oblique,
+}
+impl ::std::convert::From<&Self> for TextRunStyleFontStyle {
+    fn from(value: &TextRunStyleFontStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleFontStyle {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Italic => f.write_str("italic"),
+            Self::Oblique => f.write_str("oblique"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextRunStyleFontStyle {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "italic" => Ok(Self::Italic),
+            "oblique" => Ok(Self::Oblique),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleFontStyle {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleFontStyle {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleFontStyle {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`TextRunStyleWeight`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "oneOf": [
+///    {
+///      "type": "string",
+///      "enum": [
+///        "normal",
+///        "bold"
+///      ]
+///    },
+///    {
+///      "type": "number"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum TextRunStyleWeight {
+    Variant0(TextRunStyleWeightVariant0),
+    Variant1(f64),
+}
+impl ::std::convert::From<&Self> for TextRunStyleWeight {
+    fn from(value: &TextRunStyleWeight) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextRunStyleWeight {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if let Ok(v) = value.parse() {
+            Ok(Self::Variant0(v))
+        } else if let Ok(v) = value.parse() {
+            Ok(Self::Variant1(v))
+        } else {
+            Err("string conversion failed for all variants".into())
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleWeight {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleWeight {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleWeight {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleWeight {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match self {
+            Self::Variant0(x) => x.fmt(f),
+            Self::Variant1(x) => x.fmt(f),
+        }
+    }
+}
+impl ::std::convert::From<TextRunStyleWeightVariant0> for TextRunStyleWeight {
+    fn from(value: TextRunStyleWeightVariant0) -> Self {
+        Self::Variant0(value)
+    }
+}
+impl ::std::convert::From<f64> for TextRunStyleWeight {
+    fn from(value: f64) -> Self {
+        Self::Variant1(value)
+    }
+}
+///`TextRunStyleWeightVariant0`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "bold"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum TextRunStyleWeightVariant0 {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "bold")]
+    Bold,
+}
+impl ::std::convert::From<&Self> for TextRunStyleWeightVariant0 {
+    fn from(value: &TextRunStyleWeightVariant0) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for TextRunStyleWeightVariant0 {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Bold => f.write_str("bold"),
+        }
+    }
+}
+impl ::std::str::FromStr for TextRunStyleWeightVariant0 {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "bold" => Ok(Self::Bold),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextRunStyleWeightVariant0 {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleWeightVariant0 {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleWeightVariant0 {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///A partial override of a named text style. Every field is optional: omitted fields fall back to the engine's built-in default for that role, so a document only stores what it changes.
@@ -7456,7 +8397,7 @@ impl ::std::convert::From<&TextExpression> for TextExpression {
 ///      "type": "boolean"
 ///    },
 ///    "size": {
-///      "description": "Font size in staff spaces (spatium-relative).",
+///      "description": "Absolute font size in staff spaces (spatium-relative) for this whole role. Distinct from text-run-style.size, which is a relative multiplier over the value resolved here.",
 ///      "type": "number"
 ///    }
 ///  },
@@ -9452,6 +10393,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "glissando-style": {
 ///      "$ref": "#/$defs/glissando-style"
 ///    },
+///    "glyph-run": {
+///      "$ref": "#/$defs/glyph-run"
+///    },
 ///    "gradual-tempo": {
 ///      "$ref": "#/$defs/gradual-tempo"
 ///    },
@@ -9605,8 +10549,17 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "text-alignment": {
 ///      "$ref": "#/$defs/text-alignment"
 ///    },
+///    "text-content": {
+///      "$ref": "#/$defs/text-content"
+///    },
 ///    "text-expression": {
 ///      "$ref": "#/$defs/text-expression"
+///    },
+///    "text-run": {
+///      "$ref": "#/$defs/text-run"
+///    },
+///    "text-run-style": {
+///      "$ref": "#/$defs/text-run-style"
 ///    },
 ///    "text-style": {
 ///      "$ref": "#/$defs/text-style"
@@ -9741,6 +10694,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub glissando_style: ::std::option::Option<GlissandoStyle>,
+    #[serde(
+        rename = "glyph-run",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub glyph_run: ::std::option::Option<GlyphRun>,
     #[serde(
         rename = "gradual-tempo",
         default,
@@ -10042,11 +11001,29 @@ pub struct VirituraExtensionsRoot {
     )]
     pub text_alignment: ::std::option::Option<TextAlignment>,
     #[serde(
+        rename = "text-content",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_content: ::std::option::Option<TextContent>,
+    #[serde(
         rename = "text-expression",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub text_expression: ::std::option::Option<TextExpression>,
+    #[serde(
+        rename = "text-run",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_run: ::std::option::Option<TextRun>,
+    #[serde(
+        rename = "text-run-style",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_run_style: ::std::option::Option<TextRunStyle>,
     #[serde(
         rename = "text-style",
         default,
@@ -10171,6 +11148,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             glissando: Default::default(),
             glissando_kind: Default::default(),
             glissando_style: Default::default(),
+            glyph_run: Default::default(),
             gradual_tempo: Default::default(),
             grouping_display: Default::default(),
             hit_point: Default::default(),
@@ -10222,7 +11200,10 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             system_layout_extensions: Default::default(),
             tempo_extensions: Default::default(),
             text_alignment: Default::default(),
+            text_content: Default::default(),
             text_expression: Default::default(),
+            text_run: Default::default(),
+            text_run_style: Default::default(),
             text_style: Default::default(),
             text_styles: Default::default(),
             time_extensions: Default::default(),

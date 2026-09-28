@@ -74,6 +74,8 @@ pub enum PromoteError {
     /// Raw note-value base outside the engine's supported set
     /// (duplexMaxima, 512th, 1024th, 2048th, 4096th).
     UnsupportedNoteValueBase(String),
+    /// Text content is schema-valid but could not be represented by the engine.
+    UnsupportedTextContent(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -85,6 +87,7 @@ impl std::fmt::Display for PromoteError {
                     "MNX note-value base '{s}' is not supported by the engine"
                 )
             }
+            Self::UnsupportedTextContent(s) => write!(f, "MNX text content is not supported: {s}"),
         }
     }
 }

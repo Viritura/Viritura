@@ -7,6 +7,7 @@
  */
 
 import type { GlobalMeasure, Score } from "@viritura/core";
+import { plainTextContent } from "@viritura/core";
 
 interface MeasureOrderHints {
   toCodaMeasureIndex?: number;
@@ -35,7 +36,7 @@ export function detectToCodaMeasureIndex(score: Pick<Score, "parts">): number {
     for (let i = 0; i < part.measures.length; i++) {
       const expressions = part.measures[i]?.expressions;
       if (!expressions || expressions.length === 0) continue;
-      if (expressions.some((expr) => /\bto\s*coda\b/i.test(expr.text))) {
+      if (expressions.some((expr) => /\bto\s*coda\b/i.test(plainTextContent(expr.text)))) {
         return i;
       }
     }

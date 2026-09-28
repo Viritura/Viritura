@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createDynamicGroup, generateId, type DynamicValue, type Score } from "@viritura/core";
+import { createDynamicGroup, generateId, textContentFromPlain, type DynamicValue, type Score } from "@viritura/core";
 import { generateTimeline } from "../timeline";
 import { DYNAMIC_AXES, buildDynamicsEnvelope, sampleDynamics, noteVelocityAt, cc11Events } from "../dynamicsEnvelope";
 
@@ -53,7 +53,7 @@ function buildScore(measures: MeasureSpec[]): Score {
           ...(m.expressions
             ? {
                 expressions: m.expressions.map((expression) => ({
-                  text: expression.text,
+                  text: textContentFromPlain(expression.text),
                   position: { fraction: [expression.beat, 4] },
                 })),
               }

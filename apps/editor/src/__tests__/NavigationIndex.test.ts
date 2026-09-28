@@ -90,7 +90,7 @@ function makeAnnotatedScore(): Score {
           time: { count: 4, unit: 4 },
           key: { fifths: 0 },
           tempos: [{ bpm: 120, value: { base: "quarter" }, location: { fraction: [0, 1] } }],
-          rehearsalMark: { text: "A" },
+          rehearsalMark: { text: [{ text: "A" }] },
         },
         {
           barline: { type: "final" } as NonNullable<Score["global"]["measures"][0]["barline"]>,

@@ -1,6 +1,8 @@
 import { FormInput, Checkbox, Button } from "@viritura/ui";
+import type { TextContent } from "@viritura/core";
 import type { CSSProperties } from "react";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
+import { TextContentEditor } from "./TextContentEditor";
 
 const offsetRowStyle: CSSProperties = { display: "flex", gap: 8 };
 const offsetFieldStyle: CSSProperties = { flex: 1 };
@@ -67,10 +69,10 @@ export interface DirectionTextSectionProps {
   /** Label shown next to the input. */
   label: string;
   /** Current text value. */
-  value: string;
+  value: TextContent;
   /** Placeholder hint for the input. */
   placeholder: string;
-  onChange: (value: string) => void;
+  onChange: (value: TextContent) => void;
   /** Optional manual position offset editor (sp), shown beneath the text. */
   offset?: ManualOffsetControl;
 }
@@ -87,10 +89,10 @@ export function DirectionTextSection({
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>{title}</legend>
-      <label style={labelStyle}>
-        {label}
-        <FormInput value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      </label>
+      <div style={labelStyle}>
+        <span>{label}</span>
+        <TextContentEditor value={value} onChange={onChange} placeholder={placeholder} ariaLabel={label} />
+      </div>
       {offset && <ManualOffsetFields offset={offset} />}
     </fieldset>
   );

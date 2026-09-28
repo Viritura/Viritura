@@ -47,11 +47,14 @@ export {
   FormField,
   FormInput,
   FormTextarea,
+  InputSurface,
+  FolderPickerInput,
   type FormFieldProps,
   type FormInputProps,
   type FormTextareaProps,
-} from "./FormField/FormField";
-export { FolderPickerInput, type FolderPickerInputProps } from "./FormField/FolderPickerInput";
+  type InputSurfaceProps,
+  type FolderPickerInputProps,
+} from "./FormField";
 export { Section, type SectionProps } from "./Section/Section";
 export {
   SettingsRow,

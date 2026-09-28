@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDynamicGroup, type PartMeasure, type Score } from "@viritura/core";
+import { createDynamicGroup, textContentFromPlain, type PartMeasure, type Score } from "@viritura/core";
 import { generateTimeline } from "../timeline";
 
 /** quarter-note seconds at 120 bpm. */
@@ -98,7 +98,7 @@ describe("generateTimeline — fitMeasure staff-local meter", () => {
       sequences: [{ staff: 2, content: [note("C", 3, "quarter", 1), note("D", 3, "quarter", 1)] }],
       staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
       dynamics: [{ ...createDynamicGroup("f", { fraction: [3, 8] }, "staff-2-f"), staff: 2 }],
-      expressions: [{ text: "pizz.", position: { fraction: [3, 8] }, staff: 2 }],
+      expressions: [{ text: textContentFromPlain("pizz."), position: { fraction: [3, 8] }, staff: 2 }],
     } as unknown as PartMeasure);
 
     const tl = generateTimeline(score, { partPrograms: [40] });

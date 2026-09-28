@@ -2509,7 +2509,7 @@ fn tempo_stacks_above_grouping_annotation_text() {
             "time": {{"count":7,"unit":8,"_x":{{"viritura":{{
               "beatStructure":[3,2,2],"groupingDisplay":"annotation"
             }}}}}},
-            "tempos": [{{"bpm":120,"value":{{"base":"quarter"}},"_x":{{"viritura":{{"text":"Allegro"}}}}}}]
+            "tempos": [{{"bpm":120,"value":{{"base":"quarter"}},"_x":{{"viritura":{{"text":[{{"text":"Allegro"}}]}}}}}}]
           }}]}},
           "parts": [{{"measures":[{{"sequences":[{{"content":[{events}]}}]}}]}}]
         }}"#

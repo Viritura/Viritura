@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { textContentFromPlain } from "@viritura/core";
 import type { LayoutContent, LayoutGroup, LayoutStaff, NoteEvent, Score, SequenceContent } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
 import { refreshOrchestralCondensedScore, splitOrchestralParts } from ".";
@@ -650,7 +651,7 @@ function pitch(
 }
 
 function expression(text: string): NonNullable<Score["parts"][number]["measures"][number]["expressions"]>[number] {
-  return { text, position: { fraction: [0, 1] } };
+  return { text: textContentFromPlain(text), position: { fraction: [0, 1] } };
 }
 
 function staffPitches(score: Score, partId: string, staff: number): string[] {

@@ -165,7 +165,7 @@ fn test_condensed_directions_use_source_part_ids() {
                      "wedgeType": "increasing", "visuallyContinues": "source-dynamic"}
                 ],
                 "_x": {"viritura": {"expressions": [
-                    {"text": "cresc.", "position": {"fraction": [0, 1]}}
+                    {"text": [{"text": "cresc."}], "position": {"fraction": [0, 1]}}
                 ]}},
                 "sequences": [{"content": [
                     {"id": "event-3", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "G", "octave": 5}}]}
@@ -209,7 +209,7 @@ fn test_expression_sits_beside_colocated_dynamic_on_same_baseline() {
         "parts": [{"measures": [{
             "dynamics": [{"id": "dynamic-p", "type": "immediate", "position": {"fraction": [0, 1]}, "value": "p"}],
             "_x": {"viritura": {"expressions": [
-                {"text": "dolce", "position": {"fraction": [0, 1]}}
+                {"text": [{"text": "dolce"}], "position": {"fraction": [0, 1]}}
             ]}},
             "sequences": [{"content": [
                 {"id": "event-1", "duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 4}}]}

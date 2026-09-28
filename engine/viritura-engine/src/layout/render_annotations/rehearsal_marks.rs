@@ -2,8 +2,8 @@ use super::super::config::LayoutConfig;
 use super::super::element_id;
 use super::super::types::*;
 use super::substrate_obstacles::{above_glyph_top_in_range, highest_point_in_range, AboveGlyphBox};
+use crate::layout::text_styles::FontFamily;
 use crate::model::{RehearsalMark, RehearsalMarkStyle, ResolvedMeasure};
-use crate::render::smufl::smufl;
 use crate::render::*;
 
 /// Horizontal extent (left edge, right edge) of the rehearsal mark a measure
@@ -46,7 +46,8 @@ fn rehearsal_frame(mark: &RehearsalMark, sp: f64, left: f64, center_y: f64) -> R
     let padding_x = 0.4 * sp;
     let padding_y = 0.4 * sp;
     let cap_height = 0.7 * font_size;
-    let text_width = smufl::serif_bold_text_width(&mark.text, font_size);
+    let text_width =
+        super::text_content::content_width(&mark.text, font_size, FontFamily::Serif, true);
     let baseline_y = center_y + cap_height * 0.5;
     let style = mark.style.as_ref().unwrap_or(&RehearsalMarkStyle::Boxed);
     match style {
@@ -206,6 +207,10 @@ pub(crate) fn collect_above_text_boxes(
                 _ => *y,
             };
             boxes.push((*x, *x + text_width, top));
+        } else if let Some(bbox) = cmd.bbox() {
+            if bbox.y < staff_y {
+                boxes.push((bbox.x, bbox.x + bbox.width, bbox.y));
+            }
         }
     }
     boxes
@@ -300,18 +305,22 @@ pub(crate) fn render_rehearsal_marks(
         RehearsalMarkStyle::Plain => {}
     }
 
-    dl.push(RenderCommand::DrawText {
-        x: frame.text_center_x,
-        y: frame.baseline_y,
-        text: mark.text.clone(),
-        font: "serif bold".into(),
-        size: 2.8 * sp,
-        color: "#000000".into(),
-        align: TextAlign::Center,
-        baseline: TextBaseline::Alphabetic,
-    });
-
     let eid = element_id::rehearsal(mi);
+    let text_command_start = dl.commands.len();
+    super::text_content::emit_content(
+        dl,
+        &mark.text,
+        frame.text_center_x,
+        frame.baseline_y,
+        2.8 * sp,
+        "serif bold",
+        "#000000",
+        TextAlign::Center,
+        TextBaseline::Alphabetic,
+    );
+    for ci in text_command_start..dl.commands.len() {
+        dl.tag_command(ci, eid.clone());
+    }
     let cmd_end = dl.commands.len();
     for ci in cmd_idx..cmd_end {
         dl.tag_command(ci, eid.clone());

@@ -363,7 +363,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
             dots: None,
         },
         location: None,
-        text: Some("Grandioso ma non troppo".to_string()),
+        text: Some("Grandioso ma non troppo".to_string().into()),
         show_metronome_mark: Some(false),
         show_text: Some(true),
         manual_offset: None,
@@ -386,7 +386,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
         extensions: with_mark.then(|| VendorExtensions {
             viritura: Some(GlobalMeasureExtensions {
                 rehearsal_mark: Some(RehearsalMark {
-                    text: "30".to_string(),
+                    text: "30".to_string().into(),
                     style: Some(RehearsalMarkStyle::Boxed),
                     manual_offset: None,
                     avoid_collisions: None,

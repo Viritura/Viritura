@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GlobalMeasure, PartMeasure, Score } from "@viritura/core";
+import { textContentFromPlain, type GlobalMeasure, type PartMeasure, type Score } from "@viritura/core";
 import { detectToCodaMeasureIndex, expandMeasureOrder } from "../repeatExpansion";
 
 function makeMeasures(count: number): GlobalMeasure[] {
@@ -13,7 +13,7 @@ function makeScoreWithToCoda(count: number, toCodaIdx: number): Score {
   );
   measures[toCodaIdx] = {
     sequences: [{ content: [] }],
-    expressions: [{ text: "To Coda", position: { fraction: [1, 2] }, placement: "above" }],
+    expressions: [{ text: textContentFromPlain("To Coda"), position: { fraction: [1, 2] }, placement: "above" }],
   } as PartMeasure;
 
   return {

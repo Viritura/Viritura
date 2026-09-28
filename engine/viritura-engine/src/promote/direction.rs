@@ -72,8 +72,11 @@ pub(crate) fn promote_tempo(raw: raw::Tempo) -> Result<Tempo, PromoteError> {
     let ext = read_viritura_ext(raw.x.as_ref());
     let text = ext
         .and_then(|v| v.get("text"))
-        .and_then(|v| v.as_str())
-        .map(str::to_owned);
+        .map(|value| {
+            serde_json::from_value(value.clone())
+                .map_err(|error| PromoteError::UnsupportedTextContent(error.to_string()))
+        })
+        .transpose()?;
     let show_metronome_mark = ext
         .and_then(|v| v.get("showMetronomeMark"))
         .and_then(|v| v.as_bool());
@@ -191,11 +194,14 @@ mod tests {
         let json = r#"{
             "bpm":120,
             "value":{"base":"quarter"},
-            "_x":{"viritura":{"text":"Allegro","showMetronomeMark":true}}
+            "_x":{"viritura":{"text": [{"text": "Allegro"}],"showMetronomeMark":true}}
         }"#;
         let raw: raw::Tempo = serde_json::from_str(json).unwrap();
         let promoted = promote_tempo(raw).unwrap();
-        assert_eq!(promoted.text.as_deref(), Some("Allegro"));
+        assert_eq!(
+            promoted.text.as_ref().map(|text| text.plain_text()),
+            Some("Allegro".to_string())
+        );
         assert_eq!(promoted.show_metronome_mark, Some(true));
     }
 

@@ -8,7 +8,9 @@ use super::rehearsal_marks::{
     rehearsal_mark_baseline_y, rehearsal_mark_reserved_width, rehearsal_mark_x_extent,
 };
 use super::substrate_obstacles::{above_glyph_top_in_range, highest_point_in_range, AboveGlyphBox};
-use crate::model::{GlobalMeasure, RehearsalMark, ResolvedMeasure, Tempo};
+use crate::model::{
+    GlobalMeasure, RehearsalMark, ResolvedMeasure, Tempo, TextContent, TextContentChunk, TextRun,
+};
 use crate::render::smufl::smufl;
 use crate::render::*;
 
@@ -16,6 +18,7 @@ use crate::render::*;
 /// right from the marking's origin (`dx = 0`).
 pub(crate) enum TempoRun {
     Text { dx: f64, text: String },
+    Content { dx: f64, content: TextContent },
     Glyph { dx: f64, codepoint: u32, size: f64 },
 }
 
@@ -42,12 +45,9 @@ pub(crate) fn tempo_metronome_runs(
     let mut runs: Vec<TempoRun> = Vec::new();
     let mut dx = 0.0;
     if show_text {
-        let lead = format!("{} (", tempo.text.as_deref().unwrap_or(""));
-        dx += text_styles::text_width(&lead, text_size, family, bold);
-        runs.push(TempoRun::Text {
-            dx: 0.0,
-            text: lead,
-        });
+        let content = append_plain_text(tempo.text.clone().unwrap_or_default(), " (");
+        dx += super::text_content::content_width(&content, text_size, family, bold);
+        runs.push(TempoRun::Content { dx: 0.0, content });
     }
 
     let note_cp = smufl::metronome_note_glyph(&tempo.value.base);
@@ -98,8 +98,18 @@ pub(crate) fn tempo_marking_width(tempo: &Tempo, config: &LayoutConfig, sp: f64)
         );
         w
     } else if show_text {
-        let text = tempo.text.as_deref().unwrap_or("");
-        text.chars().count() as f64 * 0.6 * text_size
+        tempo
+            .text
+            .as_ref()
+            .map(|text| {
+                super::text_content::content_width(
+                    text,
+                    text_size,
+                    tempo_style.family,
+                    tempo_style.bold,
+                )
+            })
+            .unwrap_or_default()
     } else {
         0.0
     }
@@ -408,6 +418,19 @@ pub(crate) fn render_tempo_markings(
                             baseline: TextBaseline::Alphabetic,
                         });
                     }
+                    TempoRun::Content { dx, content } => {
+                        super::text_content::emit_content(
+                            dl,
+                            &content,
+                            place_x + dx,
+                            baseline_y,
+                            text_size,
+                            &tempo_font,
+                            &tempo_color,
+                            TextAlign::Left,
+                            TextBaseline::Alphabetic,
+                        );
+                    }
                     TempoRun::Glyph {
                         dx,
                         codepoint,
@@ -426,9 +449,11 @@ pub(crate) fn render_tempo_markings(
                 }
             }
         } else if show_text {
-            let full_text = tempo.text.as_deref().unwrap_or("").to_string();
-            let n_chars = full_text.chars().count();
-            let est_width = n_chars as f64 * 0.6 * text_size;
+            let Some(text) = tempo.text.as_ref() else {
+                continue;
+            };
+            let est_width =
+                super::text_content::content_width(text, text_size, tempo_family, tempo_bold);
             let (place_x, line_y) = resolve_tempo_with_manual(
                 tempo,
                 ml,
@@ -444,16 +469,17 @@ pub(crate) fn render_tempo_markings(
                 leading_clef_gap,
             );
             let baseline_y = line_y + baseline_offset;
-            dl.push(RenderCommand::DrawText {
-                x: place_x,
-                y: baseline_y,
-                text: full_text.clone(),
-                font: tempo_font.clone(),
-                size: text_size,
-                color: tempo_color.clone(),
-                align: TextAlign::Left,
-                baseline: TextBaseline::Alphabetic,
-            });
+            super::text_content::emit_content(
+                dl,
+                text,
+                place_x,
+                baseline_y,
+                text_size,
+                &tempo_font,
+                &tempo_color,
+                TextAlign::Left,
+                TextBaseline::Alphabetic,
+            );
         } else {
             continue;
         }
@@ -467,14 +493,61 @@ pub(crate) fn render_tempo_markings(
     }
 }
 
+fn append_plain_text(mut content: TextContent, suffix: &str) -> TextContent {
+    content.0.push(TextContentChunk::Text(TextRun {
+        text: suffix.to_owned(),
+        style: None,
+    }));
+    content
+}
+
 #[cfg(test)]
 mod tests {
-    use super::format_bpm;
+    use super::{format_bpm, tempo_metronome_runs, TempoRun};
+    use crate::layout::text_styles::FontFamily;
+    use crate::model::{
+        NoteValueBase, Tempo, TempoNoteValue, TextContent, TextContentChunk, TextRun, TextRunStyle,
+    };
 
     #[test]
     fn formats_integer_and_fractional_bpm() {
         assert_eq!(format_bpm(120.0), "120");
         assert_eq!(format_bpm(116.5), "116.5");
         assert_eq!(format_bpm(116.567), "116.57");
+    }
+
+    #[test]
+    fn measures_rich_tempo_text_before_the_metronome_glyph() {
+        let tempo = Tempo {
+            bpm: 120.0,
+            value: TempoNoteValue {
+                base: NoteValueBase::Quarter,
+                dots: None,
+            },
+            location: None,
+            text: Some(TextContent(vec![TextContentChunk::Text(TextRun {
+                text: "Allegro".into(),
+                style: Some(TextRunStyle {
+                    font_style: Some(crate::model::TextFontStyle::Italic),
+                    ..TextRunStyle::default()
+                }),
+            })])),
+            show_metronome_mark: None,
+            show_text: None,
+            manual_offset: None,
+            avoid_collisions: None,
+        };
+
+        let (runs, width) =
+            tempo_metronome_runs(&tempo, true, 20.0, 10.0, FontFamily::Serif, false);
+
+        assert!(width > 0.0);
+        assert!(matches!(
+            runs.first(),
+            Some(TempoRun::Content {
+                content: TextContent(chunks),
+                ..
+            }) if chunks.len() == 2
+        ));
     }
 }

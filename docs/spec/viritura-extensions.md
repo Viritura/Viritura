@@ -308,6 +308,90 @@ Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, 
 }
 ```
 
+### Inline text content
+
+Text on semantic score objects (currently text expressions, rehearsal marks,
+and tempo labels) is an ordered array of text and SMuFL-glyph chunks. There is
+no plain-string form: even a single unstyled run is written as
+`[{ "text": "dolce" }]`. Each chunk can carry inline text styling; glyph names
+stay separate from Unicode text and private-use code points.
+
+Documents written before this extension existed may still carry a bare string
+in these positions. Readers widen such a string to a single-chunk array before
+schema validation, so older files keep loading; writers always emit the array
+form.
+
+Inline `size` is a positive multiplier over the owning text role's resolved
+size. It is a **relative** unit — the CSS `em` equivalent — not an absolute
+point size, so score text keeps its proportion when the staff size changes.
+Because each role's default is itself expressed in staff spaces (see
+[`text-style`](#text-style)), an inline size ultimately resolves to staff
+spaces. `font` selects one of `serif`, `sans-serif`, or `monospace`; omitted
+style properties inherit from that role.
+
+> Note the deliberate difference from [`text-style`](#text-style), where `size`
+> is an absolute count of staff spaces for a whole role. Inline `size` scales
+> a single run relative to whatever that role resolved to.
+
+`decorations` is a set, not a single value: MusicXML carries `underline`,
+`overline` and `line-through` as independent attributes, and Finale carries
+underline and strikeout independently, so a run may need several at once.
+
+```json
+[{ "text": "con ", "style": { "fontStyle": "italic" } }, { "glyphs": ["dynamicMezzoForte"] }, { "text": " subito" }]
+```
+
+This Viritura representation is an implementation bridge, not a claim about
+the final MNX text encoding. The ordered text/glyph/style content is kept
+independent from its semantic owner, anchor, placement, and lifecycle. Text
+frames with wrapping and geometry remain separate objects. Serialization
+adapters can map this content to the MNX representation once that proposal is
+standardized.
+
+#### Text size across formats
+
+Font sizing is the least settled part of any text proposal, so the unit choice
+above is deliberate rather than incidental.
+
+| Format   | Unit                                                        | Staff-relative |
+| -------- | ----------------------------------------------------------- | -------------- |
+| MusicXML | absolute points, or one of seven CSS keywords               | no             |
+| MNX      | undecided — the schema currently has no text styling at all | proposed       |
+| Viritura | multiplier over the owning role's staff-space size          | yes            |
+
+MusicXML's `font-size` is a union of `xs:decimal` (points) and `css-font-size`,
+with no percentage or em option. It anchors positions and distances to the
+staff through `tenths`/`<scaling>` but leaves text size absolute. That
+asymmetry is why imported text size cannot be trusted without knowing the
+source application's unscaled staff size.
+
+MNX's active proposal ([w3c-cg/mnx discussion #459][mnx-459]) arrives at the
+same flat chunk array used here, with a `style` dictionary that is explicitly
+not CSS. Its most developed sizing proposal adds a document-level `staffSpace`
+plus CSS-analogous relative units: `ssp` (resolves against the document staff
+space, like `rem`) and `sp` (staff-scaled, like `em`), alongside literal `pt`
+and `mm`. Nothing there is ratified — there is no schema entry and no editor
+resolution — so Viritura stores a bare number and defers the unit tag. A future
+adapter maps inline `size` to whichever relative unit MNX settles on.
+
+[mnx-459]: https://github.com/w3c-cg/mnx/discussions/459
+
+#### What importers carry
+
+Both the MusicXML and MUSX/Finale readers import the unit-free part of run
+formatting — bold, italic, the decoration set, enclosure, colour, and SMuFL
+glyph runs — and deliberately import **neither `size` nor `font`**.
+
+MusicXML has no recoverable staff-relative size at all: its `font-size` is
+absolute and, unlike positions, is not scaled through `<scaling>`. Finale
+_can_ express a size relative to the preceding run, so importing it would be
+possible in isolation — but doing so would leave the same visual property with
+two fidelity levels depending on the source format, and would bake in a unit
+MNX has not yet chosen. Font family is omitted for the parallel reason: our
+`font` is three generic keywords, so a named family cannot round-trip. Both
+importers report the omission as a partial outcome rather than silently
+approximating. When MNX ratifies a sizing unit, both readers gain it together.
+
 ### `chordSymbolStyle`
 
 Score-wide chord-symbol engraving style. Omitted fields use Viritura's

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Score } from "@viritura/core";
+import { textContentFromPlain, type Score } from "@viritura/core";
 import { generateTimeline } from "../timeline";
 
 const GM_VIOLIN = 40;
@@ -20,7 +20,7 @@ function quarter(step: Step, octave: number) {
 
 function expr(text: string, beatNum: number) {
   // position.fraction is a fraction of a whole note; beat N (quarters) = [N, 4].
-  return { text, position: { fraction: [beatNum, 4] as [number, number] } };
+  return { text: textContentFromPlain(text), position: { fraction: [beatNum, 4] as [number, number] } };
 }
 
 /**

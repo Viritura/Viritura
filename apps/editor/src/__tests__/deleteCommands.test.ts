@@ -301,7 +301,7 @@ describe("deleteAnnotation", () => {
             segno: { location: { fraction: [0, 1] } },
             fine: { location: { fraction: [0, 1] } },
             jump: { type: "segno", location: { fraction: [0, 1] } },
-            rehearsalMark: { text: "A" },
+            rehearsalMark: { text: [{ text: "A" }] },
             coda: { location: { fraction: [0, 1] } },
           },
           {},
@@ -324,7 +324,7 @@ describe("deleteAnnotation", () => {
                   wedgeType: "increasing",
                 },
               ],
-              expressions: [{ text: "dolce", position: { fraction: [0, 1] } }],
+              expressions: [{ text: [{ text: "dolce" }], position: { fraction: [0, 1] } }],
               pedals: [
                 {
                   type: "sustain",
@@ -580,7 +580,7 @@ describe("deleteAnnotation", () => {
     it("deletes a standalone cresc. expression from every condensed source", () => {
       const score = makeAnnotatedScore();
       score.parts[0]!.id = "part-1";
-      score.parts[0]!.measures[0]!.expressions = [{ text: "cresc.", position: { fraction: [0, 1] } }];
+      score.parts[0]!.measures[0]!.expressions = [{ text: [{ text: "cresc." }], position: { fraction: [0, 1] } }];
       const secondPart = structuredClone(score.parts[0]!);
       secondPart.id = "part-2";
       score.parts.push(secondPart);

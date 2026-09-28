@@ -175,7 +175,11 @@ describe("buildJumpBarActions", () => {
     const score: Score = {
       mnx: { version: 1 },
       global: {
-        measures: [{}, { number: 125, rehearsalMark: { text: "A" } }, { rehearsalMark: { text: "125" } }],
+        measures: [
+          {},
+          { number: 125, rehearsalMark: { text: [{ text: "A" }] } },
+          { rehearsalMark: { text: [{ text: "125" }] } },
+        ],
       },
       parts: [],
     };

@@ -101,7 +101,11 @@
             "viritura": {
               "expressions": [
                 {
-                  "text": "dolce",
+                  "text": [
+                    {
+                      "text": "dolce"
+                    }
+                  ],
                   "position": {
                     "fraction": [
                       0,
@@ -163,7 +167,11 @@
             "viritura": {
               "expressions": [
                 {
-                  "text": "espressivo",
+                  "text": [
+                    {
+                      "text": "espressivo"
+                    }
+                  ],
                   "position": {
                     "fraction": [
                       0,
@@ -212,7 +220,11 @@
             "viritura": {
               "expressions": [
                 {
-                  "text": "rit.",
+                  "text": [
+                    {
+                      "text": "rit."
+                    }
+                  ],
                   "position": {
                     "fraction": [
                       1,
@@ -221,7 +233,11 @@
                   }
                 },
                 {
-                  "text": "a tempo",
+                  "text": [
+                    {
+                      "text": "a tempo"
+                    }
+                  ],
                   "position": {
                     "fraction": [
                       0,

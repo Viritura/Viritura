@@ -12,7 +12,11 @@
         "_x": {
           "viritura": {
             "rehearsalMark": {
-              "text": "A"
+              "text": [
+                {
+                  "text": "A"
+                }
+              ]
             }
           }
         }
@@ -22,7 +26,11 @@
         "_x": {
           "viritura": {
             "rehearsalMark": {
-              "text": "B",
+              "text": [
+                {
+                  "text": "B"
+                }
+              ],
               "style": "boxed"
             }
           }
@@ -32,7 +40,11 @@
         "_x": {
           "viritura": {
             "rehearsalMark": {
-              "text": "C",
+              "text": [
+                {
+                  "text": "C"
+                }
+              ],
               "style": "circled"
             }
           }
@@ -42,7 +54,11 @@
         "_x": {
           "viritura": {
             "rehearsalMark": {
-              "text": "D",
+              "text": [
+                {
+                  "text": "D"
+                }
+              ],
               "style": "plain"
             }
           }
