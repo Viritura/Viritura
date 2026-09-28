@@ -16,7 +16,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
 | score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility                              |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, chordSymbols                                    |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                        |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
 | [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters                 |
 | positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
@@ -311,7 +311,8 @@ Roles: `title`, `subtitle`, `composer`, `arranger`, `staffLabel`, `pageNumber`, 
 ### Inline text content
 
 Text on semantic score objects (currently text expressions, rehearsal marks,
-and tempo labels) is an ordered array of text and SMuFL-glyph chunks. There is
+tempo labels, and authored navigation-marker text) is an ordered array of text and
+SMuFL-glyph chunks. There is
 no plain-string form: even a single unstyled run is written as
 `[{ "text": "dolce" }]`. Each chunk can carry inline text styling; glyph names
 stay separate from Unicode text and private-use code points.
@@ -344,7 +345,8 @@ underline and strikeout independently, so a run may need several at once.
 This Viritura representation is an implementation bridge, not a claim about
 the final MNX text encoding. The ordered text/glyph/style content is kept
 independent from its semantic owner, anchor, placement, and lifecycle. Text
-frames with wrapping and geometry remain separate objects. Serialization
+frames with wrapping and geometry remain separate objects; measure- and
+page-anchored text frames are not navigation-marker text. Serialization
 adapters can map this content to the MNX representation once that proposal is
 standardized.
 
@@ -748,6 +750,45 @@ Navigation jumps not covered by MNX's current `jump.type` enum.
 
 Use native MNX `jump` for standard values such as `dsalfine`; use this extension
 only when the target jump type is not yet in the spec enum.
+
+### `markerText`
+
+Authored display text belongs to a navigation marker on the same global
+measure: its segno, coda, fine, or jump. It does not create a separate
+free-text object or change navigation semantics; the owning marker remains
+authoritative for playback, and moving or deleting the marker carries its text
+with it.
+
+`markerText` is an object keyed by owner. Each present key requires that marker
+on the measure (native MNX `segno`, `fine`, or `jump`; the Viritura `coda` or
+`jump` variant above).
+
+| Property    | Type                                        | Required | Description                                       |
+| ----------- | ------------------------------------------- | -------- | ------------------------------------------------- |
+| `content`   | [Inline text content](#inline-text-content) | **Yes**  | Ordered authored text and SMuFL glyph runs        |
+| `placement` | `"before"` \| `"after"` \| `"replace"`      | **Yes**  | Position relative to the generated glyph or label |
+
+For the glyph markers (segno, coda), `before` and `after` set the text on the
+same line as the sign, centred on its ink, so "To Coda ⊕" is a coda with
+`before` text. For the text markers (fine, jump), the authored content is
+joined to the generated label with a word space. `replace` prints only the
+authored content. Blank authored content leaves the generated glyph or label
+unchanged.
+
+```json
+{
+  "jump": { "type": "dsalfine", "location": { "fraction": [1, 1] } },
+  "_x": {
+    "viritura": {
+      "coda": { "location": { "fraction": [1, 1] } },
+      "markerText": {
+        "coda": { "content": [{ "text": "To Coda" }], "placement": "before" },
+        "jump": { "content": [{ "text": "with repeats" }], "placement": "after" }
+      }
+    }
+  }
+}
+```
 
 ### `chordSymbols`
 

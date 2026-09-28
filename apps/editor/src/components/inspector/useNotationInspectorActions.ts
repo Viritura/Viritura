@@ -10,6 +10,7 @@ import {
   type MultiStaffPlacement,
   type NoteValueBase,
   type RehearsalMark,
+  type MarkerText,
   type Score,
   type ScorePatch,
   type Tempo,
@@ -17,6 +18,7 @@ import {
   type TextExpression,
 } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
+import { navigationMarker, navigationMarkerKind, type NavigationMarkerKind } from "./markerText";
 import { useDynamicGroupHandlers, type DynamicGroupHandlers } from "./useDynamicGroupHandlers";
 import { setClefHiddenForSelection } from "../../commands/clefCommands";
 import {
@@ -327,6 +329,8 @@ export interface DirectionTextHandlers extends DynamicGroupHandlers {
   isRehearsalSelected: boolean;
   selectedRehearsal: RehearsalMark | null;
   handleRehearsalTextChange: (text: import("@viritura/core").TextContent) => void;
+  selectedMarker: { kind: NavigationMarkerKind; text: MarkerText | null } | null;
+  handleMarkerTextChange: (text: MarkerText | null) => void;
   /** Generic manual-placement handlers keyed off the selected element id;
    *  shared by expression, dynamic, and rehearsal sections. */
   handleAnnotationOffsetChange: (axis: 0 | 1, value: number) => void;
@@ -340,6 +344,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const expressionMatch = target?.elementType.match(/^expr(\d+)$/);
   const isExpressionSelected = expressionMatch !== null && expressionMatch !== undefined;
   const isRehearsalSelected = target?.elementType === "rehearsal";
+  const markerKind = navigationMarkerKind(target?.elementType);
 
   const selectedDynamic = useMemo<DynamicGroup | null>(() => {
     if (!isDynamicSelected || !score || !target) return null;
@@ -360,6 +365,12 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     if (!isRehearsalSelected || !score || !target) return null;
     return score.global.measures[target.measureIndex]?.rehearsalMark ?? null;
   }, [isRehearsalSelected, score, target]);
+
+  const selectedMarker = useMemo(() => {
+    if (!markerKind || !score || !target) return null;
+    const marker = navigationMarker(score.global.measures[target.measureIndex], markerKind);
+    return marker ? { kind: markerKind, text: marker.text ?? null } : null;
+  }, [markerKind, score, target]);
 
   const updateSelectedDynamic = useCallback(
     (update: (dynamic: DynamicGroup) => void) => {
@@ -438,6 +449,21 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     [score, target, isRehearsalSelected, updateScore],
   );
 
+  const handleMarkerTextChange = useCallback(
+    (text: MarkerText | null) => {
+      if (!score || !target || !markerKind) return;
+      performance.mark("viritura:input-event");
+      const nextScore = produce(score, (draft) => {
+        const marker = navigationMarker(draft.global.measures[target.measureIndex], markerKind);
+        if (!marker) return;
+        if (text) marker.text = text;
+        else delete marker.text;
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [score, target, markerKind, updateScore],
+  );
+
   return {
     isDynamicSelected,
     selectedDynamic,
@@ -448,6 +474,8 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     isRehearsalSelected,
     selectedRehearsal,
     handleRehearsalTextChange,
+    selectedMarker,
+    handleMarkerTextChange,
     handleAnnotationOffsetChange,
     handleAnnotationOffsetReset,
     handleAnnotationAvoidCollisionsChange,

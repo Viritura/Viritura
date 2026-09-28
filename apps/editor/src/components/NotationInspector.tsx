@@ -5,6 +5,7 @@ import { resolveNotationSelectionTarget } from "../commands/notationInspectorCom
 
 import { LayoutSection } from "./inspector/LayoutSection";
 import { TempoSection } from "./inspector/TempoSection";
+import { inheritedStyleForRole } from "./inspector/TextContentEditor";
 import { DirectionTextSections } from "./inspector/DirectionTextSections";
 import { TieSection, SlurSection } from "./inspector/TieSlurSections";
 import { GlissandoSection } from "./inspector/GlissandoSection";
@@ -201,6 +202,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onTextChange={tempo.handleTempoTextChange}
             onShowTextChange={tempo.handleTempoShowTextChange}
             onShowMetronomeChange={tempo.handleTempoShowMetronomeChange}
+            inheritedStyle={inheritedStyleForRole("tempo", score?.textStyles)}
             offset={{
               value: tempo.selectedTempo.manualOffset ?? [0, 0],
               onChange: tempo.handleTempoOffsetChange,

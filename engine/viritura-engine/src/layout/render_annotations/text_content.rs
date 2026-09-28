@@ -16,6 +16,26 @@ pub(super) fn content_width(
         .sum()
 }
 
+pub(super) fn content_height(content: &TextContent, base_size: f64) -> f64 {
+    let max_multiplier = content
+        .chunks()
+        .iter()
+        .map(|chunk| match chunk {
+            TextContentChunk::Text(run) => run
+                .style
+                .as_ref()
+                .and_then(|style| style.size)
+                .unwrap_or(1.0),
+            TextContentChunk::Glyph(run) => {
+                merge_styles(run.style.as_ref(), run.smufl_style.as_ref())
+                    .and_then(|style| style.size)
+                    .unwrap_or(1.0)
+            }
+        })
+        .fold(1.0, f64::max);
+    0.82 * base_size * max_multiplier
+}
+
 pub(super) fn emit_content(
     display_list: &mut DisplayList,
     content: &TextContent,

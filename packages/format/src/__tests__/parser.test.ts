@@ -992,6 +992,12 @@ describe("parseMnx _x.viritura extensions", () => {
             _x: {
               viritura: {
                 jump: { type: "dcalcoda", location: { fraction: [0, 1] } },
+                markerText: {
+                  jump: {
+                    content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
+                    placement: "replace",
+                  },
+                },
                 coda: { location: { fraction: [0, 1] } },
               },
             },
@@ -1012,14 +1018,43 @@ describe("parseMnx _x.viritura extensions", () => {
 
     const score = parseMnx(mnx);
     expect(score.global.measures[0]?.jump?.type).toBe("dcalcoda");
+    expect(score.global.measures[0]?.jump?.text).toEqual({
+      content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
+      placement: "replace",
+    });
     expect(score.global.measures[0]?.coda).toBeDefined();
 
     const serialized = serializeMnx(score);
     const measure = serialized.global.measures[0]!;
     expect(measure.jump).toBeUndefined();
     expect(measure._x?.viritura?.jump?.type).toBe("dcalcoda");
+    expect(measure._x?.viritura?.markerText).toEqual({
+      jump: {
+        content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
+        placement: "replace",
+      },
+    });
     expect(measure._x?.viritura?.coda).toBeDefined();
     expect(() => parseMnx(serialized)).not.toThrow();
+  });
+
+  it("rejects authored marker text without its owning marker", () => {
+    const mnx = {
+      mnx: { version: 1 },
+      global: {
+        measures: [
+          {
+            _x: {
+              viritura: {
+                markerText: { coda: { content: [{ text: "To Coda" }], placement: "before" } },
+              },
+            },
+          },
+        ],
+      },
+      parts: [{ measures: [{ sequences: [] }] }],
+    };
+    expect(() => parseMnx(mnx)).toThrow("markerText.coda requires a coda");
   });
 
   it("round-trips part spatial position from _x.viritura", () => {

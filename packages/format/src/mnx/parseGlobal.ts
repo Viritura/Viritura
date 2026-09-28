@@ -30,6 +30,7 @@ import type {
   Fine,
   Jump,
   Coda,
+  MarkerText,
   GradualTempo,
   GradualTempoKind,
   RepeatStart,
@@ -75,6 +76,8 @@ import type {
   TextExpression as RawTextExpression,
   Coda as RawCoda,
   Jump as RawVendorJump,
+  MarkerText as RawMarkerText,
+  MarkerTexts as RawMarkerTexts,
   GradualTempo as RawGradualTempo,
   TempoExtensions as RawTempoExt,
 } from "@viritura/core/raw-viritura";
@@ -176,6 +179,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
     if (viritura.jump) {
       measure.jump = parseJump(viritura.jump);
     }
+    applyMarkerTextExtension(measure, viritura.markerText);
     if (viritura.gradualTempo) {
       measure.gradualTempo = parseGradualTempo(viritura.gradualTempo);
     }
@@ -420,6 +424,25 @@ function parseJump(raw: RawJump | RawVendorJump): Jump {
     type: raw.type as "segno" | "dsalfine" | "dsalcoda" | "dcalcoda",
     location: parseRhythmicPosition(raw.location),
   };
+}
+
+function parseMarkerText(raw: RawMarkerText, owner: string): MarkerText {
+  const content = parseTextContent(raw.content);
+  if (!content) throw new Error(`markerText.${owner} must contain at least one text or glyph run.`);
+  return { content, placement: raw.placement };
+}
+
+/** Attach each authored marker text to its owner; text never floats free of its marker. */
+function applyMarkerTextExtension(measure: GlobalMeasure, raw: RawMarkerTexts | undefined): void {
+  if (!raw) return;
+  const owners = { segno: measure.segno, coda: measure.coda, fine: measure.fine, jump: measure.jump };
+  for (const key of ["segno", "coda", "fine", "jump"] as const) {
+    const text = raw[key];
+    if (!text) continue;
+    const owner = owners[key];
+    if (!owner) throw new Error(`markerText.${key} requires a ${key} on the same measure.`);
+    owner.text = parseMarkerText(text, key);
+  }
 }
 
 /** Coda is a Viritura vendor extension (no MNX schema). */

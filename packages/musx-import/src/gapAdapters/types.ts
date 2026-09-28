@@ -149,6 +149,13 @@ export interface KnownNoteheadGap extends DenigmaGap {
   notehead: NoteheadPayload;
 }
 
+export interface KnownMarkerTextGap extends DenigmaGap {
+  type: "marker-text";
+  marker: "segno" | "coda" | "fine" | "jump";
+  text: FormattedText | string;
+  placement?: "before" | "after" | "replace";
+}
+
 export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -186,6 +193,25 @@ export function isExpressionGap(gap: DenigmaGap): gap is KnownExpressionGap {
     default:
       return true;
   }
+}
+
+function isFormattedText(value: unknown): value is FormattedText {
+  if (!isRecord(value) || typeof value["plain"] !== "string") return false;
+  const runs = value["runs"];
+  return (
+    runs === undefined || (Array.isArray(runs) && runs.every((run) => isRecord(run) && typeof run["text"] === "string"))
+  );
+}
+
+const MARKERS: ReadonlySet<unknown> = new Set(["segno", "coda", "fine", "jump"]);
+const PLACEMENTS: ReadonlySet<unknown> = new Set(["before", "after", "replace"]);
+
+export function isMarkerTextGap(gap: DenigmaGap): gap is KnownMarkerTextGap {
+  if (gap.type !== "marker-text" || gap.extent !== "partial" || !MARKERS.has(gap["marker"])) return false;
+  const placement = gap["placement"];
+  if (placement !== undefined && !PLACEMENTS.has(placement)) return false;
+  const text = gap["text"];
+  return typeof text === "string" || isFormattedText(text);
 }
 
 export function isSmartShapeGap(gap: DenigmaGap): gap is KnownSmartShapeGap {

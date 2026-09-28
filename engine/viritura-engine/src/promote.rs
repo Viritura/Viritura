@@ -76,6 +76,8 @@ pub enum PromoteError {
     UnsupportedNoteValueBase(String),
     /// Text content is schema-valid but could not be represented by the engine.
     UnsupportedTextContent(String),
+    /// Authored marker text has no owning marker on the same measure.
+    MarkerTextWithoutOwner(&'static str),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -88,6 +90,12 @@ impl std::fmt::Display for PromoteError {
                 )
             }
             Self::UnsupportedTextContent(s) => write!(f, "MNX text content is not supported: {s}"),
+            Self::MarkerTextWithoutOwner(owner) => {
+                write!(
+                    f,
+                    "Viritura markerText.{owner} requires a {owner} on the same measure"
+                )
+            }
         }
     }
 }

@@ -122,6 +122,232 @@ fn test_jumps_dal_segno_render() {
     }
 }
 
+fn layout_with_marker_text(
+    fixture: &str,
+    measure: usize,
+    marker_text: serde_json::Value,
+) -> (DisplayList, f64) {
+    let path = format!(
+        "{}/../../packages/format/fixtures/mnx/{fixture}",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let json = std::fs::read_to_string(&path).expect("Failed to read marker fixture");
+    let mut source: serde_json::Value =
+        serde_json::from_str(&json).expect("Fixture must contain valid JSON");
+    source["global"]["measures"][measure]["_x"]["viritura"]["markerText"] = marker_text;
+    let source = serde_json::to_string(&source).expect("Fixture JSON must serialize");
+    let score = crate::parse::parse_mnx(&source).expect("Failed to parse marker-text fixture");
+    let config = LayoutConfig::default();
+    (layout_score(&score, 0, &config), config.sp)
+}
+
+fn tagged_texts<'a>(dl: &'a DisplayList, element_id: &str) -> Vec<&'a str> {
+    dl.commands
+        .iter()
+        .enumerate()
+        .filter_map(|(index, command)| match command {
+            RenderCommand::DrawText { text, .. }
+                if dl.element_ids.get(index).and_then(Option::as_deref) == Some(element_id) =>
+            {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn authored(text: &str, placement: &str) -> serde_json::Value {
+    serde_json::json!({ "content": [{ "text": text }], "placement": placement })
+}
+
+#[test]
+fn test_authored_jump_text_places_before_after_or_replaces_generated_label() {
+    for (placement, expected) in [
+        ("replace", vec!["Return to the segno"]),
+        ("before", vec!["Return to the segno", " ", "D.S. al Fine"]),
+        ("after", vec!["D.S. al Fine", " ", "Return to the segno"]),
+    ] {
+        let (dl, _) = layout_with_marker_text(
+            "jumps-ds-al-fine.mnx",
+            4,
+            serde_json::json!({ "jump": authored("Return to the segno", placement) }),
+        );
+        let element_id = crate::layout::element_id::jump(4);
+        assert_eq!(tagged_texts(&dl, &element_id), expected, "{placement}");
+    }
+
+    let (dl, _) = layout_with_marker_text(
+        "jumps-ds-al-fine.mnx",
+        4,
+        serde_json::json!({ "jump": authored("", "replace") }),
+    );
+    assert_eq!(
+        tagged_texts(&dl, &crate::layout::element_id::jump(4)),
+        ["D.S. al Fine"],
+        "blank authored text must not erase the generated label"
+    );
+}
+
+#[test]
+fn test_authored_fine_and_segno_text_stay_owned_by_their_markers() {
+    let (dl, _) = layout_with_marker_text(
+        "jumps-ds-al-fine.mnx",
+        2,
+        serde_json::json!({ "fine": authored("last time", "after") }),
+    );
+    assert_eq!(
+        tagged_texts(&dl, &crate::layout::element_id::fine(2)),
+        ["fine", " ", "last time"]
+    );
+
+    let (dl, _) = layout_with_marker_text(
+        "jumps-ds-al-fine.mnx",
+        1,
+        serde_json::json!({ "segno": authored("from here", "after") }),
+    );
+    let segno_id = crate::layout::element_id::segno(1);
+    assert_eq!(tagged_texts(&dl, &segno_id), ["from here"]);
+    // Bravura segno ink: bBoxSW (0.016, -0.108), bBoxNE (2.2, 3.036).
+    let (glyph_right, glyph_center_y) = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph {
+                x,
+                y,
+                codepoint,
+                size,
+                ..
+            } if *codepoint == smufl::SEGNO => {
+                let glyph_sp = size / 4.0;
+                Some((x + 2.2 * glyph_sp, y - (3.036 - 0.108) / 2.0 * glyph_sp))
+            }
+            _ => None,
+        })
+        .expect("Segno glyph must still render beside its text");
+    let (text_x, baseline_y, text_size) = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText {
+                x, y, text, size, ..
+            } if text == "from here" => Some((*x, *y, *size)),
+            _ => None,
+        })
+        .expect("Segno text must render");
+    assert!(
+        text_x > glyph_right,
+        "after-text must clear the segno's ink, not overlap it"
+    );
+    let cap_center_y = baseline_y
+        - crate::layout::text_styles::cap_center_offset_from_baseline(
+            crate::layout::text_styles::FontFamily::Serif,
+            text_size,
+        );
+    assert!(
+        (cap_center_y - glyph_center_y).abs() < 0.05 * text_size,
+        "text must be optically centred on the segno: cap centre {cap_center_y}, glyph centre {glyph_center_y}"
+    );
+}
+
+#[test]
+fn test_authored_marker_text_can_opt_out_of_italic() {
+    let (dl, _) = layout_with_marker_text(
+        "jumps-ds-al-fine.mnx",
+        1,
+        serde_json::json!({ "segno": {
+            "content": [{ "text": "Have fun!", "style": { "fontStyle": "normal" } }],
+            "placement": "after",
+        } }),
+    );
+    let font = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, font, .. } if text == "Have fun!" => {
+                Some(font.as_str())
+            }
+            _ => None,
+        })
+        .expect("Segno text must render");
+    assert_eq!(
+        font, "serif",
+        "an explicit upright run overrides the italic default"
+    );
+}
+
+#[test]
+fn test_authored_coda_text_before_glyph_keeps_row_on_barline() {
+    let (dl, sp) = layout_with_marker_text(
+        "jumps-coda.mnx",
+        3,
+        serde_json::json!({ "coda": authored("To Coda", "before") }),
+    );
+    let coda_id = crate::layout::element_id::coda(3);
+    assert_eq!(tagged_texts(&dl, &coda_id), ["To Coda"]);
+    let (text_x, text_size) = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { x, text, size, .. } if text == "To Coda" => Some((*x, *size)),
+            _ => None,
+        })
+        .expect("Coda text must render");
+    let glyph_x = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::CODA => Some(*x),
+            _ => None,
+        })
+        .expect("Coda glyph must still render");
+    let (bx, _, _, _) = smufl::glyph_bbox(smufl::CODA);
+    let text_w = crate::layout::text_styles::text_width(
+        "To Coda",
+        text_size,
+        crate::layout::text_styles::FontFamily::Serif,
+        false,
+    );
+    assert!(
+        text_x + text_w < glyph_x + bx * sp,
+        "text must precede the glyph"
+    );
+    let plain = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../packages/format/fixtures/mnx/jumps-coda.mnx"
+    ))
+    .expect("Failed to read jumps-coda.mnx");
+    let plain = crate::parse::parse_mnx(&plain).expect("Failed to parse jumps-coda.mnx");
+    let plain = layout_score(&plain, 0, &LayoutConfig::default());
+    let plain_glyph_x = plain
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawGlyph { x, codepoint, .. } if *codepoint == smufl::CODA => Some(*x),
+            _ => None,
+        })
+        .expect("Plain coda glyph must render");
+    assert!(
+        (glyph_x - plain_glyph_x).abs() < 1e-6,
+        "before-text grows leftward, so the coda keeps its barline position"
+    );
+}
+
+#[test]
+fn test_marker_text_without_owner_is_rejected() {
+    let json = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../packages/format/fixtures/mnx/jumps-ds-al-fine.mnx"
+    ))
+    .expect("Failed to read jumps-ds-al-fine.mnx");
+    let mut source: serde_json::Value =
+        serde_json::from_str(&json).expect("Fixture must contain valid JSON");
+    source["global"]["measures"][0]["_x"]["viritura"]["markerText"] =
+        serde_json::json!({ "coda": authored("To Coda", "before") });
+    let source = serde_json::to_string(&source).expect("Fixture JSON must serialize");
+    assert!(crate::parse::parse_mnx(&source).is_err());
+}
+
 #[test]
 fn test_jumps_ds_al_fine_render() {
     let json = std::fs::read_to_string(concat!(

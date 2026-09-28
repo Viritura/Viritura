@@ -3,8 +3,8 @@ use super::beam::Beam;
 use super::chord_symbol::ChordSymbol;
 use super::clef::{PositionedClef, RhythmicPosition};
 use super::direction::{
-    Coda, DynamicGroup, Fine, Jump, MultiStaffPlacement, Ottava, Pedal, RehearsalMark, Segno,
-    Tempo, TextExpression,
+    Coda, DynamicGroup, Fine, Jump, MarkerTexts, MultiStaffPlacement, Ottava, Pedal, RehearsalMark,
+    Segno, Tempo, TextExpression,
 };
 use super::event::{ArpeggioDirection, Sequence};
 use super::key::KeySignature;
@@ -35,6 +35,9 @@ pub struct GlobalMeasureExtensions {
     /// Jump direction (non-standard types like dsalcoda/dcalcoda)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump: Option<Jump>,
+    /// Authored text owned by this measure's segno, coda, fine, or jump.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "markerText")]
+    pub marker_text: Option<MarkerTexts>,
     /// Open-meter semantic kept outside standard MNX `time.display`.
     #[serde(skip_serializing_if = "Option::is_none", rename = "senzaMisura")]
     pub senza_misura: Option<bool>,
@@ -100,6 +103,15 @@ impl GlobalMeasure {
     /// Convenience accessor for `_x.viritura.coda`.
     pub fn coda(&self) -> Option<&Coda> {
         self.extensions.as_ref()?.viritura.as_ref()?.coda.as_ref()
+    }
+    /// Authored text owned by this measure's navigation markers.
+    pub fn marker_text(&self) -> Option<&MarkerTexts> {
+        self.extensions
+            .as_ref()?
+            .viritura
+            .as_ref()?
+            .marker_text
+            .as_ref()
     }
     /// Score-wide harmony events in this measure.
     pub fn chord_symbols(&self) -> Option<&[ChordSymbol]> {

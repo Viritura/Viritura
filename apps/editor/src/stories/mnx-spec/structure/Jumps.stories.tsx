@@ -82,6 +82,49 @@ export const AllJumps: StoryObj = {
   name: "Navigation jumps (D.S. al Fine, D.S. al Coda, D.C. al Coda)",
 };
 
+export const AuthoredMarkerText: StoryObj = {
+  name: "Authored marker text (before, after, replace)",
+  render: () => {
+    const text = (value: string, placement: "before" | "after" | "replace") => ({
+      content: [{ text: value }],
+      placement,
+    });
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          segno: { location: { fraction: [0, 1] } },
+          virituraGlobal: { markerText: { segno: text("from here", "after") } },
+          voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+        },
+        {
+          fine: { location: { fraction: [1, 1] } },
+          virituraGlobal: { markerText: { fine: text("last time", "after") } },
+          voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
+        },
+        {
+          virituraGlobal: {
+            coda: { location: { fraction: [1, 1] } },
+            markerText: { coda: text("To Coda", "before") },
+          },
+          voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
+        },
+        {
+          jump: { type: "dsalfine", location: { fraction: [1, 1] } },
+          virituraGlobal: { markerText: { jump: text("with repeats", "after") } },
+          voices: [[{ duration: "whole", notes: [{ step: "F", octave: 5 }] }]],
+        },
+        {
+          jump: { type: "dsalfine", location: { fraction: [1, 1] } },
+          virituraGlobal: { markerText: { jump: text("Return to the segno", "replace") } },
+          voices: [[{ duration: "whole", notes: [{ step: "G", octave: 5 }] }]],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+};
+
 type InteractiveArgs = { jumpType: "dsalfine" | "dsalcoda" | "dcalcoda" };
 
 /** Pick jump type with Storybook controls. */

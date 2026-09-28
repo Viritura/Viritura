@@ -20,7 +20,10 @@ import {
 } from "./textContentEditorDom";
 import { TextContentEditorToolbar } from "./TextContentEditorToolbar";
 import { TextContentGlyphPicker } from "./TextContentGlyphPicker";
+import { effectiveStyle, inheritedFieldStyle, toggledStyle, type InheritedTextStyle } from "./inheritedStyle";
 import styles from "./TextContentEditor.module.css";
+
+const NO_INHERITED_STYLE: InheritedTextStyle = {};
 
 interface TextContentEditorProps {
   value: TextContent;
@@ -28,6 +31,8 @@ interface TextContentEditorProps {
   placeholder: string;
   ariaLabel?: string;
   onBlur?: () => void;
+  /** Weight and slant the score element applies to unstyled runs. */
+  inheritedStyle?: InheritedTextStyle;
 }
 
 export function TextContentEditor({
@@ -36,6 +41,7 @@ export function TextContentEditor({
   placeholder,
   ariaLabel = "Formatted score text",
   onBlur,
+  inheritedStyle = NO_INHERITED_STYLE,
 }: TextContentEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
@@ -123,8 +129,7 @@ export function TextContentEditor({
   };
 
   const toggleInlineStyle = (command: "bold" | "italic" | TextDecoration) => {
-    if (command === "bold") applyStyle({ weight: activeStyle.weight === "bold" ? undefined : "bold" });
-    else if (command === "italic") applyStyle({ fontStyle: activeStyle.fontStyle === "italic" ? undefined : "italic" });
+    if (command === "bold" || command === "italic") applyStyle(toggledStyle(command, activeStyle, inheritedStyle));
     else {
       const current = activeStyle.decorations ?? [];
       const next = current.includes(command)
@@ -162,7 +167,7 @@ export function TextContentEditor({
   return (
     <div className={styles.root}>
       <TextContentEditorToolbar
-        activeStyle={activeStyle}
+        activeStyle={effectiveStyle(activeStyle, inheritedStyle)}
         onToggleInlineStyle={toggleInlineStyle}
         onApplyStyle={applyStyle}
         onRememberSelection={rememberSelection}
@@ -170,6 +175,7 @@ export function TextContentEditor({
       <InputSurface
         ref={editorRef}
         className={styles.editor}
+        style={inheritedFieldStyle(inheritedStyle)}
         contentEditable
         suppressContentEditableWarning
         role="textbox"
