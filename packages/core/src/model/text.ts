@@ -1,3 +1,6 @@
+/** A single line decoration; runs may carry several at once. */
+export type TextDecoration = "underline" | "overline" | "strikethrough";
+
 /** Inline formatting for text content, independent of its score-level owner. */
 export interface TextRunStyle {
   font?: "serif" | "sans-serif" | "monospace";
@@ -10,7 +13,12 @@ export interface TextRunStyle {
   size?: number;
   weight?: "normal" | "bold" | number;
   fontStyle?: "normal" | "italic" | "oblique";
-  decoration?: "underline" | "overline" | "strikethrough";
+  /**
+   * Line decorations applied together. A set, not a single value: MusicXML
+   * carries `underline`, `overline` and `line-through` independently, and
+   * Finale carries underline and strikeout independently.
+   */
+  decorations?: TextDecoration[];
   enclosure?: "box" | "circle";
   color?: string;
 }

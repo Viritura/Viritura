@@ -1,5 +1,7 @@
+import type { TextContent } from "@viritura/core";
 import type { DenigmaDiagnostic, DenigmaGap, DenigmaGapOutcome, DenigmaGapReport } from "../types";
 import { applyChordSymbolGaps } from "./chordSymbols";
+import { formattedTextContent, hasUnimportedFormatting } from "./textRuns";
 import {
   asDocumentRecord,
   ensureArrayProperty,
@@ -46,21 +48,28 @@ const NOTEHEAD_GLYPH_MAP: Readonly<Record<string, "circleX" | "triangleUp" | "tr
   noteheadTriangleDownDoubleWhole: "triangleDown",
 };
 
-function tempoDisplayText(expression: ExpressionPayload): string | undefined {
+function tempoDisplayContent(expression: ExpressionPayload): TextContent | undefined {
   const runs = expression.text?.runs;
   const generatedIndex = runs?.findIndex(
     (run) => (run.glyphs?.length ?? 0) > 0 || run.insert?.kind === "playback-value",
   );
   if (runs && generatedIndex !== undefined && generatedIndex >= 0) {
-    const prefix = runs
-      .slice(0, generatedIndex)
-      .map((run) => run.text)
-      .join("")
-      .trim()
-      .replace(/[\s([{]+$/, "");
-    return prefix || undefined;
+    const prefix = formattedTextContent({ plain: "", runs: runs.slice(0, generatedIndex) });
+    return prefix ? dropTrailingOpener(prefix) : undefined;
   }
-  return expression.type === "metronome-mark" ? undefined : expressionText(expression);
+  return expression.type === "metronome-mark" ? undefined : expressionContent(expression);
+}
+
+/**
+ * Drop the opening bracket that introduced the metronome mark we are about to
+ * render ourselves, e.g. the `(` of `Allegro (quarter = 120)`.
+ */
+function dropTrailingOpener(content: TextContent): TextContent | undefined {
+  const result = content.map((chunk) => ({ ...chunk }));
+  const last = result.at(-1);
+  if (last && "text" in last) last.text = last.text.replace(/[\s([{]+$/, "");
+  const kept = result.filter((chunk) => !("text" in chunk) || chunk.text !== "");
+  return kept.length > 0 ? kept : undefined;
 }
 
 function hasVisibleMetronome(expression: ExpressionPayload): boolean {
@@ -86,6 +95,25 @@ function expressionText(expression: ExpressionPayload): string | undefined {
   return text?.trim() || undefined;
 }
 
+/**
+ * The displayed text of an expression as formatted chunks. The formatted
+ * payload is preferred because it carries per-run styling and SMuFL glyphs;
+ * the semantic string is the fallback for payloads that omit it.
+ */
+function expressionContent(expression: ExpressionPayload): TextContent | undefined {
+  const formatted = formattedTextContent(expression.text);
+  if (formatted) return formatted;
+  const text = expressionText(expression);
+  return text ? [{ text }] : undefined;
+}
+
+/** Whether source formatting was lost, for the gap outcome reason. */
+function formattingOutcome(expression: ExpressionPayload): GapApplication {
+  return hasUnimportedFormatting(expression.text)
+    ? outcome("handled-partially", "Preserved text and inline formatting but not the source font or size.")
+    : outcome("handled");
+}
+
 function gapPosition(gap: DenigmaGap): JsonRecord {
   return { fraction: [gap.position?.numerator ?? 0, gap.position?.denominator ?? 1] };
 }
@@ -107,11 +135,11 @@ function expressionMeasure(gap: DenigmaGap, index: TargetIndex) {
 
 function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const target = expressionMeasure(gap, index);
-  const text = expressionText(expression);
-  if (!target?.partMeasure || !text) return outcome("unhandled", "Expression target or plain text is unavailable.");
+  const content = expressionContent(expression);
+  if (!target?.partMeasure || !content) return outcome("unhandled", "Expression target or plain text is unavailable.");
   const extensions = ensureViritura(target.partMeasure);
   const expressions = ensureArrayProperty(extensions, "expressions");
-  const value: JsonRecord = { text: [{ text }], position: gapPosition(gap) };
+  const value: JsonRecord = { text: content, position: gapPosition(gap) };
   const placement = expressionPlacement(gap);
   if (placement) value["placement"] = placement;
   const staff = gap.staff ?? gap.placements?.find((candidate) => candidate.kind === "staff")?.staff;
@@ -124,16 +152,13 @@ function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index
       candidate["staff"] === value["staff"],
   );
   if (!duplicate) expressions.push(value);
-  return outcome(
-    expression.text?.plain !== undefined ? "handled-partially" : "handled",
-    expression.text?.plain !== undefined ? "Flattened formatted text to plain text." : undefined,
-  );
+  return formattingOutcome(expression);
 }
 
 function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index: TargetIndex): GapApplication {
   const target = index.measure(gap.anchor);
-  const text = expressionText(expression);
-  if (!target || !text) return outcome("unhandled", "Rehearsal-mark target or text is unavailable.");
+  const content = expressionContent(expression);
+  if (!target || !content) return outcome("unhandled", "Rehearsal-mark target or text is unavailable.");
   const extensions = ensureViritura(target.globalMeasure);
   if (extensions["rehearsalMark"] !== undefined) {
     return outcome(
@@ -141,11 +166,8 @@ function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index:
       "The measure already contains a rehearsal mark; the additional mark was omitted.",
     );
   }
-  extensions["rehearsalMark"] = { text: [{ text }] };
-  return outcome(
-    expression.text?.plain !== undefined ? "handled-partially" : "handled",
-    expression.text?.plain !== undefined ? "Preserved plain text but not source formatting." : undefined,
-  );
+  extensions["rehearsalMark"] = { text: content };
+  return formattingOutcome(expression);
 }
 
 function noteValueFromEdu(edu: number): JsonRecord | undefined {
@@ -200,9 +222,9 @@ function applyTempoExpression(gap: DenigmaGap, expression: ExpressionPayload, in
   const tempo = findOrCreateTempo(gap, expression, index);
   if (!tempo) return outcome("unhandled", "No standard tempo target or usable BPM was available.");
   const extensions = tempoExtension(tempo);
-  const text = tempoDisplayText(expression);
-  if (text) {
-    extensions["text"] = [{ text }];
+  const content = tempoDisplayContent(expression);
+  if (content) {
+    extensions["text"] = content;
     if (!hasVisibleMetronome(expression)) extensions["showMetronomeMark"] = false;
   }
 
@@ -210,10 +232,7 @@ function applyTempoExpression(gap: DenigmaGap, expression: ExpressionPayload, in
   if (metronome && metronome.displayedBeatsPerMinute !== metronome.tempo.beatsPerMinute) {
     return outcome("handled-partially", "Displayed and playback metronome values differ; playback BPM was retained.");
   }
-  return outcome(
-    expression.text?.plain !== undefined ? "handled-partially" : "handled",
-    expression.text?.plain !== undefined ? "Preserved plain text but not source formatting." : undefined,
-  );
+  return formattingOutcome(expression);
 }
 
 function applyExpressionGap(gap: DenigmaGap, index: TargetIndex): GapApplication {

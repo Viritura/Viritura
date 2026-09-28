@@ -6,6 +6,8 @@ import { normalizeMusicXmlColor } from "./colors";
 import { durationFraction } from "./durationFraction";
 import { IdGenerator } from "./idGenerator";
 import { makePosition } from "./pitchDuration";
+import { plainOf, textContentFromDirectionType } from "./textRuns";
+import type { TextContent } from "@viritura/core";
 
 // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- branchy traversal of MusicXML measure grammar (time/key/direction/barline/repeat/volta); decomposing further would fragment a single linear pipeline
 export function buildGlobalMeasures(
@@ -119,7 +121,7 @@ export function buildGlobalMeasures(
     // separate elements; the text lives in a `<direction directive="yes">`
     // `<words>`. Captured here and attached to the measure's tempo below as a
     // viritura vendor extension (MNX has no tempo-text field).
-    let tempoText: string | undefined;
+    let tempoText: TextContent | undefined;
     for (const child of childElements(mxmlMeasure)) {
       if (child.tagName === "direction") {
         // Tempo
@@ -186,13 +188,12 @@ export function buildGlobalMeasures(
 
         // Tempo text directive (e.g. "Molto moderato"). Only directions flagged
         // `directive="yes"` carry tempo/expression directives; the first such
-        // `<words>` in the measure becomes the tempo text.
+        // direction-type's formatted text becomes the tempo text.
         if (vendorExt && tempoText === undefined && child.getAttribute("directive") === "yes") {
           for (const dt of findChildren(child, "direction-type")) {
-            const wordsEl = findChild(dt, "words");
-            const txt = wordsEl?.textContent?.trim();
-            if (txt) {
-              tempoText = txt;
+            const content = textContentFromDirectionType(dt);
+            if (content && plainOf(content).trim()) {
+              tempoText = content;
               break;
             }
           }
@@ -227,7 +228,7 @@ export function buildGlobalMeasures(
     if (tempoText !== undefined && gm.tempos?.length) {
       const tempo = gm.tempos[0]!;
       if (!tempo._x) tempo._x = { viritura: {} };
-      tempo._x.viritura["text"] = [{ text: tempoText }];
+      tempo._x.viritura["text"] = tempoText;
       // When a written tempo text is present (e.g. "Molto moderato"), hide the
       // numeric metronome mark if requested. Metronome marks are typical of
       // modern repertoire; many earlier works carry a verbal tempo only, and

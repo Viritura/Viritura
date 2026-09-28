@@ -17,10 +17,12 @@ import type {
   MnxTie,
   MnxTuplet,
 } from "../types";
+import type { TextContent } from "@viritura/core";
 import { IdGenerator } from "./idGenerator";
 import { extractHarmony, updateHarmonyTranspositions, type ImportedHarmony } from "./chordSymbols";
 import { normalizeMusicXmlColor } from "./colors";
 import { durationFraction } from "./durationFraction";
+import { plainOf, rehearsalStyleFromDirectionType, textContentFromDirectionType } from "./textRuns";
 import {
   buildNote,
   extractFermata,
@@ -92,8 +94,8 @@ export interface MeasureResult {
   dynamics: MnxDynamic[];
   ottavaEvents: OttavaEvent[];
   beamGroups: CompletedBeam[];
-  rehearsals: { text: string; position: MnxRhythmicPosition }[];
-  expressions: { text: string; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
+  rehearsals: { text: TextContent; position: MnxRhythmicPosition; style?: "circled" | "plain" }[];
+  expressions: { text: TextContent; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
   hairpinEvents: HairpinEvent[];
   pedalEvents: PedalEvent[];
   nonArpeggios: MnxNonArpeggio[];
@@ -795,16 +797,18 @@ export function processMeasureNotes(
         // Rehearsal marks
         const rehearsal = findChild(dt, "rehearsal");
         if (rehearsal) {
-          const rehearsalText = (rehearsal.textContent ?? "").trim();
+          const rehearsalText = textContentFromDirectionType(dt);
           if (rehearsalText) {
+            const markStyle = rehearsalStyleFromDirectionType(dt);
             rehearsals.push({
               text: rehearsalText,
               position: makePosition(currentPos),
+              ...(markStyle ? { style: markStyle } : {}),
             });
           }
         }
 
-        // Words (text expressions)
+        // Words and interspersed SMuFL symbols (text expressions)
         const wordsEl = findChild(dt, "words");
         if (wordsEl && !dyn) {
           // Only capture standalone words, not words that are part of dynamics.
@@ -812,11 +816,12 @@ export function processMeasureNotes(
           // "Molto moderato") whose text is imported onto the global tempo in
           // globalMeasures; skip it here so the same text isn't also emitted as
           // a staff text expression (double import).
-          const text = wordsEl.textContent?.trim() ?? "";
-          if (text && el.getAttribute("directive") !== "yes" && !seenWords.has(text)) {
+          const content = textContentFromDirectionType(dt);
+          const text = content ? plainOf(content) : "";
+          if (content && text && el.getAttribute("directive") !== "yes" && !seenWords.has(text)) {
             seenWords.add(text);
             const placementAttr = el.getAttribute("placement");
-            const expr: MeasureResult["expressions"][number] = { text, position: makePosition(currentPos) };
+            const expr: MeasureResult["expressions"][number] = { text: content, position: makePosition(currentPos) };
             if (placementAttr === "above" || placementAttr === "below") expr.placement = placementAttr;
             // Grand-staff parts authored on staff 2 carry `<staff>2</staff>`;
             // an unspecified staff defaults to staff 1, so only record an

@@ -55,18 +55,18 @@ The current schema-v1 adapters preserve:
   extensions, and source text provenance;
 - recognized per-note notehead families (`normal`, X, diamond, slash,
   circle-X, and triangles);
-- generic expressive text and performance instructions as plain text
-  expressions;
+- generic expressive text and performance instructions as expressions, with
+  per-run bold/italic/underline/strikethrough and SMuFL glyph runs preserved;
 - rehearsal marks;
 - tempo text, metronome visibility, and playback-only tempo visibility;
 - ordinary straight and standard wavy glissandos with one plain center label;
 - trill symbols and event-anchored trill-extension spans.
 
 Chord-suffix typography and visibility flags, arbitrary notehead glyphs and
-explicit fills, formatting runs, performance-technique playback semantics,
-multiple rehearsal marks in one measure, separate displayed/playback metronome
-values, note-specific chord endpoints, custom/dashed/invisible lines, and tab
-slides remain explicit partial or unhandled outcomes.
+explicit fills, source font names and sizes, performance-technique playback
+semantics, multiple rehearsal marks in one measure, separate displayed/playback
+metronome values, note-specific chord endpoints, custom/dashed/invisible lines,
+and tab slides remain explicit partial or unhandled outcomes.
 
 ### Global harmony and source pitch
 

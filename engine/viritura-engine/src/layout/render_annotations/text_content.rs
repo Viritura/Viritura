@@ -200,7 +200,10 @@ fn emit_decoration(
     size: f64,
     color: &str,
 ) {
-    if let Some(decoration) = style.and_then(|style| style.decoration.as_ref()) {
+    let Some(decorations) = style.and_then(|style| style.decorations.as_ref()) else {
+        return;
+    };
+    for decoration in decorations {
         let y_offset = match decoration {
             TextDecoration::Underline => size * 0.12,
             TextDecoration::Overline => -size * 0.82,
@@ -287,8 +290,8 @@ fn merge_styles(
         if override_style.font_style.is_some() {
             merged.font_style.clone_from(&override_style.font_style);
         }
-        if override_style.decoration.is_some() {
-            merged.decoration.clone_from(&override_style.decoration);
+        if override_style.decorations.is_some() {
+            merged.decorations.clone_from(&override_style.decorations);
         }
         if override_style.enclosure.is_some() {
             merged.enclosure.clone_from(&override_style.enclosure);

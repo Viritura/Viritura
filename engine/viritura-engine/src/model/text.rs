@@ -16,7 +16,9 @@ pub struct TextRunStyle {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub font_style: Option<TextFontStyle>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub decoration: Option<TextDecoration>,
+    /// Line decorations applied together; a set rather than a single value,
+    /// matching how MusicXML and Finale carry them independently.
+    pub decorations: Option<Vec<TextDecoration>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enclosure: Option<TextEnclosure>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -134,7 +136,9 @@ impl From<crate::raw_viritura::TextRunStyle> for TextRunStyle {
             size: raw.size,
             weight: raw.weight.map(Into::into),
             font_style: raw.font_style.map(Into::into),
-            decoration: raw.decoration.map(Into::into),
+            decorations: raw
+                .decorations
+                .map(|items| items.into_iter().map(Into::into).collect()),
             enclosure: raw.enclosure.map(Into::into),
             color: raw.color.map(|color| color.to_string()),
         }
@@ -165,12 +169,12 @@ impl From<crate::raw_viritura::TextRunStyleFontStyle> for TextFontStyle {
     }
 }
 
-impl From<crate::raw_viritura::TextRunStyleDecoration> for TextDecoration {
-    fn from(raw: crate::raw_viritura::TextRunStyleDecoration) -> Self {
+impl From<crate::raw_viritura::TextRunStyleDecorationsItem> for TextDecoration {
+    fn from(raw: crate::raw_viritura::TextRunStyleDecorationsItem) -> Self {
         match raw {
-            crate::raw_viritura::TextRunStyleDecoration::Underline => Self::Underline,
-            crate::raw_viritura::TextRunStyleDecoration::Overline => Self::Overline,
-            crate::raw_viritura::TextRunStyleDecoration::Strikethrough => Self::Strikethrough,
+            crate::raw_viritura::TextRunStyleDecorationsItem::Underline => Self::Underline,
+            crate::raw_viritura::TextRunStyleDecorationsItem::Overline => Self::Overline,
+            crate::raw_viritura::TextRunStyleDecorationsItem::Strikethrough => Self::Strikethrough,
         }
     }
 }

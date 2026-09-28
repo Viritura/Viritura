@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { InputSurface } from "@viritura/ui";
-import type { TextContent, TextRunStyle } from "@viritura/core";
+import type { TextContent, TextDecoration, TextRunStyle } from "@viritura/core";
 import {
   glyphCharacter,
   htmlForTextContent,
@@ -122,10 +122,16 @@ export function TextContentEditor({
     refreshActiveStyle();
   };
 
-  const toggleInlineStyle = (command: "bold" | "italic" | "underline") => {
+  const toggleInlineStyle = (command: "bold" | "italic" | TextDecoration) => {
     if (command === "bold") applyStyle({ weight: activeStyle.weight === "bold" ? undefined : "bold" });
     else if (command === "italic") applyStyle({ fontStyle: activeStyle.fontStyle === "italic" ? undefined : "italic" });
-    else applyStyle({ decoration: activeStyle.decoration === "underline" ? undefined : "underline" });
+    else {
+      const current = activeStyle.decorations ?? [];
+      const next = current.includes(command)
+        ? current.filter((decoration) => decoration !== command)
+        : [...current, command];
+      applyStyle({ decorations: next.length > 0 ? next : undefined });
+    }
   };
 
   const insertGlyph = (name: string) => {

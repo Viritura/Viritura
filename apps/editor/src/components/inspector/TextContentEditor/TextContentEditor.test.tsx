@@ -52,11 +52,26 @@ describe("TextContentEditor", () => {
     await user.click(ui.getByRole("button", { name: "Italic" }));
     selectAll();
     await user.click(ui.getByRole("button", { name: "Underline" }));
-    expect(latest()).toEqual([{ text: "dolce", style: { fontStyle: "italic", decoration: "underline" } }]);
+    expect(latest()).toEqual([{ text: "dolce", style: { fontStyle: "italic", decorations: ["underline"] } }]);
 
     selectAll();
     await user.click(ui.getByRole("button", { name: "Italic" }));
-    expect(latest()).toEqual([{ text: "dolce", style: { decoration: "underline" } }]);
+    expect(latest()).toEqual([{ text: "dolce", style: { decorations: ["underline"] } }]);
+  });
+
+  it("accumulates decorations rather than replacing them", async () => {
+    const user = userEvent.setup();
+    const { ui, selectAll, latest } = renderEditor([{ text: "dolce" }]);
+
+    selectAll();
+    await user.click(ui.getByRole("button", { name: "Underline" }));
+    selectAll();
+    await user.click(ui.getByRole("button", { name: "Strikethrough" }));
+    expect(latest()).toEqual([{ text: "dolce", style: { decorations: ["underline", "strikethrough"] } }]);
+
+    selectAll();
+    await user.click(ui.getByRole("button", { name: "Underline" }));
+    expect(latest()).toEqual([{ text: "dolce", style: { decorations: ["strikethrough"] } }]);
   });
 
   it("reflects the style under the selection in the toolbar", async () => {

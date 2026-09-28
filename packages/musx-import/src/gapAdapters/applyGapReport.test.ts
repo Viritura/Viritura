@@ -136,11 +136,44 @@ describe("applyDenigmaGapReport", () => {
       { text: [{ text: "dolce" }], position: { fraction: [0, 1] } },
       { text: [{ text: "pizz." }], position: { fraction: [1, 4] } },
     ]);
-    expect(result.outcomes.map((entry) => entry.disposition)).toEqual([
-      "handled-partially",
-      "handled-partially",
-      "handled-partially",
+    expect(result.outcomes.map((entry) => entry.disposition)).toEqual(["handled", "handled", "handled-partially"]);
+  });
+
+  it("preserves per-run formatting and SMuFL glyph runs in expression text", () => {
+    const gap: DenigmaGap = {
+      anchor: "P1.m1",
+      position: { numerator: 0, denominator: 1 },
+      extent: "complete",
+      type: "expression",
+      expression: {
+        type: "generic-text",
+        scope: "staff",
+        text: {
+          plain: " sempre pizz. ",
+          runs: [
+            { text: " sempre ", font: { italic: true } },
+            { text: "", glyphs: ["dynamicPiano"] },
+            { text: "pizz. ", font: { bold: true, underline: true, strikeout: true, name: "Times" } },
+          ],
+        },
+        genericText: { text: "sempre pizz." },
+      },
+    };
+
+    const result = apply([gap]);
+    const parsed = JSON.parse(result.mnxJson) as { parts: Array<{ measures: Array<JsonRecord> }> };
+    expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
+      {
+        text: [
+          { text: "sempre ", style: { fontStyle: "italic" } },
+          { glyphs: ["dynamicPiano"] },
+          { text: "pizz.", style: { weight: "bold", decorations: ["underline", "strikethrough"] } },
+        ],
+        position: { fraction: [0, 1] },
+      },
     ]);
+    // The font name is still dropped, so the gap stays partially handled.
+    expect(result.outcomes[0]?.disposition).toBe("handled-partially");
   });
 
   it("preserves rehearsal marks and reports an additional mark", () => {

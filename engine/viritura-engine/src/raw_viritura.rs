@@ -7680,13 +7680,19 @@ impl ::std::convert::From<&TextRun> for TextRun {
 ///      "type": "string",
 ///      "pattern": "^#[0-9a-fA-F]{6}$"
 ///    },
-///    "decoration": {
-///      "type": "string",
-///      "enum": [
-///        "underline",
-///        "overline",
-///        "strikethrough"
-///      ]
+///    "decorations": {
+///      "description": "Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.",
+///      "type": "array",
+///      "items": {
+///        "type": "string",
+///        "enum": [
+///          "underline",
+///          "overline",
+///          "strikethrough"
+///        ]
+///      },
+///      "minItems": 1,
+///      "uniqueItems": true
 ///    },
 ///    "enclosure": {
 ///      "type": "string",
@@ -7739,8 +7745,9 @@ impl ::std::convert::From<&TextRun> for TextRun {
 pub struct TextRunStyle {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub color: ::std::option::Option<TextRunStyleColor>,
+    ///Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub decoration: ::std::option::Option<TextRunStyleDecoration>,
+    pub decorations: ::std::option::Option<Vec<TextRunStyleDecorationsItem>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub enclosure: ::std::option::Option<TextRunStyleEnclosure>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -7765,7 +7772,7 @@ impl ::std::default::Default for TextRunStyle {
     fn default() -> Self {
         Self {
             color: Default::default(),
-            decoration: Default::default(),
+            decorations: Default::default(),
             enclosure: Default::default(),
             font: Default::default(),
             font_style: Default::default(),
@@ -7853,7 +7860,7 @@ impl<'de> ::serde::Deserialize<'de> for TextRunStyleColor {
             })
     }
 }
-///`TextRunStyleDecoration`
+///`TextRunStyleDecorationsItem`
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -7880,7 +7887,7 @@ impl<'de> ::serde::Deserialize<'de> for TextRunStyleColor {
     PartialEq,
     PartialOrd
 )]
-pub enum TextRunStyleDecoration {
+pub enum TextRunStyleDecorationsItem {
     #[serde(rename = "underline")]
     Underline,
     #[serde(rename = "overline")]
@@ -7888,12 +7895,12 @@ pub enum TextRunStyleDecoration {
     #[serde(rename = "strikethrough")]
     Strikethrough,
 }
-impl ::std::convert::From<&Self> for TextRunStyleDecoration {
-    fn from(value: &TextRunStyleDecoration) -> Self {
+impl ::std::convert::From<&Self> for TextRunStyleDecorationsItem {
+    fn from(value: &TextRunStyleDecorationsItem) -> Self {
         value.clone()
     }
 }
-impl ::std::fmt::Display for TextRunStyleDecoration {
+impl ::std::fmt::Display for TextRunStyleDecorationsItem {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::Underline => f.write_str("underline"),
@@ -7902,7 +7909,7 @@ impl ::std::fmt::Display for TextRunStyleDecoration {
         }
     }
 }
-impl ::std::str::FromStr for TextRunStyleDecoration {
+impl ::std::str::FromStr for TextRunStyleDecorationsItem {
     type Err = self::error::ConversionError;
     fn from_str(
         value: &str,
@@ -7915,7 +7922,7 @@ impl ::std::str::FromStr for TextRunStyleDecoration {
         }
     }
 }
-impl ::std::convert::TryFrom<&str> for TextRunStyleDecoration {
+impl ::std::convert::TryFrom<&str> for TextRunStyleDecorationsItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &str,
@@ -7923,7 +7930,7 @@ impl ::std::convert::TryFrom<&str> for TextRunStyleDecoration {
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleDecoration {
+impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleDecorationsItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: &::std::string::String,
@@ -7931,7 +7938,7 @@ impl ::std::convert::TryFrom<&::std::string::String> for TextRunStyleDecoration 
         value.parse()
     }
 }
-impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleDecoration {
+impl ::std::convert::TryFrom<::std::string::String> for TextRunStyleDecorationsItem {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,

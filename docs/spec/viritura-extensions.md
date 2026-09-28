@@ -333,6 +333,10 @@ style properties inherit from that role.
 > is an absolute count of staff spaces for a whole role. Inline `size` scales
 > a single run relative to whatever that role resolved to.
 
+`decorations` is a set, not a single value: MusicXML carries `underline`,
+`overline` and `line-through` as independent attributes, and Finale carries
+underline and strikeout independently, so a run may need several at once.
+
 ```json
 [{ "text": "con ", "style": { "fontStyle": "italic" } }, { "glyphs": ["dynamicMezzoForte"] }, { "text": " subito" }]
 ```
@@ -371,6 +375,22 @@ resolution — so Viritura stores a bare number and defers the unit tag. A futur
 adapter maps inline `size` to whichever relative unit MNX settles on.
 
 [mnx-459]: https://github.com/w3c-cg/mnx/discussions/459
+
+#### What importers carry
+
+Both the MusicXML and MUSX/Finale readers import the unit-free part of run
+formatting — bold, italic, the decoration set, enclosure, colour, and SMuFL
+glyph runs — and deliberately import **neither `size` nor `font`**.
+
+MusicXML has no recoverable staff-relative size at all: its `font-size` is
+absolute and, unlike positions, is not scaled through `<scaling>`. Finale
+_can_ express a size relative to the preceding run, so importing it would be
+possible in isolation — but doing so would leave the same visual property with
+two fidelity levels depending on the source format, and would bake in a unit
+MNX has not yet chosen. Font family is omitted for the parallel reason: our
+`font` is three generic keywords, so a named family cannot round-trip. Both
+importers report the omission as a partial outcome rather than silently
+approximating. When MNX ratifies a sizing unit, both readers gain it together.
 
 ### `chordSymbolStyle`
 

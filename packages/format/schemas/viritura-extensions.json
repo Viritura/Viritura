@@ -572,7 +572,13 @@
           ]
         },
         "fontStyle": { "type": "string", "enum": ["normal", "italic", "oblique"] },
-        "decoration": { "type": "string", "enum": ["underline", "overline", "strikethrough"] },
+        "decorations": {
+          "type": "array",
+          "description": "Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent.",
+          "items": { "type": "string", "enum": ["underline", "overline", "strikethrough"] },
+          "uniqueItems": true,
+          "minItems": 1
+        },
         "enclosure": { "type": "string", "enum": ["box", "circle"] },
         "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
       },

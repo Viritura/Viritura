@@ -1,6 +1,6 @@
 import { Button, Select, type SelectOption } from "@viritura/ui";
-import { Bold, Italic, Underline } from "lucide-react";
-import type { TextRunStyle } from "@viritura/core";
+import { Bold, Italic, Strikethrough, Underline } from "lucide-react";
+import type { TextDecoration, TextRunStyle } from "@viritura/core";
 import styles from "./TextContentEditor.module.css";
 
 const FONT_FAMILIES = ["serif", "sans-serif", "monospace"] as const;
@@ -36,7 +36,7 @@ function sizeOptionsFor(value: string): SelectOption[] {
 
 interface TextContentEditorToolbarProps {
   activeStyle: TextRunStyle;
-  onToggleInlineStyle: (command: "bold" | "italic" | "underline") => void;
+  onToggleInlineStyle: (command: "bold" | "italic" | TextDecoration) => void;
   onApplyStyle: (style: Partial<TextRunStyle>) => void;
   onRememberSelection: () => void;
 }
@@ -77,11 +77,22 @@ export function TextContentEditorToolbar({
         variant="ghost"
         shape="icon"
         ariaLabel="Underline"
-        active={activeStyle.decoration === "underline"}
+        active={activeStyle.decorations?.includes("underline") === true}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => onToggleInlineStyle("underline")}
       >
         <Underline size={14} />
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        shape="icon"
+        ariaLabel="Strikethrough"
+        active={activeStyle.decorations?.includes("strikethrough") === true}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => onToggleInlineStyle("strikethrough")}
+      >
+        <Strikethrough size={14} />
       </Button>
       <span className={styles.toolbarControl} onMouseDown={onRememberSelection}>
         <Select

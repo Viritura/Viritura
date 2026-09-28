@@ -37,9 +37,12 @@ describe("parseTextContent", () => {
 
   it("drops style keys outside the documented vocabulary", () => {
     const content = parseTextContent([
-      { text: "dolce", style: { font: "comic-sans", weight: "heavy", size: 0, decoration: "underline" } },
+      {
+        text: "dolce",
+        style: { font: "comic-sans", weight: "heavy", size: 0, decorations: ["underline", "sparkle"] },
+      },
     ]);
-    expect(content).toEqual([{ text: "dolce", style: { decoration: "underline" } }]);
+    expect(content).toEqual([{ text: "dolce", style: { decorations: ["underline"] } }]);
   });
 
   it("omits an empty style rather than emitting a bare object", () => {

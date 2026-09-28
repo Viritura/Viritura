@@ -283,8 +283,8 @@ export interface components {
             weight?: ("normal" | "bold") | number;
             /** @enum {string} */
             fontStyle?: "normal" | "italic" | "oblique";
-            /** @enum {string} */
-            decoration?: "underline" | "overline" | "strikethrough";
+            /** @description Line decorations applied together. A set rather than a single value, because both MusicXML and Finale treat underline, overline and strikethrough as independent. */
+            decorations?: ("underline" | "overline" | "strikethrough")[];
             /** @enum {string} */
             enclosure?: "box" | "circle";
             color?: string;

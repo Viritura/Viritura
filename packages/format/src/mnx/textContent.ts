@@ -7,7 +7,7 @@
  * module re-checks the shape at the seam instead.
  */
 
-import type { GlyphRun, TextContent, TextContentChunk, TextRun, TextRunStyle } from "@viritura/core";
+import type { GlyphRun, TextContent, TextContentChunk, TextDecoration, TextRun, TextRunStyle } from "@viritura/core";
 
 type Obj = Record<string, unknown>;
 
@@ -33,8 +33,12 @@ function parseStyle(raw: unknown): TextRunStyle | undefined {
   if (typeof value["fontStyle"] === "string" && FONT_STYLES.has(value["fontStyle"])) {
     style.fontStyle = value["fontStyle"] as TextRunStyle["fontStyle"];
   }
-  if (typeof value["decoration"] === "string" && DECORATIONS.has(value["decoration"])) {
-    style.decoration = value["decoration"] as TextRunStyle["decoration"];
+  if (Array.isArray(value["decorations"])) {
+    const decorations = value["decorations"].filter(
+      (item): item is TextDecoration => typeof item === "string" && DECORATIONS.has(item),
+    );
+    const unique = [...new Set(decorations)];
+    if (unique.length > 0) style.decorations = unique;
   }
   if (typeof value["enclosure"] === "string" && ENCLOSURES.has(value["enclosure"])) {
     style.enclosure = value["enclosure"] as TextRunStyle["enclosure"];

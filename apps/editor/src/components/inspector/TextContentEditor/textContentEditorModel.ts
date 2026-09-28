@@ -1,7 +1,7 @@
-import type { TextContent, TextContentChunk, TextRunStyle } from "@viritura/core";
+import type { TextContent, TextContentChunk, TextDecoration, TextRunStyle } from "@viritura/core";
 import { SMUFL } from "../../palette/smuflGlyphs";
 
-const STYLE_DATA_KEYS = ["font", "size", "weight", "fontStyle", "decoration", "enclosure", "color"] as const;
+const STYLE_DATA_KEYS = ["font", "size", "weight", "fontStyle", "decorations", "enclosure", "color"] as const;
 const ENGINE_GLYPHS = new Set([
   "gClef",
   "gClef15mb",
@@ -46,6 +46,13 @@ function validSize(value: number | undefined): value is number {
   return value !== undefined && Number.isFinite(value) && value > 0 && value <= 12;
 }
 
+/** Our decoration names are model names; `strikethrough` is not a CSS keyword. */
+const CSS_DECORATION_LINES: Record<TextDecoration, string> = {
+  underline: "underline",
+  overline: "overline",
+  strikethrough: "line-through",
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -86,9 +93,8 @@ function textStyleCss(style: TextRunStyle | undefined): string {
   if (style.fontStyle && ["normal", "italic", "oblique"].includes(style.fontStyle)) {
     declarations.push(`font-style:${style.fontStyle}`);
   }
-  if (style.decoration && ["underline", "overline", "strikethrough"].includes(style.decoration)) {
-    declarations.push(`text-decoration:${style.decoration}`);
-  }
+  const lines = (style.decorations ?? []).map((decoration) => CSS_DECORATION_LINES[decoration]).filter(Boolean);
+  if (lines.length > 0) declarations.push(`text-decoration-line:${lines.join(" ")}`);
   if (validColor(style.color)) declarations.push(`color:${style.color}`);
   return declarations.length === 0 ? "" : ` style="${declarations.join(";")}"`;
 }
@@ -142,8 +148,13 @@ function parsedFontStyle(value: string): Partial<TextRunStyle> {
   return value === "normal" || value === "italic" || value === "oblique" ? { fontStyle: value } : {};
 }
 
-function parsedDecoration(value: string): Partial<TextRunStyle> {
-  return value === "underline" || value === "overline" || value === "strikethrough" ? { decoration: value } : {};
+function parsedDecorations(value: string): Partial<TextRunStyle> {
+  const decorations = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item): item is TextDecoration => item === "underline" || item === "overline" || item === "strikethrough");
+  const unique = [...new Set(decorations)];
+  return unique.length > 0 ? { decorations: unique } : {};
 }
 
 function parsedEnclosure(value: string): Partial<TextRunStyle> {
@@ -163,7 +174,7 @@ const STYLE_VALUE_PARSERS: Record<(typeof STYLE_DATA_KEYS)[number], (value: stri
   size: parsedSize,
   weight: parsedWeight,
   fontStyle: parsedFontStyle,
-  decoration: parsedDecoration,
+  decorations: parsedDecorations,
   enclosure: parsedEnclosure,
   color: parsedColor,
 };
@@ -183,7 +194,15 @@ function inheritedStyle(element: HTMLElement, parent: TextRunStyle, prefix = "")
 function applySemanticTagStyle(style: TextRunStyle, tagName: string): void {
   if (tagName === "B" || tagName === "STRONG") style.weight = "bold";
   if (tagName === "I" || tagName === "EM") style.fontStyle = "italic";
-  if (tagName === "U") style.decoration = "underline";
+  if (tagName === "U") style.decorations = addDecoration(style.decorations, "underline");
+  if (tagName === "S" || tagName === "STRIKE" || tagName === "DEL") {
+    style.decorations = addDecoration(style.decorations, "strikethrough");
+  }
+}
+
+/** Decorations compose, so a semantic tag adds to whatever is inherited. */
+function addDecoration(current: TextDecoration[] | undefined, decoration: TextDecoration): TextDecoration[] {
+  return current?.includes(decoration) ? current : [...(current ?? []), decoration];
 }
 
 /**
