@@ -5,11 +5,16 @@ use super::super::element_id;
 use super::super::text_styles::{self, FontFamily};
 use super::super::types::*;
 use super::substrate_obstacles::{
-    above_glyph_top_in_range, glyph_screen_bbox, highest_point_in_measure, AboveGlyphBox,
+    above_glyph_top_in_range, highest_point_in_measure, AboveGlyphBox,
 };
 use crate::model::JumpType;
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+#[path = "jump_markers/marker_text.rs"]
+mod marker_text;
+
+use marker_text::{GlyphMarker, RowAnchor};
 
 /// Render jump markers (segno signs, coda signs, fine, D.S., D.S. al Coda text) above the staff.
 ///
@@ -67,25 +72,25 @@ pub(crate) fn render_jump_markers(
     let glyph_y = min_glyph_y.min(highest - clearance - glyph_size * 0.3);
     let text_y = min_text_y.min(highest - clearance - baseline_offset);
 
+    let marker_text = global.marker_text();
+
     // Render segno glyph (centered at measure start, after prefix)
-    if let Some(ref _segno) = global.segno {
+    if global.segno.is_some() {
         let segno_x = ml.x + ml.prefix_width + 0.5 * sp;
-        dl.push_tagged(
-            RenderCommand::DrawGlyph {
-                x: segno_x,
-                y: glyph_y,
+        let (slot_offset, _, _, _) = smufl::glyph_bbox(smufl::SEGNO);
+        marker_text::emit_glyph_marker(
+            dl,
+            GlyphMarker {
                 codepoint: smufl::SEGNO,
-                font: "Bravura".into(),
-                size: glyph_size,
-                color: "#000000".into(),
-                rotation: 0.0,
+                glyph_y,
+                glyph_size,
+                text_size,
+                sp,
+                anchor: RowAnchor::Start(segno_x + slot_offset * sp),
+                text: marker_text.and_then(|text| text.segno.as_ref()),
+                element_id: element_id::segno(mi),
             },
-            element_id::segno(mi),
         );
-        dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: element_id::segno(mi),
-            bbox: glyph_screen_bbox(segno_x, glyph_y, smufl::SEGNO, glyph_size).to_bbox(),
-        });
     }
 
     // Render coda glyph. Unlike segno (a forward-referenced landing point that
@@ -93,56 +98,49 @@ pub(crate) fn render_jump_markers(
     // attached to — it belongs with the previous bar's content, so it hugs the
     // trailing barline (right-aligned at measure end) rather than sitting
     // indented into this measure's own start.
-    if let Some(_coda) = global.coda() {
-        let (bx, _, bw, _) = smufl::glyph_bbox(smufl::CODA);
-        let coda_x = measure_right - (bx + bw) * sp;
-        dl.push_tagged(
-            RenderCommand::DrawGlyph {
-                x: coda_x,
-                y: glyph_y,
+    let coda_left = global.coda().map(|_| {
+        marker_text::emit_glyph_marker(
+            dl,
+            GlyphMarker {
                 codepoint: smufl::CODA,
-                font: "Bravura".into(),
-                size: glyph_size,
-                color: "#000000".into(),
-                rotation: 0.0,
+                glyph_y,
+                glyph_size,
+                text_size,
+                sp,
+                anchor: RowAnchor::End(measure_right),
+                text: marker_text.and_then(|text| text.coda.as_ref()),
+                element_id: element_id::coda(mi),
             },
-            element_id::coda(mi),
-        );
-        dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: element_id::coda(mi),
-            bbox: glyph_screen_bbox(coda_x, glyph_y, smufl::CODA, glyph_size).to_bbox(),
-        });
-    }
+        )
+    });
 
     // Render "fine" text (right-aligned at measure end)
     if global.fine.is_some() {
+        let content =
+            marker_text::compose_label("fine", marker_text.and_then(|text| text.fine.as_ref()));
         let baseline_y = text_y + baseline_offset;
-        dl.push_tagged(
-            RenderCommand::DrawText {
-                x: measure_right,
-                y: baseline_y,
-                text: "fine".into(),
-                font: "serif italic".into(),
-                size: text_size,
-                color: "#000000".into(),
-                align: TextAlign::Right,
-                baseline: TextBaseline::Alphabetic,
-            },
-            element_id::fine(mi),
+        let eid = element_id::fine(mi);
+        marker_text::emit_owned_text(
+            dl,
+            &content,
+            measure_right,
+            baseline_y,
+            text_size,
+            TextAlign::Right,
+            &eid,
         );
         // Right-aligned, Alphabetic baseline: the box grows leftward from
-        // `measure_right` and spans the cap band above the baseline down to it
-        // (bottom = baseline; "fine" has no descenders), so the near-staff edge
-        // sits exactly `text_attach_gap` above the staff. Track the
-        // collision-shifted baseline. Width from the serif AFM table.
-        let text_w = text_styles::text_width("fine", text_size, FontFamily::Serif, false);
+        // `measure_right` and spans the cap band above the baseline down to it,
+        // so the near-staff edge sits exactly `text_attach_gap` above the staff.
+        let text_w = marker_text::text_width(&content, text_size);
+        let text_height = marker_text::text_height(&content, text_size);
         dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: element_id::fine(mi),
+            element_id: eid,
             bbox: BoundingBox::new(
                 measure_right - text_w,
-                baseline_y - text_size * 0.82,
+                baseline_y - text_height,
                 text_w,
-                text_size * 0.82,
+                text_height,
             ),
         });
     }
@@ -150,46 +148,33 @@ pub(crate) fn render_jump_markers(
     // Render jump text. A paired coda owns the trailing edge of the barline,
     // so the jump instruction occupies the space immediately to its left.
     if let Some(ref jump) = global.jump {
-        let text = match jump.jump_type {
-            JumpType::Segno => "D.S.".into(),
-            JumpType::DsAlFine => "D.S. al Fine".into(),
-            JumpType::DsAlCoda => "D.S. al Coda".into(),
-            JumpType::DcAlCoda => "D.C. al Coda".into(),
+        let generated = match jump.jump_type {
+            JumpType::Segno => "D.S.",
+            JumpType::DsAlFine => "D.S. al Fine",
+            JumpType::DsAlCoda => "D.S. al Coda",
+            JumpType::DcAlCoda => "D.C. al Coda",
         };
-        let text: String = text;
-        let text_w = text_styles::text_width(&text, text_size, FontFamily::Serif, false);
-        let (text_x, align, bbox_x) = if global.coda().is_some() {
-            let (_, _, coda_w, _) = smufl::glyph_bbox(smufl::CODA);
-            let text_right = measure_right - coda_w * sp - 0.5 * sp;
-            (text_right - text_w, TextAlign::Left, text_right - text_w)
-        } else {
-            (measure_right, TextAlign::Right, measure_right - text_w)
+        let content =
+            marker_text::compose_label(generated, marker_text.and_then(|text| text.jump.as_ref()));
+        let text_w = marker_text::text_width(&content, text_size);
+        let text_height = marker_text::text_height(&content, text_size);
+        let (text_x, align, bbox_x) = match coda_left {
+            Some(coda_left) => {
+                let text_right = coda_left - 0.5 * sp;
+                (text_right - text_w, TextAlign::Left, text_right - text_w)
+            }
+            None => (measure_right, TextAlign::Right, measure_right - text_w),
         };
+        let resting_baseline = text_y + baseline_offset * (text_height / (0.82 * text_size));
         let baseline_y = above_glyph_top_in_range(above_ink_boxes, bbox_x, bbox_x + text_w)
-            .map_or(text_y + baseline_offset, |ink_top| {
-                (text_y + baseline_offset).min(ink_top - clearance)
+            .map_or(resting_baseline, |ink_top| {
+                resting_baseline.min(ink_top - clearance)
             });
-        dl.push_tagged(
-            RenderCommand::DrawText {
-                x: text_x,
-                y: baseline_y,
-                text,
-                font: "serif italic".into(),
-                size: text_size,
-                color: "#000000".into(),
-                align,
-                baseline: TextBaseline::Alphabetic,
-            },
-            element_id::jump(mi),
-        );
+        let eid = element_id::jump(mi);
+        marker_text::emit_owned_text(dl, &content, text_x, baseline_y, text_size, align, &eid);
         dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: element_id::jump(mi),
-            bbox: BoundingBox::new(
-                bbox_x,
-                baseline_y - text_size * 0.82,
-                text_w,
-                text_size * 0.82,
-            ),
+            element_id: eid,
+            bbox: BoundingBox::new(bbox_x, baseline_y - text_height, text_w, text_height),
         });
     }
 }
