@@ -1,11 +1,17 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { createStore } from "zustand";
 import { useStore } from "zustand";
 import type { CursorPosition } from "./noteInputStore";
 import { synthesizeCommitMessage } from "../git/commitMessage";
+import { PieceText, applyTextEdit, diffText, revertTextEdit, type TextEdit } from "./historyTextEdit";
 
-/** Maximum number of history entries to retain. */
-const MAX_HISTORY = 100;
+/**
+ * Maximum number of history entries to retain. Only the current entry holds a
+ * full MNX string; every other entry stores a reversible text edit relative
+ * to its predecessor, so retained memory grows with the size of the edits
+ * rather than with the size of the score.
+ */
+const MAX_HISTORY = 500;
 
 /**
  * Module-level monotonically increasing counter for stable HistoryEntry IDs.
@@ -18,7 +24,10 @@ function nextHistoryEntryId(): number {
   return ++_historyEntryIdCounter;
 }
 
-/** A single snapshot in the undo/redo history. */
+/**
+ * A single step in the undo/redo history. The MNX content is not stored on
+ * the entry; read it through `getEntryMnxJson` / `getEntryMnxJsonById`.
+ */
 interface HistoryEntry {
   /**
    * Stable, monotonic ID. Survives LRU eviction (the entry itself goes away
@@ -28,26 +37,26 @@ interface HistoryEntry {
   id: number;
   /** Wall-clock time when the edit was recorded. */
   timestamp: number;
-  mnxJson: string;
   /**
    * Human-readable description of what changed (vs the previous entry).
    * Computed lazily — populated either eagerly for the most recent entry
    * (during pushState) or on-demand by the Clips tab.
    */
   description: string;
-  /**
-   * MNX of the entry immediately before this one. Used as the "before" side
-   * when computing a description via semanticDiff. Undefined for the initial
-   * entry (no diff possible). Strings are deduped — entry N's mnxJson IS
-   * entry N+1's prevMnxJson, so we hold no extra memory.
-   */
-  prevMnxJson?: string;
   /** True once `description` has been replaced with a synthesized value. */
   descriptionResolved?: boolean;
   /** Cursor immediately before this entry's edit. */
   cursorBefore?: CursorPosition | null;
   /** Cursor immediately after this entry's edit. */
   cursorAfter?: CursorPosition | null;
+}
+
+/** Private per-entry content storage. */
+interface EntryContent {
+  /** Length of this entry's MNX string (lets size guards skip reconstruction). */
+  length: number;
+  /** Reversible edit from the previous entry. Absent for the oldest entry. */
+  edit?: TextEdit;
 }
 
 /**
@@ -61,27 +70,32 @@ const MAX_DIFF_INPUT_CHARS = 250_000;
 /**
  * Synchronously compute a human-readable description for an entry by diffing
  * against its previous MNX. Mutates the entry (sets `description` and
- * `descriptionResolved`). No-op if already resolved or if no prevMnxJson.
- *
- * Bails out with the placeholder description for very large MNX strings to
- * keep the eager-resolution microtask cheap — large multi-measure pastes
- * would otherwise block the main thread for hundreds of milliseconds.
+ * `descriptionResolved`). `readTexts` is only invoked when a diff will
+ * actually run, so oversized documents are never reconstructed.
  */
-function resolveEntryDescription(entry: HistoryEntry): void {
+function resolveEntryDescription(
+  entry: HistoryEntry,
+  beforeLength: number | undefined,
+  afterLength: number,
+  readTexts: () => { before: string; after: string } | undefined,
+): void {
   if (entry.descriptionResolved) return;
-  if (!entry.prevMnxJson) {
+  if (beforeLength === undefined) {
     entry.descriptionResolved = true;
     return;
   }
-  if (entry.mnxJson.length > MAX_DIFF_INPUT_CHARS || entry.prevMnxJson.length > MAX_DIFF_INPUT_CHARS) {
+  if (afterLength > MAX_DIFF_INPUT_CHARS || beforeLength > MAX_DIFF_INPUT_CHARS) {
     if (entry.description === "Edit") entry.description = "Large score edit";
     entry.descriptionResolved = true;
     return;
   }
   try {
-    const synth = synthesizeCommitMessage(entry.prevMnxJson, entry.mnxJson);
-    if (!synth.empty && synth.subject) {
-      entry.description = synth.subject;
+    const texts = readTexts();
+    if (texts) {
+      const synth = synthesizeCommitMessage(texts.before, texts.after);
+      if (!synth.empty && synth.subject) {
+        entry.description = synth.subject;
+      }
     }
   } catch {
     // Keep the placeholder description on failure.
@@ -107,6 +121,10 @@ interface HistoryActions {
   redo: () => string | undefined;
   /** Jump directly to a specific history index (Photoshop-style). */
   jumpTo: (index: number) => string | undefined;
+  /** Reconstruct the MNX for the entry at `index`. */
+  getEntryMnxJson: (index: number) => string | undefined;
+  /** Reconstruct the MNX for the entry with stable `id`; undefined once evicted. */
+  getEntryMnxJsonById: (id: number) => string | undefined;
   /** Resolve descriptions for all entries whose description is still pending. */
   preloadDescriptions: () => void;
   /** Force-resolve a single entry's description (used on render). */
@@ -119,64 +137,22 @@ interface HistoryInfo {
   canRedo: boolean;
   undoDescription: string | undefined;
   redoDescription: string | undefined;
+  /** Full MNX of the current entry — the anchor every other entry is rebuilt from. */
   currentMnxJson: string | undefined;
   /** Stable id of the entry at currentIndex, or undefined when empty. */
   currentEntryId: number | undefined;
   historySize: number;
 }
 
-// --- Reducer (kept for unit tests) ---
-
-/** @internal Exported for testing. */
-export type HistoryAction =
-  | { type: "push"; mnxJson: string; description: string }
-  | { type: "undo" }
-  | { type: "redo" }
-  | { type: "reset"; mnxJson: string };
-
-/** @internal Exported for testing. */
-export function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
-  switch (action.type) {
-    case "push": {
-      const trimmed = state.entries.slice(0, state.currentIndex + 1);
-      trimmed.push({
-        id: nextHistoryEntryId(),
-        timestamp: Date.now(),
-        mnxJson: action.mnxJson,
-        description: action.description,
-      });
-      const overflow = trimmed.length - MAX_HISTORY;
-      const entries = overflow > 0 ? trimmed.slice(overflow) : trimmed;
-      const currentIndex = entries.length - 1;
-      return { entries, currentIndex };
-    }
-    case "undo": {
-      if (state.currentIndex <= 0) return state;
-      return { ...state, currentIndex: state.currentIndex - 1 };
-    }
-    case "redo": {
-      if (state.currentIndex >= state.entries.length - 1) return state;
-      return { ...state, currentIndex: state.currentIndex + 1 };
-    }
-    case "reset": {
-      return {
-        entries: [
-          { id: nextHistoryEntryId(), timestamp: Date.now(), mnxJson: action.mnxJson, description: "Initial state" },
-        ],
-        currentIndex: 0,
-      };
-    }
-  }
-}
-
 // --- Zustand store ---
 
-export interface HistoryStoreState extends HistoryInfo, HistoryActions {
-  entries: HistoryEntry[];
-  currentIndex: number;
-}
+export interface HistoryStoreState extends HistoryInfo, HistoryActions, HistoryState {}
 
-function computeDerived(entries: HistoryEntry[], currentIndex: number): HistoryInfo {
+function computeDerived(
+  entries: HistoryEntry[],
+  currentIndex: number,
+  currentMnxJson: string | undefined,
+): HistoryInfo {
   const canUndo = currentIndex > 0;
   const canRedo = currentIndex < entries.length - 1;
   return {
@@ -184,7 +160,7 @@ function computeDerived(entries: HistoryEntry[], currentIndex: number): HistoryI
     canRedo,
     undoDescription: canUndo ? entries[currentIndex]?.description : undefined,
     redoDescription: canRedo ? entries[currentIndex + 1]?.description : undefined,
-    currentMnxJson: entries[currentIndex]?.mnxJson,
+    currentMnxJson: entries.length > 0 ? currentMnxJson : undefined,
     currentEntryId: entries[currentIndex]?.id,
     historySize: entries.length,
   };
@@ -196,141 +172,202 @@ export function createHistoryStore(
   initialMnxJson: string | undefined,
   onRestoreRef: { current: ((mnxJson: string, cursorPosition?: CursorPosition | null) => void) | undefined },
 ) {
-  const initialEntries: HistoryEntry[] =
-    initialMnxJson !== undefined
-      ? [
-          {
-            id: nextHistoryEntryId(),
-            timestamp: Date.now(),
-            mnxJson: initialMnxJson,
-            description: "Initial state",
-            descriptionResolved: true,
-          },
-        ]
-      : [];
+  const contents = new WeakMap<HistoryEntry, EntryContent>();
+
+  const createInitialEntry = (mnxJson: string): HistoryEntry => {
+    const entry: HistoryEntry = {
+      id: nextHistoryEntryId(),
+      timestamp: Date.now(),
+      description: "Initial state",
+      descriptionResolved: true,
+    };
+    contents.set(entry, { length: mnxJson.length });
+    return entry;
+  };
+
+  const editOf = (entry: HistoryEntry | undefined): TextEdit => {
+    const edit = entry ? contents.get(entry)?.edit : undefined;
+    if (!edit) throw new Error("History entry is missing its text edit");
+    return edit;
+  };
+
+  const initialEntries: HistoryEntry[] = initialMnxJson !== undefined ? [createInitialEntry(initialMnxJson)] : [];
   const initialIndex = initialEntries.length > 0 ? 0 : -1;
 
-  return createStore<HistoryStoreState>((set, get) => ({
-    entries: initialEntries,
-    currentIndex: initialIndex,
-    ...computeDerived(initialEntries, initialIndex),
-
-    pushState: (
-      mnxJson: string,
-      description: string,
-      cursorBefore?: CursorPosition | null,
-      cursorAfter?: CursorPosition | null,
-    ) => {
-      const { entries, currentIndex } = get();
-      const trimmed = entries.slice(0, currentIndex + 1);
-      const prevEntry = trimmed[trimmed.length - 1];
-      const newEntry: HistoryEntry = {
-        id: nextHistoryEntryId(),
-        timestamp: Date.now(),
-        mnxJson,
-        description,
-        cursorBefore,
-        cursorAfter,
-        ...(prevEntry ? { prevMnxJson: prevEntry.mnxJson } : {}),
-      };
-      // Eagerly compute the description for the freshly-pushed entry in a
-      // microtask, so menu labels like "Undo: Edit pitch C4 → D4" stay
-      // accurate without blocking the dispatch.
-      if (newEntry.prevMnxJson) {
-        queueMicrotask(() => {
-          if (newEntry.descriptionResolved) return;
-          resolveEntryDescription(newEntry);
-          // Bump entries reference so subscribers (selectors keyed on
-          // `entries`) re-render. We mutated newEntry in place; this clones
-          // the array but keeps entry object identities.
-          const cur = get();
-          if (cur.entries[cur.entries.length - 1] === newEntry) {
-            const nextEntries = cur.entries.slice();
-            set({ entries: nextEntries, ...computeDerived(nextEntries, cur.currentIndex) });
-          }
-        });
+  return createStore<HistoryStoreState>((set, get) => {
+    /**
+     * Rebuild an entry's MNX by replaying edits outward from the current
+     * entry. Cost is proportional to the distance from the current entry;
+     * the document itself is copied once.
+     */
+    const materialize = (target: number): string | undefined => {
+      const { entries, currentIndex, currentMnxJson } = get();
+      if (currentMnxJson === undefined || target < 0 || target >= entries.length) return undefined;
+      if (target === currentIndex) return currentMnxJson;
+      const text = new PieceText(currentMnxJson);
+      if (target < currentIndex) {
+        for (let i = currentIndex; i > target; i--) text.revert(editOf(entries[i]));
       } else {
-        newEntry.descriptionResolved = true;
+        for (let i = currentIndex + 1; i <= target; i++) text.apply(editOf(entries[i]));
       }
-      trimmed.push(newEntry);
-      const overflow = trimmed.length - MAX_HISTORY;
-      const newEntries = overflow > 0 ? trimmed.slice(overflow) : trimmed;
-      const newIndex = newEntries.length - 1;
-      set({ entries: newEntries, currentIndex: newIndex, ...computeDerived(newEntries, newIndex) });
-    },
+      return text.toString();
+    };
 
-    undo: () => {
-      const { entries, currentIndex } = get();
-      if (currentIndex <= 0) return undefined;
-      const restored = entries[currentIndex - 1];
-      if (!restored) return undefined;
-      const cursorToRestore = entries[currentIndex]?.cursorBefore ?? restored.cursorAfter;
-      const newIndex = currentIndex - 1;
-      set({ currentIndex: newIndex, ...computeDerived(entries, newIndex) });
-      onRestoreRef.current?.(restored.mnxJson, cursorToRestore);
-      return restored.mnxJson;
-    },
+    /** Move the current pointer and notify the editor with the restored document. */
+    const restore = (index: number, cursor: CursorPosition | null | undefined): string | undefined => {
+      const restored = materialize(index);
+      if (restored === undefined) return undefined;
+      const { entries } = get();
+      set({ currentIndex: index, ...computeDerived(entries, index, restored) });
+      onRestoreRef.current?.(restored, cursor);
+      return restored;
+    };
 
-    redo: () => {
-      const { entries, currentIndex } = get();
-      if (currentIndex >= entries.length - 1) return undefined;
-      const restored = entries[currentIndex + 1];
-      if (!restored) return undefined;
-      const newIndex = currentIndex + 1;
-      set({ currentIndex: newIndex, ...computeDerived(entries, newIndex) });
-      onRestoreRef.current?.(restored.mnxJson, restored.cursorAfter ?? restored.cursorBefore);
-      return restored.mnxJson;
-    },
+    const lengthOf = (entry: HistoryEntry | undefined): number | undefined =>
+      entry ? contents.get(entry)?.length : undefined;
 
-    jumpTo: (index: number) => {
-      const { entries, currentIndex } = get();
-      if (index < 0 || index >= entries.length) return undefined;
-      if (index === currentIndex) return undefined;
-      const restored = entries[index];
-      if (!restored) return undefined;
-      set({ currentIndex: index, ...computeDerived(entries, index) });
-      onRestoreRef.current?.(restored.mnxJson, restored.cursorAfter ?? restored.cursorBefore);
-      return restored.mnxJson;
-    },
-
-    preloadDescriptions: () => {
-      const { entries, currentIndex } = get();
-      let mutated = false;
-      for (const entry of entries) {
-        if (!entry.descriptionResolved) {
-          resolveEntryDescription(entry);
-          mutated = true;
-        }
-      }
-      if (mutated) {
-        // Bump entries reference so selectors re-render.
-        const nextEntries = entries.slice();
-        set({ entries: nextEntries, ...computeDerived(nextEntries, currentIndex) });
-      }
-    },
-
-    resolveDescription: (index: number) => {
-      const { entries, currentIndex } = get();
+    /** Previous-entry length, or undefined when no diff is possible. */
+    const beforeLengthOf = (entries: HistoryEntry[], index: number): number | undefined => {
       const entry = entries[index];
-      if (!entry || entry.descriptionResolved) return;
-      resolveEntryDescription(entry);
-      const nextEntries = entries.slice();
-      set({ entries: nextEntries, ...computeDerived(nextEntries, currentIndex) });
-    },
+      if (!entry || index === 0 || !contents.get(entry)?.edit) return undefined;
+      return lengthOf(entries[index - 1]);
+    };
 
-    reset: (mnxJson: string) => {
-      const newEntries: HistoryEntry[] = [
-        {
+    return {
+      entries: initialEntries,
+      currentIndex: initialIndex,
+      ...computeDerived(initialEntries, initialIndex, initialMnxJson),
+
+      pushState: (
+        mnxJson: string,
+        description: string,
+        cursorBefore?: CursorPosition | null,
+        cursorAfter?: CursorPosition | null,
+      ) => {
+        const { entries, currentIndex, currentMnxJson: previousMnxJson } = get();
+        const trimmed = entries.slice(0, currentIndex + 1);
+        const newEntry: HistoryEntry = {
           id: nextHistoryEntryId(),
           timestamp: Date.now(),
-          mnxJson,
-          description: "Initial state",
-          descriptionResolved: true,
-        },
-      ];
-      set({ entries: newEntries, currentIndex: 0, ...computeDerived(newEntries, 0) });
-    },
-  }));
+          description,
+          cursorBefore,
+          cursorAfter,
+        };
+        if (trimmed.length > 0 && previousMnxJson !== undefined) {
+          contents.set(newEntry, { length: mnxJson.length, edit: diffText(previousMnxJson, mnxJson) });
+          // Eagerly compute the description for the freshly-pushed entry in a
+          // microtask, so menu labels like "Undo: Edit pitch C4 → D4" stay
+          // accurate without blocking the dispatch. Both texts are in hand
+          // here, so no reconstruction is needed.
+          queueMicrotask(() => {
+            if (newEntry.descriptionResolved) return;
+            resolveEntryDescription(newEntry, previousMnxJson.length, mnxJson.length, () => ({
+              before: previousMnxJson,
+              after: mnxJson,
+            }));
+            // Bump entries reference so subscribers (selectors keyed on
+            // `entries`) re-render. We mutated newEntry in place; this clones
+            // the array but keeps entry object identities.
+            const cur = get();
+            if (cur.entries[cur.entries.length - 1] === newEntry) {
+              const nextEntries = cur.entries.slice();
+              set({ entries: nextEntries, ...computeDerived(nextEntries, cur.currentIndex, cur.currentMnxJson) });
+            }
+          });
+        } else {
+          contents.set(newEntry, { length: mnxJson.length });
+          newEntry.descriptionResolved = true;
+        }
+        trimmed.push(newEntry);
+        const overflow = trimmed.length - MAX_HISTORY;
+        const newEntries = overflow > 0 ? trimmed.slice(overflow) : trimmed;
+        const oldest = newEntries[0];
+        const oldestContent = oldest ? contents.get(oldest) : undefined;
+        // The oldest entry is never reverted past, so its edit is dead weight.
+        if (overflow > 0 && oldestContent) delete oldestContent.edit;
+        const newIndex = newEntries.length - 1;
+        set({ entries: newEntries, currentIndex: newIndex, ...computeDerived(newEntries, newIndex, mnxJson) });
+      },
+
+      undo: () => {
+        const { entries, currentIndex } = get();
+        if (currentIndex <= 0) return undefined;
+        return restore(currentIndex - 1, entries[currentIndex]?.cursorBefore ?? entries[currentIndex - 1]?.cursorAfter);
+      },
+
+      redo: () => {
+        const { entries, currentIndex } = get();
+        if (currentIndex >= entries.length - 1) return undefined;
+        const target = entries[currentIndex + 1];
+        return restore(currentIndex + 1, target?.cursorAfter ?? target?.cursorBefore);
+      },
+
+      jumpTo: (index: number) => {
+        const { entries, currentIndex } = get();
+        if (index < 0 || index >= entries.length || index === currentIndex) return undefined;
+        const target = entries[index];
+        return restore(index, target?.cursorAfter ?? target?.cursorBefore);
+      },
+
+      getEntryMnxJson: (index: number) => materialize(index),
+
+      getEntryMnxJsonById: (id: number) => {
+        const index = get().entries.findIndex((entry) => entry.id === id);
+        return index < 0 ? undefined : materialize(index);
+      },
+
+      preloadDescriptions: () => {
+        const { entries, currentIndex, currentMnxJson } = get();
+        let mutated = false;
+        // Sweep oldest → newest, carrying the previous entry's text forward
+        // so each step costs one edit instead of a full reconstruction.
+        let carried: { index: number; text: string } | undefined;
+        for (let index = 0; index < entries.length; index++) {
+          const entry = entries[index];
+          if (!entry || entry.descriptionResolved) continue;
+          const afterLength = lengthOf(entry) ?? 0;
+          resolveEntryDescription(entry, beforeLengthOf(entries, index), afterLength, () => {
+            const edit = editOf(entry);
+            let before: string | undefined;
+            let after: string | undefined;
+            if (carried?.index === index - 1) {
+              before = carried.text;
+              after = applyTextEdit(before, edit);
+            } else {
+              after = materialize(index);
+              if (after !== undefined) before = revertTextEdit(after, edit);
+            }
+            if (after === undefined || before === undefined) return undefined;
+            carried = { index, text: after };
+            return { before, after };
+          });
+          mutated = true;
+        }
+        if (mutated) {
+          // Bump entries reference so selectors re-render.
+          const nextEntries = entries.slice();
+          set({ entries: nextEntries, ...computeDerived(nextEntries, currentIndex, currentMnxJson) });
+        }
+      },
+
+      resolveDescription: (index: number) => {
+        const { entries, currentIndex, currentMnxJson } = get();
+        const entry = entries[index];
+        if (!entry || entry.descriptionResolved) return;
+        resolveEntryDescription(entry, beforeLengthOf(entries, index), lengthOf(entry) ?? 0, () => {
+          const after = materialize(index);
+          return after === undefined ? undefined : { before: revertTextEdit(after, editOf(entry)), after };
+        });
+        const nextEntries = entries.slice();
+        set({ entries: nextEntries, ...computeDerived(nextEntries, currentIndex, currentMnxJson) });
+      },
+
+      reset: (mnxJson: string) => {
+        const newEntries: HistoryEntry[] = [createInitialEntry(mnxJson)];
+        set({ entries: newEntries, currentIndex: 0, ...computeDerived(newEntries, 0, mnxJson) });
+      },
+    };
+  });
 }
 
 // --- Context (carries the Zustand store instance) ---
@@ -366,16 +403,18 @@ export function useHistoryStoreInstance(): HistoryStore {
 
 /**
  * Look up a history entry's mnxJson by its stable id. Returns undefined if
- * the entry has been LRU-evicted (or never existed). Subscribers re-render
- * only when the matching entry's mnxJson changes (or the entry's lookup
- * result transitions present ↔ absent).
+ * the entry has been LRU-evicted (or never existed). An entry's content is
+ * immutable for its id, so the reconstruction runs only when the id changes
+ * or the entry transitions present ↔ absent.
  */
 export function useHistoryEntryMnxJsonById(id: number | undefined): string | undefined {
-  return useHistoryStore((s) => {
-    if (id === undefined) return undefined;
-    return s.entries.find((e) => e.id === id)?.mnxJson;
-  });
+  const store = useHistoryStoreInstance();
+  const present = useHistoryStore((s) => id !== undefined && s.entries.some((e) => e.id === id));
+  return useMemo(
+    () => (present && id !== undefined ? store.getState().getEntryMnxJsonById(id) : undefined),
+    [store, id, present],
+  );
 }
 
 export { MAX_HISTORY };
-export type { HistoryEntry, HistoryState, HistoryInfo };
+export type { HistoryEntry, HistoryInfo };
