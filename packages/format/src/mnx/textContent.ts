@@ -16,6 +16,14 @@ const FONT_STYLES = new Set(["normal", "italic", "oblique"]);
 const DECORATIONS = new Set(["underline", "overline", "strikethrough"]);
 const ENCLOSURES = new Set(["box", "circle"]);
 
+// Mirror the numeric bounds of `text-run-style` in viritura-extensions.json.
+// Owners outside that schema reach layout through this decoder alone, so an
+// unbounded multiplier here would let unvalidated text produce runaway
+// geometry.
+const MAX_SIZE = 12;
+const MIN_WEIGHT = 1;
+const MAX_WEIGHT = 1000;
+
 function parseStyle(raw: unknown): TextRunStyle | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const value = raw as Obj;
@@ -23,11 +31,16 @@ function parseStyle(raw: unknown): TextRunStyle | undefined {
   if (typeof value["font"] === "string" && FONTS.has(value["font"])) {
     style.font = value["font"] as TextRunStyle["font"];
   }
-  if (typeof value["size"] === "number" && Number.isFinite(value["size"]) && value["size"] > 0) {
-    style.size = value["size"];
+  const size = value["size"];
+  if (typeof size === "number" && Number.isFinite(size) && size > 0 && size <= MAX_SIZE) {
+    style.size = size;
   }
   const weight = value["weight"];
-  if (weight === "normal" || weight === "bold" || (typeof weight === "number" && Number.isFinite(weight))) {
+  if (
+    weight === "normal" ||
+    weight === "bold" ||
+    (typeof weight === "number" && Number.isFinite(weight) && weight >= MIN_WEIGHT && weight <= MAX_WEIGHT)
+  ) {
     style.weight = weight;
   }
   if (typeof value["fontStyle"] === "string" && FONT_STYLES.has(value["fontStyle"])) {

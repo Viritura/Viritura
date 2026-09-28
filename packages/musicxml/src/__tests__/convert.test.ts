@@ -540,6 +540,57 @@ describe("convertMusicXmlToMnx — basics", () => {
     expect(exprs[0]!.text).toEqual([{ text: "arco" }]);
   });
 
+  it("keeps distinct expressions that share a position", () => {
+    // Position-based dedupe once interpolated the chunk array into a string,
+    // so every chunk became "[object Object]" and unrelated texts collapsed.
+    const xml = wrapScore(`
+      <direction placement="above">
+        <direction-type><words>cresc.</words></direction-type>
+      </direction>
+      <direction placement="above">
+        <direction-type><words>poco a poco</words></direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const measure = result.parts[0]!.measures[0]!;
+    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
+    const exprs = ext.viritura["expressions"] as { text: unknown }[];
+    expect(exprs.map((expr) => expr.text)).toEqual([[{ text: "cresc." }], [{ text: "poco a poco" }]]);
+  });
+
+  it("keeps same-worded direction-types that differ in formatting", () => {
+    // In-direction dedupe exists because some exporters repeat an identical
+    // <words> across direction-types. Identical prose with different styling
+    // is not a duplicate, though, so both runs must survive.
+    const xml = wrapScore(`
+      <direction placement="above">
+        <direction-type><words>sim.</words></direction-type>
+        <direction-type><words font-style="italic">sim.</words></direction-type>
+        <direction-type><words>sim.</words></direction-type>
+      </direction>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    `);
+
+    const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const measure = result.parts[0]!.measures[0]!;
+    const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
+    const exprs = ext.viritura["expressions"] as { text: unknown }[];
+    expect(exprs.map((expr) => expr.text)).toEqual([
+      [{ text: "sim." }],
+      [{ text: "sim.", style: { fontStyle: "italic" } }],
+    ]);
+  });
+
   it("handles grace notes", () => {
     const xml = wrapScore(`
       <note>

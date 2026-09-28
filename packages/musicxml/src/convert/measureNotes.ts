@@ -747,7 +747,9 @@ export function processMeasureNotes(
       // A single `<direction>` can carry multiple `<direction-type>` children;
       // some exporters emit the identical `<words>` twice (e.g. "pizz." in both
       // direction-types), which would otherwise produce duplicate staff text.
-      // Track the word texts already emitted for this direction to dedupe them.
+      // Track the content already emitted for this direction to dedupe it. The
+      // whole chunk list is the key, not just its prose, so two direction-types
+      // reading the same words with different styling or glyphs both survive.
       const seenWords = new Set<string>();
 
       for (const dt of findChildren(el, "direction-type")) {
@@ -818,8 +820,9 @@ export function processMeasureNotes(
           // a staff text expression (double import).
           const content = textContentFromDirectionType(dt);
           const text = content ? plainOf(content) : "";
-          if (content && text && el.getAttribute("directive") !== "yes" && !seenWords.has(text)) {
-            seenWords.add(text);
+          const key = content ? JSON.stringify(content) : "";
+          if (content && text && el.getAttribute("directive") !== "yes" && !seenWords.has(key)) {
+            seenWords.add(key);
             const placementAttr = el.getAttribute("placement");
             const expr: MeasureResult["expressions"][number] = { text: content, position: makePosition(currentPos) };
             if (placementAttr === "above" || placementAttr === "below") expr.placement = placementAttr;
@@ -944,7 +947,10 @@ export function processMeasureNotes(
   });
   const exprSeen = new Set<string>();
   const dedupedExpressions = expressions.filter((e) => {
-    const key = `${e.position.fraction[0]}/${e.position.fraction[1]}|${e.text}|${e.placement ?? ""}`;
+    // The whole chunk list is the key. Interpolating `e.text` directly would
+    // stringify every chunk to "[object Object]", collapsing unrelated
+    // expressions that merely share a position.
+    const key = `${e.position.fraction[0]}/${e.position.fraction[1]}|${JSON.stringify(e.text)}|${e.placement ?? ""}`;
     if (exprSeen.has(key)) return false;
     exprSeen.add(key);
     return true;

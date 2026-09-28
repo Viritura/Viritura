@@ -45,6 +45,20 @@ describe("parseTextContent", () => {
     expect(content).toEqual([{ text: "dolce", style: { decorations: ["underline"] } }]);
   });
 
+  it("drops numeric style values outside the schema bounds", () => {
+    // `tempo` is outside viritura-extensions.json, so this decoder is the only
+    // validation before layout; an unbounded multiplier would reach geometry.
+    expect(parseTextContent([{ text: "dolce", style: { size: 1e6 } }])).toEqual([{ text: "dolce" }]);
+    expect(parseTextContent([{ text: "dolce", style: { size: 12 } }])).toEqual([
+      { text: "dolce", style: { size: 12 } },
+    ]);
+    expect(parseTextContent([{ text: "dolce", style: { weight: 0 } }])).toEqual([{ text: "dolce" }]);
+    expect(parseTextContent([{ text: "dolce", style: { weight: 5000 } }])).toEqual([{ text: "dolce" }]);
+    expect(parseTextContent([{ text: "dolce", style: { weight: 700 } }])).toEqual([
+      { text: "dolce", style: { weight: 700 } },
+    ]);
+  });
+
   it("omits an empty style rather than emitting a bare object", () => {
     expect(parseTextContent([{ text: "dolce", style: {} }])).toEqual([{ text: "dolce" }]);
   });
