@@ -85,7 +85,9 @@ function resolveEntryDescription(
     return;
   }
   if (afterLength > MAX_DIFF_INPUT_CHARS || beforeLength > MAX_DIFF_INPUT_CHARS) {
-    if (entry.description === "Edit") entry.description = "Large score edit";
+    // This threshold describes the score snapshots the semantic diff would
+    // parse, not the size of the edit itself. Keep the generic label rather
+    // than implying that a localized edit was large.
     entry.descriptionResolved = true;
     return;
   }
