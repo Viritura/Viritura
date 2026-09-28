@@ -476,7 +476,7 @@ export function buildParts(
           if (gm) {
             const gx = (gm["_x"] ??= { viritura: {} }) as { viritura: Record<string, unknown> };
             if (gx.viritura["rehearsalMark"] === undefined) {
-              gx.viritura["rehearsalMark"] = { text: result.rehearsals[0]!.text };
+              gx.viritura["rehearsalMark"] = { text: [{ text: result.rehearsals[0]!.text }] };
             }
           }
         }
@@ -532,7 +532,7 @@ export function buildParts(
         const pedals = pedalsByMeasure.get(mi);
         if (!exprs && !pedals) continue;
         const vendorData: Record<string, unknown> = {};
-        if (exprs) vendorData["expressions"] = exprs;
+        if (exprs) vendorData["expressions"] = exprs.map(({ text, ...rest }) => ({ text: [{ text }], ...rest }));
         if (pedals) vendorData["pedals"] = pedals;
         const measure = mnxPart.measures[mi]!;
         measure._x = { viritura: { ...measure._x?.viritura, ...vendorData } };

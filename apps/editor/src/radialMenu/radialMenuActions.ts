@@ -4,7 +4,7 @@
  */
 
 import type { DynamicGroup, FermataSymbol, Score, RhythmicPosition, TextExpression } from "@viritura/core";
-import { createDynamicGroup, createRelativeDynamicGroup, generateId } from "@viritura/core";
+import { createDynamicGroup, createRelativeDynamicGroup, generateId, textContentFromPlain } from "@viritura/core";
 import {
   getEventAtLocation,
   resolveEventLocation,
@@ -560,7 +560,7 @@ function addTextualGradual(score: Score, target: DynamicTarget, gradual: Textual
   startMeasure.expressions = [
     ...(startMeasure.expressions ?? []),
     {
-      text: gradual.text,
+      text: textContentFromPlain(gradual.text),
       position: startBoundary.position,
       ...(target.staff === undefined ? {} : { staff: target.staff }),
     },
@@ -615,7 +615,10 @@ export function addMixedExpression(
           pendingPrefix = pendingPrefix ? `${pendingPrefix} ${token.value}` : token.value;
         } else {
           const existing = pm.expressions ?? [];
-          const expr: TextExpression = { text: token.value, position: target.startPosition };
+          const expr: TextExpression = {
+            text: textContentFromPlain(token.value),
+            position: target.startPosition,
+          };
           pm.expressions = [...existing, expr];
         }
       }

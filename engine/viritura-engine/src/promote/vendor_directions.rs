@@ -25,6 +25,7 @@ use crate::model::staff_meter::{
     StaffMeter as ModelStaffMeter, StaffMeterChange as ModelStaffMeterChange,
     StaffMeterSynchronization as ModelStaffMeterSynchronization,
 };
+use crate::model::text::TextContent as ModelTextContent;
 use crate::promote::vendor_ext::read_viritura_ext;
 use crate::{raw, raw_viritura};
 
@@ -208,7 +209,7 @@ fn promote_pedal(r: raw_viritura::Pedal) -> ModelPedal {
 
 fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpression {
     ModelTextExpression {
-        text: r.text,
+        text: ModelTextContent::from_raw(r.text),
         position: promote_rhythmic_position_local(r.position),
         placement: r.placement,
         staff: r.staff.map(|staff| u32::try_from(staff).unwrap_or(1)),
@@ -252,7 +253,7 @@ fn promote_chord_root(r: raw_viritura::ChordRoot) -> ModelChordRoot {
 
 fn promote_rehearsal_mark(r: raw_viritura::RehearsalMark) -> ModelRehearsalMark {
     ModelRehearsalMark {
-        text: r.text,
+        text: ModelTextContent::from_raw(r.text),
         style: r.style,
         manual_offset: r.manual_offset.map(|d| d.0),
         avoid_collisions: r.avoid_collisions,
@@ -340,12 +341,12 @@ mod tests {
     fn extracts_rehearsal_mark_and_coda_from_global_measure() {
         let x = vendor_ext_from_json(
             r#"{"viritura":{
-                "rehearsalMark":{"text":"A"},
+                "rehearsalMark":{"text": [{"text": "A"}]},
                 "coda":{"location":{"fraction":[0,4]}}
             }}"#,
         );
         let v = extract_global_measure_vendor(Some(&x));
-        assert_eq!(v.rehearsal_mark.as_ref().unwrap().text, "A");
+        assert_eq!(v.rehearsal_mark.as_ref().unwrap().text.plain_text(), "A");
         assert!(v.coda.is_some());
     }
 

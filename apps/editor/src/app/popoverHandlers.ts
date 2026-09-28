@@ -6,6 +6,7 @@ import {
   compareChordSymbolPositions,
   transposeChordSymbol,
   upsertGlobalChordSymbol,
+  textContentFromPlain,
   type Score,
   type NoteValueBase,
   type Tempo,
@@ -70,7 +71,7 @@ export function applyTempoEdit(score: Score, popover: TempoPopoverState, rawValu
       value: { base, ...(dots > 0 ? { dots } : {}) },
       ...(popover.location ? { location: popover.location } : {}),
     };
-    if (parsed.text) tempo.text = parsed.text;
+    if (parsed.text) tempo.text = textContentFromPlain(parsed.text);
     if (parsed.text && !parsed.bpm.trim()) {
       tempo.showMetronomeMark = false;
     }
@@ -88,7 +89,7 @@ export function applyStaffTextEdit(score: Score, popover: StaffTextPopoverState,
       const fraction = beatPositionToFraction(seq ? eventBeatPosition(seq, target) : 0);
       const existing = pm.expressions ?? [];
       existing.push({
-        text: rawValue.trim(),
+        text: textContentFromPlain(rawValue.trim()),
         position: { fraction },
         placement: "above",
         ...(target.staff !== undefined && { staff: target.staff }),

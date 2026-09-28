@@ -18,8 +18,8 @@ export const WithTempoFlow: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          virituraGlobal: { rehearsalMark: { text: "A" } },
-          tempos: [{ bpm: 132, value: { base: "quarter" }, _x: { viritura: { text: "Allegro" } } }],
+          virituraGlobal: { rehearsalMark: { text: [{ text: "A" }] } },
+          tempos: [{ bpm: 132, value: { base: "quarter" }, _x: { viritura: { text: [{ text: "Allegro" }] } } }],
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
@@ -42,7 +42,7 @@ export const WithAboveExpressionFlow: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          virituraGlobal: { rehearsalMark: { text: "2", style: "boxed" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "2" }], style: "boxed" } },
           virituraPartMeasure: {
             expressions: [
               {
@@ -79,7 +79,7 @@ export const BoxLeftAlignsWithBarline: StoryObj = {
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "B" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "B" }] } },
           voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
         },
       ],

@@ -535,9 +535,9 @@ describe("convertMusicXmlToMnx — basics", () => {
     const ext = (measure as unknown as Record<string, unknown>)._x as {
       viritura: Record<string, unknown>;
     };
-    const exprs = ext.viritura["expressions"] as { text: string }[];
+    const exprs = ext.viritura["expressions"] as { text: { text: string }[] }[];
     expect(exprs).toHaveLength(1);
-    expect(exprs[0]!.text).toBe("arco");
+    expect(exprs[0]!.text).toEqual([{ text: "arco" }]);
   });
 
   it("handles grace notes", () => {
@@ -1129,7 +1129,7 @@ describe("convertMusicXmlToMnx — tempo", () => {
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const tempo = result.global.measures[0]!.tempos![0]!;
     expect(tempo.bpm).toBe(80);
-    expect(tempo._x).toEqual({ viritura: { text: "Molto moderato" } });
+    expect(tempo._x).toEqual({ viritura: { text: [{ text: "Molto moderato" }] } });
     // The directive text must NOT also be emitted as a staff text expression.
     const measure = result.parts[0]!.measures[0]! as unknown as Record<string, unknown>;
     const ext = measure._x as { viritura?: Record<string, unknown> } | undefined;
@@ -1180,7 +1180,7 @@ describe("convertMusicXmlToMnx — tempo", () => {
     const tempo = result.global.measures[0]!.tempos![0]!;
     expect(tempo.bpm).toBe(80);
     expect(tempo._x).toEqual({
-      viritura: { text: "Molto moderato", showMetronomeMark: false },
+      viritura: { text: [{ text: "Molto moderato" }], showMetronomeMark: false },
     });
   });
 
@@ -1204,7 +1204,7 @@ describe("convertMusicXmlToMnx — tempo", () => {
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const tempo = result.global.measures[0]!.tempos![0]!;
     expect(tempo.bpm).toBe(80);
-    expect(tempo._x).toEqual({ viritura: { text: "Molto moderato" } });
+    expect(tempo._x).toEqual({ viritura: { text: [{ text: "Molto moderato" }] } });
   });
 });
 
@@ -1227,7 +1227,7 @@ describe("convertMusicXmlToMnx — rehearsal marks", () => {
     const result = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
     const global = result.global.measures[0]! as unknown as Record<string, unknown>;
     const ext = global._x as { viritura?: Record<string, unknown> } | undefined;
-    expect(ext?.viritura?.["rehearsalMark"]).toEqual({ text: "1" });
+    expect(ext?.viritura?.["rehearsalMark"]).toEqual({ text: [{ text: "1" }] });
   });
 });
 
@@ -2018,9 +2018,9 @@ describe("convertMusicXmlToMnx — wedges", () => {
     `);
     const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
     const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const expressions = ext.viritura["expressions"] as { text: string; placement?: string }[];
+    const expressions = ext.viritura["expressions"] as { text: { text: string }[]; placement?: string }[];
     expect(expressions).toHaveLength(1);
-    expect(expressions[0]!.text).toBe("dolce");
+    expect(expressions[0]!.text).toEqual([{ text: "dolce" }]);
     expect(expressions[0]!.placement).toBe("above");
   });
 
@@ -2037,9 +2037,9 @@ describe("convertMusicXmlToMnx — wedges", () => {
     `);
     const measure = convertMusicXmlToMnx(xml, { includeVendorExtensions: true }).parts[0]!.measures[0]!;
     const ext = (measure as unknown as Record<string, unknown>)._x as { viritura: Record<string, unknown> };
-    const expressions = ext.viritura["expressions"] as { text: string }[];
+    const expressions = ext.viritura["expressions"] as { text: { text: string }[] }[];
     expect(expressions).toHaveLength(1);
-    expect(expressions[0]!.text).toBe("pizz.");
+    expect(expressions[0]!.text).toEqual([{ text: "pizz." }]);
   });
 });
 

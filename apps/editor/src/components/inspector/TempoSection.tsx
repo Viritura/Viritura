@@ -1,9 +1,10 @@
 import type { CSSProperties } from "react";
-import type { Tempo, NoteValueBase } from "@viritura/core";
+import type { Tempo, NoteValueBase, TextContent } from "@viritura/core";
 import { ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
 import { useDebouncedInput } from "../../hooks/useDebouncedInput";
+import { TextContentEditor } from "./TextContentEditor";
 
 const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
   { value: "whole", label: "whole" },
@@ -22,12 +23,16 @@ const DOTS_OPTIONS: { value: "0" | "1" | "2"; label: string }[] = [
 
 const TEMPO_BPM_INPUT_STYLE: CSSProperties = { width: "4.5rem" };
 
+// Stable identity so an absent tempo text does not look like a new value on
+// every render, which would make the debounced input reset in a loop.
+const NO_TEXT: TextContent = [];
+
 export interface TempoSectionProps {
   tempo: Tempo;
   onBpmChange: (bpm: number) => void;
   onValueBaseChange: (base: NoteValueBase) => void;
   onDotsChange: (dots: number) => void;
-  onTextChange: (text: string) => void;
+  onTextChange: (text: TextContent) => void;
   onShowTextChange: (show: boolean) => void;
   onShowMetronomeChange: (show: boolean) => void;
   /** Optional manual position offset editor (sp). */
@@ -48,7 +53,7 @@ export function TempoSection({
     const bpm = Number(value);
     if (Number.isFinite(bpm)) onBpmChange(bpm);
   });
-  const textInput = useDebouncedInput(tempo.text ?? "", onTextChange);
+  const textInput = useDebouncedInput<TextContent>(tempo.text ?? NO_TEXT, onTextChange);
   const handleBpmBlur = () => {
     if (/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(bpmInput.value)) {
       bpmInput.onBlur();
@@ -85,15 +90,16 @@ export function TempoSection({
           onChange={(v) => onDotsChange(parseInt(v, 10))}
         />
       </label>
-      <label style={labelStyle}>
-        Text
-        <FormInput
+      <div style={labelStyle}>
+        <span>Text</span>
+        <TextContentEditor
           value={textInput.value}
           placeholder="e.g. Allegro con brio"
-          onChange={(e) => textInput.onChange(e.target.value)}
+          ariaLabel="Text"
+          onChange={textInput.onChange}
           onBlur={textInput.onBlur}
         />
-      </label>
+      </div>
       <Checkbox
         label="Show text"
         checked={tempo.showText !== false}

@@ -1,0 +1,73 @@
+.root {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.toolbarControl {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.toolbarSelect {
+  max-width: 8.5rem;
+}
+
+/* Layered on top of the shared form-input chrome from InputSurface. */
+.editor {
+  min-height: 2.25rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-placeholder);
+  pointer-events: none;
+}
+
+.glyphRow {
+  position: relative;
+}
+
+.glyphResults {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 12rem;
+  overflow: auto;
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-toolbar);
+}
+
+.glyphResult {
+  justify-content: flex-start;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.glyphPreview,
+.glyph {
+  font-family: Bravura, serif;
+  font-size: 1.3em;
+}
+
+.noGlyphs {
+  display: block;
+  padding: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-small-size);
+}

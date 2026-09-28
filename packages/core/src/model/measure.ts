@@ -22,6 +22,7 @@ import type { GroupingDisplay, TimeSignature } from "./time";
 import type { StaffMeterChange } from "./staffMeter";
 import type { Barline } from "./barline";
 import type { Narrow, WithVendor } from "./_derive";
+import type { TextContent } from "./text";
 
 // ═══════════════════════════════════════════
 // Rhythmic position
@@ -85,7 +86,7 @@ export interface Tempo {
   value: TempoNoteValue;
   location?: RhythmicPosition;
   /** Optional text label (e.g. "Allegro"). Viritura extension (_x.viritura.text). */
-  text?: string;
+  text?: TextContent;
   /** Whether to show the metronome mark (♩ = 120). Defaults to true. Viritura extension. */
   showMetronomeMark?: boolean;
   /** Whether to show the text label. Defaults to true. Viritura extension. */
@@ -212,8 +213,8 @@ export type ExpressionPlacement = "below" | "above";
 
 /** A text expression or direction at a rhythmic position (e.g. "dolce", "rit.", "a tempo"). */
 export interface TextExpression {
-  /** The expression text (e.g. "dolce", "espressivo", "rit.") */
-  text: string;
+  /** Inline text and optional SMuFL glyph runs. */
+  text: TextContent;
   /** Rhythmic position within the measure */
   position: RhythmicPosition;
   /** Placement above or below the staff (default: below) */
@@ -292,7 +293,8 @@ export type RehearsalMarkStyle = "boxed" | "circled" | "plain";
 
 /** A rehearsal mark on a global measure (Viritura extension). */
 export interface RehearsalMark {
-  text: string;
+  /** Inline text and optional SMuFL glyph runs. */
+  text: TextContent;
   style?: RehearsalMarkStyle;
   /** Manual [dx, dy] offset in spatia (sp); +x right, +y up. Viritura extension. */
   manualOffset?: [number, number];

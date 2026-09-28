@@ -53,11 +53,11 @@ export const EmptyBarAnchorsToBarStart: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          tempos: [{ bpm: 110, value: { base: "quarter" }, _x: { viritura: { text: "Scherzando" } } }],
+          tempos: [{ bpm: 110, value: { base: "quarter" }, _x: { viritura: { text: [{ text: "Scherzando" }] } } }],
           fullMeasure: {},
         },
         {
-          tempos: [{ bpm: 110, value: { base: "quarter" }, _x: { viritura: { text: "Scherzando" } } }],
+          tempos: [{ bpm: 110, value: { base: "quarter" }, _x: { viritura: { text: [{ text: "Scherzando" }] } } }],
           voices: [
             [
               { duration: "quarter", notes: [{ step: "C", octave: 5 }] },

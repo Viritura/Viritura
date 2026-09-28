@@ -76,7 +76,10 @@ import type {
   Coda as RawCoda,
   Jump as RawVendorJump,
   GradualTempo as RawGradualTempo,
+  TempoExtensions as RawTempoExt,
 } from "@viritura/core/raw-viritura";
+
+import { parseTextContent } from "./textContent";
 
 /** Untyped vendor-extension payload — used only for fields outside the
  * extensions schema (e.g. legacy `times` on repeat-start, atonal key flag). */
@@ -163,7 +166,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
     if (viritura.senzaMisura && measure.time) measure.time.display = "senzaMisura";
     if (viritura.rehearsalMark) {
       const rm = viritura.rehearsalMark;
-      measure.rehearsalMark = { text: rm.text };
+      measure.rehearsalMark = { text: parseTextContent(rm.text) ?? [] };
       if (rm.style) measure.rehearsalMark.style = rm.style;
       applyManualPlacement(measure.rehearsalMark, rm as VendorObj);
     }
@@ -242,15 +245,16 @@ function parseTempo(raw: RawTempo): Tempo {
   if (raw.location) {
     tempo.location = parseRhythmicPosition(raw.location);
   }
-  // _x.viritura vendor extensions on the tempo object
-  // (tempo-extensions is not in the schema yet — keep narrow casts.)
-  const viritura = raw._x?.["viritura"] as VendorObj | undefined;
+  // MNX types `_x` as an opaque vendor dict, so the Viritura payload is cast to
+  // its generated `tempo-extensions` type. The runtime checks below still guard
+  // the unvalidated parse path, where no schema validation has run.
+  const viritura = raw._x?.["viritura"] as RawTempoExt | undefined;
   if (viritura) {
-    if (typeof viritura["text"] === "string") tempo.text = viritura["text"];
-    if (typeof viritura["showMetronomeMark"] === "boolean")
-      tempo.showMetronomeMark = viritura["showMetronomeMark"] as boolean;
-    if (typeof viritura["showText"] === "boolean") tempo.showText = viritura["showText"] as boolean;
-    applyManualPlacement(tempo, viritura);
+    const text = parseTextContent(viritura.text);
+    if (text !== undefined) tempo.text = text;
+    if (typeof viritura.showMetronomeMark === "boolean") tempo.showMetronomeMark = viritura.showMetronomeMark;
+    if (typeof viritura.showText === "boolean") tempo.showText = viritura.showText;
+    applyManualPlacement(tempo, viritura as VendorObj);
   }
   return tempo;
 }
@@ -375,7 +379,7 @@ function parseChordSymbol(raw: RawChordSymbol): ChordSymbol {
 
 export function parseTextExpression(raw: RawTextExpression): TextExpression {
   const expr: TextExpression = {
-    text: raw.text,
+    text: parseTextContent(raw.text) ?? [],
     position: parseRhythmicPosition(raw.position),
   };
   if (raw.placement) expr.placement = raw.placement as ExpressionPlacement;

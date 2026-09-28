@@ -491,8 +491,8 @@ fn test_multimeasure_rest_auto_detect_breaks_at_caesura_and_tempo() {
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}},
             {},
-            {"tempos": [{"bpm": 60, "value": {"base": "quarter"}, "_x": {"viritura": {"text": "rit.", "showMetronomeMark": false}}}]},
-            {"tempos": [{"bpm": 80, "value": {"base": "quarter"}, "_x": {"viritura": {"text": "a tempo", "showMetronomeMark": false}}}]},
+            {"tempos": [{"bpm": 60, "value": {"base": "quarter"}, "_x": {"viritura": {"text": [{"text": "rit."}], "showMetronomeMark": false}}}]},
+            {"tempos": [{"bpm": 80, "value": {"base": "quarter"}, "_x": {"viritura": {"text": [{"text": "a tempo"}], "showMetronomeMark": false}}}]},
             {}
         ]},
         "parts": [{"measures": [
@@ -1290,7 +1290,7 @@ fn test_tempo_text_clears_multimeasure_rest_number() {
             dots: None,
         },
         location: None,
-        text: Some("Allegro molto vivace".to_string()),
+        text: Some("Allegro molto vivace".to_string().into()),
         show_metronome_mark: Some(true),
         show_text: Some(true),
         manual_offset: None,
@@ -1382,7 +1382,11 @@ fn test_tempo_text_clears_neighbouring_multimeasure_rest_number() {
             dots: None,
         },
         location: None,
-        text: Some("Allegro molto vivace ed appassionato assai".to_string()),
+        text: Some(
+            "Allegro molto vivace ed appassionato assai"
+                .to_string()
+                .into(),
+        ),
         show_metronome_mark: Some(false),
         show_text: Some(true),
         manual_offset: None,
@@ -1577,7 +1581,7 @@ fn test_system_start_tempo_dodges_left_over_multirest_count() {
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}, "key": {"fifths": 2},
              "tempos": [{"bpm": 100, "value": {"base": "quarter"},
-                "_x": {"viritura": {"text": "Scherzando vivace", "showMetronomeMark": false}}}]},
+                "_x": {"viritura": {"text": [{"text": "Scherzando vivace"}], "showMetronomeMark": false}}}]},
             {}, {}, {}, {}
         ]},
         "parts": [{"measures": [
@@ -1648,7 +1652,7 @@ fn test_rehearsal_mark_clears_multimeasure_rest_number() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4},
-             "_x": {"viritura": {"rehearsalMark": {"text": "REHEARSAL"}}}},
+             "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "REHEARSAL"}]}}}},
             {}, {}, {}
         ]},
         "parts": [{"measures": [

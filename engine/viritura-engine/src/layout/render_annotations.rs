@@ -23,6 +23,8 @@ mod rehearsal_marks;
 pub(crate) mod substrate_obstacles;
 #[path = "render_annotations/tempo.rs"]
 mod tempo;
+#[path = "render_annotations/text_content.rs"]
+mod text_content;
 
 pub(crate) use chord_symbols::{
     chord_symbol_dimensions, chord_symbol_for_display, render_chord_symbols,

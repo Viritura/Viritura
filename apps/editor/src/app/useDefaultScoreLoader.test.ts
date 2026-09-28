@@ -120,7 +120,7 @@ describe("useDefaultScoreLoader", () => {
     await waitFor(() => expect(loadScore).toHaveBeenCalled());
     const score = loadScore.mock.calls[0]![0] as Score;
     expect(score.parts[0]!.measures[1]!.sequences[0]!.content).toEqual([]);
-    expect(score.parts[0]!.measures[1]!.expressions?.[0]?.text).toBe("Import error E1");
+    expect(score.parts[0]!.measures[1]!.expressions?.[0]?.text).toEqual([{ text: "Import error E1" }]);
     expect(setFileHandle).toHaveBeenCalledWith(null);
     expect(useImportErrorLogStore.getState().log).toMatchObject({
       status: "recovered",

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState, type CSSProperties } from "react";
 import { FormField, FormInput } from "./FormField";
+import { InputSurface } from "./InputSurface";
 import { Select } from "../Select/Select";
 
 const KEY_SIG_OPTIONS = [
@@ -76,6 +77,18 @@ export const NumberInput: Story = {
     <div style={NARROW_STYLE}>
       <FormField label="Number of measures">
         <FormInput type="number" min={1} max={999} defaultValue={8} />
+      </FormField>
+    </div>
+  ),
+};
+
+export const EditableSurface: Story = {
+  render: () => (
+    <div style={NARROW_STYLE}>
+      <FormField label="Expression">
+        <InputSurface contentEditable suppressContentEditableWarning role="textbox" aria-label="Expression">
+          dolce
+        </InputSurface>
       </FormField>
     </div>
   ),

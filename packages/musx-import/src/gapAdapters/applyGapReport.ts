@@ -111,7 +111,7 @@ function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index
   if (!target?.partMeasure || !text) return outcome("unhandled", "Expression target or plain text is unavailable.");
   const extensions = ensureViritura(target.partMeasure);
   const expressions = ensureArrayProperty(extensions, "expressions");
-  const value: JsonRecord = { text, position: gapPosition(gap) };
+  const value: JsonRecord = { text: [{ text }], position: gapPosition(gap) };
   const placement = expressionPlacement(gap);
   if (placement) value["placement"] = placement;
   const staff = gap.staff ?? gap.placements?.find((candidate) => candidate.kind === "staff")?.staff;
@@ -119,7 +119,7 @@ function addTextExpression(gap: DenigmaGap, expression: ExpressionPayload, index
   const duplicate = expressions.some(
     (candidate) =>
       isRecord(candidate) &&
-      candidate["text"] === text &&
+      JSON.stringify(candidate["text"]) === JSON.stringify(value["text"]) &&
       JSON.stringify(candidate["position"]) === JSON.stringify(value["position"]) &&
       candidate["staff"] === value["staff"],
   );
@@ -141,7 +141,7 @@ function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index:
       "The measure already contains a rehearsal mark; the additional mark was omitted.",
     );
   }
-  extensions["rehearsalMark"] = { text };
+  extensions["rehearsalMark"] = { text: [{ text }] };
   return outcome(
     expression.text?.plain !== undefined ? "handled-partially" : "handled",
     expression.text?.plain !== undefined ? "Preserved plain text but not source formatting." : undefined,
@@ -202,7 +202,7 @@ function applyTempoExpression(gap: DenigmaGap, expression: ExpressionPayload, in
   const extensions = tempoExtension(tempo);
   const text = tempoDisplayText(expression);
   if (text) {
-    extensions["text"] = text;
+    extensions["text"] = [{ text }];
     if (!hasVisibleMetronome(expression)) extensions["showMetronomeMark"] = false;
   }
 

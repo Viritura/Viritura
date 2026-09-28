@@ -121,7 +121,8 @@ pub(crate) fn render_text_expressions(
         // 0.5 em/char estimate badly overshot the box for narrow strings like
         // "pizz." (i/./, are far narrower than 0.5 em), leaving the selection
         // box gaping past the text. Italic shares the upright advance table.
-        let text_width = text_styles::text_width(&expr.text, font_size, FontFamily::Serif, false);
+        let text_width =
+            super::text_content::content_width(&expr.text, font_size, FontFamily::Serif, false);
         let [off_x_sp, off_y_sp] = expr.manual_offset.unwrap_or([0.0, 0.0]);
         // Standard engraving practice: expression text sharing a rhythmic
         // position and side with a dynamic continues inline after that dynamic.
@@ -311,7 +312,7 @@ struct PendingExpr {
     /// before the resolver's outward displacement.
     base_y: f64,
     is_above: bool,
-    text: String,
+    text: crate::model::TextContent,
     source_part_index: usize,
     source_expression_index: usize,
     /// When false, the expression is manually placed: the stacking resolver
@@ -415,30 +416,26 @@ fn emit_stacked_expressions(
 
     for (p, &delta) in pending.iter().zip(dy.iter()) {
         let draw_y = p.base_y + delta;
-        dl.push_tagged(
-            RenderCommand::DrawText {
-                x: p.draw_x,
-                y: draw_y,
-                text: p.text.clone(),
-                font: if p.is_above {
-                    "serif".into()
-                } else {
-                    "serif italic".into()
-                },
-                size: font_size,
-                color: "#000000".into(),
-                align: if p.right_aligned {
-                    TextAlign::Right
-                } else {
-                    TextAlign::Left
-                },
-                // Both sides render on the alphabetic baseline (`draw_y`), like
-                // tempo — the box bottom is the baseline and descenders protrude
-                // below as ink toward the staff (above) / away from it (below).
-                baseline: TextBaseline::Alphabetic,
+        let element_id = element_id::expression(p.source_part_index, mi, p.source_expression_index);
+        let command_start = dl.commands.len();
+        super::text_content::emit_content(
+            dl,
+            &p.text,
+            p.draw_x,
+            draw_y,
+            font_size,
+            if p.is_above { "serif" } else { "serif italic" },
+            "#000000",
+            if p.right_aligned {
+                TextAlign::Right
+            } else {
+                TextAlign::Left
             },
-            element_id::expression(p.source_part_index, mi, p.source_expression_index),
+            TextBaseline::Alphabetic,
         );
+        for command_index in command_start..dl.commands.len() {
+            dl.tag_command(command_index, element_id.clone());
+        }
         // Publish the selection bbox from the SAME shifted baseline (`draw_y`),
         // so it tracks the stacking delta the resolver just applied. Both sides
         // put the box bottom ON the baseline (`draw_y`); above spans up by the

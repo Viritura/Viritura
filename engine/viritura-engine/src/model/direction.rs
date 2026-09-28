@@ -1,5 +1,6 @@
 use super::clef::RhythmicPosition;
 use super::duration::NoteValueBase;
+use super::text::TextContent;
 use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════
@@ -82,7 +83,7 @@ pub struct Tempo {
     pub location: Option<RhythmicPosition>,
     /// Optional text label (e.g. "Allegro"). Viritura extension.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
+    pub text: Option<TextContent>,
     /// Whether to show the metronome mark (♩ = 120). Defaults to true. Viritura extension.
     #[serde(
         default,
@@ -360,7 +361,7 @@ pub use crate::raw_viritura::ExpressionPlacement;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TextExpression {
     /// The expression text (e.g. "dolce", "espressivo", "rit.", "a tempo")
-    pub text: String,
+    pub text: TextContent,
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
     /// Placement above or below the staff (default: below)
@@ -395,7 +396,7 @@ pub use crate::raw_viritura::RehearsalMarkStyle;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RehearsalMark {
     /// The text label (e.g. "A", "B", "1")
-    pub text: String,
+    pub text: TextContent,
     /// Style: boxed (default), circled, or plain
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<RehearsalMarkStyle>,

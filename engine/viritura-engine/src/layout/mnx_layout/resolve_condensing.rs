@@ -834,7 +834,7 @@ pub(super) fn apply_condensing_labels(
                                     .expressions
                                     .get_or_insert_with(Vec::new)
                                     .push(TextExpression {
-                                        text: text.clone(),
+                                        text: text.clone().into(),
                                         position: RhythmicPosition {
                                             fraction: (frac_num, frac_den),
                                         },
@@ -863,7 +863,7 @@ pub(super) fn apply_condensing_labels(
                             .expressions
                             .get_or_insert_with(Vec::new)
                             .push(TextExpression {
-                                text,
+                                text: text.into(),
                                 position: RhythmicPosition { fraction: (0, 1) },
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,

@@ -15,11 +15,11 @@ export const DefaultStyle: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          virituraGlobal: { rehearsalMark: { text: "A" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "A" }] } },
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "B" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "B" }] } },
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
       ],
@@ -35,19 +35,19 @@ export const AllStyles: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          virituraGlobal: { rehearsalMark: { text: "A" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "A" }] } },
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "B", style: "boxed" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "B" }], style: "boxed" } },
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "C", style: "circled" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "C" }], style: "circled" } },
           voices: [[{ duration: "whole", notes: [{ step: "E", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "D", style: "plain" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "D" }], style: "plain" } },
           voices: [[{ duration: "whole", notes: [{ step: "F", octave: 5 }] }]],
         },
       ],
@@ -66,11 +66,11 @@ export const TransparentBackground: StoryObj = {
       measures: [
         {
           time: { count: 4, unit: 4 },
-          virituraGlobal: { rehearsalMark: { text: "A", style: "boxed" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "A" }], style: "boxed" } },
           voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
         },
         {
-          virituraGlobal: { rehearsalMark: { text: "B", style: "circled" } },
+          virituraGlobal: { rehearsalMark: { text: [{ text: "B" }], style: "circled" } },
           voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
         },
       ],

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createDynamicGroup, type DynamicValue, type Markings, type NoteEvent, type Score } from "@viritura/core";
+import {
+  createDynamicGroup,
+  textContentFromPlain,
+  type DynamicValue,
+  type Markings,
+  type NoteEvent,
+  type Score,
+} from "@viritura/core";
 import { generatePerformanceEvents, type PerformanceEvent } from "../performanceEvents";
 
 type Step = "C" | "D" | "E" | "F" | "G" | "A" | "B";
@@ -43,7 +50,7 @@ function note(spec: NoteSpec): NoteEvent {
 }
 
 function expr(text: string, beat: number) {
-  return { text, position: { fraction: [beat, 4] as [number, number] } };
+  return { text: textContentFromPlain(text), position: { fraction: [beat, 4] as [number, number] } };
 }
 
 function dyn(value: DynamicValue, beat: number) {
@@ -204,7 +211,7 @@ describe("generatePerformanceEvents", () => {
             {
               staffMeters: [{ staff: 2, meter: { count: 6, unit: 8 }, synchronization: "fitMeasure" }],
               dynamics: [{ ...createDynamicGroup("f", { fraction: [3, 8] }, "staff-2-f"), staff: 2 }],
-              expressions: [{ text: "pizz.", position: { fraction: [3, 8] }, staff: 2 }],
+              expressions: [{ text: textContentFromPlain("pizz."), position: { fraction: [3, 8] }, staff: 2 }],
               sequences: [
                 {
                   staff: 2,
@@ -258,13 +265,13 @@ describe("generatePerformanceEvents", () => {
             {
               sequences: [],
               dynamics: [{ ...createDynamicGroup("f", { fraction: [3, 8] }, "inherited-f"), staff: 2 }],
-              expressions: [{ text: "pizz.", position: { fraction: [3, 8] }, staff: 2 }],
+              expressions: [{ text: textContentFromPlain("pizz."), position: { fraction: [3, 8] }, staff: 2 }],
             },
             {
               staffMeters: [{ staff: 2, useGlobal: true }],
               sequences: [],
               dynamics: [{ ...createDynamicGroup("p", { fraction: [1, 4] }, "reset-p"), staff: 2 }],
-              expressions: [{ text: "arco", position: { fraction: [1, 4] }, staff: 2 }],
+              expressions: [{ text: textContentFromPlain("arco"), position: { fraction: [1, 4] }, staff: 2 }],
             },
           ],
         } as never,

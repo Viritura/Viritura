@@ -613,7 +613,7 @@ fn test_tempo_flows_right_of_rehearsal_mark() {
             {"time": {"count": 4, "unit": 4}},
             {
                 "tempos": [{"bpm": 132, "value": {"base": "quarter"}, "text": "Allegro"}],
-                "_x": {"viritura": {"rehearsalMark": {"text": "A"}}}
+                "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
             }
         ]},
         "parts": [{"measures": [
@@ -687,8 +687,8 @@ fn test_wide_tempo_at_system_start_clears_rehearsal_mark() {
         "mnx": {"version": 1},
         "global": {"measures": [
             {"time": {"count": 4, "unit": 4}, "key": {"fifths": 3},
-             "tempos": [{"bpm": 110, "value": {"base": "quarter"}, "_x": {"viritura": {"text": "Scherzando (commodo)", "showMetronomeMark": false}}}],
-             "_x": {"viritura": {"rehearsalMark": {"text": "4"}}}}
+             "tempos": [{"bpm": 110, "value": {"base": "quarter"}, "_x": {"viritura": {"text": [{"text": "Scherzando (commodo)"}], "showMetronomeMark": false}}}],
+             "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "4"}]}}}}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "F", "staffPosition": 2}}],
@@ -826,7 +826,7 @@ fn test_long_tempo_text_stays_on_one_line() {
             "time": {"count": 4, "unit": 4},
             "tempos": [{"bpm": 132, "value": {"base": "quarter"},
                 "_x": {"viritura": {"showMetronomeMark": false,
-                    "text": "Allegro molto vivace ma non troppo con brio"}}}]
+                    "text": [{"text": "Allegro molto vivace ma non troppo con brio"}]}}}]
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -884,7 +884,7 @@ fn test_lone_tempo_does_not_stretch_its_bar() {
             {"time": {"count": 4, "unit": 4}},
             {"tempos": [{"bpm": 132, "value": {"base": "quarter"},
                 "_x": {"viritura": {"showMetronomeMark": false,
-                    "text": "Allegro molto vivace ma non troppo con assai brio e fuoco"}}}]}
+                    "text": [{"text": "Allegro molto vivace ma non troppo con assai brio e fuoco"}]}}}]}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -928,7 +928,7 @@ fn test_tempo_on_last_bar_stays_inside_right_margin() {
             {"time": {"count": 4, "unit": 4}},
             {},
             {"tempos": [{"bpm": 132, "value": {"base": "quarter"},
-                "_x": {"viritura": {"showMetronomeMark": false, "text": "poco rit."}}}]}
+                "_x": {"viritura": {"showMetronomeMark": false, "text": [{"text": "poco rit."}]}}}]}
         ]},
         "parts": [{"measures": [
             {"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -983,7 +983,7 @@ fn test_tempo_text_clears_articulation() {
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
             "tempos": [{"bpm": 132, "value": {"base": "quarter"},
-                "_x": {"viritura": {"showMetronomeMark": false, "text": "Allegro"}}}]
+                "_x": {"viritura": {"showMetronomeMark": false, "text": [{"text": "Allegro"}]}}}]
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
@@ -1082,7 +1082,7 @@ fn test_tempo_aligns_to_rehearsal_mark_height() {
             {"time": {"count": 4, "unit": 4}},
             {
                 "tempos": [{"bpm": 132, "value": {"base": "quarter"}, "text": "Allegro"}],
-                "_x": {"viritura": {"rehearsalMark": {"text": "A"}}}
+                "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
             }
         ]},
         "parts": [{"measures": [
@@ -1155,14 +1155,14 @@ fn test_tempo_lifts_over_above_direction() {
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
             "tempos": [{"bpm": 80, "value": {"base": "quarter"},
-                "_x": {"viritura": {"text": "a tempo", "showMetronomeMark": false}}}]
+                "_x": {"viritura": {"text": [{"text": "a tempo"}], "showMetronomeMark": false}}}]
         }]},
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
             "sequences": [{"content": [
                 {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
             ]}],
-            "_x": {"viritura": {"expressions": [{"text": "arco", "position": {"fraction": [0, 1]}, "placement": "above"}]}}
+            "_x": {"viritura": {"expressions": [{"text": [{"text": "arco"}], "position": {"fraction": [0, 1]}, "placement": "above"}]}}
         }]}]
     }"#;
     let score = crate::parse::parse_mnx(json).expect("parse a tempo + arco");

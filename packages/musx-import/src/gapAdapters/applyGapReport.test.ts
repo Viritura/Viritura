@@ -133,8 +133,8 @@ describe("applyDenigmaGapReport", () => {
       parts: Array<{ measures: Array<JsonRecord> }>;
     };
     expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
-      { text: "dolce", position: { fraction: [0, 1] } },
-      { text: "pizz.", position: { fraction: [1, 4] } },
+      { text: [{ text: "dolce" }], position: { fraction: [0, 1] } },
+      { text: [{ text: "pizz." }], position: { fraction: [1, 4] } },
     ]);
     expect(result.outcomes.map((entry) => entry.disposition)).toEqual([
       "handled-partially",
@@ -160,7 +160,7 @@ describe("applyDenigmaGapReport", () => {
 
     const result = apply([rehearsal("A"), rehearsal("B")]);
     const parsed = JSON.parse(result.mnxJson) as { global: { measures: JsonRecord[] } };
-    expect(viritura(parsed.global.measures[0]!)["rehearsalMark"]).toEqual({ text: "A" });
+    expect(viritura(parsed.global.measures[0]!)["rehearsalMark"]).toEqual({ text: [{ text: "A" }] });
     expect(result.outcomes[1]?.disposition).toBe("handled-partially");
   });
 
@@ -377,7 +377,7 @@ describe("applyDenigmaGapReport", () => {
       global: { measures: Array<{ tempos: JsonRecord[] }> };
     };
     expect(viritura(parsed.global.measures[0]!.tempos[0]!)).toEqual({
-      text: "Allegro",
+      text: [{ text: "Allegro" }],
       showMetronomeMark: false,
       showText: false,
     });
@@ -403,7 +403,7 @@ describe("applyDenigmaGapReport", () => {
     };
 
     expect(viritura(parsed.global.measures[0]!.tempos[0]!)).toEqual({
-      text: "Allegro",
+      text: [{ text: "Allegro" }],
       showMetronomeMark: false,
     });
   });
@@ -435,7 +435,7 @@ describe("applyDenigmaGapReport", () => {
       global: { measures: Array<{ tempos: JsonRecord[] }> };
     };
 
-    expect(viritura(parsed.global.measures[0]!.tempos[0]!)).toEqual({ text: "Tempo" });
+    expect(viritura(parsed.global.measures[0]!.tempos[0]!)).toEqual({ text: [{ text: "Tempo" }] });
   });
 
   it("creates a standard tempo and preserves tempo-alteration text", () => {
@@ -477,10 +477,10 @@ describe("applyDenigmaGapReport", () => {
     expect(parsed.global.measures[0]!.tempos[1]).toMatchObject({
       bpm: 96,
       value: { base: "quarter" },
-      _x: { viritura: { text: "Andante", showMetronomeMark: false } },
+      _x: { viritura: { text: [{ text: "Andante" }], showMetronomeMark: false } },
     });
     expect(viritura(parsed.parts[0]!.measures[0]!)["expressions"]).toEqual([
-      { text: "rit.", position: { fraction: [1, 4] }, placement: "above" },
+      { text: [{ text: "rit." }], position: { fraction: [1, 4] }, placement: "above" },
     ]);
   });
 

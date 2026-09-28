@@ -13,6 +13,7 @@ import type {
   TextExpression,
 } from "@viritura/core";
 import { durationToBeats, generateEventId, generateNoteId, sequenceContentBeats } from "../commands/noteCommands";
+import { plainTextContent } from "@viritura/core";
 import { buildCondensedLayoutContent } from "../app/condensedLayout";
 import { parsePlayerRoutingLabel, type PlayerRouting } from "./routingText";
 import { SPLIT_POLICIES, type SplitPolicy } from "./splitPolicies";
@@ -686,7 +687,7 @@ function remapExpressions(
   if (!expressions) return undefined;
   const retained: TextExpression[] = [];
   for (const expression of expressions) {
-    if (parsePlayerRoutingLabel(expression.text)) continue;
+    if (parsePlayerRoutingLabel(plainTextContent(expression.text))) continue;
     retained.push(...remapStaffItem(expression, policy, expression.staff, (staff) => ({ ...expression, staff })));
   }
   return retained.length > 0 ? retained : undefined;
@@ -700,7 +701,7 @@ function routingChanges(
   return (expressions ?? [])
     .flatMap((expression): RoutingChange[] => {
       if ((expression.staff ?? 1) !== sourceStaff) return [];
-      const state = routingState(parsePlayerRoutingLabel(expression.text), targets);
+      const state = routingState(parsePlayerRoutingLabel(plainTextContent(expression.text)), targets);
       if (!state) return [];
       return [{ beat: (expression.position.fraction[0] / expression.position.fraction[1]) * 4, state }];
     })

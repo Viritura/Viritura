@@ -84,7 +84,7 @@ describe("MusicXML global harmony merging", () => {
     };
     const original: MnxGlobalMeasure = {
       id: "m1",
-      _x: { viritura: { chordSymbols: [originalChord], rehearsalMark: { text: "A" } } },
+      _x: { viritura: { chordSymbols: [originalChord], rehearsalMark: { text: [{ text: "A" }] } } },
     };
     const incoming: ChordSymbol = { position: { fraction: [1, 2] }, root: { step: "C" }, quality: "major" };
     const snapshot = structuredClone(original);
@@ -105,7 +105,7 @@ describe("MusicXML global harmony merging", () => {
     expect(original).toEqual(snapshot);
     expect(measures[0]!._x?.viritura).toEqual({
       chordSymbols: [incoming, originalChord],
-      rehearsalMark: { text: "A" },
+      rehearsalMark: { text: [{ text: "A" }] },
     });
     expect(diagnostics.all()).toEqual([]);
     expect(formatChordSymbolText(measures[0]!._x!.viritura.chordSymbols![1]!)).toBe("GΔ");

@@ -24,7 +24,7 @@ function makeAnnotatedScore(): Score {
       measures: [
         {
           tempos: [{ bpm: 120, value: { base: "quarter" } }],
-          rehearsalMark: { text: "A" },
+          rehearsalMark: { text: [{ text: "A" }] },
         },
         {},
       ],

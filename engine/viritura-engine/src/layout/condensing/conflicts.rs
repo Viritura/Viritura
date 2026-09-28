@@ -740,7 +740,7 @@ mod tests {
 
     fn make_expression(text: &str) -> TextExpression {
         TextExpression {
-            text: text.to_string(),
+            text: text.to_string().into(),
             position: RhythmicPosition { fraction: (0, 1) },
             placement: None,
             staff: None,

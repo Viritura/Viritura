@@ -383,7 +383,7 @@ fn test_above_staff_extra_with_rehearsal_mark() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "A"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}]}}}
         }]},
         "parts": [{"measures": [{"clefs": [{"clef": {"sign": "G", "staffPosition": -2}}], "sequences": [{"content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "B", "octave": 4}}]}]}]}]}]
     }"#;

@@ -223,7 +223,7 @@ fn test_dynamic_pinned_hairpin_clears_slur_over_full_span() {
         "parts": [{"measures": [{
             "clefs": [{"clef": {"sign": "G", "staffPosition": -2}}],
             "_x": {"viritura": {"expressions": [
-                {"text": "cresc.", "position": {"fraction": [0, 1]}}
+                {"text": [{"text": "cresc."}], "position": {"fraction": [0, 1]}}
             ]}},
             "dynamics": [
                 {"id": "start-p", "type": "immediate", "position": {"fraction": [0, 1]}, "value": "p"},

@@ -1560,7 +1560,7 @@ export const SharedMuteExpression: StoryObj = {
     const conSord = {
       _x: {
         viritura: {
-          expressions: [{ text: "con sord.", position: { fraction: [0, 1] }, placement: "below" }],
+          expressions: [{ text: [{ text: "con sord." }], position: { fraction: [0, 1] }, placement: "below" }],
         },
       },
       sequences: [{ content: [ev(N("G", 4)), ev(N("A", 4)), ev(N("B", 4)), ev(N("C", 5))] }],
@@ -1617,7 +1617,9 @@ export const DifferentMuteExpressions: StoryObj = {
               {
                 _x: {
                   viritura: {
-                    expressions: [{ text: "con sord.", position: { fraction: [0, 1] }, placement: "above" }],
+                    expressions: [
+                      { text: [{ text: "con sord." }], position: { fraction: [0, 1] }, placement: "above" },
+                    ],
                   },
                 },
                 sequences: [{ content: [ev(N("G", 4)), ev(N("A", 4)), ev(N("B", 4)), ev(N("C", 5))] }],
@@ -1633,7 +1635,9 @@ export const DifferentMuteExpressions: StoryObj = {
               {
                 _x: {
                   viritura: {
-                    expressions: [{ text: "senza sord.", position: { fraction: [0, 1] }, placement: "below" }],
+                    expressions: [
+                      { text: [{ text: "senza sord." }], position: { fraction: [0, 1] }, placement: "below" },
+                    ],
                   },
                 },
                 sequences: [{ content: [ev(N("E", 4)), ev(N("F", 4)), ev(N("G", 4)), ev(N("A", 4))] }],

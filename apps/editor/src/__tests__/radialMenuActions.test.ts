@@ -115,7 +115,7 @@ describe("addMixedExpression", () => {
     expect(result).not.toBeNull();
     const pm = result!.parts[0]!.measures[0]!;
     expect(pm.expressions).toHaveLength(1);
-    expect(pm.expressions![0]!.text).toBe("lovingly");
+    expect(pm.expressions![0]!.text).toEqual([{ text: "lovingly" }]);
     expect(pm.expressions![0]!.inline).toBeUndefined();
   });
 
@@ -132,7 +132,9 @@ describe("addMixedExpression", () => {
       0,
     );
 
-    expect(result?.parts[0]!.measures[0]!.expressions).toEqual([{ text: "freely", position: { fraction: [0, 1] } }]);
+    expect(result?.parts[0]!.measures[0]!.expressions).toEqual([
+      { text: [{ text: "freely" }], position: { fraction: [0, 1] } },
+    ]);
     expect(result?.parts[0]!.measures[0]!.sequences[0]!.fullMeasure).toBeDefined();
   });
 
@@ -163,7 +165,10 @@ describe("addMixedExpression", () => {
       0,
     )!;
 
-    expect(result.parts.map((part) => part.measures[0]!.expressions?.[0]?.text)).toEqual(["freely", "freely"]);
+    expect(result.parts.map((part) => part.measures[0]!.expressions?.[0]?.text)).toEqual([
+      [{ text: "freely" }],
+      [{ text: "freely" }],
+    ]);
   });
 
   it("places both dynamic and text for mixed input", () => {
@@ -209,7 +214,7 @@ describe("addMixedExpression", () => {
       position: { fraction: [0, 1] },
     });
     expect(result.parts[0]!.measures[0]!.expressions![0]).toEqual({
-      text: "cresc.",
+      text: [{ text: "cresc." }],
       position: { fraction: [0, 1] },
     });
     expect(result.parts[0]!.measures[1]!.dynamics![0]).toMatchObject({
@@ -228,7 +233,7 @@ describe("addMixedExpression", () => {
       { type: "dynamic", value: "p" },
     ])!;
 
-    expect(result.parts[0]!.measures[0]!.expressions![0]!.text).toBe("dim.");
+    expect(result.parts[0]!.measures[0]!.expressions![0]!.text).toEqual([{ text: "dim." }]);
   });
 
   it("encodes p cresc as an open textual gradual instead of a small dynamic suffix", () => {
@@ -245,7 +250,7 @@ describe("addMixedExpression", () => {
     expect(measure.dynamics).toHaveLength(1);
     expect(measure.dynamics![0]).toMatchObject({ type: "immediate", value: "p" });
     expect(measure.dynamics![0]!.suffix).toBeUndefined();
-    expect(measure.expressions).toEqual([{ text: "cresc.", position: { fraction: [0, 1] } }]);
+    expect(measure.expressions).toEqual([{ text: [{ text: "cresc." }], position: { fraction: [0, 1] } }]);
   });
 
   it("encodes f dim as the inverse open textual gradual", () => {
@@ -258,7 +263,7 @@ describe("addMixedExpression", () => {
       ],
     )!;
 
-    expect(result.parts[0]!.measures[0]!.expressions![0]!.text).toBe("dim.");
+    expect(result.parts[0]!.measures[0]!.expressions![0]!.text).toEqual([{ text: "dim." }]);
   });
 
   it.each([
@@ -790,7 +795,7 @@ describe("addDynamic — multi-staff", () => {
 
     for (const part of result.parts) {
       expect(part.measures[0]!.dynamics![0]).toMatchObject({ type: "immediate", value: "p" });
-      expect(part.measures[0]!.expressions![0]!.text).toBe("cresc.");
+      expect(part.measures[0]!.expressions![0]!.text).toEqual([{ text: "cresc." }]);
     }
   });
 

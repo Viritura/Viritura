@@ -128,7 +128,7 @@ function annotate(root: JsonObject, entry: RecoveredSequence): void {
   const viritura = asObject(x["viritura"]) ?? {};
   const expressions = Array.isArray(viritura["expressions"]) ? viritura["expressions"] : [];
   const marker: JsonObject = {
-    text: `Import error ${entry.logId}`,
+    text: [{ text: `Import error ${entry.logId}` }],
     position: { fraction: [0, 1] },
     placement: "above",
     staff: entry.staff,

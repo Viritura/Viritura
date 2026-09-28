@@ -1038,7 +1038,7 @@ fn test_parse_global_measure_vendor_extensions_rehearsal_mark() {
         "mnx": {"version": 1},
         "global": {"measures": [{
             "time": {"count": 4, "unit": 4},
-            "_x": {"viritura": {"rehearsalMark": {"text": "A", "style": "boxed"}}}
+            "_x": {"viritura": {"rehearsalMark": {"text": [{"text": "A"}], "style": "boxed"}}}
         }]},
         "parts": [{"measures": [{"sequences": [{"content": [
             {"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 5}}]}
@@ -1049,7 +1049,7 @@ fn test_parse_global_measure_vendor_extensions_rehearsal_mark() {
     let mark = gm
         .rehearsal_mark()
         .expect("Should have rehearsal mark via _x.viritura");
-    assert_eq!(mark.text, "A");
+    assert_eq!(mark.text.plain_text(), "A");
     assert_eq!(
         mark.style,
         Some(crate::model::direction::RehearsalMarkStyle::Boxed)
@@ -1122,10 +1122,24 @@ fn test_parse_global_measure_vendor_extensions_from_mnx_file() {
     .unwrap();
     let score = parse_mnx(&json).unwrap();
     assert!(score.global.measures[0].rehearsal_mark().is_some());
-    assert_eq!(score.global.measures[0].rehearsal_mark().unwrap().text, "A");
+    assert_eq!(
+        score.global.measures[0]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "A"
+    );
     assert!(score.global.measures[1].rehearsal_mark().is_none());
     assert!(score.global.measures[2].rehearsal_mark().is_some());
-    assert_eq!(score.global.measures[2].rehearsal_mark().unwrap().text, "B");
+    assert_eq!(
+        score.global.measures[2]
+            .rehearsal_mark()
+            .unwrap()
+            .text
+            .plain_text(),
+        "B"
+    );
 }
 
 // ═══════════════════════════════════════
@@ -1328,7 +1342,7 @@ fn test_parse_vendor_ext_expressions() {
             "_x": {
                 "viritura": {
                     "expressions": [{
-                        "text": "dolce",
+                        "text": [{"text": "dolce"}],
                         "position": {"fraction": [0, 1]}
                     }]
                 }
@@ -1342,7 +1356,7 @@ fn test_parse_vendor_ext_expressions() {
         .as_ref()
         .expect("Expected expressions from _x.viritura");
     assert_eq!(exprs.len(), 1);
-    assert_eq!(exprs[0].text, "dolce");
+    assert_eq!(exprs[0].text.plain_text(), "dolce");
 }
 
 #[test]

@@ -227,7 +227,7 @@ export function buildGlobalMeasures(
     if (tempoText !== undefined && gm.tempos?.length) {
       const tempo = gm.tempos[0]!;
       if (!tempo._x) tempo._x = { viritura: {} };
-      tempo._x.viritura["text"] = tempoText;
+      tempo._x.viritura["text"] = [{ text: tempoText }];
       // When a written tempo text is present (e.g. "Molto moderato"), hide the
       // numeric metronome mark if requested. Metronome marks are typical of
       // modern repertoire; many earlier works carry a verbal tempo only, and

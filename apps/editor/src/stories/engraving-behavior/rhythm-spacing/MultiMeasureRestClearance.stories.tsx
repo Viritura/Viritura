@@ -120,7 +120,7 @@ const makeMultimeasureRestWithTempo = (duration: number) => {
       {
         bpm: 120,
         value: { base: "quarter" },
-        _x: { viritura: { text: "Allegro molto vivace" } },
+        _x: { viritura: { text: [{ text: "Allegro molto vivace" }] } },
       },
     ];
   }
@@ -174,7 +174,7 @@ const makeSystemStartTempoDodge = () =>
               {
                 bpm: 100,
                 value: { base: "quarter" },
-                _x: { viritura: { text: "Scherzando vivace", showMetronomeMark: false } },
+                _x: { viritura: { text: [{ text: "Scherzando vivace" }], showMetronomeMark: false } },
               },
             ],
           },

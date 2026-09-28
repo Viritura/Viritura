@@ -13,6 +13,7 @@ import {
   type Score,
   type ScorePatch,
   type Tempo,
+  type TextContent,
   type TextExpression,
 } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
@@ -217,7 +218,7 @@ export function useMeasureRepeatHandlers({ score, target, updateScore }: Selecti
 export interface TempoHandlers {
   isTempoSelected: boolean;
   selectedTempo: Tempo | null;
-  handleTempoTextChange: (text: string) => void;
+  handleTempoTextChange: (text: TextContent) => void;
   handleTempoShowTextChange: (checked: boolean) => void;
   handleTempoShowMetronomeChange: (checked: boolean) => void;
   handleTempoBpmChange: (value: number) => void;
@@ -282,10 +283,10 @@ export function useTempoHandlers({ score, target, updateScore }: SelectionArgs):
   return {
     isTempoSelected,
     selectedTempo,
-    handleTempoTextChange: (text: string) => {
+    handleTempoTextChange: (text: TextContent) => {
       performance.mark("viritura:input-event");
       mutateTempo((tempo) => {
-        tempo.text = text || undefined;
+        tempo.text = text.length > 0 ? text : undefined;
       });
     },
     handleTempoShowTextChange: (checked: boolean) =>
@@ -322,10 +323,10 @@ export interface DirectionTextHandlers extends DynamicGroupHandlers {
   selectedDynamic: DynamicGroup | null;
   isExpressionSelected: boolean;
   selectedExpression: TextExpression | null;
-  handleExpressionTextChange: (text: string) => void;
+  handleExpressionTextChange: (text: import("@viritura/core").TextContent) => void;
   isRehearsalSelected: boolean;
   selectedRehearsal: RehearsalMark | null;
-  handleRehearsalTextChange: (text: string) => void;
+  handleRehearsalTextChange: (text: import("@viritura/core").TextContent) => void;
   /** Generic manual-placement handlers keyed off the selected element id;
    *  shared by expression, dynamic, and rehearsal sections. */
   handleAnnotationOffsetChange: (axis: 0 | 1, value: number) => void;
@@ -379,7 +380,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const dynamicHandlers = useDynamicGroupHandlers(updateSelectedDynamic);
 
   const handleExpressionTextChange = useCallback(
-    (text: string) => {
+    (text: import("@viritura/core").TextContent) => {
       if (!score || !target || !expressionMatch) return;
       performance.mark("viritura:input-event");
       const idx = parseInt(expressionMatch[1]!, 10);
@@ -424,7 +425,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   );
 
   const handleRehearsalTextChange = useCallback(
-    (text: string) => {
+    (text: import("@viritura/core").TextContent) => {
       if (!score || !target || !isRehearsalSelected) return;
       performance.mark("viritura:input-event");
       const nextScore = produce(score, (draft) => {
