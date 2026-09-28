@@ -11,7 +11,7 @@ import { PieceText, applyTextEdit, diffText, revertTextEdit, type TextEdit } fro
  * to its predecessor, so retained memory grows with the size of the edits
  * rather than with the size of the score.
  */
-const MAX_HISTORY = 500;
+const MAX_HISTORY = 256;
 
 /**
  * Module-level monotonically increasing counter for stable HistoryEntry IDs.
