@@ -23,6 +23,7 @@ import type {
   PageTurnSettings,
   InstrumentNameDisplaySettings,
 } from "@viritura/core";
+import { parseTextFrames } from "./parseTextFrames";
 
 import type {
   SystemLayout as RawSystemLayout,
@@ -119,6 +120,7 @@ export function parseScoreDefinition(raw: RawScoreDef): ScoreDefinition {
   // Vendor extension: _x.viritura.pageSetup
   // (vendor dicts are untyped in the schema; narrow-cast the known shape.)
   const viritura = raw._x?.["viritura"] as Record<string, unknown> | undefined;
+  if (viritura && "textFrames" in viritura) sd.textFrames = parseTextFrames(viritura["textFrames"]);
   const labelsRaw = viritura?.["instrumentNameDisplay"] as Record<string, unknown> | undefined;
   if (labelsRaw) {
     sd.instrumentNameDisplay = {

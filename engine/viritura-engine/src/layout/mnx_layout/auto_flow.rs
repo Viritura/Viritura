@@ -22,6 +22,7 @@ use super::super::resolve::*;
 use super::super::spacing::LogSpacing;
 use super::super::spacing::*;
 use super::super::system::*;
+use super::super::text_frames::append_text_frames_by_plan;
 use super::super::types::*;
 use super::super::{
     compute_above_staff_extra, compute_below_staff_extra_from_layouts, render_system_contents,
@@ -69,6 +70,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     layout_breaks: &[LayoutBreak],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     part_score_name: Option<&str>,
+    text_frames: &[TextFrame],
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
@@ -923,6 +925,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     if config.page_width.is_some() && !pt_hints.is_empty() {
         crate::layout::render_measure::render_page_turn_hints(&mut dl, &pt_hints, page_w, config);
     }
+    // Before overlay extraction, so reused patch systems reconstruct exactly.
+    let plan = (systems.as_slice(), visible_indices.as_slice());
+    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan);
 
     // Assemble + store the patch-frame delta (paged path only; the unpaged
     // `fit_unpaged_bounds` below never runs when `patch_valid`).

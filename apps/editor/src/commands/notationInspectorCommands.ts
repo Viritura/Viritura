@@ -59,7 +59,15 @@ interface EditResult {
 const NOTE_STEPS = new Set(["A", "B", "C", "D", "E", "F", "G"]);
 
 export function resolveNotationSelectionTarget(selection: Selection, score: Score): NotationSelectionTarget | null {
-  if (selection.kind !== "single") return null;
+  // Text frames are edited in the text-frame panels, not the notation inspector.
+  if (selection.kind !== "single" || selection.elementType === "text-frame") return null;
+  return resolveSingleSelectionTarget(selection, score);
+}
+
+function resolveSingleSelectionTarget(
+  selection: Extract<Selection, { kind: "single" }>,
+  score: Score,
+): NotationSelectionTarget | null {
   const { elementId } = selection;
   const chordMatch = elementId.match(/^m(\d+)\/chord(\d+)(?:\/p(\d+)\/staff\d+)?$/);
   if (chordMatch) {

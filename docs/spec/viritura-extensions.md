@@ -14,7 +14,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | MNX Object                                   | JSON Path                                       | Extensions                                                                                                            |
 | -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                                        |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                            |
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                     |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                                               |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                               |
@@ -163,6 +163,54 @@ and [MuseScore feature request](https://github.com/musescore/MuseScore/issues/19
 ## Score Definition Extensions
 
 `_x.viritura` on an entry in `scores[]`. Schema def: `score-extensions`.
+
+### `textFrames`
+
+Free rectangular text belongs to an individual score definition (a full-score
+or part view), not to a staff or to a semantic expression. Each frame has a
+stable ID and exactly one locator: a zero-based index into the final rendered
+page array (`{ "type": "page", "pageIndex": 0 }`), a global measure ID
+(`{ "type": "globalMeasure", "measureId": "m3" }`), or a part-scoped event ID
+(`{ "type": "event", "partId": "P1", "eventId": "e3" }`). A musical locator's
+page is resolved after pagination. Authored `scores[].pages` constrain
+pagination but do not define independent physical coordinates; a page-index
+locator refers to the resulting page whether those breaks were authored or
+automatically generated. Reflow does not rewrite the stored page index. A
+frame whose target is absent from the current layout remains authored but is
+not drawn.
+
+The locator determines **which page**. `placement.anchor` chooses an edge or
+corner of that page's printable area inside its margins;
+`placement.offset: { x, y }` translates the frame in staff spaces (+x right,
++y down). Required `width` is either
+`{ "unit": "staffSpaces", "value": 24 }` (multiplied by the resolved score
+spatium) or `{ "unit": "textColumnFraction", "value": 0.5 }` (half the
+available printable text-column width). Optional `padding` is an interior
+inset in staff spaces. Height grows with word-wrapped content; literal
+newlines in `content` are authored breaks and must not be rewritten as
+automatic wrapping changes. An unbreakable word wider than the text box
+overflows horizontally rather than being split. `horizontalAlignment` positions the frame at
+its page anchor independently of `paragraphJustification` within its text
+box. Optional `border` is `none` or `solid`. The order of `textFrames` is
+the paint/layer order, with later frames above earlier frames. These
+first-slice frames neither reserve music space nor avoid collisions with
+notation or one another.
+
+Horizon mode has no pages and therefore does not paint page-relative frames.
+The editing UI exposes hidden frames near their measure/event locator and
+provides a document-level list for frames located by page index. A musical
+locator does not turn a page-relative frame into staff-attached or
+system-attached semantic text; that distinction is tracked separately in
+[issue #282](https://github.com/Viritura/Viritura/issues/282).
+
+MUSX/Denigma mapping follows in a separate adapter change when representative
+source payloads and units are available. Optional `sourceReference` retains a
+source `unit` and `referenceStaffSize` for loss-aware conversion. Finale
+page-text assignments may span page ranges, select odd/even pages, or have
+different offsets on right pages; those semantics and arbitrary source
+frame shapes are **not** native to this first slice. An importer must
+diagnose unsupported geometry or formatting instead of flattening it
+silently.
 
 ### `layoutBreaks`
 

@@ -47,6 +47,7 @@ mod spacing;
 mod staff_brace;
 mod staff_lines;
 mod system;
+mod text_frames;
 pub mod text_styles;
 mod ties;
 mod time_signatures;
