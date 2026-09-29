@@ -30,6 +30,7 @@ interface DenigmaModule {
     selectedOutputs: number,
     selectedOutputCount: number,
     writeGapReport: number,
+    validate: number,
   ): number;
   _denigma_result_destroy(result: number): void;
   _denigma_result_success(result: number): number;
@@ -209,6 +210,7 @@ export async function convertWithDenigma(
       0,
       0,
       1,
+      0, // validate: Viritura validates the MNX it imports itself
     );
     if (!resultPointer) throw new Error("Denigma did not return a conversion result.");
 

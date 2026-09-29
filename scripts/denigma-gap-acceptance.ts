@@ -24,6 +24,7 @@ interface DenigmaModule {
     selectedOutputs: number,
     selectedOutputCount: number,
     writeGapReport: number,
+    validate: number,
   ): number;
   _denigma_result_success(result: number): number;
   _denigma_result_output_count(result: number): number;
@@ -156,6 +157,7 @@ async function convertFixture(testCase: AcceptanceCase): Promise<void> {
       0,
       0,
       1,
+      0,
     );
     if (!result) throw new Error(`Denigma returned no result for ${testCase.file}.`);
     try {

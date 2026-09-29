@@ -9,7 +9,7 @@ import { MNX_SCHEMA_VERSION } from "../packages/format/src/index";
 
 const DENIGMA_REPOSITORY = "https://github.com/openmusx/denigma.git";
 const DENIGMA_REPOSITORY_SLUG = "openmusx/denigma";
-const DENIGMA_COMMIT = "ea5cc0fd9dea2854b9580e9f8e60edeaf5613567";
+const DENIGMA_COMMIT = "4eb6d168ee1cb52791607ed1c4bb1a454959444d";
 const DENIGMA_VERSION = "4.0.0";
 const EMSCRIPTEN_IMAGE =
   "emscripten/emsdk:5.0.7@sha256:4e332f7343b6f66320bf72f7ecc01a3d9f3866721a13b0e5c7b96505d6ab148a";
