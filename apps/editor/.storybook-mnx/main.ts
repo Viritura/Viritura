@@ -15,6 +15,9 @@ const publicDescription =
   "Browse rendered MNX notation examples covering the open specification, Viritura extensions, and engraving behavior.";
 
 const config: StorybookConfig = {
+  typescript: {
+    reactDocgen: "react-docgen-typescript",
+  },
   stories: [
     // MNX storybook: spec conformance, Viritura vendor extensions, and engraving behavior.
     // UI primitives + design language live in the @viritura/ui storybook (6005).

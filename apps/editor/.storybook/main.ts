@@ -10,6 +10,9 @@ syncMnxSchema();
 syncMnxFixtures();
 
 const config: StorybookConfig = {
+  typescript: {
+    reactDocgen: "react-docgen-typescript",
+  },
   // App storybook: composed editor surfaces only (StartCenter, modes,
   // dialogs in context, embeddable ScoreView). Design language docs and
   // UI primitives live in the @viritura/ui storybook (port 6005).

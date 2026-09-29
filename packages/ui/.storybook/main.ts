@@ -3,6 +3,9 @@ import { dirname } from "node:path";
 import type { StorybookConfig } from "@storybook/react-vite";
 
 const config: StorybookConfig = {
+  typescript: {
+    reactDocgen: "react-docgen-typescript",
+  },
   // UI storybook: design language docs + every primitive in @viritura/ui.
   // No app surfaces, no MNX content, no WASM engine — fast startup,
   // clean focus for design-system reviewers.
