@@ -33,7 +33,7 @@ const profile: VstInstrumentProfile = {
   displayName: "Regression Orchestra",
   slots: [1, 2].map((number) => ({
     slotId: `clarinet-slot-${number}`,
-    catalogInstrumentId: "bflat-clarinet",
+    catalogInstrumentId: "wind.reed.clarinet.bflat",
     section: "woodwinds",
     label: `Clarinet slot ${number}`,
     binding: {
@@ -45,7 +45,7 @@ const profile: VstInstrumentProfile = {
   })),
 };
 
-const notationDefaultLabel = "VirituraSounds — Notation default: B-flat Clarinet";
+const notationDefaultLabel = "VirituraSounds — Notation default: Clarinet in B♭";
 const tubaLabel = "VirituraSounds — Tuba";
 const slotLabels = profile.slots.map((slot) => `${profile.displayName} — ${slot.label}`);
 
@@ -57,7 +57,7 @@ function rawScore() {
       id: `clarinet-${number}`,
       name: "Clarinet",
       transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
-      _x: { viritura: { instrumentId: "bflat-clarinet" } },
+      _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat" } },
       measures: [
         {
           sequences: [
@@ -239,7 +239,7 @@ async function selectSound(user: ReturnType<typeof userEvent.setup>, number: num
   pack.focus();
   await user.keyboard("{ArrowRight}");
   if (reset) {
-    await user.click(await screen.findByRole("menuitem", { name: "Notation default: B-flat Clarinet" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Notation default: Clarinet in B♭" }));
   } else {
     const section = await screen.findByRole("menuitem", { name: "Brass" });
     section.focus();
@@ -262,7 +262,7 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
     expect(expectPreserved(initial).soundProfile).toEqual({
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { "clarinet-1": { sourceId: "tuba-primary" } },
+      parts: { "clarinet-1": { sourceId: "brass.tuba-primary" } },
     });
     expectProfileLabels(tubaLabel, notationDefaultLabel);
     await selectSound(user, 1, true);
@@ -310,7 +310,7 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
       profileId: "viritura-sounds",
       profileVersion: 1,
       parts: {
-        "clarinet-1": { sourceId: "tuba-primary" },
+        "clarinet-1": { sourceId: "brass.tuba-primary" },
         "clarinet-2": { sourceId: "clarinet-slot-2", profileId: profile.id, profileVersion: profile.version },
       },
     });
@@ -404,7 +404,7 @@ describe("Mixer sound assignments through browser-bundled MNX", () => {
             profileVersion: 1,
             parts: {
               "clarinet-1": {
-                sourceId: field === "sourceId" ? "" : "tuba-primary",
+                sourceId: field === "sourceId" ? "" : "brass.tuba-primary",
                 profileId: field === "partProfileId" ? "" : "viritura-sounds",
                 profileVersion: 1,
               },

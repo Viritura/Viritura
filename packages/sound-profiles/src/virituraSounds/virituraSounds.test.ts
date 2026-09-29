@@ -13,17 +13,22 @@ describe("VirituraSounds", () => {
     const catalog = virituraSoundsProfile.sourceCatalog!();
     expect(catalog).toHaveLength(VIRITURA_SOUNDS_SOURCE_OPTIONS.length);
     expect(catalog.every((entry) => entry.configured === true)).toBe(true);
-    expect(catalog).toContainEqual({ sourceId: "tuba-primary", section: "brass", label: "Tuba", configured: true });
+    expect(catalog).toContainEqual({
+      sourceId: "brass.tuba-primary",
+      section: "brass",
+      label: "Tuba",
+      configured: true,
+    });
   });
 
   it("resolves bflat clarinet by canonical ID with current woodwind routing", () => {
     const resolved = virituraSoundsProfile.resolve({
-      instrumentId: "bflat-clarinet",
+      instrumentId: "wind.reed.clarinet.bflat",
       legacyName: "Tuba 1",
     });
 
     expect(resolved).not.toBeNull();
-    expect(resolved!.sources).toEqual([{ id: "bflat-clarinet-primary", kind: "midi", program: 71 }]);
+    expect(resolved!.sources).toEqual([{ id: "wind.reed.clarinet.bflat-primary", kind: "midi", program: 71 }]);
     expect(resolved!.routing).toEqual({
       section: "woodwinds",
       stagePosition: { x: -0.5, y: 7 },
@@ -33,65 +38,65 @@ describe("VirituraSounds", () => {
 
   it("covers the current GM program for every supported canonical catalog ID", () => {
     const expectedPrograms: Readonly<Record<string, number>> = {
-      piccolo: 72,
-      flute: 73,
-      "alto-flute": 73,
-      oboe: 68,
-      "english-horn": 69,
-      "bflat-clarinet": 71,
-      "a-clarinet": 71,
-      "eflat-clarinet": 71,
-      "bass-clarinet": 71,
-      bassoon: 70,
-      contrabassoon: 70,
-      "soprano-sax": 64,
-      "alto-sax": 65,
-      "tenor-sax": 66,
-      "baritone-sax": 67,
-      recorder: 74,
-      horn: 60,
-      trumpet: 56,
-      "c-trumpet": 56,
-      cornet: 56,
-      flugelhorn: 59,
-      trombone: 57,
-      "bass-trombone": 57,
-      euphonium: 58,
-      tuba: 58,
-      "drum-kit": 0,
-      "orchestral-percussion": 0,
-      timpani: 47,
-      "snare-drum": 0,
-      "bass-drum": 0,
-      cymbals: 0,
-      triangle: 0,
-      tambourine: 0,
-      glockenspiel: 9,
-      xylophone: 13,
-      vibraphone: 11,
-      marimba: 12,
-      "tubular-bells": 14,
-      piano: 0,
-      harpsichord: 6,
-      celesta: 8,
-      organ: 19,
-      accordion: 21,
-      soprano: 52,
-      "mezzo-soprano": 52,
-      "alto-voice": 52,
-      "tenor-voice": 52,
-      "baritone-voice": 52,
-      "bass-voice": 52,
-      harp: 46,
-      guitar: 25,
-      "electric-guitar": 27,
-      "bass-guitar": 33,
-      ukulele: 25,
-      mandolin: 25,
-      violin: 40,
-      viola: 41,
-      cello: 42,
-      "double-bass": 43,
+      "wind.flutes.flute.piccolo": 72,
+      "wind.flutes.flute": 73,
+      "wind.flutes.flute.alto": 73,
+      "wind.reed.oboe": 68,
+      "wind.reed.english-horn": 69,
+      "wind.reed.clarinet.bflat": 71,
+      "wind.reed.clarinet.a": 71,
+      "wind.reed.clarinet.eflat": 71,
+      "wind.reed.clarinet.bass": 71,
+      "wind.reed.bassoon": 70,
+      "wind.reed.contrabassoon": 70,
+      "wind.reed.saxophone.soprano": 64,
+      "wind.reed.saxophone.alto": 65,
+      "wind.reed.saxophone.tenor": 66,
+      "wind.reed.saxophone.baritone": 67,
+      "wind.flutes.recorder": 74,
+      "brass.french-horn": 60,
+      "brass.trumpet.bflat": 56,
+      "brass.trumpet.c": 56,
+      "brass.cornet": 56,
+      "brass.flugelhorn": 59,
+      "brass.trombone": 57,
+      "brass.trombone.bass": 57,
+      "brass.euphonium": 58,
+      "brass.tuba": 58,
+      "drum.group.set": 0,
+      "drum.group": 0,
+      "drum.timpani": 47,
+      "drum.snare-drum": 0,
+      "drum.bass-drum": 0,
+      "metal.cymbal.clash": 0,
+      "metal.triangle": 0,
+      "drum.tambourine": 0,
+      "pitched-percussion.glockenspiel": 9,
+      "pitched-percussion.xylophone": 13,
+      "pitched-percussion.vibraphone": 11,
+      "pitched-percussion.marimba": 12,
+      "pitched-percussion.tubular-bells": 14,
+      "keyboard.piano": 0,
+      "keyboard.harpsichord": 6,
+      "keyboard.celesta": 8,
+      "keyboard.organ": 19,
+      "keyboard.accordion": 21,
+      "voice.soprano": 52,
+      "voice.mezzo-soprano": 52,
+      "voice.alto": 52,
+      "voice.tenor": 52,
+      "voice.baritone": 52,
+      "voice.bass": 52,
+      "pluck.harp": 46,
+      "pluck.guitar": 25,
+      "pluck.guitar.electric": 27,
+      "pluck.bass.electric": 33,
+      "pluck.ukulele": 25,
+      "pluck.mandolin": 25,
+      "strings.violin": 40,
+      "strings.viola": 41,
+      "strings.cello": 42,
+      "strings.contrabass": 43,
     };
 
     for (const [instrumentId, program] of Object.entries(expectedPrograms)) {
@@ -111,7 +116,7 @@ describe("VirituraSounds", () => {
         .sort((left, right) => left - right),
     );
     expect(VIRITURA_SOUNDS_SOURCE_OPTIONS).toContainEqual(
-      expect.objectContaining({ sourceId: "tuba-primary", section: "brass", label: "Tuba" }),
+      expect.objectContaining({ sourceId: "brass.tuba-primary", section: "brass", label: "Tuba" }),
     );
 
     for (const section of sectionOrder) {
@@ -126,7 +131,7 @@ describe("VirituraSounds", () => {
   });
 
   it("uses identity rather than a display name for canonical resolution", () => {
-    const violin = virituraSoundsProfile.resolve({ instrumentId: "violin", legacyName: "Clarinet in B♭ 1" });
+    const violin = virituraSoundsProfile.resolve({ instrumentId: "strings.violin", legacyName: "Clarinet in B♭ 1" });
 
     expect(violin!.sources[0]).toMatchObject({ kind: "midi", program: 40 });
     expect(violin!.routing.section).toBe("strings");
@@ -134,7 +139,7 @@ describe("VirituraSounds", () => {
 
   it("preserves an existing explicit MIDI program for a canonical melodic part", () => {
     const clarinet = virituraSoundsProfile.resolve({
-      instrumentId: "bflat-clarinet",
+      instrumentId: "wind.reed.clarinet.bflat",
       explicitMidiProgram: 58,
     });
 
@@ -147,14 +152,14 @@ describe("VirituraSounds", () => {
 
   it("uses a selected source's program, routing, and layers without changing notation identity", () => {
     const selectedTuba = virituraSoundsProfile.resolve({
-      instrumentId: "bflat-clarinet",
-      selectedSourceId: "tuba-primary",
+      instrumentId: "wind.reed.clarinet.bflat",
+      selectedSourceId: "brass.tuba-primary",
       explicitMidiProgram: 71,
     });
 
     expect(selectedTuba).toMatchObject({
-      instrumentId: "bflat-clarinet",
-      selectedSourceId: "tuba-primary",
+      instrumentId: "wind.reed.clarinet.bflat",
+      selectedSourceId: "brass.tuba-primary",
       resolution: "selected",
       sources: [{ kind: "midi", program: 58 }],
       routing: { section: "brass", stagePosition: { x: 6.5, y: 8 } },
@@ -164,11 +169,11 @@ describe("VirituraSounds", () => {
 
   it("matches current string-layer behavior when an explicit program changes a string part", () => {
     const mutedViolin = virituraSoundsProfile.resolve({
-      instrumentId: "violin",
+      instrumentId: "strings.violin",
       explicitMidiProgram: 45,
     });
     const violinClarinet = virituraSoundsProfile.resolve({
-      instrumentId: "bflat-clarinet",
+      instrumentId: "wind.reed.clarinet.bflat",
       explicitMidiProgram: 40,
     });
 
@@ -177,19 +182,19 @@ describe("VirituraSounds", () => {
       layering: undefined,
     });
     expect(violinClarinet!.sources.map((source) => source.id)).toEqual([
-      "bflat-clarinet-primary",
-      "bflat-clarinet-layer-1",
-      "bflat-clarinet-layer-2",
+      "wind.reed.clarinet.bflat-primary",
+      "wind.reed.clarinet.bflat-layer-1",
+      "wind.reed.clarinet.bflat-layer-2",
     ]);
   });
 
   it("resolves a catalog fixed-note percussion instrument on the standard drum bank", () => {
-    const snare = virituraSoundsProfile.resolve({ instrumentId: "snare-drum" });
-    const orchestralKit = virituraSoundsProfile.resolve({ instrumentId: "orchestral-percussion" });
+    const snare = virituraSoundsProfile.resolve({ instrumentId: "drum.snare-drum" });
+    const orchestralKit = virituraSoundsProfile.resolve({ instrumentId: "drum.group" });
 
     expect(snare!.sources).toEqual([
       {
-        id: "snare-drum-primary",
+        id: "drum.snare-drum-primary",
         kind: "midi",
         program: 0,
         bankMsb: 128,
@@ -202,28 +207,28 @@ describe("VirituraSounds", () => {
   });
 
   it("adds the current two ensemble layers to solo strings exactly once", () => {
-    const violin = virituraSoundsProfile.resolve({ instrumentId: "violin" });
+    const violin = virituraSoundsProfile.resolve({ instrumentId: "strings.violin" });
 
     expect(violin!.sources).toEqual([
-      { id: "violin-primary", kind: "midi", program: 40 },
-      { id: "violin-layer-1", kind: "midi", program: 48 },
-      { id: "violin-layer-2", kind: "midi", program: 49 },
+      { id: "strings.violin-primary", kind: "midi", program: 40 },
+      { id: "strings.violin-layer-1", kind: "midi", program: 48 },
+      { id: "strings.violin-layer-2", kind: "midi", program: 49 },
     ]);
     expect(violin!.layering).toEqual({
       primaryVolumeRatio: 1 / Math.SQRT2,
       layers: [
-        { sourceId: "violin-layer-1", volumeRatio: 1 / Math.SQRT2, stageOffset: { x: 0, y: 1 } },
-        { sourceId: "violin-layer-2", volumeRatio: 1 / Math.SQRT2, stageOffset: { x: -1.5, y: 0.5 } },
+        { sourceId: "strings.violin-layer-1", volumeRatio: 1 / Math.SQRT2, stageOffset: { x: 0, y: 1 } },
+        { sourceId: "strings.violin-layer-2", volumeRatio: 1 / Math.SQRT2, stageOffset: { x: -1.5, y: 0.5 } },
       ],
     });
   });
 
   it("uses ensemble-layered sounds for untagged legacy string parts", () => {
     const cases = [
-      ["Violin I", "violin", 40],
-      ["Viola.", "viola", 41],
-      ["Violoncello.", "cello", 42],
-      ["Contrabass", "double-bass", 43],
+      ["Violin I", "strings.violin", 40],
+      ["Viola.", "strings.viola", 41],
+      ["Violoncello.", "strings.cello", 42],
+      ["Contrabass", "strings.contrabass", 43],
     ] as const;
 
     for (const [legacyName, instrumentId, primaryProgram] of cases) {

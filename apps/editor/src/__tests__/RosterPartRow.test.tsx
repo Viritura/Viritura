@@ -7,7 +7,7 @@ import { RosterPartRow } from "../components/parts/roster/RosterPartRow";
 afterEach(cleanup);
 
 const PART: Part = {
-  id: "flute",
+  id: "wind.flutes.flute",
   name: "Flute",
   measures: [],
 };

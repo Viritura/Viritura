@@ -5,7 +5,7 @@ import type { ProfileSlot, VstInstrumentProfile } from "./types";
 function slot(overrides: Partial<ProfileSlot> = {}): ProfileSlot {
   return {
     slotId: "slot-violin-1",
-    catalogInstrumentId: "violin",
+    catalogInstrumentId: "strings.violin",
     section: "strings",
     label: "Violin 1",
     binding: {
@@ -25,10 +25,10 @@ function profile(slots: ProfileSlot[]): VstInstrumentProfile {
 describe("createVstInstrumentProfile.resolve", () => {
   it("resolves a fully-configured slot by its selected source id", () => {
     const sp = createVstInstrumentProfile(profile([slot()]));
-    const result = sp.resolve({ selectedSourceId: "slot-violin-1", instrumentId: "violin" });
+    const result = sp.resolve({ selectedSourceId: "slot-violin-1", instrumentId: "strings.violin" });
     expect(result).not.toBeNull();
     expect(result!.selectedSourceId).toBe("slot-violin-1");
-    expect(result!.instrumentId).toBe("violin");
+    expect(result!.instrumentId).toBe("strings.violin");
     expect(result!.profileVersion).toBe(3);
     expect(result!.sources).toHaveLength(1);
     const source = result!.sources[0]!;
@@ -44,7 +44,7 @@ describe("createVstInstrumentProfile.resolve", () => {
 
   it("returns null when no source is selected (caller falls back)", () => {
     const sp = createVstInstrumentProfile(profile([slot()]));
-    expect(sp.resolve({ instrumentId: "violin" })).toBeNull();
+    expect(sp.resolve({ instrumentId: "strings.violin" })).toBeNull();
   });
 
   it("returns null for an unknown slot", () => {
@@ -90,8 +90,8 @@ describe("slotSourceOptions", () => {
     const partial = slot({ slotId: "b", label: "B", binding: { baseChannel: 0 } });
     const options = slotSourceOptions(profile([configured, partial]));
     expect(options).toEqual([
-      { sourceId: "a", section: "strings", label: "A", catalogInstrumentId: "violin", configured: true },
-      { sourceId: "b", section: "strings", label: "B", catalogInstrumentId: "violin", configured: false },
+      { sourceId: "a", section: "strings", label: "A", catalogInstrumentId: "strings.violin", configured: true },
+      { sourceId: "b", section: "strings", label: "B", catalogInstrumentId: "strings.violin", configured: false },
     ]);
   });
 });

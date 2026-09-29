@@ -17,7 +17,7 @@ describe("InstrumentCatalogPicker compatibility", () => {
           onSelect={onSelect}
           onBlockedSelect={onBlockedSelect}
           compatibility={(instrument) =>
-            instrument.id === "piano"
+            instrument.id === "keyboard.piano"
               ? { status: "blocked", message: "Different staff count" }
               : { status: "compatible", message: "Music is preserved" }
           }

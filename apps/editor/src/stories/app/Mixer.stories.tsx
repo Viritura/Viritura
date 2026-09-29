@@ -22,8 +22,8 @@ const SAMPLE_SCORE: Score = {
   mnx: { version: 1 },
   global: { measures: [{ time: { count: 4, unit: 4 } }] },
   parts: [
-    { id: "flute", name: "Flute", measures: [] },
-    { id: "violin", name: "Violin", measures: [] },
+    { id: "wind.flutes.flute", name: "Flute", measures: [] },
+    { id: "strings.violin", name: "Violin", measures: [] },
   ],
 };
 

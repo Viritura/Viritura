@@ -26,7 +26,7 @@ describe("resolveSoundProfilePickerView", () => {
       id: "clarinet-1",
       name: "Clarinet",
       measures: [],
-      _x: { viritura: { instrumentId: "bflat-clarinet" } },
+      _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat" } },
     };
 
     const view = resolveSoundProfilePickerView(part, "Clarinet in B♭ 1");
@@ -36,7 +36,7 @@ describe("resolveSoundProfilePickerView", () => {
       profileVersion: 1,
       selectedSourceId: "",
       selectedProfileLabel: "VirituraSounds",
-      selectedLabel: "VirituraSounds — Notation default: B-flat Clarinet",
+      selectedLabel: "VirituraSounds — Notation default: Clarinet in B♭",
     });
     expect(view.packs).toHaveLength(1);
     expect(view.packs[0]).toMatchObject({
@@ -44,7 +44,7 @@ describe("resolveSoundProfilePickerView", () => {
       label: "VirituraSounds",
       notationDefault: {
         id: "",
-        label: "Notation default: B-flat Clarinet",
+        label: "Notation default: Clarinet in B♭",
       },
     });
     expect(view.packs[0]!.sections.map((section) => section.label)).toEqual([
@@ -56,7 +56,7 @@ describe("resolveSoundProfilePickerView", () => {
       "Voices",
       "Other",
     ]);
-    expect(view.packs[0]!.sections[1]!.options).toContainEqual({ id: "tuba-primary", label: "Tuba" });
+    expect(view.packs[0]!.sections[1]!.options).toContainEqual({ id: "brass.tuba-primary", label: "Tuba" });
   });
 
   it("uses the part display name when a legacy default has no selectable source label", () => {
@@ -73,7 +73,12 @@ describe("resolveSoundProfilePickerView", () => {
   });
 
   it("presents a user VST profile as an additional selectable pack", () => {
-    const part: Part = { id: "vln-1", name: "Violin", measures: [], _x: { viritura: { instrumentId: "violin" } } };
+    const part: Part = {
+      id: "vln-1",
+      name: "Violin",
+      measures: [],
+      _x: { viritura: { instrumentId: "strings.violin" } },
+    };
     const registry = createSoundProfileRegistry([virituraSoundsProfile, vstProfile]);
 
     const view = resolveSoundProfilePickerView(part, "Violin 1", undefined, registry);
@@ -90,7 +95,12 @@ describe("resolveSoundProfilePickerView", () => {
   });
 
   it("labels the trigger with the assigned VST slot", () => {
-    const part: Part = { id: "vln-1", name: "Violin", measures: [], _x: { viritura: { instrumentId: "violin" } } };
+    const part: Part = {
+      id: "vln-1",
+      name: "Violin",
+      measures: [],
+      _x: { viritura: { instrumentId: "strings.violin" } },
+    };
     const registry = createSoundProfileRegistry([virituraSoundsProfile, vstProfile]);
 
     const view = resolveSoundProfilePickerView(

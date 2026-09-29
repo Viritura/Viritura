@@ -119,7 +119,7 @@ describe("MNX percussion semantic validation", () => {
           soundProfile: {
             profileId: "viritura-sounds",
             profileVersion: 1,
-            parts: { "snare-1": { sourceId: "tuba-primary" } },
+            parts: { "snare-1": { sourceId: "brass.tuba-primary" } },
           },
         },
       };

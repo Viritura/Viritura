@@ -376,7 +376,7 @@ describe("PlaybackProvider web mixer lifecycle", () => {
       changed.soundProfile = {
         profileId: VIRITURA_SOUNDS_PROFILE_ID,
         profileVersion: 1,
-        parts: { "part-0": { sourceId: virituraSoundsSourceId("harpsichord") } },
+        parts: { "part-0": { sourceId: virituraSoundsSourceId("keyboard.harpsichord") } },
       };
     } else {
       const measure = changed.parts[0]!.measures[0]!;

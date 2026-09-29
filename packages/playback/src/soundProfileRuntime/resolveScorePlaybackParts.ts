@@ -13,7 +13,7 @@ export function resolveScorePlaybackParts(score: Score, registry?: SoundProfileR
     id: chords.id,
     name: chords.name,
     measures: [],
-    _x: { viritura: { instrumentId: "piano", midiProgram: 0 } },
+    _x: { viritura: { instrumentId: "keyboard.piano", midiProgram: 0 } },
   };
   // Global harmony uses the built-in piano, not the score's instrument assignments.
   const [chordSound] = resolvePartSounds([part], undefined, registry);

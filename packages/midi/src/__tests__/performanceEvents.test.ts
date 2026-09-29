@@ -204,7 +204,7 @@ describe("generatePerformanceEvents", () => {
       },
       parts: [
         {
-          id: "piano",
+          id: "keyboard.piano",
           name: "Piano",
           staves: 2,
           measures: [
@@ -254,7 +254,7 @@ describe("generatePerformanceEvents", () => {
       },
       parts: [
         {
-          id: "piano",
+          id: "keyboard.piano",
           name: "Piano",
           staves: 2,
           measures: [

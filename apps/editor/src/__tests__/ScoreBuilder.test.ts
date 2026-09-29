@@ -26,7 +26,7 @@ describe("buildBlankScore", () => {
   it("sets time signature on first global measure only", () => {
     const settings: NewScoreSettings = {
       ...DEFAULT_NEW_SCORE_SETTINGS,
-      players: makePlayers("piano"),
+      players: makePlayers("keyboard.piano"),
     };
     const json = buildBlankScore(settings);
     const parsed = JSON.parse(json);
@@ -38,7 +38,7 @@ describe("buildBlankScore", () => {
   it("sets key signature on first global measure only", () => {
     const settings: NewScoreSettings = {
       ...DEFAULT_NEW_SCORE_SETTINGS,
-      players: makePlayers("piano"),
+      players: makePlayers("keyboard.piano"),
     };
     const json = buildBlankScore(settings);
     const parsed = JSON.parse(json);
@@ -53,7 +53,7 @@ describe("buildBlankScore", () => {
         ...DEFAULT_NEW_SCORE_SETTINGS,
         title: "  New Work  ",
         tempoBpm: 96,
-        players: makePlayers("piano"),
+        players: makePlayers("keyboard.piano"),
       }),
     );
 
@@ -64,7 +64,7 @@ describe("buildBlankScore", () => {
   it("creates Piano in 3/4 with 32 measures", () => {
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("piano"),
+      players: makePlayers("keyboard.piano"),
       time: { count: 3, unit: 4 },
       keyFifths: 0,
       measureCount: 32,
@@ -103,7 +103,7 @@ describe("buildBlankScore", () => {
   it("creates single-staff instrument without staff field", () => {
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("violin"),
+      players: makePlayers("strings.violin"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 4,
@@ -121,7 +121,7 @@ describe("buildBlankScore", () => {
   it("creates multiple parts with correct names", () => {
     const settings: NewScoreSettings = {
       title: "Duo",
-      players: makePlayers("violin", "cello"),
+      players: makePlayers("strings.violin", "strings.cello"),
       time: { count: 4, unit: 4 },
       keyFifths: -2,
       measureCount: 8,
@@ -149,7 +149,7 @@ describe("buildBlankScore", () => {
   it("uses correct clef for viola (C clef)", () => {
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("viola"),
+      players: makePlayers("strings.viola"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 1,
@@ -166,7 +166,7 @@ describe("buildBlankScore", () => {
   it("outputs parseable JSON", () => {
     const settings: NewScoreSettings = {
       ...DEFAULT_NEW_SCORE_SETTINGS,
-      players: makePlayers("piano"),
+      players: makePlayers("keyboard.piano"),
     };
     const json = buildBlankScore(settings);
     expect(() => JSON.parse(json)).not.toThrow();
@@ -175,7 +175,7 @@ describe("buildBlankScore", () => {
   it("generates layouts and scores for parts tab", () => {
     const settings: NewScoreSettings = {
       title: "Quartet",
-      players: makePlayers("violin", "violin", "viola", "cello"),
+      players: makePlayers("strings.violin", "strings.violin", "strings.viola", "strings.cello"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 4,
@@ -202,7 +202,7 @@ describe("buildBlankScore", () => {
   });
 
   it("auto-numbers duplicate instruments", () => {
-    const players = makePlayers("horn", "horn", "horn", "horn");
+    const players = makePlayers("brass.french-horn", "brass.french-horn", "brass.french-horn", "brass.french-horn");
     expect(players[0]!.displayName).toBe("Horn in F 1");
     expect(players[1]!.displayName).toBe("Horn in F 2");
     expect(players[2]!.displayName).toBe("Horn in F 3");
@@ -212,7 +212,7 @@ describe("buildBlankScore", () => {
   it("adds transposition for transposing instruments", () => {
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("bflat-clarinet"),
+      players: makePlayers("wind.reed.clarinet.bflat"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 1,
@@ -232,9 +232,9 @@ describe("buildBlankScore", () => {
   });
 
   it.each([
-    ["snare-drum", 38, "normal"],
-    ["cymbals", 49, "x"],
-    ["triangle", 81, "x"],
+    ["drum.snare-drum", 38, "normal"],
+    ["metal.cymbal.clash", 49, "x"],
+    ["metal.triangle", 81, "x"],
   ] as const)("creates %s as a one-component MNX percussion map", (instrumentId, midiNumber, notehead) => {
     const parsed = JSON.parse(
       buildBlankScore({
@@ -251,7 +251,7 @@ describe("buildBlankScore", () => {
   });
 
   it("uses a customized percussion map supplied by the wizard", () => {
-    const [player] = makePlayers("drum-kit");
+    const [player] = makePlayers("drum.group.set");
     player!.kit = [
       { id: "custom", name: "Custom Gong", midiNumber: 45, staffPosition: 2, notehead: "diamond", drumKit: 49 },
     ];
@@ -265,7 +265,14 @@ describe("buildBlankScore", () => {
   it("groups instruments by family with brackets", () => {
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("flute", "oboe", "trumpet", "trombone", "violin", "cello"),
+      players: makePlayers(
+        "wind.flutes.flute",
+        "wind.reed.oboe",
+        "brass.trumpet.bflat",
+        "brass.trombone",
+        "strings.violin",
+        "strings.cello",
+      ),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 1,
@@ -285,7 +292,7 @@ describe("buildBlankScore", () => {
     // Two flutes + two oboes → woodwinds bracket with two nested line brackets
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("flute", "flute", "oboe", "oboe"),
+      players: makePlayers("wind.flutes.flute", "wind.flutes.flute", "wind.reed.oboe", "wind.reed.oboe"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 1,
@@ -315,7 +322,7 @@ describe("buildBlankScore", () => {
     // Two flutes retain their instrument-family bracket inside Woodwinds.
     const settings: NewScoreSettings = {
       title: "Test",
-      players: makePlayers("flute", "flute"),
+      players: makePlayers("wind.flutes.flute", "wind.flutes.flute"),
       time: { count: 4, unit: 4 },
       keyFifths: 0,
       measureCount: 1,
@@ -383,25 +390,30 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Woodwinds",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["flute", "flute"] },
-            { symbol: "bracket", content: ["oboe", "oboe"] },
-            { symbol: "bracket", content: ["bflat-clarinet", "bflat-clarinet"] },
-            { symbol: "bracket", content: ["bassoon", "bassoon"] },
+            { symbol: "bracket", content: ["wind.flutes.flute", "wind.flutes.flute"] },
+            { symbol: "bracket", content: ["wind.reed.oboe", "wind.reed.oboe"] },
+            { symbol: "bracket", content: ["wind.reed.clarinet.bflat", "wind.reed.clarinet.bflat"] },
+            { symbol: "bracket", content: ["wind.reed.bassoon", "wind.reed.bassoon"] },
           ],
         },
         {
           group: "Brass",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["horn", "horn"] },
-            { symbol: "bracket", content: ["trumpet", "trumpet"] },
+            { symbol: "bracket", content: ["brass.french-horn", "brass.french-horn"] },
+            { symbol: "bracket", content: ["brass.trumpet.bflat", "brass.trumpet.bflat"] },
           ],
         },
-        "timpani",
+        "drum.timpani",
         {
           group: "Strings",
           symbol: "bracket",
-          content: [{ symbol: "bracket", content: ["violin", "violin"] }, "viola", "cello", "double-bass"],
+          content: [
+            { symbol: "bracket", content: ["strings.violin", "strings.violin"] },
+            "strings.viola",
+            "strings.cello",
+            "strings.contrabass",
+          ],
         },
       ],
       "romantic-orchestra": [
@@ -409,32 +421,43 @@ describe("ENSEMBLE_TEMPLATES", () => {
           group: "Woodwinds",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["piccolo", "flute", "flute"] },
-            { symbol: "bracket", content: ["oboe", "oboe", "english-horn"] },
-            { symbol: "bracket", content: ["bflat-clarinet", "bflat-clarinet", "bass-clarinet"] },
-            { symbol: "bracket", content: ["bassoon", "bassoon", "contrabassoon"] },
+            { symbol: "bracket", content: ["wind.flutes.flute.piccolo", "wind.flutes.flute", "wind.flutes.flute"] },
+            { symbol: "bracket", content: ["wind.reed.oboe", "wind.reed.oboe", "wind.reed.english-horn"] },
+            {
+              symbol: "bracket",
+              content: ["wind.reed.clarinet.bflat", "wind.reed.clarinet.bflat", "wind.reed.clarinet.bass"],
+            },
+            { symbol: "bracket", content: ["wind.reed.bassoon", "wind.reed.bassoon", "wind.reed.contrabassoon"] },
           ],
         },
         {
           group: "Brass",
           symbol: "bracket",
           content: [
-            { symbol: "bracket", content: ["horn", "horn", "horn", "horn"] },
-            { symbol: "bracket", content: ["trumpet", "trumpet", "trumpet"] },
-            { symbol: "bracket", content: ["trombone", "trombone", "trombone"] },
-            "tuba",
+            {
+              symbol: "bracket",
+              content: ["brass.french-horn", "brass.french-horn", "brass.french-horn", "brass.french-horn"],
+            },
+            { symbol: "bracket", content: ["brass.trumpet.bflat", "brass.trumpet.bflat", "brass.trumpet.bflat"] },
+            { symbol: "bracket", content: ["brass.trombone", "brass.trombone", "brass.trombone"] },
+            "brass.tuba",
           ],
         },
         {
           group: "Percussion",
           symbol: "bracket",
-          content: ["timpani", "snare-drum", "cymbals", "triangle"],
+          content: ["drum.timpani", "drum.snare-drum", "metal.cymbal.clash", "metal.triangle"],
         },
-        { symbol: "brace", content: ["harp", "harp"] },
+        { symbol: "brace", content: ["pluck.harp", "pluck.harp"] },
         {
           group: "Strings",
           symbol: "bracket",
-          content: [{ symbol: "bracket", content: ["violin", "violin"] }, "viola", "cello", "double-bass"],
+          content: [
+            { symbol: "bracket", content: ["strings.violin", "strings.violin"] },
+            "strings.viola",
+            "strings.cello",
+            "strings.contrabass",
+          ],
         },
       ],
     } as const;

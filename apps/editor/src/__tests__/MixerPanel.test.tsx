@@ -17,14 +17,14 @@ const score: Score = {
       name: "Clarinet",
       measures: [],
       transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
-      _x: { viritura: { instrumentId: "bflat-clarinet" } },
+      _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat" } },
     },
     {
       id: "clarinet-2",
       name: "Clarinet",
       measures: [],
       transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
-      _x: { viritura: { instrumentId: "bflat-clarinet" } },
+      _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat" } },
     },
   ],
 };
@@ -62,7 +62,7 @@ describe("MixerPanel sound profiles", () => {
         name: new RegExp(`^Sound for ${name}:`),
       })) as HTMLButtonElement;
       expect(picker.disabled).toBe(false);
-      expect(picker.textContent).toBe("VirituraSounds — Notation default: B-flat Clarinet");
+      expect(picker.textContent).toBe("VirituraSounds — Notation default: Clarinet in B♭");
     }
 
     const picker = screen.getByRole("button", { name: /^Sound for Clarinet in B♭ 1:/ });
@@ -82,7 +82,7 @@ describe("MixerPanel sound profiles", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Tuba" }));
     expect(onSoundSourceChange).toHaveBeenCalledWith({
       partId: "clarinet-1",
-      sourceId: "tuba-primary",
+      sourceId: "brass.tuba-primary",
       profileId: "viritura-sounds",
       profileVersion: 1,
     });
@@ -93,7 +93,7 @@ describe("MixerPanel sound profiles", () => {
     const onSoundSourceChange = vi.fn();
     const scoreWithTuba = updatePartSoundSource(score, {
       partId: "clarinet-1",
-      sourceId: "tuba-primary",
+      sourceId: "brass.tuba-primary",
       profileId: "viritura-sounds",
       profileVersion: 1,
     });
@@ -104,7 +104,7 @@ describe("MixerPanel sound profiles", () => {
     );
 
     const picker = await screen.findByRole("button", { name: /^Sound for Clarinet in B♭ 1:/ });
-    expect(picker.getAttribute("aria-label")).toContain("VirituraSounds — Notation default: B-flat Clarinet");
+    expect(picker.getAttribute("aria-label")).toContain("VirituraSounds — Notation default: Clarinet in B♭");
     picker.focus();
     await user.keyboard("{Space}");
     await user.keyboard("{Escape}");
@@ -122,7 +122,7 @@ describe("MixerPanel sound profiles", () => {
     selectedPicker.focus();
     await user.keyboard("{Enter}");
     await user.keyboard("{ArrowRight}");
-    await user.click(await screen.findByRole("menuitem", { name: "Notation default: B-flat Clarinet" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Notation default: Clarinet in B♭" }));
     expect(onSoundSourceChange).toHaveBeenLastCalledWith({
       partId: "clarinet-1",
       sourceId: undefined,
@@ -158,15 +158,15 @@ describe("MixerPanel sound profiles", () => {
   it("writes and resets only the stable part-ID-keyed source assignment", () => {
     const withTuba = updatePartSoundSource(score, {
       partId: "clarinet-1",
-      sourceId: "tuba-primary",
+      sourceId: "brass.tuba-primary",
       profileId: "viritura-sounds",
       profileVersion: 1,
     });
-    expect(withTuba.parts[0]!._x?.viritura?.instrumentId).toBe("bflat-clarinet");
+    expect(withTuba.parts[0]!._x?.viritura?.instrumentId).toBe("wind.reed.clarinet.bflat");
     expect(withTuba.soundProfile).toEqual({
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { "clarinet-1": { sourceId: "tuba-primary" } },
+      parts: { "clarinet-1": { sourceId: "brass.tuba-primary" } },
     });
 
     const reset = updatePartSoundSource(withTuba, {
@@ -205,7 +205,7 @@ describe("revertVstAssignmentsToNotationDefault", () => {
         profileVersion: 3,
         parts: {
           "clarinet-1": { sourceId: "slot-a" },
-          "clarinet-2": { sourceId: "flute-primary", profileId: "viritura-sounds", profileVersion: 1 },
+          "clarinet-2": { sourceId: "wind.flutes.flute-primary", profileId: "viritura-sounds", profileVersion: 1 },
         },
       },
     };
@@ -213,7 +213,7 @@ describe("revertVstAssignmentsToNotationDefault", () => {
     expect(reverted.soundProfile).toEqual({
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { "clarinet-2": { sourceId: "flute-primary" } },
+      parts: { "clarinet-2": { sourceId: "wind.flutes.flute-primary" } },
     });
   });
 
@@ -236,7 +236,7 @@ describe("revertVstAssignmentsToNotationDefault", () => {
       soundProfile: {
         profileId: "viritura-sounds",
         profileVersion: 1,
-        parts: { "clarinet-1": { sourceId: "tuba-primary" } },
+        parts: { "clarinet-1": { sourceId: "brass.tuba-primary" } },
       },
     };
     expect(revertVstAssignmentsToNotationDefault(onlyVs, "viritura-sounds", 1)).toBe(onlyVs);

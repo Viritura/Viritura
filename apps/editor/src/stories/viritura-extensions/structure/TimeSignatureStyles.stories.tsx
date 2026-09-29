@@ -49,7 +49,7 @@ function groupedScore(settings: TimeSignatureSettings): string {
   return JSON.stringify({
     mnx: { version: 1 },
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
-    parts: [part("flute", "C"), part("oboe", "E")],
+    parts: [part("wind.flutes.flute", "C"), part("wind.reed.oboe", "E")],
     layouts: [
       {
         id: "winds",
@@ -58,8 +58,8 @@ function groupedScore(settings: TimeSignatureSettings): string {
             type: "group",
             symbol: "bracket",
             content: [
-              { type: "staff", sources: [{ part: "flute" }] },
-              { type: "staff", sources: [{ part: "oboe" }] },
+              { type: "staff", sources: [{ part: "wind.flutes.flute" }] },
+              { type: "staff", sources: [{ part: "wind.reed.oboe" }] },
             ],
           },
         ],

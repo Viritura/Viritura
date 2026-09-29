@@ -16,11 +16,11 @@ function scoreFixture(): Score {
       { id: "alto", name: "Alto", measures: [] },
     ],
     layouts: [
-      { id: "piano", content: [staff("pno"), staff("pno")] },
+      { id: "keyboard.piano", content: [staff("pno"), staff("pno")] },
       { id: "choir", content: [staff("sop"), staff("alto")] },
     ],
     scores: [
-      { name: "Piano", layout: "piano" },
+      { name: "Piano", layout: "keyboard.piano" },
       { name: "Choir Score", layout: "choir" },
     ],
   } as Score;

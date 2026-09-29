@@ -14,7 +14,7 @@ const _TENOR: ClefDef = { sign: "C", staffPosition: 2 };
 export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
   // ═══ KEYBOARDS ═══
   {
-    id: "piano",
+    id: "keyboard.piano",
     name: "Piano",
     shortName: "Pno.",
     family: "keyboards",
@@ -27,7 +27,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 108,
   },
   {
-    id: "harpsichord",
+    id: "keyboard.harpsichord",
     name: "Harpsichord",
     shortName: "Hpsd.",
     family: "keyboards",
@@ -40,7 +40,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 89,
   },
   {
-    id: "celesta",
+    id: "keyboard.celesta",
     name: "Celesta",
     shortName: "Cel.",
     family: "keyboards",
@@ -53,7 +53,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 108,
   },
   {
-    id: "organ",
+    id: "keyboard.organ",
     name: "Organ",
     shortName: "Org.",
     family: "keyboards",
@@ -66,7 +66,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 96,
   },
   {
-    id: "accordion",
+    id: "keyboard.accordion",
     name: "Accordion",
     shortName: "Acc.",
     family: "keyboards",
@@ -81,7 +81,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
 
   // ═══ VOICES ═══
   {
-    id: "soprano",
+    id: "voice.soprano",
     name: "Soprano",
     shortName: "S.",
     family: "voices",
@@ -93,7 +93,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 84,
   },
   {
-    id: "mezzo-soprano",
+    id: "voice.mezzo-soprano",
     name: "Mezzo-Soprano",
     shortName: "Ms.",
     family: "voices",
@@ -105,7 +105,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 81,
   },
   {
-    id: "alto-voice",
+    id: "voice.alto",
     name: "Alto",
     shortName: "A.",
     family: "voices",
@@ -117,7 +117,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 77,
   },
   {
-    id: "tenor-voice",
+    id: "voice.tenor",
     name: "Tenor",
     shortName: "T.",
     family: "voices",
@@ -129,7 +129,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 72,
   },
   {
-    id: "baritone-voice",
+    id: "voice.baritone",
     name: "Baritone",
     shortName: "Bar.",
     family: "voices",
@@ -141,7 +141,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 69,
   },
   {
-    id: "bass-voice",
+    id: "voice.bass",
     name: "Bass",
     shortName: "B.",
     family: "voices",
@@ -155,7 +155,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
 
   // ═══ PLUCKED STRINGS ═══
   {
-    id: "harp",
+    id: "pluck.harp",
     name: "Harp",
     shortName: "Hp.",
     family: "plucked",
@@ -168,7 +168,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 103,
   },
   {
-    id: "guitar",
+    id: "pluck.guitar",
     name: "Guitar",
     shortName: "Gtr.",
     family: "plucked",
@@ -181,7 +181,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 88,
   },
   {
-    id: "electric-guitar",
+    id: "pluck.guitar.electric",
     name: "Electric Guitar",
     shortName: "E.Gtr.",
     family: "plucked",
@@ -194,7 +194,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 88,
   },
   {
-    id: "bass-guitar",
+    id: "pluck.bass.electric",
     name: "Bass Guitar",
     shortName: "B.Gtr.",
     family: "plucked",
@@ -207,7 +207,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 67,
   },
   {
-    id: "ukulele",
+    id: "pluck.ukulele",
     name: "Ukulele",
     shortName: "Uke.",
     family: "plucked",
@@ -219,7 +219,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 84,
   },
   {
-    id: "mandolin",
+    id: "pluck.mandolin",
     name: "Mandolin",
     shortName: "Mand.",
     family: "plucked",
@@ -233,7 +233,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
 
   // ═══ STRINGS ═══
   {
-    id: "violin",
+    id: "strings.violin",
     name: "Violin",
     shortName: "Vln.",
     family: "strings",
@@ -245,7 +245,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 103,
   },
   {
-    id: "viola",
+    id: "strings.viola",
     name: "Viola",
     shortName: "Vla.",
     family: "strings",
@@ -257,7 +257,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 93,
   },
   {
-    id: "cello",
+    id: "strings.cello",
     name: "Cello",
     shortName: "Vc.",
     family: "strings",
@@ -269,7 +269,7 @@ export const INSTRUMENT_CATALOG_EXTRAS: CatalogInstrument[] = [
     rangeHigh: 84,
   },
   {
-    id: "double-bass",
+    id: "strings.contrabass",
     name: "Double Bass",
     shortName: "Cb.",
     family: "strings",

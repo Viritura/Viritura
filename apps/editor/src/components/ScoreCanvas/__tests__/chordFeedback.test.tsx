@@ -57,13 +57,13 @@ function reorderedLayout(yOffset = 0) {
   const document = score();
   document.parts = [
     { ...document.parts[0]!, id: "clarinet", chordSymbolVisibility: "show" },
-    { id: "piano", measures: [], chordSymbolVisibility: "show" },
+    { id: "keyboard.piano", measures: [], chordSymbolVisibility: "show" },
   ];
   document.layouts = [
     {
       id: "reordered",
       content: [
-        { type: "staff", sources: [{ part: "piano" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }] },
         { type: "staff", sources: [{ part: "clarinet" }] },
       ],
     },
@@ -98,7 +98,7 @@ function reorderedLayout(yOffset = 0) {
   ];
   useSelectionStore.setState({
     renderedStaffSources: [
-      { measureIndex: 0, staffIndex: 0, partIds: ["piano"] },
+      { measureIndex: 0, staffIndex: 0, partIds: ["keyboard.piano"] },
       { measureIndex: 0, staffIndex: 1, partIds: ["clarinet"] },
     ],
   });
@@ -163,7 +163,7 @@ describe("direct canvas chord preview", () => {
     const document = score();
     document.parts = [
       {
-        id: "piano",
+        id: "keyboard.piano",
         staves: 2,
         measures: [
           {
@@ -182,7 +182,9 @@ describe("direct canvas chord preview", () => {
         ],
       },
     ];
-    document.layouts = [{ id: "lower-only", content: [{ type: "staff", sources: [{ part: "piano", staff: 2 }] }] }];
+    document.layouts = [
+      { id: "lower-only", content: [{ type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] }] },
+    ];
     document.scores = [{}, { layout: "lower-only" }];
     const list = displayList();
     list.measureBounds = [

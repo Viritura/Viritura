@@ -275,7 +275,7 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
     { name: "double bass", xml: doublebassXml, layout: [1], pitches: [[29], [31]] },
     { name: "natural", xml: naturalXml, layout: [1], pitches: [[60], [59]] },
     { name: "ties", xml: tiesXml, layout: [1], pitches: TIE_PITCHES },
-    { name: "piano", xml: pianoXml, layout: [2], pitches: UPPER_PITCHES },
+    { name: "keyboard.piano", xml: pianoXml, layout: [2], pitches: UPPER_PITCHES },
   ])(
     "passes $name through the native-format clipboard command without rewriting staff coordinates",
     async ({ name, xml, layout, pitches }) => {
@@ -292,7 +292,7 @@ describe("exact real StaffList captures through actual paste, MNX, native copy, 
       expect(
         pitched(copied.reimported.content).map((event) => event.notes!.map((note) => pitchToMidi(note.pitch))),
       ).toEqual(pitches);
-      if (name === "piano") {
+      if (name === "keyboard.piano") {
         expect(paste!.dynamics?.[0]?.staffOffset).toBe(1);
         expectPiano(result.decoded, 0, 2);
         expect(copied.reimported.dynamics?.[0]?.staffOffset).toBe(1);

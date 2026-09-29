@@ -26,7 +26,7 @@ function scoreWithPartEntry(): Score {
         content: [{ type: "staff", sources: [{ part: "p1" }, { part: "p2" }] }],
       },
       {
-        id: "piano",
+        id: "keyboard.piano",
         content: [
           {
             type: "group",
@@ -37,13 +37,13 @@ function scoreWithPartEntry(): Score {
           },
         ],
       },
-      { id: "flute", content: [{ type: "staff", sources: [{ part: "p1" }] }] },
+      { id: "wind.flutes.flute", content: [{ type: "staff", sources: [{ part: "p1" }] }] },
     ],
     scores: [
       { name: "Full Score", layout: "full" },
       { name: "Chamber Reduction", layout: "reduction" },
-      { name: "Piano", layout: "piano" },
-      { name: "Flute", layout: "flute" },
+      { name: "Piano", layout: "keyboard.piano" },
+      { name: "Flute", layout: "wind.flutes.flute" },
     ],
   };
 }

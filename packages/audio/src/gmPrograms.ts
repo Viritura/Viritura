@@ -72,8 +72,11 @@ export function gmProgramForInstrument(name: string): number | null {
     "snare drum",
     "bass drum",
     "cymbals",
+    "metal.cymbal.clash",
     "triangle",
+    "metal.triangle",
     "tambourine",
+    "drum.tambourine",
     "kick drum",
     "hi-hat",
     "hihat",
@@ -121,6 +124,7 @@ export function gmProgramForInstrument(name: string): number | null {
  */
 const GM_INSTRUMENT_MAP: Record<string, number> = {
   // Piano (0-7)
+  "keyboard.piano": 0,
   piano: 0,
   "acoustic grand piano": 0,
   "bright acoustic piano": 1,
@@ -128,40 +132,56 @@ const GM_INSTRUMENT_MAP: Record<string, number> = {
   "honky-tonk piano": 3,
   "electric piano": 4,
   harpsichord: 6,
+  "keyboard.harpsichord": 6,
   clavinet: 7,
 
   // Chromatic Percussion (8-15)
   celesta: 8,
+  "keyboard.celesta": 8,
   glockenspiel: 9,
+  "pitched-percussion.glockenspiel": 9,
   "music box": 10,
   vibraphone: 11,
+  "pitched-percussion.vibraphone": 11,
   marimba: 12,
+  "pitched-percussion.marimba": 12,
   xylophone: 13,
+  "pitched-percussion.xylophone": 13,
   "tubular bells": 14,
+  "pitched-percussion.tubular-bells": 14,
   dulcimer: 15,
 
   // Organ (16-23)
   organ: 19,
+  "keyboard.organ": 19,
   "church organ": 19,
   "reed organ": 20,
   accordion: 21,
+  "keyboard.accordion": 21,
   harmonica: 22,
 
   // Guitar (24-31)
   guitar: 25,
+  "pluck.guitar": 25,
   "acoustic guitar": 25,
   "electric guitar": 27,
+  "pluck.guitar.electric": 27,
 
   // Bass (32-39)
   "acoustic bass": 32,
   "electric bass": 33,
+  "pluck.bass.electric": 33,
 
   // Strings (40-47)
   violin: 40,
+  "strings.violin": 40,
   viola: 41,
+  "strings.viola": 41,
   cello: 42,
+  "strings.cello": 42,
   contrabass: 43,
   "double bass": 43,
+  "strings.contrabass": 43,
 
   // Ensemble (48-55)
   "string ensemble": 48,
@@ -170,17 +190,27 @@ const GM_INSTRUMENT_MAP: Record<string, number> = {
   choir: 52,
   voice: 52,
   soprano: 52,
+  "voice.soprano": 52,
   alto: 52,
+  "voice.alto": 52,
   tenor: 52,
+  "voice.tenor": 52,
   "bass voice": 52,
+  "voice.bass": 52,
   "orchestra hit": 55,
 
   // Brass (56-63)
   trumpet: 56,
+  "brass.trumpet.bflat": 56,
+  "brass.trumpet.c": 56,
   trombone: 57,
+  "brass.trombone": 57,
+  "brass.trombone.bass": 57,
   tuba: 58,
+  "brass.tuba": 58,
   "french horn": 60,
   horn: 60,
+  "brass.french-horn": 60,
 
   // Reed (64-71)
   "soprano sax": 64,
@@ -188,14 +218,26 @@ const GM_INSTRUMENT_MAP: Record<string, number> = {
   "tenor sax": 66,
   "baritone sax": 67,
   oboe: 68,
+  "wind.reed.oboe": 68,
   "english horn": 69,
+  "wind.reed.english-horn": 69,
   bassoon: 70,
+  "wind.reed.bassoon": 70,
+  "wind.reed.contrabassoon": 70,
   clarinet: 71,
+  "wind.reed.clarinet.bflat": 71,
+  "wind.reed.clarinet.a": 71,
+  "wind.reed.clarinet.eflat": 71,
+  "wind.reed.clarinet.bass": 71,
 
   // Pipe (72-79)
   piccolo: 72,
+  "wind.flutes.flute.piccolo": 72,
   flute: 73,
+  "wind.flutes.flute": 73,
+  "wind.flutes.flute.alto": 73,
   recorder: 74,
+  "wind.flutes.recorder": 74,
   "pan flute": 75,
 
   // Synth Lead (80-87)
@@ -205,10 +247,12 @@ const GM_INSTRUMENT_MAP: Record<string, number> = {
 
   // Percussive (112-119)
   timpani: 47, // GM has timpani as orchestral hit area; some SF2s map it differently
+  "drum.timpani": 47,
   "steel drums": 114,
 
   // Harp
   harp: 46,
+  "pluck.harp": 46,
 
   // Choir bass (standalone "Bass" part = voice, not string contrabass)
   bass: 52,

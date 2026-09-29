@@ -468,7 +468,7 @@ describe("source-part chord-symbol visibility", () => {
   });
 
   it("merges edited visibility with retained instrument identity and spatial placement", () => {
-    const identity = { instrumentId: "piano", midiProgram: 0, family: "keyboard", spatial: { x: 1, y: 2 } };
+    const identity = { instrumentId: "keyboard.piano", midiProgram: 0, family: "keyboard", spatial: { x: 1, y: 2 } };
     const source = {
       ...scoreWithChords([structuredChord]),
       parts: [

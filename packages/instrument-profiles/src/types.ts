@@ -44,7 +44,7 @@ export interface SlotBinding {
 /**
  * One playable slot = one dedicated VST instance. Slots are NOT keyed by catalog
  * instrument identity: "Violin 1" and "Violin 2" are distinct slots (typically
- * different plugins) even when both derive from the `violin` catalog entry.
+ * different plugins) even when both derive from the `strings.violin` catalog entry.
  */
 export interface ProfileSlot {
   /** Stable slot identity; also the score-visible source ID. */

@@ -40,10 +40,10 @@ describe("gmPrograms", () => {
 
   describe("gmProgramForInstrument", () => {
     it("matches exact instrument names", () => {
-      expect(gmProgramForInstrument("violin")).toBe(40);
-      expect(gmProgramForInstrument("flute")).toBe(73);
-      expect(gmProgramForInstrument("trumpet")).toBe(56);
-      expect(gmProgramForInstrument("piano")).toBe(0);
+      expect(gmProgramForInstrument("strings.violin")).toBe(40);
+      expect(gmProgramForInstrument("wind.flutes.flute")).toBe(73);
+      expect(gmProgramForInstrument("brass.trumpet.bflat")).toBe(56);
+      expect(gmProgramForInstrument("keyboard.piano")).toBe(0);
     });
 
     it("is case-insensitive", () => {
@@ -68,7 +68,7 @@ describe("gmPrograms", () => {
     it("resolves long-form aliases", () => {
       expect(gmProgramForInstrument("violoncello")).toBe(42);
       expect(gmProgramForInstrument("cor anglais")).toBe(69);
-      expect(gmProgramForInstrument("contrabassoon")).toBe(70);
+      expect(gmProgramForInstrument("wind.reed.contrabassoon")).toBe(70);
       expect(gmProgramForInstrument("bass clarinet")).toBe(71);
     });
 
@@ -78,11 +78,11 @@ describe("gmPrograms", () => {
       expect(gmProgramForInstrument("Horn in F")).toBe(60);
     });
 
-    it("prefers longer alias to avoid 'bass' matching before 'bassoon'", () => {
-      // "contrabassoon" should match the alias, not bare "bass"
-      expect(gmProgramForInstrument("contrabassoon")).toBe(70);
-      // "bassoon" should match directly
-      expect(gmProgramForInstrument("bassoon")).toBe(70);
+    it("prefers longer alias to avoid 'bass' matching before 'wind.reed.bassoon'", () => {
+      // "wind.reed.contrabassoon" should match the alias, not bare "bass"
+      expect(gmProgramForInstrument("wind.reed.contrabassoon")).toBe(70);
+      // "wind.reed.bassoon" should match directly
+      expect(gmProgramForInstrument("wind.reed.bassoon")).toBe(70);
     });
 
     it("returns null for unknown instruments", () => {

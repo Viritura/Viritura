@@ -28,7 +28,7 @@ describe("formatTranspositionLabel", () => {
 
   // Regression: English Horn and Horn in F previously mislabeled "B♭ bass".
   it("matches the catalog for English Horn and Horn in F", () => {
-    for (const id of ["english-horn", "horn"]) {
+    for (const id of ["wind.reed.english-horn", "brass.french-horn"]) {
       const inst = getCatalogInstrument(id);
       expect(inst?.transposition?.halfSteps).toBe(7);
       expect(formatTranspositionLabel(inst!.transposition!.halfSteps)).toBe("F");

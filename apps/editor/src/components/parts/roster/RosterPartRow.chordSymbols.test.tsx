@@ -8,7 +8,7 @@ import type { PartUpdate } from "./transposition";
 
 afterEach(cleanup);
 
-const PART: Part = { id: "piano", name: "Piano", measures: [] };
+const PART: Part = { id: "keyboard.piano", name: "Piano", measures: [] };
 
 function row(part: Part, onUpdate?: (partId: string, updates: PartUpdate) => void) {
   return (
@@ -40,7 +40,7 @@ describe("roster source chord-symbol visibility", () => {
     render(row(part, onUpdate));
     await user.click(screen.getByRole("combobox", { name: "Chord symbols" }));
     await user.click(screen.getByRole("option", { name: label, exact: true }));
-    expect(onUpdate).toHaveBeenCalledExactlyOnceWith("piano", { chordSymbolVisibility: value });
+    expect(onUpdate).toHaveBeenCalledExactlyOnceWith("keyboard.piano", { chordSymbolVisibility: value });
     expect(part.chordSymbolVisibility).toBe(value === "hide" ? "show" : "hide");
   });
 

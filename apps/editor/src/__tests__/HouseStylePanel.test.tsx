@@ -14,8 +14,8 @@ afterEach(cleanup);
 const SCORE: Score = {
   mnx: { version: 1 },
   global: { measures: [{ time: { count: 4, unit: 4 } }] },
-  parts: [{ id: "flute", name: "Flute", measures: [{ sequences: [{ content: [] }] }] }],
-  layouts: [{ id: "flute-layout", content: [{ type: "staff", sources: [{ part: "flute" }] }] }],
+  parts: [{ id: "wind.flutes.flute", name: "Flute", measures: [{ sequences: [{ content: [] }] }] }],
+  layouts: [{ id: "flute-layout", content: [{ type: "staff", sources: [{ part: "wind.flutes.flute" }] }] }],
   scores: [{ name: "Flute", layout: "flute-layout" }],
 };
 

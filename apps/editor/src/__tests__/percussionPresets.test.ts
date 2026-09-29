@@ -26,12 +26,12 @@ describe("percussionPresets", () => {
   });
 
   it("the catalog Drum Kit reuses the shared full-kit components", () => {
-    const drumKit = getCatalogInstrument("drum-kit");
+    const drumKit = getCatalogInstrument("drum.group.set");
     expect(drumKit?.kit).toEqual([...FULL_DRUM_KIT_COMPONENTS]);
   });
 
   it("the catalog exposes an Orchestral Percussion preset instrument", () => {
-    const orch = getCatalogInstrument("orchestral-percussion");
+    const orch = getCatalogInstrument("drum.group");
     expect(orch).toBeDefined();
     expect(orch?.family).toBe("percussion");
     expect(orch?.kit?.length).toBe(5);

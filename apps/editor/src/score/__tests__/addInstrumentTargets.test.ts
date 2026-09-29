@@ -12,8 +12,8 @@ function makeScore(): Score {
   return {
     mnx: { version: 1 },
     parts: [
-      { id: "tp", name: "Trumpet", measures: [{}], _x: { viritura: { instrumentId: "trumpet" } } },
-      { id: "hn", name: "Horn", measures: [{}], _x: { viritura: { instrumentId: "horn" } } },
+      { id: "tp", name: "Trumpet", measures: [{}], _x: { viritura: { instrumentId: "brass.trumpet.bflat" } } },
+      { id: "hn", name: "Horn", measures: [{}], _x: { viritura: { instrumentId: "brass.french-horn" } } },
     ],
     layouts: [
       { id: "full", content: [staff("tp"), staff("hn")] },
@@ -37,7 +37,7 @@ function newPartId(before: Score, after: Score): string {
 describe("addInstrumentToScore — target layouts", () => {
   it("adds the new staff only to the chosen target layouts", () => {
     const score = makeScore();
-    const next = addInstrumentToScore(score, "flute", ["full"]);
+    const next = addInstrumentToScore(score, "wind.flutes.flute", ["full"]);
     const newId = newPartId(score, next);
     const byId = (id: string) => next.layouts!.find((l) => l.id === id)!;
     expect(collectPartIdsInLayout(byId("full").content).has(newId)).toBe(true);
@@ -47,7 +47,7 @@ describe("addInstrumentToScore — target layouts", () => {
 
   it("always creates the per-part extract layout + score regardless of targets", () => {
     const score = makeScore();
-    const next = addInstrumentToScore(score, "flute", []);
+    const next = addInstrumentToScore(score, "wind.flutes.flute", []);
     const newId = newPartId(score, next);
     // No conductor layout got the staff…
     expect(collectPartIdsInLayout(next.layouts!.find((l) => l.id === "full")!.content).has(newId)).toBe(false);
@@ -59,7 +59,7 @@ describe("addInstrumentToScore — target layouts", () => {
 
   it("falls back to the canonical full score when no targets are given", () => {
     const score = makeScore();
-    const next = addInstrumentToScore(score, "flute");
+    const next = addInstrumentToScore(score, "wind.flutes.flute");
     const newId = newPartId(score, next);
     // Legacy behavior: appends to the layout named "Full Score".
     expect(collectPartIdsInLayout(next.layouts!.find((l) => l.id === "full")!.content).has(newId)).toBe(true);

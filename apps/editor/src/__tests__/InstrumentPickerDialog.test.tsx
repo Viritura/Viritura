@@ -43,7 +43,7 @@ describe("InstrumentPickerDialog", () => {
         open
         onClose={vi.fn()}
         onSelect={vi.fn()}
-        pendingInstrumentId="piccolo"
+        pendingInstrumentId="wind.flutes.flute.piccolo"
         pendingInstrumentName="Piccolo"
         conductorScores={[{ index: 0, name: "Full Score", layoutId: "full", staffCount: 12 }]}
         targetLayoutIds={new Set(["full"])}

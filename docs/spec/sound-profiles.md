@@ -39,7 +39,7 @@ The score's instrument identity and its chosen sound must remain separate. Chang
 
 | Term                    | Meaning                                                                                                                             |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Instrument identity** | The canonical catalog ID on a score part, such as `bflat-clarinet`.                                                                 |
+| **Instrument identity** | The canonical catalog ID on a score part, such as `wind.reed.clarinet.bflat`.                                                       |
 | **Sound profile**       | A named collection of rules that maps instrument identities to playable sources and default routing.                                |
 | **Resolved part sound** | The concrete source and routing selected after a profile resolves one part.                                                         |
 | **Sound source**        | A playable implementation: initially MIDI/SF2, later VST.                                                                           |
@@ -130,7 +130,7 @@ It maps each supported catalog instrument ID to the existing:
 - default stage position and projection;
 - MIDI technique and lane-routing behavior.
 
-For example, `bflat-clarinet` resolves to GM program 71 and the current woodwind routing and clarinet spatial defaults.
+For example, `wind.reed.clarinet.bflat` resolves to GM program 71 and the current woodwind routing and clarinet spatial defaults.
 
 The profile is authored as data plus small pure resolution helpers. Current name- and regex-based fallback behavior remains only for importing old scores or catalog gaps. New profile definitions must use canonical instrument IDs.
 
@@ -171,7 +171,7 @@ Sound profile assignment is Viritura playback metadata. It belongs under the sco
         "profileId": "viritura-sounds",
         "profileVersion": 1,
         "parts": {
-          "clarinet-1-part-id": { "sourceId": "tuba-primary" }
+          "clarinet-1-part-id": { "sourceId": "brass.tuba-primary" }
         }
       }
     }
@@ -182,7 +182,7 @@ Sound profile assignment is Viritura playback metadata. It belongs under the sco
 The exact JSON Schema, parser, serializer, and extension-reference entry must ship together. Removing `_x.viritura.soundProfile` leaves an ordinary MNX score; Viritura then selects `VirituraSounds` by default.
 
 VirituraSounds canonical source IDs are stable profile identities such as
-`bflat-clarinet-primary` and `tuba-primary`; they are not MIDI program
+`wind.reed.clarinet.bflat-primary` and `brass.tuba-primary`; they are not MIDI program
 overrides. Legacy part `_x.viritura.midiProgram` remains honored only when no
 explicit `soundProfile.parts[partId].sourceId` exists.
 

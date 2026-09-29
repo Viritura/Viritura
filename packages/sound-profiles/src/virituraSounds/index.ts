@@ -60,7 +60,7 @@ function isSoloStringProgram(program: number): boolean {
 function ensembleLayeringFor(rule: InstrumentSoundRule, program: number): readonly EnsembleLayerRule[] | undefined {
   if (program === rule.source.program) return rule.ensembleLayering;
   if (!isSoloStringProgram(program)) return undefined;
-  if (rule.instrumentId === "double-bass") {
+  if (rule.instrumentId === "strings.contrabass") {
     return [
       { source: { kind: "midi", program: 48 }, stageOffset: { x: 0, y: 1.5 } },
       { source: { kind: "midi", program: 49 }, stageOffset: { x: 0, y: 3 } },
@@ -76,13 +76,13 @@ function ensembleLayeringFor(rule: InstrumentSoundRule, program: number): readon
 function legacyStringRule(legacyName: string | undefined): InstrumentSoundRule | undefined {
   const name = legacyName?.trim().toLowerCase() ?? "";
   const instrumentId = /\b(contrabass|string bass|double bass)\b/.test(name)
-    ? "double-bass"
+    ? "strings.contrabass"
     : /\b(violoncello|cello)\b/.test(name)
-      ? "cello"
+      ? "strings.cello"
       : /\bviolin\b/.test(name)
-        ? "violin"
+        ? "strings.violin"
         : /\bviola\b/.test(name)
-          ? "viola"
+          ? "strings.viola"
           : undefined;
   return instrumentId ? rulesByInstrumentId.get(instrumentId) : undefined;
 }
@@ -149,7 +149,7 @@ function resolvedLegacySound(input: ProfileResolveInput): ResolvedPartSound {
 
 /**
  * The built-in MIDI/SF2 compatibility profile. Its canonical rules are keyed
- * exclusively by InstrumentCatalog IDs; names are consulted only for old scores.
+ * exclusively by MusicXML standard sound IDs; names are consulted only for old scores.
  */
 export const virituraSoundsProfile: SoundProfile = {
   id: VIRITURA_SOUNDS_PROFILE_ID,

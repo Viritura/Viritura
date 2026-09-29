@@ -7,18 +7,18 @@ function makeDeps(overrides: Partial<StaffContextMenuDeps> = {}): StaffContextMe
     partIdToScoreIndex: new Map(),
     onSelectScore: vi.fn(),
     ungroupStaff: vi.fn(),
-    sourceParts: [{ id: "piano", name: "Piano", measures: [] }],
+    sourceParts: [{ id: "keyboard.piano", name: "Piano", measures: [] }],
     onPartUpdate: vi.fn(),
     selectedScoreIndex: 0,
     activeScoreIsConductor: false,
-    layoutContent: [{ type: "staff", sources: [{ part: "piano", staff: 1 }] }],
+    layoutContent: [{ type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] }],
     partDisplayMap: new Map(),
     setDoublingStaffPath: vi.fn(),
     ...overrides,
   };
 }
 
-function chordMenu(deps: StaffContextMenuDeps, partId = "piano", path = [0]) {
+function chordMenu(deps: StaffContextMenuDeps, partId = "keyboard.piano", path = [0]) {
   return buildStaffContextMenuItems(partId, path, 0, deps).find((item) => item.label === "Chord Symbols");
 }
 
@@ -30,7 +30,7 @@ describe("source Part chord-symbol visibility", () => {
     ["hide", "Hide"],
   ] as const)("reads %s from the actual Part", (chordSymbolVisibility, label) => {
     const deps = makeDeps({
-      sourceParts: [{ id: "piano", name: "Piano", measures: [], chordSymbolVisibility }],
+      sourceParts: [{ id: "keyboard.piano", name: "Piano", measures: [], chordSymbolVisibility }],
     });
     const items = chordMenu(deps)?.children;
     expect(items?.map((item) => item.label)).toEqual(["Automatic", "Show", "Hide"]);
@@ -47,7 +47,7 @@ describe("source Part chord-symbol visibility", () => {
     chordMenu(deps)
       ?.children?.find((item) => item.label === label)
       ?.action?.();
-    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("piano", { chordSymbolVisibility: value });
+    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("keyboard.piano", { chordSymbolVisibility: value });
     expect({ parts: deps.sourceParts, layouts: deps.layoutContent }).toEqual(before);
   });
 
@@ -56,14 +56,14 @@ describe("source Part chord-symbol visibility", () => {
       layoutContent: [
         {
           type: "group",
-          content: [{ type: "staff", sources: [{ part: "piano", staff: 2 }] }],
+          content: [{ type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] }],
         },
       ],
     });
     chordMenu(deps, "unrelated", [0, 0])
       ?.children?.find((item) => item.label === "Hide")
       ?.action?.();
-    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("piano", { chordSymbolVisibility: "hide" });
+    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("keyboard.piano", { chordSymbolVisibility: "hide" });
   });
 
   it("offers explicit, independently checked sources for a condensed/doubling staff", () => {
@@ -91,14 +91,16 @@ describe("source Part chord-symbol visibility", () => {
 
   it("shows the same source policy on separate grand-staff rows", () => {
     const deps = makeDeps({
-      sourceParts: [{ id: "piano", name: "Piano", measures: [], chordSymbolVisibility: "hide" }],
+      sourceParts: [{ id: "keyboard.piano", name: "Piano", measures: [], chordSymbolVisibility: "hide" }],
       layoutContent: [
-        { type: "staff", sources: [{ part: "piano", staff: 1 }] },
-        { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+        { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
+        { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
       ],
     });
     for (const path of [[0], [1]]) {
-      expect(chordMenu(deps, "piano", path)?.children?.find((item) => item.label === "Hide")?.disabled).toBe(true);
+      expect(chordMenu(deps, "keyboard.piano", path)?.children?.find((item) => item.label === "Hide")?.disabled).toBe(
+        true,
+      );
     }
   });
 
@@ -108,8 +110,8 @@ describe("source Part chord-symbol visibility", () => {
         {
           type: "staff",
           sources: [
-            { part: "piano", staff: 1 },
-            { part: "piano", staff: 2 },
+            { part: "keyboard.piano", staff: 1 },
+            { part: "keyboard.piano", staff: 2 },
           ],
         },
       ],
@@ -119,13 +121,13 @@ describe("source Part chord-symbol visibility", () => {
 
   it("does not fall back to a roster index for missing source IDs", () => {
     const deps = makeDeps({
-      layoutContent: [{ type: "staff", sources: [{ part: "missing" }, { part: "piano" }] }],
+      layoutContent: [{ type: "staff", sources: [{ part: "missing" }, { part: "keyboard.piano" }] }],
     });
     const sources = chordMenu(deps)?.children;
     expect(sources?.[0]).toMatchObject({ label: "missing (missing)", disabled: true });
     expect(sources?.[0]?.children).toBeUndefined();
     sources?.[1]?.children?.find((item) => item.label === "Hide")?.action?.();
-    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("piano", { chordSymbolVisibility: "hide" });
+    expect(deps.onPartUpdate).toHaveBeenCalledExactlyOnceWith("keyboard.piano", { chordSymbolVisibility: "hide" });
   });
 
   it("disables unresolved, empty, and read-only staff controls", () => {
@@ -137,7 +139,7 @@ describe("source Part chord-symbol visibility", () => {
   });
 
   it("does not expose a policy for an invalid path or group node", () => {
-    expect(chordMenu(makeDeps(), "piano", [9])).toBeUndefined();
+    expect(chordMenu(makeDeps(), "keyboard.piano", [9])).toBeUndefined();
     expect(chordMenu(makeDeps({ layoutContent: [{ type: "group", content: [] }] }))).toBeUndefined();
   });
 });

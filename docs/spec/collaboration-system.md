@@ -109,7 +109,7 @@ part.set("abbreviation", "Vln. I");
 part.set(
   "instrument",
   new Y.Map([
-    ["id", "violin"],
+    ["id", "strings.violin"],
     ["family", "strings"],
     ["clefs", new Y.Array(["treble"])],
     // ...

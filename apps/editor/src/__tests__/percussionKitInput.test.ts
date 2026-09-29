@@ -21,9 +21,9 @@ function emptyScore(): Score {
 }
 
 describe("Percussion drum-kit input → MNX round trip", () => {
-  it("addInstrumentToScore('drum-kit') populates part.kit with distinct staffPositions", () => {
+  it("addInstrumentToScore('drum.group.set') populates part.kit with distinct staffPositions", () => {
     const s0 = emptyScore();
-    const s1 = addInstrumentToScore(s0, "drum-kit");
+    const s1 = addInstrumentToScore(s0, "drum.group.set");
     const part = s1.parts[0]!;
     expect(part.kit).toBeDefined();
     const positions = Object.entries(part.kit!).map(([id, c]) => ({ id, sp: c.staffPosition }));
@@ -40,7 +40,7 @@ describe("Percussion drum-kit input → MNX round trip", () => {
 
   it("addNote with kitComponent produces an event with kitNotes", () => {
     let s = emptyScore();
-    s = addInstrumentToScore(s, "drum-kit");
+    s = addInstrumentToScore(s, "drum.group.set");
     s = addNote(s, {
       pitch: { step: "C", octave: 4 },
       duration: { base: "quarter" },
@@ -59,7 +59,7 @@ describe("Percussion drum-kit input → MNX round trip", () => {
 
   it("serializeMnx(score) emits part.kit with staffPosition for every kit component", () => {
     let s = emptyScore();
-    s = addInstrumentToScore(s, "drum-kit");
+    s = addInstrumentToScore(s, "drum.group.set");
     s = addNote(s, {
       pitch: { step: "C", octave: 4 },
       duration: { base: "quarter" },

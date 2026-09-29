@@ -54,9 +54,14 @@ const score: Score = {
   mnx: { version: 1 },
   global: { measures: [{ time: { count: 4, unit: 4 } }, {}, {}] },
   parts: [
-    { id: "flute", name: "Flute", measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] },
-    { id: "piano", name: "Piano", staves: 2, measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] },
-    { id: "cello", name: "Cello", measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] },
+    { id: "wind.flutes.flute", name: "Flute", measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] },
+    {
+      id: "keyboard.piano",
+      name: "Piano",
+      staves: 2,
+      measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }],
+    },
+    { id: "strings.cello", name: "Cello", measures: [{ sequences: [] }, { sequences: [] }, { sequences: [] }] },
   ],
   scores: [
     { name: "Condensed", layout: "condensed" },
@@ -66,17 +71,20 @@ const score: Score = {
     {
       id: "condensed",
       content: [
-        { type: "group", content: [{ type: "staff", sources: [{ part: "cello" }, { part: "flute" }] }] },
-        { type: "staff", sources: [{ part: "piano", staff: 1 }] },
-        { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+        {
+          type: "group",
+          content: [{ type: "staff", sources: [{ part: "strings.cello" }, { part: "wind.flutes.flute" }] }],
+        },
+        { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
+        { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
       ],
     },
     {
       id: "reordered",
       content: [
-        { type: "staff", sources: [{ part: "piano", staff: 2 }] },
-        { type: "staff", sources: [{ part: "flute" }] },
-        { type: "staff", sources: [{ part: "cello" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
+        { type: "staff", sources: [{ part: "wind.flutes.flute" }] },
+        { type: "staff", sources: [{ part: "strings.cello" }] },
       ],
     },
   ],
@@ -378,10 +386,12 @@ describe("committed staff projection playback selection", () => {
         expect(paint).toHaveBeenCalledOnce();
         selectSpan(committed, 0, 0, measureCount - 1, measureCount - 1);
         expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(
-          splitMeter ? ["cello"] : ["cello", "flute"],
+          splitMeter ? ["strings.cello"] : ["strings.cello", "wind.flutes.flute"],
         );
         selectSpan(committed, 1, 1, 0, measureCount - 1);
-        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(splitMeter ? ["flute"] : ["piano"]);
+        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(
+          splitMeter ? ["wind.flutes.flute"] : ["keyboard.piano"],
+        );
         expect(getMeasureSources(committed)).toEqual(
           committed.measureBounds!.map((bound) => ({
             staffIndex: bound.staffIndex,
@@ -404,15 +414,15 @@ describe("committed staff projection playback selection", () => {
         {
           id: "before",
           content: [
-            { type: "staff", sources: [{ part: "flute" }] },
-            { type: "staff", sources: [{ part: "cello" }] },
+            { type: "staff", sources: [{ part: "wind.flutes.flute" }] },
+            { type: "staff", sources: [{ part: "strings.cello" }] },
           ],
         },
         {
           id: "after",
           content: [
-            { type: "staff", sources: [{ part: "cello" }] },
-            { type: "staff", sources: [{ part: "flute" }] },
+            { type: "staff", sources: [{ part: "strings.cello" }] },
+            { type: "staff", sources: [{ part: "wind.flutes.flute" }] },
           ],
         },
       ],
@@ -434,11 +444,11 @@ describe("committed staff projection playback selection", () => {
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 0, 0, 0, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     selectSpan(displayList, 0, 0, 1, 2);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     selectSpan(displayList, 0, 0, 2, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
   });
 
   it("selects the effective condensed sources after an explicit mid-system layout change", async () => {
@@ -446,8 +456,14 @@ describe("committed staff projection playback selection", () => {
       ...score,
       global: { measures: [{ id: "m0", time: { count: 4, unit: 4 } }, { id: "m1" }, { id: "m2" }] },
       layouts: [
-        { id: "before", content: [{ type: "staff", sources: [{ part: "flute" }, { part: "cello" }] }] },
-        { id: "after", content: [{ type: "staff", sources: [{ part: "flute" }, { part: "piano", staff: 2 }] }] },
+        {
+          id: "before",
+          content: [{ type: "staff", sources: [{ part: "wind.flutes.flute" }, { part: "strings.cello" }] }],
+        },
+        {
+          id: "after",
+          content: [{ type: "staff", sources: [{ part: "wind.flutes.flute" }, { part: "keyboard.piano", staff: 2 }] }],
+        },
       ],
       scores: [
         {
@@ -468,21 +484,25 @@ describe("committed staff projection playback selection", () => {
     renderHook(() => useDocumentStoreApi()).result.current.setState({ score: changing });
     const displayList = await project(changing, 0);
     expect(getMeasureSources(displayList)).toEqual([
-      { staffIndex: 0, measureIndex: 0, partIds: ["flute", "cello"] },
-      { staffIndex: 0, measureIndex: 1, partIds: ["flute", "piano"] },
-      { staffIndex: 0, measureIndex: 2, partIds: ["flute", "piano"] },
+      { staffIndex: 0, measureIndex: 0, partIds: ["wind.flutes.flute", "strings.cello"] },
+      { staffIndex: 0, measureIndex: 1, partIds: ["wind.flutes.flute", "keyboard.piano"] },
+      { staffIndex: 0, measureIndex: 2, partIds: ["wind.flutes.flute", "keyboard.piano"] },
     ]);
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 0, 0, 0, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
     selectSpan(displayList, 0, 0, 1, 2);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "keyboard.piano"]);
     selectSpan(displayList, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "piano", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith([
+      "wind.flutes.flute",
+      "keyboard.piano",
+      "strings.cello",
+    ]);
   });
 
-  it.each([{ parts: undefined }, { parts: ["flute", "cello"] }])(
+  it.each([{ parts: undefined }, { parts: ["wind.flutes.flute", "strings.cello"] }])(
     "selects automatic meter splits from actual WASM (filter=$parts)",
     async ({ parts }) => {
       const polymeter = structuredClone(score);
@@ -491,41 +511,45 @@ describe("committed staff projection playback selection", () => {
       ];
       renderHook(() => useDocumentStoreApi()).result.current.setState({ score: polymeter });
       const displayList = await project(polymeter, 0, parts);
-      expect(getRenderedStaffSources(displayList)?.slice(0, 2)).toEqual([["cello"], ["flute"]]);
+      expect(getRenderedStaffSources(displayList)?.slice(0, 2)).toEqual([["strings.cello"], ["wind.flutes.flute"]]);
       mountCanvas(displayList);
       render(<SelectionPlaybackBridge />);
       selectSpan(displayList, 0);
-      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
       selectSpan(displayList, 1);
-      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
       selectSpan(displayList, 1, 0);
-      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+      expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
     },
   );
 
   it.each([false, true])("selects exact expanded sources and whole instruments (reverse=%s)", async (reverse) => {
     const displayList = await project(score, 0, undefined, new Set(["0-0"]));
     expect(getRenderedStaffSources(displayList)).toEqual([
-      ["cello", "flute"],
-      ["cello"],
-      ["flute"],
-      ["piano"],
-      ["piano"],
+      ["strings.cello", "wind.flutes.flute"],
+      ["strings.cello"],
+      ["wind.flutes.flute"],
+      ["keyboard.piano"],
+      ["keyboard.piano"],
     ]);
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 1);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     selectSpan(displayList, 2);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     selectSpan(displayList, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
     selectSpan(displayList, 4);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano"]);
     selectSpan(displayList, reverse ? 4 : 2, reverse ? 2 : 4);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "keyboard.piano"]);
     selectSpan(displayList, reverse ? 4 : 0, reverse ? 0 : 4);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "piano", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith([
+      "wind.flutes.flute",
+      "keyboard.piano",
+      "strings.cello",
+    ]);
     expect(playback.actions.seek).toHaveBeenLastCalledWith(0);
   });
 
@@ -536,22 +560,22 @@ describe("committed staff projection playback selection", () => {
     ];
     const displayList = await project(polymeter, 0, undefined, new Set(["0-0"]));
     expect(getRenderedStaffSources(displayList)).toEqual([
-      ["cello"],
-      ["flute"],
-      ["cello"],
-      ["flute"],
-      ["piano"],
-      ["piano"],
+      ["strings.cello"],
+      ["wind.flutes.flute"],
+      ["strings.cello"],
+      ["wind.flutes.flute"],
+      ["keyboard.piano"],
+      ["keyboard.piano"],
     ]);
     renderHook(() => useDocumentStoreApi()).result.current.setState({ score: polymeter });
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 2);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     selectSpan(displayList, 3);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     selectSpan(displayList, 5);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano"]);
   });
 
   it.each(["horizon", "page"] as const)(
@@ -561,11 +585,15 @@ describe("committed staff projection playback selection", () => {
       const engine = createEngine(retained);
       try {
         const initial = await project(score, 0, undefined, undefined, { engine, viewMode });
-        expect(getRenderedStaffSources(initial)).toEqual([["cello", "flute"], ["piano"], ["piano"]]);
+        expect(getRenderedStaffSources(initial)).toEqual([
+          ["strings.cello", "wind.flutes.flute"],
+          ["keyboard.piano"],
+          ["keyboard.piano"],
+        ]);
         const canvas = mountCanvas(initial);
         render(<SelectionPlaybackBridge />);
         selectSpan(initial, 0);
-        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
 
         const relayout = await tryRelayoutScoreView({
           scoreIdx: 1,
@@ -576,11 +604,15 @@ describe("committed staff projection playback selection", () => {
           expandedCondensingStaves: undefined,
           pageSetupRef: { current: DEFAULT_PAGE_SETUP },
         });
-        expect(getRenderedStaffSources(relayout)).toEqual([["piano"], ["flute"], ["cello"]]);
+        expect(getRenderedStaffSources(relayout)).toEqual([
+          ["keyboard.piano"],
+          ["wind.flutes.flute"],
+          ["strings.cello"],
+        ]);
         canvas.ref.current = relayout;
         act(() => canvas.result.current());
         selectSpan(relayout!, 0);
-        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano"]);
+        expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano"]);
 
         // Cold then warm patch frames exercise fresh and retained-system transport.
         for (let i = 0; i < 2; i++) {
@@ -595,11 +627,15 @@ describe("committed staff projection playback selection", () => {
               fallbackJson: () => JSON.stringify(serializeMnx(score)),
             },
           });
-          expect(getRenderedStaffSources(patched)).toEqual([["cello", "flute"], ["piano"], ["piano"]]);
+          expect(getRenderedStaffSources(patched)).toEqual([
+            ["strings.cello", "wind.flutes.flute"],
+            ["keyboard.piano"],
+            ["keyboard.piano"],
+          ]);
           canvas.ref.current = patched;
           act(() => canvas.result.current());
           selectSpan(patched, 0);
-          expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+          expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
         }
       } finally {
         retained.free();
@@ -608,23 +644,23 @@ describe("committed staff projection playback selection", () => {
   );
 
   it("uses the actual multi-part projection before expansion, including reordered part views", async () => {
-    const displayList = await project(score, 1, ["cello", "piano"], new Set(["0-0"]));
-    expect(getRenderedStaffSources(displayList)).toEqual([["piano"], ["cello"]]);
+    const displayList = await project(score, 1, ["strings.cello", "keyboard.piano"], new Set(["0-0"]));
+    expect(getRenderedStaffSources(displayList)).toEqual([["keyboard.piano"], ["strings.cello"]]);
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 1);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     selectSpan(displayList, 1, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano", "strings.cello"]);
   });
 
   it("retains all sources on a filtered condensed staff, even for a single selected part", async () => {
-    const displayList = await project(score, 0, ["cello"]);
-    expect(getRenderedStaffSources(displayList)).toEqual([["cello", "flute"]]);
+    const displayList = await project(score, 0, ["strings.cello"]);
+    expect(getRenderedStaffSources(displayList)).toEqual([["strings.cello", "wind.flutes.flute"]]);
     mountCanvas(displayList);
     render(<SelectionPlaybackBridge />);
     selectSpan(displayList, 0);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute", "cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute", "strings.cello"]);
   });
 
   it("retains selection across canvas/bridge remount and publishes new committed topology without seeking", async () => {
@@ -635,17 +671,17 @@ describe("committed staff projection playback selection", () => {
     const selection = useSelectionStore.getState().selection;
     playback.actions.seek.mockClear();
     canvas.unmount();
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     bridge.unmount();
     render(<SelectionPlaybackBridge />);
     const returningCanvas = mountCanvas(null);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
-    const filtered = await project(score, 1, ["piano", "flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
+    const filtered = await project(score, 1, ["keyboard.piano", "wind.flutes.flute"]);
     // A computed but uncommitted result cannot change selection playback.
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["cello"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["strings.cello"]);
     returningCanvas.ref.current = filtered;
     returningCanvas.rerender({ version: 1 });
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     expect(useSelectionStore.getState().selection).toBe(selection);
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
@@ -656,9 +692,9 @@ describe("committed staff projection playback selection", () => {
     render(<SelectionPlaybackBridge />);
     selectSpan(expanded, 1);
     playback.actions.seek.mockClear();
-    canvas.ref.current = await project(score, 1, ["piano", "flute"]);
+    canvas.ref.current = await project(score, 1, ["keyboard.piano", "wind.flutes.flute"]);
     act(() => canvas.result.current());
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
 
@@ -671,7 +707,7 @@ describe("committed staff projection playback selection", () => {
     playback.actions.seek.mockClear();
     canvas.ref.current = { commands: [], width: 300, height: 300 };
     canvas.rerender({ version: 1 });
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano"]);
     expect(useSelectionStore.getState().selection).toBe(selection);
     expect(playback.actions.seek).not.toHaveBeenCalled();
   });
@@ -679,13 +715,13 @@ describe("committed staff projection playback selection", () => {
   it("does not let preview canvases or superseded canvas cleanup replace the active mapping", async () => {
     const expanded = await project(score, 0, undefined, new Set(["0-0"]));
     const oldCanvas = mountCanvas(expanded);
-    const currentCanvas = mountCanvas(await project(score, 1, ["piano", "flute"]));
+    const currentCanvas = mountCanvas(await project(score, 1, ["keyboard.piano", "wind.flutes.flute"]));
     render(<SelectionPlaybackBridge />);
     selectSpan(currentCanvas.ref.current!, 1);
     playback.actions.seek.mockClear();
     renderHook(() => useRenderedStaffSources({ current: expanded }, 0, true));
     oldCanvas.unmount();
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["flute"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["wind.flutes.flute"]);
     expect(useSelectionStore.getState().renderedStaffSourcesGetter?.()).toEqual(
       getMeasureSources(currentCanvas.ref.current),
     );
@@ -700,7 +736,7 @@ describe("committed staff projection playback selection", () => {
     const ordinary = { ...expanded };
     canvas.ref.current = ordinary;
     selectSpan(ordinary, 1);
-    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["piano"]);
+    expect(playback.actions.setSelectionPartIds).toHaveBeenLastCalledWith(["keyboard.piano"]);
   });
 
   it("uses instrument IDs created by orchestralStaffSplit for expanded condensed staves", async () => {

@@ -160,7 +160,7 @@ function StaffConfigHarness() {
 
   useEffect(() => {
     const initial = buildScore();
-    initial.parts[0]!.id = "piano";
+    initial.parts[0]!.id = "keyboard.piano";
     loadScore(initial, "staff-config.mnx");
     selectMeasure(0, 1, 0, 1);
   }, [loadScore, selectMeasure]);

@@ -6,29 +6,29 @@ import { buildBlankScore, DEFAULT_NEW_SCORE_SETTINGS } from "../ScoreBuilder";
 
 /** Instruments that transpose by whole octaves only (same pitch class). */
 const PURE_OCTAVE_IDS = [
-  "piccolo",
-  "xylophone",
-  "glockenspiel",
-  "contrabassoon",
-  "double-bass",
-  "guitar",
-  "electric-guitar",
-  "bass-guitar",
+  "wind.flutes.flute.piccolo",
+  "pitched-percussion.xylophone",
+  "pitched-percussion.glockenspiel",
+  "wind.reed.contrabassoon",
+  "strings.contrabass",
+  "pluck.guitar",
+  "pluck.guitar.electric",
+  "pluck.bass.electric",
 ];
 
 /** Transposing instruments whose interval changes the pitch class. */
 const KEY_TRANSPOSER_IDS = [
-  "bflat-clarinet",
-  "a-clarinet",
-  "eflat-clarinet",
-  "bass-clarinet",
-  "alto-flute",
-  "english-horn",
-  "horn",
-  "trumpet",
-  "alto-sax",
-  "tenor-sax",
-  "baritone-sax",
+  "wind.reed.clarinet.bflat",
+  "wind.reed.clarinet.a",
+  "wind.reed.clarinet.eflat",
+  "wind.reed.clarinet.bass",
+  "wind.flutes.flute.alto",
+  "wind.reed.english-horn",
+  "brass.french-horn",
+  "brass.trumpet.bflat",
+  "wind.reed.saxophone.alto",
+  "wind.reed.saxophone.tenor",
+  "wind.reed.saxophone.baritone",
 ];
 
 describe("buildPartTransposition — prefersWrittenPitches", () => {
@@ -63,14 +63,17 @@ describe("buildPartTransposition — prefersWrittenPitches", () => {
 describe("piccolo default template", () => {
   it("sets prefersWrittenPitches when added via addInstrumentToScore", () => {
     const empty = JSON.parse(buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, players: [] })) as Score;
-    const next = addInstrumentToScore(empty, "piccolo");
+    const next = addInstrumentToScore(empty, "wind.flutes.flute.piccolo");
     const piccolo = next.parts.find((p) => p.name.startsWith("Piccolo"));
     expect(piccolo?.transposition?.prefersWrittenPitches).toBe(true);
     expect(piccolo?.transposition?.interval).toEqual({ halfSteps: -12, staffDistance: -7 });
   });
 
   it("sets prefersWrittenPitches when built via the New Score dialog (ScoreBuilder)", () => {
-    const json = buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, players: [createPlayer("piccolo")] });
+    const json = buildBlankScore({
+      ...DEFAULT_NEW_SCORE_SETTINGS,
+      players: [createPlayer("wind.flutes.flute.piccolo")],
+    });
     const score = JSON.parse(json) as Score;
     expect(score.parts[0]!.transposition?.prefersWrittenPitches).toBe(true);
   });

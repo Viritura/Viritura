@@ -15,12 +15,12 @@ describe("sectionForFamily", () => {
 describe("catalogInstrumentsForSection", () => {
   it("lists string instruments (e.g. violin) under strings", () => {
     const ids = catalogInstrumentsForSection("strings").map((i) => i.id);
-    expect(ids).toContain("violin");
+    expect(ids).toContain("strings.violin");
   });
 
   it("lists keyboards (e.g. piano) under keys", () => {
     const ids = catalogInstrumentsForSection("keys").map((i) => i.id);
-    expect(ids).toContain("piano");
+    expect(ids).toContain("keyboard.piano");
   });
 
   it("only returns instruments belonging to the requested section", () => {
@@ -33,15 +33,15 @@ describe("catalogInstrumentsForSection", () => {
 describe("orderSlotsByScoreOrder", () => {
   it("sorts slots into orchestra order regardless of insertion order", () => {
     const slots = [
-      { slotId: "a", catalogInstrumentId: "tuba" },
-      { slotId: "b", catalogInstrumentId: "flute" },
-      { slotId: "c", catalogInstrumentId: "trumpet" },
+      { slotId: "a", catalogInstrumentId: "brass.tuba" },
+      { slotId: "b", catalogInstrumentId: "wind.flutes.flute" },
+      { slotId: "c", catalogInstrumentId: "brass.trumpet.bflat" },
     ];
     expect(orderSlotsByScoreOrder(slots).map((s) => s.slotId)).toEqual(["b", "c", "a"]);
   });
 
   it("places slots without a catalog instrument id last, preserving their order", () => {
-    const slots = [{ slotId: "x" }, { slotId: "b", catalogInstrumentId: "flute" }, { slotId: "y" }];
+    const slots = [{ slotId: "x" }, { slotId: "b", catalogInstrumentId: "wind.flutes.flute" }, { slotId: "y" }];
     expect(orderSlotsByScoreOrder(slots).map((s) => s.slotId)).toEqual(["b", "x", "y"]);
   });
 });

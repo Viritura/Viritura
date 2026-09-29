@@ -226,7 +226,7 @@ describe("keyboard chord source mapping", () => {
   function sourceScore(): Score {
     const score = buildScore();
     score.parts.unshift({
-      id: "piano",
+      id: "keyboard.piano",
       measures: [{ sequences: [{ content: [], fullMeasure: {} }] }],
     });
     score.global.measures[0]!.chordSymbols = [parseChordSymbolText("C/E", { fraction: [2, 8] })];
@@ -308,7 +308,7 @@ describe("keyboard chord source mapping", () => {
         type: "group",
         content: [
           { type: "staff", sources: [{ part: "clarinet", staff: 2 }] },
-          { type: "staff", sources: [{ part: "piano" }] },
+          { type: "staff", sources: [{ part: "keyboard.piano" }] },
         ],
       },
     ];
@@ -408,11 +408,11 @@ describe("keyboard chord source mapping", () => {
     score.layouts![0]!.content = [
       {
         type: "staff",
-        sources: [{ part: "piano" }, { part: "clarinet" }],
+        sources: [{ part: "keyboard.piano" }, { part: "clarinet" }],
       },
     ];
     useSelectionStore.setState({
-      renderedStaffSources: [{ staffIndex: 7, measureIndex: 0, partIds: ["piano", "clarinet"] }],
+      renderedStaffSources: [{ staffIndex: 7, measureIndex: 0, partIds: ["keyboard.piano", "clarinet"] }],
     });
     expect(
       resolveChordSymbolTarget(
@@ -436,14 +436,17 @@ describe("keyboard chord source mapping", () => {
       const condensed = scenario === "previously seen condensed source";
       score.parts[0]!.chordSymbolVisibility = condensed ? "show" : "hide";
       score.layouts![0]!.content = [
-        { type: "staff", sources: [{ part: "piano" }] },
-        { type: "staff", sources: condensed ? [{ part: "piano" }, { part: "clarinet" }] : [{ part: "clarinet" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }] },
+        {
+          type: "staff",
+          sources: condensed ? [{ part: "keyboard.piano" }, { part: "clarinet" }] : [{ part: "clarinet" }],
+        },
       ];
       if (condensed) {
         useSelectionStore.setState({
           renderedStaffSources: [
-            { staffIndex: 0, measureIndex: 0, partIds: ["piano"] },
-            { staffIndex: 1, measureIndex: 0, partIds: ["piano", "clarinet"] },
+            { staffIndex: 0, measureIndex: 0, partIds: ["keyboard.piano"] },
+            { staffIndex: 1, measureIndex: 0, partIds: ["keyboard.piano", "clarinet"] },
           ],
         });
       }
@@ -479,7 +482,7 @@ describe("keyboard chord source mapping", () => {
     score.parts[0]!.chordSymbolVisibility = "hide";
     score.parts[1]!.chordSymbolVisibility = visibility;
     score.layouts![0]!.content = [
-      { type: "staff", sources: [{ part: "piano" }] },
+      { type: "staff", sources: [{ part: "keyboard.piano" }] },
       { type: "staff", sources: [{ part: "clarinet" }] },
     ];
     expect(
@@ -495,10 +498,10 @@ describe("keyboard chord source mapping", () => {
   it("retains independent harmony owners when a condensed staff is rendered as split sources", () => {
     const score = sourceScore();
     score.parts[0]!.chordSymbolVisibility = "show";
-    score.layouts![0]!.content = [{ type: "staff", sources: [{ part: "piano" }, { part: "clarinet" }] }];
+    score.layouts![0]!.content = [{ type: "staff", sources: [{ part: "keyboard.piano" }, { part: "clarinet" }] }];
     useSelectionStore.setState({
       renderedStaffSources: [
-        { staffIndex: 0, measureIndex: 0, partIds: ["piano"] },
+        { staffIndex: 0, measureIndex: 0, partIds: ["keyboard.piano"] },
         { staffIndex: 1, measureIndex: 0, partIds: ["clarinet"] },
       ],
     });
@@ -522,7 +525,7 @@ describe("keyboard chord source mapping", () => {
     const score = sourceScore();
     score.parts[0]!.chordSymbolVisibility = "show";
     score.layouts![0]!.content = [
-      { type: "staff", sources: [{ part: "piano" }, { part: "clarinet" }] },
+      { type: "staff", sources: [{ part: "keyboard.piano" }, { part: "clarinet" }] },
       { type: "staff", sources: [{ part: "clarinet" }] },
     ];
     const measureAnchor = { partIndex: 1, measureIndex: 0, staffIndex: 1, localStaffIndex: 1 };
@@ -542,8 +545,8 @@ describe("keyboard chord source mapping", () => {
       const score = sourceScore();
       score.parts[0]!.chordSymbolVisibility = visibility;
       score.layouts![0]!.content = [
-        { type: "staff", sources: [{ part: "piano" }] },
-        { type: "staff", sources: [{ part: "piano" }, { part: "clarinet" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }, { part: "clarinet" }] },
       ];
       expect(
         resolveChordSymbolTarget(
@@ -616,7 +619,7 @@ describe("keyboard chord source mapping", () => {
     score.global.measures[0]!.id = "first";
     score.global.measures[1]!.id = "second";
     score.global.measures[1]!.chordSymbols = [parseChordSymbolText("F", { fraction: [0, 1] })];
-    score.layouts!.push({ id: "piano-only", content: [{ type: "staff", sources: [{ part: "piano" }] }] });
+    score.layouts!.push({ id: "piano-only", content: [{ type: "staff", sources: [{ part: "keyboard.piano" }] }] });
     score.scores![0]!.layout = "piano-only";
     score.scores![0]!.pages = [
       {

@@ -38,8 +38,8 @@ function partOrder(content: readonly LayoutContent[]): string[] {
 function makeScore(): Score {
   return {
     parts: [
-      { id: "tp", name: "Trumpet", _x: { viritura: { instrumentId: "trumpet", family: "brass" } } },
-      { id: "hn", name: "Horn", _x: { viritura: { instrumentId: "horn", family: "brass" } } },
+      { id: "tp", name: "Trumpet", _x: { viritura: { instrumentId: "brass.trumpet.bflat", family: "brass" } } },
+      { id: "hn", name: "Horn", _x: { viritura: { instrumentId: "brass.french-horn", family: "brass" } } },
     ],
     layouts: [
       { id: "full", content: [group("Brass", [staff("tp"), staff("hn")])] },
@@ -57,8 +57,8 @@ function makeScore(): Score {
 
 describe("collectPartIdsInLayout", () => {
   it("collects part ids across nested groups", () => {
-    const content = [group("Brass", [staff("tp"), staff("hn")]), staff("tuba")];
-    expect(collectPartIdsInLayout(content)).toEqual(new Set(["tp", "hn", "tuba"]));
+    const content = [group("Brass", [staff("tp"), staff("hn")]), staff("brass.tuba")];
+    expect(collectPartIdsInLayout(content)).toEqual(new Set(["tp", "hn", "brass.tuba"]));
   });
 });
 
@@ -143,9 +143,13 @@ describe("addPartToScoreLayout", () => {
 function makePercussionScore(): Score {
   return {
     parts: [
-      { id: "tp", name: "Trumpet", _x: { viritura: { instrumentId: "trumpet", family: "brass" } } },
-      { id: "glk", name: "Glockenspiel", _x: { viritura: { instrumentId: "glockenspiel", family: "percussion" } } },
-      { id: "timp", name: "Timpani", _x: { viritura: { instrumentId: "timpani", family: "percussion" } } },
+      { id: "tp", name: "Trumpet", _x: { viritura: { instrumentId: "brass.trumpet.bflat", family: "brass" } } },
+      {
+        id: "glk",
+        name: "Glockenspiel",
+        _x: { viritura: { instrumentId: "pitched-percussion.glockenspiel", family: "percussion" } },
+      },
+      { id: "timp", name: "Timpani", _x: { viritura: { instrumentId: "drum.timpani", family: "percussion" } } },
     ],
     layouts: [{ id: "full", content: [staff("tp"), staff("glk"), staff("timp")] }],
     scores: [{ name: "Full Score", layout: "full" }],
@@ -184,11 +188,23 @@ describe("createSectionScore", () => {
   it("retains conventional nested instrumental brackets for a multi-section score", () => {
     const score = makePercussionScore();
     score.parts = [
-      { id: "cl1", name: "Clarinet 1", _x: { viritura: { instrumentId: "bflat-clarinet", family: "woodwinds" } } },
-      { id: "cl2", name: "Clarinet 2", _x: { viritura: { instrumentId: "bflat-clarinet", family: "woodwinds" } } },
-      { id: "bcl", name: "Bass Clarinet", _x: { viritura: { instrumentId: "bass-clarinet", family: "woodwinds" } } },
-      { id: "bsn1", name: "Bassoon 1", _x: { viritura: { instrumentId: "bassoon", family: "woodwinds" } } },
-      { id: "bsn2", name: "Bassoon 2", _x: { viritura: { instrumentId: "bassoon", family: "woodwinds" } } },
+      {
+        id: "cl1",
+        name: "Clarinet 1",
+        _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat", family: "woodwinds" } },
+      },
+      {
+        id: "cl2",
+        name: "Clarinet 2",
+        _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat", family: "woodwinds" } },
+      },
+      {
+        id: "bcl",
+        name: "Bass Clarinet",
+        _x: { viritura: { instrumentId: "wind.reed.clarinet.bass", family: "woodwinds" } },
+      },
+      { id: "bsn1", name: "Bassoon 1", _x: { viritura: { instrumentId: "wind.reed.bassoon", family: "woodwinds" } } },
+      { id: "bsn2", name: "Bassoon 2", _x: { viritura: { instrumentId: "wind.reed.bassoon", family: "woodwinds" } } },
     ] as Score["parts"];
 
     const result = createSectionScore(score, ["cl1", "cl2", "bcl", "bsn1", "bsn2"]);
@@ -206,9 +222,13 @@ describe("createSectionScore", () => {
   it("nests a standalone instrumental subgroup inside its section family bracket", () => {
     const score = makePercussionScore();
     score.parts = [
-      { id: "fl1", name: "Flute 1", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
-      { id: "fl2", name: "Flute 2", _x: { viritura: { instrumentId: "flute", family: "woodwinds" } } },
-      { id: "picc", name: "Piccolo", _x: { viritura: { instrumentId: "piccolo", family: "woodwinds" } } },
+      { id: "fl1", name: "Flute 1", _x: { viritura: { instrumentId: "wind.flutes.flute", family: "woodwinds" } } },
+      { id: "fl2", name: "Flute 2", _x: { viritura: { instrumentId: "wind.flutes.flute", family: "woodwinds" } } },
+      {
+        id: "picc",
+        name: "Piccolo",
+        _x: { viritura: { instrumentId: "wind.flutes.flute.piccolo", family: "woodwinds" } },
+      },
     ] as Score["parts"];
 
     const result = createSectionScore(score, ["fl1", "fl2", "picc"]);

@@ -10040,7 +10040,7 @@
         }
       }
     },
-    "tambourine": {
+    "drum.tambourine": {
       "gmKey": 54,
       "description": "Tambourine.",
       "resolution": {

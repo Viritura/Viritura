@@ -32,43 +32,43 @@ function makeScore(...ids: string[]): Score {
 
 describe("extractPlayersFromScore", () => {
   it("extracts players from a simple score", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const players = extractPlayersFromScore(score);
 
     expect(players).toHaveLength(2);
-    expect(players[0]!.instrumentId).toBe("flute");
+    expect(players[0]!.instrumentId).toBe("wind.flutes.flute");
     expect(players[0]!.partIndex).toBe(0);
-    expect(players[1]!.instrumentId).toBe("violin");
+    expect(players[1]!.instrumentId).toBe("strings.violin");
     expect(players[1]!.partIndex).toBe(1);
   });
 
   it("extracts players from a score with duplicates", () => {
-    const score = makeScore("violin", "violin", "cello");
+    const score = makeScore("strings.violin", "strings.violin", "strings.cello");
     const players = extractPlayersFromScore(score);
 
     expect(players).toHaveLength(3);
-    expect(players[0]!.instrumentId).toBe("violin");
-    expect(players[1]!.instrumentId).toBe("violin");
-    expect(players[2]!.instrumentId).toBe("cello");
+    expect(players[0]!.instrumentId).toBe("strings.violin");
+    expect(players[1]!.instrumentId).toBe("strings.violin");
+    expect(players[2]!.instrumentId).toBe("strings.cello");
   });
 
   it("recognizes multi-staff instruments", () => {
-    const score = makeScore("piano");
+    const score = makeScore("keyboard.piano");
     const players = extractPlayersFromScore(score);
 
     expect(players).toHaveLength(1);
-    expect(players[0]!.instrumentId).toBe("piano");
+    expect(players[0]!.instrumentId).toBe("keyboard.piano");
   });
 });
 
 describe("applyPlayerChanges", () => {
   it("preserves music data when reordering parts", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const originalPart0 = score.parts[0]!;
     const originalPart1 = score.parts[1]!;
 
     // Reverse order: violin first, then flute
-    const players = renumberPlayers([createPlayer("violin"), createPlayer("flute")]);
+    const players = renumberPlayers([createPlayer("strings.violin"), createPlayer("wind.flutes.flute")]);
 
     const result = applyPlayerChanges(score, {
       players,
@@ -85,8 +85,8 @@ describe("applyPlayerChanges", () => {
   });
 
   it("adds new parts with empty measures", () => {
-    const score = makeScore("flute");
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("oboe")]);
+    const score = makeScore("wind.flutes.flute");
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("wind.reed.oboe")]);
 
     const result = applyPlayerChanges(score, {
       players,
@@ -101,9 +101,9 @@ describe("applyPlayerChanges", () => {
   });
 
   it("removes parts", () => {
-    const score = makeScore("flute", "oboe", "violin");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe", "strings.violin");
     // Keep only flute and violin
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("violin")]);
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("strings.violin")]);
 
     const result = applyPlayerChanges(score, {
       players,
@@ -116,8 +116,12 @@ describe("applyPlayerChanges", () => {
   });
 
   it("rebuilds layouts and scores", () => {
-    const score = makeScore("flute", "violin");
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("oboe"), createPlayer("violin")]);
+    const score = makeScore("wind.flutes.flute", "strings.violin");
+    const players = renumberPlayers([
+      createPlayer("wind.flutes.flute"),
+      createPlayer("wind.reed.oboe"),
+      createPlayer("strings.violin"),
+    ]);
 
     const result = applyPlayerChanges(score, {
       players,
@@ -136,7 +140,7 @@ describe("applyPlayerChanges", () => {
 
 describe("buildLayouts", () => {
   it("creates full-score layout with brackets", () => {
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("oboe")]);
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("wind.reed.oboe")]);
     const partIds = ["P1", "P2"];
 
     const layouts = buildLayouts(players, partIds);
@@ -149,7 +153,11 @@ describe("buildLayouts", () => {
   });
 
   it("nests a standalone instrumental subgroup inside its family bracket", () => {
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("piccolo"), createPlayer("alto-flute")]);
+    const players = renumberPlayers([
+      createPlayer("wind.flutes.flute"),
+      createPlayer("wind.flutes.flute.piccolo"),
+      createPlayer("wind.flutes.flute.alto"),
+    ]);
     const layouts = buildLayouts(players, ["P1", "P2", "P3"]);
     const woodwinds = layouts[0]!.content[0] as { label?: string; content: { symbol?: string; content: unknown[] }[] };
 
@@ -160,7 +168,7 @@ describe("buildLayouts", () => {
   });
 
   it("creates per-player layouts", () => {
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("violin")]);
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("strings.violin")]);
     const partIds = ["P1", "P2"];
 
     const layouts = buildLayouts(players, partIds);
@@ -173,7 +181,7 @@ describe("buildLayouts", () => {
 
 describe("buildScoreDefinitions", () => {
   it("creates full score + per-player scores", () => {
-    const players = renumberPlayers([createPlayer("flute"), createPlayer("trumpet")]);
+    const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("brass.trumpet.bflat")]);
     const partIds = ["P1", "P2"];
 
     const scores = buildScoreDefinitions(players, partIds);
@@ -190,7 +198,7 @@ describe("buildScoreDefinitions", () => {
 
 describe("applyScoreDefChanges", () => {
   it("replaces score definitions", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const edits = [
       { name: "Conductor", layoutId: "FullScore", useWritten: false },
       { name: "Violin Part", layoutId: "L-P2", useWritten: false },
@@ -209,7 +217,7 @@ describe("applyScoreDefChanges", () => {
 
 describe("insertEmptyMeasures / appendEmptyMeasures", () => {
   it("appends measures to global and every part", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const before = score.global.measures.length;
 
     const result = appendEmptyMeasures(score, 3);
@@ -223,7 +231,7 @@ describe("insertEmptyMeasures / appendEmptyMeasures", () => {
   });
 
   it("inserts measures mid-score at the given index", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const before = score.global.measures.length;
 
     const result = insertEmptyMeasures(score, 1, 2);
@@ -239,7 +247,7 @@ describe("insertEmptyMeasures / appendEmptyMeasures", () => {
   });
 
   it("inserts a single bar rest in 5/4 without decomposing it", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     score.global.measures[0]!.time = { count: 5, unit: 4 };
 
     const result = appendEmptyMeasures(score, 1);
@@ -250,7 +258,7 @@ describe("insertEmptyMeasures / appendEmptyMeasures", () => {
   });
 
   it("clamps an out-of-range index to an append", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const before = score.global.measures.length;
 
     const result = insertEmptyMeasures(score, 9999, 1);
@@ -259,7 +267,7 @@ describe("insertEmptyMeasures / appendEmptyMeasures", () => {
   });
 
   it("returns the input unchanged for count < 1", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     expect(insertEmptyMeasures(score, 0, 0)).toBe(score);
     expect(appendEmptyMeasures(score, -1)).toBe(score);
   });
@@ -269,8 +277,8 @@ describe("insertEmptyMeasures / appendEmptyMeasures", () => {
 
 describe("addInstrumentToScore", () => {
   it("adds a new instrument with empty measures", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "oboe");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "wind.reed.oboe");
 
     expect(result.parts).toHaveLength(2);
     expect(result.parts[1]!.name).toBe("Oboe");
@@ -278,41 +286,41 @@ describe("addInstrumentToScore", () => {
   });
 
   it("generates a unique part ID", () => {
-    const score = makeScore("flute", "violin");
-    const result = addInstrumentToScore(score, "oboe");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
+    const result = addInstrumentToScore(score, "wind.reed.oboe");
 
     const ids = result.parts.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length); // all unique
   });
 
   it("keeps canonical base names for duplicate instruments", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "flute");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "wind.flutes.flute");
 
     expect(result.parts[0]!.name).toBe("Flute");
     expect(result.parts[1]!.name).toBe("Flute");
   });
 
   it("keeps canonical short names for duplicate instruments", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "flute");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "wind.flutes.flute");
 
     expect(result.parts[0]!.shortName).toBe("Fl.");
     expect(result.parts[1]!.shortName).toBe("Fl.");
   });
 
   it("does not mutate the original score", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const originalName = score.parts[0]!.name;
-    addInstrumentToScore(score, "flute");
+    addInstrumentToScore(score, "wind.flutes.flute");
 
     // Original should be untouched
     expect(score.parts[0]!.name).toBe(originalName);
   });
 
   it("creates a per-part layout and score definition", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "oboe");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "wind.reed.oboe");
 
     const newPartId = result.parts[1]!.id;
     const perPartLayout = result.layouts!.find((l) => l.id === `L-${newPartId}`);
@@ -326,11 +334,11 @@ describe("addInstrumentToScore", () => {
   });
 
   it("appends staff to full-score layout only", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const _fullScoreLayoutBefore = score.layouts![0]!;
     const perPartLayoutCount = score.layouts!.length - 1; // FullScore excluded
 
-    const result = addInstrumentToScore(score, "oboe");
+    const result = addInstrumentToScore(score, "wind.reed.oboe");
     const priorIds = new Set(score.parts.map((part) => part.id));
     const newPartId = result.parts.find((part) => !priorIds.has(part.id))!.id!;
 
@@ -351,8 +359,8 @@ describe("addInstrumentToScore", () => {
   });
 
   it("sets useWritten for transposing instruments", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "trumpet");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "brass.trumpet.bflat");
 
     const trumpetPartId = result.parts[1]!.id;
     const perPartScore = result.scores!.find((sd) => sd.layout === `L-${trumpetPartId}`);
@@ -360,15 +368,15 @@ describe("addInstrumentToScore", () => {
   });
 
   it("returns the score unchanged for unknown instrument ID", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const result = addInstrumentToScore(score, "nonexistent_instrument_xyz");
 
     expect(result).toBe(score);
   });
 
   it("creates grand staff for piano", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "piano");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "keyboard.piano");
 
     const pianoPartId = result.parts[1]!.id;
     const perPartLayout = result.layouts!.find((l) => l.id === `L-${pianoPartId}`);
@@ -380,8 +388,8 @@ describe("addInstrumentToScore", () => {
   });
 
   it("updates score definition names when renumbering", () => {
-    const score = makeScore("flute");
-    const result = addInstrumentToScore(score, "flute");
+    const score = makeScore("wind.flutes.flute");
+    const result = addInstrumentToScore(score, "wind.flutes.flute");
 
     // Score defs for per-part layouts should match the renumbered names
     const scoreDef1 = result.scores!.find((sd) => sd.layout === `L-${result.parts[0]!.id}`);
@@ -393,7 +401,7 @@ describe("addInstrumentToScore", () => {
 
 describe("synchronizePartScoreDefinitions", () => {
   it("derives extract names and useWritten from the updated parts", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const parts = score.parts.map((part, index) =>
       index === 1
         ? {
@@ -419,7 +427,7 @@ describe("synchronizePartScoreDefinitions", () => {
   });
 
   it("updates imported part-{id} extract names", () => {
-    const score = makeScore("bass-drum");
+    const score = makeScore("drum.bass-drum");
     const part = { ...score.parts[0]!, name: "Percussion", shortName: "Perc." };
     const definitions = synchronizePartScoreDefinitions([part], [{ name: "Bass Drum", layout: `part-${part.id}` }]);
 
@@ -431,7 +439,7 @@ describe("synchronizePartScoreDefinitions", () => {
 
 describe("removeInstrumentFromScore", () => {
   it("removes a part by ID", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const oboeId = score.parts[1]!.id!;
     const result = removeInstrumentFromScore(score, oboeId);
 
@@ -440,7 +448,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("does not mutate the original score", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const originalPartCount = score.parts.length;
     const oboeId = score.parts[1]!.id!;
     removeInstrumentFromScore(score, oboeId);
@@ -449,7 +457,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("refuses to remove the last instrument", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const fluteId = score.parts[0]!.id!;
     const result = removeInstrumentFromScore(score, fluteId);
 
@@ -458,14 +466,14 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("returns score unchanged for unknown part ID", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const result = removeInstrumentFromScore(score, "nonexistent");
 
     expect(result).toBe(score);
   });
 
   it("removes the per-part layout and score definition", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const oboeId = score.parts[1]!.id!;
     const result = removeInstrumentFromScore(score, oboeId);
 
@@ -474,7 +482,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("removes the part from all layouts", () => {
-    const score = makeScore("flute", "oboe");
+    const score = makeScore("wind.flutes.flute", "wind.reed.oboe");
     const oboeId = score.parts[1]!.id!;
     const result = removeInstrumentFromScore(score, oboeId);
 
@@ -486,7 +494,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("removes the number when only one of a kind remains", () => {
-    const score = makeScore("flute", "flute");
+    const score = makeScore("wind.flutes.flute", "wind.flutes.flute");
     expect(score.scores?.find((entry) => entry.layout === `L-${score.parts[0]!.id}`)?.name).toBe("Flute 1");
     expect(score.scores?.find((entry) => entry.layout === `L-${score.parts[1]!.id}`)?.name).toBe("Flute 2");
 
@@ -499,7 +507,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("renumbers remaining parts when removing from middle", () => {
-    const score = makeScore("flute", "flute", "flute");
+    const score = makeScore("wind.flutes.flute", "wind.flutes.flute", "wind.flutes.flute");
 
     const flute2Id = score.parts[1]!.id!;
     const result = removeInstrumentFromScore(score, flute2Id);
@@ -512,7 +520,7 @@ describe("removeInstrumentFromScore", () => {
   });
 
   it("updates shortName when renumbering after removal", () => {
-    const score = makeScore("flute", "flute");
+    const score = makeScore("wind.flutes.flute", "wind.flutes.flute");
     const flute2Id = score.parts[1]!.id!;
     const result = removeInstrumentFromScore(score, flute2Id);
 

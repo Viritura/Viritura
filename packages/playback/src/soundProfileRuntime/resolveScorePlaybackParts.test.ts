@@ -13,7 +13,7 @@ function score(chordSymbols?: ChordSymbol[]): Score {
       id,
       name: "Piano",
       measures: [{ sequences: [{ content: [] }] }],
-      _x: { viritura: { instrumentId: "piano", midiProgram: 0 } },
+      _x: { viritura: { instrumentId: "keyboard.piano", midiProgram: 0 } },
     })),
   };
 }
@@ -67,7 +67,7 @@ describe("resolveScorePlaybackParts", () => {
     expect(chords).toMatchObject({
       index: input.parts.length,
       part: { id: CHORDS_PART_ID, name: "Chords", measures: [] },
-      sound: { profileId: "viritura-sounds", instrumentId: "piano", routing: { section: "keys" } },
+      sound: { profileId: "viritura-sounds", instrumentId: "keyboard.piano", routing: { section: "keys" } },
       sf2: { kind: "supported", primary: { kind: "midi", program: 0 }, layers: [] },
     });
     expect(chords.position).toEqual(resolvePartSounds([chords.part])[0]!.position);
@@ -115,7 +115,7 @@ describe("resolveScorePlaybackParts", () => {
     input.soundProfile = {
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { a: { sourceId: "tuba-primary" }, [CHORDS_PART_ID]: { sourceId: "tuba-primary" } },
+      parts: { a: { sourceId: "brass.tuba-primary" }, [CHORDS_PART_ID]: { sourceId: "brass.tuba-primary" } },
     };
     const resolved = resolveScorePlaybackParts(input);
     expect(resolved.slice(0, 2)).toEqual(resolvePartSounds(input.parts, input.soundProfile));

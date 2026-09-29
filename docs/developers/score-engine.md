@@ -104,7 +104,7 @@ messages.
 
 ```js
 const info = engine.info(mnx);
-// { parts: [{ id: "flute", index: 0, name: "Flute" }], measureCount: 32, scores: [{ index: 0, name: "Full score" }] }
+// { parts: [{ id: "wind.flutes.flute", index: 0, name: "Flute" }], measureCount: 32, scores: [{ index: 0, name: "Full score" }] }
 ```
 
 `info` reads the document without running layout. Use `scores` to offer a

@@ -17,7 +17,7 @@ const PERCUSSION_CLEF: ClefDef = { sign: "P", staffPosition: 0 };
 export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
   // ═══ WOODWINDS ═══
   {
-    id: "piccolo",
+    id: "wind.flutes.flute.piccolo",
     name: "Piccolo",
     shortName: "Picc.",
     family: "woodwinds",
@@ -30,7 +30,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 108,
   },
   {
-    id: "flute",
+    id: "wind.flutes.flute",
     name: "Flute",
     shortName: "Fl.",
     family: "woodwinds",
@@ -42,7 +42,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 96,
   },
   {
-    id: "alto-flute",
+    id: "wind.flutes.flute.alto",
     name: "Alto Flute",
     shortName: "A.Fl.",
     family: "woodwinds",
@@ -55,7 +55,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 91,
   },
   {
-    id: "oboe",
+    id: "wind.reed.oboe",
     name: "Oboe",
     shortName: "Ob.",
     family: "woodwinds",
@@ -67,7 +67,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 91,
   },
   {
-    id: "english-horn",
+    id: "wind.reed.english-horn",
     name: "English Horn",
     shortName: "E.Hn.",
     family: "woodwinds",
@@ -80,7 +80,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 84,
   },
   {
-    id: "bflat-clarinet",
+    id: "wind.reed.clarinet.bflat",
     name: "Clarinet in B♭",
     shortName: "Cl.",
     baseName: "Clarinet",
@@ -95,7 +95,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 94,
   },
   {
-    id: "a-clarinet",
+    id: "wind.reed.clarinet.a",
     name: "Clarinet in A",
     shortName: "Cl.",
     baseName: "Clarinet",
@@ -110,7 +110,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 93,
   },
   {
-    id: "eflat-clarinet",
+    id: "wind.reed.clarinet.eflat",
     name: "Clarinet in E♭",
     shortName: "Cl.",
     baseName: "Clarinet",
@@ -125,7 +125,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 97,
   },
   {
-    id: "bass-clarinet",
+    id: "wind.reed.clarinet.bass",
     name: "Bass Clarinet",
     shortName: "B.Cl.",
     family: "woodwinds",
@@ -138,7 +138,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 77,
   },
   {
-    id: "bassoon",
+    id: "wind.reed.bassoon",
     name: "Bassoon",
     shortName: "Bsn.",
     family: "woodwinds",
@@ -150,7 +150,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 75,
   },
   {
-    id: "contrabassoon",
+    id: "wind.reed.contrabassoon",
     name: "Contrabassoon",
     shortName: "Cbsn.",
     family: "woodwinds",
@@ -163,7 +163,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 57,
   },
   {
-    id: "soprano-sax",
+    id: "wind.reed.saxophone.soprano",
     name: "Soprano Saxophone",
     shortName: "S.Sax.",
     family: "woodwinds",
@@ -176,7 +176,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 90,
   },
   {
-    id: "alto-sax",
+    id: "wind.reed.saxophone.alto",
     name: "Alto Saxophone",
     shortName: "A.Sax.",
     family: "woodwinds",
@@ -189,7 +189,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 83,
   },
   {
-    id: "tenor-sax",
+    id: "wind.reed.saxophone.tenor",
     name: "Tenor Saxophone",
     shortName: "T.Sax.",
     family: "woodwinds",
@@ -202,7 +202,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 78,
   },
   {
-    id: "baritone-sax",
+    id: "wind.reed.saxophone.baritone",
     name: "Baritone Saxophone",
     shortName: "B.Sax.",
     family: "woodwinds",
@@ -215,7 +215,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 71,
   },
   {
-    id: "recorder",
+    id: "wind.flutes.recorder",
     name: "Recorder",
     shortName: "Rec.",
     family: "woodwinds",
@@ -229,7 +229,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
 
   // ═══ BRASS ═══
   {
-    id: "horn",
+    id: "brass.french-horn",
     name: "Horn in F",
     shortName: "Hn.",
     baseName: "Horn",
@@ -244,7 +244,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 77,
   },
   {
-    id: "trumpet",
+    id: "brass.trumpet.bflat",
     name: "Trumpet in B♭",
     shortName: "Tpt.",
     baseName: "Trumpet",
@@ -259,7 +259,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 89,
   },
   {
-    id: "c-trumpet",
+    id: "brass.trumpet.c",
     name: "Trumpet in C",
     shortName: "Tpt.",
     baseName: "Trumpet",
@@ -273,7 +273,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 87,
   },
   {
-    id: "cornet",
+    id: "brass.cornet",
     name: "Cornet in B♭",
     shortName: "Cnt.",
     baseName: "Cornet",
@@ -288,7 +288,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 87,
   },
   {
-    id: "flugelhorn",
+    id: "brass.flugelhorn",
     name: "Flugelhorn",
     shortName: "Flg.",
     family: "brass",
@@ -301,7 +301,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 84,
   },
   {
-    id: "trombone",
+    id: "brass.trombone",
     name: "Trombone",
     shortName: "Tbn.",
     family: "brass",
@@ -313,7 +313,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 79,
   },
   {
-    id: "bass-trombone",
+    id: "brass.trombone.bass",
     name: "Bass Trombone",
     shortName: "B.Tbn.",
     family: "brass",
@@ -325,7 +325,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 72,
   },
   {
-    id: "euphonium",
+    id: "brass.euphonium",
     name: "Euphonium",
     shortName: "Euph.",
     family: "brass",
@@ -337,7 +337,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 77,
   },
   {
-    id: "tuba",
+    id: "brass.tuba",
     name: "Tuba",
     shortName: "Tba.",
     family: "brass",
@@ -351,7 +351,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
 
   // ═══ PERCUSSION ═══
   {
-    id: "drum-kit",
+    id: "drum.group.set",
     name: "Drum Kit",
     shortName: "D.Kit",
     family: "percussion",
@@ -364,7 +364,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     kit: [...FULL_DRUM_KIT_COMPONENTS],
   },
   {
-    id: "orchestral-percussion",
+    id: "drum.group",
     name: "Orchestral Percussion",
     shortName: "Perc.",
     family: "percussion",
@@ -377,7 +377,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     kit: [...ORCHESTRAL_PERCUSSION_COMPONENTS],
   },
   {
-    id: "timpani",
+    id: "drum.timpani",
     name: "Timpani",
     shortName: "Timp.",
     family: "percussion",
@@ -389,7 +389,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 60,
   },
   {
-    id: "snare-drum",
+    id: "drum.snare-drum",
     name: "Snare Drum",
     shortName: "S.Dr.",
     family: "percussion",
@@ -403,7 +403,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 40,
   },
   {
-    id: "bass-drum",
+    id: "drum.bass-drum",
     name: "Bass Drum",
     shortName: "B.Dr.",
     family: "percussion",
@@ -417,7 +417,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 36,
   },
   {
-    id: "cymbals",
+    id: "metal.cymbal.clash",
     name: "Cymbals",
     shortName: "Cym.",
     family: "percussion",
@@ -432,7 +432,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 57,
   },
   {
-    id: "triangle",
+    id: "metal.triangle",
     name: "Triangle",
     shortName: "Tri.",
     family: "percussion",
@@ -447,7 +447,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 81,
   },
   {
-    id: "tambourine",
+    id: "drum.tambourine",
     name: "Tambourine",
     shortName: "Tamb.",
     family: "percussion",
@@ -461,7 +461,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 54,
   },
   {
-    id: "glockenspiel",
+    id: "pitched-percussion.glockenspiel",
     name: "Glockenspiel",
     shortName: "Glock.",
     family: "percussion",
@@ -474,7 +474,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 108,
   },
   {
-    id: "xylophone",
+    id: "pitched-percussion.xylophone",
     name: "Xylophone",
     shortName: "Xyl.",
     family: "percussion",
@@ -487,7 +487,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 108,
   },
   {
-    id: "vibraphone",
+    id: "pitched-percussion.vibraphone",
     name: "Vibraphone",
     shortName: "Vib.",
     family: "percussion",
@@ -499,7 +499,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 89,
   },
   {
-    id: "marimba",
+    id: "pitched-percussion.marimba",
     name: "Marimba",
     shortName: "Mar.",
     family: "percussion",
@@ -511,7 +511,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
     rangeHigh: 96,
   },
   {
-    id: "tubular-bells",
+    id: "pitched-percussion.tubular-bells",
     name: "Tubular Bells",
     shortName: "T.B.",
     family: "percussion",

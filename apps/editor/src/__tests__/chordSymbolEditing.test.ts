@@ -99,7 +99,7 @@ describe("applyChordSymbolEdit", () => {
 
   it("atomically shows newly entered global harmony on the source part, without changing layouts", () => {
     const score = scoreWithQuarterNotes();
-    score.parts[0]!.id = "piano";
+    score.parts[0]!.id = "keyboard.piano";
     score.layouts = [
       {
         id: "full",
@@ -107,8 +107,8 @@ describe("applyChordSymbolEdit", () => {
           {
             type: "group",
             content: [
-              { type: "staff", sources: [{ part: "piano", staff: 1 }] },
-              { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
             ],
           },
         ],

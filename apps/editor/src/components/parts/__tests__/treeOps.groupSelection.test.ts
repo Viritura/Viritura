@@ -23,7 +23,7 @@ const brass: LayoutContent[] = [
   staff("tp3"), // [3]
   group("Trombone 1/2", [staff("tb1"), staff("tb2")]), // [4]
   staff("tb3"), // [5]
-  staff("tuba"), // [6]
+  staff("brass.tuba"), // [6]
 ];
 
 describe("normalizeGroupSelection", () => {

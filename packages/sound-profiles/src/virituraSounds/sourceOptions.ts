@@ -31,18 +31,6 @@ export const ORCHESTRA_SECTION_LABELS: Readonly<Record<OrchestraSection, string>
   other: "Other",
 };
 
-function sourceLabel(instrumentId: string): string {
-  return instrumentId
-    .split("-")
-    .map((word) => {
-      if (word === "bflat") return "B-flat";
-      if (word === "eflat") return "E-flat";
-      if (word === "c") return "C";
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(" ");
-}
-
 /**
  * Canonical VirituraSounds choices in orchestra order. Each entry is a
  * profile-defined playable identity, independent from a score part's notation.
@@ -54,7 +42,7 @@ export const VIRITURA_SOUNDS_SOURCE_OPTIONS: readonly VirituraSoundsSourceOption
     sourceId: virituraSoundsSourceId(rule.instrumentId),
     instrumentId: rule.instrumentId,
     section: rule.routing.section,
-    label: sourceLabel(rule.instrumentId),
+    label: rule.label,
   }))
   .sort(
     (left, right) => ORCHESTRA_SECTION_ORDER.indexOf(left.section) - ORCHESTRA_SECTION_ORDER.indexOf(right.section),
