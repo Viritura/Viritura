@@ -79,6 +79,7 @@ export function buildWriteMode(args: BuildWriteModeArgs): WorkspaceMode {
           activeTab={args.writeLeftTab}
           onActiveTabChange={args.setWriteLeftTab}
           paletteSectionRequest={args.paletteSectionRequest}
+          horizonTextFrames={args.viewMode === "horizon"}
         />
       </Panel>,
     );

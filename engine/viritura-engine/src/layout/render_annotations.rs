@@ -60,6 +60,8 @@ pub(crate) use substrate_obstacles::{
     highest_point_in_range, lowest_point_in_measure, AboveGlyphBox, ArticBox,
 };
 
+pub(crate) use text_content::{content_width, emit_content};
+
 #[allow(unused_imports)] // Preserve the annotation barrel API for geometry and test consumers.
 pub(crate) use tempo::{
     global_tempo_widths, measure_tempo_width, render_tempo_markings, resolve_tempo_placement,

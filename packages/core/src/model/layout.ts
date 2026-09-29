@@ -3,6 +3,8 @@
  * These are NOT stored in MNX — they're computed or stored in .viritura.
  */
 
+import type { TextFrame } from "./textFrame";
+
 /**
  * Page dimensions.
  */
@@ -471,6 +473,8 @@ export interface ScoreDefinition {
   instrumentNameDisplay?: InstrumentNameDisplaySettings;
   /** Forced starts consumed by automatic system and page flow. */
   layoutBreaks?: LayoutBreak[];
+  /** Free text frames owned by this score view, not by staffs or systems. */
+  textFrames?: TextFrame[];
 }
 
 /** A page within a score definition. */

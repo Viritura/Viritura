@@ -81,6 +81,7 @@ import { computeDisplayListImpl, prewarmPatchChain } from "./computeDisplayList"
 import { initWasmAndFont } from "./initWasmAndFont";
 import type { LayoutBackend } from "./layoutBackend";
 import { runBackgroundTask } from "../../store/backgroundTaskStore";
+import { usePublishRenderedPageCount } from "../textFrames";
 import { useEngraveHoverFade } from "./useEngraveHoverFade";
 import { useFastLayoutCallback, runSecondaryRelayout, useScoreViewRelayout } from "./relayoutEffects";
 import { usePlayPauseShortcut } from "./usePlayPauseShortcut";
@@ -268,6 +269,13 @@ export const ScoreCanvas = forwardRef<ScoreCanvasHandle, ScoreCanvasProps>(
     } = useNoteInput();
 
     const { mnxJson, score: docScore, dirty } = useDocument();
+    usePublishRenderedPageCount(
+      displayListRef,
+      displayListVersion,
+      docScore,
+      selectedScoreIndex,
+      viewMode !== "horizon",
+    );
     const { updateScore } = useDocumentActions();
     const documentStore = useDocumentStoreApi();
 

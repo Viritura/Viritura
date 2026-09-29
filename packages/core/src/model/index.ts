@@ -10,6 +10,7 @@
 
 export * from "./score";
 export * from "./text";
+export * from "./textFrame";
 export * from "./part";
 export * from "./measure";
 export * from "./event";

@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { LayoutPanelTop, Palette, SlidersHorizontal } from "lucide-react";
+import { LayoutPanelTop, Palette, SlidersHorizontal, TextSelect } from "lucide-react";
 import { Tabs } from "@viritura/ui";
 import { defaultPageSetupForScore, type PageSetup, type Score } from "@viritura/core";
 import { PageSetupDialog } from "../../../PageSetupDialog";
 import { HouseStylePanel } from "../HouseStylePanel";
 import { NotationInspector } from "../../../NotationInspector";
+import { TextFramesPanel } from "../../../textFrames";
 import { InstrumentNameDisplayControl } from "../../../parts/InstrumentNameDisplayControl";
 import {
   instrumentNameDisplayLayoutIds,
@@ -29,6 +30,7 @@ interface EngraveLeftPanelProps {
 const TABS = [
   { id: "house-style", label: "House Style", icon: <Palette size={14} /> },
   { id: "layouts", label: "Layouts", icon: <LayoutPanelTop size={14} /> },
+  { id: "text-frames", label: "Text", icon: <TextSelect size={14} /> },
   { id: "properties", label: "Properties", icon: <SlidersHorizontal size={14} /> },
 ];
 
@@ -92,6 +94,8 @@ export function EngraveLeftPanel({
               </section>
             )}
           </div>
+        ) : activeTab === "text-frames" ? (
+          <TextFramesPanel />
         ) : (
           <NotationInspector />
         )}

@@ -46,6 +46,7 @@ export type SelectableElementType =
   | "grace-note"
   | "note"
   | "accidental"
+  | "text-frame"
   | "unknown";
 
 /**
@@ -107,6 +108,8 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
   if (elementId.startsWith("trill-line/")) return "trill";
+  // `text-frame/{frameId}`: the frame ID is authored free text (percent-encoded), so its last segment must not be classified.
+  if (elementId.startsWith("text-frame/")) return "text-frame";
   if (canonicalChordSymbolId(elementId)) return "chord-symbol";
 
   const segments = elementId.split("/");

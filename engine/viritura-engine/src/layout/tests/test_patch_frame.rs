@@ -1335,3 +1335,68 @@ fn lever1_scoped_render_loop_probe() {
         last_skips
     );
 }
+
+#[test]
+fn patch_frame_reconstruction_includes_text_frames_on_reused_systems() {
+    let global: Vec<String> = (0..16)
+        .map(|index| format!(r#"{{"id":"m{index}"}}"#))
+        .collect();
+    let measures: Vec<String> = (0..16)
+        .map(|index| {
+            format!(
+                r#"{{"sequences":[{{"content":[{{"type":"event","id":"e{index}","duration":{{"base":"whole"}},"notes":[{{"pitch":{{"step":"C","octave":5}}}}]}}]}}]}}"#
+            )
+        })
+        .collect();
+    let json = format!(
+        r#"{{
+            "mnx": {{"version": 1}},
+            "global": {{"measures": [{}]}},
+            "layouts": [{{"id": "L", "content": [{{"type": "staff", "sources": [{{"part": "P1"}}]}}]}}],
+            "scores": [{{"name": "Full", "layout": "L", "_x": {{"viritura": {{
+                "layoutBreaks": [{{"measure": "m8", "kind": "page"}}],
+                "textFrames": [{{
+                    "id": "f",
+                    "content": [{{"text": "FRAME NOTE"}}],
+                    "locator": {{"type": "event", "partId": "P1", "eventId": "e12"}},
+                    "placement": {{"anchor": "bottom", "offset": {{"x": 0, "y": 0}}}},
+                    "width": {{"unit": "textColumnFraction", "value": 0.5}},
+                    "border": "solid"
+                }}]
+            }}}}}}],
+            "parts": [{{"id": "P1", "name": "Flute", "measures": [{}]}}]
+        }}"#,
+        global.join(","),
+        measures.join(",")
+    );
+    let score = parse_mnx(&json).unwrap();
+    let config = LayoutConfig {
+        page_width: Some(816.0),
+        ..LayoutConfig::default()
+    };
+    let mut truth_cache = LayoutCache::new();
+    let mut cache = LayoutCache::new();
+    cache.set_patch_frame_enabled(true);
+    let mut segments = Vec::new();
+    for warm in [false, true] {
+        let truth = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut truth_cache));
+        assert!(truth.commands.iter().any(|command| matches!(
+            command,
+            crate::render::RenderCommand::DrawText { text, .. } if text == "FRAME NOTE"
+        )));
+        let _ = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let patch = cache.take_pending_patch().expect("auto-flow emits patch");
+        if warm {
+            assert!(patch
+                .placements
+                .iter()
+                .all(|placement| matches!(placement, SystemPlacement::Reuse { .. })));
+        }
+        let (reconstructed, next) = reconstruct(&patch, &segments);
+        segments = next;
+        assert!(
+            binary_bits(&truth) == binary_bits(&reconstructed),
+            "text-frame patch reconstruction diverged: warm={warm}"
+        );
+    }
+}

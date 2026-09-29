@@ -43,14 +43,17 @@ import { useTimeSignatureInspector } from "./inspector/useTimeSignatureInspector
 import { BeamSection } from "./inspector/BeamSection";
 import { useBeamInspector } from "./inspector/useBeamInspector";
 
+import { HorizonTextFrames } from "./textFrames";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
 
 interface NotationInspectorProps {
   preferredSection?: InspectorSection | null;
+  /** Horizon view hides page-placed text frames; list and edit them alongside the selection. */
+  horizonTextFrames?: boolean;
 }
 
-function NotationInspectorEmptyState() {
+function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?: boolean }) {
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" />
@@ -61,6 +64,7 @@ function NotationInspectorEmptyState() {
           Select a note, marking, barline, or other score element to view and edit its notation details here.
         </p>
       </div>
+      {horizonTextFrames && <HorizonTextFrames />}
     </aside>
   );
 }
@@ -173,7 +177,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
   } = useTieSlurHandlers({ score, target, glissando: selectedGlissando, updateScore });
 
   if (!target && !staffConfig.target && !measureNumber.isAvailable && !beam.isAvailable) {
-    return <NotationInspectorEmptyState />;
+    return <NotationInspectorEmptyState horizonTextFrames={_props.horizonTextFrames} />;
   }
 
   const selectionSubtitle = target
@@ -410,6 +414,8 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
             onApplyColor={applySelectedColor}
           />
         )}
+
+        {_props.horizonTextFrames && <HorizonTextFrames />}
       </div>
     </aside>
   );
