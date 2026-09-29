@@ -18,6 +18,9 @@ import type {
   Sequence,
   Beam,
   StaffMeterChange,
+  InstrumentChange,
+  InstrumentDefinition,
+  Transposition,
 } from "@viritura/core";
 import { isStaffMeterReset } from "@viritura/core";
 
@@ -50,6 +53,15 @@ export function serializePart(part: Part, helpers: PartSerializerHelpers): Obj {
     if (partExt.midiProgram !== undefined) ext["midiProgram"] = partExt.midiProgram;
     if (partExt.family !== undefined) ext["family"] = partExt.family;
     if (partExt.spatial !== undefined) ext["spatial"] = { x: partExt.spatial.x, y: partExt.spatial.y };
+    if (partExt.instruments !== undefined) {
+      ext["instruments"] = Object.fromEntries(
+        Object.entries(partExt.instruments).map(([key, instrument]) => [
+          key,
+          serializeInstrumentDefinition(instrument),
+        ]),
+      );
+    }
+    if (partExt.initialInstrument !== undefined) ext["initialInstrument"] = partExt.initialInstrument;
   }
   if (part.chordSymbolVisibility !== undefined) ext["chordSymbolVisibility"] = part.chordSymbolVisibility;
   if (Object.keys(ext).length > 0) {
@@ -58,7 +70,7 @@ export function serializePart(part: Part, helpers: PartSerializerHelpers): Obj {
   return partObj;
 }
 
-function serializeTransposition(t: NonNullable<Part["transposition"]>): Obj {
+function serializeTransposition(t: Transposition): Obj {
   const out: Obj = {
     interval: {
       halfSteps: t.interval.halfSteps,
@@ -67,6 +79,29 @@ function serializeTransposition(t: NonNullable<Part["transposition"]>): Obj {
   };
   if (t.keyFifthsFlipAt !== undefined) out["keyFifthsFlipAt"] = t.keyFifthsFlipAt;
   if (t.prefersWrittenPitches !== undefined) out["prefersWrittenPitches"] = t.prefersWrittenPitches;
+  return out;
+}
+
+function serializeInstrumentDefinition(instrument: InstrumentDefinition): Obj {
+  const out: Obj = { instrumentId: instrument.instrumentId };
+  if (instrument.name !== undefined) out["name"] = instrument.name;
+  if (instrument.shortName !== undefined) out["shortName"] = instrument.shortName;
+  if (instrument.transposition) out["transposition"] = serializeTransposition(instrument.transposition);
+  if (instrument.midiProgram !== undefined) out["midiProgram"] = instrument.midiProgram;
+  return out;
+}
+
+function serializeInstrumentChange(change: InstrumentChange): Obj {
+  const out: Obj = {};
+  if (change.position) out["position"] = change.position;
+  if (change.instrument !== undefined) out["instrument"] = change.instrument;
+  if (change.transposition) out["transposition"] = serializeTransposition(change.transposition);
+  if (change.instruction) {
+    const instruction: Obj = {};
+    if (change.instruction.text !== undefined) instruction["text"] = change.instruction.text;
+    if (change.instruction.hidden !== undefined) instruction["hidden"] = change.instruction.hidden;
+    out["instruction"] = instruction;
+  }
   return out;
 }
 
@@ -222,6 +257,9 @@ function collectPartMeasureVendorExt(pm: PartMeasure, helpers: PartSerializerHel
   }
   if (pm.staffMeters && pm.staffMeters.length > 0) {
     ext["staffMeters"] = pm.staffMeters.map(serializeStaffMeterChange);
+  }
+  if (pm.instrumentChanges && pm.instrumentChanges.length > 0) {
+    ext["instrumentChanges"] = pm.instrumentChanges.map(serializeInstrumentChange);
   }
   return ext;
 }

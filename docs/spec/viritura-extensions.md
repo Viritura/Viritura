@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                     |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility                              |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, chordSymbols                                    |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters                 |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                   |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                          |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                       |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                        |
+| -------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow    |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                    |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, chordSymbols                                       |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                           |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                             |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                     |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                      |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                        |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                              |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                             |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                          |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -211,6 +211,61 @@ same policy directly: full-then-short, short-only, or hidden.
 `_x.viritura` on an MNX source part (`parts[]`). Schema def: `part-extensions`.
 Instrument identity and placement use `instrumentId`, `midiProgram` (0–127),
 `family`, and `spatial` (`{ x, y }` in stage meters).
+
+`instrumentId` is a [MusicXML standard sound ID](https://www.w3.org/2021/06/musicxml40/listings/sounds.xml/)
+(for example `wind.reed.clarinet.bflat`, `brass.french-horn`,
+`strings.contrabass`). Viritura uses the MusicXML hierarchy rather than a
+private catalog so that identity survives MusicXML round-trips and consumers
+can fall back by walking up the dotted hierarchy (`wind.reed.clarinet.bflat` →
+`wind.reed.clarinet` → `wind.reed`) before falling back to `midiProgram` and
+finally the part name. Pre-MusicXML Viritura catalog IDs (such as
+`bflat-clarinet`) are not recognized.
+
+### `instruments` and `initialInstrument` (provisional)
+
+Provisional model for doubling within one player's part (flute ↔ piccolo,
+oboe ↔ English horn, A ↔ B♭ clarinet, percussion instrument changes). MNX has
+no instrument object yet (see [w3c-cg/mnx#466](https://github.com/w3c-cg/mnx/issues/466));
+this extension prototypes one so Viritura can map to it if MNX adopts a
+similar model. Engraving, playback, and editor UI do not yet consume it.
+
+- `instruments`: map from a document-local key to an `instrument-definition`:
+  `instrumentId` (required MusicXML sound ID), optional `name`, `shortName`,
+  `transposition` (same shape as MNX `part-transposition`), and `midiProgram`.
+- `initialInstrument`: key of the instrument active at the start of the part.
+  Required when `instruments` is present.
+
+Native MNX fields keep describing the **initial** state so plain MNX readers
+see a correct part: `part.name`, `part.shortName`, and `part.transposition`
+should match the initial instrument, and `_x.viritura.instrumentId`, when
+present, must equal its `instrumentId`. The validator rejects a mismatched
+`instrumentId` or initial transposition. The part's `kit` stays part-level.
+
+```json
+{
+  "id": "P1",
+  "name": "Flute",
+  "measures": [],
+  "_x": {
+    "viritura": {
+      "instrumentId": "wind.flutes.flute",
+      "initialInstrument": "fl",
+      "instruments": {
+        "fl": { "instrumentId": "wind.flutes.flute", "name": "Flute", "shortName": "Fl." },
+        "picc": {
+          "instrumentId": "wind.flutes.flute.piccolo",
+          "name": "Piccolo",
+          "shortName": "Picc.",
+          "transposition": { "interval": { "halfSteps": 12, "staffDistance": 7 } }
+        }
+      }
+    }
+  }
+}
+```
+
+See [`instrumentChanges`](#instrumentchanges-provisional) for switching
+between them.
 
 ### `chordSymbolVisibility`
 
@@ -532,7 +587,7 @@ paths or plug-in state.
         "profileId": "viritura-sounds",
         "profileVersion": 1,
         "parts": {
-          "clarinet-1": { "sourceId": "tuba-primary" }
+          "clarinet-1": { "sourceId": "brass.tuba-primary" }
         }
       }
     }
@@ -1041,6 +1096,58 @@ Declarations inherit per staff independently: setting staff 2's meter does
 not disturb staff 1, and a later measure with no `staffMeters` entry for
 staff 2 keeps that staff's most recently declared meter (or the global meter,
 if never declared or already reset).
+
+### `instrumentChanges` (provisional)
+
+Ordered list of `instrument-change` entries that change the active
+instrument, the active transposition, or both, from `position` (a
+[rhythmic position](#rhythmic-position); absent means the start of the
+measure). Each entry must set `instrument`, `transposition`, or both:
+
+| Entry                            | Meaning                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `instrument` only                | Switch to that key in the part's `instruments`; transposition resets to that instrument's default.           |
+| `transposition` only             | Keep the instrument, change its transposition (horn/trumpet crooks, rotary change). No `instruments` needed. |
+| `instrument` and `transposition` | Switch instrument with an explicit transposition overriding its default.                                     |
+
+A zero interval (`{ "halfSteps": 0, "staffDistance": 0 }`) returns to concert
+pitch. Changes persist until the next change and apply from their own
+position onward; ties, slurs, and hairpins are not expected to cross them.
+The optional `instruction` carries the authored change text
+(`{ "text": "muta in Picc." }`) or `{ "hidden": true }` to suppress the default
+label. Positions must be unique within a measure, and `instrument` must name
+a key in the part's `instruments`.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "instrumentChanges": [{ "instrument": "picc", "instruction": { "text": "muta in Picc." } }]
+    }
+  }
+}
+```
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "instrumentChanges": [
+        {
+          "position": { "fraction": [1, 2] },
+          "transposition": { "interval": { "halfSteps": -9, "staffDistance": -5 } },
+          "instruction": { "text": "in Es" }
+        }
+      ]
+    }
+  }
+}
+```
+
+The decoded TypeScript field is `PartMeasure.instrumentChanges`;
+`resolveActiveInstrument(part, measureIndex, position)` and
+`listInstrumentChanges(part)` in `@viritura/core` resolve the active
+instrument and transposition at any point.
 
 ---
 

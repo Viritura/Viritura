@@ -20,6 +20,7 @@ import type { Caesura, Sequence } from "./event";
 import type { KeySignature } from "./key";
 import type { GroupingDisplay, TimeSignature } from "./time";
 import type { StaffMeterChange } from "./staffMeter";
+import type { InstrumentChange } from "./instrumentChange";
 import type { Barline } from "./barline";
 import type { Narrow, WithVendor } from "./_derive";
 import type { TextContent } from "./text";
@@ -422,6 +423,12 @@ export interface PartMeasure {
    * or reset; see `./staffMeter`.
    */
   staffMeters?: StaffMeterChange[];
+  /**
+   * Provisional mid-part instrument and/or transposition changes
+   * (Viritura extension), effective from their position onward; see
+   * `./instrumentChange`.
+   */
+  instrumentChanges?: InstrumentChange[];
 }
 
 /**

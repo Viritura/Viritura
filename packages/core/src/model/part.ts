@@ -1,5 +1,6 @@
 import type { PartMeasure } from "./measure";
 import type { KitComponent } from "./kit";
+import type { InstrumentDefinition } from "./instrumentChange";
 
 /**
  * MNX interval — chromatic + diatonic components.
@@ -31,7 +32,7 @@ export interface Transposition {
  * identity without falling back to fuzzy name matching.
  */
 export interface PartVirituraExt {
-  /** Stable instrument-catalog ID (e.g. "flute", "bflat-clarinet"). */
+  /** MusicXML standard sound ID (e.g. "wind.flutes.flute", "wind.reed.clarinet.bflat"). */
   instrumentId?: string;
   /** General-MIDI program (0..127). Used directly by the audio engine. */
   midiProgram?: number;
@@ -40,6 +41,11 @@ export interface PartVirituraExt {
   /** Spatial-audio stage position in concert-hall meters. Persisted from Play
    *  mode so a user's instrument arrangement survives reload. */
   spatial?: { x: number; y: number };
+  /** Provisional: instruments this part can switch between, keyed by a
+   *  document-local key. See `./instrumentChange`. */
+  instruments?: Record<string, InstrumentDefinition>;
+  /** Key into {@link instruments} for the instrument active at the start. */
+  initialInstrument?: string;
 }
 
 /**

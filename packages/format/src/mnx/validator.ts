@@ -15,6 +15,7 @@ import type { ValidateFunction, ErrorObject } from "ajv/dist/2020";
 import type { Root as RawScore } from "@viritura/core/raw";
 import type { MeasureGlobalExtensions } from "@viritura/core/raw-viritura";
 import { isSupportedDynamicGlyph } from "@viritura/core";
+import { validateInstrumentChanges } from "./instrumentChangeValidation";
 import {
   mnxDocument,
   rootExtensions,
@@ -109,6 +110,7 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
       ...validateChordSymbols(value),
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
+      ...validateInstrumentChanges(value),
       ...validateBeatStructures(value),
       ...validateTupletSpans(json),
       ...validateTupletDurations(json),
