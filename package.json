@@ -83,7 +83,7 @@
     "@inquirer/checkbox": "^5.2.5",
     "@playwright/test": "^1.63.0",
     "@types/node": "24.0.0",
-    "autoprefixer": "^10.5.4",
+    "autoprefixer": "^10.6.1",
     "concurrently": "^10.0.5",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
