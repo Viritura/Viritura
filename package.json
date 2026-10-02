@@ -96,7 +96,7 @@
     "postcss": "^8.5.27",
     "prettier": "^3.9.6",
     "tsx": "^4.22.3",
-    "turbo": "^2.9.14",
+    "turbo": "^2.11.5",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.70.1",
     "wrangler": "4.131.1"
