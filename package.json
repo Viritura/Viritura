@@ -91,7 +91,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "globals": "^17.6.0",
+    "globals": "^17.12.0",
     "knip": "^6.14.2",
     "postcss": "^8.5.27",
     "prettier": "^3.9.6",
