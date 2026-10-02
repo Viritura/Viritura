@@ -24,7 +24,7 @@
     "@viritura/score-viewer-react": "0.1.0",
     "@viritura/ui": "workspace:*",
     "marked": "^14.0.0",
-    "monaco-editor": "0.56.0",
+    "monaco-editor": "0.57.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
