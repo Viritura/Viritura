@@ -226,8 +226,7 @@ fn emit_line(
         && line.words.len() > 1
         && line.natural_width < inner_width;
     if stretch {
-        let gap =
-            line.space_width + (inner_width - line.natural_width) / (line.words.len() - 1) as f64;
+        let extra_space = (inner_width - line.natural_width) / (line.words.len() - 1) as f64;
         let mut x = inner_left;
         for word in &line.words {
             emit(
@@ -238,7 +237,7 @@ fn emit_line(
                 font,
                 TextAlign::Left,
             );
-            x += word.width + gap;
+            x += word.width + word.space_width + extra_space;
         }
         return;
     }

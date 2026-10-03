@@ -97,6 +97,44 @@ const PAGE_BREAK_AT_15: &str = r#"{"measure":"m15","kind":"page"}"#;
 const TOP_LEFT: &str = r#","placement":{"anchor":"top-left","offset":{"x":0,"y":0}}"#;
 
 #[test]
+fn frames_render_without_layout_definitions_and_stay_hidden_in_horizon() {
+    let frames = [
+        frame(
+            "page",
+            "FALLBACKPAGE",
+            r#"{"type":"page","pageIndex":0}"#,
+            TOP_LEFT,
+        ),
+        frame(
+            "measure",
+            "FALLBACKMEASURE",
+            r#"{"type":"globalMeasure","measureId":"m0"}"#,
+            TOP_LEFT,
+        ),
+        frame(
+            "event",
+            "FALLBACKEVENT",
+            r#"{"type":"event","partId":"P1","eventId":"e0"}"#,
+            TOP_LEFT,
+        ),
+    ]
+    .join(",");
+    let mut doc: serde_json::Value = serde_json::from_str(&document(&frames, "", "")).unwrap();
+    doc.as_object_mut().unwrap().remove("layouts");
+    doc["scores"][0].as_object_mut().unwrap().remove("layout");
+    let doc = doc.to_string();
+    let dl = layout(&doc, &paged());
+    for needle in ["FALLBACKPAGE", "FALLBACKMEASURE", "FALLBACKEVENT"] {
+        assert_eq!(
+            texts(&dl, needle).len(),
+            1,
+            "{needle} must render in fallback"
+        );
+    }
+    assert!(texts(&layout(&doc, &LayoutConfig::default()), "FALLBACK").is_empty());
+}
+
+#[test]
 fn page_locator_places_frame_on_final_page_inside_margins() {
     let config = paged();
     let doc = document(

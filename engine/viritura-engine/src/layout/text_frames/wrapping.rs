@@ -8,7 +8,7 @@
 //! mid-word (standard typesetting practice without hyphenation).
 
 use crate::layout::render_annotations::content_width;
-use crate::layout::text_styles::{self, FontFamily};
+use crate::layout::text_styles::FontFamily;
 use crate::model::{TextContent, TextContentChunk, TextRun, TextRunStyle};
 
 /// Baseline-to-baseline distance as a multiple of the tallest run on a line.
@@ -26,6 +26,7 @@ pub(super) struct FrameFont {
 pub(super) struct Word {
     pub chunks: Vec<TextContentChunk>,
     pub width: f64,
+    pub space_width: f64,
     size_multiplier: f64,
 }
 
@@ -33,7 +34,6 @@ pub(super) struct Line {
     pub words: Vec<Word>,
     /// Width of the words plus one natural space between each pair.
     pub natural_width: f64,
-    pub space_width: f64,
     pub height: f64,
     pub ascent: f64,
     /// Last line of an authored paragraph (never stretched by full justification).
@@ -41,7 +41,6 @@ pub(super) struct Line {
 }
 
 pub(super) fn wrap(content: &TextContent, inner_width: f64, font: &FrameFont) -> Vec<Line> {
-    let space_width = text_styles::text_width(" ", font.base_size, font.family, font.bold);
     let mut lines = Vec::new();
     for paragraph in paragraphs(content) {
         let words: Vec<Word> = paragraph
@@ -54,17 +53,17 @@ pub(super) fn wrap(content: &TextContent, inner_width: f64, font: &FrameFont) ->
             let needed = if current.is_empty() {
                 word.width
             } else {
-                current_width + space_width + word.width
+                current_width + current.last().unwrap().space_width + word.width
             };
             if !current.is_empty() && needed > inner_width + WIDTH_TOLERANCE {
-                lines.push(finish_line(std::mem::take(&mut current), space_width, font));
+                lines.push(finish_line(std::mem::take(&mut current), font));
                 current_width = word.width;
             } else {
                 current_width = needed;
             }
             current.push(word);
         }
-        lines.push(finish_line(current, space_width, font));
+        lines.push(finish_line(current, font));
         if let Some(last) = lines.last_mut() {
             last.ends_paragraph = true;
         }
@@ -137,9 +136,16 @@ fn measure_word(chunks: Vec<TextContentChunk>, font: &FrameFont) -> Word {
         font.family,
         font.bold,
     );
+    let space_width = content_width(
+        &TextContent(vec![space_after(&chunks)]),
+        font.base_size,
+        font.family,
+        font.bold,
+    );
     Word {
         chunks,
         width,
+        space_width,
         size_multiplier,
     }
 }
@@ -157,22 +163,36 @@ fn size_multiplier(chunk: &TextContentChunk) -> f64 {
         .unwrap_or(1.0)
 }
 
-fn finish_line(words: Vec<Word>, space_width: f64, font: &FrameFont) -> Line {
+fn finish_line(words: Vec<Word>, font: &FrameFont) -> Line {
     let tallest = words
         .iter()
         .map(|word| word.size_multiplier)
         .fold(1.0, f64::max);
     let size = font.base_size * tallest;
-    let gaps = words.len().saturating_sub(1) as f64;
-    let natural_width = words.iter().map(|word| word.width).sum::<f64>() + gaps * space_width;
+    let natural_width = words.iter().map(|word| word.width).sum::<f64>()
+        + words
+            .iter()
+            .take(words.len().saturating_sub(1))
+            .map(|word| word.space_width)
+            .sum::<f64>();
     Line {
         words,
         natural_width,
-        space_width,
         height: LINE_SPACING * size,
         ascent: ASCENT * size,
         ends_paragraph: false,
     }
+}
+
+fn space_after(chunks: &[TextContentChunk]) -> TextContentChunk {
+    let style = match chunks.last() {
+        Some(TextContentChunk::Text(run)) => run.style.clone(),
+        _ => None,
+    };
+    TextContentChunk::Text(TextRun {
+        text: " ".into(),
+        style,
+    })
 }
 
 impl Line {
@@ -183,17 +203,8 @@ impl Line {
         let mut chunks: Vec<TextContentChunk> = Vec::new();
         for (index, word) in self.words.iter().enumerate() {
             if index > 0 {
-                let style = match chunks.last() {
-                    Some(TextContentChunk::Text(run)) => run.style.clone(),
-                    _ => None,
-                };
-                append_chunk(
-                    &mut chunks,
-                    TextContentChunk::Text(TextRun {
-                        text: " ".into(),
-                        style,
-                    }),
-                );
+                let space = space_after(&chunks);
+                append_chunk(&mut chunks, space);
             }
             for chunk in &word.chunks {
                 append_chunk(&mut chunks, chunk.clone());
@@ -218,6 +229,7 @@ fn append_chunk(chunks: &mut Vec<TextContentChunk>, chunk: TextContentChunk) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::text_styles;
     use crate::model::{GlyphRun, TextWeight, TextWeightName};
 
     const FONT: FrameFont = FrameFont {
@@ -313,5 +325,49 @@ mod tests {
         let lines = wrap(&TextContent(vec![text("small\n"), big]), 10_000.0, &FONT);
         assert!((lines[1].height - 2.0 * lines[0].height).abs() < 1e-9);
         assert!((lines[1].ascent - 2.0 * ASCENT * FONT.base_size).abs() < 1e-9);
+    }
+
+    #[test]
+    fn styled_spaces_match_rendered_width_and_control_line_breaks() {
+        let content = TextContent(vec![TextContentChunk::Text(TextRun {
+            text: "word word".into(),
+            style: Some(TextRunStyle {
+                size: Some(2.0),
+                ..TextRunStyle::default()
+            }),
+        })]);
+        let rendered_width = content_width(&content, FONT.base_size, FONT.family, FONT.bold);
+        let lines = wrap(&content, rendered_width, &FONT);
+        assert_eq!(line_texts(&lines), ["word word"]);
+        assert!((lines[0].natural_width - rendered_width).abs() < WIDTH_TOLERANCE);
+        let base_space = text_styles::text_width(" ", FONT.base_size, FONT.family, FONT.bold);
+        assert_eq!(
+            line_texts(&wrap(&content, rendered_width - base_space / 2.0, &FONT)),
+            ["word", "word"]
+        );
+    }
+
+    #[test]
+    fn mixed_style_spaces_match_joined_content_width() {
+        let content = TextContent(vec![
+            TextContentChunk::Text(TextRun {
+                text: "big ".into(),
+                style: Some(TextRunStyle {
+                    size: Some(2.0),
+                    ..TextRunStyle::default()
+                }),
+            }),
+            text("small end"),
+        ]);
+        let lines = wrap(&content, 10_000.0, &FONT);
+        let line = &lines[0];
+        assert!(line.words[0].space_width > line.words[1].space_width);
+        let width = content_width(
+            &line.joined_content(),
+            FONT.base_size,
+            FONT.family,
+            FONT.bold,
+        );
+        assert!((line.natural_width - width).abs() < WIDTH_TOLERANCE);
     }
 }
