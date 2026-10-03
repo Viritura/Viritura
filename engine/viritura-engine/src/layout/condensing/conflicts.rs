@@ -750,6 +750,7 @@ mod tests {
             voice: None,
             source_part_index: None,
             source_expression_index: None,
+            instrument_reminder: false,
             manual_offset: None,
             avoid_collisions: None,
         }

@@ -516,6 +516,7 @@ pub(super) fn build_virtual_part_measure(
                 part,
                 measure_index,
                 source.part_index,
+                score,
             );
             if let Some(instructions) = instructions.expressions {
                 expressions
@@ -730,6 +731,7 @@ pub(super) fn append_partial_unison_label(
             voice: None,
             source_part_index: None,
             source_expression_index: None,
+            instrument_reminder: false,
             manual_offset: None,
             avoid_collisions: None,
         });

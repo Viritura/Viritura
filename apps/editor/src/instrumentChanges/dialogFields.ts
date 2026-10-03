@@ -13,7 +13,18 @@ export function initialBarChangeFields(part: Part, measureIndex: number) {
     prefersWritten: state.transposition?.prefersWrittenPitches ?? false,
     text: change?.instruction?.text ?? "",
     hidden: change?.instruction?.hidden ?? false,
+    reminderText: change?.reminder?.text ?? "",
+    reminderEnabled: change?.reminder !== undefined && !change.reminder.hidden,
   };
+}
+
+export function changeReminder(
+  text: string,
+  enabled: boolean,
+  previous: InstrumentChange["reminder"],
+): InstrumentChange["reminder"] {
+  if (enabled) return text.trim() ? { text: text.trim() } : {};
+  return previous || text.trim() ? { ...(text.trim() ? { text: text.trim() } : {}), hidden: true } : undefined;
 }
 
 export function numberFieldValue(value: string): number | "" {

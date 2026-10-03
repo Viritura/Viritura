@@ -45,6 +45,8 @@ pub struct InstrumentChange {
     pub transposition: Option<Transposition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instruction: Option<InstrumentChangeInstruction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reminder: Option<InstrumentChangeInstruction>,
 }
 
 impl InstrumentChange {

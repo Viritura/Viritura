@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Part, Score, Transposition } from "@viritura/core";
 import {
   Checkbox,
+  Collapsible,
   Dialog,
   DialogActions,
   DialogBody,
@@ -16,13 +17,11 @@ import {
 import type { DocumentStore } from "../store/documentStore";
 import type { SelectionState } from "../store/selectionStore";
 import { closeDialog, useDialogStore } from "../store/dialogStore";
-import { initialBarChangeFields, changeInstruction, numberFieldValue } from "./dialogFields";
+import { initialBarChangeFields, changeInstruction, changeReminder, numberFieldValue } from "./dialogFields";
+import { ChangeLabelFields } from "./ChangeLabelFields";
 import { InstrumentCatalogPicker } from "../components/parts/InstrumentCatalogPicker";
-import {
-  buildTransposition,
-  diatonicFromChromatic,
-  transpositionSummary,
-} from "../components/parts/roster/transposition";
+import { TranspositionPitchFields } from "../components/parts/transpositionPitch";
+import { buildTransposition } from "../components/parts/roster/transposition";
 import {
   instrumentChangeCompatibility,
   removeBarInstrumentChange,
@@ -99,14 +98,17 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
   const initial = initialBarChangeFields(part, target.measureIndex);
   const { change } = initial;
   const [instrumentId, setInstrumentId] = useState(initial.instrumentId);
-  const [halfSteps, setHalfSteps] = useState<number | "">(initial.halfSteps);
-  const [staffDistance, setStaffDistance] = useState<number | "">(initial.staffDistance);
+  const [halfSteps, setHalfSteps] = useState(initial.halfSteps);
+  const [staffDistance, setStaffDistance] = useState(initial.staffDistance);
   const [flipAt, setFlipAt] = useState<number | "">(initial.flipAt);
   const [prefersWritten, setPrefersWritten] = useState(initial.prefersWritten);
   const [text, setText] = useState(initial.text);
   const [hidden, setHidden] = useState(initial.hidden);
+  const [reminderText, setReminderText] = useState(initial.reminderText);
+  const [reminderEnabled, setReminderEnabled] = useState(initial.reminderEnabled);
   const [error, setError] = useState<string>();
   const instruction = changeInstruction(text, hidden);
+  const reminder = changeReminder(reminderText, reminderEnabled, change?.reminder);
   const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
 
   function finish(result: BarChangeResult): void {
@@ -127,16 +129,16 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
       return;
     }
     if (mode === "instrument") {
-      finish(setBarInstrument(score, target, instrumentId, instruction));
+      finish(setBarInstrument(score, target, instrumentId, instruction, reminder));
     } else {
-      if (halfSteps === "" || staffDistance === "" || !validNumbers) {
-        setError("Enter whole numbers for the transposition interval.");
+      if (!validNumbers) {
+        setError("Enter a whole number for the key signature flip threshold, or leave it blank.");
         return;
       }
       const transposition: Transposition = buildTransposition(halfSteps, staffDistance, flipAt, prefersWritten) ?? {
         interval: { halfSteps: 0, staffDistance: 0 },
       };
-      finish(setBarTransposition(score, target, transposition, instruction));
+      finish(setBarTransposition(score, target, transposition, instruction, reminder));
     }
   }
 
@@ -171,54 +173,42 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
           </>
         ) : (
           <div className={styles.fields}>
-            <p>{halfSteps === "" ? "Enter a transposition interval." : transpositionSummary(halfSteps)}</p>
-            <FormField label="Chromatic semitones (concert to written)">
-              <FormInput
-                type="number"
-                value={halfSteps}
-                onChange={(event) => {
-                  const value = numberFieldValue(event.target.value);
-                  setHalfSteps(value);
-                  setStaffDistance(value === "" ? "" : diatonicFromChromatic(value));
-                }}
-              />
-            </FormField>
-            <FormField label="Diatonic staff steps">
-              <FormInput
-                type="number"
-                value={staffDistance}
-                onChange={(event) => setStaffDistance(numberFieldValue(event.target.value))}
-              />
-            </FormField>
-            <FormField label="Key signature flip threshold">
-              <FormInput
-                type="number"
-                value={flipAt}
-                placeholder="No enharmonic flip"
-                onChange={(event) => setFlipAt(numberFieldValue(event.target.value))}
-              />
-            </FormField>
-            <Checkbox
-              label="Display written pitches even in concert-pitch scores"
-              checked={prefersWritten}
-              onChange={(event) => setPrefersWritten(event.target.checked)}
+            <TranspositionPitchFields
+              instrumentId={initial.instrumentId}
+              halfSteps={halfSteps}
+              staffDistance={staffDistance}
+              onChange={(chromatic, diatonic) => {
+                setHalfSteps(chromatic);
+                setStaffDistance(diatonic);
+              }}
             />
+            <Collapsible title="Notation options">
+              <FormField label="Key signature flip threshold">
+                <FormInput
+                  type="number"
+                  value={flipAt}
+                  placeholder="No enharmonic flip"
+                  onChange={(event) => setFlipAt(numberFieldValue(event.target.value))}
+                />
+              </FormField>
+              <Checkbox
+                label="Display written pitches even in concert-pitch scores"
+                checked={prefersWritten}
+                onChange={(event) => setPrefersWritten(event.target.checked)}
+              />
+            </Collapsible>
           </div>
         )}
-        <div className={styles.fields}>
-          <FormField label="Printed instruction">
-            <FormInput
-              value={text}
-              placeholder="Automatic instrument or transposition label"
-              onChange={(event) => setText(event.target.value)}
-            />
-          </FormField>
-          <Checkbox
-            label="Hide printed instruction"
-            checked={hidden}
-            onChange={(event) => setHidden(event.target.checked)}
-          />
-        </div>
+        <ChangeLabelFields
+          text={text}
+          hidden={hidden}
+          reminderText={reminderText}
+          reminderEnabled={reminderEnabled}
+          setText={setText}
+          setHidden={setHidden}
+          setReminderText={setReminderText}
+          setReminderEnabled={setReminderEnabled}
+        />
         {error && <p role="alert">{error}</p>}
         {change && <p>This replaces the change at this bar&apos;s start, preserving later changes.</p>}
       </DialogBody>

@@ -141,8 +141,7 @@ export function RosterPartRow({
           ) : (
             <RosterPartTransposeFields
               partId={part.id}
-              name={name}
-              shortName={shortName}
+              instrumentId={part._x?.viritura?.instrumentId}
               chromatic={chromatic}
               staffDistance={staffDistance}
               keyFifthsFlipAt={keyFifthsFlipAt}

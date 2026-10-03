@@ -109,6 +109,7 @@ export function setBarInstrument(
   target: BarInstrumentTarget,
   instrumentId: string,
   instruction?: InstrumentChange["instruction"],
+  reminder?: InstrumentChange["reminder"],
 ): BarChangeResult {
   const part = score.parts[target.partIndex];
   const instrument = getCatalogInstrument(instrumentId);
@@ -127,7 +128,12 @@ export function setBarInstrument(
   )?.[0];
   const key = existingKey ?? nextInstrumentKey(instruments, instrumentId);
   instruments[key] = definition;
-  setStartChange(nextPart, target.measureIndex, { instrument: key, ...(instruction ? { instruction } : {}) });
+  const previousReminder = reminder ?? barStartChange(nextPart, target.measureIndex)?.reminder;
+  setStartChange(nextPart, target.measureIndex, {
+    instrument: key,
+    ...(instruction ? { instruction } : {}),
+    ...(previousReminder ? { reminder: previousReminder } : {}),
+  });
   updateClefs(nextPart, target.measureIndex, instrument);
   return { score: next };
 }
@@ -137,6 +143,7 @@ export function setBarTransposition(
   target: BarInstrumentTarget,
   transposition: Transposition,
   instruction?: InstrumentChange["instruction"],
+  reminder?: InstrumentChange["reminder"],
 ): BarChangeResult {
   const part = score.parts[target.partIndex];
   if (!part?.measures[target.measureIndex]) return { score, error: "The selected bar no longer exists." };
@@ -154,6 +161,7 @@ export function setBarTransposition(
     ...(previous?.instrument ? { instrument: previous.instrument } : {}),
     transposition: structuredClone(transposition),
     ...(instruction ? { instruction } : {}),
+    ...((reminder ?? previous?.reminder) ? { reminder: reminder ?? previous?.reminder } : {}),
   });
   return { score: next };
 }

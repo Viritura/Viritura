@@ -131,6 +131,11 @@ function parseInstrumentChange(raw: RawInstrumentChange): InstrumentChange {
     if (raw.instruction.text !== undefined) change.instruction.text = raw.instruction.text;
     if (raw.instruction.hidden !== undefined) change.instruction.hidden = raw.instruction.hidden;
   }
+  if (raw.reminder) {
+    change.reminder = {};
+    if (raw.reminder.text !== undefined) change.reminder.text = raw.reminder.text;
+    if (raw.reminder.hidden !== undefined) change.reminder.hidden = raw.reminder.hidden;
+  }
   return change;
 }
 

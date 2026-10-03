@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
 import type { Score } from "@viritura/core";
@@ -68,12 +69,13 @@ describe("bar change dialog", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it("saves a transposition-only change and explicit instruction", () => {
+  it("saves a transposition-only change and explicit instruction", async () => {
     const { updateScore } = setup("transposition");
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Chromatic semitones (concert to written)" }), {
-      target: { value: "3" },
-    });
-    fireEvent.change(screen.getByRole("textbox", { name: "Printed instruction" }), { target: { value: "in A" } });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Sounding pitch" }));
+    await user.click(screen.getByRole("option", { name: "A", exact: true }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Sounding octave" }), { target: { value: "3" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Change label text" }), { target: { value: "in A" } });
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges).toEqual([
       {
@@ -81,6 +83,49 @@ describe("bar change dialog", () => {
         instruction: { text: "in A" },
       },
     ]);
+  });
+
+  it("saves an independent advance reminder with the change-point label hidden", () => {
+    const { updateScore } = setup("transposition");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show label at change" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Advance reminder text" }), {
+      target: { value: "Prepare the A clarinet" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    const score = updateScore.mock.calls[0]![0];
+    expect(score.parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
+      instruction: { hidden: true },
+      reminder: { text: "Prepare the A clarinet" },
+    });
+    expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
+  });
+
+  it("keeps reminder customization when hiding and reopening an existing reminder", () => {
+    const { updateScore } = setup("transposition", [
+      {
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+        instruction: { text: "in B-flat" },
+        reminder: { text: "Prepare B-flat" },
+      },
+    ]);
+    expect(screen.getByRole("checkbox", { name: "Show advance reminder" })).toHaveProperty("checked", true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
+      instruction: { text: "in B-flat" },
+      reminder: { text: "Prepare B-flat", hidden: true },
+    });
+  });
+
+  it("enables an automatic reminder without overriding the automatic change label", () => {
+    const { updateScore } = setup("instrument");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
+      reminder: {},
+    });
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.instruction).toBeUndefined();
   });
 
   it("removes an existing change in one score update", () => {

@@ -120,6 +120,193 @@ fn instrument_changes_concert_mode_and_written_preference_are_dynamic() {
     assert!(resolved.iter().all(|m| m.active_key.fifths == 0));
 }
 
+fn set_reminder(value: &mut Value, measure: usize, reminder: Value, instruction: Value) {
+    value["parts"][0]["measures"][measure]["_x"] = json!({"viritura":{"instrumentChanges":[{
+        "instrument":"flute", "instruction":instruction, "reminder":reminder
+    }]}});
+}
+
+fn sounding_then_rest(value: &mut Value, measure: usize) {
+    value["parts"][0]["measures"][measure]["sequences"] = json!([{"content":[
+        {"duration":{"base":"quarter","dots":1},"notes":[{"pitch":{"step":"C","octave":4}}]},
+        {"duration":{"base":"half"},"rest":{}},
+        {"duration":{"base":"eighth"},"rest":{}}
+    ]}]);
+}
+
+#[test]
+fn instrument_changes_reminders_anchor_release_and_are_independent() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(
+        &mut value,
+        1,
+        json!({}),
+        json!({"hidden":true,"text":"Do not print"}),
+    );
+    let score = parse(&value);
+    let resolved = resolve_measures(&score, 0);
+    let expression = &resolved[0].part.expressions.as_ref().unwrap()[0];
+    assert_eq!(expression.position.fraction, (3, 8));
+    assert_eq!(expression.text.plain_text(), "To Flute");
+    assert!(resolved[1].part.expressions.is_none());
+    for display in [
+        layout_score(&score, 0, &LayoutConfig::default()),
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0),
+    ] {
+        assert_eq!(
+            texts(&display)
+                .iter()
+                .filter(|text| **text == "To Flute")
+                .count(),
+            1
+        );
+        assert!(!texts(&display).contains(&"Do not print"));
+    }
+    set_reminder(
+        &mut value,
+        1,
+        json!({"hidden":true}),
+        json!({"text":"Change now"}),
+    );
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(resolved[0].part.expressions.is_none());
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Change now"
+    );
+}
+
+#[test]
+fn instrument_changes_reminders_require_a_sounding_anchor_and_a_gap() {
+    let mut value = document();
+    set_reminder(&mut value, 1, json!({}), json!({"hidden":true}));
+    assert!(resolve_measures(&parse(&value), 0)
+        .iter()
+        .all(|m| m.part.expressions.is_none()));
+    value["parts"][0]["measures"][0]["sequences"] =
+        json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    assert!(resolve_measures(&parse(&value), 0)
+        .iter()
+        .all(|m| m.part.expressions.is_none()));
+    set_reminder(&mut value, 0, json!({}), json!({"hidden":true}));
+    assert!(resolve_measures(&parse(&value), 0)[0]
+        .part
+        .expressions
+        .is_none());
+}
+
+#[test]
+fn instrument_changes_reminders_use_latest_polyphonic_release_and_tie_continuations() {
+    let mut value = document();
+    value["parts"][0]["measures"][0]["sequences"] = json!([
+        {"voice":"1","content":[
+            {"duration":{"base":"quarter"},"notes":[{"id":"a","pitch":{"step":"C","octave":4},"ties":[{"target":"b"}]}]},
+            {"duration":{"base":"half","dots":1},"rest":{}}
+        ]},
+        {"voice":"2","content":[
+            {"duration":{"base":"half","dots":1},"notes":[{"pitch":{"step":"E","octave":4}}]},
+            {"duration":{"base":"quarter"},"rest":{}}
+        ]}
+    ]);
+    value["parts"][0]["measures"][1]["sequences"] = json!([{"content":[
+        {"duration":{"base":"half"},"notes":[{"id":"b","pitch":{"step":"C","octave":4}}]},
+        {"duration":{"base":"half"},"rest":{}}
+    ]}]);
+    set_reminder(
+        &mut value,
+        2,
+        json!({"text":"Ready"}),
+        json!({"hidden":true}),
+    );
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(resolved[0].part.expressions.is_none());
+    let expression = &resolved[1].part.expressions.as_ref().unwrap()[0];
+    assert_eq!(expression.position.fraction, (1, 2));
+    assert_eq!(expression.text.plain_text(), "Ready");
+    // A tie extending beyond the declaration leaves no safe advance gap.
+    value["parts"][0]["measures"][1]["sequences"][0]["content"][0]["notes"][0]["ties"] =
+        json!([{"target":"c"}]);
+    value["parts"][0]["measures"][2]["sequences"][0]["content"][0]["notes"][0]["id"] = json!("c");
+    assert!(resolve_measures(&parse(&value), 0)[1]
+        .part
+        .expressions
+        .is_none());
+}
+
+#[test]
+fn instrument_changes_reminders_resolve_tuplets_and_boundary_releases() {
+    let mut value = document();
+    value["parts"][0]["measures"][0]["sequences"] = json!([{"content":[
+        {"type":"tuplet","inner":{"duration":{"base":"eighth"},"multiple":3},
+         "outer":{"duration":{"base":"eighth"},"multiple":2},"content":[
+            {"duration":{"base":"eighth"},"notes":[{"pitch":{"step":"C","octave":4}}]},
+            {"duration":{"base":"quarter"},"rest":{}}
+         ]},
+        {"duration":{"base":"half","dots":1},"rest":{}}
+    ]}]);
+    set_reminder(&mut value, 1, json!({}), json!({"hidden":true}));
+    assert_eq!(
+        resolve_measures(&parse(&value), 0)[0]
+            .part
+            .expressions
+            .as_ref()
+            .unwrap()[0]
+            .position
+            .fraction,
+        (1, 12)
+    );
+    value["parts"][0]["measures"][0]["sequences"] =
+        document()["parts"][0]["measures"][0]["sequences"].clone();
+    value["parts"][0]["measures"][1]["sequences"] =
+        json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    value["parts"][0]["measures"][1]
+        .as_object_mut()
+        .unwrap()
+        .remove("_x");
+    set_reminder(&mut value, 3, json!({}), json!({"hidden":true}));
+    value["parts"][0]["measures"][2]["sequences"] =
+        json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    assert_eq!(
+        resolve_measures(&parse(&value), 0)[1]
+            .part
+            .expressions
+            .as_ref()
+            .unwrap()[0]
+            .position
+            .fraction,
+        (0, 1)
+    );
+}
+
+#[test]
+fn instrument_changes_pitch_based_transposition_defaults_preserve_spelling_and_octaves() {
+    let mut value = document();
+    for (half_steps, staff_distance, expected) in [
+        (9, 5, "in E♭"),
+        (1, 1, "in B"),
+        (-1, 0, "in C♯"),
+        (-12, -7, "sounds C5 for written C4"),
+        (12, 7, "sounds C3 for written C4"),
+    ] {
+        value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
+            "transposition":interval(half_steps,staff_distance)
+        }]}});
+        assert_eq!(
+            resolve_measures(&parse(&value), 0)[1]
+                .part
+                .expressions
+                .as_ref()
+                .unwrap()[0]
+                .text
+                .plain_text(),
+            expected
+        );
+    }
+}
+
 #[test]
 fn instrument_changes_initial_definition_fallback_and_native_precedence() {
     let mut value = document();
@@ -388,5 +575,169 @@ fn instrument_changes_hidden_changes_interrupt_multimeasure_rests() {
     assert_eq!(
         crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
         vec![(0, 2), (2, 2)]
+    );
+}
+
+#[test]
+fn instrument_changes_reminder_anchor_interrupts_multimeasure_rests() {
+    let mut value = document();
+    for index in 1..4 {
+        value["parts"][0]["measures"][index]["sequences"] =
+            json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    }
+    set_reminder(&mut value, 3, json!({}), json!({"hidden":true}));
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(resolved[1].part.expressions.is_some());
+    assert!(crate::layout::resolve::starts_new_mmr_group(&resolved, 1));
+    assert!(crate::layout::resolve::starts_new_mmr_group(&resolved, 2));
+    let config = LayoutConfig {
+        multimeasure_rests: true,
+        ..LayoutConfig::default()
+    };
+    assert!(texts(&layout_with_mnx_scores(&parse(&value), &config, 0)).contains(&"To Flute"));
+}
+
+#[test]
+fn instrument_changes_reminders_render_once_on_grand_staff_and_explicit_excerpts() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    value["parts"][0]["staves"] = json!(2);
+    value["parts"][0]["measures"][0]["sequences"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"staff":2,"content":[
+            {"duration":{"base":"half","dots":1},"notes":[{"pitch":{"step":"C","octave":3}}]},
+            {"duration":{"base":"quarter"},"rest":{}}
+        ]}));
+    set_reminder(
+        &mut value,
+        1,
+        json!({"text":"Get flute"}),
+        json!({"hidden":true}),
+    );
+    let score = parse(&value);
+    let upper = resolve_measures_for_staff(&score, 0, 1);
+    let lower = resolve_measures_for_staff(&score, 0, 2);
+    assert_eq!(
+        upper[0].part.expressions.as_ref().unwrap()[0]
+            .position
+            .fraction,
+        (3, 4)
+    );
+    assert!(lower[0].part.expressions.is_none());
+    assert_eq!(
+        texts(&layout_score(&score, 0, &LayoutConfig::default()))
+            .iter()
+            .filter(|text| **text == "Get flute")
+            .count(),
+        1
+    );
+    value["layouts"][0]["content"] = json!([{"type":"group","symbol":"brace","content":[
+        {"type":"staff","sources":[{"part":"p1","staff":1}]},
+        {"type":"staff","sources":[{"part":"p1","staff":2}]}
+    ]}]);
+    value["scores"][0]["pages"] = json!([{"systems":[{"measure":"m1"}]}]);
+    assert_eq!(
+        texts(&layout_with_mnx_scores(
+            &parse(&value),
+            &LayoutConfig::default(),
+            0
+        ))
+        .iter()
+        .filter(|text| **text == "Get flute")
+        .count(),
+        1
+    );
+    value["scores"][0]["pages"] = json!([{"systems":[{"measure":"m2"}]}]);
+    assert!(!texts(&layout_with_mnx_scores(
+        &parse(&value),
+        &LayoutConfig::default(),
+        0
+    ))
+    .contains(&"Get flute"));
+}
+
+#[test]
+fn instrument_changes_reminders_do_not_change_authored_expression_rest_boundaries() {
+    let mut value = document();
+    for index in 0..4 {
+        value["parts"][0]["measures"][index]["sequences"] =
+            json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    }
+    value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"expressions":[{
+        "text":[{"text":"dolce"}], "position":{"fraction":[0,1]}
+    }]}});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(!resolved[1].part.expressions.as_ref().unwrap()[0].instrument_reminder);
+    assert_eq!(
+        crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+        vec![(0, 4)]
+    );
+    assert!(!crate::layout::resolve::starts_new_mmr_group(&resolved, 1));
+    assert!(!crate::layout::resolve::starts_new_mmr_group(&resolved, 2));
+}
+
+#[test]
+fn instrument_changes_cached_reminder_edits_and_release_moves_match_fresh_layout() {
+    let mut value = document();
+    add_other_staff(&mut value);
+    sounding_then_rest(&mut value, 0);
+    set_reminder(
+        &mut value,
+        2,
+        json!({"text":"Prepare"}),
+        json!({"hidden":true}),
+    );
+    // Rest until the declaration, so an earlier measure supplies the anchor.
+    value["parts"][0]["measures"][1]["sequences"] =
+        json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    let config = LayoutConfig {
+        page_width: Some(800.0),
+        ..LayoutConfig::default()
+    };
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    cache.set_range_scope(crate::layout::cache::RangeScope {
+        scoped_resolve: true,
+        ..Default::default()
+    });
+    let mut score = parse(&value);
+    crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    score.parts[0].measures[2]
+        .instrument_changes
+        .as_mut()
+        .unwrap()[0]
+        .reminder
+        .as_mut()
+        .unwrap()
+        .text = Some("Take flute".into());
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(2, 2, vec![true, false]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    assert!(texts(&cached).contains(&"Take flute"));
+    assert_eq!(
+        serde_json::to_value(cached).unwrap(),
+        serde_json::to_value(layout_with_mnx_scores(&score, &config, 0)).unwrap()
+    );
+    value["parts"][0]["measures"][1]["sequences"] = json!([{"content":[
+        {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"D","octave":4}}]},
+        {"duration":{"base":"half","dots":1},"rest":{}}
+    ]}]);
+    score.parts[0].measures[1] = parse(&value).parts[0].measures[1].clone();
+    cache.set_pending_dirty_region(Some(
+        crate::layout::cache::DirtyRegion::local_part_measures(1, 1, vec![true, false]),
+    ));
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let resolved = resolve_measures(&score, 0);
+    assert!(resolved[0].part.expressions.is_none());
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .position
+            .fraction,
+        (1, 4)
+    );
+    assert_eq!(
+        serde_json::to_value(cached).unwrap(),
+        serde_json::to_value(layout_with_mnx_scores(&score, &config, 0)).unwrap()
     );
 }

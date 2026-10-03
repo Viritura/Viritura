@@ -50,6 +50,12 @@ export interface InstrumentChange {
   /** Transposition from this point; a zero interval returns to concert pitch. */
   transposition?: Transposition;
   instruction?: InstrumentChangeInstruction;
+  /**
+   * Independent advance reminder after the preceding sounding release.
+   * Absent disables it; {} enables automatic text; hidden suppresses it.
+   * No preceding sounding note or no resting gap means no reminder anchor.
+   */
+  reminder?: InstrumentChangeInstruction;
 }
 
 /** The instrument state in effect at one point of a part. */

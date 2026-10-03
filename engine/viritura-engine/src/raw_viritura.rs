@@ -2614,6 +2614,10 @@ impl<'de> ::serde::Deserialize<'de> for HitPointId {
 ///      "description": "Position within this measure. Absent means the start of the measure.",
 ///      "$ref": "#/$defs/rhythmic-position"
 ///    },
+///    "reminder": {
+///      "description": "Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change.",
+///      "$ref": "#/$defs/instrument-change-instruction"
+///    },
 ///    "transposition": {
 ///      "description": "Transposition from this point. Use a zero interval to return to concert pitch.",
 ///      "$ref": "#/$defs/instrument-transposition"
@@ -2635,6 +2639,9 @@ pub struct InstrumentChange {
     ///Position within this measure. Absent means the start of the measure.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub position: ::std::option::Option<RhythmicPosition>,
+    ///Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub reminder: ::std::option::Option<InstrumentChangeInstruction>,
     ///Transposition from this point. Use a zero interval to return to concert pitch.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub transposition: ::std::option::Option<InstrumentTransposition>,
@@ -2650,6 +2657,7 @@ impl ::std::default::Default for InstrumentChange {
             instruction: Default::default(),
             instrument: Default::default(),
             position: Default::default(),
+            reminder: Default::default(),
             transposition: Default::default(),
         }
     }

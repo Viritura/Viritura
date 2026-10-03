@@ -34,6 +34,30 @@ function scoreFor(instrumentId = "wind.flutes.flute"): Score {
 }
 
 describe("bar instrument changes", () => {
+  it("preserves independent label controls across instrument and transposition edits", () => {
+    const target = { partIndex: 0, measureIndex: 1 };
+    let score = setBarInstrument(
+      scoreFor(),
+      target,
+      "wind.reed.oboe",
+      { hidden: true },
+      { text: "Prepare oboe" },
+    ).score;
+    score = setBarTransposition(
+      score,
+      target,
+      { interval: { halfSteps: 2, staffDistance: 1 } },
+      { text: "in B-flat" },
+    ).score;
+    expect(barStartChange(score.parts[0]!, 1)).toMatchObject({
+      instruction: { text: "in B-flat" },
+      reminder: { text: "Prepare oboe" },
+    });
+    score = setBarInstrument(score, target, "wind.reed.english-horn", undefined, { hidden: true }).score;
+    expect(barStartChange(score.parts[0]!, 1)?.reminder).toEqual({ hidden: true });
+    expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
+  });
+
   it("resolves a single selected bar or note, rejecting cross-part and multi-bar selections", () => {
     const score = scoreFor();
     const selection = {

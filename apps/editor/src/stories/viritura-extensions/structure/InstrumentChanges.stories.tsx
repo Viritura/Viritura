@@ -67,6 +67,46 @@ export const HiddenChangeInstruction: StoryObj = {
   render: () => <ScorePreview mnxJson={doublingScore(true, true)} />,
 };
 
+function reminderScore(instructionHidden: boolean, reminderHidden = false): string {
+  const score = JSON.parse(doublingScore(true)) as {
+    parts: {
+      measures: {
+        sequences: { content: unknown[] }[];
+        _x?: { viritura: { instrumentChanges: unknown[] } };
+      }[];
+    }[];
+  };
+  const measures = score.parts[0]!.measures;
+  measures[0]!.sequences[0]!.content = [
+    { duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+    { duration: { base: "half" }, rest: {} },
+  ];
+  measures[1]!._x = {
+    viritura: {
+      instrumentChanges: [
+        {
+          instrument: "eh",
+          instruction: { hidden: instructionHidden },
+          reminder: { text: "Prepare English horn", hidden: reminderHidden },
+        },
+      ],
+    },
+  };
+  return JSON.stringify(score);
+}
+
+export const IndependentAdvanceReminder: StoryObj = {
+  render: () => <ScorePreview mnxJson={reminderScore(false)} />,
+};
+
+export const AdvanceReminderWithHiddenChangeLabel: StoryObj = {
+  render: () => <ScorePreview mnxJson={reminderScore(true)} />,
+};
+
+export const HiddenReminderWithVisibleChangeLabel: StoryObj = {
+  render: () => <ScorePreview mnxJson={reminderScore(false, true)} />,
+};
+
 export const HornCrookChange: StoryObj = {
   render: () => (
     <ScorePreview

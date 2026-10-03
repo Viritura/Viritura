@@ -44,6 +44,33 @@ const doublingExt = {
 };
 
 describe("instrument-change extensions", () => {
+  it.each([undefined, {}, { text: "Prepare piccolo", hidden: false }, { hidden: true }])(
+    "round-trips independent advance reminder %j",
+    (reminder) => {
+      const change = {
+        instrument: "picc",
+        instruction: { text: "At the change", hidden: true },
+        ...(reminder === undefined ? {} : { reminder }),
+      };
+      const source = scoreWithInstrumentChanges({ partExt: doublingExt, changes: [[], [change], []] });
+      expect(validateRawScore(source).ok).toBe(true);
+      const parsed = parseMnx(source);
+      expect(parsed.parts[0]!.measures[1]!.instrumentChanges?.[0]?.reminder).toEqual(reminder);
+      expect(serializeMnx(parsed)).toMatchObject(source);
+    },
+  );
+
+  it.each([{ text: 1 }, { hidden: "yes" }, { position: { fraction: [1, 4] } }])(
+    "rejects malformed reminder %j",
+    (reminder) => {
+      expect(
+        validateRawScore(
+          scoreWithInstrumentChanges({ partExt: doublingExt, changes: [[{ instrument: "picc", reminder }]] }),
+        ).ok,
+      ).toBe(false);
+    },
+  );
+
   it("round-trips instruments and instrument, transposition, and combined changes", () => {
     const source = scoreWithInstrumentChanges({
       partExt: doublingExt,

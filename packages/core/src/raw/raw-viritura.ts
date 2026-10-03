@@ -414,6 +414,8 @@ export interface components {
             /** @description Transposition from this point. Use a zero interval to return to concert pitch. */
             transposition?: components["schemas"]["instrument-transposition"];
             instruction?: components["schemas"]["instrument-change-instruction"];
+            /** @description Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change. */
+            reminder?: components["schemas"]["instrument-change-instruction"];
         };
         /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
         "tuplet-span": {

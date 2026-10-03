@@ -102,6 +102,12 @@ function serializeInstrumentChange(change: InstrumentChange): Obj {
     if (change.instruction.hidden !== undefined) instruction["hidden"] = change.instruction.hidden;
     out["instruction"] = instruction;
   }
+  if (change.reminder) {
+    const reminder: Obj = {};
+    if (change.reminder.text !== undefined) reminder["text"] = change.reminder.text;
+    if (change.reminder.hidden !== undefined) reminder["hidden"] = change.reminder.hidden;
+    out["reminder"] = reminder;
+  }
   return out;
 }
 

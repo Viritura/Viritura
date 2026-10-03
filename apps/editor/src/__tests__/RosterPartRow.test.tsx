@@ -30,7 +30,12 @@ describe("RosterPartRow", () => {
     fireEvent.contextMenu(screen.getByRole("button", { name: "Flute" }));
     fireEvent.click(screen.getByRole("button", { name: "Instrument actions for Flute" }));
     expect(screen.getByRole("region", { name: "Transposition" })).toBeTruthy();
-    expect(screen.getByText("Concert pitch")).toBeTruthy();
+    expect(screen.getByText("Written C4 sounds as C4")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Transposition preset" }).textContent).toBe("Concert pitch — C4");
+    expect(screen.getByRole("combobox", { name: "Sounding pitch" }).textContent).toBe("C");
+    expect((screen.getByRole("spinbutton", { name: "Sounding octave" }) as HTMLInputElement).value).toBe("4");
+    expect(screen.queryByLabelText("Chromatic")).toBeNull();
+    expect(screen.queryByLabelText("Staff distance")).toBeNull();
     expect(screen.queryByText("Change instrument")).toBeNull();
     expect(screen.queryByText("Remove instrument")).toBeNull();
     expect(onContextMenu).toHaveBeenCalledTimes(2);

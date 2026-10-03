@@ -27,10 +27,42 @@ const SELECTION = {
   endMeasure: 1,
 } as const;
 
-function BarChangeStory({ mode }: { mode: "instrument" | "transposition" }) {
+const HORN_SCORE: Score = {
+  ...SCORE,
+  parts: [
+    {
+      ...SCORE.parts[0]!,
+      name: "Horn",
+      transposition: { interval: { halfSteps: 7, staffDistance: 4 } },
+      _x: { viritura: { instrumentId: "brass.french-horn", midiProgram: 60 } },
+      measures: SCORE.parts[0]!.measures.map((measure, index) =>
+        index === 1
+          ? {
+              ...measure,
+              instrumentChanges: [
+                {
+                  transposition: { interval: { halfSteps: 14, staffDistance: 8 } },
+                  instruction: { text: "in B-flat basso" },
+                  reminder: { text: "Prepare B-flat basso" },
+                },
+              ],
+            }
+          : measure,
+      ),
+    },
+  ],
+};
+
+function BarChangeStory({
+  mode,
+  initialScore = SCORE,
+}: {
+  mode: "instrument" | "transposition";
+  initialScore?: Score;
+}) {
   const [store] = useState(() => {
     const document = createDocumentStore();
-    document.setState({ score: structuredClone(SCORE), workingScore: structuredClone(SCORE) });
+    document.setState({ score: structuredClone(initialScore), workingScore: structuredClone(initialScore) });
     return document;
   });
   const [open, setOpen] = useState(true);
@@ -59,3 +91,6 @@ export default meta;
 
 export const ChangeInstrument: StoryObj = { render: () => <BarChangeStory mode="instrument" /> };
 export const ChangeTransposition: StoryObj = { render: () => <BarChangeStory mode="transposition" /> };
+export const HornTuningAndReminders: StoryObj = {
+  render: () => <BarChangeStory mode="transposition" initialScore={HORN_SCORE} />,
+};

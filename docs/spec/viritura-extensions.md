@@ -1118,6 +1118,27 @@ The optional `instruction` carries the authored change text
 label. Positions must be unique within a measure, and `instrument` must name
 a key in the part's `instruments`.
 
+The independent optional `reminder` uses the same `{ text?, hidden? }`
+shape. Absence means **no advance reminder**, preserving existing scores;
+`{}` enables automatic text; `{ "hidden": true }` explicitly suppresses it.
+Neither its custom text nor its visibility changes the `instruction` label
+at the declaration. Both defaults derive from the target instrument
+(`To Piccolo`) or the sounding pitch for written C (`in E♭`; octave-only
+changes say, for example, `sounds C5 for written C4`), not numeric MNX
+interval counts.
+
+An enabled reminder automatically anchors **immediately after the last
+preceding sounding release**, so the player can use the following rest.
+Rests and invisible spaces are not sounding anchors. All voices and staves
+are considered, including tied continuations, dotted notes, and tuplets.
+The derived release can be fractional and in an earlier measure; it never
+moves the authored bar-start declaration or changes the instrument timeline.
+If no previous sounding note exists, or its release leaves no gap before
+the change (including a tie sounding across it), the reminder is omitted:
+there is no valid advance anchor. Grace-only material does not establish
+an independent notated release anchor. Excerpts show a reminder only when
+its original anchor measure is included; they do not invent a new position.
+
 ```json
 {
   "_x": {
@@ -1168,7 +1189,11 @@ transposition and clefs. **Change transposition** keeps the instrument and
 can override its default, including an explicit zero interval. The sign
 convention is MNX's **concert-to-written** interval: B-flat clarinet is
 `+2` semitones / `+1` staff step; piccolo is `-12` / `-7`.
-Both dialogs accept an authored printed instruction or a hidden instruction.
+The controls present this musically as the sounding pitch corresponding to
+written C, with its octave and accidental, rather than asking for semitone
+and staff-step counts; MNX intervals remain the stored representation.
+Both dialogs accept an authored printed change-point label or a hidden label,
+and separate automatic/custom advance-reminder text and visibility.
 Reopening either dialog offers **Remove change**, which removes the entire
 bar-start declaration while preserving later-positioned declarations.
 
@@ -1191,6 +1216,9 @@ keeps sounding notation unless the active instrument prefers written pitches
 (for example piccolo). Authored/automatic change instructions participate in
 normal annotation placement; hidden instructions do not print. A change also
 breaks a multimeasure rest so it remains visible.
+An enabled reminder's anchor also interrupts a multimeasure-rest group.
+Both labels use the normal centralized expression annotation, spacing,
+collision, and rendering paths.
 
 Playback preloads the instruments used by the part and routes each note to
 the active sound at its authored position, including seeks and repeat

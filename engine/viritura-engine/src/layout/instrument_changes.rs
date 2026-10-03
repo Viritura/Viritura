@@ -8,6 +8,8 @@
 use crate::model::*;
 use std::hash::{Hash, Hasher};
 
+mod reminders;
+
 pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff], salt: u64) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     salt.hash(&mut hasher);
@@ -24,6 +26,20 @@ pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff],
                 .unwrap_or_default()
                 .hash(&mut hasher);
         }
+        if part.measures.iter().any(|measure| {
+            measure
+                .instrument_changes
+                .iter()
+                .flatten()
+                .any(|change| change.reminder.is_some())
+        }) {
+            serde_json::to_string(&part.measures)
+                .unwrap_or_default()
+                .hash(&mut hasher);
+            serde_json::to_string(&score.global.measures)
+                .unwrap_or_default()
+                .hash(&mut hasher);
+        }
     }
     hasher.finish()
 }
@@ -33,6 +49,7 @@ pub(super) fn append_instructions(
     part: &Part,
     measure_index: usize,
     source_part_index: usize,
+    score: &Score,
 ) {
     let Some(authored) = part.measures.get(measure_index) else {
         return;
@@ -49,44 +66,103 @@ pub(super) fn append_instructions(
             .instruction
             .as_ref()
             .and_then(|instruction| instruction.text.clone())
-            .unwrap_or_else(|| {
-                let state = ActiveInstrument::at(part, measure_index, change.fraction());
-                if change.instrument.is_some() {
-                    let name = state
-                        .definition
-                        .and_then(|instrument| instrument.name.as_deref())
-                        .unwrap_or(&part.name);
-                    format!("To {name}")
-                } else {
-                    state
-                        .transposition
-                        .and_then(|t| super::page::transposition_key_name(t.interval.half_steps))
-                        .map_or_else(|| "in C".to_string(), |key| format!("in {key}"))
-                }
-            });
-        if text.is_empty() {
-            continue;
+            .unwrap_or_else(|| derived_instruction(part, measure_index, change));
+        append_expression(
+            measure,
+            text,
+            change
+                .position
+                .clone()
+                .unwrap_or(RhythmicPosition { fraction: (0, 1) }),
+            source_part_index,
+            false,
+        );
+    }
+    for (change_index, authored) in part.measures.iter().enumerate() {
+        for change in ordered_instrument_changes(authored) {
+            let Some(reminder) = change.reminder.as_ref().filter(|r| r.hidden != Some(true)) else {
+                continue;
+            };
+            let Some((anchor_index, position)) =
+                reminders::anchor(score, part, change_index, change)
+            else {
+                continue;
+            };
+            if anchor_index == measure_index {
+                let text = reminder
+                    .text
+                    .clone()
+                    .unwrap_or_else(|| derived_instruction(part, change_index, change));
+                append_expression(measure, text, position, source_part_index, true);
+            }
         }
+    }
+}
+
+fn append_expression(
+    measure: &mut PartMeasure,
+    text: String,
+    position: RhythmicPosition,
+    source_part_index: usize,
+    instrument_reminder: bool,
+) {
+    if !text.is_empty() {
         measure
             .expressions
             .get_or_insert_with(Vec::new)
             .push(TextExpression {
                 text: text.into(),
-                position: change
-                    .position
-                    .clone()
-                    .unwrap_or(RhythmicPosition { fraction: (0, 1) }),
+                position,
                 placement: Some(ExpressionPlacement::Above),
                 staff: Some(1),
                 voice: None,
                 source_part_index: Some(source_part_index),
                 source_expression_index: None,
+                instrument_reminder,
                 manual_offset: None,
                 avoid_collisions: None,
             });
     }
 }
 
+fn derived_instruction(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
+    let state = ActiveInstrument::at(part, measure_index, change.fraction());
+    if change.instrument.is_some() {
+        let name = state
+            .definition
+            .and_then(|instrument| instrument.name.as_deref())
+            .unwrap_or(&part.name);
+        return format!("To {name}");
+    }
+    let Some(transposition) = state.transposition else {
+        return "in C".to_string();
+    };
+    let interval = &transposition.interval;
+    let diatonic = -i64::from(interval.staff_distance);
+    let chromatic = -i64::from(interval.half_steps);
+    let letter = diatonic.rem_euclid(7) as usize;
+    let natural = [0, 2, 4, 5, 7, 9, 11][letter] + 12 * diatonic.div_euclid(7);
+    let accidental = chromatic - natural;
+    let suffix = match accidental {
+        -2 => "𝄫",
+        -1 => "♭",
+        0 => "",
+        1 => "♯",
+        2 => "𝄪",
+        _ => {
+            return super::page::transposition_key_name(interval.half_steps.rem_euclid(12))
+                .map_or_else(|| "in C".to_string(), |key| format!("in {key}"))
+        }
+    };
+    let pitch = ["C", "D", "E", "F", "G", "A", "B"][letter];
+    if chromatic != 0 && chromatic.rem_euclid(12) == 0 {
+        return format!(
+            "sounds {pitch}{suffix}{} for written C4",
+            4 + diatonic.div_euclid(7)
+        );
+    }
+    format!("in {pitch}{suffix}")
+}
 /// A common staff must have a common written signature and interval.
 /// Separate incompatible sources instead of transposing all of them as source 1.
 pub(super) fn sources_need_separate_staves(

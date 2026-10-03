@@ -4,45 +4,9 @@ export type PartUpdate = Partial<
   Pick<Part, "name" | "shortName" | "staves" | "transposition" | "chordSymbolVisibility">
 >;
 
-/** Suggest a sensible default `keyFifthsFlipAt` for a given chromatic
- *  transposition. See engine/.../model/key.rs for the underlying math. */
-export function defaultKeyFifthsFlipAt(chromatic: number): number | "" {
-  if (chromatic === 0) return "";
-  const fifthsDelta = ((((chromatic * 7) % 12) + 18) % 12) - 6;
-  if (fifthsDelta === 0) return "";
-  return fifthsDelta > 0 ? 7 : -7;
-}
-
 /** Default MNX `staffDistance` for a given halfSteps count. */
-export function diatonicFromChromatic(chromatic: number): number {
+function diatonicFromChromatic(chromatic: number): number {
   return Math.round((chromatic * 7) / 12);
-}
-
-const INTERVAL_NAMES = [
-  "",
-  "minor second",
-  "major second",
-  "minor third",
-  "major third",
-  "perfect fourth",
-  "tritone",
-  "perfect fifth",
-  "minor sixth",
-  "major sixth",
-  "minor seventh",
-  "major seventh",
-] as const;
-
-/** Human-readable summary for the interval from written to sounding pitch. */
-export function transpositionSummary(chromatic: number): string {
-  if (chromatic === 0) return "Concert pitch";
-  const distance = Math.abs(chromatic);
-  const octaves = Math.floor(distance / 12);
-  const remainder = distance % 12;
-  const parts: string[] = [];
-  if (octaves > 0) parts.push(octaves === 1 ? "one octave" : `${octaves} octaves`);
-  if (remainder > 0) parts.push(`a ${INTERVAL_NAMES[remainder]!}`);
-  return `Sounds ${parts.join(" and ")} ${chromatic > 0 ? "lower" : "higher"} than written`;
 }
 
 /** Build the MNX `transposition` field, or undefined when everything is at
@@ -66,14 +30,6 @@ export function buildTransposition(
 
 // MNX spec descriptions, shown verbatim as tooltips. Pulled from
 // mnx/doctools/data.json.
-export const CHROMATIC_DESCRIPTION = "The number of chromatic steps between the pitches.";
-
-export const STAFF_DISTANCE_DESCRIPTION =
-  "The distance between the pitches, in context of a musical staff. " +
-  "For example, in a treble clef staff, the staffDistance between the " +
-  "bottom E line and the bottom F space is 1. The staffDistance between " +
-  "the bottom E line and the G line directly above is 2.";
-
 export const KEY_FIFTHS_FLIP_AT_DESCRIPTION =
   "When transposing key signatures to accommodate this part, " +
   '"keyFifthsFlipAt" describes the point at which the key signature ' +

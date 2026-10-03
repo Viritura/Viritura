@@ -319,7 +319,13 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             staff_meters: None,
             instrument_changes: None,
         });
-        super::instrument_changes::append_instructions(&mut part_measure, part, i, part_index);
+        super::instrument_changes::append_instructions(
+            &mut part_measure,
+            part,
+            i,
+            part_index,
+            score,
+        );
         // A direct resolve call displays this selected part. Full-score layout
         // coordinates automatic visibility across its displayed parts separately.
         let chord_symbols = if part.chord_symbol_visibility == Some(ChordSymbolVisibility::Hide) {
@@ -661,13 +667,18 @@ fn jump_in_ext(m: &GlobalMeasure) -> bool {
 }
 
 /// Whether any event in the part measure carries a marking that interrupts a
-/// multimeasure rest: a caesura or breath (grand pause) or a fermata (hold).
+/// multimeasure rest: a caesura or breath (grand pause), a fermata (hold),
+/// or a derived advance instrument reminder.
 /// All three must isolate the bar that carries them so the performer sees the
 /// pause/hold rather than having it absorbed into a collapsed H-bar. The
 /// fermata is a top-level `Event.fermata` field (per MNX v15), while
 /// caesura/breath live under `Event.markings`.
 fn part_interrupts_mmr(pm: &PartMeasure) -> bool {
-    pm.sequences.iter().any(|s| {
+    pm.expressions.as_ref().is_some_and(|expressions| {
+        expressions
+            .iter()
+            .any(|expression| expression.instrument_reminder)
+    }) || pm.sequences.iter().any(|s| {
         s.content.iter().any(|c| match c {
             SequenceContent::Event(e) => {
                 e.fermata.is_some()

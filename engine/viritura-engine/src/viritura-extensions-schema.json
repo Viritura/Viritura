@@ -842,6 +842,10 @@
         },
         "instruction": {
           "$ref": "#/$defs/instrument-change-instruction"
+        },
+        "reminder": {
+          "$ref": "#/$defs/instrument-change-instruction",
+          "description": "Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change."
         }
       },
       "additionalProperties": false
