@@ -1,7 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { plainTextContent, type TextFrame } from "../model";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { plainTextContent, type TextBlock, type TextFrame, type TextFrameWidth } from "../model";
 
 describe("TextFrame model", () => {
+  it("shares optional block presentation without requiring page attachment", () => {
+    const plain: TextBlock = { content: [{ text: "dolce" }] };
+    const boxed: TextBlock = { ...plain, border: "solid", padding: 1, paragraphJustification: "center" };
+
+    expect(plainTextContent(boxed.content)).toBe(plainTextContent(plain.content));
+    expect(plain.width).toBeUndefined();
+    expect(boxed.border).toBe("solid");
+    expectTypeOf<TextFrame>().toExtend<TextBlock>();
+    expectTypeOf<Pick<TextFrame, "width">>().toEqualTypeOf<{ width: TextFrameWidth }>();
+    expectTypeOf<Pick<TextBlock, "width">>().toEqualTypeOf<{ width?: TextFrameWidth }>();
+  });
+
   it("uses shared text content without changing authored newlines", () => {
     const frame: TextFrame = {
       id: "title-block",
