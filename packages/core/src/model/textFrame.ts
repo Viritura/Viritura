@@ -20,17 +20,33 @@ export interface TextFrameSourceReference {
   referenceStaffSize?: number;
 }
 
+/** Optional block presentation, independent of attachment and musical scope. */
+export interface TextFramePresentation {
+  /** Omitted width leaves sizing to the owning text role; page frames require it. */
+  width?: TextFrameWidth;
+  horizontalAlignment?: "left" | "center" | "right";
+  paragraphJustification?: "left" | "center" | "right" | "justify";
+  /** Interior inset in staff spaces. */
+  padding?: number;
+  border?: "none" | "solid";
+}
+
+/** Shared text container; attachment, placement and visibility belong to its owner. */
+export interface TextBlock extends TextFramePresentation {
+  content: TextContent;
+}
+
 /**
- * A per-score, freely authored rectangular text block.
+ * A per-score, page-positioned specialization of the shared text container.
  *
  * Its locator selects the page directly or the measure/event whose page it
  * follows after pagination. Placement offsets are measured in staff spaces
  * in page coordinates (+x right, +y down), unlike staff-relative engraving
  * deltas.
- * Height is always automatic; text wrapping and collision handling are left
- * to the renderer.
+ * Height is automatic and text wraps to the required width. Page frames do
+ * not reserve music space or participate in collision avoidance.
  */
-export interface TextFrame {
+export interface TextFrame extends TextBlock {
   id: string;
   locator: TextFrameLocator;
   placement: {
@@ -38,10 +54,5 @@ export interface TextFrame {
     offset: { x: number; y: number };
   };
   width: TextFrameWidth;
-  content: TextContent;
-  horizontalAlignment?: "left" | "center" | "right";
-  paragraphJustification?: "left" | "center" | "right" | "justify";
-  padding?: number;
-  border?: "none" | "solid";
   sourceReference?: TextFrameSourceReference;
 }
