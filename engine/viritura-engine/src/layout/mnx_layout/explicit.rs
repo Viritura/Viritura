@@ -500,7 +500,11 @@ pub fn layout_with_mnx_scores_cached(
 
     // Fall back to regular layout if no layouts/scores defined
     if score.layouts.is_empty() || score.scores.is_empty() {
-        return layout_full_score(score, config);
+        let mut dl = layout_full_score(score, config);
+        if let Some(score_def) = score.scores.get(score_index) {
+            append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
+        }
+        return dl;
     }
     let score_def = match score.scores.get(score_index) {
         Some(sd) => sd,
