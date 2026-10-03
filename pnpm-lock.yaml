@@ -510,16 +510,16 @@ importers:
         version: link:../format
       y-indexeddb:
         specifier: ^9.0.12
-        version: 9.0.12(yjs@13.6.30)
+        version: 9.0.12(yjs@13.6.33)
       y-protocols:
         specifier: ^1.0.6
-        version: 1.0.7(yjs@13.6.30)
+        version: 1.0.7(yjs@13.6.33)
       y-webrtc:
         specifier: ^10.3.0
-        version: 10.3.0(yjs@13.6.30)
+        version: 10.3.0(yjs@13.6.33)
       yjs:
-        specifier: ^13.6.18
-        version: 13.6.30
+        specifier: ^13.6.33
+        version: 13.6.33
     devDependencies:
       typescript:
         specifier: ^5.7.0
@@ -5612,6 +5612,11 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
+  lib0@0.2.119:
+    resolution: {integrity: sha512-vh+TiejVy8Xm+hCdnRfn9BthGNvNUZdEXltNjVZL3TzRIKP3s1lnQh8pWd/Q0wCgY0FPAGVVjFF4ZiHUV3LFgA==}
+    engines: {node: '>=16'}
+    hasBin: true
+
   lie@3.3.0:
     resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
 
@@ -7453,8 +7458,8 @@ packages:
   yazl@2.5.1:
     resolution: {integrity: sha512-phENi2PLiHnHb6QBVot+dJnaAZ0xosj7p3fWl+znIjBDlnMI2PsZCJZ306BPTFOaHf5qdDEI8x5qFrSOBN5vrw==}
 
-  yjs@13.6.30:
-    resolution: {integrity: sha512-vv/9h42eCMC81ZHDFswuu/MKzkl/vyq1BhaNGfHyOonwlG4CJbQF4oiBBJPvfdeCt/PlVDWh7Nov9D34YY09uQ==}
+  yjs@13.6.33:
+    resolution: {integrity: sha512-q/UYvr1gOk4XII+Cu1CW2dINjYqJJFifTzogEaIARznrvX7uOlHsdTEXcnOBMuIsrCGEEKdNxi74kyMLZlKVfw==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
 
   yocto-queue@0.1.0:
@@ -12187,6 +12192,10 @@ snapshots:
     dependencies:
       isomorphic.js: 0.2.5
 
+  lib0@0.2.119:
+    dependencies:
+      isomorphic.js: 0.2.5
+
   lie@3.3.0:
     dependencies:
       immediate: 3.0.6
@@ -14355,22 +14364,22 @@ snapshots:
 
   xxhash-wasm@1.1.0: {}
 
-  y-indexeddb@9.0.12(yjs@13.6.30):
+  y-indexeddb@9.0.12(yjs@13.6.33):
     dependencies:
       lib0: 0.2.117
-      yjs: 13.6.30
+      yjs: 13.6.33
 
-  y-protocols@1.0.7(yjs@13.6.30):
+  y-protocols@1.0.7(yjs@13.6.33):
     dependencies:
       lib0: 0.2.117
-      yjs: 13.6.30
+      yjs: 13.6.33
 
-  y-webrtc@10.3.0(yjs@13.6.30):
+  y-webrtc@10.3.0(yjs@13.6.33):
     dependencies:
       lib0: 0.2.117
       simple-peer: 9.11.1
-      y-protocols: 1.0.7(yjs@13.6.30)
-      yjs: 13.6.30
+      y-protocols: 1.0.7(yjs@13.6.33)
+      yjs: 13.6.33
     optionalDependencies:
       ws: 8.21.0
     transitivePeerDependencies:
@@ -14444,9 +14453,9 @@ snapshots:
     dependencies:
       buffer-crc32: 0.2.13
 
-  yjs@13.6.30:
+  yjs@13.6.33:
     dependencies:
-      lib0: 0.2.117
+      lib0: 0.2.119
 
   yocto-queue@0.1.0: {}
 
