@@ -36,6 +36,7 @@ import { removeGlissandoByElementId } from "./glissandoCommands";
 import { removeTrillExtensionByElementId } from "../score/trillExtensionMutations";
 import { removeTuplet } from "./tupletCommands";
 import { cloneScore } from "../score/scoreClone";
+import { deleteTextFrameInScore, textFrameIdFromElementId, textFramesForScore } from "../score/textFrameMutations";
 
 export type DeleteSelectionResult =
   | { kind: "noop" }
@@ -57,8 +58,15 @@ type TimedPartAnnotation = {
  * no side effects — callers apply the returned score + selection updates
  * themselves. Returns `{ kind: "noop" }` when there's nothing to delete.
  */
-export function computeDeleteSelection(score: Score | null, selection: SelectionState): DeleteSelectionResult {
+export function computeDeleteSelection(
+  score: Score | null,
+  selection: SelectionState,
+  scoreIndex = 0,
+): DeleteSelectionResult {
   if (!score || selection.kind === "none") return { kind: "noop" };
+  if (selection.kind === "single" && selection.elementId.startsWith("text-frame/")) {
+    return deleteSelectedTextFrame(score, selection.elementId, scoreIndex);
+  }
   if (selection.kind === "single") return deleteSingle(score, selection);
   if (selection.kind === "multi" || selection.kind === "range") return deleteMultiOrRange(score, selection);
   return deleteMeasure(score, selection);
@@ -137,6 +145,17 @@ function deleteSingle(score: Score, selection: SingleSel): DeleteSelectionResult
     kind: "single",
     score: newScore,
     nextSelection: nextId ? { kind: "select", elementId: nextId } : { kind: "clear" },
+  };
+}
+
+/** Page text frame selected on the canvas (`text-frame/{sanitized id}`) in the active score view. */
+function deleteSelectedTextFrame(score: Score, elementId: string, scoreIndex: number): DeleteSelectionResult {
+  const frameId = textFrameIdFromElementId(elementId, textFramesForScore(score, scoreIndex));
+  if (!frameId) return { kind: "noop" };
+  return {
+    kind: "single",
+    score: deleteTextFrameInScore(score, scoreIndex, frameId),
+    nextSelection: { kind: "clear" },
   };
 }
 

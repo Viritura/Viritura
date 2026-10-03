@@ -7,6 +7,7 @@ import type { useSelection } from "../store/selectionStore";
 import type { Score } from "@viritura/core";
 import type { ScoreCanvasHandle } from "../components/ScoreCanvas";
 import type { RefObject } from "react";
+import { useViewStateStore } from "../store/viewStateStore";
 
 type SelectionState = ReturnType<typeof useSelection>;
 
@@ -50,7 +51,11 @@ export function useEditorMiscActions({
   }, [store, selectRange]);
 
   const handleDeleteSelection = useCallback(() => {
-    const result = computeDeleteSelection(store.getState().score, selection);
+    const result = computeDeleteSelection(
+      store.getState().score,
+      selection,
+      useViewStateStore.getState().selectedScoreIndex,
+    );
     if (result.kind === "noop") return;
     updateScore(result.score);
     if (result.kind === "single") {

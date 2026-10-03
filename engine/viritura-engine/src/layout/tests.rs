@@ -54,6 +54,7 @@ mod test_support_flags;
 mod test_tagging;
 mod test_tempo_jumps;
 mod test_text_directions;
+mod test_text_frames;
 mod test_ties;
 mod test_tremolos;
 mod test_trill_lines;

@@ -1,0 +1,309 @@
+import { useEffect, type ReactNode } from "react";
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { textContentFromPlain, type Score, type TextFrame } from "@viritura/core";
+import { TooltipPrimitives } from "@viritura/ui";
+import { DocumentProvider, useDocumentStore, useDocumentStoreApi } from "../../store/DocumentContext";
+import { resetSelectionStore, useSelectionStore } from "../../store/selectionStore";
+import { useViewStateStore } from "../../store/viewStateStore";
+import { HorizonTextFrames } from "./HorizonTextFrames";
+import { TextFramesPanel } from "./TextFramesPanel";
+import { effectiveHorizontalAlignment, textFrameElementId, textFrameIdFromElementId } from "./textFrameContext";
+import { usePublishRenderedPageCount, useRenderedPagesStore } from "./renderedPages";
+import { useTextFrameSelectionStore } from "./textFrameSelection";
+
+function frame(id: string, locator: TextFrame["locator"], text = id): TextFrame {
+  return {
+    id,
+    locator,
+    placement: { anchor: "top-left", offset: { x: 0, y: 0 } },
+    width: { unit: "staffSpaces", value: 20 },
+    content: textContentFromPlain(text),
+  };
+}
+
+const SCORE: Score = {
+  mnx: { version: 1 },
+  global: { measures: [{ id: "m1" }, { id: "m2" }] },
+  parts: [
+    {
+      id: "P1",
+      name: "Violin",
+      measures: [
+        { sequences: [{ content: [{ type: "event", id: "e1", duration: { base: "whole" } }] }] },
+        { sequences: [{ content: [{ type: "event", id: "e2", duration: { base: "whole" } }] }] },
+      ],
+    },
+  ],
+  layouts: [{ id: "full", content: [{ type: "staff", sources: [{ part: "P1" }] }] }],
+  scores: [
+    {
+      name: "Full",
+      layout: "full",
+      textFrames: [
+        frame("title", { type: "page", pageIndex: 0 }, "Program note"),
+        frame("cue", { type: "globalMeasure", measureId: "m2" }, "Cue here"),
+        frame("solo", { type: "event", partId: "P1", eventId: "e2" }, "Solo"),
+        frame("m1note", { type: "globalMeasure", measureId: "m1" }, "Bar one"),
+        frame("orphan", { type: "globalMeasure", measureId: "deleted" }, "Orphaned note"),
+      ],
+    },
+  ],
+};
+
+let currentScore: () => Score | null = () => null;
+
+function WithScore({ children }: { readonly children: ReactNode }) {
+  const loadScore = useDocumentStore((state) => state.loadScore);
+  const loaded = useDocumentStore((state) => state.score !== null);
+  const api = useDocumentStoreApi();
+  useEffect(() => {
+    currentScore = () => api.getState().score;
+    loadScore(SCORE, "text-frames.mnx");
+  }, [api, loadScore]);
+  return loaded ? children : null;
+}
+
+function renderWithDocument(ui: ReactNode) {
+  return render(
+    <TooltipPrimitives.Provider delayDuration={0}>
+      <DocumentProvider>
+        <WithScore>{ui}</WithScore>
+      </DocumentProvider>
+    </TooltipPrimitives.Provider>,
+  );
+}
+
+const frames = () => currentScore()?.scores?.[0]?.textFrames ?? [];
+
+beforeEach(() => {
+  resetSelectionStore();
+  useViewStateStore.setState({ selectedScoreIndex: 0 });
+  useTextFrameSelectionStore.setState({ selectedFrameId: null });
+  useRenderedPagesStore.setState({ rendered: null });
+});
+afterEach(cleanup);
+
+describe("TextFramesPanel", () => {
+  it("creates a page frame, selects it, and edits its text", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByRole("button", { name: "Add page frame" }));
+
+    const created = frames().at(-1)!;
+    expect(created.locator).toEqual({ type: "page", pageIndex: 0 });
+    const editor = screen.getByTestId("text-frame-editor");
+    const text = within(editor).getByLabelText("Text");
+    await user.clear(text);
+    await user.type(text, "Line one{Enter}Line two");
+    expect(frames().at(-1)!.content).toEqual([{ text: "Text" }]);
+    fireEvent.blur(text);
+    expect(frames().at(-1)!.content).toEqual([{ text: "Line one\nLine two" }]);
+  });
+
+  it("selects the frame hit on the canvas", async () => {
+    renderWithDocument(<TextFramesPanel />);
+    await screen.findByTestId("text-frame-row-title");
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
+    });
+    expect(useTextFrameSelectionStore.getState().selectedFrameId).toBe("title");
+    expect(screen.getByTestId("text-frame-editor")).toBeTruthy();
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "single", elementId: "p0/m0/s0/e1" } });
+    });
+    expect(useTextFrameSelectionStore.getState().selectedFrameId).toBeNull();
+    expect(screen.queryByTestId("text-frame-editor")).toBeNull();
+  });
+
+  it("keeps a panel-selected frame through edits until the canvas selection changes", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "single", elementId: "p0/m0/s0/e1" } });
+    });
+    await user.click(await screen.findByTestId("text-frame-row-cue"));
+    await user.keyboard("{ArrowRight}");
+    expect(useTextFrameSelectionStore.getState().selectedFrameId).toBe("cue");
+    expect(frames().find((f) => f.id === "cue")!.placement.offset.x).toBe(1);
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "none" } });
+    });
+    expect(useTextFrameSelectionStore.getState().selectedFrameId).toBeNull();
+  });
+  it("marks page frames beyond the last rendered page as unplaced without rewriting them", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    const row = await screen.findByTestId("text-frame-row-title");
+    expect(within(row).queryByText(/not placed in this view/)).toBeNull();
+    act(() => {
+      useRenderedPagesStore.getState().publish({ score: currentScore()!, scoreIndex: 0, pageCount: 1 });
+    });
+    expect(within(screen.getByTestId("text-frame-row-title")).queryByText(/not placed in this view/)).toBeNull();
+    act(() => {
+      useRenderedPagesStore.getState().publish({ score: currentScore()!, scoreIndex: 1, pageCount: 0 });
+    });
+    expect(within(screen.getByTestId("text-frame-row-title")).queryByText(/not placed in this view/)).toBeNull();
+    act(() => {
+      useRenderedPagesStore.getState().publish({ score: currentScore()!, scoreIndex: 0, pageCount: 0 });
+    });
+    expect(within(screen.getByTestId("text-frame-row-title")).getByText(/not placed in this view/)).toBeTruthy();
+    expect(frames()[0]!.locator).toEqual({ type: "page", pageIndex: 0 });
+    // A later edit invalidates the page count until the next paged layout publishes one.
+    await user.click(screen.getByTestId("text-frame-row-cue"));
+    await user.keyboard("{ArrowRight}");
+    expect(within(screen.getByTestId("text-frame-row-title")).queryByText(/not placed in this view/)).toBeNull();
+  });
+  it("moves with arrow keys, reorders layers, and deletes the selected frame", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    const row = await screen.findByTestId("text-frame-row-title");
+    await user.click(row);
+    row.focus();
+    await user.keyboard("{ArrowRight}{Shift>}{ArrowDown}{/Shift}");
+    expect(frames()[0]!.placement.offset).toEqual({ x: 1, y: 5 });
+
+    expect(screen.getByText("Layer 1 of 5")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Bring to front" }));
+    expect(frames().map((f) => f.id)).toEqual(["cue", "solo", "m1note", "orphan", "title"]);
+    expect(screen.getByText("Layer 5 of 5")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Delete frame" }));
+    expect(frames().map((f) => f.id)).toEqual(["cue", "solo", "m1note", "orphan"]);
+    expect(screen.queryByTestId("text-frame-editor")).toBeNull();
+  });
+
+  it("sets alignment and justification independently", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByTestId("text-frame-row-title"));
+    const alignment = screen.getByRole("radiogroup", { name: "Frame alignment" });
+    await user.click(within(alignment).getByRole("radio", { name: "Right" }));
+    const justification = screen.getByRole("radiogroup", { name: "Paragraph justification" });
+    await user.click(within(justification).getByRole("radio", { name: "Justify" }));
+    expect(frames()[0]).toMatchObject({ horizontalAlignment: "right", paragraphJustification: "justify" });
+  });
+
+  it("commits width once on blur", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByTestId("text-frame-row-title"));
+    const width = screen.getByLabelText("Width");
+    await user.clear(width);
+    await user.type(width, "32");
+    expect(frames()[0]!.width).toEqual({ unit: "staffSpaces", value: 20 });
+    fireEvent.blur(width);
+    expect(frames()[0]!.width).toEqual({ unit: "staffSpaces", value: 32 });
+  });
+});
+
+describe("HorizonTextFrames", () => {
+  it("lists page frames document-wide and prompts for a musical selection", async () => {
+    renderWithDocument(<HorizonTextFrames />);
+    const pageList = await screen.findByRole("list", { name: "Text frames located by page" });
+    expect(within(pageList).getByText("Program note")).toBeTruthy();
+    expect(screen.getByText("Select a measure or note to see frames that follow it.")).toBeTruthy();
+    const unplaced = screen.getByRole("list", { name: "Unplaced text frames" });
+    expect(within(unplaced).getByText("Orphaned note")).toBeTruthy();
+    expect(within(unplaced).getByText(/not placed in this view/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add frame at selection" })).toHaveProperty("disabled", true);
+  });
+
+  it("shows measure and event frames next to the selected measure and creates one there", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<HorizonTextFrames />);
+    await screen.findByTestId("horizon-text-frames");
+    act(() => {
+      useSelectionStore.setState({
+        selection: {
+          kind: "measure",
+          startPartIndex: 0,
+          endPartIndex: 0,
+          startStaffIndex: 0,
+          endStaffIndex: 0,
+          startMeasure: 1,
+          endMeasure: 1,
+        },
+      });
+    });
+    const nearby = screen.getByRole("list", { name: "Text frames at the selected measure" });
+    expect(within(nearby).getByText("Cue here")).toBeTruthy();
+    expect(within(nearby).getByText("Solo")).toBeTruthy();
+    expect(within(nearby).queryByText("Bar one")).toBeNull();
+    expect(within(nearby).queryByText("Program note")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Add frame at measure 2" }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "globalMeasure", measureId: "m2" });
+    expect(screen.getByTestId("text-frame-editor")).toBeTruthy();
+  });
+
+  it("creates an event-located frame from a selected event", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<HorizonTextFrames />);
+    await screen.findByTestId("horizon-text-frames");
+    act(() => {
+      useSelectionStore.setState({
+        selection: { kind: "single", elementId: "p0/m0/s0/e1", elementType: "note" },
+      });
+    });
+    expect(screen.getByText("Frames at measure 1")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Add frame at selected event" }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "event", partId: "P1", eventId: "e1" });
+  });
+});
+
+describe("effectiveHorizontalAlignment", () => {
+  it("matches the engine default derived from the page anchor", () => {
+    const at = (anchor: TextFrame["placement"]["anchor"]): TextFrame => ({
+      ...frame("x", { type: "page", pageIndex: 0 }, "x"),
+      placement: { anchor, offset: { x: 0, y: 0 } },
+    });
+    expect(effectiveHorizontalAlignment(at("top-left"))).toBe("left");
+    expect(effectiveHorizontalAlignment(at("left"))).toBe("left");
+    expect(effectiveHorizontalAlignment(at("top"))).toBe("center");
+    expect(effectiveHorizontalAlignment(at("bottom"))).toBe("center");
+    expect(effectiveHorizontalAlignment(at("bottom-right"))).toBe("right");
+    expect(effectiveHorizontalAlignment({ ...at("right"), horizontalAlignment: "left" })).toBe("left");
+  });
+});
+
+describe("text frame element IDs", () => {
+  // IDs that all collided under the engine's old `/` -> `_` sanitize rule.
+  const AMBIGUOUS = ["a/b", "a_b", "a%b", "a%2Fb", "a%25b"];
+
+  it("encodes `%` before `/`, matching the engine", () => {
+    expect(textFrameElementId("a/b")).toBe("text-frame/a%2Fb");
+    expect(textFrameElementId("a_b")).toBe("text-frame/a_b");
+    expect(textFrameElementId("a%b")).toBe("text-frame/a%25b");
+    expect(textFrameElementId("a%2Fb")).toBe("text-frame/a%252Fb");
+    expect(textFrameElementId("tf1")).toBe("text-frame/tf1");
+  });
+
+  it("encodes distinct frame IDs injectively, with exactly one `/`", () => {
+    const encoded = AMBIGUOUS.map(textFrameElementId);
+    expect(new Set(encoded).size).toBe(AMBIGUOUS.length);
+    for (const id of encoded) expect(id.split("/")).toHaveLength(2);
+  });
+
+  it("maps display-list IDs back to authored frame IDs", () => {
+    const frames = AMBIGUOUS.map((id, index) => frame(id, { type: "page", pageIndex: 0 }, `t${index}`));
+    for (const id of AMBIGUOUS) expect(textFrameIdFromElementId(textFrameElementId(id), frames)).toBe(id);
+    expect(textFrameIdFromElementId("text-frame/missing", frames)).toBeNull();
+    expect(textFrameIdFromElementId("m1/P1/e1", frames)).toBeNull();
+  });
+});
+
+describe("usePublishRenderedPageCount", () => {
+  it("publishes paged layouts only", () => {
+    const displayListRef = { current: { pages: [{}, {}, {}] } };
+    const { rerender } = renderHook(
+      ({ paged, version }: { paged: boolean; version: number }) =>
+        usePublishRenderedPageCount(displayListRef, version, SCORE, 0, paged),
+      { initialProps: { paged: false, version: 1 } },
+    );
+    expect(useRenderedPagesStore.getState().rendered).toBeNull();
+    rerender({ paged: true, version: 2 });
+    expect(useRenderedPagesStore.getState().rendered).toEqual({ score: SCORE, scoreIndex: 0, pageCount: 3 });
+  });
+});

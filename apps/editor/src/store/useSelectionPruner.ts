@@ -23,10 +23,13 @@ import {
 } from "../score/ElementPath";
 import { articulationNamesInMarkings } from "../score/articulationNames";
 import { canonicalNavigationId } from "../navigation";
+import { textFrameIdFromElementId, textFramesForScore } from "../score/textFrameMutations";
+import { useViewStateStore } from "./viewStateStore";
 
 /** True when the element ID still resolves against the current score. */
-export function isSelectionIdValid(elementId: string, score: Score): boolean {
+export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?: number): boolean {
   if (!elementId.includes("/")) return false;
+  if (elementId.startsWith("text-frame/")) return textFrameExists(elementId, score, scoreIndex);
   if (elementId.startsWith("slur/")) return slurExists(elementId, score);
   if (elementId.startsWith("tie/")) return tieExists(elementId, score);
   if (elementId.startsWith("gliss/")) return glissandoExists(elementId, score);
@@ -62,6 +65,12 @@ export function isSelectionIdValid(elementId: string, score: Score): boolean {
   const globalElement = elementId.match(/^m(\d+)\/(time|barline|segno|coda|fine|jump|rehearsal|volta|mnum|mmrcount)$/);
   if (globalElement) return globalElementExists(globalElement, score);
   return false;
+}
+
+/** A frame in the active score view (or any view when unknown) still carries this ID. */
+function textFrameExists(elementId: string, score: Score, scoreIndex: number | undefined): boolean {
+  const views = scoreIndex === undefined ? (score.scores ?? []).map((_, index) => index) : [scoreIndex];
+  return views.some((index) => textFrameIdFromElementId(elementId, textFramesForScore(score, index)) !== null);
 }
 
 function eventSubElementExists(suffix: string, event: NoteEvent): boolean {
@@ -296,7 +305,8 @@ export function useSelectionPruner(): void {
               : [];
 
       if (ids.length === 0) return;
-      const allValid = ids.every((id) => isSelectionIdValid(id, score));
+      const scoreIndex = useViewStateStore.getState().selectedScoreIndex;
+      const allValid = ids.every((id) => isSelectionIdValid(id, score, scoreIndex));
       if (!allValid) {
         console.debug("[Selection] Pruning stale selection after score change:", ids);
         clearSelection();

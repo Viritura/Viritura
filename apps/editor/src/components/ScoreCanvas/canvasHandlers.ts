@@ -22,6 +22,7 @@ import {
 } from "./engraveAdornments";
 import { hitTestSlurHandle } from "./slurHandles";
 import { hitTestSlurCurve } from "./slurCurveHit";
+import { selectEngraveTextFrame, topmostTextFrameAt } from "./textFrameHit";
 import { buildSlurAnchorPoints, nearestSlurAnchor } from "./slurAnchorSnap";
 import { findSlurAnchorInfo } from "../../score/ScoreMutations";
 import { prepareSpannerDrag, updateSpannerDrag } from "./spannerDragSetup";
@@ -160,7 +161,10 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
   // user actually clicked the curve.
   const measureBounds = ctx.displayListRef.current?.measureBounds;
   const measureAnchor = pointerToMeasure(scoreX, scoreY, measureBounds);
+  // Text frames paint above all notation, so a click inside one selects it.
+  const frameHit = topmostTextFrameAt(ctx.displayListRef.current, scoreX, scoreY);
   if (
+    !frameHit &&
     selectBeamAtPoint({
       displayList: ctx.displayListRef.current,
       score: ctx.docScoreRef.current,
@@ -175,8 +179,8 @@ export function handleCanvasClickImpl(e: React.MouseEvent<HTMLCanvasElement>, ct
     })
   )
     return;
-  const curveHit = hitTestSlurCurve(ctx.displayListRef.current?.slurGeometries, scoreX, scoreY);
-  const exactHit = curveHit ?? si.hitTest(scoreX, scoreY);
+  const curveHit = frameHit ? null : hitTestSlurCurve(ctx.displayListRef.current?.slurGeometries, scoreX, scoreY);
+  const exactHit = frameHit ?? curveHit ?? si.hitTest(scoreX, scoreY);
   // Keep direct clicks near ink forgiving without letting rests or barlines
   // magnetically consume broad areas of otherwise selectable bar space.
   const nearestHit = findNearbyElement(si, scoreX, scoreY, measureBounds);
@@ -264,6 +268,8 @@ function handleEngraveClick(
       return true;
     }
   }
+  // 2b. Text frame — painted above all notation, topmost (last) frame wins.
+  if (selectEngraveTextFrame(e, ctx, dl, scoreX, scoreY)) return true;
   // 3. Barline. A plain click selects the boundary for toolbar actions;
   // modifier-clicks remain direct break accelerators.
   const bhit = pointerToBarline(scoreX, scoreY, dl?.measureBounds);

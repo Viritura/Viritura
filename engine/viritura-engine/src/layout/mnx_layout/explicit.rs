@@ -32,6 +32,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
+use super::super::text_frames::append_text_frames_by_bounds;
 use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
@@ -499,7 +500,11 @@ pub fn layout_with_mnx_scores_cached(
 
     // Fall back to regular layout if no layouts/scores defined
     if score.layouts.is_empty() || score.scores.is_empty() {
-        return layout_full_score(score, config);
+        let mut dl = layout_full_score(score, config);
+        if let Some(score_def) = score.scores.get(score_index) {
+            append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
+        }
+        return dl;
     }
     let score_def = match score.scores.get(score_index) {
         Some(sd) => sd,
@@ -616,6 +621,7 @@ pub fn layout_with_mnx_scores_cached(
             use_written,
             &score_def.layout_breaks,
             score_def.instrument_name_display.as_ref(),
+            &score_def.text_frames,
             dirty_region,
             cache.as_deref_mut(),
         );
@@ -952,6 +958,7 @@ pub fn layout_with_mnx_scores_cached(
     if config.page_width.is_none() {
         fit_unpaged_bounds(&mut dl, margin_top, base_margin_r_sp * sp);
     }
+    append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
 
     dl
 }

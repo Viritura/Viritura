@@ -5,7 +5,9 @@ use crate::model::layout::{
     MultimeasureRestRange as ModelMultimeasureRestRange, ScoreDefinition as ModelScoreDefinition,
 };
 use crate::promote::layout::promote_page;
+use crate::promote::text_frame::promote_text_frames;
 use crate::promote::vendor_ext::read_viritura_ext;
+use crate::promote::PromoteError;
 use crate::raw;
 
 fn promote_multimeasure_rest(r: raw::MultimeasureRest) -> ModelMultimeasureRestRange {
@@ -16,7 +18,9 @@ fn promote_multimeasure_rest(r: raw::MultimeasureRest) -> ModelMultimeasureRestR
     }
 }
 
-pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
+pub(crate) fn promote_score_definition(
+    r: raw::Score,
+) -> Result<ModelScoreDefinition, PromoteError> {
     let viritura = read_viritura_ext(r.x.as_ref());
     let instrument_name_display = viritura
         .and_then(|ext| ext.get("instrumentNameDisplay"))
@@ -48,7 +52,8 @@ pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
                 .collect()
         })
         .unwrap_or_default();
-    ModelScoreDefinition {
+    let text_frames = promote_text_frames(viritura.and_then(|ext| ext.get("textFrames")))?;
+    Ok(ModelScoreDefinition {
         name: Some(r.name.0),
         layout: r.layout.map(String::from),
         multimeasure_rests: r
@@ -60,7 +65,8 @@ pub(crate) fn promote_score_definition(r: raw::Score) -> ModelScoreDefinition {
         pages: r.pages.into_iter().map(promote_page).collect(),
         instrument_name_display,
         layout_breaks,
-    }
+        text_frames,
+    })
 }
 
 fn parse_instrument_name_policy(value: &serde_json::Value) -> Option<InstrumentNameDisplayPolicy> {
@@ -79,7 +85,7 @@ mod tests {
     #[test]
     fn promotes_minimal_score_definition() {
         let r: raw::Score = serde_json::from_str(r#"{"name":"Conductor"}"#).unwrap();
-        let s = promote_score_definition(r);
+        let s = promote_score_definition(r).unwrap();
         assert_eq!(s.name.as_deref(), Some("Conductor"));
     }
 }
