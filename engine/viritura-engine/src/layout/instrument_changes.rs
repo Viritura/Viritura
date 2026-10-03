@@ -99,6 +99,23 @@ pub(super) fn sources_need_separate_staves(
     if staff.sources.len() < 2 {
         return false;
     }
+    // Native static-transposition layouts retain their authored shared staff
+    // and single harmony lane. Only provisional instrument state introduces
+    // the new requirement to separate incompatible source timelines.
+    let has_instrument_state = staff.sources.iter().any(|source| {
+        let part = &score.parts[source.part_index];
+        part.instrument_extensions.initial_instrument.is_some()
+            || !part.instrument_extensions.instruments.is_empty()
+            || part.measures.iter().any(|measure| {
+                measure
+                    .instrument_changes
+                    .as_ref()
+                    .is_some_and(|changes| !changes.is_empty())
+            })
+    });
+    if !has_instrument_state {
+        return false;
+    }
     let count = score.global.measures.len();
     (0..count).any(|index| {
         let first = ActiveInstrument::at(&score.parts[first.part_index], index, (0, 1));

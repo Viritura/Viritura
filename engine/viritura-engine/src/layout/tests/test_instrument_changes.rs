@@ -220,6 +220,37 @@ fn instrument_changes_incompatible_sources_get_independent_written_staves() {
 }
 
 #[test]
+fn instrument_changes_separation_preserves_legacy_static_source_layout() {
+    let mut value = document();
+    value["parts"][0].as_object_mut().unwrap().remove("_x");
+    let mut second = value["parts"][0].clone();
+    second["id"] = json!("p2");
+    second.as_object_mut().unwrap().remove("transposition");
+    value["parts"].as_array_mut().unwrap().push(second);
+    value["layouts"][0]["content"][0]["sources"] = json!([{"part":"p1"},{"part":"p2"}]);
+    let staff_count = |value: &Value| {
+        let score = parse(value);
+        layout_with_mnx_scores(&score, &LayoutConfig::default(), 0)
+            .measure_bounds
+            .iter()
+            .map(|bound| bound.staff_index)
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    };
+    assert_eq!(
+        staff_count(&value),
+        1,
+        "static native intervals must preserve authored staff"
+    );
+    // A timeline declaration requires independent source engraving even when
+    // it is not on the first source and its printed instruction is hidden.
+    value["parts"][1]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
+        "transposition":interval(7,4),"instruction":{"hidden":true}
+    }]}});
+    assert_eq!(staff_count(&value), 2);
+}
+
+#[test]
 fn instrument_changes_written_pitches_and_accidentals_follow_active_key() {
     let mut value = document();
     value["parts"][0]["measures"][1]["_x"] =
