@@ -1,0 +1,248 @@
+import { useState } from "react";
+import { useStore } from "zustand";
+import { toast } from "sonner";
+import type { Part, Score, Transposition } from "@viritura/core";
+import {
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogCancelButton,
+  DialogPrimaryButton,
+  DialogTitle,
+  FormField,
+  FormInput,
+} from "@viritura/ui";
+import type { DocumentStore } from "../store/documentStore";
+import type { SelectionState } from "../store/selectionStore";
+import { closeDialog, useDialogStore } from "../store/dialogStore";
+import { initialBarChangeFields, changeInstruction, numberFieldValue } from "./dialogFields";
+import { InstrumentCatalogPicker } from "../components/parts/InstrumentCatalogPicker";
+import {
+  buildTransposition,
+  diatonicFromChromatic,
+  transpositionSummary,
+} from "../components/parts/roster/transposition";
+import {
+  instrumentChangeCompatibility,
+  removeBarInstrumentChange,
+  resolveBarInstrumentTarget,
+  setBarInstrument,
+  setBarTransposition,
+  type BarChangeResult,
+  type BarInstrumentTarget,
+} from "./barChanges";
+import styles from "./BarInstrumentChangeDialog.module.css";
+
+interface HostProps {
+  open: boolean;
+  mode: "instrument" | "transposition";
+  onClose: () => void;
+  store: DocumentStore;
+  selection: SelectionState;
+  updateScore: (score: Score) => void;
+}
+
+export function BarInstrumentChangeDialogs(props: Pick<HostProps, "store" | "selection" | "updateScore">) {
+  const instrumentOpen = useDialogStore((state) => state.open.barInstrumentChange);
+  const transpositionOpen = useDialogStore((state) => state.open.barTranspositionChange);
+  return (
+    <>
+      <BarInstrumentChangeDialogHost
+        {...props}
+        open={instrumentOpen}
+        mode="instrument"
+        onClose={() => closeDialog("barInstrumentChange")}
+      />
+      <BarInstrumentChangeDialogHost
+        {...props}
+        open={transpositionOpen}
+        mode="transposition"
+        onClose={() => closeDialog("barTranspositionChange")}
+      />
+    </>
+  );
+}
+
+export function BarInstrumentChangeDialogHost(props: HostProps) {
+  const score = useStore(props.store, (state) => state.score);
+  if (!props.open) return null;
+  const target = resolveBarInstrumentTarget(score, props.selection);
+  const part = target ? score?.parts[target.partIndex] : undefined;
+  if (!target || !part) {
+    return (
+      <Dialog open onClose={props.onClose}>
+        <DialogTitle>Change {props.mode}</DialogTitle>
+        <DialogBody>Select a single bar in one source part to change its {props.mode}.</DialogBody>
+        <DialogActions>
+          <DialogCancelButton />
+        </DialogActions>
+      </Dialog>
+    );
+  }
+  return (
+    <BarChangeForm
+      key={`${props.mode}:${part.id ?? target.partIndex}:${target.measureIndex}`}
+      {...props}
+      target={target}
+      part={part}
+    />
+  );
+}
+
+interface FormProps extends HostProps {
+  target: BarInstrumentTarget;
+  part: Part;
+}
+
+function BarChangeForm({ mode, onClose, store, updateScore, target, part }: FormProps) {
+  const initial = initialBarChangeFields(part, target.measureIndex);
+  const { change } = initial;
+  const [instrumentId, setInstrumentId] = useState(initial.instrumentId);
+  const [halfSteps, setHalfSteps] = useState<number | "">(initial.halfSteps);
+  const [staffDistance, setStaffDistance] = useState<number | "">(initial.staffDistance);
+  const [flipAt, setFlipAt] = useState<number | "">(initial.flipAt);
+  const [prefersWritten, setPrefersWritten] = useState(initial.prefersWritten);
+  const [text, setText] = useState(initial.text);
+  const [hidden, setHidden] = useState(initial.hidden);
+  const [error, setError] = useState<string>();
+  const instruction = changeInstruction(text, hidden);
+  const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
+
+  function finish(result: BarChangeResult): void {
+    if (result.error) {
+      setError(result.error);
+      toast.error(result.error);
+      return;
+    }
+    updateScore(result.score);
+    onClose();
+  }
+
+  function apply(): void {
+    const document = store.getState();
+    const score = document.workingScore ?? document.score;
+    if (!score || score.parts[target.partIndex]?.id !== part.id) {
+      setError("The selected part no longer exists.");
+      return;
+    }
+    if (mode === "instrument") {
+      finish(setBarInstrument(score, target, instrumentId, instruction));
+    } else {
+      if (halfSteps === "" || staffDistance === "" || !validNumbers) {
+        setError("Enter whole numbers for the transposition interval.");
+        return;
+      }
+      const transposition: Transposition = buildTransposition(halfSteps, staffDistance, flipAt, prefersWritten) ?? {
+        interval: { halfSteps: 0, staffDistance: 0 },
+      };
+      finish(setBarTransposition(score, target, transposition, instruction));
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogTitle>{mode === "instrument" ? "Change instrument" : "Change transposition"}</DialogTitle>
+      <DialogBody>
+        <p className={styles.scope}>
+          <strong>
+            {part.name}, bar {target.measureIndex + 1}
+          </strong>
+        </p>
+        <p>Applies from the start of this bar until the next change. Sounding notes are preserved.</p>
+        {mode === "instrument" ? (
+          <>
+            <InstrumentCatalogPicker
+              autoFocus
+              selectedInstrumentId={instrumentId}
+              onSelect={(instrument) => setInstrumentId(instrument.id)}
+              onBlockedSelect={(_instrument, analysis) => setError(analysis.message)}
+              compatibility={(instrument) => {
+                const message = instrumentChangeCompatibility(part, instrument);
+                return {
+                  status: message ? "blocked" : "compatible",
+                  message: message ?? "Use this instrument from this bar onward.",
+                };
+              }}
+            />
+            <p>
+              The instrument&apos;s default transposition and clefs apply. Edit transposition separately to override it.
+            </p>
+          </>
+        ) : (
+          <div className={styles.fields}>
+            <p>{halfSteps === "" ? "Enter a transposition interval." : transpositionSummary(halfSteps)}</p>
+            <FormField label="Chromatic semitones (concert to written)">
+              <FormInput
+                type="number"
+                value={halfSteps}
+                onChange={(event) => {
+                  const value = numberFieldValue(event.target.value);
+                  setHalfSteps(value);
+                  setStaffDistance(value === "" ? "" : diatonicFromChromatic(value));
+                }}
+              />
+            </FormField>
+            <FormField label="Diatonic staff steps">
+              <FormInput
+                type="number"
+                value={staffDistance}
+                onChange={(event) => setStaffDistance(numberFieldValue(event.target.value))}
+              />
+            </FormField>
+            <FormField label="Key signature flip threshold">
+              <FormInput
+                type="number"
+                value={flipAt}
+                placeholder="No enharmonic flip"
+                onChange={(event) => setFlipAt(numberFieldValue(event.target.value))}
+              />
+            </FormField>
+            <Checkbox
+              label="Display written pitches even in concert-pitch scores"
+              checked={prefersWritten}
+              onChange={(event) => setPrefersWritten(event.target.checked)}
+            />
+          </div>
+        )}
+        <div className={styles.fields}>
+          <FormField label="Printed instruction">
+            <FormInput
+              value={text}
+              placeholder="Automatic instrument or transposition label"
+              onChange={(event) => setText(event.target.value)}
+            />
+          </FormField>
+          <Checkbox
+            label="Hide printed instruction"
+            checked={hidden}
+            onChange={(event) => setHidden(event.target.checked)}
+          />
+        </div>
+        {error && <p role="alert">{error}</p>}
+        {change && <p>This replaces the change at this bar&apos;s start, preserving later changes.</p>}
+      </DialogBody>
+      <DialogActions>
+        {change && (
+          <DialogPrimaryButton
+            onClick={() => {
+              const document = store.getState();
+              const score = document.workingScore ?? document.score;
+              if (score) finish(removeBarInstrumentChange(score, target));
+              else setError("The score is no longer open.");
+            }}
+          >
+            Remove change
+          </DialogPrimaryButton>
+        )}
+        <DialogCancelButton />
+        <DialogPrimaryButton
+          onClick={apply}
+          disabled={mode === "instrument" ? !instrumentId : !validNumbers || !!part.kit}
+        >
+          Apply change
+        </DialogPrimaryButton>
+      </DialogActions>
+    </Dialog>
+  );
+}

@@ -16,6 +16,7 @@ import type { SelectionState } from "../store/selectionStore";
 import type { NoteInputState } from "../store/noteInputStore";
 import type { CondensingMode } from "../components/CondensingPopover";
 import { beatPositionToFraction, eventBeatPosition } from "./timedAnnotationPosition";
+import { resolveDisplayTransposition } from "../pitchContext";
 
 // ─── Tempo parsing ────────────────────────────────────────────────
 // Supports "120", "q=120", "q.=120", "e140", "Allegro q=120", "Andante".
@@ -115,8 +116,13 @@ export function applyChordSymbolEdit(
   const position = popover.rhythmicPosition ?? {
     fraction: beatPositionToFraction(eventBeatPosition(sequence, popover)),
   };
-  const useWritten = score.scores?.[selectedScoreIndex]?.useWritten || part.transposition?.prefersWrittenPitches;
-  const interval = useWritten ? part.transposition?.interval : undefined;
+  const interval = resolveDisplayTransposition(
+    score,
+    popover.partIndex,
+    popover.measureIndex,
+    position.fraction,
+    selectedScoreIndex,
+  )?.interval;
   const parsed = parseChordSymbolText(rawValue, position);
   const parsedConcert = interval
     ? transposeChordSymbol(parsed, { halfSteps: -interval.halfSteps, staffDistance: -interval.staffDistance })

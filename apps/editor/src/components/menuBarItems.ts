@@ -49,6 +49,8 @@ export interface MenuBarCallbacks {
   readonly onZoomOut?: () => void;
   readonly onResetZoom?: () => void;
   readonly onTranspose?: () => void;
+  readonly onBarInstrumentChange?: () => void;
+  readonly onBarTranspositionChange?: () => void;
   readonly onExplodeSelection?: () => void | Promise<void>;
   readonly onReduceSelection?: () => void | Promise<void>;
   readonly onSelectChordTopNote?: () => void;
@@ -77,6 +79,7 @@ export interface MenuBarState {
   readonly canRedo?: boolean;
   readonly hasSelection?: boolean;
   readonly canTranspose?: boolean;
+  readonly canChangeBarInstrument?: boolean;
   readonly hasDocument?: boolean;
   readonly canDistribute?: boolean;
 }
@@ -159,6 +162,12 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
     { label: "Delete", shortcut: "Del", action: callbacks.onDelete, disabled: !state.hasSelection },
     SEPARATOR,
     { label: "Transpose Selection", action: callbacks.onTranspose, disabled: !state.canTranspose },
+    { label: "Change instrument", action: callbacks.onBarInstrumentChange, disabled: !state.canChangeBarInstrument },
+    {
+      label: "Change transposition",
+      action: callbacks.onBarTranspositionChange,
+      disabled: !state.canChangeBarInstrument,
+    },
     {
       label: "Split Combined Orchestral Parts",
       action: callbacks.onSplitOrchestralStaves,

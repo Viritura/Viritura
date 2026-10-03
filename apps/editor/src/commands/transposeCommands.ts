@@ -12,6 +12,7 @@ import type { Step, Octave } from "@viritura/core";
 import { getEventAtLocation } from "../score/ElementPath";
 import type { EventLocation } from "../score/ElementPath";
 import { cloneScore } from "../score/scoreClone";
+import { resolveDisplayTransposition } from "../pitchContext";
 
 // ═══════════════════════════════════════════
 // Pitch transposition helpers
@@ -162,8 +163,8 @@ export function transposePitchDiatonic(pitch: Pitch, steps: number, keyFifths: n
 
 /** A note-entry pitch in both representations the editor needs. */
 export interface EntryPitchPair {
-  /** The pitch on the staff the user sees — what they typed or clicked. Use
-   *  this for audio preview and octave memory (`lastPitch`). */
+  /** The pitch on the staff the user sees — what they typed or clicked.
+   *  Use this for octave memory (`lastPitch`) and cursor placement. */
   written: Pitch;
   /** The concert/sounding pitch MNX stores. Use this for score mutation. */
   sounding: Pitch;
@@ -171,7 +172,7 @@ export interface EntryPitchPair {
 
 /**
  * Resolve a note-entry gesture's WRITTEN pitch into both the written pitch
- * (for audio preview + octave memory) and the SOUNDING pitch MNX stores.
+ * (for cursor placement + octave memory) and the SOUNDING pitch MNX stores and previews.
  *
  * This is the single source of truth shared by the keyboard and click note-
  * entry paths, so preview, octave memory, and storage can never drift apart
@@ -184,12 +185,18 @@ export interface EntryPitchPair {
  *
  * Convention (MNX): sounding + interval = written.
  */
-export function resolveEntryPitch(written: Pitch, score: Score, partIndex: number, keyFifths: number): EntryPitchPair {
+export function resolveEntryPitch(
+  written: Pitch,
+  score: Score,
+  partIndex: number,
+  keyFifths: number,
+  measureIndex = 0,
+  position: readonly [number, number] = [0, 1],
+  scoreIndex = 0,
+): EntryPitchPair {
   const writtenPitch: Pitch = { ...written };
-  const globalUseWritten = score.scores?.[0]?.useWritten ?? false;
-  const partTransposition = score.parts[partIndex]?.transposition;
-  const prefersWritten = partTransposition?.prefersWrittenPitches ?? false;
-  if (!(globalUseWritten || prefersWritten) || !partTransposition) {
+  const partTransposition = resolveDisplayTransposition(score, partIndex, measureIndex, position, scoreIndex);
+  if (!partTransposition) {
     return { written: writtenPitch, sounding: { ...writtenPitch } };
   }
 
@@ -208,19 +215,20 @@ export function resolveEntryPitch(written: Pitch, score: Score, partIndex: numbe
   return { written: writtenPitch, sounding };
 }
 
-/** Recover the displayed/written pitch used by preview and octave memory from
+/** Recover the displayed/written pitch used by the cursor and octave memory from
  * the concert pitch stored in MNX. */
 export function resolveWrittenPitchFromSounding(
   sounding: Pitch,
   score: Score,
   partIndex: number,
   keyFifths: number,
+  measureIndex = 0,
+  position: readonly [number, number] = [0, 1],
+  scoreIndex = 0,
 ): Pitch {
   const soundingPitch: Pitch = { ...sounding };
-  const globalUseWritten = score.scores?.[0]?.useWritten ?? false;
-  const partTransposition = score.parts[partIndex]?.transposition;
-  const prefersWritten = partTransposition?.prefersWrittenPitches ?? false;
-  if (!(globalUseWritten || prefersWritten) || !partTransposition) return soundingPitch;
+  const partTransposition = resolveDisplayTransposition(score, partIndex, measureIndex, position, scoreIndex);
+  if (!partTransposition) return soundingPitch;
 
   const { staffDistance, halfSteps } = partTransposition.interval;
   if (Math.abs(staffDistance) === 7 && Math.abs(halfSteps) === 12) {

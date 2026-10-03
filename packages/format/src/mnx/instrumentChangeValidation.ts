@@ -43,7 +43,7 @@ export function validateInstrumentChanges(score: RawScore): InstrumentChangeVali
       });
     }
     if (initialKey !== undefined) {
-      const initial = instruments?.[initialKey];
+      const initial = instruments && Object.hasOwn(instruments, initialKey) ? instruments[initialKey] : undefined;
       if (!initial) {
         errors.push({
           pointer: `${extPointer}/initialInstrument`,
@@ -80,7 +80,7 @@ export function validateInstrumentChanges(score: RawScore): InstrumentChangeVali
             keyword: "required",
           });
         }
-        if (change.instrument !== undefined && !instruments?.[change.instrument]) {
+        if (change.instrument !== undefined && (!instruments || !Object.hasOwn(instruments, change.instrument))) {
           errors.push({
             pointer: `${changePointer}/instrument`,
             message: `must reference an instrument on this part ('${change.instrument}' was not found)`,

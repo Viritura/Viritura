@@ -93,6 +93,11 @@ export class LayeredSampler implements ISampler {
     }
   }
 
+  resetInstrument(time?: number): void {
+    this.primary.resetInstrument?.(time);
+    for (const layer of this.layers) layer.sampler.resetInstrument?.(time);
+  }
+
   /** Enable or disable a layer by index. Disabling silences any active notes. */
   setLayerEnabled(index: number, enabled: boolean): void {
     const layer = this.layers[index];

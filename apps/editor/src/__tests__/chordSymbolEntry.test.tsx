@@ -70,6 +70,18 @@ afterEach(() => {
 });
 
 describe("chord entry commits", () => {
+  it("reopens harmony after an instrument change using the active display interval", () => {
+    const score = buildScore();
+    score.parts[0]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };
+    score.parts[0]!.measures[1]!.instrumentChanges = [
+      {
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+      },
+    ];
+    score.global.measures[1]!.chordSymbols = [parseChordSymbolText("Bb/D", { fraction: [0, 1] })];
+    setup(score, { ...target, measureIndex: 1 });
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("C/E");
+  });
   it.each([
     ["CM7/E", "BbM7/D", "Bbmaj7/D"],
     ["C°7/E", "Bb°7/D", "Bbdim7/D"],

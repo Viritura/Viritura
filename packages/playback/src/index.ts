@@ -13,6 +13,7 @@
 
 export { PlaybackProvider } from "./PlaybackContext";
 export type { SoundfontLoader } from "./soundfont";
+export type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 export { getChordPlaybackPart } from "@viritura/midi";
 export { getPlaybackSnapshot, usePlaybackActions, usePlaybackState } from "./usePlayback";
 export {

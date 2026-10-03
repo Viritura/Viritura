@@ -5,6 +5,7 @@
  */
 
 import type { ChordSymbol, Score } from "@viritura/core";
+import type { PlaybackPreviewPosition } from "./soundProfileRuntime";
 
 // ═══════════════════════════════════════════
 // Types
@@ -114,11 +115,17 @@ export interface PlaybackActions {
     velocity?: number,
     durationMs?: number,
     altKitProgram?: number,
+    position?: PlaybackPreviewPosition,
   ): void;
   /** Start a held GM-instrument preview independently of the score's instruments. */
   previewInstrumentNoteOn(midiNote: number, program?: number, velocity?: number): Promise<void>;
   /** Start a held preview using the resolved SoundFont voice for a score part. */
-  previewPartNoteOn(midiNote: number, partIndex: number, velocity?: number): Promise<void>;
+  previewPartNoteOn(
+    midiNote: number,
+    partIndex: number,
+    velocity?: number,
+    position?: PlaybackPreviewPosition,
+  ): Promise<void>;
   /** Release a held GM-instrument preview. */
   previewInstrumentNoteOff(midiNote: number): void;
   /** Release every held instrument-preview note, such as after an input disconnects. */
@@ -177,7 +184,23 @@ export function computePartSignature(score: Score): string {
   return score.parts
     .map((p) => {
       const kitIds = p.kit ? Object.keys(p.kit).sort().join("|") : "";
-      return `${p.name}::${kitIds}`;
+      const ext = p._x?.viritura;
+      const timbres = {
+        instrumentId: ext?.instrumentId,
+        midiProgram: ext?.midiProgram,
+        instruments: ext?.instruments,
+        initialInstrument: ext?.initialInstrument,
+        changes: [
+          ...new Set(
+            p.measures.flatMap((m) =>
+              (m.instrumentChanges ?? []).flatMap((change) =>
+                change.instrument === undefined ? [] : [change.instrument],
+              ),
+            ),
+          ),
+        ].sort(),
+      };
+      return `${p.name}::${kitIds}::${JSON.stringify(timbres)}`;
     })
     .join("§");
 }

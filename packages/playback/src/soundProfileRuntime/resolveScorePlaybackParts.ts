@@ -1,11 +1,27 @@
 import type { Part, Score } from "@viritura/core";
-import { getChordPlaybackPart } from "@viritura/midi";
+import { getChordPlaybackPart, playbackInstruments } from "@viritura/midi";
 import type { SoundProfileRegistry } from "@viritura/sound-profiles";
 import { resolvePartSounds, type ResolvedPlaybackPart } from "./resolvePartSounds";
 
 /** Resolve authored instruments and the runtime-only global harmony lane. */
 export function resolveScorePlaybackParts(score: Score, registry?: SoundProfileRegistry): ResolvedPlaybackPart[] {
   const resolved = resolvePartSounds(score.parts, score.soundProfile, registry);
+  for (const playbackPart of resolved) {
+    const instruments = playbackInstruments(playbackPart.part);
+    if (instruments.length === 1) continue;
+    // Keep the authored source/VST assignment only for the initial timbre.
+    // Explicit changes (even back to the initial instrument) use defaults.
+    resolved[playbackPart.index] = {
+      ...playbackPart,
+      instruments: instruments.map(({ key, part }) => ({
+        key,
+        resolved:
+          key === "initial"
+            ? playbackPart
+            : { ...resolvePartSounds([part], undefined, registry)[0]!, index: playbackPart.index },
+      })),
+    };
+  }
   const chords = getChordPlaybackPart(score);
   if (!chords) return resolved;
 

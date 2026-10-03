@@ -81,4 +81,22 @@ describe("buildSelectionContextMenuItems", () => {
     items.find((i) => i.label === "Reduce to Staff")?.action?.();
     expect(onReduceSelection).toHaveBeenCalledTimes(1);
   });
+
+  it("offers bar instrument/transposition commands only for a resolved single-bar target", () => {
+    const onBarInstrumentChange = vi.fn();
+    const onBarTranspositionChange = vi.fn();
+    const commands = { ...callbacks, onBarInstrumentChange, onBarTranspositionChange };
+    const disabled = buildSelectionContextMenuItems(commands, state, { hasSelection: true });
+    expect(enabled(disabled, "Change instrument")).toBe(false);
+    expect(enabled(disabled, "Change transposition")).toBe(false);
+    const items = buildSelectionContextMenuItems(
+      commands,
+      { ...state, canChangeBarInstrument: true },
+      { hasSelection: true },
+    );
+    items.find((item) => item.label === "Change instrument")?.action?.();
+    items.find((item) => item.label === "Change transposition")?.action?.();
+    expect(onBarInstrumentChange).toHaveBeenCalledOnce();
+    expect(onBarTranspositionChange).toHaveBeenCalledOnce();
+  });
 });

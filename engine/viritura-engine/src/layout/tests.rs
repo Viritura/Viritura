@@ -20,6 +20,7 @@ mod test_grace;
 mod test_grand_staff;
 mod test_hairpins;
 mod test_helpers;
+mod test_instrument_changes;
 mod test_layouts;
 mod test_ledger_lines;
 mod test_lyrics;

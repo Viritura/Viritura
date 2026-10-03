@@ -49,6 +49,13 @@ export function buildSelectionContextMenuItems(
     SEPARATOR,
     { label: "Delete", shortcut: "Del", action: callbacks.onDelete, disabled: !hasSelection },
     SEPARATOR,
+    { label: "Change instrument", action: callbacks.onBarInstrumentChange, disabled: !state.canChangeBarInstrument },
+    {
+      label: "Change transposition",
+      action: callbacks.onBarTranspositionChange,
+      disabled: !state.canChangeBarInstrument,
+    },
+    SEPARATOR,
     { label: "Explode to Staves", action: callbacks.onExplodeSelection, disabled: !canDistribute },
     { label: "Reduce to Staff", action: callbacks.onReduceSelection, disabled: !canDistribute },
     SEPARATOR,

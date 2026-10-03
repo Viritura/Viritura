@@ -295,7 +295,10 @@ describe("ScoreCanvas chord pointer routing", () => {
   it("routes notes exclusively through selection preview and leaves chords out of note preview", async () => {
     const { canvas, ui, rerender } = await mount();
     click(canvas, { ...pointer, clientX: 205, clientY: 70 });
-    expect(previewNote).toHaveBeenCalledExactlyOnceWith(62, 1, 80, 400);
+    expect(previewNote).toHaveBeenCalledExactlyOnceWith(62, 1, 80, 400, undefined, {
+      measureIndex: 0,
+      fraction: [0, 1],
+    });
     expect(previewChord).not.toHaveBeenCalled();
     rerender(ui());
     await act(async () => {

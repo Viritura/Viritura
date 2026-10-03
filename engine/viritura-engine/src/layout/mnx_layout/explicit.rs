@@ -454,9 +454,11 @@ fn render_explicit_system(
     // gutter, so skip the name there to match the auto-flow path and avoid
     // restating "D. B." on every system like a full score.
     if flat_staves.len() > 1 {
+        let active_labels =
+            super::instrument_labels::active_staves_at(flat_staves, ctx.score, m_start);
         render_staff_labels(
             dl,
-            flat_staves,
+            &active_labels,
             group_ranges,
             &staff_y_offsets,
             ctx.base_margin_l + label_margin - 2.0 * sp,
@@ -668,6 +670,7 @@ pub fn layout_with_mnx_scores_cached(
         score_def.instrument_name_display.as_ref(),
         sp,
         label_style,
+        score,
     );
     // When laid out into pages, use the configured page margins; the
     // editor-only `config.margin_*` values are smaller and intended for

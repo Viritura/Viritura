@@ -7,6 +7,7 @@ export {
   type UnsupportedSf2Sound,
 } from "./resolvePartSounds";
 export { resolveScorePlaybackParts } from "./resolveScorePlaybackParts";
+export { resolvePreviewSound, previewSampler, type PlaybackPreviewPosition } from "./previewPosition";
 export {
   resolveSoundProfilePickerView,
   type SoundProfilePickerOption,

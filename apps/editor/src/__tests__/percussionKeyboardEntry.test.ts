@@ -137,7 +137,7 @@ describe("percussion keyboard entry", () => {
     vi.runAllTimers();
     vi.useRealTimers();
 
-    expect(previewMidi).toHaveBeenCalledWith(38, 0);
+    expect(previewMidi).toHaveBeenCalledWith(38, 0, { measureIndex: 0, fraction: [0, 1] });
     expect(previewPitch).not.toHaveBeenCalled();
   });
 

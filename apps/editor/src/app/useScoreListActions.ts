@@ -17,6 +17,7 @@ import { openDrumKitEditorForPart } from "../store/drumKitTargetStore";
 import { addSourceToStaffAt, removeSourceFromStaffAt, getStaffNodeAt, collectPartIds } from "./layoutHelpers";
 import { buildCondensedLayoutContent, addOrReuseLayout } from "./condensedLayout";
 import type { DocumentStore } from "../store/documentStore";
+import { synchronizeInitialInstrument } from "../instrumentChanges";
 
 export interface ScoreListActionsDeps {
   store: DocumentStore;
@@ -192,7 +193,8 @@ export function useScoreListActions(deps: ScoreListActionsDeps): ScoreListAction
       const partIndex = score.parts.findIndex((p) => p.id === partId);
       if (partIndex < 0) return;
       const newParts = [...score.parts];
-      newParts[partIndex] = { ...newParts[partIndex]!, ...updates };
+      const previous = newParts[partIndex]!;
+      newParts[partIndex] = synchronizeInitialInstrument(previous, { ...previous, ...updates });
       updateScore({
         ...score,
         parts: newParts,

@@ -1,0 +1,9 @@
+.scope {
+  margin-top: 0;
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-3, 12px);
+  margin-top: var(--space-3, 12px);
+}

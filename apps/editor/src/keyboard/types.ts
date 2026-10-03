@@ -10,9 +10,25 @@ import type { Score, Pitch, AccidentalType, ScorePatch } from "@viritura/core";
 import type { NoteValueBase } from "@viritura/core";
 import type { EditorKeyboardConfig } from "./useEditorKeyboard";
 import type { NavigationIndex } from "../navigation/NavigationIndex";
+import type { PlaybackPreviewPosition } from "@viritura/playback";
 import type { GraceType, RhythmSource } from "../store/noteInputStore";
 import type { RadialMenuCategory } from "../radialMenu/types";
 import type { MeasureSelectionPoint, Selection } from "../store/selectionStore";
+import type { LaneRef } from "../voiceLanes";
+import type { resolveActiveClefForStaff } from "./noteInputShared";
+
+export interface NoteEntryContext {
+  partIndex: number;
+  staffIdx: number;
+  cursorMeasure: number;
+  cursorBeat: number;
+  /** Sequence index of the lane in the cursor's measure — valid there only. */
+  voice: number;
+  /** The voice lane being written; resolve per measure when crossing barlines. */
+  lane: LaneRef;
+  activeClef: ReturnType<typeof resolveActiveClefForStaff>;
+  ottavaShift: number;
+}
 
 export interface CursorPosition {
   measureIndex: number;
@@ -79,10 +95,11 @@ export interface KeyboardHandlerContext {
   setRhythmSource: (source: RhythmSource | null) => void;
 
   // Audio preview
-  previewPitch: (pitch: Pitch, partIndex?: number) => void;
+  /** Concert/sounding pitch; preview callbacks must not transpose it again. */
+  previewPitch: (pitch: Pitch, partIndex?: number, position?: PlaybackPreviewPosition) => void;
   /** Play a raw MIDI note. Used for percussion entry, where the sounding note
    *  is the kit component's mapped drum rather than a pitch. */
-  previewMidi?: (midiNote: number, partIndex?: number) => void;
+  previewMidi?: (midiNote: number, partIndex?: number, position?: PlaybackPreviewPosition) => void;
 
   // History
   undo: () => void;

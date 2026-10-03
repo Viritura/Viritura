@@ -272,29 +272,6 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
         .first()
         .and_then(|s| s.use_written)
         .unwrap_or(false);
-    // Instruments that prefer written pitches (e.g. piccolo, double bass)
-    // always transpose regardless of use_written.
-    let prefers_written = part
-        .transposition
-        .as_ref()
-        .and_then(|t| t.prefers_written_pitches)
-        .unwrap_or(false);
-    let should_transpose = use_written || prefers_written;
-    let transposition = if should_transpose {
-        part.transposition
-            .as_ref()
-            .map(|t| (t.interval.staff_distance, t.interval.half_steps))
-    } else {
-        None
-    };
-    let key_fifths_flip_at = if should_transpose {
-        part.transposition
-            .as_ref()
-            .and_then(|t| t.key_fifths_flip_at)
-    } else {
-        None
-    };
-
     let mut active_time = TimeSignature::default();
     let mut active_key = KeySignature {
         fifths: 0,
@@ -308,6 +285,8 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
     let mut prev_display_key = KeySignature::default();
     let mut previous_accidental_state = AccidentalState::new();
     for i in 0..count {
+        let (transposition, key_fifths_flip_at) =
+            ActiveInstrument::at(part, i, (0, 1)).display_transposition(use_written);
         let global = globals.get(i).cloned().unwrap_or(GlobalMeasure {
             id: None,
             number: None,
@@ -338,7 +317,9 @@ pub(crate) fn resolve_measures(score: &Score, part_index: usize) -> Vec<Resolved
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         });
+        super::instrument_changes::append_instructions(&mut part_measure, part, i, part_index);
         // A direct resolve call displays this selected part. Full-score layout
         // coordinates automatic visibility across its displayed parts separately.
         let chord_symbols = if part.chord_symbol_visibility == Some(ChordSymbolVisibility::Hide) {
@@ -620,7 +601,12 @@ pub(crate) fn starts_new_mmr_group(resolved: &[ResolvedMeasure], i: usize) -> bo
             .chord_symbols
             .as_ref()
             .is_some_and(|chords| !chords.is_empty())
-        || g.key.is_some()
+        || resolved[i].key_signature_changed()
+        || resolved[i]
+            .part
+            .instrument_changes
+            .as_ref()
+            .is_some_and(|changes| !changes.is_empty())
         || g.tempos.as_ref().is_some_and(|t| !t.is_empty())
         || g.rehearsal_mark().is_some()
         || g.repeat_start.is_some()

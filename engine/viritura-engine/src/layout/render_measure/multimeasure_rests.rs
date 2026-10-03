@@ -89,7 +89,7 @@ pub(crate) fn multimeasure_rest_structural_prefix(ml: &MeasureLayout, sp: f64) -
         w += clef_advance * sp;
     }
 
-    let is_key_change = rm.global.key.is_some();
+    let is_key_change = rm.key_signature_changed();
     if is_key_change || (at_start && rm.active_key.accidental_count() != 0) {
         let cancel_count = if is_key_change {
             rm.prev_key.cancellation_count(&rm.active_key)
@@ -173,7 +173,7 @@ pub(crate) fn render_multimeasure_rest(
     // A repeat-start opening a system is deferred until after the repeated
     // clef/key/time prefix. Other non-system-start boundaries render normally.
     let defer_repeat_start = ml.resolved.global.repeat_start.is_some()
-        && (is_first || ml.is_first_on_system || ml.resolved.global.key.is_some());
+        && (is_first || ml.is_first_on_system || ml.resolved.key_signature_changed());
     if !is_first && !ml.is_first_on_system {
         let has_repeat_start = ml.resolved.global.repeat_start.is_some();
         let start_bt = BarlineKind::at_boundary(
@@ -202,7 +202,7 @@ pub(crate) fn render_multimeasure_rest(
             }
         }
     }
-    let is_key_change = ml.resolved.global.key.is_some();
+    let is_key_change = ml.resolved.key_signature_changed();
     let key_cancel_count = if is_key_change {
         ml.resolved
             .prev_key

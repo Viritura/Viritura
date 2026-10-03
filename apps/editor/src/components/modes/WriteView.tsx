@@ -48,6 +48,7 @@ import { useAppLocalState } from "../../app/useAppLocalState";
 import { isFolderProjectSupported } from "../../app/projectFolder";
 import type { ActivityView } from "../../components/activityRegistry";
 import { getTransposeSelectionInfo } from "../../components/TransposeDialog";
+import { resolveBarInstrumentTarget } from "../../instrumentChanges";
 import { usePublishJumpBarCatalog } from "../../app/useJumpBarDestinations";
 import { MidiControllerBridge } from "../../midiController";
 
@@ -557,10 +558,11 @@ function AppInner({
   usePublishJumpBarCatalog(jumpBarActions, store, canvasRef);
 
   // ─── MenuBar wiring (config + recents + callbacks + state) ──────
-  const { hasDocument, canTranspose } = useDocumentStore(
+  const { hasDocument, canTranspose, canChangeBarInstrument } = useDocumentStore(
     useShallow((s) => ({
       hasDocument: s.score !== null,
       canTranspose: getTransposeSelectionInfo(s.score, selection).noteCount > 0,
+      canChangeBarInstrument: resolveBarInstrumentTarget(s.score, selection) !== null,
     })),
   );
   const { buildSelectionMenuItems } = useMenuBarWiring({
@@ -571,6 +573,7 @@ function AppInner({
     canRedo,
     selection,
     canTranspose,
+    canChangeBarInstrument,
     canDistribute,
     recentScores,
     handleOpenFile,

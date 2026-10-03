@@ -2,6 +2,8 @@ use super::super::full_score::{FlatStaff, GroupRange};
 use crate::layout::text_styles::TextStyle;
 use crate::model::{InstrumentNameDisplayPolicy, InstrumentNameDisplaySettings};
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
+mod active_names;
+pub(super) use active_names::{staves_at as active_staves_at, variants as label_variants};
 
 /// Color used for expansion source staves — blue-tinted gray derived from primary accent #2a7bc8.
 pub(super) const EXPANSION_COLOR: &str = "#667890";
@@ -94,7 +96,13 @@ pub(super) fn explicit_label_margins(
     settings: Option<&InstrumentNameDisplaySettings>,
     sp: f64,
     label_style: &TextStyle,
+    score: &crate::model::Score,
 ) -> (f64, f64) {
+    let variants: Vec<_> = system_flat_staves
+        .iter()
+        .map(|(staves, groups)| (label_variants(staves, score), groups.clone()))
+        .collect();
+    let system_flat_staves = &variants;
     let margin = |policy: Option<InstrumentNameDisplayPolicy>,
                   is_first_system: bool,
                   include_group_labels: bool| {

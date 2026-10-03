@@ -46,6 +46,12 @@ import { playbackGlobalMeasures, suppressCadenzaFermataHolds } from "./cadenzaTi
 import { collectPartLegatoOut, flushVoiceLegato, flushAllLegato, pushVoiceLegato, resolveVoiceLegato } from "./legato";
 import { ARCO_CAPABLE_PROGRAMS, muteFamilyForProgram, applyMeasureTechniques, type TechniqueState } from "./technique";
 import { resolveActiveTime, resolvePartStaffMeterTable, staffMeterRatioAt } from "./staffMeterTiming";
+import {
+  applyInstrumentPlayback,
+  playbackInstruments,
+  playbackInstrumentKeyAt,
+  type InstrumentPrograms,
+} from "./instrumentPlayback";
 export { expandMeasureOrder };
 
 /** GM percussion channel (0-based; channel 10 in 1-based MIDI numbering). */
@@ -109,6 +115,8 @@ export function fractionToBeats(frac: readonly [number, number]): number {
 export interface TimelineOptions {
   /** GM program number per part index (used for tremolo sound selection). */
   partPrograms?: number[];
+  /** Resolved profile programs by part and playback instrument key. */
+  instrumentPrograms?: InstrumentPrograms;
   /** Include the global derived Chords stream (default true). Full-score and
    *  current-part extracts include it. Explicit selected-instrument callers
    *  must pass false unless the entire visible score is selected. */
@@ -121,9 +129,9 @@ export interface TimelineOptions {
  * Per-part shared context threaded through every process* helper.
  * Pulled out so the process* signatures don't carry 13–15 parameters each.
  *
- * `partIndex`/`channel`/`gmProgram`/`timeSig`/`kitMidiMap`/`tieTargets`/
+ * `partIndex`/`channel`/`kitMidiMap`/`tieTargets`/
  * `pendingTieOffs`/`out`/`tempoMap` are invariant for the lifetime of a
- * single part's traversal; per-event state (measureStartTime, beatOffset,
+ * single part's traversal; `gmProgram` follows the active timbre, and per-event state (measureStartTime, beatOffset,
  * baseVelocity, tupletRatio) stays as explicit parameters because it
  * mutates per recursion step.
  */
@@ -154,7 +162,9 @@ export interface PartCtx {
    *  per sequence in processPart. */
   voiceKey: string;
   readonly out: MidiEvent[];
-  readonly gmProgram: number;
+  gmProgram: number;
+  /** Optional timbre resolver on the global-measure beat axis. */
+  instrumentAtBeatOffset?: (beatOffset: number) => { key: string; program: number };
   /** Meter driving beat semantics (metric accent) for the sequence currently
    *  being processed: the global measure's time signature, or a staff-local
    *  meter's own time signature when the current sequence's staff carries an
@@ -278,17 +288,27 @@ export function generateTimeline(inputScore: Score, options?: TimelineOptions): 
   if (chords) {
     for (const event of chordMidiEvents(chords, measureOrder, tempoBuild)) allEvents.push(event);
   }
-  const diagnostics = assignPhysicalMidiChannels(allEvents, score);
 
   // Step 4: Sort by time, then noteOff before programChange before noteOn at same time
   const EVENT_TYPE_ORDER: Record<string, number> = { noteOff: 0, programChange: 1, controlChange: 1, noteOn: 2 };
-  allEvents.sort((a, b) => {
+  const compareEvents = (a: MidiEvent, b: MidiEvent): number => {
     if (Math.abs(a.time - b.time) > 1e-9) return a.time - b.time;
     const aOrder = EVENT_TYPE_ORDER[a.type] ?? 1;
     const bOrder = EVENT_TYPE_ORDER[b.type] ?? 1;
     if (aOrder !== bOrder) return aOrder - bOrder;
+    if (a.instrumentChange !== b.instrumentChange) return a.instrumentChange ? -1 : 1;
     return a.midiNote - b.midiNote;
-  });
+  };
+  allEvents.sort(compareEvents);
+  const instrumentDiagnostics = applyInstrumentPlayback(
+    score,
+    allEvents,
+    { model, measureStartBeats, measureOrder },
+    options?.instrumentPrograms,
+    options?.partPrograms,
+  );
+  const diagnostics = [...assignPhysicalMidiChannels(allEvents, score), ...instrumentDiagnostics];
+  allEvents.sort(compareEvents);
 
   const duration = model.timeAtBeat(tempoBuild.totalBeats);
 
@@ -529,10 +549,12 @@ function processPart(
   }
 
   // Persistent pizz/arco + con sord. keyswitch state.
-  const bowCapable = ARCO_CAPABLE_PROGRAMS.has(gmProgram);
-  const muteFamily = muteFamilyForProgram(gmProgram);
-  const techniqueEnabled = bowCapable || muteFamily !== null;
-  let techniqueState: TechniqueState = { program: gmProgram, muted: false };
+  let techniqueState: TechniqueState = { program: gmProgram, muted: false, instrumentKey: "initial" };
+  const instruments = new Map(playbackInstruments(part).map(({ key, part: instrumentPart }) => [key, instrumentPart]));
+  const programForInstrument = (key: string): number =>
+    key === "initial"
+      ? gmProgram
+      : (options?.instrumentPrograms?.get(partIdx)?.get(key) ?? instruments.get(key)?._x?.viritura?.midiProgram ?? -1);
 
   for (let expandedIdx = 0; expandedIdx < measureOrder.length; expandedIdx++) {
     const origMeasureIdx = measureOrder[expandedIdx]!;
@@ -541,6 +563,14 @@ function processPart(
 
     const measureStartTime = measureStartTimes[expandedIdx]!;
     const measureStartBeat = measureStartBeats[expandedIdx]!;
+    const instrumentKey = playbackInstrumentKeyAt(part, origMeasureIdx);
+    const activeProgram = programForInstrument(instrumentKey);
+    const bowCapable = ARCO_CAPABLE_PROGRAMS.has(activeProgram);
+    const muteFamily = muteFamilyForProgram(activeProgram);
+    const techniqueEnabled = bowCapable || muteFamily !== null;
+    if (instrumentKey !== techniqueState.instrumentKey) {
+      techniqueState = { program: activeProgram, muted: false, instrumentKey };
+    }
     const activeTime = resolveActiveTime(globalMeasures, origMeasureIdx);
     const activeKeyFifths = resolveActiveKeyFifths(globalMeasures, origMeasureIdx);
 
@@ -571,7 +601,14 @@ function processPart(
       pendingLegato,
       voiceKey: "",
       out: allEvents,
-      gmProgram,
+      gmProgram: activeProgram,
+      instrumentAtBeatOffset:
+        instruments.size > 1
+          ? (offset) => {
+              const key = playbackInstrumentKeyAt(part, origMeasureIdx, offset);
+              return { key, program: programForInstrument(key) };
+            }
+          : undefined,
       timeSig: activeTime,
       staffMeterRatio: 1,
       keyFifths: activeKeyFifths,
@@ -586,7 +623,7 @@ function processPart(
       fermataGroups,
     };
 
-    if (techniqueEnabled) {
+    if (techniqueEnabled || instruments.size > 1) {
       techniqueState = applyMeasureTechniques(
         partMeasure.expressions,
         ctx,
@@ -842,6 +879,7 @@ function processNoteEvent(
   baseVelocity: number,
   tupletRatio: number,
 ): number {
+  ctx.gmProgram = ctx.instrumentAtBeatOffset?.(beatOffset * ctx.staffMeterRatio).program ?? ctx.gmProgram;
   const { partIndex, channel, tieTargets, out, timeSig, kitMidiMap, kitAltProgramMap } = ctx;
   const beats = durationBeats(event.duration) * tupletRatio;
 
@@ -960,6 +998,7 @@ function processNoteEvent(
         partIndex,
         channel,
         drumKitProgram,
+        ...(ctx.instrumentAtBeatOffset ? { scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio } : {}),
       });
     }
   }
@@ -1053,6 +1092,7 @@ function emitFreshNote(
       velocity: 0,
       partIndex,
       channel,
+      ...(ctx.instrumentAtBeatOffset ? metadata : {}),
     });
   } else {
     // Standalone or interior-slur note. Build the noteOff at its natural
@@ -1065,6 +1105,7 @@ function emitFreshNote(
       velocity: 0,
       partIndex,
       channel,
+      ...(ctx.instrumentAtBeatOffset ? metadata : {}),
     };
     if (legatoOut) pushVoiceLegato(ctx.pendingLegato, ctx.voiceKey, off);
     else out.push(off);
@@ -1159,6 +1200,7 @@ function processKitRoll(
       partIndex,
       channel,
       drumKitProgram,
+      ...(ctx.instrumentAtBeatOffset ? { scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio } : {}),
     });
   }
 
@@ -1226,7 +1268,15 @@ function processSingleNoteTremolo(
         scoreDurationBeats: totalBeats * ctx.staffMeterRatio,
         scoreEventId: event.id,
       });
-      out.push({ type: "noteOff", time: jitteredTremStart + durationSec, midiNote, velocity: 0, partIndex, channel });
+      out.push({
+        type: "noteOff",
+        time: jitteredTremStart + durationSec,
+        midiNote,
+        velocity: 0,
+        partIndex,
+        channel,
+        ...(ctx.instrumentAtBeatOffset ? { scoreBeat: ctx.measureStartBeat + beatOffset * ctx.staffMeterRatio } : {}),
+      });
     }
 
     // Program change → restore original sound
@@ -1276,6 +1326,9 @@ function processSingleNoteTremolo(
         velocity: 0,
         partIndex,
         channel,
+        ...(ctx.instrumentAtBeatOffset
+          ? { scoreBeat: ctx.measureStartBeat + subBeatOffset * ctx.staffMeterRatio }
+          : {}),
       });
     }
   }
@@ -1401,6 +1454,9 @@ function tryProcessTrill(
         velocity: 0,
         partIndex,
         channel,
+        ...(ctx.instrumentAtBeatOffset
+          ? { scoreBeat: ctx.measureStartBeat + subBeatOffset * ctx.staffMeterRatio }
+          : {}),
       });
     }
   }

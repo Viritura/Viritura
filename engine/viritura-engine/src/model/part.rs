@@ -58,6 +58,9 @@ pub struct Part {
     /// Transposition for transposing instruments (MNX `transposition`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transposition: Option<Transposition>,
+    /// Provisional instrument identities retained from `_x.viritura`.
+    #[serde(flatten)]
+    pub instrument_extensions: super::instrument::PartInstrumentExtensions,
     /// Drum-kit component map (MNX `kit`). When present, this part is an
     /// unpitched percussion part. Keys are component IDs (e.g. "kick").
     #[serde(skip_serializing_if = "Option::is_none")]

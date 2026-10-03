@@ -11,7 +11,7 @@ function channelKey(event: MidiEvent): string {
 }
 
 function noteKey(event: MidiEvent): string {
-  return JSON.stringify([channelKey(event), event.midiNote, event.drumKitProgram]);
+  return JSON.stringify([channelKey(event), event.playbackInstrumentKey, event.midiNote, event.drumKitProgram]);
 }
 
 /** Logical note lifetimes include pedal sustain, independently of audible voices. */

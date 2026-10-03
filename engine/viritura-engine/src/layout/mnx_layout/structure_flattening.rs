@@ -36,29 +36,21 @@ pub(super) fn compute_flat_staff_transposition(
     score: &Score,
     use_written: bool,
 ) -> (Option<(i32, i32)>, Option<i32>) {
+    flat_staff_transposition_at(flat_staff, score, use_written, 0)
+}
+
+pub(super) fn flat_staff_transposition_at(
+    flat_staff: &FlatStaff,
+    score: &Score,
+    use_written: bool,
+    measure_index: usize,
+) -> (Option<(i32, i32)>, Option<i32>) {
     let Some(source) = flat_staff.sources.first() else {
         return (None, None);
     };
     let part = &score.parts[source.part_index];
-    let prefers_written = part
-        .transposition
-        .as_ref()
-        .and_then(|transposition| transposition.prefers_written_pitches)
-        .unwrap_or(false);
-    if !(use_written || prefers_written) {
-        return (None, None);
-    }
-    let interval = part.transposition.as_ref().map(|transposition| {
-        (
-            transposition.interval.staff_distance,
-            transposition.interval.half_steps,
-        )
-    });
-    let key_fifths_flip_at = part
-        .transposition
-        .as_ref()
-        .and_then(|transposition| transposition.key_fifths_flip_at);
-    (interval, key_fifths_flip_at)
+    crate::model::ActiveInstrument::at(part, measure_index, (0, 1))
+        .display_transposition(use_written)
 }
 
 /// Flatten a layout-content tree into renderable staves and group ranges.
@@ -152,7 +144,12 @@ fn flatten_content_recursive(
                     chord_symbol_source: None,
                     chord_symbol_transposition: None,
                 };
-                if super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score) {
+                if super::resolve_condensing::has_incompatible_staff_meters(&flat_staff, score)
+                    || super::super::instrument_changes::sources_need_separate_staves(
+                        &flat_staff,
+                        score,
+                    )
+                {
                     for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {
                         let mut split_staff = flat_staff.clone();
                         split_staff.sources = vec![source];

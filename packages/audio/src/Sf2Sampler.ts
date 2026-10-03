@@ -475,6 +475,13 @@ export class Sf2Sampler implements ISampler {
     this.synth.controllerChange(this.channel, 11, 127);
   }
 
+  resetInstrument(time?: number): void {
+    if (this.isDrum) return;
+    this.setProgram(this.baselineProgram, time);
+    this.sendControl(74, 64, time);
+    this.sendControl(71, 64, time);
+  }
+
   /**
    * Apply micro-detuning via MIDI pitch bend.
    * Assumes the default pitch bend range of ±2 semitones (200 cents).

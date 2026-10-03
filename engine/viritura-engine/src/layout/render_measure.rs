@@ -321,7 +321,7 @@ fn render_measure_prefix(
     // Key signature — render on key changes, at the start of the score, and
     // at the start of each system (continuation key signatures).
     // Ref:— key signatures repeat at every system start.
-    let is_key_change = rm.global.key.is_some();
+    let is_key_change = rm.key_signature_changed();
     let cancel_count = if is_key_change {
         rm.prev_key.cancellation_count(&rm.active_key)
     } else {

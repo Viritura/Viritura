@@ -555,6 +555,7 @@ fn transposing_part(name: &str, half_steps: i32) -> crate::model::part::Part {
             prefers_written_pitches: None,
         }),
         kit: None,
+        instrument_extensions: Default::default(),
     }
 }
 
@@ -568,6 +569,7 @@ fn concert_part(name: &str) -> crate::model::part::Part {
         staves: 1,
         transposition: None,
         kit: None,
+        instrument_extensions: Default::default(),
     }
 }
 

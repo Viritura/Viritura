@@ -16,6 +16,7 @@ import { useSelectionActions } from "../../store/selectionStore";
 import { applyChordSymbolEdit } from "../popoverHandlers";
 import { navigateChordSymbolInput } from "../chordSymbolNavigation";
 import { beatPositionToFraction, eventBeatPosition } from "../timedAnnotationPosition";
+import { resolveDisplayTransposition } from "../../pitchContext";
 
 interface Props {
   store: DocumentStore;
@@ -36,8 +37,13 @@ function initialText(score: Score | null, popover: ChordSymbolPopoverState | nul
     (candidate) => compareChordSymbolPositions(candidate.position, position) === 0,
   );
   if (!chord) return "";
-  const useWritten = score.scores?.[scoreIndex]?.useWritten || part?.transposition?.prefersWrittenPitches;
-  const interval = useWritten ? part?.transposition?.interval : undefined;
+  const interval = resolveDisplayTransposition(
+    score,
+    popover.partIndex,
+    popover.measureIndex,
+    position.fraction,
+    scoreIndex,
+  )?.interval;
   const displayed = interval ? transposeChordSymbol(chord, interval) : chord;
   return displayed.rawText ?? formatChordSymbolText({ ...displayed, textOverride: undefined });
 }

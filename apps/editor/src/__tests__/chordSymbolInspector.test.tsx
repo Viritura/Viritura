@@ -204,6 +204,18 @@ afterEach(() => {
 });
 
 describe("global chord symbol inspector", () => {
+  it("labels a chord with the active interval at its rhythmic position rather than the initial piccolo interval", () => {
+    const initial = buildScore();
+    initial.parts[1]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };
+    initial.parts[1]!.measures[0]!.instrumentChanges = [
+      {
+        position: { fraction: [1, 4] },
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 }, prefersWrittenPitches: true },
+      },
+    ];
+    renderInspector(initial);
+    expect(chordInput().value).toBe("D/F#");
+  });
   describe.each(["next", "previous"] as const)("%s annotation navigation", (direction) => {
     it.each([
       { name: "rendered copy with source anchor", suffix: "/p1/staff1", staffIndex: 1 },

@@ -66,6 +66,10 @@ export class SamplerGroup implements ISampler {
     for (const sampler of this.samplers) sampler.resetTechniqueState?.();
   }
 
+  resetInstrument(time?: number): void {
+    for (const sampler of this.samplers) sampler.resetInstrument?.(time);
+  }
+
   setVolume(volume: number): void {
     for (const sampler of this.samplers) (sampler as ISampler & MixerControls).setVolume?.(volume);
   }

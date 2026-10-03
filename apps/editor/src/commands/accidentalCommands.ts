@@ -141,8 +141,11 @@ export function prevailingAlterationAtPosition(
   measureIndex: number,
   beatPosition: number,
   pitch: Note["pitch"],
+  fallbackAlter?: number,
 ): number {
-  const keyAlter = keyAlterationForStep(effectiveFifths(score, measureIndex), pitch.step);
+  // Written-key entry may already supply a concert alteration with a different
+  // enharmonic spelling than the native key (e.g. written C → concert B-flat).
+  const keyAlter = fallbackAlter ?? keyAlterationForStep(effectiveFifths(score, measureIndex), pitch.step);
   const measure = score.parts[partIndex]?.measures[measureIndex];
   if (!measure) return keyAlter;
 

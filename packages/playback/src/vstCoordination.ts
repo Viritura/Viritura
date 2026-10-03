@@ -70,7 +70,7 @@ export function computeViewPartFilter(args: {
 export function collectVstAssignments(resolvedParts: readonly ResolvedPlaybackPart[]): VstPartAssignment[] {
   const assignments: VstPartAssignment[] = [];
   for (const resolved of resolvedParts) {
-    if (resolved.vst) assignments.push({ partIndex: resolved.index, vst: resolved.vst });
+    if (resolved.vst && !resolved.instruments) assignments.push({ partIndex: resolved.index, vst: resolved.vst });
   }
   return assignments;
 }
@@ -85,7 +85,7 @@ export function collectVstAssignments(resolvedParts: readonly ResolvedPlaybackPa
 export function collectSf2Assignments(resolvedParts: readonly ResolvedPlaybackPart[]): Sf2PartAssignment[] {
   const assignments: Sf2PartAssignment[] = [];
   for (const resolved of resolvedParts) {
-    if (resolved.vst) continue;
+    if (resolved.vst || resolved.instruments) continue;
     if (resolved.sf2.kind !== "supported") continue;
     const primary = resolved.sf2.primary;
     if (primary.bankMsb === 128) continue;

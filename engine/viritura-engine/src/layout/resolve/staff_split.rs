@@ -147,6 +147,7 @@ pub(super) fn split_part_measure_by_staff_count(
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
+        instrument_changes: pm.instrument_changes.clone(),
     }
 }
 

@@ -214,6 +214,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         .copied()
         .collect();
     let mut plan = plan_system_breaks(
+        score,
         config,
         flat_staves,
         &budget,
@@ -514,6 +515,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         group_ranges,
         instrument_name_display,
     );
+    let render_salt = super::super::instrument_changes::state_salt(score, flat_staves, render_salt);
 
     // Stitched-horizon only: build a GLOBAL per-staff tie-accidental suppression
     // map across every chunk, so a tie crossing a chunk seam keeps its

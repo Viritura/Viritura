@@ -74,6 +74,9 @@ pub(crate) fn promote_part(
             .map(|s| u32::try_from(s.0).unwrap_or(1))
             .unwrap_or(1),
         transposition: r.transposition.map(promote_transposition),
+        instrument_extensions: read_viritura_ext(r.x.as_ref())
+            .and_then(|json| serde_json::from_value(serde_json::Value::Object(json.clone())).ok())
+            .unwrap_or_default(),
         chord_symbol_visibility,
         kit,
     })

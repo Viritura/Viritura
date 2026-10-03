@@ -227,7 +227,7 @@ Provisional model for doubling within one player's part (flute ↔ piccolo,
 oboe ↔ English horn, A ↔ B♭ clarinet, percussion instrument changes). MNX has
 no instrument object yet (see [w3c-cg/mnx#466](https://github.com/w3c-cg/mnx/issues/466));
 this extension prototypes one so Viritura can map to it if MNX adopts a
-similar model. Engraving, playback, and editor UI do not yet consume it.
+similar model.
 
 - `instruments`: map from a document-local key to an `instrument-definition`:
   `instrumentId` (required MusicXML sound ID), optional `name`, `shortName`,
@@ -256,7 +256,7 @@ present, must equal its `instrumentId`. The validator rejects a mismatched
           "instrumentId": "wind.flutes.flute.piccolo",
           "name": "Piccolo",
           "shortName": "Picc.",
-          "transposition": { "interval": { "halfSteps": 12, "staffDistance": 7 } }
+          "transposition": { "interval": { "halfSteps": -12, "staffDistance": -7 }, "prefersWrittenPitches": true }
         }
       }
     }
@@ -1134,8 +1134,7 @@ a key in the part's `instruments`.
     "viritura": {
       "instrumentChanges": [
         {
-          "position": { "fraction": [1, 2] },
-          "transposition": { "interval": { "halfSteps": -9, "staffDistance": -5 } },
+          "transposition": { "interval": { "halfSteps": 9, "staffDistance": 5 } },
           "instruction": { "text": "in Es" }
         }
       ]
@@ -1148,6 +1147,59 @@ The decoded TypeScript field is `PartMeasure.instrumentChanges`;
 `resolveActiveInstrument(part, measureIndex, position)` and
 `listInstrumentChanges(part)` in `@viritura/core` resolve the active
 instrument and transposition at any point.
+
+Engraving currently supports **bar-start changes only**. The provisional
+schema and TypeScript resolver can preserve nonzero fractions for future
+support, but full Rust parsing and measure-patch promotion reject them with
+an explicit unsupported-instrument-change error rather than drawing
+incorrect written pitches. Omitted positions and zero-numerator fractions
+with positive denominators are supported.
+
+#### Editing bar-start changes
+
+Select a single bar in one source part (or a note in that bar), then choose
+**Change instrument** or **Change transposition** from **Edit**, the score's
+context menu, or the Jump Bar. These commands insert or edit the change at
+the **start** of the selected bar; they do not transpose the sounding notes
+or replace the whole part. Changes persist until another declaration.
+
+**Change instrument** uses the selected catalog instrument's default
+transposition and clefs. **Change transposition** keeps the instrument and
+can override its default, including an explicit zero interval. The sign
+convention is MNX's **concert-to-written** interval: B-flat clarinet is
+`+2` semitones / `+1` staff step; piccolo is `-12` / `-7`.
+Both dialogs accept an authored printed instruction or a hidden instruction.
+Reopening either dialog offers **Remove change**, which removes the entire
+bar-start declaration while preserving later-positioned declarations.
+
+The command applies to the part, including all its staves, not just the
+clicked staff. Instrument choices must keep the same staff count and be
+pitched instruments. Percussion-map swaps and changes of staff count need
+separate source parts; this extension does not define per-instrument kits.
+Changing instrument also sets the catalog's clefs and staff-line counts at
+the bar start, preserving later-positioned staff changes. Removing it
+restores the previous instrument's catalog defaults there.
+
+Setup's **Change instrument** still replaces the starting instrument for the
+whole part; its transposition fields edit the starting transposition. These
+edits preserve later instrument definitions and timed changes, including
+later returns to the old starting instrument.
+
+Written-pitch layout uses the active transposition for notes, accidentals,
+key signatures, harmony, and subsequent system labels. Concert-pitch layout
+keeps sounding notation unless the active instrument prefers written pitches
+(for example piccolo). Authored/automatic change instructions participate in
+normal annotation placement; hidden instructions do not print. A change also
+breaks a multimeasure rest so it remains visible.
+
+Playback preloads the instruments used by the part and routes each note to
+the active sound at its authored position, including seeks and repeat
+playback. Transposition-only changes never shift sounding MIDI pitches.
+The initial instrument retains its authored sound-profile source assignment;
+later instrument switches use the profile's defaults for that instrument.
+Entry and selected-note previews also use the active instrument and sounding
+pitch. Parts with timed instrument switches currently use browser SoundFont
+playback instead of native/VST playback, with an explicit notification.
 
 ---
 

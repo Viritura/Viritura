@@ -214,7 +214,13 @@ pub(super) fn render_system_chrome(
     }
 
     // Part name labels — centered vertically across all staves of each part
-    let part_display = resolve_part_display_names(&score.parts);
+    let measure_index = all_sys_layouts
+        .iter()
+        .flat_map(|staff| staff.first())
+        .map(|measure| measure.resolved.index)
+        .min()
+        .unwrap_or(0);
+    let part_display = resolve_part_display_names_at(&score.parts, measure_index);
     for (pi, part) in score.parts.iter().enumerate() {
         if part.name.is_empty() {
             continue;

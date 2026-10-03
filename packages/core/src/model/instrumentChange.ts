@@ -83,7 +83,10 @@ function changePosition(change: InstrumentChange): [number, number] {
 export function initialInstrumentState(part: Part): ActiveInstrumentState {
   const ext = part._x?.viritura;
   const instrumentKey = ext?.initialInstrument;
-  const instrument = instrumentKey !== undefined ? ext?.instruments?.[instrumentKey] : undefined;
+  const instrument =
+    instrumentKey !== undefined && ext?.instruments && Object.hasOwn(ext.instruments, instrumentKey)
+      ? ext.instruments[instrumentKey]
+      : undefined;
   const transposition = part.transposition ?? instrument?.transposition;
   return {
     ...(instrumentKey !== undefined ? { instrumentKey } : {}),
@@ -96,7 +99,9 @@ function applyChange(part: Part, state: ActiveInstrumentState, change: Instrumen
   if (change.instrument === undefined) {
     return { ...state, ...(change.transposition ? { transposition: change.transposition } : {}) };
   }
-  const instrument = part._x?.viritura?.instruments?.[change.instrument];
+  const instruments = part._x?.viritura?.instruments;
+  const instrument =
+    instruments && Object.hasOwn(instruments, change.instrument) ? instruments[change.instrument] : undefined;
   const transposition = change.transposition ?? instrument?.transposition;
   return {
     instrumentKey: change.instrument,

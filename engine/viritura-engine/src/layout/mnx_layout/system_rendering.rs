@@ -677,9 +677,17 @@ pub(super) fn render_auto_flow_systems(context: SystemRenderContext<'_>) {
             // match `plan_system_breaks` and avoid drawing over the music.
             // Suppressed at a stitched seam (no per-chunk label restatement).
             if flat_staves.len() > 1 && !seam_continuation {
+                let measure_index = all_staff_layouts
+                    .iter()
+                    .flat_map(|staff| staff.first())
+                    .map(|measure| measure.resolved.index)
+                    .min()
+                    .unwrap_or(0);
+                let active_labels =
+                    super::instrument_labels::active_staves_at(flat_staves, score, measure_index);
                 render_staff_labels(
                     &mut seg,
-                    flat_staves,
+                    &active_labels,
                     group_ranges,
                     &staff_y_offsets,
                     margin_left - 2.8 * sp,

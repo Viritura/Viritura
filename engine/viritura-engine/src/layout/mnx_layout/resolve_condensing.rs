@@ -228,7 +228,11 @@ pub(super) fn resolve_staves_with_condensing_labels(
         measure_count,
         cache::DEFAULT_RANGE_SCOPE_K,
     );
-    let salt = resolve_staves_salt(flat_staves, use_written, measure_count);
+    let salt = super::super::instrument_changes::state_salt(
+        score,
+        flat_staves,
+        resolve_staves_salt(flat_staves, use_written, measure_count),
+    );
     let resolved_content_unchanged =
         dirty_region.is_some_and(|region| !region.flags.contains(cache::DirtyFlags::CONTENT));
 
@@ -334,6 +338,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
                 flat_staff,
                 transposition,
                 key_fifths_flip_at,
+                use_written,
                 dirty_start,
                 dirty_end,
                 measure_count,
@@ -366,6 +371,7 @@ pub(super) fn resolve_staves_with_condensing_labels(
             flat_staff,
             transposition,
             key_fifths_flip_at,
+            use_written,
             measure_count,
             &initial_state,
             scope_on,
@@ -461,6 +467,7 @@ pub(super) fn resolve_staff_full(
     flat_staff: &FlatStaff,
     transposition: Option<(i32, i32)>,
     key_fifths_flip_at: Option<i32>,
+    use_written: bool,
     measure_count: usize,
     initial: &cache::BoundaryState,
     track_state: bool,
@@ -485,15 +492,8 @@ pub(super) fn resolve_staff_full(
         Vec::new()
     };
     for (mi, meter_state) in meter_states.iter().enumerate() {
-        let (rm, mode) = resolve_one_measure_phase1(
-            mi,
-            score,
-            flat_staff,
-            transposition,
-            key_fifths_flip_at,
-            &mut state,
-            meter_state,
-        );
+        let (rm, mode) =
+            resolve_one_measure_phase1(mi, score, flat_staff, use_written, &mut state, meter_state);
         resolved.push(rm);
         condensing_modes.push(mode);
         if track_state {
@@ -539,6 +539,7 @@ pub(super) fn resolve_staff_scoped(
     flat_staff: &FlatStaff,
     transposition: Option<(i32, i32)>,
     key_fifths_flip_at: Option<i32>,
+    use_written: bool,
     dirty_start: usize,
     dirty_end: usize,
     measure_count: usize,
@@ -574,8 +575,7 @@ pub(super) fn resolve_staff_scoped(
             mi,
             score,
             flat_staff,
-            transposition,
-            key_fifths_flip_at,
+            use_written,
             &mut state,
             &meter_states[mi],
         );
@@ -636,11 +636,17 @@ pub(super) fn resolve_one_measure_phase1(
     mi: usize,
     score: &Score,
     flat_staff: &FlatStaff,
-    transposition: Option<(i32, i32)>,
-    key_fifths_flip_at: Option<i32>,
+    use_written: bool,
     state: &mut cache::BoundaryState,
     meter_state: &FlatStaffMeterState,
 ) -> (ResolvedMeasure, Option<MergeMode>) {
+    let (transposition, key_fifths_flip_at) =
+        super::structure_flattening::flat_staff_transposition_at(
+            flat_staff,
+            score,
+            use_written,
+            mi,
+        );
     let global = score
         .global
         .measures
@@ -723,7 +729,12 @@ pub(super) fn resolve_one_measure_phase1(
     state.tie_targets.extend(new_tie_targets);
     let rm = ResolvedMeasure {
         index: mi,
-        chord_symbols: super::chord_symbols::visible_global_chord_symbols(score, mi, flat_staff),
+        chord_symbols: {
+            let mut chord_staff = flat_staff.clone();
+            chord_staff.chord_symbol_transposition =
+                super::chord_symbols::display_transposition_at(score, flat_staff, use_written, mi);
+            super::chord_symbols::visible_global_chord_symbols(score, mi, &chord_staff)
+        },
         global,
         part: virtual_pm,
         measure_repeat_covered: flat_staff.sources.iter().any(|source| {

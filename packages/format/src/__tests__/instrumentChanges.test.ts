@@ -4,9 +4,9 @@ import { parseMnx } from "../mnx/parser";
 import { serializeMnx } from "../mnx/serializer";
 import { validateRawScore } from "../mnx/validator";
 
-const HORN_F = { interval: { halfSteps: -7, staffDistance: -4 } };
-const HORN_EFLAT = { interval: { halfSteps: -9, staffDistance: -5 } };
-const PICCOLO = { interval: { halfSteps: 12, staffDistance: 7 } };
+const HORN_F = { interval: { halfSteps: 7, staffDistance: 4 } };
+const HORN_EFLAT = { interval: { halfSteps: 9, staffDistance: 5 } };
+const PICCOLO = { interval: { halfSteps: -12, staffDistance: -7 } };
 
 interface ScoreOptions {
   transposition?: unknown;
@@ -130,6 +130,17 @@ describe("instrument-change extensions", () => {
         "/parts/0/measures/0/_x/viritura/instrumentChanges/1/position",
       ]);
     }
+  });
+
+  it("rejects inherited object properties as instrument references", () => {
+    const result = validateRawScore(
+      scoreWithInstrumentChanges({
+        partExt: doublingExt,
+        changes: [[{ instrument: "constructor" }]],
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]?.keyword).toBe("reference");
   });
 });
 

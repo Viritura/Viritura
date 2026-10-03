@@ -2,6 +2,7 @@ import type { LayoutContent, LayoutStaff, Part, Score, SequenceContent } from "@
 import { getCatalogInstrument } from "./InstrumentCatalog";
 import { createCatalogPart, effectiveKitFor, persistedPartNames } from "./catalogPart";
 import { buildStaffNodeForPart, synchronizePartScoreDefinitions } from "./instrumentMutations";
+import { synchronizeInitialInstrument } from "../instrumentChanges";
 
 export interface InstrumentChangeAnalysis {
   allowed: boolean;
@@ -34,6 +35,16 @@ export function analyzeInstrumentChange(score: Score, partId: string, instrument
   if (!part || !instrument) return { allowed: false, reason: "The part or instrument no longer exists." };
   const oldStaves = part.staves ?? 1;
   const newStaves = instrument.staves ?? 1;
+  if (
+    part.measures.some((measure) => measure.instrumentChanges?.some((change) => change.instrument !== undefined)) &&
+    (oldStaves !== newStaves || isPercussion(part) !== !!effectiveKitFor(instrument))
+  ) {
+    return {
+      allowed: false,
+      reason:
+        "This part contains timed instrument changes. Keep its staff count and pitched/percussion type, or add a separate part.",
+    };
+  }
   let staffWarning: string | undefined;
   if (oldStaves > newStaves || (oldStaves > 1 && oldStaves !== newStaves)) {
     return {
@@ -203,7 +214,11 @@ export function changeInstrumentInScore(score: Score, partId: string, instrument
     staves: created.part.staves,
     transposition: created.part.transposition,
     kit: created.part.kit,
-    _x: created.part._x,
+    _x: {
+      ...oldPart._x,
+      ...created.part._x,
+      viritura: { ...oldPart._x?.viritura, ...created.part._x?.viritura },
+    },
     measures: structuredClone(oldPart.measures),
   };
   expandPartStaves(nextPart, created.part, oldStaves, newStaves);
@@ -212,7 +227,7 @@ export function changeInstrumentInScore(score: Score, partId: string, instrument
   if (oldPercussion && newPercussion) remapPercussionNotes(oldPart, nextPart);
 
   const next: Score = structuredClone(score);
-  next.parts[partIndex] = nextPart;
+  next.parts[partIndex] = synchronizeInitialInstrument(oldPart, nextPart);
   if (newStaves > oldStaves) {
     const replacement = buildStaffNodeForPart(instrument, partId);
     next.layouts = next.layouts?.map((layout) => ({

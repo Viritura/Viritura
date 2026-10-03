@@ -212,6 +212,26 @@ pub(crate) fn promote_part_measure(
     );
 
     let vendor = extract_part_measure_vendor_with_fallback(r.x.as_ref(), Some(original_json));
+    let instrument_changes: Option<Vec<crate::model::InstrumentChange>> = original_json
+        .pointer("/_x/viritura/instrumentChanges")
+        .map(|changes| serde_json::from_value(changes.clone()))
+        .transpose()
+        .map_err(|error| PromoteError::UnsupportedInstrumentChange(error.to_string()))?;
+    for (index, change) in instrument_changes.iter().flatten().enumerate() {
+        let (numerator, denominator) = change.fraction();
+        if numerator != 0 || denominator == 0 {
+            return Err(PromoteError::UnsupportedInstrumentChange(format!(
+                "instrumentChanges[{index}] position [{numerator},{denominator}]: \
+                 engraving supports bar-start changes only (fraction numerator must be zero \
+                 and denominator must be positive)"
+            )));
+        }
+        if change.instrument.is_none() && change.transposition.is_none() {
+            return Err(PromoteError::UnsupportedInstrumentChange(format!(
+                "instrumentChanges[{index}] must specify instrument or transposition"
+            )));
+        }
+    }
 
     Ok(ModelPartMeasure {
         clefs,
@@ -228,6 +248,7 @@ pub(crate) fn promote_part_measure(
         condensing_override: vendor.condensing_override,
         grouping_display_overrides: vendor.grouping_display_overrides,
         staff_meters: vendor.staff_meters,
+        instrument_changes,
     })
 }
 
