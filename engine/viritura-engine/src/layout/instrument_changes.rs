@@ -98,7 +98,7 @@ pub(super) fn append_instructions(
                     .reminder
                     .as_ref()
                     .and_then(|reminder| reminder.text.clone())
-                    .unwrap_or_else(|| derived_instruction(part, change_index, change));
+                    .unwrap_or_else(|| derived_reminder(part, change_index, change));
                 if !text.is_empty() {
                     append_expression(measure, text, position, source_part_index, true);
                     if let Some(expression) =
@@ -147,6 +147,14 @@ fn append_expression(
                 avoid_collisions: None,
             });
     }
+}
+
+fn derived_reminder(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
+    if change.instrument.is_some() {
+        return derived_instruction(part, measure_index, change);
+    }
+    let state = ActiveInstrument::at(part, measure_index, change.fraction());
+    format!("To {}", super::page::instrument_tuning_name(part, state))
 }
 
 fn derived_instruction(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {

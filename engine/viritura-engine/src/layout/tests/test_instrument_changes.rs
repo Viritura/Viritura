@@ -269,7 +269,7 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
         .find(|expression| expression.instrument_reminder)
         .unwrap();
     assert_eq!(reminder.position.fraction, (0, 1));
-    assert_eq!(reminder.text.plain_text(), "in A");
+    assert_eq!(reminder.text.plain_text(), "To Clarinet in A");
     assert!(resolved[3]
         .part
         .expressions
@@ -283,6 +283,43 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
         json!({"hidden":true});
     let resolved = resolve_measures(&parse(&value), 0);
     assert!(!has_reminder(&resolved[0].part));
+}
+
+#[test]
+fn instrument_changes_concert_tuning_reminder_names_instrument_but_change_label_is_short() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["name"] =
+        json!("Clarinet in B♭");
+    value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
+        "transposition":interval(0,0)
+    }]}});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "To Clarinet in C"
+    );
+    assert!(resolved[1]
+        .part
+        .expressions
+        .iter()
+        .flatten()
+        .any(
+            |expression| !expression.instrument_reminder && expression.text.plain_text() == "in C"
+        ));
+    value["parts"][0]["measures"][1]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
+        json!({"text":"Prepare C clarinet"});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "Prepare C clarinet"
+    );
 }
 
 #[test]

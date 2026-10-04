@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 mod required_states;
 pub(crate) use required_states::initial_instruction as initial_instrument_instruction;
+pub(crate) use required_states::instrument_tuning_name;
 
 /// Resolved display info for a part.
 pub(crate) struct PartDisplayInfo {

@@ -10,8 +10,8 @@ mod packing;
 mod part_score_name;
 mod turn_sequence;
 pub(crate) use instrument_names::{
-    initial_instrument_instruction, resolve_part_display_names, resolve_part_display_names_at,
-    PartDisplayInfo,
+    initial_instrument_instruction, instrument_tuning_name, resolve_part_display_names,
+    resolve_part_display_names_at, PartDisplayInfo,
 };
 pub use part_score_name::render_part_score_name;
 pub(crate) use part_score_name::{part_score_name_height, resolve_part_score_name};

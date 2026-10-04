@@ -58,37 +58,54 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
                 })
                 .or_else(|| part.short_name.clone())
                 .unwrap_or_else(|| super::super::abbreviate_part_name(full));
-            let default_interval = state
-                .active
-                .definition
-                .and_then(|d| d.transposition.as_ref())
-                .or(part.transposition.as_ref())
-                .map_or((0, 0), |t| {
-                    (t.interval.half_steps, t.interval.staff_distance)
-                });
             let same_pitch_other_octave = states.iter().any(|other| {
                 other.identity == state.identity
                     && other.interval != state.interval
                     && other.interval.0.rem_euclid(12) == state.interval.0.rem_euclid(12)
             });
             RequiredName {
-                full: format_name(
-                    full,
-                    full,
-                    state.interval,
-                    default_interval,
-                    same_pitch_other_octave,
-                ),
-                short: format_name(
-                    &short,
-                    full,
-                    state.interval,
-                    default_interval,
-                    same_pitch_other_octave,
-                ),
+                full: active_name(part, state.active, full, same_pitch_other_octave),
+                short: active_name(part, state.active, &short, same_pitch_other_octave),
             }
         })
         .collect()
+}
+
+fn active_name(
+    part: &Part,
+    active: ActiveInstrument<'_>,
+    authored: &str,
+    distinguish_octave: bool,
+) -> String {
+    let full = active
+        .definition
+        .and_then(|d| d.name.as_deref())
+        .unwrap_or(&part.name);
+    let interval = active.transposition.map_or((0, 0), |t| {
+        (t.interval.half_steps, t.interval.staff_distance)
+    });
+    let default_interval = active
+        .definition
+        .and_then(|d| d.transposition.as_ref())
+        .or(part.transposition.as_ref())
+        .map_or((0, 0), |t| {
+            (t.interval.half_steps, t.interval.staff_distance)
+        });
+    format_name(
+        authored,
+        full,
+        interval,
+        default_interval,
+        distinguish_octave,
+    )
+}
+
+pub(crate) fn instrument_tuning_name(part: &Part, active: ActiveInstrument<'_>) -> String {
+    let full = active
+        .definition
+        .and_then(|d| d.name.as_deref())
+        .unwrap_or(&part.name);
+    active_name(part, active, full, false)
 }
 
 fn tuning(interval: (i32, i32)) -> (String, i64) {

@@ -1123,10 +1123,12 @@ shape. Absence or `{}` enables an **automatic advance reminder**;
 `{ "hidden": true }` explicitly suppresses it. The editor enables reminders
 by default, including when editing older declarations without this field.
 Neither its custom text nor its visibility changes the `instruction` label
-at the declaration. Both defaults derive from the target instrument
-(`To Piccolo`) or the sounding pitch for written C (`in E♭`; octave-only
-changes say, for example, `sounds C5 for written C4`), not numeric MNX
-interval counts.
+at the declaration. Instrument switches default to the target instrument
+(`To Piccolo`). For transposition-only changes, the advance reminder names
+the destination instrument and tuning (`To Clarinet in C`), while the
+change-point label remains concise (`in C`). Octave-only change labels say,
+for example, `sounds C5 for written C4`. These labels use sounding pitch
+for written C, not numeric MNX interval counts.
 
 An enabled reminder automatically attaches **just after the last preceding
 sounding notehead**, so the player can use the following rest. It stays
