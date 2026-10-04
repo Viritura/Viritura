@@ -1,4 +1,4 @@
-import { ButtonGroup, FormField } from "@viritura/ui";
+import { ButtonGroup, Checkbox, FormField } from "@viritura/ui";
 import type { TextFramePresentation } from "@viritura/core";
 import { CommitNumberField } from "./CommitNumberField";
 import styles from "./TextFrames.module.css";
@@ -71,6 +71,11 @@ export function TextPresentationFields({
           />
         </FormField>
       </div>
+      <Checkbox
+        label="Erase background"
+        checked={value.eraseBackground ?? false}
+        onChange={(event) => onChange({ eraseBackground: event.target.checked })}
+      />
     </div>
   );
 }

@@ -450,7 +450,7 @@ pub fn layout_score_cached(
         );
     }
 
-    dl
+    dl.with_raised_text_frames()
 }
 
 /// Grand-staff helper — compute the per-staff per-measure "natural"

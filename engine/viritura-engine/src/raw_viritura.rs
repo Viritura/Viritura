@@ -8095,6 +8095,10 @@ impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
 ///        "solid"
 ///      ]
 ///    },
+///    "eraseBackground": {
+///      "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored.",
+///      "type": "boolean"
+///    },
 ///    "horizontalAlignment": {
 ///      "type": "string",
 ///      "enum": [
@@ -8141,6 +8145,13 @@ impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
 pub struct StaffTextFramePresentation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub border: ::std::option::Option<StaffTextFramePresentationBorder>,
+    ///Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored.
+    #[serde(
+        rename = "eraseBackground",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub erase_background: ::std::option::Option<bool>,
     #[serde(
         rename = "horizontalAlignment",
         default,
@@ -8171,6 +8182,7 @@ impl ::std::default::Default for StaffTextFramePresentation {
     fn default() -> Self {
         Self {
             border: Default::default(),
+            erase_background: Default::default(),
             horizontal_alignment: Default::default(),
             padding: Default::default(),
             paragraph_justification: Default::default(),
@@ -8904,6 +8916,10 @@ impl ::std::convert::From<&TextExpression> for TextExpression {
 ///    "content": {
 ///      "$ref": "#/$defs/text-content"
 ///    },
+///    "eraseBackground": {
+///      "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored.",
+///      "type": "boolean"
+///    },
 ///    "horizontalAlignment": {
 ///      "description": "Horizontal alignment of the frame at its page anchor, independent of paragraph justification.",
 ///      "type": "string",
@@ -8955,6 +8971,13 @@ pub struct TextFrame {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub border: ::std::option::Option<TextFrameBorder>,
     pub content: TextContent,
+    ///Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored.
+    #[serde(
+        rename = "eraseBackground",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub erase_background: ::std::option::Option<bool>,
     ///Horizontal alignment of the frame at its page anchor, independent of paragraph justification.
     #[serde(
         rename = "horizontalAlignment",

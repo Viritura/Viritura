@@ -844,6 +844,39 @@ describe("measure bounds decoding", () => {
     expect(first.measureBounds?.[0]).toMatchObject({ x: 14, y: 15, beatAnchors: [[0, 16]] });
     expect(first.retainedRenderLayers?.[1]?.bounds).toEqual(firstLayerBounds);
   });
+
+  it("preserves knockout ordering and translated geometry through deferred reuse and removal", () => {
+    const black = encodeColor("#000000");
+    const frame = buildBinaryBuffer(
+      200,
+      100,
+      [
+        [13, 10, 20, 30, 40],
+        [2, 12, 22, 5, 5, black],
+      ],
+      [],
+      { stringTable: ["p0/m0/expr0"], indices: [0, 0] },
+    );
+    const music = buildBinaryBuffer(200, 100, [[1, 0, 0, 100, 0, 1, black]]);
+    const reconstructor = new PatchReconstructor();
+    const first = reconstructor.apply(decodeFrame(retainedPatchFrame([freshPlacement(frame), freshPlacement(music)])));
+    expect(first.commands.map((cmd) => cmd.type)).toEqual(["DrawLine", "EraseRect", "DrawRect"]);
+    expect(first.elementIds).toEqual([null, "p0/m0/expr0", "p0/m0/expr0"]);
+    const deferred = reconstructor.apply(
+      decodeFrame(retainedPatchFrame([reusePlacement(0, 5, 7), reusePlacement(1, 0, 0)])),
+      true,
+    );
+    expect(deferred.finalizeRetainedFrame).toBeDefined();
+    deferred.finalizeRetainedFrame!();
+    expect(deferred.commands[1]).toEqual({ type: "EraseRect", x: 15, y: 27, w: 30, h: 40 });
+    expect(first.commands[1]).toEqual({ type: "EraseRect", x: 10, y: 20, w: 30, h: 40 });
+    const replacement = buildBinaryBuffer(200, 100, [[2, 12, 22, 5, 5, black]]);
+    const removed = reconstructor.apply(
+      decodeFrame(retainedPatchFrame([freshPlacement(replacement), reusePlacement(1, 0, 0)])),
+    );
+    expect(removed.commands.map((cmd) => cmd.type)).toEqual(["DrawRect", "DrawLine"]);
+    expect(removed.commands.some((cmd) => cmd.type === "EraseRect")).toBe(false);
+  });
 });
 
 describe("selection group decoding", () => {

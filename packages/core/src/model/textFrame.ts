@@ -29,6 +29,8 @@ export interface TextFramePresentation {
   /** Interior inset in staff spaces. */
   padding?: number;
   border?: "none" | "solid";
+  /** Erase underlying ink within the frame; the surface supplies the background color. */
+  eraseBackground?: boolean;
 }
 
 /** Shared text container; attachment, placement and visibility belong to its owner. */

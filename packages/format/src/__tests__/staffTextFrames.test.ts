@@ -37,6 +37,8 @@ function document(frame?: unknown) {
 describe("staff text frame presentation", () => {
   it.each([
     {},
+    { eraseBackground: false },
+    { eraseBackground: true },
     { padding: 0.5, border: "solid" },
     {
       width: { unit: "staffSpaces", value: 18 },
@@ -74,6 +76,9 @@ describe("staff text frame presentation", () => {
     { border: "dashed" },
     { height: 10 },
     { horizontalAlignment: "auto" },
+    { eraseBackground: "true" },
+    { eraseBackground: 1 },
+    { eraseBackground: null },
   ])("rejects malformed presentation even on recovery import: %j", (frame) => {
     expect(() => parseMnx(document(frame))).toThrow();
     expect(() => parseMnxUnvalidated(document(frame))).toThrow(/frame/);

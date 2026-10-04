@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ScorePreview } from "../../storyFixtures/ScorePreview";
 import { buildMnx } from "../../storyFixtures/buildMnx";
+import { ERASING_STAFF_TEXT_MNX } from "../../storyFixtures/textFrameScore";
 
 const meta: Meta = {
   title: "Viritura Extensions/Expressions & Labels/Text Expressions",
@@ -93,4 +94,9 @@ export const FramedStaffText: StoryObj = {
     return <ScorePreview mnxJson={mnx} />;
   },
   name: "Staff text with wrapping and frame",
+};
+
+export const EraseBackground: StoryObj = {
+  render: () => <ScorePreview mnxJson={ERASING_STAFF_TEXT_MNX} />,
+  name: "Erase background over staff ink",
 };

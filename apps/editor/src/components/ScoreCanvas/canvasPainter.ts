@@ -1,8 +1,10 @@
-import { canvasTextFont, type DisplayList, type GlyphAtlas } from "@viritura/renderer";
+import { canvasTextFont, paintInkCommands, type DisplayList, type GlyphAtlas } from "@viritura/renderer";
 
 /** Paint a single render command onto a canvas 2D context. */
 export function paintCommand(ctx: CanvasRenderingContext2D, cmd: DisplayList["commands"][number]): void {
   switch (cmd.type) {
+    case "EraseRect":
+      break;
     case "DrawLine":
       ctx.strokeStyle = cmd.color;
       ctx.lineWidth = cmd.width;
@@ -141,11 +143,11 @@ export function paintCanvas(canvas: HTMLCanvasElement, dl: DisplayList, glyphAtl
 
   glyphAtlas?.ensureDeviceScale(dpr);
 
-  for (const cmd of dl.commands) {
+  paintInkCommands(ctx, dl.commands, (cmd) => {
     if (cmd.type === "DrawGlyph" && glyphAtlas?.isBuilt) {
       const drawn = glyphAtlas.drawGlyph(ctx, cmd.codepoint, cmd.x, cmd.y, cmd.size, cmd.color);
-      if (drawn) continue;
+      if (drawn) return;
     }
     paintCommand(ctx, cmd);
-  }
+  });
 }

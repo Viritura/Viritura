@@ -115,6 +115,7 @@ function serializeTextFrame(frame: NonNullable<ScoreDefinition["textFrames"]>[nu
   if (frame.paragraphJustification !== undefined) obj["paragraphJustification"] = frame.paragraphJustification;
   if (frame.padding !== undefined) obj["padding"] = frame.padding;
   if (frame.border !== undefined) obj["border"] = frame.border;
+  if (frame.eraseBackground !== undefined) obj["eraseBackground"] = frame.eraseBackground;
   if (frame.sourceReference) obj["sourceReference"] = { ...frame.sourceReference };
   return obj;
 }

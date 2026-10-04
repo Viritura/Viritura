@@ -134,7 +134,14 @@ fn render_frame(dl: &mut DisplayList, frame: &TextFrame, area: PageArea, sp: f64
     let (left, top) = frame_origin(frame, area, width, height, sp);
 
     let first_command = dl.commands.len();
-    block.emit(dl, left, top, FRAME_FONT, sp);
+    block.emit(
+        dl,
+        left,
+        top,
+        FRAME_FONT,
+        sp,
+        frame.erase_background.unwrap_or(false),
+    );
     tag_frame(
         dl,
         &frame.id,

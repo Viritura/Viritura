@@ -9,6 +9,7 @@ pub(super) fn promote_presentation(
     frame: raw::StaffTextFramePresentation,
 ) -> StaffTextFramePresentation {
     StaffTextFramePresentation {
+        erase_background: frame.erase_background,
         width: frame
             .width
             .map(|width| StaffTextFrameWidth::StaffSpaces(width.value)),
@@ -73,4 +74,40 @@ pub(super) fn validate_presentations(measure: &serde_json::Value) -> Result<(), 
             serde_json::from_value(expression.clone()).map_err(|e| error(e.to_string()))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn preserves_optional_erase_background_intent() {
+        for intent in [None, Some(false), Some(true)] {
+            let mut value = json!({});
+            if let Some(erase) = intent {
+                value["eraseBackground"] = json!(erase);
+            }
+            let raw = serde_json::from_value(value.clone()).unwrap();
+            let promoted = promote_presentation(raw);
+            assert_eq!(promoted.erase_background, intent);
+            let serialized = serde_json::to_value(promoted).unwrap();
+            assert_eq!(
+                serialized.get("eraseBackground"),
+                value.get("eraseBackground")
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_erase_background_on_recovery_paths() {
+        for value in [json!(null), json!("true"), json!(1)] {
+            let measure = json!({"_x": {"viritura": {"expressions": [{
+                "text": [{"text": "Play freely"}],
+                "position": {"fraction": [0, 1]},
+                "frame": {"eraseBackground": value}
+            }]}}});
+            assert!(validate_presentations(&measure).is_err());
+        }
+    }
 }

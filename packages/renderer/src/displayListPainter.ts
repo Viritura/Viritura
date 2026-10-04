@@ -9,6 +9,7 @@ import type { DisplayList, RenderCommand } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
 import { resolveBasePath } from "./basePath";
 import { canvasTextFont, TEXT_FONT_FAMILY } from "./textFont";
+import { paintInkCommands } from "./inkMask";
 
 /** Outcome of {@link loadMusicFont}: names of faces that failed to load. */
 export interface FontLoadResult {
@@ -128,13 +129,13 @@ export function paintDisplayList(
   }
 
   // Execute each render command
-  for (const cmd of displayList.commands) {
+  paintInkCommands(ctx, displayList.commands, (cmd) => {
     if (cmd.type === "DrawGlyph" && glyphAtlas?.isBuilt && cmd.rotation === 0) {
       const drawn = glyphAtlas.drawGlyph(ctx, cmd.codepoint, cmd.x, cmd.y, cmd.size, cmd.color);
-      if (drawn) continue;
+      if (drawn) return;
     }
     paintCommand(ctx, cmd);
-  }
+  });
 }
 
 type CmdOfType<T extends RenderCommand["type"]> = Extract<RenderCommand, { type: T }>;
@@ -335,6 +336,8 @@ function paintPolygon(ctx: CanvasRenderingContext2D, cmd: CmdOfType<"DrawPolygon
 
 export function paintCommand(ctx: CanvasRenderingContext2D, cmd: RenderCommand): void {
   switch (cmd.type) {
+    case "EraseRect":
+      break; // Knockouts are applied by the enclosing ink pass, not to the paper.
     case "DrawLine":
       paintLine(ctx, cmd);
       break;

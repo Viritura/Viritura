@@ -1104,5 +1104,5 @@ pub(super) fn layout_auto_flow_mnx_score(
     }
 
     tick!("restore measures+fit");
-    dl
+    dl.with_raised_text_frames()
 }

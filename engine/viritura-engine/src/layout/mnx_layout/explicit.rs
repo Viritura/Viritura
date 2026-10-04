@@ -493,7 +493,7 @@ pub fn layout_with_mnx_scores_cached(
         if let Some(score_def) = score.scores.get(score_index) {
             append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
         }
-        return dl;
+        return dl.with_raised_text_frames();
     }
     let score_def = match score.scores.get(score_index) {
         Some(sd) => sd,
@@ -581,14 +581,14 @@ pub fn layout_with_mnx_scores_cached(
         let Some(layout_id) = score_def.layout.as_deref() else {
             let mut dl = DisplayList::new(0.0, 0.0);
             dl.set_parts(score, 0..score.parts.len());
-            return dl;
+            return dl.with_raised_text_frames();
         };
         let layout_def = match layout_map.get(layout_id) {
             Some(l) => l,
             None => {
                 let mut dl = DisplayList::new(0.0, 0.0);
                 dl.set_parts(score, 0..score.parts.len());
-                return dl;
+                return dl.with_raised_text_frames();
             }
         };
         let (auto_flat_staves, auto_group_ranges) =
@@ -641,7 +641,7 @@ pub fn layout_with_mnx_scores_cached(
             }
         }
 
-        return dl;
+        return dl.with_raised_text_frames();
     }
 
     // Resolve system measure ranges + per-system flat staves + layout-change maps.
@@ -965,5 +965,5 @@ pub fn layout_with_mnx_scores_cached(
     }
     append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
 
-    dl
+    dl.with_raised_text_frames()
 }

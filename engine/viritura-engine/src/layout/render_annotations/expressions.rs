@@ -308,6 +308,7 @@ pub(crate) fn render_text_expressions(
             text_width,
             alignment,
             block,
+            erase_background: erases_background(expr),
             // manualOffset y is positive-UP; canvas y grows downward, so
             // subtract to move up for a positive value.
             base_y: base_y + frame_clearance - off_y_sp * sp,
@@ -341,6 +342,7 @@ struct PendingExpr {
     /// Block alignment around the rhythmic anchor.
     alignment: TextFrameAlign,
     block: Option<TextBlockLayout>,
+    erase_background: bool,
     /// Preferred baseline `y` (Bottom-baselined above, Middle-baselined below),
     /// before the resolver's outward displacement.
     base_y: f64,
@@ -471,6 +473,7 @@ fn emit_stacked_expressions(
                 top,
                 if p.is_above { "serif" } else { "serif italic" },
                 sp,
+                p.erase_background,
             );
         } else {
             super::text_content::emit_content(
@@ -541,6 +544,13 @@ fn expression_alignment(
         } else {
             TextFrameAlign::Left
         })
+}
+
+fn erases_background(expr: &crate::model::TextExpression) -> bool {
+    expr.frame
+        .as_ref()
+        .and_then(|frame| frame.erase_background)
+        .unwrap_or(false)
 }
 
 fn expression_block(

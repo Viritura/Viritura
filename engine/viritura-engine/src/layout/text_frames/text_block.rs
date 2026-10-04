@@ -58,7 +58,16 @@ impl TextBlockLayout {
         top: f64,
         default_font: &str,
         sp: f64,
+        erase_background: bool,
     ) {
+        if erase_background {
+            dl.push(RenderCommand::EraseRect {
+                x: left,
+                y: top,
+                w: self.width,
+                h: self.height,
+            });
+        }
         let inner_width = (self.width - 2.0 * self.padding).max(0.0);
         let mut line_top = top + self.padding;
         for line in &self.lines {

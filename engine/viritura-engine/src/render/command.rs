@@ -58,6 +58,8 @@ pub enum RenderCommand {
         h: f64,
         color: String,
     },
+    /// Remove previously painted ink inside this rectangle, without touching paper.
+    EraseRect { x: f64, y: f64, w: f64, h: f64 },
     /// Draw a filled circle (for augmentation dots, staccato).
     DrawCircle {
         cx: f64,
@@ -200,7 +202,8 @@ impl RenderCommand {
                 let by = y1.max(*y2) + half;
                 Some(BoundingBox::new(lx, ty, rx - lx, by - ty))
             }
-            RenderCommand::DrawRect { x, y, w, h, .. } => Some(BoundingBox::new(*x, *y, *w, *h)),
+            RenderCommand::DrawRect { x, y, w, h, .. }
+            | RenderCommand::EraseRect { x, y, w, h } => Some(BoundingBox::new(*x, *y, *w, *h)),
             RenderCommand::DrawCircle { cx, cy, r, .. } => {
                 Some(BoundingBox::new(cx - r, cy - r, 2.0 * r, 2.0 * r))
             }
@@ -388,7 +391,7 @@ impl RenderCommand {
                 *x2 += dx;
                 *y2 += dy;
             }
-            RenderCommand::DrawRect { x, y, .. } => {
+            RenderCommand::DrawRect { x, y, .. } | RenderCommand::EraseRect { x, y, .. } => {
                 *x += dx;
                 *y += dy;
             }
@@ -535,6 +538,9 @@ impl RenderCommand {
                 h,
                 color,
             },
+            RenderCommand::EraseRect { x, y, w, h } => {
+                RenderCommand::EraseRect { x, y: y + dy, w, h }
+            }
             RenderCommand::DrawCircle { cx, cy, r, color } => RenderCommand::DrawCircle {
                 cx,
                 cy: cy + dy,
@@ -657,7 +663,7 @@ impl RenderCommand {
             | RenderCommand::DrawFilledBezier { color, .. } => {
                 *color = new_color.to_string();
             }
-            RenderCommand::SetOpacity { .. } => {}
+            RenderCommand::SetOpacity { .. } | RenderCommand::EraseRect { .. } => {}
         }
     }
 }

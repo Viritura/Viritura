@@ -23,6 +23,7 @@ import type {
   PartSummary,
 } from "./wasm";
 import { BinaryReader, DECODERS, PAINTERS } from "./binaryDisplayListCommands";
+import { paintDisplayList } from "./displayListPainter";
 
 function readPages(r: BinaryReader, numPages: number): PageLayout[] {
   const pages: PageLayout[] = [];
@@ -277,6 +278,11 @@ function skipPaintHeaderTables(r: BinaryReader, numPages: number, numBboxes: num
  * This is the fastest path — no intermediate object allocation.
  */
 export function paintBinaryDisplayList(ctx: CanvasRenderingContext2D, data: Float32Array): void {
+  // Ordered knockouts need look-ahead; retain the allocation-free path for ordinary scores.
+  if (binaryHasEraseRect(data)) {
+    paintDisplayList(ctx, decodeBinaryDisplayList(data));
+    return;
+  }
   const r = new BinaryReader(data);
 
   const width = r.f32();
@@ -299,8 +305,38 @@ export function paintBinaryDisplayList(ctx: CanvasRenderingContext2D, data: Floa
     if (!painter) {
       throw new Error(`Unknown binary command tag: ${tag}`);
     }
+
     painter(ctx, r);
   }
+}
+
+const FIXED_COMMAND_SIZES: Record<number, number> = { 1: 6, 2: 5, 3: 4, 4: 7, 5: 7, 6: 10, 7: 8, 8: 18, 11: 1, 12: 7 };
+
+function binaryHasEraseRect(data: Float32Array): boolean {
+  const r = new BinaryReader(data);
+  r.skip(2);
+  const commandCount = r.f32();
+  const pageCount = r.f32();
+  r.skip(1);
+  const bboxCount = r.f32();
+  const slurCount = r.f32();
+  skipPaintHeaderTables(r, pageCount, bboxCount, slurCount);
+  for (let index = 0; index < commandCount; index++) {
+    const tag = r.f32();
+    if (tag === 13) return true;
+    if (tag === 9) {
+      const points = r.f32();
+      r.skip(points * 2 + 1);
+    } else if (tag === 10) {
+      r.skip(7);
+      r.skip(r.f32());
+    } else {
+      const count = FIXED_COMMAND_SIZES[tag];
+      if (count === undefined) throw new Error(`Unknown binary command tag: ${tag}`);
+      r.skip(count);
+    }
+  }
+  return false;
 }
 
 /**

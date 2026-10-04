@@ -24,11 +24,12 @@
 //! | 5   | DrawGlyph        | 8      |
 //! | 6   | DrawBezier       | 11     |
 //! | 7   | DrawQuadratic    | 9      |
-//! | 8   | DrawFilledBezier | 15     |
+//! | 8   | DrawFilledBezier | 19     |
 //! | 9   | DrawPolygon      | 3+2n   |
 //! | 10  | DrawText         | 9+len  |
 //! | 11  | SetOpacity       | 2      |
 //! | 12  | DrawStretchedGlyph | 8    |
+//! | 13  | EraseRect        | 5      |
 
 use super::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
@@ -45,6 +46,7 @@ const TAG_DRAW_POLYGON: f32 = 9.0;
 const TAG_DRAW_TEXT: f32 = 10.0;
 const TAG_SET_OPACITY: f32 = 11.0;
 const TAG_DRAW_STRETCHED_GLYPH: f32 = 12.0;
+const TAG_ERASE_RECT: f32 = 13.0;
 
 // Font IDs.
 //
@@ -365,6 +367,9 @@ fn encode_identity_string(buf: &mut Vec<f32>, value: &str) {
 #[allow(clippy::too_many_lines)] // flat 1:1 command→wire dispatch: every arm is the same mechanical run of field pushes, and the layout documented in the table above is only checkable with the whole match visible in one place
 fn encode_command(buf: &mut Vec<f32>, cmd: &RenderCommand) {
     match cmd {
+        RenderCommand::EraseRect { x, y, w, h } => {
+            buf.extend([TAG_ERASE_RECT, *x as f32, *y as f32, *w as f32, *h as f32]);
+        }
         RenderCommand::DrawLine {
             x1,
             y1,

@@ -92,6 +92,21 @@ describe("score text frames", () => {
     expect(() => parseMnx(documentWithFrames([ambiguousWidth]))).toThrow();
   });
 
+  it.each([undefined, false, true])("round-trips eraseBackground intent: %s", (eraseBackground) => {
+    const frame = {
+      ...frames[0],
+      ...(eraseBackground === undefined ? {} : { eraseBackground }),
+    };
+    for (const parse of [parseMnx, parseMnxUnvalidated]) {
+      const score = parse(documentWithFrames([frame]));
+      expect(score.scores?.[0]?.textFrames?.[0]).toEqual(frame);
+      const output = serializeMnx(score) as {
+        scores: { _x: { viritura: { textFrames: unknown[] } } }[];
+      };
+      expect(output.scores[0]?._x.viritura.textFrames).toEqual([frame]);
+    }
+  });
+
   it.each([
     ["non-array", { id: "bad" }],
     ["missing part scope", [{ ...frames[0], locator: { type: "event", eventId: "event-1" } }]],
@@ -103,6 +118,9 @@ describe("score text frames", () => {
     ["negative padding", [{ ...frames[0], padding: -1 }]],
     ["non-finite offset", [{ ...frames[0], placement: { anchor: "top", offset: { x: Infinity, y: 0 } } }]],
     ["unknown field", [{ ...frames[0], height: 12 }]],
+    ["string erase background", [{ ...frames[0], eraseBackground: "true" }]],
+    ["numeric erase background", [{ ...frames[0], eraseBackground: 1 }]],
+    ["null erase background", [{ ...frames[0], eraseBackground: null }]],
     ["malformed content", [{ ...frames[0], content: [{ invalid: "text" }] }]],
   ])("rejects %s on validated and unvalidated paths", (_case, invalid) => {
     expect(() => parseMnx(documentWithFrames(invalid))).toThrow();

@@ -1,7 +1,34 @@
 /**
- * textFrameScore — shared MNX fixture for text-frame stories: a two-page
- * violin part whose full score carries one frame of each locator kind.
+ * textFrameScore — shared MNX fixtures for page and staff text-frame stories.
  */
+
+import { buildMnx } from "./buildMnx";
+
+export const ERASING_STAFF_TEXT_MNX = buildMnx({
+  measures: [
+    {
+      time: { count: 4, unit: 4 },
+      voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+      virituraPartMeasure: {
+        expressions: [
+          {
+            text: [{ text: "Ink knockout" }],
+            position: { fraction: [0, 1] },
+            placement: "above",
+            manualOffset: [0, -5],
+            avoidCollisions: false,
+            frame: {
+              width: { unit: "staffSpaces", value: 14 },
+              padding: 0.5,
+              border: "solid",
+              eraseBackground: true,
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
 
 function bar(step: string) {
   return {

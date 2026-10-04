@@ -9,7 +9,19 @@
  * allowing the score to be decoded from the PDF later.
  */
 
-import { PDFDocument, rgb, AFRelationship, degrees } from "pdf-lib";
+import {
+  PDFDocument,
+  rgb,
+  AFRelationship,
+  degrees,
+  pushGraphicsState,
+  popGraphicsState,
+  moveTo,
+  lineTo,
+  closePath,
+  clipEvenOdd,
+  endPath,
+} from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import type { DisplayList } from "./wasm";
 import { isWasmReady, wasmExportSvg } from "./wasm";
@@ -217,17 +229,30 @@ interface PdfFonts {
   serifBoldItalicFont: import("pdf-lib").PDFFont;
 }
 
-function renderSvgToPdf(
+export function renderSvgToPdf(
   page: import("pdf-lib").PDFPage,
   svgContent: string,
   pageHeightPt: number,
   fonts: PdfFonts,
 ): void {
-  // Match all top-level SVG elements (our output has no nesting beyond the root <svg>).
-  const elementRegex = /<(line|rect|circle|ellipse|path|polygon|text)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1>)/g;
+  const clips = readEraseClips(svgContent);
+  const content = svgContent.replace(/<defs>[\s\S]*?<\/defs>/g, "");
+  const elementRegex =
+    /<\/g>|<g\b[^>]*>|<(line|rect|circle|ellipse|path|polygon|text)\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1>)/g;
   let match: RegExpExecArray | null;
 
-  while ((match = elementRegex.exec(svgContent)) !== null) {
+  while ((match = elementRegex.exec(content)) !== null) {
+    if (match[0] === "</g>") {
+      page.pushOperators(popGraphicsState());
+      continue;
+    }
+    if (match[0].startsWith("<g")) {
+      const id = attr(match[0], "clip-path").match(/^url\(#(.+)\)$/)?.[1];
+      const clip = id ? clips.get(id) : undefined;
+      if (!clip) throw new Error(`PDF: unsupported or missing SVG clip ${id ?? "(none)"}`);
+      page.pushOperators(pushGraphicsState(), ...eraseClipOperators(clip, pageHeightPt));
+      continue;
+    }
     const tag = match[1]!;
     const attrs = match[2]!;
     const textContent = match[3];
@@ -261,6 +286,37 @@ function renderSvgToPdf(
       console.warn(`PDF: failed to draw <${tag}>:`, (e as Error).message);
     }
   }
+}
+
+function readEraseClips(svg: string): Map<string, string> {
+  const clips = new Map<string, string>();
+  for (const match of svg.matchAll(/<clipPath\b([^>]*)><path\b([^>]*)\/><\/clipPath>/g)) {
+    const id = attr(match[1]!, "id");
+    const path = attr(match[2]!, "d");
+    if (!id || !path || attr(match[2]!, "clip-rule") !== "evenodd") {
+      throw new Error("PDF: invalid ink knockout clip");
+    }
+    clips.set(id, path);
+  }
+  return clips;
+}
+
+function eraseClipOperators(path: string, pageHeightPt: number): import("pdf-lib").PDFOperator[] {
+  const tokens = path.match(/[MLZ]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g) ?? [];
+  const operators: import("pdf-lib").PDFOperator[] = [];
+  for (let index = 0; index < tokens.length;) {
+    const operation = tokens[index++];
+    if (operation === "Z") {
+      operators.push(closePath());
+      continue;
+    }
+    if (operation !== "M" && operation !== "L") throw new Error("PDF: unsupported ink knockout geometry");
+    const x = Number(tokens[index++]);
+    const y = Number(tokens[index++]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("PDF: invalid ink knockout coordinates");
+    operators.push(operation === "M" ? moveTo(xPt(x), yPt(y, pageHeightPt)) : lineTo(xPt(x), yPt(y, pageHeightPt)));
+  }
+  return [...operators, clipEvenOdd(), endPath()];
 }
 
 // ─── Individual SVG element renderers ──────────────────────────────

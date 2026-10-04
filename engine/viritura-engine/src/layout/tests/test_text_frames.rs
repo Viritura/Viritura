@@ -8,6 +8,61 @@ use crate::render::*;
 
 const PAGE_WIDTH: f64 = 800.0;
 
+#[test]
+fn page_frame_knockouts_precede_their_foreground_and_preserve_array_order() {
+    let frames = [
+        frame(
+            "first",
+            "first",
+            r#"{"type":"page","pageIndex":0}"#,
+            &format!(r#"{TOP_LEFT},"padding":1,"border":"solid","eraseBackground":true"#),
+        ),
+        frame(
+            "second",
+            "second",
+            r#"{"type":"page","pageIndex":0}"#,
+            &format!(r#"{TOP_LEFT},"eraseBackground":true"#),
+        ),
+    ]
+    .join(",");
+    let dl = layout(&document(&frames, "", ""), &paged());
+    let masks: Vec<_> = dl
+        .commands
+        .iter()
+        .enumerate()
+        .filter_map(|(index, command)| {
+            if let RenderCommand::EraseRect { x, y, w, h } = command {
+                Some((
+                    index,
+                    (*x, *y, *w, *h),
+                    dl.element_ids[index].as_ref().unwrap(),
+                ))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(masks.len(), 2);
+    assert_eq!(masks[0].2, "text-frame/first");
+    assert_eq!(masks[1].2, "text-frame/second");
+    for (index, rect, id) in masks {
+        let bbox = &dl
+            .element_bboxes
+            .iter()
+            .find(|bbox| &bbox.element_id == id)
+            .unwrap()
+            .bbox;
+        assert_eq!(rect, (bbox.x, bbox.y, bbox.width, bbox.height));
+        assert!(dl
+            .commands
+            .iter()
+            .enumerate()
+            .any(|(later, command)| later > index
+                && dl.element_ids[later].as_ref() == Some(id)
+                && matches!(command, RenderCommand::DrawText { .. })));
+    }
+}
+
 fn document(frames: &str, score_extra: &str, breaks: &str) -> String {
     let global: Vec<String> = (0..20)
         .map(|index| {

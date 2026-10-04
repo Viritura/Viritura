@@ -49,6 +49,12 @@ pub(crate) fn promote_text_frames(
 }
 
 fn promote_text_frame(entry: &serde_json::Value) -> Result<TextFrame, String> {
+    if entry
+        .get("eraseBackground")
+        .is_some_and(|value| !value.is_boolean())
+    {
+        return Err("eraseBackground must be a boolean".into());
+    }
     let raw: raw::TextFrame =
         serde_json::from_value(entry.clone()).map_err(|error| error.to_string())?;
     let width = match raw.width {
@@ -82,6 +88,7 @@ fn promote_text_frame(entry: &serde_json::Value) -> Result<TextFrame, String> {
             },
         },
         width,
+        erase_background: raw.erase_background,
         padding: raw.padding,
         horizontal_alignment: raw.horizontal_alignment.map(|align| match align {
             raw::TextFrameHorizontalAlignment::Left => TextFrameAlign::Left,
@@ -144,6 +151,27 @@ mod tests {
             "placement": {"anchor": "top-left", "offset": {"x": 0, "y": 0}},
             "width": width
         })
+    }
+
+    #[test]
+    fn preserves_optional_erase_background_intent() {
+        for intent in [None, Some(false), Some(true)] {
+            let mut entry = frame(
+                "f",
+                json!({"type": "page", "pageIndex": 0}),
+                json!({"unit": "staffSpaces", "value": 5}),
+            );
+            if let Some(value) = intent {
+                entry["eraseBackground"] = json!(value);
+            }
+            let promoted = promote_text_frame(&entry).unwrap();
+            assert_eq!(promoted.erase_background, intent);
+            let serialized = serde_json::to_value(&promoted).unwrap();
+            assert_eq!(
+                serialized.get("eraseBackground"),
+                entry.get("eraseBackground")
+            );
+        }
     }
 
     #[test]
@@ -223,6 +251,18 @@ mod tests {
             .unwrap()
             .remove("placement");
         let cases = [
+            (
+                "null erase background",
+                with("eraseBackground", json!(null)),
+            ),
+            (
+                "string erase background",
+                with("eraseBackground", json!("true")),
+            ),
+            (
+                "numeric erase background",
+                with("eraseBackground", json!(1)),
+            ),
             ("missing id", missing_id),
             ("empty id", frame("", page.clone(), ss.clone())),
             (

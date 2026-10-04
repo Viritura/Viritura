@@ -197,6 +197,14 @@ the paint/layer order, with later frames above earlier frames. These
 first-slice frames neither reserve music space nor avoid collisions with
 notation or one another.
 
+Optional boolean `eraseBackground` requests erasure of underlying ink within
+the frame rectangle, including padding, before painting the frame's border and
+text. Omission or `false` preserves existing transparent behavior. The model
+stores this intent only, not a background color. Canvas and vector exports mask
+earlier ink rather than painting a white rectangle, leaving the actual paper
+color, texture, or transparency intact. Later frames remain above earlier ones.
+This does not change collision avoidance or reserve musical space.
+
 Create frames in **Write > Palettes > Text**: choose a page number and
 **Add page frame**, or select music and add a frame following that measure/event's
 page. The palette opens the new frame's text and presentation editor immediately.
@@ -216,7 +224,7 @@ system-attached semantic text; implementation of those attachment kinds is track
 The in-memory model separates `TextBlock` (shared `TextContent` plus optional
 `TextFramePresentation`) from `TextFrame` (its page-positioned specialization).
 Presentation includes optional width, block alignment, paragraph justification,
-padding, and border. A plain annotation and a bordered instruction box should
+padding, border, and `eraseBackground` intent. A plain annotation and a bordered instruction box should
 use the same attachment model, differing only in these optional settings.
 Border and padding do not confer staff/system scope or imply music-space
 reservation.
@@ -1143,6 +1151,11 @@ Optional `padding` is a nonnegative staff-space value. `border` is `"none"`
 around the rhythmic anchor. Omission preserves automatic alignment: left at
 notes, right for end-of-measure instructions. `paragraphJustification` is
 `"left"` (default), `"center"`, `"right"`, or `"justify"`.
+Optional boolean `eraseBackground` has the same intent and default as on page
+frames: `true` erases underlying ink within the rectangle including padding;
+absent or `false` leaves it intact. No color is persisted. Erasing staff frames
+paint above musical ink, including barlines emitted later in layout, and below
+page furniture. Canvas caches and retained Horizon frames preserve this layering.
 
 The frame stays music-relative in paged and Horizon views; it does not become
 page furniture. Existing `manualOffset` (+x right, +y up) and `avoidCollisions`
@@ -1152,7 +1165,7 @@ No fixed height, page locator, or new staff/system scope is introduced.
 
 In Write mode, create ordinary staff text in the Text palette. Select it and use
 Properties to set **Wrap to frame width**, width, padding, border, alignment,
-and paragraph justification alongside the existing rich-text editor.
+paragraph justification, and **Erase background** alongside the existing rich-text editor.
 **Reset frame** removes only presentation, preserving text and musical attachment.
 
 ```json

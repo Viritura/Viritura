@@ -11,6 +11,7 @@ import type { DisplayList, PageLayout, RenderCommand } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
 import { traceFilledBezier } from "./displayListPainter";
 import { canvasTextFont } from "./textFont";
+import { paintInkCommands } from "./inkMask";
 
 /** Sliding window size: current page ± 2. */
 const WINDOW_SIZE = 5;
@@ -86,6 +87,7 @@ function getCommandYRange(cmd: RenderCommand): [number, number] {
     case "DrawLine":
       return [Math.min(cmd.y1, cmd.y2), Math.max(cmd.y1, cmd.y2)];
     case "DrawRect":
+    case "EraseRect":
       return [cmd.y, cmd.y + cmd.h];
     case "DrawCircle":
       return [cmd.cy - cmd.r, cmd.cy + cmd.r];
@@ -276,13 +278,13 @@ function paintCommandsWithAtlas(
   commands: RenderCommand[],
   atlas: GlyphAtlas | null,
 ): void {
-  for (const cmd of commands) {
+  paintInkCommands(ctx, commands, (cmd) => {
     if (cmd.type === "DrawGlyph" && atlas?.isBuilt && cmd.rotation === 0) {
       const drawn = atlas.drawGlyph(ctx, cmd.codepoint, cmd.x, cmd.y, cmd.size, cmd.color);
-      if (drawn) continue;
+      if (drawn) return;
     }
     paintSingleCommand(ctx, cmd);
-  }
+  });
 }
 
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -328,6 +330,8 @@ function paintSingleCommand(
   cmd: RenderCommand,
 ): void {
   switch (cmd.type) {
+    case "EraseRect":
+      break;
     case "DrawLine":
       ctx.strokeStyle = cmd.color;
       ctx.lineWidth = cmd.width;

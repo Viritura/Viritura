@@ -7,6 +7,8 @@ use super::text::TextContent;
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StaffTextFramePresentation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub erase_background: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<StaffTextFrameWidth>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<f64>,
@@ -47,6 +49,9 @@ pub struct TextFrame {
     pub locator: TextFrameLocator,
     pub placement: TextFramePlacement,
     pub width: TextFrameWidth,
+    /// Intent only; the rendering surface supplies its background color.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub erase_background: Option<bool>,
     /// Inner padding on all four sides, in staff spaces.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<f64>,

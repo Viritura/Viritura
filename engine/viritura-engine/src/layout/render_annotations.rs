@@ -152,7 +152,7 @@ pub(super) fn shift_marking(dl: &mut DisplayList, staff_cmd_start: usize, eid: &
                 *y1 -= dy;
                 *y2 -= dy;
             }
-            RenderCommand::DrawRect { y, .. } => *y -= dy,
+            RenderCommand::DrawRect { y, .. } | RenderCommand::EraseRect { y, .. } => *y -= dy,
             RenderCommand::DrawCircle { cy, .. } | RenderCommand::DrawEllipse { cy, .. } => {
                 *cy -= dy;
             }
@@ -501,7 +501,7 @@ fn shift_marking_x(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str, dx: 
                 *x1 += dx;
                 *x2 += dx;
             }
-            RenderCommand::DrawRect { x, .. } => *x += dx,
+            RenderCommand::DrawRect { x, .. } | RenderCommand::EraseRect { x, .. } => *x += dx,
             RenderCommand::DrawCircle { cx, .. } | RenderCommand::DrawEllipse { cx, .. } => {
                 *cx += dx;
             }

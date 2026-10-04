@@ -152,6 +152,21 @@ describe("TextFramePalette", () => {
 });
 
 describe("TextFramesPanel", () => {
+  it("toggles Erase background on page frames without changing content or placement", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByTestId("text-frame-row-title"));
+    const original = frames()[0]!;
+    const checkbox = screen.getByRole("checkbox", { name: "Erase background" });
+    expect(checkbox).toHaveProperty("checked", false);
+    expect(original).not.toHaveProperty("eraseBackground");
+    for (const eraseBackground of [true, false]) {
+      await user.click(checkbox);
+      expect(checkbox).toHaveProperty("checked", eraseBackground);
+      expect(frames()[0]).toEqual({ ...original, eraseBackground });
+    }
+  });
+
   it("edits existing frames without creation controls", async () => {
     renderWithDocument(<TextFramesPanel />);
     await screen.findByTestId("text-frame-row-title");

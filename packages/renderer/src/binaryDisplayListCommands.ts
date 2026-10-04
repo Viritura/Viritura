@@ -25,6 +25,7 @@ const TAG_DRAW_POLYGON = 9;
 const TAG_DRAW_TEXT = 10;
 const TAG_SET_OPACITY = 11;
 const TAG_DRAW_STRETCHED_GLYPH = 12;
+const TAG_ERASE_RECT = 13;
 
 // Font IDs match the engine's binary protocol (render/binary.rs):
 // 0 = Bravura (music), then text fonts packed as 1 + family*4 + style where
@@ -306,6 +307,7 @@ function decodeSetOpacity(r: BinaryReader): RenderCommand {
 }
 
 export const DECODERS: Record<number, Decoder> = {
+  [TAG_ERASE_RECT]: (r) => ({ type: "EraseRect", x: r.f32(), y: r.f32(), w: r.f32(), h: r.f32() }),
   [TAG_DRAW_LINE]: decodeDrawLine,
   [TAG_DRAW_RECT]: decodeDrawRect,
   [TAG_DRAW_CIRCLE]: decodeDrawCircle,

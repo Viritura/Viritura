@@ -614,6 +614,8 @@ export interface components {
              * @enum {string}
              */
             border?: "none" | "solid";
+            /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
+            eraseBackground?: boolean;
             sourceReference?: components["schemas"]["text-frame-source-reference"];
         };
         /** @description Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic. */
@@ -630,6 +632,8 @@ export interface components {
             padding?: number;
             /** @enum {string} */
             border?: "none" | "solid";
+            /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
+            eraseBackground?: boolean;
         };
         /** @description Exactly one page, global-measure, or part-scoped event locator. */
         "text-frame-locator": {

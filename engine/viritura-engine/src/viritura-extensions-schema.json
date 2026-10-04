@@ -1202,6 +1202,10 @@
           "enum": ["none", "solid"],
           "description": "Optional frame border style."
         },
+        "eraseBackground": {
+          "type": "boolean",
+          "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
+        },
         "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
       },
       "additionalProperties": false
@@ -1223,7 +1227,11 @@
         "horizontalAlignment": { "type": "string", "enum": ["left", "center", "right"] },
         "paragraphJustification": { "type": "string", "enum": ["left", "center", "right", "justify"] },
         "padding": { "type": "number", "minimum": 0 },
-        "border": { "type": "string", "enum": ["none", "solid"] }
+        "border": { "type": "string", "enum": ["none", "solid"] },
+        "eraseBackground": {
+          "type": "boolean",
+          "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
+        }
       },
       "additionalProperties": false
     },

@@ -167,6 +167,29 @@ describe("staff text frame Properties", () => {
     resetSelectionStore();
   });
 
+  it("toggles Erase background without changing text or attachment and persists both boolean values", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const region = await screen.findByRole("region", { name: "Staff text frame" });
+    const checkbox = within(region).getByRole("checkbox", { name: "Erase background" });
+    const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    const original = snapshot().parts[0].measures[0].expressions![0];
+    expect(checkbox).toHaveProperty("checked", false);
+    expect(original.frame).toBeUndefined();
+    for (const eraseBackground of [true, false]) {
+      fireEvent.click(checkbox);
+      expect(checkbox).toHaveProperty("checked", eraseBackground);
+      expect(snapshot().parts[0].measures[0].expressions![0]).toEqual({
+        ...original,
+        frame: { eraseBackground },
+      });
+      const persisted = parseMnx(JSON.parse(screen.getByTestId("mnx-snapshot").textContent!));
+      expect(persisted.parts[0].measures[0].expressions![0].frame).toEqual({ eraseBackground });
+    }
+    fireEvent.click(within(region).getByRole("button", { name: "Reset frame" }));
+    expect(checkbox).toHaveProperty("checked", false);
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual(original);
+  });
+
   it("adds presentation without replacing rich text or musical attachment, then resets it", async () => {
     render(withProviders(<Harness elementId="p0/m0/expr0" />));
     const frame = await screen.findByRole("region", { name: "Staff text frame" });

@@ -174,3 +174,69 @@ fn malformed_staff_frames_fail_both_import_paths() {
         );
     }
 }
+
+#[test]
+fn erasing_staff_frames_are_above_all_musical_ink_and_use_final_padded_geometry() {
+    for page_width in [None, Some(800.0)] {
+        for placement in ["above", "below"] {
+            let config = LayoutConfig {
+                page_width,
+                ..LayoutConfig::default()
+            };
+            let mut doc = document(
+                json!({
+                    "width": { "unit": "staffSpaces", "value": 12 }, "padding": 1,
+                    "border": "solid", "eraseBackground": true,
+                }),
+                placement,
+            );
+            doc["parts"].as_array_mut().unwrap().push(json!({
+                "id": "P2", "measures": [{
+                    "sequences": [{ "content": [{ "duration": { "base": "whole" }, "rest": {} }] }]
+                }]
+            }));
+            let score = parse_mnx(&doc.to_string()).unwrap();
+            let dl = crate::layout::layout_full_score(&score, &config);
+            let mask_index = dl
+                .commands
+                .iter()
+                .position(|command| matches!(command, RenderCommand::EraseRect { .. }))
+                .unwrap();
+            let bbox = expression_bbox(&dl);
+            let RenderCommand::EraseRect { x, y, w, h } = dl.commands[mask_index] else {
+                panic!("missing mask")
+            };
+            assert_eq!((x, y, w, h), (bbox.x, bbox.y, bbox.width, bbox.height));
+            assert_eq!(dl.element_ids[mask_index].as_deref(), Some("p0/m0/expr0"));
+            assert!(dl
+                .commands
+                .iter()
+                .enumerate()
+                .filter(|(_, command)| matches!(command, RenderCommand::DrawText { .. }))
+                .filter(|(index, _)| dl.element_ids[*index].as_deref() == Some("p0/m0/expr0"))
+                .all(|(index, _)| index > mask_index));
+            assert!(
+                dl.commands
+                    .iter()
+                    .enumerate()
+                    .filter(|(index, _)| dl.element_ids[*index]
+                        .as_ref()
+                        .is_some_and(|id| id.starts_with("p1/")))
+                    .all(|(index, _)| index < mask_index),
+                "later staff ink must be behind the frame"
+            );
+        }
+    }
+}
+
+#[test]
+fn background_erase_false_and_absent_keep_unmasked_frame_rendering() {
+    for frame in [json!({}), json!({ "eraseBackground": false })] {
+        let score = parse_mnx(&document(frame, "above").to_string()).unwrap();
+        let dl = layout_score(&score, 0, &LayoutConfig::default());
+        assert!(!dl
+            .commands
+            .iter()
+            .any(|command| matches!(command, RenderCommand::EraseRect { .. })));
+    }
+}

@@ -20,6 +20,7 @@ export function renderCommandBounds(cmd: RenderCommand): RenderBounds | null {
         y2: Math.max(cmd.y1, cmd.y2) + cmd.width,
       };
     case "DrawRect":
+    case "EraseRect":
       return { x: cmd.x, y: cmd.y, x2: cmd.x + cmd.w, y2: cmd.y + cmd.h };
     case "DrawCircle":
       return { x: cmd.cx - cmd.r, y: cmd.cy - cmd.r, x2: cmd.cx + cmd.r, y2: cmd.cy + cmd.r };
