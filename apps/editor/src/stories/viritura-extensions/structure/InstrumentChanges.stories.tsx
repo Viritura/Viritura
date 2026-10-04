@@ -107,6 +107,48 @@ export const HiddenReminderWithVisibleChangeLabel: StoryObj = {
   render: () => <ScorePreview mnxJson={reminderScore(false, true)} />,
 };
 
+export const ShortClarinetTuningLabels: StoryObj = {
+  render: () => (
+    <ScorePreview
+      mnxJson={JSON.stringify({
+        mnx: { version: 1 },
+        global: { measures: [{ time: { count: 4, unit: 4 }, key: { fifths: 0 } }, {}, {}, {}] },
+        scores: [{ name: "Clarinet in B\u266d", useWritten: true }],
+        parts: [
+          {
+            name: "Clarinet",
+            shortName: "Cl",
+            transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+            measures: Array.from({ length: 4 }, (_, index) => ({
+              ...(index === 0 ? { clefs: [{ clef: { sign: "G", staffPosition: -2 } }] } : {}),
+              sequences: [
+                {
+                  content:
+                    index === 1 || index === 2
+                      ? [{ duration: { base: "whole" }, rest: {} }]
+                      : [
+                          { duration: { base: "half" }, notes: [{ pitch: { step: "C", octave: 5 } }] },
+                          { duration: { base: "half" }, rest: {} },
+                        ],
+                },
+              ],
+              ...(index === 3
+                ? {
+                    _x: {
+                      viritura: {
+                        instrumentChanges: [{ transposition: { interval: { halfSteps: 0, staffDistance: 0 } } }],
+                      },
+                    },
+                  }
+                : {}),
+            })),
+          },
+        ],
+      })}
+    />
+  ),
+};
+
 export const HornCrookChange: StoryObj = {
   render: () => (
     <ScorePreview

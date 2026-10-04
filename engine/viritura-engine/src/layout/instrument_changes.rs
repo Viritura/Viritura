@@ -150,50 +150,12 @@ fn append_expression(
 }
 
 fn derived_reminder(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
-    if change.instrument.is_some() {
-        return derived_instruction(part, measure_index, change);
-    }
-    let state = ActiveInstrument::at(part, measure_index, change.fraction());
-    format!("To {}", super::page::instrument_tuning_name(part, state))
+    format!("To {}", derived_instruction(part, measure_index, change))
 }
 
 fn derived_instruction(part: &Part, measure_index: usize, change: &InstrumentChange) -> String {
     let state = ActiveInstrument::at(part, measure_index, change.fraction());
-    if change.instrument.is_some() {
-        let name = state
-            .definition
-            .and_then(|instrument| instrument.name.as_deref())
-            .unwrap_or(&part.name);
-        return format!("To {name}");
-    }
-    let Some(transposition) = state.transposition else {
-        return "in C".to_string();
-    };
-    let interval = &transposition.interval;
-    let diatonic = -i64::from(interval.staff_distance);
-    let chromatic = -i64::from(interval.half_steps);
-    let letter = diatonic.rem_euclid(7) as usize;
-    let natural = [0, 2, 4, 5, 7, 9, 11][letter] + 12 * diatonic.div_euclid(7);
-    let accidental = chromatic - natural;
-    let suffix = match accidental {
-        -2 => "𝄫",
-        -1 => "♭",
-        0 => "",
-        1 => "♯",
-        2 => "𝄪",
-        _ => {
-            return super::page::transposition_key_name(interval.half_steps.rem_euclid(12))
-                .map_or_else(|| "in C".to_string(), |key| format!("in {key}"))
-        }
-    };
-    let pitch = ["C", "D", "E", "F", "G", "A", "B"][letter];
-    if chromatic != 0 && chromatic.rem_euclid(12) == 0 {
-        return format!(
-            "sounds {pitch}{suffix}{} for written C4",
-            4 + diatonic.div_euclid(7)
-        );
-    }
-    format!("in {pitch}{suffix}")
+    super::page::instrument_tuning_name(part, state)
 }
 /// A common staff must have a common written signature and interval.
 /// Separate incompatible sources instead of transposing all of them as source 1.

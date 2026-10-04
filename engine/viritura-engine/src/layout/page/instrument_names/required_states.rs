@@ -48,16 +48,7 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
                 .definition
                 .and_then(|d| d.name.as_deref())
                 .unwrap_or(&part.name);
-            let short = state
-                .active
-                .definition
-                .map(|d| {
-                    d.short_name
-                        .clone()
-                        .unwrap_or_else(|| super::super::abbreviate_part_name(full))
-                })
-                .or_else(|| part.short_name.clone())
-                .unwrap_or_else(|| super::super::abbreviate_part_name(full));
+            let short = short_name(part, state.active);
             let same_pitch_other_octave = states.iter().any(|other| {
                 other.identity == state.identity
                     && other.interval != state.interval
@@ -100,12 +91,24 @@ fn active_name(
     )
 }
 
-pub(crate) fn instrument_tuning_name(part: &Part, active: ActiveInstrument<'_>) -> String {
+fn short_name(part: &Part, active: ActiveInstrument<'_>) -> String {
     let full = active
         .definition
         .and_then(|d| d.name.as_deref())
         .unwrap_or(&part.name);
-    active_name(part, active, full, false)
+    active
+        .definition
+        .map(|d| {
+            d.short_name
+                .clone()
+                .unwrap_or_else(|| super::super::abbreviate_part_name(full))
+        })
+        .or_else(|| part.short_name.clone())
+        .unwrap_or_else(|| super::super::abbreviate_part_name(full))
+}
+
+pub(crate) fn instrument_tuning_name(part: &Part, active: ActiveInstrument<'_>) -> String {
+    active_name(part, active, &short_name(part, active), false)
 }
 
 fn tuning(interval: (i32, i32)) -> (String, i64) {
@@ -194,5 +197,5 @@ pub(crate) fn initial_instruction(part: &Part) -> Option<String> {
     {
         return None;
     }
-    names.into_iter().next().map(|name| name.full)
+    names.into_iter().next().map(|name| name.short)
 }

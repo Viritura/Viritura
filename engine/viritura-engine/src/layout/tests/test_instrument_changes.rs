@@ -87,8 +87,8 @@ fn instrument_changes_resolve_defaults_overrides_and_sounding_invariance() {
     );
     assert_eq!(resolved[1].prev_key.fifths, 2);
     let display = layout_score(&score, 0, &LayoutConfig::default());
-    assert!(texts(&display).contains(&"To Flute"));
-    assert!(texts(&display).contains(&"in F"));
+    assert!(texts(&display).contains(&"Fl. in C"));
+    assert!(texts(&display).contains(&"Fl. in F"));
     assert_eq!(glyph_count(&display, smufl::ACCIDENTAL_NATURAL), 2);
     assert_eq!(serde_json::to_value(&score.parts[0]).unwrap(), before);
     assert_eq!(
@@ -160,7 +160,7 @@ fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
     let resolved = resolve_measures(&score, 0);
     let expression = reminder_expression(&resolved[0].part).unwrap();
     assert_eq!(expression.position.fraction, (0, 1));
-    assert_eq!(expression.text.plain_text(), "To Flute");
+    assert_eq!(expression.text.plain_text(), "To Fl. in C");
     assert!(resolved[1].part.expressions.is_none());
     for display in [
         layout_score(&score, 0, &LayoutConfig::default()),
@@ -169,7 +169,7 @@ fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
         assert_eq!(
             texts(&display)
                 .iter()
-                .filter(|text| **text == "To Flute")
+                .filter(|text| **text == "To Fl. in C")
                 .count(),
             1
         );
@@ -269,16 +269,15 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
         .find(|expression| expression.instrument_reminder)
         .unwrap();
     assert_eq!(reminder.position.fraction, (0, 1));
-    assert_eq!(reminder.text.plain_text(), "To Clarinet in A");
+    assert_eq!(reminder.text.plain_text(), "To Cl. in A");
     assert!(resolved[3]
         .part
         .expressions
         .as_ref()
         .unwrap()
         .iter()
-        .any(
-            |expression| !expression.instrument_reminder && expression.text.plain_text() == "in A"
-        ));
+        .any(|expression| !expression.instrument_reminder
+            && expression.text.plain_text() == "Cl. in A"));
     value["parts"][0]["measures"][3]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
         json!({"hidden":true});
     let resolved = resolve_measures(&parse(&value), 0);
@@ -286,11 +285,12 @@ fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden(
 }
 
 #[test]
-fn instrument_changes_concert_tuning_reminder_names_instrument_but_change_label_is_short() {
+fn instrument_changes_concert_tuning_uses_short_names_at_opening_reminder_and_change() {
     let mut value = document();
     sounding_then_rest(&mut value, 0);
     value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["name"] =
         json!("Clarinet in B♭");
+    value["parts"][0]["_x"]["viritura"]["instruments"]["clarinet"]["shortName"] = json!("Cl");
     value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
         "transposition":interval(0,0)
     }]}});
@@ -300,16 +300,24 @@ fn instrument_changes_concert_tuning_reminder_names_instrument_but_change_label_
             .unwrap()
             .text
             .plain_text(),
-        "To Clarinet in C"
+        "To Cl in C"
     );
     assert!(resolved[1]
         .part
         .expressions
         .iter()
         .flatten()
-        .any(
-            |expression| !expression.instrument_reminder && expression.text.plain_text() == "in C"
-        ));
+        .any(|expression| !expression.instrument_reminder
+            && expression.text.plain_text() == "Cl in C"));
+    assert!(resolved[0]
+        .part
+        .expressions
+        .iter()
+        .flatten()
+        .any(|expression| !expression.instrument_reminder
+            && expression.text.plain_text() == "Cl in B♭"));
+    let names = crate::layout::page::resolve_part_display_names(&parse(&value).parts);
+    assert_eq!(names[0].display_name, "Clarinet in B♭\nClarinet in C");
     value["parts"][0]["measures"][1]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
         json!({"text":"Prepare C clarinet"});
     let resolved = resolve_measures(&parse(&value), 0);
@@ -320,6 +328,32 @@ fn instrument_changes_concert_tuning_reminder_names_instrument_but_change_label_
             .plain_text(),
         "Prepare C clarinet"
     );
+}
+
+#[test]
+fn instrument_changes_short_label_fallback_uses_new_instrument_not_original_part() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    value["parts"][0]["_x"]["viritura"]["instruments"]["flute"]
+        .as_object_mut()
+        .unwrap()
+        .remove("shortName");
+    set_reminder(&mut value, 1, json!({}), json!({}));
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert_eq!(
+        reminder_expression(&resolved[0].part)
+            .unwrap()
+            .text
+            .plain_text(),
+        "To Fl. in C"
+    );
+    assert!(resolved[1]
+        .part
+        .expressions
+        .iter()
+        .flatten()
+        .any(|expression| !expression.instrument_reminder
+            && expression.text.plain_text() == "Fl. in C"));
 }
 
 #[test]
@@ -365,7 +399,7 @@ fn instrument_changes_initial_label_clears_stems_after_opening_rest() {
         .commands
         .iter()
         .find_map(|command| match command {
-            RenderCommand::DrawText { text, y, .. } if text == "Clarinet in B♭" => Some(*y),
+            RenderCommand::DrawText { text, y, .. } if text == "Cl. in B♭" => Some(*y),
             _ => None,
         })
         .unwrap();
@@ -469,11 +503,11 @@ fn instrument_changes_reminders_resolve_tuplets_and_boundary_releases() {
 fn instrument_changes_pitch_based_transposition_defaults_preserve_spelling_and_octaves() {
     let mut value = document();
     for (half_steps, staff_distance, expected) in [
-        (9, 5, "in E♭"),
-        (1, 1, "in B"),
-        (-1, 0, "in C♯"),
-        (-12, -7, "sounds C5 for written C4"),
-        (12, 7, "sounds C3 for written C4"),
+        (9, 5, "Cl. in E♭ alto"),
+        (1, 1, "Cl. in B"),
+        (-1, 0, "Cl. in C♯"),
+        (-12, -7, "Cl. in C (sounds C5 for written C4)"),
+        (12, 7, "Cl. in C (sounds C3 for written C4)"),
     ] {
         value["parts"][0]["measures"][1]["_x"] = json!({"viritura":{"instrumentChanges":[{
             "transposition":interval(half_steps,staff_distance)
@@ -587,7 +621,7 @@ fn instrument_changes_incompatible_sources_get_independent_written_staves() {
     let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
     // Both C4 voices must remain: source 1 displays D4; source 2 displays C4.
     assert_eq!(glyph_count(&display, smufl::NOTEHEAD_WHOLE), 8);
-    assert!(texts(&display).contains(&"To Flute"));
+    assert!(texts(&display).contains(&"Fl. in C"));
 }
 
 #[test]
@@ -777,7 +811,7 @@ fn instrument_changes_reminder_anchor_interrupts_multimeasure_rests() {
         multimeasure_rests: true,
         ..LayoutConfig::default()
     };
-    assert!(texts(&layout_with_mnx_scores(&parse(&value), &config, 0)).contains(&"To Flute"));
+    assert!(texts(&layout_with_mnx_scores(&parse(&value), &config, 0)).contains(&"To Fl. in C"));
 }
 
 #[test]

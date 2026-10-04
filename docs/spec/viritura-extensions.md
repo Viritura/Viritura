@@ -1123,12 +1123,14 @@ shape. Absence or `{}` enables an **automatic advance reminder**;
 `{ "hidden": true }` explicitly suppresses it. The editor enables reminders
 by default, including when editing older declarations without this field.
 Neither its custom text nor its visibility changes the `instruction` label
-at the declaration. Instrument switches default to the target instrument
-(`To Piccolo`). For transposition-only changes, the advance reminder names
-the destination instrument and tuning (`To Clarinet in C`), while the
-change-point label remains concise (`in C`). Octave-only change labels say,
-for example, `sounds C5 for written C4`. These labels use sounding pitch
-for written C, not numeric MNX interval counts.
+at the declaration. Automatic labels within the music use the active
+instrument's `shortName` (or its automatic abbreviation) and tuning for
+both instrument switches and transposition-only changes: `Cl in B♭` at
+the opening, `To Cl in C` as the advance reminder, and `Cl in C` at the
+change. Authored abbreviation punctuation and custom label text are
+preserved. Frontmatter retains full instrument names. Octave-only labels
+include, for example, `(sounds C5 for written C4)`. These labels use sounding
+pitch for written C, not numeric MNX interval counts.
 
 An enabled reminder automatically attaches **just after the last preceding
 sounding notehead**, so the player can use the following rest. It stays
@@ -1240,7 +1242,7 @@ player numbers appear on every line. The frame fits the widest line and
 the complete text stack, with space reserved above the first music system.
 Explicitly renamed score definitions and work-title metadata remain intact.
 
-Such a part also prints its initial full name and tuning above its first
+Such a part also prints its initial short name and tuning above its first
 bar, independent of concert/written display. A first-bar instrument or
 transposition declaration supplies that bar's instruction instead, avoiding
 a duplicate automatic initial label. Parts without actual state changes

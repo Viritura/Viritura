@@ -248,7 +248,7 @@ fn instrument_names_list_effective_states_once_on_every_system() {
     let resolved = resolve_measures(&score, 0);
     let expressions = resolved[0].part.expressions.as_ref().unwrap();
     assert_eq!(expressions.len(), 1);
-    assert_eq!(expressions[0].text.plain_text(), "Clarinet in B\u{266d}");
+    assert_eq!(expressions[0].text.plain_text(), "Cl. in B\u{266d}");
     assert_eq!(expressions[0].position.fraction, (0, 1));
     let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
     let ink = texts(&display);
@@ -260,7 +260,7 @@ fn instrument_names_list_effective_states_once_on_every_system() {
         layout_score(&score, 0, &LayoutConfig::default()),
         crate::layout::full_score::layout_full_score(&score, &LayoutConfig::default()),
     ] {
-        assert!(texts(&display).contains(&"Clarinet in B\u{266d}"));
+        assert!(texts(&display).contains(&"Cl. in B\u{266d}"));
     }
 }
 
@@ -279,7 +279,7 @@ fn instrument_names_initial_label_requires_a_real_change_and_respects_first_bar_
     change(&mut value, 2, json!({"instrument":"fl"}));
     assert_eq!(
         initial_instrument_instruction(&parse(&value).parts[0]),
-        Some("Clarinet in B\u{266d}".into())
+        Some("Cl. in B\u{266d}".into())
     );
     change(&mut value, 0, json!({"instrument":"cl"}));
     assert_eq!(
@@ -305,28 +305,35 @@ fn instrument_names_initial_label_requires_a_real_change_and_respects_first_bar_
 
 #[test]
 fn instrument_names_octave_tunings_are_musically_distinct() {
-    for (name, initial, changes, expected) in [
+    for (name, initial, changes, expected, initial_short) in [
         (
             "Horn",
             interval(2, 1),
             vec![interval(14, 8), interval(2, 1)],
             "Horn in B\u{266d} alto\nHorn in B\u{266d} basso",
+            "Hn. in B\u{266d} alto",
         ),
         (
             "Clarinet",
             interval(-3, -2),
             vec![interval(9, 5), interval(-3, -2)],
             "Clarinet in E\u{266d} piccolo\nClarinet in E\u{266d} alto",
+            "Cl. in E\u{266d} piccolo",
         ),
         (
             "Flute",
             interval(0, 0),
             vec![interval(-12, -7), interval(0, 0)],
             "Flute in C (sounds C4 for written C4)\nFlute in C (sounds C5 for written C4)",
+            "Fl. in C (sounds C4 for written C4)",
         ),
     ] {
         let mut value = document();
         value["parts"][0].as_object_mut().unwrap().remove("_x");
+        value["parts"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("shortName");
         value["parts"][0]["name"] = json!(name);
         value["parts"][0]["transposition"] = initial;
         for (index, transposition) in changes.into_iter().enumerate() {
@@ -343,7 +350,7 @@ fn instrument_names_octave_tunings_are_musically_distinct() {
         );
         assert_eq!(
             initial_instrument_instruction(&score.parts[0]).as_deref(),
-            expected.lines().next()
+            Some(initial_short)
         );
     }
 }
@@ -369,7 +376,7 @@ fn instrument_names_keep_authored_layout_labels_under_every_policy() {
         );
         assert!(!ink.contains(&"Flute"));
         assert!(!ink.contains(&"Fl."));
-        assert!(ink.contains(&"Clarinet in B\u{266d}"));
+        assert!(ink.contains(&"Cl. in B\u{266d}"));
     }
 }
 
