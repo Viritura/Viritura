@@ -65,7 +65,7 @@ function TextFrameStory({ horizon }: { horizon: boolean }) {
 }
 
 /**
- * Text-frame editing. Create, select, retype, move (arrow keys on a selected
+ * Existing text-frame editing. Select, retype, move (arrow keys on a selected
  * row, or the offset fields), resize, re-layer, and delete frames; every edit
  * is one undoable document update and re-engraves the page view.
  */
@@ -78,7 +78,7 @@ const meta: Meta<typeof TextFrameStory> = {
 export default meta;
 type Story = StoryObj<typeof TextFrameStory>;
 
-/** Page view with the document-level frame list and editor (as in Engrave's Text tab). */
+/** Page view with the existing-frame list and editor (as in Engrave's Properties tab). */
 export const PageViewEditing: Story = { args: { horizon: false }, name: "Page view editing" };
 
 /**

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { LayoutPanelTop, Palette, SlidersHorizontal, TextSelect } from "lucide-react";
+import { LayoutPanelTop, Palette, SlidersHorizontal } from "lucide-react";
 import { Tabs } from "@viritura/ui";
 import { defaultPageSetupForScore, type PageSetup, type Score } from "@viritura/core";
 import { PageSetupDialog } from "../../../PageSetupDialog";
 import { HouseStylePanel } from "../HouseStylePanel";
 import { NotationInspector } from "../../../NotationInspector";
-import { TextFramesPanel } from "../../../textFrames";
+import { useSelection } from "../../../../store/selectionStore";
+import { textFrameIdFromElementId } from "../../../../score/textFrameMutations";
 import { InstrumentNameDisplayControl } from "../../../parts/InstrumentNameDisplayControl";
 import {
   instrumentNameDisplayLayoutIds,
@@ -30,7 +31,6 @@ interface EngraveLeftPanelProps {
 const TABS = [
   { id: "house-style", label: "House Style", icon: <Palette size={14} /> },
   { id: "layouts", label: "Layouts", icon: <LayoutPanelTop size={14} /> },
-  { id: "text-frames", label: "Text", icon: <TextSelect size={14} /> },
   { id: "properties", label: "Properties", icon: <SlidersHorizontal size={14} /> },
 ];
 
@@ -46,10 +46,18 @@ export function EngraveLeftPanel({
   onRemoveSelectedBreak,
   onResetAll,
 }: EngraveLeftPanelProps) {
-  const [activeTab, setActiveTab] = useState("house-style");
+  const selection = useSelection();
+  const [tabChoice, setTabChoice] = useState<{ id: string; selection: typeof selection | null }>({
+    id: "house-style",
+    selection: null,
+  });
   const defaults = defaultPageSetupForScore(score?.scores, activeScoreIndex, score?.layouts, score?.parts?.length);
   const stored = score?.scores?.[activeScoreIndex]?.pageSetup;
   const selectedScore = score?.scores?.[activeScoreIndex];
+  const frameSelected =
+    selection.kind === "single" &&
+    textFrameIdFromElementId(selection.elementId, selectedScore?.textFrames ?? []) !== null;
+  const activeTab = frameSelected && tabChoice.selection !== selection ? "properties" : tabChoice.id;
   const selectedLayoutIds = selectedScore ? instrumentNameDisplayLayoutIds(selectedScore) : new Set<string>();
   const selectedLayout = score?.layouts?.find((layout) => selectedLayoutIds.has(layout.id));
   const pageSetup = useMemo(
@@ -59,7 +67,7 @@ export function EngraveLeftPanel({
 
   return (
     <aside className={styles.root} data-testid="engrave-left-panel">
-      <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} variant="panel">
+      <Tabs tabs={TABS} activeTab={activeTab} onTabChange={(id) => setTabChoice({ id, selection })} variant="panel">
         {activeTab === "house-style" ? (
           <HouseStylePanel />
         ) : activeTab === "layouts" ? (
@@ -94,8 +102,6 @@ export function EngraveLeftPanel({
               </section>
             )}
           </div>
-        ) : activeTab === "text-frames" ? (
-          <TextFramesPanel />
         ) : (
           <NotationInspector />
         )}

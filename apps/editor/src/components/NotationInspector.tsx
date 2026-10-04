@@ -43,7 +43,7 @@ import { useTimeSignatureInspector } from "./inspector/useTimeSignatureInspector
 import { BeamSection } from "./inspector/BeamSection";
 import { useBeamInspector } from "./inspector/useBeamInspector";
 
-import { HorizonTextFrames } from "./textFrames";
+import { HorizonTextFrames, TextFramesPanel } from "./textFrames";
 import { PanelHeader } from "@viritura/ui";
 import { MousePointer2 } from "lucide-react";
 
@@ -64,7 +64,7 @@ function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?
           Select a note, marking, barline, or other score element to view and edit its notation details here.
         </p>
       </div>
-      {horizonTextFrames && <HorizonTextFrames />}
+      {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
     </aside>
   );
 }
@@ -415,7 +415,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
           />
         )}
 
-        {_props.horizonTextFrames && <HorizonTextFrames />}
+        {_props.horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
       </div>
     </aside>
   );

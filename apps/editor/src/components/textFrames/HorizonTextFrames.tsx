@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useSelection } from "../../store/selectionStore";
-import { AddMusicalFrame, AddPageFrame } from "./AddFrameControls";
 import { SelectedTextFrameEditor } from "./TextFrameEditor";
 import { TextFrameList } from "./TextFrameList";
 import { framesAtMeasure, pageIndexFrames, selectionMusicalContext, unplacedFrameIds } from "./textFrameContext";
@@ -46,7 +45,6 @@ export function HorizonTextFrames() {
         ) : (
           <p className={styles.help}>Select a measure or note to see frames that follow it.</p>
         )}
-        <AddMusicalFrame score={score} context={context} onCreate={editing.createFrame} />
       </div>
       <div className={styles.group}>
         <p className={styles.groupTitle}>Page frames</p>
@@ -58,7 +56,6 @@ export function HorizonTextFrames() {
           emptyMessage="No frames are placed on a fixed page."
           editing={editing}
         />
-        <AddPageFrame onCreate={editing.createFrame} />
       </div>
       {unplaced.length > 0 && (
         <div className={styles.group}>

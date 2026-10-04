@@ -65,10 +65,12 @@ export function useTextFrameEditing(): TextFrameEditing {
   // Mirror canvas selection changes: a painted frame (`text-frame/{id}`) selects
   // it; anything else clears the frame. Panel-initiated frame selection leaves
   // the score selection untouched, so it survives until the canvas changes.
-  const previousSelection = useRef(selection);
+  const previousSelection = useRef<typeof selection | null>(null);
   useEffect(() => {
     if (previousSelection.current === selection) return;
+    const initialMount = previousSelection.current === null;
     previousSelection.current = selection;
+    if (initialMount && canvasFrameId === null) return;
     selectFrame(canvasFrameId);
   }, [selection, canvasFrameId, selectFrame]);
   const selectedFrame = useMemo(

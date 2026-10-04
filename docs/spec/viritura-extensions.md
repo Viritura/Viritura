@@ -197,6 +197,13 @@ the paint/layer order, with later frames above earlier frames. These
 first-slice frames neither reserve music space nor avoid collisions with
 notation or one another.
 
+Create frames in **Write > Palettes > Text**: choose a page number and
+**Add page frame**, or select music and add a frame following that measure/event's
+page. The palette opens the new frame's text and presentation editor immediately.
+**Engrave > Properties** edits existing frames; there is no dedicated text-frame
+tab or creation action in Engrave. Selecting a painted frame opens its Properties.
+The existing-frame list also exposes frames whose targets are unplaced.
+
 Horizon mode has no pages and therefore does not paint page-relative frames.
 The editing UI exposes hidden frames near their measure/event locator and
 provides a document-level list for frames located by page index. A musical

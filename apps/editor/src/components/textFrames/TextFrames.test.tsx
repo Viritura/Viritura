@@ -8,6 +8,8 @@ import { DocumentProvider, useDocumentStore, useDocumentStoreApi } from "../../s
 import { resetSelectionStore, useSelectionStore } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
 import { HorizonTextFrames } from "./HorizonTextFrames";
+import { TextFramePalette } from "./TextFramePalette";
+import { PalettePanel } from "../PalettePanel";
 import { TextFramesPanel } from "./TextFramesPanel";
 import { effectiveHorizontalAlignment, textFrameElementId, textFrameIdFromElementId } from "./textFrameContext";
 import { usePublishRenderedPageCount, useRenderedPagesStore } from "./renderedPages";
@@ -85,10 +87,10 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("TextFramesPanel", () => {
-  it("creates a page frame, selects it, and edits its text", async () => {
+describe("TextFramePalette", () => {
+  it("creates a page frame from Write's Text palette, selects it, and edits its text", async () => {
     const user = userEvent.setup();
-    renderWithDocument(<TextFramesPanel />);
+    renderWithDocument(<PalettePanel openSectionRequest={{ id: "text", requestId: 1 }} />);
     await user.click(await screen.findByRole("button", { name: "Add page frame" }));
 
     const created = frames().at(-1)!;
@@ -100,6 +102,67 @@ describe("TextFramesPanel", () => {
     expect(frames().at(-1)!.content).toEqual([{ text: "Text" }]);
     fireEvent.blur(text);
     expect(frames().at(-1)!.content).toEqual([{ text: "Line one\nLine two" }]);
+  });
+
+  it("creates a frame on the entered page and disables musical creation without selection", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramePalette />);
+    const page = await screen.findByLabelText("Page number for new frame");
+    expect(screen.getByRole("button", { name: "Add frame at selection" })).toHaveProperty("disabled", true);
+    await user.clear(page);
+    await user.type(page, "3");
+    fireEvent.blur(page);
+    await user.click(screen.getByRole("button", { name: "Add page frame" }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "page", pageIndex: 2 });
+  });
+
+  it("creates a music-linked page frame from a selected measure", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramePalette />);
+    await screen.findByRole("button", { name: "Add page frame" });
+    act(() => {
+      useSelectionStore.setState({
+        selection: {
+          kind: "measure",
+          startPartIndex: 0,
+          endPartIndex: 0,
+          startStaffIndex: 0,
+          endStaffIndex: 0,
+          startMeasure: 1,
+          endMeasure: 1,
+        },
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "Add frame at measure 2" }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "globalMeasure", measureId: "m2" });
+  });
+
+  it("creates an event-located page frame from a selected event", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramePalette />);
+    await screen.findByRole("button", { name: "Add page frame" });
+    act(() => {
+      useSelectionStore.setState({
+        selection: { kind: "single", elementId: "p0/m0/s0/e1", elementType: "note" },
+      });
+    });
+    await user.click(screen.getByRole("button", { name: "Add frame at selected event" }));
+    expect(frames().at(-1)!.locator).toEqual({ type: "event", partId: "P1", eventId: "e1" });
+  });
+});
+
+describe("TextFramesPanel", () => {
+  it("edits existing frames without creation controls", async () => {
+    renderWithDocument(<TextFramesPanel />);
+    await screen.findByTestId("text-frame-row-title");
+    expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
+  });
+
+  it("recognizes a canvas-selected frame when Properties mounts after selection", async () => {
+    useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
+    renderWithDocument(<TextFramesPanel />);
+    const editor = await screen.findByTestId("text-frame-editor");
+    expect(within(editor).getByLabelText("Text")).toHaveProperty("value", "Program note");
   });
 
   it("selects the frame hit on the canvas", async () => {
@@ -207,11 +270,10 @@ describe("HorizonTextFrames", () => {
     const unplaced = screen.getByRole("list", { name: "Unplaced text frames" });
     expect(within(unplaced).getByText("Orphaned note")).toBeTruthy();
     expect(within(unplaced).getByText(/not placed in this view/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add frame at selection" })).toHaveProperty("disabled", true);
+    expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
   });
 
-  it("shows measure and event frames next to the selected measure and creates one there", async () => {
-    const user = userEvent.setup();
+  it("shows measure and event frames next to the selected measure", async () => {
     renderWithDocument(<HorizonTextFrames />);
     await screen.findByTestId("horizon-text-frames");
     act(() => {
@@ -233,23 +295,7 @@ describe("HorizonTextFrames", () => {
     expect(within(nearby).queryByText("Bar one")).toBeNull();
     expect(within(nearby).queryByText("Program note")).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Add frame at measure 2" }));
-    expect(frames().at(-1)!.locator).toEqual({ type: "globalMeasure", measureId: "m2" });
-    expect(screen.getByTestId("text-frame-editor")).toBeTruthy();
-  });
-
-  it("creates an event-located frame from a selected event", async () => {
-    const user = userEvent.setup();
-    renderWithDocument(<HorizonTextFrames />);
-    await screen.findByTestId("horizon-text-frames");
-    act(() => {
-      useSelectionStore.setState({
-        selection: { kind: "single", elementId: "p0/m0/s0/e1", elementType: "note" },
-      });
-    });
-    expect(screen.getByText("Frames at measure 1")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Add frame at selected event" }));
-    expect(frames().at(-1)!.locator).toEqual({ type: "event", partId: "P1", eventId: "e1" });
+    expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
   });
 });
 
