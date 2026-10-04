@@ -76,3 +76,16 @@ export const CustomScoreTitle: StoryObj = {
 export const DedicatedTitlePage: StoryObj = {
   render: () => <ScorePreview mnxJson={clarinetPartScore(false, false, true)} viewMode="spread" />,
 };
+
+export const ActiveSystemStaffLabels: StoryObj = {
+  render: () => {
+    const score = JSON.parse(clarinetPartScore(true)) as {
+      scores: { name: string; _x: { viritura: { pageSetup: unknown; instrumentNameDisplay?: unknown } } }[];
+      layouts: { content: unknown[] }[];
+    };
+    score.scores[0]!.name = "Score";
+    score.scores[0]!._x.viritura.instrumentNameDisplay = { firstSystem: "full", subsequentSystems: "short" };
+    score.layouts[0]!.content.push({ type: "staff", sources: [{ part: "cl2" }], labelref: "name" });
+    return <ScorePreview mnxJson={JSON.stringify(score)} viewMode="page" />;
+  },
+};

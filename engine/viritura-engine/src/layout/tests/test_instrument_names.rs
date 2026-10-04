@@ -1,4 +1,7 @@
-use crate::layout::page::{initial_instrument_instruction, resolve_part_display_names_at};
+use crate::layout::page::{
+    initial_instrument_instruction, resolve_part_display_names_at,
+    resolve_required_part_display_names,
+};
 use crate::layout::resolve::resolve_measures;
 use crate::layout::{layout_score, layout_with_mnx_scores, LayoutConfig};
 use crate::model::Score;
@@ -227,7 +230,7 @@ fn instrument_names_custom_part_header_and_layout_label_are_preserved() {
 }
 
 #[test]
-fn instrument_names_list_effective_states_once_on_every_system() {
+fn instrument_names_staff_labels_use_first_bar_state_while_frontmatter_lists_all_states() {
     let mut value = document();
     change(
         &mut value,
@@ -240,10 +243,19 @@ fn instrument_names_list_effective_states_once_on_every_system() {
         json!({"instrument":"alias","instruction":{"hidden":true}}),
     );
     let score = parse(&value);
-    for index in [0, 1, 3] {
+    let required = resolve_required_part_display_names(&score.parts);
+    assert_eq!(
+        required[0].display_name,
+        "Clarinet in B\u{266d}\nFlute in C"
+    );
+    for (index, full, short) in [
+        (0, "Clarinet in B\u{266d}", "Cl. in B\u{266d}"),
+        (1, "Flute in C", "Fl. in C"),
+        (3, "Clarinet in B\u{266d}", "Cl. in B\u{266d}"),
+    ] {
         let names = resolve_part_display_names_at(&score.parts, index);
-        assert_eq!(names[0].display_name, "Clarinet in B\u{266d}\nFlute in C");
-        assert_eq!(names[0].display_short_name, "Cl. in B\u{266d}\nFl. in C");
+        assert_eq!(names[0].display_name, full);
+        assert_eq!(names[0].display_short_name, short);
     }
     let resolved = resolve_measures(&score, 0);
     let expressions = resolved[0].part.expressions.as_ref().unwrap();
@@ -252,15 +264,78 @@ fn instrument_names_list_effective_states_once_on_every_system() {
     assert_eq!(expressions[0].position.fraction, (0, 1));
     let display = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
     let ink = texts(&display);
-    for text in ["Clarinet", "Flute", "Cl.", "Fl.", "in B\u{266d}", "in C"] {
+    for text in ["Clarinet", "Cl.", "in B\u{266d}"] {
         assert!(ink.contains(&text), "{text}: {ink:?}");
     }
+    assert!(!ink.contains(&"Flute"));
+    assert!(!ink.contains(&"Fl."));
     assert!(!ink.contains(&"Horn"));
     for display in [
         layout_score(&score, 0, &LayoutConfig::default()),
         crate::layout::full_score::layout_full_score(&score, &LayoutConfig::default()),
     ] {
         assert!(texts(&display).contains(&"Cl. in B\u{266d}"));
+    }
+}
+
+#[test]
+fn instrument_names_render_only_system_start_state_on_authored_pages_and_auto_breaks() {
+    for authored in [true, false] {
+        for policy in ["full", "short"] {
+            let mut value = document();
+            change(
+                &mut value,
+                1,
+                json!({"instrument":"fl","instruction":{"hidden":true}}),
+            );
+            change(
+                &mut value,
+                3,
+                json!({"transposition":interval(7,4),"instruction":{"hidden":true}}),
+            );
+            value["scores"][0]["_x"] = json!({"viritura":{
+                "instrumentNameDisplay":{"firstSystem":policy,"subsequentSystems":policy},
+                "layoutBreaks":[{"measure":"m3","kind":"system"}]
+            }});
+            if authored {
+                value["scores"][0]["pages"] = json!([
+                    {"systems":[{"measure":"m1"}]},
+                    {"systems":[{"measure":"m3"}]}
+                ]);
+            } else {
+                value["scores"][0].as_object_mut().unwrap().remove("pages");
+            }
+            let display = layout_with_mnx_scores(
+                &parse(&value),
+                &LayoutConfig {
+                    page_width: Some(800.0),
+                    ..LayoutConfig::default()
+                },
+                0,
+            );
+            let ink = texts(&display);
+            let (clarinet, flute) = if policy == "full" {
+                ("Clarinet", "Flute")
+            } else {
+                ("Cl.", "Fl.")
+            };
+            assert_eq!(
+                ink.iter().filter(|text| **text == clarinet).count(),
+                1,
+                "{ink:?}"
+            );
+            assert_eq!(
+                ink.iter().filter(|text| **text == flute).count(),
+                1,
+                "{ink:?}"
+            );
+            assert!(ink.contains(&"in C"), "{ink:?}");
+            assert!(
+                !ink.contains(&"in F"),
+                "mid-system change must not change staff label: {ink:?}"
+            );
+            assert!(!ink.iter().any(|text| text.contains('\n')), "{ink:?}");
+        }
     }
 }
 
@@ -290,7 +365,7 @@ fn instrument_names_initial_label_requires_a_real_change_and_respects_first_bar_
     let score = parse(&value);
     assert_eq!(
         resolve_part_display_names_at(&score.parts, 0)[0].display_name,
-        "Flute in C\nClarinet in B\u{266d}"
+        "Flute in C"
     );
     assert_eq!(
         resolve_measures(&score, 0)[0]
@@ -345,7 +420,7 @@ fn instrument_names_octave_tunings_are_musically_distinct() {
         }
         let score = parse(&value);
         assert_eq!(
-            resolve_part_display_names_at(&score.parts, 3)[0].display_name,
+            resolve_required_part_display_names(&score.parts)[0].display_name,
             expected
         );
         assert_eq!(
@@ -404,19 +479,10 @@ fn instrument_names_new_identity_gets_its_own_abbreviation_and_player_number() {
     other["id"] = json!("p2");
     value["parts"][1] = other;
     let score = parse(&value);
-    let names = resolve_part_display_names_at(&score.parts, 0);
-    assert_eq!(
-        names[0].display_name,
-        "Clarinet in B\u{266d} 1\nFlute in C 1"
-    );
-    assert_eq!(
-        names[0].display_short_name,
-        "Cl. in B\u{266d} 1\nFl. in C 1"
-    );
-    assert_eq!(
-        names[1].display_short_name,
-        "Cl. in B\u{266d} 2\nFl. in C 2"
-    );
+    let names = resolve_part_display_names_at(&score.parts, 1);
+    assert_eq!(names[0].display_name, "Flute in C 1");
+    assert_eq!(names[0].display_short_name, "Fl. in C 1");
+    assert_eq!(names[1].display_short_name, "Fl. in C 2");
 }
 
 #[test]
@@ -428,7 +494,7 @@ fn instrument_names_rewrite_authored_tuning_and_register_in_both_names() {
         json!("Hn. in B\u{266d} alto");
     change(&mut value, 1, json!({"transposition":interval(14,8)}));
     let score = parse(&value);
-    let names = resolve_part_display_names_at(&score.parts, 0);
+    let names = resolve_required_part_display_names(&score.parts);
     assert_eq!(
         names[0].display_name,
         "Horn in B\u{266d} alto\nHorn in B\u{266d} basso"
@@ -436,6 +502,10 @@ fn instrument_names_rewrite_authored_tuning_and_register_in_both_names() {
     assert_eq!(
         names[0].display_short_name,
         "Hn. in B\u{266d} alto\nHn. in B\u{266d} basso"
+    );
+    assert_eq!(
+        resolve_part_display_names_at(&score.parts, 1)[0].display_short_name,
+        "Hn. in B\u{266d} basso"
     );
 }
 

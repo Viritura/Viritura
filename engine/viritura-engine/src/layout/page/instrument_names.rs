@@ -30,11 +30,15 @@ pub(super) fn resolve_initial_part_display_names(parts: &[Part]) -> Vec<PartDisp
     resolve_names(parts, 0, false)
 }
 
+pub(crate) fn resolve_required_part_display_names(parts: &[Part]) -> Vec<PartDisplayInfo> {
+    resolve_names(parts, 0, true)
+}
+
 pub(crate) fn resolve_part_display_names_at(
     parts: &[Part],
     measure_index: usize,
 ) -> Vec<PartDisplayInfo> {
-    resolve_names(parts, measure_index, true)
+    resolve_names(parts, measure_index, false)
 }
 
 fn resolve_names(
@@ -61,6 +65,10 @@ fn resolve_names(
                 None,
             );
         }
+        if required.len() > 1 {
+            let active = required_states::active_names(p, measure_index);
+            return (active.full, Some(active.short), None);
+        }
         let state = crate::model::ActiveInstrument::at(p, measure_index, (0, 1));
         let half_steps = state.transposition.map(|t| t.interval.half_steps);
         let default_half_steps = state
@@ -86,7 +94,11 @@ fn resolve_names(
             ),
             state
                 .definition
-                .and_then(|d| d.short_name.clone())
+                .map(|d| {
+                    d.short_name.clone().unwrap_or_else(|| {
+                        abbreviate_part_name(d.name.as_deref().unwrap_or(&p.name))
+                    })
+                })
                 .or_else(|| p.short_name.clone())
                 .map(active_name),
             half_steps,

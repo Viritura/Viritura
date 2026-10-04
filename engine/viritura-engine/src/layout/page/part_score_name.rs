@@ -1,7 +1,7 @@
 //! Required-instrument headers and their framed first-page geometry.
 
 use super::instrument_names::resolve_initial_part_display_names;
-use super::{augment_part_score_name, build_display_name, resolve_part_display_names};
+use super::{augment_part_score_name, build_display_name, resolve_required_part_display_names};
 use crate::layout::config::LayoutConfig;
 use crate::layout::text_styles::{text_width, TextRole};
 use crate::model::Part;
@@ -17,7 +17,7 @@ pub(crate) fn resolve_part_score_name(
     if shown.is_empty() || shown.len() >= parts.len() {
         return None;
     }
-    let required = resolve_part_display_names(parts);
+    let required = resolve_required_part_display_names(parts);
     let [index] = shown else {
         return name.map(str::to_string);
     };

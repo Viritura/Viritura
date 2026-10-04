@@ -316,7 +316,7 @@ fn instrument_changes_concert_tuning_uses_short_names_at_opening_reminder_and_ch
         .flatten()
         .any(|expression| !expression.instrument_reminder
             && expression.text.plain_text() == "Cl in B♭"));
-    let names = crate::layout::page::resolve_part_display_names(&parse(&value).parts);
+    let names = crate::layout::page::resolve_required_part_display_names(&parse(&value).parts);
     assert_eq!(names[0].display_name, "Clarinet in B♭\nClarinet in C");
     value["parts"][0]["measures"][1]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
         json!({"text":"Prepare C clarinet"});
@@ -775,7 +775,7 @@ fn instrument_changes_transposition_label_replaces_old_authored_suffix() {
         json!({"viritura":{"instrumentChanges":[{"transposition":interval(7,4)}]}});
     let score = parse(&value);
     let names = crate::layout::page::resolve_part_display_names_at(&score.parts, 1);
-    assert_eq!(names[0].display_name, "Clarinet in B♭\nClarinet in F");
+    assert_eq!(names[0].display_name, "Clarinet in F");
 }
 
 #[test]

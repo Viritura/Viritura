@@ -26,7 +26,7 @@ fn state<'a>(part: &'a Part, active: ActiveInstrument<'a>) -> RequiredState<'a> 
     }
 }
 
-pub(super) fn names(part: &Part) -> Vec<RequiredName> {
+fn required_states(part: &Part) -> Vec<RequiredState<'_>> {
     let mut active = ActiveInstrument::at(part, 0, (0, 1));
     let mut states = vec![state(part, active)];
     for measure in part.measures.iter().skip(1) {
@@ -40,6 +40,11 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
             states.push(next);
         }
     }
+    states
+}
+
+pub(super) fn names(part: &Part) -> Vec<RequiredName> {
+    let states = required_states(part);
     states
         .iter()
         .map(|state| {
@@ -60,6 +65,24 @@ pub(super) fn names(part: &Part) -> Vec<RequiredName> {
             }
         })
         .collect()
+}
+
+pub(super) fn active_names(part: &Part, measure_index: usize) -> RequiredName {
+    let active = ActiveInstrument::at(part, measure_index, (0, 1));
+    let current = state(part, active);
+    let distinguish_octave = required_states(part).iter().any(|other| {
+        other.identity == current.identity
+            && other.interval != current.interval
+            && other.interval.0.rem_euclid(12) == current.interval.0.rem_euclid(12)
+    });
+    let full = active
+        .definition
+        .and_then(|d| d.name.as_deref())
+        .unwrap_or(&part.name);
+    RequiredName {
+        full: active_name(part, active, full, distinguish_octave),
+        short: active_name(part, active, &short_name(part, active), distinguish_octave),
+    }
 }
 
 fn active_name(

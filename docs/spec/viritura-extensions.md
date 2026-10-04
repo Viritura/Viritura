@@ -1227,9 +1227,11 @@ Both labels use the normal centralized expression annotation, spacing,
 collision, and rendering paths.
 
 When a part actually uses multiple instrument identities or tunings, its
-automatic staff names list **all required states** in first-use order:
-full names on the first system and abbreviated names on later systems,
-including each tuning. Returning to the same instrument and interval does
+automatic staff names show only the instrument and tuning **active at the
+first bar of that system**: full names on the first system and abbreviated
+names on later systems. Changes later in the system do not alter its staff
+label. Frontmatter lists **all required states** in first-use order.
+Returning to the same instrument and interval does
 not repeat its entry; unused instrument definitions and unchanged-state
 reminders do not add entries. Octave differences remain distinct:
 B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
