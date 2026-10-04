@@ -59,6 +59,173 @@ fn change(value: &mut Value, index: usize, declaration: Value) {
         json!({"viritura":{"instrumentChanges":[declaration]}});
 }
 
+fn part_header_document(authored: bool) -> Value {
+    let mut value = document();
+    change(&mut value, 1, json!({"transposition":interval(3,2)}));
+    let mut second = value["parts"][0].clone();
+    second["id"] = json!("p2");
+    value["parts"][1] = second;
+    value["layouts"][0]["content"] = json!([{
+        "type":"staff","sources":[{"part":"p1"}],"labelref":"name"
+    }]);
+    value["scores"][0]["name"] = json!("Clarinet in B\u{266d} 1");
+    if !authored {
+        value["scores"][0].as_object_mut().unwrap().remove("pages");
+    }
+    value
+}
+
+#[test]
+fn instrument_names_part_header_resolves_required_tunings_and_keeps_custom_titles() {
+    use crate::layout::page::resolve_part_score_name;
+
+    let score = parse(&part_header_document(false));
+    for name in [
+        None,
+        Some("Clarinet"),
+        Some("Clarinet 1"),
+        Some("Clarinet in B\u{266d} 1"),
+    ] {
+        assert_eq!(
+            resolve_part_score_name(name, &score.parts, &[0]).as_deref(),
+            Some("Clarinet in B\u{266d} 1\nClarinet in A 1"),
+        );
+    }
+    assert_eq!(
+        resolve_part_score_name(Some("Reeds player"), &score.parts, &[0]).as_deref(),
+        Some("Reeds player"),
+    );
+    assert_eq!(
+        resolve_part_score_name(Some("Score"), &score.parts, &[0, 1]),
+        None
+    );
+    assert_eq!(
+        resolve_part_score_name(Some("Score"), &score.parts, &[]),
+        None
+    );
+    let mut static_value = document();
+    static_value["parts"][0]["name"] = json!("Clarinet 1");
+    static_value["parts"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("_x");
+    let static_score = parse(&static_value);
+    assert_eq!(
+        resolve_part_score_name(Some("Clarinet 1"), &static_score.parts, &[0]).as_deref(),
+        Some("Clarinet in B\u{266d} 1"),
+    );
+}
+
+#[test]
+fn instrument_names_part_header_is_multiline_on_authored_inline_and_title_pages() {
+    use crate::layout::page::part_score_name_height;
+    use crate::layout::page_turn::TitlePagePolicy;
+
+    for (authored, credits, cover) in [
+        (true, false, false),
+        (false, false, false),
+        (false, true, false),
+        (false, true, true),
+    ] {
+        let mut value = part_header_document(authored);
+        if cover {
+            value["global"]["measures"] = json!((0..24)
+                .map(|index| {
+                    if index == 0 {
+                        value["global"]["measures"][0].clone()
+                    } else {
+                        json!({"id":format!("m{}", index + 1)})
+                    }
+                })
+                .collect::<Vec<_>>());
+            for part in value["parts"].as_array_mut().unwrap() {
+                let measures = part["measures"].as_array_mut().unwrap();
+                measures.resize(24, measures[3].clone());
+            }
+        }
+        if credits {
+            value["_x"] = json!({"viritura":{"metadata":{"title":"Custom work title"}}});
+        }
+        let score = parse(&value);
+        let mut config = LayoutConfig {
+            page_width: Some(1000.0),
+            emit_layout_debug: true,
+            ..LayoutConfig::default()
+        };
+        config.page_turns.enabled = cover;
+        config.page_turns.title_page = if cover {
+            TitlePagePolicy::Always
+        } else {
+            TitlePagePolicy::Never
+        };
+        let display = layout_with_mnx_scores(&score, &config, 0);
+        let header: Vec<_> = display
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                RenderCommand::DrawText { x, y, text, .. }
+                    if (*x - (config.page_margin_left + 0.6) * config.sp).abs() < 0.01 =>
+                {
+                    Some((*y, text.as_str()))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            header.len(),
+            2,
+            "authored={authored}, cover={cover}: {header:?}"
+        );
+        assert_eq!(header[0].1, "Clarinet in B\u{266d} 1");
+        assert_eq!(header[1].1, "Clarinet in A 1");
+        assert!(header[1].0 > header[0].0);
+        assert!(header
+            .iter()
+            .all(|(y, text)| *y < config.page_height * config.sp && !text.contains('\n')));
+        if credits {
+            assert!(texts(&display).contains(&"Custom work title"));
+        }
+        let first_system = &display.layout_debug.as_ref().unwrap().systems[0];
+        if cover {
+            assert!(first_system.staff_top_y > config.page_height * config.sp);
+        } else {
+            let reserved =
+                part_score_name_height(Some("Clarinet in B\u{266d} 1\nClarinet in A 1"), &config);
+            assert!(first_system.staff_top_y >= config.page_margin_top * config.sp + reserved);
+        }
+    }
+}
+
+#[test]
+fn instrument_names_custom_part_header_and_layout_label_are_preserved() {
+    for authored in [false, true] {
+        let mut value = part_header_document(authored);
+        value["scores"][0]["name"] = json!("Reeds player");
+        value["scores"][0]["_x"] = json!({"viritura":{"instrumentNameDisplay":{
+            "firstSystem":"full","subsequentSystems":"full"
+        }}});
+        value["layouts"][0]["content"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("labelref");
+        value["layouts"][0]["content"][0]["label"] = json!("Custom staff");
+        let second_staff = value["layouts"][0]["content"][0].clone();
+        value["layouts"][0]["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(second_staff);
+        let config = LayoutConfig {
+            page_width: Some(1000.0),
+            ..LayoutConfig::default()
+        };
+        let display = layout_with_mnx_scores(&parse(&value), &config, 0);
+        let ink = texts(&display);
+        assert!(ink.contains(&"Reeds player"));
+        assert!(ink.contains(&"Custom staff"));
+        assert!(!ink.contains(&"Reeds player in B\u{266d}"));
+    }
+}
+
 #[test]
 fn instrument_names_list_effective_states_once_on_every_system() {
     let mut value = document();

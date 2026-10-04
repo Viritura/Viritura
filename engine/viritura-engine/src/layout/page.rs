@@ -7,11 +7,14 @@ use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
 mod instrument_names;
 mod packing;
+mod part_score_name;
 mod turn_sequence;
 pub(crate) use instrument_names::{
     initial_instrument_instruction, resolve_part_display_names, resolve_part_display_names_at,
     PartDisplayInfo,
 };
+pub use part_score_name::render_part_score_name;
+pub(crate) use part_score_name::{part_score_name_height, resolve_part_score_name};
 
 pub use packing::{
     compute_page_breaks, compute_page_breaks_with_extras, compute_page_breaks_with_forced,
@@ -739,70 +742,6 @@ pub(crate) fn render_page_numbers_excluding(
             color: color.clone(),
             align,
             baseline: TextBaseline::Bottom,
-        });
-    }
-}
-
-/// Emit the score definition name (instrument/part name) in the top-left
-/// of page 1 for part scores.
-///
-/// Standard engraving practice: a part's first page shows the instrument name
-/// as a small, left-aligned label just below the top margin, framed in a thin
-/// box so the player can identify the part at a glance.
-pub fn render_part_score_name(
-    dl: &mut DisplayList,
-    title: &str,
-    config: &LayoutConfig,
-    _page_width: f64,
-) {
-    let sp = config.sp;
-    let style = config.text_styles.resolve(TextRole::StaffLabel);
-    let font_size = style.size_px(sp);
-    let margin_left_px = config.page_margin_left * sp;
-    // Sit the label just below the top-margin line (not up in the margin).
-    let top_margin_px = config.page_margin_top * sp;
-
-    // Estimate the text box from the glyph metrics: use the per-character AFM
-    // advance widths (same metric the canvas font uses) so the frame hugs the
-    // text instead of running well past its right edge. Pad horizontally and
-    // vertically so the frame clears the glyphs.
-    let pad_x = 0.6 * sp;
-    let pad_y = 0.4 * sp;
-    let text_w = crate::layout::text_styles::text_width(title, font_size, style.family, style.bold);
-    let box_left = margin_left_px;
-    let box_top = top_margin_px;
-    let box_h = font_size + 2.0 * pad_y;
-    let box_w = text_w + 2.0 * pad_x;
-    let baseline_y = box_top + pad_y + font_size * 0.78; // cap-height baseline
-
-    dl.push(RenderCommand::DrawText {
-        x: box_left + pad_x,
-        y: baseline_y,
-        text: title.to_string(),
-        font: style.font_string(),
-        size: font_size,
-        color: style.color.clone(),
-        align: TextAlign::Left,
-        baseline: TextBaseline::Alphabetic,
-    });
-
-    // Thin frame (four strokes) around the label.
-    let stroke = 0.1 * sp;
-    let color = style.color.clone();
-    let (l, t, r, b) = (box_left, box_top, box_left + box_w, box_top + box_h);
-    for (x1, y1, x2, y2) in [
-        (l, t, r, t), // top
-        (l, b, r, b), // bottom
-        (l, t, l, b), // left
-        (r, t, r, b), // right
-    ] {
-        dl.push(RenderCommand::DrawLine {
-            x1,
-            y1,
-            x2,
-            y2,
-            width: stroke,
-            color: color.clone(),
         });
     }
 }

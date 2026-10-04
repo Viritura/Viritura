@@ -65,11 +65,10 @@ pub fn layout_with_mnx_scores(
 fn render_explicit_chrome(
     dl: &mut DisplayList,
     score: &Score,
-    score_def: &ScoreDefinition,
+    part_score_name: Option<&str>,
     config: &LayoutConfig,
     sp: f64,
     page_w: f64,
-    system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
     pages: &[PageLayout],
 ) {
     if config.page_width.is_none() {
@@ -81,20 +80,8 @@ fn render_explicit_chrome(
         dl.commands.push(cmd);
     }
 
-    let unique_parts: HashSet<usize> = system_flat_staves
-        .iter()
-        .flat_map(|(staves, _)| {
-            staves
-                .iter()
-                .flat_map(|s| s.sources.iter().map(|src| src.part_index))
-        })
-        .collect();
-    if unique_parts.len() < score.parts.len() {
-        if let Some(name) = score_def.name.as_deref() {
-            let shown: Vec<usize> = unique_parts.iter().copied().collect();
-            let label = augment_part_score_name(name, &score.parts, &shown);
-            render_part_score_name(dl, &label, config, page_w);
-        }
+    if let Some(label) = part_score_name {
+        render_part_score_name(dl, label, config, page_w);
     }
 
     render_page_numbers(dl, pages, config, page_w);
@@ -607,6 +594,15 @@ pub fn layout_with_mnx_scores_cached(
             || (score.parts.len() > 1 && single_source_part_index(&auto_flat_staves).is_some());
 
         let use_written = score_def.use_written.unwrap_or(false);
+        let shown: HashSet<usize> = auto_flat_staves
+            .iter()
+            .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
+            .collect();
+        let part_score_name = resolve_part_score_name(
+            score_def.name.as_deref(),
+            &score.parts,
+            &shown.into_iter().collect::<Vec<_>>(),
+        );
         let mut dl = layout_auto_flow_mnx_score(
             score,
             &auto_config,
@@ -618,31 +614,24 @@ pub fn layout_with_mnx_scores_cached(
             use_written,
             &score_def.layout_breaks,
             score_def.instrument_name_display.as_ref(),
+            part_score_name.as_deref(),
             dirty_region,
             cache.as_deref_mut(),
         );
 
         // Add instrument name header in top-left for part scores
         if config.page_width.is_some() {
-            let unique_parts: HashSet<usize> = auto_flat_staves
-                .iter()
-                .flat_map(|s| s.sources.iter().map(|src| src.part_index))
-                .collect();
-            if unique_parts.len() < score.parts.len() {
-                if let Some(name) = score_def.name.as_deref() {
-                    let shown: Vec<usize> = unique_parts.iter().copied().collect();
-                    let label = augment_part_score_name(name, &score.parts, &shown);
-                    let w = dl.width;
-                    // Render into a temporary segment so the same commands can be
-                    // folded into any pending patch-frame overlay (keeping the
-                    // delta reconstruction byte-identical to this full layout).
-                    let mut name_seg = DisplayList::new(w, dl.height);
-                    render_part_score_name(&mut name_seg, &label, config, w);
-                    if let Some(c) = cache.as_deref_mut() {
-                        c.fold_into_pending_overlay(name_seg.clone());
-                    }
-                    dl.append(name_seg);
+            if let Some(label) = part_score_name.as_deref() {
+                let w = dl.width;
+                // Render into a temporary segment so the same commands can be
+                // folded into any pending patch-frame overlay (keeping the
+                // delta reconstruction byte-identical to this full layout).
+                let mut name_seg = DisplayList::new(w, dl.height);
+                render_part_score_name(&mut name_seg, label, config, w);
+                if let Some(c) = cache.as_deref_mut() {
+                    c.fold_into_pending_overlay(name_seg.clone());
                 }
+                dl.append(name_seg);
             }
         }
 
@@ -783,6 +772,19 @@ pub fn layout_with_mnx_scores_cached(
     }
 
     let inter_system_gap = 10.0 * sp;
+    let shown: HashSet<usize> = system_flat_staves
+        .iter()
+        .flat_map(|(staves, _)| {
+            staves
+                .iter()
+                .flat_map(|staff| staff.sources.iter().map(|source| source.part_index))
+        })
+        .collect();
+    let part_score_name = resolve_part_score_name(
+        score_def.name.as_deref(),
+        &score.parts,
+        &shown.into_iter().collect::<Vec<_>>(),
+    );
     let ExplicitPagination {
         page_w,
         total_height,
@@ -805,6 +807,7 @@ pub fn layout_with_mnx_scores_cached(
         &system_flat_staves,
         &max_widths,
         &forced_page_starts,
+        part_score_name.as_deref(),
     );
     let system_count = system_measure_ranges.len();
 
@@ -814,11 +817,10 @@ pub fn layout_with_mnx_scores_cached(
     render_explicit_chrome(
         &mut dl,
         score,
-        score_def,
+        part_score_name.as_deref(),
         config,
         sp,
         page_w,
-        &system_flat_staves,
         &pages,
     );
 

@@ -52,7 +52,7 @@ export interface InstrumentChange {
   instruction?: InstrumentChangeInstruction;
   /**
    * Independent advance reminder attached just after the preceding sounding note.
-   * Absent disables it; {} enables automatic text; hidden suppresses it.
+   * Absent or {} uses automatic text; hidden explicitly suppresses it.
    * No preceding sounding note or no resting gap means no reminder anchor.
    */
   reminder?: InstrumentChangeInstruction;

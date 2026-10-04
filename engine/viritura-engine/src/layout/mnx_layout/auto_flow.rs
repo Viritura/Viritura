@@ -68,6 +68,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     use_written: bool,
     layout_breaks: &[LayoutBreak],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
+    part_score_name: Option<&str>,
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
@@ -223,7 +224,9 @@ pub(super) fn layout_auto_flow_mnx_score(
         instrument_name_display,
         cache.as_deref_mut(),
     );
-    let title_height_px = title_block_height(score.metadata(), config);
+    let title_height_px = title_block_height(score.metadata(), config).max(
+        super::super::page::part_score_name_height(part_score_name, config),
+    );
     let natural_part_plan = layout_breaks
         .is_empty()
         .then(|| {

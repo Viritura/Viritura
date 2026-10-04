@@ -81,6 +81,7 @@ describe("bar change dialog", () => {
       {
         transposition: { interval: { halfSteps: 3, staffDistance: 2 } },
         instruction: { text: "in A" },
+        reminder: {},
       },
     ]);
   });
@@ -88,7 +89,6 @@ describe("bar change dialog", () => {
   it("saves an independent advance reminder with the change-point label hidden", () => {
     const { updateScore } = setup("transposition");
     fireEvent.click(screen.getByRole("checkbox", { name: "Show label at change" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Advance reminder text" }), {
       target: { value: "Prepare the A clarinet" },
     });
@@ -118,14 +118,24 @@ describe("bar change dialog", () => {
     });
   });
 
-  it("enables an automatic reminder without overriding the automatic change label", () => {
+  it("defaults to an automatic reminder without overriding the automatic change label", () => {
     const { updateScore } = setup("instrument");
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    expect(screen.getByRole("checkbox", { name: "Show advance reminder" })).toHaveProperty("checked", true);
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
       reminder: {},
     });
+
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.instruction).toBeUndefined();
+  });
+
+  it("persists explicit hiding of the default reminder on a new declaration", () => {
+    const { updateScore } = setup("transposition");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.reminder).toEqual({
+      hidden: true,
+    });
   });
 
   it("removes an existing change in one score update", () => {

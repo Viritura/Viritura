@@ -108,7 +108,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
   const [reminderEnabled, setReminderEnabled] = useState(initial.reminderEnabled);
   const [error, setError] = useState<string>();
   const instruction = changeInstruction(text, hidden);
-  const reminder = changeReminder(reminderText, reminderEnabled, change?.reminder);
+  const reminder = changeReminder(reminderText, reminderEnabled);
   const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
 
   function finish(result: BarChangeResult): void {

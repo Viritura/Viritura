@@ -27,11 +27,12 @@ pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff],
                 .hash(&mut hasher);
         }
         if part.measures.iter().any(|measure| {
-            measure
-                .instrument_changes
-                .iter()
-                .flatten()
-                .any(|change| change.reminder.is_some())
+            measure.instrument_changes.iter().flatten().any(|change| {
+                change
+                    .reminder
+                    .as_ref()
+                    .is_none_or(|reminder| reminder.hidden != Some(true))
+            })
         }) {
             serde_json::to_string(&part.measures)
                 .unwrap_or_default()
@@ -80,18 +81,23 @@ pub(super) fn append_instructions(
     }
     for (change_index, authored) in part.measures.iter().enumerate() {
         for change in ordered_instrument_changes(authored) {
-            let Some(reminder) = change.reminder.as_ref().filter(|r| r.hidden != Some(true)) else {
+            if change
+                .reminder
+                .as_ref()
+                .is_some_and(|r| r.hidden == Some(true))
+            {
                 continue;
-            };
+            }
             let Some((anchor_index, position, staff)) =
                 reminders::anchor(score, part, change_index, change)
             else {
                 continue;
             };
             if anchor_index == measure_index {
-                let text = reminder
-                    .text
-                    .clone()
+                let text = change
+                    .reminder
+                    .as_ref()
+                    .and_then(|reminder| reminder.text.clone())
                     .unwrap_or_else(|| derived_instruction(part, change_index, change));
                 if !text.is_empty() {
                     append_expression(measure, text, position, source_part_index, true);

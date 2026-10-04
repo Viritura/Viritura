@@ -1124,6 +1124,58 @@ fn test_part_score_name_is_boxed_below_top_margin() {
 }
 
 #[test]
+fn test_part_score_name_multiline_frame_matches_widest_line_and_reserve() {
+    use crate::render::{DisplayList, RenderCommand};
+
+    let config = LayoutConfig {
+        page_width: Some(1000.0),
+        ..LayoutConfig::default()
+    };
+    let title = "Clarinet in B\u{266d} 1\nClarinet in A 1";
+    let mut dl = DisplayList::new(1000.0, 1400.0);
+    render_part_score_name(&mut dl, title, &config, 1000.0);
+    let style = config
+        .text_styles
+        .resolve(crate::layout::text_styles::TextRole::StaffLabel);
+    let size = style.size_px(config.sp);
+    let expected_width = title
+        .split('\n')
+        .map(|line| crate::layout::text_styles::text_width(line, size, style.family, style.bold))
+        .fold(0.0_f64, f64::max)
+        + 1.2 * config.sp;
+    let lines: Vec<_> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawLine { x1, y1, x2, y2, .. } => Some((*x1, *y1, *x2, *y2)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(lines.len(), 4);
+    assert!((lines[0].2 - lines[0].0 - expected_width).abs() < 0.01);
+    assert!((lines[1].1 - lines[0].1 - (size * 2.2 + 0.8 * config.sp)).abs() < 0.01);
+    assert!(
+        (part_score_name_height(Some(title), &config)
+            - (lines[1].1 - lines[0].1 + 2.0 * config.sp))
+            .abs()
+            < 0.01
+    );
+    let texts: Vec<_> = dl
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            RenderCommand::DrawText { y, text, .. } => Some((*y, text.as_str())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(texts.len(), 2);
+    assert_eq!(texts[0].1, "Clarinet in B\u{266d} 1");
+    assert_eq!(texts[1].1, "Clarinet in A 1");
+    assert!((texts[1].0 - texts[0].0 - size * 1.2).abs() < 0.01);
+    assert!(texts[1].0 < lines[1].1);
+}
+
+#[test]
 fn test_render_title_page_centers_credits_in_upper_page() {
     use crate::model::score::ScoreMetadata;
     use crate::render::{RenderCommand, TextAlign};

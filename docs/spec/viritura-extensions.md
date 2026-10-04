@@ -1119,8 +1119,9 @@ label. Positions must be unique within a measure, and `instrument` must name
 a key in the part's `instruments`.
 
 The independent optional `reminder` uses the same `{ text?, hidden? }`
-shape. Absence means **no advance reminder**, preserving existing scores;
-`{}` enables automatic text; `{ "hidden": true }` explicitly suppresses it.
+shape. Absence or `{}` enables an **automatic advance reminder**;
+`{ "hidden": true }` explicitly suppresses it. The editor enables reminders
+by default, including when editing older declarations without this field.
 Neither its custom text nor its visibility changes the `instruction` label
 at the declaration. Both defaults derive from the target instrument
 (`To Piccolo`) or the sounding pitch for written C (`in E♭`; octave-only
@@ -1230,6 +1231,12 @@ reminders do not add entries. Octave differences remain distinct:
 B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
 **piccolo** / **alto**. Other octave-distinct tunings state the sounding
 pitch for written C4. Explicit author-supplied layout labels remain intact.
+
+Extracted parts use the same required-state list in the boxed instrument
+header on the first page, including a dedicated title page. Automatic
+player numbers appear on every line. The frame fits the widest line and
+the complete text stack, with space reserved above the first music system.
+Explicitly renamed score definitions and work-title metadata remain intact.
 
 Such a part also prints its initial full name and tuning above its first
 bar, independent of concert/written display. A first-bar instrument or

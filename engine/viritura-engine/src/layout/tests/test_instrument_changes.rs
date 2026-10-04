@@ -248,6 +248,97 @@ fn instrument_changes_reminder_ink_follows_last_note_not_surrounding_rests() {
 }
 
 #[test]
+fn instrument_changes_default_reminder_precedes_long_rest_passage_unless_hidden() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    for index in 1..3 {
+        value["parts"][0]["measures"][index]["sequences"] =
+            json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
+    }
+    value["parts"][0]["measures"][3]["_x"] = json!({"viritura":{"instrumentChanges":[{
+        "transposition":interval(3,2)
+    }]}});
+    let score = parse(&value);
+    let resolved = resolve_measures(&score, 0);
+    let reminder = resolved[0]
+        .part
+        .expressions
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|expression| expression.instrument_reminder)
+        .unwrap();
+    assert_eq!(reminder.position.fraction, (0, 1));
+    assert_eq!(reminder.text.plain_text(), "in A");
+    assert!(resolved[3]
+        .part
+        .expressions
+        .as_ref()
+        .unwrap()
+        .iter()
+        .any(
+            |expression| !expression.instrument_reminder && expression.text.plain_text() == "in A"
+        ));
+    value["parts"][0]["measures"][3]["_x"]["viritura"]["instrumentChanges"][0]["reminder"] =
+        json!({"hidden":true});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(!has_reminder(&resolved[0].part));
+}
+
+#[test]
+fn instrument_changes_initial_label_clears_stems_after_opening_rest() {
+    let mut value = document();
+    value["parts"][0]["measures"][0]["sequences"] = json!([{"content":[
+        {"duration":{"base":"eighth"},"rest":{}},
+        {"duration":{"base":"eighth"},"stemDirection":"up","notes":[{"pitch":{"step":"D","octave":5}}]},
+        {"duration":{"base":"half","dots":1},"rest":{}}
+    ]}]);
+    value["parts"][0]["measures"][3]["_x"] =
+        json!({"viritura":{"instrumentChanges":[{"transposition":interval(3,2)}]}});
+    let score = parse(&value);
+    let mut resolved = resolve_measures(&score, 0);
+    resolved[0]
+        .part
+        .expressions
+        .as_mut()
+        .unwrap()
+        .retain(|expression| !expression.instrument_reminder);
+    let config = LayoutConfig::default();
+    let ml = layout_measure(&resolved[0], config.sp, 0.0, &config, None, &[], 1.0);
+    let events = &ml.voice_layouts[0].events;
+    assert!(events.stem_up(1));
+    let top_position = events
+        .note_positions(1)
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    let stem_tip = 100.0 + top_position * config.sp * 0.5 - config.stem_length * config.sp;
+    let mut dl = DisplayList::new(800.0, 200.0);
+    crate::layout::render_annotations::render_text_expressions(
+        &mut dl,
+        &ml,
+        100.0,
+        config.sp,
+        &config,
+        &[],
+        &[],
+        None,
+    );
+    let baseline = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, y, .. } if text == "Clarinet in B♭" => Some(*y),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        baseline < stem_tip - 0.1 * config.sp,
+        "initial text must clear following stem: {baseline} versus {stem_tip}"
+    );
+}
+
+#[test]
 fn instrument_changes_reminders_require_a_sounding_anchor_and_a_gap() {
     let mut value = document();
     set_reminder(&mut value, 1, json!({}), json!({"hidden":true}));

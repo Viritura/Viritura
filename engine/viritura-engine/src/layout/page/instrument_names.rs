@@ -25,13 +25,25 @@ pub(crate) fn resolve_part_display_names(parts: &[Part]) -> Vec<PartDisplayInfo>
     resolve_part_display_names_at(parts, 0)
 }
 
+pub(super) fn resolve_initial_part_display_names(parts: &[Part]) -> Vec<PartDisplayInfo> {
+    resolve_names(parts, 0, false)
+}
+
 pub(crate) fn resolve_part_display_names_at(
     parts: &[Part],
     measure_index: usize,
 ) -> Vec<PartDisplayInfo> {
+    resolve_names(parts, measure_index, true)
+}
+
+fn resolve_names(
+    parts: &[Part],
+    measure_index: usize,
+    include_required: bool,
+) -> Vec<PartDisplayInfo> {
     let active_names = |p: &Part| {
         let required = required_states::names(p);
-        if required.len() > 1 {
+        if include_required && required.len() > 1 {
             return (
                 required
                     .iter()
