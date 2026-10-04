@@ -7,11 +7,12 @@ import {
   type TextFramePageAnchor,
   type TextFrameWidth,
 } from "@viritura/core";
-import { Button, ButtonGroup, FormField, FormTextarea, IconButton, Select, type SelectOption } from "@viritura/ui";
+import { Button, FormField, FormTextarea, IconButton, Select, type SelectOption } from "@viritura/ui";
 import { CommitNumberField } from "./CommitNumberField";
 import { describeTextFrameLocator, effectiveHorizontalAlignment, hasFormattedContent } from "./textFrameContext";
 import { TEXT_FRAME_NUDGE, type TextFrameEditing } from "./useTextFrameEditing";
 import styles from "./TextFrames.module.css";
+import { TextPresentationFields } from "./TextPresentationFields";
 
 const ANCHOR_OPTIONS: readonly SelectOption[] = [
   { value: "top-left", label: "Top left" },
@@ -27,24 +28,6 @@ const ANCHOR_OPTIONS: readonly SelectOption[] = [
 const WIDTH_UNIT_OPTIONS: readonly SelectOption[] = [
   { value: "staffSpaces", label: "Staff spaces" },
   { value: "textColumnFraction", label: "% of text column" },
-];
-
-type Alignment = NonNullable<TextFrame["horizontalAlignment"]>;
-type Justification = NonNullable<TextFrame["paragraphJustification"]>;
-type Border = NonNullable<TextFrame["border"]>;
-
-const ALIGNMENT_OPTIONS: { value: Alignment; label: string }[] = [
-  { value: "left", label: "Left" },
-  { value: "center", label: "Center" },
-  { value: "right", label: "Right" },
-];
-const JUSTIFICATION_OPTIONS: { value: Justification; label: string }[] = [
-  ...ALIGNMENT_OPTIONS,
-  { value: "justify", label: "Justify" },
-];
-const BORDER_OPTIONS: { value: Border; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "solid", label: "Solid" },
 ];
 
 type Actions = Pick<TextFrameEditing, "setText" | "move" | "resize" | "setPresentation" | "reorder" | "remove">;
@@ -188,43 +171,12 @@ function SizeFields({ frame, actions }: SectionProps) {
 
 function TextLayoutFields({ frame, actions }: SectionProps) {
   return (
-    <div className={styles.group}>
-      <p className={styles.groupTitle}>Text layout</p>
-      <FormField label="Frame alignment">
-        <ButtonGroup
-          ariaLabel="Frame alignment"
-          options={ALIGNMENT_OPTIONS}
-          value={effectiveHorizontalAlignment(frame)}
-          onChange={(horizontalAlignment) => actions.setPresentation(frame.id, { horizontalAlignment })}
-        />
-      </FormField>
-      <FormField label="Paragraph justification">
-        <ButtonGroup
-          ariaLabel="Paragraph justification"
-          options={JUSTIFICATION_OPTIONS}
-          value={frame.paragraphJustification ?? "left"}
-          onChange={(paragraphJustification) => actions.setPresentation(frame.id, { paragraphJustification })}
-        />
-      </FormField>
-      <div className={styles.fieldRow}>
-        <FormField label="Padding (sp)" htmlFor={`text-frame-${frame.id}-padding`}>
-          <CommitNumberField
-            id={`text-frame-${frame.id}-padding`}
-            value={frame.padding ?? 0}
-            min={0}
-            onCommit={(padding) => actions.setPresentation(frame.id, { padding: Math.max(0, padding) })}
-          />
-        </FormField>
-        <FormField label="Border">
-          <ButtonGroup
-            ariaLabel="Border"
-            options={BORDER_OPTIONS}
-            value={frame.border ?? "none"}
-            onChange={(border) => actions.setPresentation(frame.id, { border })}
-          />
-        </FormField>
-      </div>
-    </div>
+    <TextPresentationFields
+      id={`text-frame-${frame.id}`}
+      value={frame}
+      defaultAlignment={effectiveHorizontalAlignment(frame)}
+      onChange={(value) => actions.setPresentation(frame.id, value)}
+    />
   );
 }
 

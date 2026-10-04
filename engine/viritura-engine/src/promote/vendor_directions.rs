@@ -214,6 +214,7 @@ fn promote_pedal(r: raw_viritura::Pedal) -> ModelPedal {
 fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpression {
     ModelTextExpression {
         text: ModelTextContent::from_raw(r.text),
+        frame: r.frame.map(super::staff_text_frame::promote_presentation),
         position: promote_rhythmic_position_local(r.position),
         placement: r.placement,
         staff: r.staff.map(|staff| u32::try_from(staff).unwrap_or(1)),

@@ -61,3 +61,36 @@ export const MultipleExpressions: StoryObj = {
   },
   name: "Multiple expressions",
 };
+
+export const FramedStaffText: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+          virituraPartMeasure: {
+            expressions: [
+              {
+                text: [
+                  { text: "Play freely\n", style: { weight: "bold" } },
+                  { text: "Then resume the pulse without a break" },
+                ],
+                position: { fraction: [0, 1] },
+                placement: "above",
+                frame: {
+                  width: { unit: "staffSpaces", value: 18 },
+                  padding: 0.5,
+                  border: "solid",
+                  paragraphJustification: "center",
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "Staff text with wrapping and frame",
+};

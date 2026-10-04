@@ -184,6 +184,7 @@ pub(crate) fn promote_part_measure(
     r: raw::PartMeasure,
     original_json: &serde_json::Value,
 ) -> Result<ModelPartMeasure, PromoteError> {
+    super::staff_text_frame::validate_presentations(original_json)?;
     let sequences_json = original_json
         .get("sequences")
         .and_then(|s| s.as_array())

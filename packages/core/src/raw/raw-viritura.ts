@@ -208,6 +208,7 @@ export interface components {
         /** @description A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font. */
         "text-expression": {
             text: components["schemas"]["text-content"];
+            frame?: components["schemas"]["staff-text-frame-presentation"];
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
             placement?: components["schemas"]["expression-placement"];
@@ -615,6 +616,21 @@ export interface components {
             border?: "none" | "solid";
             sourceReference?: components["schemas"]["text-frame-source-reference"];
         };
+        /** @description Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic. */
+        "staff-text-frame-presentation": {
+            width?: {
+                /** @constant */
+                unit: "staffSpaces";
+                value: number;
+            };
+            /** @enum {string} */
+            horizontalAlignment?: "left" | "center" | "right";
+            /** @enum {string} */
+            paragraphJustification?: "left" | "center" | "right" | "justify";
+            padding?: number;
+            /** @enum {string} */
+            border?: "none" | "solid";
+        };
         /** @description Exactly one page, global-measure, or part-scoped event locator. */
         "text-frame-locator": {
             /** @constant */
@@ -1016,6 +1032,7 @@ export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
 export type TextFrame = components["schemas"]["text-frame"];
+export type StaffTextFramePresentation = components["schemas"]["staff-text-frame-presentation"];
 export type TextFrameLocator = components["schemas"]["text-frame-locator"];
 export type TextFramePlacement = components["schemas"]["text-frame-placement"];
 export type TextFrameWidth = components["schemas"]["text-frame-width"];

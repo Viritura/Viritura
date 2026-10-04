@@ -254,6 +254,9 @@ pub struct ElementShape {
     pub element_id: String,
     pub kind: ElementKind,
     pub geom: ShapeGeom,
+    /// Layout-owned rectangles include padding and must not shrink to painted ink after a move.
+    #[serde(skip)]
+    pub(crate) authored_bounds: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system_idx: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -625,6 +628,7 @@ mod band_geometry_tests {
         let shape = ElementShape {
             element_id: "slur/test".into(),
             kind: ElementKind::Slur,
+            authored_bounds: false,
             geom: ShapeGeom::Band {
                 samples: shallow_arc(),
             },

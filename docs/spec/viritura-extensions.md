@@ -224,8 +224,9 @@ reservation.
 `TextFrame` still requires width, ID, locator, and page placement. This type
 extraction does not change its JSON shape, defaults, ownership, or rendering.
 `TextBlock` is a reusable in-memory contract, not a new persisted object or an
-additional supported attachment kind. Existing staff expressions retain their
-current persistence and behavior until their integration in #282.
+additional supported attachment kind. Existing staff expressions support this
+presentation through their optional `frame` property, retaining their musical
+attachment. System-text scope and part propagation remain in #282.
 
 The shared design distinguishes attachment/scope from placement:
 
@@ -1118,15 +1119,55 @@ Array of piano pedal markings.
 
 Array of text expressions and performance directions.
 
-| Property    | Type                                   | Required | Description                                       |
-| ----------- | -------------------------------------- | -------- | ------------------------------------------------- |
-| `text`      | string                                 | **Yes**  | Expression text (e.g. "dolce", "rit.", "a tempo") |
-| `position`  | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                                 |
-| `placement` | `"below"` \| `"above"`                 | No       | Position relative to staff. Default: `"below"`    |
-| `staff`     | integer (≥1)                           | No       | Staff number                                      |
-| `voice`     | string                                 | No       | Voice name                                        |
+| Property    | Type                                   | Required | Description                                                                              |
+| ----------- | -------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `text`      | [TextContent](#inline-text-content)    | **Yes**  | Expression text (e.g. "dolce", "rit.", "a tempo"); legacy strings are accepted on import |
+| `position`  | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                                                                        |
+| `placement` | `"below"` \| `"above"`                 | No       | Position relative to staff. Default: `"below"`                                           |
+| `staff`     | integer (≥1)                           | No       | Staff number                                                                             |
+| `voice`     | string                                 | No       | Voice name                                                                               |
+| `frame`     | object                                 | No       | Optional rectangular presentation; see below                                             |
 
-Rendered in italic serif font.
+Below-staff text defaults to italic serif; above-staff text uses upright serif.
+Rich-text run styles remain available inside either a plain expression or a frame.
+
+`frame` shares the page-frame presentation vocabulary, but its width, when
+specified, is `{ "unit": "staffSpaces", "value": <positive number> }`.
+Page-column fractional widths are not supported for staff text. Omit width for
+natural-width text; set it to wrap words to the frame's inner width. Height is
+automatic and authored newlines are retained. A word wider than the inner width
+overflows without splitting.
+
+Optional `padding` is a nonnegative staff-space value. `border` is `"none"`
+(default) or `"solid"`; `horizontalAlignment` is `"left"`, `"center"`, or `"right"`
+around the rhythmic anchor. Omission preserves automatic alignment: left at
+notes, right for end-of-measure instructions. `paragraphJustification` is
+`"left"` (default), `"center"`, `"right"`, or `"justify"`.
+
+The frame stays music-relative in paged and Horizon views; it does not become
+page furniture. Existing `manualOffset` (+x right, +y up) and `avoidCollisions`
+continue to apply. Selection and automatic placement use the full rectangle,
+including padding. With `frame` absent, legacy single-line rendering is unchanged.
+No fixed height, page locator, or new staff/system scope is introduced.
+
+In Write mode, create ordinary staff text in the Text palette. Select it and use
+Properties to set **Wrap to frame width**, width, padding, border, alignment,
+and paragraph justification alongside the existing rich-text editor.
+**Reset frame** removes only presentation, preserving text and musical attachment.
+
+```json
+{
+  "text": [{ "text": "Play freely\nThen resume the pulse", "style": { "weight": "bold" } }],
+  "position": { "fraction": [0, 1] },
+  "placement": "above",
+  "frame": {
+    "width": { "unit": "staffSpaces", "value": 20 },
+    "padding": 0.5,
+    "border": "solid",
+    "paragraphJustification": "center"
+  }
+}
+```
 
 Text attached grammatically to a dynamic uses the standard dynamic-group
 `prefix`/`suffix` fields instead of a text-expression extension.

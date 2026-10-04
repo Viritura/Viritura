@@ -51,6 +51,7 @@ mod test_slurs;
 mod test_spacing_invariants;
 mod test_spanner_mnx_layout;
 mod test_staff_lines;
+mod test_staff_text_frames;
 mod test_stem_direction;
 mod test_support_flags;
 mod test_tagging;

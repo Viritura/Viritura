@@ -48,6 +48,14 @@ function buildScore(): Score {
         measures: [
           {
             measureRepeat: { number: 2 },
+            expressions: [
+              {
+                text: [{ text: "Play freely", style: { weight: "bold" } }],
+                position: { fraction: [1, 4] },
+                placement: "above",
+                manualOffset: [2, -1],
+              },
+            ],
             arpeggios: [
               {
                 position: { fraction: [0, 1] },
@@ -152,6 +160,61 @@ function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: numbe
     </>
   );
 }
+
+describe("staff text frame Properties", () => {
+  afterEach(() => {
+    cleanup();
+    resetSelectionStore();
+  });
+
+  it("adds presentation without replacing rich text or musical attachment, then resets it", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const frame = await screen.findByRole("region", { name: "Staff text frame" });
+    const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    const original = snapshot().parts[0].measures[0].expressions![0];
+    fireEvent.click(within(frame).getByRole("checkbox", { name: "Wrap to frame width" }));
+    const width = within(frame).getByLabelText("Width (sp)");
+    fireEvent.change(width, { target: { value: "12" } });
+    fireEvent.blur(width);
+    fireEvent.click(within(frame).getByRole("radio", { name: "Solid" }));
+    const padding = within(frame).getByLabelText("Padding (sp)");
+    fireEvent.change(padding, { target: { value: "1.5" } });
+    fireEvent.keyDown(padding, { key: "Enter" });
+    const alignment = within(frame).getByRole("radiogroup", { name: "Frame alignment" });
+    fireEvent.click(within(alignment).getByRole("radio", { name: "Center" }));
+    const paragraphs = within(frame).getByRole("radiogroup", { name: "Paragraph justification" });
+    fireEvent.click(within(paragraphs).getByRole("radio", { name: "Justify" }));
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual({
+      ...original,
+      frame: {
+        width: { unit: "staffSpaces", value: 12 },
+        border: "solid",
+        padding: 1.5,
+        horizontalAlignment: "center",
+        paragraphJustification: "justify",
+      },
+    });
+    fireEvent.click(within(frame).getByRole("button", { name: "Reset frame" }));
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual(original);
+  });
+
+  it("supports undo and redo of frame properties", async () => {
+    render(withProviders(<HistoryHarness elementId="p0/m0/expr0" />));
+    await screen.findByRole("region", { name: "Staff text frame" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wrap to frame width" }));
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Undo inspector edit" }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Undo inspector edit" }));
+    await waitFor(() =>
+      expect((screen.getByRole("checkbox", { name: "Wrap to frame width" }) as HTMLInputElement).checked).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Redo inspector edit" }));
+    await waitFor(() =>
+      expect((screen.getByRole("checkbox", { name: "Wrap to frame width" }) as HTMLInputElement).checked).toBe(true),
+    );
+  });
+});
 
 function StaffConfigHarness() {
   const { loadScore } = useDocumentActions();

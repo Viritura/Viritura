@@ -391,6 +391,8 @@ pub use crate::raw_viritura::ExpressionPlacement;
 pub struct TextExpression {
     /// The expression text (e.g. "dolce", "espressivo", "rit.", "a tempo")
     pub text: TextContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<super::text_frame::StaffTextFramePresentation>,
     /// Rhythmic position within the measure
     pub position: RhythmicPosition,
     /// Placement above or below the staff (default: below)

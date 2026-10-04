@@ -15,8 +15,13 @@ mod dynamics;
 mod expressions;
 #[path = "render_annotations/jump_markers.rs"]
 mod jump_markers;
+mod marking_geometry;
 #[path = "render_annotations/measure_numbers.rs"]
 mod measure_numbers;
+pub(super) use marking_geometry::publish_marking_geometry;
+use marking_geometry::{
+    framed_expression_is_pinned, marking_extent, sync_marking_geometry, translate_authored_bounds,
+};
 #[path = "render_annotations/rehearsal_marks.rs"]
 mod rehearsal_marks;
 #[path = "render_annotations/substrate_obstacles.rs"]
@@ -122,107 +127,6 @@ fn tuplet_glyph_extent(x: f64, y: f64, codepoint: u32, size: f64) -> (f64, f64, 
     )
 }
 
-/// Union of one marking's command extents (label text + metronome glyph/equation
-/// runs), as `(left, right, top, bottom)` in canvas px, or `None` if it has no
-/// drawable command. Baseline-aware: bottom-baseline text grows upward by one
-/// font size, middle/top baseline by half each way; glyphs by half each way.
-fn marking_extent(
-    dl: &DisplayList,
-    staff_cmd_start: usize,
-    eid: &str,
-) -> Option<(f64, f64, f64, f64)> {
-    let mut left = f64::INFINITY;
-    let mut right = f64::NEG_INFINITY;
-    let mut top = f64::INFINITY;
-    let mut bottom = f64::NEG_INFINITY;
-    for idx in staff_cmd_start..dl.commands.len() {
-        if dl
-            .element_ids
-            .get(idx)
-            .and_then(|o| o.as_ref())
-            .map(String::as_str)
-            != Some(eid)
-        {
-            continue;
-        }
-        let (l, r, t, b) = match &dl.commands[idx] {
-            command @ RenderCommand::DrawText { .. } => {
-                let bbox = substrate_obstacles::text_command_bbox(command)?;
-                (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
-            }
-            command => {
-                let bbox = command.bbox()?;
-                (bbox.x, bbox.x + bbox.width, bbox.y, bbox.y + bbox.height)
-            }
-        };
-        left = left.min(l);
-        right = right.max(r);
-        top = top.min(t);
-        bottom = bottom.max(b);
-    }
-    (left.is_finite() && right.is_finite()).then_some((left, right, top, bottom))
-}
-
-pub(super) fn publish_marking_geometry(
-    dl: &mut DisplayList,
-    staff_cmd_start: usize,
-    eid: &str,
-    kind: ElementKind,
-) {
-    let Some((left, right, top, bottom)) = marking_extent(dl, staff_cmd_start, eid) else {
-        return;
-    };
-    let bbox = BoundingBox::new(left, top, right - left, bottom - top);
-    dl.push_element_bbox_with_shape(ElementBBox {
-        element_id: eid.to_string(),
-        bbox,
-    });
-    if let Some(shape) = dl.element_shapes.last_mut() {
-        shape.kind = kind;
-    }
-}
-
-fn sync_marking_geometry(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str) {
-    let Some((left, right, top, bottom)) = marking_extent(dl, staff_cmd_start, eid) else {
-        return;
-    };
-    let bbox = BoundingBox::new(left, top, right - left, bottom - top);
-    let center = (bbox.x + bbox.width * 0.5, bbox.y + bbox.height * 0.5);
-    let nearest_bbox = dl
-        .element_bboxes
-        .iter()
-        .enumerate()
-        .filter(|(_, candidate)| candidate.element_id == eid)
-        .min_by(|(_, left), (_, right)| {
-            bbox_center_distance_squared(&left.bbox, center)
-                .total_cmp(&bbox_center_distance_squared(&right.bbox, center))
-        })
-        .map(|(index, _)| index);
-    if let Some(index) = nearest_bbox {
-        dl.element_bboxes[index].bbox = bbox.clone();
-    }
-    let nearest_shape = dl
-        .element_shapes
-        .iter()
-        .enumerate()
-        .filter(|(_, shape)| shape.element_id == eid)
-        .filter_map(|(index, shape)| {
-            let candidate = shape.bbox(&dl.commands)?;
-            Some((index, bbox_center_distance_squared(&candidate, center)))
-        })
-        .min_by(|(_, left), (_, right)| left.total_cmp(right))
-        .map(|(index, _)| index);
-    if let Some(index) = nearest_shape {
-        dl.element_shapes[index].geom = ShapeGeom::Rect { bbox };
-    }
-}
-
-fn bbox_center_distance_squared(bbox: &BoundingBox, center: (f64, f64)) -> f64 {
-    let dx = bbox.x + bbox.width * 0.5 - center.0;
-    let dy = bbox.y + bbox.height * 0.5 - center.1;
-    dx * dx + dy * dy
-}
-
 /// Shift every command of marking `eid` up by `dy` (positive = move up, so
 /// canvas `y` decreases), then re-derive its interaction geometry from the
 /// final commands.
@@ -230,6 +134,7 @@ pub(super) fn shift_marking(dl: &mut DisplayList, staff_cmd_start: usize, eid: &
     if dy == 0.0 {
         return;
     }
+    translate_authored_bounds(dl, staff_cmd_start, eid, 0.0, -dy);
     for idx in staff_cmd_start..dl.commands.len() {
         if dl
             .element_ids
@@ -579,6 +484,7 @@ fn shift_marking_x(dl: &mut DisplayList, staff_cmd_start: usize, eid: &str, dx: 
     if dx == 0.0 {
         return;
     }
+    translate_authored_bounds(dl, staff_cmd_start, eid, dx, 0.0);
     for idx in staff_cmd_start..dl.commands.len() {
         if dl
             .element_ids
@@ -792,6 +698,16 @@ pub(crate) fn flow_above_staff_dependents(
         .fold(f64::NEG_INFINITY, f64::max);
     for m in &movers {
         let (mut left, mut right, mut top, mut bottom) = (m.left, m.right, m.top, m.bottom);
+        if framed_expression_is_pinned(measure_layouts, &m.eid) {
+            placed_tops.push(FlatTop {
+                eid: m.eid.clone(),
+                rank: m.rank,
+                left,
+                right,
+                top,
+            });
+            continue;
+        }
 
         // Right-margin dodge: if the text's right edge overflows the system's
         // right margin, slide it LEFT to bring the ink back inside — but only as
@@ -888,6 +804,9 @@ pub(crate) fn flow_above_staff_dependents(
         // that slide *fully* removes the column overlap (a partial slide pays
         // the "text drifts off its beat" cost without buying the lower stack).
         for ft in placed_tops.iter_mut() {
+            if framed_expression_is_pinned(measure_layouts, &ft.eid) {
+                continue;
+            }
             if ft.rank >= m.rank {
                 continue; // only decongest strictly-inner (lower-rank) movers
             }

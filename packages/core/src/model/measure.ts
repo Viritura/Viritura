@@ -24,6 +24,7 @@ import type { InstrumentChange } from "./instrumentChange";
 import type { Barline } from "./barline";
 import type { Narrow, WithVendor } from "./_derive";
 import type { TextContent } from "./text";
+import type { StaffTextFramePresentation } from "./textFrame";
 
 // ═══════════════════════════════════════════
 // Rhythmic position
@@ -231,6 +232,8 @@ export interface TextExpression {
    *  to clear other directions. Unset/true = re-flow (default). false = pinned:
    *  stays exactly where placed; others flow around it. */
   avoidCollisions?: boolean;
+  /** Optional block presentation; attachment and staff-relative offsets stay unchanged. */
+  frame?: StaffTextFramePresentation;
 }
 
 /** Where authored marker text sits relative to the marker's generated glyph or label. */

@@ -292,6 +292,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                         virtual_part.expressions.get_or_insert_with(Vec::new).push(
                             TextExpression {
                                 text: text.into(),
+                                frame: None,
                                 position: RhythmicPosition { fraction: (0, 1) },
                                 placement: Some(ExpressionPlacement::Above),
                                 staff: None,

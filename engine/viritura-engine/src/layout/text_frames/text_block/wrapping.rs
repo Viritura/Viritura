@@ -17,7 +17,8 @@ const LINE_SPACING: f64 = 1.2;
 const ASCENT: f64 = 0.8;
 const WIDTH_TOLERANCE: f64 = 1e-6;
 
-pub(super) struct FrameFont {
+#[derive(Clone, Copy)]
+pub(crate) struct FrameFont {
     pub base_size: f64,
     pub family: FontFamily,
     pub bold: bool,

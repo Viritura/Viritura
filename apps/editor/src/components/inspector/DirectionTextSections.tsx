@@ -9,6 +9,7 @@ import { OttavaInspector } from "./OttavaInspector";
 import { ChordSymbolSection } from "./ChordSymbolSection";
 import { useChordSymbolInspector } from "./useChordSymbolInspector";
 import { ChordSymbolEntryAction } from "./ChordSymbolEntryAction";
+import { StaffTextFrameFields } from "../textFrames";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -46,6 +47,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     isExpressionSelected,
     selectedExpression,
     handleExpressionTextChange,
+    handleExpressionFrameChange,
     isRehearsalSelected,
     selectedRehearsal,
     handleRehearsalTextChange,
@@ -91,23 +93,31 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
       )}
 
       {isExpressionSelected && selectedExpression && (
-        <DirectionTextSection
-          title="Expression"
-          label="Text"
-          value={selectedExpression.text}
-          placeholder="e.g. dolce, espressivo, rit."
-          onChange={handleExpressionTextChange}
-          inheritedStyle={inheritedStyleForExpression(selectedExpression.placement)}
-          offset={{
-            value: selectedExpression.manualOffset ?? [0, 0],
-            onChange: handleAnnotationOffsetChange,
-            onReset: handleAnnotationOffsetReset,
-            avoidCollisions: {
-              value: selectedExpression.avoidCollisions ?? true,
-              onChange: handleAnnotationAvoidCollisionsChange,
-            },
-          }}
-        />
+        <>
+          <DirectionTextSection
+            title="Expression"
+            label="Text"
+            value={selectedExpression.text}
+            placeholder="e.g. dolce, espressivo, rit."
+            onChange={handleExpressionTextChange}
+            inheritedStyle={inheritedStyleForExpression(selectedExpression.placement)}
+            offset={{
+              value: selectedExpression.manualOffset ?? [0, 0],
+              onChange: handleAnnotationOffsetChange,
+              onReset: handleAnnotationOffsetReset,
+              avoidCollisions: {
+                value: selectedExpression.avoidCollisions ?? true,
+                onChange: handleAnnotationAvoidCollisionsChange,
+              },
+            }}
+          />
+          <StaffTextFrameFields
+            key={target?.elementId}
+            id="staff-text-frame"
+            value={selectedExpression.frame}
+            onChange={handleExpressionFrameChange}
+          />
+        </>
       )}
 
       {isRehearsalSelected && selectedRehearsal && (

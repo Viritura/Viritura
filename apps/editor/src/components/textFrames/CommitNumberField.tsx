@@ -22,7 +22,10 @@ export function CommitNumberField({ id, value, step = 0.5, min, max, onCommit, .
     if (draft === null) return;
     const parsed = Number(draft);
     setDraft(null);
-    if (draft.trim() !== "" && Number.isFinite(parsed) && parsed !== value) onCommit(parsed);
+    if (draft.trim() !== "" && Number.isFinite(parsed)) {
+      const bounded = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, parsed));
+      if (bounded !== value) onCommit(bounded);
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") commit();

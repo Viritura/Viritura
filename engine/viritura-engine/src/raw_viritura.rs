@@ -8079,6 +8079,404 @@ impl<'de> ::serde::Deserialize<'de> for StaffMeterUnit {
             .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
     }
 }
+///Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic.",
+///  "type": "object",
+///  "properties": {
+///    "border": {
+///      "type": "string",
+///      "enum": [
+///        "none",
+///        "solid"
+///      ]
+///    },
+///    "horizontalAlignment": {
+///      "type": "string",
+///      "enum": [
+///        "left",
+///        "center",
+///        "right"
+///      ]
+///    },
+///    "padding": {
+///      "type": "number"
+///    },
+///    "paragraphJustification": {
+///      "type": "string",
+///      "enum": [
+///        "left",
+///        "center",
+///        "right",
+///        "justify"
+///      ]
+///    },
+///    "width": {
+///      "type": "object",
+///      "required": [
+///        "unit",
+///        "value"
+///      ],
+///      "properties": {
+///        "unit": {
+///          "const": "staffSpaces"
+///        },
+///        "value": {
+///          "type": "number"
+///        }
+///      },
+///      "additionalProperties": false
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffTextFramePresentation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub border: ::std::option::Option<StaffTextFramePresentationBorder>,
+    #[serde(
+        rename = "horizontalAlignment",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub horizontal_alignment: ::std::option::Option<
+        StaffTextFramePresentationHorizontalAlignment,
+    >,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub padding: ::std::option::Option<f64>,
+    #[serde(
+        rename = "paragraphJustification",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub paragraph_justification: ::std::option::Option<
+        StaffTextFramePresentationParagraphJustification,
+    >,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub width: ::std::option::Option<StaffTextFramePresentationWidth>,
+}
+impl ::std::convert::From<&StaffTextFramePresentation> for StaffTextFramePresentation {
+    fn from(value: &StaffTextFramePresentation) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for StaffTextFramePresentation {
+    fn default() -> Self {
+        Self {
+            border: Default::default(),
+            horizontal_alignment: Default::default(),
+            padding: Default::default(),
+            paragraph_justification: Default::default(),
+            width: Default::default(),
+        }
+    }
+}
+///`StaffTextFramePresentationBorder`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "none",
+///    "solid"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum StaffTextFramePresentationBorder {
+    #[serde(rename = "none")]
+    None,
+    #[serde(rename = "solid")]
+    Solid,
+}
+impl ::std::convert::From<&Self> for StaffTextFramePresentationBorder {
+    fn from(value: &StaffTextFramePresentationBorder) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for StaffTextFramePresentationBorder {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::None => f.write_str("none"),
+            Self::Solid => f.write_str("solid"),
+        }
+    }
+}
+impl ::std::str::FromStr for StaffTextFramePresentationBorder {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "none" => Ok(Self::None),
+            "solid" => Ok(Self::Solid),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StaffTextFramePresentationBorder {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for StaffTextFramePresentationBorder {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for StaffTextFramePresentationBorder {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`StaffTextFramePresentationHorizontalAlignment`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "left",
+///    "center",
+///    "right"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum StaffTextFramePresentationHorizontalAlignment {
+    #[serde(rename = "left")]
+    Left,
+    #[serde(rename = "center")]
+    Center,
+    #[serde(rename = "right")]
+    Right,
+}
+impl ::std::convert::From<&Self> for StaffTextFramePresentationHorizontalAlignment {
+    fn from(value: &StaffTextFramePresentationHorizontalAlignment) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for StaffTextFramePresentationHorizontalAlignment {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Left => f.write_str("left"),
+            Self::Center => f.write_str("center"),
+            Self::Right => f.write_str("right"),
+        }
+    }
+}
+impl ::std::str::FromStr for StaffTextFramePresentationHorizontalAlignment {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "left" => Ok(Self::Left),
+            "center" => Ok(Self::Center),
+            "right" => Ok(Self::Right),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StaffTextFramePresentationHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for StaffTextFramePresentationHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for StaffTextFramePresentationHorizontalAlignment {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`StaffTextFramePresentationParagraphJustification`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "left",
+///    "center",
+///    "right",
+///    "justify"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum StaffTextFramePresentationParagraphJustification {
+    #[serde(rename = "left")]
+    Left,
+    #[serde(rename = "center")]
+    Center,
+    #[serde(rename = "right")]
+    Right,
+    #[serde(rename = "justify")]
+    Justify,
+}
+impl ::std::convert::From<&Self> for StaffTextFramePresentationParagraphJustification {
+    fn from(value: &StaffTextFramePresentationParagraphJustification) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for StaffTextFramePresentationParagraphJustification {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Left => f.write_str("left"),
+            Self::Center => f.write_str("center"),
+            Self::Right => f.write_str("right"),
+            Self::Justify => f.write_str("justify"),
+        }
+    }
+}
+impl ::std::str::FromStr for StaffTextFramePresentationParagraphJustification {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "left" => Ok(Self::Left),
+            "center" => Ok(Self::Center),
+            "right" => Ok(Self::Right),
+            "justify" => Ok(Self::Justify),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for StaffTextFramePresentationParagraphJustification {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for StaffTextFramePresentationParagraphJustification {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for StaffTextFramePresentationParagraphJustification {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`StaffTextFramePresentationWidth`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "unit",
+///    "value"
+///  ],
+///  "properties": {
+///    "unit": {
+///      "const": "staffSpaces"
+///    },
+///    "value": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct StaffTextFramePresentationWidth {
+    pub unit: ::serde_json::Value,
+    pub value: f64,
+}
+impl ::std::convert::From<&StaffTextFramePresentationWidth>
+for StaffTextFramePresentationWidth {
+    fn from(value: &StaffTextFramePresentationWidth) -> Self {
+        value.clone()
+    }
+}
 ///A 2D position on the concert-hall stage, in meters. X runs left (negative) to right (positive); Y runs from the audience (negative) toward backstage (positive).
 ///
 /// <details><summary>JSON schema</summary>
@@ -8414,6 +8812,9 @@ impl ::std::convert::From<GlyphRun> for TextContentItem {
 ///      "description": "Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it.",
 ///      "type": "boolean"
 ///    },
+///    "frame": {
+///      "$ref": "#/$defs/staff-text-frame-presentation"
+///    },
 ///    "manualOffset": {
 ///      "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement.",
 ///      "$ref": "#/$defs/sp-delta"
@@ -8451,6 +8852,8 @@ pub struct TextExpression {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub frame: ::std::option::Option<StaffTextFramePresentation>,
     ///Manual [dx, dy] offset in spatia (sp), applied after automatic placement.
     #[serde(
         rename = "manualOffset",
@@ -12550,6 +12953,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "staff-meter-synchronization": {
 ///      "$ref": "#/$defs/staff-meter-synchronization"
 ///    },
+///    "staff-text-frame-presentation": {
+///      "$ref": "#/$defs/staff-text-frame-presentation"
+///    },
 ///    "stage-position": {
 ///      "$ref": "#/$defs/stage-position"
 ///    },
@@ -13043,6 +13449,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub staff_meter_synchronization: ::std::option::Option<StaffMeterSynchronization>,
     #[serde(
+        rename = "staff-text-frame-presentation",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_text_frame_presentation: ::std::option::Option<StaffTextFramePresentation>,
+    #[serde(
         rename = "stage-position",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -13298,6 +13710,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             staff_meter_reset: Default::default(),
             staff_meter_set: Default::default(),
             staff_meter_synchronization: Default::default(),
+            staff_text_frame_presentation: Default::default(),
             stage_position: Default::default(),
             system_layout_extensions: Default::default(),
             tempo_extensions: Default::default(),

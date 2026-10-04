@@ -29,6 +29,7 @@ const extensionDefinitions = [
   "layout-staff-extensions",
   "score-extensions",
   "text-frame",
+  "staff-text-frame-presentation",
 ] as const;
 
 const here = import.meta.dirname;

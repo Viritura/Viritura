@@ -23,6 +23,7 @@ const DEFINITIONS: &[&str] = &[
     "slur-extensions",
     "system-layout-extensions",
     "score-extensions",
+    "staff-text-frame-presentation",
 ];
 
 fn schemas() -> &'static HashMap<&'static str, Validator> {
@@ -51,6 +52,19 @@ fn schemas() -> &'static HashMap<&'static str, Validator> {
             })
             .collect()
     })
+}
+
+pub(crate) fn validate_staff_text_frame(value: &Value) -> Result<(), String> {
+    schemas()
+        .get("staff-text-frame-presentation")
+        .expect("staff text frame schema is compiled")
+        .validate(value)
+        .map_err(|errors| {
+            errors
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
 }
 
 fn pointer_token(value: &str) -> String {

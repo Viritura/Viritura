@@ -417,6 +417,7 @@
       "required": ["text", "position"],
       "properties": {
         "text": { "$ref": "#/$defs/text-content" },
+        "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
         "position": {
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
@@ -1202,6 +1203,27 @@
           "description": "Optional frame border style."
         },
         "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
+      },
+      "additionalProperties": false
+    },
+
+    "staff-text-frame-presentation": {
+      "type": "object",
+      "description": "Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic.",
+      "properties": {
+        "width": {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "staffSpaces" },
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "horizontalAlignment": { "type": "string", "enum": ["left", "center", "right"] },
+        "paragraphJustification": { "type": "string", "enum": ["left", "center", "right", "justify"] },
+        "padding": { "type": "number", "minimum": 0 },
+        "border": { "type": "string", "enum": ["none", "solid"] }
       },
       "additionalProperties": false
     },

@@ -2,6 +2,33 @@ use serde::{Deserialize, Serialize};
 
 use super::text::TextContent;
 
+/// Shared optional block presentation on music-attached staff text.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct StaffTextFramePresentation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<StaffTextFrameWidth>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub horizontal_alignment: Option<TextFrameAlign>,
+    #[serde(default)]
+    pub paragraph_justification: TextFrameJustify,
+    #[serde(default)]
+    pub border: TextFrameBorder,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(
+    tag = "unit",
+    content = "value",
+    rename_all = "camelCase",
+    deny_unknown_fields
+)]
+pub enum StaffTextFrameWidth {
+    StaffSpaces(f64),
+}
+
 /// A free rectangular text frame owned by one score view
 /// (`scores[i]._x.viritura.textFrames`).
 ///

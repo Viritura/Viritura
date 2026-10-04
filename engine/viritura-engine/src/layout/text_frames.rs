@@ -8,27 +8,19 @@
 //! the unpaged horizon view, which has no pages to anchor to.
 
 mod locator;
-mod wrapping;
 
 use super::config::LayoutConfig;
 use super::element_id;
-use super::render_annotations::emit_content;
+mod text_block;
 use super::text_styles::FontFamily;
-use crate::model::{
-    Score, TextContent, TextFrame, TextFrameAlign, TextFrameAnchor, TextFrameBorder,
-    TextFrameJustify, TextFrameWidth,
-};
-use crate::render::{
-    BoundingBox, DisplayList, ElementBBox, ElementKind, RenderCommand, TextAlign, TextBaseline,
-};
+use crate::model::{Score, TextFrame, TextFrameAlign, TextFrameAnchor, TextFrameWidth};
+use crate::render::{BoundingBox, DisplayList, ElementBBox, ElementKind};
 use locator::PageResolver;
-use wrapping::{wrap, FrameFont, Line};
+pub(crate) use text_block::{FrameFont, TextBlockLayout};
 
 /// Body-text size for frame prose, in staff spaces; run `size` values scale it.
 const FRAME_TEXT_SIZE_SP: f64 = 2.0;
 const FRAME_FONT: &str = "serif";
-const FRAME_COLOR: &str = "#000000";
-const BORDER_WIDTH_SP: f64 = 0.12;
 
 /// Printable page rectangle in display-list pixels.
 #[derive(Clone, Copy)]
@@ -130,29 +122,19 @@ fn render_frame(dl: &mut DisplayList, frame: &TextFrame, area: PageArea, sp: f64
         }
     };
     let padding = frame.padding.unwrap_or(0.0) * sp;
-    let inner_width = (width - 2.0 * padding).max(0.0);
-    let lines = wrap(&frame.content, inner_width, &font);
-    let height = lines.iter().map(|line| line.height).sum::<f64>() + 2.0 * padding;
+    let block = TextBlockLayout::new(
+        &frame.content,
+        Some(width),
+        padding,
+        font,
+        frame.paragraph_justification,
+        frame.border,
+    );
+    let height = block.height;
     let (left, top) = frame_origin(frame, area, width, height, sp);
 
     let first_command = dl.commands.len();
-    let inner_left = left + padding;
-    let mut line_top = top + padding;
-    for line in &lines {
-        emit_line(
-            dl,
-            line,
-            inner_left,
-            inner_width,
-            line_top + line.ascent,
-            &font,
-            frame.paragraph_justification,
-        );
-        line_top += line.height;
-    }
-    if frame.border == TextFrameBorder::Solid {
-        emit_border(dl, left, top, width, height, BORDER_WIDTH_SP * sp);
-    }
+    block.emit(dl, left, top, FRAME_FONT, sp);
     tag_frame(
         dl,
         &frame.id,
@@ -207,84 +189,4 @@ fn frame_origin(frame: &TextFrame, area: PageArea, width: f64, height: f64, sp: 
     let top = anchor_y - row * height;
     let offset = frame.placement.offset;
     (left + offset.x * sp, top + offset.y * sp)
-}
-
-fn emit_line(
-    dl: &mut DisplayList,
-    line: &Line,
-    inner_left: f64,
-    inner_width: f64,
-    baseline: f64,
-    font: &FrameFont,
-    justify: TextFrameJustify,
-) {
-    if line.words.is_empty() {
-        return;
-    }
-    let stretch = justify == TextFrameJustify::Justify
-        && !line.ends_paragraph
-        && line.words.len() > 1
-        && line.natural_width < inner_width;
-    if stretch {
-        let extra_space = (inner_width - line.natural_width) / (line.words.len() - 1) as f64;
-        let mut x = inner_left;
-        for word in &line.words {
-            emit(
-                dl,
-                &TextContent(word.chunks.clone()),
-                x,
-                baseline,
-                font,
-                TextAlign::Left,
-            );
-            x += word.width + word.space_width + extra_space;
-        }
-        return;
-    }
-    let (x, align) = match justify {
-        TextFrameJustify::Left | TextFrameJustify::Justify => (inner_left, TextAlign::Left),
-        TextFrameJustify::Center => (inner_left + inner_width / 2.0, TextAlign::Center),
-        TextFrameJustify::Right => (inner_left + inner_width, TextAlign::Right),
-    };
-    emit(dl, &line.joined_content(), x, baseline, font, align);
-}
-
-fn emit(
-    dl: &mut DisplayList,
-    content: &TextContent,
-    x: f64,
-    baseline: f64,
-    font: &FrameFont,
-    align: TextAlign,
-) {
-    emit_content(
-        dl,
-        content,
-        x,
-        baseline,
-        font.base_size,
-        FRAME_FONT,
-        FRAME_COLOR,
-        align,
-        TextBaseline::Alphabetic,
-    );
-}
-
-fn emit_border(dl: &mut DisplayList, left: f64, top: f64, width: f64, height: f64, stroke: f64) {
-    let (right, bottom) = (left + width, top + height);
-    for (x1, y1, x2, y2) in [
-        (left, top, right, top),
-        (left, bottom, right, bottom),
-        (left, top, left, bottom),
-        (right, top, right, bottom),
-    ] {
-        dl.push(RenderCommand::DrawLine {
-            x1,
-            y1,
-            x2,
-            y2,
-            width: stroke,
-            color: FRAME_COLOR.into(),
-        });
-    }
 }
