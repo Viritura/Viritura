@@ -240,19 +240,31 @@ pub(super) fn render_system_chrome(
         } else {
             info.display_short_name.clone()
         };
-        let label_size = 2.0 * sp;
-        // Optically centre the label on the part's staff group by its cap-height
-        // band (not the em box): anchor the alphabetic baseline `capHeight/2`
-        // below the group centre, so the capitals straddle `label_y`.
-        let baseline_y = label_y
-            + crate::layout::text_styles::cap_center_offset_from_baseline(
-                crate::layout::text_styles::FontFamily::Serif,
-                label_size,
-            );
+        render_part_name(
+            dl,
+            &label_text,
+            config.margin_left * sp + label_margin - 2.0 * sp,
+            label_y,
+            sp,
+        );
+    }
+}
+
+fn render_part_name(dl: &mut DisplayList, text: &str, x: f64, center_y: f64, sp: f64) {
+    let label_size = 2.0 * sp;
+    let baseline_y = center_y
+        + crate::layout::text_styles::cap_center_offset_from_baseline(
+            crate::layout::text_styles::FontFamily::Serif,
+            label_size,
+        );
+    let lines: Vec<_> = text.lines().collect();
+    let line_height = label_size * 1.2;
+    let top_y = baseline_y - lines.len().saturating_sub(1) as f64 * line_height * 0.5;
+    for (index, line) in lines.iter().enumerate() {
         dl.push(RenderCommand::DrawText {
-            x: config.margin_left * sp + label_margin - 2.0 * sp,
-            y: baseline_y,
-            text: label_text,
+            x,
+            y: top_y + index as f64 * line_height,
+            text: (*line).to_string(),
             font: "serif".into(),
             size: label_size,
             color: "#000000".into(),

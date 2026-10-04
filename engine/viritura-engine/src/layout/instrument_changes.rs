@@ -83,7 +83,7 @@ pub(super) fn append_instructions(
             let Some(reminder) = change.reminder.as_ref().filter(|r| r.hidden != Some(true)) else {
                 continue;
             };
-            let Some((anchor_index, position)) =
+            let Some((anchor_index, position, staff)) =
                 reminders::anchor(score, part, change_index, change)
             else {
                 continue;
@@ -93,8 +93,26 @@ pub(super) fn append_instructions(
                     .text
                     .clone()
                     .unwrap_or_else(|| derived_instruction(part, change_index, change));
-                append_expression(measure, text, position, source_part_index, true);
+                if !text.is_empty() {
+                    append_expression(measure, text, position, source_part_index, true);
+                    if let Some(expression) =
+                        measure.expressions.as_mut().and_then(|e| e.last_mut())
+                    {
+                        expression.staff = Some(staff);
+                    }
+                }
             }
+        }
+    }
+    if measure_index == 0 {
+        if let Some(text) = super::page::initial_instrument_instruction(part) {
+            append_expression(
+                measure,
+                text,
+                RhythmicPosition { fraction: (0, 1) },
+                source_part_index,
+                false,
+            );
         }
     }
 }

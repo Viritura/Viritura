@@ -153,6 +153,29 @@ fn flatten_content_recursive(
                     for (source_index, source) in flat_staff.sources.iter().cloned().enumerate() {
                         let mut split_staff = flat_staff.clone();
                         split_staff.sources = vec![source];
+                        if staff.label.is_none() {
+                            let display = &display_names[split_staff.sources[0].part_index];
+                            split_staff.label = flat_staff.label.as_ref().map(|_| {
+                                if staff.labelref.as_deref().or_else(|| {
+                                    staff
+                                        .sources
+                                        .iter()
+                                        .find_map(|source| source.labelref.as_deref())
+                                }) == Some("shortName")
+                                {
+                                    display.display_short_name.clone()
+                                } else {
+                                    display.display_name.clone()
+                                }
+                            });
+                            split_staff.short_label = flat_staff
+                                .short_label
+                                .as_ref()
+                                .map(|_| display.display_short_name.clone());
+                            split_staff.resolved_full_label = Some(display.display_name.clone());
+                            split_staff.resolved_short_label =
+                                Some(display.display_short_name.clone());
+                        }
                         split_staff.condensed_numbers = flat_staff
                             .condensed_numbers
                             .get(source_index)
@@ -222,15 +245,17 @@ fn condensed_labels(
         Some("shortName") => base_short.clone(),
         _ => None,
     });
-    let short_label = label.as_ref().and_then(|_| match label_ref {
-        Some("shortName") => base_short.clone(),
-        _ => base_short.clone(),
+    let short_label = staff.label.clone().or_else(|| {
+        label.as_ref().and_then(|_| match label_ref {
+            Some("shortName") => base_short.clone(),
+            _ => base_short.clone(),
+        })
     });
     ResolvedStaffLabels {
         label,
         short_label,
-        full_name: base_label,
-        short_name: base_short,
+        full_name: staff.label.clone().or(base_label),
+        short_name: staff.label.clone().or(base_short),
         condensed_numbers: numbers,
     }
 }
@@ -270,19 +295,21 @@ fn regular_labels(
                 })
             })
     });
-    let short_label = label.as_ref().and_then(|_| {
-        staff.sources.first().and_then(|source| {
-            part_id_map
-                .get(&source.part)
-                .map(|&index| display_names[index].display_short_name.clone())
+    let short_label = staff.label.clone().or_else(|| {
+        label.as_ref().and_then(|_| {
+            staff.sources.first().and_then(|source| {
+                part_id_map
+                    .get(&source.part)
+                    .map(|&index| display_names[index].display_short_name.clone())
+            })
         })
     });
     let (resolved_full_label, resolved_short_label) = resolved_names.unzip();
     ResolvedStaffLabels {
         label,
         short_label,
-        full_name: resolved_full_label,
-        short_name: resolved_short_label,
+        full_name: staff.label.clone().or(resolved_full_label),
+        short_name: staff.label.clone().or(resolved_short_label),
         condensed_numbers: Vec::new(),
     }
 }

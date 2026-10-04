@@ -87,7 +87,10 @@ pub(crate) fn render_text_expressions(
         // Fall back to linear interpolation if no matching event is found.
         let event_x = ml.voice_layouts.iter().find_map(|vl| {
             (0..vl.events.len())
-                .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
+                .find(|&i| {
+                    (vl.events.beat_position(i) - beat).abs() < 0.01
+                        && (!expr.instrument_reminder || !vl.events.event(i).is_rest())
+                })
                 .map(|i| vl.events.x(i))
         });
         // A position at or past the measure's own duration (e.g. `[1,1]` in a
@@ -98,9 +101,13 @@ pub(crate) fn render_text_expressions(
         // spilling left-anchored into (or past) the next measure.
         let right_aligned = event_x.is_none() && beat >= total_beats - 1e-6;
         let measure_right = x_origin + content_width;
+        let notehead_w = 1.18 * sp;
         // Left edge of the notehead — text is left-aligned with the note
         // (right edge of the measure for a barline-anchored instruction).
         let note_x = match event_x {
+            // A change reminder belongs after the final notehead, not at the
+            // onset of the following rest.
+            Some(ex) if expr.instrument_reminder => ex + notehead_w + 0.5 * sp,
             Some(ex) => ex,
             None if right_aligned => measure_right,
             None => {
@@ -116,7 +123,6 @@ pub(crate) fn render_text_expressions(
         // marks (e.g. Vln I m.136: an accented eighth at 3/4 had "arco" dragged
         // left off the chord). Following notes the text may overlap are a
         // vertical-stacking concern, handled later by the dependent solver.
-        let notehead_w = 1.18 * sp;
         // Real per-glyph advance widths (serif AFM table). The previous flat
         // 0.5 em/char estimate badly overshot the box for narrow strings like
         // "pizz." (i/./, are far narrower than 0.5 em), leaving the selection
@@ -126,9 +132,11 @@ pub(crate) fn render_text_expressions(
         let [off_x_sp, off_y_sp] = expr.manual_offset.unwrap_or([0.0, 0.0]);
         // Standard engraving practice: expression text sharing a rhythmic
         // position and side with a dynamic continues inline after that dynamic.
-        let inline_dynamic = dynamic_boxes
-            .iter()
-            .find(|dynamic| dynamic.above == is_above && (dynamic.beat - beat).abs() < 0.01);
+        let inline_dynamic = dynamic_boxes.iter().find(|dynamic| {
+            !expr.instrument_reminder
+                && dynamic.above == is_above
+                && (dynamic.beat - beat).abs() < 0.01
+        });
         let draw_x = inline_dynamic
             .map(|dynamic| dynamic.x1 + 0.5 * sp)
             .unwrap_or(note_x)

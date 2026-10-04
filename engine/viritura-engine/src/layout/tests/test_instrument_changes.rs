@@ -134,8 +134,20 @@ fn sounding_then_rest(value: &mut Value, measure: usize) {
     ]}]);
 }
 
+fn has_reminder(measure: &PartMeasure) -> bool {
+    reminder_expression(measure).is_some()
+}
+
+fn reminder_expression(measure: &PartMeasure) -> Option<&TextExpression> {
+    measure
+        .expressions
+        .iter()
+        .flatten()
+        .find(|expression| expression.instrument_reminder)
+}
+
 #[test]
-fn instrument_changes_reminders_anchor_release_and_are_independent() {
+fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
     let mut value = document();
     sounding_then_rest(&mut value, 0);
     set_reminder(
@@ -146,8 +158,8 @@ fn instrument_changes_reminders_anchor_release_and_are_independent() {
     );
     let score = parse(&value);
     let resolved = resolve_measures(&score, 0);
-    let expression = &resolved[0].part.expressions.as_ref().unwrap()[0];
-    assert_eq!(expression.position.fraction, (3, 8));
+    let expression = reminder_expression(&resolved[0].part).unwrap();
+    assert_eq!(expression.position.fraction, (0, 1));
     assert_eq!(expression.text.plain_text(), "To Flute");
     assert!(resolved[1].part.expressions.is_none());
     for display in [
@@ -170,7 +182,7 @@ fn instrument_changes_reminders_anchor_release_and_are_independent() {
         json!({"text":"Change now"}),
     );
     let resolved = resolve_measures(&parse(&value), 0);
-    assert!(resolved[0].part.expressions.is_none());
+    assert!(!has_reminder(&resolved[0].part));
     assert_eq!(
         resolved[1].part.expressions.as_ref().unwrap()[0]
             .text
@@ -180,22 +192,75 @@ fn instrument_changes_reminders_anchor_release_and_are_independent() {
 }
 
 #[test]
+fn instrument_changes_reminder_ink_follows_last_note_not_surrounding_rests() {
+    let mut value = document();
+    value["parts"][0]["measures"][0]["sequences"] = json!([
+        {"voice":"1","content":[
+            {"duration":{"base":"quarter"},"rest":{}},
+            {"duration":{"base":"quarter"},"notes":[{"pitch":{"step":"C","octave":4}}]},
+            {"duration":{"base":"half"},"rest":{}}
+        ]},
+        {"voice":"2","content":[{"duration":{"base":"whole"},"rest":{}}]}
+    ]);
+    set_reminder(
+        &mut value,
+        1,
+        json!({"text":"To clarinet in A"}),
+        json!({"hidden":true}),
+    );
+    let score = parse(&value);
+    let resolved = resolve_measures(&score, 0);
+    let expression = resolved[0]
+        .part
+        .expressions
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|expression| expression.instrument_reminder)
+        .unwrap();
+    assert_eq!(expression.position.fraction, (1, 4));
+    let config = LayoutConfig::default();
+    let ml = layout_measure(&resolved[0], config.sp, 0.0, &config, None, &[], 1.0);
+    let events = &ml.voice_layouts[0].events;
+    let note_x = events.x(1);
+    let rest_x = events.x(2);
+    let mut dl = DisplayList::new(800.0, 200.0);
+    crate::layout::render_annotations::render_text_expressions(
+        &mut dl,
+        &ml,
+        100.0,
+        config.sp,
+        &config,
+        &[],
+        &[],
+        None,
+    );
+    let text_x = dl
+        .commands
+        .iter()
+        .find_map(|command| match command {
+            RenderCommand::DrawText { text, x, .. } if text == "To clarinet in A" => Some(*x),
+            _ => None,
+        })
+        .unwrap();
+    assert!((text_x - note_x - 1.68 * config.sp).abs() < 1e-6);
+    assert!(text_x > note_x && text_x < rest_x);
+}
+
+#[test]
 fn instrument_changes_reminders_require_a_sounding_anchor_and_a_gap() {
     let mut value = document();
     set_reminder(&mut value, 1, json!({}), json!({"hidden":true}));
     assert!(resolve_measures(&parse(&value), 0)
         .iter()
-        .all(|m| m.part.expressions.is_none()));
+        .all(|m| !has_reminder(&m.part)));
     value["parts"][0]["measures"][0]["sequences"] =
         json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
     assert!(resolve_measures(&parse(&value), 0)
         .iter()
-        .all(|m| m.part.expressions.is_none()));
+        .all(|m| !has_reminder(&m.part)));
     set_reminder(&mut value, 0, json!({}), json!({"hidden":true}));
-    assert!(resolve_measures(&parse(&value), 0)[0]
-        .part
-        .expressions
-        .is_none());
+    assert!(!has_reminder(&resolve_measures(&parse(&value), 0)[0].part));
 }
 
 #[test]
@@ -222,18 +287,15 @@ fn instrument_changes_reminders_use_latest_polyphonic_release_and_tie_continuati
         json!({"hidden":true}),
     );
     let resolved = resolve_measures(&parse(&value), 0);
-    assert!(resolved[0].part.expressions.is_none());
-    let expression = &resolved[1].part.expressions.as_ref().unwrap()[0];
-    assert_eq!(expression.position.fraction, (1, 2));
+    assert!(!has_reminder(&resolved[0].part));
+    let expression = reminder_expression(&resolved[1].part).unwrap();
+    assert_eq!(expression.position.fraction, (0, 1));
     assert_eq!(expression.text.plain_text(), "Ready");
     // A tie extending beyond the declaration leaves no safe advance gap.
     value["parts"][0]["measures"][1]["sequences"][0]["content"][0]["notes"][0]["ties"] =
         json!([{"target":"c"}]);
     value["parts"][0]["measures"][2]["sequences"][0]["content"][0]["notes"][0]["id"] = json!("c");
-    assert!(resolve_measures(&parse(&value), 0)[1]
-        .part
-        .expressions
-        .is_none());
+    assert!(!has_reminder(&resolve_measures(&parse(&value), 0)[1].part));
 }
 
 #[test]
@@ -249,14 +311,11 @@ fn instrument_changes_reminders_resolve_tuplets_and_boundary_releases() {
     ]}]);
     set_reminder(&mut value, 1, json!({}), json!({"hidden":true}));
     assert_eq!(
-        resolve_measures(&parse(&value), 0)[0]
-            .part
-            .expressions
-            .as_ref()
-            .unwrap()[0]
+        reminder_expression(&resolve_measures(&parse(&value), 0)[0].part)
+            .unwrap()
             .position
             .fraction,
-        (1, 12)
+        (0, 1)
     );
     value["parts"][0]["measures"][0]["sequences"] =
         document()["parts"][0]["measures"][0]["sequences"].clone();
@@ -270,11 +329,8 @@ fn instrument_changes_reminders_resolve_tuplets_and_boundary_releases() {
     value["parts"][0]["measures"][2]["sequences"] =
         json!([{"content":[{"duration":{"base":"whole"},"rest":{}}]}]);
     assert_eq!(
-        resolve_measures(&parse(&value), 0)[1]
-            .part
-            .expressions
-            .as_ref()
-            .unwrap()[0]
+        reminder_expression(&resolve_measures(&parse(&value), 0)[0].part)
+            .unwrap()
             .position
             .fraction,
         (0, 1)
@@ -557,7 +613,7 @@ fn instrument_changes_transposition_label_replaces_old_authored_suffix() {
         json!({"viritura":{"instrumentChanges":[{"transposition":interval(7,4)}]}});
     let score = parse(&value);
     let names = crate::layout::page::resolve_part_display_names_at(&score.parts, 1);
-    assert_eq!(names[0].display_name, "Clarinet in F");
+    assert_eq!(names[0].display_name, "Clarinet in B♭\nClarinet in F");
 }
 
 #[test]
@@ -587,9 +643,8 @@ fn instrument_changes_reminder_anchor_interrupts_multimeasure_rests() {
     }
     set_reminder(&mut value, 3, json!({}), json!({"hidden":true}));
     let resolved = resolve_measures(&parse(&value), 0);
-    assert!(resolved[1].part.expressions.is_some());
-    assert!(crate::layout::resolve::starts_new_mmr_group(&resolved, 1));
-    assert!(crate::layout::resolve::starts_new_mmr_group(&resolved, 2));
+    assert!(resolved[0].part.expressions.is_some());
+    assert!(!crate::layout::resolve::starts_new_mmr_group(&resolved, 2));
     let config = LayoutConfig {
         multimeasure_rests: true,
         ..LayoutConfig::default()
@@ -619,12 +674,25 @@ fn instrument_changes_reminders_render_once_on_grand_staff_and_explicit_excerpts
     let upper = resolve_measures_for_staff(&score, 0, 1);
     let lower = resolve_measures_for_staff(&score, 0, 2);
     assert_eq!(
-        upper[0].part.expressions.as_ref().unwrap()[0]
+        lower[0]
+            .part
+            .expressions
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|expression| expression.instrument_reminder)
+            .unwrap()
             .position
             .fraction,
-        (3, 4)
+        (0, 1)
     );
-    assert!(lower[0].part.expressions.is_none());
+    assert!(!upper[0]
+        .part
+        .expressions
+        .as_ref()
+        .is_some_and(|expressions| expressions
+            .iter()
+            .any(|expression| expression.instrument_reminder)));
     assert_eq!(
         texts(&layout_score(&score, 0, &LayoutConfig::default()))
             .iter()
@@ -729,12 +797,13 @@ fn instrument_changes_cached_reminder_edits_and_release_moves_match_fresh_layout
     ));
     let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
     let resolved = resolve_measures(&score, 0);
-    assert!(resolved[0].part.expressions.is_none());
+    assert!(!has_reminder(&resolved[0].part));
     assert_eq!(
-        resolved[1].part.expressions.as_ref().unwrap()[0]
+        reminder_expression(&resolved[1].part)
+            .unwrap()
             .position
             .fraction,
-        (1, 4)
+        (0, 1)
     );
     assert_eq!(
         serde_json::to_value(cached).unwrap(),

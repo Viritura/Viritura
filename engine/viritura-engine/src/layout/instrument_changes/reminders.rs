@@ -1,5 +1,5 @@
-//! Automatic advance reminders follow the final sounding release, across
-//! voices and tied continuations, rather than the beginning of a rest.
+//! Advance reminders attach after the final sounding note, never to a rest.
+//! Releases across voices and ties determine whether there is time to change.
 
 use crate::model::*;
 use std::collections::HashMap;
@@ -7,6 +7,7 @@ use std::collections::HashMap;
 struct Sound {
     onset: Fraction,
     release: Fraction,
+    staff: u32,
     ids: Vec<String>,
     targets: Vec<String>,
 }
@@ -49,13 +50,14 @@ fn duration(value: &Duration) -> Option<Fraction> {
     )
 }
 
-fn sound(event: &Event, onset: Fraction, release: Fraction, sounds: &mut Vec<Sound>) {
+fn sound(event: &Event, onset: Fraction, release: Fraction, staff: u32, sounds: &mut Vec<Sound>) {
     if event.notes().is_empty() {
         return;
     }
     sounds.push(Sound {
         onset,
         release,
+        staff,
         ids: event
             .notes()
             .iter()
@@ -75,13 +77,14 @@ fn walk(
     content: &[SequenceContent],
     cursor: &mut Fraction,
     scale: Fraction,
+    staff: u32,
     sounds: &mut Vec<Sound>,
 ) -> Option<()> {
     for item in content {
         match item {
             SequenceContent::Event(event) => {
                 let release = add(*cursor, multiply(duration(&event.duration)?, scale)?)?;
-                sound(event, *cursor, release, sounds);
+                sound(event, *cursor, release, staff, sounds);
                 *cursor = release;
             }
             SequenceContent::Space(space) => {
@@ -106,7 +109,13 @@ fn walk(
                     return None;
                 }
                 let ratio = multiply(outer, Fraction::new(inner.den, inner.num))?;
-                walk(&tuplet.content, cursor, multiply(scale, ratio)?, sounds)?;
+                walk(
+                    &tuplet.content,
+                    cursor,
+                    multiply(scale, ratio)?,
+                    staff,
+                    sounds,
+                )?;
             }
             SequenceContent::MultiNoteTremolo(tremolo) => {
                 let span = multiply(
@@ -115,7 +124,7 @@ fn walk(
                 )?;
                 let release = add(*cursor, multiply(span, scale)?)?;
                 for event in &tremolo.content {
-                    sound(event, *cursor, release, sounds);
+                    sound(event, *cursor, release, staff, sounds);
                 }
                 *cursor = release;
             }
@@ -132,7 +141,7 @@ pub(super) fn anchor(
     part: &Part,
     index: usize,
     change: &InstrumentChange,
-) -> Option<(usize, RhythmicPosition)> {
+) -> Option<(usize, RhythmicPosition, u32)> {
     let times = effective_time_signature_table(&score.global.measures);
     let (meters, _) = resolve_staff_meter_table(&part.measures, &times);
     let mut starts = vec![Fraction::new(0, 1)];
@@ -157,7 +166,13 @@ pub(super) fn anchor(
                 .get(mi)
                 .and_then(|m| m.get(&sequence.staff.unwrap_or(1)))
                 .map_or(Fraction::new(1, 1), |meter| meter.ratio_to_global);
-            walk(&sequence.content, &mut cursor, scale, &mut sounds)?;
+            walk(
+                &sequence.content,
+                &mut cursor,
+                scale,
+                sequence.staff.unwrap_or(1),
+                &mut sounds,
+            )?;
         }
     }
     extend_ties(&mut sounds);
@@ -172,6 +187,18 @@ pub(super) fn anchor(
     if !before(release, boundary) {
         return None;
     }
+    let last = sounds
+        .iter()
+        .filter(|sound| before(sound.onset, boundary))
+        .max_by(|a, b| {
+            (u128::from(a.onset.num) * u128::from(b.onset.den))
+                .cmp(&(u128::from(b.onset.num) * u128::from(a.onset.den)))
+                .then_with(|| {
+                    (u128::from(a.release.num) * u128::from(b.release.den))
+                        .cmp(&(u128::from(b.release.num) * u128::from(a.release.den)))
+                })
+        })?;
+    let onset = last.onset;
 
     fn extend_ties(sounds: &mut [Sound]) {
         let ids: HashMap<_, _> = sounds
@@ -204,14 +231,14 @@ pub(super) fn anchor(
     let anchor_index = starts
         .iter()
         .take(times.len())
-        .rposition(|start| !before(release, *start))?;
+        .rposition(|start| !before(onset, *start))?;
     let start = starts[anchor_index];
     let local = Fraction::new(
-        release
+        onset
             .num
             .checked_mul(start.den)?
-            .checked_sub(start.num.checked_mul(release.den)?)?,
-        release.den.checked_mul(start.den)?,
+            .checked_sub(start.num.checked_mul(onset.den)?)?,
+        onset.den.checked_mul(start.den)?,
     );
     Some((
         anchor_index,
@@ -221,5 +248,6 @@ pub(super) fn anchor(
                 u32::try_from(local.den).ok()?,
             ),
         },
+        last.staff,
     ))
 }

@@ -21,6 +21,12 @@ pub(super) fn split_label_transposition(label: &str) -> (&str, Option<&str>) {
 
 /// Build final staff-label lines, merging condensed player numbers into transposing labels.
 pub(super) fn build_label_lines(label: &str, condensed_numbers: &[u32]) -> Vec<String> {
+    if label.contains('\n') {
+        return label
+            .lines()
+            .flat_map(|line| build_label_lines(line, condensed_numbers))
+            .collect();
+    }
     let (line1, line2) = split_label_transposition(label);
     if condensed_numbers.is_empty() {
         let mut lines = vec![line1.to_string()];

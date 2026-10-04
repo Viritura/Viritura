@@ -61,7 +61,28 @@ pub(super) fn compute_full_score_page_layout(
     let has_names = score.parts.iter().any(|part| !part.name.is_empty());
     let has_grand_staff = score.parts.iter().any(|part| part.staves >= 2);
     let brace_margin = if has_grand_staff { 2.0 * sp } else { 0.0 };
-    let label_margin = if has_names { 6.0 * sp } else { 0.0 };
+    let required_name_width = super::super::page::resolve_part_display_names(&score.parts)
+        .iter()
+        .filter(|info| info.display_name.contains('\n'))
+        .flat_map(|info| {
+            info.display_name
+                .lines()
+                .chain(info.display_short_name.lines())
+        })
+        .map(|line| {
+            crate::layout::text_styles::text_width(
+                line,
+                2.0 * sp,
+                crate::layout::text_styles::FontFamily::Serif,
+                false,
+            )
+        })
+        .fold(0.0_f64, f64::max);
+    let label_margin = if has_names {
+        (6.0 * sp).max(required_name_width + 2.0 * sp)
+    } else {
+        0.0
+    };
     let page_margin_l = if config.page_width.is_some() {
         config.page_margin_left * sp
     } else {

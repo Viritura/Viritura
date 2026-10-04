@@ -51,7 +51,7 @@ export interface InstrumentChange {
   transposition?: Transposition;
   instruction?: InstrumentChangeInstruction;
   /**
-   * Independent advance reminder after the preceding sounding release.
+   * Independent advance reminder attached just after the preceding sounding note.
    * Absent disables it; {} enables automatic text; hidden suppresses it.
    * No preceding sounding note or no resting gap means no reminder anchor.
    */

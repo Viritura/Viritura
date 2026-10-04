@@ -4,6 +4,9 @@ use super::{abbreviate_part_name, build_display_name, transposition_key_name};
 use crate::model::Part;
 use std::collections::HashMap;
 
+mod required_states;
+pub(crate) use required_states::initial_instruction as initial_instrument_instruction;
+
 /// Resolved display info for a part.
 pub(crate) struct PartDisplayInfo {
     pub display_name: String,
@@ -27,6 +30,24 @@ pub(crate) fn resolve_part_display_names_at(
     measure_index: usize,
 ) -> Vec<PartDisplayInfo> {
     let active_names = |p: &Part| {
+        let required = required_states::names(p);
+        if required.len() > 1 {
+            return (
+                required
+                    .iter()
+                    .map(|name| name.full.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                Some(
+                    required
+                        .iter()
+                        .map(|name| name.short.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                ),
+                None,
+            );
+        }
         let state = crate::model::ActiveInstrument::at(p, measure_index, (0, 1));
         let half_steps = state.transposition.map(|t| t.interval.half_steps);
         let default_half_steps = state
@@ -89,8 +110,15 @@ pub(crate) fn resolve_part_display_names_at(
             let base_name_str = build_display_name(&name, hs, None);
             let short_base = short_name.unwrap_or_else(|| abbreviate_part_name(&name));
             let base_short_name_str = build_display_name(&short_base, hs, None);
-            let display_name = build_display_name(&name, hs, number);
-            let display_short_name = build_display_name(&short_base, hs, number);
+            let numbered = |label: &str| {
+                label
+                    .split('\n')
+                    .map(|line| build_display_name(line, hs, number))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let display_name = numbered(&name);
+            let display_short_name = numbered(&short_base);
             PartDisplayInfo {
                 display_name,
                 display_short_name,

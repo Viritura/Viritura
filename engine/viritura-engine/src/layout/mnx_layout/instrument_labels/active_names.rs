@@ -36,11 +36,23 @@ pub(in crate::layout::mnx_layout) fn staves_at(
             }) {
                 result.label = Some(short.clone());
             }
-            if staff.short_label.is_some() {
+            if staff.short_label.as_ref().is_some_and(|label| {
+                label == &old.display_short_name || label == &old.base_short_name
+            }) {
                 result.short_label = Some(short.clone());
             }
-            result.resolved_full_label = Some(full.clone());
-            result.resolved_short_label = Some(short.clone());
+            if staff
+                .resolved_full_label
+                .as_ref()
+                .is_some_and(|label| label == &old.display_name || label == &old.base_name)
+            {
+                result.resolved_full_label = Some(full.clone());
+            }
+            if staff.resolved_short_label.as_ref().is_some_and(|label| {
+                label == &old.display_short_name || label == &old.base_short_name
+            }) {
+                result.resolved_short_label = Some(short.clone());
+            }
             result
         })
         .collect()

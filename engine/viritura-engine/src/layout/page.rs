@@ -9,7 +9,8 @@ mod instrument_names;
 mod packing;
 mod turn_sequence;
 pub(crate) use instrument_names::{
-    resolve_part_display_names, resolve_part_display_names_at, PartDisplayInfo,
+    initial_instrument_instruction, resolve_part_display_names, resolve_part_display_names_at,
+    PartDisplayInfo,
 };
 
 pub use packing::{

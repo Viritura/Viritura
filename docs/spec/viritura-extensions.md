@@ -1127,11 +1127,12 @@ at the declaration. Both defaults derive from the target instrument
 changes say, for example, `sounds C5 for written C4`), not numeric MNX
 interval counts.
 
-An enabled reminder automatically anchors **immediately after the last
-preceding sounding release**, so the player can use the following rest.
+An enabled reminder automatically attaches **just after the last preceding
+sounding notehead**, so the player can use the following rest. It stays
+attached to that note, never to a preceding or following rest or barline.
 Rests and invisible spaces are not sounding anchors. All voices and staves
 are considered, including tied continuations, dotted notes, and tuplets.
-The derived release can be fractional and in an earlier measure; it never
+The note anchor can be fractional and in an earlier measure; it never
 moves the authored bar-start declaration or changes the instrument timeline.
 If no previous sounding note exists, or its release leaves no gap before
 the change (including a tie sounding across it), the reminder is omitted:
@@ -1211,7 +1212,7 @@ edits preserve later instrument definitions and timed changes, including
 later returns to the old starting instrument.
 
 Written-pitch layout uses the active transposition for notes, accidentals,
-key signatures, harmony, and subsequent system labels. Concert-pitch layout
+key signatures, and harmony. Concert-pitch layout
 keeps sounding notation unless the active instrument prefers written pitches
 (for example piccolo). Authored/automatic change instructions participate in
 normal annotation placement; hidden instructions do not print. A change also
@@ -1219,6 +1220,24 @@ breaks a multimeasure rest so it remains visible.
 An enabled reminder's anchor also interrupts a multimeasure-rest group.
 Both labels use the normal centralized expression annotation, spacing,
 collision, and rendering paths.
+
+When a part actually uses multiple instrument identities or tunings, its
+automatic staff names list **all required states** in first-use order:
+full names on the first system and abbreviated names on later systems,
+including each tuning. Returning to the same instrument and interval does
+not repeat its entry; unused instrument definitions and unchanged-state
+reminders do not add entries. Octave differences remain distinct:
+B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
+**piccolo** / **alto**. Other octave-distinct tunings state the sounding
+pitch for written C4. Explicit author-supplied layout labels remain intact.
+
+Such a part also prints its initial full name and tuning above its first
+bar, independent of concert/written display. A first-bar instrument or
+transposition declaration supplies that bar's instruction instead, avoiding
+a duplicate automatic initial label. Parts without actual state changes
+retain their existing labels and do not acquire an initial instruction.
+These rules apply to direct part/full-score layout and MNX layout paths;
+they do not alter sounding notes, stored instrument state, or playback.
 
 Playback preloads the instruments used by the part and routes each note to
 the active sound at its authored position, including seeks and repeat
