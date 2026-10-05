@@ -10,7 +10,24 @@ use std::hash::{Hash, Hasher};
 
 mod reminders;
 
-pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff], salt: u64) -> u64 {
+pub(super) fn revalidate(
+    cache: &mut super::cache::LayoutCache,
+    score: &Score,
+    staves: &[super::full_score::FlatStaff],
+    dirty_region: &mut Option<super::cache::DirtyRegion>,
+) {
+    if cache.check_instrument_timeline(timeline_salt(score, staves, 0)) {
+        // A timeline edit changes written geometry beyond the patched bar.
+        // Revalidate every system by content hash instead of trusting locality.
+        *dirty_region = None;
+    }
+}
+
+pub(super) fn timeline_salt(
+    score: &Score,
+    staves: &[super::full_score::FlatStaff],
+    salt: u64,
+) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     salt.hash(&mut hasher);
     for source in staves.iter().flat_map(|staff| &staff.sources) {
@@ -26,6 +43,15 @@ pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff],
                 .unwrap_or_default()
                 .hash(&mut hasher);
         }
+    }
+    hasher.finish()
+}
+
+pub(super) fn state_salt(score: &Score, staves: &[super::full_score::FlatStaff], salt: u64) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    timeline_salt(score, staves, salt).hash(&mut hasher);
+    for source in staves.iter().flat_map(|staff| &staff.sources) {
+        let part = &score.parts[source.part_index];
         if part.measures.iter().any(|measure| {
             measure.instrument_changes.iter().flatten().any(|change| {
                 change

@@ -85,7 +85,6 @@ pub(super) fn layout_auto_flow_mnx_score(
     if let Some(region) = dirty_region.as_mut() {
         resolve_dirty_flat_staves(region, flat_staves);
     }
-    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // P1 plumbing: `dirty_range` is the range carried forward from
     // `apply_patch_and_layout_*` (taken from the cache + cleared by the
@@ -101,7 +100,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // no-op after this (config_hash already matches).
     if let Some(ref mut c) = cache {
         c.check_config(config);
+        super::super::instrument_changes::revalidate(c, score, flat_staves, &mut dirty_region);
     }
+    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // Env-gated phase timing probe (no-op unless VIRITURA_LAYOUT_TIMING is set).
     // NOTE: `Instant::now()` panics on wasm32-unknown-unknown ("time not

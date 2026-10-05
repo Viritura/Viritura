@@ -1252,6 +1252,12 @@ retain their existing labels and do not acquire an initial instruction.
 These rules apply to direct part/full-score layout and MNX layout paths;
 they do not alter sounding notes, stored instrument state, or playback.
 
+Editing an instrument/transposition timeline revalidates cached layout
+throughout the displayed part, including subsequent systems. Local-bar
+cache shortcuts apply only while the timeline is unchanged; inserting,
+editing, or removing a declaration must update later written pitches and
+signatures without requiring a view-mode switch.
+
 Playback preloads the instruments used by the part and routes each note to
 the active sound at its authored position, including seeks and repeat
 playback. Transposition-only changes never shift sounding MIDI pitches.

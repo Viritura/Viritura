@@ -908,6 +908,70 @@ fn instrument_changes_reminders_do_not_change_authored_expression_rest_boundarie
 }
 
 #[test]
+fn instrument_changes_cached_return_to_original_tuning_updates_later_systems() {
+    for system_reuse in [false, true] {
+        let mut value = document();
+        let measure = value["parts"][0]["measures"][0].clone();
+        value["parts"][0]["measures"] = json!(vec![measure; 24]);
+        value["global"]["measures"] = json!((0..24)
+            .map(|index| {
+                if index == 0 {
+                    json!({"id":"m1","time":{"count":4,"unit":4},"key":{"fifths":-3}})
+                } else {
+                    json!({"id":format!("m{}", index + 1)})
+                }
+            })
+            .collect::<Vec<_>>());
+        value["parts"][0]["measures"][4]["_x"] =
+            json!({"viritura":{"instrumentChanges":[{"transposition":interval(0,0)}]}});
+        add_other_staff(&mut value);
+        value["scores"][0]["_x"]["viritura"]["layoutBreaks"] =
+            json!([{"measure":"m9","kind":"system"},{"measure":"m17","kind":"system"}]);
+        let config = LayoutConfig {
+            page_width: Some(1400.0),
+            ..LayoutConfig::default()
+        };
+        let mut cache = crate::layout::cache::LayoutCache::new();
+        cache.set_range_scope(crate::layout::cache::RangeScope {
+            scoped_resolve: true,
+            scoped_precompute: true,
+            ..Default::default()
+        });
+        cache.set_system_layout_reuse_enabled(system_reuse);
+        cache.set_patch_frame_enabled(true);
+        let score = parse(&value);
+        crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let initial_patch = cache.take_pending_patch().expect("initial auto-flow patch");
+        let (_, mut segments) = super::test_patch_frame::reconstruct(&initial_patch, &[]);
+        for target in [Some((2, 1)), Some((3, 2)), None, Some((2, 1))] {
+            if let Some((half_steps, staff_distance)) = target {
+                value["parts"][0]["measures"][10]["_x"] = json!({"viritura":{
+                    "instrumentChanges":[{"transposition":interval(half_steps,staff_distance)}]
+                }});
+            } else {
+                value["parts"][0]["measures"][10]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("_x");
+            }
+            let score = parse(&value);
+            cache.set_pending_dirty_region(Some(
+                crate::layout::cache::DirtyRegion::local_part_measures(10, 10, vec![true, false]),
+            ));
+            crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+            let patch = cache.take_pending_patch().expect("edited auto-flow patch");
+            let (cached, next_segments) = super::test_patch_frame::reconstruct(&patch, &segments);
+            segments = next_segments;
+            let fresh = layout_with_mnx_scores(&score, &config, 0);
+            assert!(
+                serde_json::to_value(cached).unwrap() == serde_json::to_value(fresh).unwrap(),
+                "timeline insertion/edit/removal must update later systems; target={target:?}, system reuse={system_reuse}"
+            );
+        }
+    }
+}
+
+#[test]
 fn instrument_changes_cached_reminder_edits_and_release_moves_match_fresh_layout() {
     let mut value = document();
     add_other_staff(&mut value);
