@@ -1190,9 +1190,16 @@ context menu, or the Jump Bar. These commands insert or edit the change at
 the **start** of the selected bar; they do not transpose the sounding notes
 or replace the whole part. Changes persist until another declaration.
 
-**Change instrument** uses the selected catalog instrument's default
-transposition and clefs. **Change transposition** keeps the instrument and
-can override its default, including an explicit zero interval. The sign
+**Change instrument** starts with the selected catalog instrument's default
+transposition and clefs. Its optional **Customize tuning** section offers
+instrument-aware presets and exact sounding pitch/octave controls before
+applying the instrument and tuning together in one score update. Selecting
+a different instrument resets tuning to that instrument's default;
+**Use instrument default** removes a custom override. Reopening an existing
+override preserves it and opens the tuning section.
+**Change transposition** is a shortcut into the same tuning section, keeping
+instrument identity unless another instrument is explicitly selected.
+It can override the default, including an explicit zero interval. The sign
 convention is MNX's **concert-to-written** interval: B-flat clarinet is
 `+2` semitones / `+1` staff step; piccolo is `-12` / `-7`.
 The controls present this musically as the sounding pitch corresponding to
@@ -1212,7 +1219,9 @@ the bar start, preserving later-positioned staff changes. Removing it
 restores the previous instrument's catalog defaults there.
 
 Setup's **Change instrument** still replaces the starting instrument for the
-whole part; its transposition fields edit the starting transposition. These
+whole part; its **Customize tuning** section edits the starting transposition.
+Catalog-default tuning is summarized before opening those optional controls.
+These
 edits preserve later instrument definitions and timed changes, including
 later returns to the old starting instrument.
 

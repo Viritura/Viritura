@@ -1,4 +1,16 @@
 import type { Part } from "@viritura/core";
+import { buildPartTransposition, type CatalogInstrument } from "../../../score/InstrumentCatalog";
+
+export function hasCustomTuning(part: Part, instrument: CatalogInstrument | undefined): boolean {
+  const tuning = instrument?.transposition && buildPartTransposition(instrument.transposition);
+  const current = partEditBuffersFor(part);
+  return (
+    current.chromatic !== (tuning?.interval.halfSteps ?? 0) ||
+    current.staffDistance !== (tuning?.interval.staffDistance ?? 0) ||
+    current.keyFifthsFlipAt !== (tuning?.keyFifthsFlipAt ?? "") ||
+    current.prefersWritten !== (tuning?.prefersWrittenPitches ?? false)
+  );
+}
 
 export type PartUpdate = Partial<
   Pick<Part, "name" | "shortName" | "staves" | "transposition" | "chordSymbolVisibility">

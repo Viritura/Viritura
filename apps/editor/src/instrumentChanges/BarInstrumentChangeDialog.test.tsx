@@ -1,13 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
-import type { Score } from "@viritura/core";
+import { resolveActiveInstrument, type Score } from "@viritura/core";
 import * as TooltipPrimitives from "@radix-ui/react-tooltip";
 import { createDocumentStore } from "../store/documentStore";
 import { BarInstrumentChangeDialogHost } from "./index";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+afterEach(cleanup);
 
 const selection = {
   kind: "measure",
@@ -55,6 +56,64 @@ function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
 }
 
 describe("bar change dialog", () => {
+  it("starts with the instrument default and lets tuning be customized in the same save", () => {
+    const { updateScore } = setup("instrument");
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });
+    fireEvent.click(screen.getByText("Piccolo"));
+    expect(screen.getByText(/Piccolo: written C4 sounds as C5/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Customize tuning" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Sounding octave" }), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore).toHaveBeenCalledOnce();
+    const score = updateScore.mock.calls[0]![0];
+    const change = score.parts[0]!.measures[1]!.instrumentChanges?.[0];
+    expect(change?.instrument).toBe("wind.flutes.flute.piccolo");
+    expect(change?.transposition).toEqual({
+      interval: { halfSteps: -24, staffDistance: -14 },
+      prefersWrittenPitches: true,
+    });
+    expect(resolveActiveInstrument(score.parts[0]!, 1).instrument?.instrumentId).toBe("wind.flutes.flute.piccolo");
+    expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
+  });
+
+  it("resets custom tuning when a different instrument is selected", () => {
+    const { updateScore } = setup("instrument");
+    fireEvent.click(screen.getByRole("button", { name: "Customize tuning" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Sounding octave" }), { target: { value: "2" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });
+    fireEvent.click(screen.getByText("Piccolo"));
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    const score = updateScore.mock.calls[0]![0];
+    expect(score.parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toBeUndefined();
+    expect(resolveActiveInstrument(score.parts[0]!, 1).transposition).toEqual({
+      interval: { halfSteps: -12, staffDistance: -7 },
+      prefersWrittenPitches: true,
+    });
+  });
+
+  it("preserves an existing tuning override when reopened through Change instrument", () => {
+    const { updateScore } = setup("instrument", [{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toEqual({
+      interval: { halfSteps: 3, staffDistance: 2 },
+    });
+  });
+
+  it("allows returning to the instrument default without retaining a previous override", () => {
+    const { updateScore } = setup("instrument", [{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
+    fireEvent.click(screen.getByRole("button", { name: "Use instrument default" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toBeUndefined();
+  });
+
+  it("opens the same tuning controls directly through the transposition shortcut", () => {
+    setup("transposition");
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Instrument" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("combobox", { name: "Sounding pitch" })).toBeTruthy();
+  });
   it("inserts an instrument change in the selected bar, not a whole-part replacement", () => {
     const { updateScore, onClose } = setup("instrument");
     fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Part, Score, Transposition } from "@viritura/core";
 import {
   Checkbox,
+  Button,
   Collapsible,
   Dialog,
   DialogActions,
@@ -20,7 +21,8 @@ import { closeDialog, useDialogStore } from "../store/dialogStore";
 import { initialBarChangeFields, changeInstruction, changeReminder, numberFieldValue } from "./dialogFields";
 import { ChangeLabelFields } from "./ChangeLabelFields";
 import { InstrumentCatalogPicker } from "../components/parts/InstrumentCatalogPicker";
-import { TranspositionPitchFields } from "../components/parts/transpositionPitch";
+import { TranspositionPitchFields, soundingPitchLabel } from "../components/parts/transpositionPitch";
+import { buildPartTransposition, getCatalogInstrument, type CatalogInstrument } from "../score/InstrumentCatalog";
 import { buildTransposition } from "../components/parts/roster/transposition";
 import {
   instrumentChangeCompatibility,
@@ -95,7 +97,7 @@ interface FormProps extends HostProps {
 }
 
 function BarChangeForm({ mode, onClose, store, updateScore, target, part }: FormProps) {
-  const initial = initialBarChangeFields(part, target.measureIndex);
+  const initial = initialBarChangeFields(part, target.measureIndex, mode);
   const { change } = initial;
   const [instrumentId, setInstrumentId] = useState(initial.instrumentId);
   const [halfSteps, setHalfSteps] = useState(initial.halfSteps);
@@ -107,9 +109,21 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
   const [reminderText, setReminderText] = useState(initial.reminderText);
   const [reminderEnabled, setReminderEnabled] = useState(initial.reminderEnabled);
   const [error, setError] = useState<string>();
+  const [instrumentChanged, setInstrumentChanged] = useState(false);
+  const [tuningOverride, setTuningOverride] = useState(!!change?.transposition);
+  const [tuningOpen, setTuningOpen] = useState(mode === "transposition" || !!change?.transposition);
   const instruction = changeInstruction(text, hidden);
   const reminder = changeReminder(reminderText, reminderEnabled);
   const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
+
+  function resetDefaultTuning(instrument: CatalogInstrument): void {
+    const tuning = instrument.transposition && buildPartTransposition(instrument.transposition);
+    setHalfSteps(tuning?.interval.halfSteps ?? 0);
+    setStaffDistance(tuning?.interval.staffDistance ?? 0);
+    setFlipAt(tuning?.keyFifthsFlipAt ?? "");
+    setPrefersWritten(tuning?.prefersWrittenPitches ?? false);
+    setTuningOverride(false);
+  }
 
   function finish(result: BarChangeResult): void {
     if (result.error) {
@@ -128,18 +142,23 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
       setError("The selected part no longer exists.");
       return;
     }
-    if (mode === "instrument") {
-      finish(setBarInstrument(score, target, instrumentId, instruction, reminder));
-    } else {
-      if (!validNumbers) {
-        setError("Enter a whole number for the key signature flip threshold, or leave it blank.");
-        return;
-      }
+    const switching = mode === "instrument" || instrumentChanged;
+    const customizing = mode === "transposition" || tuningOverride;
+    if (customizing && !validNumbers) {
+      setError("Enter a whole number for the key signature flip threshold, or leave it blank.");
+      return;
+    }
+    const result = switching ? setBarInstrument(score, target, instrumentId, instruction, reminder) : { score };
+    if (result.error) {
+      finish(result);
+      return;
+    }
+    if (customizing) {
       const transposition: Transposition = buildTransposition(halfSteps, staffDistance, flipAt, prefersWritten) ?? {
         interval: { halfSteps: 0, staffDistance: 0 },
       };
-      finish(setBarTransposition(score, target, transposition, instruction, reminder));
-    }
+      finish(setBarTransposition(result.score, target, transposition, instruction, reminder));
+    } else finish(result);
   }
 
   return (
@@ -152,53 +171,75 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
           </strong>
         </p>
         <p>Applies from the start of this bar until the next change. Sounding notes are preserved.</p>
-        {mode === "instrument" ? (
-          <>
-            <InstrumentCatalogPicker
-              autoFocus
-              selectedInstrumentId={instrumentId}
-              onSelect={(instrument) => setInstrumentId(instrument.id)}
-              onBlockedSelect={(_instrument, analysis) => setError(analysis.message)}
-              compatibility={(instrument) => {
-                const message = instrumentChangeCompatibility(part, instrument);
-                return {
-                  status: message ? "blocked" : "compatible",
-                  message: message ?? "Use this instrument from this bar onward.",
-                };
-              }}
-            />
-            <p>
-              The instrument&apos;s default transposition and clefs apply. Edit transposition separately to override it.
-            </p>
-          </>
-        ) : (
+        <Collapsible title="Instrument" defaultOpen={mode === "instrument"}>
+          <InstrumentCatalogPicker
+            autoFocus
+            selectedInstrumentId={instrumentId}
+            onSelect={(instrument) => {
+              setInstrumentId(instrument.id);
+              setInstrumentChanged(true);
+              resetDefaultTuning(instrument);
+              setTuningOpen(false);
+              setError(undefined);
+            }}
+            onBlockedSelect={(_instrument, analysis) => setError(analysis.message)}
+            compatibility={(instrument) => {
+              const message = instrumentChangeCompatibility(part, instrument);
+              return {
+                status: message ? "blocked" : "compatible",
+                message: message ?? "Use this instrument from this bar onward.",
+              };
+            }}
+          />
+        </Collapsible>
+        <p>
+          {getCatalogInstrument(instrumentId)?.name ?? part.name}: written C4 sounds as{" "}
+          {soundingPitchLabel(halfSteps, staffDistance)}. Selecting an instrument applies its default tuning and clefs.
+        </p>
+        <Collapsible title="Customize tuning" open={tuningOpen} onOpenChange={setTuningOpen}>
           <div className={styles.fields}>
             <TranspositionPitchFields
-              instrumentId={initial.instrumentId}
+              instrumentId={instrumentId}
               halfSteps={halfSteps}
               staffDistance={staffDistance}
               onChange={(chromatic, diatonic) => {
                 setHalfSteps(chromatic);
                 setStaffDistance(diatonic);
+                setTuningOverride(true);
               }}
             />
+            <Button
+              onClick={() => {
+                const instrument = getCatalogInstrument(instrumentId);
+                if (instrument) resetDefaultTuning(instrument);
+              }}
+              disabled={!getCatalogInstrument(instrumentId)}
+            >
+              Use instrument default
+            </Button>
             <Collapsible title="Notation options">
               <FormField label="Key signature flip threshold">
                 <FormInput
                   type="number"
                   value={flipAt}
                   placeholder="No enharmonic flip"
-                  onChange={(event) => setFlipAt(numberFieldValue(event.target.value))}
+                  onChange={(event) => {
+                    setFlipAt(numberFieldValue(event.target.value));
+                    setTuningOverride(true);
+                  }}
                 />
               </FormField>
               <Checkbox
                 label="Display written pitches even in concert-pitch scores"
                 checked={prefersWritten}
-                onChange={(event) => setPrefersWritten(event.target.checked)}
+                onChange={(event) => {
+                  setPrefersWritten(event.target.checked);
+                  setTuningOverride(true);
+                }}
               />
             </Collapsible>
           </div>
-        )}
+        </Collapsible>
         <ChangeLabelFields
           text={text}
           hidden={hidden}
@@ -228,7 +269,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
         <DialogCancelButton />
         <DialogPrimaryButton
           onClick={apply}
-          disabled={mode === "instrument" ? !instrumentId : !validNumbers || !!part.kit}
+          disabled={!validNumbers || !!part.kit || ((mode === "instrument" || instrumentChanged) && !instrumentId)}
         >
           Apply change
         </DialogPrimaryButton>

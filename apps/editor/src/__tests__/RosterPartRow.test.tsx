@@ -13,6 +13,41 @@ const PART: Part = {
 };
 
 describe("RosterPartRow", () => {
+  it("summarizes catalog-default tuning and reveals optional customization", () => {
+    render(
+      <TooltipPrimitives.Provider>
+        <RosterPartRow
+          part={{ ...PART, _x: { viritura: { instrumentId: "wind.flutes.flute" } } }}
+          expanded
+          onToggle={() => {}}
+        />
+      </TooltipPrimitives.Provider>,
+    );
+    expect(screen.getByText("Written C4 sounds as C4.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("combobox", { name: "Sounding pitch" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Customize tuning" }));
+    expect(screen.getByRole("combobox", { name: "Sounding pitch" })).toBeTruthy();
+  });
+
+  it("opens customization automatically for a non-default starting tuning", () => {
+    render(
+      <TooltipPrimitives.Provider>
+        <RosterPartRow
+          part={{
+            ...PART,
+            _x: { viritura: { instrumentId: "wind.flutes.flute" } },
+            transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+          }}
+          expanded
+          onToggle={() => {}}
+        />
+      </TooltipPrimitives.Provider>,
+    );
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("combobox", { name: "Sounding pitch" }).textContent).toBe("B♭");
+  });
+
   it("keeps editable properties in the expanded row without command actions", () => {
     const onContextMenu = vi.fn();
     render(

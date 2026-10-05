@@ -94,3 +94,6 @@ export const ChangeTransposition: StoryObj = { render: () => <BarChangeStory mod
 export const HornTuningAndReminders: StoryObj = {
   render: () => <BarChangeStory mode="transposition" initialScore={HORN_SCORE} />,
 };
+export const InstrumentWithExistingCustomTuning: StoryObj = {
+  render: () => <BarChangeStory mode="instrument" initialScore={HORN_SCORE} />,
+};
