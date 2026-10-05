@@ -17,3 +17,30 @@
   line-height: var(--type-small-lh);
   overflow-wrap: anywhere;
 }
+
+.previews {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.preview {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.preview figcaption {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--type-small-size);
+  color: var(--text-muted);
+}
+
+@media (max-width: 520px) {
+  .previews {
+    grid-template-columns: 1fr;
+  }
+}

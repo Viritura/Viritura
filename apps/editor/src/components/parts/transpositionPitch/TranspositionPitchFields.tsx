@@ -1,7 +1,6 @@
 import { FormField, FormInput, Select } from "@viritura/ui";
 import {
   intervalForSoundingPitch,
-  PITCH_LETTERS,
   pitchSpelling,
   soundingPitchFor,
   soundingPitchLabel,
@@ -17,12 +16,29 @@ export interface TranspositionPitchFieldsProps {
   onChange: (halfSteps: number, staffDistance: number) => void;
 }
 
-const SPELLINGS = PITCH_LETTERS.flatMap((letter) =>
-  [-2, -1, 0, 1, 2].map((accidental) => ({
-    value: `${letter}:${accidental}`,
-    label: pitchSpelling({ letter, accidental }),
-  })),
-);
+const COMMON_SPELLINGS: readonly Pick<SoundingPitch, "letter" | "accidental">[] = [
+  { letter: "C", accidental: 0 },
+  { letter: "C", accidental: 1 },
+  { letter: "D", accidental: -1 },
+  { letter: "D", accidental: 0 },
+  { letter: "D", accidental: 1 },
+  { letter: "E", accidental: -1 },
+  { letter: "E", accidental: 0 },
+  { letter: "F", accidental: 0 },
+  { letter: "F", accidental: 1 },
+  { letter: "G", accidental: -1 },
+  { letter: "G", accidental: 0 },
+  { letter: "G", accidental: 1 },
+  { letter: "A", accidental: -1 },
+  { letter: "A", accidental: 0 },
+  { letter: "A", accidental: 1 },
+  { letter: "B", accidental: -1 },
+  { letter: "B", accidental: 0 },
+];
+const SPELLINGS = COMMON_SPELLINGS.map(({ letter, accidental }) => ({
+  value: `${letter}:${accidental}`,
+  label: pitchSpelling({ letter, accidental }),
+}));
 
 export function TranspositionPitchFields({
   instrumentId,
@@ -54,7 +70,11 @@ export function TranspositionPitchFields({
         <Select
           value={selected?.id ?? "custom"}
           options={[
-            ...presets.map((preset) => ({ value: preset.id, label: preset.label })),
+            ...presets.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+              badge: preset.isDefault ? "Default" : undefined,
+            })),
             { value: "custom", label: "Custom pitch", disabled: true },
           ]}
           onValueChange={(id) => {

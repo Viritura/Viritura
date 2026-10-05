@@ -44,6 +44,30 @@ const doublingExt = {
 };
 
 describe("instrument-change extensions", () => {
+  it("round-trips house-style defaults and explicit per-instance visibility", () => {
+    const source = {
+      ...scoreWithInstrumentChanges({
+        changes: [
+          [
+            {
+              transposition: HORN_F,
+              instruction: { hidden: false, text: "Horn in F" },
+              reminder: { hidden: true },
+            },
+          ],
+        ],
+      }),
+      _x: { viritura: { instrumentChangeStyle: { showChangeLabel: false, showAdvanceReminder: true } } },
+    };
+    expect(validateRawScore(source).ok).toBe(true);
+    const parsed = parseMnx(source);
+    expect(parsed.instrumentChangeStyle).toEqual({ showChangeLabel: false, showAdvanceReminder: true });
+    expect(serializeMnx(parsed)).toMatchObject(source);
+    expect(
+      validateRawScore({ ...source, _x: { viritura: { instrumentChangeStyle: { showChangeLabel: "yes" } } } }).ok,
+    ).toBe(false);
+  });
+
   it.each([undefined, {}, { text: "Prepare piccolo", hidden: false }, { hidden: true }])(
     "round-trips independent advance reminder %j",
     (reminder) => {

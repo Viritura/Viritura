@@ -19,6 +19,12 @@
 import type { RhythmicPosition } from "./measure";
 import type { Part, Transposition } from "./part";
 
+/** Score-wide defaults; per-change `hidden` overrides either value. */
+export interface InstrumentChangeStyle {
+  showChangeLabel?: boolean;
+  showAdvanceReminder?: boolean;
+}
+
 /** One instrument a part can play. */
 export interface InstrumentDefinition {
   /** MusicXML standard sound ID (e.g. "wind.flutes.flute.piccolo"). */
@@ -37,7 +43,7 @@ export interface InstrumentDefinition {
 export interface InstrumentChangeInstruction {
   /** Literal text overriding the derived instruction ("To Picc.", "in E♭"). */
   text?: string;
-  /** Suppress the printed instruction. */
+  /** Override house-style visibility: true hides, false shows, absent inherits. */
   hidden?: boolean;
 }
 
@@ -52,7 +58,7 @@ export interface InstrumentChange {
   instruction?: InstrumentChangeInstruction;
   /**
    * Independent advance reminder attached just after the preceding sounding note.
-   * Absent or {} uses automatic text; hidden explicitly suppresses it.
+   * Absent or {} inherits house style with automatic text.
    * No preceding sounding note or no resting gap means no reminder anchor.
    */
   reminder?: InstrumentChangeInstruction;

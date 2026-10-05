@@ -86,3 +86,13 @@ export const ChangeInstrumentOrTuning: StoryObj = { render: () => <BarChangeStor
 export const HornTuningAndReminders: StoryObj = {
   render: () => <BarChangeStory initialScore={HORN_SCORE} />,
 };
+export const HouseStyleHiddenLabels: StoryObj = {
+  render: () => (
+    <BarChangeStory
+      initialScore={{
+        ...HORN_SCORE,
+        instrumentChangeStyle: { showChangeLabel: false, showAdvanceReminder: false },
+      }}
+    />
+  ),
+};

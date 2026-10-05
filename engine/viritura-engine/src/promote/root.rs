@@ -88,8 +88,12 @@ fn promote_global(
     })
 }
 
-fn promote_root_vendor(x: Option<&raw::VendorExtensions>) -> Option<ModelRootVendorExtension> {
-    let json = read_viritura_ext(x)?;
+fn promote_root_vendor(
+    x: Option<&raw::VendorExtensions>,
+) -> Result<Option<ModelRootVendorExtension>, PromoteError> {
+    let Some(json) = read_viritura_ext(x) else {
+        return Ok(None);
+    };
     let metadata = json
         .get("metadata")
         .cloned()
@@ -104,23 +108,38 @@ fn promote_root_vendor(x: Option<&raw::VendorExtensions>) -> Option<ModelRootVen
         .get("chordSymbolStyle")
         .cloned()
         .and_then(|v| serde_json::from_value::<ModelChordSymbolStyle>(v).ok());
+    let instrument_change_style = json
+        .get("instrumentChangeStyle")
+        .cloned()
+        .map(|v| {
+            serde_json::from_value::<crate::model::score::InstrumentChangeStyle>(v).map_err(
+                |error| {
+                    PromoteError::UnsupportedInstrumentChange(format!(
+                        "instrumentChangeStyle: {error}"
+                    ))
+                },
+            )
+        })
+        .transpose()?;
     if metadata.is_none()
         && text_styles.is_none()
         && placement.is_none()
         && time_signatures.is_none()
         && chord_symbol_style.is_none()
+        && instrument_change_style.is_none()
     {
-        return None;
+        return Ok(None);
     }
-    Some(ModelRootVendorExtension {
+    Ok(Some(ModelRootVendorExtension {
         viritura: Some(ModelRootVirituraExtension {
             metadata,
             text_styles,
             placement,
             time_signatures,
             chord_symbol_style,
+            instrument_change_style,
         }),
-    })
+    }))
 }
 
 /// Convert a full MNX document JSON value into a [`ModelScore`].
@@ -176,7 +195,7 @@ pub fn promote_root(root_json: serde_json::Value) -> Result<ModelScore, PromoteE
         .map(promote_score_definition)
         .collect();
 
-    let vendor_ext = promote_root_vendor(raw_root.x.as_ref());
+    let vendor_ext = promote_root_vendor(raw_root.x.as_ref())?;
 
     Ok(ModelScore {
         mnx,
@@ -355,6 +374,7 @@ mod tests {
             placement: Some(serde_json::json!({})),
             time_signatures: Some(ModelTimeSignatureStyles::default()),
             chord_symbol_style: Some(ModelChordSymbolStyle::default()),
+            instrument_change_style: Some(crate::model::score::InstrumentChangeStyle::default()),
         };
         for key in serialized_keys(&model) {
             assert!(

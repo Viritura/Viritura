@@ -24,10 +24,14 @@ function WithScore({ children }: { readonly children: ReactNode }) {
   const loaded = useDocumentStore((state) => state.score !== null);
   const pageTurns = useDocumentStore((state) => state.score?.scores?.[0]?.pageSetup?.pageTurns);
   const chordSymbols = useDocumentStore((state) => state.score?.chordSymbolStyle);
+  const instrumentChanges = useDocumentStore((state) => state.score?.instrumentChangeStyle);
   useEffect(() => loadScore(SCORE, "house-style-test.mnx"), [loadScore]);
   return loaded ? (
     <>
       {children}
+      <output hidden data-testid="stored-instrument-changes">
+        {JSON.stringify(instrumentChanges)}
+      </output>
       <output hidden data-testid="stored-page-turns">
         {JSON.stringify(pageTurns)}
       </output>
@@ -51,6 +55,21 @@ function renderPanel() {
 }
 
 describe("HouseStylePanel", () => {
+  it("persists score-wide instrument-change visibility defaults", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(await screen.findByRole("button", { name: /Instrument Changes/ }));
+    const label = screen.getByRole("checkbox", { name: "Show label at change" });
+    const reminder = screen.getByRole("checkbox", { name: "Show advance reminder" });
+    expect(label).toHaveProperty("checked", true);
+    expect(reminder).toHaveProperty("checked", true);
+    await user.click(label);
+    await user.click(reminder);
+    expect(screen.getByTestId("stored-instrument-changes").textContent).toBe(
+      '{"showChangeLabel":false,"showAdvanceReminder":false}',
+    );
+  });
+
   it("is the only navigation home for score text styles", () => {
     expect(availableCategories().some((category) => category.id === "text-styles")).toBe(false);
   });

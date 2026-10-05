@@ -8,6 +8,11 @@ import { createDocumentStore } from "../store/documentStore";
 import { BarInstrumentChangeDialogHost } from "./index";
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("@viritura/score-viewer-react", () => ({
+  ScoreView: ({ scoreIndex }: { scoreIndex: number }) => (
+    <canvas aria-label={scoreIndex === 0 ? "Concert pitch preview" : "Written pitch preview"} />
+  ),
+}));
 afterEach(cleanup);
 
 const selection = {
@@ -20,9 +25,10 @@ const selection = {
   endMeasure: 1,
 } as const;
 
-function setup(changes?: unknown[], transposition?: Transposition) {
+function setup(changes?: unknown[], transposition?: Transposition, houseStyle?: Score["instrumentChangeStyle"]) {
   const score = parseMnx({
     mnx: { version: 1 },
+    ...(houseStyle ? { _x: { viritura: { instrumentChangeStyle: houseStyle } } } : {}),
     global: { measures: [{ time: { count: 4, unit: 4 } }, {}] },
     parts: [
       {
@@ -56,6 +62,46 @@ function setup(changes?: unknown[], transposition?: Transposition) {
 }
 
 describe("bar change dialog", () => {
+  it("inherits house-style visibility and persists explicit Show overrides separately from text", async () => {
+    const user = userEvent.setup();
+    const { updateScore } = setup(undefined, undefined, { showChangeLabel: false, showAdvanceReminder: false });
+    expect(screen.getByRole("textbox", { name: "Change label text" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("textbox", { name: "Advance reminder text" })).toHaveProperty("disabled", true);
+    for (const name of ["Label at change", "Advance reminder"]) {
+      await user.click(screen.getByRole("combobox", { name }));
+      await user.click(screen.getByRole("option", { name: "Show", exact: true }));
+    }
+    fireEvent.change(screen.getByRole("textbox", { name: "Change label text" }), {
+      target: { value: "Custom change" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    const score = updateScore.mock.calls[0]![0];
+    expect(score.parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
+      instruction: { text: "Custom change", hidden: false },
+      reminder: { hidden: false },
+    });
+    expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
+  });
+
+  it("removes explicit visibility overrides when returning to house style without losing text", async () => {
+    const user = userEvent.setup();
+    const { updateScore } = setup([
+      {
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+        instruction: { hidden: false, text: "Custom change" },
+        reminder: { hidden: true, text: "Custom reminder" },
+      },
+    ]);
+    for (const name of ["Label at change", "Advance reminder"]) {
+      await user.click(screen.getByRole("combobox", { name }));
+      await user.click(screen.getByRole("option", { name: "Use house style (shown)" }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    const change = updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0];
+    expect(change?.instruction).toEqual({ text: "Custom change" });
+    expect(change?.reminder).toEqual({ text: "Custom reminder" });
+  });
+
   it("preserves inherited custom tuning when only printed labels are edited", () => {
     const transposition = { interval: { halfSteps: 3, staffDistance: 2 }, keyFifthsFlipAt: -4 };
     const { updateScore } = setup(undefined, transposition);
@@ -79,7 +125,7 @@ describe("bar change dialog", () => {
     expect(screen.getByText(/Trumpet: written C4 sounds as B♭3/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Customize tuning" }));
     await user.click(screen.getByRole("combobox", { name: "Transposition preset" }));
-    await user.click(screen.getByRole("option", { name: "Trumpet in C — C4" }));
+    await user.click(screen.getByRole("option", { name: "Trumpet in C" }));
     await user.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore).toHaveBeenCalledOnce();
     const score = updateScore.mock.calls[0]![0];
@@ -145,6 +191,9 @@ describe("bar change dialog", () => {
     setup();
     const dialog = screen.getByRole("dialog", { name: "Change instrument or tuning" });
     expect(dialog.className).toContain("contentWide");
+    expect(screen.getByRole("button", { name: "Close", exact: true })).toBeTruthy();
+    expect(screen.getByLabelText("Concert pitch preview")).toBeTruthy();
+    expect(screen.getByLabelText("Written pitch preview")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByRole("button", { name: "Instrument" }).getAttribute("aria-expanded")).toBe("true");
   });
@@ -180,9 +229,11 @@ describe("bar change dialog", () => {
     ]);
   });
 
-  it("saves an independent advance reminder with the change-point label hidden", () => {
+  it("saves an independent advance reminder with the change-point label hidden", async () => {
     const { updateScore } = setup();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show label at change" }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Label at change" }));
+    await user.click(screen.getByRole("option", { name: "Hide", exact: true }));
     fireEvent.change(screen.getByRole("textbox", { name: "Advance reminder text" }), {
       target: { value: "Prepare the A clarinet" },
     });
@@ -195,7 +246,7 @@ describe("bar change dialog", () => {
     expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
   });
 
-  it("keeps reminder customization when hiding and reopening an existing reminder", () => {
+  it("keeps reminder customization when hiding and reopening an existing reminder", async () => {
     const { updateScore } = setup([
       {
         transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
@@ -203,8 +254,10 @@ describe("bar change dialog", () => {
         reminder: { text: "Prepare B-flat" },
       },
     ]);
-    expect(screen.getByRole("checkbox", { name: "Show advance reminder" })).toHaveProperty("checked", true);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    const user = userEvent.setup();
+    expect(screen.getByRole("combobox", { name: "Advance reminder" }).textContent).toContain("Use house style");
+    await user.click(screen.getByRole("combobox", { name: "Advance reminder" }));
+    await user.click(screen.getByRole("option", { name: "Hide", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
       instruction: { text: "in B-flat" },
@@ -214,7 +267,7 @@ describe("bar change dialog", () => {
 
   it("defaults to an automatic reminder without overriding the automatic change label", () => {
     const { updateScore } = setup();
-    expect(screen.getByRole("checkbox", { name: "Show advance reminder" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("combobox", { name: "Advance reminder" }).textContent).toContain("Use house style");
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
       reminder: {},
@@ -223,9 +276,11 @@ describe("bar change dialog", () => {
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.instruction).toBeUndefined();
   });
 
-  it("persists explicit hiding of the default reminder on a new declaration", () => {
+  it("persists explicit hiding of the default reminder on a new declaration", async () => {
     const { updateScore } = setup();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Advance reminder" }));
+    await user.click(screen.getByRole("option", { name: "Hide", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.reminder).toEqual({
       hidden: true,

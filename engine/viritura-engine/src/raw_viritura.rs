@@ -2615,7 +2615,7 @@ impl<'de> ::serde::Deserialize<'de> for HitPointId {
 ///      "$ref": "#/$defs/rhythmic-position"
 ///    },
 ///    "reminder": {
-///      "description": "Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change.",
+///      "description": "Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change.",
 ///      "$ref": "#/$defs/instrument-change-instruction"
 ///    },
 ///    "transposition": {
@@ -2639,7 +2639,7 @@ pub struct InstrumentChange {
     ///Position within this measure. Absent means the start of the measure.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub position: ::std::option::Option<RhythmicPosition>,
-    ///Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change.
+    ///Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub reminder: ::std::option::Option<InstrumentChangeInstruction>,
     ///Transposition from this point. Use a zero interval to return to concert pitch.
@@ -2672,7 +2672,7 @@ impl ::std::default::Default for InstrumentChange {
 ///  "type": "object",
 ///  "properties": {
 ///    "hidden": {
-///      "description": "Suppress the printed instruction. Defaults to false.",
+///      "description": "Override house-style visibility: true hides, false shows, absent inherits.",
 ///      "type": "boolean"
 ///    },
 ///    "text": {
@@ -2687,7 +2687,7 @@ impl ::std::default::Default for InstrumentChange {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct InstrumentChangeInstruction {
-    ///Suppress the printed instruction. Defaults to false.
+    ///Override house-style visibility: true hides, false shows, absent inherits.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub hidden: ::std::option::Option<bool>,
     ///Literal instruction text overriding the automatically derived text.
@@ -6786,6 +6786,21 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      "description": "Score-wide chord-symbol engraving style.",
 ///      "$ref": "#/$defs/chord-symbol-style"
 ///    },
+///    "instrumentChangeStyle": {
+///      "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.",
+///      "type": "object",
+///      "properties": {
+///        "showAdvanceReminder": {
+///          "default": true,
+///          "type": "boolean"
+///        },
+///        "showChangeLabel": {
+///          "default": true,
+///          "type": "boolean"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
 ///    "lyricWorkflow": {
 ///      "description": "Original lyric source text and stable token anchors for distribution and repair.",
 ///      "$ref": "#/$defs/lyric-workflow"
@@ -6829,6 +6844,14 @@ pub struct RootExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
+    #[serde(
+        rename = "instrumentChangeStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_change_style: ::std::option::Option<
+        RootExtensionsInstrumentChangeStyle,
+    >,
     ///Original lyric source text and stable token anchors for distribution and repair.
     #[serde(
         rename = "lyricWorkflow",
@@ -6880,6 +6903,7 @@ impl ::std::default::Default for RootExtensions {
     fn default() -> Self {
         Self {
             chord_symbol_style: Default::default(),
+            instrument_change_style: Default::default(),
             lyric_workflow: Default::default(),
             metadata: Default::default(),
             placement: Default::default(),
@@ -6887,6 +6911,50 @@ impl ::std::default::Default for RootExtensions {
             text_styles: Default::default(),
             time_signatures: Default::default(),
             video_sync: Default::default(),
+        }
+    }
+}
+///Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.",
+///  "type": "object",
+///  "properties": {
+///    "showAdvanceReminder": {
+///      "default": true,
+///      "type": "boolean"
+///    },
+///    "showChangeLabel": {
+///      "default": true,
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RootExtensionsInstrumentChangeStyle {
+    #[serde(rename = "showAdvanceReminder", default = "defaults::default_bool::<true>")]
+    pub show_advance_reminder: bool,
+    #[serde(rename = "showChangeLabel", default = "defaults::default_bool::<true>")]
+    pub show_change_label: bool,
+}
+impl ::std::convert::From<&RootExtensionsInstrumentChangeStyle>
+for RootExtensionsInstrumentChangeStyle {
+    fn from(value: &RootExtensionsInstrumentChangeStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
+    fn default() -> Self {
+        Self {
+            show_advance_reminder: defaults::default_bool::<true>(),
+            show_change_label: defaults::default_bool::<true>(),
         }
     }
 }
@@ -11828,5 +11896,11 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             video_media_identity: Default::default(),
             video_sync: Default::default(),
         }
+    }
+}
+/// Generation of default values for serde.
+pub mod defaults {
+    pub(super) fn default_bool<const V: bool>() -> bool {
+        V
     }
 }

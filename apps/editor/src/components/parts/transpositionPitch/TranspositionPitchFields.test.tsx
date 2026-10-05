@@ -24,6 +24,30 @@ function ControlledFields(props: TranspositionPitchFieldsProps) {
 }
 
 describe("pitch transposition fields", () => {
+  it("offers common spellings while retaining an existing uncommon enharmonic", async () => {
+    const user = userEvent.setup();
+    render(<TranspositionPitchFields halfSteps={1} staffDistance={0} onChange={vi.fn()} />);
+    await user.click(screen.getByRole("combobox", { name: "Sounding pitch" }));
+    expect(screen.getAllByRole("option")).toHaveLength(18);
+    expect(screen.getByRole("option", { name: "C♭", exact: true })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "E♭", exact: true })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "E♯", exact: true })).toBeNull();
+    expect(screen.queryByRole("option", { name: "F♭♭", exact: true })).toBeNull();
+  });
+
+  it("shows concise presets with a default badge and no duplicate C trumpet", async () => {
+    const user = userEvent.setup();
+    render(
+      <TranspositionPitchFields instrumentId="brass.trumpet.c" halfSteps={0} staffDistance={0} onChange={vi.fn()} />,
+    );
+    const preset = screen.getByRole("combobox", { name: "Transposition preset" });
+    expect(preset.textContent).toBe("Trumpet in CDefault");
+    await user.click(preset);
+    expect(screen.getAllByRole("option")).toHaveLength(3);
+    expect(screen.getByRole("option", { name: "Trumpet in C" }).textContent).toContain("Default");
+    expect(screen.queryByRole("option", { name: /—/ })).toBeNull();
+  });
+
   it("does not replace an existing custom interval with an instrument default", () => {
     const onChange = vi.fn();
     render(
@@ -46,7 +70,7 @@ describe("pitch transposition fields", () => {
     const user = userEvent.setup();
     render(<ControlledFields instrumentId="brass.french-horn" halfSteps={7} staffDistance={4} onChange={onChange} />);
     await user.click(screen.getByRole("combobox", { name: "Transposition preset" }));
-    await user.click(screen.getByRole("option", { name: "Horn in B♭ (basso) — B♭2" }));
+    await user.click(screen.getByRole("option", { name: "Horn in B♭ (basso)" }));
     expect(onChange).toHaveBeenCalledExactlyOnceWith(14, 8);
     expect(screen.getByText("Written C4 sounds as B♭2")).toBeTruthy();
   });
@@ -101,7 +125,7 @@ describe("pitch transposition fields", () => {
     );
     expect(screen.getByText("Written C4 sounds as E♭4")).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: "Sounding octave" }).getAttribute("value")).toBe("4");
-    expect(screen.getByRole("combobox", { name: "Transposition preset" }).textContent).toContain("Instrument default");
+    expect(screen.getByRole("combobox", { name: "Transposition preset" }).textContent).toContain("Default");
     expect(onChange).not.toHaveBeenCalled();
   });
 });
@@ -128,7 +152,7 @@ describe("Setup roster shared pitch picker", () => {
       </TooltipPrimitives.Provider>,
     );
     await user.click(screen.getByRole("combobox", { name: "Transposition preset" }));
-    await user.click(screen.getByRole("option", { name: "Alto clarinet in E♭ — E♭3" }));
+    await user.click(screen.getByRole("option", { name: "Alto clarinet in E♭" }));
     expect(onUpdate).toHaveBeenCalledExactlyOnceWith("clarinet", {
       transposition: {
         interval: { halfSteps: 9, staffDistance: 5 },

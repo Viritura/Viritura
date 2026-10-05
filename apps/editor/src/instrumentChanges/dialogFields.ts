@@ -21,23 +21,22 @@ export function initialBarChangeFields(part: Part, measureIndex: number) {
     flipAt: tuning?.keyFifthsFlipAt ?? ("" as const),
     prefersWritten: tuning?.prefersWrittenPitches ?? false,
     text: change?.instruction?.text ?? "",
-    hidden: change?.instruction?.hidden ?? false,
+    hidden: change?.instruction?.hidden,
     reminderText: change?.reminder?.text ?? "",
-    reminderEnabled: change?.reminder?.hidden !== true,
+    reminderHidden: change?.reminder?.hidden,
   };
 }
 
-export function changeReminder(text: string, enabled: boolean): InstrumentChange["reminder"] {
-  if (enabled) return text.trim() ? { text: text.trim() } : {};
-  return { ...(text.trim() ? { text: text.trim() } : {}), hidden: true };
+export function changeReminder(text: string, hidden: boolean | undefined): InstrumentChange["reminder"] {
+  return { ...(text.trim() ? { text: text.trim() } : {}), ...(hidden !== undefined ? { hidden } : {}) };
 }
 
 export function numberFieldValue(value: string): number | "" {
   return value === "" ? "" : Number(value);
 }
 
-export function changeInstruction(text: string, hidden: boolean): InstrumentChange["instruction"] {
-  return text.trim() || hidden
-    ? { ...(text.trim() ? { text: text.trim() } : {}), ...(hidden ? { hidden: true } : {}) }
+export function changeInstruction(text: string, hidden: boolean | undefined): InstrumentChange["instruction"] {
+  return text.trim() || hidden !== undefined
+    ? { ...(text.trim() ? { text: text.trim() } : {}), ...(hidden !== undefined ? { hidden } : {}) }
     : undefined;
 }

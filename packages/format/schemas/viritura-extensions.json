@@ -816,7 +816,7 @@
         },
         "hidden": {
           "type": "boolean",
-          "description": "Suppress the printed instruction. Defaults to false."
+          "description": "Override house-style visibility: true hides, false shows, absent inherits."
         }
       },
       "additionalProperties": false
@@ -845,7 +845,7 @@
         },
         "reminder": {
           "$ref": "#/$defs/instrument-change-instruction",
-          "description": "Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change."
+          "description": "Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change."
         }
       },
       "additionalProperties": false
@@ -1635,6 +1635,15 @@
         "chordSymbolStyle": {
           "$ref": "#/$defs/chord-symbol-style",
           "description": "Score-wide chord-symbol engraving style."
+        },
+        "instrumentChangeStyle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "showChangeLabel": { "type": "boolean", "default": true },
+            "showAdvanceReminder": { "type": "boolean", "default": true }
+          },
+          "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits."
         },
         "soundProfile": {
           "$ref": "#/$defs/sound-profile-assignment",

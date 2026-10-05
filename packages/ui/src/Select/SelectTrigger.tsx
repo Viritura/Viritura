@@ -5,6 +5,7 @@ import styles from "./SelectTrigger.module.css";
 export interface SelectTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   readonly children: ReactNode;
   readonly leading?: ReactNode;
+  readonly trailing?: ReactNode;
   readonly size?: "md" | "lg";
   readonly fullWidth?: boolean;
   readonly indicator?: "chevron" | "corner";
@@ -15,6 +16,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(f
   {
     children,
     leading,
+    trailing,
     size = "md",
     fullWidth = false,
     indicator,
@@ -45,6 +47,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(f
         {leading ? <span className={styles.leading}>{leading}</span> : null}
         {children}
       </span>
+      {trailing}
       {resolvedIndicator === "corner" ? (
         <span className={styles.corner} data-select-corner aria-hidden="true" />
       ) : (

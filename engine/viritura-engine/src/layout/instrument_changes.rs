@@ -30,6 +30,14 @@ pub(super) fn timeline_salt(
 ) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     salt.hash(&mut hasher);
+    let style = score
+        .vendor_ext
+        .as_ref()
+        .and_then(|x| x.viritura.as_ref())
+        .and_then(|v| v.instrument_change_style.as_ref());
+    serde_json::to_string(&style)
+        .unwrap_or_default()
+        .hash(&mut hasher);
     for source in staves.iter().flat_map(|staff| &staff.sources) {
         let part = &score.parts[source.part_index];
         serde_json::to_string(&part.instrument_extensions)
@@ -78,6 +86,13 @@ pub(super) fn append_instructions(
     source_part_index: usize,
     score: &Score,
 ) {
+    let style = score
+        .vendor_ext
+        .as_ref()
+        .and_then(|x| x.viritura.as_ref())
+        .and_then(|v| v.instrument_change_style.as_ref());
+    let show_label = style.and_then(|s| s.show_change_label).unwrap_or(true);
+    let show_reminder = style.and_then(|s| s.show_advance_reminder).unwrap_or(true);
     let Some(authored) = part.measures.get(measure_index) else {
         return;
     };
@@ -85,7 +100,8 @@ pub(super) fn append_instructions(
         if change
             .instruction
             .as_ref()
-            .is_some_and(|instruction| instruction.hidden == Some(true))
+            .and_then(|instruction| instruction.hidden)
+            .unwrap_or(!show_label)
         {
             continue;
         }
@@ -110,7 +126,8 @@ pub(super) fn append_instructions(
             if change
                 .reminder
                 .as_ref()
-                .is_some_and(|r| r.hidden == Some(true))
+                .and_then(|r| r.hidden)
+                .unwrap_or(!show_reminder)
             {
                 continue;
             }
@@ -136,7 +153,7 @@ pub(super) fn append_instructions(
             }
         }
     }
-    if measure_index == 0 {
+    if measure_index == 0 && show_label {
         if let Some(text) = super::page::initial_instrument_instruction(part) {
             append_expression(
                 measure,

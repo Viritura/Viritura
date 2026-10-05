@@ -192,6 +192,72 @@ fn instrument_changes_reminders_anchor_sounding_note_and_are_independent() {
 }
 
 #[test]
+fn instrument_changes_house_style_visibility_inherits_and_allows_explicit_overrides() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(&mut value, 1, json!({}), json!({}));
+    value["_x"] = json!({"viritura":{"instrumentChangeStyle":{
+        "showChangeLabel": false, "showAdvanceReminder": false
+    }}});
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(!has_reminder(&resolved[0].part));
+    assert!(resolved[0].part.expressions.is_none());
+    assert!(resolved[1].part.expressions.is_none());
+    set_reminder(
+        &mut value,
+        1,
+        json!({"hidden":false}),
+        json!({"hidden":false,"text":"Change now"}),
+    );
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(has_reminder(&resolved[0].part));
+    assert_eq!(
+        resolved[1].part.expressions.as_ref().unwrap()[0]
+            .text
+            .plain_text(),
+        "Change now"
+    );
+    value["_x"]["viritura"]["instrumentChangeStyle"] =
+        json!({"showChangeLabel":true,"showAdvanceReminder":true});
+    set_reminder(
+        &mut value,
+        1,
+        json!({"hidden":true}),
+        json!({"hidden":true}),
+    );
+    let resolved = resolve_measures(&parse(&value), 0);
+    assert!(!has_reminder(&resolved[0].part));
+    assert!(resolved[1].part.expressions.is_none());
+}
+
+#[test]
+fn instrument_changes_house_style_invalidates_cached_directions() {
+    let mut value = document();
+    sounding_then_rest(&mut value, 0);
+    set_reminder(&mut value, 1, json!({}), json!({"text":"Change now"}));
+    let mut cache = crate::layout::cache::LayoutCache::new();
+    let config = LayoutConfig::default();
+    crate::layout::layout_with_mnx_scores_cached(&parse(&value), &config, 0, Some(&mut cache));
+    value["_x"] = json!({"viritura":{"instrumentChangeStyle":{
+        "showChangeLabel":false,"showAdvanceReminder":false
+    }}});
+    let score = parse(&value);
+    let cached = crate::layout::layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    let fresh = layout_with_mnx_scores(&score, &config, 0);
+    assert_eq!(texts(&cached), texts(&fresh));
+    assert!(!texts(&cached).contains(&"Change now"));
+    assert!(!texts(&cached).contains(&"To Fl. in C"));
+}
+
+#[test]
+fn instrument_changes_invalid_house_style_is_reported() {
+    let mut value = document();
+    value["_x"] = json!({"viritura":{"instrumentChangeStyle":{"showChangeLabel":"yes"}}});
+    let error = parse_mnx(&value.to_string()).unwrap_err();
+    assert!(error.to_string().contains("instrumentChangeStyle"));
+}
+
+#[test]
 fn instrument_changes_reminder_ink_follows_last_note_not_surrounding_rests() {
     let mut value = document();
     value["parts"][0]["measures"][0]["sequences"] = json!([

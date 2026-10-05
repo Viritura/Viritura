@@ -32,6 +32,7 @@ type Obj = Record<string, unknown>;
 
 import { parseGlobalMeasures, parseGlobalLyrics, parseGlobalSounds } from "./parseGlobal";
 import { parseParts } from "./parseParts";
+import { parseRootInstrumentChangeStyle } from "./parseInstrumentChangeStyle";
 import { parseLayoutDefinition, parseScoreDefinition } from "./parseLayout";
 import type {
   SystemLayout as RawSystemLayout,
@@ -527,6 +528,8 @@ function applyRootExtensions(score: Score, rootX: Obj | undefined): void {
   if (timeSignatures) score.timeSignatures = timeSignatures;
   const chordSymbolStyle = parseRootChordSymbolStyle(rootX);
   if (chordSymbolStyle) score.chordSymbolStyle = chordSymbolStyle;
+  const instrumentChangeStyle = parseRootInstrumentChangeStyle(rootX);
+  if (instrumentChangeStyle) score.instrumentChangeStyle = instrumentChangeStyle;
 
   const soundProfile = parseRootSoundProfile(rootX);
   if (soundProfile) score.soundProfile = soundProfile;

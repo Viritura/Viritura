@@ -11,7 +11,7 @@ import {
   DialogBody,
   DialogCancelButton,
   DialogPrimaryButton,
-  DialogTitle,
+  DialogHeader,
   FormField,
   FormInput,
 } from "@viritura/ui";
@@ -21,7 +21,11 @@ import { closeDialog, useDialogStore } from "../store/dialogStore";
 import { initialBarChangeFields, changeInstruction, changeReminder, numberFieldValue } from "./dialogFields";
 import { ChangeLabelFields } from "./ChangeLabelFields";
 import { InstrumentCatalogPicker } from "../components/parts/InstrumentCatalogPicker";
-import { TranspositionPitchFields, soundingPitchLabel } from "../components/parts/transpositionPitch";
+import {
+  TranspositionPitchFields,
+  TranspositionPreview,
+  soundingPitchLabel,
+} from "../components/parts/transpositionPitch";
 import {
   buildPartTransposition,
   catalogPickerName,
@@ -67,7 +71,7 @@ export function BarInstrumentChangeDialogHost(props: HostProps) {
   if (!target || !part) {
     return (
       <Dialog open size="wide" onClose={props.onClose}>
-        <DialogTitle>Change instrument or tuning</DialogTitle>
+        <DialogHeader title="Change instrument or tuning" onClose={props.onClose} />
         <DialogBody>Select a single bar in one source part to change its instrument or tuning.</DialogBody>
         <DialogActions>
           <DialogCancelButton />
@@ -81,6 +85,7 @@ export function BarInstrumentChangeDialogHost(props: HostProps) {
       {...props}
       target={target}
       part={part}
+      houseStyle={score?.instrumentChangeStyle}
     />
   );
 }
@@ -88,9 +93,10 @@ export function BarInstrumentChangeDialogHost(props: HostProps) {
 interface FormProps extends HostProps {
   target: BarInstrumentTarget;
   part: Part;
+  houseStyle?: Score["instrumentChangeStyle"];
 }
 
-function BarChangeForm({ onClose, store, updateScore, target, part }: FormProps) {
+function BarChangeForm({ onClose, store, updateScore, target, part, houseStyle }: FormProps) {
   const initial = initialBarChangeFields(part, target.measureIndex);
   const { change } = initial;
   const [instrumentId, setInstrumentId] = useState(initial.instrumentId);
@@ -102,13 +108,13 @@ function BarChangeForm({ onClose, store, updateScore, target, part }: FormProps)
   const [text, setText] = useState(initial.text);
   const [hidden, setHidden] = useState(initial.hidden);
   const [reminderText, setReminderText] = useState(initial.reminderText);
-  const [reminderEnabled, setReminderEnabled] = useState(initial.reminderEnabled);
+  const [reminderHidden, setReminderHidden] = useState(initial.reminderHidden);
   const [error, setError] = useState<string>();
   const [instrumentChanged, setInstrumentChanged] = useState(false);
   const [tuningOverride, setTuningOverride] = useState(!!change?.transposition);
   const [tuningOpen, setTuningOpen] = useState(initial.customTuning);
   const instruction = changeInstruction(text, hidden);
-  const reminder = changeReminder(reminderText, reminderEnabled);
+  const reminder = changeReminder(reminderText, reminderHidden);
   const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
 
   function resetDefaultTuning(instrument: CatalogInstrument): void {
@@ -158,7 +164,7 @@ function BarChangeForm({ onClose, store, updateScore, target, part }: FormProps)
 
   return (
     <Dialog open size="wide" onClose={onClose}>
-      <DialogTitle>Change instrument or tuning</DialogTitle>
+      <DialogHeader title="Change instrument or tuning" onClose={onClose} />
       <DialogBody>
         <p className={styles.scope}>
           <strong>
@@ -238,15 +244,24 @@ function BarChangeForm({ onClose, store, updateScore, target, part }: FormProps)
             </Collapsible>
           </div>
         </Collapsible>
+        {validNumbers && (
+          <TranspositionPreview
+            instrumentId={instrumentId}
+            halfSteps={halfSteps}
+            staffDistance={staffDistance}
+            keyFifthsFlipAt={flipAt === "" ? undefined : flipAt}
+          />
+        )}
         <ChangeLabelFields
           text={text}
           hidden={hidden}
           reminderText={reminderText}
-          reminderEnabled={reminderEnabled}
+          reminderHidden={reminderHidden}
+          houseStyle={houseStyle}
           setText={setText}
           setHidden={setHidden}
           setReminderText={setReminderText}
-          setReminderEnabled={setReminderEnabled}
+          setReminderHidden={setReminderHidden}
         />
         {error && <p role="alert">{error}</p>}
         {change && <p>This replaces the change at this bar&apos;s start, preserving later changes.</p>}

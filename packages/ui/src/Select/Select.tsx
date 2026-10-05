@@ -11,6 +11,8 @@ export interface SelectOption {
   readonly triggerLabel?: ReactNode;
   /** Optional leading icon rendered next to the label (in trigger and items). */
   readonly icon?: ReactNode;
+  /** Optional right-aligned metadata in the option and closed trigger. */
+  readonly badge?: ReactNode;
   /** Disable selection for this option (e.g. "coming soon" placeholders). */
   readonly disabled?: boolean;
 }
@@ -91,6 +93,7 @@ export function Select({
           indicator={indicator}
           variant={triggerVariant}
           leading={selected?.icon}
+          trailing={selected?.badge ? <span className={styles.badge}>{selected.badge}</span> : undefined}
         >
           {/*
             Children must never flip between defined and undefined: Radix uses
@@ -114,6 +117,7 @@ export function Select({
               >
                 {opt.icon ? <span className={styles.itemIcon}>{opt.icon}</span> : null}
                 <RadixSelect.ItemText>{opt.label}</RadixSelect.ItemText>
+                {opt.badge ? <span className={styles.badge}>{opt.badge}</span> : null}
                 <RadixSelect.ItemIndicator className={styles.indicator}>
                   <Check size={12} />
                 </RadixSelect.ItemIndicator>

@@ -1,11 +1,11 @@
 import { getCatalogInstrument } from "../../../score/InstrumentCatalog";
-import { soundingPitchLabel } from "./pitch";
 
 interface TranspositionPitchPreset {
   id: string;
   label: string;
   halfSteps: number;
   staffDistance: number;
+  isDefault?: boolean;
 }
 
 const HORN_PRESETS: readonly TranspositionPitchPreset[] = [
@@ -46,7 +46,7 @@ export function transpositionPitchPresets(instrumentId?: string): TranspositionP
     const interval = instrument.transposition;
     presets.push({
       id: "catalog-default",
-      label: `Instrument default — ${instrument.name}`,
+      label: instrument.name,
       halfSteps: interval?.halfSteps ?? 0,
       staffDistance: interval?.staffDistance ?? 0,
     });
@@ -58,9 +58,26 @@ export function transpositionPitchPresets(instrumentId?: string): TranspositionP
   } else if (instrumentId?.startsWith("brass.trumpet.")) {
     presets.push(...TRUMPET_PRESETS);
   }
-  presets.push({ id: "concert", label: "Concert pitch", halfSteps: 0, staffDistance: 0 });
-  return presets.map((preset) => ({
+  if (
+    !presets.some((preset) => preset.id !== "catalog-default" && preset.halfSteps === 0 && preset.staffDistance === 0)
+  ) {
+    presets.push({ id: "concert", label: "Concert pitch", halfSteps: 0, staffDistance: 0 });
+  }
+  const defaultPreset = presets.find((preset) => preset.id === "catalog-default");
+  const unique = presets.filter((preset) => preset.id !== "catalog-default");
+  if (
+    defaultPreset &&
+    !unique.some(
+      (preset) => preset.halfSteps === defaultPreset.halfSteps && preset.staffDistance === defaultPreset.staffDistance,
+    )
+  ) {
+    unique.unshift(defaultPreset);
+  }
+  return unique.map((preset) => ({
     ...preset,
-    label: `${preset.label} — ${soundingPitchLabel(preset.halfSteps, preset.staffDistance)}`,
+    isDefault:
+      defaultPreset !== undefined &&
+      preset.halfSteps === defaultPreset.halfSteps &&
+      preset.staffDistance === defaultPreset.staffDistance,
   }));
 }

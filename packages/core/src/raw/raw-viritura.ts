@@ -402,7 +402,7 @@ export interface components {
         "instrument-change-instruction": {
             /** @description Literal instruction text overriding the automatically derived text. */
             text?: string;
-            /** @description Suppress the printed instruction. Defaults to false. */
+            /** @description Override house-style visibility: true hides, false shows, absent inherits. */
             hidden?: boolean;
         };
         /** @description A change of the active instrument, the active transposition, or both, from `position` onward. An instrument change without `transposition` resets to the new instrument's default transposition; a transposition-only change lasts until the next change. At least one of `instrument` or `transposition` is required. */
@@ -414,7 +414,7 @@ export interface components {
             /** @description Transposition from this point. Use a zero interval to return to concert pitch. */
             transposition?: components["schemas"]["instrument-transposition"];
             instruction?: components["schemas"]["instrument-change-instruction"];
-            /** @description Independent advance reminder immediately after the last preceding sounding release. Absent disables; an empty object enables derived text; hidden suppresses. Omitted when no sounding anchor or no gap before the change. */
+            /** @description Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change. */
             reminder?: components["schemas"]["instrument-change-instruction"];
         };
         /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
@@ -837,6 +837,13 @@ export interface components {
             timeSignatures?: components["schemas"]["time-signature-styles"];
             /** @description Score-wide chord-symbol engraving style. */
             chordSymbolStyle?: components["schemas"]["chord-symbol-style"];
+            /** @description Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits. */
+            instrumentChangeStyle?: {
+                /** @default true */
+                showChangeLabel: boolean;
+                /** @default true */
+                showAdvanceReminder: boolean;
+            };
             /** @description Per-part playback sound assignments keyed by stable MNX part ID. */
             soundProfile?: components["schemas"]["sound-profile-assignment"];
             /** @description Score-to-picture synchronization settings. */

@@ -60,3 +60,13 @@
   color: rgb(var(--accent-rgb, 33, 94, 78));
   flex-shrink: 0;
 }
+
+.badge {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: var(--type-eyebrow-size);
+}

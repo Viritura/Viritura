@@ -1119,9 +1119,12 @@ label. Positions must be unique within a measure, and `instrument` must name
 a key in the part's `instruments`.
 
 The independent optional `reminder` uses the same `{ text?, hidden? }`
-shape. Absence or `{}` enables an **automatic advance reminder**;
-`{ "hidden": true }` explicitly suppresses it. The editor enables reminders
-by default, including when editing older declarations without this field.
+shape. Absence or `{}` inherits house-style visibility with automatic text;
+`{ "hidden": true }` explicitly suppresses it and `{ "hidden": false }`
+explicitly shows it. Root `_x.viritura.instrumentChangeStyle` sets the
+score-wide `showChangeLabel` and `showAdvanceReminder` defaults (both true
+when omitted). **Engrave → House Style → Instrument Changes** edits these
+defaults. Change-point labels use the same visibility inheritance rule.
 Neither its custom text nor its visibility changes the `instruction` label
 at the declaration. Automatic labels within the music use the active
 instrument's `shortName` (or its automatic abbreviation) and tuning for
@@ -1215,8 +1218,16 @@ convention is MNX's **concert-to-written** interval: B-flat clarinet is
 The controls present this musically as the sounding pitch corresponding to
 written C, with its octave and accidental, rather than asking for semitone
 and staff-step counts; MNX intervals remain the stored representation.
-The dialog accepts an authored printed change-point label or a hidden label,
-and separate automatic/custom advance-reminder text and visibility.
+The dialog uses the standard wide-dialog header and offers **Use house style /
+Show / Hide** for each label, plus independent custom text. Preset names omit
+the exact sounding octave suffix and mark the catalog default with a badge;
+register distinctions such as horn alto/basso remain in the preset names.
+The sounding-pitch menu offers common natural, sharp, and flat spellings,
+preserving a current uncommon spelling without listing all uncommon options.
+Side-by-side **Concert pitch** and **Written pitch** previews engrave the
+same sounding notes through the score renderer with the selected interval,
+clef, and key-flip threshold. Pure-octave written preference is deliberately
+omitted from the concert-preview score so the comparison remains literal.
 Reopening the dialog offers **Remove change**, which removes the entire
 bar-start declaration while preserving later-positioned declarations.
 

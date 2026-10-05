@@ -1,4 +1,4 @@
-export const PITCH_LETTERS = ["C", "D", "E", "F", "G", "A", "B"] as const;
+const PITCH_LETTERS = ["C", "D", "E", "F", "G", "A", "B"] as const;
 export interface SoundingPitch {
   letter: (typeof PITCH_LETTERS)[number];
   accidental: number;

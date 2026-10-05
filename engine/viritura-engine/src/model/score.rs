@@ -82,8 +82,18 @@ pub struct ScoreMetadata {
     pub copyright: Option<String>,
 }
 
-/// Wrapper for `_x.viritura` vendor extension at root level.
+/// Score-wide visibility defaults for instrument-change directions.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InstrumentChangeStyle {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_change_label: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_advance_reminder: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+/// Wrapper for `_x.viritura` vendor extension at root level.
 pub struct RootVirituraExtension {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<ScoreMetadata>,
@@ -107,6 +117,11 @@ pub struct RootVirituraExtension {
     /// Per-document chord-symbol engraving style.
     #[serde(rename = "chordSymbolStyle", skip_serializing_if = "Option::is_none")]
     pub chord_symbol_style: Option<crate::model::ChordSymbolStyle>,
+    #[serde(
+        rename = "instrumentChangeStyle",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub instrument_change_style: Option<InstrumentChangeStyle>,
 }
 
 /// Wrapper for the `_x` vendor extension container at root level.
