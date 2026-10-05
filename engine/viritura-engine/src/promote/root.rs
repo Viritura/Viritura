@@ -193,7 +193,7 @@ pub fn promote_root(root_json: serde_json::Value) -> Result<ModelScore, PromoteE
         .scores
         .into_iter()
         .map(promote_score_definition)
-        .collect();
+        .collect::<Result<_, _>>()?;
 
     let vendor_ext = promote_root_vendor(raw_root.x.as_ref())?;
 

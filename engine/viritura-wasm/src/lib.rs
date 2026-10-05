@@ -770,6 +770,9 @@ mod zero_part_layout_tests {
     }
 }
 
+#[cfg(test)]
+mod text_frame_layout_tests;
+
 /// Global flag controlling whether layout passes emit `LayoutDebugInfo`
 /// on the resulting `DisplayList`. Toggled from JS via `set_emit_layout_debug`.
 /// Defaults to false so production builds skip the work.
@@ -1038,7 +1041,7 @@ pub fn compute_full_score_layout(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+    let display_list = if !score.scores.is_empty() {
         layout_with_mnx_scores(&score, &config, 0)
     } else {
         layout_full_score(&score, &config)
@@ -1083,7 +1086,7 @@ pub fn compute_full_score_layout_binary(
 
     let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-    let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+    let display_list = if !score.scores.is_empty() {
         layout_with_mnx_scores(&score, &config, 0)
     } else {
         layout_full_score(&score, &config)
@@ -1421,7 +1424,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+        let display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 score,
                 &config,
@@ -1620,7 +1623,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+        let display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 &score,
                 &config,
@@ -1696,7 +1699,7 @@ impl LayoutEngine {
 
         let config = build_config(spatium, page_width, page_setup_json.as_deref());
 
-        let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+        let display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores_cached(
                 score,
                 &config,
@@ -1833,7 +1836,7 @@ impl LayoutEngine {
         // Invalidate cache on structural change
         self.cache.invalidate();
 
-        let display_list = if !score.layouts.is_empty() && !score.scores.is_empty() {
+        let display_list = if !score.scores.is_empty() {
             layout_with_mnx_scores(&score, &config, score_index.unwrap_or(0))
         } else if score.parts.len() == 1 {
             layout_score(&score, 0, &config)

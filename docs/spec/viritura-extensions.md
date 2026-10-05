@@ -14,7 +14,7 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 | MNX Object                                   | JSON Path                                       | Extensions                                                                                                            |
 | -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                                        |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks, textFrames                                                            |
 | [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                     |
 | [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                                               |
 | [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                               |
@@ -163,6 +163,153 @@ and [MuseScore feature request](https://github.com/musescore/MuseScore/issues/19
 ## Score Definition Extensions
 
 `_x.viritura` on an entry in `scores[]`. Schema def: `score-extensions`.
+
+### `textFrames`
+
+The currently supported page-positioned specialization of the shared text
+container belongs to an individual score definition (a full-score
+or part view), not to a staff or to a semantic expression. Each frame has a
+stable ID and exactly one locator: a zero-based index into the final rendered
+page array (`{ "type": "page", "pageIndex": 0 }`), a global measure ID
+(`{ "type": "globalMeasure", "measureId": "m3" }`), or a part-scoped event ID
+(`{ "type": "event", "partId": "P1", "eventId": "e3" }`). A musical locator's
+page is resolved after pagination. Authored `scores[].pages` constrain
+pagination but do not define independent physical coordinates; a page-index
+locator refers to the resulting page whether those breaks were authored or
+automatically generated. Reflow does not rewrite the stored page index. A
+frame whose target is absent from the current layout remains authored but is
+not drawn.
+
+The locator determines **which page**. `placement.anchor` chooses an edge or
+corner of that page's printable area inside its margins;
+`placement.offset: { x, y }` translates the frame in staff spaces (+x right,
++y down). Required `width` is either
+`{ "unit": "staffSpaces", "value": 24 }` (multiplied by the resolved score
+spatium) or `{ "unit": "textColumnFraction", "value": 0.5 }` (half the
+available printable text-column width). Optional `padding` is an interior
+inset in staff spaces. Height grows with word-wrapped content; literal
+newlines in `content` are authored breaks and must not be rewritten as
+automatic wrapping changes. An unbreakable word wider than the text box
+overflows horizontally rather than being split. `horizontalAlignment` positions the frame at
+its page anchor independently of `paragraphJustification` within its text
+box. Optional `border` is `none` or `solid`. The order of `textFrames` is
+the paint/layer order, with later frames above earlier frames. These
+first-slice frames neither reserve music space nor avoid collisions with
+notation or one another.
+
+Optional boolean `eraseBackground` requests erasure of underlying ink within
+the frame rectangle, including padding, before painting the frame's border and
+text. Omission or `false` preserves existing transparent behavior. The model
+stores this intent only, not a background color. Canvas and vector exports mask
+earlier ink rather than painting a white rectangle, leaving the actual paper
+color, texture, or transparency intact. Later frames remain above earlier ones.
+This does not change collision avoidance or reserve musical space.
+
+Create frames in **Write > Palettes > Text**: choose a page number and
+**Add page frame**, or select music and add a frame following that measure/event's
+page. The palette opens the new frame's text and presentation editor immediately.
+**Engrave > Properties** edits existing frames; there is no dedicated text-frame
+tab or creation action in Engrave. Selecting a painted frame opens its Properties.
+The existing-frame list also exposes frames whose targets are unplaced.
+
+Ordinary staff text and page text share **Position relative to: Staff / Page**
+in Properties. Switching to Page is one undoable move: it removes the staff
+expression (which was shared across score/part views) and creates a page frame
+only in the active view. It does not leave a second staff marking behind.
+If the document uses the implicit full-score view (no authored `scores`),
+the conversion materializes a full-score definition without inventing a layout.
+New page positioning follows the original measure's page, starts at **Top left**
+with zero page offset, and uses the staff's fixed width or 20 staff spaces when
+the staff width was auto. **Page selection** chooses a fixed page or a musical
+page locator; **Page anchor** can place the frame as a header or footer. These
+are single-page objects, not repeating headers/footers.
+
+Both editors preserve rich runs, named glyphs, authored newlines, padding,
+border, alignment, and background-erasure intent. Conversions materialize
+inherited text slant so changing the owning text role does not change its
+appearance.
+
+Optional `staffAttachment` is inactive editor restoration data: stable
+`partId` and global `measureId`, an `expression` snapshot containing rhythmic
+position, staff, voice, above/below placement, manual offset and collision
+intent, and optional staff-space `width` (omission remembers auto width).
+It does not render a staff annotation while the frame is page-positioned.
+Switching back restores the original destination by IDs, including after
+reordering. If its part, measure, or staff is missing, or there was no original
+staff attachment, select a destination note/rest or staff measure and then
+select the frame in the list. A missing destination is an explicit editing
+error, not a guessed attachment. A note/rest supplies its rhythmic location;
+a measure selection uses the start of that measure.
+
+The staff expression retains optional `pagePosition` restoration data:
+`id`, `locator`, `placement`, `width`, optional paint-order `layer`, and optional
+`sourceReference`. Restoring a saved layer clamps its index to the current frame
+count rather than silently putting a returning frame on top.
+This preserves separate page geometry and page-column width while staff
+positioning uses its own +y-up offsets and auto/staff-space width. Switching
+to Page again restores that geometry, using a new ID only if the saved ID is
+already occupied. Inactive restoration data is schema-validated and round-trips
+through MNX; layout uses only the active owner. System-wide text scope and
+repeating furniture are separate capabilities.
+
+Horizon mode has no pages and therefore does not paint page-relative frames.
+The editing UI exposes hidden frames near their measure/event locator and
+provides a document-level list for frames located by page index. A musical
+locator does not turn a page-relative frame into staff-attached or
+system-attached semantic text; implementation of those attachment kinds is tracked in
+[issue #282](https://github.com/Viritura/Viritura/issues/282).
+
+#### Shared text model and scope boundary
+
+The in-memory model separates `TextBlock` (shared `TextContent` plus optional
+`TextFramePresentation`) from `TextFrame` (its page-positioned specialization).
+Presentation includes optional width, block alignment, paragraph justification,
+padding, border, and `eraseBackground` intent. A plain annotation and a bordered instruction box should
+use the same attachment model, differing only in these optional settings.
+Border and padding do not confer staff/system scope or imply music-space
+reservation.
+
+`TextFrame` still requires width, ID, locator, and page placement. This type
+extraction does not change its JSON shape, defaults, ownership, or rendering.
+`TextBlock` is a reusable in-memory contract, not a new persisted object or an
+additional supported attachment kind. Existing staff expressions support this
+presentation through their optional `frame` property, retaining their musical
+attachment. System-text scope and part propagation remain in #282.
+
+The shared design distinguishes attachment/scope from placement:
+
+| Kind                   | Attachment determines                   | Geometry relative to            |
+| ---------------------- | --------------------------------------- | ------------------------------- |
+| Page text              | Explicit rendered page                  | Printable page area             |
+| Music-linked page text | Page holding a measure/event            | Printable page area             |
+| Staff text (planned)   | Musical location and a particular staff | Musical location on that staff  |
+| System text (planned)  | Musical location with system-wide scope | Musical location on that system |
+
+Music-relative text must remain available in Horizon and follow its musical
+attachment through reflow. System text needs explicit projection into score
+and part views rather than copied independent per-view frames. These ownership,
+visibility, and placement rules belong to #282; no unsupported locator or
+staff/system discriminator is accepted by the current frame schema.
+
+Width omission and alignment defaults belong to the owning text role, not to
+the shared container. The current `textColumnFraction` reference is the page's
+printable column; its applicability to music-relative text must be settled
+before that attachment is implemented. Likewise, page offsets retain +y down,
+while existing staff expressions retain their +y up engraving convention.
+Sharing presentation must not silently change either convention.
+
+Specialized tempo and dynamics retain their musical semantics even when they
+reuse text presentation. Collision avoidance and automatic space reservation
+are a separate layout concern and remain outside the floating-frame slice.
+
+MUSX/Denigma mapping follows in a separate adapter change when representative
+source payloads and units are available. Optional `sourceReference` retains a
+source `unit` and `referenceStaffSize` for loss-aware conversion. Finale
+page-text assignments may span page ranges, select odd/even pages, or have
+different offsets on right pages; those semantics and arbitrary source
+frame shapes are **not** native to this first slice. An importer must
+diagnose unsupported geometry or formatting instead of flattening it
+silently.
 
 ### `layoutBreaks`
 
@@ -1020,15 +1167,66 @@ Array of piano pedal markings.
 
 Array of text expressions and performance directions.
 
-| Property    | Type                                   | Required | Description                                       |
-| ----------- | -------------------------------------- | -------- | ------------------------------------------------- |
-| `text`      | string                                 | **Yes**  | Expression text (e.g. "dolce", "rit.", "a tempo") |
-| `position`  | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                                 |
-| `placement` | `"below"` \| `"above"`                 | No       | Position relative to staff. Default: `"below"`    |
-| `staff`     | integer (≥1)                           | No       | Staff number                                      |
-| `voice`     | string                                 | No       | Voice name                                        |
+| Property    | Type                                   | Required | Description                                                                              |
+| ----------- | -------------------------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `text`      | [TextContent](#inline-text-content)    | **Yes**  | Expression text (e.g. "dolce", "rit.", "a tempo"); legacy strings are accepted on import |
+| `position`  | [RhythmicPosition](#rhythmic-position) | **Yes**  | Rhythmic position                                                                        |
+| `placement` | `"below"` \| `"above"`                 | No       | Position relative to staff. Default: `"below"`                                           |
+| `staff`     | integer (≥1)                           | No       | Staff number                                                                             |
+| `voice`     | string                                 | No       | Voice name                                                                               |
+| `frame`     | object                                 | No       | Optional rectangular presentation; see below                                             |
 
-Rendered in italic serif font.
+Below-staff text defaults to italic serif; above-staff text uses upright serif.
+Rich-text run styles remain available inside either a plain expression or a frame.
+
+`frame` shares the page-frame presentation vocabulary, but its width, when
+specified, is `{ "unit": "staffSpaces", "value": <positive number> }`.
+Page-column fractional widths are not supported for staff text. Omit width for
+natural-width text; set it to wrap words to the frame's inner width. Height is
+automatic and authored newlines are retained. A word wider than the inner width
+overflows without splitting.
+
+Optional `padding` is a nonnegative staff-space value. `border` is `"none"`
+(default) or `"solid"`; `horizontalAlignment` is `"left"`, `"center"`, or `"right"`
+around the rhythmic anchor. Omission preserves automatic alignment: left at
+notes, right for end-of-measure instructions. `paragraphJustification` is
+`"left"` (default), `"center"`, `"right"`, or `"justify"`.
+Optional boolean `eraseBackground` has the same intent and default as on page
+frames: `true` erases underlying ink within the rectangle including padding;
+absent or `false` leaves it intact. No color is persisted. Erasing staff frames
+paint above musical ink, including barlines emitted later in layout, and below
+page furniture. Canvas caches and retained Horizon frames preserve this layering.
+
+The frame stays music-relative in paged and Horizon views; it does not become
+page furniture. Existing `manualOffset` (+x right, +y up) and `avoidCollisions`
+continue to apply. Selection and automatic placement use the full rectangle,
+including padding. With `frame` absent, single-line rendering is unchanged;
+authored newlines use the same automatic-height block layout without wrapping.
+No fixed height, page locator, or new staff/system scope is introduced.
+
+In Write mode, create ordinary staff text in the Text palette. Select it and use
+Properties to set **Fixed width (sp)**, padding, border, alignment,
+paragraph justification, and **Erase background** alongside the multiline rich-text editor.
+An empty width means natural (auto) width; a number enables wrapping to that fixed
+width. Enter and pasted line breaks are retained. Paragraph center/right alignment
+also works on shorter authored lines at natural width; **Justify** is offered only
+with a fixed width, and leaves the last line of each paragraph unstretched.
+The glyph picker opens from **Insert notation glyph** and preserves named glyph runs.
+**Reset frame** removes only presentation, preserving text and musical attachment.
+
+```json
+{
+  "text": [{ "text": "Play freely\nThen resume the pulse", "style": { "weight": "bold" } }],
+  "position": { "fraction": [0, 1] },
+  "placement": "above",
+  "frame": {
+    "width": { "unit": "staffSpaces", "value": 20 },
+    "padding": 0.5,
+    "border": "solid",
+    "paragraphJustification": "center"
+  }
+}
+```
 
 Text attached grammatically to a dynamic uses the standard dynamic-group
 `prefix`/`suffix` fields instead of a text-expression extension.

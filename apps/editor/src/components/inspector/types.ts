@@ -31,6 +31,8 @@ export const sectionStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "0.5rem",
+  flexShrink: 0,
+  minInlineSize: 0,
 };
 
 export const legendStyle: CSSProperties = {

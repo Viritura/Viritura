@@ -107,6 +107,8 @@ export function validateRawScore(json: unknown): RawScoreValidationResult {
     const extensionErrors = validateVirituraExtensions(json);
     if (extensionErrors.length > 0) return { ok: false, errors: extensionErrors };
     const semanticErrors = [
+      ...validateTextFrameIds(json),
+      ...validateTextFrameOffsets(json),
       ...validateChordSymbols(value),
       ...validateDynamicGroups(value),
       ...validateKitReferences(value),
@@ -134,6 +136,51 @@ function asObjects(value: unknown): JsonObject[] {
 
 function pointerToken(value: string): string {
   return value.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+
+function validateTextFrameIds(document: unknown): RawScoreValidationError[] {
+  const root = asObject(document);
+  const errors: RawScoreValidationError[] = [];
+  asObjects(root?.["scores"]).forEach((score, scoreIndex) => {
+    const frames = asObject(asObject(score["_x"])?.["viritura"])?.["textFrames"];
+    if (!Array.isArray(frames)) return;
+    const ids = new Set<string>();
+    frames.forEach((value, frameIndex) => {
+      const id = asObject(value)?.["id"];
+      if (typeof id !== "string") return;
+      if (ids.has(id)) {
+        errors.push({
+          pointer: `/scores/${scoreIndex}/_x/viritura/textFrames/${frameIndex}/id`,
+          message: `duplicate text frame id "${id}" in this score view`,
+          keyword: "uniqueTextFrameId",
+        });
+      }
+      ids.add(id);
+    });
+  });
+  return errors;
+}
+
+function validateTextFrameOffsets(document: unknown): RawScoreValidationError[] {
+  const root = asObject(document);
+  const errors: RawScoreValidationError[] = [];
+  asObjects(root?.["scores"]).forEach((score, scoreIndex) => {
+    const frames = asObject(asObject(score["_x"])?.["viritura"])?.["textFrames"];
+    if (!Array.isArray(frames)) return;
+    frames.forEach((value, frameIndex) => {
+      const offset = asObject(asObject(asObject(value)?.["placement"])?.["offset"]);
+      for (const axis of ["x", "y"]) {
+        if (typeof offset?.[axis] === "number" && !Number.isFinite(offset[axis])) {
+          errors.push({
+            pointer: `/scores/${scoreIndex}/_x/viritura/textFrames/${frameIndex}/placement/offset/${axis}`,
+            message: "text frame offset must be finite",
+            keyword: "finite",
+          });
+        }
+      }
+    });
+  });
+  return errors;
 }
 
 function validateVirituraExtensions(document: unknown): RawScoreValidationError[] {

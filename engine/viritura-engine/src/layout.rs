@@ -47,6 +47,7 @@ mod spacing;
 mod staff_brace;
 mod staff_lines;
 mod system;
+mod text_frames;
 pub mod text_styles;
 mod ties;
 mod time_signatures;
@@ -60,6 +61,7 @@ mod tests;
 
 pub use config::LayoutConfig;
 pub use note_preview::{compute_note_preview, NotePreviewAccidental, NotePreviewInput};
+pub use orchestration::layout_score;
 pub use page::compute_page_breaks;
 pub use slur_preview::{
     compute_slur_preview, SlurPreview, SlurPreviewHandle, SlurPreviewInput, SlurPreviewMode,
@@ -93,10 +95,6 @@ use pedals::*;
 use render_barlines::*;
 use render_geometry::*;
 use render_signatures::render_change_clef;
-
-pub fn layout_score(score: &Score, part_index: usize, config: &LayoutConfig) -> DisplayList {
-    layout_score_cached(score, part_index, config, None)
-}
 
 /// Clone `config` with the document's `_x.viritura` layout overrides merged over
 /// the defaults, or `None` when the document has no overrides (so the common
@@ -449,7 +447,7 @@ pub fn layout_score_cached(
         );
     }
 
-    dl
+    dl.with_raised_text_frames()
 }
 
 /// Grand-staff helper — compute the per-staff per-measure "natural"

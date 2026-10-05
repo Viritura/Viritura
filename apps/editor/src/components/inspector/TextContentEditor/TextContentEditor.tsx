@@ -33,6 +33,7 @@ interface TextContentEditorProps {
   onBlur?: () => void;
   /** Weight and slant the score element applies to unstyled runs. */
   inheritedStyle?: InheritedTextStyle;
+  multiline?: boolean;
 }
 
 export function TextContentEditor({
@@ -42,6 +43,7 @@ export function TextContentEditor({
   ariaLabel = "Formatted score text",
   onBlur,
   inheritedStyle = NO_INHERITED_STYLE,
+  multiline = false,
 }: TextContentEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
@@ -161,7 +163,21 @@ export function TextContentEditor({
       toggleInlineStyle("italic");
     } else if (event.key === "Enter") {
       event.preventDefault();
+      if (multiline) {
+        document.execCommand("insertLineBreak");
+        commitEditor();
+      }
     }
+  };
+
+  const insertText = (text: string) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    rememberSelection();
+    const range = restoreSelection() ?? rangeAtEnd(editor);
+    selectRange(range);
+    document.execCommand("insertText", false, text);
+    commitEditor();
   };
 
   return (
@@ -174,12 +190,12 @@ export function TextContentEditor({
       />
       <InputSurface
         ref={editorRef}
-        className={styles.editor}
+        className={`${styles.editor} ${multiline ? styles.multiline : ""}`}
         style={inheritedFieldStyle(inheritedStyle)}
         contentEditable
         suppressContentEditableWarning
         role="textbox"
-        aria-multiline="false"
+        aria-multiline={multiline}
         aria-label={ariaLabel}
         data-placeholder={placeholder}
         onFocus={() => setFocused(true)}
@@ -194,9 +210,8 @@ export function TextContentEditor({
         onInput={commitEditor}
         onPaste={(event) => {
           event.preventDefault();
-          const text = event.clipboardData.getData("text/plain");
-          document.execCommand("insertText", false, text);
-          commitEditor();
+          const text = event.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
+          insertText(multiline ? text : text.replaceAll("\n", " "));
         }}
       />
       <TextContentGlyphPicker

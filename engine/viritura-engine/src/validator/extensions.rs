@@ -23,6 +23,7 @@ const DEFINITIONS: &[&str] = &[
     "slur-extensions",
     "system-layout-extensions",
     "score-extensions",
+    "staff-text-frame-presentation",
 ];
 
 fn schemas() -> &'static HashMap<&'static str, Validator> {
@@ -51,6 +52,19 @@ fn schemas() -> &'static HashMap<&'static str, Validator> {
             })
             .collect()
     })
+}
+
+pub(crate) fn validate_staff_text_frame(value: &Value) -> Result<(), String> {
+    schemas()
+        .get("staff-text-frame-presentation")
+        .expect("staff text frame schema is compiled")
+        .validate(value)
+        .map_err(|errors| {
+            errors
+                .map(|error| error.to_string())
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
 }
 
 fn pointer_token(value: &str) -> String {
@@ -308,4 +322,37 @@ pub(super) fn extension_errors(root: &Value) -> Vec<RawScoreValidationError> {
 
     find_unsupported(root, "", &consumed, &mut errors);
     errors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn validates_erase_background_as_an_optional_boolean_for_both_frame_kinds() {
+        let page = json!({
+            "id": "f",
+            "content": [],
+            "locator": {"type": "page", "pageIndex": 0},
+            "placement": {"anchor": "top", "offset": {"x": 0, "y": 0}},
+            "width": {"unit": "staffSpaces", "value": 5}
+        });
+        for intent in [None, Some(json!(false)), Some(json!(true))] {
+            let mut frame = page.clone();
+            let mut staff = json!({});
+            if let Some(value) = intent {
+                frame["eraseBackground"] = value.clone();
+                staff["eraseBackground"] = value;
+            }
+            assert!(schemas()["score-extensions"].is_valid(&json!({"textFrames": [frame]})));
+            assert!(validate_staff_text_frame(&staff).is_ok());
+        }
+        for value in [json!(null), json!("true"), json!(1)] {
+            let mut frame = page.clone();
+            frame["eraseBackground"] = value.clone();
+            assert!(!schemas()["score-extensions"].is_valid(&json!({"textFrames": [frame]})));
+            assert!(validate_staff_text_frame(&json!({"eraseBackground": value})).is_err());
+        }
+    }
 }

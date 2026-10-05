@@ -48,6 +48,14 @@ function buildScore(): Score {
         measures: [
           {
             measureRepeat: { number: 2 },
+            expressions: [
+              {
+                text: [{ text: "Play freely", style: { weight: "bold" } }],
+                position: { fraction: [1, 4] },
+                placement: "above",
+                manualOffset: [2, -1],
+              },
+            ],
             arpeggios: [
               {
                 position: { fraction: [0, 1] },
@@ -152,6 +160,134 @@ function Harness({ elementId, staves = 2 }: { elementId?: string; staves?: numbe
     </>
   );
 }
+
+describe("staff text frame Properties", () => {
+  afterEach(() => {
+    cleanup();
+    resetSelectionStore();
+  });
+
+  it("toggles Erase background without changing text or attachment and persists both boolean values", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const region = await screen.findByRole("region", { name: "Staff text frame" });
+    const checkbox = within(region).getByRole("checkbox", { name: "Erase background" });
+    const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    const original = snapshot().parts[0].measures[0].expressions![0];
+    expect(checkbox).toHaveProperty("checked", false);
+    expect(original.frame).toBeUndefined();
+    for (const eraseBackground of [true, false]) {
+      fireEvent.click(checkbox);
+      expect(checkbox).toHaveProperty("checked", eraseBackground);
+      expect(snapshot().parts[0].measures[0].expressions![0]).toEqual({
+        ...original,
+        frame: { eraseBackground },
+      });
+      const persisted = parseMnx(JSON.parse(screen.getByTestId("mnx-snapshot").textContent!));
+      expect(persisted.parts[0].measures[0].expressions![0].frame).toEqual({ eraseBackground });
+    }
+    fireEvent.click(within(region).getByRole("button", { name: "Reset frame" }));
+    expect(checkbox).toHaveProperty("checked", false);
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual(original);
+  });
+
+  it("adds presentation without replacing rich text or musical attachment, then resets it", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const frame = await screen.findByRole("region", { name: "Staff text frame" });
+    const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    const original = snapshot().parts[0].measures[0].expressions![0];
+    const width = within(frame).getByLabelText("Fixed width (sp)");
+    expect(width).toHaveProperty("value", "");
+    fireEvent.change(width, { target: { value: "12" } });
+    fireEvent.blur(width);
+    fireEvent.click(within(frame).getByRole("radio", { name: "Solid" }));
+    const padding = within(frame).getByLabelText("Padding (sp)");
+    fireEvent.change(padding, { target: { value: "1.5" } });
+    fireEvent.keyDown(padding, { key: "Enter" });
+    const alignment = within(frame).getByRole("radiogroup", { name: "Frame alignment" });
+    fireEvent.click(within(alignment).getByRole("radio", { name: "Center" }));
+    const paragraphs = within(frame).getByRole("radiogroup", { name: "Paragraph justification" });
+    fireEvent.click(within(paragraphs).getByRole("radio", { name: "Justify" }));
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual({
+      ...original,
+      frame: {
+        width: { unit: "staffSpaces", value: 12 },
+        border: "solid",
+        padding: 1.5,
+        horizontalAlignment: "center",
+        paragraphJustification: "justify",
+      },
+    });
+    fireEvent.click(within(frame).getByRole("button", { name: "Reset frame" }));
+    expect(snapshot().parts[0].measures[0].expressions![0]).toEqual(original);
+  });
+
+  it("supports undo and redo of frame properties", async () => {
+    render(withProviders(<HistoryHarness elementId="p0/m0/expr0" />));
+    await screen.findByRole("region", { name: "Staff text frame" });
+    const width = screen.getByLabelText("Fixed width (sp)");
+    fireEvent.change(width, { target: { value: "20" } });
+    fireEvent.blur(width);
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "Undo inspector edit" }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Undo inspector edit" }));
+    await waitFor(() => expect(screen.getByLabelText("Fixed width (sp)")).toHaveProperty("value", ""));
+    fireEvent.click(screen.getByRole("button", { name: "Redo inspector edit" }));
+    await waitFor(() => expect(screen.getByLabelText("Fixed width (sp)")).toHaveProperty("value", "20"));
+  });
+
+  it.each([false, true])(
+    "switches Staff/Page with one undo step and restores the attachment (explicit view=%s)",
+    async (withPageFrames) => {
+      const user = userEvent.setup();
+      render(withProviders(<HistoryHarness elementId="p0/m0/expr0" withPageFrames={withPageFrames} />));
+      await screen.findByRole("region", { name: "Staff text frame" });
+      const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+      const original = snapshot().parts[0]!.measures[0]!.expressions![0]!;
+      await user.click(screen.getByRole("combobox", { name: "Position relative to" }));
+      await user.click(screen.getByRole("option", { name: "Page", exact: true }));
+      await screen.findByRole("combobox", { name: "Page anchor" });
+      expect(snapshot().parts[0]!.measures[0]!.expressions).toBeUndefined();
+      expect(snapshot().scores![0]!.textFrames).toHaveLength(1);
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Undo inspector edit" })).toHaveProperty("disabled", false),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Undo inspector edit" }));
+      await waitFor(() => expect(snapshot().parts[0]!.measures[0]!.expressions![0]).toEqual(original));
+      expect(snapshot().scores?.[0]?.textFrames).toBeUndefined();
+      fireEvent.click(screen.getByRole("button", { name: "Redo inspector edit" }));
+      await waitFor(() => expect(snapshot().scores![0]!.textFrames).toHaveLength(1));
+      await user.click(await screen.findByRole("combobox", { name: "Position relative to" }));
+      await user.click(screen.getByRole("option", { name: "Staff", exact: true }));
+      await screen.findByRole("region", { name: "Staff text frame" });
+      expect(snapshot().parts[0]!.measures[0]!.expressions![0]).toMatchObject({
+        position: original.position,
+        manualOffset: original.manualOffset,
+        text: [{ text: "Play freely", style: { weight: "bold", fontStyle: "normal" } }],
+      });
+      expect(snapshot().scores![0]!.textFrames).toBeUndefined();
+    },
+  );
+
+  it("clears width back to auto without resetting the other frame properties", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const region = await screen.findByRole("region", { name: "Staff text frame" });
+    const ui = within(region);
+    const width = ui.getByLabelText("Fixed width (sp)");
+    expect(ui.queryByRole("radio", { name: "Justify" })).toBeNull();
+    fireEvent.change(width, { target: { value: "15" } });
+    fireEvent.blur(width);
+    expect(ui.getByRole("radio", { name: "Justify" })).toBeTruthy();
+    fireEvent.click(ui.getByRole("checkbox", { name: "Erase background" }));
+    fireEvent.change(width, { target: { value: "" } });
+    fireEvent.blur(width);
+    expect(width).toHaveProperty("value", "");
+    expect(ui.queryByRole("radio", { name: "Justify" })).toBeNull();
+    const score = JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    expect(score.parts[0].measures[0].expressions![0].frame).toEqual({ eraseBackground: true });
+    expect(screen.getByRole("textbox", { name: "Text" }).getAttribute("aria-multiline")).toBe("true");
+  });
+});
 
 function StaffConfigHarness() {
   const { loadScore } = useDocumentActions();
@@ -293,7 +429,13 @@ function currentMnx(): Record<string, unknown> {
   return JSON.parse(screen.getByTestId("mnx-snapshot").textContent ?? "null") as Record<string, unknown>;
 }
 
-function HistoryHarnessInner({ elementId }: { elementId: string }) {
+function buildHistoryScore(withPageFrames: boolean): Score {
+  const score = buildScore();
+  if (withPageFrames) score.scores = [{ name: "Full" }];
+  return score;
+}
+
+function HistoryHarnessInner({ elementId, withPageFrames }: { elementId: string; withPageFrames: boolean }) {
   const { loadScore } = useDocumentActions();
   const { score } = useDocument();
   const store = useDocumentStoreApi();
@@ -306,9 +448,9 @@ function HistoryHarnessInner({ elementId }: { elementId: string }) {
   useMnxChangeReporter({ store, pushState });
 
   useEffect(() => {
-    loadScore(buildScore(), "history.mnx");
+    loadScore(buildHistoryScore(withPageFrames), "history.mnx");
     selectElement(elementId);
-  }, [elementId, loadScore, selectElement]);
+  }, [elementId, loadScore, selectElement, withPageFrames]);
 
   return (
     <>
@@ -320,15 +462,21 @@ function HistoryHarnessInner({ elementId }: { elementId: string }) {
   );
 }
 
-function HistoryHarness({ elementId = "p0/m0/s0/ev1/breath" }: { elementId?: string }) {
-  const initialMnx = JSON.stringify(serializeMnx(buildScore()));
+function HistoryHarness({
+  elementId = "p0/m0/s0/ev1/breath",
+  withPageFrames = false,
+}: {
+  elementId?: string;
+  withPageFrames?: boolean;
+}) {
+  const initialMnx = JSON.stringify(serializeMnx(buildHistoryScore(withPageFrames)));
   const store = useDocumentStoreApi();
   return (
     <HistoryProvider
       initialMnxJson={initialMnx}
       onRestore={(mnxJson) => store.getState().loadScore(parseMnx(JSON.parse(mnxJson)), "history.mnx", mnxJson)}
     >
-      <HistoryHarnessInner elementId={elementId} />
+      <HistoryHarnessInner elementId={elementId} withPageFrames={withPageFrames} />
     </HistoryProvider>
   );
 }

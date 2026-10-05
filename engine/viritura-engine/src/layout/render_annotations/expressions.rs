@@ -1,11 +1,12 @@
 use super::super::config::LayoutConfig;
 use super::super::dependent_stacking::{self, StackBox, StackSide};
 use super::super::element_id;
+use super::super::text_frames::{FrameFont, TextBlockLayout};
 use super::super::text_styles::{self, FontFamily};
 use super::super::types::*;
 use super::dynamics::PlacedDynamic;
 use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyphBox};
-use crate::model::{ExpressionPlacement, MultiStaffPlacement};
+use crate::model::{ExpressionPlacement, MultiStaffPlacement, StaffTextFrameWidth, TextFrameAlign};
 use crate::render::*;
 
 fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
@@ -16,32 +17,14 @@ fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
     }
 }
 
-/// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
-///
-/// Text expressions are positioned at the x coordinate corresponding to their
-/// rhythmic position. They sit below the staff, below dynamics, rendered in
-/// italic serif font. Collision avoidance ensures they don't overlap with
-/// notes, stems, or dynamics.
-pub(crate) fn render_text_expressions(
-    dl: &mut DisplayList,
+fn below_expression_baseline(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    above_glyph_boxes: &[AboveGlyphBox],
-    dynamic_boxes: &[PlacedDynamic],
-    staff_y_offsets: Option<&[f64]>,
-) {
-    let expressions = match &ml.resolved.part.expressions {
-        Some(e) if !e.is_empty() => e,
-        _ => return,
-    };
-
-    let total_beats = ml.resolved.active_time.measure_beats();
-    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
-    let x_origin = ml.x + ml.prefix_width;
+    font_size: f64,
+) -> f64 {
     let staff_bottom = staff_y + 4.0 * sp;
-    let font_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
 
     // Find the lowest point of any stem/note below the staff (same as dynamics)
     let mut lowest_y = staff_bottom;
@@ -72,9 +55,37 @@ pub(crate) fn render_text_expressions(
 
     let text_ascent = 0.8 * font_size;
     let clearance = 0.5 * sp;
-    let expr_y = (staff_bottom + config.expression_min_distance * sp)
-        .max(lowest_y + clearance + text_ascent);
+    (staff_bottom + config.expression_min_distance * sp).max(lowest_y + clearance + text_ascent)
+}
 
+/// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
+///
+/// Text expressions are positioned at the x coordinate corresponding to their
+/// rhythmic position. They sit below the staff, below dynamics, rendered in
+/// italic serif font. Collision avoidance ensures they don't overlap with
+/// notes, stems, or dynamics.
+pub(crate) fn render_text_expressions(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    above_glyph_boxes: &[AboveGlyphBox],
+    dynamic_boxes: &[PlacedDynamic],
+    staff_y_offsets: Option<&[f64]>,
+) {
+    let expressions = match &ml.resolved.part.expressions {
+        Some(e) if !e.is_empty() => e,
+        _ => return,
+    };
+
+    let total_beats = ml.resolved.active_time.measure_beats();
+    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
+    let x_origin = ml.x + ml.prefix_width;
+    let staff_bottom = staff_y + 4.0 * sp;
+    let font_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
+    let expr_y = below_expression_baseline(ml, staff_y, sp, config, font_size);
+    let text_ascent = 0.8 * font_size;
     let mi = ml.resolved.index;
     let pi = ml.part_index;
     let notehead_w = 1.18 * sp;
@@ -135,8 +146,12 @@ pub(crate) fn render_text_expressions(
         // 0.5 em/char estimate badly overshot the box for narrow strings like
         // "pizz." (i/./, are far narrower than 0.5 em), leaving the selection
         // box gaping past the text. Italic shares the upright advance table.
-        let text_width =
-            super::text_content::content_width(&expr.text, font_size, FontFamily::Serif, false);
+        let block = expression_block(expr, font_size, sp);
+        let text_width = block.as_ref().map_or_else(
+            || super::text_content::content_width(&expr.text, font_size, FontFamily::Serif, false),
+            |block| block.width,
+        );
+        let alignment = expression_alignment(expr, right_aligned);
         let [off_x_sp, off_y_sp] = expr.manual_offset.unwrap_or([0.0, 0.0]);
         // Standard engraving practice: expression text sharing a rhythmic
         // position and side with a dynamic continues inline after that dynamic.
@@ -255,10 +270,10 @@ pub(crate) fn render_text_expressions(
             // `draw_x == note_x`, so this is identical to the old range. A
             // right-aligned instruction's ink extends LEFT from `note_x`
             // instead of right.
-            let (artic_scan_left, artic_scan_right) = if right_aligned {
-                (note_x - text_width.max(notehead_w), note_x)
-            } else {
-                (note_x, note_x + text_width.max(notehead_w))
+            let (artic_scan_left, artic_scan_right) = match alignment {
+                TextFrameAlign::Right => (note_x - text_width.max(notehead_w), note_x),
+                TextFrameAlign::Center => (note_x - text_width / 2.0, note_x + text_width / 2.0),
+                TextFrameAlign::Left => (note_x, note_x + text_width.max(notehead_w)),
             };
             if let Some(gtop) =
                 above_glyph_top_in_range(above_glyph_boxes, artic_scan_left, artic_scan_right)
@@ -290,13 +305,23 @@ pub(crate) fn render_text_expressions(
             expr_y
         };
 
+        let frame_clearance =
+            if avoid && !is_above && between_center.is_none() && inline_dynamic.is_none() {
+                block
+                    .as_ref()
+                    .map_or(0.0, |block| (block.first_baseline - text_ascent).max(0.0))
+            } else {
+                0.0
+            };
         pending.push(PendingExpr {
             draw_x,
             text_width,
-            right_aligned,
+            alignment,
+            block,
+            erase_background: erases_background(expr),
             // manualOffset y is positive-UP; canvas y grows downward, so
             // subtract to move up for a positive value.
-            base_y: base_y - off_y_sp * sp,
+            base_y: base_y + frame_clearance - off_y_sp * sp,
             is_above,
             text: expr.text.clone(),
             source_part_index: expr.source_part_index.unwrap_or(pi),
@@ -324,10 +349,10 @@ pub(crate) fn render_text_expressions(
 struct PendingExpr {
     draw_x: f64,
     text_width: f64,
-    /// When true, `draw_x` is the text's RIGHT edge (it extends leftward) —
-    /// used for barline-anchored instructions (D.C. al Coda, etc.) instead of
-    /// the normal left-anchored-at-note placement.
-    right_aligned: bool,
+    /// Block alignment around the rhythmic anchor.
+    alignment: TextFrameAlign,
+    block: Option<TextBlockLayout>,
+    erase_background: bool,
     /// Preferred baseline `y` (Bottom-baselined above, Middle-baselined below),
     /// before the resolver's outward displacement.
     base_y: f64,
@@ -383,16 +408,21 @@ fn emit_stacked_expressions(
             // the ascender band rises away from the staff. Below: the cap band
             // rises toward the staff. Identical to each side's published
             // selection bbox, so collision geometry and the bbox agree.
-            let (y_top, y_bottom) = if p.is_above {
+            let (y_top, y_bottom) = if let Some(block) = &p.block {
+                let top = p.base_y
+                    - if p.is_above {
+                        block.height
+                    } else {
+                        block.first_baseline
+                    };
+                (top, top + block.height)
+            } else if p.is_above {
                 (p.base_y - above_band, p.base_y)
             } else {
                 (p.base_y - below_cap, p.base_y)
             };
-            let (x0, x1) = if p.right_aligned {
-                (p.draw_x - p.text_width, p.draw_x)
-            } else {
-                (p.draw_x, p.draw_x + p.text_width)
-            };
+            let x0 = p.left();
+            let x1 = x0 + p.text_width;
             StackBox {
                 x0,
                 x1,
@@ -438,21 +468,40 @@ fn emit_stacked_expressions(
         let draw_y = p.base_y + delta;
         let element_id = element_id::expression(p.source_part_index, mi, p.source_expression_index);
         let command_start = dl.commands.len();
-        super::text_content::emit_content(
-            dl,
-            &p.text,
-            p.draw_x,
-            draw_y,
-            font_size,
-            if p.is_above { "serif" } else { "serif italic" },
-            "#000000",
-            if p.right_aligned {
-                TextAlign::Right
-            } else {
-                TextAlign::Left
-            },
-            TextBaseline::Alphabetic,
-        );
+        let block_top = p.block.as_ref().map(|block| {
+            draw_y
+                - if p.is_above {
+                    block.height
+                } else {
+                    block.first_baseline
+                }
+        });
+        if let (Some(block), Some(top)) = (&p.block, block_top) {
+            block.emit(
+                dl,
+                p.left(),
+                top,
+                if p.is_above { "serif" } else { "serif italic" },
+                sp,
+                p.erase_background,
+            );
+        } else {
+            super::text_content::emit_content(
+                dl,
+                &p.text,
+                p.draw_x,
+                draw_y,
+                font_size,
+                if p.is_above { "serif" } else { "serif italic" },
+                "#000000",
+                match p.alignment {
+                    TextFrameAlign::Right => TextAlign::Right,
+                    TextFrameAlign::Center => TextAlign::Center,
+                    TextFrameAlign::Left => TextAlign::Left,
+                },
+                TextBaseline::Alphabetic,
+            );
+        }
         for command_index in command_start..dl.commands.len() {
             dl.tag_command(command_index, element_id.clone());
         }
@@ -462,19 +511,80 @@ fn emit_stacked_expressions(
         // ascender band (like tempo), below spans up to the cap-height line.
         // Width reuses the AFM advance the stacking layout used.
         let text_w = p.text_width;
-        let (bbox_y, bbox_h) = if p.is_above {
+        let (bbox_y, bbox_h) = if let (Some(block), Some(top)) = (&p.block, block_top) {
+            (top, block.height)
+        } else if p.is_above {
             (draw_y - above_band, above_band)
         } else {
             (draw_y - below_cap, below_cap)
         };
-        let bbox_x = if p.right_aligned {
-            p.draw_x - text_w
-        } else {
-            p.draw_x
-        };
+        let bbox_x = p.left();
         dl.push_element_bbox_with_shape(ElementBBox {
             element_id: element_id::expression(p.source_part_index, mi, p.source_expression_index),
             bbox: BoundingBox::new(bbox_x, bbox_y, text_w, bbox_h),
         });
+        if p.block.is_some() {
+            if let Some(shape) = dl.element_shapes.last_mut() {
+                shape.authored_bounds = true;
+            }
+        }
     }
+}
+
+impl PendingExpr {
+    fn left(&self) -> f64 {
+        self.draw_x
+            - match self.alignment {
+                TextFrameAlign::Left => 0.0,
+                TextFrameAlign::Center => self.text_width / 2.0,
+                TextFrameAlign::Right => self.text_width,
+            }
+    }
+}
+
+fn expression_alignment(
+    expr: &crate::model::TextExpression,
+    right_aligned: bool,
+) -> TextFrameAlign {
+    expr.frame
+        .as_ref()
+        .and_then(|frame| frame.horizontal_alignment)
+        .unwrap_or(if right_aligned {
+            TextFrameAlign::Right
+        } else {
+            TextFrameAlign::Left
+        })
+}
+
+fn erases_background(expr: &crate::model::TextExpression) -> bool {
+    expr.frame
+        .as_ref()
+        .and_then(|frame| frame.erase_background)
+        .unwrap_or(false)
+}
+
+fn expression_block(
+    expr: &crate::model::TextExpression,
+    font_size: f64,
+    sp: f64,
+) -> Option<TextBlockLayout> {
+    let natural_frame = crate::model::StaffTextFramePresentation::default();
+    let frame = expr.frame.as_ref().or_else(|| {
+        expr.text.chunks().iter().any(|chunk| matches!(chunk, crate::model::TextContentChunk::Text(run) if run.text.contains('\n')))
+            .then_some(&natural_frame)
+    })?;
+    Some(TextBlockLayout::new(
+        &expr.text,
+        frame
+            .width
+            .map(|StaffTextFrameWidth::StaffSpaces(width)| width * sp),
+        frame.padding.unwrap_or(0.0) * sp,
+        FrameFont {
+            base_size: font_size,
+            family: FontFamily::Serif,
+            bold: false,
+        },
+        frame.paragraph_justification,
+        frame.border,
+    ))
 }

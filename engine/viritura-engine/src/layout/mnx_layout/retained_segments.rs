@@ -7,6 +7,32 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+pub(super) fn collect_cached_system_layouts(
+    layouts: Vec<Vec<Vec<MeasureLayout>>>,
+    content_hashes: Vec<Vec<Vec<u64>>>,
+    restore_meta: Vec<Vec<Vec<(usize, u64)>>>,
+    margins: Vec<f64>,
+    signatures: Vec<u64>,
+) -> Vec<Option<cache::CachedSystemLayout>> {
+    let mut cached_layouts = Vec::with_capacity(layouts.len());
+    let zipped = layouts
+        .into_iter()
+        .zip(content_hashes)
+        .zip(restore_meta)
+        .zip(margins)
+        .zip(signatures);
+    for ((((sys_layouts, sys_hashes), sys_restore), margin_left), signature) in zipped {
+        cached_layouts.push(Some(cache::CachedSystemLayout {
+            signature,
+            margin_left,
+            all_staff_layouts: sys_layouts,
+            content_hashes: sys_hashes,
+            restore_meta: sys_restore,
+        }));
+    }
+    cached_layouts
+}
+
 pub(super) fn splice_retained_slur_data(
     src: &cache::RetainedSlurData,
     dx: f64,

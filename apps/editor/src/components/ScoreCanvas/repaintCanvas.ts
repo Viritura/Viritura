@@ -1,6 +1,7 @@
 import {
   computeHorizonPaperGeometry,
   paintCommandsCulled,
+  raiseStaffEraseFrames,
   paintCommand,
   paintPaperPage,
   paintSelectionOverlay,
@@ -289,6 +290,30 @@ export function repaintCanvas(args: RepaintCanvasArgs): void {
 function paintRetainedHorizonLayers(ctx: CanvasRenderingContext2D, frame: FramePaintCtx): boolean {
   const layers = frame.displayList.retainedRenderLayers;
   if (!layers?.length) return false;
+  if (layers.some((layer) => layer.displayList.commands.some((command) => command.type === "EraseRect"))) {
+    const combined: DisplayList = {
+      width: frame.displayList.width,
+      height: frame.displayList.height,
+      commands: [],
+      elementIds: [],
+    };
+    for (const layer of layers) {
+      for (let index = 0; index < layer.displayList.commands.length; index++) {
+        combined.commands.push(layer.displayList.commands[index]!);
+        combined.elementIds!.push(layer.displayList.elementIds?.[index] ?? null);
+      }
+    }
+    paintCommandsCulled(
+      ctx,
+      raiseStaffEraseFrames(combined),
+      frame.glyphAtlas ?? null,
+      frame.visX1,
+      frame.visX2,
+      frame.visY1,
+      frame.visY2,
+    );
+    return true;
+  }
 
   for (const layer of layers) {
     const bounds = layer.bounds;

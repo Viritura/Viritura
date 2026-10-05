@@ -10,6 +10,8 @@ interface Recorder {
   rects: Array<{ x: number; y: number; w: number; h: number }>;
   alphas: number[];
   clears: number;
+  clips: number;
+  paths: Array<{ x: number; y: number; w: number; h: number }>;
 }
 
 function makeRecordingCtx(rec: Recorder): CanvasRenderingContext2D {
@@ -21,6 +23,14 @@ function makeRecordingCtx(rec: Recorder): CanvasRenderingContext2D {
   };
   const base: Record<string, unknown> = {
     fillRect,
+    canvas: { width: 256, height: 256 },
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+    clip: () => {
+      rec.clips++;
+    },
+    rect: (x: number, y: number, w: number, h: number) => {
+      rec.paths.push({ x, y, w, h });
+    },
     clearRect: () => {
       rec.clears++;
     },
@@ -54,7 +64,7 @@ const origWindow = globalThis.window;
 let sharedRec: Recorder;
 
 beforeEach(() => {
-  sharedRec = { rects: [], alphas: [], clears: 0 };
+  sharedRec = { rects: [], alphas: [], clears: 0, clips: 0, paths: [] };
   const tileCtx = makeRecordingCtx(sharedRec);
   globalThis.document = {
     documentElement: { dataset: {} },
@@ -101,6 +111,17 @@ function paintViewport(cache: TileCache, displayList: DisplayList): Recorder {
 }
 
 describe("TileCache horizon bucketing", () => {
+  it("includes visible knockouts in horizon buckets but excludes distant masks", () => {
+    const near: RenderCommand = { type: "EraseRect", x: 20, y: 0, w: 30, h: 40 };
+    const far: RenderCommand = { ...near, x: 5000 };
+    const rec = paintViewport(new TileCache(), horizonDisplayList([rect(0, 100), near, far, rect(25, 5)], 6000));
+    expect(rec.clips).toBeGreaterThan(0);
+    expect(rec.paths.some((path) => path.x === 20 && path.w === 30)).toBe(true);
+    expect(rec.paths.some((path) => path.x === 5000)).toBe(false);
+    expect(rec.rects.some((path) => path.x === 25 && path.w === 5)).toBe(true);
+    expect(rec.rects.some((path) => path.x === 20 && path.w === 30)).toBe(false);
+  });
+
   it("paints commands inside the visible band and culls distant ones", () => {
     // A rect near the origin (visible) and one ~5000px away (off-screen for a
     // 256px viewport at zoom 1). Only the near rect should be painted.

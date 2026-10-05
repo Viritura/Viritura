@@ -163,6 +163,7 @@ import {
   SortablePaletteSection,
 } from "./palette";
 import { LyricsPanel } from "./lyrics/LyricsPanel";
+import { TextFramePalette } from "./textFrames";
 import { setChordSymbolPopover } from "../store/overlayStore";
 import { resolveChordSymbolTarget } from "../app/useAppKeyboardWiring";
 import { useDebugSettingsStore } from "../store/debugSettingsStore";
@@ -1382,7 +1383,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
   const tempoMatch = !searchQuery || "tempo bpm".includes(searchLower);
   const textMatch =
     !searchQuery ||
-    "chord symbol harmony rehearsal mark expression text lyrics lyric words syllables verses language translation".includes(
+    "chord symbol harmony rehearsal mark expression text frame page measure event lyrics lyric words syllables verses language translation".includes(
       searchLower,
     );
   const linesMatch =
@@ -1691,6 +1692,7 @@ export function PalettePanel({ openSectionRequest }: PalettePanelProps = {}) {
               <span style={REHEARSAL_BOX_STYLE}>A</span>
             </PaletteButton>
           </div>
+          <TextFramePalette />
           <LyricsPanel embedded />
         </>
       ),

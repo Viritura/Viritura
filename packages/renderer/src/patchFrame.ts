@@ -27,6 +27,7 @@
 
 import { decodeBinaryDisplayList } from "./binaryDisplayList";
 import { renderCommandBounds, type RenderBounds } from "./renderCommandBounds";
+import { normalizeErasingFrameOrder } from "./inkMask";
 import type { DisplayList, PageLayout, RenderCommand, RetainedRenderLayer } from "./wasm";
 
 const PLACEMENT_REUSE = 0.0;
@@ -117,6 +118,7 @@ function translateCommandInPlace(cmd: RenderCommand, dx: number, dy: number): vo
       cmd.y2 += dy;
       break;
     case "DrawRect":
+    case "EraseRect":
       cmd.x += dx;
       cmd.y += dy;
       break;
@@ -477,6 +479,10 @@ export class PatchReconstructor {
       if (
         canUpdateInPlace &&
         previousAssembled &&
+        !previousAssembled.commands.some((command) => command.type === "EraseRect") &&
+        ![patch.prefix, ...nextSegments, patch.overlay].some((segment) =>
+          segment.commands.some((command) => command.type === "EraseRect"),
+        ) &&
         sameStoreShapeAtRanges(
           patch.prefix,
           nextSegments,
@@ -494,8 +500,9 @@ export class PatchReconstructor {
         appendSegment(rebuilt, patch.prefix);
         for (const segment of nextSegments) appendSegment(rebuilt, segment);
         appendSegment(rebuilt, patch.overlay);
-        assembled.commands = rebuilt.commands;
-        assembled.elementIds = rebuilt.elementIds;
+        const normalized = normalizeErasingFrameOrder(rebuilt);
+        assembled.commands = normalized.commands;
+        assembled.elementIds = normalized.elementIds;
         assembled.elementBboxes = rebuilt.elementBboxes;
         assembled.slurGeometries = rebuilt.slurGeometries;
         assembled.measureBounds = rebuilt.measureBounds;

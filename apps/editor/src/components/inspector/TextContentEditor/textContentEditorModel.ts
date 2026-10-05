@@ -103,7 +103,7 @@ function htmlForChunk(chunk: TextContentChunk): string {
   if ("text" in chunk) {
     const attrs = styleAttributes(chunk.style);
     const css = textStyleCss(chunk.style);
-    return `<span data-text-run${attrs}${css}>${escapeHtml(chunk.text)}</span>`;
+    return `<span data-text-run${attrs}${css}>${escapeHtml(chunk.text).replaceAll("\n", "<br>")}</span>`;
   }
   const attrs = styleAttributes(chunk.style);
   const css = textStyleCss(chunk.style);
@@ -126,7 +126,9 @@ function htmlForChunk(chunk: TextContentChunk): string {
 }
 
 export function htmlForTextContent(content: TextContent): string {
-  return content.map(htmlForChunk).join("");
+  const last = content.at(-1);
+  const placeholder = last && "text" in last && last.text.endsWith("\n") ? '<br data-editor-placeholder="true">' : "";
+  return content.map(htmlForChunk).join("") + placeholder;
 }
 
 function parsedStyleValue(key: (typeof STYLE_DATA_KEYS)[number], value: string): Partial<TextRunStyle> {
@@ -229,12 +231,34 @@ function appendText(chunks: TextContentChunk[], text: string, style: TextRunStyl
   chunks.push({ text, ...(Object.keys(style).length > 0 ? { style } : {}) });
 }
 
-function collectNode(node: Node, inherited: TextRunStyle, chunks: TextContentChunk[]): void {
+/** Browsers add a trailing placeholder BR to keep the final empty line editable. */
+export function isEditorLineBreak(node: HTMLElement, root: HTMLElement): boolean {
+  if (node.tagName !== "BR" || node.dataset.editorPlaceholder) return false;
+  if (!node.previousSibling && !node.nextSibling && ["DIV", "P"].includes(node.parentElement?.tagName ?? ""))
+    return false;
+  if (node.previousSibling instanceof HTMLElement && node.previousSibling.tagName === "BR") {
+    let current: Node | null = node;
+    while (current && current !== root && !current.nextSibling) current = current.parentNode;
+    if (current === root) return false;
+  }
+  return true;
+}
+
+export function startsEditorLine(node: HTMLElement): boolean {
+  return ["DIV", "P"].includes(node.tagName) && node.previousSibling !== null;
+}
+
+function collectNode(node: Node, inherited: TextRunStyle, chunks: TextContentChunk[], root: HTMLElement): void {
   if (node.nodeType === Node.TEXT_NODE) {
     appendText(chunks, node.textContent ?? "", inherited);
     return;
   }
   if (!(node instanceof HTMLElement)) return;
+  if (node.tagName === "BR") {
+    if (isEditorLineBreak(node, root)) appendText(chunks, "\n", inherited);
+    return;
+  }
+  if (startsEditorLine(node)) appendText(chunks, "\n", inherited);
   const glyphName = node.dataset.glyph;
   if (glyphName) {
     const smuflStyle = inheritedStyle(node, {}, "smufl");
@@ -246,7 +270,7 @@ function collectNode(node: Node, inherited: TextRunStyle, chunks: TextContentChu
     return;
   }
   const style = inheritedStyle(node, inherited);
-  for (const child of node.childNodes) collectNode(child, style, chunks);
+  for (const child of node.childNodes) collectNode(child, style, chunks, root);
 }
 
 function normalizedChunks(chunks: TextContentChunk[]): TextContent {
@@ -261,7 +285,7 @@ function normalizedChunks(chunks: TextContentChunk[]): TextContent {
 
 export function textContentFromEditor(element: HTMLElement): TextContent {
   const chunks: TextContentChunk[] = [];
-  for (const child of element.childNodes) collectNode(child, {}, chunks);
+  for (const child of element.childNodes) collectNode(child, {}, chunks, element);
   return normalizedChunks(chunks);
 }
 

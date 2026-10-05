@@ -131,6 +131,10 @@ pub struct ScoreDefinition {
     pub instrument_name_display: Option<InstrumentNameDisplaySettings>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layout_breaks: Vec<LayoutBreak>,
+    /// Free rectangular text frames shown on this score view's pages
+    /// (`_x.viritura.textFrames`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_frames: Vec<super::text_frame::TextFrame>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]

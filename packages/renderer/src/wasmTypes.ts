@@ -257,6 +257,7 @@ export type RenderCommand =
   | DrawBezier
   | DrawQuadratic
   | DrawRect
+  | EraseRect
   | DrawCircle
   | DrawText
   | DrawGlyph
@@ -310,6 +311,15 @@ export interface DrawQuadratic {
   y2: number;
   width: number;
   color: string;
+}
+
+/** Ink-only knockout; never paints a color or removes the paper surface. */
+export interface EraseRect {
+  type: "EraseRect";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface DrawRect {

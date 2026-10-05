@@ -22,6 +22,7 @@ use super::super::resolve::*;
 use super::super::spacing::LogSpacing;
 use super::super::spacing::*;
 use super::super::system::*;
+use super::super::text_frames::append_text_frames_by_plan;
 use super::super::types::*;
 use super::super::{
     compute_above_staff_extra, compute_below_staff_extra_from_layouts, render_system_contents,
@@ -69,6 +70,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     layout_breaks: &[LayoutBreak],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
     part_score_name: Option<&str>,
+    text_frames: &[TextFrame],
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
@@ -923,6 +925,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     if config.page_width.is_some() && !pt_hints.is_empty() {
         crate::layout::render_measure::render_page_turn_hints(&mut dl, &pt_hints, page_w, config);
     }
+    // Before overlay extraction, so reused patch systems reconstruct exactly.
+    let plan = (systems.as_slice(), visible_indices.as_slice());
+    append_text_frames_by_plan(&mut dl, score, text_frames, config, plan);
 
     // Assemble + store the patch-frame delta (paged path only; the unpaged
     // `fit_unpaged_bounds` below never runs when `patch_valid`).
@@ -1041,23 +1046,13 @@ pub(super) fn layout_auto_flow_mnx_score(
         .map(|c| c.system_layout_reuse_enabled())
         .unwrap_or(false);
     if cache.is_some() && !config.emit_layout_debug && sys_reuse_enabled {
-        let mut new_sys_layouts: Vec<Option<cache::CachedSystemLayout>> =
-            Vec::with_capacity(precomp_layouts.len());
-        let zipped = precomp_layouts
-            .into_iter()
-            .zip(precomp_content_hashes)
-            .zip(precomp_restore_meta)
-            .zip(precomp_margins)
-            .zip(precomp_sys_signatures);
-        for ((((sys_layouts, sys_hashes), sys_restore), margin_left), signature) in zipped {
-            new_sys_layouts.push(Some(cache::CachedSystemLayout {
-                signature,
-                margin_left,
-                all_staff_layouts: sys_layouts,
-                content_hashes: sys_hashes,
-                restore_meta: sys_restore,
-            }));
-        }
+        let new_sys_layouts = collect_cached_system_layouts(
+            precomp_layouts,
+            precomp_content_hashes,
+            precomp_restore_meta,
+            precomp_margins,
+            precomp_sys_signatures,
+        );
         if let Some(c) = cache.as_mut() {
             c.set_cached_system_layouts(new_sys_layouts);
         }
@@ -1099,5 +1094,5 @@ pub(super) fn layout_auto_flow_mnx_score(
     }
 
     tick!("restore measures+fit");
-    dl
+    dl.with_raised_text_frames()
 }

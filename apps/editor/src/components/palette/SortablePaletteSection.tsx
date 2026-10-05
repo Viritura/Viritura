@@ -40,7 +40,25 @@ export function SortablePaletteSection({
   };
 
   return (
-    <div ref={setNodeRef} style={rowStyle} className="viritura-palette-row" {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={rowStyle}
+      className="viritura-palette-row"
+      {...attributes}
+      {...listeners}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget) listeners?.onKeyDown?.(event);
+      }}
+      onPointerDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest("input, textarea, select, [contenteditable], [role=combobox]")
+        ) {
+          return;
+        }
+        listeners?.onPointerDown?.(event);
+      }}
+    >
       <Collapsible title={title} shortcut={shortcut} open={open} onOpenChange={onOpenChange}>
         {children}
       </Collapsible>

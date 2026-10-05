@@ -18,6 +18,7 @@ import { splitCommandsByPage } from "./pageCache";
 import type { DisplayList, RenderCommand, MeasureBounds } from "./wasm";
 import type { GlyphAtlas } from "./glyphAtlas";
 import { renderCommandBounds } from "./renderCommandBounds";
+import { paintInkCommands } from "./inkMask";
 
 /** Default tile size in CSS pixels. Larger = fewer tiles but more memory per tile. */
 export const DEFAULT_TILE_SIZE = 512;
@@ -222,15 +223,15 @@ export function paintCommandsCulled(
   cullY1: number,
   cullY2: number,
 ): void {
-  for (const cmd of commands) {
+  paintInkCommands(ctx, commands, (cmd) => {
     const b = renderCommandBounds(cmd);
-    if (b && (b.x2 < cullX1 || b.x > cullX2 || b.y2 < cullY1 || b.y > cullY2)) continue;
+    if (b && (b.x2 < cullX1 || b.x > cullX2 || b.y2 < cullY1 || b.y > cullY2)) return;
     if (cmd.type === "DrawGlyph" && glyphAtlas?.isBuilt) {
       const drawn = glyphAtlas.drawGlyph(ctx, cmd.codepoint, cmd.x, cmd.y, cmd.size, cmd.color);
-      if (drawn) continue;
+      if (drawn) return;
     }
     paintCommand(ctx, cmd);
-  }
+  });
 }
 
 export class TileCache {

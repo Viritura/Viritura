@@ -3,8 +3,13 @@ import { PageCache, splitCommandsByPage } from "../pageCache";
 import type { DisplayList, RenderCommand, PageLayout } from "../wasm";
 
 // Mock OffscreenCanvas for Node/Vitest environment
-function createMockOffscreenCtx(): OffscreenCanvasRenderingContext2D {
+function createMockOffscreenCtx(width: number, height: number): OffscreenCanvasRenderingContext2D {
   return {
+    canvas: { width, height },
+    globalAlpha: 1,
+    getTransform: vi.fn(() => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })),
+    rect: vi.fn(),
+    clip: vi.fn(),
     clearRect: vi.fn(),
     fillRect: vi.fn(),
     fillText: vi.fn(),
@@ -45,7 +50,7 @@ const origOffscreenCanvas = globalThis.OffscreenCanvas;
 let latestOffscreenCtx: OffscreenCanvasRenderingContext2D;
 beforeEach(() => {
   globalThis.OffscreenCanvas = vi.fn().mockImplementation(function (w: number, h: number) {
-    const ctx = createMockOffscreenCtx();
+    const ctx = createMockOffscreenCtx(w, h);
     latestOffscreenCtx = ctx;
     return {
       width: w,
@@ -190,6 +195,29 @@ describe("splitCommandsByPage", () => {
 });
 
 describe("PageCache", () => {
+  it("clips cached ink without painting a knockout fill and splits masks across pages", () => {
+    const pages: PageLayout[] = [
+      { pageNumber: 1, systemIndices: [0], yOffset: 0, height: 300 },
+      { pageNumber: 2, systemIndices: [1], yOffset: 300, height: 300 },
+    ];
+    const mask: RenderCommand = { type: "EraseRect", x: 10, y: 290, w: 50, h: 40 };
+    const dl = makeDisplayList(
+      [
+        { type: "DrawRect", x: 0, y: 280, w: 100, h: 60, color: "#000000" },
+        mask,
+        { type: "DrawRect", x: 20, y: 310, w: 5, h: 5, color: "#ff0000" },
+      ],
+      pages,
+    );
+    expect(splitCommandsByPage(dl).map((entry) => entry.commands.includes(mask))).toEqual([true, true]);
+    const cache = new PageCache();
+    cache.setDisplayList(dl);
+    cache.ensureWindow(0);
+    expect(latestOffscreenCtx.clip).toHaveBeenCalledWith("evenodd");
+    expect(latestOffscreenCtx.fillRect).toHaveBeenCalledTimes(3);
+    expect(latestOffscreenCtx.rect).toHaveBeenCalledWith(10, 290, 50, 40);
+  });
+
   it("should start with 0 pages", () => {
     const cache = new PageCache();
     expect(cache.pageCount).toBe(0);

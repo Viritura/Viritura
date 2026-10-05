@@ -206,7 +206,7 @@ pub(super) fn expressions_conflict(a: &PartMeasure, b: &PartMeasure) -> bool {
                 return true;
             }
             for (ea, eb) in ae.iter().zip(be.iter()) {
-                if ea.text != eb.text {
+                if ea.text != eb.text || ea.frame != eb.frame {
                     return true;
                 }
             }
@@ -744,6 +744,7 @@ mod tests {
     fn make_expression(text: &str) -> TextExpression {
         TextExpression {
             text: text.to_string().into(),
+            frame: None,
             position: RhythmicPosition { fraction: (0, 1) },
             placement: None,
             staff: None,
@@ -772,6 +773,19 @@ mod tests {
         let mut pm_b = make_pm(vec![make_note_event("C", 5, NoteValueBase::Whole)]);
         pm_b.expressions = Some(vec![make_expression("marcato")]);
         assert_eq!(analyze_merge_mode(&[&pm_a, &pm_b]), MergeMode::Divisi);
+    }
+
+    #[test]
+    fn test_conflicting_expression_frames_are_divisi() {
+        let mut a = make_pm(vec![make_note_event("C", 5, NoteValueBase::Whole)]);
+        a.expressions = Some(vec![make_expression("dolce")]);
+        let mut b = a.clone();
+        b.expressions.as_mut().unwrap()[0].frame = Some(
+            serde_json::from_value(serde_json::json!({ "padding": 1, "border": "solid" })).unwrap(),
+        );
+        assert_eq!(analyze_merge_mode(&[&a, &b]), MergeMode::Divisi);
+        a.expressions = b.expressions.clone();
+        assert_eq!(analyze_merge_mode(&[&a, &b]), MergeMode::Unison);
     }
 
     #[test]

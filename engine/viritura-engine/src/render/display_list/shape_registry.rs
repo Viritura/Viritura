@@ -89,6 +89,7 @@ impl DisplayList {
             geom: ShapeGeom::Cmd {
                 cmd_idx: cmd_idx as u32,
             },
+            authored_bounds: false,
             system_idx,
             staff_idx,
         });
@@ -107,6 +108,7 @@ impl DisplayList {
             element_id,
             kind,
             geom: ShapeGeom::Rect { bbox },
+            authored_bounds: false,
             system_idx,
             staff_idx,
         });
@@ -125,6 +127,7 @@ impl DisplayList {
             element_id,
             kind,
             geom: ShapeGeom::Band { samples },
+            authored_bounds: false,
             system_idx,
             staff_idx,
         });
@@ -146,6 +149,7 @@ impl DisplayList {
             geom: ShapeGeom::Rect {
                 bbox: bbox.bbox.clone(),
             },
+            authored_bounds: false,
             system_idx: None,
             staff_idx: None,
         });

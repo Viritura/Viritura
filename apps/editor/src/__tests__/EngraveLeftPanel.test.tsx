@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Score } from "@viritura/core";
@@ -7,8 +7,12 @@ import { TooltipPrimitives } from "@viritura/ui";
 import { EngraveLeftPanel } from "../components/modes/engrave/EngraveLeftPanel";
 import { PageSetupDialog } from "../components/PageSetupDialog";
 import { DocumentProvider, useDocumentStore } from "../store/DocumentContext";
+import { resetSelectionStore, useSelectionStore } from "../store/selectionStore";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetSelectionStore();
+});
 
 const SCORE: Score = {
   mnx: { version: 1 },
@@ -28,7 +32,20 @@ const SCORE: Score = {
     { id: "wind.flutes.flute", content: [{ type: "staff", sources: [{ part: "p1", labelref: "name" }] }] },
   ],
   scores: [
-    { name: "Full Score", layout: "full", pageSetup: { width: 297, height: 420, spatiumMm: 1.25 } },
+    {
+      name: "Full Score",
+      layout: "full",
+      pageSetup: { width: 297, height: 420, spatiumMm: 1.25 },
+      textFrames: [
+        {
+          id: "title",
+          content: [{ text: "Program note" }],
+          locator: { type: "page", pageIndex: 0 },
+          placement: { anchor: "top-left", offset: { x: 0, y: 0 } },
+          width: { unit: "staffSpaces", value: 20 },
+        },
+      ],
+    },
     { name: "Flute", layout: "wind.flutes.flute" },
   ],
 };
@@ -73,6 +90,17 @@ function renderPanel(onApplyPageSetup = vi.fn(), onResetPageSetup = vi.fn(), onI
 }
 
 describe("EngraveLeftPanel", () => {
+  it("opens existing frame properties on canvas selection without a Text tab or creation actions", async () => {
+    renderPanel();
+    await screen.findByRole("tab", { name: "Properties" });
+    expect(screen.queryByRole("tab", { name: "Text" })).toBeNull();
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
+    });
+    expect(screen.getByRole("tab", { name: "Properties" }).getAttribute("aria-selected")).toBe("true");
+    expect((await screen.findByRole("textbox", { name: "Text", exact: true })).textContent).toBe("Program note");
+    expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
+  });
   it("switches between House Style and Layouts", async () => {
     const user = userEvent.setup();
     renderPanel();

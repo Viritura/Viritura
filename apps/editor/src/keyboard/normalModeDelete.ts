@@ -31,6 +31,7 @@ import {
 import { isClefElementId } from "../score/clefElementId";
 import { resolveSelectionEvents, resolveSelectionMeasureRange } from "../store/selectionUtils";
 import { cloneScore } from "../score/scoreClone";
+import { deleteTextFrameInScore, textFrameIdFromElementId, textFramesForScore } from "../score/textFrameMutations";
 import {
   deleteSlurByElementId,
   deleteTieByElementId,
@@ -205,6 +206,20 @@ function deleteStandaloneLeaf(score: Score, elementId: string, selectedScoreInde
 }
 
 /** Delete handling for a single-element selection (annotation/ornament/slur/tie/grace/event). */
+/** Page text frame hit on the canvas (`text-frame/{id}`); true when the ID names a frame kind. */
+function deleteTextFrameSelection(
+  e: KeyboardEvent,
+  ctx: KeyboardHandlerContext,
+  score: Score,
+  elementId: string,
+): boolean {
+  if (!elementId.startsWith("text-frame/")) return false;
+  const scoreIndex = ctx.getConfig().selectedScoreIndex ?? 0;
+  const frameId = textFrameIdFromElementId(elementId, textFramesForScore(score, scoreIndex));
+  applyDeletion(e, ctx, frameId ? deleteTextFrameInScore(score, scoreIndex, frameId) : null);
+  return true;
+}
+
 function deleteSingleSelection(
   e: KeyboardEvent,
   ctx: KeyboardHandlerContext,
@@ -216,6 +231,8 @@ function deleteSingleSelection(
 ): void {
   const currentScore = ctx.getScore();
   if (!currentScore) return;
+
+  if (deleteTextFrameSelection(e, ctx, currentScore, sel.elementId)) return;
 
   // Try annotation deletion first
   const annotLoc = resolveDeletableAnnotationLocation(sel.elementId);

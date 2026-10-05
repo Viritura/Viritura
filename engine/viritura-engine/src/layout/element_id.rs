@@ -270,6 +270,19 @@ pub fn trill_line(source: &str, target: &str) -> String {
     format!("trill-line/{}/{}", sanitize(source), sanitize(target))
 }
 
+/// Page text frame: `text-frame/{frame_id}`. Selects the whole frame; every
+/// line and border command carries the same ID.
+///
+/// Frame IDs are authored and unique only as raw strings, so they are
+/// percent-encoded injectively (`%` → `%25`, then `/` → `%2F`) rather than
+/// sanitized: distinct frame IDs always yield distinct element IDs.
+pub fn text_frame(frame_id: &str) -> String {
+    format!(
+        "text-frame/{}",
+        frame_id.replace('%', "%25").replace('/', "%2F")
+    )
+}
+
 // ── Bbox helpers ────────────────────────────────────────────────────
 
 /// Articulation bbox (combined): `{base_id}/artic`
@@ -300,4 +313,24 @@ pub fn ornament_bbox(base_id: &str) -> String {
 /// Trill bbox: `{base_id}/trill`
 pub fn trill_bbox(base_id: &str) -> String {
     format!("{}/trill", base_id)
+}
+
+#[cfg(test)]
+mod text_frame_tests {
+    #[test]
+    fn text_frame_ids_are_injective() {
+        let ids = ["a/b", "a_b", "a%2Fb", "a%b", "%"];
+        let encoded: Vec<String> = ids.iter().map(|id| super::text_frame(id)).collect();
+        assert_eq!(
+            encoded,
+            [
+                "text-frame/a%2Fb",
+                "text-frame/a_b",
+                "text-frame/a%252Fb",
+                "text-frame/a%25b",
+                "text-frame/%25",
+            ]
+        );
+        assert!(encoded.iter().all(|id| id.matches('/').count() == 1));
+    }
 }

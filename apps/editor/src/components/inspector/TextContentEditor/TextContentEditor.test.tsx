@@ -1,8 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-import { act, render, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TextContent } from "@viritura/core";
 import { TextContentEditor } from "./TextContentEditor";
+
+const nativeExecCommand = document.execCommand;
+afterEach(() => {
+  document.execCommand = nativeExecCommand;
+});
 
 function renderEditor(initial: TextContent) {
   const onChange = vi.fn();
@@ -31,6 +36,70 @@ function renderEditor(initial: TextContent) {
 }
 
 describe("TextContentEditor", () => {
+  it("keeps glyph markup identifiable after a model rerender", () => {
+    const { ui, rerender } = renderEditor([{ glyphs: ["dynamicPP"] }]);
+    const editor = ui.getByRole("textbox", { name: "Text" });
+    expect(editor.querySelector("[data-glyph='dynamicPP']")).not.toBeNull();
+    rerender([{ text: "sempre " }, { glyphs: ["dynamicPP"] }]);
+    expect(editor.querySelector("[data-glyph='dynamicPP']")).not.toBeNull();
+  });
+
+  it("opens glyph search only on request and preserves notation runs on insertion", async () => {
+    const user = userEvent.setup();
+    const { ui, latest } = renderEditor([{ text: "sempre " }]);
+    expect(ui.queryByRole("searchbox", { name: "Search SMuFL glyphs" })).toBeNull();
+    await user.click(ui.getByRole("button", { name: "Insert notation glyph" }));
+    await user.type(ui.getByRole("searchbox", { name: "Search SMuFL glyphs" }), "dynamicPP");
+    await user.click(ui.getByRole("option", { name: "dynamicPP glyph" }));
+    expect(latest()).toEqual([{ text: "sempre " }, { glyphs: ["dynamicPP"] }]);
+    expect(ui.queryByRole("searchbox", { name: "Search SMuFL glyphs" })).toBeNull();
+  });
+
+  it("accepts Enter and multiline paste without losing surrounding rich runs", () => {
+    const onChange = vi.fn();
+    const view = render(
+      <TextContentEditor
+        multiline
+        value={[{ text: "dolce", style: { weight: "bold" } }]}
+        onChange={onChange}
+        placeholder="Text"
+        ariaLabel="Multiline text"
+      />,
+    );
+    const editor = within(view.container).getByRole("textbox", { name: "Multiline text" });
+    expect(editor.getAttribute("aria-multiline")).toBe("true");
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    document.execCommand = vi.fn((command, _ui, text) => {
+      const current = window.getSelection()!.getRangeAt(0);
+      const node = command === "insertLineBreak" ? document.createElement("br") : document.createTextNode(text ?? "");
+      current.insertNode(node);
+      current.setStartAfter(node);
+      current.collapse(true);
+      return true;
+    });
+    fireEvent.keyDown(editor, { key: "Enter" });
+    expect(onChange).toHaveBeenLastCalledWith([{ text: "dolce", style: { weight: "bold" } }, { text: "\n" }]);
+    fireEvent.paste(editor, { clipboardData: { getData: () => "quietly\r\nthen resume" } });
+    expect(onChange).toHaveBeenLastCalledWith([
+      { text: "dolce", style: { weight: "bold" } },
+      { text: "\nquietly\nthen resume" },
+    ]);
+    expect(document.execCommand).toHaveBeenCalledWith("insertLineBreak");
+    expect(document.execCommand).toHaveBeenCalledWith("insertText", false, "quietly\nthen resume");
+  });
+
+  it("keeps single-line semantic fields from accepting Enter", () => {
+    const { ui, latest } = renderEditor([{ text: "dolce" }]);
+    const editor = ui.getByRole("textbox", { name: "Text" });
+    fireEvent.keyDown(editor, { key: "Enter" });
+    expect(editor.getAttribute("aria-multiline")).toBe("false");
+    expect(latest()).toBeUndefined();
+  });
+
   it("applies and then clears bold over the whole field", async () => {
     const user = userEvent.setup();
     const { ui, selectAll, latest } = renderEditor([{ text: "dolce" }]);

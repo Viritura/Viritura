@@ -417,6 +417,8 @@
       "required": ["text", "position"],
       "properties": {
         "text": { "$ref": "#/$defs/text-content" },
+        "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
+        "pagePosition": { "$ref": "#/$defs/text-frame-page-position" },
         "position": {
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
@@ -1159,9 +1161,219 @@
       "properties": {
         "pageSetup": { "$ref": "#/$defs/page-setup" },
         "instrumentNameDisplay": { "$ref": "#/$defs/instrument-name-display" },
+        "textFrames": {
+          "type": "array",
+          "description": "Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance.",
+          "items": { "$ref": "#/$defs/text-frame" }
+        },
         "layoutBreaks": {
           "type": "array",
           "items": { "$ref": "#/$defs/layout-break" }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "text-frame": {
+      "type": "object",
+      "required": ["id", "locator", "placement", "width", "content"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "locator": { "$ref": "#/$defs/text-frame-locator" },
+        "placement": { "$ref": "#/$defs/text-frame-placement" },
+        "width": { "$ref": "#/$defs/text-frame-width" },
+        "content": { "$ref": "#/$defs/text-content" },
+        "horizontalAlignment": {
+          "type": "string",
+          "enum": ["left", "center", "right"],
+          "description": "Horizontal alignment of the frame at its page anchor, independent of paragraph justification."
+        },
+        "paragraphJustification": {
+          "type": "string",
+          "enum": ["left", "center", "right", "justify"],
+          "description": "Paragraph line justification within the frame, independent of frame alignment."
+        },
+        "padding": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Optional inset on all sides in staff spaces."
+        },
+        "border": {
+          "type": "string",
+          "enum": ["none", "solid"],
+          "description": "Optional frame border style."
+        },
+        "eraseBackground": {
+          "type": "boolean",
+          "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
+        },
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" },
+        "staffAttachment": { "$ref": "#/$defs/text-frame-staff-attachment" }
+      },
+      "additionalProperties": false
+    },
+
+    "text-frame-page-position": {
+      "type": "object",
+      "required": ["id", "locator", "placement", "width"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "layer": { "type": "integer", "minimum": 0 },
+        "locator": { "$ref": "#/$defs/text-frame-locator" },
+        "placement": { "$ref": "#/$defs/text-frame-placement" },
+        "width": { "$ref": "#/$defs/text-frame-width" },
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
+      },
+      "additionalProperties": false
+    },
+    "text-frame-staff-attachment": {
+      "type": "object",
+      "required": ["partId", "measureId", "expression"],
+      "properties": {
+        "partId": { "type": "string", "minLength": 1 },
+        "measureId": { "type": "string", "minLength": 1 },
+        "expression": {
+          "type": "object",
+          "required": ["position"],
+          "properties": {
+            "position": { "$ref": "#/$defs/rhythmic-position" },
+            "placement": { "$ref": "#/$defs/expression-placement" },
+            "staff": { "type": "integer", "minimum": 1 },
+            "voice": { "type": "string" },
+            "manualOffset": { "$ref": "#/$defs/sp-delta" },
+            "avoidCollisions": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "width": {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "staffSpaces" },
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "staff-text-frame-presentation": {
+      "type": "object",
+      "description": "Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic.",
+      "properties": {
+        "width": {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "staffSpaces" },
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "horizontalAlignment": { "type": "string", "enum": ["left", "center", "right"] },
+        "paragraphJustification": { "type": "string", "enum": ["left", "center", "right", "justify"] },
+        "padding": { "type": "number", "minimum": 0 },
+        "border": { "type": "string", "enum": ["none", "solid"] },
+        "eraseBackground": {
+          "type": "boolean",
+          "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "text-frame-locator": {
+      "description": "Exactly one page, global-measure, or part-scoped event locator.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "pageIndex"],
+          "properties": {
+            "type": { "const": "page" },
+            "pageIndex": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "measureId"],
+          "properties": {
+            "type": { "const": "globalMeasure" },
+            "measureId": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "partId", "eventId"],
+          "properties": {
+            "type": { "const": "event" },
+            "partId": { "type": "string", "minLength": 1 },
+            "eventId": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "text-frame-placement": {
+      "type": "object",
+      "required": ["anchor", "offset"],
+      "properties": {
+        "anchor": {
+          "type": "string",
+          "enum": ["top", "right", "bottom", "left", "top-left", "top-right", "bottom-right", "bottom-left"]
+        },
+        "offset": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number", "description": "Horizontal offset in staff spaces; positive moves right." },
+            "y": { "type": "number", "description": "Vertical offset in staff spaces; positive moves down." }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "text-frame-width": {
+      "description": "Exactly one width unit: staff spaces or a fraction of the available text column.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "staffSpaces" },
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "textColumnFraction" },
+            "value": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "text-frame-source-reference": {
+      "type": "object",
+      "required": ["unit"],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unit name used by the source document."
+        },
+        "referenceStaffSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Source-unit size of the reference staff, when defined by the source."
         }
       },
       "additionalProperties": false

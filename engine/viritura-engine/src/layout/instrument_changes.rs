@@ -188,6 +188,7 @@ fn append_expression(
                 instrument_reminder,
                 manual_offset: None,
                 avoid_collisions: None,
+                frame: None,
             });
     }
 }

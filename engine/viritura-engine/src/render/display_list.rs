@@ -4,6 +4,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 
 mod assembly;
+mod ink_layers;
 mod primitives;
 mod shape_registry;
 

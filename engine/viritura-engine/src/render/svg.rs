@@ -155,7 +155,7 @@ fn text_to_path(
 fn cmd_y(cmd: &RenderCommand) -> f64 {
     match cmd {
         RenderCommand::DrawLine { y1, y2, .. } => y1.min(*y2),
-        RenderCommand::DrawRect { y, .. } => *y,
+        RenderCommand::DrawRect { y, .. } | RenderCommand::EraseRect { y, .. } => *y,
         RenderCommand::DrawCircle { cy, .. } => *cy,
         RenderCommand::DrawEllipse { cy, .. } => *cy,
         RenderCommand::DrawText { y, .. } => *y,
@@ -192,6 +192,12 @@ pub fn display_list_to_svg_pages(
     text_font_data: Option<&[u8]>,
     cfg: &SvgExportConfig,
 ) -> Result<Vec<SvgPage>, String> {
+    let normalized = dl
+        .commands
+        .iter()
+        .any(|command| matches!(command, RenderCommand::EraseRect { .. }))
+        .then(|| dl.clone().with_raised_text_frames());
+    let dl = normalized.as_ref().unwrap_or(dl);
     let bravura = ttf_parser::Face::parse(bravura_data, 0)
         .map_err(|e| format!("Failed to parse Bravura font: {e:?}"))?;
     let text_face = text_font_data
@@ -232,8 +238,24 @@ pub fn display_list_to_svg_pages(
     for (i, pg) in pages.iter().enumerate() {
         let mut elems: Vec<String> = Vec::with_capacity(buckets[i].len());
         let mut opacity = 1.0_f64;
+        let mut clips = Vec::new();
 
         for cmd in &buckets[i] {
+            if let RenderCommand::EraseRect { x, y, w, h } = cmd {
+                let scale = cfg.spatium_mm / cfg.sp_pixels;
+                let id = format!("erase-p{}-{}", pg.page_number, clips.len());
+                // Each knockout clips the accumulated ink, never the paper.
+                // Separate clips make overlapping masks a union rather than XOR.
+                clips.push(format!(
+                    "<clipPath id=\"{id}\"><path clip-rule=\"evenodd\" d=\"M0 0 L{pw} 0 L{pw} {ph} L0 {ph} Z M{left:.6} {top:.6} L{right:.6} {top:.6} L{right:.6} {bottom:.6} L{left:.6} {bottom:.6} Z\"/></clipPath>",
+                    pw = cfg.page_width_mm, ph = cfg.page_height_mm,
+                    left = x * scale, top = (y - pg.y_offset) * scale,
+                    right = (x + w) * scale, bottom = (y + h - pg.y_offset) * scale,
+                ));
+                elems.insert(0, format!("<g clip-path=\"url(#{id})\">"));
+                elems.push("</g>".into());
+                continue;
+            }
             if let Some(el) = render_cmd(cmd, pg, cfg, &bravura, text_face.as_ref(), opacity) {
                 elems.push(el);
             }
@@ -252,6 +274,9 @@ pub fn display_list_to_svg_pages(
              <rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n",
             cfg.page_width_mm, cfg.page_height_mm, cfg.page_width_mm, cfg.page_height_mm,
         );
+        if !clips.is_empty() {
+            let _ = writeln!(svg, "<defs>{}</defs>", clips.join(""));
+        }
         for el in &elems {
             svg.push_str(el);
             svg.push('\n');
@@ -649,7 +674,7 @@ fn render_cmd(
             ))
         }
 
-        RenderCommand::SetOpacity { .. } => None,
+        RenderCommand::SetOpacity { .. } | RenderCommand::EraseRect { .. } => None,
     }
 }
 
@@ -720,6 +745,66 @@ mod tests {
         let dl = DisplayList::new(100.0, 200.0);
         assert!(dl.pages.is_empty());
         assert_eq!(dl.commands.len(), 0);
+    }
+
+    #[test]
+    fn ink_knockouts_clip_prior_ink_not_paper_and_keep_foreground_order() {
+        let font = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../assets/fonts/Bravura.otf"
+        ))
+        .unwrap();
+        let cfg = SvgExportConfig {
+            spatium_mm: 1.0,
+            sp_pixels: 1.0,
+            page_width_mm: 100.0,
+            page_height_mm: 100.0,
+        };
+        let mut dl = DisplayList::new(100.0, 100.0);
+        dl.push(RenderCommand::DrawRect {
+            x: 1.0,
+            y: 1.0,
+            w: 80.0,
+            h: 80.0,
+            color: "#000000".into(),
+        });
+        dl.push(RenderCommand::EraseRect {
+            x: 10.0,
+            y: 10.0,
+            w: 20.0,
+            h: 20.0,
+        });
+        dl.push(RenderCommand::DrawRect {
+            x: 15.0,
+            y: 15.0,
+            w: 2.0,
+            h: 2.0,
+            color: "#ff0000".into(),
+        });
+        dl.push(RenderCommand::EraseRect {
+            x: 20.0,
+            y: 20.0,
+            w: 20.0,
+            h: 20.0,
+        });
+        dl.push(RenderCommand::DrawRect {
+            x: 25.0,
+            y: 25.0,
+            w: 2.0,
+            h: 2.0,
+            color: "#00ff00".into(),
+        });
+        let pages = display_list_to_svg_pages(&dl, &font, None, &cfg).unwrap();
+        let svg = &pages[0].svg;
+        assert_eq!(svg.matches("<clipPath").count(), 2);
+        assert_eq!(svg.matches("clip-rule=\"evenodd\"").count(), 2);
+        assert_eq!(
+            svg.matches("fill=\"white\"").count(),
+            1,
+            "only the paper may be white"
+        );
+        assert!(svg.find("fill=\"white\"").unwrap() < svg.find("<g clip-path").unwrap());
+        assert!(svg.find("fill=\"#00ff00\"").unwrap() > svg.rfind("</g>").unwrap());
     }
 
     #[test]

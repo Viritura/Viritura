@@ -3,7 +3,7 @@ use crate::model::{TextContent, TextContentChunk, TextDecoration, TextRunStyle, 
 use crate::render::smufl::smufl;
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
 
-pub(super) fn content_width(
+pub(crate) fn content_width(
     content: &TextContent,
     base_size: f64,
     default_family: FontFamily,
@@ -36,7 +36,7 @@ pub(super) fn content_height(content: &TextContent, base_size: f64) -> f64 {
     0.82 * base_size * max_multiplier
 }
 
-pub(super) fn emit_content(
+pub(crate) fn emit_content(
     display_list: &mut DisplayList,
     content: &TextContent,
     x: f64,

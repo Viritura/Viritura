@@ -84,6 +84,9 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   if (sd.layoutBreaks && sd.layoutBreaks.length > 0) {
     viritura["layoutBreaks"] = sd.layoutBreaks.map((entry) => ({ ...entry }));
   }
+  if (sd.textFrames) {
+    viritura["textFrames"] = sd.textFrames.map(serializeTextFrame);
+  }
 
   // Vendor extension: _x.viritura.pageSetup — only write non-default values
   if (sd.pageSetup) {
@@ -94,6 +97,27 @@ export function serializeScoreDefinition(sd: ScoreDefinition): Obj {
   }
   if (Object.keys(viritura).length > 0) obj["_x"] = { viritura };
 
+  return obj;
+}
+
+function serializeTextFrame(frame: NonNullable<ScoreDefinition["textFrames"]>[number]): Obj {
+  const obj: Obj = {
+    id: frame.id,
+    locator: { ...frame.locator },
+    placement: {
+      anchor: frame.placement.anchor,
+      offset: { ...frame.placement.offset },
+    },
+    width: { ...frame.width },
+    content: frame.content,
+  };
+  if (frame.horizontalAlignment !== undefined) obj["horizontalAlignment"] = frame.horizontalAlignment;
+  if (frame.paragraphJustification !== undefined) obj["paragraphJustification"] = frame.paragraphJustification;
+  if (frame.padding !== undefined) obj["padding"] = frame.padding;
+  if (frame.border !== undefined) obj["border"] = frame.border;
+  if (frame.eraseBackground !== undefined) obj["eraseBackground"] = frame.eraseBackground;
+  if (frame.sourceReference) obj["sourceReference"] = { ...frame.sourceReference };
+  if (frame.staffAttachment) obj["staffAttachment"] = frame.staffAttachment;
   return obj;
 }
 

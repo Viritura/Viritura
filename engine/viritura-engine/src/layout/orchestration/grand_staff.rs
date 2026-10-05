@@ -895,5 +895,5 @@ pub(in crate::layout) fn layout_grand_staff_score_cached(
     let system_heights: Vec<f64> = vec![single_system_height; system_count];
     dl.pages = compute_page_breaks(&system_heights, config, 0.0);
 
-    dl
+    dl.with_raised_text_frames()
 }

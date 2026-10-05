@@ -21,6 +21,7 @@ pub mod repeat;
 pub mod score;
 pub mod staff_meter;
 pub mod text;
+pub mod text_frame;
 pub mod time;
 
 pub use barline::*;
@@ -41,4 +42,5 @@ pub use repeat::*;
 pub use score::*;
 pub use staff_meter::*;
 pub use text::*;
+pub use text_frame::*;
 pub use time::*;

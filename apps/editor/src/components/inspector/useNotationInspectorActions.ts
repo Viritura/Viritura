@@ -16,6 +16,7 @@ import {
   type Tempo,
   type TextContent,
   type TextExpression,
+  type StaffTextFramePresentation,
 } from "@viritura/core";
 import { produce } from "../../score/scoreClone";
 import { navigationMarker, navigationMarkerKind, type NavigationMarkerKind } from "./markerText";
@@ -326,6 +327,7 @@ export interface DirectionTextHandlers extends DynamicGroupHandlers {
   isExpressionSelected: boolean;
   selectedExpression: TextExpression | null;
   handleExpressionTextChange: (text: import("@viritura/core").TextContent) => void;
+  handleExpressionFrameChange: (frame: StaffTextFramePresentation | undefined) => void;
   isRehearsalSelected: boolean;
   selectedRehearsal: RehearsalMark | null;
   handleRehearsalTextChange: (text: import("@viritura/core").TextContent) => void;
@@ -405,6 +407,21 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     [score, target, expressionMatch, updateScore],
   );
 
+  const handleExpressionFrameChange = useCallback(
+    (frame: StaffTextFramePresentation | undefined) => {
+      if (!score || !target || !expressionMatch) return;
+      const idx = parseInt(expressionMatch[1]!, 10);
+      const nextScore = produce(score, (draft) => {
+        const expression = draft.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[idx];
+        if (!expression) return;
+        if (frame) expression.frame = frame;
+        else delete expression.frame;
+      });
+      if (nextScore !== score) updateScore(nextScore);
+    },
+    [score, target, expressionMatch, updateScore],
+  );
+
   // Manual-placement handlers are generic across every movable annotation
   // (expression, dynamic, tempo, rehearsal); they key off the selected element
   // id and delegate to the shared annotation-offset mutations.
@@ -471,6 +488,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     isExpressionSelected,
     selectedExpression,
     handleExpressionTextChange,
+    handleExpressionFrameChange,
     isRehearsalSelected,
     selectedRehearsal,
     handleRehearsalTextChange,

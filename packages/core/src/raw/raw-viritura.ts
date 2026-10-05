@@ -208,6 +208,8 @@ export interface components {
         /** @description A text expression or direction at a rhythmic position (e.g. 'dolce', 'rit.', 'a tempo'). Rendered in italic serif font. */
         "text-expression": {
             text: components["schemas"]["text-content"];
+            frame?: components["schemas"]["staff-text-frame-presentation"];
+            pagePosition?: components["schemas"]["text-frame-page-position"];
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
             placement?: components["schemas"]["expression-placement"];
@@ -586,7 +588,120 @@ export interface components {
         "score-extensions": {
             pageSetup?: components["schemas"]["page-setup"];
             instrumentNameDisplay?: components["schemas"]["instrument-name-display"];
+            /** @description Free text frames owned by this score view. A page locator uses a zero-based index into the final rendered page array; measure and event locators follow their target onto its rendered page. Event IDs are scoped by the required part ID. Placement is relative to an edge or corner of the printable page area, with offsets in staff spaces (+x right, +y down). Frames have automatic height and do not participate in collision avoidance. */
+            textFrames?: components["schemas"]["text-frame"][];
             layoutBreaks?: components["schemas"]["layout-break"][];
+        };
+        "text-frame": {
+            id: string;
+            locator: components["schemas"]["text-frame-locator"];
+            placement: components["schemas"]["text-frame-placement"];
+            width: components["schemas"]["text-frame-width"];
+            content: components["schemas"]["text-content"];
+            /**
+             * @description Horizontal alignment of the frame at its page anchor, independent of paragraph justification.
+             * @enum {string}
+             */
+            horizontalAlignment?: "left" | "center" | "right";
+            /**
+             * @description Paragraph line justification within the frame, independent of frame alignment.
+             * @enum {string}
+             */
+            paragraphJustification?: "left" | "center" | "right" | "justify";
+            /** @description Optional inset on all sides in staff spaces. */
+            padding?: number;
+            /**
+             * @description Optional frame border style.
+             * @enum {string}
+             */
+            border?: "none" | "solid";
+            /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
+            eraseBackground?: boolean;
+            sourceReference?: components["schemas"]["text-frame-source-reference"];
+            staffAttachment?: components["schemas"]["text-frame-staff-attachment"];
+        };
+        "text-frame-page-position": {
+            id: string;
+            layer?: number;
+            locator: components["schemas"]["text-frame-locator"];
+            placement: components["schemas"]["text-frame-placement"];
+            width: components["schemas"]["text-frame-width"];
+            sourceReference?: components["schemas"]["text-frame-source-reference"];
+        };
+        "text-frame-staff-attachment": {
+            partId: string;
+            measureId: string;
+            expression: {
+                position: components["schemas"]["rhythmic-position"];
+                placement?: components["schemas"]["expression-placement"];
+                staff?: number;
+                voice?: string;
+                manualOffset?: components["schemas"]["sp-delta"];
+                avoidCollisions?: boolean;
+            };
+            width?: {
+                /** @constant */
+                unit: "staffSpaces";
+                value: number;
+            };
+        };
+        /** @description Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic. */
+        "staff-text-frame-presentation": {
+            width?: {
+                /** @constant */
+                unit: "staffSpaces";
+                value: number;
+            };
+            /** @enum {string} */
+            horizontalAlignment?: "left" | "center" | "right";
+            /** @enum {string} */
+            paragraphJustification?: "left" | "center" | "right" | "justify";
+            padding?: number;
+            /** @enum {string} */
+            border?: "none" | "solid";
+            /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
+            eraseBackground?: boolean;
+        };
+        /** @description Exactly one page, global-measure, or part-scoped event locator. */
+        "text-frame-locator": {
+            /** @constant */
+            type: "page";
+            pageIndex: number;
+        } | {
+            /** @constant */
+            type: "globalMeasure";
+            measureId: string;
+        } | {
+            /** @constant */
+            type: "event";
+            partId: string;
+            eventId: string;
+        };
+        "text-frame-placement": {
+            /** @enum {string} */
+            anchor: "top" | "right" | "bottom" | "left" | "top-left" | "top-right" | "bottom-right" | "bottom-left";
+            offset: {
+                /** @description Horizontal offset in staff spaces; positive moves right. */
+                x: number;
+                /** @description Vertical offset in staff spaces; positive moves down. */
+                y: number;
+            };
+        };
+        /** @description Exactly one width unit: staff spaces or a fraction of the available text column. */
+        "text-frame-width": {
+            /** @constant */
+            unit: "staffSpaces";
+            value: number;
+        } | {
+            /** @constant */
+            unit: "textColumnFraction";
+            value: number;
+        };
+        "text-frame-source-reference": {
+            /** @description Unit name used by the source document. */
+            unit: string;
+            /** @description Source-unit size of the reference staff, when defined by the source. */
+            referenceStaffSize?: number;
         };
         /** @description A forced system or page start within otherwise automatic score flow. */
         "layout-break": {
@@ -947,6 +1062,14 @@ export type PageTurnSettings = components["schemas"]["page-turn-settings"];
 export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
+export type TextFrame = components["schemas"]["text-frame"];
+export type TextFramePagePosition = components["schemas"]["text-frame-page-position"];
+export type TextFrameStaffAttachment = components["schemas"]["text-frame-staff-attachment"];
+export type StaffTextFramePresentation = components["schemas"]["staff-text-frame-presentation"];
+export type TextFrameLocator = components["schemas"]["text-frame-locator"];
+export type TextFramePlacement = components["schemas"]["text-frame-placement"];
+export type TextFrameWidth = components["schemas"]["text-frame-width"];
+export type TextFrameSourceReference = components["schemas"]["text-frame-source-reference"];
 export type LayoutBreak = components["schemas"]["layout-break"];
 export type InstrumentNameDisplayPolicy = components["schemas"]["instrument-name-display-policy"];
 export type InstrumentNameDisplay = components["schemas"]["instrument-name-display"];

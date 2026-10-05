@@ -57,6 +57,8 @@ pub(crate) mod repeat;
 pub(crate) mod root;
 pub(crate) mod score;
 pub(crate) mod slur;
+mod staff_text_frame;
+pub(crate) mod text_frame;
 pub(crate) mod time;
 pub(crate) mod vendor_directions;
 pub(crate) mod vendor_ext;
@@ -80,6 +82,8 @@ pub enum PromoteError {
     UnsupportedInstrumentChange(String),
     /// Authored marker text has no owning marker on the same measure.
     MarkerTextWithoutOwner(&'static str),
+    /// A `textFrames` entry is malformed or reuses another frame's ID.
+    InvalidTextFrame(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -95,6 +99,7 @@ impl std::fmt::Display for PromoteError {
             Self::UnsupportedInstrumentChange(s) => {
                 write!(f, "MNX instrument change is not supported: {s}")
             }
+            Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
             Self::MarkerTextWithoutOwner(owner) => {
                 write!(
                     f,

@@ -32,6 +32,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
+use super::super::text_frames::{append_text_frames_by_bounds, layout_full_score_with_frames};
 use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
@@ -488,7 +489,7 @@ pub fn layout_with_mnx_scores_cached(
 
     // Fall back to regular layout if no layouts/scores defined
     if score.layouts.is_empty() || score.scores.is_empty() {
-        return layout_full_score(score, config);
+        return layout_full_score_with_frames(score, config, score_index);
     }
     let score_def = match score.scores.get(score_index) {
         Some(sd) => sd,
@@ -576,14 +577,14 @@ pub fn layout_with_mnx_scores_cached(
         let Some(layout_id) = score_def.layout.as_deref() else {
             let mut dl = DisplayList::new(0.0, 0.0);
             dl.set_parts(score, 0..score.parts.len());
-            return dl;
+            return dl.with_raised_text_frames();
         };
         let layout_def = match layout_map.get(layout_id) {
             Some(l) => l,
             None => {
                 let mut dl = DisplayList::new(0.0, 0.0);
                 dl.set_parts(score, 0..score.parts.len());
-                return dl;
+                return dl.with_raised_text_frames();
             }
         };
         let (auto_flat_staves, auto_group_ranges) =
@@ -615,6 +616,7 @@ pub fn layout_with_mnx_scores_cached(
             &score_def.layout_breaks,
             score_def.instrument_name_display.as_ref(),
             part_score_name.as_deref(),
+            &score_def.text_frames,
             dirty_region,
             cache.as_deref_mut(),
         );
@@ -635,7 +637,7 @@ pub fn layout_with_mnx_scores_cached(
             }
         }
 
-        return dl;
+        return dl.with_raised_text_frames();
     }
 
     // Resolve system measure ranges + per-system flat staves + layout-change maps.
@@ -957,6 +959,7 @@ pub fn layout_with_mnx_scores_cached(
     if config.page_width.is_none() {
         fit_unpaged_bounds(&mut dl, margin_top, base_margin_r_sp * sp);
     }
+    append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
 
-    dl
+    dl.with_raised_text_frames()
 }

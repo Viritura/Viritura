@@ -404,7 +404,7 @@ pub fn layout_full_score_cached(
 
     dl.pages = pages;
 
-    dl
+    dl.with_raised_text_frames()
 }
 
 /// Build the per-visual-staff `MeasureLayout` vectors for one system,

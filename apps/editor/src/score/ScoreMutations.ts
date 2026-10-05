@@ -67,6 +67,20 @@ export {
 export { findSlurAnchorInfo, reanchoredSlurElementId, reanchorSlurInScore } from "./slurAnchorMutations";
 export { setAnnotationOffsetInScore } from "./annotationOffsetMutations";
 export { setRestStaffPositionInScore } from "./restPositionMutations";
+export {
+  addTextFrameInScore,
+  buildTextFrame,
+  deleteTextFrameInScore,
+  measureLocatorAt,
+  moveTextFrameInScore,
+  nextTextFrameId,
+  reorderTextFrameInScore,
+  resizeTextFrameInScore,
+  setTextFrameContentInScore,
+  textFrameLocatorMeasureIndex,
+  textFrameLocatorResolvesInView,
+  textFramesForScore,
+} from "./textFrameMutations";
 export { hiddenRestPlaceholderId, restMetadataLosses, setRestHiddenInScore } from "./hiddenRestMutations";
 
 // ─── Score-definition edits (kept local — small, no complexity issues) ──
@@ -93,6 +107,7 @@ export function applyScoreDefChanges(score: Score, edits: ScoreDefEdit[]): Score
       ...(existing?.layoutBreaks ? { layoutBreaks: existing.layoutBreaks } : {}),
       ...(existing?.pageSetup ? { pageSetup: existing.pageSetup } : {}),
       ...(existing?.multimeasureRests ? { multimeasureRests: existing.multimeasureRests } : {}),
+      ...(existing?.textFrames ? { textFrames: existing.textFrames } : {}),
     };
   });
 
