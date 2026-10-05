@@ -98,7 +98,7 @@ describe("EngraveLeftPanel", () => {
       useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
     });
     expect(screen.getByRole("tab", { name: "Properties" }).getAttribute("aria-selected")).toBe("true");
-    expect(await screen.findByLabelText("Text")).toHaveProperty("value", "Program note");
+    expect((await screen.findByRole("textbox", { name: "Text", exact: true })).textContent).toBe("Program note");
     expect(screen.queryByRole("button", { name: /Add .*frame/ })).toBeNull();
   });
   it("switches between House Style and Layouts", async () => {
