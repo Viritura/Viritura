@@ -98,6 +98,7 @@ function runClick(
   setAccidental = vi.fn(),
   info = makeClickInfo(),
   setLastPitch = vi.fn(),
+  previewNote = vi.fn(),
 ): Score {
   let captured: Score = score;
   addNoteAtClick({
@@ -116,7 +117,7 @@ function runClick(
     setSlurStart: vi.fn(),
     clearSlurStart: vi.fn(),
     toggleSlur: vi.fn(),
-    playbackActions: { previewNote: vi.fn() } as never,
+    playbackActions: { previewNote },
   });
   return captured;
 }
@@ -124,6 +125,30 @@ function runClick(
 afterEach(() => resetNoteInputStore());
 
 describe("addNoteAtClick — staff/voice resolution on lower staves", () => {
+  it("clicks the active clarinet's written F-sharp and previews stored concert E without re-transposing", () => {
+    const score = makeTwoPartScore();
+    score.scores = [{ useWritten: true }];
+    score.parts[1]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };
+    score.parts[1]!.measures[0]!.instrumentChanges = [
+      {
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+      },
+    ];
+    const previewNote = vi.fn();
+    const setLastPitch = vi.fn();
+    // The top line of the treble staff is written F5.
+    const info = makeClickInfo();
+    const result = runClick(score, makeNoteInputState(), vi.fn(), info, setLastPitch, previewNote);
+    expect(result.parts[1]!.measures[0]!.sequences[0]!.content[0]!.notes![0]!.pitch).toMatchObject({
+      step: "E",
+      octave: 5,
+    });
+    expect(setLastPitch).toHaveBeenCalledWith({ step: "F", octave: 5, alter: 1 });
+    expect(previewNote).toHaveBeenCalledExactlyOnceWith(76, 1, 80, 400, undefined, {
+      measureIndex: 0,
+      fraction: [0, 1],
+    });
+  });
   it.each<Duration>([{ base: "quarter" }, { base: "half", dots: 1 }])(
     "inserts a pitched note with the selected rest's rhythm: %j",
     (duration) => {

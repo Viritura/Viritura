@@ -245,15 +245,17 @@ describe("MNX round-trip (parse → serialize → parse)", () => {
     const source = {
       mnx: { version: 1 },
       global: { measures: [] },
-      parts: [{ id: "piano", name: "Piano", measures: [], _x: { viritura: { chordSymbolVisibility: "show" } } }],
+      parts: [
+        { id: "keyboard.piano", name: "Piano", measures: [], _x: { viritura: { chordSymbolVisibility: "show" } } },
+      ],
       layouts: [
         {
           id: "piano-part",
           content: [
-            { type: "staff", sources: [{ part: "piano", staff: 1 }] },
+            { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
             {
               type: "staff",
-              sources: [{ part: "piano", staff: 2 }],
+              sources: [{ part: "keyboard.piano", staff: 2 }],
             },
           ],
         },
@@ -428,7 +430,7 @@ describe("MNX sound-profile extension round-trip", () => {
           soundProfile: {
             profileId: "viritura-sounds",
             profileVersion: 1,
-            parts: { "clarinet-1": { sourceId: "tuba-primary" } },
+            parts: { "clarinet-1": { sourceId: "brass.tuba-primary" } },
           },
         },
       },

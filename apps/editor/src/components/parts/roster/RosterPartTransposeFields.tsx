@@ -1,22 +1,17 @@
 import { X } from "lucide-react";
 import { Checkbox, Collapsible, FormField, FormInput, IconButton, Tooltip } from "@viritura/ui";
 import {
-  CHROMATIC_DESCRIPTION,
-  STAFF_DISTANCE_DESCRIPTION,
   KEY_FIFTHS_FLIP_AT_DESCRIPTION,
   PREFERS_WRITTEN_PITCHES_DESCRIPTION,
   buildTransposition,
-  defaultKeyFifthsFlipAt,
-  diatonicFromChromatic,
-  transpositionSummary,
   type PartUpdate,
 } from "./transposition";
 import styles from "./RosterPartTransposeFields.module.css";
+import { TranspositionPitchFields } from "../transpositionPitch";
 
 interface Props {
   partId: string | undefined;
-  name: string;
-  shortName: string;
+  instrumentId?: string;
   chromatic: number;
   staffDistance: number;
   keyFifthsFlipAt: number | "";
@@ -33,8 +28,7 @@ interface Props {
 export function RosterPartTransposeFields(props: Props) {
   const {
     partId,
-    name,
-    shortName,
+    instrumentId,
     chromatic,
     staffDistance,
     keyFifthsFlipAt,
@@ -53,8 +47,21 @@ export function RosterPartTransposeFields(props: Props) {
         <span id={`transposition-${partId ?? "part"}`} className={styles.sectionLabel}>
           Transposition
         </span>
-        <p className={styles.summary}>{transpositionSummary(chromatic)}</p>
       </div>
+      <TranspositionPitchFields
+        instrumentId={instrumentId}
+        halfSteps={chromatic}
+        staffDistance={staffDistance}
+        onChange={(next, nextSd) => {
+          setChromatic(next);
+          setStaffDistance(nextSd);
+          if (partId && onUpdate) {
+            onUpdate(partId, {
+              transposition: buildTransposition(next, nextSd, keyFifthsFlipAt, prefersWritten),
+            });
+          }
+        }}
+      />
       <Tooltip content={PREFERS_WRITTEN_PITCHES_DESCRIPTION}>
         <div className={styles.writtenPitches}>
           <Checkbox
@@ -74,42 +81,6 @@ export function RosterPartTransposeFields(props: Props) {
       </Tooltip>
       <Collapsible title="Advanced transposition" className={styles.advanced}>
         <div className={styles.advancedFields}>
-          <div className={styles.fieldRow}>
-            <FormField label="Chromatic">
-              <FormInput
-                type="number"
-                value={chromatic}
-                title={CHROMATIC_DESCRIPTION}
-                onChange={(e) => {
-                  const next = parseInt(e.target.value) || 0;
-                  setChromatic(next);
-                  const nextSd = diatonicFromChromatic(next);
-                  setStaffDistance(nextSd);
-                  const nextFlip = defaultKeyFifthsFlipAt(next);
-                  setKeyFifthsFlipAt(nextFlip);
-                  if (partId && onUpdate) {
-                    onUpdate(partId, {
-                      name,
-                      shortName: shortName || undefined,
-                      transposition: buildTransposition(next, nextSd, nextFlip, prefersWritten),
-                    });
-                  }
-                }}
-                onBlur={commit}
-                className={styles.fullWidth}
-              />
-            </FormField>
-            <FormField label="Staff distance">
-              <FormInput
-                type="number"
-                value={staffDistance}
-                title={STAFF_DISTANCE_DESCRIPTION}
-                onChange={(e) => setStaffDistance(parseInt(e.target.value) || 0)}
-                onBlur={commit}
-                className={styles.fullWidth}
-              />
-            </FormField>
-          </div>
           <FormField label="Key flip at">
             <div className={styles.keyFlipRow}>
               <FormInput

@@ -55,7 +55,7 @@ const sampleProfile: VstInstrumentProfile = {
   slots: [
     {
       slotId: "v1",
-      catalogInstrumentId: "violin",
+      catalogInstrumentId: "strings.violin",
       section: "strings",
       label: "Violin 1",
       binding: { baseChannel: 0, luaScriptPath: "/v.lua", pluginPath: "/v.vst3", stateRef: "abc" },

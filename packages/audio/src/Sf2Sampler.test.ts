@@ -30,6 +30,18 @@ function createMockSf2Synth(currentTime = 10) {
 }
 
 describe("Sf2Sampler", () => {
+  it("schedules a baseline timbre restore without resetting expression or mixer controllers", () => {
+    const { synth, sf2Synth } = createMockSf2Synth(10);
+    const sampler = new Sf2Sampler(sf2Synth, 3, 72);
+    synth.programChange.mockClear();
+    sampler.resetInstrument(10.2);
+    expect(synth.sendMessage).toHaveBeenCalledWith([0xc0 | 3, 72], 0, { time: 10.2 });
+    expect(synth.controllerChange.mock.calls).toEqual([
+      [3, 74, 64, { time: 10.2 }],
+      [3, 71, 64, { time: 10.2 }],
+    ]);
+    expect(synth.programChange).not.toHaveBeenCalled();
+  });
   it("reversibly mutes primary and borrowed channels without delayed panic or mixer resets", () => {
     const { synth, sf2Synth } = createMockSf2Synth();
     const sampler = new Sf2Sampler(sf2Synth, 3, 0, { altKitChannels: new Map([[48, 4]]) });

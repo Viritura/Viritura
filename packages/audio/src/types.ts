@@ -16,6 +16,8 @@ export interface MidiEvent {
   readonly partIndex: number;
   /** Independently controlled semantic playback stream. */
   readonly playbackLaneId?: string;
+  readonly playbackInstrumentKey?: string;
+  readonly instrumentChange?: boolean;
   /** MIDI channel (0–15) */
   readonly channel: number;
   /** GM program number — only present for `type: "programChange"`. */
@@ -92,6 +94,8 @@ export interface ISampler {
   sendControl?(cc: number, value: number, time?: number): void;
   /** Restore baseline instrument + neutral technique filter (pizz/arco/mute). Optional. */
   resetTechniqueState?(): void;
+  /** Scheduled baseline timbre/filter restore, without changing expression. */
+  resetInstrument?(time?: number): void;
 }
 
 // ═══════════════════════════════════════════

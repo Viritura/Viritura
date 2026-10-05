@@ -40,7 +40,7 @@ interface TranspositionDef {
 
 /** Full instrument definition in the catalog. */
 export interface CatalogInstrument {
-  /** Unique key (e.g., "flute", "bflat-clarinet"). */
+  /** Unique MusicXML standard sound ID (e.g., "wind.flutes.flute", "wind.reed.clarinet.bflat"). */
   id: string;
   /** Display name shown in catalog (e.g., "Flute", "Clarinet in B♭"). */
   name: string;
@@ -52,6 +52,10 @@ export interface CatalogInstrument {
   baseName?: string;
   /** Base short name for MNX Part.shortName (without transposition key). */
   baseShortName?: string;
+  /** Default catalog entry offered by the picker for this tuning variant. */
+  pickerDefaultId?: string;
+  /** Picker label when the instrument's register needs clarification. */
+  pickerName?: string;
   /** Instrument family. */
   family: InstrumentFamily;
   /** Number of staves (default 1, 2 for keyboards). */
@@ -116,6 +120,18 @@ export function getCatalogInstrument(id: string): CatalogInstrument | undefined 
   return INSTRUMENT_CATALOG.find((i) => i.id === id);
 }
 
+/** Resolve a tuning variant to its default-first instrument choice. */
+export function getCatalogPickerInstrument(instrument: CatalogInstrument): CatalogInstrument {
+  if (!instrument.pickerDefaultId) return instrument;
+  const defaultInstrument = getCatalogInstrument(instrument.pickerDefaultId);
+  if (!defaultInstrument) throw new Error(`Unknown picker default: ${instrument.pickerDefaultId}`);
+  return defaultInstrument;
+}
+
+export function catalogPickerName(instrument: CatalogInstrument): string {
+  return instrument.pickerName ?? instrument.baseName ?? instrument.name;
+}
+
 /**
  * A transposition is a *pure octave* when written and sounding pitches share
  * the same note letter and pitch class, differing only by whole octaves
@@ -148,7 +164,7 @@ export function buildPartTransposition(def: TranspositionDef): Transposition {
 }
 
 /** Look up a catalog instrument by display name. Tolerates numbered parts
- *  (e.g. "Snare Drum 2" matches the "snare-drum" entry) and the optional
+ *  (e.g. "Snare Drum 2" matches the "drum.snare-drum" entry) and the optional
  *  baseName / "in X" suffix used for transposing instruments. */
 function getCatalogInstrumentByName(name: string): CatalogInstrument | undefined {
   const stripped = name.replace(/\s+\d+$/, "").trim();
@@ -182,7 +198,7 @@ export function getFamiliesInOrder(): {
 export interface Player {
   /** UUID for drag-and-drop / React keying. */
   uid: string;
-  /** Reference to catalog instrument ID. */
+  /** Reference to the catalog's MusicXML standard sound ID. */
   instrumentId: string;
   /** Base instrument name for MNX Part.name (e.g., "Clarinet", "Horn").
    *  Transposition and numbering are derived at display time. */
@@ -285,7 +301,7 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     name: "Solo Piano",
     description: "Single piano",
     category: "solo",
-    instruments: [["piano", 1]],
+    instruments: [["keyboard.piano", 1]],
   },
   {
     id: "string-quartet",
@@ -293,9 +309,9 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Violin I, Violin II, Viola, Cello",
     category: "chamber",
     instruments: [
-      ["violin", 2],
-      ["viola", 1],
-      ["cello", 1],
+      ["strings.violin", 2],
+      ["strings.viola", 1],
+      ["strings.cello", 1],
     ],
   },
   {
@@ -304,10 +320,10 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Violin I, Violin II, Viola, Cello, Double Bass",
     category: "large-ensemble",
     instruments: [
-      ["violin", 2],
-      ["viola", 1],
-      ["cello", 1],
-      ["double-bass", 1],
+      ["strings.violin", 2],
+      ["strings.viola", 1],
+      ["strings.cello", 1],
+      ["strings.contrabass", 1],
     ],
   },
   {
@@ -316,11 +332,11 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Flute, Oboe, Clarinet, Horn, Bassoon",
     category: "chamber",
     instruments: [
-      ["flute", 1],
-      ["oboe", 1],
-      ["bflat-clarinet", 1],
-      ["horn", 1],
-      ["bassoon", 1],
+      ["wind.flutes.flute", 1],
+      ["wind.reed.oboe", 1],
+      ["wind.reed.clarinet.bflat", 1],
+      ["brass.french-horn", 1],
+      ["wind.reed.bassoon", 1],
     ],
   },
   {
@@ -329,10 +345,10 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "2 Trumpets, Horn, Trombone, Tuba",
     category: "chamber",
     instruments: [
-      ["trumpet", 2],
-      ["horn", 1],
-      ["trombone", 1],
-      ["tuba", 1],
+      ["brass.trumpet.bflat", 2],
+      ["brass.french-horn", 1],
+      ["brass.trombone", 1],
+      ["brass.tuba", 1],
     ],
   },
   {
@@ -341,11 +357,11 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Alto Sax, Trumpet, Piano, Bass Guitar, Drums",
     category: "jazz",
     instruments: [
-      ["alto-sax", 1],
-      ["trumpet", 1],
-      ["piano", 1],
-      ["bass-guitar", 1],
-      ["drum-kit", 1],
+      ["wind.reed.saxophone.alto", 1],
+      ["brass.trumpet.bflat", 1],
+      ["keyboard.piano", 1],
+      ["pluck.bass.electric", 1],
+      ["drum.group.set", 1],
     ],
   },
   {
@@ -354,10 +370,10 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Soprano, Alto, Tenor, Bass",
     category: "vocal",
     instruments: [
-      ["soprano", 1],
-      ["alto-voice", 1],
-      ["tenor-voice", 1],
-      ["bass-voice", 1],
+      ["voice.soprano", 1],
+      ["voice.alto", 1],
+      ["voice.tenor", 1],
+      ["voice.bass", 1],
     ],
   },
   {
@@ -366,11 +382,11 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Soprano, Alto, Tenor, Bass with piano accompaniment",
     category: "vocal",
     instruments: [
-      ["soprano", 1],
-      ["alto-voice", 1],
-      ["tenor-voice", 1],
-      ["bass-voice", 1],
-      ["piano", 1],
+      ["voice.soprano", 1],
+      ["voice.alto", 1],
+      ["voice.tenor", 1],
+      ["voice.bass", 1],
+      ["keyboard.piano", 1],
     ],
   },
   {
@@ -379,17 +395,17 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "2222 / 2200 / Timp / Strings",
     category: "large-ensemble",
     instruments: [
-      ["flute", 2],
-      ["oboe", 2],
-      ["bflat-clarinet", 2],
-      ["bassoon", 2],
-      ["horn", 2],
-      ["trumpet", 2],
-      ["timpani", 1],
-      ["violin", 2],
-      ["viola", 1],
-      ["cello", 1],
-      ["double-bass", 1],
+      ["wind.flutes.flute", 2],
+      ["wind.reed.oboe", 2],
+      ["wind.reed.clarinet.bflat", 2],
+      ["wind.reed.bassoon", 2],
+      ["brass.french-horn", 2],
+      ["brass.trumpet.bflat", 2],
+      ["drum.timpani", 1],
+      ["strings.violin", 2],
+      ["strings.viola", 1],
+      ["strings.cello", 1],
+      ["strings.contrabass", 1],
     ],
   },
   {
@@ -399,27 +415,27 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
       "Picc, 2Fl, 2Ob, EH, 2Cl, BCl, 2Bsn, CBsn / 4Hn, 3Tpt, 3Tbn, Tba / Timp, Snare, Cymbals, Triangle / Hp / Strings",
     category: "large-ensemble",
     instruments: [
-      ["piccolo", 1],
-      ["flute", 2],
-      ["oboe", 2],
-      ["english-horn", 1],
-      ["bflat-clarinet", 2],
-      ["bass-clarinet", 1],
-      ["bassoon", 2],
-      ["contrabassoon", 1],
-      ["horn", 4],
-      ["trumpet", 3],
-      ["trombone", 3],
-      ["tuba", 1],
-      ["timpani", 1],
-      ["snare-drum", 1],
-      ["cymbals", 1],
-      ["triangle", 1],
-      ["harp", 1],
-      ["violin", 2],
-      ["viola", 1],
-      ["cello", 1],
-      ["double-bass", 1],
+      ["wind.flutes.flute.piccolo", 1],
+      ["wind.flutes.flute", 2],
+      ["wind.reed.oboe", 2],
+      ["wind.reed.english-horn", 1],
+      ["wind.reed.clarinet.bflat", 2],
+      ["wind.reed.clarinet.bass", 1],
+      ["wind.reed.bassoon", 2],
+      ["wind.reed.contrabassoon", 1],
+      ["brass.french-horn", 4],
+      ["brass.trumpet.bflat", 3],
+      ["brass.trombone", 3],
+      ["brass.tuba", 1],
+      ["drum.timpani", 1],
+      ["drum.snare-drum", 1],
+      ["metal.cymbal.clash", 1],
+      ["metal.triangle", 1],
+      ["pluck.harp", 1],
+      ["strings.violin", 2],
+      ["strings.viola", 1],
+      ["strings.cello", 1],
+      ["strings.contrabass", 1],
     ],
   },
   {
@@ -429,24 +445,24 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
       "Picc, 2Fl, 2Ob, 3Cl, BCl, 2Bsn / 2ASax, TSax, BSax / 3Tpt, 4Hn, 3Tbn, Euph, Tba / Timp, Snare, Bass Drum, Cymbals",
     category: "large-ensemble",
     instruments: [
-      ["piccolo", 1],
-      ["flute", 2],
-      ["oboe", 2],
-      ["bflat-clarinet", 3],
-      ["bass-clarinet", 1],
-      ["bassoon", 2],
-      ["alto-sax", 2],
-      ["tenor-sax", 1],
-      ["baritone-sax", 1],
-      ["trumpet", 3],
-      ["horn", 4],
-      ["trombone", 3],
-      ["euphonium", 1],
-      ["tuba", 1],
-      ["timpani", 1],
-      ["snare-drum", 1],
-      ["bass-drum", 1],
-      ["cymbals", 1],
+      ["wind.flutes.flute.piccolo", 1],
+      ["wind.flutes.flute", 2],
+      ["wind.reed.oboe", 2],
+      ["wind.reed.clarinet.bflat", 3],
+      ["wind.reed.clarinet.bass", 1],
+      ["wind.reed.bassoon", 2],
+      ["wind.reed.saxophone.alto", 2],
+      ["wind.reed.saxophone.tenor", 1],
+      ["wind.reed.saxophone.baritone", 1],
+      ["brass.trumpet.bflat", 3],
+      ["brass.french-horn", 4],
+      ["brass.trombone", 3],
+      ["brass.euphonium", 1],
+      ["brass.tuba", 1],
+      ["drum.timpani", 1],
+      ["drum.snare-drum", 1],
+      ["drum.bass-drum", 1],
+      ["metal.cymbal.clash", 1],
     ],
   },
   {
@@ -455,9 +471,9 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "Violin, Cello, Piano",
     category: "chamber",
     instruments: [
-      ["violin", 1],
-      ["cello", 1],
-      ["piano", 1],
+      ["strings.violin", 1],
+      ["strings.cello", 1],
+      ["keyboard.piano", 1],
     ],
   },
   {
@@ -466,10 +482,10 @@ export const ENSEMBLE_TEMPLATES: EnsembleTemplate[] = [
     description: "2 Violins, Viola, Cello, Piano",
     category: "chamber",
     instruments: [
-      ["violin", 2],
-      ["viola", 1],
-      ["cello", 1],
-      ["piano", 1],
+      ["strings.violin", 2],
+      ["strings.viola", 1],
+      ["strings.cello", 1],
+      ["keyboard.piano", 1],
     ],
   },
 ];

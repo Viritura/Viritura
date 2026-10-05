@@ -12,7 +12,7 @@ function makeScore(): Score {
     global: { measures: [{ time: { count: 4, unit: 4 } }] },
     parts: [
       {
-        id: "piano",
+        id: "keyboard.piano",
         name: "Piano",
         measures: [
           {
@@ -64,7 +64,7 @@ describe("MCP editor tool dispatch", () => {
       patches: [
         {
           kind: "setNotePitch",
-          locator: { sequencePath: { partId: "piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
+          locator: { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
           noteId: "note-1",
           pitch: { step: "D", octave: 4 },
         },
@@ -86,7 +86,7 @@ describe("MCP editor tool dispatch", () => {
       patches: [
         {
           kind: "setNotePitch",
-          locator: { sequencePath: { partId: "piano", measureIndex: 0, voice: 0 }, eventId: "missing" },
+          locator: { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "missing" },
           noteId: "note-1",
           pitch: { step: "D", octave: 4 },
         },
@@ -106,7 +106,7 @@ describe("MCP editor tool dispatch", () => {
       patches: [
         {
           kind: "setNotePitch",
-          locator: { sequencePath: { partId: "piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
+          locator: { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
           noteId: "note-1",
           pitch: { step: "D", octave: 4 },
         },
@@ -178,7 +178,7 @@ describe("MCP editor tool dispatch", () => {
     const result = await dispatchMcpTool(store, "score.get_measures", {
       startMeasure: 1,
       endMeasure: 1,
-      partIds: ["piano"],
+      partIds: ["keyboard.piano"],
     });
 
     expect(result.isError).not.toBe(true);
@@ -206,7 +206,7 @@ describe("MCP editor tool dispatch", () => {
       summary: "Make Cmaj7",
       changes: [
         {
-          partId: "piano",
+          partId: "keyboard.piano",
           measure: 1,
           voice: 0,
           eventId: "event-1",
@@ -261,7 +261,7 @@ describe("MCP editor tool dispatch", () => {
       patches: [
         {
           kind: "setNotePitch",
-          locator: { sequencePath: { partId: "piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
+          locator: { sequencePath: { partId: "keyboard.piano", measureIndex: 0, voice: 0 }, eventId: "event-1" },
           noteId: "note-1",
           pitch: { step: "D", octave: 4 },
         },
@@ -311,7 +311,7 @@ describe("MCP editor tool dispatch", () => {
     const score = makeScore();
     const flutePart = score.parts[0]!;
     flutePart.name = "Flute";
-    flutePart._x = { viritura: { instrumentId: "flute" } };
+    flutePart._x = { viritura: { instrumentId: "wind.flutes.flute" } };
     // Flute's lowest sounding note is C4 (MIDI 60); a C3 is out of range.
     flutePart.measures[0]!.sequences[0]!.content = [
       { type: "event", id: "e1", duration: { base: "whole" }, notes: [{ id: "n1", pitch: { step: "C", octave: 3 } }] },
@@ -326,7 +326,11 @@ describe("MCP editor tool dispatch", () => {
       instruments: { instrumentId: string | null; outOfRange: boolean; belowRange: number }[];
     };
     expect(payload.outOfRangeCount).toBe(1);
-    expect(payload.instruments[0]).toMatchObject({ instrumentId: "flute", outOfRange: true, belowRange: 1 });
+    expect(payload.instruments[0]).toMatchObject({
+      instrumentId: "wind.flutes.flute",
+      outOfRange: true,
+      belowRange: 1,
+    });
   });
 
   it("stages one whole-document proposal with a structural summary", async () => {
@@ -366,9 +370,9 @@ describe("MCP editor tool dispatch", () => {
     const proposed = parseMnx(JSON.parse(proposal!.document!.proposedMnx) as unknown);
     expect(proposed.parts.find((part) => part.id === "P3-1")).toMatchObject({
       name: "Clarinet in B♭ 1",
-      _x: { viritura: { instrumentId: "bflat-clarinet", midiProgram: 71, family: "woodwinds" } },
+      _x: { viritura: { instrumentId: "wind.reed.clarinet.bflat", midiProgram: 71, family: "woodwinds" } },
     });
-    expect(proposed.soundProfile?.parts["P11"]?.sourceId).toBe("cymbals-primary");
+    expect(proposed.soundProfile?.parts["P11"]?.sourceId).toBe("metal.cymbal.clash-primary");
     expect(proposed.global.sounds?.["snd-cymbals-49"]?.midiNumber).toBe(49);
     expect(proposed.parts.find((part) => part.id === "P2-2")?.measures[0]?.sequences[0]?.voice).toBe("v1");
   });
@@ -409,7 +413,7 @@ function twoMeasureScore(): Score {
     },
     parts: [
       {
-        id: "piano",
+        id: "keyboard.piano",
         name: "Piano",
         measures: [wholeNoteMeasure("m1"), wholeNoteMeasure("m2")],
       },
@@ -528,13 +532,13 @@ function makeTritschScore(): Score {
       { sequences: [{ content: [{ duration: { base: "quarter" }, kitNotes: [{ kitComponent: componentId }] }] }] },
     ];
   }
-  score.parts.find((part) => part.id === "P2-1")!._x = { viritura: { instrumentId: "oboe" } };
-  score.parts.find((part) => part.id === "P2-2")!._x = { viritura: { instrumentId: "oboe" } };
+  score.parts.find((part) => part.id === "P2-1")!._x = { viritura: { instrumentId: "wind.reed.oboe" } };
+  score.parts.find((part) => part.id === "P2-2")!._x = { viritura: { instrumentId: "wind.reed.oboe" } };
   for (const id of ["P5-1", "P5-2"])
-    score.parts.find((part) => part.id === id)!._x = { viritura: { instrumentId: "horn" } };
+    score.parts.find((part) => part.id === id)!._x = { viritura: { instrumentId: "brass.french-horn" } };
   for (const id of ["P7-1", "P7-2", "P7-3"])
-    score.parts.find((part) => part.id === id)!._x = { viritura: { instrumentId: "trombone" } };
-  score.parts.find((part) => part.id === "P14")!._x = { viritura: { instrumentId: "viola" } };
+    score.parts.find((part) => part.id === id)!._x = { viritura: { instrumentId: "brass.trombone" } };
+  score.parts.find((part) => part.id === "P14")!._x = { viritura: { instrumentId: "strings.viola" } };
   return score;
 }
 
@@ -550,12 +554,12 @@ function twoMeasureDocument(): Record<string, unknown> {
     },
     parts: [
       {
-        id: "flute",
+        id: "wind.flutes.flute",
         name: "Flute",
         measures: [wholeNoteMeasure("f1"), wholeNoteMeasure("f2")],
       },
       {
-        id: "violin",
+        id: "strings.violin",
         name: "Violin",
         measures: [wholeNoteMeasure("v1"), wholeNoteMeasure("v2")],
       },

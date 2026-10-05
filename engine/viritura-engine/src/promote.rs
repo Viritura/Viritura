@@ -76,6 +76,8 @@ pub enum PromoteError {
     UnsupportedNoteValueBase(String),
     /// Text content is schema-valid but could not be represented by the engine.
     UnsupportedTextContent(String),
+    /// Provisional instrument change cannot be engraved or decoded safely.
+    UnsupportedInstrumentChange(String),
     /// Authored marker text has no owning marker on the same measure.
     MarkerTextWithoutOwner(&'static str),
 }
@@ -90,6 +92,9 @@ impl std::fmt::Display for PromoteError {
                 )
             }
             Self::UnsupportedTextContent(s) => write!(f, "MNX text content is not supported: {s}"),
+            Self::UnsupportedInstrumentChange(s) => {
+                write!(f, "MNX instrument change is not supported: {s}")
+            }
             Self::MarkerTextWithoutOwner(owner) => {
                 write!(
                     f,

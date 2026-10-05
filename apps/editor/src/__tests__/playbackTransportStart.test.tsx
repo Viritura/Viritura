@@ -47,7 +47,7 @@ function makeScore(): Score {
     },
     parts: [
       {
-        id: "piano",
+        id: "keyboard.piano",
         name: "Piano",
         measures: Array.from({ length: 4 }, () => ({
           sequences: [
@@ -460,7 +460,7 @@ describe.each(["web", "native"] as const)("PlaybackProvider transport start (%s)
     });
     const props = { score, audioRenderMode, vstTransport: audioRenderMode === "native" ? host : undefined };
     provider.rerender(
-      <PlaybackProvider {...props} visiblePartIds={["piano"]}>
+      <PlaybackProvider {...props} visiblePartIds={["keyboard.piano"]}>
         <SelectionPlaybackBridge />
       </PlaybackProvider>,
     );

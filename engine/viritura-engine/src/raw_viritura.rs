@@ -2593,6 +2593,349 @@ impl<'de> ::serde::Deserialize<'de> for HitPointId {
             })
     }
 }
+///A change of the active instrument, the active transposition, or both, from `position` onward. An instrument change without `transposition` resets to the new instrument's default transposition; a transposition-only change lasts until the next change. At least one of `instrument` or `transposition` is required.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "A change of the active instrument, the active transposition, or both, from `position` onward. An instrument change without `transposition` resets to the new instrument's default transposition; a transposition-only change lasts until the next change. At least one of `instrument` or `transposition` is required.",
+///  "type": "object",
+///  "properties": {
+///    "instruction": {
+///      "$ref": "#/$defs/instrument-change-instruction"
+///    },
+///    "instrument": {
+///      "description": "Key into the part's `_x.viritura.instruments`.",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "position": {
+///      "description": "Position within this measure. Absent means the start of the measure.",
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "reminder": {
+///      "description": "Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change.",
+///      "$ref": "#/$defs/instrument-change-instruction"
+///    },
+///    "transposition": {
+///      "description": "Transposition from this point. Use a zero interval to return to concert pitch.",
+///      "$ref": "#/$defs/instrument-transposition"
+///    }
+///  },
+///  "additionalProperties": false,
+///  "$comment": "The validator enforces instrument or transposition. The code generators cannot represent the anyOf required-property constraint while preserving both fields."
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentChange {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub instruction: ::std::option::Option<InstrumentChangeInstruction>,
+    ///Key into the part's `_x.viritura.instruments`.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub instrument: ::std::option::Option<InstrumentChangeInstrument>,
+    ///Position within this measure. Absent means the start of the measure.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub position: ::std::option::Option<RhythmicPosition>,
+    ///Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub reminder: ::std::option::Option<InstrumentChangeInstruction>,
+    ///Transposition from this point. Use a zero interval to return to concert pitch.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub transposition: ::std::option::Option<InstrumentTransposition>,
+}
+impl ::std::convert::From<&InstrumentChange> for InstrumentChange {
+    fn from(value: &InstrumentChange) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for InstrumentChange {
+    fn default() -> Self {
+        Self {
+            instruction: Default::default(),
+            instrument: Default::default(),
+            position: Default::default(),
+            reminder: Default::default(),
+            transposition: Default::default(),
+        }
+    }
+}
+///Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭').
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭').",
+///  "type": "object",
+///  "properties": {
+///    "hidden": {
+///      "description": "Override house-style visibility: true hides, false shows, absent inherits.",
+///      "type": "boolean"
+///    },
+///    "text": {
+///      "description": "Literal instruction text overriding the automatically derived text.",
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentChangeInstruction {
+    ///Override house-style visibility: true hides, false shows, absent inherits.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hidden: ::std::option::Option<bool>,
+    ///Literal instruction text overriding the automatically derived text.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text: ::std::option::Option<::std::string::String>,
+}
+impl ::std::convert::From<&InstrumentChangeInstruction> for InstrumentChangeInstruction {
+    fn from(value: &InstrumentChangeInstruction) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for InstrumentChangeInstruction {
+    fn default() -> Self {
+        Self {
+            hidden: Default::default(),
+            text: Default::default(),
+        }
+    }
+}
+///Key into the part's `_x.viritura.instruments`.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Key into the part's `_x.viritura.instruments`.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct InstrumentChangeInstrument(::std::string::String);
+impl ::std::ops::Deref for InstrumentChangeInstrument {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<InstrumentChangeInstrument> for ::std::string::String {
+    fn from(value: InstrumentChangeInstrument) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&InstrumentChangeInstrument> for InstrumentChangeInstrument {
+    fn from(value: &InstrumentChangeInstrument) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for InstrumentChangeInstrument {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for InstrumentChangeInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for InstrumentChangeInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for InstrumentChangeInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for InstrumentChangeInstrument {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///One instrument a part can play (provisional model for mid-part instrument changes). Instrument = timbre and identity; transposition is how its notes are read and may be overridden by a transposition-only change.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One instrument a part can play (provisional model for mid-part instrument changes). Instrument = timbre and identity; transposition is how its notes are read and may be overridden by a transposition-only change.",
+///  "type": "object",
+///  "required": [
+///    "instrumentId"
+///  ],
+///  "properties": {
+///    "instrumentId": {
+///      "description": "MusicXML standard sound ID (e.g. 'piccolo', 'horn').",
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "midiProgram": {
+///      "description": "General-MIDI program fallback when the standard sound ID cannot be resolved.",
+///      "type": "integer"
+///    },
+///    "name": {
+///      "description": "Full display name while this instrument is active (e.g. 'Piccolo'). Falls back to the part name.",
+///      "type": "string"
+///    },
+///    "shortName": {
+///      "description": "Abbreviated display name while this instrument is active (e.g. 'Picc.'). Falls back to the part short name.",
+///      "type": "string"
+///    },
+///    "transposition": {
+///      "description": "Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition.",
+///      "$ref": "#/$defs/instrument-transposition"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentDefinition {
+    ///MusicXML standard sound ID (e.g. 'piccolo', 'horn').
+    #[serde(rename = "instrumentId")]
+    pub instrument_id: InstrumentDefinitionInstrumentId,
+    ///General-MIDI program fallback when the standard sound ID cannot be resolved.
+    #[serde(
+        rename = "midiProgram",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub midi_program: ::std::option::Option<i64>,
+    ///Full display name while this instrument is active (e.g. 'Piccolo'). Falls back to the part name.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub name: ::std::option::Option<::std::string::String>,
+    ///Abbreviated display name while this instrument is active (e.g. 'Picc.'). Falls back to the part short name.
+    #[serde(
+        rename = "shortName",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub short_name: ::std::option::Option<::std::string::String>,
+    ///Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub transposition: ::std::option::Option<InstrumentTransposition>,
+}
+impl ::std::convert::From<&InstrumentDefinition> for InstrumentDefinition {
+    fn from(value: &InstrumentDefinition) -> Self {
+        value.clone()
+    }
+}
+///MusicXML standard sound ID (e.g. 'piccolo', 'horn').
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "MusicXML standard sound ID (e.g. 'piccolo', 'horn').",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct InstrumentDefinitionInstrumentId(::std::string::String);
+impl ::std::ops::Deref for InstrumentDefinitionInstrumentId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<InstrumentDefinitionInstrumentId> for ::std::string::String {
+    fn from(value: InstrumentDefinitionInstrumentId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&InstrumentDefinitionInstrumentId>
+for InstrumentDefinitionInstrumentId {
+    fn from(value: &InstrumentDefinitionInstrumentId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for InstrumentDefinitionInstrumentId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for InstrumentDefinitionInstrumentId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for InstrumentDefinitionInstrumentId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for InstrumentDefinitionInstrumentId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for InstrumentDefinitionInstrumentId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///Independent instrument-name display policies for the first and subsequent systems of one score.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2714,6 +3057,104 @@ impl ::std::convert::TryFrom<::std::string::String> for InstrumentNameDisplayPol
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///Transposition of an instrument or instrument change. Same shape and meaning as MNX `part-transposition`: the interval from written to sounding pitch.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Transposition of an instrument or instrument change. Same shape and meaning as MNX `part-transposition`: the interval from written to sounding pitch.",
+///  "type": "object",
+///  "required": [
+///    "interval"
+///  ],
+///  "properties": {
+///    "interval": {
+///      "type": "object",
+///      "required": [
+///        "halfSteps",
+///        "staffDistance"
+///      ],
+///      "properties": {
+///        "halfSteps": {
+///          "type": "integer"
+///        },
+///        "staffDistance": {
+///          "type": "integer"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    "keyFifthsFlipAt": {
+///      "type": "integer"
+///    },
+///    "prefersWrittenPitches": {
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentTransposition {
+    pub interval: InstrumentTranspositionInterval,
+    #[serde(
+        rename = "keyFifthsFlipAt",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub key_fifths_flip_at: ::std::option::Option<i64>,
+    #[serde(
+        rename = "prefersWrittenPitches",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub prefers_written_pitches: ::std::option::Option<bool>,
+}
+impl ::std::convert::From<&InstrumentTransposition> for InstrumentTransposition {
+    fn from(value: &InstrumentTransposition) -> Self {
+        value.clone()
+    }
+}
+///`InstrumentTranspositionInterval`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "halfSteps",
+///    "staffDistance"
+///  ],
+///  "properties": {
+///    "halfSteps": {
+///      "type": "integer"
+///    },
+///    "staffDistance": {
+///      "type": "integer"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct InstrumentTranspositionInterval {
+    #[serde(rename = "halfSteps")]
+    pub half_steps: i64,
+    #[serde(rename = "staffDistance")]
+    pub staff_distance: i64,
+}
+impl ::std::convert::From<&InstrumentTranspositionInterval>
+for InstrumentTranspositionInterval {
+    fn from(value: &InstrumentTranspositionInterval) -> Self {
+        value.clone()
     }
 }
 ///A jump direction with a type not supported by the MNX spec (e.g. D.S. al Coda, D.C. al Coda).
@@ -5099,9 +5540,22 @@ impl ::std::default::Default for PageTurnWeights {
 ///      "description": "Instrument family for spatial placement / catalog routing.",
 ///      "type": "string"
 ///    },
+///    "initialInstrument": {
+///      "description": "Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present.",
+///      "type": "string",
+///      "minLength": 1
+///    },
 ///    "instrumentId": {
-///      "description": "Stable instrument-catalog ID (e.g. 'flute', 'bflat-clarinet').",
+///      "description": "MusicXML standard sound ID identifying the part's instrument (e.g. 'wind.flutes.flute', 'wind.reed.clarinet.bflat'). With `instruments`, this is the initial instrument's ID.",
 ///      "type": "string"
+///    },
+///    "instruments": {
+///      "description": "Provisional: instruments this part can switch between, keyed by a document-local key referenced by `initialInstrument` and part-measure `instrumentChanges`.",
+///      "type": "object",
+///      "minProperties": 1,
+///      "additionalProperties": {
+///        "$ref": "#/$defs/instrument-definition"
+///      }
 ///    },
 ///    "midiProgram": {
 ///      "description": "General-MIDI program (0..127). Used directly by the audio engine.",
@@ -5131,13 +5585,26 @@ pub struct PartExtensions {
     ///Instrument family for spatial placement / catalog routing.
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub family: ::std::option::Option<::std::string::String>,
-    ///Stable instrument-catalog ID (e.g. 'flute', 'bflat-clarinet').
+    ///Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present.
+    #[serde(
+        rename = "initialInstrument",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub initial_instrument: ::std::option::Option<PartExtensionsInitialInstrument>,
+    ///MusicXML standard sound ID identifying the part's instrument (e.g. 'wind.flutes.flute', 'wind.reed.clarinet.bflat'). With `instruments`, this is the initial instrument's ID.
     #[serde(
         rename = "instrumentId",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub instrument_id: ::std::option::Option<::std::string::String>,
+    ///Provisional: instruments this part can switch between, keyed by a document-local key referenced by `initialInstrument` and part-measure `instrumentChanges`.
+    #[serde(default, skip_serializing_if = ":: std :: collections :: HashMap::is_empty")]
+    pub instruments: ::std::collections::HashMap<
+        ::std::string::String,
+        InstrumentDefinition,
+    >,
     ///General-MIDI program (0..127). Used directly by the audio engine.
     #[serde(
         rename = "midiProgram",
@@ -5159,7 +5626,9 @@ impl ::std::default::Default for PartExtensions {
         Self {
             chord_symbol_visibility: Default::default(),
             family: Default::default(),
+            initial_instrument: Default::default(),
             instrument_id: Default::default(),
+            instruments: Default::default(),
             midi_program: Default::default(),
             spatial: Default::default(),
         }
@@ -5254,6 +5723,86 @@ for PartExtensionsChordSymbolVisibility {
         value.parse()
     }
 }
+///Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present.",
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PartExtensionsInitialInstrument(::std::string::String);
+impl ::std::ops::Deref for PartExtensionsInitialInstrument {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PartExtensionsInitialInstrument> for ::std::string::String {
+    fn from(value: PartExtensionsInitialInstrument) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&PartExtensionsInitialInstrument>
+for PartExtensionsInitialInstrument {
+    fn from(value: &PartExtensionsInitialInstrument) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for PartExtensionsInitialInstrument {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PartExtensionsInitialInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for PartExtensionsInitialInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PartExtensionsInitialInstrument {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PartExtensionsInitialInstrument {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///Viritura vendor extensions on a part measure object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -5286,6 +5835,13 @@ for PartExtensionsChordSymbolVisibility {
 ///      "type": "array",
 ///      "items": {
 ///        "$ref": "#/$defs/staff-grouping-display-override"
+///      }
+///    },
+///    "instrumentChanges": {
+///      "description": "Provisional mid-part instrument and/or transposition changes, effective from their position onward until the next change. Positions within one measure must be unique.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/instrument-change"
 ///      }
 ///    },
 ///    "pedals": {
@@ -5329,6 +5885,13 @@ pub struct PartMeasureExtensions {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub grouping_display_overrides: ::std::vec::Vec<StaffGroupingDisplayOverride>,
+    ///Provisional mid-part instrument and/or transposition changes, effective from their position onward until the next change. Positions within one measure must be unique.
+    #[serde(
+        rename = "instrumentChanges",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub instrument_changes: ::std::vec::Vec<InstrumentChange>,
     ///Piano pedal markings.
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub pedals: ::std::vec::Vec<Pedal>,
@@ -5351,6 +5914,7 @@ impl ::std::default::Default for PartMeasureExtensions {
             condensing_override: Default::default(),
             expressions: Default::default(),
             grouping_display_overrides: Default::default(),
+            instrument_changes: Default::default(),
             pedals: Default::default(),
             staff_meters: Default::default(),
         }
@@ -6417,6 +6981,21 @@ impl ::std::convert::From<&RhythmicPosition> for RhythmicPosition {
 ///      "description": "Score-wide chord-symbol engraving style.",
 ///      "$ref": "#/$defs/chord-symbol-style"
 ///    },
+///    "instrumentChangeStyle": {
+///      "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.",
+///      "type": "object",
+///      "properties": {
+///        "showAdvanceReminder": {
+///          "default": true,
+///          "type": "boolean"
+///        },
+///        "showChangeLabel": {
+///          "default": true,
+///          "type": "boolean"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
 ///    "lyricWorkflow": {
 ///      "description": "Original lyric source text and stable token anchors for distribution and repair.",
 ///      "$ref": "#/$defs/lyric-workflow"
@@ -6460,6 +7039,14 @@ pub struct RootExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub chord_symbol_style: ::std::option::Option<ChordSymbolStyle>,
+    #[serde(
+        rename = "instrumentChangeStyle",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_change_style: ::std::option::Option<
+        RootExtensionsInstrumentChangeStyle,
+    >,
     ///Original lyric source text and stable token anchors for distribution and repair.
     #[serde(
         rename = "lyricWorkflow",
@@ -6511,6 +7098,7 @@ impl ::std::default::Default for RootExtensions {
     fn default() -> Self {
         Self {
             chord_symbol_style: Default::default(),
+            instrument_change_style: Default::default(),
             lyric_workflow: Default::default(),
             metadata: Default::default(),
             placement: Default::default(),
@@ -6518,6 +7106,50 @@ impl ::std::default::Default for RootExtensions {
             text_styles: Default::default(),
             time_signatures: Default::default(),
             video_sync: Default::default(),
+        }
+    }
+}
+///Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits.",
+///  "type": "object",
+///  "properties": {
+///    "showAdvanceReminder": {
+///      "default": true,
+///      "type": "boolean"
+///    },
+///    "showChangeLabel": {
+///      "default": true,
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct RootExtensionsInstrumentChangeStyle {
+    #[serde(rename = "showAdvanceReminder", default = "defaults::default_bool::<true>")]
+    pub show_advance_reminder: bool,
+    #[serde(rename = "showChangeLabel", default = "defaults::default_bool::<true>")]
+    pub show_change_label: bool,
+}
+impl ::std::convert::From<&RootExtensionsInstrumentChangeStyle>
+for RootExtensionsInstrumentChangeStyle {
+    fn from(value: &RootExtensionsInstrumentChangeStyle) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for RootExtensionsInstrumentChangeStyle {
+    fn default() -> Self {
+        Self {
+            show_advance_reminder: defaults::default_bool::<true>(),
+            show_change_label: defaults::default_bool::<true>(),
         }
     }
 }
@@ -10600,11 +11232,23 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "hit-point": {
 ///      "$ref": "#/$defs/hit-point"
 ///    },
+///    "instrument-change": {
+///      "$ref": "#/$defs/instrument-change"
+///    },
+///    "instrument-change-instruction": {
+///      "$ref": "#/$defs/instrument-change-instruction"
+///    },
+///    "instrument-definition": {
+///      "$ref": "#/$defs/instrument-definition"
+///    },
 ///    "instrument-name-display": {
 ///      "$ref": "#/$defs/instrument-name-display"
 ///    },
 ///    "instrument-name-display-policy": {
 ///      "$ref": "#/$defs/instrument-name-display-policy"
+///    },
+///    "instrument-transposition": {
+///      "$ref": "#/$defs/instrument-transposition"
 ///    },
 ///    "jump": {
 ///      "$ref": "#/$defs/jump"
@@ -10920,6 +11564,26 @@ pub struct VirituraExtensionsRoot {
     )]
     pub hit_point: ::std::option::Option<HitPoint>,
     #[serde(
+        rename = "instrument-change",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_change: ::std::option::Option<InstrumentChange>,
+    #[serde(
+        rename = "instrument-change-instruction",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_change_instruction: ::std::option::Option<
+        InstrumentChangeInstruction,
+    >,
+    #[serde(
+        rename = "instrument-definition",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_definition: ::std::option::Option<InstrumentDefinition>,
+    #[serde(
         rename = "instrument-name-display",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -10933,6 +11597,12 @@ pub struct VirituraExtensionsRoot {
     pub instrument_name_display_policy: ::std::option::Option<
         InstrumentNameDisplayPolicy,
     >,
+    #[serde(
+        rename = "instrument-transposition",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub instrument_transposition: ::std::option::Option<InstrumentTransposition>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub jump: ::std::option::Option<Jump>,
     #[serde(
@@ -11365,8 +12035,12 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             gradual_tempo: Default::default(),
             grouping_display: Default::default(),
             hit_point: Default::default(),
+            instrument_change: Default::default(),
+            instrument_change_instruction: Default::default(),
+            instrument_definition: Default::default(),
             instrument_name_display: Default::default(),
             instrument_name_display_policy: Default::default(),
+            instrument_transposition: Default::default(),
             jump: Default::default(),
             key_extensions: Default::default(),
             kit_component_extensions: Default::default(),
@@ -11437,5 +12111,11 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             video_media_identity: Default::default(),
             video_sync: Default::default(),
         }
+    }
+}
+/// Generation of default values for serde.
+pub mod defaults {
+    pub(super) fn default_bool<const V: bool>() -> bool {
+        V
     }
 }

@@ -16,6 +16,7 @@ export interface MenuBarConfigDeps {
   canRedo: boolean;
   selection: SelectionState;
   canTranspose: boolean;
+  canChangeBarInstrument?: boolean;
   canDistribute: boolean;
   recentScores: readonly RecentScore[];
   handleOpenFile: () => void | Promise<void>;
@@ -69,6 +70,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
     canRedo,
     selection,
     canTranspose,
+    canChangeBarInstrument,
     canDistribute,
     recentScores,
     handleOpenFile,
@@ -155,6 +157,7 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onZoomOut: handleZoomOut,
       onResetZoom: handleResetZoom,
       onTranspose: () => openDialog("transpose"),
+      onBarInstrumentChange: () => openDialog("barInstrumentChange"),
       onSplitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
       onSetTimeSignature: handleSetTimeSignature,
       onSetKeySignature: handleSetKeySignature,
@@ -223,9 +226,10 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       canRedo,
       hasSelection: selection.kind !== "none",
       canTranspose,
+      canChangeBarInstrument,
       canDistribute,
     }),
-    [hasDocument, canUndo, canRedo, selection, canTranspose, canDistribute],
+    [hasDocument, canUndo, canRedo, selection, canTranspose, canChangeBarInstrument, canDistribute],
   );
 
   const recentMenuEntries = useMemo(() => {

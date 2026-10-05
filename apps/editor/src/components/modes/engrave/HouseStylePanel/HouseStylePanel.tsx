@@ -6,9 +6,10 @@ import { TextStylesPanel } from "./TextStylesPanel";
 import { TimeSignatureAppearance } from "./TimeSignatureAppearance";
 import { PageTurnsPanel } from "./PageTurnsPanel";
 import { ChordSymbolsPanel } from "./ChordSymbolsPanel";
+import { InstrumentChangesPanel } from "./InstrumentChangesPanel";
 import styles from "./HouseStylePanel.module.css";
 
-type HouseStyleCategory = "time-signatures" | "chord-symbols" | "text-styles" | "page-turns";
+type HouseStyleCategory = "time-signatures" | "chord-symbols" | "text-styles" | "page-turns" | "instrument-changes";
 
 interface CategoryDefinition {
   id: HouseStyleCategory;
@@ -18,6 +19,12 @@ interface CategoryDefinition {
 }
 
 const CATEGORIES: readonly CategoryDefinition[] = [
+  {
+    id: "instrument-changes",
+    title: "Instrument Changes",
+    keywords: "instrument transposition tuning change label advance reminder show hide visibility",
+    render: () => <InstrumentChangesPanel />,
+  },
   {
     id: "chord-symbols",
     title: "Chord Symbols",
@@ -52,6 +59,7 @@ const DEFAULT_OPEN: Record<HouseStyleCategory, boolean> = {
   "chord-symbols": false,
   "page-turns": false,
   "text-styles": false,
+  "instrument-changes": false,
 };
 
 /** Searchable score-wide engraving controls with the live canvas beside them. */

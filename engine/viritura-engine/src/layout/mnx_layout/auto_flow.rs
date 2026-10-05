@@ -68,6 +68,7 @@ pub(super) fn layout_auto_flow_mnx_score(
     use_written: bool,
     layout_breaks: &[LayoutBreak],
     instrument_name_display: Option<&InstrumentNameDisplaySettings>,
+    part_score_name: Option<&str>,
     mut dirty_region: Option<cache::DirtyRegion>,
     mut cache: Option<&mut cache::LayoutCache>,
 ) -> DisplayList {
@@ -84,7 +85,6 @@ pub(super) fn layout_auto_flow_mnx_score(
     if let Some(region) = dirty_region.as_mut() {
         resolve_dirty_flat_staves(region, flat_staves);
     }
-    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // P1 plumbing: `dirty_range` is the range carried forward from
     // `apply_patch_and_layout_*` (taken from the cache + cleared by the
@@ -100,7 +100,9 @@ pub(super) fn layout_auto_flow_mnx_score(
     // no-op after this (config_hash already matches).
     if let Some(ref mut c) = cache {
         c.check_config(config);
+        super::super::instrument_changes::revalidate(c, score, flat_staves, &mut dirty_region);
     }
+    let dirty_range = dirty_region.as_ref().map(cache::DirtyRegion::measure_range);
 
     // Env-gated phase timing probe (no-op unless VIRITURA_LAYOUT_TIMING is set).
     // NOTE: `Instant::now()` panics on wasm32-unknown-unknown ("time not
@@ -214,6 +216,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         .copied()
         .collect();
     let mut plan = plan_system_breaks(
+        score,
         config,
         flat_staves,
         &budget,
@@ -222,7 +225,9 @@ pub(super) fn layout_auto_flow_mnx_score(
         instrument_name_display,
         cache.as_deref_mut(),
     );
-    let title_height_px = title_block_height(score.metadata(), config);
+    let title_height_px = title_block_height(score.metadata(), config).max(
+        super::super::page::part_score_name_height(part_score_name, config),
+    );
     let natural_part_plan = layout_breaks
         .is_empty()
         .then(|| {
@@ -514,6 +519,7 @@ pub(super) fn layout_auto_flow_mnx_score(
         group_ranges,
         instrument_name_display,
     );
+    let render_salt = super::super::instrument_changes::state_salt(score, flat_staves, render_salt);
 
     // Stitched-horizon only: build a GLOBAL per-staff tie-accidental suppression
     // map across every chunk, so a tie crossing a chunk seam keeps its

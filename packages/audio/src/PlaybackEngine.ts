@@ -497,8 +497,12 @@ export class PlaybackEngine {
     const lastCc = new Map<number | string, Map<number, number>>();
     for (const ev of this.timeline.events) {
       if (ev.time > startScoreTime) break;
-      const routingKey = ev.playbackLaneId ?? ev.partIndex;
-      if (ev.type === "programChange" && ev.program !== undefined) {
+      const routingKey = this.routingKeyForEvent(ev);
+      if (ev.instrumentChange) {
+        lastProgram.delete(routingKey);
+        lastCc.get(routingKey)?.delete(74);
+        lastCc.get(routingKey)?.delete(71);
+      } else if (ev.type === "programChange" && ev.program !== undefined) {
         lastProgram.set(routingKey, ev.program);
       } else if (ev.type === "controlChange" && ev.cc !== undefined && ev.value !== undefined) {
         let ccMap = lastCc.get(routingKey);
@@ -529,7 +533,13 @@ export class PlaybackEngine {
   };
 
   private samplerForEvent(event: MidiEvent): ISampler | undefined {
-    return this.samplers.get(event.playbackLaneId ?? event.partIndex) ?? this.samplers.get(event.partIndex);
+    const sampler = this.samplers.get(this.routingKeyForEvent(event));
+    return event.playbackInstrumentKey === undefined ? (sampler ?? this.samplers.get(event.partIndex)) : sampler;
+  }
+
+  private routingKeyForEvent(event: MidiEvent): string | number {
+    const lane = event.playbackLaneId ?? event.partIndex;
+    return event.playbackInstrumentKey === undefined ? lane : JSON.stringify([lane, event.playbackInstrumentKey]);
   }
 
   private dispatchEvent = (event: MidiEvent, audioTime: number): void => {
@@ -540,12 +550,24 @@ export class PlaybackEngine {
     if (hidden) return;
 
     const sampler = this.samplerForEvent(event);
-    if (!sampler) return;
+    if (!sampler) {
+      if (event.playbackInstrumentKey !== undefined) {
+        this.emit("error", {
+          message: `Instrument sampler "${event.playbackInstrumentKey}" is unavailable.`,
+          type: "sampler",
+        });
+      }
+      return;
+    }
 
     try {
       if (event.type === "noteOn") {
         sampler.noteOn(event.midiNote, event.velocity, audioTime, event.drumKitProgram);
       } else if (event.type === "programChange") {
+        if (event.instrumentChange) {
+          sampler.resetInstrument?.(audioTime);
+          return;
+        }
         if (sampler.setProgram && event.program !== undefined) {
           sampler.setProgram(event.program, audioTime);
         }

@@ -30,7 +30,7 @@ function makeScore(measures: GlobalMeasure[]): Score {
         ...measure,
       })),
     },
-    parts: [{ id: "piano", name: "Piano", measures: measures.map(() => ({ sequences: [{ content: [] }] })) }],
+    parts: [{ id: "keyboard.piano", name: "Piano", measures: measures.map(() => ({ sequences: [{ content: [] }] })) }],
   };
 }
 
@@ -290,7 +290,7 @@ describe("derived global chord playback", () => {
   it("includes global harmony in full and current-part extracted scores when enabled", () => {
     const symbol = major("C");
     const score = makeScore([{ chordSymbols: [symbol] }]);
-    score.parts.push({ ...structuredClone(score.parts[0]!), id: "flute", name: "Flute" });
+    score.parts.push({ ...structuredClone(score.parts[0]!), id: "wind.flutes.flute", name: "Flute" });
     const extracted: Score = { ...score, parts: [score.parts[1]!] };
     for (const source of [score, extracted]) {
       expect(getChordPlaybackPart(source)).toEqual({

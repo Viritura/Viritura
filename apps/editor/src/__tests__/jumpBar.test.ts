@@ -145,6 +145,19 @@ describe("buildJumpBarActions", () => {
     settings: [{ id: "appearance", label: "Appearance", keywords: ["theme", "dark", "light"] }],
   });
 
+  it("offers a single bar instrument/tuning command with transposition search keywords", () => {
+    const changeBarInstrument = vi.fn();
+    const built = buildJumpBarActions({ ...baseCallbacks, changeBarInstrument });
+    const changes = built.filter(
+      (action) => action.label.startsWith("Change instrument") || action.label === "Change transposition",
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ label: "Change instrument or tuning" });
+    expect(changes[0]?.keywords).toContain("transposition");
+    changes[0]?.execute();
+    expect(changeBarInstrument).toHaveBeenCalledOnce();
+  });
+
   describe("chord distribution commands", () => {
     it.each([
       ["edit.explode", "Explode to Staves", "explodeSelection"],

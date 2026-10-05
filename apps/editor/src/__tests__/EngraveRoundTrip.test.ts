@@ -6,7 +6,7 @@ import { createPlayer, renumberPlayers } from "../score/InstrumentCatalog";
 import type { Score } from "@viritura/core";
 
 function makeScore(): Score {
-  const players = renumberPlayers([createPlayer("flute"), createPlayer("violin")]);
+  const players = renumberPlayers([createPlayer("wind.flutes.flute"), createPlayer("strings.violin")]);
   const settings: NewScoreSettings = {
     title: "RoundTrip",
     players,

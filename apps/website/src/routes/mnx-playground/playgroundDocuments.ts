@@ -146,7 +146,7 @@ const tuplets = documentSource([
 
 const piano = documentSource([
   {
-    id: "piano",
+    id: "keyboard.piano",
     staves: 2,
     measures: [
       {
@@ -208,7 +208,7 @@ export const playgroundDocuments: readonly PlaygroundDocument[] = [
     description: "A compact triplet followed by simple rhythm.",
     source: tuplets,
   },
-  { id: "piano", title: "Piano staves", description: "Treble and bass staves in one part.", source: piano },
+  { id: "keyboard.piano", title: "Piano staves", description: "Treble and bass staves in one part.", source: piano },
   {
     id: "caesura",
     title: "Caesura",

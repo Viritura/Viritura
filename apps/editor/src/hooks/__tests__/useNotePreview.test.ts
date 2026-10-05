@@ -316,7 +316,10 @@ describe("useNotePreview chord-symbol selection", () => {
     renderHook(() => useNotePreview());
 
     select("p0/m0/s0/ev1/n0");
-    expect(previewNote).toHaveBeenCalledExactlyOnceWith(60, 0, 80, 400);
+    expect(previewNote).toHaveBeenCalledExactlyOnceWith(60, 0, 80, 400, undefined, {
+      measureIndex: 0,
+      fraction: [0, 1],
+    });
     expect(previewChord).not.toHaveBeenCalled();
 
     previewNote.mockClear();

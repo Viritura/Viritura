@@ -75,7 +75,7 @@ export function useDefaultScoreLoader({
       // Fallback to blank score
       const json = buildBlankScore({
         title: "Untitled",
-        players: renumberPlayers([createPlayer("piano")]),
+        players: renumberPlayers([createPlayer("keyboard.piano")]),
         time: { count: 4, unit: 4 },
         keyFifths: 0,
         measureCount: 8,

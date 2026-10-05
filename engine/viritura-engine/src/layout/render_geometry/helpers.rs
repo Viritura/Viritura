@@ -344,7 +344,7 @@ pub(crate) fn compute_measure_bboxes(
     // start, not only on a key change, so the hitbox has to follow it there too
     // (otherwise a click on a continuation signature falls through to the bar).
     if key_signature_is_rendered(ml) {
-        let key_cancel_count = if ml.resolved.global.key.is_some() {
+        let key_cancel_count = if ml.resolved.key_signature_changed() {
             ml.resolved
                 .prev_key
                 .cancellation_count(&ml.resolved.active_key)

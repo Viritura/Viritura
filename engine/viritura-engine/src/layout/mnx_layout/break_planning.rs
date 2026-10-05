@@ -88,6 +88,7 @@ pub(super) fn stable_horizon_chunks(
 /// into systems sized to the page. Falls back to a single system when no
 /// page width is configured (galley / unpaged view).
 pub(super) fn plan_system_breaks(
+    score: &Score,
     config: &LayoutConfig,
     flat_staves: &[FlatStaff],
     budget: &MeasureWidthBudget,
@@ -97,6 +98,8 @@ pub(super) fn plan_system_breaks(
     cache: Option<&mut cache::LayoutCache>,
 ) -> SystemBreakPlan {
     let sp = config.sp;
+    let variants = super::instrument_labels::label_variants(flat_staves, score);
+    let label_staves = &variants;
     let label_style = config
         .text_styles
         .resolve(crate::layout::text_styles::TextRole::StaffLabel);
@@ -109,11 +112,11 @@ pub(super) fn plan_system_breaks(
     let first_policy = instrument_name_display.map(|settings| settings.first_system);
     let subsequent_policy = instrument_name_display.map(|settings| settings.subsequent_systems);
     let has_first_labels = flat_staves.len() > 1
-        && flat_staves
+        && label_staves
             .iter()
             .any(|staff| label_text(staff, true, first_policy).is_some());
     let has_subsequent_labels = flat_staves.len() > 1
-        && flat_staves
+        && label_staves
             .iter()
             .any(|staff| label_text(staff, false, subsequent_policy).is_some());
     // Gap between the right edge of the instrument name and the system's left
@@ -124,7 +127,7 @@ pub(super) fn plan_system_breaks(
     const LABEL_GAP_SP: f64 = 2.8;
     let label_gap = LABEL_GAP_SP * sp;
     let first_label_margin = if has_first_labels {
-        flat_staves
+        label_staves
             .iter()
             .filter_map(|staff| {
                 label_text(staff, true, first_policy).map(|label| (label, &staff.condensed_numbers))
@@ -136,7 +139,7 @@ pub(super) fn plan_system_breaks(
         0.0
     };
     let subseq_label_margin = if has_subsequent_labels {
-        flat_staves
+        label_staves
             .iter()
             .filter_map(|staff| {
                 label_text(staff, false, subsequent_policy)

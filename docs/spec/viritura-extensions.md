@@ -11,21 +11,21 @@ Viritura extends the [MNX specification](https://mnx.formats.music/docs/) using 
 
 ## Quick Reference
 
-| MNX Object                                   | JSON Path                                       | Extensions                                                                                     |
-| -------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, soundProfile, videoSync, lyricWorkflow |
-| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                 |
-| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility                              |
-| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                        |
-| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                        |
-| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters                 |
-| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                          |
-| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                  |
-| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                   |
-| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                     |
-| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                           |
-| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                          |
-| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                       |
+| MNX Object                                   | JSON Path                                       | Extensions                                                                                                            |
+| -------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [score (root)](#score-root-extensions)       | `_x.viritura`                                   | metadata, textStyles, chordSymbolStyle, timeSignatures, instrumentChangeStyle, soundProfile, videoSync, lyricWorkflow |
+| score definition                             | `scores[]._x.viritura`                          | pageSetup, instrumentNameDisplay, layoutBreaks                                                                        |
+| [source part](#source-part-extensions)       | `parts[]._x.viritura`                           | instrumentId, midiProgram, family, spatial, chordSymbolVisibility, instruments, initialInstrument                     |
+| [measure-global](#global-measure-extensions) | `global.measures[]._x.viritura`                 | rehearsalMark, coda, jump variants not in MNX, markerText, chordSymbols                                               |
+| [time signature](#time-signature-extensions) | `global.measures[].time._x.viritura`            | beatStructure, groupingDisplay, display                                                                               |
+| [part-measure](#part-measure-extensions)     | `parts[].measures[]._x.viritura`                | pedals, expressions, condensingOverride, groupingDisplayOverrides, staffMeters, instrumentChanges                     |
+| positioned staff configuration               | `parts[].measures[].staffConfigs[]._x.viritura` | staffLineRangeRestore                                                                                                 |
+| [dynamic-group](#dynamic-group-extensions)   | `parts[].measures[].dynamics[]._x.viritura`     | manualOffset, avoidCollisions                                                                                         |
+| [event-markings](#event-markings-extensions) | `...content[].markings._x.viritura`             | staccatissimoWedge, trill, ornaments, fingerings, arpeggiate                                                          |
+| [event](#event-extensions)                   | `...content[]._x.viritura`                      | glissandos                                                                                                            |
+| [tuplet](#cross-barline-tuplet-fragments)    | `...content[]._x.viritura`                      | span                                                                                                                  |
+| [slur](#slur-extensions)                     | `...content[].slurs[]._x.viritura`              | shape                                                                                                                 |
+| [kit-component](#kit-component-extensions)   | `parts[].kit[]._x.viritura`                     | notehead                                                                                                              |
 
 **Schema**: [`packages/format/schemas/viritura-extensions.json`](../packages/format/schemas/viritura-extensions.json)
 
@@ -211,6 +211,61 @@ same policy directly: full-then-short, short-only, or hidden.
 `_x.viritura` on an MNX source part (`parts[]`). Schema def: `part-extensions`.
 Instrument identity and placement use `instrumentId`, `midiProgram` (0–127),
 `family`, and `spatial` (`{ x, y }` in stage meters).
+
+`instrumentId` is a [MusicXML standard sound ID](https://www.w3.org/2021/06/musicxml40/listings/sounds.xml/)
+(for example `wind.reed.clarinet.bflat`, `brass.french-horn`,
+`strings.contrabass`). Viritura uses the MusicXML hierarchy rather than a
+private catalog so that identity survives MusicXML round-trips and consumers
+can fall back by walking up the dotted hierarchy (`wind.reed.clarinet.bflat` →
+`wind.reed.clarinet` → `wind.reed`) before falling back to `midiProgram` and
+finally the part name. Pre-MusicXML Viritura catalog IDs (such as
+`bflat-clarinet`) are not recognized.
+
+### `instruments` and `initialInstrument` (provisional)
+
+Provisional model for doubling within one player's part (flute ↔ piccolo,
+oboe ↔ English horn, A ↔ B♭ clarinet, percussion instrument changes). MNX has
+no instrument object yet (see [w3c-cg/mnx#466](https://github.com/w3c-cg/mnx/issues/466));
+this extension prototypes one so Viritura can map to it if MNX adopts a
+similar model.
+
+- `instruments`: map from a document-local key to an `instrument-definition`:
+  `instrumentId` (required MusicXML sound ID), optional `name`, `shortName`,
+  `transposition` (same shape as MNX `part-transposition`), and `midiProgram`.
+- `initialInstrument`: key of the instrument active at the start of the part.
+  Required when `instruments` is present.
+
+Native MNX fields keep describing the **initial** state so plain MNX readers
+see a correct part: `part.name`, `part.shortName`, and `part.transposition`
+should match the initial instrument, and `_x.viritura.instrumentId`, when
+present, must equal its `instrumentId`. The validator rejects a mismatched
+`instrumentId` or initial transposition. The part's `kit` stays part-level.
+
+```json
+{
+  "id": "P1",
+  "name": "Flute",
+  "measures": [],
+  "_x": {
+    "viritura": {
+      "instrumentId": "wind.flutes.flute",
+      "initialInstrument": "fl",
+      "instruments": {
+        "fl": { "instrumentId": "wind.flutes.flute", "name": "Flute", "shortName": "Fl." },
+        "picc": {
+          "instrumentId": "wind.flutes.flute.piccolo",
+          "name": "Piccolo",
+          "shortName": "Picc.",
+          "transposition": { "interval": { "halfSteps": -12, "staffDistance": -7 }, "prefersWrittenPitches": true }
+        }
+      }
+    }
+  }
+}
+```
+
+See [`instrumentChanges`](#instrumentchanges-provisional) for switching
+between them.
 
 ### `chordSymbolVisibility`
 
@@ -534,7 +589,7 @@ paths or plug-in state.
         "profileId": "viritura-sounds",
         "profileVersion": 1,
         "parts": {
-          "clarinet-1": { "sourceId": "tuba-primary" }
+          "clarinet-1": { "sourceId": "brass.tuba-primary" }
         }
       }
     }
@@ -1082,6 +1137,206 @@ Declarations inherit per staff independently: setting staff 2's meter does
 not disturb staff 1, and a later measure with no `staffMeters` entry for
 staff 2 keeps that staff's most recently declared meter (or the global meter,
 if never declared or already reset).
+
+### `instrumentChanges` (provisional)
+
+Ordered list of `instrument-change` entries that change the active
+instrument, the active transposition, or both, from `position` (a
+[rhythmic position](#rhythmic-position); absent means the start of the
+measure). Each entry must set `instrument`, `transposition`, or both:
+
+| Entry                            | Meaning                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `instrument` only                | Switch to that key in the part's `instruments`; transposition resets to that instrument's default.           |
+| `transposition` only             | Keep the instrument, change its transposition (horn/trumpet crooks, rotary change). No `instruments` needed. |
+| `instrument` and `transposition` | Switch instrument with an explicit transposition overriding its default.                                     |
+
+A zero interval (`{ "halfSteps": 0, "staffDistance": 0 }`) returns to concert
+pitch. Changes persist until the next change and apply from their own
+position onward; ties, slurs, and hairpins are not expected to cross them.
+The optional `instruction` carries the authored change text
+(`{ "text": "muta in Picc." }`) or `{ "hidden": true }` to suppress the default
+label. Positions must be unique within a measure, and `instrument` must name
+a key in the part's `instruments`.
+
+The independent optional `reminder` uses the same `{ text?, hidden? }`
+shape. Absence or `{}` inherits house-style visibility with automatic text;
+`{ "hidden": true }` explicitly suppresses it and `{ "hidden": false }`
+explicitly shows it. Root `_x.viritura.instrumentChangeStyle` sets the
+score-wide `showChangeLabel` and `showAdvanceReminder` defaults (both true
+when omitted). **Engrave → House Style → Instrument Changes** edits these
+defaults. Change-point labels use the same visibility inheritance rule.
+Neither its custom text nor its visibility changes the `instruction` label
+at the declaration. Automatic labels within the music use the active
+instrument's `shortName` (or its automatic abbreviation) and tuning for
+both instrument switches and transposition-only changes: `Cl in B♭` at
+the opening, `To Cl in C` as the advance reminder, and `Cl in C` at the
+change. Authored abbreviation punctuation and custom label text are
+preserved. Frontmatter retains full instrument names. Octave-only labels
+include, for example, `(sounds C5 for written C4)`. These labels use sounding
+pitch for written C, not numeric MNX interval counts.
+
+An enabled reminder automatically attaches **just after the last preceding
+sounding notehead**, so the player can use the following rest. It stays
+attached to that note, never to a preceding or following rest or barline.
+Rests and invisible spaces are not sounding anchors. All voices and staves
+are considered, including tied continuations, dotted notes, and tuplets.
+The note anchor can be fractional and in an earlier measure; it never
+moves the authored bar-start declaration or changes the instrument timeline.
+If no previous sounding note exists, or its release leaves no gap before
+the change (including a tie sounding across it), the reminder is omitted:
+there is no valid advance anchor. Grace-only material does not establish
+an independent notated release anchor. Excerpts show a reminder only when
+its original anchor measure is included; they do not invent a new position.
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "instrumentChanges": [{ "instrument": "picc", "instruction": { "text": "muta in Picc." } }]
+    }
+  }
+}
+```
+
+```json
+{
+  "_x": {
+    "viritura": {
+      "instrumentChanges": [
+        {
+          "transposition": { "interval": { "halfSteps": 9, "staffDistance": 5 } },
+          "instruction": { "text": "in Es" }
+        }
+      ]
+    }
+  }
+}
+```
+
+The decoded TypeScript field is `PartMeasure.instrumentChanges`;
+`resolveActiveInstrument(part, measureIndex, position)` and
+`listInstrumentChanges(part)` in `@viritura/core` resolve the active
+instrument and transposition at any point.
+
+Engraving currently supports **bar-start changes only**. The provisional
+schema and TypeScript resolver can preserve nonzero fractions for future
+support, but full Rust parsing and measure-patch promotion reject them with
+an explicit unsupported-instrument-change error rather than drawing
+incorrect written pitches. Omitted positions and zero-numerator fractions
+with positive denominators are supported.
+
+#### Editing bar-start changes
+
+Select a single bar in one source part (or a note in that bar), then choose
+**Change instrument or tuning** from **Edit**, the score's
+context menu, or the Jump Bar. These commands insert or edit the change at
+the **start** of the selected bar; they do not transpose the sounding notes
+or replace the whole part. Changes persist until another declaration.
+
+The single wide dialog opens with the instrument and tuning active at the
+selected bar, preserving inherited custom tuning. Selecting an instrument
+applies its catalog-default transposition and clefs.
+Its optional **Customize tuning** section offers
+instrument-aware presets and exact sounding pitch/octave controls before
+applying the instrument and tuning together in one score update. Selecting
+a different instrument resets tuning to that instrument's default;
+**Use instrument default** removes a custom override. Reopening an existing
+override preserves it and opens the tuning section.
+The shared instrument picker offers one default-first choice for tuning
+variants: **Trumpet** defaults to B-flat and **Clarinet** to B-flat, with C
+trumpet and A clarinet available through tuning customization instead of
+separate picker rows. Horn and cornet likewise use key-free picker labels.
+Register-distinct instruments such as piccolo clarinet, bass clarinet, and
+the saxophone sizes remain separate choices. Existing MusicXML sound IDs,
+including tuning-specific identities, remain valid and are not rewritten
+merely by opening the picker.
+Editing tuning or printed labels keeps instrument identity and clefs unless
+another instrument is explicitly selected or its catalog defaults restored.
+Tuning can override the default, including an explicit zero interval. The sign
+convention is MNX's **concert-to-written** interval: B-flat clarinet is
+`+2` semitones / `+1` staff step; piccolo is `-12` / `-7`.
+The controls present this musically as the sounding pitch corresponding to
+written C, with its octave and accidental, rather than asking for semitone
+and staff-step counts; MNX intervals remain the stored representation.
+The dialog uses the standard wide-dialog header and offers **Use house style /
+Show / Hide** for each label, plus independent custom text. Preset names omit
+the exact sounding octave suffix and mark the catalog default with a badge;
+register distinctions such as horn alto/basso remain in the preset names.
+The sounding-pitch menu offers common natural, sharp, and flat spellings,
+preserving a current uncommon spelling without listing all uncommon options.
+Side-by-side **Concert pitch** and **Written pitch** previews engrave the
+same sounding notes through the score renderer with the selected interval,
+clef, and key-flip threshold. Pure-octave written preference is deliberately
+omitted from the concert-preview score so the comparison remains literal.
+Reopening the dialog offers **Remove change**, which removes the entire
+bar-start declaration while preserving later-positioned declarations.
+
+The command applies to the part, including all its staves, not just the
+clicked staff. Instrument choices must keep the same staff count and be
+pitched instruments. Percussion-map swaps and changes of staff count need
+separate source parts; this extension does not define per-instrument kits.
+Changing instrument also sets the catalog's clefs and staff-line counts at
+the bar start, preserving later-positioned staff changes. Removing it
+restores the previous instrument's catalog defaults there.
+
+Setup's **Change instrument** still replaces the starting instrument for the
+whole part; its **Customize tuning** section edits the starting transposition.
+Catalog-default tuning is summarized before opening those optional controls.
+These
+edits preserve later instrument definitions and timed changes, including
+later returns to the old starting instrument.
+
+Written-pitch layout uses the active transposition for notes, accidentals,
+key signatures, and harmony. Concert-pitch layout
+keeps sounding notation unless the active instrument prefers written pitches
+(for example piccolo). Authored/automatic change instructions participate in
+normal annotation placement; hidden instructions do not print. A change also
+breaks a multimeasure rest so it remains visible.
+An enabled reminder's anchor also interrupts a multimeasure-rest group.
+Both labels use the normal centralized expression annotation, spacing,
+collision, and rendering paths.
+
+When a part actually uses multiple instrument identities or tunings, its
+automatic staff names show only the instrument and tuning **active at the
+first bar of that system**: full names on the first system and abbreviated
+names on later systems. Changes later in the system do not alter its staff
+label. Frontmatter lists **all required states** in first-use order.
+Returning to the same instrument and interval does
+not repeat its entry; unused instrument definitions and unchanged-state
+reminders do not add entries. Octave differences remain distinct:
+B-flat horn uses **alto** / **basso**, and E-flat clarinet uses
+**piccolo** / **alto**. Other octave-distinct tunings state the sounding
+pitch for written C4. Explicit author-supplied layout labels remain intact.
+
+Extracted parts use the same required-state list in the boxed instrument
+header on the first page, including a dedicated title page. Automatic
+player numbers appear on every line. The frame fits the widest line and
+the complete text stack, with space reserved above the first music system.
+Explicitly renamed score definitions and work-title metadata remain intact.
+
+Such a part also prints its initial short name and tuning above its first
+bar, independent of concert/written display. A first-bar instrument or
+transposition declaration supplies that bar's instruction instead, avoiding
+a duplicate automatic initial label. Parts without actual state changes
+retain their existing labels and do not acquire an initial instruction.
+These rules apply to direct part/full-score layout and MNX layout paths;
+they do not alter sounding notes, stored instrument state, or playback.
+
+Editing an instrument/transposition timeline revalidates cached layout
+throughout the displayed part, including subsequent systems. Local-bar
+cache shortcuts apply only while the timeline is unchanged; inserting,
+editing, or removing a declaration must update later written pitches and
+signatures without requiring a view-mode switch.
+
+Playback preloads the instruments used by the part and routes each note to
+the active sound at its authored position, including seeks and repeat
+playback. Transposition-only changes never shift sounding MIDI pitches.
+The initial instrument retains its authored sound-profile source assignment;
+later instrument switches use the profile's defaults for that instrument.
+Entry and selected-note previews also use the active instrument and sounding
+pitch. Parts with timed instrument switches currently use browser SoundFont
+playback instead of native/VST playback, with an explicit notification.
 
 ---
 

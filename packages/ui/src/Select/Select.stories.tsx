@@ -66,6 +66,17 @@ export const Disabled: Story = {
   },
 };
 
+export const WithDefaultBadge: Story = {
+  ...Default,
+  args: {
+    value: "bb",
+    options: [
+      { value: "bb", label: "Trumpet in B♭", badge: "Default" },
+      { value: "c", label: "Trumpet in C" },
+    ],
+  },
+};
+
 export const ManyOptions: Story = {
   args: {
     value: "C",

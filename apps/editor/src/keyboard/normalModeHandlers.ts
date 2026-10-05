@@ -20,6 +20,7 @@ import {
 import {
   planTransposeNotes,
   resolveKeyAtMeasure,
+  resolveWrittenPitchFromSounding,
   transposeNotes,
   transposePitchChromatic,
   transposePitchDiatonic,
@@ -49,6 +50,7 @@ import { resolveActiveClefForStaff, staffPositionForPitch } from "./noteInputSha
 import { OPTIMISTIC_NOTE_INPUT_EVENT, type OptimisticNoteInputDetail } from "../components/inputCursorHelpers";
 import { planSlurSinglePatch, planSlurSpanPatches } from "./spannerPatchPlans";
 import { accidentalAlteration } from "../commands/accidentalCommands";
+import { beatPositionToFraction, eventBeatPosition } from "../app/timedAnnotationPosition";
 export { handleFlip } from "./flipSelection";
 
 /** Apply an accidental to all notes in the selected event(s) (direct set). */
@@ -82,7 +84,17 @@ function emitOptimisticPitchPreview(
   const note = event.notes?.[location.noteIndex ?? 0];
   const staffIndex = Math.max(0, (note?.staff ?? event.staff ?? 1) - 1);
   const clef = resolveActiveClefForStaff(score, location.partIndex, staffIndex, location.measureIndex);
-  const alter = pitch.alter ?? 0;
+  const sequence = score.parts[location.partIndex]?.measures[location.measureIndex]?.sequences[location.sequenceIndex];
+  const written = resolveWrittenPitchFromSounding(
+    pitch,
+    score,
+    location.partIndex,
+    resolveKeyAtMeasure(score, location.measureIndex),
+    location.measureIndex,
+    beatPositionToFraction(sequence ? eventBeatPosition(sequence, location) : 0),
+    ctx.getConfig().selectedScoreIndex,
+  );
+  const alter = written.alter ?? 0;
   const detail: OptimisticNoteInputDetail = {
     cursor: {
       measureIndex: location.measureIndex,
@@ -90,7 +102,7 @@ function emitOptimisticPitchPreview(
       partIndex: location.partIndex,
       staffIndex,
     },
-    staffPosition: staffPositionForPitch(pitch, clef),
+    staffPosition: staffPositionForPitch(written, clef),
     duration: event.duration.base,
     accidental: alter > 0 ? "sharp" : alter < 0 ? "flat" : null,
     isRest: false,

@@ -13,7 +13,7 @@ function score(chordSymbols?: ChordSymbol[]): Score {
       id,
       name: "Piano",
       measures: [{ sequences: [{ content: [] }] }],
-      _x: { viritura: { instrumentId: "piano", midiProgram: 0 } },
+      _x: { viritura: { instrumentId: "keyboard.piano", midiProgram: 0 } },
     })),
   };
 }
@@ -46,6 +46,57 @@ const vstProfile: SoundProfile = {
 };
 
 describe("resolveScorePlaybackParts", () => {
+  it("keeps the initial authored assignment but defaults subsequent instrument sounds and layers", () => {
+    const input = score();
+    input.parts = [input.parts[0]!];
+    const part = input.parts[0]!;
+    part._x = {
+      viritura: {
+        initialInstrument: "flute",
+        instruments: {
+          flute: { instrumentId: "wind.flutes.flute", midiProgram: 73 },
+          violin: { instrumentId: "strings.violin", midiProgram: 40 },
+        },
+      },
+    };
+    part.measures[0]!.instrumentChanges = [
+      { instrument: "violin" },
+      {
+        instrument: "flute",
+        position: { fraction: [1, 2] },
+      },
+    ];
+    input.soundProfile = {
+      profileId: "viritura-sounds",
+      profileVersion: 1,
+      parts: { a: { sourceId: "brass.tuba-primary" } },
+    };
+    const before = structuredClone(input);
+    const resolved = resolveScorePlaybackParts(input)[0]!;
+    expect(resolved.instruments!.map(({ key }) => key)).toEqual(["initial", "instrument:violin", "instrument:flute"]);
+    const sounds = resolved.instruments!.map(({ resolved: variant }) =>
+      requireSf2Sound(variant.part.name, variant.sf2),
+    );
+    expect(sounds.map((sound) => sound.primary.program)).toEqual([58, 40, 73]);
+    expect(sounds[1]!.layers.length).toBeGreaterThan(0);
+    expect(input).toEqual(before);
+    expect(collectSf2Assignments([resolved])).toEqual([]);
+  });
+
+  it("uses the initial instrument definition even with no changes and stale legacy metadata", () => {
+    const input = score();
+    input.parts[0]!._x = {
+      viritura: {
+        instrumentId: "keyboard.piano",
+        midiProgram: 0,
+        initialInstrument: "piccolo",
+        instruments: { piccolo: { instrumentId: "wind.flutes.flute.piccolo", midiProgram: 72 } },
+      },
+    };
+    const resolved = resolveScorePlaybackParts(input)[0]!;
+    expect(requireSf2Sound(resolved.part.name, resolved.sf2).primary.program).toBe(72);
+    expect(resolved.instruments).toBeUndefined();
+  });
   it.each([{ symbols: undefined }, { symbols: [] }])(
     "preserves instrument-only resolution for $symbols global symbols",
     ({ symbols }) => {
@@ -67,7 +118,7 @@ describe("resolveScorePlaybackParts", () => {
     expect(chords).toMatchObject({
       index: input.parts.length,
       part: { id: CHORDS_PART_ID, name: "Chords", measures: [] },
-      sound: { profileId: "viritura-sounds", instrumentId: "piano", routing: { section: "keys" } },
+      sound: { profileId: "viritura-sounds", instrumentId: "keyboard.piano", routing: { section: "keys" } },
       sf2: { kind: "supported", primary: { kind: "midi", program: 0 }, layers: [] },
     });
     expect(chords.position).toEqual(resolvePartSounds([chords.part])[0]!.position);
@@ -115,7 +166,7 @@ describe("resolveScorePlaybackParts", () => {
     input.soundProfile = {
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { a: { sourceId: "tuba-primary" }, [CHORDS_PART_ID]: { sourceId: "tuba-primary" } },
+      parts: { a: { sourceId: "brass.tuba-primary" }, [CHORDS_PART_ID]: { sourceId: "brass.tuba-primary" } },
     };
     const resolved = resolveScorePlaybackParts(input);
     expect(resolved.slice(0, 2)).toEqual(resolvePartSounds(input.parts, input.soundProfile));

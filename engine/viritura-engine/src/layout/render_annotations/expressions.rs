@@ -8,6 +8,14 @@ use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyp
 use crate::model::{ExpressionPlacement, MultiStaffPlacement};
 use crate::render::*;
 
+fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
+    if right_aligned {
+        (anchor - width, anchor)
+    } else {
+        (anchor, anchor + width)
+    }
+}
+
 /// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
 ///
 /// Text expressions are positioned at the x coordinate corresponding to their
@@ -69,6 +77,7 @@ pub(crate) fn render_text_expressions(
 
     let mi = ml.resolved.index;
     let pi = ml.part_index;
+    let notehead_w = 1.18 * sp;
 
     // Stack multiple Above/Below expressions that share an ink column. The
     // per-kind clearances come from the placement table and feed the shared
@@ -87,7 +96,10 @@ pub(crate) fn render_text_expressions(
         // Fall back to linear interpolation if no matching event is found.
         let event_x = ml.voice_layouts.iter().find_map(|vl| {
             (0..vl.events.len())
-                .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
+                .find(|&i| {
+                    (vl.events.beat_position(i) - beat).abs() < 0.01
+                        && (!expr.instrument_reminder || !vl.events.event(i).is_rest())
+                })
                 .map(|i| vl.events.x(i))
         });
         // A position at or past the measure's own duration (e.g. `[1,1]` in a
@@ -101,6 +113,9 @@ pub(crate) fn render_text_expressions(
         // Left edge of the notehead — text is left-aligned with the note
         // (right edge of the measure for a barline-anchored instruction).
         let note_x = match event_x {
+            // A change reminder belongs after the final notehead, not at the
+            // onset of the following rest.
+            Some(ex) if expr.instrument_reminder => ex + notehead_w + 0.5 * sp,
             Some(ex) => ex,
             None if right_aligned => measure_right,
             None => {
@@ -116,7 +131,6 @@ pub(crate) fn render_text_expressions(
         // marks (e.g. Vln I m.136: an accented eighth at 3/4 had "arco" dragged
         // left off the chord). Following notes the text may overlap are a
         // vertical-stacking concern, handled later by the dependent solver.
-        let notehead_w = 1.18 * sp;
         // Real per-glyph advance widths (serif AFM table). The previous flat
         // 0.5 em/char estimate badly overshot the box for narrow strings like
         // "pizz." (i/./, are far narrower than 0.5 em), leaving the selection
@@ -126,9 +140,11 @@ pub(crate) fn render_text_expressions(
         let [off_x_sp, off_y_sp] = expr.manual_offset.unwrap_or([0.0, 0.0]);
         // Standard engraving practice: expression text sharing a rhythmic
         // position and side with a dynamic continues inline after that dynamic.
-        let inline_dynamic = dynamic_boxes
-            .iter()
-            .find(|dynamic| dynamic.above == is_above && (dynamic.beat - beat).abs() < 0.01);
+        let inline_dynamic = dynamic_boxes.iter().find(|dynamic| {
+            !expr.instrument_reminder
+                && dynamic.above == is_above
+                && (dynamic.beat - beat).abs() < 0.01
+        });
         let draw_x = inline_dynamic
             .map(|dynamic| dynamic.x1 + 0.5 * sp)
             .unwrap_or(note_x)
@@ -177,18 +193,22 @@ pub(crate) fn render_text_expressions(
                 staff_bottom + config.expression_min_distance * sp
             }
         } else if is_above {
-            // Find the highest notehead at this beat position
+            // Text spans several rhythmic columns: clear every note and stem
+            // under its ink, including music after a rest-anchored direction.
             let mut highest_y = staff_y; // top staff line
             let mut has_obstacle_above = false;
+            let (scan_left, scan_right) = expression_span(note_x, text_width, right_aligned);
             for vl in &ml.voice_layouts {
                 for i in 0..vl.events.len() {
-                    if (vl.events.beat_position(i) - beat).abs() < 0.01 {
+                    let event_x = vl.events.x(i);
+                    if event_x + notehead_w >= scan_left && event_x <= scan_right {
                         let note_positions = vl.events.note_positions(i);
                         for &pos in note_positions {
                             let note_y = staff_y + pos * sp * 0.5;
                             if note_y < staff_y {
                                 has_obstacle_above = true;
                             }
+
                             if note_y < highest_y {
                                 highest_y = note_y;
                             }

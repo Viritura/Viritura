@@ -8,15 +8,20 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { pitchToMidi, isRest } from "@viritura/core";
-import type { Pitch, KitNote } from "@viritura/core";
+import type { Pitch, KitNote, Sequence } from "@viritura/core";
 import { useSelection } from "../store/selectionStore";
 import { useDocument } from "../store/DocumentContext";
-import { usePlaybackActions } from "@viritura/playback";
+import { usePlaybackActions, type PlaybackPreviewPosition } from "@viritura/playback";
 import { resolveEventFromSubElement, getNoteEventAtLocation, extractNoteIndex } from "../score/ElementPath";
 import { parseElementType } from "../score/elementTypes";
 import { midiNumberForKitComponent } from "../score/kitInput";
+import { beatPositionToFraction, eventBeatPosition, type TimedAnnotationTarget } from "../app/timedAnnotationPosition";
 
 const PREVIEW_DURATION_MS = 400;
+
+function previewFraction(sequence: Sequence | undefined, target: TimedAnnotationTarget): [number, number] {
+  return beatPositionToFraction(sequence ? eventBeatPosition(sequence, target) : 0);
+}
 
 interface NotePreviewResult {
   /** Play a single pitch immediately (for note input). */
@@ -41,8 +46,8 @@ export function useNotePreview(): NotePreviewResult {
 
   // Play a MIDI note using the correct part's sampler
   const playMidi = useCallback(
-    (midiNote: number, partIndex?: number) => {
-      previewNote(midiNote, partIndex, 80, PREVIEW_DURATION_MS);
+    (midiNote: number, partIndex?: number, position?: PlaybackPreviewPosition) => {
+      previewNote(midiNote, partIndex, 80, PREVIEW_DURATION_MS, undefined, position);
     },
     [previewNote],
   );
@@ -66,6 +71,11 @@ export function useNotePreview(): NotePreviewResult {
 
     const event = getNoteEventAtLocation(score, loc);
     if (!event || isRest(event)) return;
+    const sequence = score.parts[loc.partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
+    const position = {
+      measureIndex: loc.measureIndex,
+      fraction: previewFraction(sequence, loc),
+    };
 
     // Kit (percussion) events: preview the drum sample for the selected
     // kit-note, not the pitch (kit notes have no pitch).
@@ -76,7 +86,7 @@ export function useNotePreview(): NotePreviewResult {
       const sounds = score.global?.sounds;
       const previewKitNote = (kn: KitNote) => {
         const midi = midiNumberForKitComponent(part, sounds, kn.kitComponent);
-        if (midi !== null) playMidi(midi, loc.partIndex);
+        if (midi !== null) playMidi(midi, loc.partIndex, position);
       };
       if (noteIndex !== undefined && noteIndex < kitNotes.length) {
         previewKitNote(kitNotes[noteIndex]!);
@@ -90,10 +100,10 @@ export function useNotePreview(): NotePreviewResult {
     if (!notes || notes.length === 0) return;
 
     if (noteIndex !== undefined && noteIndex < notes.length) {
-      playMidi(pitchToMidi(notes[noteIndex]!.pitch), loc.partIndex);
+      playMidi(pitchToMidi(notes[noteIndex]!.pitch), loc.partIndex, position);
     } else {
       for (const n of notes) {
-        playMidi(pitchToMidi(n.pitch), loc.partIndex);
+        playMidi(pitchToMidi(n.pitch), loc.partIndex, position);
       }
     }
   }, [selection, score, playMidi]);

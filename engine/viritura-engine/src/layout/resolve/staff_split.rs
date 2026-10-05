@@ -122,11 +122,14 @@ pub(super) fn split_part_measure_by_staff_count(
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
-        expressions: if staff_num == 1 {
-            pm.expressions.clone()
-        } else {
-            None
-        },
+        expressions: pm.expressions.as_ref().and_then(|expressions| {
+            let filtered: Vec<_> = expressions
+                .iter()
+                .filter(|expression| expression.staff.unwrap_or(1) == staff_num)
+                .cloned()
+                .collect();
+            (!filtered.is_empty()).then_some(filtered)
+        }),
         condensing_override: pm.condensing_override.clone(),
         grouping_display_overrides: pm
             .grouping_display_overrides
@@ -147,6 +150,7 @@ pub(super) fn split_part_measure_by_staff_count(
                 .collect();
             (!filtered.is_empty()).then_some(filtered)
         }),
+        instrument_changes: pm.instrument_changes.clone(),
     }
 }
 

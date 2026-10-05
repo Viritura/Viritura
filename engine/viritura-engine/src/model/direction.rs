@@ -407,6 +407,10 @@ pub struct TextExpression {
     pub source_part_index: Option<usize>,
     #[serde(skip)]
     pub source_expression_index: Option<usize>,
+    /// Derived advance instrument reminder: isolate its anchor from collapsed
+    /// rests without changing the boundary policy for authored expressions.
+    #[serde(skip)]
+    pub instrument_reminder: bool,
     /// Manual [dx, dy] offset in spatia (sp), applied after automatic placement.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manual_offset: Option<[f64; 2]>,

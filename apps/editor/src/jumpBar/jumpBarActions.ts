@@ -66,6 +66,7 @@ export interface JumpBarCallbacks {
 
   // Dialogs
   transpose: () => void;
+  changeBarInstrument?: () => void;
   splitOrchestralStaves: () => void;
 
   // Radial menus
@@ -216,6 +217,17 @@ export function buildJumpBarActions(
       keywords: ["key", "interval", "semitone"],
       execute: cb.transpose,
     },
+    ...(cb.changeBarInstrument
+      ? [
+          {
+            id: "edit.changeBarInstrument",
+            label: "Change instrument or tuning",
+            category: "Edit",
+            keywords: ["doubling", "switch", "bar", "measure", "transposition", "crook", "instrument key"],
+            execute: cb.changeBarInstrument,
+          },
+        ]
+      : []),
     {
       id: "edit.splitOrchestralStaves",
       label: "Split Combined Orchestral Parts",

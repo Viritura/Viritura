@@ -84,11 +84,15 @@ describe("addEnsembleToScore", () => {
 
   it("uses catalog score order regardless of insertion order", () => {
     const empty = parseMnx(JSON.parse(buildBlankScore({ ...DEFAULT_NEW_SCORE_SETTINGS, measureCount: 1 })));
-    const updated = ["cello", "horn", "flute"].reduce(
+    const updated = ["strings.cello", "brass.french-horn", "wind.flutes.flute"].reduce(
       (score, instrumentId) => addInstrumentToScore(score, instrumentId),
       empty,
     );
 
-    expect(updated.parts.map((part) => part._x?.viritura?.instrumentId)).toEqual(["flute", "horn", "cello"]);
+    expect(updated.parts.map((part) => part._x?.viritura?.instrumentId)).toEqual([
+      "wind.flutes.flute",
+      "brass.french-horn",
+      "strings.cello",
+    ]);
   });
 });

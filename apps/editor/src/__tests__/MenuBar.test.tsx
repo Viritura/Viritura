@@ -89,6 +89,32 @@ describe("MenuBar", () => {
     ).not.toBeNull();
   });
 
+  it("dispatches bar-start instrument changes separately from transposing selected notes", async () => {
+    const onBarInstrumentChange = vi.fn();
+    const { user } = renderMenuBar(
+      { onBarInstrumentChange },
+      {
+        canChangeBarInstrument: true,
+        canTranspose: false,
+      },
+    );
+    await user.click(screen.getByText("Edit"));
+    expect(
+      screen.getByText("Change instrument or tuning").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
+    ).toBeNull();
+    expect(screen.queryByText("Change transposition")).toBeNull();
+    await user.click(screen.getByText("Change instrument or tuning"));
+    expect(onBarInstrumentChange).toHaveBeenCalledOnce();
+  });
+
+  it("disables bar-start changes without a single-bar target", async () => {
+    const { user } = renderMenuBar({}, { canChangeBarInstrument: false });
+    await user.click(screen.getByText("Edit"));
+    for (const label of ["Change instrument or tuning"]) {
+      expect(screen.getByText(label).closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
+    }
+  });
+
   it("dispatches orchestral staff split only when a document is open", async () => {
     const onSplitOrchestralStaves = vi.fn();
     const { user } = renderMenuBar({ onSplitOrchestralStaves }, { hasDocument: true });

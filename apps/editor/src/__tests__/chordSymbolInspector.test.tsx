@@ -56,7 +56,7 @@ function buildScore(): Score {
     },
     parts: [
       {
-        id: "piano",
+        id: "keyboard.piano",
         name: "Piano",
         chordSymbolVisibility: "hide",
         measures: [
@@ -79,7 +79,7 @@ function buildScore(): Score {
     layouts: [
       {
         id: "full",
-        content: [{ type: "staff", sources: [{ part: "piano" }] }],
+        content: [{ type: "staff", sources: [{ part: "keyboard.piano" }] }],
       },
       {
         id: "clarinet-layout",
@@ -204,6 +204,18 @@ afterEach(() => {
 });
 
 describe("global chord symbol inspector", () => {
+  it("labels a chord with the active interval at its rhythmic position rather than the initial piccolo interval", () => {
+    const initial = buildScore();
+    initial.parts[1]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };
+    initial.parts[1]!.measures[0]!.instrumentChanges = [
+      {
+        position: { fraction: [1, 4] },
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 }, prefersWrittenPitches: true },
+      },
+    ];
+    renderInspector(initial);
+    expect(chordInput().value).toBe("D/F#");
+  });
   describe.each(["next", "previous"] as const)("%s annotation navigation", (direction) => {
     it.each([
       { name: "rendered copy with source anchor", suffix: "/p1/staff1", staffIndex: 1 },
@@ -215,7 +227,7 @@ describe("global chord symbol inspector", () => {
       initial.parts[1]!.chordSymbolVisibility = "show";
       // Both instruments must be visible: a clarinet-only layout masks lost source context.
       initial.layouts![1]!.content = [
-        { type: "staff", sources: [{ part: "piano" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }] },
         { type: "staff", sources: [{ part: "clarinet" }] },
       ];
       initial.global.measures[0]!.chordSymbols!.push(parseChordSymbolText("A", { fraction: [7, 8] }));
@@ -368,7 +380,7 @@ describe("global chord symbol inspector", () => {
   });
 
   it("uses the selected measure anchor ahead of the active view's part context", () => {
-    useViewStateStore.setState({ selectedScoreIndex: 1, selectedPartIds: ["piano"] });
+    useViewStateStore.setState({ selectedScoreIndex: 1, selectedPartIds: ["keyboard.piano"] });
     useSelectionStore.setState({
       selection: {
         kind: "single",
@@ -384,7 +396,7 @@ describe("global chord symbol inspector", () => {
   });
 
   it("uses the mapped source anchor rather than a conflicting render-copy suffix", () => {
-    useViewStateStore.setState({ selectedScoreIndex: 1, selectedPartIds: ["piano"] });
+    useViewStateStore.setState({ selectedScoreIndex: 1, selectedPartIds: ["keyboard.piano"] });
     useSelectionStore.setState({
       selection: {
         kind: "single",
@@ -447,7 +459,7 @@ describe("global chord symbol inspector", () => {
     initial.layouts![1]!.content = [
       {
         type: "staff",
-        sources: [{ part: "piano" }, { part: "clarinet" }],
+        sources: [{ part: "keyboard.piano" }, { part: "clarinet" }],
       },
     ];
     useViewStateStore.setState({ selectedScoreIndex: 1 });
@@ -458,7 +470,7 @@ describe("global chord symbol inspector", () => {
         elementType: "chord-symbol",
         measureAnchor: { partIndex: 0, staffIndex: 7, measureIndex: 0, localStaffIndex: 0 },
       },
-      renderedStaffSources: [{ staffIndex: 7, measureIndex: 0, partIds: ["piano", "clarinet"] }],
+      renderedStaffSources: [{ staffIndex: 7, measureIndex: 0, partIds: ["keyboard.piano", "clarinet"] }],
     });
     const { user, getScore } = renderInspector(initial, CANONICAL_TARGET);
     expect(chordInput().value).toBe("D/F#");
@@ -476,8 +488,11 @@ describe("global chord symbol inspector", () => {
       initial.parts[0]!.chordSymbolVisibility = condensed ? "show" : "hide";
       initial.parts[1]!.chordSymbolVisibility = "show";
       initial.layouts![1]!.content = [
-        { type: "staff", sources: [{ part: "piano" }] },
-        { type: "staff", sources: condensed ? [{ part: "piano" }, { part: "clarinet" }] : [{ part: "clarinet" }] },
+        { type: "staff", sources: [{ part: "keyboard.piano" }] },
+        {
+          type: "staff",
+          sources: condensed ? [{ part: "keyboard.piano" }, { part: "clarinet" }] : [{ part: "clarinet" }],
+        },
       ];
       useViewStateStore.setState({ selectedScoreIndex: 1 });
       useSelectionStore.setState({
@@ -490,8 +505,8 @@ describe("global chord symbol inspector", () => {
           }),
         },
         renderedStaffSources: [
-          { staffIndex: 0, measureIndex: 0, partIds: ["piano"] },
-          { staffIndex: 1, measureIndex: 0, partIds: condensed ? ["piano", "clarinet"] : ["clarinet"] },
+          { staffIndex: 0, measureIndex: 0, partIds: ["keyboard.piano"] },
+          { staffIndex: 1, measureIndex: 0, partIds: condensed ? ["keyboard.piano", "clarinet"] : ["clarinet"] },
         ],
       });
       const { user, getScore, onUpdate } = renderInspector(initial, CANONICAL_TARGET);

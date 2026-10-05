@@ -279,7 +279,7 @@ pub(crate) fn key_signature_layout(
 /// start of every system.
 pub(crate) fn key_signature_is_rendered(ml: &MeasureLayout) -> bool {
     let rm = &ml.resolved;
-    let is_key_change = rm.global.key.is_some();
+    let is_key_change = rm.key_signature_changed();
     let cancel_count = if is_key_change {
         rm.prev_key.cancellation_count(&rm.active_key)
     } else {

@@ -135,13 +135,17 @@ export function setListenerPosition(ctx: AudioContext, x: number, y: number): vo
 export const ORCHESTRAL_POSITIONS: Record<string, SpatialPosition> = {
   // Strings — spread arc, positions per user layout
   violin: { x: -2, y: 1 },
+  "strings.violin": { x: -2, y: 1 },
   violins: { x: -2, y: 1 },
   "violin i": { x: -2, y: 1 },
   "violin ii": { x: -1, y: 3 },
   viola: { x: 1, y: 3 },
+  "strings.viola": { x: 1, y: 3 },
   cello: { x: 2, y: 1 },
+  "strings.cello": { x: 2, y: 1 },
   contrabass: { x: 4, y: 1 },
   "double bass": { x: 4, y: 1 },
+  "strings.contrabass": { x: 4, y: 1 },
 
   // Woodwinds — centered grid, bases 1m apart to match SECTION_SPREAD
   //   Front row: Flute (left)  |  Oboe (right)
@@ -149,47 +153,80 @@ export const ORCHESTRAL_POSITIONS: Record<string, SpatialPosition> = {
   // Auxiliary winds are positioned dynamically by getOrchestraPositions()
   // relative to the outermost principal player in their section.
   flute: { x: -0.5, y: 6 },
+  "wind.flutes.flute": { x: -0.5, y: 6 },
   piccolo: { x: -0.5, y: 6 }, // dynamic: left of last flute
+  "wind.flutes.flute.piccolo": { x: -0.5, y: 6 },
   oboe: { x: 0.5, y: 6 },
+  "wind.reed.oboe": { x: 0.5, y: 6 },
   "english horn": { x: 0.5, y: 6 }, // dynamic: right of last oboe
+  "wind.reed.english-horn": { x: 0.5, y: 6 },
   clarinet: { x: -0.5, y: 7 },
+  "wind.reed.clarinet.bflat": { x: -0.5, y: 7 },
+  "wind.reed.clarinet.a": { x: -0.5, y: 7 },
+  "wind.reed.clarinet.eflat": { x: -0.5, y: 7 },
   "bass clarinet": { x: -0.5, y: 7 }, // dynamic: left of last clarinet
+  "wind.reed.clarinet.bass": { x: -0.5, y: 7 },
   bassoon: { x: 0.5, y: 7 },
+  "wind.reed.bassoon": { x: 0.5, y: 7 },
   contrabassoon: { x: 0.5, y: 7 }, // dynamic: right of last bassoon
+  "wind.reed.contrabassoon": { x: 0.5, y: 7 },
 
   // Brass — aligned behind winds, spreading outward
   // Horn 1 behind Clarinet 1, spreads left. Trumpet 1 behind Bassoon 1, spreads right.
   "french horn": { x: -0.5, y: 8 },
   horn: { x: -0.5, y: 8 },
+  "brass.french-horn": { x: -0.5, y: 8 },
   trumpet: { x: 0.5, y: 8 },
+  "brass.trumpet.bflat": { x: 0.5, y: 8 },
+  "brass.trumpet.c": { x: 0.5, y: 8 },
   trombone: { x: 3.5, y: 8 },
+  "brass.trombone": { x: 3.5, y: 8 },
   "bass trombone": { x: 3.5, y: 8 }, // dynamic: right of last trombone
+  "brass.trombone.bass": { x: 3.5, y: 8 },
   tuba: { x: 6.5, y: 8 },
+  "brass.tuba": { x: 6.5, y: 8 },
 
   // Percussion (far back)
   timpani: { x: 0, y: 10 },
+  "drum.timpani": { x: 0, y: 10 },
   percussion: { x: -1, y: 10 },
+  "drum.group": { x: -1, y: 10 },
+  "drum.group.set": { x: -1, y: 10 },
   glockenspiel: { x: 0, y: 10.5 },
+  "pitched-percussion.glockenspiel": { x: 0, y: 10.5 },
   xylophone: { x: 0.5, y: 10.5 },
+  "pitched-percussion.xylophone": { x: 0.5, y: 10.5 },
   vibraphone: { x: -0.5, y: 10.5 },
+  "pitched-percussion.vibraphone": { x: -0.5, y: 10.5 },
   marimba: { x: 1, y: 10.5 },
+  "pitched-percussion.marimba": { x: 1, y: 10.5 },
   "tubular bells": { x: 2, y: 10.5 },
+  "pitched-percussion.tubular-bells": { x: 2, y: 10.5 },
 
   // Keys (left side, front-ish)
   piano: { x: -5, y: 4 },
+  "keyboard.piano": { x: -5, y: 4 },
   celesta: { x: -4, y: 7 },
+  "keyboard.celesta": { x: -4, y: 7 },
   organ: { x: 0, y: 12 },
+  "keyboard.organ": { x: 0, y: 12 },
 
   // Harp (left side)
   harp: { x: -5, y: 6 },
+  "pluck.harp": { x: -5, y: 6 },
 
   // Choir (far back, wide)
   soprano: { x: -3, y: 11 },
+  "voice.soprano": { x: -3, y: 11 },
   alto: { x: -1, y: 11 },
+  "voice.alto": { x: -1, y: 11 },
   tenor: { x: 1, y: 11 },
+  "voice.tenor": { x: 1, y: 11 },
   baritone: { x: 2, y: 11 },
+  "voice.baritone": { x: 2, y: 11 },
   bass: { x: 3, y: 11 },
   "bass voice": { x: 3, y: 11 },
+  "voice.bass": { x: 3, y: 11 },
   choir: { x: 0, y: 11 },
 };
 
@@ -245,6 +282,10 @@ const STRING_RANK_POSITIONS: Record<string, SpatialPosition[]> = {
     { x: -2, y: 1 },
     { x: -1, y: 3 },
   ],
+  "strings.violin": [
+    { x: -2, y: 1 },
+    { x: -1, y: 3 },
+  ],
   violins: [
     { x: -2, y: 1 },
     { x: -1, y: 3 },
@@ -259,6 +300,7 @@ const INSTRUMENT_FAMILIES: Record<string, string> = {
   "alto trombone": "trombone",
   "tenor trombone": "trombone",
   "bass trombone": "trombone",
+  "brass.trombone.bass": "brass.trombone",
 };
 
 /**
@@ -268,14 +310,19 @@ const INSTRUMENT_FAMILIES: Record<string, string> = {
  */
 const AUXILIARY_WIND_FAMILIES: Record<string, string> = {
   piccolo: "flute",
+  "wind.flutes.flute.piccolo": "wind.flutes.flute",
   "alto flute": "flute",
+  "wind.flutes.flute.alto": "wind.flutes.flute",
   "bass flute": "flute",
   "english horn": "oboe",
+  "wind.reed.english-horn": "wind.reed.oboe",
   "eb clarinet": "clarinet",
   "e flat clarinet": "clarinet",
   "eflat clarinet": "clarinet",
   "bass clarinet": "clarinet",
+  "wind.reed.clarinet.bass": "wind.reed.clarinet.bflat",
   contrabassoon: "bassoon",
+  "wind.reed.contrabassoon": "wind.reed.bassoon",
 };
 
 function isPartNumber(token: string): boolean {

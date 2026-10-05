@@ -32,6 +32,8 @@ import {
   type AddNoteParams,
 } from "../../commands/noteCommands";
 import { resolveEntryPitch } from "../../commands/transposeCommands";
+import { resolveDisplayKeyFifths, resolveDisplayTransposition } from "../../pitchContext";
+import { beatPositionToFraction } from "../../app/timedAnnotationPosition";
 import { prevailingAlterationAtPosition } from "../../commands/accidentalCommands";
 import { advanceCursorByNotatedDuration } from "../../commands/cursorCommands";
 import {
@@ -59,7 +61,7 @@ export interface AddNoteAtClickArgs {
   setSlurStart: (eventId: string) => void;
   clearSlurStart: () => void;
   toggleSlur: () => void;
-  playbackActions: PlaybackActions;
+  playbackActions: Pick<PlaybackActions, "previewNote">;
 }
 
 function produceScoreMutation(score: Score, mutate: (draft: Score) => void): Score {
@@ -307,7 +309,19 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
     info.staff.y,
     info.staff.spatium,
     activeClef,
-    activeKey,
+    {
+      ...activeKey,
+      fifths: resolveDisplayKeyFifths(
+        activeKey.fifths,
+        resolveDisplayTransposition(
+          score,
+          partIndex,
+          measureIndex,
+          beatPositionToFraction(beatPosition),
+          selectedScoreIndex,
+        ),
+      ),
+    },
     accidentalOverride,
   );
 
@@ -326,21 +340,44 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
   // The click gave us the WRITTEN pitch (visual position on the transposed
   // staff). `resolveEntryPitch` is the single source of truth (shared with the
   // keyboard entry path) for splitting that into the written pitch — used for
-  // audio preview + octave memory — and the sounding pitch MNX stores. Skip
+  // octave memory — and the sounding pitch MNX stores and previews. Skip
   // entirely for percussion parts (no pitch concept); they keep written ===
   // sounding so the kit-component placeholder pitch is preserved.
   let writtenPitch: Pitch = { ...pitch };
   if (!percussionPart) {
-    let sounding = resolveEntryPitch(writtenPitch, score, partIndex, activeKey.fifths).sounding;
+    let sounding = resolveEntryPitch(
+      writtenPitch,
+      score,
+      partIndex,
+      activeKey.fifths,
+      measureIndex,
+      beatPositionToFraction(beatPosition),
+      selectedScoreIndex,
+    ).sounding;
     if (noteInputState.currentAccidental === null) {
-      const inheritedAlter = prevailingAlterationAtPosition(score, partIndex, measureIndex, beatPosition, sounding);
+      const inheritedAlter = prevailingAlterationAtPosition(
+        score,
+        partIndex,
+        measureIndex,
+        beatPosition,
+        sounding,
+        sounding.alter ?? 0,
+      );
       const soundingDelta = inheritedAlter - (sounding.alter ?? 0);
       if (soundingDelta !== 0) {
         const adjustedWrittenAlter = (writtenPitch.alter ?? 0) + soundingDelta;
         writtenPitch = { ...writtenPitch };
         if (adjustedWrittenAlter === 0) delete writtenPitch.alter;
         else writtenPitch.alter = adjustedWrittenAlter;
-        sounding = resolveEntryPitch(writtenPitch, score, partIndex, activeKey.fifths).sounding;
+        sounding = resolveEntryPitch(
+          writtenPitch,
+          score,
+          partIndex,
+          activeKey.fifths,
+          measureIndex,
+          beatPositionToFraction(beatPosition),
+          selectedScoreIndex,
+        ).sounding;
       }
     }
     pitch.step = sounding.step;
@@ -351,18 +388,18 @@ export function addNoteAtClick(args: AddNoteAtClickArgs): void {
 
   // Play auditory feedback for the entered note. Percussion parts preview
   // the actual GM drum-key on channel 9 (via the part's kit + global.sounds
-  // map) instead of the clicked pitch. For transposing instruments we preview
-  // the WRITTEN pitch (what the user clicked on the transposed staff), matching
-  // the keyboard entry path — so click and keyboard sound identical and the
-  // feedback follows the instrument's transposition. (`writtenPitch` equals
-  // `pitch` for concert-pitch/percussion parts, so this is a no-op there.)
+  // map) instead of the clicked pitch. Pitched parts preview the stored
+  // sounding pitch directly, just like keyboard entry.
   if (!isRestEntry) {
-    let previewMidi = pitchToMidi(writtenPitch);
+    let previewMidi = pitchToMidi(pitch);
     if (percussionPart && kitComponentId) {
       const drumMidi = midiNumberForKitComponent(percussionPart, score.global.sounds, kitComponentId);
       if (drumMidi !== null) previewMidi = drumMidi;
     }
-    playbackActions.previewNote(previewMidi, partIndex, 80, 400);
+    playbackActions.previewNote(previewMidi, partIndex, 80, 400, undefined, {
+      measureIndex,
+      fraction: beatPositionToFraction(beatPosition),
+    });
   }
 
   // Check if this partIndex is on a condensing staff.

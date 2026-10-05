@@ -22,6 +22,10 @@ export interface MidiEvent {
   partIndex: number;
   /** Independently controlled semantic playback stream. */
   playbackLaneId?: string;
+  /** Preloaded timbre destination; independent of sounding MIDI pitch. */
+  playbackInstrumentKey?: string;
+  /** Program hint for physical MIDI; browser samplers are preloaded per timbre. */
+  instrumentChange?: boolean;
   /** MIDI channel (0–15) */
   channel: number;
   /** Written global quarter-note beat, unaffected by humanized onset timing. */
@@ -90,7 +94,7 @@ export interface MidiTimeline {
 }
 
 export interface TimelineDiagnostic {
-  code: "midi-channel-capacity" | "percussion-lane-collapse";
+  code: "midi-channel-capacity" | "percussion-lane-collapse" | "instrument-program-unavailable";
   message: string;
   playbackLaneIds: string[];
 }

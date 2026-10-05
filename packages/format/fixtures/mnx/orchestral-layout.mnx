@@ -134,7 +134,7 @@
       "shortName": "Fl.1",
       "_x": {
         "viritura": {
-          "instrumentId": "flute",
+          "instrumentId": "wind.flutes.flute",
           "midiProgram": 73,
           "family": "woodwinds"
         }
@@ -221,7 +221,7 @@
       "shortName": "Fl.2",
       "_x": {
         "viritura": {
-          "instrumentId": "flute",
+          "instrumentId": "wind.flutes.flute",
           "midiProgram": 73,
           "family": "woodwinds"
         }
@@ -308,7 +308,7 @@
       "shortName": "Ob.1",
       "_x": {
         "viritura": {
-          "instrumentId": "oboe",
+          "instrumentId": "wind.reed.oboe",
           "midiProgram": 68,
           "family": "woodwinds"
         }
@@ -395,7 +395,7 @@
       "shortName": "Ob.2",
       "_x": {
         "viritura": {
-          "instrumentId": "oboe",
+          "instrumentId": "wind.reed.oboe",
           "midiProgram": 68,
           "family": "woodwinds"
         }
@@ -626,7 +626,7 @@
       },
       "_x": {
         "viritura": {
-          "instrumentId": "bflat-clarinet",
+          "instrumentId": "wind.reed.clarinet.bflat",
           "midiProgram": 71,
           "family": "woodwinds"
         }
@@ -856,7 +856,7 @@
       },
       "_x": {
         "viritura": {
-          "instrumentId": "bflat-clarinet",
+          "instrumentId": "wind.reed.clarinet.bflat",
           "midiProgram": 71,
           "family": "woodwinds"
         }
@@ -943,7 +943,7 @@
       "shortName": "Bsn.1",
       "_x": {
         "viritura": {
-          "instrumentId": "bassoon",
+          "instrumentId": "wind.reed.bassoon",
           "midiProgram": 70,
           "family": "woodwinds"
         }
@@ -1030,7 +1030,7 @@
       "shortName": "Bsn.2",
       "_x": {
         "viritura": {
-          "instrumentId": "bassoon",
+          "instrumentId": "wind.reed.bassoon",
           "midiProgram": 70,
           "family": "woodwinds"
         }
@@ -1289,7 +1289,7 @@
       "shortName": "Tpt.1",
       "_x": {
         "viritura": {
-          "instrumentId": "c-trumpet",
+          "instrumentId": "brass.trumpet.c",
           "midiProgram": 56,
           "family": "brass"
         }
@@ -1376,7 +1376,7 @@
       "shortName": "Tpt.2",
       "_x": {
         "viritura": {
-          "instrumentId": "c-trumpet",
+          "instrumentId": "brass.trumpet.c",
           "midiProgram": 56,
           "family": "brass"
         }
@@ -1681,7 +1681,7 @@
       "shortName": "Vln. I",
       "_x": {
         "viritura": {
-          "instrumentId": "violin"
+          "instrumentId": "strings.violin"
         }
       }
     },
@@ -1904,7 +1904,7 @@
       "shortName": "Vln. II",
       "_x": {
         "viritura": {
-          "instrumentId": "violin"
+          "instrumentId": "strings.violin"
         }
       }
     },
@@ -2127,7 +2127,7 @@
       "shortName": "Va",
       "_x": {
         "viritura": {
-          "instrumentId": "viola"
+          "instrumentId": "strings.viola"
         }
       }
     },
@@ -2350,7 +2350,7 @@
       "shortName": "Vc",
       "_x": {
         "viritura": {
-          "instrumentId": "cello"
+          "instrumentId": "strings.cello"
         }
       }
     },
@@ -2573,7 +2573,7 @@
       "shortName": "Cb",
       "_x": {
         "viritura": {
-          "instrumentId": "double-bass"
+          "instrumentId": "strings.contrabass"
         }
       }
     }

@@ -40,16 +40,27 @@ pub(super) fn display_transposition(
     staff: &FlatStaff,
     use_written: bool,
 ) -> Option<(i32, i32)> {
+    display_transposition_at(score, staff, use_written, 0)
+}
+
+pub(super) fn display_transposition_at(
+    score: &Score,
+    staff: &FlatStaff,
+    use_written: bool,
+    measure_index: usize,
+) -> Option<(i32, i32)> {
     if !use_written {
         return None;
     }
     let source = score.parts.get(staff.chord_symbol_source?)?;
-    source.transposition.as_ref().map(|transposition| {
-        (
-            transposition.interval.staff_distance,
-            transposition.interval.half_steps,
-        )
-    })
+    crate::model::ActiveInstrument::at(source, measure_index, (0, 1))
+        .transposition
+        .map(|transposition| {
+            (
+                transposition.interval.staff_distance,
+                transposition.interval.half_steps,
+            )
+        })
 }
 
 pub(super) fn visible_global_chord_symbols(

@@ -75,7 +75,7 @@ a tight panel.
 
 ```tsx
 <ScoreView mnx={mnx}>
-  <ScoreView.Playhead beat={beat} partId="flute" follow style={{ color: "#e34935" }} />
+  <ScoreView.Playhead beat={beat} partId="wind.flutes.flute" follow style={{ color: "#e34935" }} />
 </ScoreView>
 ```
 

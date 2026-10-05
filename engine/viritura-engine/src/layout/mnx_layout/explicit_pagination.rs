@@ -34,6 +34,7 @@ pub(super) fn paginate_explicit_pages(
     system_flat_staves: &[(Vec<FlatStaff>, Vec<GroupRange>)],
     max_widths: &[f64],
     forced_page_starts: &[usize],
+    part_score_name: Option<&str>,
 ) -> ExplicitPagination {
     let compute_system_height = |staves: &[FlatStaff], groups: &[GroupRange]| -> f64 {
         if staves.is_empty() {
@@ -70,7 +71,9 @@ pub(super) fn paginate_explicit_pages(
         margin_left + max_total + base_margin_r_sp * sp
     });
 
-    let title_height_px = title_block_height(score.metadata(), config);
+    let title_height_px = title_block_height(score.metadata(), config).max(
+        super::super::page::part_score_name_height(part_score_name, config),
+    );
     let pages = compute_page_breaks_with_forced(
         &system_heights,
         config,

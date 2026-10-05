@@ -12,6 +12,7 @@ import { CalibrationDialog } from "../components/CalibrationDialog";
 import { HelpDialog } from "../components/HelpDialog";
 import { getTransposeSelectionInfo, TransposeDialog } from "../components/TransposeDialog";
 import { OrchestralStaffSplitDialog } from "../orchestralStaffSplit";
+import { BarInstrumentChangeDialogs } from "../instrumentChanges";
 import { DrumKitDialogHost } from "../components/DrumKitDialog";
 import { ImportErrorLogDialogHost } from "../importErrorLog";
 import { CondensingPopover, type CondensingMode } from "../components/CondensingPopover";
@@ -390,6 +391,7 @@ export function AppOverlays(props: AppOverlaysProps) {
       />
 
       <OrchestralStaffSplitOverlay open={dialogs.orchestralStaffSplit} store={store} updateScore={updateScore} />
+      <BarInstrumentChangeDialogs store={store} selection={selection} updateScore={updateScore} />
 
       <DrumKitDialogHost open={dialogs.drumKit} onClose={() => closeDialog("drumKit")} />
 

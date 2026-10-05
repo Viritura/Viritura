@@ -181,6 +181,9 @@ pub struct PartMeasure {
     /// [`crate::model::staff_meter`].
     #[serde(skip_serializing_if = "Option::is_none", rename = "staffMeters")]
     pub staff_meters: Option<Vec<StaffMeterChange>>,
+    /// Provisional instrument/transposition changes from `_x.viritura`.
+    #[serde(skip_serializing_if = "Option::is_none", rename = "instrumentChanges")]
+    pub instrument_changes: Option<Vec<super::instrument::InstrumentChange>>,
 }
 
 /// One staff-targeted grouping-display override
@@ -323,6 +326,12 @@ pub struct ResolvedMeasure {
 }
 
 impl ResolvedMeasure {
+    /// A written transposition change can change the signature without a
+    /// score-wide (sounding) key declaration.
+    pub(crate) fn key_signature_changed(&self) -> bool {
+        self.global.key.is_some() || self.active_key != self.prev_key
+    }
+
     /// Rendering interval after applying the active key's enharmonic spelling.
     pub(crate) fn display_transposition(&self) -> Option<(i32, i32)> {
         self.transposition.map(|(staff_distance, half_steps)| {

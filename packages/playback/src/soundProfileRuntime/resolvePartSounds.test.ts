@@ -39,12 +39,14 @@ const vstProfile: SoundProfile = {
 const vstRegistry = createSoundProfileRegistry([virituraSoundsProfile, vstProfile]);
 
 function violinPart(): Part {
-  return { ...part("Violin", { instrumentId: "violin" }), id: "vln-1" };
+  return { ...part("Violin", { instrumentId: "strings.violin" }), id: "vln-1" };
 }
 
 describe("resolvePartSounds", () => {
   it("uses canonical clarinet routing while preserving an existing explicit MIDI program", () => {
-    const [resolved] = resolvePartSounds([part("Tuba 1", { instrumentId: "bflat-clarinet", midiProgram: 58 })]);
+    const [resolved] = resolvePartSounds([
+      part("Tuba 1", { instrumentId: "wind.reed.clarinet.bflat", midiProgram: 58 }),
+    ]);
 
     expect(resolved!.sf2).toMatchObject({
       kind: "supported",
@@ -57,19 +59,19 @@ describe("resolvePartSounds", () => {
 
   it("routes a clarinet notation part through its part-ID-keyed tuba source assignment", () => {
     const clarinet = {
-      ...part("Clarinet", { instrumentId: "bflat-clarinet", midiProgram: 71 }),
+      ...part("Clarinet", { instrumentId: "wind.reed.clarinet.bflat", midiProgram: 71 }),
       id: "clarinet-1",
     };
     const [resolved] = resolvePartSounds([clarinet], {
       profileId: "viritura-sounds",
       profileVersion: 1,
-      parts: { "clarinet-1": { sourceId: "tuba-primary" } },
+      parts: { "clarinet-1": { sourceId: "brass.tuba-primary" } },
     });
 
-    expect(resolved!.part._x?.viritura?.instrumentId).toBe("bflat-clarinet");
+    expect(resolved!.part._x?.viritura?.instrumentId).toBe("wind.reed.clarinet.bflat");
     expect(resolved!.sound).toMatchObject({
-      instrumentId: "bflat-clarinet",
-      selectedSourceId: "tuba-primary",
+      instrumentId: "wind.reed.clarinet.bflat",
+      selectedSourceId: "brass.tuba-primary",
       routing: { section: "brass", stagePosition: { x: 6.5, y: 8 } },
     });
     expect(resolved!.sf2).toMatchObject({ kind: "supported", primary: { program: 58 } });
@@ -87,9 +89,11 @@ describe("resolvePartSounds", () => {
   });
 
   it("uses the profile stage default unless a user-authored spatial override is present", () => {
-    const [defaultPosition] = resolvePartSounds([part("Unrecognized label", { instrumentId: "bflat-clarinet" })]);
+    const [defaultPosition] = resolvePartSounds([
+      part("Unrecognized label", { instrumentId: "wind.reed.clarinet.bflat" }),
+    ]);
     const [overriddenPosition] = resolvePartSounds([
-      part("Unrecognized label", { instrumentId: "bflat-clarinet", spatial: { x: 8, y: 4 } }),
+      part("Unrecognized label", { instrumentId: "wind.reed.clarinet.bflat", spatial: { x: 8, y: 4 } }),
     ]);
 
     expect(defaultPosition!.position).toEqual({ x: -0.5, y: 7 });
@@ -98,8 +102,8 @@ describe("resolvePartSounds", () => {
 
   it("preserves legacy duplicate-player spread around profile routing defaults", () => {
     const resolved = resolvePartSounds([
-      part("Violin", { instrumentId: "violin" }),
-      part("Violin", { instrumentId: "violin" }),
+      part("Violin", { instrumentId: "strings.violin" }),
+      part("Violin", { instrumentId: "strings.violin" }),
     ]);
 
     expect(resolved.map((entry) => entry.position)).toEqual([
@@ -110,7 +114,7 @@ describe("resolvePartSounds", () => {
 
   it("keeps fixed percussion on its resolved standard kit source and legacy crash percussion on Orchestra", () => {
     const [snare, crash] = resolvePartSounds([
-      part("Snare Drum", { instrumentId: "snare-drum" }),
+      part("Snare Drum", { instrumentId: "drum.snare-drum" }),
       part("Crash Cymbal"),
     ]);
 
@@ -125,11 +129,11 @@ describe("resolvePartSounds", () => {
   });
 
   it("creates profile-defined string layers exactly once", () => {
-    const [violin] = resolvePartSounds([part("Violin", { instrumentId: "violin" })]);
+    const [violin] = resolvePartSounds([part("Violin", { instrumentId: "strings.violin" })]);
     const sf2 = requireSf2Sound(violin!.part.name, violin!.sf2);
     const sourceIds = [sf2.primary.id, ...sf2.layers.map((layer) => layer.source.id)];
 
-    expect(sourceIds).toEqual(["violin-primary", "violin-layer-1", "violin-layer-2"]);
+    expect(sourceIds).toEqual(["strings.violin-primary", "strings.violin-layer-1", "strings.violin-layer-2"]);
     expect(new Set(sourceIds).size).toBe(sourceIds.length);
   });
 
@@ -160,7 +164,7 @@ describe("resolvePartSounds", () => {
 
     expect(resolved!.vst).toMatchObject({ kind: "vst", id: VST_SLOT, hostProfileId: "user-1", midiChannel: 0 });
     // The fallback still resolves the part's notation identity (violin) through SF2.
-    expect(resolved!.sound.instrumentId).toBe("violin");
+    expect(resolved!.sound.instrumentId).toBe("strings.violin");
     expect(requireSf2Sound(resolved!.part.name, resolved!.sf2).primary).toMatchObject({ program: 40 });
   });
 

@@ -3,6 +3,7 @@ import { routing } from "./routingDefaults";
 
 export interface InstrumentSoundRule {
   readonly instrumentId: string;
+  readonly label: string;
   readonly source: Omit<MidiSoundSourceDefinition, "id">;
   readonly routing: PartRoutingDefaults;
   readonly ensembleLayering?: readonly EnsembleLayerRule[];
@@ -82,15 +83,16 @@ const fixedDrum = (fixedMidiNote: number): Omit<MidiSoundSourceDefinition, "id">
 });
 
 function rules(
-  instrumentIds: readonly string[],
+  instruments: readonly (readonly [instrumentId: string, label: string])[],
   source: Omit<MidiSoundSourceDefinition, "id">,
   defaultRouting: PartRoutingDefaults,
 ): InstrumentSoundRule[] {
-  return instrumentIds.map((instrumentId) => ({ instrumentId, source, routing: defaultRouting }));
+  return instruments.map(([instrumentId, label]) => ({ instrumentId, label, source, routing: defaultRouting }));
 }
 
 function soloStringRule(
   instrumentId: string,
+  label: string,
   program: number,
   defaultRouting: PartRoutingDefaults,
   ensembleStageOffsets: readonly [
@@ -100,6 +102,7 @@ function soloStringRule(
 ): InstrumentSoundRule {
   return {
     instrumentId,
+    label,
     source: midi(program),
     routing: defaultRouting,
     ensembleLayering: [
@@ -110,68 +113,120 @@ function soloStringRule(
 }
 
 /**
- * Playback data for the catalog's canonical IDs. This intentionally records
+ * Playback data for the catalog's MusicXML standard sound IDs. This intentionally records
  * only sound and routing behavior; notation identity remains in InstrumentCatalog.
  */
 export const VIRITURA_SOUNDS_INSTRUMENT_RULES: readonly InstrumentSoundRule[] = [
-  ...rules(["piccolo"], midi(72), woodwinds.flute),
-  ...rules(["flute", "alto-flute"], midi(73), woodwinds.flute),
-  ...rules(["oboe"], midi(68), woodwinds.oboe),
-  { instrumentId: "english-horn", source: midi(69), routing: woodwinds.oboe },
-  ...rules(["bflat-clarinet", "a-clarinet", "eflat-clarinet", "bass-clarinet"], midi(71), woodwinds.clarinet),
-  ...rules(["bassoon", "contrabassoon"], midi(70), woodwinds.bassoon),
-  ...rules(["soprano-sax"], midi(64), woodwinds.sopranoSax),
-  ...rules(["alto-sax"], midi(65), woodwinds.altoSax),
-  ...rules(["tenor-sax"], midi(66), woodwinds.tenorSax),
-  ...rules(["baritone-sax"], midi(67), woodwinds.baritoneSax),
-  ...rules(["recorder"], midi(74), woodwinds.unseated),
-  ...rules(["horn"], midi(60), brass.horn),
-  ...rules(["trumpet", "c-trumpet"], midi(56), brass.trumpet),
-  ...rules(["cornet"], midi(56), brass.unseated),
-  ...rules(["flugelhorn"], midi(59), brass.unseated),
-  ...rules(["trombone", "bass-trombone"], midi(57), brass.trombone),
-  ...rules(["euphonium"], midi(58), brass.unseated),
-  ...rules(["tuba"], midi(58), brass.tuba),
-  ...rules(["drum-kit"], drumKit(0), percussion.unseated),
-  ...rules(["orchestral-percussion"], drumKit(0), percussion.unseated),
-  ...rules(["timpani"], midi(47), percussion.timpani),
-  ...rules(["snare-drum"], fixedDrum(38), percussion.unseated),
-  ...rules(["bass-drum"], fixedDrum(36), percussion.bassDrum),
-  ...rules(["cymbals"], fixedDrum(49), percussion.unseated),
-  ...rules(["triangle"], fixedDrum(81), percussion.unseated),
-  ...rules(["tambourine"], fixedDrum(54), percussion.unseated),
-  ...rules(["glockenspiel"], midi(9), percussion.glockenspiel),
-  ...rules(["xylophone"], midi(13), percussion.xylophone),
-  ...rules(["vibraphone"], midi(11), percussion.vibraphone),
-  ...rules(["marimba"], midi(12), percussion.marimba),
-  ...rules(["tubular-bells"], midi(14), percussion.tubularBells),
-  ...rules(["piano"], midi(0), keys.piano),
-  ...rules(["harpsichord"], midi(6), keys.harpsichord),
-  ...rules(["celesta"], midi(8), keys.celesta),
-  ...rules(["organ"], midi(19), keys.organ),
-  ...rules(["accordion"], midi(21), keys.other),
-  ...rules(["soprano", "mezzo-soprano"], midi(52), voices.soprano),
-  ...rules(["alto-voice"], midi(52), voices.alto),
-  ...rules(["tenor-voice"], midi(52), voices.tenor),
-  ...rules(["baritone-voice"], midi(52), voices.baritone),
-  ...rules(["bass-voice"], midi(52), voices.catalogBass),
-  ...rules(["harp"], midi(46), keys.harp),
-  ...rules(["guitar", "ukulele", "mandolin"], midi(25), keys.other),
-  ...rules(["electric-guitar"], midi(27), keys.other),
-  ...rules(["bass-guitar"], midi(33), keys.bassGuitar),
-  soloStringRule("violin", 40, strings.violin, [
+  ...rules([["wind.flutes.flute.piccolo", "Piccolo"]], midi(72), woodwinds.flute),
+  ...rules(
+    [
+      ["wind.flutes.flute", "Flute"],
+      ["wind.flutes.flute.alto", "Alto Flute"],
+    ],
+    midi(73),
+    woodwinds.flute,
+  ),
+  ...rules([["wind.reed.oboe", "Oboe"]], midi(68), woodwinds.oboe),
+  { instrumentId: "wind.reed.english-horn", label: "English Horn", source: midi(69), routing: woodwinds.oboe },
+  ...rules(
+    [
+      ["wind.reed.clarinet.bflat", "Clarinet in B♭"],
+      ["wind.reed.clarinet.a", "Clarinet in A"],
+      ["wind.reed.clarinet.eflat", "Clarinet in E♭"],
+      ["wind.reed.clarinet.bass", "Bass Clarinet"],
+    ],
+    midi(71),
+    woodwinds.clarinet,
+  ),
+  ...rules(
+    [
+      ["wind.reed.bassoon", "Bassoon"],
+      ["wind.reed.contrabassoon", "Contrabassoon"],
+    ],
+    midi(70),
+    woodwinds.bassoon,
+  ),
+  ...rules([["wind.reed.saxophone.soprano", "Soprano Saxophone"]], midi(64), woodwinds.sopranoSax),
+  ...rules([["wind.reed.saxophone.alto", "Alto Saxophone"]], midi(65), woodwinds.altoSax),
+  ...rules([["wind.reed.saxophone.tenor", "Tenor Saxophone"]], midi(66), woodwinds.tenorSax),
+  ...rules([["wind.reed.saxophone.baritone", "Baritone Saxophone"]], midi(67), woodwinds.baritoneSax),
+  ...rules([["wind.flutes.recorder", "Recorder"]], midi(74), woodwinds.unseated),
+  ...rules([["brass.french-horn", "Horn"]], midi(60), brass.horn),
+  ...rules(
+    [
+      ["brass.trumpet.bflat", "Trumpet in B♭"],
+      ["brass.trumpet.c", "Trumpet in C"],
+    ],
+    midi(56),
+    brass.trumpet,
+  ),
+  ...rules([["brass.cornet", "Cornet"]], midi(56), brass.unseated),
+  ...rules([["brass.flugelhorn", "Flugelhorn"]], midi(59), brass.unseated),
+  ...rules(
+    [
+      ["brass.trombone", "Trombone"],
+      ["brass.trombone.bass", "Bass Trombone"],
+    ],
+    midi(57),
+    brass.trombone,
+  ),
+  ...rules([["brass.euphonium", "Euphonium"]], midi(58), brass.unseated),
+  ...rules([["brass.tuba", "Tuba"]], midi(58), brass.tuba),
+  ...rules([["drum.group.set", "Drum Kit"]], drumKit(0), percussion.unseated),
+  ...rules([["drum.group", "Orchestral Percussion"]], drumKit(0), percussion.unseated),
+  ...rules([["drum.timpani", "Timpani"]], midi(47), percussion.timpani),
+  ...rules([["drum.snare-drum", "Snare Drum"]], fixedDrum(38), percussion.unseated),
+  ...rules([["drum.bass-drum", "Bass Drum"]], fixedDrum(36), percussion.bassDrum),
+  ...rules([["metal.cymbal.clash", "Cymbals"]], fixedDrum(49), percussion.unseated),
+  ...rules([["metal.triangle", "Triangle"]], fixedDrum(81), percussion.unseated),
+  ...rules([["drum.tambourine", "Tambourine"]], fixedDrum(54), percussion.unseated),
+  ...rules([["pitched-percussion.glockenspiel", "Glockenspiel"]], midi(9), percussion.glockenspiel),
+  ...rules([["pitched-percussion.xylophone", "Xylophone"]], midi(13), percussion.xylophone),
+  ...rules([["pitched-percussion.vibraphone", "Vibraphone"]], midi(11), percussion.vibraphone),
+  ...rules([["pitched-percussion.marimba", "Marimba"]], midi(12), percussion.marimba),
+  ...rules([["pitched-percussion.tubular-bells", "Tubular Bells"]], midi(14), percussion.tubularBells),
+  ...rules([["keyboard.piano", "Piano"]], midi(0), keys.piano),
+  ...rules([["keyboard.harpsichord", "Harpsichord"]], midi(6), keys.harpsichord),
+  ...rules([["keyboard.celesta", "Celesta"]], midi(8), keys.celesta),
+  ...rules([["keyboard.organ", "Organ"]], midi(19), keys.organ),
+  ...rules([["keyboard.accordion", "Accordion"]], midi(21), keys.other),
+  ...rules(
+    [
+      ["voice.soprano", "Soprano"],
+      ["voice.mezzo-soprano", "Mezzo-soprano"],
+    ],
+    midi(52),
+    voices.soprano,
+  ),
+  ...rules([["voice.alto", "Alto"]], midi(52), voices.alto),
+  ...rules([["voice.tenor", "Tenor"]], midi(52), voices.tenor),
+  ...rules([["voice.baritone", "Baritone"]], midi(52), voices.baritone),
+  ...rules([["voice.bass", "Bass"]], midi(52), voices.catalogBass),
+  ...rules([["pluck.harp", "Harp"]], midi(46), keys.harp),
+  ...rules(
+    [
+      ["pluck.guitar", "Guitar"],
+      ["pluck.ukulele", "Ukulele"],
+      ["pluck.mandolin", "Mandolin"],
+    ],
+    midi(25),
+    keys.other,
+  ),
+  ...rules([["pluck.guitar.electric", "Electric Guitar"]], midi(27), keys.other),
+  ...rules([["pluck.bass.electric", "Bass Guitar"]], midi(33), keys.bassGuitar),
+  soloStringRule("strings.violin", "Violin", 40, strings.violin, [
     { x: 0, y: 1 },
     { x: -1.5, y: 0.5 },
   ]),
-  soloStringRule("viola", 41, strings.viola, [
+  soloStringRule("strings.viola", "Viola", 41, strings.viola, [
     { x: 0, y: 1 },
     { x: 1.5, y: 0.5 },
   ]),
-  soloStringRule("cello", 42, strings.cello, [
+  soloStringRule("strings.cello", "Cello", 42, strings.cello, [
     { x: 0, y: 1 },
     { x: 1.5, y: 0.5 },
   ]),
-  soloStringRule("double-bass", 43, strings.doubleBass, [
+  soloStringRule("strings.contrabass", "Double Bass", 43, strings.doubleBass, [
     { x: 0, y: 1.5 },
     { x: 0, y: 3 },
   ]),

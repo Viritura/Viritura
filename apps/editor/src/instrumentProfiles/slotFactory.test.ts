@@ -27,9 +27,9 @@ describe("autoLabel", () => {
 
 describe("createSlotFromCatalog", () => {
   it("seeds label, section, and catalog id from the catalog instrument", () => {
-    const violin = getCatalogInstrument("violin")!;
+    const violin = getCatalogInstrument("strings.violin")!;
     const slot = createSlotFromCatalog([], "strings", violin);
-    expect(slot.catalogInstrumentId).toBe("violin");
+    expect(slot.catalogInstrumentId).toBe("strings.violin");
     expect(slot.section).toBe("strings");
     expect(slot.label).toBe(`${violin.name} 1`);
     expect(slot.binding).toEqual({ baseChannel: 0 });

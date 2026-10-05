@@ -220,6 +220,7 @@ fn promote_text_expression(r: raw_viritura::TextExpression) -> ModelTextExpressi
         voice: r.voice,
         source_part_index: None,
         source_expression_index: None,
+        instrument_reminder: false,
         manual_offset: r.manual_offset.map(|d| d.0),
         avoid_collisions: r.avoid_collisions,
     }

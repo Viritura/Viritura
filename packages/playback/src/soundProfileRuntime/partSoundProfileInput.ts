@@ -1,4 +1,4 @@
-import type { Part } from "@viritura/core";
+import { initialInstrumentState, type Part } from "@viritura/core";
 import type { SoundSourceId } from "@viritura/sound-profiles";
 import type { ProfileResolveInput } from "@viritura/sound-profiles";
 
@@ -8,12 +8,13 @@ export function partSoundProfileInput(
   fallbackLegacyName?: string,
   selectedSourceId?: SoundSourceId,
 ): ProfileResolveInput {
+  const instrument = part ? initialInstrumentState(part).instrument : undefined;
   return {
-    instrumentId: part?._x?.viritura?.instrumentId,
+    instrumentId: instrument?.instrumentId ?? part?._x?.viritura?.instrumentId,
     partId: part?.id,
     selectedSourceId,
-    legacyName: part?.name ?? fallbackLegacyName,
-    explicitMidiProgram: part?._x?.viritura?.midiProgram,
+    legacyName: instrument?.name ?? part?.name ?? fallbackLegacyName,
+    explicitMidiProgram: instrument ? instrument.midiProgram : part?._x?.viritura?.midiProgram,
     hasKit: Object.keys(part?.kit ?? {}).length > 0,
   };
 }

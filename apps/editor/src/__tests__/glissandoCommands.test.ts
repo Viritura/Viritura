@@ -8,7 +8,7 @@ function buildScore(): Score {
     global: { measures: [{ id: "m1" }] },
     parts: [
       {
-        id: "piano",
+        id: "keyboard.piano",
         name: "Piano",
         staves: 2,
         measures: [
@@ -68,7 +68,7 @@ describe("glissando commands", () => {
   it("rejects endpoints in different parts", () => {
     const score = buildScore();
     score.parts.push({
-      id: "violin",
+      id: "strings.violin",
       name: "Violin",
       measures: [
         {

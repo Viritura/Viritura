@@ -685,7 +685,7 @@ function makeDocumentScore(): Score {
     interval: { halfSteps: 7, staffDistance: 4 },
   };
   targets.find((part) => part.id === "P5")!._x = {
-    viritura: { instrumentId: "french-horn", midiProgram: 60, family: "brass" },
+    viritura: { instrumentId: "brass.french-horn", midiProgram: 60, family: "brass" },
   };
   targets.find((part) => part.id === "P6")!.transposition = {
     interval: { halfSteps: 2, staffDistance: 1 },
@@ -694,10 +694,10 @@ function makeDocumentScore(): Score {
     interval: { halfSteps: 2, staffDistance: 1 },
   };
   targets.find((part) => part.id === "P3")!._x = {
-    viritura: { instrumentId: "bflat-clarinet", midiProgram: 71, family: "woodwinds" },
+    viritura: { instrumentId: "wind.reed.clarinet.bflat", midiProgram: 71, family: "woodwinds" },
   };
   targets.find((part) => part.id === "P4")!._x = {
-    viritura: { instrumentId: "bassoon", midiProgram: 70, family: "woodwinds" },
+    viritura: { instrumentId: "wind.reed.bassoon", midiProgram: 70, family: "woodwinds" },
   };
   const nonTargets = Array.from({ length: 10 }, (_, index) => ({
     id: `N${String(index + 1)}`,
@@ -762,7 +762,7 @@ function makeDocumentScore(): Score {
     soundProfile: {
       profileId: "test-profile",
       profileVersion: 1,
-      parts: { P5: { sourceId: "horns" }, N1: { sourceId: "flute" } },
+      parts: { P5: { sourceId: "horns" }, N1: { sourceId: "wind.flutes.flute" } },
     },
   };
 }

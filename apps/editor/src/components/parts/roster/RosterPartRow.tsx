@@ -1,13 +1,14 @@
 import { useCallback, useState, type MouseEventHandler } from "react";
 import type { Part } from "@viritura/core";
 import type { PartDisplayInfo } from "@viritura/core";
-import { FormField, FormInput, Select, SettingsRow } from "@viritura/ui";
+import { Collapsible, FormField, FormInput, Select, SettingsRow } from "@viritura/ui";
 import { isPercussionPart } from "../../../score/kitInput";
 import { KitMappingPreview, type KitComponentEdit } from "../../DrumKitDialog";
-import { buildTransposition, partEditBuffersFor, type PartUpdate } from "./transposition";
+import { buildTransposition, hasCustomTuning, partEditBuffersFor, type PartUpdate } from "./transposition";
 import { RosterPartHeader } from "./RosterPartHeader";
 import { RosterPartTransposeFields } from "./RosterPartTransposeFields";
 import { getCatalogInstrument } from "../../../score/InstrumentCatalog";
+import { soundingPitchLabel } from "../transpositionPitch";
 import styles from "./RosterPartRow.module.css";
 import { CHORD_SYMBOL_VISIBILITY_OPTIONS } from "../chordSymbolVisibility";
 
@@ -76,6 +77,7 @@ export function RosterPartRow({
   const catalogInstrument = part._x?.viritura?.instrumentId
     ? getCatalogInstrument(part._x.viritura.instrumentId)
     : undefined;
+  const customTuning = hasCustomTuning(part, catalogInstrument);
 
   return (
     <div className={styles.root}>
@@ -139,21 +141,25 @@ export function RosterPartRow({
               ) : null}
             </>
           ) : (
-            <RosterPartTransposeFields
-              partId={part.id}
-              name={name}
-              shortName={shortName}
-              chromatic={chromatic}
-              staffDistance={staffDistance}
-              keyFifthsFlipAt={keyFifthsFlipAt}
-              prefersWritten={prefersWritten}
-              setChromatic={setChromatic}
-              setStaffDistance={setStaffDistance}
-              setKeyFifthsFlipAt={setKeyFifthsFlipAt}
-              setPrefersWritten={setPrefersWritten}
-              commit={commit}
-              onUpdate={onUpdate}
-            />
+            <>
+              {catalogInstrument && <p>Written C4 sounds as {soundingPitchLabel(chromatic, staffDistance)}.</p>}
+              <Collapsible title="Customize tuning" defaultOpen={!catalogInstrument || customTuning}>
+                <RosterPartTransposeFields
+                  partId={part.id}
+                  instrumentId={part._x?.viritura?.instrumentId}
+                  chromatic={chromatic}
+                  staffDistance={staffDistance}
+                  keyFifthsFlipAt={keyFifthsFlipAt}
+                  prefersWritten={prefersWritten}
+                  setChromatic={setChromatic}
+                  setStaffDistance={setStaffDistance}
+                  setKeyFifthsFlipAt={setKeyFifthsFlipAt}
+                  setPrefersWritten={setPrefersWritten}
+                  commit={commit}
+                  onUpdate={onUpdate}
+                />
+              </Collapsible>
+            </>
           )}
         </div>
       )}

@@ -16,6 +16,9 @@ import type {
   MeasureRepeatCounter,
   StaffMeter,
   StaffMeterChange,
+  InstrumentChange,
+  InstrumentDefinition,
+  Transposition,
 } from "@viritura/core";
 import type { Part } from "@viritura/core";
 import type { PositionedClef, Clef } from "@viritura/core";
@@ -34,12 +37,16 @@ import type {
   PositionedStaffConfig as RawPositionedStaffConfig,
   StaffConfig as RawStaffConfig,
   IdPair as RawIdPair,
+  PartTransposition as RawPartTransposition,
 } from "@viritura/core/raw";
 import type {
   PartExtensions as RawPartExt,
   PartMeasureExtensions as RawPartMeasureExt,
   KitComponentExtensions as RawKitComponentExt,
   StaffMeterChange as RawStaffMeterChange,
+  InstrumentChange as RawInstrumentChange,
+  InstrumentDefinition as RawInstrumentDefinition,
+  InstrumentTransposition as RawInstrumentTransposition,
 } from "@viritura/core/raw-viritura";
 
 import { parseDynamicGroup, parseOttava, parseTextExpression, parsePedal, parseRhythmicPosition } from "./parseGlobal";
@@ -62,17 +69,7 @@ function parsePart(raw: RawPart): Part {
   if (raw.id) part.id = raw.id;
   if (raw.shortName !== undefined) part.shortName = raw.shortName;
   if (raw.staves !== undefined) part.staves = raw.staves;
-  if (raw.transposition) {
-    const t = raw.transposition;
-    part.transposition = {
-      interval: {
-        halfSteps: t.interval.halfSteps,
-        staffDistance: t.interval.staffDistance,
-      },
-    };
-    if (t.keyFifthsFlipAt !== undefined) part.transposition.keyFifthsFlipAt = t.keyFifthsFlipAt;
-    if (t.prefersWrittenPitches !== undefined) part.transposition.prefersWrittenPitches = t.prefersWrittenPitches;
-  }
+  if (raw.transposition) part.transposition = parseTransposition(raw.transposition);
   if (raw.kit) {
     part.kit = parseKit(raw.kit);
   }
@@ -82,8 +79,7 @@ function parsePart(raw: RawPart): Part {
     if (viritura.chordSymbolVisibility !== undefined) {
       part.chordSymbolVisibility = viritura.chordSymbolVisibility;
     }
-    const ext: { instrumentId?: string; midiProgram?: number; family?: string; spatial?: { x: number; y: number } } =
-      {};
+    const ext: NonNullable<NonNullable<Part["_x"]>["viritura"]> = {};
     if (typeof viritura.instrumentId === "string") ext.instrumentId = viritura.instrumentId;
     if (typeof viritura.midiProgram === "number") ext.midiProgram = viritura.midiProgram;
     if (typeof viritura.family === "string") ext.family = viritura.family;
@@ -91,11 +87,56 @@ function parsePart(raw: RawPart): Part {
     if (sp && typeof sp.x === "number" && typeof sp.y === "number") {
       ext.spatial = { x: sp.x, y: sp.y };
     }
+    if (viritura.instruments) {
+      ext.instruments = Object.fromEntries(
+        Object.entries(viritura.instruments).map(([key, instrument]) => [key, parseInstrumentDefinition(instrument)]),
+      );
+    }
+    if (viritura.initialInstrument !== undefined) ext.initialInstrument = viritura.initialInstrument;
     if (Object.keys(ext).length > 0) {
       part._x = { viritura: ext };
     }
   }
   return part;
+}
+
+function parseTransposition(t: RawPartTransposition | RawInstrumentTransposition): Transposition {
+  const transposition: Transposition = {
+    interval: {
+      halfSteps: t.interval.halfSteps,
+      staffDistance: t.interval.staffDistance,
+    },
+  };
+  if (t.keyFifthsFlipAt !== undefined) transposition.keyFifthsFlipAt = t.keyFifthsFlipAt;
+  if (t.prefersWrittenPitches !== undefined) transposition.prefersWrittenPitches = t.prefersWrittenPitches;
+  return transposition;
+}
+
+function parseInstrumentDefinition(raw: RawInstrumentDefinition): InstrumentDefinition {
+  const instrument: InstrumentDefinition = { instrumentId: raw.instrumentId };
+  if (raw.name !== undefined) instrument.name = raw.name;
+  if (raw.shortName !== undefined) instrument.shortName = raw.shortName;
+  if (raw.transposition) instrument.transposition = parseTransposition(raw.transposition);
+  if (raw.midiProgram !== undefined) instrument.midiProgram = raw.midiProgram;
+  return instrument;
+}
+
+function parseInstrumentChange(raw: RawInstrumentChange): InstrumentChange {
+  const change: InstrumentChange = {};
+  if (raw.position) change.position = parseRhythmicPosition(raw.position);
+  if (raw.instrument !== undefined) change.instrument = raw.instrument;
+  if (raw.transposition) change.transposition = parseTransposition(raw.transposition);
+  if (raw.instruction) {
+    change.instruction = {};
+    if (raw.instruction.text !== undefined) change.instruction.text = raw.instruction.text;
+    if (raw.instruction.hidden !== undefined) change.instruction.hidden = raw.instruction.hidden;
+  }
+  if (raw.reminder) {
+    change.reminder = {};
+    if (raw.reminder.text !== undefined) change.reminder.text = raw.reminder.text;
+    if (raw.reminder.hidden !== undefined) change.reminder.hidden = raw.reminder.hidden;
+  }
+  return change;
 }
 
 function parseKit(raw: RawKit): Record<string, KitComponent> {
@@ -175,6 +216,9 @@ function parsePartMeasure(raw: RawPartMeasure): PartMeasure {
     }
     if (viritura.staffMeters && viritura.staffMeters.length > 0) {
       pm.staffMeters = viritura.staffMeters.map(parseStaffMeterChange);
+    }
+    if (viritura.instrumentChanges && viritura.instrumentChanges.length > 0) {
+      pm.instrumentChanges = viritura.instrumentChanges.map(parseInstrumentChange);
     }
   }
   return pm;

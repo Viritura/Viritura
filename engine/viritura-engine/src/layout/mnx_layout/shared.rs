@@ -345,6 +345,7 @@ pub(super) fn build_virtual_part_measure(
     let mut staff_configs: Option<Vec<PositionedStaffConfig>> = None;
     let mut grouping_display_overrides: Option<Vec<StaffGroupingDisplayOverride>> = None;
     let mut beams = Vec::new();
+    let mut instrument_changes = Vec::new();
 
     // --- Condensing merge mode analysis ---
     // When condensing with multiple sources, analyze parts to determine rendering mode.
@@ -508,6 +509,22 @@ pub(super) fn build_virtual_part_measure(
                     source.staff_number.unwrap_or(1),
                 );
         }
+        if source.staff_number.unwrap_or(1) == 1 {
+            let mut instructions = PartMeasure::default();
+            super::super::instrument_changes::append_instructions(
+                &mut instructions,
+                part,
+                measure_index,
+                source.part_index,
+                score,
+            );
+            if let Some(instructions) = instructions.expressions {
+                expressions
+                    .get_or_insert_with(Vec::new)
+                    .extend(instructions);
+            }
+        }
+        instrument_changes.extend(pm.instrument_changes.iter().flatten().cloned());
 
         // For Unison/Amalgamate/Solo: only take directions from the first active source
         // (they're identical or we only show one). For Divisi: merge from all.
@@ -658,6 +675,7 @@ pub(super) fn build_virtual_part_measure(
             condensing_override: None,
             grouping_display_overrides,
             staff_meters: None,
+            instrument_changes: (!instrument_changes.is_empty()).then_some(instrument_changes),
         },
         condensing_mode,
     )
@@ -713,6 +731,7 @@ pub(super) fn append_partial_unison_label(
             voice: None,
             source_part_index: None,
             source_expression_index: None,
+            instrument_reminder: false,
             manual_offset: None,
             avoid_collisions: None,
         });

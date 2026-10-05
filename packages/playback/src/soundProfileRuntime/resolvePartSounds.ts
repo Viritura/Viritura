@@ -44,6 +44,8 @@ export interface ResolvedPlaybackPart {
    * SoundFont fallback (§3.8) so the part still sounds.
    */
   readonly vst?: VstSoundSourceDefinition;
+  /** Initial assignment followed by notation-derived defaults for switched timbres. */
+  readonly instruments?: readonly { key: string; resolved: ResolvedPlaybackPart }[];
 }
 
 /** A resolved profile source cannot be played by the current SF2 runtime. */

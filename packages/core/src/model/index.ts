@@ -11,6 +11,7 @@
 export * from "./score";
 export * from "./text";
 export * from "./part";
+export * from "./instrumentChange";
 export * from "./measure";
 export * from "./event";
 export * from "./sequenceWalk";

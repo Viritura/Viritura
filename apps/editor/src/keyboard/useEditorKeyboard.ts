@@ -283,18 +283,20 @@ export function useEditorKeyboard(config: EditorKeyboardConfig): EditorKeyboardA
       toggleChordLock,
       setChordLock,
       setRhythmSource,
-      previewPitch: (pitch, partIndex) => previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400),
-      previewMidi: (midiNote, partIndex) => previewNoteRef.current(midiNote, partIndex, 80, 400),
+      previewPitch: (pitch, partIndex, position) =>
+        previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400, undefined, position),
+      previewMidi: (midiNote, partIndex, position) =>
+        previewNoteRef.current(midiNote, partIndex, 80, 400, undefined, position),
       undo,
       redo,
       openRadialMenu: (cat) => configRef.current.onOpenRadialMenu?.(cat),
     };
   }
   const ctx = ctxRef.current;
-  const previewPitch: KeyboardHandlerContext["previewPitch"] = (pitch, partIndex) =>
-    previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400);
-  const previewMidi: KeyboardHandlerContext["previewMidi"] = (midiNote, partIndex) =>
-    previewNoteRef.current(midiNote, partIndex, 80, 400);
+  const previewPitch: KeyboardHandlerContext["previewPitch"] = (pitch, partIndex, position) =>
+    previewNoteRef.current(pitchToMidi(pitch), partIndex, 80, 400, undefined, position);
+  const previewMidi: KeyboardHandlerContext["previewMidi"] = (midiNote, partIndex, position) =>
+    previewNoteRef.current(midiNote, partIndex, 80, 400, undefined, position);
   syncCtxBindings(ctx, {
     updateScore,
     commitPatches,

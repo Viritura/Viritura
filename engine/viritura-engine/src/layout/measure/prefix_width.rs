@@ -178,8 +178,8 @@ pub(crate) fn prefix_layout(
         PrefixContext::Alignment => is_first || is_system_start,
         PrefixContext::MeasureLayout => is_first,
     };
-    if rm.global.key.is_some() || (restates_key && rm.active_key.accidental_count() != 0) {
-        let cancel_count = if rm.global.key.is_some() {
+    if rm.key_signature_changed() || (restates_key && rm.active_key.accidental_count() != 0) {
+        let cancel_count = if rm.key_signature_changed() {
             rm.prev_key.cancellation_count(&rm.active_key)
         } else {
             0

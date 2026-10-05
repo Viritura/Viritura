@@ -42,7 +42,7 @@ import {
   midiNumberForKitComponent,
 } from "../score/kitInput";
 import { cloneScore, produce } from "../score/scoreClone";
-import type { KeyboardHandlerContext } from "./types";
+import type { KeyboardHandlerContext, NoteEntryContext as EntryContext } from "./types";
 import {
   resolveActiveClefForStaff,
   normalizePartLocalStaffIndex,
@@ -53,19 +53,8 @@ import {
   currentLaneRef,
 } from "./noteInputShared";
 import { prepareLaneSequence, sequenceAt, resolveVoiceTarget, type LaneRef, type VoiceTarget } from "../voiceLanes";
-
-interface EntryContext {
-  partIndex: number;
-  staffIdx: number;
-  cursorMeasure: number;
-  cursorBeat: number;
-  /** Sequence index of the lane in the cursor's measure — valid there only. */
-  voice: number;
-  /** The voice lane being written; resolve per measure when crossing barlines. */
-  lane: LaneRef;
-  activeClef: ReturnType<typeof resolveActiveClefForStaff>;
-  ottavaShift: number;
-}
+import { resolveDisplayKeyFifths, resolveDisplayTransposition } from "../pitchContext";
+import { beatPositionToFraction } from "../app/timedAnnotationPosition";
 
 function clearExplicitAccidentalAfterPitchedEntry(ctx: KeyboardHandlerContext): void {
   const noteInput = ctx.getNoteInput();
@@ -103,20 +92,14 @@ function applyAccidentalToPitch(
   else if (acc === "triple-flat") pitch.alter = -3;
   else if (acc === "natural") pitch.alter = 0;
   else {
-    let keyFifths = resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure);
-    const partTransposition = currentScore.parts[entryCtx.partIndex]?.transposition;
-    const globalUseWritten = currentScore.scores?.[0]?.useWritten ?? false;
-    const prefersWritten = partTransposition?.prefersWrittenPitches ?? false;
-    if ((globalUseWritten || prefersWritten) && partTransposition) {
-      const flipAt = partTransposition.keyFifthsFlipAt;
-      let transposedFifths = keyFifths + partTransposition.interval.halfSteps;
-      while (transposedFifths > 7) transposedFifths -= 12;
-      while (transposedFifths < -7) transposedFifths += 12;
-      if (flipAt !== undefined && Math.abs(transposedFifths) > Math.abs(flipAt)) {
-        transposedFifths = transposedFifths > 0 ? transposedFifths - 12 : transposedFifths + 12;
-      }
-      keyFifths = transposedFifths;
-    }
+    const transposition = resolveDisplayTransposition(
+      currentScore,
+      entryCtx.partIndex,
+      entryCtx.cursorMeasure,
+      beatPositionToFraction(entryCtx.cursorBeat),
+      ctx.getConfig().selectedScoreIndex,
+    );
+    const keyFifths = resolveDisplayKeyFifths(resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure), transposition);
     const keyAlter = getKeySignatureAlter(pitch.step, keyFifths);
     if (keyAlter !== 0) {
       pitch.alter = keyAlter;
@@ -138,13 +121,16 @@ function buildEntryPitch(
   applyAccidentalToPitch(written, ctx, currentScore, entryCtx);
 
   // Single source of truth for the written→sounding split (shared with the
-  // click path): preview + octave memory use the written pitch, storage uses
-  // the sounding pitch.
+  // click path): octave memory uses the written pitch; storage and preview
+  // use the sounding pitch.
   let { written: writtenPitch, sounding } = resolveEntryPitch(
     written,
     currentScore,
     entryCtx.partIndex,
     resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure),
+    entryCtx.cursorMeasure,
+    beatPositionToFraction(entryCtx.cursorBeat),
+    ctx.getConfig().selectedScoreIndex,
   );
   if (ni.currentAccidental === null) {
     const inheritedAlter = prevailingAlterationAtPosition(
@@ -153,6 +139,7 @@ function buildEntryPitch(
       entryCtx.cursorMeasure,
       entryCtx.cursorBeat,
       sounding,
+      sounding.alter ?? 0,
     );
     const soundingDelta = inheritedAlter - (sounding.alter ?? 0);
     if (soundingDelta !== 0) {
@@ -165,10 +152,14 @@ function buildEntryPitch(
         currentScore,
         entryCtx.partIndex,
         resolveKeyAtMeasure(currentScore, entryCtx.cursorMeasure),
+        entryCtx.cursorMeasure,
+        beatPositionToFraction(entryCtx.cursorBeat),
+        ctx.getConfig().selectedScoreIndex,
       ));
     }
   }
   if (!ni.isRest) {
+    const position = { measureIndex: entryCtx.cursorMeasure, fraction: beatPositionToFraction(entryCtx.cursorBeat) };
     // Percussion previews the mapped drum, not the pitch: the part plays on the
     // GM drum channel, where a pitch would sound as an unrelated instrument.
     // If the drum can't be resolved we still preview the pitch rather than go
@@ -179,9 +170,9 @@ function buildEntryPitch(
       part && kitComponent ? midiNumberForKitComponent(part, currentScore.global?.sounds, kitComponent) : null;
     const previewMidi = ctx.previewMidi;
     if (kitMidi !== null && previewMidi) {
-      setTimeout(() => previewMidi(kitMidi, entryCtx.partIndex), 0);
+      setTimeout(() => previewMidi(kitMidi, entryCtx.partIndex, position), 0);
     } else {
-      setTimeout(() => ctx.previewPitch(writtenPitch, entryCtx.partIndex), 0);
+      setTimeout(() => ctx.previewPitch(sounding, entryCtx.partIndex, position), 0);
     }
   }
   return { pitch: sounding, writtenPitch };
@@ -737,7 +728,11 @@ export function handleNoteEntry(step: string, isChord: boolean, ctx: KeyboardHan
   const entryCtx = buildEntryContext(ctx, currentScore);
 
   if (isChord) {
-    const { pitch, writtenPitch } = buildEntryPitch(step, ctx, currentScore, entryCtx);
+    const target = findChordTargetLoc(currentScore, entryCtx, entryCtx.cursorMeasure, entryCtx.cursorBeat);
+    const chordEntryCtx = target
+      ? { ...entryCtx, cursorMeasure: target.measureIndex, cursorBeat: target.beatPos }
+      : entryCtx;
+    const { pitch, writtenPitch } = buildEntryPitch(step, ctx, currentScore, chordEntryCtx);
     tryChordEntry(ctx, currentScore, entryCtx, pitch, writtenPitch);
     return;
   }
@@ -748,9 +743,15 @@ export function handleNoteEntry(step: string, isChord: boolean, ctx: KeyboardHan
     consumeLockedRest(ctx, currentScore, entryCtx, plan);
     return;
   }
-  const plannedEntryCtx = { ...entryCtx, cursorMeasure: plan.measureIdx, cursorBeat: plan.beatPos };
+  const plannedEntryCtx = {
+    ...entryCtx,
+    cursorMeasure: plan.measureIdx,
+    cursorBeat: plan.beatPos,
+    activeClef: resolveActiveClefForStaff(currentScore, entryCtx.partIndex, entryCtx.staffIdx, plan.measureIdx),
+    ottavaShift: resolveOttavaShift(currentScore, entryCtx.partIndex, entryCtx.staffIdx, plan.measureIdx, plan.beatPos),
+  };
   const { pitch, writtenPitch } = buildEntryPitch(step, ctx, currentScore, plannedEntryCtx);
-  insertPlannedPitch(ctx, currentScore, entryCtx, plan, pitch, writtenPitch);
+  insertPlannedPitch(ctx, currentScore, plannedEntryCtx, plan, pitch, writtenPitch);
 }
 
 /** Enter the exact concert pitch received from a MIDI performance input. */
@@ -774,6 +775,9 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
       currentScore,
       entryCtx.partIndex,
       entryKeyFifths,
+      entryCtx.cursorMeasure,
+      beatPositionToFraction(entryCtx.cursorBeat),
+      ctx.getConfig().selectedScoreIndex,
     );
     tryChordEntry(ctx, currentScore, entryCtx, soundingPitch, writtenPitch, false, kitComponent);
     return;
@@ -792,6 +796,9 @@ export function handleMidiNoteEntry(midiNote: number, ctx: KeyboardHandlerContex
     currentScore,
     entryCtx.partIndex,
     plannedKeyFifths,
+    plan.measureIdx,
+    beatPositionToFraction(plan.beatPos),
+    ctx.getConfig().selectedScoreIndex,
   );
   insertPlannedPitch(ctx, currentScore, entryCtx, plan, plannedSoundingPitch, writtenPitch, kitComponent);
 }
@@ -842,7 +849,15 @@ export function handleMidiChordEntry(midiNotes: readonly number[], ctx: Keyboard
     const entryCtx = buildEntryContext(batchedContext, workingScore);
     const keyFifths = resolveKeyAtMeasure(workingScore, entryCtx.cursorMeasure);
     const soundingPitch = midiNoteToPitch(note, keyFifths);
-    const writtenPitch = resolveWrittenPitchFromSounding(soundingPitch, workingScore, entryCtx.partIndex, keyFifths);
+    const writtenPitch = resolveWrittenPitchFromSounding(
+      soundingPitch,
+      workingScore,
+      entryCtx.partIndex,
+      keyFifths,
+      entryCtx.cursorMeasure,
+      beatPositionToFraction(entryCtx.cursorBeat),
+      ctx.getConfig().selectedScoreIndex,
+    );
     const routing = percussionMidiRouting(workingScore, entryCtx.partIndex, note);
     if (routing && !routing.kitComponent) continue;
     tryChordEntry(

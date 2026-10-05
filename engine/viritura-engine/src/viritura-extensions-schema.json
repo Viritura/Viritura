@@ -776,6 +776,108 @@
           "type": "array",
           "items": { "$ref": "#/$defs/staff-meter-change" },
           "description": "Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope."
+        },
+        "instrumentChanges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/instrument-change" },
+          "description": "Provisional mid-part instrument and/or transposition changes, effective from their position onward until the next change. Positions within one measure must be unique."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "instrument-transposition": {
+      "type": "object",
+      "description": "Transposition of an instrument or instrument change. Same shape and meaning as MNX `part-transposition`: the interval from written to sounding pitch.",
+      "required": ["interval"],
+      "properties": {
+        "interval": {
+          "type": "object",
+          "required": ["halfSteps", "staffDistance"],
+          "properties": {
+            "halfSteps": { "type": "integer" },
+            "staffDistance": { "type": "integer" }
+          },
+          "additionalProperties": false
+        },
+        "keyFifthsFlipAt": { "type": "integer" },
+        "prefersWrittenPitches": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
+    "instrument-definition": {
+      "type": "object",
+      "description": "One instrument a part can play (provisional model for mid-part instrument changes). Instrument = timbre and identity; transposition is how its notes are read and may be overridden by a transposition-only change.",
+      "required": ["instrumentId"],
+      "properties": {
+        "instrumentId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MusicXML standard sound ID (e.g. 'piccolo', 'horn')."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full display name while this instrument is active (e.g. 'Piccolo'). Falls back to the part name."
+        },
+        "shortName": {
+          "type": "string",
+          "description": "Abbreviated display name while this instrument is active (e.g. 'Picc.'). Falls back to the part short name."
+        },
+        "transposition": {
+          "$ref": "#/$defs/instrument-transposition",
+          "description": "Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition."
+        },
+        "midiProgram": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127,
+          "description": "General-MIDI program fallback when the standard sound ID cannot be resolved."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "instrument-change-instruction": {
+      "type": "object",
+      "description": "Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭').",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Literal instruction text overriding the automatically derived text."
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Override house-style visibility: true hides, false shows, absent inherits."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "instrument-change": {
+      "type": "object",
+      "description": "A change of the active instrument, the active transposition, or both, from `position` onward. An instrument change without `transposition` resets to the new instrument's default transposition; a transposition-only change lasts until the next change. At least one of `instrument` or `transposition` is required.",
+      "$comment": "The validator enforces instrument or transposition. The code generators cannot represent the anyOf required-property constraint while preserving both fields.",
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/rhythmic-position",
+          "description": "Position within this measure. Absent means the start of the measure."
+        },
+        "instrument": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key into the part's `_x.viritura.instruments`."
+        },
+        "transposition": {
+          "$ref": "#/$defs/instrument-transposition",
+          "description": "Transposition from this point. Use a zero interval to return to concert pitch."
+        },
+        "instruction": {
+          "$ref": "#/$defs/instrument-change-instruction"
+        },
+        "reminder": {
+          "$ref": "#/$defs/instrument-change-instruction",
+          "description": "Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change."
         }
       },
       "additionalProperties": false
@@ -938,7 +1040,18 @@
       "properties": {
         "instrumentId": {
           "type": "string",
-          "description": "Stable instrument-catalog ID (e.g. 'flute', 'bflat-clarinet')."
+          "description": "MusicXML standard sound ID identifying the part's instrument (e.g. 'wind.flutes.flute', 'wind.reed.clarinet.bflat'). With `instruments`, this is the initial instrument's ID."
+        },
+        "instruments": {
+          "type": "object",
+          "description": "Provisional: instruments this part can switch between, keyed by a document-local key referenced by `initialInstrument` and part-measure `instrumentChanges`.",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/instrument-definition" }
+        },
+        "initialInstrument": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present."
         },
         "midiProgram": {
           "type": "integer",
@@ -1554,6 +1667,15 @@
         "chordSymbolStyle": {
           "$ref": "#/$defs/chord-symbol-style",
           "description": "Score-wide chord-symbol engraving style."
+        },
+        "instrumentChangeStyle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "showChangeLabel": { "type": "boolean", "default": true },
+            "showAdvanceReminder": { "type": "boolean", "default": true }
+          },
+          "description": "Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits."
         },
         "soundProfile": {
           "$ref": "#/$defs/sound-profile-assignment",

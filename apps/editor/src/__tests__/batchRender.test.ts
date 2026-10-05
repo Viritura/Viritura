@@ -167,7 +167,7 @@ describe("exportScoresToPdf layout routing", () => {
           ],
         },
         parts: [
-          { id: "flute", name: "Flute", chordSymbolVisibility: "hide", measures: [{ sequences: [] }] },
+          { id: "wind.flutes.flute", name: "Flute", chordSymbolVisibility: "hide", measures: [{ sequences: [] }] },
           {
             id: "clarinet",
             name: "Clarinet",

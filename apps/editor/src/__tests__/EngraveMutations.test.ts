@@ -37,7 +37,7 @@ function asStarts(measureIds: string[]): { measure: string; pageBreak: boolean }
 
 describe("insertBreakInScore", () => {
   it("stores only the authored system lock", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const next = insertBreakInScore(score, 0, ids[3]!, "system");
     const sd = next.scores![0]!;
@@ -46,7 +46,7 @@ describe("insertBreakInScore", () => {
   });
 
   it("converts a system break to a page break (idempotent insert)", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const ids = measureIds(score);
     let next = insertBreakInScore(score, 0, ids[4]!, "system");
     next = insertBreakInScore(next, 0, ids[4]!, "page");
@@ -56,7 +56,7 @@ describe("insertBreakInScore", () => {
   });
 
   it("migrates break-only pages from the previous control model", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const ids = measureIds(score);
     const legacy: Score = {
       ...score,
@@ -82,7 +82,7 @@ describe("insertBreakInScore", () => {
 
 describe("clearBreakInScore / clearAllBreaksInScore", () => {
   it("removes the final break and restores automatic pagination", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const ids = measureIds(score);
     let next = insertBreakInScore(score, 0, ids[3]!, "system");
     next = clearBreakInScore(next, 0, ids[3]!);
@@ -91,7 +91,7 @@ describe("clearBreakInScore / clearAllBreaksInScore", () => {
   });
 
   it("removes one break without resetting other authored breaks", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const ids = measureIds(score);
     let next = insertBreakInScore(score, 0, ids[2]!, "system");
     next = insertBreakInScore(next, 0, ids[5]!, "page");
@@ -101,7 +101,7 @@ describe("clearBreakInScore / clearAllBreaksInScore", () => {
   });
 
   it("wipeAll reverts to automatic pagination", () => {
-    const score = makeScore("flute");
+    const score = makeScore("wind.flutes.flute");
     const ids = measureIds(score);
     let next = insertBreakInScore(score, 0, ids[3]!, "system");
     next = clearAllBreaksInScore(next, 0);
@@ -112,7 +112,7 @@ describe("clearBreakInScore / clearAllBreaksInScore", () => {
 
 describe("setStaffVisibilityInScore", () => {
   it("hides a part on a specific system via derived layout", () => {
-    const score = makeScore("flute", "violin", "cello");
+    const score = makeScore("wind.flutes.flute", "strings.violin", "strings.cello");
     const ids = measureIds(score);
     const partIdToHide = score.parts[1]!.id;
     const next = applyStaffVisibilityFromSystem(score, 0, ids[4]!, partIdToHide, false, []);
@@ -131,7 +131,7 @@ describe("setStaffVisibilityInScore", () => {
     // that doesn't structurally match any pre-existing per-part layout
     // — otherwise dedup reuses an existing user-authored layout and no
     // derived layout is minted in the first place.
-    const score = makeScore("flute", "violin", "cello");
+    const score = makeScore("wind.flutes.flute", "strings.violin", "strings.cello");
     const ids = measureIds(score);
     const partIdToHide = score.parts[1]!.id;
 
@@ -145,7 +145,7 @@ describe("setStaffVisibilityInScore", () => {
   });
 
   it("refuses to hide every staff in a system (no-op)", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const part1 = score.parts[0]!.id;
     const part2 = score.parts[1]!.id;
@@ -165,7 +165,7 @@ describe("applyStaffVisibilityFromSystem", () => {
     // Regression: prior behaviour seeded the full engine-computed
     // pagination — including pageBreak flags — on the first hide,
     // which locked auto-flow and prevented later reflow.
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     // Pretend the engine laid this out across two pages, with m5
     // starting a new page.
@@ -192,7 +192,7 @@ describe("applyStaffVisibilityFromSystem", () => {
   });
 
   it("preserves existing user-authored breaks when adding a hide elsewhere", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const computed = asStarts([ids[0]!, ids[2]!, ids[4]!, ids[6]!]);
     // User first inserts a page lock at m3.
@@ -211,7 +211,7 @@ describe("applyStaffVisibilityFromSystem", () => {
   });
 
   it("preserves a new break when a staff layout override already exists", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const hidden = applyStaffVisibilityFromSystem(score, 0, ids[4]!, score.parts[1]!.id, false, []);
     const next = insertBreakInScore(hidden, 0, ids[2]!, "page");
@@ -226,7 +226,7 @@ describe("setStaffVisibilityInScore — condensed staves", () => {
     // Build a 3-part score, then override the base layout so the first
     // two parts share a single condensed staff. Hiding either part
     // should hide the whole staff group together.
-    const score = makeScore("flute", "flute", "violin");
+    const score = makeScore("wind.flutes.flute", "wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const [p1, p2, p3] = score.parts.map((p) => p.id!);
 
@@ -256,7 +256,7 @@ describe("setStaffVisibilityInScore — condensed staves", () => {
   });
 
   it("ghostRailGroupsOnSystem collapses a condensed staff into one staffGroup", () => {
-    const score = makeScore("flute", "flute", "violin");
+    const score = makeScore("wind.flutes.flute", "wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const [p1, p2, p3] = score.parts.map((p) => p.id!);
     const baseLayoutId = score.scores![0]!.layout!;
@@ -290,14 +290,14 @@ describe("setStaffVisibilityInScore — condensed staves", () => {
 describe("hiddenRangeHasMusic / ghost-rail music detection", () => {
   it("returns false when all hidden measures contain only full-measure rests", () => {
     // Blank scores from buildBlankScore are full-measure rests on every part.
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const partId = score.parts[1]!.id!;
     expect(hiddenRangeHasMusic(score, 0, ids[0]!, partId)).toBe(false);
   });
 
   it("returns true when the inheritance range contains a real note", () => {
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const ids = measureIds(score);
     const partId = score.parts[1]!.id!;
     // Inject a note into the violin's first measure (replaces the
@@ -336,7 +336,7 @@ describe("hiddenRangeHasMusic / ghost-rail music detection", () => {
   it("ghostRailGroupsOnSystem reports per-staff music flags", () => {
     // Two parts, both hidden. Inject a note into the second part only.
     // Expect staffGroupHasMusic = [false, true] in base-layout order.
-    const score = makeScore("flute", "violin");
+    const score = makeScore("wind.flutes.flute", "strings.violin");
     const _ids = measureIds(score);
     const [p1, p2] = score.parts.map((p) => p.id!);
 
@@ -371,7 +371,7 @@ describe("hiddenRangeHasMusic / ghost-rail music detection", () => {
 
     // Add a third part so we can hide two of them and still have a visible
     // staff (the "refuses to hide all staves" guard would otherwise block).
-    withNote = makeScore("flute", "violin", "cello");
+    withNote = makeScore("wind.flutes.flute", "strings.violin", "strings.cello");
     const idsB = measureIds(withNote);
     const [a1, a2] = withNote.parts.map((p) => p.id!);
     withNote = {

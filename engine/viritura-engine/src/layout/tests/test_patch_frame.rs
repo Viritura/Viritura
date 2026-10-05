@@ -232,7 +232,10 @@ fn shorten_later_part_note(score: &mut Score) -> Option<(usize, usize)> {
 /// next frame. Crucially, a reused system carries its **untranslated original**
 /// forward (matching the engine, whose retained store always holds the segment
 /// at its first-rendered base so each `dy` is absolute, never cumulative).
-fn reconstruct(patch: &PatchFrame, prev: &[DisplayList]) -> (DisplayList, Vec<DisplayList>) {
+pub(super) fn reconstruct(
+    patch: &PatchFrame,
+    prev: &[DisplayList],
+) -> (DisplayList, Vec<DisplayList>) {
     let mut dl = DisplayList::new(patch.width, patch.height);
     let mut next_segments: Vec<DisplayList> = Vec::with_capacity(patch.placements.len());
 

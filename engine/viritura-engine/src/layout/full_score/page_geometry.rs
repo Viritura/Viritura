@@ -61,7 +61,50 @@ pub(super) fn compute_full_score_page_layout(
     let has_names = score.parts.iter().any(|part| !part.name.is_empty());
     let has_grand_staff = score.parts.iter().any(|part| part.staves >= 2);
     let brace_margin = if has_grand_staff { 2.0 * sp } else { 0.0 };
-    let label_margin = if has_names { 6.0 * sp } else { 0.0 };
+    let has_instrument_changes = score.parts.iter().any(|part| {
+        part.measures
+            .iter()
+            .any(|measure| measure.instrument_changes.is_some())
+    });
+    let mut label_measures = if has_instrument_changes {
+        vec![0]
+    } else {
+        Vec::new()
+    };
+    for part in &score.parts {
+        label_measures.extend(
+            part.measures
+                .iter()
+                .enumerate()
+                .filter_map(|(index, measure)| {
+                    measure
+                        .instrument_changes
+                        .as_ref()
+                        .filter(|changes| !changes.is_empty())
+                        .map(|_| index)
+                }),
+        );
+    }
+    label_measures.sort_unstable();
+    label_measures.dedup();
+    let active_name_width = label_measures
+        .into_iter()
+        .flat_map(|index| super::super::page::resolve_part_display_names_at(&score.parts, index))
+        .flat_map(|info| [info.display_name, info.display_short_name])
+        .map(|line| {
+            crate::layout::text_styles::text_width(
+                &line,
+                2.0 * sp,
+                crate::layout::text_styles::FontFamily::Serif,
+                false,
+            )
+        })
+        .fold(0.0_f64, f64::max);
+    let label_margin = if has_names {
+        (6.0 * sp).max(active_name_width + 2.0 * sp)
+    } else {
+        0.0
+    };
     let page_margin_l = if config.page_width.is_some() {
         config.page_margin_left * sp
     } else {

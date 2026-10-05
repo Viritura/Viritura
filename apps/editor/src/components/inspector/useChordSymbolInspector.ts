@@ -14,6 +14,7 @@ import { resolveChordSymbolSource } from "../../app/useAppKeyboardWiring";
 import { produce } from "../../score/scoreClone";
 import { useSelection, useSelectionStore } from "../../store/selectionStore";
 import { useViewStateStore } from "../../store/viewStateStore";
+import { resolveDisplayTransposition } from "../../pitchContext";
 
 interface Args {
   score: Score | null;
@@ -21,9 +22,20 @@ interface Args {
   updateScore: (score: Score) => void;
 }
 
-function chordDisplayInterval(score: Score | null, scoreIndex: number, part: Part | undefined) {
-  const useWritten = score?.scores?.[scoreIndex]?.useWritten || part?.transposition?.prefersWrittenPitches;
-  return (useWritten ? part?.transposition?.interval : undefined) ?? { halfSteps: 0, staffDistance: 0 };
+function chordDisplayInterval(
+  score: Score | null,
+  scoreIndex: number,
+  partIndex: number | undefined,
+  measureIndex: number | undefined,
+  chord: ChordSymbol | undefined,
+) {
+  if (!score || partIndex === undefined || measureIndex === undefined) return { halfSteps: 0, staffDistance: 0 };
+  return (
+    resolveDisplayTransposition(score, partIndex, measureIndex, chord?.position.fraction, scoreIndex)?.interval ?? {
+      halfSteps: 0,
+      staffDistance: 0,
+    }
+  );
 }
 
 export function useChordSymbolInspector({ score, target, updateScore }: Args) {
@@ -47,11 +59,11 @@ export function useChordSymbolInspector({ score, target, updateScore }: Args) {
         )?.partIndex
       : undefined;
   const sourcePart = sourcePartIndex === undefined ? undefined : score?.parts[sourcePartIndex];
-  const displayInterval = chordDisplayInterval(score, selectedScoreIndex, sourcePart);
   const stored =
     measureIndex === undefined || chordIndex === undefined
       ? undefined
       : score?.global.measures[measureIndex]?.chordSymbols?.[chordIndex];
+  const displayInterval = chordDisplayInterval(score, selectedScoreIndex, sourcePartIndex, measureIndex, stored);
   const chord = stored && sourcePart ? transposeChordSymbol(stored, displayInterval) : null;
 
   function commit(displayChord: ChordSymbol) {

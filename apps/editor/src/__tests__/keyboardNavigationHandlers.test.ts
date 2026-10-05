@@ -408,6 +408,7 @@ describe("note-input arrow transposition", () => {
   ])("transposes the entered note $name", ({ event, expected }) => {
     let score = scoreWithTempo();
     const ctx = {
+      getConfig: () => ({ selectedScoreIndex: 0 }),
       updateScore: (next: Score) => {
         score = next;
       },
@@ -442,6 +443,7 @@ describe("note-input arrow transposition", () => {
     };
     const setLastPitch = vi.fn();
     const ctx = {
+      getConfig: () => ({ selectedScoreIndex: 0 }),
       updateScore: (next: Score) => {
         score = next;
       },

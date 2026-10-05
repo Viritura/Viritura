@@ -328,6 +328,7 @@ mod tests {
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         }
     }
 
@@ -498,6 +499,7 @@ mod tests {
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         };
         let pm_b = PartMeasure {
             sequences: vec![Sequence {
@@ -527,6 +529,7 @@ mod tests {
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         };
         assert_eq!(analyze_merge_mode(&[&pm_a, &pm_b]), MergeMode::Divisi);
     }
@@ -747,6 +750,7 @@ mod tests {
             voice: None,
             source_part_index: None,
             source_expression_index: None,
+            instrument_reminder: false,
             manual_offset: None,
             avoid_collisions: None,
         }
@@ -929,6 +933,7 @@ mod tests {
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         }
     }
 

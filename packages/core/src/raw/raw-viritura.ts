@@ -391,6 +391,49 @@ export interface components {
             groupingDisplayOverrides?: components["schemas"]["staff-grouping-display-override"][];
             /** @description Per-staff synchronous local meter changes/resets, effective from this measure onward until changed or reset. Each staff either follows the global meter (the default, no entry needed) or a declared staff-local meter that still shares the global barline grid (`sharedDuration` or `fitMeasure` synchronization). Non-aligning/independent polymeter is out of scope. */
             staffMeters?: components["schemas"]["staff-meter-change"][];
+            /** @description Provisional mid-part instrument and/or transposition changes, effective from their position onward until the next change. Positions within one measure must be unique. */
+            instrumentChanges?: components["schemas"]["instrument-change"][];
+        };
+        /** @description Transposition of an instrument or instrument change. Same shape and meaning as MNX `part-transposition`: the interval from written to sounding pitch. */
+        "instrument-transposition": {
+            interval: {
+                halfSteps: number;
+                staffDistance: number;
+            };
+            keyFifthsFlipAt?: number;
+            prefersWrittenPitches?: boolean;
+        };
+        /** @description One instrument a part can play (provisional model for mid-part instrument changes). Instrument = timbre and identity; transposition is how its notes are read and may be overridden by a transposition-only change. */
+        "instrument-definition": {
+            /** @description MusicXML standard sound ID (e.g. 'piccolo', 'horn'). */
+            instrumentId: string;
+            /** @description Full display name while this instrument is active (e.g. 'Piccolo'). Falls back to the part name. */
+            name?: string;
+            /** @description Abbreviated display name while this instrument is active (e.g. 'Picc.'). Falls back to the part short name. */
+            shortName?: string;
+            /** @description Default transposition while this instrument is active. Absent means concert pitch. For the initial instrument, it must match the MNX part transposition. */
+            transposition?: components["schemas"]["instrument-transposition"];
+            /** @description General-MIDI program fallback when the standard sound ID cannot be resolved. */
+            midiProgram?: number;
+        };
+        /** @description Display control for the printed change instruction (e.g. 'To Picc.', 'in E♭'). */
+        "instrument-change-instruction": {
+            /** @description Literal instruction text overriding the automatically derived text. */
+            text?: string;
+            /** @description Override house-style visibility: true hides, false shows, absent inherits. */
+            hidden?: boolean;
+        };
+        /** @description A change of the active instrument, the active transposition, or both, from `position` onward. An instrument change without `transposition` resets to the new instrument's default transposition; a transposition-only change lasts until the next change. At least one of `instrument` or `transposition` is required. */
+        "instrument-change": {
+            /** @description Position within this measure. Absent means the start of the measure. */
+            position?: components["schemas"]["rhythmic-position"];
+            /** @description Key into the part's `_x.viritura.instruments`. */
+            instrument?: string;
+            /** @description Transposition from this point. Use a zero interval to return to concert pitch. */
+            transposition?: components["schemas"]["instrument-transposition"];
+            instruction?: components["schemas"]["instrument-change-instruction"];
+            /** @description Independent advance reminder immediately after the last preceding sounding notehead. Absent or empty inherits house-style visibility with derived text; hidden true hides, hidden false shows. Omitted when no sounding anchor or no gap before the change. */
+            reminder?: components["schemas"]["instrument-change-instruction"];
         };
         /** @description Links measure-local tuplet fragments into one logical tuplet spanning barlines. The same id and ratio must be used by contiguous fragments. */
         "tuplet-span": {
@@ -470,8 +513,14 @@ export interface components {
         };
         /** @description Viritura vendor extensions on an MNX part object (the `_x.viritura` dict on a part). Carries instrument identity so the editor and audio engine can resolve a part to a stable instrument without fuzzy name matching, plus its spatial-audio stage placement. */
         "part-extensions": {
-            /** @description Stable instrument-catalog ID (e.g. 'flute', 'bflat-clarinet'). */
+            /** @description MusicXML standard sound ID identifying the part's instrument (e.g. 'wind.flutes.flute', 'wind.reed.clarinet.bflat'). With `instruments`, this is the initial instrument's ID. */
             instrumentId?: string;
+            /** @description Provisional: instruments this part can switch between, keyed by a document-local key referenced by `initialInstrument` and part-measure `instrumentChanges`. */
+            instruments?: {
+                [key: string]: components["schemas"]["instrument-definition"];
+            };
+            /** @description Key into `instruments` for the instrument active at the start of the part. Required when `instruments` is present. */
+            initialInstrument?: string;
             /** @description General-MIDI program (0..127). Used directly by the audio engine. */
             midiProgram?: number;
             /** @description Instrument family for spatial placement / catalog routing. */
@@ -806,6 +855,13 @@ export interface components {
             timeSignatures?: components["schemas"]["time-signature-styles"];
             /** @description Score-wide chord-symbol engraving style. */
             chordSymbolStyle?: components["schemas"]["chord-symbol-style"];
+            /** @description Score-wide change-label visibility defaults. Per-instance hidden false explicitly shows; hidden true hides; absent inherits. */
+            instrumentChangeStyle?: {
+                /** @default true */
+                showChangeLabel: boolean;
+                /** @default true */
+                showAdvanceReminder: boolean;
+            };
             /** @description Per-part playback sound assignments keyed by stable MNX part ID. */
             soundProfile?: components["schemas"]["sound-profile-assignment"];
             /** @description Score-to-picture synchronization settings. */
@@ -869,6 +925,10 @@ export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];
+export type InstrumentTransposition = components["schemas"]["instrument-transposition"];
+export type InstrumentDefinition = components["schemas"]["instrument-definition"];
+export type InstrumentChangeInstruction = components["schemas"]["instrument-change-instruction"];
+export type InstrumentChange = components["schemas"]["instrument-change"];
 export type TupletSpan = components["schemas"]["tuplet-span"];
 export type TupletExtensions = components["schemas"]["tuplet-extensions"];
 export type PositionedStaffConfigExtensions = components["schemas"]["positioned-staff-config-extensions"];

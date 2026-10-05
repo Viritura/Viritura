@@ -30,6 +30,33 @@ function scoreWithQuarterNotes(): Score {
 }
 
 describe("applyChordSymbolEdit", () => {
+  it("converts displayed chord roots and bass using the instrument at the harmony position", () => {
+    const score = scoreWithQuarterNotes();
+    score.scores = [{ useWritten: true }];
+    score.parts[0]!.transposition = { interval: { halfSteps: -12, staffDistance: -7 } };
+    score.parts[0]!.measures[0]!.instrumentChanges = [
+      {
+        position: { fraction: [1, 4] },
+        transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
+      },
+    ];
+    const updated = applyChordSymbolEdit(
+      score,
+      {
+        position: { x: 0, y: 0 },
+        partIndex: 0,
+        measureIndex: 0,
+        sequenceIndex: 0,
+        eventIndex: 1,
+      },
+      "C/E",
+    );
+    expect(updated?.global.measures[0]!.chordSymbols?.[0]).toMatchObject({
+      root: { step: "B", alter: -1 },
+      bass: { step: "D" },
+      position: { fraction: [1, 4] },
+    });
+  });
   it("uses a selected notehead as the harmony-lane onset anchor", () => {
     const target = resolveChordSymbolTarget(
       scoreWithQuarterNotes(),
@@ -99,7 +126,7 @@ describe("applyChordSymbolEdit", () => {
 
   it("atomically shows newly entered global harmony on the source part, without changing layouts", () => {
     const score = scoreWithQuarterNotes();
-    score.parts[0]!.id = "piano";
+    score.parts[0]!.id = "keyboard.piano";
     score.layouts = [
       {
         id: "full",
@@ -107,8 +134,8 @@ describe("applyChordSymbolEdit", () => {
           {
             type: "group",
             content: [
-              { type: "staff", sources: [{ part: "piano", staff: 1 }] },
-              { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
             ],
           },
         ],

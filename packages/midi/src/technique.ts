@@ -99,6 +99,8 @@ export interface TechniqueState {
   program: number;
   /** Whether the part is currently muted (con sord.). */
   muted: boolean;
+  /** Timbre whose technique state is being carried across measures. */
+  instrumentKey?: string;
 }
 
 /** Emit a controlChange event for one CC at a given time. */
@@ -150,10 +152,20 @@ export function applyMeasureTechniques(
     .sort((a, b) => a.beat - b.beat);
 
   let { program, muted } = state;
+  let instrumentKey = state.instrumentKey ?? ctx.instrumentAtBeatOffset?.(0).key;
   for (const mark of marks) {
+    const instrument = ctx.instrumentAtBeatOffset?.(mark.beat);
+    const baselineProgram = instrument?.program ?? ctx.gmProgram;
+    if (instrument && instrument.key !== instrumentKey) {
+      program = baselineProgram;
+      muted = false;
+      instrumentKey = instrument.key;
+    }
+    const bowCapable = instrument ? ARCO_CAPABLE_PROGRAMS.has(baselineProgram) : caps.bow;
+    const muteFamily = instrument ? muteFamilyForProgram(baselineProgram) : caps.mute;
     const time = ctx.model.timeAtBeat(ctx.measureStartBeat + mark.beat);
-    if (mark.action.kind === "bow" && caps.bow) {
-      const target = mark.action.pizz ? GM_PIZZICATO_STRINGS : ctx.gmProgram;
+    if (mark.action.kind === "bow" && bowCapable) {
+      const target = mark.action.pizz ? GM_PIZZICATO_STRINGS : baselineProgram;
       if (target === program) continue;
       program = target;
       // The global sort orders this programChange before any noteOn at the same time.
@@ -166,13 +178,13 @@ export function applyMeasureTechniques(
         channel: ctx.channel,
         program: target,
       });
-    } else if (mark.action.kind === "mute" && caps.mute) {
+    } else if (mark.action.kind === "mute" && muteFamily) {
       if (mark.action.muted === muted) continue;
       muted = mark.action.muted;
-      const curve = muted ? MUTE_CURVES[caps.mute] : OPEN_CURVE;
+      const curve = muted ? MUTE_CURVES[muteFamily] : OPEN_CURVE;
       emitCc(ctx, time, CC_BRIGHTNESS, curve.brightness);
       emitCc(ctx, time, CC_RESONANCE, curve.resonance);
     }
   }
-  return { program, muted };
+  return { program, muted, ...(instrumentKey === undefined ? {} : { instrumentKey }) };
 }

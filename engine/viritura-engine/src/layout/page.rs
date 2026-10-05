@@ -4,10 +4,17 @@ use super::config::{LayoutConfig, PageInset};
 use super::text_styles::TextRole;
 use crate::model::score::ScoreMetadata;
 use crate::render::{DisplayList, RenderCommand, TextAlign, TextBaseline};
-use std::collections::HashMap;
 
+mod instrument_names;
 mod packing;
+mod part_score_name;
 mod turn_sequence;
+pub(crate) use instrument_names::{
+    initial_instrument_instruction, instrument_tuning_name, resolve_part_display_names,
+    resolve_part_display_names_at, resolve_required_part_display_names, PartDisplayInfo,
+};
+pub use part_score_name::render_part_score_name;
+pub(crate) use part_score_name::{part_score_name_height, resolve_part_score_name};
 
 pub use packing::{
     compute_page_breaks, compute_page_breaks_with_extras, compute_page_breaks_with_forced,
@@ -93,7 +100,9 @@ pub(crate) fn augment_part_score_name(name: &str, parts: &[Part], shown: &[usize
     let mut key: Option<&'static str> = None;
     for &idx in shown {
         let Some(part) = parts.get(idx) else { continue };
-        let hs = part.transposition.as_ref().map(|t| t.interval.half_steps);
+        let hs = crate::model::ActiveInstrument::at(part, 0, (0, 1))
+            .transposition
+            .map(|t| t.interval.half_steps);
         match hs.and_then(transposition_key_name) {
             // A non-transposing (or pure-octave) part among the shown set means
             // we can't attach a single unambiguous suffix.
@@ -127,68 +136,6 @@ pub(crate) fn augment_part_score_name(name: &str, parts: &[Part], shown: &[usize
         }
     }
     format!("{} {}", name, suffix)
-}
-
-/// Resolved display info for a part.
-pub(crate) struct PartDisplayInfo {
-    pub display_name: String,
-    pub display_short_name: String,
-    /// Name without the auto-number suffix (e.g. "Flute" instead of "Flute 1").
-    pub base_name: String,
-    /// Short name without the auto-number suffix.
-    pub base_short_name: String,
-    /// Auto-assigned number within the instrument group (None if only one of its kind).
-    pub number: Option<usize>,
-}
-
-/// Resolve display names for all parts with auto-transposition and auto-numbering.
-/// Groups parts by (name, transposition_key) and numbers duplicates within each group.
-pub(crate) fn resolve_part_display_names(parts: &[Part]) -> Vec<PartDisplayInfo> {
-    // Group key = (name, transposition key or "")
-    let group_key = |p: &Part| -> (String, String) {
-        let hs = p.transposition.as_ref().map(|t| t.interval.half_steps);
-        let key = hs.and_then(transposition_key_name).unwrap_or("");
-        (p.name.clone(), key.to_string())
-    };
-
-    // Count occurrences per group
-    let mut counts: HashMap<(String, String), usize> = HashMap::new();
-    for p in parts {
-        *counts.entry(group_key(p)).or_insert(0) += 1;
-    }
-
-    // Assign numbers
-    let mut indices: HashMap<(String, String), usize> = HashMap::new();
-    parts
-        .iter()
-        .map(|p| {
-            let key = group_key(p);
-            let hs = p.transposition.as_ref().map(|t| t.interval.half_steps);
-            let total = counts.get(&key).copied().unwrap_or(1);
-            let number = if total > 1 {
-                let idx = indices.entry(key).or_insert(0);
-                *idx += 1;
-                Some(*idx)
-            } else {
-                None
-            };
-            let base_name_str = build_display_name(&p.name, hs, None);
-            let short_base = p
-                .short_name
-                .clone()
-                .unwrap_or_else(|| abbreviate_part_name(&p.name));
-            let base_short_name_str = build_display_name(&short_base, hs, None);
-            let display_name = build_display_name(&p.name, hs, number);
-            let display_short_name = build_display_name(&short_base, hs, number);
-            PartDisplayInfo {
-                display_name,
-                display_short_name,
-                base_name: base_name_str,
-                base_short_name: base_short_name_str,
-                number,
-            }
-        })
-        .collect()
 }
 
 /// Generate an abbreviated part name from a full name.
@@ -795,70 +742,6 @@ pub(crate) fn render_page_numbers_excluding(
             color: color.clone(),
             align,
             baseline: TextBaseline::Bottom,
-        });
-    }
-}
-
-/// Emit the score definition name (instrument/part name) in the top-left
-/// of page 1 for part scores.
-///
-/// Standard engraving practice: a part's first page shows the instrument name
-/// as a small, left-aligned label just below the top margin, framed in a thin
-/// box so the player can identify the part at a glance.
-pub fn render_part_score_name(
-    dl: &mut DisplayList,
-    title: &str,
-    config: &LayoutConfig,
-    _page_width: f64,
-) {
-    let sp = config.sp;
-    let style = config.text_styles.resolve(TextRole::StaffLabel);
-    let font_size = style.size_px(sp);
-    let margin_left_px = config.page_margin_left * sp;
-    // Sit the label just below the top-margin line (not up in the margin).
-    let top_margin_px = config.page_margin_top * sp;
-
-    // Estimate the text box from the glyph metrics: use the per-character AFM
-    // advance widths (same metric the canvas font uses) so the frame hugs the
-    // text instead of running well past its right edge. Pad horizontally and
-    // vertically so the frame clears the glyphs.
-    let pad_x = 0.6 * sp;
-    let pad_y = 0.4 * sp;
-    let text_w = crate::layout::text_styles::text_width(title, font_size, style.family, style.bold);
-    let box_left = margin_left_px;
-    let box_top = top_margin_px;
-    let box_h = font_size + 2.0 * pad_y;
-    let box_w = text_w + 2.0 * pad_x;
-    let baseline_y = box_top + pad_y + font_size * 0.78; // cap-height baseline
-
-    dl.push(RenderCommand::DrawText {
-        x: box_left + pad_x,
-        y: baseline_y,
-        text: title.to_string(),
-        font: style.font_string(),
-        size: font_size,
-        color: style.color.clone(),
-        align: TextAlign::Left,
-        baseline: TextBaseline::Alphabetic,
-    });
-
-    // Thin frame (four strokes) around the label.
-    let stroke = 0.1 * sp;
-    let color = style.color.clone();
-    let (l, t, r, b) = (box_left, box_top, box_left + box_w, box_top + box_h);
-    for (x1, y1, x2, y2) in [
-        (l, t, r, t), // top
-        (l, b, r, b), // bottom
-        (l, t, l, b), // left
-        (r, t, r, b), // right
-    ] {
-        dl.push(RenderCommand::DrawLine {
-            x1,
-            y1,
-            x2,
-            y2,
-            width: stroke,
-            color: color.clone(),
         });
     }
 }

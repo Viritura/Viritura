@@ -45,7 +45,14 @@ import {
   warmUpSectionSynths,
   type SectionEntry,
 } from "./playbackSamplerHelpers";
-import { requireSf2Sound, resolvePartSounds, resolveScorePlaybackParts } from "./soundProfileRuntime";
+import {
+  requireSf2Sound,
+  resolvePartSounds,
+  resolveScorePlaybackParts,
+  resolvePreviewSound,
+  previewSampler,
+  type PlaybackPreviewPosition,
+} from "./soundProfileRuntime";
 import type { VstTransport, VstPreparePlan } from "./vstTransport";
 import {
   collectSf2Assignments,
@@ -77,7 +84,7 @@ import { useMelodicPreview } from "./useMelodicPreview";
 import { generateTimeline, getChordPlaybackPart, type MidiTimeline as ScoreMidiTimeline } from "@viritura/midi";
 import { buildClickTrack, countInLeadSeconds } from "./clickTrack";
 import { createPlayheadResolver, sourceMeasureBeatToSeconds } from "./playheadResolver";
-import { resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
+import { requirePlayableTimeline, resolveTransportStart, type PendingPlaybackStart } from "./transportStart";
 import type { SoundfontLoader } from "./soundfont";
 import { useSoundfontBuffer } from "./useSoundfontBuffer";
 import { createPublishedChordPreview } from "./chordPreview";
@@ -418,6 +425,9 @@ export function PlaybackProvider({
         if (detail.previousState === "playing" && detail.state === "stopped") stopNativeHost();
         dispatchPlayback({ type: "SET_STATUS", status: detail.state as PlaybackState["status"] });
       });
+      engineRef.current.on("error", (detail) => {
+        toast.error("Playback error", { description: detail.message });
+      });
     }
     return engineRef.current;
   }, [stopNativeHost]);
@@ -506,10 +516,10 @@ export function PlaybackProvider({
     allNotesOff: previewInstrumentAllNotesOff,
   } = useMelodicPreview({ sf2BufferRef, sf2FetchPromiseRef });
   const previewPartNoteOn = useCallback(
-    (midiNote: number, partIndex: number, velocity = 80): Promise<void> => {
+    (midiNote: number, partIndex: number, velocity = 80, position?: PlaybackPreviewPosition): Promise<void> => {
       const part = score?.parts[partIndex];
       if (!part || !score) return previewInstrumentNoteOn(midiNote, 0, velocity);
-      const resolved = resolvePartSounds(score.parts, score.soundProfile, soundProfileRegistryRef.current)[partIndex];
+      const resolved = resolvePreviewSound(score, partIndex, position, soundProfileRegistryRef.current);
       const program = resolved ? requireSf2Sound(part.name, resolved.sf2).primary.program : 0;
       return previewInstrumentNoteOn(midiNote, program, velocity);
     },
@@ -756,6 +766,12 @@ export function PlaybackProvider({
       if (vstTransport && score && nativeMode) {
         while (nativeStopRef.current) await nativeStopRef.current;
         const resolved = resolveScorePlaybackParts(score, soundProfileRegistryRef.current);
+        if (resolved.some((part) => part.instruments)) {
+          toast.info("Instrument changes use browser SoundFont playback", {
+            description:
+              "Native and VST transport cannot switch sound profiles within a part. Changed parts use their SoundFont fallback.",
+          });
+        }
         const plan: VstPreparePlan = {
           vstParts: collectVstAssignments(resolved),
           sf2Parts: collectSf2Assignments(resolved),
@@ -1073,6 +1089,7 @@ export function PlaybackProvider({
       }
       try {
         await prepareNativeHost();
+        if (!vstOwnedPartsRef.current.has(partIndex)) return false;
         return await vstTransportRef.current.previewNote(partIndex, midiNote, velocity, durationMs);
       } catch (err) {
         console.warn("[Audio] Native preview failed, falling back to SF2:", err);
@@ -1161,15 +1178,27 @@ export function PlaybackProvider({
   // Note preview using active samplers — auto-initializes on first call
   const previewInitializingRef = useRef(false);
   const previewNote = useCallback(
-    async (midiNote: number, partIndex?: number, velocity = 80, durationMs = 400, altKitProgram?: number) => {
+    async (
+      midiNote: number,
+      partIndex?: number,
+      velocity = 80,
+      durationMs = 400,
+      altKitProgram?: number,
+      position?: PlaybackPreviewPosition,
+    ) => {
       const generation = stopGenerationRef.current;
       if (await tryNativePreview(midiNote, partIndex, velocity, durationMs)) return;
       if (generation !== stopGenerationRef.current) return;
 
       // If samplers exist, play immediately
-      let sampler =
-        (partIndex !== undefined ? samplersRef.current.get(partIndex) : undefined) ??
-        (samplersRef.current.values().next().value as ISampler | undefined);
+      let sampler = previewSampler(
+        score,
+        partIndex,
+        position,
+        samplersRef.current,
+        routingSamplersRef.current,
+        timelineRef.current,
+      );
 
       if (!sampler && !previewInitializingRef.current && score && timelineRef.current) {
         // Auto-initialize audio engine + samplers on first preview attempt
@@ -1194,9 +1223,14 @@ export function PlaybackProvider({
             engine.setPlayheadResolver(playheadResolverRef.current);
             engine.setClickTrack(clickTrackRef.current);
             // Now try again
-            sampler =
-              (partIndex !== undefined ? samplersRef.current.get(partIndex) : undefined) ??
-              (samplersRef.current.values().next().value as ISampler | undefined);
+            sampler = previewSampler(
+              score,
+              partIndex,
+              position,
+              samplersRef.current,
+              routingSamplersRef.current,
+              timelineRef.current,
+            );
           }
         } catch (err) {
           console.warn("[Audio] Preview init failed:", err);
@@ -1245,6 +1279,7 @@ export function PlaybackProvider({
       try {
         const stopGeneration = stopGenerationRef.current;
         if (!(await chordPreview.cancel()) || stopGenerationRef.current !== stopGeneration) return;
+        requirePlayableTimeline(timelineRef.current);
         const engine = ensureEngine();
         // Capture before loadTimeline can reset a paused transport during a
         // sampler rebuild. Both native and browser engines use this origin.
@@ -1358,10 +1393,22 @@ export function PlaybackProvider({
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
       try {
-        const partPrograms = resolveScorePlaybackParts(score, soundProfileRegistryRef.current).map(
+        const resolvedParts = resolveScorePlaybackParts(score, soundProfileRegistryRef.current);
+        const partPrograms = resolvedParts.map(
           (resolved) => requireSf2Sound(resolved.part.name, resolved.sf2).primary.program,
         );
-        const midiTimeline = generateTimeline(score, { partPrograms, includeGlobalChords: true });
+        const instrumentPrograms = new Map(
+          resolvedParts.map((part) => [
+            part.index,
+            new Map(
+              (part.instruments ?? []).map(({ key, resolved }) => [
+                key,
+                requireSf2Sound(resolved.part.name, resolved.sf2).primary.program,
+              ]),
+            ),
+          ]),
+        );
+        const midiTimeline = generateTimeline(score, { partPrograms, instrumentPrograms, includeGlobalChords: true });
         const timeline: EngineMidiTimeline = {
           chasePartIndices: getChordPlaybackPart(score) ? [score.parts.length] : [],
           events: midiTimeline.events,
@@ -1416,6 +1463,13 @@ export function PlaybackProvider({
         engine?.loadTimeline(timeline, routingChanged ? new Map() : routingSamplersRef.current);
       } catch (err) {
         console.warn("Failed to generate playback timeline:", err);
+        stopGenerationRef.current++;
+        pendingStartRef.current = null;
+        timelineRef.current = null;
+        scoreTimelinePositionRef.current = null;
+        engineRef.current?.stop();
+        dispatchPlayback({ type: "SET_DURATION", duration: 0 });
+        toast.error("Playback unavailable", { description: err instanceof Error ? err.message : String(err) });
         dispatchPlayback({ type: "STOP" });
       }
     }, SCORE_CHANGE_DEBOUNCE_MS);

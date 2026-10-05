@@ -103,10 +103,10 @@ function verifyMigration(score: typeof reparsed): void {
       throw new Error(`Missing condensed staff for ${expected.join("+")}.`);
     }
   }
-  verifyPercussion(score, "P8", "timpani", undefined, undefined);
-  verifyPercussion(score, "P9", "bass-drum", "P9-kit-0", 36);
-  verifyPercussion(score, "P10", "triangle", "P10-kit-0", 81);
-  verifyPercussion(score, "P11", "cymbals", "P11-kit-0", 49);
+  verifyPercussion(score, "P8", "drum.timpani", undefined, undefined);
+  verifyPercussion(score, "P9", "drum.bass-drum", "P9-kit-0", 36);
+  verifyPercussion(score, "P10", "metal.triangle", "P10-kit-0", 81);
+  verifyPercussion(score, "P11", "metal.cymbal.clash", "P11-kit-0", 49);
 }
 
 function verifyWindVoices(score: Score): void {

@@ -112,6 +112,9 @@ function serializeRootExtensions(score: Score): Obj {
   if (score.chordSymbolStyle && Object.keys(score.chordSymbolStyle).length > 0) {
     virituraExt["chordSymbolStyle"] = score.chordSymbolStyle as unknown as Obj;
   }
+  if (score.instrumentChangeStyle) {
+    virituraExt["instrumentChangeStyle"] = { ...score.instrumentChangeStyle };
+  }
 
   if (score.soundProfile) {
     const parts: Obj = {};

@@ -28,7 +28,7 @@ function sourceScore(): Score {
         chordSymbolVisibility: "show",
         transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
       },
-      { id: "piano", name: "Piano", measures: [], staves: 2, chordSymbolVisibility: "auto" },
+      { id: "keyboard.piano", name: "Piano", measures: [], staves: 2, chordSymbolVisibility: "auto" },
     ],
     layouts: [
       {
@@ -42,8 +42,8 @@ function sourceScore(): Score {
                 type: "staff",
                 sources: [{ part: "hidden" }, { part: "bb", staff: 1, voice: "solo" }],
               },
-              { type: "staff", sources: [{ part: "piano", staff: 1 }] },
-              { type: "staff", sources: [{ part: "piano", staff: 2 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 1 }] },
+              { type: "staff", sources: [{ part: "keyboard.piano", staff: 2 }] },
             ],
           },
         ],
@@ -81,8 +81,11 @@ describe("chord source projection", () => {
 
   it("keeps the whole progression when extracting a later grand-staff source", () => {
     const score = sourceScore();
-    const { projected, layout } = project(score, ["piano", "piano"]);
-    expect(staffSources(layout.content)).toEqual([[{ part: "piano", staff: 1 }], [{ part: "piano", staff: 2 }]]);
+    const { projected, layout } = project(score, ["keyboard.piano", "keyboard.piano"]);
+    expect(staffSources(layout.content)).toEqual([
+      [{ part: "keyboard.piano", staff: 1 }],
+      [{ part: "keyboard.piano", staff: 2 }],
+    ]);
     expect(projected.global.measures[0]?.chordSymbols).toHaveLength(2);
     expect(projected.parts[2]?.chordSymbolVisibility).toBe("auto");
     expect(projected.parts.every((part) => part.measures.every((measure) => !("chordSymbols" in measure)))).toBe(true);
@@ -96,8 +99,8 @@ describe("chord source projection", () => {
       [{ part: "hidden" }, { part: "bb", staff: 1, voice: "solo" }],
       [{ part: "hidden", labelref: "name" }],
       [{ part: "bb", staff: 1, voice: "solo", labelref: "name" }],
-      [{ part: "piano", staff: 1 }],
-      [{ part: "piano", staff: 2 }],
+      [{ part: "keyboard.piano", staff: 1 }],
+      [{ part: "keyboard.piano", staff: 2 }],
     ]);
     expect(expanded.parts).toEqual(wire.parts);
     expect(expanded.global).toEqual(wire.global);
@@ -107,7 +110,7 @@ describe("chord source projection", () => {
     const score = sourceScore();
     score.scores![0]!.useWritten = false;
     const { projection } = project(score, ["bb"]);
-    const repeated = injectSyntheticLayout(projection.json, ["piano"], 0);
+    const repeated = injectSyntheticLayout(projection.json, ["keyboard.piano"], 0);
     const projected = parseMnx(JSON.parse(repeated.json));
     expect(repeated.scoreIndex).toBe(projection.scoreIndex);
     expect(projected.scores).toHaveLength(2);
@@ -131,17 +134,17 @@ describe("chord source projection", () => {
     const score = sourceScore();
     delete score.layouts;
     score.scores = [{ useWritten: true }];
-    const { projected, layout } = project(score, ["bb", "missing", "bb", "piano"]);
+    const { projected, layout } = project(score, ["bb", "missing", "bb", "keyboard.piano"]);
     expect(staffSources(layout.content)).toEqual([
       [{ part: "bb", labelref: "name" }],
-      [{ part: "piano", labelref: "name" }],
+      [{ part: "keyboard.piano", labelref: "name" }],
     ]);
-    expect(projected.parts.map((part) => part.id)).toEqual(["hidden", "bb", "piano"]);
+    expect(projected.parts.map((part) => part.id)).toEqual(["hidden", "bb", "keyboard.piano"]);
     expect(projected.global.measures[0]?.chordSymbols).toEqual(score.global.measures[0]?.chordSymbols);
   });
 
   it.each([
-    { sourcePartIndices: [2, 1, 2], partIndex: 2, ids: ["piano", "bb"] },
+    { sourcePartIndices: [2, 1, 2], partIndex: 2, ids: ["keyboard.piano", "bb"] },
     { sourcePartIndices: undefined, partIndex: 1, ids: ["bb"] },
     { sourcePartIndices: [99], partIndex: 0, ids: [] },
   ])("maps rendered staff 7 using engine source indices, not layout positions: $ids", (source) => {

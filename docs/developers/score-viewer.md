@@ -132,7 +132,7 @@ A failed engine load can be retried by mounting again or by calling `update`.
 
 ```js
 viewer.setOptions({ playhead: { beat: 12.5, follow: true } });
-viewer.setOptions({ playhead: { measureIndex: 4, beat: 1, partId: "flute" } });
+viewer.setOptions({ playhead: { measureIndex: 4, beat: 1, partId: "wind.flutes.flute" } });
 viewer.setOptions({ playhead: null }); // hide
 ```
 

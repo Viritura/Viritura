@@ -17,6 +17,7 @@ import { durationToBeats, findLastNoteEvent, sequenceContentBeats } from "../com
 import { defaultPitchForClef } from "../input/octaveLogic";
 import { produce } from "../score/scoreClone";
 import type { KeyboardHandlerContext } from "./types";
+import { beatPositionToFraction, eventBeatPosition } from "../app/timedAnnotationPosition";
 import { resolveActiveClefForStaff, resolveOttavaShift } from "./noteInputShared";
 import { resolveVoiceTarget, type LaneRef } from "../voiceLanes";
 
@@ -142,6 +143,7 @@ function updateOctaveMemoryFromEvent(
   if (!ev || ev.type !== "event" || !ev.notes?.length) return;
   const firstNote = ev.notes[0];
   if (!firstNote) return;
+  const sequence = resultScore.parts[partIndex]?.measures[loc.measureIndex]?.sequences[loc.sequenceIndex];
 
   ctx.setLastPitch(
     resolveWrittenPitchFromSounding(
@@ -149,6 +151,9 @@ function updateOctaveMemoryFromEvent(
       currentScore,
       partIndex,
       resolveKeyAtMeasure(currentScore, loc.measureIndex),
+      loc.measureIndex,
+      beatPositionToFraction(sequence ? eventBeatPosition(sequence, loc) : 0),
+      ctx.getConfig().selectedScoreIndex,
     ),
   );
 }

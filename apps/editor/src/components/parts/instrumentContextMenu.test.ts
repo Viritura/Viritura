@@ -31,7 +31,7 @@ describe("buildInstrumentContextMenuItems", () => {
 
   it("omits percussion and removal commands when they do not apply", () => {
     const items = buildInstrumentContextMenuItems({
-      partId: "flute",
+      partId: "wind.flutes.flute",
       isPercussion: false,
       canRemove: false,
       onChangeInstrument: vi.fn(),

@@ -21,6 +21,7 @@ pub(crate) mod element_id;
 mod glissando;
 mod grace;
 mod hairpins;
+mod instrument_changes;
 mod measure;
 mod note_preview;
 mod orchestration;

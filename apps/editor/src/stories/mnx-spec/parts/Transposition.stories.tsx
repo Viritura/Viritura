@@ -222,7 +222,7 @@ export const EbAltoSax: StoryObj = {
 };
 
 export const Piccolo: StoryObj = {
-  render: () => writtenPreview("piccolo", PICCOLO_CONCERT),
+  render: () => writtenPreview("wind.flutes.flute.piccolo", PICCOLO_CONCERT),
   name: "Piccolo sounds 8va above",
 };
 

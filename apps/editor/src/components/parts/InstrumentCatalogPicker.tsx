@@ -7,6 +7,9 @@ import {
   type InstrumentFamily,
   getFamiliesInOrder,
   getInstrumentsByFamily,
+  getCatalogInstrument,
+  getCatalogPickerInstrument,
+  catalogPickerName,
 } from "../../score/InstrumentCatalog";
 import { searchInputStyle } from "./styles";
 
@@ -92,6 +95,9 @@ export function InstrumentCatalogPicker({
   const [search, setSearch] = useState("");
   const defaultExpanded = useMemo(() => new Set(initiallyExpanded ?? []), [initiallyExpanded]);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selectedInstrument = selectedInstrumentId ? getCatalogInstrument(selectedInstrumentId) : undefined;
+  const selectedPickerId = selectedInstrument ? getCatalogPickerInstrument(selectedInstrument).id : undefined;
+  const pickerInstruments = useMemo(() => INSTRUMENT_CATALOG.filter((instrument) => !instrument.pickerDefaultId), []);
 
   useEffect(() => {
     if (autoFocus) {
@@ -103,21 +109,27 @@ export function InstrumentCatalogPicker({
   const filtered = useMemo((): CatalogInstrument[] | null => {
     const q = search.trim().toLowerCase();
     if (!q) return null;
-    return INSTRUMENT_CATALOG.filter(
-      (i) =>
-        i.name.toLowerCase().includes(q) || i.shortName.toLowerCase().includes(q) || i.family.toLowerCase().includes(q),
+    const matchingIds = new Set(
+      INSTRUMENT_CATALOG.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          catalogPickerName(i).toLowerCase().includes(q) ||
+          i.shortName.toLowerCase().includes(q) ||
+          i.family.toLowerCase().includes(q),
+      ).map((instrument) => getCatalogPickerInstrument(instrument).id),
     );
-  }, [search]);
+    return pickerInstruments.filter((instrument) => matchingIds.has(instrument.id));
+  }, [search, pickerInstruments]);
 
   const instrumentRow = (instrument: CatalogInstrument, compact = false) => {
     const analysis = compatibility?.(instrument);
     const blocked = analysis?.status === "blocked";
-    const selected = selectedInstrumentId === instrument.id;
+    const selected = selectedPickerId === instrument.id;
     return (
       <ListRow
         key={instrument.id}
         onClick={() => (blocked ? onBlockedSelect?.(instrument, analysis) : onSelect(instrument))}
-        tooltip={analysis?.message ?? `Add ${instrument.name}`}
+        tooltip={analysis?.message ?? `Add ${catalogPickerName(instrument)}`}
         density={compact ? "compact" : undefined}
         indent={compact}
         selected={selected}
@@ -126,7 +138,7 @@ export function InstrumentCatalogPicker({
           analysis ? <CompatibilityLabel analysis={analysis} /> : selected ? <Check size={10} /> : <Plus size={10} />
         }
       >
-        {instrument.name}
+        {catalogPickerName(instrument)}
       </ListRow>
     );
   };
@@ -165,7 +177,7 @@ export function InstrumentCatalogPicker({
           )
         ) : (
           getFamiliesInOrder().map(({ family, label }) => {
-            const instruments = getInstrumentsByFamily(family);
+            const instruments = getInstrumentsByFamily(family).filter((instrument) => !instrument.pickerDefaultId);
             return (
               <Collapsible
                 key={family}

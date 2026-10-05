@@ -63,7 +63,7 @@ describe("generateTimeline — fermata holds", () => {
       },
       parts: [
         {
-          id: "piano",
+          id: "keyboard.piano",
           name: "Piano",
           staves: 2,
           measures: [
@@ -197,7 +197,7 @@ describe("generateTimeline — caesura pauses", () => {
       },
       parts: [
         {
-          id: "piano",
+          id: "keyboard.piano",
           name: "Piano",
           staves: 2,
           measures: [

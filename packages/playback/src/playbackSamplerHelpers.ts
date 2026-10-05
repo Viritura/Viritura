@@ -8,6 +8,7 @@
  */
 
 import type { Part } from "@viritura/core";
+import { instrumentSamplerKey } from "@viritura/midi";
 import type { ISampler, OrchestraSection, ReverbEngine, SpatialPosition } from "@viritura/audio";
 import {
   DRUM_KIT_STANDARD,
@@ -534,7 +535,12 @@ export async function createPartSampler(args: {
   laneIds: readonly string[];
   routingSamplers: Map<number | string, ISampler>;
   patches: PartPatchInfo[];
+  instrumentVariant?: boolean;
 }): Promise<void> {
+  if (args.resolved.instruments) {
+    await createInstrumentSamplers(args);
+    return;
+  }
   const {
     partIndex: i,
     resolved,
@@ -552,10 +558,14 @@ export async function createPartSampler(args: {
   const { part, position: defaultPos, sound, sf2 } = resolved;
 
   // Per-part spatial node (for canvas visualization)
-  const spatial = new SpatialNode(ctx, { refDistance: sound.routing.projectionRefDistance });
-  refs.spatialNodes.set(i, spatial);
-  spatial.setPosition(defaultPos.x, defaultPos.y);
+  if (!args.instrumentVariant) {
+    const spatial = new SpatialNode(ctx, { refDistance: sound.routing.projectionRefDistance });
+    refs.spatialNodes.set(i, spatial);
+    spatial.setPosition(defaultPos.x, defaultPos.y);
+  }
 
+  // Legacy/native transport may run without browser samples; loadSoundfont
+  // already reports this condition. Changed timbres require samples above.
   if (!sf2Buffer) return;
 
   const supportedSf2 = requireSf2Sound(part.name, sf2);
@@ -630,7 +640,7 @@ export async function createPartSampler(args: {
   routingSamplers.set(i, partSampler);
 
   // Per-part bookkeeping
-  sectionEntry.parts.push({ index: i });
+  if (!args.instrumentVariant) sectionEntry.parts.push({ index: i });
   refs.partSection.set(i, section);
   refs.partRefDist.set(i, sound.routing.projectionRefDistance);
   if (!refs.mixerVolume.has(i)) refs.mixerVolume.set(i, 1);
@@ -657,5 +667,43 @@ export async function createPartSampler(args: {
       gmProgram,
       gmProgramName: gmProgramName(gmProgram),
     });
+  }
+
+  /** Preload each timbre/layer on independent channels; routing is per attack,
+   * not a JavaScript timer, so look-ahead, seeks and loops cannot race a switch. */
+  async function createInstrumentSamplers(args: Parameters<typeof createPartSampler>[0]): Promise<void> {
+    if (!args.sf2Buffer)
+      throw new Error(`SoundFont unavailable for instrument changes in "${args.resolved.part.name}".`);
+    const variants = args.resolved.instruments!;
+    const groups: ISampler[] = [];
+    const lanes = new Map<string, ISampler[]>();
+    for (const [index, variant] of variants.entries()) {
+      const routing = new Map<number | string, ISampler>();
+      await createPartSampler({
+        ...args,
+        resolved: {
+          ...variant.resolved,
+          // A doubling player keeps one mixer seat/bus while timbres and layers
+          // follow the new instrument's default source.
+          position: args.resolved.position,
+          sound: { ...variant.resolved.sound, routing: args.resolved.sound.routing },
+        },
+        instrumentVariant: index > 0,
+        routingSamplers: routing,
+        patches: index === 0 ? args.patches : [],
+      });
+      groups.push(args.refs.samplers.get(args.partIndex)!);
+      for (const lane of args.laneIds) {
+        const sampler = routing.get(lane)!;
+        args.routingSamplers.set(instrumentSamplerKey(lane, variant.key), sampler);
+        const children = lanes.get(lane) ?? [];
+        children.push(sampler);
+        lanes.set(lane, children);
+      }
+    }
+    const facade = new SamplerGroup(groups);
+    args.refs.samplers.set(args.partIndex, facade);
+    args.routingSamplers.set(args.partIndex, facade);
+    for (const [lane, children] of lanes) args.routingSamplers.set(lane, new SamplerGroup(children));
   }
 }

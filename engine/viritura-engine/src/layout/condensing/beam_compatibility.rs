@@ -156,6 +156,7 @@ mod tests {
             condensing_override: None,
             grouping_display_overrides: None,
             staff_meters: None,
+            instrument_changes: None,
         }
     }
 

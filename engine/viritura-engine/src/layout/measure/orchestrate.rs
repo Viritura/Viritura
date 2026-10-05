@@ -713,7 +713,7 @@ pub(super) fn layout_measure_inner(
     let bar_rest_has_visible_prefix = is_system_start
         || is_first
         || rm.global.repeat_start.is_some()
-        || rm.global.key.is_some()
+        || rm.key_signature_changed()
         || rm.global.time.is_some()
         || prefix.leading_clef_gap > 0.0;
 

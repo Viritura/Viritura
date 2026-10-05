@@ -20,6 +20,10 @@ import {
 import { useJumpBarDestinations } from "./useJumpBarDestinations";
 import { radialMenuJumpBarCallbacks } from "./radialMenuJumpBarCallbacks";
 
+const BAR_CHANGE_DIALOG_ACTIONS = {
+  changeBarInstrument: () => openDialog("barInstrumentChange"),
+};
+
 export interface JumpBarActionsDeps {
   /** Create a named project folder, initialize its score and history, then open Setup mode. */
   onNewScore: () => void;
@@ -154,6 +158,7 @@ export function useJumpBarActions(deps: JumpBarActionsDeps): ReturnType<typeof b
             window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
           },
           transpose: () => openDialog("transpose"),
+          ...BAR_CHANGE_DIALOG_ACTIONS,
           splitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
           zoomIn: () => {
             const z = Math.min(currentZoom * 1.25, MAX_ZOOM);

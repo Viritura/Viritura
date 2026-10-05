@@ -3,6 +3,7 @@ import type { Part } from "./part";
 import type { LayoutDefinition, ScoreDefinition } from "./layout";
 import type { Sound } from "./kit";
 import type { GroupingDisplay } from "./time";
+import type { InstrumentChangeStyle } from "./instrumentChange";
 
 /** Score-level metadata (title, composer, etc.) — stored in root _x.viritura.metadata. */
 export interface ScoreMetadata {
@@ -318,6 +319,8 @@ export interface Score {
   timeSignatures?: TimeSignatureStyles;
   /** Chord-symbol engraving style (root `_x.viritura.chordSymbolStyle`). */
   chordSymbolStyle?: ChordSymbolStyle;
+  /** Score-wide change-label visibility (`_x.viritura.instrumentChangeStyle`). */
+  instrumentChangeStyle?: InstrumentChangeStyle;
   /** Per-part playback sound assignments (root `_x.viritura.soundProfile`). */
   soundProfile?: SoundProfileAssignment;
   /** Score-to-picture synchronization settings (root `_x.viritura.videoSync`). */

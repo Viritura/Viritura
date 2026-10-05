@@ -64,13 +64,13 @@ describe("normalizeTritschInstrumentIdentities", () => {
     expect(result.parts.map((part) => part._x?.viritura)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          instrumentId: "flute",
+          instrumentId: "wind.flutes.flute",
           midiProgram: 73,
           family: "woodwinds",
           spatial: { x: 1, y: 2 },
         }),
-        expect.objectContaining({ instrumentId: "bass-drum", midiProgram: 0, family: "percussion" }),
-        expect.objectContaining({ instrumentId: "double-bass", midiProgram: 43, family: "strings" }),
+        expect.objectContaining({ instrumentId: "drum.bass-drum", midiProgram: 0, family: "percussion" }),
+        expect.objectContaining({ instrumentId: "strings.contrabass", midiProgram: 43, family: "strings" }),
       ]),
     );
     expect(
@@ -80,29 +80,29 @@ describe("normalizeTritschInstrumentIdentities", () => {
         part._x?.viritura?.family,
       ]),
     ).toEqual([
-      ["flute", 73, "woodwinds"],
-      ["oboe", 68, "woodwinds"],
-      ["oboe", 68, "woodwinds"],
-      ["bflat-clarinet", 71, "woodwinds"],
-      ["bflat-clarinet", 71, "woodwinds"],
-      ["bassoon", 70, "woodwinds"],
-      ["bassoon", 70, "woodwinds"],
-      ["horn", 60, "brass"],
-      ["horn", 60, "brass"],
-      ["trumpet", 56, "brass"],
-      ["trumpet", 56, "brass"],
-      ["trombone", 57, "brass"],
-      ["trombone", 57, "brass"],
-      ["trombone", 57, "brass"],
-      ["timpani", 47, "percussion"],
-      ["bass-drum", 0, "percussion"],
-      ["triangle", 0, "percussion"],
-      ["cymbals", 0, "percussion"],
-      ["violin", 40, "strings"],
-      ["violin", 40, "strings"],
-      ["viola", 41, "strings"],
-      ["cello", 42, "strings"],
-      ["double-bass", 43, "strings"],
+      ["wind.flutes.flute", 73, "woodwinds"],
+      ["wind.reed.oboe", 68, "woodwinds"],
+      ["wind.reed.oboe", 68, "woodwinds"],
+      ["wind.reed.clarinet.bflat", 71, "woodwinds"],
+      ["wind.reed.clarinet.bflat", 71, "woodwinds"],
+      ["wind.reed.bassoon", 70, "woodwinds"],
+      ["wind.reed.bassoon", 70, "woodwinds"],
+      ["brass.french-horn", 60, "brass"],
+      ["brass.french-horn", 60, "brass"],
+      ["brass.trumpet.bflat", 56, "brass"],
+      ["brass.trumpet.bflat", 56, "brass"],
+      ["brass.trombone", 57, "brass"],
+      ["brass.trombone", 57, "brass"],
+      ["brass.trombone", 57, "brass"],
+      ["drum.timpani", 47, "percussion"],
+      ["drum.bass-drum", 0, "percussion"],
+      ["metal.triangle", 0, "percussion"],
+      ["metal.cymbal.clash", 0, "percussion"],
+      ["strings.violin", 40, "strings"],
+      ["strings.violin", 40, "strings"],
+      ["strings.viola", 41, "strings"],
+      ["strings.cello", 42, "strings"],
+      ["strings.contrabass", 43, "strings"],
     ]);
     expect(part(result, "P3-1")).toMatchObject({ transposition: { interval: { halfSteps: 2 } } });
     expect(part(result, "P3-2")).toMatchObject({ transposition: { interval: { halfSteps: 2 } } });
@@ -170,13 +170,13 @@ describe("normalizeTritschInstrumentIdentities", () => {
 function makeScore(): Score {
   const parts: Part[] = PARTS.map(([id, name]) => ({ id, name, measures: [{ sequences: [] }] }));
   parts[0]!._x = { viritura: { spatial: { x: 1, y: 2 } } };
-  parts[1]!._x = { viritura: { instrumentId: "oboe" } };
-  parts[2]!._x = { viritura: { instrumentId: "oboe" } };
+  parts[1]!._x = { viritura: { instrumentId: "wind.reed.oboe" } };
+  parts[2]!._x = { viritura: { instrumentId: "wind.reed.oboe" } };
   for (const index of [3, 4]) parts[index]!.transposition = { interval: { halfSteps: 2, staffDistance: 1 } };
-  parts[7]!._x = { viritura: { instrumentId: "horn" } };
-  parts[8]!._x = { viritura: { instrumentId: "horn" } };
+  parts[7]!._x = { viritura: { instrumentId: "brass.french-horn" } };
+  parts[8]!._x = { viritura: { instrumentId: "brass.french-horn" } };
   for (const index of [9, 10]) parts[index]!.transposition = { interval: { halfSteps: 2, staffDistance: 1 } };
-  for (const index of [11, 12, 13]) parts[index]!._x = { viritura: { instrumentId: "trombone" } };
+  for (const index of [11, 12, 13]) parts[index]!._x = { viritura: { instrumentId: "brass.trombone" } };
   parts[14]!.measures = [
     { sequences: [{ content: [{ duration: { base: "quarter" }, notes: [{ pitch: { step: "E", octave: 3 } }] }] }] },
   ];
@@ -187,7 +187,7 @@ function makeScore(): Score {
       { sequences: [{ content: [{ duration: { base: "quarter" }, kitNotes: [{ kitComponent: componentId }] }] }] },
     ];
   }
-  parts[20]!._x = { viritura: { instrumentId: "viola" } };
+  parts[20]!._x = { viritura: { instrumentId: "strings.viola" } };
   parts[22]!.transposition = {
     interval: { halfSteps: 12, staffDistance: 7 },
     prefersWrittenPitches: true,

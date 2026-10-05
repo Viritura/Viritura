@@ -9,9 +9,7 @@ use super::super::measure::{
 use super::super::resolve::resolve_all_ottavas;
 use super::super::types::MeasureLayout;
 use super::resolve_condensing::flat_staff_meter_states;
-use super::shared::{
-    append_partial_unison_label, build_virtual_part_measure, compute_flat_staff_transposition,
-};
+use super::shared::{append_partial_unison_label, build_virtual_part_measure};
 use crate::model::*;
 use crate::render::DisplayList;
 use std::collections::{HashMap, HashSet};
@@ -153,14 +151,29 @@ pub(super) fn build_explicit_system_layouts<'a>(
             .active_time
             .get(&staff_key)
             .cloned()
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                score
+                    .global
+                    .measures
+                    .iter()
+                    .take(m_start)
+                    .filter_map(|measure| measure.time.clone())
+                    .next_back()
+                    .unwrap_or_default()
+            });
         let mut active_key = state
             .active_key
             .get(&staff_key)
             .cloned()
-            .unwrap_or(KeySignature {
-                fifths: 0,
-                ..Default::default()
+            .unwrap_or_else(|| {
+                score
+                    .global
+                    .measures
+                    .iter()
+                    .take(m_start)
+                    .filter_map(|measure| measure.key.clone())
+                    .next_back()
+                    .unwrap_or_default()
             });
         let mut active_layout_staves: Option<&Vec<FlatStaff>> = None;
         let mut last_clef = state.last_clef.get(&staff_key).cloned();
@@ -184,7 +197,18 @@ pub(super) fn build_explicit_system_layouts<'a>(
             }
         }
         let mut previous_condensing = state.prev_condensing.get(&staff_key).cloned();
-        let mut previous_display_key = active_key.clone();
+        let prior_transposition = m_start.checked_sub(1).map(|index| {
+            super::structure_flattening::flat_staff_transposition_at(
+                flat_staff,
+                score,
+                use_written,
+                index,
+            )
+        });
+        let mut previous_display_key =
+            prior_transposition.map_or_else(KeySignature::default, |(interval, flip)| {
+                crate::layout::resolve::resolve_display_key(&active_key, interval, flip).0
+            });
 
         for &measure_index in sys_measure_indices {
             if let Some((layout_staves, _)) = lc_map.get(&measure_index) {
@@ -195,10 +219,19 @@ pub(super) fn build_explicit_system_layouts<'a>(
                 .unwrap_or(flat_staff);
             measure_staves.insert(measure_index, effective_staff);
             let (transposition, key_fifths_flip_at) =
-                compute_flat_staff_transposition(effective_staff, score, use_written);
+                super::structure_flattening::flat_staff_transposition_at(
+                    effective_staff,
+                    score,
+                    use_written,
+                    measure_index,
+                );
             let mut chord_staff = effective_staff.clone();
-            chord_staff.chord_symbol_transposition =
-                super::chord_symbols::display_transposition(score, effective_staff, use_written);
+            chord_staff.chord_symbol_transposition = super::chord_symbols::display_transposition_at(
+                score,
+                effective_staff,
+                use_written,
+                measure_index,
+            );
             let global =
                 score
                     .global
@@ -265,6 +298,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                                 voice: None,
                                 source_part_index: None,
                                 source_expression_index: None,
+                                instrument_reminder: false,
                                 manual_offset: None,
                                 avoid_collisions: None,
                             },
