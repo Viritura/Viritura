@@ -164,6 +164,9 @@ export function applyInstrumentPlayback(
         partEvents.push(scoped);
       }
     }
+    const attackDelays = new Map<string, number>();
+    const attackKey = (event: MidiEvent) =>
+      JSON.stringify([event.playbackLaneId, event.channel, event.midiNote, event.scoreBeat, event.scoreEventId]);
     for (const event of partEvents) {
       if (event.type === "controlChange" && event.cc !== 74 && event.cc !== 71) continue;
       const beat = event.scoreBeat ?? timing.model.beatAtTime(event.time);
@@ -176,9 +179,14 @@ export function applyInstrumentPlayback(
       }
       if (event.type === "noteOn") {
         // Humanization must not move an attack into the preceding timbre region.
+        const delay = Math.max(0, instrumentStart - event.time);
+        attackDelays.set(attackKey(event), delay);
         event.time = Math.max(event.time, instrumentStart);
       }
       event.playbackInstrumentKey = instrument;
+    }
+    for (const event of partEvents) {
+      if (event.type === "noteOff") event.time += attackDelays.get(attackKey(event)) ?? 0;
     }
     for (const lane of lanes) {
       let previous: string | undefined;

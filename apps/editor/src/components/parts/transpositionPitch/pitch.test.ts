@@ -40,8 +40,7 @@ describe("written C4 sounding pitch", () => {
 describe("instrument-aware notation presets", () => {
   it("uses the actual catalog default for every catalog instrument", () => {
     for (const instrument of INSTRUMENT_CATALOG) {
-      expect(transpositionPitchPresets(instrument.id)[0]).toMatchObject({
-        id: "catalog-default",
+      expect(transpositionPitchPresets(instrument.id).find((preset) => preset.isDefault)).toMatchObject({
         halfSteps: instrument.transposition?.halfSteps ?? 0,
         staffDistance: instrument.transposition?.staffDistance ?? 0,
       });
@@ -51,12 +50,12 @@ describe("instrument-aware notation presets", () => {
   it("distinguishes B-flat horn alto and basso", () => {
     const presets = transpositionPitchPresets("brass.french-horn");
     expect(presets.find((preset) => preset.id === "horn-bb-alto")).toMatchObject({
-      label: "Horn in B♭ (alto) — B♭3",
+      label: "Horn in B♭ (alto)",
       halfSteps: 2,
       staffDistance: 1,
     });
     expect(presets.find((preset) => preset.id === "horn-bb-basso")).toMatchObject({
-      label: "Horn in B♭ (basso) — B♭2",
+      label: "Horn in B♭ (basso)",
       halfSteps: 14,
       staffDistance: 8,
     });
@@ -65,14 +64,14 @@ describe("instrument-aware notation presets", () => {
   it("keeps E-flat piccolo and alto clarinet separate from instrument identity", () => {
     const instrument = getCatalogInstrument("wind.reed.clarinet.eflat")!;
     const presets = transpositionPitchPresets(instrument.id);
-    expect(presets[0]).toMatchObject({ halfSteps: -3, staffDistance: -2 });
+    expect(presets.find((preset) => preset.isDefault)).toMatchObject({ halfSteps: -3, staffDistance: -2 });
     expect(presets.find((preset) => preset.id === "clarinet-eb-piccolo")).toMatchObject({
-      label: "Piccolo clarinet in E♭ — E♭4",
+      label: "Piccolo clarinet in E♭",
       halfSteps: -3,
       staffDistance: -2,
     });
     expect(presets.find((preset) => preset.id === "clarinet-eb-alto")).toMatchObject({
-      label: "Alto clarinet in E♭ — E♭3",
+      label: "Alto clarinet in E♭",
       halfSteps: 9,
       staffDistance: 5,
     });

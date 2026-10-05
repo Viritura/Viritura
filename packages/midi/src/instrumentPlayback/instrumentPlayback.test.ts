@@ -48,6 +48,34 @@ function score(): Score {
 }
 
 describe("instrument playback timeline", () => {
+  it("preserves short-note release duration when an early attack is clamped to a change", () => {
+    const input = score();
+    input.global.measures.forEach((measure) => {
+      measure.tempos = [{ bpm: 200, value: { base: "quarter" } }];
+    });
+    const part = input.parts[0]!;
+    part.measures[1]!.sequences = [
+      {
+        content: [
+          {
+            type: "event",
+            id: "short",
+            duration: { base: "64th" },
+            markings: { staccato: {} },
+            notes: [{ pitch: { step: "C", octave: 5 } }],
+          },
+        ],
+      },
+    ];
+    input.parts = [{ name: "Empty 1", measures: [] }, { name: "Empty 2", measures: [] }, part];
+    const events = generateTimeline(input).events;
+    const attack = events.find((event) => event.type === "noteOn" && event.scoreEventId === "short")!;
+    const release = events.find((event) => event.type === "noteOff" && event.scoreEventId === "short")!;
+    expect(attack.time).toBeCloseTo(1.2);
+    expect(release.time - attack.time).toBeCloseTo(0.009375);
+    expect(release.playbackInstrumentKey).toBe(attack.playbackInstrumentKey);
+  });
+
   it("switches at the exact boundary, persists, and keeps sounding pitches", () => {
     const input = score();
     const before = structuredClone(input);

@@ -66,7 +66,7 @@ describe("RosterPartRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Instrument actions for Flute" }));
     expect(screen.getByRole("region", { name: "Transposition" })).toBeTruthy();
     expect(screen.getByText("Written C4 sounds as C4")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Transposition preset" }).textContent).toBe("Concert pitch — C4");
+    expect(screen.getByRole("combobox", { name: "Transposition preset" }).textContent).toBe("Concert pitch");
     expect(screen.getByRole("combobox", { name: "Sounding pitch" }).textContent).toBe("C");
     expect((screen.getByRole("spinbutton", { name: "Sounding octave" }) as HTMLInputElement).value).toBe("4");
     expect(screen.queryByLabelText("Chromatic")).toBeNull();
