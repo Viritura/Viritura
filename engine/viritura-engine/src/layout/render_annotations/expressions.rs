@@ -17,32 +17,14 @@ fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
     }
 }
 
-/// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
-///
-/// Text expressions are positioned at the x coordinate corresponding to their
-/// rhythmic position. They sit below the staff, below dynamics, rendered in
-/// italic serif font. Collision avoidance ensures they don't overlap with
-/// notes, stems, or dynamics.
-pub(crate) fn render_text_expressions(
-    dl: &mut DisplayList,
+fn below_expression_baseline(
     ml: &MeasureLayout,
     staff_y: f64,
     sp: f64,
     config: &LayoutConfig,
-    above_glyph_boxes: &[AboveGlyphBox],
-    dynamic_boxes: &[PlacedDynamic],
-    staff_y_offsets: Option<&[f64]>,
-) {
-    let expressions = match &ml.resolved.part.expressions {
-        Some(e) if !e.is_empty() => e,
-        _ => return,
-    };
-
-    let total_beats = ml.resolved.active_time.measure_beats();
-    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
-    let x_origin = ml.x + ml.prefix_width;
+    font_size: f64,
+) -> f64 {
     let staff_bottom = staff_y + 4.0 * sp;
-    let font_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
 
     // Find the lowest point of any stem/note below the staff (same as dynamics)
     let mut lowest_y = staff_bottom;
@@ -73,9 +55,37 @@ pub(crate) fn render_text_expressions(
 
     let text_ascent = 0.8 * font_size;
     let clearance = 0.5 * sp;
-    let expr_y = (staff_bottom + config.expression_min_distance * sp)
-        .max(lowest_y + clearance + text_ascent);
+    (staff_bottom + config.expression_min_distance * sp).max(lowest_y + clearance + text_ascent)
+}
 
+/// Render text expressions (e.g. "dolce", "espressivo", "rit.", "a tempo") below the staff.
+///
+/// Text expressions are positioned at the x coordinate corresponding to their
+/// rhythmic position. They sit below the staff, below dynamics, rendered in
+/// italic serif font. Collision avoidance ensures they don't overlap with
+/// notes, stems, or dynamics.
+pub(crate) fn render_text_expressions(
+    dl: &mut DisplayList,
+    ml: &MeasureLayout,
+    staff_y: f64,
+    sp: f64,
+    config: &LayoutConfig,
+    above_glyph_boxes: &[AboveGlyphBox],
+    dynamic_boxes: &[PlacedDynamic],
+    staff_y_offsets: Option<&[f64]>,
+) {
+    let expressions = match &ml.resolved.part.expressions {
+        Some(e) if !e.is_empty() => e,
+        _ => return,
+    };
+
+    let total_beats = ml.resolved.active_time.measure_beats();
+    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
+    let x_origin = ml.x + ml.prefix_width;
+    let staff_bottom = staff_y + 4.0 * sp;
+    let font_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
+    let expr_y = below_expression_baseline(ml, staff_y, sp, config, font_size);
+    let text_ascent = 0.8 * font_size;
     let mi = ml.resolved.index;
     let pi = ml.part_index;
     let notehead_w = 1.18 * sp;

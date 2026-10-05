@@ -22,6 +22,18 @@ pub(crate) use text_block::{FrameFont, TextBlockLayout};
 const FRAME_TEXT_SIZE_SP: f64 = 2.0;
 const FRAME_FONT: &str = "serif";
 
+pub(super) fn layout_full_score_with_frames(
+    score: &Score,
+    config: &LayoutConfig,
+    score_index: usize,
+) -> DisplayList {
+    let mut dl = super::full_score::layout_full_score(score, config);
+    if let Some(score_def) = score.scores.get(score_index) {
+        append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
+    }
+    dl.with_raised_text_frames()
+}
+
 /// Printable page rectangle in display-list pixels.
 #[derive(Clone, Copy)]
 struct PageArea {

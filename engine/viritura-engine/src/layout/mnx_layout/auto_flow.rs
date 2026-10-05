@@ -1046,23 +1046,13 @@ pub(super) fn layout_auto_flow_mnx_score(
         .map(|c| c.system_layout_reuse_enabled())
         .unwrap_or(false);
     if cache.is_some() && !config.emit_layout_debug && sys_reuse_enabled {
-        let mut new_sys_layouts: Vec<Option<cache::CachedSystemLayout>> =
-            Vec::with_capacity(precomp_layouts.len());
-        let zipped = precomp_layouts
-            .into_iter()
-            .zip(precomp_content_hashes)
-            .zip(precomp_restore_meta)
-            .zip(precomp_margins)
-            .zip(precomp_sys_signatures);
-        for ((((sys_layouts, sys_hashes), sys_restore), margin_left), signature) in zipped {
-            new_sys_layouts.push(Some(cache::CachedSystemLayout {
-                signature,
-                margin_left,
-                all_staff_layouts: sys_layouts,
-                content_hashes: sys_hashes,
-                restore_meta: sys_restore,
-            }));
-        }
+        let new_sys_layouts = collect_cached_system_layouts(
+            precomp_layouts,
+            precomp_content_hashes,
+            precomp_restore_meta,
+            precomp_margins,
+            precomp_sys_signatures,
+        );
         if let Some(c) = cache.as_mut() {
             c.set_cached_system_layouts(new_sys_layouts);
         }

@@ -32,7 +32,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-use super::super::text_frames::append_text_frames_by_bounds;
+use super::super::text_frames::{append_text_frames_by_bounds, layout_full_score_with_frames};
 use super::authored_systems::resolve_explicit_systems_and_layouts;
 use super::auto_flow::layout_auto_flow_mnx_score;
 use super::explicit_pagination::{paginate_explicit_pages, ExplicitPagination};
@@ -489,11 +489,7 @@ pub fn layout_with_mnx_scores_cached(
 
     // Fall back to regular layout if no layouts/scores defined
     if score.layouts.is_empty() || score.scores.is_empty() {
-        let mut dl = layout_full_score(score, config);
-        if let Some(score_def) = score.scores.get(score_index) {
-            append_text_frames_by_bounds(&mut dl, score, &score_def.text_frames, config);
-        }
-        return dl.with_raised_text_frames();
+        return layout_full_score_with_frames(score, config, score_index);
     }
     let score_def = match score.scores.get(score_index) {
         Some(sd) => sd,
