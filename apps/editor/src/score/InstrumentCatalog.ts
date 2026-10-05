@@ -52,6 +52,10 @@ export interface CatalogInstrument {
   baseName?: string;
   /** Base short name for MNX Part.shortName (without transposition key). */
   baseShortName?: string;
+  /** Default catalog entry offered by the picker for this tuning variant. */
+  pickerDefaultId?: string;
+  /** Picker label when the instrument's register needs clarification. */
+  pickerName?: string;
   /** Instrument family. */
   family: InstrumentFamily;
   /** Number of staves (default 1, 2 for keyboards). */
@@ -114,6 +118,18 @@ export const INSTRUMENT_CATALOG: CatalogInstrument[] = [...INSTRUMENT_CATALOG_PR
 /** Look up a catalog instrument by ID. */
 export function getCatalogInstrument(id: string): CatalogInstrument | undefined {
   return INSTRUMENT_CATALOG.find((i) => i.id === id);
+}
+
+/** Resolve a tuning variant to its default-first instrument choice. */
+export function getCatalogPickerInstrument(instrument: CatalogInstrument): CatalogInstrument {
+  if (!instrument.pickerDefaultId) return instrument;
+  const defaultInstrument = getCatalogInstrument(instrument.pickerDefaultId);
+  if (!defaultInstrument) throw new Error(`Unknown picker default: ${instrument.pickerDefaultId}`);
+  return defaultInstrument;
+}
+
+export function catalogPickerName(instrument: CatalogInstrument): string {
+  return instrument.pickerName ?? instrument.baseName ?? instrument.name;
 }
 
 /**

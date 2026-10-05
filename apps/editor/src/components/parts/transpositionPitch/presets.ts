@@ -33,6 +33,11 @@ const CLARINET_PRESETS: readonly TranspositionPitchPreset[] = [
   { id: "clarinet-bb-contra", label: "Contrabass clarinet in B♭", halfSteps: 26, staffDistance: 15 },
 ];
 
+const TRUMPET_PRESETS: readonly TranspositionPitchPreset[] = [
+  { id: "trumpet-bb", label: "Trumpet in B♭", halfSteps: 2, staffDistance: 1 },
+  { id: "trumpet-c", label: "Trumpet in C", halfSteps: 0, staffDistance: 0 },
+];
+
 /** Presets change notation only, never the selected instrument or its sound. */
 export function transpositionPitchPresets(instrumentId?: string): TranspositionPitchPreset[] {
   const instrument = instrumentId ? getCatalogInstrument(instrumentId) : undefined;
@@ -50,6 +55,8 @@ export function transpositionPitchPresets(instrumentId?: string): TranspositionP
     presets.push(...HORN_PRESETS);
   } else if (instrumentId?.startsWith("wind.reed.clarinet")) {
     presets.push(...CLARINET_PRESETS);
+  } else if (instrumentId?.startsWith("brass.trumpet.")) {
+    presets.push(...TRUMPET_PRESETS);
   }
   presets.push({ id: "concert", label: "Concert pitch", halfSteps: 0, staffDistance: 0 });
   return presets.map((preset) => ({

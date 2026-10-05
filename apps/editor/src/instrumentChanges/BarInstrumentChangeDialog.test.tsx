@@ -56,6 +56,26 @@ function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
 }
 
 describe("bar change dialog", () => {
+  it("chooses the default trumpet once and moves C tuning into customization", async () => {
+    const { updateScore } = setup("instrument");
+    const user = userEvent.setup();
+    await user.type(screen.getByRole("textbox", { name: "Search instruments…" }), "trumpet");
+    expect(screen.queryByText("Trumpet in C")).toBeNull();
+    expect(screen.queryByText("Trumpet in B♭")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Trumpet/ }));
+    expect(screen.getByText(/Trumpet in B♭: written C4 sounds as B♭3/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Customize tuning" }));
+    await user.click(screen.getByRole("combobox", { name: "Transposition preset" }));
+    await user.click(screen.getByRole("option", { name: "Trumpet in C — C4" }));
+    await user.click(screen.getByRole("button", { name: "Apply change" }));
+    expect(updateScore).toHaveBeenCalledOnce();
+    const score = updateScore.mock.calls[0]![0];
+    const active = resolveActiveInstrument(score.parts[0]!, 1);
+    expect(active.instrument?.instrumentId).toBe("brass.trumpet.bflat");
+    expect(active.transposition?.interval).toEqual({ halfSteps: 0, staffDistance: 0 });
+    expect(validateRawScore(serializeMnx(score)).ok).toBe(true);
+  });
+
   it("starts with the instrument default and lets tuning be customized in the same save", () => {
     const { updateScore } = setup("instrument");
     expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");

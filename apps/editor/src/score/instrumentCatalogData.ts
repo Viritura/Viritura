@@ -96,6 +96,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
   },
   {
     id: "wind.reed.clarinet.a",
+    pickerDefaultId: "wind.reed.clarinet.bflat",
     name: "Clarinet in A",
     shortName: "Cl.",
     baseName: "Clarinet",
@@ -111,6 +112,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
   },
   {
     id: "wind.reed.clarinet.eflat",
+    pickerName: "Piccolo Clarinet",
     name: "Clarinet in E♭",
     shortName: "Cl.",
     baseName: "Clarinet",
@@ -260,6 +262,7 @@ export const INSTRUMENT_CATALOG_PRIMARY: CatalogInstrument[] = [
   },
   {
     id: "brass.trumpet.c",
+    pickerDefaultId: "brass.trumpet.bflat",
     name: "Trumpet in C",
     shortName: "Tpt.",
     baseName: "Trumpet",

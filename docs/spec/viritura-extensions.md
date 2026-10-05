@@ -1197,6 +1197,14 @@ applying the instrument and tuning together in one score update. Selecting
 a different instrument resets tuning to that instrument's default;
 **Use instrument default** removes a custom override. Reopening an existing
 override preserves it and opens the tuning section.
+The shared instrument picker offers one default-first choice for tuning
+variants: **Trumpet** defaults to B-flat and **Clarinet** to B-flat, with C
+trumpet and A clarinet available through tuning customization instead of
+separate picker rows. Horn and cornet likewise use key-free picker labels.
+Register-distinct instruments such as piccolo clarinet, bass clarinet, and
+the saxophone sizes remain separate choices. Existing MusicXML sound IDs,
+including tuning-specific identities, remain valid and are not rewritten
+merely by opening the picker.
 **Change transposition** is a shortcut into the same tuning section, keeping
 instrument identity unless another instrument is explicitly selected.
 It can override the default, including an explicit zero interval. The sign
