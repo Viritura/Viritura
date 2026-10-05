@@ -1,4 +1,4 @@
-import { Button, Checkbox, FormField } from "@viritura/ui";
+import { Button, FormField } from "@viritura/ui";
 import type { StaffTextFramePresentation } from "@viritura/core";
 import { CommitNumberField } from "./CommitNumberField";
 import { TextPresentationFields } from "./TextPresentationFields";
@@ -15,30 +15,24 @@ export function StaffTextFrameFields({ id, value, onChange }: StaffTextFrameFiel
   return (
     <section className={styles.group} aria-label="Staff text frame">
       <p className={styles.groupTitle}>Frame</p>
-      <Checkbox
-        label="Wrap to frame width"
-        checked={frame.width !== undefined}
-        onChange={(event) => {
-          const rest = { ...frame };
-          delete rest.width;
-          onChange(event.target.checked ? { ...frame, width: { unit: "staffSpaces", value: 20 } } : rest);
-        }}
-      />
-      {frame.width && (
-        <FormField label="Width (sp)" htmlFor={`${id}-width`}>
-          <CommitNumberField
-            id={`${id}-width`}
-            value={frame.width.value}
-            min={0.1}
-            step={0.5}
-            onCommit={(width) => onChange({ ...frame, width: { unit: "staffSpaces", value: width } })}
-          />
-        </FormField>
-      )}
-      <p className={styles.help}>
-        Without a width, text uses its natural width. Height grows automatically; authored line breaks are kept. The
-        frame stays attached to this staff and musical position.
-      </p>
+      <FormField
+        label="Fixed width (sp)"
+        htmlFor={`${id}-width`}
+        message="Empty = auto width. Set a width to wrap text."
+      >
+        <CommitNumberField
+          id={`${id}-width`}
+          value={frame.width?.value}
+          placeholder="Auto"
+          min={0.1}
+          step={0.5}
+          onCommit={(width) => onChange({ ...frame, width: { unit: "staffSpaces", value: width } })}
+          onClear={() => {
+            const { width: _width, ...rest } = frame;
+            onChange(rest);
+          }}
+        />
+      </FormField>
       <TextPresentationFields
         id={id}
         value={frame}

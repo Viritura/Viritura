@@ -25,7 +25,7 @@ const RICH_VALUE: TextContent = [
   { text: " dolce", style: { fontStyle: "italic" } },
 ];
 
-function ScoreTextHarness({ initial }: { initial: TextContent }) {
+function ScoreTextHarness({ initial, multiline = false }: { initial: TextContent; multiline?: boolean }) {
   const [value, setValue] = useState<TextContent>(initial);
   // The app registers Bravura when a score canvas paints; do it here so the
   // glyph chips and picker previews render outside the score view.
@@ -33,7 +33,13 @@ function ScoreTextHarness({ initial }: { initial: TextContent }) {
   return (
     <div style={PANEL_STYLE}>
       <FormField label="Text">
-        <TextContentEditor value={value} onChange={setValue} placeholder="Expression text" ariaLabel="Text" />
+        <TextContentEditor
+          value={value}
+          onChange={setValue}
+          placeholder="Expression text"
+          ariaLabel="Text"
+          multiline={multiline}
+        />
       </FormField>
       <pre style={PREVIEW_STYLE}>{JSON.stringify(value, null, 2)}</pre>
     </div>
@@ -56,3 +62,7 @@ export const PlainText: Story = { args: { initial: [{ text: "dolce" }] } };
 export const StyledWithGlyphs: Story = { args: { initial: RICH_VALUE } };
 
 export const Empty: Story = { args: { initial: [] } };
+
+export const Multiline: Story = {
+  args: { initial: [{ text: "Play freely\nThen resume the pulse " }, { glyphs: ["dynamicPP"] }], multiline: true },
+};

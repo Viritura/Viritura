@@ -96,6 +96,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
         <>
           <DirectionTextSection
             title="Expression"
+            multiline
             label="Text"
             value={selectedExpression.text}
             placeholder="e.g. dolce, espressivo, rit."

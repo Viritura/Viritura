@@ -1,3 +1,5 @@
+import { isEditorLineBreak, startsEditorLine } from "./textContentEditorModel";
+
 /** Places a non-editable glyph chip at `range` and leaves the caret after it. */
 export function insertGlyphChip(range: Range, glyphName: string, character: string, className: string): void {
   const chip = document.createElement("span");
@@ -45,7 +47,23 @@ function plainTextOffset(editor: HTMLElement, container: Node, offset: number): 
   const probe = document.createRange();
   probe.setStart(editor, 0);
   probe.setEnd(container, offset);
-  return probe.toString().length;
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let length = 0;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node instanceof HTMLElement) {
+      if (isEditorLineBreak(node, editor)) {
+        const parent = node.parentNode!;
+        const index = Array.from(parent.childNodes).indexOf(node);
+        if (probe.comparePoint(parent, index + 1) <= 0) length++;
+      } else if (startsEditorLine(node) && probe.comparePoint(node, 0) <= 0) {
+        length++;
+      }
+    } else if (node instanceof Text) {
+      if (probe.comparePoint(node, node.length) <= 0) length += node.length;
+      else if (node === container) length += offset;
+    }
+  }
+  return length;
 }
 
 /** Plain-text offsets of a range, stable across re-rendering the field markup. */
@@ -57,10 +75,23 @@ export function textOffsetsOf(editor: HTMLElement, range: Range): [number, numbe
 }
 
 function boundaryAt(editor: HTMLElement, offset: number): [Node, number] {
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
   let seen = 0;
   let last: Text | null = null;
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node instanceof HTMLElement) {
+      if (isEditorLineBreak(node, editor)) {
+        const parent = node.parentNode!;
+        const index = Array.from(parent.childNodes).indexOf(node);
+        if (offset <= seen) return [parent, index];
+        seen++;
+        if (offset <= seen) return [parent, index + 1];
+      } else if (startsEditorLine(node)) {
+        seen++;
+        if (offset <= seen) return [node, 0];
+      }
+      continue;
+    }
     const text = node as Text;
     if (offset <= seen + text.data.length) return [text, offset - seen];
     seen += text.data.length;

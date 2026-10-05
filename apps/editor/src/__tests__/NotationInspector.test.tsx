@@ -195,8 +195,8 @@ describe("staff text frame Properties", () => {
     const frame = await screen.findByRole("region", { name: "Staff text frame" });
     const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
     const original = snapshot().parts[0].measures[0].expressions![0];
-    fireEvent.click(within(frame).getByRole("checkbox", { name: "Wrap to frame width" }));
-    const width = within(frame).getByLabelText("Width (sp)");
+    const width = within(frame).getByLabelText("Fixed width (sp)");
+    expect(width).toHaveProperty("value", "");
     fireEvent.change(width, { target: { value: "12" } });
     fireEvent.blur(width);
     fireEvent.click(within(frame).getByRole("radio", { name: "Solid" }));
@@ -224,18 +224,35 @@ describe("staff text frame Properties", () => {
   it("supports undo and redo of frame properties", async () => {
     render(withProviders(<HistoryHarness elementId="p0/m0/expr0" />));
     await screen.findByRole("region", { name: "Staff text frame" });
-    fireEvent.click(screen.getByRole("checkbox", { name: "Wrap to frame width" }));
+    const width = screen.getByLabelText("Fixed width (sp)");
+    fireEvent.change(width, { target: { value: "20" } });
+    fireEvent.blur(width);
     await waitFor(() =>
       expect((screen.getByRole("button", { name: "Undo inspector edit" }) as HTMLButtonElement).disabled).toBe(false),
     );
     fireEvent.click(screen.getByRole("button", { name: "Undo inspector edit" }));
-    await waitFor(() =>
-      expect((screen.getByRole("checkbox", { name: "Wrap to frame width" }) as HTMLInputElement).checked).toBe(false),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Fixed width (sp)")).toHaveProperty("value", ""));
     fireEvent.click(screen.getByRole("button", { name: "Redo inspector edit" }));
-    await waitFor(() =>
-      expect((screen.getByRole("checkbox", { name: "Wrap to frame width" }) as HTMLInputElement).checked).toBe(true),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Fixed width (sp)")).toHaveProperty("value", "20"));
+  });
+
+  it("clears width back to auto without resetting the other frame properties", async () => {
+    render(withProviders(<Harness elementId="p0/m0/expr0" />));
+    const region = await screen.findByRole("region", { name: "Staff text frame" });
+    const ui = within(region);
+    const width = ui.getByLabelText("Fixed width (sp)");
+    expect(ui.queryByRole("radio", { name: "Justify" })).toBeNull();
+    fireEvent.change(width, { target: { value: "15" } });
+    fireEvent.blur(width);
+    expect(ui.getByRole("radio", { name: "Justify" })).toBeTruthy();
+    fireEvent.click(ui.getByRole("checkbox", { name: "Erase background" }));
+    fireEvent.change(width, { target: { value: "" } });
+    fireEvent.blur(width);
+    expect(width).toHaveProperty("value", "");
+    expect(ui.queryByRole("radio", { name: "Justify" })).toBeNull();
+    const score = JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+    expect(score.parts[0].measures[0].expressions![0].frame).toEqual({ eraseBackground: true });
+    expect(screen.getByRole("textbox", { name: "Text" }).getAttribute("aria-multiline")).toBe("true");
   });
 });
 

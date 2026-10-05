@@ -8,6 +8,21 @@ import {
 } from "./textContentEditorModel";
 
 describe("text content editor model", () => {
+  it("round-trips authored newlines, including trailing empty lines and glyph runs", () => {
+    const content: TextContent = [{ text: "first\n\nsecond " }, { glyphs: ["dynamicPP"] }, { text: "\n\n" }];
+    const editor = document.createElement("div");
+    editor.innerHTML = htmlForTextContent(content);
+    expect(textContentFromEditor(editor)).toEqual(content);
+  });
+
+  it("reads native line breaks and pasted paragraphs without counting browser placeholder breaks", () => {
+    const editor = document.createElement("div");
+    editor.innerHTML = "<span>first<br>second<br><br></span>";
+    expect(textContentFromEditor(editor)).toEqual([{ text: "first\nsecond\n" }]);
+    editor.innerHTML = "<div>first</div><div><br></div><div>third</div>";
+    expect(textContentFromEditor(editor)).toEqual([{ text: "first\n\nthird" }]);
+  });
+
   it("round-trips run styling and SMuFL glyph styling through the editor DOM", () => {
     const content: TextContent = [
       { text: "con ", style: { fontStyle: "italic" } },

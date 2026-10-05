@@ -18,7 +18,7 @@ export function HorizonTextFrames() {
   const { score, frames, selectedFrame } = editing;
   const context = useMemo(() => selectionMusicalContext(selection, score), [selection, score]);
   const pageCount = useRenderedPageCount(score, editing.scoreIndex);
-  if (!score?.scores?.[editing.scoreIndex]) return null;
+  if (!score?.scores?.[editing.scoreIndex] || frames.length === 0) return null;
 
   const nearby = context ? framesAtMeasure(score, editing.scoreIndex, frames, context.measureIndex) : [];
   const unplacedIds = unplacedFrameIds(score, editing.scoreIndex, frames, pageCount);
@@ -28,7 +28,7 @@ export function HorizonTextFrames() {
 
   return (
     <section className={styles.panel} aria-label="Hidden text frames" data-testid="horizon-text-frames">
-      <p className={styles.help}>Text frames are placed on pages, so Horizon view hides them. Edit them here.</p>
+      <p className={styles.help}>Page frames are hidden in Horizon. Edit them here.</p>
       <div className={styles.group}>
         <p className={styles.groupTitle}>
           {context ? `Frames at measure ${context.measureIndex + 1}` : "Frames at selection"}

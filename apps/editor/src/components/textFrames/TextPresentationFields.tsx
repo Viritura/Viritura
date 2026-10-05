@@ -48,8 +48,12 @@ export function TextPresentationFields({
       <FormField label="Paragraph justification">
         <ButtonGroup
           ariaLabel="Paragraph justification"
-          options={JUSTIFICATIONS}
-          value={value.paragraphJustification ?? "left"}
+          options={value.width ? JUSTIFICATIONS : ALIGNMENTS}
+          value={
+            value.paragraphJustification === "justify" && !value.width
+              ? "left"
+              : (value.paragraphJustification ?? "left")
+          }
           onChange={(paragraphJustification) => onChange({ paragraphJustification })}
         />
       </FormField>

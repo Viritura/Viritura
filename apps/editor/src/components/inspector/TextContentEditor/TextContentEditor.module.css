@@ -27,6 +27,20 @@
   cursor: text;
 }
 
+.multiline {
+  min-height: 5rem;
+  line-height: 1.5;
+  resize: vertical;
+  overflow: auto;
+}
+
+.editor [data-glyph] {
+  font-family: Bravura, serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.3em;
+}
+
 .editor:empty::before {
   content: attr(data-placeholder);
   color: var(--text-placeholder);
@@ -38,11 +52,6 @@
 }
 
 .glyphResults {
-  position: absolute;
-  z-index: 5;
-  top: 100%;
-  left: 0;
-  right: 0;
   max-height: 12rem;
   overflow: auto;
   margin-top: var(--space-1);
@@ -63,6 +72,8 @@
 .glyph {
   font-family: Bravura, serif;
   font-size: 1.3em;
+  font-weight: normal;
+  font-style: normal;
 }
 
 .noGlyphs {

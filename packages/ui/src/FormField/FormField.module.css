@@ -77,20 +77,16 @@
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 33, 94, 78), 0.18);
 }
 
-/* Number inputs: hide browser spinner arrows by default. The native
-   controls are visually noisy at form-field density and inconsistent
-   across browsers; values change via keyboard / wheel / typing. Callers
-   that want the spinners back can pass className with the override. */
+/* Keep native steppers available alongside typing and keyboard navigation. */
 .input[type="number"],
 .inputLg[type="number"] {
-  appearance: textfield;
+  appearance: auto;
 }
 .input[type="number"]::-webkit-outer-spin-button,
 .input[type="number"]::-webkit-inner-spin-button,
 .inputLg[type="number"]::-webkit-outer-spin-button,
 .inputLg[type="number"]::-webkit-inner-spin-button {
-  appearance: none;
-  margin: 0;
+  opacity: 1;
 }
 
 /* Larger input variant for dialogs */

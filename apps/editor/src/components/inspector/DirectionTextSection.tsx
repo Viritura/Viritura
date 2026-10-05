@@ -5,10 +5,19 @@ import { sectionStyle, legendStyle, labelStyle } from "./types";
 import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 
 const offsetRowStyle: CSSProperties = { display: "flex", gap: 8 };
-const offsetFieldStyle: CSSProperties = { flex: 1 };
+const offsetFieldStyle: CSSProperties = { flex: 1, minWidth: 0 };
 const offsetLabelStyle: CSSProperties = { ...labelStyle, ...offsetFieldStyle };
-const offsetInputStyle: CSSProperties = { textAlign: "right" };
+const offsetInputStyle: CSSProperties = { textAlign: "right", width: "100%", boxSizing: "border-box" };
 const resetButtonStyle: CSSProperties = { alignSelf: "flex-start", marginTop: 4 };
+const positionGroupStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+  marginTop: "var(--space-3)",
+  paddingTop: "var(--space-3)",
+  borderTop: "1px solid var(--border-soft)",
+};
+const positionTitleStyle: CSSProperties = { ...legendStyle, float: "none", margin: 0 };
 
 /** A [dx, dy] manual position offset, in spatia (sp). */
 export interface ManualOffsetControl {
@@ -24,7 +33,8 @@ export interface ManualOffsetControl {
 export function ManualOffsetFields({ offset }: { offset: ManualOffsetControl }) {
   const hasOffset = Math.abs(offset.value[0]) > 1e-6 || Math.abs(offset.value[1]) > 1e-6;
   return (
-    <>
+    <div style={positionGroupStyle} role="group" aria-label="Position">
+      <p style={positionTitleStyle}>Position</p>
       <div style={offsetRowStyle}>
         <label style={offsetLabelStyle}>
           Offset X (sp, +right)
@@ -59,7 +69,7 @@ export function ManualOffsetFields({ offset }: { offset: ManualOffsetControl }) 
           Reset position
         </Button>
       )}
-    </>
+    </div>
   );
 }
 
@@ -77,6 +87,7 @@ export interface DirectionTextSectionProps {
   offset?: ManualOffsetControl;
   /** Weight and slant the engraved element applies to unstyled runs. */
   inheritedStyle?: InheritedTextStyle;
+  multiline?: boolean;
 }
 
 /** Notation-properties section for editing the text of a dynamic or expression. */
@@ -88,6 +99,7 @@ export function DirectionTextSection({
   onChange,
   offset,
   inheritedStyle,
+  multiline = false,
 }: DirectionTextSectionProps) {
   return (
     <fieldset style={sectionStyle}>
@@ -100,6 +112,7 @@ export function DirectionTextSection({
           placeholder={placeholder}
           ariaLabel={label}
           inheritedStyle={inheritedStyle}
+          multiline={multiline}
         />
       </div>
       {offset && <ManualOffsetFields offset={offset} />}

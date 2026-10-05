@@ -1160,12 +1160,18 @@ page furniture. Canvas caches and retained Horizon frames preserve this layering
 The frame stays music-relative in paged and Horizon views; it does not become
 page furniture. Existing `manualOffset` (+x right, +y up) and `avoidCollisions`
 continue to apply. Selection and automatic placement use the full rectangle,
-including padding. With `frame` absent, legacy single-line rendering is unchanged.
+including padding. With `frame` absent, single-line rendering is unchanged;
+authored newlines use the same automatic-height block layout without wrapping.
 No fixed height, page locator, or new staff/system scope is introduced.
 
 In Write mode, create ordinary staff text in the Text palette. Select it and use
-Properties to set **Wrap to frame width**, width, padding, border, alignment,
-paragraph justification, and **Erase background** alongside the existing rich-text editor.
+Properties to set **Fixed width (sp)**, padding, border, alignment,
+paragraph justification, and **Erase background** alongside the multiline rich-text editor.
+An empty width means natural (auto) width; a number enables wrapping to that fixed
+width. Enter and pasted line breaks are retained. Paragraph center/right alignment
+also works on shorter authored lines at natural width; **Justify** is offered only
+with a fixed width, and leaves the last line of each paragraph unstretched.
+The glyph picker opens from **Insert notation glyph** and preserves named glyph runs.
 **Reset frame** removes only presentation, preserving text and musical attachment.
 
 ```json

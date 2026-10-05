@@ -152,6 +152,42 @@ fn natural_width_staff_frame_keeps_authored_newlines() {
 }
 
 #[test]
+fn unframed_staff_text_keeps_authored_newlines_without_enabling_wrapping() {
+    for page_width in [None, Some(800.0)] {
+        let mut doc = document(json!({}), "above");
+        let expression = doc
+            .pointer_mut("/parts/0/measures/0/_x/viritura/expressions/0")
+            .unwrap();
+        expression.as_object_mut().unwrap().remove("frame");
+        let score = parse_mnx(&doc.to_string()).unwrap();
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let dl = layout_score(&score, 0, &config);
+        let lines: Vec<_> = dl
+            .commands
+            .iter()
+            .enumerate()
+            .filter_map(|(index, command)| {
+                if dl.element_ids[index].as_deref() != Some("p0/m0/expr0") {
+                    return None;
+                }
+                match command {
+                    RenderCommand::DrawText { y, text, .. } => Some((*y, text)),
+                    _ => None,
+                }
+            })
+            .collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[1].0 > lines[0].0);
+        assert!(lines.iter().all(|(_, text)| !text.contains('\n')));
+        assert!(expression_bbox(&dl).height > 4.0 * config.sp);
+        assert!(expression_bbox(&dl).width > 20.0 * config.sp);
+    }
+}
+
+#[test]
 fn malformed_staff_frames_fail_both_import_paths() {
     for frame in [
         Value::Null,

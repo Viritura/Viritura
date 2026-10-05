@@ -14,7 +14,7 @@ export function TextFramePalette() {
     return <p className={styles.help}>Text frames belong to a score view. Create a score to add them.</p>;
   }
   return (
-    <section className={styles.panel} aria-label="Add text frames">
+    <section className={`${styles.panel} ${styles.palette}`} aria-label="Add text frames">
       <p className={styles.groupTitle}>Page text frames</p>
       <p className={styles.help}>
         Choose a fixed page, or follow the page containing the selected measure or event. These are page-positioned

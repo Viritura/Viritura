@@ -57,14 +57,16 @@ function NotationInspectorEmptyState({ horizonTextFrames }: { horizonTextFrames?
   return (
     <aside style={panelStyle} data-testid="notation-inspector">
       <PanelHeader title="Notation Properties" />
-      <div style={emptyStateStyle}>
-        <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
-        <strong style={emptyTitleStyle}>No current selection</strong>
-        <p style={emptyDescriptionStyle}>
-          Select a note, marking, barline, or other score element to view and edit its notation details here.
-        </p>
+      <div className="viritura-scroll" style={bodyStyle}>
+        <div style={emptyStateStyle}>
+          <MousePointer2 size={24} strokeWidth={1.5} aria-hidden="true" />
+          <strong style={emptyTitleStyle}>No current selection</strong>
+          <p style={emptyDescriptionStyle}>
+            Select a note, marking, barline, or other score element to view and edit its notation details here.
+          </p>
+        </div>
+        {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
       </div>
-      {horizonTextFrames ? <HorizonTextFrames /> : <TextFramesPanel />}
     </aside>
   );
 }

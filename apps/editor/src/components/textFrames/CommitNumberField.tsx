@@ -1,14 +1,18 @@
 import { useState, type KeyboardEvent } from "react";
-import { FormInput } from "@viritura/ui";
+import { FormInput, type FormInputProps } from "@viritura/ui";
 import styles from "./TextFrames.module.css";
 
-interface CommitNumberFieldProps {
+interface CommitNumberFieldProps extends Pick<
+  FormInputProps,
+  "aria-label" | "aria-labelledby" | "aria-describedby" | "aria-invalid"
+> {
   id: string;
-  value: number;
+  value: number | undefined;
+  placeholder?: string;
+  onClear?: () => void;
   step?: number;
   min?: number;
   max?: number;
-  "aria-label"?: string;
   onCommit: (value: number) => void;
 }
 
@@ -16,12 +20,26 @@ interface CommitNumberFieldProps {
  * Number input that commits on blur or Enter, so typing a multi-digit value
  * produces one undo step instead of one per keystroke. Invalid text reverts.
  */
-export function CommitNumberField({ id, value, step = 0.5, min, max, onCommit, ...rest }: CommitNumberFieldProps) {
+export function CommitNumberField({
+  id,
+  value,
+  step = 0.5,
+  min,
+  max,
+  onCommit,
+  onClear,
+  placeholder,
+  ...rest
+}: CommitNumberFieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft === null) return;
     const parsed = Number(draft);
     setDraft(null);
+    if (draft.trim() === "" && onClear) {
+      if (value !== undefined) onClear();
+      return;
+    }
     if (draft.trim() !== "" && Number.isFinite(parsed)) {
       const bounded = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, parsed));
       if (bounded !== value) onCommit(bounded);
@@ -36,11 +54,12 @@ export function CommitNumberField({ id, value, step = 0.5, min, max, onCommit, .
       id={id}
       type="number"
       className={styles.numberInput}
-      value={draft ?? String(value)}
+      value={draft ?? (value === undefined ? "" : String(value))}
+      placeholder={placeholder}
       step={step}
       min={min}
       max={max}
-      aria-label={rest["aria-label"]}
+      {...rest}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={onKeyDown}

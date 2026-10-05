@@ -558,20 +558,23 @@ fn expression_block(
     font_size: f64,
     sp: f64,
 ) -> Option<TextBlockLayout> {
-    expr.frame.as_ref().map(|frame| {
-        TextBlockLayout::new(
-            &expr.text,
-            frame
-                .width
-                .map(|StaffTextFrameWidth::StaffSpaces(width)| width * sp),
-            frame.padding.unwrap_or(0.0) * sp,
-            FrameFont {
-                base_size: font_size,
-                family: FontFamily::Serif,
-                bold: false,
-            },
-            frame.paragraph_justification,
-            frame.border,
-        )
-    })
+    let natural_frame = crate::model::StaffTextFramePresentation::default();
+    let frame = expr.frame.as_ref().or_else(|| {
+        expr.text.chunks().iter().any(|chunk| matches!(chunk, crate::model::TextContentChunk::Text(run) if run.text.contains('\n')))
+            .then_some(&natural_frame)
+    })?;
+    Some(TextBlockLayout::new(
+        &expr.text,
+        frame
+            .width
+            .map(|StaffTextFrameWidth::StaffSpaces(width)| width * sp),
+        frame.padding.unwrap_or(0.0) * sp,
+        FrameFont {
+            base_size: font_size,
+            family: FontFamily::Serif,
+            bold: false,
+        },
+        frame.paragraph_justification,
+        frame.border,
+    ))
 }

@@ -3,9 +3,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { parseMnx } from "@viritura/format";
 import { ScoreCanvas } from "../../../components/ScoreCanvas";
 import { HorizonTextFrames, TextFramesPanel } from "../../../components/textFrames";
+import { NotationInspector } from "../../../components/NotationInspector";
 import { DocumentProvider, useDocumentActions, useDocumentStore } from "../../../store/DocumentContext";
-import { useSelectionStore } from "../../../store/selectionStore";
-import { TEXT_FRAME_MNX } from "../../storyFixtures/textFrameScore";
+import { useSelectionActions, useSelectionStore } from "../../../store/selectionStore";
+import { ERASING_STAFF_TEXT_MNX, TEXT_FRAME_MNX } from "../../storyFixtures/textFrameScore";
 
 const ROOT_STYLE: CSSProperties = { display: "flex", height: "100vh", width: "100%" };
 const CANVAS_STYLE: CSSProperties = { flex: 1, minWidth: 0, position: "relative", overflow: "hidden" };
@@ -19,12 +20,23 @@ const PANEL_STYLE: CSSProperties = {
   overflow: "auto",
 };
 
-function TextFrameHarness({ horizon }: { horizon: boolean }) {
+function TextFrameHarness({ horizon, staffText = false }: { horizon: boolean; staffText?: boolean }) {
   const { loadScore } = useDocumentActions();
+  const { selectElement } = useSelectionActions();
   const loaded = useDocumentStore((state) => state.score !== null);
   useEffect(() => {
-    loadScore(parseMnx(structuredClone(TEXT_FRAME_MNX)), "text-frames.mnx");
-    if (horizon) {
+    const score = staffText ? parseMnx(JSON.parse(ERASING_STAFF_TEXT_MNX)) : parseMnx(structuredClone(TEXT_FRAME_MNX));
+    if (staffText) {
+      const expression = score.parts[0]?.measures[0]?.expressions?.[0];
+      if (!expression) throw new Error("Staff text story requires an expression");
+      expression.text = [
+        { text: "Play freely\nThen resume ", style: { fontStyle: "italic" } },
+        { glyphs: ["dynamicPP"] },
+      ];
+    }
+    loadScore(score, "text-frames.mnx");
+    if (staffText) selectElement("p0/m0/expr0");
+    else if (horizon) {
       // Preselect measure 5 so the contextual list shows the event-located frame.
       useSelectionStore.setState({
         selection: {
@@ -38,7 +50,7 @@ function TextFrameHarness({ horizon }: { horizon: boolean }) {
         },
       });
     }
-  }, [loadScore, horizon]);
+  }, [loadScore, horizon, staffText, selectElement]);
   return (
     <div style={ROOT_STYLE}>
       <div style={CANVAS_STYLE}>
@@ -51,15 +63,24 @@ function TextFrameHarness({ horizon }: { horizon: boolean }) {
           />
         )}
       </div>
-      <div style={PANEL_STYLE}>{loaded && (horizon ? <HorizonTextFrames /> : <TextFramesPanel />)}</div>
+      <div style={PANEL_STYLE}>
+        {loaded &&
+          (staffText ? (
+            <NotationInspector horizonTextFrames={horizon} />
+          ) : horizon ? (
+            <HorizonTextFrames />
+          ) : (
+            <TextFramesPanel />
+          ))}
+      </div>
     </div>
   );
 }
 
-function TextFrameStory({ horizon }: { horizon: boolean }) {
+function TextFrameStory({ horizon, staffText }: { horizon: boolean; staffText?: boolean }) {
   return (
     <DocumentProvider>
-      <TextFrameHarness horizon={horizon} />
+      <TextFrameHarness horizon={horizon} staffText={staffText} />
     </DocumentProvider>
   );
 }
@@ -86,3 +107,8 @@ export const PageViewEditing: Story = { args: { horizon: false }, name: "Page vi
  * follow the selected measure (here measure 5's event frame) plus page-index frames.
  */
 export const HorizonHiddenFrames: Story = { args: { horizon: true }, name: "Horizon hidden-frame lists" };
+
+export const StaffTextProperties: Story = {
+  args: { horizon: true, staffText: true },
+  name: "Multiline staff text Properties",
+};
