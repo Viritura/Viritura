@@ -6,6 +6,7 @@ import {
   type CatalogInstrument,
   type InstrumentFamily,
   getFamiliesInOrder,
+  getInstrumentsByFamily,
   getCatalogInstrument,
   getCatalogPickerInstrument,
   catalogPickerName,
@@ -176,9 +177,7 @@ export function InstrumentCatalogPicker({
           )
         ) : (
           getFamiliesInOrder().map(({ family, label }) => {
-            const instruments = pickerInstruments
-              .filter((instrument) => instrument.family === family)
-              .sort((a, b) => a.scoreOrder - b.scoreOrder);
+            const instruments = getInstrumentsByFamily(family).filter((instrument) => !instrument.pickerDefaultId);
             return (
               <Collapsible
                 key={family}
