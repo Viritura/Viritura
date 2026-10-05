@@ -318,6 +318,7 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   }
   const markerText = collectMarkerText(gm);
   if (markerText) ext["markerText"] = markerText;
+  if (gm.systemText?.length) ext["systemText"] = gm.systemText;
   if (gm.gradualTempo) {
     const gt: Obj = {
       position: gm.gradualTempo.position,

@@ -58,6 +58,7 @@ pub(crate) mod root;
 pub(crate) mod score;
 pub(crate) mod slur;
 mod staff_text_frame;
+mod system_text;
 pub(crate) mod text_frame;
 pub(crate) mod time;
 pub(crate) mod vendor_directions;

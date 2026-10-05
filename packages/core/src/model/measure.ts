@@ -213,18 +213,14 @@ export interface Pedal {
 /** Placement of a text expression (above or below the staff). */
 export type ExpressionPlacement = "below" | "above";
 
-/** A text expression or direction at a rhythmic position (e.g. "dolce", "rit.", "a tempo"). */
-export interface TextExpression {
+/** Content, presentation and music-relative geometry shared by staff and system text. */
+export interface MusicText {
   /** Inline text and optional SMuFL glyph runs. */
   text: TextContent;
   /** Rhythmic position within the measure */
   position: RhythmicPosition;
   /** Placement above or below the staff (default: below) */
   placement?: ExpressionPlacement;
-  /** Optional staff number */
-  staff?: number;
-  /** Optional voice name */
-  voice?: string;
   /** Manual [dx, dy] offset in spatia (sp), applied after automatic placement.
    *  Positive dx = right, positive dy = up. */
   manualOffset?: [number, number];
@@ -234,8 +230,21 @@ export interface TextExpression {
   avoidCollisions?: boolean;
   /** Optional block presentation; attachment and staff-relative offsets stay unchanged. */
   frame?: StaffTextFramePresentation;
+}
+
+/** A text expression or direction at a rhythmic position on a particular staff. */
+export interface TextExpression extends MusicText {
+  /** Optional staff number */
+  staff?: number;
+  /** Optional voice name */
+  voice?: string;
   /** Page-only geometry retained when switching a free text frame to staff positioning. */
   pagePosition?: TextFramePagePosition;
+}
+
+/** One globally owned instruction, displayed once on each score/part view's visible system. */
+export interface SystemText extends MusicText {
+  id: string;
 }
 
 /** Where authored marker text sits relative to the marker's generated glyph or label. */
@@ -397,6 +406,8 @@ export interface GlobalMeasure {
   gradualTempo?: GradualTempo;
   /** Score-wide harmony events at rhythmic positions in this measure. */
   chordSymbols?: ChordSymbol[];
+  /** Shared music-relative text, independent of any source part or staff. */
+  systemText?: SystemText[];
 }
 
 /**

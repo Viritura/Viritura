@@ -447,6 +447,36 @@
       "additionalProperties": false
     },
 
+    "system-text": {
+      "type": "object",
+      "description": "One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.",
+      "required": ["id", "text", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "$ref": "#/$defs/text-content" },
+        "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
+        "position": {
+          "allOf": [
+            { "$ref": "#/$defs/rhythmic-position" },
+            {
+              "properties": {
+                "fraction": {
+                  "prefixItems": [
+                    { "type": "integer", "minimum": 0 },
+                    { "type": "integer", "minimum": 1 }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "placement": { "$ref": "#/$defs/expression-placement" },
+        "manualOffset": { "$ref": "#/$defs/sp-delta" },
+        "avoidCollisions": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+
     "trill-extension": {
       "type": "object",
       "description": "A wavy trill-extension line from this event to a target event.",
@@ -735,6 +765,11 @@
         "coda": { "$ref": "#/$defs/coda" },
         "jump": { "$ref": "#/$defs/jump" },
         "markerText": { "$ref": "#/$defs/marker-texts" },
+        "systemText": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/system-text" },
+          "description": "Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves."
+        },
         "gradualTempo": { "$ref": "#/$defs/gradual-tempo" },
         "chordSymbols": {
           "type": "array",

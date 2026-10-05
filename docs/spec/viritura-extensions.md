@@ -901,6 +901,41 @@ instead of silently choosing another voice.
 
 Extensions on `global.measures[]._x.viritura`.
 
+### `systemText`
+
+The #282 follow-up introduces globally owned music-relative text. One authored
+instruction belongs to a global measure, not a source part or a per-view page
+frame. Its contract is shared across full-score and derived part views without
+duplicating independent copies into parts.
+
+| Property          | Type                         | Required | Description                                                                                                          |
+| ----------------- | ---------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `id`              | nonempty string              | **Yes**  | Stable identity within the owning measure.                                                                           |
+| `text`            | `TextContent`                | **Yes**  | Existing rich text/glyph runs; authored newlines are preserved.                                                      |
+| `position`        | rhythmic position            | **Yes**  | Nonnegative numerator and positive denominator; music-relative, not a page locator.                                  |
+| `placement`       | `"above"` / `"below"`        | No       | Visible system boundary, not a particular staff. Default: below, matching existing musical text.                     |
+| `manualOffset`    | `[dx, dy]`                   | No       | Staff spaces: +x right, +y up.                                                                                       |
+| `avoidCollisions` | boolean                      | No       | Existing dependent-placement intent; omission/true permits automatic outward placement.                              |
+| `frame`           | `StaffTextFramePresentation` | No       | Shared natural/fixed staff-space width, automatic height, padding, border, alignment, justification and ink erasure. |
+
+Staff/voice identifiers, page locators and page-column widths are invalid here.
+Plain text omits `frame`; advanced instruction boxes do not create a second
+formatting model. Specialized tempo, dynamics, rehearsal and navigation markings
+retain their semantic owners.
+
+The intended rendering policy is one occurrence above the top visible staff or
+below the bottom visible staff in every score/part view, including Horizon.
+Hidden or condensed source staves do not own the instruction. Reflow follows
+the measure and rhythmic position; an always-at-system-start option is deferred.
+
+This first follow-up commit adds validated TS/Rust persistence and round-trip
+only. Rendering, scope editing, selection/deletion and supported MusicXML scope
+mapping remain in progress; the contract is not yet exposed as a user-facing
+system-text feature. Legacy staff expressions and page frames are unchanged.
+Denigma adaptation and its representative rectangular-block fixtures are
+explicitly deferred until a separate integration; no source geometry or units
+are inferred.
+
 ### `rehearsalMark`
 
 A rehearsal mark displayed above the staff.

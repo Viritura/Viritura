@@ -396,6 +396,7 @@ fn test_tempo_width_reserves_room_for_colocated_rehearsal_mark() {
                 marker_text: None,
                 senza_misura: None,
                 chord_symbols: None,
+                system_text: None,
             }),
         }),
     };

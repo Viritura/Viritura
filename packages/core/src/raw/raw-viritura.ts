@@ -222,6 +222,18 @@ export interface components {
             /** @description Whether automatic collision avoidance may re-flow this expression outward to clear other directions. Default (and when unset): true. Set false when the user manually places the expression (e.g. by dragging) so it stays exactly where put and others flow around it. */
             avoidCollisions?: boolean;
         };
+        /** @description One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates. */
+        "system-text": {
+            id: string;
+            text: components["schemas"]["text-content"];
+            frame?: components["schemas"]["staff-text-frame-presentation"];
+            position: components["schemas"]["rhythmic-position"] & {
+                fraction?: unknown;
+            };
+            placement?: components["schemas"]["expression-placement"];
+            manualOffset?: components["schemas"]["sp-delta"];
+            avoidCollisions?: boolean;
+        };
         /** @description A wavy trill-extension line from this event to a target event. */
         "trill-extension": {
             /** @description ID of the event where the trill-extension line ends. */
@@ -369,6 +381,8 @@ export interface components {
             coda?: components["schemas"]["coda"];
             jump?: components["schemas"]["jump"];
             markerText?: components["schemas"]["marker-texts"];
+            /** @description Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves. */
+            systemText?: components["schemas"]["system-text"][];
             gradualTempo?: components["schemas"]["gradual-tempo"];
             /** @description Score-wide harmony events at rhythmic positions in this measure. */
             chordSymbols?: components["schemas"]["chord-symbol"][];
@@ -1020,6 +1034,7 @@ export type ChordSymbol = components["schemas"]["chord-symbol"];
 export type ChordSymbolStyle = components["schemas"]["chord-symbol-style"];
 export type ExpressionPlacement = components["schemas"]["expression-placement"];
 export type TextExpression = components["schemas"]["text-expression"];
+export type SystemText = components["schemas"]["system-text"];
 export type TrillExtension = components["schemas"]["trill-extension"];
 export type Trill = components["schemas"]["trill"];
 export type OrnamentType = components["schemas"]["ornament-type"];
