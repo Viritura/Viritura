@@ -662,6 +662,37 @@
       "additionalProperties": false
     },
 
+    "marker-text": {
+      "type": "object",
+      "description": "Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation.",
+      "required": ["content", "placement"],
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/text-content",
+          "description": "Ordered authored text and SMuFL glyph runs."
+        },
+        "placement": {
+          "type": "string",
+          "enum": ["before", "after", "replace"],
+          "description": "Whether authored content precedes, follows, or replaces the marker's generated glyph or label."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "marker-texts": {
+      "type": "object",
+      "description": "Authored text attached to navigation markers on the same global measure. Each entry requires its owning marker.",
+      "minProperties": 1,
+      "properties": {
+        "segno": { "$ref": "#/$defs/marker-text" },
+        "coda": { "$ref": "#/$defs/marker-text" },
+        "fine": { "$ref": "#/$defs/marker-text" },
+        "jump": { "$ref": "#/$defs/marker-text" }
+      },
+      "additionalProperties": false
+    },
+
     "gradual-tempo": {
       "type": "object",
       "description": "A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression.",
@@ -701,6 +732,7 @@
         "rehearsalMark": { "$ref": "#/$defs/rehearsal-mark" },
         "coda": { "$ref": "#/$defs/coda" },
         "jump": { "$ref": "#/$defs/jump" },
+        "markerText": { "$ref": "#/$defs/marker-texts" },
         "gradualTempo": { "$ref": "#/$defs/gradual-tempo" },
         "chordSymbols": {
           "type": "array",

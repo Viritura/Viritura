@@ -2,6 +2,8 @@ import type { Score } from "@viritura/core";
 import type { NotationSelectionTarget } from "../../commands/notationInspectorCommands";
 import { useDirectionTextHandlers } from "./useNotationInspectorActions";
 import { DirectionTextSection } from "./DirectionTextSection";
+import { inheritedStyleForExpression } from "./TextContentEditor";
+import { SelectedMarkerTextSection } from "./MarkerTextSection";
 import { DynamicGroupSection } from "./DynamicGroupSection";
 import { OttavaInspector } from "./OttavaInspector";
 import { ChordSymbolSection } from "./ChordSymbolSection";
@@ -47,6 +49,8 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
     isRehearsalSelected,
     selectedRehearsal,
     handleRehearsalTextChange,
+    selectedMarker,
+    handleMarkerTextChange,
     handleAnnotationOffsetChange,
     handleAnnotationOffsetReset,
     handleAnnotationAvoidCollisionsChange,
@@ -93,6 +97,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           value={selectedExpression.text}
           placeholder="e.g. dolce, espressivo, rit."
           onChange={handleExpressionTextChange}
+          inheritedStyle={inheritedStyleForExpression(selectedExpression.placement)}
           offset={{
             value: selectedExpression.manualOffset ?? [0, 0],
             onChange: handleAnnotationOffsetChange,
@@ -123,6 +128,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
           }}
         />
       )}
+      <SelectedMarkerTextSection marker={selectedMarker} onChange={handleMarkerTextChange} />
       {chordSymbol.chord && (
         <ChordSymbolSection
           key={chordSymbol.editorKey}

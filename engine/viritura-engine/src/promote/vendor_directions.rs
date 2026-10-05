@@ -16,8 +16,10 @@
 
 use crate::model::chord_symbol::{ChordRoot as ModelChordRoot, ChordSymbol as ModelChordSymbol};
 use crate::model::direction::{
-    Coda as ModelCoda, Jump as ModelJump, JumpType as ModelJumpType, Pedal as ModelPedal,
-    RehearsalMark as ModelRehearsalMark, TextExpression as ModelTextExpression,
+    Coda as ModelCoda, Jump as ModelJump, JumpType as ModelJumpType, MarkerText as ModelMarkerText,
+    MarkerTextPlacement as ModelMarkerTextPlacement, MarkerTexts as ModelMarkerTexts,
+    Pedal as ModelPedal, RehearsalMark as ModelRehearsalMark,
+    TextExpression as ModelTextExpression,
 };
 use crate::model::event::{Glissando as ModelGlissando, GlissandoStyle as ModelGlissandoStyle};
 use crate::model::measure::StaffGroupingDisplayOverride as ModelStaffGroupingDisplayOverride;
@@ -100,6 +102,7 @@ pub(crate) struct GlobalMeasureVendor {
     pub rehearsal_mark: Option<ModelRehearsalMark>,
     pub coda: Option<ModelCoda>,
     pub jump: Option<ModelJump>,
+    pub marker_text: Option<ModelMarkerTexts>,
     pub senza_misura: Option<bool>,
     pub chord_symbols: Option<Vec<ModelChordSymbol>>,
 }
@@ -119,6 +122,7 @@ pub(crate) fn extract_global_measure_vendor(
         rehearsal_mark: raw_ext.rehearsal_mark.map(promote_rehearsal_mark),
         coda: raw_ext.coda.map(promote_coda),
         jump: raw_ext.jump.map(promote_extended_jump),
+        marker_text: raw_ext.marker_text.map(promote_marker_texts),
         senza_misura: raw_ext.senza_misura,
         chord_symbols: vec_or_none(
             raw_ext
@@ -278,6 +282,26 @@ fn promote_extended_jump(r: raw_viritura::Jump) -> ModelJump {
             raw_viritura::JumpType::Dcalcoda => ModelJumpType::DcAlCoda,
         },
         location: promote_rhythmic_position_local(r.location),
+    }
+}
+
+fn promote_marker_texts(r: raw_viritura::MarkerTexts) -> ModelMarkerTexts {
+    ModelMarkerTexts {
+        segno: r.segno.map(promote_marker_text),
+        coda: r.coda.map(promote_marker_text),
+        fine: r.fine.map(promote_marker_text),
+        jump: r.jump.map(promote_marker_text),
+    }
+}
+
+fn promote_marker_text(r: raw_viritura::MarkerText) -> ModelMarkerText {
+    ModelMarkerText {
+        content: ModelTextContent::from_raw(r.content),
+        placement: match r.placement {
+            raw_viritura::MarkerTextPlacement::Before => ModelMarkerTextPlacement::Before,
+            raw_viritura::MarkerTextPlacement::After => ModelMarkerTextPlacement::After,
+            raw_viritura::MarkerTextPlacement::Replace => ModelMarkerTextPlacement::Replace,
+        },
     }
 }
 

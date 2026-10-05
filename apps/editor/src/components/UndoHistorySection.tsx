@@ -95,7 +95,7 @@ function HistoryRow({ entry, index, isCurrent, isFuture, onJump }: HistoryRowPro
       }
       trailing={
         <span style={historyMetaStyle}>
-          <span>{timeLabel}</span>
+          {!isCurrent && <span>{timeLabel}</span>}
           {isCurrent && <span style={nowBadgeStyle}>NOW</span>}
         </span>
       }

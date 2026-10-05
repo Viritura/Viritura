@@ -3,7 +3,7 @@ import type { DenigmaGap, DenigmaGapReport } from "../types";
 import { applyDenigmaGapReport } from "./applyGapReport";
 import { isRecord, type JsonRecord } from "./types";
 
-function document() {
+function document(): JsonRecord {
   return {
     mnx: { version: 1 },
     global: {
@@ -100,6 +100,54 @@ function viritura(owner: JsonRecord): JsonRecord {
 describe("applyDenigmaGapReport", () => {
   it("rejects invalid source MNX before applying gaps", () => {
     expect(() => applyDenigmaGapReport("{}", report([]))).toThrow("Denigma returned invalid MNX");
+  });
+
+  it("attaches partial authored marker text to an existing semantic jump", () => {
+    const source = document();
+    const global = source["global"] as JsonRecord;
+    const measures = global["measures"] as JsonRecord[];
+    measures[0]!["jump"] = { type: "dsalfine", location: { fraction: [1, 1] } };
+    const result = applyDenigmaGapReport(
+      JSON.stringify(source),
+      report([
+        {
+          type: "marker-text",
+          marker: "jump",
+          extent: "partial",
+          anchor: "m1",
+          text: { plain: "Return to the segno", runs: [{ text: "Return to the segno", font: { italic: true } }] },
+        },
+      ]),
+    );
+    const imported = JSON.parse(result.mnxJson) as { global: { measures: Array<JsonRecord> } };
+    expect(result.outcomes[0]?.disposition).toBe("handled");
+    expect(imported.global.measures[0]?._x).toEqual({
+      viritura: {
+        markerText: {
+          jump: {
+            content: [{ text: "Return to the segno", style: { fontStyle: "italic" } }],
+            placement: "replace",
+          },
+        },
+      },
+    });
+  });
+
+  it("does not detach marker text when the gap target has no owning marker", () => {
+    const { outcomes, document: imported } = apply([
+      {
+        type: "marker-text",
+        marker: "coda",
+        extent: "partial",
+        anchor: "m1",
+        text: "To Coda",
+      },
+    ]);
+    expect(outcomes[0]?.disposition).toBe("unhandled");
+    expect(outcomes[0]?.reason).toContain("with a coda");
+    const global = (imported as JsonRecord)["global"] as JsonRecord;
+    const measures = global["measures"] as JsonRecord[];
+    expect(measures[0]?.["_x"]).toBeUndefined();
   });
 
   it("preserves generic and technique text without duplicating an occurrence", () => {

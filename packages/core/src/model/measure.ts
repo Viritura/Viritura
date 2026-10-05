@@ -233,17 +233,31 @@ export interface TextExpression {
   avoidCollisions?: boolean;
 }
 
+/** Where authored marker text sits relative to the marker's generated glyph or label. */
+export type MarkerTextPlacement = "before" | "after" | "replace";
+
+/**
+ * Authored display text owned by a navigation marker. The marker stays
+ * authoritative for navigation; this only changes what is printed.
+ */
+export interface MarkerText {
+  content: TextContent;
+  placement: MarkerTextPlacement;
+}
+
 /** A segno marker on a global measure (MNX segno). */
 export interface Segno {
   location: RhythmicPosition;
   glyph?: string;
   color?: string;
+  text?: MarkerText;
 }
 
 /** A fine marker on a global measure (MNX fine). */
 export interface Fine {
   location: RhythmicPosition;
   color?: string;
+  text?: MarkerText;
 }
 
 /** A coda marker on a global measure (Viritura extension). */
@@ -251,6 +265,7 @@ export interface Coda {
   location: RhythmicPosition;
   glyph?: string;
   color?: string;
+  text?: MarkerText;
 }
 
 /**
@@ -265,6 +280,7 @@ export type JumpType = "segno" | "dsalfine" | "dsalcoda" | "dcalcoda";
 export interface Jump {
   type: JumpType;
   location: RhythmicPosition;
+  text?: MarkerText;
 }
 
 /** Gradual-tempo classification (cosmetic; BPM direction is authoritative). */

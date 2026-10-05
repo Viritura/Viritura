@@ -13,6 +13,8 @@ import {
 import {
   isChordGap,
   isExpressionGap,
+  isMarkerTextGap,
+  type KnownMarkerTextGap,
   isNoteheadGap,
   isRecord,
   isSmartShapeGap,
@@ -28,6 +30,7 @@ function subtypeOf(gap: DenigmaGap): string | undefined {
   if (isChordGap(gap)) return "chord-symbol";
   if (isNoteheadGap(gap)) return gap.notehead.shape;
   if (isExpressionGap(gap)) return gap.expression.type;
+  if (isMarkerTextGap(gap)) return gap.marker;
   if (isSmartShapeGap(gap)) return gap.smartShape.shapeType;
   return undefined;
 }
@@ -168,6 +171,46 @@ function addRehearsalMark(gap: DenigmaGap, expression: ExpressionPayload, index:
   }
   extensions["rehearsalMark"] = { text: content };
   return formattingOutcome(expression);
+}
+
+function markerExists(globalMeasure: JsonRecord, marker: KnownMarkerTextGap["marker"]): boolean {
+  const extensions = isRecord(globalMeasure["_x"]) ? globalMeasure["_x"]["viritura"] : undefined;
+  const vendor = isRecord(extensions) ? extensions[marker] : undefined;
+  return isRecord(globalMeasure[marker]) || isRecord(vendor);
+}
+
+/**
+ * Finale prints navigation instructions as fully authored text, so imported
+ * marker text replaces the generated glyph or label unless the gap says otherwise.
+ */
+function applyMarkerTextGap(gap: DenigmaGap, index: TargetIndex): GapApplication {
+  if (!isMarkerTextGap(gap)) {
+    return outcome("unhandled", "Expected a partial marker-text gap naming its marker, with plain or formatted text.");
+  }
+  const target = index.measure(gap.anchor);
+  if (!target) return outcome("unhandled", "Marker-text target measure is unavailable.");
+  if (!markerExists(target.globalMeasure, gap.marker)) {
+    return outcome("unhandled", `Marker-text gap does not target a measure with a ${gap.marker}.`);
+  }
+
+  const content =
+    typeof gap.text === "string"
+      ? gap.text.trim()
+        ? [{ text: gap.text }]
+        : undefined
+      : formattedTextContent(gap.text);
+  if (!content) return outcome("unhandled", "Marker-text gap does not contain displayable text.");
+
+  const viritura = ensureViritura(target.globalMeasure);
+  const markerText = isRecord(viritura["markerText"]) ? viritura["markerText"] : {};
+  if (markerText[gap.marker] !== undefined) {
+    return outcome("unhandled", `The ${gap.marker} already has authored text; existing content was preserved.`);
+  }
+  markerText[gap.marker] = { content, placement: gap.placement ?? "replace" };
+  viritura["markerText"] = markerText;
+  return typeof gap.text === "string" || !hasUnimportedFormatting(gap.text)
+    ? outcome("handled")
+    : outcome("handled-partially", "Preserved text and inline formatting but not the source font or size.");
 }
 
 function noteValueFromEdu(edu: number): JsonRecord | undefined {
@@ -425,6 +468,7 @@ type GapAdapter = (gap: DenigmaGap, index: TargetIndex) => GapApplication;
 
 const SCHEMA_V1_ADAPTERS: Readonly<Record<string, GapAdapter>> = {
   expression: applyExpressionGap,
+  "marker-text": applyMarkerTextGap,
   notehead: applyNoteheadGap,
   "playback-only": applyPlaybackOnlyGap,
   "smart-shape": applySmartShapeGap,

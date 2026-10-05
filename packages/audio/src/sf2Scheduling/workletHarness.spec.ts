@@ -74,7 +74,16 @@ export function createWorkletHarness(
     WebAssembly,
     TextDecoder,
     TextEncoder,
-    console: { log: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+    console: {
+      log: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      group: vi.fn(),
+      groupEnd: vi.fn(),
+      groupCollapsed: vi.fn(),
+    },
     receiveVendorMessage,
     renderVendorQuantum,
   });

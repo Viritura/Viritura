@@ -78,6 +78,8 @@ pub enum PromoteError {
     UnsupportedTextContent(String),
     /// Provisional instrument change cannot be engraved or decoded safely.
     UnsupportedInstrumentChange(String),
+    /// Authored marker text has no owning marker on the same measure.
+    MarkerTextWithoutOwner(&'static str),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -92,6 +94,12 @@ impl std::fmt::Display for PromoteError {
             Self::UnsupportedTextContent(s) => write!(f, "MNX text content is not supported: {s}"),
             Self::UnsupportedInstrumentChange(s) => {
                 write!(f, "MNX instrument change is not supported: {s}")
+            }
+            Self::MarkerTextWithoutOwner(owner) => {
+                write!(
+                    f,
+                    "Viritura markerText.{owner} requires a {owner} on the same measure"
+                )
             }
         }
     }

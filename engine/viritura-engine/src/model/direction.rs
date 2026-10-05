@@ -33,6 +33,35 @@ pub struct Jump {
     pub location: RhythmicPosition,
 }
 
+/// Authored display text owned by one navigation marker.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MarkerText {
+    pub content: TextContent,
+    pub placement: MarkerTextPlacement,
+}
+
+/// Where authored marker text sits relative to the marker's generated glyph or label.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MarkerTextPlacement {
+    Before,
+    After,
+    Replace,
+}
+
+/// Authored text for the navigation markers on one global measure.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct MarkerTexts {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub segno: Option<MarkerText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coda: Option<MarkerText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fine: Option<MarkerText>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jump: Option<MarkerText>,
+}
+
 /// A coda marker on a global measure (Viritura extension).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Coda {

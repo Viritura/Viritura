@@ -116,6 +116,19 @@ pub(crate) fn promote_global_measure_with_json(
     let vendor = extract_global_measure_vendor(r.x.as_ref());
     // _x.viritura.jump wins over top-level
     let jump = vendor.jump.clone().or_else(|| r.jump.map(promote_jump));
+    if let Some(text) = vendor.marker_text.as_ref() {
+        let orphan = [
+            (text.segno.is_some() && r.segno.is_none(), "segno"),
+            (text.coda.is_some() && vendor.coda.is_none(), "coda"),
+            (text.fine.is_some() && r.fine.is_none(), "fine"),
+            (text.jump.is_some() && jump.is_none(), "jump"),
+        ]
+        .into_iter()
+        .find_map(|(missing, owner)| missing.then_some(owner));
+        if let Some(owner) = orphan {
+            return Err(PromoteError::MarkerTextWithoutOwner(owner));
+        }
+    }
     let tempos = r
         .tempos
         .into_iter()
@@ -132,6 +145,7 @@ pub(crate) fn promote_global_measure_with_json(
     let extensions = (vendor.rehearsal_mark.is_some()
         || vendor.coda.is_some()
         || vendor.jump.is_some()
+        || vendor.marker_text.is_some()
         || vendor.senza_misura.is_some()
         || vendor.chord_symbols.is_some())
     .then_some(ModelVendorExtensions {
@@ -139,6 +153,7 @@ pub(crate) fn promote_global_measure_with_json(
             rehearsal_mark: vendor.rehearsal_mark,
             coda: vendor.coda,
             jump: vendor.jump,
+            marker_text: vendor.marker_text,
             senza_misura: vendor.senza_misura,
             chord_symbols: vendor.chord_symbols,
         }),

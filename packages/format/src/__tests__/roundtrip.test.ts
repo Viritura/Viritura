@@ -456,12 +456,22 @@ describe("MNX round-trip preserves editor wiring fields", () => {
             repeatStart: { times: 2 },
             ending: { duration: 1, numbers: [1], open: true },
             segno: { location: { fraction: [0, 1] }, glyph: "segno" },
+            _x: {
+              viritura: {
+                markerText: { segno: { content: [{ text: "from here" }], placement: "after" } },
+              },
+            },
           },
           {
             repeatEnd: { times: 2 },
             _x: {
               viritura: {
                 jump: { type: "dcalcoda", location: { fraction: [1, 1] } },
+                coda: { location: { fraction: [1, 1] } },
+                markerText: {
+                  jump: { content: [{ text: "Return to the segno" }], placement: "after" },
+                  coda: { content: [{ text: "To Coda" }], placement: "before" },
+                },
               },
             },
           },
@@ -534,6 +544,13 @@ describe("MNX round-trip preserves editor wiring fields", () => {
     expect(serialized.global.measures[1]!._x?.viritura?.jump).toEqual({
       type: "dcalcoda",
       location: { fraction: [1, 1] },
+    });
+    expect(serialized.global.measures[0]!._x?.viritura?.markerText).toEqual({
+      segno: { content: [{ text: "from here" }], placement: "after" },
+    });
+    expect(serialized.global.measures[1]!._x?.viritura?.markerText).toEqual({
+      coda: { content: [{ text: "To Coda" }], placement: "before" },
+      jump: { content: [{ text: "Return to the segno" }], placement: "after" },
     });
     expect(serialized.parts[0]!.measures[1]!.clefs![0]!.clef).toEqual({
       sign: "F",

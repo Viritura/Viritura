@@ -2,7 +2,7 @@ import { FormInput, Checkbox, Button } from "@viritura/ui";
 import type { TextContent } from "@viritura/core";
 import type { CSSProperties } from "react";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
-import { TextContentEditor } from "./TextContentEditor";
+import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 
 const offsetRowStyle: CSSProperties = { display: "flex", gap: 8 };
 const offsetFieldStyle: CSSProperties = { flex: 1 };
@@ -75,6 +75,8 @@ export interface DirectionTextSectionProps {
   onChange: (value: TextContent) => void;
   /** Optional manual position offset editor (sp), shown beneath the text. */
   offset?: ManualOffsetControl;
+  /** Weight and slant the engraved element applies to unstyled runs. */
+  inheritedStyle?: InheritedTextStyle;
 }
 
 /** Notation-properties section for editing the text of a dynamic or expression. */
@@ -85,13 +87,20 @@ export function DirectionTextSection({
   placeholder,
   onChange,
   offset,
+  inheritedStyle,
 }: DirectionTextSectionProps) {
   return (
     <fieldset style={sectionStyle}>
       <legend style={legendStyle}>{title}</legend>
       <div style={labelStyle}>
         <span>{label}</span>
-        <TextContentEditor value={value} onChange={onChange} placeholder={placeholder} ariaLabel={label} />
+        <TextContentEditor
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          ariaLabel={label}
+          inheritedStyle={inheritedStyle}
+        />
       </div>
       {offset && <ManualOffsetFields offset={offset} />}
     </fieldset>

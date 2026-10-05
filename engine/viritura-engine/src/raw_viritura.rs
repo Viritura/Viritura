@@ -4341,6 +4341,191 @@ impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenType {
         value.parse()
     }
 }
+///Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation.",
+///  "type": "object",
+///  "required": [
+///    "content",
+///    "placement"
+///  ],
+///  "properties": {
+///    "content": {
+///      "description": "Ordered authored text and SMuFL glyph runs.",
+///      "$ref": "#/$defs/text-content"
+///    },
+///    "placement": {
+///      "description": "Whether authored content precedes, follows, or replaces the marker's generated glyph or label.",
+///      "type": "string",
+///      "enum": [
+///        "before",
+///        "after",
+///        "replace"
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MarkerText {
+    ///Ordered authored text and SMuFL glyph runs.
+    pub content: TextContent,
+    ///Whether authored content precedes, follows, or replaces the marker's generated glyph or label.
+    pub placement: MarkerTextPlacement,
+}
+impl ::std::convert::From<&MarkerText> for MarkerText {
+    fn from(value: &MarkerText) -> Self {
+        value.clone()
+    }
+}
+///Whether authored content precedes, follows, or replaces the marker's generated glyph or label.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Whether authored content precedes, follows, or replaces the marker's generated glyph or label.",
+///  "type": "string",
+///  "enum": [
+///    "before",
+///    "after",
+///    "replace"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum MarkerTextPlacement {
+    #[serde(rename = "before")]
+    Before,
+    #[serde(rename = "after")]
+    After,
+    #[serde(rename = "replace")]
+    Replace,
+}
+impl ::std::convert::From<&Self> for MarkerTextPlacement {
+    fn from(value: &MarkerTextPlacement) -> Self {
+        value.clone()
+    }
+}
+impl ::std::fmt::Display for MarkerTextPlacement {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Before => f.write_str("before"),
+            Self::After => f.write_str("after"),
+            Self::Replace => f.write_str("replace"),
+        }
+    }
+}
+impl ::std::str::FromStr for MarkerTextPlacement {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "before" => Ok(Self::Before),
+            "after" => Ok(Self::After),
+            "replace" => Ok(Self::Replace),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for MarkerTextPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for MarkerTextPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for MarkerTextPlacement {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Authored text attached to navigation markers on the same global measure. Each entry requires its owning marker.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Authored text attached to navigation markers on the same global measure. Each entry requires its owning marker.",
+///  "type": "object",
+///  "minProperties": 1,
+///  "properties": {
+///    "coda": {
+///      "$ref": "#/$defs/marker-text"
+///    },
+///    "fine": {
+///      "$ref": "#/$defs/marker-text"
+///    },
+///    "jump": {
+///      "$ref": "#/$defs/marker-text"
+///    },
+///    "segno": {
+///      "$ref": "#/$defs/marker-text"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct MarkerTexts {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub coda: ::std::option::Option<MarkerText>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fine: ::std::option::Option<MarkerText>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub jump: ::std::option::Option<MarkerText>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub segno: ::std::option::Option<MarkerText>,
+}
+impl ::std::convert::From<&MarkerTexts> for MarkerTexts {
+    fn from(value: &MarkerTexts) -> Self {
+        value.clone()
+    }
+}
+impl ::std::default::Default for MarkerTexts {
+    fn default() -> Self {
+        Self {
+            coda: Default::default(),
+            fine: Default::default(),
+            jump: Default::default(),
+            segno: Default::default(),
+        }
+    }
+}
 ///Viritura vendor extensions on a global measure object.
 ///
 /// <details><summary>JSON schema</summary>
@@ -4365,6 +4550,9 @@ impl ::std::convert::TryFrom<::std::string::String> for LyricWorkflowTokenType {
 ///    },
 ///    "jump": {
 ///      "$ref": "#/$defs/jump"
+///    },
+///    "markerText": {
+///      "$ref": "#/$defs/marker-texts"
 ///    },
 ///    "rehearsalMark": {
 ///      "$ref": "#/$defs/rehearsal-mark"
@@ -4400,6 +4588,12 @@ pub struct MeasureGlobalExtensions {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub jump: ::std::option::Option<Jump>,
     #[serde(
+        rename = "markerText",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub marker_text: ::std::option::Option<MarkerTexts>,
+    #[serde(
         rename = "rehearsalMark",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -4425,6 +4619,7 @@ impl ::std::default::Default for MeasureGlobalExtensions {
             coda: Default::default(),
             gradual_tempo: Default::default(),
             jump: Default::default(),
+            marker_text: Default::default(),
             rehearsal_mark: Default::default(),
             senza_misura: Default::default(),
         }
@@ -11079,6 +11274,12 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "lyric-workflow-token": {
 ///      "$ref": "#/$defs/lyric-workflow-token"
 ///    },
+///    "marker-text": {
+///      "$ref": "#/$defs/marker-text"
+///    },
+///    "marker-texts": {
+///      "$ref": "#/$defs/marker-texts"
+///    },
 ///    "measure-global-extensions": {
 ///      "$ref": "#/$defs/measure-global-extensions"
 ///    },
@@ -11446,6 +11647,18 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub lyric_workflow_token: ::std::option::Option<LyricWorkflowToken>,
+    #[serde(
+        rename = "marker-text",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub marker_text: ::std::option::Option<MarkerText>,
+    #[serde(
+        rename = "marker-texts",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub marker_texts: ::std::option::Option<MarkerTexts>,
     #[serde(
         rename = "measure-global-extensions",
         default,
@@ -11836,6 +12049,8 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             lyric_workflow: Default::default(),
             lyric_workflow_source: Default::default(),
             lyric_workflow_token: Default::default(),
+            marker_text: Default::default(),
+            marker_texts: Default::default(),
             measure_global_extensions: Default::default(),
             measure_rhythmic_position: Default::default(),
             note_extensions: Default::default(),

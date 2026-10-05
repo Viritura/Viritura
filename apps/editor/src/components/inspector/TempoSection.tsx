@@ -4,7 +4,7 @@ import { ButtonGroup, Checkbox, FormInput } from "@viritura/ui";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
 import { ManualOffsetFields, type ManualOffsetControl } from "./DirectionTextSection";
 import { useDebouncedInput } from "../../hooks/useDebouncedInput";
-import { TextContentEditor } from "./TextContentEditor";
+import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 
 const BEAT_BASE_OPTIONS: { value: NoteValueBase; label: string }[] = [
   { value: "whole", label: "whole" },
@@ -37,6 +37,8 @@ export interface TempoSectionProps {
   onShowMetronomeChange: (show: boolean) => void;
   /** Optional manual position offset editor (sp). */
   offset?: ManualOffsetControl;
+  /** Weight and slant of the score's tempo text style, applied to unstyled runs. */
+  inheritedStyle?: InheritedTextStyle;
 }
 
 export function TempoSection({
@@ -48,6 +50,7 @@ export function TempoSection({
   onShowTextChange,
   onShowMetronomeChange,
   offset,
+  inheritedStyle,
 }: TempoSectionProps) {
   const bpmInput = useDebouncedInput(String(tempo.bpm), (value) => {
     const bpm = Number(value);
@@ -98,6 +101,7 @@ export function TempoSection({
           ariaLabel="Text"
           onChange={textInput.onChange}
           onBlur={textInput.onBlur}
+          inheritedStyle={inheritedStyle}
         />
       </div>
       <Checkbox

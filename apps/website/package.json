@@ -24,13 +24,13 @@
     "@viritura/score-viewer-react": "0.1.0",
     "@viritura/ui": "workspace:*",
     "marked": "^14.0.0",
-    "monaco-editor": "0.56.0",
+    "monaco-editor": "0.57.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
-    "@astrojs/react": "6.0.5",
+    "@astrojs/react": "7.0.0",
     "@astrojs/sitemap": "3.7.4",
     "@rolldown/plugin-babel": "^0.2.4",
     "@types/react": "^19.3.0",

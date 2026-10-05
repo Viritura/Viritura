@@ -86,6 +86,30 @@ describe("TextContentEditor", () => {
     expect(ui.getByRole("button", { name: "Italic" }).getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("writes an explicit upright run when un-italicising italic-by-default text", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const view = render(
+      <TextContentEditor
+        value={[{ text: "Have fun!" }]}
+        onChange={onChange}
+        placeholder="Marker text"
+        ariaLabel="Text"
+        inheritedStyle={{ fontStyle: "italic" }}
+      />,
+    );
+    const ui = within(view.container);
+    const italic = ui.getByRole("button", { name: "Italic" });
+    expect(italic.getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(italic);
+    expect(onChange.mock.calls.at(-1)?.[0]).toEqual([{ text: "Have fun!", style: { fontStyle: "normal" } }]);
+    expect(italic.getAttribute("aria-pressed")).toBe("false");
+
+    await user.click(italic);
+    expect(onChange.mock.calls.at(-1)?.[0]).toEqual([{ text: "Have fun!" }]);
+  });
+
   it("preserves glyph runs when formatting the surrounding text", async () => {
     const user = userEvent.setup();
     const { ui, selectAll, latest } = renderEditor([{ text: "sempre " }, { glyphs: ["dynamicPP"] }]);

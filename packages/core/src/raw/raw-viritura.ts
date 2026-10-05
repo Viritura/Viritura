@@ -328,6 +328,23 @@ export interface components {
             /** @description Position within the measure. */
             location: components["schemas"]["rhythmic-position"];
         };
+        /** @description Authored display text owned by one navigation marker. The owning marker remains authoritative for playback and navigation. */
+        "marker-text": {
+            /** @description Ordered authored text and SMuFL glyph runs. */
+            content: components["schemas"]["text-content"];
+            /**
+             * @description Whether authored content precedes, follows, or replaces the marker's generated glyph or label.
+             * @enum {string}
+             */
+            placement: "before" | "after" | "replace";
+        };
+        /** @description Authored text attached to navigation markers on the same global measure. Each entry requires its owning marker. */
+        "marker-texts": {
+            segno?: components["schemas"]["marker-text"];
+            coda?: components["schemas"]["marker-text"];
+            fine?: components["schemas"]["marker-text"];
+            jump?: components["schemas"]["marker-text"];
+        };
         /** @description A gradual tempo change (ritardando / accelerando) playback curve. MNX has no gradual-tempo field, so Viritura models the playback ramp as a vendor extension on the global measure where it begins. The tempo ramps linearly in BPM from the tempo active at `position` (or `startBpm` if given) to `endBpm` at `end`. This is playback data only; the printed 'rit.'/'accel.' text is an ordinary text-expression. */
         "gradual-tempo": {
             /** @description Start position within this measure. */
@@ -349,6 +366,7 @@ export interface components {
             rehearsalMark?: components["schemas"]["rehearsal-mark"];
             coda?: components["schemas"]["coda"];
             jump?: components["schemas"]["jump"];
+            markerText?: components["schemas"]["marker-texts"];
             gradualTempo?: components["schemas"]["gradual-tempo"];
             /** @description Score-wide harmony events at rhythmic positions in this measure. */
             chordSymbols?: components["schemas"]["chord-symbol"][];
@@ -902,6 +920,8 @@ export type SpDelta = components["schemas"]["sp-delta"];
 export type SlurShape = components["schemas"]["slur-shape"];
 export type SlurExtensions = components["schemas"]["slur-extensions"];
 export type Jump = components["schemas"]["jump"];
+export type MarkerText = components["schemas"]["marker-text"];
+export type MarkerTexts = components["schemas"]["marker-texts"];
 export type GradualTempo = components["schemas"]["gradual-tempo"];
 export type MeasureGlobalExtensions = components["schemas"]["measure-global-extensions"];
 export type PartMeasureExtensions = components["schemas"]["part-measure-extensions"];

@@ -289,6 +289,15 @@ function serializeTimeSignature(time: NonNullable<GlobalMeasure["time"]>): Obj {
   return out;
 }
 
+function collectMarkerText(gm: GlobalMeasure): Obj | undefined {
+  const texts: Obj = {};
+  if (gm.segno?.text) texts["segno"] = gm.segno.text;
+  if (gm.coda?.text) texts["coda"] = gm.coda.text;
+  if (gm.fine?.text) texts["fine"] = gm.fine.text;
+  if (gm.jump?.text) texts["jump"] = gm.jump.text;
+  return Object.keys(texts).length > 0 ? texts : undefined;
+}
+
 function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   const ext: Obj = {};
   if (gm.rehearsalMark) {
@@ -307,6 +316,8 @@ function collectGlobalMeasureVendorExt(gm: GlobalMeasure): Obj {
   if (gm.jump?.type === "dsalcoda" || gm.jump?.type === "dcalcoda") {
     ext["jump"] = { type: gm.jump.type, location: gm.jump.location };
   }
+  const markerText = collectMarkerText(gm);
+  if (markerText) ext["markerText"] = markerText;
   if (gm.gradualTempo) {
     const gt: Obj = {
       position: gm.gradualTempo.position,

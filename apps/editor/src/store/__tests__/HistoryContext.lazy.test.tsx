@@ -53,6 +53,7 @@ describe("HistoryContext lazy description integration", () => {
       () => ({
         push: useHistoryStore((s: HistoryStoreState) => s.pushState),
         entries: useHistoryStore((s: HistoryStoreState) => s.entries),
+        getEntryMnxJson: useHistoryStore((s: HistoryStoreState) => s.getEntryMnxJson),
       }),
       { wrapper: wrapper(minimalMnx("C")) },
     );
@@ -62,7 +63,8 @@ describe("HistoryContext lazy description integration", () => {
     });
 
     expect(result.current.entries).toHaveLength(2);
-    expect(result.current.entries[1]?.mnxJson).toBe(minimalMnx("D"));
+    expect(result.current.getEntryMnxJson(1)).toBe(minimalMnx("D"));
+    expect(result.current.getEntryMnxJson(0)).toBe(minimalMnx("C"));
     // Description not yet resolved (microtask hasn't run yet inside act)
   });
 
