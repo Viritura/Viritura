@@ -8831,6 +8831,9 @@ impl ::std::convert::From<GlyphRun> for TextContentItem {
 ///      "description": "Manual [dx, dy] offset in spatia (sp), applied after automatic placement.",
 ///      "$ref": "#/$defs/sp-delta"
 ///    },
+///    "pagePosition": {
+///      "$ref": "#/$defs/text-frame-page-position"
+///    },
 ///    "placement": {
 ///      "$ref": "#/$defs/expression-placement"
 ///    },
@@ -8873,6 +8876,12 @@ pub struct TextExpression {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub manual_offset: ::std::option::Option<SpDelta>,
+    #[serde(
+        rename = "pagePosition",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub page_position: ::std::option::Option<TextFramePagePosition>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub placement: ::std::option::Option<ExpressionPlacement>,
     ///Rhythmic position within the measure.
@@ -8956,6 +8965,9 @@ impl ::std::convert::From<&TextExpression> for TextExpression {
 ///    "sourceReference": {
 ///      "$ref": "#/$defs/text-frame-source-reference"
 ///    },
+///    "staffAttachment": {
+///      "$ref": "#/$defs/text-frame-staff-attachment"
+///    },
 ///    "width": {
 ///      "$ref": "#/$defs/text-frame-width"
 ///    }
@@ -9003,6 +9015,12 @@ pub struct TextFrame {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub source_reference: ::std::option::Option<TextFrameSourceReference>,
+    #[serde(
+        rename = "staffAttachment",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub staff_attachment: ::std::option::Option<TextFrameStaffAttachment>,
     pub width: TextFrameWidth,
 }
 impl ::std::convert::From<&TextFrame> for TextFrame {
@@ -9577,6 +9595,142 @@ impl<'de> ::serde::Deserialize<'de> for TextFrameLocatorPartId {
             })
     }
 }
+///`TextFramePagePosition`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "locator",
+///    "placement",
+///    "width"
+///  ],
+///  "properties": {
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "layer": {
+///      "type": "integer"
+///    },
+///    "locator": {
+///      "$ref": "#/$defs/text-frame-locator"
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/text-frame-placement"
+///    },
+///    "sourceReference": {
+///      "$ref": "#/$defs/text-frame-source-reference"
+///    },
+///    "width": {
+///      "$ref": "#/$defs/text-frame-width"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextFramePagePosition {
+    pub id: TextFramePagePositionId,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<i64>,
+    pub locator: TextFrameLocator,
+    pub placement: TextFramePlacement,
+    #[serde(
+        rename = "sourceReference",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub source_reference: ::std::option::Option<TextFrameSourceReference>,
+    pub width: TextFrameWidth,
+}
+impl ::std::convert::From<&TextFramePagePosition> for TextFramePagePosition {
+    fn from(value: &TextFramePagePosition) -> Self {
+        value.clone()
+    }
+}
+///`TextFramePagePositionId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TextFramePagePositionId(::std::string::String);
+impl ::std::ops::Deref for TextFramePagePositionId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextFramePagePositionId> for ::std::string::String {
+    fn from(value: TextFramePagePositionId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextFramePagePositionId> for TextFramePagePositionId {
+    fn from(value: &TextFramePagePositionId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextFramePagePositionId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextFramePagePositionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextFramePagePositionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextFramePagePositionId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TextFramePagePositionId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///Paragraph line justification within the frame, independent of frame alignment.
 ///
 /// <details><summary>JSON schema</summary>
@@ -9995,6 +10149,347 @@ impl<'de> ::serde::Deserialize<'de> for TextFrameSourceReferenceUnit {
             .map_err(|e: self::error::ConversionError| {
                 <D::Error as ::serde::de::Error>::custom(e.to_string())
             })
+    }
+}
+///`TextFrameStaffAttachment`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "expression",
+///    "measureId",
+///    "partId"
+///  ],
+///  "properties": {
+///    "expression": {
+///      "type": "object",
+///      "required": [
+///        "position"
+///      ],
+///      "properties": {
+///        "avoidCollisions": {
+///          "type": "boolean"
+///        },
+///        "manualOffset": {
+///          "$ref": "#/$defs/sp-delta"
+///        },
+///        "placement": {
+///          "$ref": "#/$defs/expression-placement"
+///        },
+///        "position": {
+///          "$ref": "#/$defs/rhythmic-position"
+///        },
+///        "staff": {
+///          "type": "integer"
+///        },
+///        "voice": {
+///          "type": "string"
+///        }
+///      },
+///      "additionalProperties": false
+///    },
+///    "measureId": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "partId": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "width": {
+///      "type": "object",
+///      "required": [
+///        "unit",
+///        "value"
+///      ],
+///      "properties": {
+///        "unit": {
+///          "const": "staffSpaces"
+///        },
+///        "value": {
+///          "type": "number"
+///        }
+///      },
+///      "additionalProperties": false
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextFrameStaffAttachment {
+    pub expression: TextFrameStaffAttachmentExpression,
+    #[serde(rename = "measureId")]
+    pub measure_id: TextFrameStaffAttachmentMeasureId,
+    #[serde(rename = "partId")]
+    pub part_id: TextFrameStaffAttachmentPartId,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub width: ::std::option::Option<TextFrameStaffAttachmentWidth>,
+}
+impl ::std::convert::From<&TextFrameStaffAttachment> for TextFrameStaffAttachment {
+    fn from(value: &TextFrameStaffAttachment) -> Self {
+        value.clone()
+    }
+}
+///`TextFrameStaffAttachmentExpression`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "position"
+///  ],
+///  "properties": {
+///    "avoidCollisions": {
+///      "type": "boolean"
+///    },
+///    "manualOffset": {
+///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/expression-placement"
+///    },
+///    "position": {
+///      "$ref": "#/$defs/rhythmic-position"
+///    },
+///    "staff": {
+///      "type": "integer"
+///    },
+///    "voice": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextFrameStaffAttachmentExpression {
+    #[serde(
+        rename = "avoidCollisions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(
+        rename = "manualOffset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub manual_offset: ::std::option::Option<SpDelta>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<ExpressionPlacement>,
+    pub position: RhythmicPosition,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub staff: ::std::option::Option<i64>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub voice: ::std::option::Option<::std::string::String>,
+}
+impl ::std::convert::From<&TextFrameStaffAttachmentExpression>
+for TextFrameStaffAttachmentExpression {
+    fn from(value: &TextFrameStaffAttachmentExpression) -> Self {
+        value.clone()
+    }
+}
+///`TextFrameStaffAttachmentMeasureId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TextFrameStaffAttachmentMeasureId(::std::string::String);
+impl ::std::ops::Deref for TextFrameStaffAttachmentMeasureId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextFrameStaffAttachmentMeasureId> for ::std::string::String {
+    fn from(value: TextFrameStaffAttachmentMeasureId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextFrameStaffAttachmentMeasureId>
+for TextFrameStaffAttachmentMeasureId {
+    fn from(value: &TextFrameStaffAttachmentMeasureId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextFrameStaffAttachmentMeasureId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextFrameStaffAttachmentMeasureId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+for TextFrameStaffAttachmentMeasureId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+for TextFrameStaffAttachmentMeasureId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TextFrameStaffAttachmentMeasureId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TextFrameStaffAttachmentPartId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TextFrameStaffAttachmentPartId(::std::string::String);
+impl ::std::ops::Deref for TextFrameStaffAttachmentPartId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<TextFrameStaffAttachmentPartId> for ::std::string::String {
+    fn from(value: TextFrameStaffAttachmentPartId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&TextFrameStaffAttachmentPartId>
+for TextFrameStaffAttachmentPartId {
+    fn from(value: &TextFrameStaffAttachmentPartId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for TextFrameStaffAttachmentPartId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for TextFrameStaffAttachmentPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for TextFrameStaffAttachmentPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for TextFrameStaffAttachmentPartId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for TextFrameStaffAttachmentPartId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`TextFrameStaffAttachmentWidth`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "unit",
+///    "value"
+///  ],
+///  "properties": {
+///    "unit": {
+///      "const": "staffSpaces"
+///    },
+///    "value": {
+///      "type": "number"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextFrameStaffAttachmentWidth {
+    pub unit: ::serde_json::Value,
+    pub value: f64,
+}
+impl ::std::convert::From<&TextFrameStaffAttachmentWidth>
+for TextFrameStaffAttachmentWidth {
+    fn from(value: &TextFrameStaffAttachmentWidth) -> Self {
+        value.clone()
     }
 }
 ///Exactly one width unit: staff spaces or a fraction of the available text column.
@@ -13003,11 +13498,17 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "text-frame-locator": {
 ///      "$ref": "#/$defs/text-frame-locator"
 ///    },
+///    "text-frame-page-position": {
+///      "$ref": "#/$defs/text-frame-page-position"
+///    },
 ///    "text-frame-placement": {
 ///      "$ref": "#/$defs/text-frame-placement"
 ///    },
 ///    "text-frame-source-reference": {
 ///      "$ref": "#/$defs/text-frame-source-reference"
+///    },
+///    "text-frame-staff-attachment": {
+///      "$ref": "#/$defs/text-frame-staff-attachment"
 ///    },
 ///    "text-frame-width": {
 ///      "$ref": "#/$defs/text-frame-width"
@@ -13526,6 +14027,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub text_frame_locator: ::std::option::Option<TextFrameLocator>,
     #[serde(
+        rename = "text-frame-page-position",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_frame_page_position: ::std::option::Option<TextFramePagePosition>,
+    #[serde(
         rename = "text-frame-placement",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -13537,6 +14044,12 @@ pub struct VirituraExtensionsRoot {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub text_frame_source_reference: ::std::option::Option<TextFrameSourceReference>,
+    #[serde(
+        rename = "text-frame-staff-attachment",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text_frame_staff_attachment: ::std::option::Option<TextFrameStaffAttachment>,
     #[serde(
         rename = "text-frame-width",
         default,
@@ -13742,8 +14255,10 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             text_expression: Default::default(),
             text_frame: Default::default(),
             text_frame_locator: Default::default(),
+            text_frame_page_position: Default::default(),
             text_frame_placement: Default::default(),
             text_frame_source_reference: Default::default(),
+            text_frame_staff_attachment: Default::default(),
             text_frame_width: Default::default(),
             text_run: Default::default(),
             text_run_style: Default::default(),

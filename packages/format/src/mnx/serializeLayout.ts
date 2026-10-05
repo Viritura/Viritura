@@ -117,6 +117,7 @@ function serializeTextFrame(frame: NonNullable<ScoreDefinition["textFrames"]>[nu
   if (frame.border !== undefined) obj["border"] = frame.border;
   if (frame.eraseBackground !== undefined) obj["eraseBackground"] = frame.eraseBackground;
   if (frame.sourceReference) obj["sourceReference"] = { ...frame.sourceReference };
+  if (frame.staffAttachment) obj["staffAttachment"] = frame.staffAttachment;
   return obj;
 }
 

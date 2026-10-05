@@ -418,6 +418,7 @@
       "properties": {
         "text": { "$ref": "#/$defs/text-content" },
         "frame": { "$ref": "#/$defs/staff-text-frame-presentation" },
+        "pagePosition": { "$ref": "#/$defs/text-frame-page-position" },
         "position": {
           "$ref": "#/$defs/rhythmic-position",
           "description": "Rhythmic position within the measure."
@@ -1206,11 +1207,56 @@
           "type": "boolean",
           "description": "Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored."
         },
-        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" },
+        "staffAttachment": { "$ref": "#/$defs/text-frame-staff-attachment" }
       },
       "additionalProperties": false
     },
 
+    "text-frame-page-position": {
+      "type": "object",
+      "required": ["id", "locator", "placement", "width"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "layer": { "type": "integer", "minimum": 0 },
+        "locator": { "$ref": "#/$defs/text-frame-locator" },
+        "placement": { "$ref": "#/$defs/text-frame-placement" },
+        "width": { "$ref": "#/$defs/text-frame-width" },
+        "sourceReference": { "$ref": "#/$defs/text-frame-source-reference" }
+      },
+      "additionalProperties": false
+    },
+    "text-frame-staff-attachment": {
+      "type": "object",
+      "required": ["partId", "measureId", "expression"],
+      "properties": {
+        "partId": { "type": "string", "minLength": 1 },
+        "measureId": { "type": "string", "minLength": 1 },
+        "expression": {
+          "type": "object",
+          "required": ["position"],
+          "properties": {
+            "position": { "$ref": "#/$defs/rhythmic-position" },
+            "placement": { "$ref": "#/$defs/expression-placement" },
+            "staff": { "type": "integer", "minimum": 1 },
+            "voice": { "type": "string" },
+            "manualOffset": { "$ref": "#/$defs/sp-delta" },
+            "avoidCollisions": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "width": {
+          "type": "object",
+          "required": ["unit", "value"],
+          "properties": {
+            "unit": { "const": "staffSpaces" },
+            "value": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "staff-text-frame-presentation": {
       "type": "object",
       "description": "Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic.",

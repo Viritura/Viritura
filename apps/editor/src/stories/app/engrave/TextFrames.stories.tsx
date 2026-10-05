@@ -112,3 +112,9 @@ export const StaffTextProperties: Story = {
   args: { horizon: true, staffText: true },
   name: "Multiline staff text Properties",
 };
+
+/** Switch Position relative to between Staff and Page; page anchors appear in Page mode. */
+export const StaffPagePositioning: Story = {
+  args: { horizon: false, staffText: true },
+  name: "Staff/Page attachment switching",
+};

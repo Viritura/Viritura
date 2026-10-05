@@ -212,6 +212,46 @@ page. The palette opens the new frame's text and presentation editor immediately
 tab or creation action in Engrave. Selecting a painted frame opens its Properties.
 The existing-frame list also exposes frames whose targets are unplaced.
 
+Ordinary staff text and page text share **Position relative to: Staff / Page**
+in Properties. Switching to Page is one undoable move: it removes the staff
+expression (which was shared across score/part views) and creates a page frame
+only in the active view. It does not leave a second staff marking behind.
+If the document uses the implicit full-score view (no authored `scores`),
+the conversion materializes a full-score definition without inventing a layout.
+New page positioning follows the original measure's page, starts at **Top left**
+with zero page offset, and uses the staff's fixed width or 20 staff spaces when
+the staff width was auto. **Page selection** chooses a fixed page or a musical
+page locator; **Page anchor** can place the frame as a header or footer. These
+are single-page objects, not repeating headers/footers.
+
+Both editors preserve rich runs, named glyphs, authored newlines, padding,
+border, alignment, and background-erasure intent. Conversions materialize
+inherited text slant so changing the owning text role does not change its
+appearance.
+
+Optional `staffAttachment` is inactive editor restoration data: stable
+`partId` and global `measureId`, an `expression` snapshot containing rhythmic
+position, staff, voice, above/below placement, manual offset and collision
+intent, and optional staff-space `width` (omission remembers auto width).
+It does not render a staff annotation while the frame is page-positioned.
+Switching back restores the original destination by IDs, including after
+reordering. If its part, measure, or staff is missing, or there was no original
+staff attachment, select a destination note/rest or staff measure and then
+select the frame in the list. A missing destination is an explicit editing
+error, not a guessed attachment. A note/rest supplies its rhythmic location;
+a measure selection uses the start of that measure.
+
+The staff expression retains optional `pagePosition` restoration data:
+`id`, `locator`, `placement`, `width`, optional paint-order `layer`, and optional
+`sourceReference`. Restoring a saved layer clamps its index to the current frame
+count rather than silently putting a returning frame on top.
+This preserves separate page geometry and page-column width while staff
+positioning uses its own +y-up offsets and auto/staff-space width. Switching
+to Page again restores that geometry, using a new ID only if the saved ID is
+already occupied. Inactive restoration data is schema-validated and round-trips
+through MNX; layout uses only the active owner. System-wide text scope and
+repeating furniture are separate capabilities.
+
 Horizon mode has no pages and therefore does not paint page-relative frames.
 The editing UI exposes hidden frames near their measure/event locator and
 provides a document-level list for frames located by page index. A musical

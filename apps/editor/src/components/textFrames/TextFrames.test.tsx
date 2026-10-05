@@ -97,9 +97,8 @@ describe("TextFramePalette", () => {
     expect(created.locator).toEqual({ type: "page", pageIndex: 0 });
     const editor = screen.getByTestId("text-frame-editor");
     const text = within(editor).getByLabelText("Text");
-    await user.clear(text);
-    await user.type(text, "Line one{Enter}Line two");
-    expect(frames().at(-1)!.content).toEqual([{ text: "Text" }]);
+    text.innerHTML = "<span>Line one<br>Line two</span>";
+    fireEvent.input(text);
     fireEvent.blur(text);
     expect(frames().at(-1)!.content).toEqual([{ text: "Line one\nLine two" }]);
   });
@@ -152,6 +151,42 @@ describe("TextFramePalette", () => {
 });
 
 describe("TextFramesPanel", () => {
+  it("requires a selected destination for a new page frame, then moves it without duplication", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByTestId("text-frame-row-title"));
+    await user.click(screen.getByRole("combobox", { name: "Position relative to" }));
+    await user.click(screen.getByRole("option", { name: "Staff", exact: true }));
+    expect(screen.getByRole("alert").textContent).toContain("Select a staff and measure");
+    expect(frames()).toHaveLength(5);
+    act(() => {
+      useSelectionStore.setState({ selection: { kind: "single", elementId: "p0/m1/s0/e2" } });
+    });
+    await user.click(screen.getByTestId("text-frame-row-title"));
+    await user.click(screen.getByRole("combobox", { name: "Position relative to" }));
+    await user.click(screen.getByRole("option", { name: "Staff", exact: true }));
+    expect(frames()).toHaveLength(4);
+    const expression = currentScore()!.parts[0]!.measures[1]!.expressions![0]!;
+    expect(expression.text).toEqual([{ text: "Program note", style: { fontStyle: "normal" } }]);
+    expect(expression.position.fraction).toEqual([0, 1]);
+    expect(useSelectionStore.getState().selection).toMatchObject({ kind: "single", elementId: "p0/m1/expr0" });
+  });
+
+  it("edits fixed-page and follow-measure locators independently of page anchors", async () => {
+    const user = userEvent.setup();
+    renderWithDocument(<TextFramesPanel />);
+    await user.click(await screen.findByTestId("text-frame-row-title"));
+    const page = screen.getByLabelText("Page number");
+    fireEvent.change(page, { target: { value: "2" } });
+    fireEvent.blur(page);
+    expect(frames()[0]!.locator).toEqual({ type: "page", pageIndex: 1 });
+    await user.click(screen.getByRole("combobox", { name: "Page selection" }));
+    await user.click(screen.getByRole("option", { name: "Follow measure / event" }));
+    await user.click(screen.getByRole("combobox", { name: "Following measure" }));
+    await user.click(screen.getByRole("option", { name: "Measure 2" }));
+    expect(frames()[0]!.locator).toEqual({ type: "globalMeasure", measureId: "m2" });
+    expect(frames()[0]!.placement).toEqual({ anchor: "top-left", offset: { x: 0, y: 0 } });
+  });
   it("toggles Erase background on page frames without changing content or placement", async () => {
     const user = userEvent.setup();
     renderWithDocument(<TextFramesPanel />);
@@ -177,7 +212,7 @@ describe("TextFramesPanel", () => {
     useSelectionStore.setState({ selection: { kind: "single", elementId: "text-frame/title" } });
     renderWithDocument(<TextFramesPanel />);
     const editor = await screen.findByTestId("text-frame-editor");
-    expect(within(editor).getByLabelText("Text")).toHaveProperty("value", "Program note");
+    expect(within(editor).getByLabelText("Text").textContent).toBe("Program note");
   });
 
   it("selects the frame hit on the canvas", async () => {

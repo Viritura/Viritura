@@ -209,6 +209,7 @@ export interface components {
         "text-expression": {
             text: components["schemas"]["text-content"];
             frame?: components["schemas"]["staff-text-frame-presentation"];
+            pagePosition?: components["schemas"]["text-frame-page-position"];
             /** @description Rhythmic position within the measure. */
             position: components["schemas"]["rhythmic-position"];
             placement?: components["schemas"]["expression-placement"];
@@ -617,6 +618,32 @@ export interface components {
             /** @description Erase underlying ink within the frame using the surface background. Omitted or false preserves underlying ink; no color is stored. */
             eraseBackground?: boolean;
             sourceReference?: components["schemas"]["text-frame-source-reference"];
+            staffAttachment?: components["schemas"]["text-frame-staff-attachment"];
+        };
+        "text-frame-page-position": {
+            id: string;
+            layer?: number;
+            locator: components["schemas"]["text-frame-locator"];
+            placement: components["schemas"]["text-frame-placement"];
+            width: components["schemas"]["text-frame-width"];
+            sourceReference?: components["schemas"]["text-frame-source-reference"];
+        };
+        "text-frame-staff-attachment": {
+            partId: string;
+            measureId: string;
+            expression: {
+                position: components["schemas"]["rhythmic-position"];
+                placement?: components["schemas"]["expression-placement"];
+                staff?: number;
+                voice?: string;
+                manualOffset?: components["schemas"]["sp-delta"];
+                avoidCollisions?: boolean;
+            };
+            width?: {
+                /** @constant */
+                unit: "staffSpaces";
+                value: number;
+            };
         };
         /** @description Optional shared frame presentation on staff text. No width means natural width; a staff-space width enables word wrapping. Height is automatic. */
         "staff-text-frame-presentation": {
@@ -1036,6 +1063,8 @@ export type PageMargins = components["schemas"]["page-margins"];
 export type PageSetup = components["schemas"]["page-setup"];
 export type ScoreExtensions = components["schemas"]["score-extensions"];
 export type TextFrame = components["schemas"]["text-frame"];
+export type TextFramePagePosition = components["schemas"]["text-frame-page-position"];
+export type TextFrameStaffAttachment = components["schemas"]["text-frame-staff-attachment"];
 export type StaffTextFramePresentation = components["schemas"]["staff-text-frame-presentation"];
 export type TextFrameLocator = components["schemas"]["text-frame-locator"];
 export type TextFramePlacement = components["schemas"]["text-frame-placement"];

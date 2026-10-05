@@ -152,4 +152,68 @@ describe("score text frames", () => {
     const output = serializeMnx(empty) as { scores: { _x: { viritura: { textFrames: unknown[] } } }[] };
     expect(output.scores[0]?._x.viritura.textFrames).toEqual([]);
   });
+
+  it("round-trips saved staff attachment settings without treating them as active staff text", () => {
+    const frame = {
+      ...frames[0],
+      staffAttachment: {
+        partId: "part-1",
+        measureId: "global-measure-1",
+        expression: {
+          position: { fraction: [1, 4] },
+          staff: 1,
+          placement: "below",
+          manualOffset: [2, -3],
+          avoidCollisions: false,
+        },
+        width: { unit: "staffSpaces", value: 12 },
+      },
+    };
+    for (const parse of [parseMnx, parseMnxUnvalidated]) {
+      const score = parse(documentWithFrames([frame]));
+      expect(score.scores?.[0]?.textFrames?.[0]?.staffAttachment).toEqual(frame.staffAttachment);
+      expect(score.parts[0]!.measures[0]!.expressions).toBeUndefined();
+      expect(parse(serializeMnx(score)).scores?.[0]?.textFrames?.[0]).toEqual(frame);
+    }
+    const invalid = {
+      ...frame,
+      staffAttachment: { ...frame.staffAttachment, width: { unit: "textColumnFraction", value: 0.5 } },
+    };
+    expect(() => parseMnx(documentWithFrames([invalid]))).toThrow();
+    expect(() => parseMnxUnvalidated(documentWithFrames([invalid]))).toThrow(/invalid frame shape/);
+  });
+
+  it("validates saved page geometry on staff text, even in recovery parsing", () => {
+    const base = documentWithFrames([]);
+    const part = base.parts[0]!;
+    const measure = part.measures[0]!;
+    const { id, locator, placement, width, sourceReference } = frames[0]!;
+    const pagePosition = { id, locator, placement, width, sourceReference };
+    const raw = (geometry: unknown) => ({
+      ...base,
+      parts: [
+        {
+          ...part,
+          measures: [
+            {
+              ...measure,
+              _x: {
+                viritura: {
+                  expressions: [
+                    { text: [{ text: "Staff instructions" }], position: { fraction: [0, 1] }, pagePosition: geometry },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    for (const parse of [parseMnx, parseMnxUnvalidated]) {
+      const score = parse(raw(pagePosition));
+      expect(score.parts[0]!.measures[0]!.expressions![0]!.pagePosition).toEqual(pagePosition);
+      expect(parse(serializeMnx(score)).parts[0]!.measures[0]!.expressions![0]!.pagePosition).toEqual(pagePosition);
+      expect(() => parse(raw({ ...pagePosition, placement: { anchor: "invalid", offset: { x: 0, y: 0 } } }))).toThrow();
+    }
+  });
 });

@@ -236,6 +236,39 @@ describe("staff text frame Properties", () => {
     await waitFor(() => expect(screen.getByLabelText("Fixed width (sp)")).toHaveProperty("value", "20"));
   });
 
+  it.each([false, true])(
+    "switches Staff/Page with one undo step and restores the attachment (explicit view=%s)",
+    async (withPageFrames) => {
+      const user = userEvent.setup();
+      render(withProviders(<HistoryHarness elementId="p0/m0/expr0" withPageFrames={withPageFrames} />));
+      await screen.findByRole("region", { name: "Staff text frame" });
+      const snapshot = () => JSON.parse(screen.getByTestId("score-snapshot").textContent!) as Score;
+      const original = snapshot().parts[0]!.measures[0]!.expressions![0]!;
+      await user.click(screen.getByRole("combobox", { name: "Position relative to" }));
+      await user.click(screen.getByRole("option", { name: "Page", exact: true }));
+      await screen.findByRole("combobox", { name: "Page anchor" });
+      expect(snapshot().parts[0]!.measures[0]!.expressions).toBeUndefined();
+      expect(snapshot().scores![0]!.textFrames).toHaveLength(1);
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Undo inspector edit" })).toHaveProperty("disabled", false),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Undo inspector edit" }));
+      await waitFor(() => expect(snapshot().parts[0]!.measures[0]!.expressions![0]).toEqual(original));
+      expect(snapshot().scores?.[0]?.textFrames).toBeUndefined();
+      fireEvent.click(screen.getByRole("button", { name: "Redo inspector edit" }));
+      await waitFor(() => expect(snapshot().scores![0]!.textFrames).toHaveLength(1));
+      await user.click(await screen.findByRole("combobox", { name: "Position relative to" }));
+      await user.click(screen.getByRole("option", { name: "Staff", exact: true }));
+      await screen.findByRole("region", { name: "Staff text frame" });
+      expect(snapshot().parts[0]!.measures[0]!.expressions![0]).toMatchObject({
+        position: original.position,
+        manualOffset: original.manualOffset,
+        text: [{ text: "Play freely", style: { weight: "bold", fontStyle: "normal" } }],
+      });
+      expect(snapshot().scores![0]!.textFrames).toBeUndefined();
+    },
+  );
+
   it("clears width back to auto without resetting the other frame properties", async () => {
     render(withProviders(<Harness elementId="p0/m0/expr0" />));
     const region = await screen.findByRole("region", { name: "Staff text frame" });
@@ -396,7 +429,13 @@ function currentMnx(): Record<string, unknown> {
   return JSON.parse(screen.getByTestId("mnx-snapshot").textContent ?? "null") as Record<string, unknown>;
 }
 
-function HistoryHarnessInner({ elementId }: { elementId: string }) {
+function buildHistoryScore(withPageFrames: boolean): Score {
+  const score = buildScore();
+  if (withPageFrames) score.scores = [{ name: "Full" }];
+  return score;
+}
+
+function HistoryHarnessInner({ elementId, withPageFrames }: { elementId: string; withPageFrames: boolean }) {
   const { loadScore } = useDocumentActions();
   const { score } = useDocument();
   const store = useDocumentStoreApi();
@@ -409,9 +448,9 @@ function HistoryHarnessInner({ elementId }: { elementId: string }) {
   useMnxChangeReporter({ store, pushState });
 
   useEffect(() => {
-    loadScore(buildScore(), "history.mnx");
+    loadScore(buildHistoryScore(withPageFrames), "history.mnx");
     selectElement(elementId);
-  }, [elementId, loadScore, selectElement]);
+  }, [elementId, loadScore, selectElement, withPageFrames]);
 
   return (
     <>
@@ -423,15 +462,21 @@ function HistoryHarnessInner({ elementId }: { elementId: string }) {
   );
 }
 
-function HistoryHarness({ elementId = "p0/m0/s0/ev1/breath" }: { elementId?: string }) {
-  const initialMnx = JSON.stringify(serializeMnx(buildScore()));
+function HistoryHarness({
+  elementId = "p0/m0/s0/ev1/breath",
+  withPageFrames = false,
+}: {
+  elementId?: string;
+  withPageFrames?: boolean;
+}) {
+  const initialMnx = JSON.stringify(serializeMnx(buildHistoryScore(withPageFrames)));
   const store = useDocumentStoreApi();
   return (
     <HistoryProvider
       initialMnxJson={initialMnx}
       onRestore={(mnxJson) => store.getState().loadScore(parseMnx(JSON.parse(mnxJson)), "history.mnx", mnxJson)}
     >
-      <HistoryHarnessInner elementId={elementId} />
+      <HistoryHarnessInner elementId={elementId} withPageFrames={withPageFrames} />
     </HistoryProvider>
   );
 }

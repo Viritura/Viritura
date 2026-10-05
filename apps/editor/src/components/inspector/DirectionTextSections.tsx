@@ -9,7 +9,7 @@ import { OttavaInspector } from "./OttavaInspector";
 import { ChordSymbolSection } from "./ChordSymbolSection";
 import { useChordSymbolInspector } from "./useChordSymbolInspector";
 import { ChordSymbolEntryAction } from "./ChordSymbolEntryAction";
-import { StaffTextFrameFields } from "../textFrames";
+import { StaffTextFrameFields, StaffTextPositioningField } from "../textFrames";
 
 export interface DirectionTextSectionsProps {
   score: Score | null;
@@ -102,6 +102,7 @@ export function DirectionTextSections({ score, target, updateScore }: DirectionT
             placeholder="e.g. dolce, espressivo, rit."
             onChange={handleExpressionTextChange}
             inheritedStyle={inheritedStyleForExpression(selectedExpression.placement)}
+            positioning={<StaffTextPositioningField score={score} target={target} updateScore={updateScore} />}
             offset={{
               value: selectedExpression.manualOffset ?? [0, 0],
               onChange: handleAnnotationOffsetChange,

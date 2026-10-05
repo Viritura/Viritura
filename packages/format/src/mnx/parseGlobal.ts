@@ -83,7 +83,7 @@ import type {
 } from "@viritura/core/raw-viritura";
 
 import { parseTextContent } from "./textContent";
-import { parseStaffTextFramePresentation } from "./staffTextFrame";
+import { parseStaffTextFramePresentation, parseTextFramePagePosition } from "./staffTextFrame";
 
 /** Untyped vendor-extension payload — used only for fields outside the
  * extensions schema (e.g. legacy `times` on repeat-start, atonal key flag). */
@@ -397,6 +397,7 @@ export function parseTextExpression(raw: RawTextExpression): TextExpression {
   }
   if (typeof raw.avoidCollisions === "boolean") expr.avoidCollisions = raw.avoidCollisions;
   if (raw.frame !== undefined) expr.frame = parseStaffTextFramePresentation(raw.frame);
+  if (raw.pagePosition !== undefined) expr.pagePosition = parseTextFramePagePosition(raw.pagePosition);
   return expr;
 }
 

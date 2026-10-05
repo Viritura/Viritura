@@ -1,4 +1,24 @@
 import type { TextContent } from "./text";
+import type { TextExpression } from "./measure";
+
+/** Saved page geometry when text is temporarily positioned on a staff. */
+export interface TextFramePagePosition {
+  id: string;
+  /** Saved paint-order index; restoration clamps it to the current frame count. */
+  layer?: number;
+  locator: TextFrameLocator;
+  placement: { anchor: TextFramePageAnchor; offset: { x: number; y: number } };
+  width: TextFrameWidth;
+  sourceReference?: TextFrameSourceReference;
+}
+
+/** Stable musical destination and staff-only settings retained by a page frame. */
+export interface TextFrameStaffAttachment {
+  partId: string;
+  measureId: string;
+  expression: Pick<TextExpression, "position" | "placement" | "staff" | "voice" | "manualOffset" | "avoidCollisions">;
+  width?: Extract<TextFrameWidth, { unit: "staffSpaces" }>;
+}
 
 /** The single locator that determines which rendered page contains a text frame. */
 export type TextFrameLocator =
@@ -62,4 +82,5 @@ export interface TextFrame extends TextBlock {
   };
   width: TextFrameWidth;
   sourceReference?: TextFrameSourceReference;
+  staffAttachment?: TextFrameStaffAttachment;
 }

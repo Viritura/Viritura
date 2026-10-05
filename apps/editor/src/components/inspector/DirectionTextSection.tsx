@@ -1,6 +1,6 @@
 import { FormInput, Checkbox, Button } from "@viritura/ui";
 import type { TextContent } from "@viritura/core";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { sectionStyle, legendStyle, labelStyle } from "./types";
 import { TextContentEditor, type InheritedTextStyle } from "./TextContentEditor";
 
@@ -30,11 +30,12 @@ export interface ManualOffsetControl {
 
 /** Reusable manual-placement editor (Offset X/Y + Avoid collisions + Reset).
  *  Shared by the dynamic/expression/rehearsal sections and the tempo section. */
-export function ManualOffsetFields({ offset }: { offset: ManualOffsetControl }) {
+export function ManualOffsetFields({ offset, positioning }: { offset: ManualOffsetControl; positioning?: ReactNode }) {
   const hasOffset = Math.abs(offset.value[0]) > 1e-6 || Math.abs(offset.value[1]) > 1e-6;
   return (
     <div style={positionGroupStyle} role="group" aria-label="Position">
       <p style={positionTitleStyle}>Position</p>
+      {positioning}
       <div style={offsetRowStyle}>
         <label style={offsetLabelStyle}>
           Offset X (sp, +right)
@@ -88,6 +89,7 @@ export interface DirectionTextSectionProps {
   /** Weight and slant the engraved element applies to unstyled runs. */
   inheritedStyle?: InheritedTextStyle;
   multiline?: boolean;
+  positioning?: ReactNode;
 }
 
 /** Notation-properties section for editing the text of a dynamic or expression. */
@@ -100,6 +102,7 @@ export function DirectionTextSection({
   offset,
   inheritedStyle,
   multiline = false,
+  positioning,
 }: DirectionTextSectionProps) {
   return (
     <fieldset style={sectionStyle}>
@@ -115,7 +118,7 @@ export function DirectionTextSection({
           multiline={multiline}
         />
       </div>
-      {offset && <ManualOffsetFields offset={offset} />}
+      {offset && <ManualOffsetFields offset={offset} positioning={positioning} />}
     </fieldset>
   );
 }

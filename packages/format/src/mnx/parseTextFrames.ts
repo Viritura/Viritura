@@ -17,6 +17,13 @@ export function parseTextFrames(raw: unknown): TextFrame[] {
     if (!Number.isFinite(offset["x"]) || !Number.isFinite(offset["y"])) {
       throw new Error(`MNX: scores[].textFrames[${index}]: non-finite offset`);
     }
+    const attachment = frame["staffAttachment"] as TextFrame["staffAttachment"];
+    if (attachment?.width && !Number.isFinite(attachment.width.value)) {
+      throw new Error(`MNX: scores[].textFrames[${index}]: non-finite saved staff width`);
+    }
+    if (attachment?.expression.manualOffset?.some((value) => !Number.isFinite(value))) {
+      throw new Error(`MNX: scores[].textFrames[${index}]: non-finite saved staff offset`);
+    }
     const id = frame["id"] as string;
     if (ids.has(id)) throw new Error(`MNX: scores[].textFrames[${index}]: duplicate id "${id}"`);
     ids.add(id);

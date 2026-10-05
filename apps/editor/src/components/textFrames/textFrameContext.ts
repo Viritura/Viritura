@@ -10,8 +10,48 @@ import { extractMeasureIndex, getEventAtLocation, resolveEventLocation } from ".
 import { textFrameLocatorMeasureIndex, textFrameLocatorResolvesInView } from "../../score/textFrameMutations";
 export { textFrameElementId, textFrameIdFromElementId } from "../../score/textFrameMutations";
 import type { useSelection } from "../../store/selectionStore";
+import { buildNavigationIndex } from "../../navigation/NavigationIndex";
+import { beatPositionToFraction } from "../../app/timedAnnotationPosition";
+import type { StaffTextDestination } from "../../score/textFrameAttachment";
 
 type Selection = ReturnType<typeof useSelection>;
+
+export function selectedStaffDestination(score: Score, selection: Selection): StaffTextDestination | undefined {
+  if (selection.kind === "measure") {
+    const staffIndex = selection.startLocalStaffIndex ?? selection.startStaffIndex;
+    return {
+      partIndex: selection.startPartIndex,
+      measureIndex: selection.startMeasure,
+      expression: { position: { fraction: [0, 1] }, staff: staffIndex + 1, placement: "above" },
+    };
+  }
+  if (selection.kind !== "single") return undefined;
+  const location = resolveEventLocation(selection.elementId, score);
+  if (!location) return undefined;
+  const event = getEventAtLocation(score, location);
+  const entry = buildNavigationIndex(score).entries.find((candidate) => {
+    const target = resolveEventLocation(candidate.elementId, score);
+    return (
+      target &&
+      target.partIndex === location.partIndex &&
+      target.measureIndex === location.measureIndex &&
+      target.sequenceIndex === location.sequenceIndex &&
+      getEventAtLocation(score, target) === event
+    );
+  });
+  if (!entry) return undefined;
+  const sequence = score.parts[location.partIndex]!.measures[location.measureIndex]!.sequences[location.sequenceIndex]!;
+  return {
+    partIndex: location.partIndex,
+    measureIndex: location.measureIndex,
+    expression: {
+      position: { fraction: beatPositionToFraction(entry.sortKey) },
+      staff: sequence.staff ?? 1,
+      ...(sequence.voice ? { voice: sequence.voice } : {}),
+      placement: "above",
+    },
+  };
+}
 
 /** The musical location the current selection points at. */
 export interface SelectionMusicalContext {
@@ -110,11 +150,6 @@ export function describeTextFrameLocator(score: Score, locator: TextFrameLocator
 export function textFramePreview(frame: TextFrame): string {
   const text = plainTextContent(frame.content).replace(/\s+/g, " ").trim();
   return text.length > 0 ? text : "(empty frame)";
-}
-
-/** True when the content carries formatting or glyphs a plain-text edit would drop. */
-export function hasFormattedContent(frame: TextFrame): boolean {
-  return frame.content.some((chunk) => !("text" in chunk) || chunk.style !== undefined);
 }
 
 /**

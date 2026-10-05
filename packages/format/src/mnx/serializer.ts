@@ -405,6 +405,7 @@ function serializeTextExpression(expr: TextExpression): Obj {
   if (expr.manualOffset) obj["manualOffset"] = expr.manualOffset;
   if (expr.avoidCollisions === false) obj["avoidCollisions"] = false;
   if (expr.frame !== undefined) obj["frame"] = expr.frame;
+  if (expr.pagePosition !== undefined) obj["pagePosition"] = expr.pagePosition;
   return obj;
 }
 

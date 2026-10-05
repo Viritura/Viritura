@@ -1,18 +1,14 @@
-import { useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Trash2 } from "lucide-react";
-import {
-  plainTextContent,
-  type Score,
-  type TextFrame,
-  type TextFramePageAnchor,
-  type TextFrameWidth,
-} from "@viritura/core";
-import { Button, FormField, FormTextarea, IconButton, Select, type SelectOption } from "@viritura/ui";
+import { type Score, type TextFrame, type TextFramePageAnchor, type TextFrameWidth } from "@viritura/core";
+import { Button, FormField, IconButton, Select, type SelectOption } from "@viritura/ui";
 import { CommitNumberField } from "./CommitNumberField";
-import { describeTextFrameLocator, effectiveHorizontalAlignment, hasFormattedContent } from "./textFrameContext";
+import { describeTextFrameLocator, effectiveHorizontalAlignment } from "./textFrameContext";
 import { TEXT_FRAME_NUDGE, type TextFrameEditing } from "./useTextFrameEditing";
 import styles from "./TextFrames.module.css";
 import { TextPresentationFields } from "./TextPresentationFields";
+import { TextContentEditor } from "../inspector/TextContentEditor";
+import { TextPositioningField } from "./TextPositioningField";
+import { PageLocatorFields } from "./PageLocatorFields";
 
 const ANCHOR_OPTIONS: readonly SelectOption[] = [
   { value: "top-left", label: "Top left" },
@@ -30,7 +26,18 @@ const WIDTH_UNIT_OPTIONS: readonly SelectOption[] = [
   { value: "textColumnFraction", label: "% of text column" },
 ];
 
-type Actions = Pick<TextFrameEditing, "setText" | "move" | "resize" | "setPresentation" | "reorder" | "remove">;
+type Actions = Pick<
+  TextFrameEditing,
+  | "setContent"
+  | "setLocator"
+  | "followMeasure"
+  | "toStaff"
+  | "move"
+  | "resize"
+  | "setPresentation"
+  | "reorder"
+  | "remove"
+>;
 
 interface SectionProps {
   frame: TextFrame;
@@ -38,38 +45,21 @@ interface SectionProps {
 }
 
 function ContentField({ frame, actions }: SectionProps) {
-  const committed = plainTextContent(frame.content);
-  const [draft, setDraft] = useState<string | null>(null);
-  const commit = () => {
-    if (draft !== null && draft !== committed) actions.setText(frame.id, draft);
-    setDraft(null);
-  };
-  const fieldId = `text-frame-${frame.id}-text`;
   return (
-    <FormField
-      label="Text"
-      htmlFor={fieldId}
-      message={
-        hasFormattedContent(frame)
-          ? "This frame has formatted runs; editing here replaces them with plain text."
-          : "Line breaks you type are kept; wrapping to the frame width is automatic."
-      }
-    >
-      <FormTextarea
-        id={fieldId}
-        rows={4}
-        value={draft ?? committed}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) commit();
-        }}
+    <div className={styles.group}>
+      <p className={styles.groupTitle}>Text</p>
+      <TextContentEditor
+        value={frame.content}
+        multiline
+        ariaLabel="Text"
+        placeholder="Page text"
+        onChange={(content) => actions.setContent(frame.id, content)}
       />
-    </FormField>
+    </div>
   );
 }
 
-function PositionFields({ frame, actions }: SectionProps) {
+function PositionFields({ frame, actions, score }: SectionProps & { score: Score }) {
   const { anchor, offset } = frame.placement;
   const setOffset = (next: { x: number; y: number }) =>
     actions.setPresentation(frame.id, { placement: { anchor, offset: next } });
@@ -77,6 +67,8 @@ function PositionFields({ frame, actions }: SectionProps) {
   return (
     <div className={styles.group}>
       <p className={styles.groupTitle}>Position</p>
+      <TextPositioningField value="page" onChange={() => actions.toStaff(frame.id)} />
+      <PageLocatorFields score={score} frame={frame} actions={actions} />
       <FormField label="Page anchor">
         <Select
           aria-label="Page anchor"
@@ -220,7 +212,7 @@ function TextFrameEditor({ score, frame, layer, layerCount, actions }: TextFrame
     <section className={styles.group} aria-label={`Text frame ${frame.id}`} data-testid="text-frame-editor">
       <p className={styles.help}>Located by: {describeTextFrameLocator(score, frame.locator)}</p>
       <ContentField key={frame.id} frame={frame} actions={actions} />
-      <PositionFields frame={frame} actions={actions} />
+      <PositionFields score={score} frame={frame} actions={actions} />
       <SizeFields frame={frame} actions={actions} />
       <TextLayoutFields frame={frame} actions={actions} />
       <LayerControls frame={frame} actions={actions} layer={layer} layerCount={layerCount} />
@@ -237,6 +229,7 @@ export function SelectedTextFrameEditor({ editing }: { editing: TextFrameEditing
   if (!score || !selectedFrame) return null;
   return (
     <TextFrameEditor
+      key={selectedFrame.id}
       score={score}
       frame={selectedFrame}
       layer={frames.indexOf(selectedFrame)}
