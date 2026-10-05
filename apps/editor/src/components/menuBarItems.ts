@@ -50,7 +50,6 @@ export interface MenuBarCallbacks {
   readonly onResetZoom?: () => void;
   readonly onTranspose?: () => void;
   readonly onBarInstrumentChange?: () => void;
-  readonly onBarTranspositionChange?: () => void;
   readonly onExplodeSelection?: () => void | Promise<void>;
   readonly onReduceSelection?: () => void | Promise<void>;
   readonly onSelectChordTopNote?: () => void;
@@ -162,10 +161,9 @@ function editItems(callbacks: MenuBarCallbacks, state: MenuBarState): MenuItemDe
     { label: "Delete", shortcut: "Del", action: callbacks.onDelete, disabled: !state.hasSelection },
     SEPARATOR,
     { label: "Transpose Selection", action: callbacks.onTranspose, disabled: !state.canTranspose },
-    { label: "Change instrument", action: callbacks.onBarInstrumentChange, disabled: !state.canChangeBarInstrument },
     {
-      label: "Change transposition",
-      action: callbacks.onBarTranspositionChange,
+      label: "Change instrument or tuning",
+      action: callbacks.onBarInstrumentChange,
       disabled: !state.canChangeBarInstrument,
     },
     {

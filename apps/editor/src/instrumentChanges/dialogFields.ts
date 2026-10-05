@@ -1,27 +1,21 @@
-import { resolveActiveInstrument, type InstrumentChange, type Part, type Transposition } from "@viritura/core";
+import { resolveActiveInstrument, type InstrumentChange, type Part } from "@viritura/core";
 import { barStartChange } from "./barChanges";
-import { buildPartTransposition, getCatalogInstrument } from "../score/InstrumentCatalog";
+import { getCatalogInstrument } from "../score/InstrumentCatalog";
+import { hasCustomTuning } from "../components/parts/roster/transposition";
 
-function initialTuning(
-  instrumentId: string,
-  active: Transposition | undefined,
-  change: InstrumentChange | undefined,
-  mode: "instrument" | "transposition",
-) {
-  if (mode === "transposition" || change?.transposition) return active;
-  const instrument = getCatalogInstrument(instrumentId);
-  if (!instrument) return active;
-  return instrument.transposition && buildPartTransposition(instrument.transposition);
+function opensCustomTuning(part: Part, instrumentId: string, change: InstrumentChange | undefined): boolean {
+  return !!change?.transposition || hasCustomTuning(part, getCatalogInstrument(instrumentId));
 }
 
-export function initialBarChangeFields(part: Part, measureIndex: number, mode: "instrument" | "transposition") {
+export function initialBarChangeFields(part: Part, measureIndex: number) {
   const state = resolveActiveInstrument(part, measureIndex);
   const change = barStartChange(part, measureIndex);
   const instrumentId = state.instrument?.instrumentId ?? part._x?.viritura?.instrumentId ?? "";
-  const tuning = initialTuning(instrumentId, state.transposition, change, mode);
+  const tuning = state.transposition;
   return {
     change,
     instrumentId,
+    customTuning: opensCustomTuning({ ...part, transposition: tuning }, instrumentId, change),
     halfSteps: tuning?.interval.halfSteps ?? 0,
     staffDistance: tuning?.interval.staffDistance ?? 0,
     flipAt: tuning?.keyFifthsFlipAt ?? ("" as const),

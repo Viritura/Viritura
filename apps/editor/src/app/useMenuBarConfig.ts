@@ -158,7 +158,6 @@ export function useMenuBarConfig(deps: MenuBarConfigDeps): MenuBarConfig {
       onResetZoom: handleResetZoom,
       onTranspose: () => openDialog("transpose"),
       onBarInstrumentChange: () => openDialog("barInstrumentChange"),
-      onBarTranspositionChange: () => openDialog("barTranspositionChange"),
       onSplitOrchestralStaves: () => openDialog("orchestralStaffSplit"),
       onSetTimeSignature: handleSetTimeSignature,
       onSetKeySignature: handleSetKeySignature,

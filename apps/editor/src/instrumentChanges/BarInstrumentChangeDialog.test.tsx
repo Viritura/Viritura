@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseMnx, serializeMnx, validateRawScore } from "@viritura/format";
-import { resolveActiveInstrument, type Score } from "@viritura/core";
+import { resolveActiveInstrument, type Score, type Transposition } from "@viritura/core";
 import * as TooltipPrimitives from "@radix-ui/react-tooltip";
 import { createDocumentStore } from "../store/documentStore";
 import { BarInstrumentChangeDialogHost } from "./index";
@@ -20,7 +20,7 @@ const selection = {
   endMeasure: 1,
 } as const;
 
-function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
+function setup(changes?: unknown[], transposition?: Transposition) {
   const score = parseMnx({
     mnx: { version: 1 },
     global: { measures: [{ time: { count: 4, unit: 4 } }, {}] },
@@ -28,6 +28,7 @@ function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
       {
         id: "P1",
         name: "Flute",
+        ...(transposition ? { transposition } : {}),
         _x: { viritura: { instrumentId: "wind.flutes.flute", midiProgram: 73 } },
         measures: [
           { clefs: [{ clef: { sign: "G", staffPosition: -2 } }], sequences: [{ content: [] }] },
@@ -44,7 +45,6 @@ function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
     <TooltipPrimitives.Provider>
       <BarInstrumentChangeDialogHost
         open
-        mode={mode}
         store={store}
         selection={selection}
         onClose={onClose}
@@ -56,14 +56,27 @@ function setup(mode: "instrument" | "transposition", changes?: unknown[]) {
 }
 
 describe("bar change dialog", () => {
+  it("preserves inherited custom tuning when only printed labels are edited", () => {
+    const transposition = { interval: { halfSteps: 3, staffDistance: 2 }, keyFifthsFlipAt: -4 };
+    const { updateScore } = setup(undefined, transposition);
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText(/Flute: written C4 sounds as A3/)).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Change label text" }), { target: { value: "in A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
+    const score = updateScore.mock.calls[0]![0];
+    expect(resolveActiveInstrument(score.parts[0]!, 1).transposition).toEqual(transposition);
+    expect(score.parts[0]!.measures[1]!.instrumentChanges?.[0]?.instrument).toBeUndefined();
+    expect(score.parts[0]!.measures[1]!.clefs).toBeUndefined();
+  });
+
   it("chooses the default trumpet once and moves C tuning into customization", async () => {
-    const { updateScore } = setup("instrument");
+    const { updateScore } = setup();
     const user = userEvent.setup();
     await user.type(screen.getByRole("textbox", { name: "Search instruments…" }), "trumpet");
     expect(screen.queryByText("Trumpet in C")).toBeNull();
     expect(screen.queryByText("Trumpet in B♭")).toBeNull();
     await user.click(screen.getByRole("button", { name: /Trumpet/ }));
-    expect(screen.getByText(/Trumpet in B♭: written C4 sounds as B♭3/)).toBeTruthy();
+    expect(screen.getByText(/Trumpet: written C4 sounds as B♭3/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Customize tuning" }));
     await user.click(screen.getByRole("combobox", { name: "Transposition preset" }));
     await user.click(screen.getByRole("option", { name: "Trumpet in C — C4" }));
@@ -77,7 +90,7 @@ describe("bar change dialog", () => {
   });
 
   it("starts with the instrument default and lets tuning be customized in the same save", () => {
-    const { updateScore } = setup("instrument");
+    const { updateScore } = setup();
     expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");
     fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });
     fireEvent.click(screen.getByText("Piccolo"));
@@ -98,7 +111,7 @@ describe("bar change dialog", () => {
   });
 
   it("resets custom tuning when a different instrument is selected", () => {
-    const { updateScore } = setup("instrument");
+    const { updateScore } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Customize tuning" }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Sounding octave" }), { target: { value: "2" } });
     fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });
@@ -113,7 +126,7 @@ describe("bar change dialog", () => {
   });
 
   it("preserves an existing tuning override when reopened through Change instrument", () => {
-    const { updateScore } = setup("instrument", [{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
+    const { updateScore } = setup([{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
     expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toEqual({
@@ -122,20 +135,21 @@ describe("bar change dialog", () => {
   });
 
   it("allows returning to the instrument default without retaining a previous override", () => {
-    const { updateScore } = setup("instrument", [{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
+    const { updateScore } = setup([{ transposition: { interval: { halfSteps: 3, staffDistance: 2 } } }]);
     fireEvent.click(screen.getByRole("button", { name: "Use instrument default" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.transposition).toBeUndefined();
   });
 
-  it("opens the same tuning controls directly through the transposition shortcut", () => {
-    setup("transposition");
-    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("button", { name: "Instrument" }).getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByRole("combobox", { name: "Sounding pitch" })).toBeTruthy();
+  it("opens one wide dialog with the instrument choice and optional tuning", () => {
+    setup();
+    const dialog = screen.getByRole("dialog", { name: "Change instrument or tuning" });
+    expect(dialog.className).toContain("contentWide");
+    expect(screen.getByRole("button", { name: "Customize tuning" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Instrument" }).getAttribute("aria-expanded")).toBe("true");
   });
   it("inserts an instrument change in the selected bar, not a whole-part replacement", () => {
-    const { updateScore, onClose } = setup("instrument");
+    const { updateScore, onClose } = setup();
     fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Piccolo" } });
     fireEvent.click(screen.getByText("Piccolo"));
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
@@ -149,8 +163,9 @@ describe("bar change dialog", () => {
   });
 
   it("saves a transposition-only change and explicit instruction", async () => {
-    const { updateScore } = setup("transposition");
+    const { updateScore } = setup();
     const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Customize tuning" }));
     await user.click(screen.getByRole("combobox", { name: "Sounding pitch" }));
     await user.click(screen.getByRole("option", { name: "A", exact: true }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Sounding octave" }), { target: { value: "3" } });
@@ -166,7 +181,7 @@ describe("bar change dialog", () => {
   });
 
   it("saves an independent advance reminder with the change-point label hidden", () => {
-    const { updateScore } = setup("transposition");
+    const { updateScore } = setup();
     fireEvent.click(screen.getByRole("checkbox", { name: "Show label at change" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Advance reminder text" }), {
       target: { value: "Prepare the A clarinet" },
@@ -181,7 +196,7 @@ describe("bar change dialog", () => {
   });
 
   it("keeps reminder customization when hiding and reopening an existing reminder", () => {
-    const { updateScore } = setup("transposition", [
+    const { updateScore } = setup([
       {
         transposition: { interval: { halfSteps: 2, staffDistance: 1 } },
         instruction: { text: "in B-flat" },
@@ -198,7 +213,7 @@ describe("bar change dialog", () => {
   });
 
   it("defaults to an automatic reminder without overriding the automatic change label", () => {
-    const { updateScore } = setup("instrument");
+    const { updateScore } = setup();
     expect(screen.getByRole("checkbox", { name: "Show advance reminder" })).toHaveProperty("checked", true);
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]).toMatchObject({
@@ -209,7 +224,7 @@ describe("bar change dialog", () => {
   });
 
   it("persists explicit hiding of the default reminder on a new declaration", () => {
-    const { updateScore } = setup("transposition");
+    const { updateScore } = setup();
     fireEvent.click(screen.getByRole("checkbox", { name: "Show advance reminder" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges?.[0]?.reminder).toEqual({
@@ -218,23 +233,21 @@ describe("bar change dialog", () => {
   });
 
   it("removes an existing change in one score update", () => {
-    const { updateScore, onClose } = setup("transposition", [
-      { transposition: { interval: { halfSteps: 2, staffDistance: 1 } } },
-    ]);
+    const { updateScore, onClose } = setup([{ transposition: { interval: { halfSteps: 2, staffDistance: 1 } } }]);
     fireEvent.click(screen.getByRole("button", { name: "Remove change" }));
     expect(updateScore.mock.calls[0]![0].parts[0]!.measures[1]!.instrumentChanges).toBeUndefined();
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("cancels without changing the score", () => {
-    const { updateScore, onClose } = setup("instrument");
+    const { updateScore, onClose } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(updateScore).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("reports a blocked percussion-map choice without applying it", () => {
-    const { updateScore } = setup("instrument");
+    const { updateScore } = setup();
     fireEvent.change(screen.getByRole("textbox", { name: "Search instruments…" }), { target: { value: "Snare Drum" } });
     fireEvent.click(screen.getByText("Snare Drum"));
     expect(screen.getByRole("alert").textContent).toContain("Percussion-map changes");

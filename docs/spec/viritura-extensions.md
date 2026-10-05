@@ -1185,13 +1185,15 @@ with positive denominators are supported.
 #### Editing bar-start changes
 
 Select a single bar in one source part (or a note in that bar), then choose
-**Change instrument** or **Change transposition** from **Edit**, the score's
+**Change instrument or tuning** from **Edit**, the score's
 context menu, or the Jump Bar. These commands insert or edit the change at
 the **start** of the selected bar; they do not transpose the sounding notes
 or replace the whole part. Changes persist until another declaration.
 
-**Change instrument** starts with the selected catalog instrument's default
-transposition and clefs. Its optional **Customize tuning** section offers
+The single wide dialog opens with the instrument and tuning active at the
+selected bar, preserving inherited custom tuning. Selecting an instrument
+applies its catalog-default transposition and clefs.
+Its optional **Customize tuning** section offers
 instrument-aware presets and exact sounding pitch/octave controls before
 applying the instrument and tuning together in one score update. Selecting
 a different instrument resets tuning to that instrument's default;
@@ -1205,17 +1207,17 @@ Register-distinct instruments such as piccolo clarinet, bass clarinet, and
 the saxophone sizes remain separate choices. Existing MusicXML sound IDs,
 including tuning-specific identities, remain valid and are not rewritten
 merely by opening the picker.
-**Change transposition** is a shortcut into the same tuning section, keeping
-instrument identity unless another instrument is explicitly selected.
-It can override the default, including an explicit zero interval. The sign
+Editing tuning or printed labels keeps instrument identity and clefs unless
+another instrument is explicitly selected or its catalog defaults restored.
+Tuning can override the default, including an explicit zero interval. The sign
 convention is MNX's **concert-to-written** interval: B-flat clarinet is
 `+2` semitones / `+1` staff step; piccolo is `-12` / `-7`.
 The controls present this musically as the sounding pitch corresponding to
 written C, with its octave and accidental, rather than asking for semitone
 and staff-step counts; MNX intervals remain the stored representation.
-Both dialogs accept an authored printed change-point label or a hidden label,
+The dialog accepts an authored printed change-point label or a hidden label,
 and separate automatic/custom advance-reminder text and visibility.
-Reopening either dialog offers **Remove change**, which removes the entire
+Reopening the dialog offers **Remove change**, which removes the entire
 bar-start declaration while preserving later-positioned declarations.
 
 The command applies to the part, including all its staves, not just the

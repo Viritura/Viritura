@@ -22,7 +22,12 @@ import { initialBarChangeFields, changeInstruction, changeReminder, numberFieldV
 import { ChangeLabelFields } from "./ChangeLabelFields";
 import { InstrumentCatalogPicker } from "../components/parts/InstrumentCatalogPicker";
 import { TranspositionPitchFields, soundingPitchLabel } from "../components/parts/transpositionPitch";
-import { buildPartTransposition, getCatalogInstrument, type CatalogInstrument } from "../score/InstrumentCatalog";
+import {
+  buildPartTransposition,
+  catalogPickerName,
+  getCatalogInstrument,
+  type CatalogInstrument,
+} from "../score/InstrumentCatalog";
 import { buildTransposition } from "../components/parts/roster/transposition";
 import {
   instrumentChangeCompatibility,
@@ -37,7 +42,6 @@ import styles from "./BarInstrumentChangeDialog.module.css";
 
 interface HostProps {
   open: boolean;
-  mode: "instrument" | "transposition";
   onClose: () => void;
   store: DocumentStore;
   selection: SelectionState;
@@ -46,22 +50,12 @@ interface HostProps {
 
 export function BarInstrumentChangeDialogs(props: Pick<HostProps, "store" | "selection" | "updateScore">) {
   const instrumentOpen = useDialogStore((state) => state.open.barInstrumentChange);
-  const transpositionOpen = useDialogStore((state) => state.open.barTranspositionChange);
   return (
-    <>
-      <BarInstrumentChangeDialogHost
-        {...props}
-        open={instrumentOpen}
-        mode="instrument"
-        onClose={() => closeDialog("barInstrumentChange")}
-      />
-      <BarInstrumentChangeDialogHost
-        {...props}
-        open={transpositionOpen}
-        mode="transposition"
-        onClose={() => closeDialog("barTranspositionChange")}
-      />
-    </>
+    <BarInstrumentChangeDialogHost
+      {...props}
+      open={instrumentOpen}
+      onClose={() => closeDialog("barInstrumentChange")}
+    />
   );
 }
 
@@ -72,9 +66,9 @@ export function BarInstrumentChangeDialogHost(props: HostProps) {
   const part = target ? score?.parts[target.partIndex] : undefined;
   if (!target || !part) {
     return (
-      <Dialog open onClose={props.onClose}>
-        <DialogTitle>Change {props.mode}</DialogTitle>
-        <DialogBody>Select a single bar in one source part to change its {props.mode}.</DialogBody>
+      <Dialog open size="wide" onClose={props.onClose}>
+        <DialogTitle>Change instrument or tuning</DialogTitle>
+        <DialogBody>Select a single bar in one source part to change its instrument or tuning.</DialogBody>
         <DialogActions>
           <DialogCancelButton />
         </DialogActions>
@@ -83,7 +77,7 @@ export function BarInstrumentChangeDialogHost(props: HostProps) {
   }
   return (
     <BarChangeForm
-      key={`${props.mode}:${part.id ?? target.partIndex}:${target.measureIndex}`}
+      key={`${part.id ?? target.partIndex}:${target.measureIndex}`}
       {...props}
       target={target}
       part={part}
@@ -96,10 +90,11 @@ interface FormProps extends HostProps {
   part: Part;
 }
 
-function BarChangeForm({ mode, onClose, store, updateScore, target, part }: FormProps) {
-  const initial = initialBarChangeFields(part, target.measureIndex, mode);
+function BarChangeForm({ onClose, store, updateScore, target, part }: FormProps) {
+  const initial = initialBarChangeFields(part, target.measureIndex);
   const { change } = initial;
   const [instrumentId, setInstrumentId] = useState(initial.instrumentId);
+  const instrument = getCatalogInstrument(instrumentId);
   const [halfSteps, setHalfSteps] = useState(initial.halfSteps);
   const [staffDistance, setStaffDistance] = useState(initial.staffDistance);
   const [flipAt, setFlipAt] = useState<number | "">(initial.flipAt);
@@ -111,7 +106,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
   const [error, setError] = useState<string>();
   const [instrumentChanged, setInstrumentChanged] = useState(false);
   const [tuningOverride, setTuningOverride] = useState(!!change?.transposition);
-  const [tuningOpen, setTuningOpen] = useState(mode === "transposition" || !!change?.transposition);
+  const [tuningOpen, setTuningOpen] = useState(initial.customTuning);
   const instruction = changeInstruction(text, hidden);
   const reminder = changeReminder(reminderText, reminderEnabled);
   const validNumbers = [halfSteps, staffDistance, flipAt === "" ? 0 : flipAt].every(Number.isSafeInteger);
@@ -142,8 +137,8 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
       setError("The selected part no longer exists.");
       return;
     }
-    const switching = mode === "instrument" || instrumentChanged;
-    const customizing = mode === "transposition" || tuningOverride;
+    const switching = instrumentChanged;
+    const customizing = !switching || tuningOverride;
     if (customizing && !validNumbers) {
       setError("Enter a whole number for the key signature flip threshold, or leave it blank.");
       return;
@@ -162,8 +157,8 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
   }
 
   return (
-    <Dialog open onClose={onClose}>
-      <DialogTitle>{mode === "instrument" ? "Change instrument" : "Change transposition"}</DialogTitle>
+    <Dialog open size="wide" onClose={onClose}>
+      <DialogTitle>Change instrument or tuning</DialogTitle>
       <DialogBody>
         <p className={styles.scope}>
           <strong>
@@ -171,7 +166,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
           </strong>
         </p>
         <p>Applies from the start of this bar until the next change. Sounding notes are preserved.</p>
-        <Collapsible title="Instrument" defaultOpen={mode === "instrument"}>
+        <Collapsible title="Instrument" defaultOpen>
           <InstrumentCatalogPicker
             autoFocus
             selectedInstrumentId={instrumentId}
@@ -193,7 +188,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
           />
         </Collapsible>
         <p>
-          {getCatalogInstrument(instrumentId)?.name ?? part.name}: written C4 sounds as{" "}
+          {instrument ? catalogPickerName(instrument) : part.name}: written C4 sounds as{" "}
           {soundingPitchLabel(halfSteps, staffDistance)}. Selecting an instrument applies its default tuning and clefs.
         </p>
         <Collapsible title="Customize tuning" open={tuningOpen} onOpenChange={setTuningOpen}>
@@ -211,7 +206,10 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
             <Button
               onClick={() => {
                 const instrument = getCatalogInstrument(instrumentId);
-                if (instrument) resetDefaultTuning(instrument);
+                if (instrument) {
+                  resetDefaultTuning(instrument);
+                  setInstrumentChanged(true);
+                }
               }}
               disabled={!getCatalogInstrument(instrumentId)}
             >
@@ -269,7 +267,7 @@ function BarChangeForm({ mode, onClose, store, updateScore, target, part }: Form
         <DialogCancelButton />
         <DialogPrimaryButton
           onClick={apply}
-          disabled={!validNumbers || !!part.kit || ((mode === "instrument" || instrumentChanged) && !instrumentId)}
+          disabled={!validNumbers || !!part.kit || (instrumentChanged && !instrumentId)}
         >
           Apply change
         </DialogPrimaryButton>

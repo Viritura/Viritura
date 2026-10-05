@@ -53,13 +53,7 @@ const HORN_SCORE: Score = {
   ],
 };
 
-function BarChangeStory({
-  mode,
-  initialScore = SCORE,
-}: {
-  mode: "instrument" | "transposition";
-  initialScore?: Score;
-}) {
+function BarChangeStory({ initialScore = SCORE }: { initialScore?: Score }) {
   const [store] = useState(() => {
     const document = createDocumentStore();
     document.setState({ score: structuredClone(initialScore), workingScore: structuredClone(initialScore) });
@@ -69,9 +63,8 @@ function BarChangeStory({
   const [saved, setSaved] = useState("");
   return (
     <TooltipPrimitives.Provider>
-      <Button onClick={() => setOpen(true)}>Change {mode} in bar 2</Button>
+      <Button onClick={() => setOpen(true)}>Change instrument or tuning in bar 2</Button>
       <BarInstrumentChangeDialogHost
-        mode={mode}
         open={open}
         store={store}
         selection={SELECTION}
@@ -89,11 +82,7 @@ function BarChangeStory({
 const meta: Meta = { title: "App/Notation/Bar Instrument Changes", component: BarChangeStory };
 export default meta;
 
-export const ChangeInstrument: StoryObj = { render: () => <BarChangeStory mode="instrument" /> };
-export const ChangeTransposition: StoryObj = { render: () => <BarChangeStory mode="transposition" /> };
+export const ChangeInstrumentOrTuning: StoryObj = { render: () => <BarChangeStory /> };
 export const HornTuningAndReminders: StoryObj = {
-  render: () => <BarChangeStory mode="transposition" initialScore={HORN_SCORE} />,
-};
-export const InstrumentWithExistingCustomTuning: StoryObj = {
-  render: () => <BarChangeStory mode="instrument" initialScore={HORN_SCORE} />,
+  render: () => <BarChangeStory initialScore={HORN_SCORE} />,
 };

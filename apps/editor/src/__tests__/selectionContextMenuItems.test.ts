@@ -84,19 +84,16 @@ describe("buildSelectionContextMenuItems", () => {
 
   it("offers bar instrument/transposition commands only for a resolved single-bar target", () => {
     const onBarInstrumentChange = vi.fn();
-    const onBarTranspositionChange = vi.fn();
-    const commands = { ...callbacks, onBarInstrumentChange, onBarTranspositionChange };
+    const commands = { ...callbacks, onBarInstrumentChange };
     const disabled = buildSelectionContextMenuItems(commands, state, { hasSelection: true });
-    expect(enabled(disabled, "Change instrument")).toBe(false);
-    expect(enabled(disabled, "Change transposition")).toBe(false);
+    expect(enabled(disabled, "Change instrument or tuning")).toBe(false);
+    expect(labels(disabled)).not.toContain("Change transposition");
     const items = buildSelectionContextMenuItems(
       commands,
       { ...state, canChangeBarInstrument: true },
       { hasSelection: true },
     );
-    items.find((item) => item.label === "Change instrument")?.action?.();
-    items.find((item) => item.label === "Change transposition")?.action?.();
+    items.find((item) => item.label === "Change instrument or tuning")?.action?.();
     expect(onBarInstrumentChange).toHaveBeenCalledOnce();
-    expect(onBarTranspositionChange).toHaveBeenCalledOnce();
   });
 });

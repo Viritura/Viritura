@@ -91,9 +91,8 @@ describe("MenuBar", () => {
 
   it("dispatches bar-start instrument changes separately from transposing selected notes", async () => {
     const onBarInstrumentChange = vi.fn();
-    const onBarTranspositionChange = vi.fn();
     const { user } = renderMenuBar(
-      { onBarInstrumentChange, onBarTranspositionChange },
+      { onBarInstrumentChange },
       {
         canChangeBarInstrument: true,
         canTranspose: false,
@@ -101,19 +100,17 @@ describe("MenuBar", () => {
     );
     await user.click(screen.getByText("Edit"));
     expect(
-      screen.getByText("Change instrument").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
+      screen.getByText("Change instrument or tuning").closest('[role="menuitem"]')?.getAttribute("data-disabled"),
     ).toBeNull();
-    await user.click(screen.getByText("Change instrument"));
+    expect(screen.queryByText("Change transposition")).toBeNull();
+    await user.click(screen.getByText("Change instrument or tuning"));
     expect(onBarInstrumentChange).toHaveBeenCalledOnce();
-    await user.click(screen.getByText("Edit"));
-    await user.click(screen.getByText("Change transposition"));
-    expect(onBarTranspositionChange).toHaveBeenCalledOnce();
   });
 
   it("disables bar-start changes without a single-bar target", async () => {
     const { user } = renderMenuBar({}, { canChangeBarInstrument: false });
     await user.click(screen.getByText("Edit"));
-    for (const label of ["Change instrument", "Change transposition"]) {
+    for (const label of ["Change instrument or tuning"]) {
       expect(screen.getByText(label).closest('[role="menuitem"]')?.getAttribute("data-disabled")).not.toBeNull();
     }
   });

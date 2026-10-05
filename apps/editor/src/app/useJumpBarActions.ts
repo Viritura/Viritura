@@ -22,7 +22,6 @@ import { radialMenuJumpBarCallbacks } from "./radialMenuJumpBarCallbacks";
 
 const BAR_CHANGE_DIALOG_ACTIONS = {
   changeBarInstrument: () => openDialog("barInstrumentChange"),
-  changeBarTransposition: () => openDialog("barTranspositionChange"),
 };
 
 export interface JumpBarActionsDeps {

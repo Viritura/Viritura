@@ -24,7 +24,6 @@ export type DialogId =
   | "projectGitHubSetup"
   | "transpose"
   | "barInstrumentChange"
-  | "barTranspositionChange"
   | "orchestralStaffSplit"
   | "drumKit"
   | "condensingPopover"
@@ -47,7 +46,6 @@ const allClosed: Record<DialogId, boolean> = {
   projectGitHubSetup: false,
   transpose: false,
   barInstrumentChange: false,
-  barTranspositionChange: false,
   orchestralStaffSplit: false,
   drumKit: false,
   condensingPopover: false,
