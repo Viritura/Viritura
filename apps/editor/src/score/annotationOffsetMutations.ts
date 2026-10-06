@@ -11,7 +11,7 @@
  * accumulates the offset; the inspector can toggle the flag or reset both.
  */
 import type { Score } from "@viritura/core";
-import { resolveAnnotationLocation } from "./ElementPath";
+import { resolveAnnotationLocation, type AnnotationLocation } from "./ElementPath";
 import { produce } from "./scoreClone";
 
 /** The shared shape carried by every movable annotation. */
@@ -29,10 +29,8 @@ function resolvePlaceable(score: Score, elementId: string): Placeable | null {
   return loc.kind === "part" ? resolvePartPlaceable(score, loc) : resolveGlobalPlaceable(score, loc);
 }
 
-function resolvePartPlaceable(
-  score: Score,
-  loc: Extract<NonNullable<ReturnType<typeof resolveAnnotationLocation>>, { kind: "part" }>,
-): Placeable | null {
+function resolvePartPlaceable(score: Score, loc: AnnotationLocation): Placeable | null {
+  if (loc.kind !== "part") return null;
   if (loc.partIndex === undefined) return null;
   const measure = score.parts[loc.partIndex]?.measures[loc.measureIndex];
   if (!measure) return null;
@@ -46,10 +44,8 @@ function resolvePartPlaceable(
   return null;
 }
 
-function resolveGlobalPlaceable(
-  score: Score,
-  loc: Extract<NonNullable<ReturnType<typeof resolveAnnotationLocation>>, { kind: "global" }>,
-): Placeable | null {
+function resolveGlobalPlaceable(score: Score, loc: AnnotationLocation): Placeable | null {
+  if (loc.kind !== "global") return null;
   const gm = score.global.measures[loc.measureIndex];
   if (!gm) return null;
   if (loc.type === "tempo")
