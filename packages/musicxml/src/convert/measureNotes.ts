@@ -96,6 +96,7 @@ export interface MeasureResult {
   beamGroups: CompletedBeam[];
   rehearsals: { text: TextContent; position: MnxRhythmicPosition; style?: "circled" | "plain" }[];
   expressions: { text: TextContent; position: MnxRhythmicPosition; placement?: "above" | "below"; staff?: number }[];
+  systemTexts: { text: TextContent; position: MnxRhythmicPosition; placement: "above" }[];
   hairpinEvents: HairpinEvent[];
   pedalEvents: PedalEvent[];
   nonArpeggios: MnxNonArpeggio[];
@@ -313,6 +314,7 @@ export function processMeasureNotes(
   const beamGroups: CompletedBeam[] = [];
   const rehearsals: MeasureResult["rehearsals"] = [];
   const expressions: MeasureResult["expressions"] = [];
+  const systemTexts: MeasureResult["systemTexts"] = [];
   const hairpinEvents: MeasureResult["hairpinEvents"] = [];
   const pedalEvents: MeasureResult["pedalEvents"] = [];
   const nonArpeggios: MnxNonArpeggio[] = [];
@@ -742,6 +744,8 @@ export function processMeasureNotes(
     } else if (el.tagName === "direction") {
       const staffEl = findChild(el, "staff");
       const dirStaff = staffEl ? parseInt(staffEl.textContent ?? "1", 10) : undefined;
+      const systemRelation = el.getAttribute("system");
+      const hasSystemRelation = el.hasAttribute("system");
       const directionVoice = findChild(el, "voice")?.textContent?.trim();
       const dirVoice = directionVoice ? `v${directionVoice}` : undefined;
       // A single `<direction>` can carry multiple `<direction-type>` children;
@@ -826,11 +830,36 @@ export function processMeasureNotes(
             const placementAttr = el.getAttribute("placement");
             const expr: MeasureResult["expressions"][number] = { text: content, position: makePosition(currentPos) };
             if (placementAttr === "above" || placementAttr === "below") expr.placement = placementAttr;
+            const isSupportedTopRelation =
+              systemRelation === "only-top" && (placementAttr === null || placementAttr === "above");
+            if (isSupportedTopRelation) {
+              systemTexts.push({ text: content, position: makePosition(currentPos), placement: "above" });
+            } else {
+              if (systemRelation === "only-top") {
+                flags.diagnostics?.warn(
+                  "/direction/words",
+                  "MusicXML system='only-top' with below placement cannot be represented as top-boundary system text; retained as staff text",
+                  "musicxml-system-relation",
+                );
+              } else if (systemRelation === "also-top") {
+                flags.diagnostics?.warn(
+                  "/direction/words",
+                  "MusicXML system='also-top' requires both staff and top-system copies; retained only as staff text",
+                  "musicxml-system-relation",
+                );
+              } else if (hasSystemRelation && systemRelation !== "none") {
+                flags.diagnostics?.warn(
+                  "/direction/words",
+                  `Unsupported MusicXML system relation '${systemRelation ?? ""}'; retained as staff text`,
+                  "musicxml-system-relation",
+                );
+              }
+              if (dirStaff && dirStaff > 1) expr.staff = dirStaff;
+              expressions.push(expr);
+            }
             // Grand-staff parts authored on staff 2 carry `<staff>2</staff>`;
             // an unspecified staff defaults to staff 1, so only record an
             // explicit override (matches the dynamics convention).
-            if (dirStaff && dirStaff > 1) expr.staff = dirStaff;
-            expressions.push(expr);
           }
         }
 
@@ -965,6 +994,7 @@ export function processMeasureNotes(
     beamGroups,
     rehearsals,
     expressions: dedupedExpressions,
+    systemTexts,
     hairpinEvents,
     pedalEvents,
     nonArpeggios,

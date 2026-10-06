@@ -622,6 +622,7 @@ pub(super) fn precompute_system_layouts(
                         is_first_on_system: false,
                         show_system_objects: true,
                         is_first_staff: false,
+                        is_last_staff: false,
                     };
                     let delta = sys_x - ml.x;
                     if delta != 0.0 {
@@ -666,6 +667,8 @@ pub(super) fn precompute_system_layouts(
                 ml.is_first_on_system = si == 0 && !seam_continuation;
                 ml.show_system_objects = system_object_staves.contains(&staff_idx);
                 ml.is_first_staff = staff_idx == 0;
+                ml.is_last_staff = staff_idx + 1 == flat_staves.len();
+                ml.is_last_staff = staff_idx + 1 == flat_staves.len();
                 sys_x += ml.width;
 
                 measure_hashes.push(content_hash);

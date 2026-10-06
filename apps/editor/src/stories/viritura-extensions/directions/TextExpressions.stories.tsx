@@ -63,6 +63,35 @@ export const MultipleExpressions: StoryObj = {
   name: "Multiple expressions",
 };
 
+export const SystemText: StoryObj = {
+  render: () => {
+    const mnx = buildMnx({
+      measures: [
+        {
+          time: { count: 4, unit: 4 },
+          voices: [[{ duration: "whole", notes: [{ step: "C", octave: 5 }] }]],
+          virituraGlobal: {
+            systemText: [
+              {
+                id: "editorial-note",
+                text: [{ text: "Asterisk refers to the editorial note below.", style: { fontStyle: "italic" } }],
+                position: { fraction: [0, 1] },
+                placement: "above",
+                frame: { width: { unit: "staffSpaces", value: 24 }, border: "solid", padding: 0.5 },
+              },
+            ],
+          },
+        },
+        {
+          voices: [[{ duration: "whole", notes: [{ step: "D", octave: 5 }] }]],
+        },
+      ],
+    });
+    return <ScorePreview mnxJson={mnx} />;
+  },
+  name: "System text at the visible staff boundary",
+};
+
 export const FramedStaffText: StoryObj = {
   render: () => {
     const mnx = buildMnx({

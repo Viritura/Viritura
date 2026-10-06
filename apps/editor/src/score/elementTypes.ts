@@ -26,6 +26,7 @@ export type SelectableElementType =
   | "pedal"
   | "ottava"
   | "expression"
+  | "system-text"
   | "slur"
   | "tie"
   | "glissando"
@@ -108,6 +109,7 @@ const PREFIX_MAP: ReadonlyArray<readonly [string, SelectableElementType]> = [
 export function parseElementType(elementId: string): SelectableElementType {
   if (!elementId) return "unknown";
   if (elementId.startsWith("trill-line/")) return "trill";
+  if (/^m\d+\/systemText\/.+$/.test(elementId)) return "system-text";
   // `text-frame/{frameId}`: the frame ID is authored free text (percent-encoded), so its last segment must not be classified.
   if (elementId.startsWith("text-frame/")) return "text-frame";
   if (canonicalChordSymbolId(elementId)) return "chord-symbol";
@@ -169,6 +171,7 @@ const MEASURE_LEVEL: ReadonlySet<SelectableElementType> = new Set([
 
 /** Element types that belong to the global timeline. */
 const GLOBAL_LEVEL: ReadonlySet<SelectableElementType> = new Set([
+  "system-text",
   "tempo",
   "rehearsal",
   "jump",

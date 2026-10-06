@@ -8,6 +8,7 @@ import type {
   MnxPart,
   MnxPartMeasure,
   MnxRhythmicPosition,
+  MnxSystemText,
   MnxSequenceContent,
   MnxSpace,
   MnxEvent,
@@ -201,6 +202,7 @@ export function buildParts(
   const harmonySources: ImportedHarmonySource[] = [];
   const lyricLineIds = new Set<string>();
   const lyricMetadataCandidates = new Map<string, LyricMetadataCandidates>();
+  const systemTextOrigins = new Map<number, Map<string, Set<number>>>();
   const openSlurs = new Map<string, SlurState>();
   const openGlissandos = new Map<string, GlissandoState>();
   // Tie pairing persists across measures so ties spanning a barline resolve.
@@ -468,6 +470,25 @@ export function buildParts(
       if (vendorExt) {
         if (result.expressions.length > 0) {
           exprByMeasure.set(mi, result.expressions);
+        }
+
+        if (result.systemTexts.length > 0) {
+          const gm = globalMeasures[mi];
+          if (gm) {
+            const gx = (gm["_x"] ??= { viritura: {} });
+            const systemTexts = (gx.viritura["systemText"] as MnxSystemText[] | undefined) ?? [];
+            const signatures = systemTextOrigins.get(mi) ?? new Map<string, Set<number>>();
+            systemTextOrigins.set(mi, signatures);
+            for (const { text, position, placement } of result.systemTexts) {
+              const signature = JSON.stringify({ text, position, placement });
+              const origins = signatures.get(signature) ?? new Set<number>();
+              if (origins.size > 0 && !origins.has(partIdx)) continue;
+              origins.add(partIdx);
+              signatures.set(signature, origins);
+              systemTexts.push({ id: ids.next("system-text"), text, position, placement });
+            }
+            gx.viritura["systemText"] = systemTexts;
+          }
         }
 
         // Rehearsal mark → global measure (first part to declare one wins).

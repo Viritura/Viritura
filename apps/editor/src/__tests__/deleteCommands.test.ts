@@ -364,6 +364,21 @@ describe("deleteAnnotation", () => {
       expect(result!.global.measures[0]!.tempos).toBeUndefined();
     });
 
+    it("deletes selected system text by stable ID", () => {
+      const score = makeAnnotatedScore();
+      score.global.measures[0]!.systemText = [
+        { id: "note-a", text: [{ text: "A" }], position: { fraction: [0, 1] } },
+        { id: "note-b", text: [{ text: "B" }], position: { fraction: [1, 2] } },
+      ];
+      const result = deleteAnnotation(score, {
+        kind: "global",
+        type: "systemText",
+        measureIndex: 0,
+        annotationId: "note-a",
+      });
+      expect(result?.global.measures[0]!.systemText?.map((text) => text.id)).toEqual(["note-b"]);
+    });
+
     it("deletes a global chord symbol", () => {
       const score = makeAnnotatedScore();
       score.global.measures[0]!.chordSymbols = [

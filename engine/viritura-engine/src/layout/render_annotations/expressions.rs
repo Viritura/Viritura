@@ -6,7 +6,10 @@ use super::super::text_styles::{self, FontFamily};
 use super::super::types::*;
 use super::dynamics::PlacedDynamic;
 use super::substrate_obstacles::{above_glyph_top_in_range, stem_tip_y, AboveGlyphBox};
-use crate::model::{ExpressionPlacement, MultiStaffPlacement, StaffTextFrameWidth, TextFrameAlign};
+use crate::model::{
+    ExpressionPlacement, MultiStaffPlacement, StaffTextFrameWidth, SystemText, TextExpression,
+    TextFrameAlign,
+};
 use crate::render::*;
 
 fn expression_span(anchor: f64, width: f64, right_aligned: bool) -> (f64, f64) {
@@ -74,10 +77,41 @@ pub(crate) fn render_text_expressions(
     dynamic_boxes: &[PlacedDynamic],
     staff_y_offsets: Option<&[f64]>,
 ) {
-    let expressions = match &ml.resolved.part.expressions {
-        Some(e) if !e.is_empty() => e,
-        _ => return,
-    };
+    let mi = ml.resolved.index;
+    let pi = ml.part_index;
+    let mut expressions: Vec<(TextExpression, String)> = ml
+        .resolved
+        .part
+        .expressions
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .enumerate()
+        .map(|(index, expression)| {
+            (
+                expression.clone(),
+                element_id::expression(
+                    expression.source_part_index.unwrap_or(pi),
+                    mi,
+                    expression.source_expression_index.unwrap_or(index),
+                ),
+            )
+        })
+        .collect();
+    if let Some(system_text) = ml.resolved.global.system_text() {
+        for text in system_text {
+            let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
+            if (is_above && ml.is_first_staff) || (!is_above && ml.is_last_staff) {
+                expressions.push((
+                    system_text_expression(text),
+                    element_id::system_text(mi, &text.id),
+                ));
+            }
+        }
+    }
+    if expressions.is_empty() {
+        return;
+    }
 
     let total_beats = ml.resolved.active_time.measure_beats();
     let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
@@ -86,8 +120,6 @@ pub(crate) fn render_text_expressions(
     let font_size = 2.0 * sp; // ~10pt = 2.0sp (standard engraving default)
     let expr_y = below_expression_baseline(ml, staff_y, sp, config, font_size);
     let text_ascent = 0.8 * font_size;
-    let mi = ml.resolved.index;
-    let pi = ml.part_index;
     let notehead_w = 1.18 * sp;
 
     // Stack multiple Above/Below expressions that share an ink column. The
@@ -98,7 +130,7 @@ pub(crate) fn render_text_expressions(
 
     let mut pending: Vec<PendingExpr> = Vec::new();
 
-    for (i, expr) in expressions.iter().enumerate() {
+    for (expr, text_element_id) in &expressions {
         let is_above = matches!(expr.placement, Some(ExpressionPlacement::Above));
 
         let beat = expr.position.beats();
@@ -324,8 +356,7 @@ pub(crate) fn render_text_expressions(
             base_y: base_y + frame_clearance - off_y_sp * sp,
             is_above,
             text: expr.text.clone(),
-            source_part_index: expr.source_part_index.unwrap_or(pi),
-            source_expression_index: expr.source_expression_index.unwrap_or(i),
+            element_id: text_element_id.clone(),
             // Computed above; unset defaults to true (auto-avoidance on).
             avoid_collisions: avoid,
             inline: inline_dynamic.is_some(),
@@ -334,15 +365,7 @@ pub(crate) fn render_text_expressions(
 
     // Resolve mutual vertical overlap between the preferred boxes, then emit
     // each expression at its displaced baseline.
-    emit_stacked_expressions(
-        dl,
-        &pending,
-        font_size,
-        sp,
-        &expr_metrics,
-        dynamic_boxes,
-        mi,
-    );
+    emit_stacked_expressions(dl, &pending, font_size, sp, &expr_metrics, dynamic_boxes);
 }
 
 /// One expression's preferred placement, before mutual stacking.
@@ -358,8 +381,7 @@ struct PendingExpr {
     base_y: f64,
     is_above: bool,
     text: crate::model::TextContent,
-    source_part_index: usize,
-    source_expression_index: usize,
+    element_id: String,
     /// When false, the expression is manually placed: the stacking resolver
     /// treats it as a pinned obstacle (others flow around it) and never moves
     /// it, so it renders exactly at `base_y`. Unset/true = re-flow (default).
@@ -380,7 +402,6 @@ fn emit_stacked_expressions(
     sp: f64,
     metrics: &crate::layout::placement_metrics::PlacementMetrics,
     dynamic_boxes: &[PlacedDynamic],
-    mi: usize,
 ) {
     let stack_gap = metrics.padding.vertical * sp;
     let side_bearing = metrics.padding.horizontal * sp;
@@ -466,7 +487,7 @@ fn emit_stacked_expressions(
 
     for (p, &delta) in pending.iter().zip(dy.iter()) {
         let draw_y = p.base_y + delta;
-        let element_id = element_id::expression(p.source_part_index, mi, p.source_expression_index);
+        let element_id = p.element_id.clone();
         let command_start = dl.commands.len();
         let block_top = p.block.as_ref().map(|block| {
             draw_y
@@ -520,7 +541,7 @@ fn emit_stacked_expressions(
         };
         let bbox_x = p.left();
         dl.push_element_bbox_with_shape(ElementBBox {
-            element_id: element_id::expression(p.source_part_index, mi, p.source_expression_index),
+            element_id: p.element_id.clone(),
             bbox: BoundingBox::new(bbox_x, bbox_y, text_w, bbox_h),
         });
         if p.block.is_some() {
@@ -587,4 +608,174 @@ fn expression_block(
         frame.paragraph_justification,
         frame.border,
     ))
+}
+
+fn system_text_expression(text: &SystemText) -> TextExpression {
+    TextExpression {
+        text: text.text.clone(),
+        frame: text.frame.clone(),
+        position: text.position.clone(),
+        placement: text.placement,
+        staff: None,
+        voice: None,
+        source_part_index: None,
+        source_expression_index: None,
+        instrument_reminder: false,
+        manual_offset: text.manual_offset,
+        avoid_collisions: text.avoid_collisions,
+    }
+}
+
+pub(crate) fn system_text_vertical_extras(
+    ml: &MeasureLayout,
+    sp: f64,
+    config: &LayoutConfig,
+) -> (f64, f64) {
+    let Some(texts) = ml.resolved.global.system_text() else {
+        return (0.0, 0.0);
+    };
+    let font_size = 2.0 * sp;
+    let ascent = 0.8 * font_size;
+    let below_cap = text_styles::cap_height_from_baseline(FontFamily::Serif, font_size);
+    let metrics = config.placement.resolve(ElementKind::Expression);
+    let mut above = 0.0_f64;
+    let mut below = 0.0_f64;
+    let mut stack_boxes = Vec::with_capacity(texts.len());
+    let highest =
+        super::substrate_obstacles::highest_point_in_measure(ml, 0.0, sp, config.stem_length);
+    let lowest = below_expression_baseline(ml, 0.0, sp, config, font_size);
+    let staff_bottom = 4.0 * sp;
+    let total_beats = ml.resolved.active_time.measure_beats();
+    let content_width = super::super::render_barlines::rhythmic_content_width(ml, sp);
+    let x_origin = ml.x + ml.prefix_width;
+    let measure_right = x_origin + content_width;
+    let stack_gap = metrics.padding.vertical * sp;
+    let side_bearing = metrics.padding.horizontal * sp;
+
+    for text in texts {
+        let expression = system_text_expression(text);
+        let is_above = matches!(text.placement, Some(ExpressionPlacement::Above));
+        let block = expression_block(&expression, font_size, sp);
+        let text_width = block.as_ref().map_or_else(
+            || super::text_content::content_width(&text.text, font_size, FontFamily::Serif, false),
+            |block| block.width,
+        );
+        let beat = text.position.beats();
+        let event_x = ml.voice_layouts.iter().find_map(|vl| {
+            (0..vl.events.len())
+                .find(|&i| (vl.events.beat_position(i) - beat).abs() < 0.01)
+                .map(|i| vl.events.x(i))
+        });
+        let right_aligned = event_x.is_none() && beat >= total_beats - 1e-6;
+        let note_x = event_x.unwrap_or_else(|| {
+            if right_aligned {
+                measure_right
+            } else {
+                x_origin + (beat / total_beats) * content_width
+            }
+        });
+        let alignment = expression_alignment(&expression, right_aligned);
+        let [offset_x, offset_y] = text.manual_offset.unwrap_or([0.0, 0.0]);
+        let draw_x = note_x + offset_x * sp;
+        let left = draw_x
+            - match alignment {
+                TextFrameAlign::Left => 0.0,
+                TextFrameAlign::Center => text_width / 2.0,
+                TextFrameAlign::Right => text_width,
+            };
+        let (height, first_baseline) = block.as_ref().map_or_else(
+            || {
+                if is_above {
+                    (0.82 * font_size, 0.82 * font_size)
+                } else {
+                    (below_cap, below_cap)
+                }
+            },
+            |block| (block.height, block.first_baseline),
+        );
+        let offset_y = offset_y * sp;
+        let base_y;
+        if is_above {
+            if !ml.is_first_staff {
+                continue;
+            }
+            let attach = metrics.attach_gap_above() * sp;
+            let obstacle = (-highest).max(0.0) + metrics.padding.vertical * sp;
+            let baseline_distance = if text.avoid_collisions.unwrap_or(true) {
+                attach.max(obstacle)
+            } else {
+                attach
+            };
+            above = above.max((baseline_distance + height + offset_y).max(0.0));
+            base_y = -baseline_distance - offset_y;
+        } else {
+            if !ml.is_last_staff {
+                continue;
+            }
+            let stack_gap = metrics.padding.vertical * sp;
+            let dynamic_reserve = if ml
+                .resolved
+                .part
+                .dynamics
+                .as_ref()
+                .is_some_and(|dynamics| !dynamics.is_empty())
+            {
+                4.5 * sp + stack_gap + below_cap
+            } else {
+                0.0
+            };
+            let baseline = (lowest - staff_bottom)
+                .max(config.expression_min_distance * sp)
+                .max(dynamic_reserve);
+            let descent = block.as_ref().map_or(below_cap, |_| {
+                height - first_baseline + (first_baseline - ascent).max(0.0)
+            });
+            below = below.max((baseline + descent - offset_y).max(0.0));
+            base_y = baseline - offset_y;
+        }
+        let (y_top, y_bottom) = if let Some(block) = &block {
+            let top = base_y
+                - if is_above {
+                    block.height
+                } else {
+                    block.first_baseline
+                };
+            (top, top + block.height)
+        } else if is_above {
+            (base_y - 0.82 * font_size, base_y)
+        } else {
+            (base_y - below_cap, base_y)
+        };
+        stack_boxes.push(StackBox {
+            x0: left,
+            x1: left + text_width,
+            y_top,
+            y_bottom,
+            stack_gap,
+            side_bearing,
+            stack_rank: metrics.stack_rank,
+            side: if is_above {
+                StackSide::Above
+            } else {
+                StackSide::Below
+            },
+            pinned: !text.avoid_collisions.unwrap_or(true),
+        });
+    }
+    let displacements = dependent_stacking::resolve_stacking(&stack_boxes);
+    let above_stack = stack_boxes
+        .iter()
+        .zip(&displacements)
+        .filter(|(box_, _)| box_.side == StackSide::Above)
+        .map(|(_, dy)| (-dy).max(0.0))
+        .fold(0.0, f64::max);
+    let below_stack = stack_boxes
+        .iter()
+        .zip(&displacements)
+        .filter(|(box_, _)| box_.side == StackSide::Below)
+        .map(|(_, dy)| dy.max(0.0))
+        .fold(0.0, f64::max);
+    above += above_stack;
+    below += below_stack;
+    (above, below)
 }

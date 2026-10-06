@@ -46,6 +46,22 @@ describe("text-frame element IDs", () => {
     expect(resolveNotationSelectionTarget(single("text-frame/intro"), SCORE)).toBeNull();
   });
 
+  it("keeps a system-text selection valid only while its global ID exists", () => {
+    const score: Score = {
+      ...SCORE,
+      global: {
+        measures: [
+          {
+            id: "m1",
+            systemText: [{ id: "note-1", text: textContentFromPlain("See note"), position: { fraction: [0, 1] } }],
+          },
+        ],
+      },
+    };
+    expect(isSelectionIdValid("m0/systemText/note-1", score)).toBe(true);
+    expect(isSelectionIdValid("m0/systemText/gone", score)).toBe(false);
+  });
+
   it("delete only the frame in the active view", () => {
     const result = computeDeleteSelection(SCORE, single("text-frame/notes%2Fclef1"), 0);
     expect(result.kind).toBe("single");

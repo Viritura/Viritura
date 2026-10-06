@@ -128,6 +128,84 @@ fn test_global_harmony_survives_auto_and_authored_multimeasure_rests() {
 }
 
 #[test]
+fn system_text_is_kept_on_its_own_measure_in_auto_and_authored_multimeasure_rests() {
+    for authored in [false, true] {
+        let mut value = serde_json::json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [
+                {"id": "m0", "time": {"count": 4, "unit": 4}},
+                {"id": "m1"},
+                {"id": "m2", "_x": {"viritura": {"systemText": [{
+                    "id": "footnote",
+                    "text": [{"text": "Asterisk note"}],
+                    "position": {"fraction": [1, 2]},
+                    "placement": "above"
+                }]}}},
+                {"id": "m3"}, {"id": "m4"}
+            ]},
+            "parts": [{
+                "id": "solo",
+                "measures": vec![serde_json::json!({
+                    "sequences": [{"content": [
+                        {"duration": {"base": "whole"}, "rest": {}}
+                    ]}]
+                }); 5]
+            }],
+            "layouts": [{"id": "solo-layout", "content": [
+                {"type": "staff", "sources": [{"part": "solo"}]}
+            ]}],
+            "scores": [{"name": "Solo", "layout": "solo-layout"}]
+        });
+        if authored {
+            value["scores"][0]["multimeasureRests"] =
+                serde_json::json!([{"start": "m0", "duration": 5}]);
+        }
+
+        let score = parse_mnx(&value.to_string()).unwrap();
+        let resolved = crate::layout::resolve::resolve_measures(&score, 0);
+        let expected = vec![(0, 2), (3, 2)];
+        assert_eq!(
+            crate::layout::resolve::detect_multimeasure_rest_groups(&resolved),
+            expected,
+            "system text must not be stretched across a collapsed rest group"
+        );
+        let ranges = std::collections::HashMap::from([(0usize, 5u32)]);
+        let (starts, skip) = crate::layout::resolve::split_authored_mmr_ranges(&ranges, &resolved);
+        let mut starts: Vec<_> = starts
+            .into_iter()
+            .map(|(start, count)| (start, count as usize))
+            .collect();
+        starts.sort();
+        assert_eq!(starts, expected);
+        assert!(!skip.contains(&2), "text's measure must not be hidden");
+
+        for page_width in [None, Some(1200.0)] {
+            let config = LayoutConfig {
+                multimeasure_rests: true,
+                page_width,
+                ..LayoutConfig::default()
+            };
+            for display in [
+                layout_score(&score, 0, &config),
+                layout_with_mnx_scores(&score, &config, 0),
+            ] {
+                assert_eq!(hbar_count(&display, config.sp), 2);
+                let id = "m2/systemText/footnote";
+                assert_eq!(
+                    display
+                        .element_bboxes
+                        .iter()
+                        .filter(|bbox| bbox.element_id == id)
+                        .count(),
+                    1,
+                    "system text should render once on its original measure"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn test_part_layout_does_not_collapse_measure_repeats_into_mmr() {
     let json = r#"{
         "mnx": {"version": 1},

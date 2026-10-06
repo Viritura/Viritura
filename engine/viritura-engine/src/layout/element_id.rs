@@ -160,6 +160,11 @@ pub fn global_chord_symbol(measure: usize, index: usize) -> String {
     format!("m{}/chord{}", measure, index)
 }
 
+/// Globally owned system text: `m{measure}/systemText/{id}`.
+pub fn system_text(measure: usize, id: &str) -> String {
+    format!("m{}/systemText/{}", measure, id)
+}
+
 // ── Global measure elements ────────────────────────────────────────
 
 /// Time signature: `m{measure}/time`

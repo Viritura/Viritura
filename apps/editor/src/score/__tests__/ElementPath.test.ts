@@ -17,6 +17,7 @@ import {
   pedalId,
   ottavaId,
   expressionId,
+  systemTextId,
   chordSymbolId,
   timeSigId,
   barlineId,
@@ -123,6 +124,7 @@ describe("ID construction", () => {
   it("pedalId", () => expect(pedalId(0, 1, 2)).toBe("p0/m1/pedal2"));
   it("ottavaId", () => expect(ottavaId(1, 0, 0)).toBe("p1/m0/ottava0"));
   it("expressionId", () => expect(expressionId(0, 0, 3)).toBe("p0/m0/expr3"));
+  it("systemTextId", () => expect(systemTextId(2, "system-text-1")).toBe("m2/systemText/system-text-1"));
 
   // Global
   it("chordSymbolId", () => expect(chordSymbolId(1, 2)).toBe("m1/chord2"));
@@ -350,6 +352,12 @@ describe("resolveAnnotationLocation", () => {
       kind: "global",
       type: "rehearsal",
       measureIndex: 0,
+    });
+    expect(resolveAnnotationLocation("m3/systemText/system-text-1")).toEqual({
+      kind: "global",
+      type: "systemText",
+      measureIndex: 3,
+      annotationId: "system-text-1",
     });
   });
 

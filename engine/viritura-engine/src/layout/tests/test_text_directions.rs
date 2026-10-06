@@ -4,11 +4,13 @@
 use crate::layout::config::LayoutConfig;
 use crate::layout::layout_score;
 use crate::layout::placement_metrics::PlacementTable;
+use crate::parse::parse_mnx;
 use crate::render::smufl::smufl::{
     CHORD_AUGMENTED, CHORD_DIMINISHED, CHORD_DOUBLE_FLAT, CHORD_DOUBLE_SHARP, CHORD_FLAT,
     CHORD_HALF_DIMINISHED, CHORD_MAJOR_SEVENTH, CHORD_MINOR,
 };
 use crate::render::*;
+use serde_json::json;
 
 // ═══════════════════════════════════════
 // Text Expression Tests
@@ -110,6 +112,113 @@ fn test_text_expressions_below_staff_position() {
         dolce,
         staff_bottom
     );
+}
+
+#[test]
+fn system_text_renders_once_at_each_visible_system_boundary() {
+    let parts = ["P1", "P2"].map(|id| {
+        json!({
+            "id": id,
+            "measures": [{
+                "sequences": [{ "content": [{
+                    "id": "event",
+                    "duration": { "base": "whole" },
+                    "notes": [{ "pitch": { "step": "C", "octave": 4 } }]
+                }] }]
+            }]
+        })
+    });
+    let score_json = json!({
+        "mnx": { "version": 1 },
+        "global": { "measures": [{
+            "time": { "count": 4, "unit": 4 },
+            "_x": { "viritura": { "systemText": [
+                {
+                    "id": "system-above",
+                    "text": [{ "text": "Shared above" }],
+                    "position": { "fraction": [0, 1] },
+                    "placement": "above"
+                },
+                {
+                    "id": "system-below",
+                    "text": [{ "text": "Shared below" }],
+                    "position": { "fraction": [1, 2] },
+                    "placement": "below"
+                }
+            ] } }
+        }] },
+        "parts": parts
+    });
+    let score = parse_mnx(&score_json.to_string()).unwrap();
+
+    for page_width in [None, Some(800.0)] {
+        let config = LayoutConfig {
+            page_width,
+            ..LayoutConfig::default()
+        };
+        let display_list = layout_score(&score, 0, &config);
+        for id in ["m0/systemText/system-above", "m0/systemText/system-below"] {
+            let occurrence_count = display_list
+                .element_bboxes
+                .iter()
+                .filter(|bbox| bbox.element_id == id)
+                .count();
+            assert_eq!(
+                occurrence_count, 1,
+                "{id} should render once in this score view"
+            );
+        }
+    }
+}
+
+#[test]
+fn system_text_vertical_reservation_accounts_for_stacking() {
+    use crate::layout::layout_measure;
+    use crate::layout::render_annotations::system_text_vertical_extras;
+    use crate::layout::resolve::resolve_measures;
+
+    let config = LayoutConfig::default();
+    let sp = config.sp;
+    let extra = |placement: &str, count: usize| {
+        let texts: Vec<_> = (0..count)
+            .map(|index| {
+                json!({
+                    "id": format!("note-{index}"),
+                    "text": [{"text": format!("Footnote {index}")}],
+                    "position": {"fraction": [1, 2]},
+                    "placement": placement
+                })
+            })
+            .collect();
+        let score_json = json!({
+            "mnx": {"version": 1},
+            "global": {"measures": [{
+                "time": {"count": 4, "unit": 4},
+                "_x": {"viritura": {"systemText": texts}}
+            }]},
+            "parts": [{"measures": [{"sequences": [{"content": [
+                {"duration": {"base": "whole"}, "rest": {}}
+            ]}]}]}]
+        });
+        let score = parse_mnx(&score_json.to_string()).unwrap();
+        let resolved = resolve_measures(&score, 0);
+        let mut layout = layout_measure(&resolved[0], sp, 0.0, &config, None, &[], 1.0);
+        layout.is_first_staff = true;
+        layout.is_last_staff = true;
+        system_text_vertical_extras(&layout, sp, &config)
+    };
+
+    for (placement, side) in [("above", 0), ("below", 1)] {
+        let one = extra(placement, 1);
+        let two = extra(placement, 2);
+        let one_side = if side == 0 { one.0 } else { one.1 };
+        let two_side = if side == 0 { two.0 } else { two.1 };
+        assert!(
+            two_side > one_side + 0.5 * sp,
+            "two overlapping {placement} system texts must reserve their stacked height \
+             (one: {one_side:.1}px, two: {two_side:.1}px)"
+        );
+    }
 }
 
 #[test]

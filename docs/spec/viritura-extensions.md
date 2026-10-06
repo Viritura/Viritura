@@ -282,14 +282,14 @@ The shared design distinguishes attachment/scope from placement:
 | ---------------------- | --------------------------------------- | ------------------------------- |
 | Page text              | Explicit rendered page                  | Printable page area             |
 | Music-linked page text | Page holding a measure/event            | Printable page area             |
-| Staff text (planned)   | Musical location and a particular staff | Musical location on that staff  |
-| System text (planned)  | Musical location with system-wide scope | Musical location on that system |
+| Staff text             | Musical location and a particular staff | Musical location on that staff  |
+| System text            | Musical location with system-wide scope | Musical location on that system |
 
 Music-relative text must remain available in Horizon and follow its musical
-attachment through reflow. System text needs explicit projection into score
-and part views rather than copied independent per-view frames. These ownership,
-visibility, and placement rules belong to #282; no unsupported locator or
-staff/system discriminator is accepted by the current frame schema.
+attachment through reflow. System text is globally owned and projected once at
+the visible top or bottom boundary in score, part and Horizon views, rather than
+copied into per-view page frames. Page-frame locators remain a separate
+attachment model; system/staff scope is not encoded as a frame locator.
 
 Width omission and alignment defaults belong to the owning text role, not to
 the shared container. The current `textColumnFraction` reference is the page's
@@ -923,18 +923,26 @@ Plain text omits `frame`; advanced instruction boxes do not create a second
 formatting model. Specialized tempo, dynamics, rehearsal and navigation markings
 retain their semantic owners.
 
-The intended rendering policy is one occurrence above the top visible staff or
-below the bottom visible staff in every score/part view, including Horizon.
-Hidden or condensed source staves do not own the instruction. Reflow follows
-the measure and rhythmic position; an always-at-system-start option is deferred.
+Rendering emits one occurrence above the top visible staff or below the bottom
+visible staff in every score/part view, including Horizon. Hidden or condensed
+source staves do not own the instruction. Reflow follows the measure and
+rhythmic position; an always-at-system-start option is deferred. The Properties
+inspector exposes system/staff scope conversion, shared text/frame editing,
+manual placement, selection, navigation and deletion. Legacy staff expressions
+and page frames retain their existing ownership and behavior.
 
-This first follow-up commit adds validated TS/Rust persistence and round-trip
-only. Rendering, scope editing, selection/deletion and supported MusicXML scope
-mapping remain in progress; the contract is not yet exposed as a user-facing
-system-text feature. Legacy staff expressions and page frames are unchanged.
+MusicXML `<direction system="only-top">` words map to global system text only
+when their placement is above or omitted. `system="none"` and directions with
+no `system` attribute retain the existing staff-expression mapping.
+`system="also-top"` requires both a staff copy and a top-system copy, while
+`only-top` with below placement targets the top staff's lower side; neither can
+be represented faithfully by the current single-boundary global-text model.
+Those cases preserve the words as staff text and emit a
+`musicxml-system-relation` warning instead of silently changing their scope.
+
 Denigma adaptation and its representative rectangular-block fixtures are
-explicitly deferred until a separate integration; no source geometry or units
-are inferred.
+explicitly deferred until source payloads and units are established; no
+geometry or units are inferred.
 
 ### `rehearsalMark`
 

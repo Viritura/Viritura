@@ -217,6 +217,7 @@ pub(in crate::layout) fn precompute_system_layouts(
                     is_first_on_system: false,
                     show_system_objects: true,
                     is_first_staff: true,
+                    is_last_staff: true,
                 };
                 ml.translate_x(sys_x);
                 ml

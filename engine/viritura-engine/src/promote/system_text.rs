@@ -12,7 +12,7 @@ pub(super) fn extract_system_text(
     let Some(value) = vendor.get("systemText") else {
         return Ok(None);
     };
-    let error = |reason: String| PromoteError::InvalidTextFrame(format!("systemText: {reason}"));
+    let error = PromoteError::InvalidSystemText;
     let values = value
         .as_array()
         .ok_or_else(|| error("expected an array".into()))?;
