@@ -18,6 +18,7 @@
  * Global-level (from GlobalMeasure):
  *   m{measure}/tempo{i}, m{measure}/rehearsal, m{measure}/jump,
  *   m{measure}/coda, m{measure}/caesura, m{measure}/chord{i}
+ *   m{measure}/systemText/{id}
  */
 
 import type { Score, Markings, PartMeasure, GlobalMeasure } from "@viritura/core";
@@ -25,6 +26,7 @@ import {
   extractPartIndex,
   extractMeasureIndex,
   getEventAncestorId,
+  resolveAnnotationLocation,
   resolveEventLocation,
   resolveFullMeasureRestLocation,
   getNoteEventAtLocation,
@@ -33,6 +35,7 @@ import {
   hairpinId,
   pedalId,
   expressionId,
+  systemTextId,
   tempoId,
   rehearsalId,
   jumpId,
@@ -303,6 +306,15 @@ function extractGlobalAnnotations(
     });
   }
 
+  for (const text of globalMeasure.systemText ?? []) {
+    annotations.push({
+      elementId: systemTextId(measureIndex, text.id),
+      type: "system-text",
+      position: text.placement ?? "below",
+      parentEventId,
+    });
+  }
+
   if (globalMeasure.tempos) {
     for (let i = 0; i < globalMeasure.tempos.length; i++) {
       annotations.push({
@@ -473,7 +485,7 @@ function findMeasureAnnotationOtherSide(
   const partIdx = extractPartIndex(annotationId) ?? sourcePartIndex ?? chordCopyPartIndex(annotationId);
   if (measureIdx === undefined) return undefined;
 
-  const currentPosition = classifyAnnotationPosition(getAnnotationType(annotationId));
+  const currentPosition = annotationPosition(score, annotationId);
   const targetPosition: AnnotationPosition = currentPosition === "above" ? "below" : "above";
 
   // Find the first event in this measure to use as context
@@ -483,6 +495,17 @@ function findMeasureAnnotationOtherSide(
   const annotations = findAnnotationsForEvent(score, eventId);
   const otherSide = annotations.filter((a) => a.position === targetPosition);
   return otherSide[0]?.elementId;
+}
+
+function annotationPosition(score: Score, annotationId: string): AnnotationPosition {
+  const location = resolveAnnotationLocation(canonicalNavigationId(annotationId));
+  if (location?.kind === "global" && location.type === "systemText") {
+    const text = score.global.measures[location.measureIndex]?.systemText?.find(
+      (candidate) => candidate.id === location.annotationId,
+    );
+    return text?.placement ?? "below";
+  }
+  return classifyAnnotationPosition(getAnnotationType(annotationId));
 }
 
 type PartLevelKind = "pedal" | "expression";
@@ -520,7 +543,9 @@ function pushPartLevelIds(ids: string[], pm: PartMeasure, partIndex: number, mea
 }
 
 function pushGlobalLevelIds(ids: string[], gm: GlobalMeasure, measureIndex: number, type: string): void {
-  if (type === "chord-symbol" && gm.chordSymbols) {
+  if (type === "system-text" && gm.systemText) {
+    for (const text of gm.systemText) ids.push(systemTextId(measureIndex, text.id));
+  } else if (type === "chord-symbol" && gm.chordSymbols) {
     for (let i = 0; i < gm.chordSymbols.length; i++) ids.push(globalChordNavigationId(measureIndex, i));
   } else if (type === "tempo" && gm.tempos) {
     for (let i = 0; i < gm.tempos.length; i++) ids.push(tempoId(measureIndex, i));
@@ -559,6 +584,7 @@ function getMeasureLevelAnnotations(
 
 /** Map from annotation ID suffix to type label used in AnnotationInfo. */
 function getAnnotationType(annotationId: string): string {
+  if (/^m\d+\/systemText\/.+$/.test(annotationId)) return "system-text";
   const parts = canonicalNavigationId(annotationId).split("/");
   const last = parts[parts.length - 1] ?? "";
   const normalized = normalizeAnnotationType(last);

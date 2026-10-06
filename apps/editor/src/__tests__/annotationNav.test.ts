@@ -263,6 +263,22 @@ describe("findAnnotationsForEvent", () => {
     expect(types).toContain("rehearsal");
   });
 
+  it("finds and navigates globally owned system text", () => {
+    const score = makeAnnotatedScore();
+    score.global.measures[0]!.systemText = [
+      { id: "footnote-a", text: [{ text: "First note" }], position: { fraction: [0, 1] } },
+      { id: "footnote-b", text: [{ text: "Second note" }], position: { fraction: [1, 2] }, placement: "above" },
+    ];
+    const annotations = findAnnotationsForEvent(score, "p0/m0/s0/e0");
+
+    expect(
+      annotations.filter((annotation) => annotation.type === "system-text").map((annotation) => annotation.elementId),
+    ).toEqual(["m0/systemText/footnote-a", "m0/systemText/footnote-b"]);
+    expect(findNextAnnotation(score, "m0/systemText/footnote-a")).toBe("m0/systemText/footnote-b");
+    expect(findPrevAnnotation(score, "m0/systemText/footnote-b")).toBe("m0/systemText/footnote-a");
+    expect(findAnnotationOtherSide(score, "m0/systemText/footnote-a")).toMatch(/\/trill$/);
+  });
+
   it("returns empty for event with no annotations", () => {
     const score = makePlainScore();
     const annotations = findAnnotationsForEvent(score, "p0/m0/s0/e0");

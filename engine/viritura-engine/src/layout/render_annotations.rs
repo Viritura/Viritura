@@ -46,7 +46,7 @@ pub(crate) use dynamics::{
     dynamic_optical_midline_y, dynamic_places_above, dynamic_voice_index, grand_staff_between_y,
     render_dynamics,
 };
-pub(crate) use expressions::render_text_expressions;
+pub(crate) use expressions::{render_text_expressions, system_text_vertical_extras};
 pub(crate) use jump_markers::render_jump_markers;
 pub(crate) use measure_numbers::{
     below_staff_number_top_y, measure_number_value, render_measure_numbers, start_clef,

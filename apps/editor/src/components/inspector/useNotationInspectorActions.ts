@@ -13,6 +13,7 @@ import {
   type MarkerText,
   type Score,
   type ScorePatch,
+  type SystemText,
   type Tempo,
   type TextContent,
   type TextExpression,
@@ -325,7 +326,8 @@ export interface DirectionTextHandlers extends DynamicGroupHandlers {
   isDynamicSelected: boolean;
   selectedDynamic: DynamicGroup | null;
   isExpressionSelected: boolean;
-  selectedExpression: TextExpression | null;
+  isSystemTextSelected: boolean;
+  selectedExpression: TextExpression | SystemText | null;
   handleExpressionTextChange: (text: import("@viritura/core").TextContent) => void;
   handleExpressionFrameChange: (frame: StaffTextFramePresentation | undefined) => void;
   isRehearsalSelected: boolean;
@@ -344,7 +346,8 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
   const dynamicMatch = target?.elementType.match(/^(?:dyn|hairpin)(.+)$/);
   const isDynamicSelected = dynamicMatch !== null && dynamicMatch !== undefined;
   const expressionMatch = target?.elementType.match(/^expr(\d+)$/);
-  const isExpressionSelected = expressionMatch !== null && expressionMatch !== undefined;
+  const isSystemTextSelected = target?.elementType === "system-text" && target.systemTextId !== undefined;
+  const isExpressionSelected = (expressionMatch !== null && expressionMatch !== undefined) || isSystemTextSelected;
   const isRehearsalSelected = target?.elementType === "rehearsal";
   const markerKind = navigationMarkerKind(target?.elementType);
 
@@ -357,11 +360,16 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     );
   }, [isDynamicSelected, score, target, dynamicMatch]);
 
-  const selectedExpression = useMemo<TextExpression | null>(() => {
+  const selectedExpression = useMemo<TextExpression | SystemText | null>(() => {
     if (!isExpressionSelected || !score || !target) return null;
+    if (isSystemTextSelected) {
+      return (
+        score.global.measures[target.measureIndex]?.systemText?.find((text) => text.id === target.systemTextId) ?? null
+      );
+    }
     const idx = parseInt(expressionMatch![1]!, 10);
     return score.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[idx] ?? null;
-  }, [isExpressionSelected, score, target, expressionMatch]);
+  }, [isExpressionSelected, isSystemTextSelected, score, target, expressionMatch]);
 
   const selectedRehearsal = useMemo<RehearsalMark | null>(() => {
     if (!isRehearsalSelected || !score || !target) return null;
@@ -394,32 +402,38 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
 
   const handleExpressionTextChange = useCallback(
     (text: import("@viritura/core").TextContent) => {
-      if (!score || !target || !expressionMatch) return;
+      if (!score || !target || (!expressionMatch && !isSystemTextSelected)) return;
       performance.mark("viritura:input-event");
-      const idx = parseInt(expressionMatch[1]!, 10);
       const nextScore = produce(score, (draft) => {
-        const expression = draft.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[idx];
+        const expression = isSystemTextSelected
+          ? draft.global.measures[target.measureIndex]?.systemText?.find((text) => text.id === target.systemTextId)
+          : draft.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[
+              parseInt(expressionMatch![1]!, 10)
+            ];
         if (!expression) return;
         expression.text = text;
       });
       if (nextScore !== score) updateScore(nextScore);
     },
-    [score, target, expressionMatch, updateScore],
+    [score, target, expressionMatch, isSystemTextSelected, updateScore],
   );
 
   const handleExpressionFrameChange = useCallback(
     (frame: StaffTextFramePresentation | undefined) => {
-      if (!score || !target || !expressionMatch) return;
-      const idx = parseInt(expressionMatch[1]!, 10);
+      if (!score || !target || (!expressionMatch && !isSystemTextSelected)) return;
       const nextScore = produce(score, (draft) => {
-        const expression = draft.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[idx];
+        const expression = isSystemTextSelected
+          ? draft.global.measures[target.measureIndex]?.systemText?.find((text) => text.id === target.systemTextId)
+          : draft.parts[target.partIndex]?.measures[target.measureIndex]?.expressions?.[
+              parseInt(expressionMatch![1]!, 10)
+            ];
         if (!expression) return;
         if (frame) expression.frame = frame;
         else delete expression.frame;
       });
       if (nextScore !== score) updateScore(nextScore);
     },
-    [score, target, expressionMatch, updateScore],
+    [score, target, expressionMatch, isSystemTextSelected, updateScore],
   );
 
   // Manual-placement handlers are generic across every movable annotation
@@ -486,6 +500,7 @@ export function useDirectionTextHandlers({ score, target, updateScore }: Selecti
     selectedDynamic,
     ...dynamicHandlers,
     isExpressionSelected,
+    isSystemTextSelected,
     selectedExpression,
     handleExpressionTextChange,
     handleExpressionFrameChange,

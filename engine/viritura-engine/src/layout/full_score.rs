@@ -473,6 +473,7 @@ fn build_system_measure_layouts(
                     is_first_on_system: false,
                     show_system_objects: true,
                     is_first_staff: true,
+                    is_last_staff: true,
                 };
                 ml.translate_x(sys_x);
                 ml
@@ -509,6 +510,8 @@ fn build_system_measure_layouts(
             };
             ml.part_index = visual_staves[vi].0;
             ml.is_first_on_system = si == 0;
+            ml.is_first_staff = vi == 0;
+            ml.is_last_staff = vi + 1 == visual_staves.len();
             sys_x += ml.width;
             measure_layouts.push(ml);
         }

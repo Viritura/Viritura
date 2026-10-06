@@ -1,8 +1,16 @@
-import type { Score, TextContent, TextExpression, TextFrame, TextFrameStaffAttachment } from "@viritura/core";
+import type {
+  Score,
+  SystemText,
+  TextContent,
+  TextExpression,
+  TextFrame,
+  TextFrameStaffAttachment,
+} from "@viritura/core";
+import { generateId } from "@viritura/core";
 import { produce } from "../scoreClone";
 import { ensureMeasureId } from "../spanUtils";
 import { buildTextFrame, nextTextFrameId } from "../textFrameMutations";
-import { expressionId } from "../ElementPath";
+import { expressionId, systemTextId } from "../ElementPath";
 
 export class TextAttachmentError extends Error {}
 
@@ -150,6 +158,79 @@ export function pageTextToStaff(
     const view = draft.scores![scoreIndex]!;
     view.textFrames = view.textFrames!.filter((candidate) => candidate.id !== frameId);
     if (!view.textFrames.length) delete view.textFrames;
+  });
+  return { score: next, elementId: expressionId(partIndex, measureIndex, expressionIndex) };
+}
+
+/** Atomically changes a staff expression to one globally owned system instruction. */
+export function staffTextToSystem(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  expressionIndex: number,
+): { score: Score; elementId: string } {
+  const expression = score.parts[partIndex]?.measures[measureIndex]?.expressions?.[expressionIndex];
+  if (!expression) throw new TextAttachmentError("The selected staff text no longer exists.");
+  if (!score.global.measures[measureIndex]) {
+    throw new TextAttachmentError("The text's global measure no longer exists.");
+  }
+  const existingIds = new Set(score.global.measures[measureIndex]?.systemText?.map((text) => text.id));
+  let id = generateId();
+  while (existingIds.has(id)) id = generateId();
+  const systemText: SystemText = {
+    id,
+    text: expression.text,
+    position: expression.position,
+    ...(expression.placement === undefined ? {} : { placement: expression.placement }),
+    ...(expression.manualOffset === undefined ? {} : { manualOffset: expression.manualOffset }),
+    ...(expression.avoidCollisions === undefined ? {} : { avoidCollisions: expression.avoidCollisions }),
+    ...(expression.frame === undefined ? {} : { frame: expression.frame }),
+  };
+  const next = produce(score, (draft) => {
+    const globalMeasure = draft.global.measures[measureIndex]!;
+    (globalMeasure.systemText ??= []).push(systemText);
+    const expressions = draft.parts[partIndex]!.measures[measureIndex]!.expressions!;
+    expressions.splice(expressionIndex, 1);
+    if (expressions.length === 0) delete draft.parts[partIndex]!.measures[measureIndex]!.expressions;
+  });
+  return { score: next, elementId: systemTextId(measureIndex, id) };
+}
+
+/** Atomically changes shared system text into staff text at an explicit destination. */
+export function systemTextToStaff(
+  score: Score,
+  partIndex: number,
+  measureIndex: number,
+  id: string,
+  staff = 1,
+): { score: Score; elementId: string } {
+  const part = score.parts[partIndex];
+  const measure = part?.measures[measureIndex];
+  const globalMeasure = score.global.measures[measureIndex];
+  const systemText = globalMeasure?.systemText?.find((text) => text.id === id);
+  if (!part || !measure || !globalMeasure || !systemText) {
+    throw new TextAttachmentError("The selected system text or destination measure no longer exists.");
+  }
+  if (!Number.isInteger(staff) || staff < 1 || staff > (part.staves ?? 1)) {
+    throw new TextAttachmentError("Select a staff that exists in the destination part.");
+  }
+  const expressionIndex = measure.expressions?.length ?? 0;
+  const expression: TextExpression = {
+    text: systemText.text,
+    position: systemText.position,
+    ...(systemText.placement === undefined ? {} : { placement: systemText.placement }),
+    ...(staff === 1 ? {} : { staff }),
+    ...(systemText.manualOffset === undefined ? {} : { manualOffset: systemText.manualOffset }),
+    ...(systemText.avoidCollisions === undefined ? {} : { avoidCollisions: systemText.avoidCollisions }),
+    ...(systemText.frame === undefined ? {} : { frame: systemText.frame }),
+  };
+  const next = produce(score, (draft) => {
+    const texts = draft.global.measures[measureIndex]!.systemText!;
+    const index = texts.findIndex((text) => text.id === id);
+    if (index < 0) throw new TextAttachmentError("The selected system text no longer exists.");
+    texts.splice(index, 1);
+    if (texts.length === 0) delete draft.global.measures[measureIndex]!.systemText;
+    (draft.parts[partIndex]!.measures[measureIndex]!.expressions ??= []).push(expression);
   });
   return { score: next, elementId: expressionId(partIndex, measureIndex, expressionIndex) };
 }

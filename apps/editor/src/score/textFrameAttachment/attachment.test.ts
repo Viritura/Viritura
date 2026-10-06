@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Score, TextExpression } from "@viritura/core";
 import { parseMnx, serializeMnx } from "@viritura/format";
-import { pageTextToStaff, staffTextToPage, TextAttachmentError } from "./index";
+import { pageTextToStaff, staffTextToPage, staffTextToSystem, systemTextToStaff, TextAttachmentError } from "./index";
 
 function fixture(width = false): Score {
   const expression: TextExpression = {
@@ -51,6 +51,53 @@ describe("Staff/Page text attachment switching", () => {
     expect(
       pageTextToStaff(parseMnx(serializeMnx(result.score)), 0, result.frameId).score.parts[0]!.measures[0]!.expressions,
     ).toHaveLength(1);
+  });
+
+  describe("Staff/System text scope switching", () => {
+    it("moves text atomically while preserving shared presentation and musical position", () => {
+      const score = fixture(true);
+      const original = score.parts[0]!.measures[0]!.expressions![0]!;
+      const system = staffTextToSystem(score, 0, 0, 0);
+      const systemText = system.score.global.measures[0]!.systemText![0]!;
+
+      expect(score.parts[0]!.measures[0]!.expressions).toHaveLength(1);
+      expect(system.score.parts[0]!.measures[0]!.expressions).toBeUndefined();
+      expect(system.elementId).toBe(`m0/systemText/${systemText.id}`);
+      expect(systemText).toMatchObject({
+        text: original.text,
+        position: original.position,
+        placement: original.placement,
+        manualOffset: original.manualOffset,
+        avoidCollisions: original.avoidCollisions,
+        frame: original.frame,
+      });
+      expect(systemText).not.toHaveProperty("staff");
+      expect(systemText).not.toHaveProperty("voice");
+
+      const returned = systemTextToStaff(parseMnx(serializeMnx(system.score)), 0, 0, systemText.id, 2);
+      const expression = returned.score.parts[0]!.measures[0]!.expressions![0]!;
+      expect(returned.elementId).toBe("p0/m0/expr0");
+      expect(expression).toMatchObject({
+        text: original.text,
+        position: original.position,
+        placement: original.placement,
+        staff: 2,
+        manualOffset: original.manualOffset,
+        avoidCollisions: original.avoidCollisions,
+        frame: original.frame,
+      });
+      expect(returned.score.global.measures[0]!.systemText).toBeUndefined();
+    });
+
+    it("rejects a missing or invalid staff destination without changing the source score", () => {
+      const system = staffTextToSystem(fixture(), 0, 0, 0);
+      const originalSystemText = system.score.global.measures[0]!.systemText;
+
+      expect(() => systemTextToStaff(system.score, 8, 0, originalSystemText![0]!.id)).toThrow(TextAttachmentError);
+      expect(() => systemTextToStaff(system.score, 0, 0, originalSystemText![0]!.id, 3)).toThrow(TextAttachmentError);
+      expect(system.score.global.measures[0]!.systemText).toEqual(originalSystemText);
+      expect(system.score.parts[0]!.measures[0]!.expressions).toBeUndefined();
+    });
   });
   it.each([false, true])(
     "moves text atomically into the active view and restores staff settings through save/reload (fixed width=%s)",

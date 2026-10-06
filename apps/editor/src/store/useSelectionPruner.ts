@@ -141,6 +141,8 @@ function globalAnnotationExists(location: AnnotationLocation, score: Score): boo
       return measure.chordSymbols?.[location.annotationIndex ?? -1] !== undefined;
     case "rehearsal":
       return measure.rehearsalMark !== undefined;
+    case "systemText":
+      return measure.systemText?.some((text) => text.id === location.annotationId) ?? false;
     case "jump":
       return measure.jump !== undefined;
     case "volta":

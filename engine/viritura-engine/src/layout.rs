@@ -47,6 +47,8 @@ mod spacing;
 mod staff_brace;
 mod staff_lines;
 mod system;
+mod system_spacing;
+mod system_text;
 mod text_frames;
 pub mod text_styles;
 mod ties;
@@ -524,20 +526,7 @@ pub(crate) fn compute_below_staff_extra_from_layouts(
     // rest prints a `{start}–{end}` range label one line below the staff. Both
     // were previously omitted, so a system whose only below-staff ink was its
     // bar number under-reserved and the following system crowded it.
-    let font_size = 2.0 * sp;
-    let mut number_extra = 0.0_f64;
-    for ml in layouts {
-        if ml.multimeasure_rest_count.is_some() {
-            // Range label: fixed one-line-below position (no clef-tail clear).
-            let bottom = staff_bottom + 0.5 * sp + font_size;
-            number_extra = number_extra.max((bottom - staff_bottom).max(0.0));
-        } else if render_annotations::measure_number_value(ml).is_some() {
-            // System-start bar number (clef-tail aware). staff_y = 0 convention.
-            let top = render_annotations::below_staff_number_top_y(ml, 0.0, sp, config);
-            let bottom = top + font_size; // TextBaseline::Top
-            number_extra = number_extra.max((bottom - staff_bottom).max(0.0));
-        }
-    }
+    let number_extra = system_spacing::measure_number_extra(layouts, sp, config);
 
     // The clef itself is real ink: a system-start clef whose tail descends below
     // the bottom staff line (the treble clef reaches ~1.68sp under line 5) must
@@ -563,6 +552,7 @@ pub(crate) fn compute_below_staff_extra_from_layouts(
         .max(pedals_extra)
         .max(number_extra)
         .max(clef_extra)
+        .max(system_text::below_staff_extra(layouts, sp, config))
 }
 
 /// Compute extra height needed above the top staff for system objects
@@ -808,6 +798,11 @@ pub(crate) fn compute_above_staff_extra(
         .max(rehearsal_top)
         .max(jump_top)
         .max(glyph_top)
+        .max(system_text::above_staff_extra(
+            measure_layouts.unwrap_or_default(),
+            sp,
+            config,
+        ))
 }
 
 /// Render the contents of a single system (staff lines already drawn by caller).

@@ -94,6 +94,10 @@ export function expressionId(part: number, measure: number, index: number): stri
   return `p${part}/m${measure}/expr${index}`;
 }
 
+export function systemTextId(measure: number, id: string): string {
+  return `m${measure}/systemText/${id}`;
+}
+
 // ── Global measure elements ────────────────────────────────────────
 
 export function chordSymbolId(measure: number, index: number): string {
@@ -433,59 +437,68 @@ export function getEventAncestorId(elementId: string): string {
  * Returns null if not a recognized annotation ID.
  */
 export function resolveAnnotationLocation(elementId: string): AnnotationLocation | null {
+  const systemTextLocation = resolveSystemTextLocation(elementId);
+  if (systemTextLocation) return systemTextLocation;
+
   const chordId = canonicalChordSymbolId(elementId);
   const segments = (chordId ?? elementId).split("/");
+  if (segments.length === 3) return resolvePartAnnotationLocation(segments);
+  if (segments.length === 2) return resolveGlobalAnnotationLocation(segments, chordId !== null);
+  return null;
+}
 
-  // Part-level: "p{part}/m{measure}/{type}{index}"
-  if (segments.length === 3) {
-    const partMatch = segments[0]?.match(/^p(\d+)$/);
-    const measureMatch = segments[1]?.match(/^m(\d+)$/);
-    if (partMatch && measureMatch) {
-      const partIndex = parseInt(partMatch[1]!, 10);
-      const measureIndex = parseInt(measureMatch[1]!, 10);
-      const suffix = segments[2]!;
+function resolveSystemTextLocation(elementId: string): AnnotationLocation | null {
+  const systemTextMatch = elementId.match(/^m(\d+)\/systemText\/(.+)$/);
+  if (!systemTextMatch) return null;
+  return {
+    kind: "global",
+    type: "systemText",
+    measureIndex: Number.parseInt(systemTextMatch[1]!, 10),
+    annotationId: systemTextMatch[2]!,
+  };
+}
 
-      for (const prefix of PART_ANNOTATION_PREFIXES) {
-        if (suffix.startsWith(prefix)) {
-          const rest = suffix.slice(prefix.length);
-          const annotationIndex = rest && /^\d+$/.test(rest) ? parseInt(rest, 10) : undefined;
-          return {
-            kind: "part" as const,
-            type: prefix,
-            measureIndex,
-            partIndex,
-            ...(annotationIndex !== undefined && { annotationIndex }),
-            ...(rest && annotationIndex === undefined && { annotationId: rest }),
-          };
-        }
-      }
-    }
+function resolvePartAnnotationLocation(segments: string[]): AnnotationLocation | null {
+  const partMatch = segments[0]?.match(/^p(\d+)$/);
+  const measureMatch = segments[1]?.match(/^m(\d+)$/);
+  if (!partMatch || !measureMatch) return null;
+
+  const suffix = segments[2]!;
+  for (const prefix of PART_ANNOTATION_PREFIXES) {
+    if (!suffix.startsWith(prefix)) continue;
+    const rest = suffix.slice(prefix.length);
+    const annotationIndex = rest && /^\d+$/.test(rest) ? parseInt(rest, 10) : undefined;
+    return {
+      kind: "part",
+      type: prefix,
+      measureIndex: parseInt(measureMatch[1]!, 10),
+      partIndex: parseInt(partMatch[1]!, 10),
+      ...(annotationIndex !== undefined && { annotationIndex }),
+      ...(rest && annotationIndex === undefined && { annotationId: rest }),
+    };
   }
+  return null;
+}
 
-  // Global-level: "m{measure}/{type}" or "m{measure}/{type}{index}"
-  if (segments.length === 2) {
-    const measureMatch = segments[0]?.match(/^m(\d+)$/);
-    if (measureMatch) {
-      const measureIndex = parseInt(measureMatch[1]!, 10);
-      const suffix = segments[1]!;
+function resolveGlobalAnnotationLocation(segments: string[], hasChordCanonicalId: boolean): AnnotationLocation | null {
+  const measureMatch = segments[0]?.match(/^m(\d+)$/);
+  if (!measureMatch) return null;
+  const measureIndex = parseInt(measureMatch[1]!, 10);
+  const suffix = segments[1]!;
 
-      for (const s of GLOBAL_ANNOTATION_SUFFIXES) {
-        if (s === "chord" && !chordId) continue;
-        if (suffix.startsWith(s)) {
-          const rest = suffix.slice(s.length);
-          const annotationIndex = rest ? parseInt(rest, 10) : undefined;
-          if (rest && isNaN(annotationIndex!)) continue;
-          return {
-            kind: "global" as const,
-            type: s,
-            measureIndex,
-            ...(annotationIndex !== undefined && { annotationIndex }),
-          };
-        }
-      }
-    }
+  for (const type of GLOBAL_ANNOTATION_SUFFIXES) {
+    if (type === "chord" && !hasChordCanonicalId) continue;
+    if (!suffix.startsWith(type)) continue;
+    const rest = suffix.slice(type.length);
+    const annotationIndex = rest ? parseInt(rest, 10) : undefined;
+    if (rest && isNaN(annotationIndex!)) continue;
+    return {
+      kind: "global",
+      type,
+      measureIndex,
+      ...(annotationIndex !== undefined && { annotationIndex }),
+    };
   }
-
   return null;
 }
 

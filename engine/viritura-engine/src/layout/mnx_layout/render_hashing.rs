@@ -48,6 +48,7 @@ pub(super) fn system_render_hash(
             ml.prefix_width.to_bits().hash(&mut h);
             ml.is_first_on_system.hash(&mut h);
             ml.is_first_staff.hash(&mut h);
+            ml.is_last_staff.hash(&mut h);
             ml.show_system_objects.hash(&mut h);
             ml.part_index.hash(&mut h);
             ml.multimeasure_rest_count.hash(&mut h);
@@ -106,6 +107,7 @@ pub(super) fn staff_content_render_hash(
         layout.prefix_width.to_bits().hash(&mut h);
         layout.is_first_on_system.hash(&mut h);
         layout.is_first_staff.hash(&mut h);
+        layout.is_last_staff.hash(&mut h);
         layout.show_system_objects.hash(&mut h);
         layout.part_index.hash(&mut h);
         layout.multimeasure_rest_count.hash(&mut h);

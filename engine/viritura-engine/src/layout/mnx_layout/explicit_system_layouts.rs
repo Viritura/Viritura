@@ -436,6 +436,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
             layout.is_first_on_system = local_index == 0;
             layout.show_system_objects = system_object_staves.contains(&staff_index);
             layout.is_first_staff = staff_index == 0;
+            layout.is_last_staff = staff_index + 1 == flat_staves.len();
             if let Some(&count) = mmr_start_map.get(&measure_index) {
                 layout.multimeasure_rest_count = Some(count);
                 layout.multimeasure_rest_label = mmr_label_map.get(&measure_index).cloned();

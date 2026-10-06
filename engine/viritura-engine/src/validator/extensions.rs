@@ -24,6 +24,7 @@ const DEFINITIONS: &[&str] = &[
     "system-layout-extensions",
     "score-extensions",
     "staff-text-frame-presentation",
+    "system-text",
 ];
 
 fn schemas() -> &'static HashMap<&'static str, Validator> {
@@ -55,9 +56,17 @@ fn schemas() -> &'static HashMap<&'static str, Validator> {
 }
 
 pub(crate) fn validate_staff_text_frame(value: &Value) -> Result<(), String> {
+    validate_definition(value, "staff-text-frame-presentation")
+}
+
+pub(crate) fn validate_system_text(value: &Value) -> Result<(), String> {
+    validate_definition(value, "system-text")
+}
+
+fn validate_definition(value: &Value, definition: &str) -> Result<(), String> {
     schemas()
-        .get("staff-text-frame-presentation")
-        .expect("staff text frame schema is compiled")
+        .get(definition)
+        .expect("text schema is compiled")
         .validate(value)
         .map_err(|errors| {
             errors

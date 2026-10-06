@@ -84,6 +84,7 @@ import type {
 
 import { parseTextContent } from "./textContent";
 import { parseStaffTextFramePresentation, parseTextFramePagePosition } from "./staffTextFrame";
+import { parseSystemText } from "./systemText";
 
 /** Untyped vendor-extension payload — used only for fields outside the
  * extensions schema (e.g. legacy `times` on repeat-start, atonal key flag). */
@@ -181,6 +182,7 @@ function parseGlobalMeasure(raw: RawMeasureGlobal): GlobalMeasure {
       measure.jump = parseJump(viritura.jump);
     }
     applyMarkerTextExtension(measure, viritura.markerText);
+    if (viritura.systemText !== undefined) measure.systemText = parseSystemText(viritura.systemText);
     if (viritura.gradualTempo) {
       measure.gradualTempo = parseGradualTempo(viritura.gradualTempo);
     }

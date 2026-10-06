@@ -4561,6 +4561,13 @@ impl ::std::default::Default for MarkerTexts {
 ///      "description": "Marks this measure as open meter without adding a nonstandard value to MNX time.display.",
 ///      "type": "boolean",
 ///      "const": true
+///    },
+///    "systemText": {
+///      "description": "Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves.",
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/system-text"
+///      }
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -4606,6 +4613,13 @@ pub struct MeasureGlobalExtensions {
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub senza_misura: ::std::option::Option<bool>,
+    ///Shared music-relative text displayed once per score/part view, independent of hidden or condensed source staves.
+    #[serde(
+        rename = "systemText",
+        default,
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub system_text: ::std::vec::Vec<SystemText>,
 }
 impl ::std::convert::From<&MeasureGlobalExtensions> for MeasureGlobalExtensions {
     fn from(value: &MeasureGlobalExtensions) -> Self {
@@ -4622,6 +4636,7 @@ impl ::std::default::Default for MeasureGlobalExtensions {
             marker_text: Default::default(),
             rehearsal_mark: Default::default(),
             senza_misura: Default::default(),
+            system_text: Default::default(),
         }
     }
 }
@@ -8560,6 +8575,170 @@ impl ::std::default::Default for SystemLayoutExtensions {
         Self {
             derived: Default::default(),
         }
+    }
+}
+///One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One globally owned music-relative instruction displayed once above or below the visible system in every score/part view. No staff/voice or page coordinates.",
+///  "type": "object",
+///  "required": [
+///    "id",
+///    "position",
+///    "text"
+///  ],
+///  "properties": {
+///    "avoidCollisions": {
+///      "type": "boolean"
+///    },
+///    "frame": {
+///      "$ref": "#/$defs/staff-text-frame-presentation"
+///    },
+///    "id": {
+///      "type": "string",
+///      "minLength": 1
+///    },
+///    "manualOffset": {
+///      "$ref": "#/$defs/sp-delta"
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/expression-placement"
+///    },
+///    "position": {
+///      "allOf": [
+///        {
+///          "$ref": "#/$defs/rhythmic-position"
+///        },
+///        {
+///          "properties": {
+///            "fraction": {
+///              "prefixItems": [
+///                {
+///                  "type": "integer"
+///                },
+///                {
+///                  "type": "integer"
+///                }
+///              ]
+///            }
+///          }
+///        }
+///      ]
+///    },
+///    "text": {
+///      "$ref": "#/$defs/text-content"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SystemText {
+    #[serde(
+        rename = "avoidCollisions",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub avoid_collisions: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub frame: ::std::option::Option<StaffTextFramePresentation>,
+    pub id: SystemTextId,
+    #[serde(
+        rename = "manualOffset",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub manual_offset: ::std::option::Option<SpDelta>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub placement: ::std::option::Option<ExpressionPlacement>,
+    pub position: RhythmicPosition,
+    pub text: TextContent,
+}
+impl ::std::convert::From<&SystemText> for SystemText {
+    fn from(value: &SystemText) -> Self {
+        value.clone()
+    }
+}
+///`SystemTextId`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct SystemTextId(::std::string::String);
+impl ::std::ops::Deref for SystemTextId {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<SystemTextId> for ::std::string::String {
+    fn from(value: SystemTextId) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<&SystemTextId> for SystemTextId {
+    fn from(value: &SystemTextId) -> Self {
+        value.clone()
+    }
+}
+impl ::std::str::FromStr for SystemTextId {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SystemTextId {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for SystemTextId {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
     }
 }
 ///Viritura display and placement extensions on a standard MNX tempo object.
@@ -13480,6 +13659,9 @@ impl ::std::convert::TryFrom<::std::string::String> for VideoSyncFrameRate {
 ///    "system-layout-extensions": {
 ///      "$ref": "#/$defs/system-layout-extensions"
 ///    },
+///    "system-text": {
+///      "$ref": "#/$defs/system-text"
+///    },
 ///    "tempo-extensions": {
 ///      "$ref": "#/$defs/tempo-extensions"
 ///    },
@@ -13991,6 +14173,12 @@ pub struct VirituraExtensionsRoot {
     )]
     pub system_layout_extensions: ::std::option::Option<SystemLayoutExtensions>,
     #[serde(
+        rename = "system-text",
+        default,
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub system_text: ::std::option::Option<SystemText>,
+    #[serde(
         rename = "tempo-extensions",
         default,
         skip_serializing_if = "::std::option::Option::is_none"
@@ -14249,6 +14437,7 @@ impl ::std::default::Default for VirituraExtensionsRoot {
             staff_text_frame_presentation: Default::default(),
             stage_position: Default::default(),
             system_layout_extensions: Default::default(),
+            system_text: Default::default(),
             tempo_extensions: Default::default(),
             text_alignment: Default::default(),
             text_content: Default::default(),

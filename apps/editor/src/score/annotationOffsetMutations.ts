@@ -11,7 +11,7 @@
  * accumulates the offset; the inspector can toggle the flag or reset both.
  */
 import type { Score } from "@viritura/core";
-import { resolveAnnotationLocation } from "./ElementPath";
+import { resolveAnnotationLocation, type AnnotationLocation } from "./ElementPath";
 import { produce } from "./scoreClone";
 
 /** The shared shape carried by every movable annotation. */
@@ -26,30 +26,33 @@ interface Placeable {
 function resolvePlaceable(score: Score, elementId: string): Placeable | null {
   const loc = resolveAnnotationLocation(elementId);
   if (!loc) return null;
+  return loc.kind === "part" ? resolvePartPlaceable(score, loc) : resolveGlobalPlaceable(score, loc);
+}
 
-  if (loc.kind === "part") {
-    if (loc.partIndex === undefined) return null;
-    const pm = score.parts[loc.partIndex]?.measures[loc.measureIndex];
-    if (!pm) return null;
-    if ((loc.type === "dyn" || loc.type === "hairpin") && loc.annotationId) {
-      return (pm.dynamics?.find((group) => group.id === loc.annotationId) as Placeable | undefined) ?? null;
-    }
-    if (loc.annotationIndex === undefined) return null;
-    if (loc.type === "expr") return (pm.expressions?.[loc.annotationIndex] as Placeable | undefined) ?? null;
-    if (loc.type === "dyn") return (pm.dynamics?.[loc.annotationIndex] as Placeable | undefined) ?? null;
-    return null;
+function resolvePartPlaceable(score: Score, loc: AnnotationLocation): Placeable | null {
+  if (loc.kind !== "part") return null;
+  if (loc.partIndex === undefined) return null;
+  const measure = score.parts[loc.partIndex]?.measures[loc.measureIndex];
+  if (!measure) return null;
+
+  if ((loc.type === "dyn" || loc.type === "hairpin") && loc.annotationId) {
+    return measure.dynamics?.find((group) => group.id === loc.annotationId) ?? null;
   }
+  if (loc.annotationIndex === undefined) return null;
+  if (loc.type === "expr") return measure.expressions?.[loc.annotationIndex] ?? null;
+  if (loc.type === "dyn") return measure.dynamics?.[loc.annotationIndex] ?? null;
+  return null;
+}
 
-  // global
+function resolveGlobalPlaceable(score: Score, loc: AnnotationLocation): Placeable | null {
+  if (loc.kind !== "global") return null;
   const gm = score.global.measures[loc.measureIndex];
   if (!gm) return null;
-  if (loc.type === "tempo") {
-    if (loc.annotationIndex === undefined) return null;
-    return (gm.tempos?.[loc.annotationIndex] as Placeable | undefined) ?? null;
-  }
-  if (loc.type === "rehearsal") {
-    return (gm.rehearsalMark as Placeable | undefined) ?? null;
-  }
+  if (loc.type === "tempo")
+    return loc.annotationIndex === undefined ? null : (gm.tempos?.[loc.annotationIndex] ?? null);
+  if (loc.type === "rehearsal") return gm.rehearsalMark ?? null;
+  if (loc.type === "systemText" && loc.annotationId)
+    return gm.systemText?.find((t) => t.id === loc.annotationId) ?? null;
   return null;
 }
 
@@ -63,7 +66,7 @@ export function isMovableAnnotationId(elementId: string): boolean {
     return (loc.type === "expr" || loc.type === "dyn") && loc.annotationIndex !== undefined;
   }
   if (loc.type === "tempo") return loc.annotationIndex !== undefined;
-  return loc.type === "rehearsal";
+  return loc.type === "rehearsal" || (loc.type === "systemText" && loc.annotationId !== undefined);
 }
 
 /** Read the current manualOffset (sp) of a movable annotation, or `[0, 0]` if

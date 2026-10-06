@@ -65,6 +65,14 @@ function deleteGlobalAnnotation(gm: GlobalMeasure, loc: AnnotationLocation): boo
       if (!gm.rehearsalMark) return false;
       delete rec.rehearsalMark;
       return true;
+    case "systemText": {
+      if (!loc.annotationId || !gm.systemText) return false;
+      const remaining = gm.systemText.filter((text) => text.id !== loc.annotationId);
+      if (remaining.length === gm.systemText.length) return false;
+      if (remaining.length === 0) delete rec.systemText;
+      else gm.systemText = remaining;
+      return true;
+    }
     default:
       return false;
   }
@@ -260,8 +268,13 @@ export function deleteAnnotations(score: Score, locations: readonly AnnotationLo
   const unique = new Map<string, { loc: AnnotationLocation; index: number }>();
   for (const loc of locations) {
     const index =
-      loc.type === "dyn" || loc.type === "hairpin" ? dynamicGroupIndex(score, loc) : (loc.annotationIndex ?? -1);
-    unique.set(`${annotationContainerKey(loc)}/${index}`, { loc, index });
+      loc.type === "dyn" || loc.type === "hairpin"
+        ? dynamicGroupIndex(score, loc)
+        : loc.type === "systemText"
+          ? (score.global.measures[loc.measureIndex]?.systemText?.findIndex((text) => text.id === loc.annotationId) ??
+            -1)
+          : (loc.annotationIndex ?? -1);
+    unique.set(`${annotationContainerKey(loc)}/${loc.annotationId ?? index}`, { loc, index });
   }
   const ordered = [...unique.values()].sort((left, right) => {
     const leftKey = annotationContainerKey(left.loc);

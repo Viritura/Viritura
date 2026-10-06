@@ -44,6 +44,8 @@ pub struct GlobalMeasureExtensions {
     /// Score-wide harmony events at rhythmic positions in this measure.
     #[serde(skip_serializing_if = "Option::is_none", rename = "chordSymbols")]
     pub chord_symbols: Option<Vec<ChordSymbol>>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "systemText")]
+    pub system_text: Option<Vec<super::system_text::SystemText>>,
 }
 
 /// A global measure — score-wide properties (MNX global.measures[n]).
@@ -91,6 +93,14 @@ pub struct GlobalMeasure {
 // patch flow). See `docs/spec/data-model-pipeline.md`.
 
 impl GlobalMeasure {
+    pub fn system_text(&self) -> Option<&[super::system_text::SystemText]> {
+        self.extensions
+            .as_ref()?
+            .viritura
+            .as_ref()?
+            .system_text
+            .as_deref()
+    }
     /// Convenience accessor for `_x.viritura.rehearsalMark`.
     pub fn rehearsal_mark(&self) -> Option<&RehearsalMark> {
         self.extensions

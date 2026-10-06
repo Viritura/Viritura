@@ -52,20 +52,20 @@ fn jump_in_ext(m: &GlobalMeasure) -> bool {
 /// Returns, for each measure index `i`, whether that measure cannot be merged
 /// into a preceding multimeasure rest — i.e. it *starts a new* multimeasure
 /// rest group. Standard engraving interrupts a multimeasure rest at a rehearsal
-/// mark, a time- or key-signature change, a tempo change, a non-normal barline
-/// (double/final), or any repeat/volta/jump/segno/coda/fine structure. Index 0
-/// is always a break (nothing precedes it).
+/// mark, a time- or key-signature change, a tempo change, system text, a
+/// non-normal barline (double/final), or any repeat/volta/jump/segno/coda/fine
+/// structure. Index 0 is always a break (nothing precedes it).
 ///
 /// Triggers split by where they sit relative to the bar:
-/// - **Start-of-measure** properties (time/key/tempo/rehearsal mark/repeat
-///   start/segno/coda/volta start) make *this* measure a new group.
+/// - **Start-of-measure** properties (time/key/tempo/system text/rehearsal
+///   mark/repeat start/segno/coda/volta start) make *this* measure a new group.
 /// - **End-of-measure** properties (a trailing `barline`, repeat end, fine, or
-///   jump) belong to the bar that *carries* them but only close the group
-///   *after* it — so they make the *following* measure a new group, not the one
-///   they sit on. MNX `measure.barline` is the right-hand barline of the
-///   measure; attributing it to that same index would drop the bar owning the
-///   double/final barline from the preceding rest group and undercount the
-///   courtesy "N bars rest" hint by one.
+///   jump, or system text) belong to the bar that *carries* them but only close
+///   the group *after* it — so they make the *following* measure a new group,
+///   not the one they sit on. MNX `measure.barline` is the right-hand barline
+///   of the measure; attributing it to that same index would drop the bar
+///   owning the double/final barline from the preceding rest group and
+///   undercount the courtesy "N bars rest" hint by one.
 ///
 /// Used by the page-turn courtesy hint so it reports only the *first* rest
 /// group at the top of the incoming page rather than summing every consecutive
@@ -80,6 +80,7 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
                 || m.time.is_some()
                 || m.key.is_some()
                 || m.tempos.as_ref().is_some_and(|t| !t.is_empty())
+                || m.system_text().is_some_and(|texts| !texts.is_empty())
                 || m.rehearsal_mark().is_some()
                 || m.repeat_start.is_some()
                 || m.ending.is_some()
@@ -90,6 +91,7 @@ pub fn multimeasure_rest_break_flags(measures: &[GlobalMeasure]) -> Vec<bool> {
             let ends_prev = i > 0 && {
                 let prev = &measures[i - 1];
                 prev.barline.is_some()
+                    || prev.system_text().is_some_and(|texts| !texts.is_empty())
                     || prev.repeat_end.is_some()
                     || prev.fine.is_some()
                     || prev.jump.is_some()
@@ -189,6 +191,33 @@ mod tests {
         let measures = plain(4);
         let flags = structural_boundary_flags(&measures);
         assert_eq!(flags, vec![false, false, false]);
+    }
+
+    #[test]
+    fn system_text_isolated_from_page_turn_mmr_groups() {
+        let score = crate::parse::parse_mnx(
+            r#"{
+                "mnx": {"version": 1},
+                "global": {"measures": [
+                    {"id": "m0"},
+                    {"id": "m1"},
+                    {"id": "m2", "_x": {"viritura": {"systemText": [{
+                        "id": "note",
+                        "text": [{"text": "Footnote"}],
+                        "position": {"fraction": [1, 2]},
+                        "placement": "above"
+                    }]}}},
+                    {"id": "m3"},
+                    {"id": "m4"}
+                ]},
+                "parts": []
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            multimeasure_rest_break_flags(&score.global.measures),
+            vec![true, false, true, true, false]
+        );
     }
 
     #[test]

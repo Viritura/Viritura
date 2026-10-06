@@ -58,6 +58,7 @@ pub(crate) mod root;
 pub(crate) mod score;
 pub(crate) mod slur;
 mod staff_text_frame;
+mod system_text;
 pub(crate) mod text_frame;
 pub(crate) mod time;
 pub(crate) mod vendor_directions;
@@ -84,6 +85,8 @@ pub enum PromoteError {
     MarkerTextWithoutOwner(&'static str),
     /// A `textFrames` entry is malformed or reuses another frame's ID.
     InvalidTextFrame(String),
+    /// A globally owned `systemText` entry is malformed or reuses an ID.
+    InvalidSystemText(String),
 }
 
 impl std::fmt::Display for PromoteError {
@@ -100,6 +103,7 @@ impl std::fmt::Display for PromoteError {
                 write!(f, "MNX instrument change is not supported: {s}")
             }
             Self::InvalidTextFrame(reason) => write!(f, "Viritura textFrames: {reason}"),
+            Self::InvalidSystemText(reason) => write!(f, "Viritura systemText: {reason}"),
             Self::MarkerTextWithoutOwner(owner) => {
                 write!(
                     f,

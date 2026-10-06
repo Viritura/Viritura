@@ -29,6 +29,7 @@ const extensionDefinitions = [
   "layout-staff-extensions",
   "score-extensions",
   "text-frame",
+  "system-text",
   "staff-text-frame-presentation",
   "text-frame-page-position",
 ] as const;

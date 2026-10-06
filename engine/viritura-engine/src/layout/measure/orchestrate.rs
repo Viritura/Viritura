@@ -710,12 +710,8 @@ pub(super) fn layout_measure_inner(
         config,
     );
     let prefix_width = prefix.width;
-    let bar_rest_has_visible_prefix = is_system_start
-        || is_first
-        || rm.global.repeat_start.is_some()
-        || rm.key_signature_changed()
-        || rm.global.time.is_some()
-        || prefix.leading_clef_gap > 0.0;
+    let bar_rest_has_visible_prefix =
+        has_visible_measure_prefix(rm, is_system_start, is_first, prefix.leading_clef_gap);
 
     // For pickup bar 0, spacing should reflect only notated anacrusis duration.
     let total_beats = layout_total_beats(rm);
@@ -938,5 +934,20 @@ pub(super) fn layout_measure_inner(
         is_first_on_system: false,
         show_system_objects: true,
         is_first_staff: true,
+        is_last_staff: true,
     }
+}
+
+fn has_visible_measure_prefix(
+    measure: &ResolvedMeasure,
+    is_system_start: bool,
+    is_first: bool,
+    leading_clef_gap: f64,
+) -> bool {
+    is_system_start
+        || is_first
+        || measure.global.repeat_start.is_some()
+        || measure.key_signature_changed()
+        || measure.global.time.is_some()
+        || leading_clef_gap > 0.0
 }

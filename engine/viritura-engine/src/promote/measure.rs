@@ -114,6 +114,7 @@ pub(crate) fn promote_global_measure_with_json(
 ) -> Result<ModelGlobalMeasure, PromoteError> {
     let repeat_start_json = original_json.and_then(|v| v.get("repeatStart"));
     let vendor = extract_global_measure_vendor(r.x.as_ref());
+    let system_text = super::system_text::extract_system_text(r.x.as_ref())?;
     // _x.viritura.jump wins over top-level
     let jump = vendor.jump.clone().or_else(|| r.jump.map(promote_jump));
     if let Some(text) = vendor.marker_text.as_ref() {
@@ -147,7 +148,8 @@ pub(crate) fn promote_global_measure_with_json(
         || vendor.jump.is_some()
         || vendor.marker_text.is_some()
         || vendor.senza_misura.is_some()
-        || vendor.chord_symbols.is_some())
+        || vendor.chord_symbols.is_some()
+        || system_text.is_some())
     .then_some(ModelVendorExtensions {
         viritura: Some(GlobalMeasureExtensions {
             rehearsal_mark: vendor.rehearsal_mark,
@@ -156,6 +158,7 @@ pub(crate) fn promote_global_measure_with_json(
             marker_text: vendor.marker_text,
             senza_misura: vendor.senza_misura,
             chord_symbols: vendor.chord_symbols,
+            system_text,
         }),
     });
     Ok(ModelGlobalMeasure {

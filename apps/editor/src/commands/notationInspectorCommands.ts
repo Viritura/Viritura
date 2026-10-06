@@ -48,6 +48,8 @@ export interface NotationSelectionTarget {
   slurIndex?: number;
   /** For glissando selections: index into the source event's `glissandos` array. */
   glissandoIndex?: number;
+  /** Stable owner-measure ID for globally owned system text. */
+  systemTextId?: string;
 }
 
 interface EditResult {
@@ -69,76 +71,8 @@ function resolveSingleSelectionTarget(
   score: Score,
 ): NotationSelectionTarget | null {
   const { elementId } = selection;
-  const chordMatch = elementId.match(/^m(\d+)\/chord(\d+)(?:\/p(\d+)\/staff\d+)?$/);
-  if (chordMatch) {
-    const measureIndex = Number(chordMatch[1]);
-    if (!score.global.measures[measureIndex]?.chordSymbols?.[Number(chordMatch[2])]) return null;
-    return {
-      elementId,
-      elementType: `chord${chordMatch[2]}`,
-      partIndex: chordMatch[3] !== undefined ? Number(chordMatch[3]) : (selection.measureAnchor?.partIndex ?? 0),
-      measureIndex,
-    };
-  }
-
-  // Spanner IDs use model-ID paths: `slur/{srcEventId}/{tgtEventId}` and
-  // `tie/{srcNoteId}/{tgtNoteId|lv}`. Resolve them by locating the source
-  // event (slur) or the source note's event (tie) in the score, and record
-  // the sub-index of the matching slur/tie so the inspector can edit it.
-  if (elementId.startsWith("slur/")) {
-    return resolveSlurSelectionTarget(elementId, score);
-  }
-
-  if (elementId.startsWith("gliss/")) {
-    return resolveGlissandoSelectionTarget(elementId, score);
-  }
-
-  if (elementId.startsWith("trill-line/")) {
-    const sourceEventId = elementId.split("/")[1];
-    if (!sourceEventId) return null;
-    const loc = locateEventByModelId(score, sourceEventId);
-    if (!loc) return null;
-    return {
-      elementId,
-      elementType: "trill",
-      partIndex: loc.partIndex,
-      measureIndex: loc.measureIndex,
-      sequenceIndex: loc.sequenceIndex,
-      eventIndex: loc.eventIndex,
-      tupletIndex: loc.tupletIndex,
-      graceContainerIndex: loc.graceContainerIndex,
-    };
-  }
-
-  if (elementId.startsWith("tie/")) {
-    return resolveTieSelectionTarget(elementId, score);
-  }
-
-  function resolveGlissandoSelectionTarget(elementId: string, score: Score): NotationSelectionTarget | null {
-    const parts = elementId.split("/");
-    const sourceEventId = parts[1];
-    const targetEventId = parts[2];
-    if (!sourceEventId || !targetEventId) return null;
-    const loc = locateEventByModelId(score, sourceEventId);
-    if (!loc) return null;
-    const event = getEventAtLoc(score, loc);
-    const glissandoIndex =
-      event?.glissandos?.findIndex(
-        (glissando) => glissando.target === targetEventId || glissando.target.replaceAll("/", "_") === targetEventId,
-      ) ?? -1;
-    if (glissandoIndex < 0) return null;
-    return {
-      elementId,
-      elementType: "glissando",
-      partIndex: loc.partIndex,
-      measureIndex: loc.measureIndex,
-      sequenceIndex: loc.sequenceIndex,
-      eventIndex: loc.eventIndex,
-      tupletIndex: loc.tupletIndex,
-      graceContainerIndex: loc.graceContainerIndex,
-      glissandoIndex,
-    };
-  }
+  const specialTarget = resolveSpecialNotationSelectionTarget(selection, score);
+  if (specialTarget !== undefined) return specialTarget;
 
   // A grace-note element id (`…/{ev}/grace/{g}`) would otherwise resolve to its
   // principal event via resolveEventLocation (which ignores the trailing
@@ -176,9 +110,7 @@ function resolveSingleSelectionTarget(
   if (fullRest) return { ...fullRest, elementId, elementType: "rest" };
 
   const measureMatch = elementId.match(/(?:^|\/)m(\d+)(?:\/|$)/);
-  if (!measureMatch) {
-    return null;
-  }
+  if (!measureMatch) return null;
   const partMatch = elementId.match(/(?:^|\/)p(\d+)(?:\/|$)/);
   const clefLocation = parseClefElementId(elementId);
   const tokens = elementId.split("/");
@@ -189,6 +121,98 @@ function resolveSingleSelectionTarget(
     partIndex: partMatch ? Number.parseInt(partMatch[1]!, 10) : 0,
     measureIndex: Number.parseInt(measureMatch[1]!, 10),
     ...(clefLocation ? { clefIndex: clefLocation.clefIndex } : {}),
+  };
+}
+
+function resolveSpecialNotationSelectionTarget(
+  selection: Extract<Selection, { kind: "single" }>,
+  score: Score,
+): NotationSelectionTarget | null | undefined {
+  const { elementId } = selection;
+  const systemTextMatch = elementId.match(/^m(\d+)\/systemText\/(.+)$/);
+  if (systemTextMatch) {
+    const measureIndex = Number.parseInt(systemTextMatch[1]!, 10);
+    const systemTextId = systemTextMatch[2]!;
+    if (!score.global.measures[measureIndex]?.systemText?.some((text) => text.id === systemTextId)) return null;
+    const anchoredPart = selection.measureAnchor?.partIndex;
+    return {
+      elementId,
+      elementType: "system-text",
+      systemTextId,
+      partIndex: anchoredPart !== undefined && score.parts[anchoredPart] ? anchoredPart : 0,
+      measureIndex,
+    };
+  }
+
+  const chordMatch = elementId.match(/^m(\d+)\/chord(\d+)(?:\/p(\d+)\/staff\d+)?$/);
+  if (chordMatch) {
+    const measureIndex = Number(chordMatch[1]);
+    if (!score.global.measures[measureIndex]?.chordSymbols?.[Number(chordMatch[2])]) return null;
+    return {
+      elementId,
+      elementType: `chord${chordMatch[2]}`,
+      partIndex: chordMatch[3] !== undefined ? Number(chordMatch[3]) : (selection.measureAnchor?.partIndex ?? 0),
+      measureIndex,
+    };
+  }
+
+  // Spanner IDs use model-ID paths: `slur/{srcEventId}/{tgtEventId}` and
+  // `tie/{srcNoteId}/{tgtNoteId|lv}`. Resolve them by locating the source
+  // event (slur) or the source note's event (tie) in the score, and record
+  // the sub-index of the matching slur/tie so the inspector can edit it.
+  if (elementId.startsWith("slur/")) {
+    return resolveSlurSelectionTarget(elementId, score);
+  }
+  if (elementId.startsWith("gliss/")) {
+    return resolveGlissandoSelectionTarget(elementId, score);
+  }
+  if (elementId.startsWith("trill-line/")) return resolveTrillLineSelectionTarget(elementId, score);
+  if (elementId.startsWith("tie/")) {
+    return resolveTieSelectionTarget(elementId, score);
+  }
+  return undefined;
+}
+
+function resolveTrillLineSelectionTarget(elementId: string, score: Score): NotationSelectionTarget | null {
+  const sourceEventId = elementId.split("/")[1];
+  if (!sourceEventId) return null;
+  const loc = locateEventByModelId(score, sourceEventId);
+  if (!loc) return null;
+  return {
+    elementId,
+    elementType: "trill",
+    partIndex: loc.partIndex,
+    measureIndex: loc.measureIndex,
+    sequenceIndex: loc.sequenceIndex,
+    eventIndex: loc.eventIndex,
+    tupletIndex: loc.tupletIndex,
+    graceContainerIndex: loc.graceContainerIndex,
+  };
+}
+
+function resolveGlissandoSelectionTarget(elementId: string, score: Score): NotationSelectionTarget | null {
+  const parts = elementId.split("/");
+  const sourceEventId = parts[1];
+  const targetEventId = parts[2];
+  if (!sourceEventId || !targetEventId) return null;
+  const loc = locateEventByModelId(score, sourceEventId);
+  if (!loc) return null;
+  const event = getEventAtLoc(score, loc);
+  const glissandoIndex =
+    event?.glissandos?.findIndex(
+      (glissando) => glissando.target === targetEventId || glissando.target.replaceAll("/", "_") === targetEventId,
+    ) ?? -1;
+  if (glissandoIndex < 0) return null;
+  return {
+    elementId,
+    elementType: "glissando",
+    partIndex: loc.partIndex,
+    measureIndex: loc.measureIndex,
+    sequenceIndex: loc.sequenceIndex,
+    eventIndex: loc.eventIndex,
+    tupletIndex: loc.tupletIndex,
+    graceContainerIndex: loc.graceContainerIndex,
+    glissandoIndex,
   };
 }
 

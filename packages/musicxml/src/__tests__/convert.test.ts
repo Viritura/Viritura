@@ -2075,6 +2075,55 @@ describe("convertMusicXmlToMnx — wedges", () => {
     expect(expressions[0]!.placement).toBe("above");
   });
 
+  it("maps above MusicXML system='only-top' words to global system text", () => {
+    const xml = wrapScore(`
+      <direction placement="above" system="only-top">
+        <direction-type><words>Con brio</words></direction-type>
+      </direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+    const score = convertMusicXmlToMnx(xml, { includeVendorExtensions: true });
+    const global = score.global.measures[0]! as {
+      _x?: { viritura: { systemText?: { id: string; text: { text: string }[]; placement: string }[] } };
+    };
+    const partMeasure = score.parts[0]!.measures[0]! as { _x?: { viritura: Record<string, unknown> } };
+
+    expect(global._x?.viritura.systemText).toHaveLength(1);
+    expect(global._x?.viritura.systemText?.[0]).toMatchObject({
+      id: expect.any(String),
+      text: [{ text: "Con brio" }],
+      placement: "above",
+    });
+    expect(partMeasure._x?.viritura["expressions"]).toBeUndefined();
+  });
+
+  it.each([
+    ["also-top", "above"],
+    ["only-top", "below"],
+  ])("diagnoses unsupported system='%s' with %s placement and keeps the staff text", (relation, placement) => {
+    const xml = wrapScore(`
+      <direction placement="${placement}" system="${relation}">
+        <direction-type><words>Espressivo</words></direction-type>
+      </direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note>
+    `);
+    const diagnostics = new DiagnosticCollector();
+    const score = convertMusicXmlToMnx(xml, { includeVendorExtensions: true, diagnostics });
+    const partMeasure = score.parts[0]!.measures[0]! as {
+      _x?: { viritura: { expressions?: { text: { text: string }[]; placement?: string }[] } };
+    };
+
+    expect(partMeasure._x?.viritura.expressions).toHaveLength(1);
+    expect(partMeasure._x?.viritura.expressions?.[0]).toMatchObject({
+      text: [{ text: "Espressivo" }],
+      placement,
+    });
+    expect(diagnostics.all()).toContainEqual(
+      expect.objectContaining({ code: "musicxml-system-relation", severity: "warning" }),
+    );
+    expect(score.global.measures[0]!._x?.viritura?.systemText).toBeUndefined();
+  });
+
   it("dedupes identical words repeated across direction-types in one direction", () => {
     // Some exporters emit a single <direction> with two <direction-type>
     // children carrying the identical <words> (e.g. "pizz."). Only one staff

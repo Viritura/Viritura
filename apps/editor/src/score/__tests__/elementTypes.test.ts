@@ -124,6 +124,14 @@ describe("parseElementType", () => {
   });
 
   describe("global-level elements", () => {
+    it("classifies system text as a global annotation", () => {
+      const type = parseElementType("m3/systemText/system-text-1");
+      expect(type).toBe("system-text");
+      expect(isGlobalLevel(type)).toBe(true);
+      expect(isMeasureLevel(type)).toBe(false);
+      expect(isEventAttached(type)).toBe(false);
+    });
+
     it.each(["m0/chord0", "m12/chord3", "m0/chord0/p1/staff1", "m12/chord3/p9/staff2"])(
       "classifies %s as a global chord symbol",
       (id) => {

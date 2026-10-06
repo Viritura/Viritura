@@ -57,6 +57,31 @@ describe("notationInspectorCommands", () => {
     expect(measureTarget?.measureIndex).toBe(0);
   });
 
+  it("resolves globally owned system text to the notation inspector", () => {
+    const score = buildScore();
+    score.global.measures[0]!.systemText = [
+      { id: "footnote-1", text: [{ text: "See note" }], position: { fraction: [1, 2] } },
+    ];
+
+    expect(
+      resolveNotationSelectionTarget(
+        { kind: "single", elementId: "m0/systemText/footnote-1", elementType: "system-text" },
+        score,
+      ),
+    ).toMatchObject({
+      elementType: "system-text",
+      systemTextId: "footnote-1",
+      partIndex: 0,
+      measureIndex: 0,
+    });
+    expect(
+      resolveNotationSelectionTarget(
+        { kind: "single", elementId: "m0/systemText/missing", elementType: "system-text" },
+        score,
+      ),
+    ).toBeNull();
+  });
+
   it("resolves a trill-line selection to its source trill", () => {
     const score = buildScore();
     const event = score.parts[0]!.measures[0]!.sequences[0]!.content[0]!;

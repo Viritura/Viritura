@@ -32,6 +32,8 @@ pub(crate) struct MeasureLayout {
     pub(crate) show_system_objects: bool,
     /// True when this is the topmost staff in the score (staff index 0).
     pub(crate) is_first_staff: bool,
+    /// True when this is the bottommost visible staff in the rendered view.
+    pub(crate) is_last_staff: bool,
 }
 
 /// Describes a mid-measure clef change for rendering.

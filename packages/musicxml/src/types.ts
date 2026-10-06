@@ -1,6 +1,6 @@
 // ─── MNX document output types (schema version 36) ──────────────────
 
-import type { ChordSymbol, DynamicGroup, Part } from "@viritura/core";
+import type { ChordSymbol, DynamicGroup, Part, TextContent } from "@viritura/core";
 
 export interface MnxDocument {
   mnx: { version: number };
@@ -46,9 +46,17 @@ export interface MnxGlobalMeasure {
     viritura: {
       coda?: { location: MnxRhythmicPosition; glyph?: string; color?: string };
       chordSymbols?: ChordSymbol[];
+      systemText?: MnxSystemText[];
       [key: string]: unknown;
     };
   };
+}
+
+export interface MnxSystemText {
+  id: string;
+  text: TextContent;
+  position: MnxRhythmicPosition;
+  placement: "above";
 }
 
 export interface MnxEnding {

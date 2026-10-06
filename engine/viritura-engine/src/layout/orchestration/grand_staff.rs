@@ -132,6 +132,7 @@ pub(in crate::layout) fn layout_grand_staff_system_measures(
                     is_first_on_system: false,
                     show_system_objects: true,
                     is_first_staff: true,
+                    is_last_staff: true,
                 };
                 ml.translate_x(sys_x);
                 ml
