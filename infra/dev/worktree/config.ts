@@ -18,6 +18,7 @@ export const commands = [
   "proxy",
   "proxy-down",
   "prune",
+  "retire",
 ] as const;
 
 export type WorktreeCommand = (typeof commands)[number];

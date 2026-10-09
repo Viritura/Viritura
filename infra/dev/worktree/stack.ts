@@ -9,6 +9,7 @@ import { getApiRestoreInputs, getContentTag, getNodeDependencyInputs } from "./c
 import { DockerClient } from "./docker.ts";
 import { withFileLock } from "./fileLock.ts";
 import { readLease, removeLease, withLeaseLock, writeLease, type WorktreeLease } from "./leases.ts";
+import { retireWorktree } from "./retirement.ts";
 
 const leaseDurationMilliseconds = 8 * 60 * 60 * 1_000;
 const wasmImage = "viritura-wasm-dev:rust-1.93.1-wasm-pack-0.14.0";
@@ -196,13 +197,18 @@ async function markLeaseStopped(context: StackContext): Promise<void> {
   });
 }
 
-async function composeWithLease(docker: DockerClient, context: StackContext, args: readonly string[]): Promise<void> {
-  await cleanupManagedResources(docker, context.stateRoot);
+async function composeWithLease(
+  docker: DockerClient,
+  context: StackContext,
+  args: readonly string[],
+  prepare?: () => Promise<void>,
+): Promise<void> {
   await withLeaseLock(context.lockDirectory, context.project, async () => {
     const lease = activeLease(context);
     writeLease(context.leaseFile, lease);
     console.log(`Lease renewed through ${new Date(lease.ExpiresAt).toLocaleString()}.`);
     try {
+      await prepare?.();
       await docker.compose(args);
     } catch (error) {
       const now = new Date().toISOString();
@@ -279,10 +285,13 @@ export async function runStackCommand(
   const docker = new DockerClient(runner, context.repositoryRoot, context.env);
   await docker.requireEngine();
   const composeBase = ["-f", context.worktreeCompose];
+  if (["up", "watch", "restart", "rebuild", "wasm"].includes(command)) {
+    await cleanupManagedResources(docker, context.stateRoot, new Date(), context.project);
+  }
 
   switch (command) {
     case "cleanup":
-      await cleanupManagedResources(docker, context.stateRoot);
+      await cleanupManagedResources(docker, context.stateRoot, new Date(), context.project);
       break;
     case "proxy":
       await ensureProxy(docker, context);
@@ -292,48 +301,54 @@ export async function runStackCommand(
       await docker.compose(["-f", context.proxyCompose, "down"]);
       break;
     case "up":
-      await prepareStack(docker, context, targets);
       console.log(`Starting '${context.project}'...`);
-      await composeWithLease(docker, context, [...composeBase, ...profileArgs(targets), "up", "-d"]);
+      await composeWithLease(docker, context, [...composeBase, ...profileArgs(targets), "up", "-d"], () =>
+        prepareStack(docker, context, targets),
+      );
       showUrls(context);
       break;
     case "watch":
-      await prepareStack(docker, context, targets);
-      if (!needsWasm(targets)) {
-        await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
-          project: context.project,
-        });
-        await invokeWasmBuild(docker, context);
-      }
       console.log(`Starting '${context.project}' with UI, Rust/WASM, and API hot reload...`);
-      await composeWithLease(docker, context, [
-        ...composeBase,
-        ...profileArgs(targets),
-        "--profile",
-        "watch",
-        "up",
-        "-d",
-      ]);
+      await composeWithLease(
+        docker,
+        context,
+        [...composeBase, ...profileArgs(targets), "--profile", "watch", "up", "-d"],
+        async () => {
+          await prepareStack(docker, context, targets);
+          if (!needsWasm(targets)) {
+            await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
+              project: context.project,
+            });
+            await invokeWasmBuild(docker, context);
+          }
+        },
+      );
       showUrls(context);
       break;
     case "restart":
       await composeWithLease(docker, context, [...composeBase, ...profileArgs(targets), "restart"]);
       break;
     case "rebuild":
-      await ensureProxy(docker, context);
-      await ensureExternalVolume(docker, "viritura-dev-api-data", "shared-api-data");
-      await ensureSharedBuildCaches(docker);
       console.log(`Rebuilding '${context.project}' from scratch (shared package caches are preserved)...`);
-      await docker.compose([...composeBase, "--profile", "*", "down", "-v"]);
-      await docker.compose([...composeBase, "--profile", "images", "build", "node-image"]);
-      await initializeNodeDependencies(docker, context);
-      if (needsWasm(targets)) {
-        await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
-          project: context.project,
-        });
-        await invokeWasmBuild(docker, context);
-      }
-      await composeWithLease(docker, context, [...composeBase, ...profileArgs(targets), "up", "-d", "--build"]);
+      await composeWithLease(
+        docker,
+        context,
+        [...composeBase, ...profileArgs(targets), "up", "-d", "--build"],
+        async () => {
+          await ensureProxy(docker, context);
+          await ensureExternalVolume(docker, "viritura-dev-api-data", "shared-api-data");
+          await ensureSharedBuildCaches(docker);
+          await docker.compose([...composeBase, "--profile", "*", "down", "-v"]);
+          await docker.compose([...composeBase, "--profile", "images", "build", "node-image"]);
+          await initializeNodeDependencies(docker, context);
+          if (needsWasm(targets)) {
+            await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
+              project: context.project,
+            });
+            await invokeWasmBuild(docker, context);
+          }
+        },
+      );
       showUrls(context);
       break;
     case "stop":
@@ -361,11 +376,21 @@ export async function runStackCommand(
       await docker.compose([...composeBase, "--profile", "*", "logs", "-f", "--tail=200", ...targets.slice(0, 1)]);
       break;
     case "wasm":
-      await ensureSharedBuildCaches(docker);
-      await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
-        project: context.project,
+      await withLeaseLock(context.lockDirectory, context.project, async () => {
+        writeLease(context.leaseFile, activeLease(context));
+        await ensureSharedBuildCaches(docker);
+        await ensureExternalVolume(docker, context.wasmTargetVolume, "worktree-wasm-target", {
+          project: context.project,
+        });
+        await invokeWasmBuild(docker, context);
       });
-      await invokeWasmBuild(docker, context);
       break;
+    case "retire":
+      if (targets.length !== 1 || !targets[0]) throw new Error("Usage: pnpm dev:stack retire <linked-worktree-path>");
+      await retireWorktree(runner, docker, context.primaryRepositoryRoot, context.stateRoot, targets[0]);
+      break;
+  }
+  if (["up", "watch", "restart", "rebuild", "wasm", "stop", "down", "prune", "retire"].includes(command)) {
+    await cleanupManagedResources(docker, context.stateRoot, new Date(), context.project);
   }
 }

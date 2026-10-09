@@ -129,31 +129,33 @@ local env files so services cannot accidentally connect to another worktree.
 
 ## Lifecycle
 
-| Command                               | Effect                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------- |
-| `pnpm dev:stack up [targets]`         | Build and start selected targets; defaults to `app`.                      |
-| `pnpm dev:stack watch [targets]`      | Start selected targets with incremental development Rust/WASM rebuilding. |
-| `pnpm dev:stack restart [targets]`    | Restart services in selected targets.                                     |
-| `pnpm dev:stack rebuild [targets]`    | Recreate worktree compiler output and rebuild selected images.            |
-| `pnpm dev:stack status`               | Show containers and all possible routes.                                  |
-| `pnpm dev:stack logs [service]`       | Follow all logs or one Compose service.                                   |
-| `pnpm dev:stack wasm`                 | Build missing/stale WASM with the isolated Docker toolchain.              |
-| `pnpm dev:stack url` / `slug`         | Print routes or the derived slug.                                         |
-| `pnpm dev:stack keepalive`            | Renew the worktree's eight-hour runtime lease.                            |
-| `pnpm dev:stack stop`                 | Stop containers while preserving them for a fast restart.                 |
-| `pnpm dev:stack down`                 | Remove containers and networks; preserve compiler output temporarily.     |
-| `pnpm dev:stack prune`                | Delete containers and worktree compiler output; preserve shared caches.   |
-| `pnpm dev:stack cleanup`              | Stop expired stacks and remove stacks past the cleanup grace period.      |
-| `pnpm dev:stack proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                             |
+| Command                               | Effect                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev:stack up [targets]`         | Build and start selected targets; defaults to `app`.                    |
+| `pnpm dev:stack watch [targets]`      | Start selected targets with development Rust/WASM rebuilding.           |
+| `pnpm dev:stack restart [targets]`    | Restart services in selected targets.                                   |
+| `pnpm dev:stack rebuild [targets]`    | Recreate worktree compiler output and rebuild selected images.          |
+| `pnpm dev:stack status`               | Show containers and all possible routes.                                |
+| `pnpm dev:stack logs [service]`       | Follow all logs or one Compose service.                                 |
+| `pnpm dev:stack wasm`                 | Build missing/stale WASM with the isolated Docker toolchain.            |
+| `pnpm dev:stack url` / `slug`         | Print routes or the derived slug.                                       |
+| `pnpm dev:stack keepalive`            | Renew the worktree's eight-hour runtime lease.                          |
+| `pnpm dev:stack stop`                 | Stop containers while preserving them for a fast restart.               |
+| `pnpm dev:stack down`                 | Remove containers and networks; preserve compiler output temporarily.   |
+| `pnpm dev:stack prune`                | Delete containers and worktree compiler output; preserve shared caches. |
+| `pnpm dev:stack cleanup`              | Remove inactive expired stacks and enforce cache budgets.               |
+| `pnpm dev:stack retire <path>`        | Safely remove a registered linked worktree and its managed stack.       |
+| `pnpm dev:stack proxy` / `proxy-down` | Start or stop the machine-wide Traefik proxy.                           |
 
 Every successful `up`, `watch`, `restart`, or `rebuild` grants the stack an
-eight-hour lease. Before starting or restarting a stack, the wrapper stops
-expired stacks and removes stacks that have remained stopped for 24 hours. Run
-`keepalive` to extend an active session. The same startup cleanup removes unused
+eight-hour lease. Before starting or restarting a stack, the wrapper marks
+inactive expired stacks stopped and removes stacks that have remained inactive
+for 24 hours. Running containers are never stopped by automatic cleanup. Run
+`keepalive` to extend a session. The same startup cleanup removes unused
 content-addressed dependency volumes and development images after seven days.
 No background cleanup task is installed, so expired resources can remain until
-the next worktree stack starts. Cleanup never touches unmanaged Docker
-resources.
+the next worktree stack starts. Stack and volume cleanup never touches unmanaged
+Docker resources; the BuildKit cache target below applies to the selected builder.
 
 A JavaScript or .NET dependency-manifest change automatically selects a new
 content-addressed image on the next `up`. Use `rebuild` only to discard stale
@@ -163,7 +165,7 @@ Vite and Storybook source edits also update without rebuilding images.
 The `watch` command uses `wasm-pack --dev` with development `opt-level=1`;
 Cargo reuses the per-worktree target volume and the build skips optimized WASM
 post-processing. The lower optimization level keeps the browser artifact and
-startup compilation substantially smaller while preserving fast incremental
+startup compilation substantially smaller while preserving cached
 Rust rebuilds. Use `pnpm dev:stack wasm` when you need the optimized release
 artifact.
 
@@ -190,6 +192,60 @@ Only the primary checkout may start the backend profile, preventing competing
 worktree APIs from migrating the shared SQLite schema. The shared database also
 contains OpenIddict and GitHub installation records in addition to Identity
 accounts.
+
+### Storage budgets
+
+Disposable worktrees should begin as source-only checkouts. Do not install host
+dependencies or run every build target automatically: use the shared stack for
+browser work, and install host dependencies only when host validation needs them.
+Container dependencies cannot substitute for a host install.
+
+- Startup/build and stop/down/prune lifecycle commands enforce a pool of four
+  warm managed WASM compiler volumes, newest lease first. The current project
+  and volumes referenced by any container are protected. More than four
+  referenced environments can exceed the target; the wrapper reports that
+  rather than disrupting them. Unused evicted output is rebuilt on demand.
+- The same commands prune the selected Docker builder toward **20 GB** using
+  `docker buildx prune --all --max-used-space 20GB`. This applies to unused build
+  cache on that builder, including other projects, not images or data volumes.
+  It is a reclamation target, not a hard allocation limit. Docker Desktop's
+  Engine setting `builder.gc.enabled=true` with `defaultKeepStorage="20GB"`
+  provides background build-cache GC while Docker is running.
+- Development service and proxy logs rotate at 10 MB per file, three files per
+  container. Existing containers acquire this setting when recreated.
+- Editor, website, and Storybook build outputs bypass Turbo caching because their
+  asset-heavy archives multiply storage. Small library builds remain cached.
+- Engine and desktop development/test profiles disable Cargo incremental state
+  and retain line-table debug information. A long-lived checkout can explicitly
+  opt back in with `CARGO_INCREMENTAL=1`; disposable builds should not.
+
+Compiler budgets do not limit every image, dependency version, or database.
+Unused dependency images/volumes still have the seven-day retention described
+above; shared download caches and API data are never evicted by compiler
+retention. No recurring host job is installed. Automatic maintenance runs when
+the wrapper is used, and does not shrink Docker Desktop's Windows virtual disk
+file. Disk compaction remains a separate, supported offline operation.
+
+### Retiring a worktree
+
+From another checkout of the same repository:
+
+```bash
+pnpm dev:stack retire <linked-worktree-path>
+```
+
+The command requires a registered, unlocked linked worktree with no tracked or
+untracked changes and no commits missing from remote-tracking refs. Fetch before
+retirement if those refs are stale. Ignored files are also protected: only
+`node_modules`, `.turbo`, engine `target`, and desktop `target` directories are
+disposable. Preserve other ignored files, including secrets, generated assets,
+or local notes, before retrying.
+
+After validation, the command removes the target's managed Docker resources,
+then uses `git worktree remove` without force and checks that the directory is
+gone. Shared API data, dependencies, and the Git branch remain. It never performs
+automatic source deletion or retires the primary/current checkout. Folders whose
+Git marker was already deleted require manual review, not this command.
 
 ## Troubleshooting
 

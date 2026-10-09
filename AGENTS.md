@@ -78,6 +78,15 @@ docs/                       # Architecture documents
 
 ## Worktree development servers
 
+Keep disposable worktrees source-only until the task needs installed dependencies
+or compilation. Use shared `pnpm dev:stack` dependencies for browser development;
+host validation still requires a host install. Run targeted validation rather than
+full desktop, website, Storybook, and native/WASM builds for every worktree.
+Do not enable Cargo incremental compilation in disposable worktrees. When retiring
+a registered worktree, use `pnpm dev:stack retire <path>` from another checkout;
+never delete its Git marker first or force removal of uncommitted/unpushed work.
+See `infra/dev/README.md` for cache budgets and retirement safeguards.
+
 When an agent needs to start, run, preview, or visually inspect any web or API
 service, it must use `pnpm dev:stack` rather than launching Vite,
 Storybook, or `dotnet watch` directly. The wrapper gives every worktree isolated
