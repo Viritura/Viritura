@@ -6,7 +6,10 @@ import { getCleanupAction, readLease, removeLease, withLeaseLock, writeLease } f
 const removalGraceMilliseconds = 24 * 60 * 60 * 1_000;
 const cacheRetentionMilliseconds = 7 * 24 * 60 * 60 * 1_000;
 
-async function removeProjectResources(docker: DockerClient, project: string): Promise<void> {
+export async function removeProjectResources(docker: DockerClient, project: string): Promise<void> {
+  if (!project.startsWith("viritura-") || project === "viritura-dev-proxy") {
+    throw new Error(`Refusing to remove unmanaged project '${project}'.`);
+  }
   const managedFilter = ["--filter", "label=com.viritura.dev.managed=true"];
   const projectFilter = ["--filter", `label=com.docker.compose.project=${project}`];
   const containers = await docker.ids(["container", "ls", "--all", "--quiet", ...projectFilter, ...managedFilter]);
@@ -74,6 +77,7 @@ export async function cleanupManagedResources(
   docker: DockerClient,
   stateRoot: string,
   now = new Date(),
+  protectedProject?: string,
 ): Promise<void> {
   if (!(await docker.isAvailable())) {
     console.warn("Docker is not available; skipping Viritura worktree cleanup.");
@@ -95,6 +99,15 @@ export async function cleanupManagedResources(
           throw new Error(`Lease project '${lease.Project}' does not match its file name.`);
         }
         const action = getCleanupAction(lease, now, removalGraceMilliseconds);
+        if (lease.Project === protectedProject) return;
+        const running = await docker.ids([
+          "container",
+          "ls",
+          "--quiet",
+          "--filter",
+          `label=com.docker.compose.project=${lease.Project}`,
+        ]);
+        if (running.length > 0) return;
         if (action === "stop") {
           const containers = await docker.ids([
             "container",
@@ -121,4 +134,69 @@ export async function cleanupManagedResources(
     }
   }
   await removeStaleCaches(docker, now);
+  await retainWarmCompilerCaches(docker, stateRoot, protectedProject);
+  console.log("Enforcing the selected Docker builder's 20 GB cache target...");
+  await docker.run(["buildx", "prune", "--all", "--force", "--max-used-space", "20GB"], { capture: true });
+}
+
+export interface CompilerCache {
+  readonly name: string;
+  readonly project: string;
+  readonly lastUsedAt: number;
+  readonly protected: boolean;
+}
+
+export function selectCompilerCachesToEvict(caches: readonly CompilerCache[]): CompilerCache[] {
+  const protectedCount = caches.filter((cache) => cache.protected).length;
+  const available = caches
+    .filter((cache) => !cache.protected)
+    .sort((first, second) => second.lastUsedAt - first.lastUsedAt || first.name.localeCompare(second.name));
+  return available.slice(Math.max(0, 4 - protectedCount));
+}
+
+async function retainWarmCompilerCaches(
+  docker: DockerClient,
+  stateRoot: string,
+  protectedProject?: string,
+): Promise<void> {
+  const names = await docker.ids([
+    "volume",
+    "ls",
+    "--quiet",
+    "--filter",
+    "label=com.viritura.dev=worktree-wasm-target",
+    "--filter",
+    "label=com.viritura.dev.managed=true",
+  ]);
+  const caches: CompilerCache[] = [];
+  for (const name of names) {
+    const [inspection] = JSON.parse(await docker.output(["volume", "inspect", name])) as Array<{
+      CreatedAt: string;
+      Labels: Record<string, string>;
+    }>;
+    if (!inspection) throw new Error(`Missing compiler volume inspection: '${name}'.`);
+    const project = inspection.Labels["com.viritura.dev.project"];
+    if (!project?.startsWith("viritura-")) throw new Error(`Invalid compiler volume ownership: '${name}'.`);
+    const leasePath = join(stateRoot, "leases", `${project}.json`);
+    let lastUsedAt = Date.parse(inspection.CreatedAt);
+    try {
+      lastUsedAt = Date.parse(readLease(leasePath).ExpiresAt);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (!Number.isFinite(lastUsedAt)) throw new Error(`Invalid compiler cache timestamp: '${name}'.`);
+    const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${name}`]);
+    caches.push({ name, project, lastUsedAt, protected: project === protectedProject || users.length > 0 });
+  }
+  for (const cache of selectCompilerCachesToEvict(caches)) {
+    await withLeaseLock(join(stateRoot, "locks"), cache.project, async () => {
+      const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${cache.name}`]);
+      if (users.length > 0) return;
+      console.log(`Evicting unused compiler cache '${cache.name}' (keeping four warm environments)...`);
+      await docker.run(["volume", "rm", cache.name]);
+    });
+  }
+  if (caches.filter((cache) => cache.protected).length > 4) {
+    console.warn("More than four compiler environments are in use; referenced caches will not be evicted.");
+  }
 }

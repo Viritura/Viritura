@@ -29,6 +29,12 @@ x-public-environment: &public-environment
 x-managed-labels: &managed-labels
   com.viritura.dev.managed: "true"
 
+x-bounded-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-node-volumes: &node-volumes
   - ../../..:/workspace
   # These read-only volumes are shared by every worktree with the same
@@ -71,6 +77,7 @@ x-node-cache-tmpfs: &node-cache-tmpfs
 
 x-node-service: &node-service
   <<: *node-build
+  logging: *bounded-logging
   entrypoint: ["sh", "/workspace/infra/dev/worktree/entrypoint.sh"]
   env_file:
     - path: ../.env.frontend.local
@@ -119,6 +126,8 @@ services:
       dockerfile: infra/dev/worktree/wasm.Dockerfile
     command: ["node", "--experimental-strip-types", "scripts/build-wasm.ts"]
     working_dir: /workspace
+    environment:
+      CARGO_INCREMENTAL: "0"
     volumes:
       - ../../..:/workspace
       - cargo_registry:/usr/local/cargo/registry
@@ -131,10 +140,12 @@ services:
     profiles: ["watch"]
     command: ["node", "--experimental-strip-types", "scripts/watch-wasm.ts"]
     environment:
+      CARGO_INCREMENTAL: "0"
       # Keep watch artifacts smaller and faster for browser startup while
-      # retaining Cargo's incremental development profile.
+      # reusing Cargo's compiled dependency artifacts without incremental state.
       CARGO_PROFILE_DEV_OPT_LEVEL: "1"
     labels: *managed-labels
+    logging: *bounded-logging
     working_dir: /workspace
     volumes:
       - ../../..:/workspace
@@ -193,6 +204,7 @@ services:
 
   api:
     <<: *api-build
+    logging: *bounded-logging
     container_name: viritura-dev-api
     profiles: ["backend", "full"]
     depends_on:
