@@ -16,8 +16,12 @@ function fixture() {
   const linked = join(root, "linked");
   const state = join(root, "state");
   mkdirSync(primary);
+  const environment = { ...process.env };
+  for (const name of Object.keys(environment)) {
+    if (name.startsWith("GIT_")) delete environment[name];
+  }
   const git = (args: string[], cwd = primary) => {
-    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+    const result = spawnSync("git", args, { cwd, env: environment, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
   };
   git(["init", "-b", "main"]);
@@ -36,8 +40,14 @@ function fixture() {
       return { status: 0, stdout: "", stderr: "" };
     },
   };
+  const systemRunner = new SystemCommandRunner();
+  const isolatedRunner: CommandRunner = {
+    run(executable, args, options = {}) {
+      return systemRunner.run(executable, args, { ...options, env: environment });
+    },
+  };
   const retire = (target = linked) =>
-    retireWorktree(new SystemCommandRunner(), new DockerClient(dockerRunner, primary, {}), primary, state, target);
+    retireWorktree(isolatedRunner, new DockerClient(dockerRunner, primary, {}), primary, state, target);
   return { root, primary, linked, state, calls, git, retire };
 }
 
