@@ -8,6 +8,8 @@ export interface WorktreeLease {
   Worktree: string;
   ExpiresAt: string;
   StoppedAt: string | null;
+  NodeDependencyHash?: string;
+  ApiImageTag?: string;
 }
 
 export type CleanupAction = "none" | "stop" | "remove";

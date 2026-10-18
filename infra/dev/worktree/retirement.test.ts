@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -10,10 +19,10 @@ import { isDisposableIgnoredPath, retireWorktree } from "./retirement.ts";
 import { writeLease } from "./leases.ts";
 import { deriveSlug } from "./config.ts";
 
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "viritura-retirement-"));
+function fixture(linkedName = "linked") {
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "viritura-retirement-")));
   const primary = join(root, "primary");
-  const linked = join(root, "linked");
+  const linked = join(root, linkedName);
   const state = join(root, "state");
   mkdirSync(primary);
   const environment = { ...process.env };
@@ -23,6 +32,7 @@ function fixture() {
   const git = (args: string[], cwd = primary) => {
     const result = spawnSync("git", args, { cwd, env: environment, encoding: "utf8" });
     assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
   };
   git(["init", "-b", "main"]);
   git(["config", "user.email", "test@example.invalid"]);
@@ -84,12 +94,13 @@ test("retirement removes a clean published worktree through Git without force", 
   try {
     mkdirSync(join(f.linked, "node_modules"));
     writeFileSync(join(f.linked, "node_modules", "rebuildable.txt"), "cache");
+    const repositoryRoot = f.git(["rev-parse", "--show-toplevel"], f.linked);
     await f.retire();
     assert.equal(existsSync(f.linked), false);
     assert.equal(existsSync(join(f.primary, "source.txt")), true);
     f.git(["show-ref", "--verify", "refs/heads/feature"]);
     assert.ok(f.calls.every((args) => args.includes("label=com.viritura.dev.managed=true")));
-    const project = `viritura-${deriveSlug(f.linked.replaceAll("\\", "/"), "feature")}`;
+    const project = `viritura-${deriveSlug(repositoryRoot, "feature")}`;
     assert.ok(f.calls.some((args) => args.includes(`label=com.docker.compose.project=${project}`)));
   } finally {
     rmSync(f.root, { recursive: true, force: true });
@@ -112,7 +123,15 @@ for (const kind of ["dirty", "untracked", "ignored", "unpushed", "locked", "prim
         f.git(["commit", "-m", "not published"], f.linked);
       }
       if (kind === "locked") f.git(["worktree", "lock", f.linked]);
-      await assert.rejects(() => f.retire(kind === "primary" ? f.primary : f.linked));
+      const expected = {
+        dirty: /uncommitted or untracked/,
+        untracked: /uncommitted or untracked/,
+        ignored: /ignored files outside disposable caches/,
+        unpushed: /commits not present in remote-tracking/,
+        locked: /locked or missing/,
+        primary: /other than the primary\/current checkout/,
+      };
+      await assert.rejects(() => f.retire(kind === "primary" ? f.primary : f.linked), expected[kind]);
       assert.equal(existsSync(f.linked), true);
       assert.equal(f.calls.length, 0);
     } finally {
@@ -120,3 +139,33 @@ for (const kind of ["dirty", "untracked", "ignored", "unpushed", "locked", "prim
     }
   });
 }
+
+test("retirement canonicalizes a directory alias before Git ownership checks", async () => {
+  const f = fixture();
+  try {
+    const alias = join(f.root, "linked alias");
+    symlinkSync(f.linked, alias, process.platform === "win32" ? "junction" : "dir");
+    await f.retire(alias);
+    assert.equal(existsSync(f.linked), false);
+    assert.equal(existsSync(join(f.primary, "source.txt")), true);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("retirement accepts paths that Git would quote without NUL-delimited output", async () => {
+  const f = fixture("linked caf\u00e9");
+  try {
+    f.git(["config", "core.quotePath", "true"]);
+    await f.retire();
+    assert.equal(existsSync(f.linked), false);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("the checkout hook preserves Git LFS without automatically installing host dependencies", () => {
+  const hook = readFileSync(new URL("../../../.githooks/post-checkout", import.meta.url), "utf8");
+  assert.match(hook, /git lfs post-checkout/);
+  assert.doesNotMatch(hook, /(?:pnpm|corepack|npm)\s+(?:pnpm\s+)?install/);
+});

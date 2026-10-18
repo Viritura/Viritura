@@ -199,12 +199,17 @@ Disposable worktrees should begin as source-only checkouts. Do not install host
 dependencies or run every build target automatically: use the shared stack for
 browser work, and install host dependencies only when host validation needs them.
 Container dependencies cannot substitute for a host install.
+The checkout hook performs Git LFS checkout only; it no longer installs host
+dependencies automatically. Run `pnpm install --frozen-lockfile` explicitly when
+host validation needs it.
 
 - Startup/build and stop/down/prune lifecycle commands enforce a pool of four
   warm managed WASM compiler volumes, newest lease first. The current project
-  and volumes referenced by any container are protected. More than four
+  live build leases and volumes referenced by any container are protected. More than four
   referenced environments can exceed the target; the wrapper reports that
   rather than disrupting them. Unused evicted output is rebuilt on demand.
+  Lease protection is rechecked under the project lock before deletion, so a
+  concurrent build cannot lose a cache selected before its lease renewal.
 - The same commands prune the selected Docker builder toward **20 GB** using
   `docker buildx prune --all --max-used-space 20GB`. This applies to unused build
   cache on that builder, including other projects, not images or data volumes.
@@ -222,7 +227,10 @@ Container dependencies cannot substitute for a host install.
 Compiler budgets do not limit every image, dependency version, or database.
 Unused dependency images/volumes still have the seven-day retention described
 above; shared download caches and API data are never evicted by compiler
-retention. No recurring host job is installed. Automatic maintenance runs when
+retention. Live leases record the dependency hash and API image tag to protect
+preparing environments before containers exist. Unused multi-tag images are
+untagged explicitly so old image versions can actually be reclaimed without force.
+No recurring host job is installed. Automatic maintenance runs when
 the wrapper is used, and does not shrink Docker Desktop's Windows virtual disk
 file. Disk compaction remains a separate, supported offline operation.
 

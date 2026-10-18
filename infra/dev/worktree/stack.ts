@@ -62,6 +62,7 @@ interface StackContext {
   readonly slug: string;
   readonly project: string;
   readonly dependencyHash: string;
+  readonly apiImageTag: string;
   readonly nodeImage: string;
   readonly dependencyVolumes: readonly string[];
   readonly wasmTargetVolume: string;
@@ -110,6 +111,7 @@ async function createContext(runner: CommandRunner): Promise<StackContext> {
     slug,
     project,
     dependencyHash,
+    apiImageTag: apiRestoreHash,
     nodeImage: `viritura-dev-worktree:${dependencyHash}`,
     dependencyVolumes: dependencyVolumeSuffixes.map((suffix) => `viritura-dev-node-${dependencyHash}-${suffix}`),
     wasmTargetVolume: `${project}-wasm-target`,
@@ -176,6 +178,8 @@ function activeLease(context: StackContext): WorktreeLease {
     Worktree: context.repositoryRoot,
     ExpiresAt: new Date(Date.now() + leaseDurationMilliseconds).toISOString(),
     StoppedAt: null,
+    NodeDependencyHash: context.dependencyHash,
+    ApiImageTag: context.apiImageTag,
   };
 }
 
@@ -286,6 +290,7 @@ export async function runStackCommand(
   await docker.requireEngine();
   const composeBase = ["-f", context.worktreeCompose];
   if (["up", "watch", "restart", "rebuild", "wasm"].includes(command)) {
+    await renewLease(context);
     await cleanupManagedResources(docker, context.stateRoot, new Date(), context.project);
   }
 

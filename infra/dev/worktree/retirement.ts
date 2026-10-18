@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { removeProjectResources } from "./cleanup.ts";
 import type { CommandRunner } from "./commandRunner.ts";
@@ -14,6 +14,13 @@ export function isDisposableIgnoredPath(path: string): boolean {
   );
 }
 
+function sameDirectory(first: string, second: string): boolean {
+  if (!existsSync(first) || !existsSync(second)) return false;
+  const firstPath = realpathSync.native(first);
+  const secondPath = realpathSync.native(second);
+  return process.platform === "win32" ? firstPath.toLowerCase() === secondPath.toLowerCase() : firstPath === secondPath;
+}
+
 export async function retireWorktree(
   runner: CommandRunner,
   docker: DockerClient,
@@ -21,23 +28,23 @@ export async function retireWorktree(
   stateRoot: string,
   target: string,
 ): Promise<void> {
-  const path = resolve(target);
+  const path = realpathSync.native(resolve(target));
   const git = async (args: readonly string[], cwd = primaryRoot) =>
     (await runner.run("git", args, { capture: true, cwd })).stdout.trim();
-  const registrations = (await git(["worktree", "list", "--porcelain"])).split(/\r?\n\r?\n/);
+  const registrations = (await git(["worktree", "list", "--porcelain", "-z"])).split("\0\0");
   const registration = registrations.find((entry) => {
-    const firstLine = entry.split(/\r?\n/)[0];
-    return firstLine?.startsWith("worktree ") && resolve(firstLine.slice(9)) === path;
+    const firstField = entry.split("\0")[0];
+    return firstField?.startsWith("worktree ") && sameDirectory(firstField.slice(9), path);
   });
-  if (!registration || path === resolve(primaryRoot) || path === resolve(process.cwd())) {
+  if (!registration || sameDirectory(path, primaryRoot) || sameDirectory(path, process.cwd())) {
     throw new Error("Retire requires a registered linked worktree other than the primary/current checkout.");
   }
-  if (/^locked(?: |$)/m.test(registration) || /^prunable(?: |$)/m.test(registration)) {
+  if (registration.split("\0").some((field) => /^(locked|prunable)(?: |$)/.test(field))) {
     throw new Error("Refusing to retire a locked or missing worktree.");
   }
   const branch = await git(["rev-parse", "--abbrev-ref", "HEAD"], path);
   const repositoryRoot = await git(["rev-parse", "--show-toplevel"], path);
-  if (resolve(repositoryRoot) !== path) throw new Error("Retirement target is not the registered repository root.");
+  if (!sameDirectory(repositoryRoot, path)) throw new Error("Retirement target is not the registered repository root.");
   const project = `viritura-${deriveSlug(repositoryRoot, branch)}`;
   await withLeaseLock(join(stateRoot, "locks"), project, async () => {
     if (await git(["status", "--porcelain=v1", "--untracked-files=all"], path)) {
@@ -54,7 +61,7 @@ export async function retireWorktree(
       );
     }
     const leaseFile = join(stateRoot, "leases", `${project}.json`);
-    if (existsSync(leaseFile) && resolve(readLease(leaseFile).Worktree) !== path) {
+    if (existsSync(leaseFile) && !sameDirectory(readLease(leaseFile).Worktree, path)) {
       throw new Error("Worktree lease ownership does not match the retirement target.");
     }
     const leaseDirectory = join(stateRoot, "leases");
@@ -62,7 +69,7 @@ export async function retireWorktree(
     if (existsSync(leaseDirectory)) {
       for (const name of readdirSync(leaseDirectory).filter((entry) => entry.endsWith(".json"))) {
         const lease = readLease(join(leaseDirectory, name));
-        if (resolve(lease.Worktree) !== path) continue;
+        if (!sameDirectory(lease.Worktree, path)) continue;
         if (lease.Project !== basename(name, ".json")) throw new Error(`Invalid lease ownership: '${name}'.`);
         projects.add(lease.Project);
       }

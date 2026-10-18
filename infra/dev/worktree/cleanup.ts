@@ -1,7 +1,8 @@
 import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { DockerClient } from "./docker.ts";
-import { getCleanupAction, readLease, removeLease, withLeaseLock, writeLease } from "./leases.ts";
+import { withFileLock } from "./fileLock.ts";
+import { getCleanupAction, readLease, removeLease, withLeaseLock, writeLease, type WorktreeLease } from "./leases.ts";
 
 const removalGraceMilliseconds = 24 * 60 * 60 * 1_000;
 const cacheRetentionMilliseconds = 7 * 24 * 60 * 60 * 1_000;
@@ -38,13 +39,32 @@ async function inspectCreatedAt(
   id: string,
 ): Promise<number | undefined> {
   const result = await docker.run([resource, "inspect", id], { allowFailure: true, capture: true });
-  if (result.status !== 0) return undefined;
+  if (result.status !== 0) {
+    console.warn(`Unable to inspect ${resource} '${id}': ${result.stderr}`);
+    return undefined;
+  }
   const inspection = (JSON.parse(result.stdout) as Array<{ Created?: string; CreatedAt?: string }>)[0];
   const created = inspection?.Created ?? inspection?.CreatedAt;
-  return created ? Date.parse(created) : undefined;
+  if (!created || !Number.isFinite(Date.parse(created))) throw new Error(`Invalid ${resource} timestamp: '${id}'.`);
+  return Date.parse(created);
 }
 
-async function removeStaleCaches(docker: DockerClient, now: Date): Promise<void> {
+function liveDependencyLeases(stateRoot: string, now: Date): WorktreeLease[] {
+  const directory = join(stateRoot, "leases");
+  const leases: WorktreeLease[] = [];
+  for (const name of readdirSync(directory).filter((entry) => entry.endsWith(".json"))) {
+    try {
+      const lease = readLease(join(directory, name));
+      if (!Number.isFinite(Date.parse(lease.ExpiresAt))) throw new Error(`Invalid lease expiry: '${name}'.`);
+      if (Date.parse(lease.ExpiresAt) > now.getTime()) leases.push(lease);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return leases;
+}
+
+async function removeStaleCaches(docker: DockerClient, stateRoot: string, now: Date): Promise<void> {
   const cutoff = now.getTime() - cacheRetentionMilliseconds;
   const volumes = await docker.ids([
     "volume",
@@ -54,10 +74,19 @@ async function removeStaleCaches(docker: DockerClient, now: Date): Promise<void>
     "label=com.viritura.dev.cache=node-dependencies",
   ]);
   for (const volume of volumes) {
-    const createdAt = await inspectCreatedAt(docker, "volume", volume);
-    if (createdAt === undefined || createdAt > cutoff) continue;
-    const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${volume}`]);
-    if (users.length === 0) await docker.run(["volume", "rm", volume]);
+    const dependencyHash = /^viritura-dev-node-([^-]+)-/.exec(volume)?.[1];
+    if (!dependencyHash) throw new Error(`Invalid managed dependency volume name: '${volume}'.`);
+    await withFileLock(join(stateRoot, "locks", `dependencies-${dependencyHash}.lock`), 600_000, async () => {
+      const createdAt = await inspectCreatedAt(docker, "volume", volume);
+      if (createdAt === undefined || createdAt > cutoff) return;
+      const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${volume}`]);
+      if (
+        users.length > 0 ||
+        liveDependencyLeases(stateRoot, now).some((lease) => lease.NodeDependencyHash === dependencyHash)
+      )
+        return;
+      await docker.run(["volume", "rm", volume]);
+    });
   }
 
   for (const cacheLabel of ["node-image", "api-image"]) {
@@ -68,7 +97,20 @@ async function removeStaleCaches(docker: DockerClient, now: Date): Promise<void>
       const createdAt = await inspectCreatedAt(docker, "image", image);
       if (createdAt === undefined || createdAt > cutoff) continue;
       const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `ancestor=${image}`]);
-      if (users.length === 0) await docker.run(["image", "rm", image]);
+      if (users.length === 0) {
+        const tags = JSON.parse(await docker.output(["image", "inspect", image, "--format", "{{json .RepoTags}}"])) as
+          string[] | null;
+        if (
+          liveDependencyLeases(stateRoot, now).some(
+            (lease) =>
+              tags?.includes(`viritura-dev-worktree:${lease.NodeDependencyHash}`) ||
+              tags?.includes(`viritura-api-dev:${lease.ApiImageTag}`),
+          )
+        )
+          continue;
+        // An image ID with several tags cannot be removed without force; untag explicitly instead.
+        for (const reference of tags?.length ? tags : [image]) await docker.run(["image", "rm", reference]);
+      }
     }
   }
 }
@@ -109,19 +151,6 @@ export async function cleanupManagedResources(
         ]);
         if (running.length > 0) return;
         if (action === "stop") {
-          const containers = await docker.ids([
-            "container",
-            "ls",
-            "--quiet",
-            "--filter",
-            `label=com.docker.compose.project=${lease.Project}`,
-            "--filter",
-            "label=com.viritura.dev.managed=true",
-          ]);
-          if (containers.length > 0) {
-            console.log(`Stopping expired development stack '${lease.Project}'...`);
-            await docker.run(["container", "stop", ...containers]);
-          }
           writeLease(leaseFile, { ...lease, StoppedAt: now.toISOString() });
         } else if (action === "remove") {
           console.log(`Removing expired development stack '${lease.Project}'...`);
@@ -133,8 +162,8 @@ export async function cleanupManagedResources(
       console.warn(`Unable to process lease '${leaseFile}': ${(error as Error).message}`);
     }
   }
-  await removeStaleCaches(docker, now);
-  await retainWarmCompilerCaches(docker, stateRoot, protectedProject);
+  await removeStaleCaches(docker, stateRoot, now);
+  await retainWarmCompilerCaches(docker, stateRoot, now, protectedProject);
   console.log("Enforcing the selected Docker builder's 20 GB cache target...");
   await docker.run(["buildx", "prune", "--all", "--force", "--max-used-space", "20GB"], { capture: true });
 }
@@ -157,6 +186,7 @@ export function selectCompilerCachesToEvict(caches: readonly CompilerCache[]): C
 async function retainWarmCompilerCaches(
   docker: DockerClient,
   stateRoot: string,
+  now: Date,
   protectedProject?: string,
 ): Promise<void> {
   const names = await docker.ids([
@@ -179,19 +209,37 @@ async function retainWarmCompilerCaches(
     if (!project?.startsWith("viritura-")) throw new Error(`Invalid compiler volume ownership: '${name}'.`);
     const leasePath = join(stateRoot, "leases", `${project}.json`);
     let lastUsedAt = Date.parse(inspection.CreatedAt);
+    let liveLease = false;
     try {
-      lastUsedAt = Date.parse(readLease(leasePath).ExpiresAt);
+      const lease = readLease(leasePath);
+      if (lease.Project !== project) throw new Error(`Invalid compiler lease ownership: '${name}'.`);
+      lastUsedAt = Date.parse(lease.ExpiresAt);
+      liveLease = lastUsedAt > now.getTime();
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
     if (!Number.isFinite(lastUsedAt)) throw new Error(`Invalid compiler cache timestamp: '${name}'.`);
     const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${name}`]);
-    caches.push({ name, project, lastUsedAt, protected: project === protectedProject || users.length > 0 });
+    caches.push({
+      name,
+      project,
+      lastUsedAt,
+      protected: liveLease || project === protectedProject || users.length > 0,
+    });
   }
   for (const cache of selectCompilerCachesToEvict(caches)) {
     await withLeaseLock(join(stateRoot, "locks"), cache.project, async () => {
       const users = await docker.ids(["container", "ls", "--all", "--quiet", "--filter", `volume=${cache.name}`]);
       if (users.length > 0) return;
+      const leasePath = join(stateRoot, "leases", `${cache.project}.json`);
+      try {
+        const lease = readLease(leasePath);
+        if (lease.Project !== cache.project) throw new Error(`Invalid compiler lease ownership: '${cache.name}'.`);
+        // A build can renew its lease after selection, while maintenance waits for its lock.
+        if (Date.parse(lease.ExpiresAt) > now.getTime()) return;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
       console.log(`Evicting unused compiler cache '${cache.name}' (keeping four warm environments)...`);
       await docker.run(["volume", "rm", cache.name]);
     });
