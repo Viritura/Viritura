@@ -82,7 +82,7 @@
     "@eslint/js": "^9.39.5",
     "@inquirer/checkbox": "^5.2.5",
     "@playwright/test": "^1.63.0",
-    "@types/node": "24.0.0",
+    "@types/node": "26.6.4",
     "autoprefixer": "^10.6.1",
     "concurrently": "^10.0.5",
     "esbuild": "^0.28.2",
@@ -91,15 +91,15 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "globals": "^17.12.0",
+    "globals": "^17.13.0",
     "knip": "^6.14.2",
     "postcss": "^8.5.27",
     "prettier": "^3.9.6",
     "tsx": "^4.22.3",
     "turbo": "^2.11.5",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.70.1",
-    "wrangler": "4.131.1"
+    "typescript-eslint": "^8.71.1",
+    "wrangler": "4.151.0"
   },
   "engines": {
     "node": ">=24.0.0",
