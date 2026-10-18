@@ -37,11 +37,11 @@ too_many_arguments = "allow"
 too_many_lines = "warn"
 
 [profile.dev]
-incremental = true
+incremental = false
 debug = 1
 
 [profile.test]
-incremental = true
+incremental = false
 debug = 1
 opt-level = 2
 

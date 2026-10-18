@@ -6,6 +6,7 @@
       "outputs": ["dist/**"]
     },
     "@viritura/editor#build": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
       "inputs": [
@@ -28,6 +29,7 @@
       ]
     },
     "@viritura/website#build": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
       "inputs": [
@@ -44,11 +46,13 @@
       "outputs": ["dist/**"]
     },
     "@viritura/ui#build-storybook": {
+      "cache": false,
       "dependsOn": ["build"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/assets/fonts/**"],
       "outputs": ["storybook-static/**"]
     },
     "@viritura/editor#build-storybook": {
+      "cache": false,
       "dependsOn": ["build"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -62,6 +66,7 @@
       "outputs": ["storybook-static/**"]
     },
     "@viritura/editor#build-storybook:mnx": {
+      "cache": false,
       "dependsOn": ["build"],
       "inputs": [
         "$TURBO_DEFAULT$",
