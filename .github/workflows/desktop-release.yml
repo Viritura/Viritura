@@ -84,7 +84,7 @@ jobs:
           Copy-Item $msi[0].FullName desktop-installers\Viritura-windows-x64.msi
           Copy-Item $nsis[0].FullName desktop-installers\Viritura-windows-x64.exe
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         id: installers
         with:
           name: desktop-windows-x64-${{ github.sha }}
