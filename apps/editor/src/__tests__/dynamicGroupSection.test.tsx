@@ -42,6 +42,29 @@ afterEach(() => {
 });
 
 describe("DynamicGroupSection staff controls", () => {
+  it("keeps imported relative appearance transparent without glyph-authoring controls", () => {
+    const glyphs = ["dynamicForte", "dynamicForte", "dynamicForte"];
+    render(
+      <DynamicGroupSection
+        dynamic={{
+          id: "relative",
+          type: "relative",
+          position: { fraction: [0, 1] },
+          relativeValue: "louder",
+          value: "fff",
+          glyphs,
+        }}
+        staffCount={1}
+        {...handlers}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Relative change" })).toBeTruthy();
+    expect(screen.queryByText("Appearance")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Printed marking" })).toBeNull();
+    expect(handlers.onValueChange).not.toHaveBeenCalled();
+    expect(glyphs).toEqual(["dynamicForte", "dynamicForte", "dynamicForte"]);
+  });
+
   it("uses bounded start/end staff dropdowns for a multi-staff hairpin", () => {
     render(<DynamicGroupSection dynamic={hairpin} staffCount={2} {...handlers} />);
 

@@ -125,7 +125,7 @@ pub(crate) fn render_hairpins(
             // Check for dynamic at hairpin start position
             if let Some(ref dynamics) = ml.resolved.part.dynamics {
                 for dyn_mark in dynamics {
-                    if !dyn_mark.is_gradual()
+                    if dyn_mark.has_printed_marking()
                         && dyn_mark.voice == hp.voice
                         && super::render_annotations::dynamic_places_above(ml, dyn_mark) == is_above
                         && dyn_mark.position.fraction == hp.position.fraction
@@ -160,7 +160,7 @@ pub(crate) fn render_hairpins(
             // Check for dynamic at hairpin end position
             if let Some(ref dynamics) = end_ml.resolved.part.dynamics {
                 for dyn_mark in dynamics {
-                    if !dyn_mark.is_gradual()
+                    if dyn_mark.has_printed_marking()
                         && dyn_mark.voice == hp.voice
                         && super::render_annotations::dynamic_places_above(end_ml, dyn_mark)
                             == is_above
@@ -479,7 +479,7 @@ fn dynamic_midline_by_id(
         };
         let Some(dyn_mark) = dynamics
             .iter()
-            .find(|group| group.id == group_id && !group.is_gradual())
+            .find(|group| group.id == group_id && group.has_printed_marking())
         else {
             continue;
         };

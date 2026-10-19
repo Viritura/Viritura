@@ -7,6 +7,26 @@ use crate::model::*;
 use crate::render::smufl::smufl;
 use crate::render::*;
 
+fn consolidate_dynamic_letters(codepoints: Vec<u32>) -> Vec<u32> {
+    let spelling: Option<String> = codepoints
+        .iter()
+        .map(|codepoint| match *codepoint {
+            smufl::DYNAMIC_PIANO => Some('p'),
+            smufl::DYNAMIC_MEZZO => Some('m'),
+            smufl::DYNAMIC_FORTE => Some('f'),
+            smufl::DYNAMIC_RINFORZANDO => Some('r'),
+            smufl::DYNAMIC_SFORZANDO => Some('s'),
+            smufl::DYNAMIC_Z => Some('z'),
+            smufl::DYNAMIC_NIENTE => Some('n'),
+            _ => None,
+        })
+        .collect();
+    spelling
+        .as_deref()
+        .and_then(smufl::dynamics_glyph)
+        .map_or(codepoints, |codepoint| vec![codepoint])
+}
+
 pub(crate) fn dynamic_voice_index(ml: &MeasureLayout, dynamic: &DynamicGroup) -> Option<usize> {
     let voice = dynamic.voice.as_deref()?;
     ml.resolved
@@ -324,7 +344,7 @@ pub(crate) fn render_dynamics(
 
     let mi = ml.resolved.index;
     for dyn_mark in dynamics {
-        if dyn_mark.is_gradual() {
+        if !dyn_mark.has_printed_marking() {
             continue;
         }
         let value = dyn_mark.display_value();
@@ -346,7 +366,7 @@ pub(crate) fn render_dynamics(
                         .chars()
                         .filter_map(smufl::dynamics_letter_glyph)
                         .collect();
-                    if letters.is_empty() || letters.len() != value.len() {
+                    if letters.len() != value.len() {
                         continue;
                     }
                     Some(letters)
@@ -355,10 +375,18 @@ pub(crate) fn render_dynamics(
         };
 
         let codepoints = match resolved {
-            Some(cps) => cps,
+            Some(cps) => consolidate_dynamic_letters(cps),
             None => continue,
         };
-        let explicit_glyphs = dyn_mark.glyphs.is_some();
+        let standard_codepoints = smufl::dynamics_glyph(&value)
+            .map(|codepoint| vec![codepoint])
+            .unwrap_or_else(|| {
+                value
+                    .chars()
+                    .filter_map(smufl::dynamics_letter_glyph)
+                    .collect()
+            });
+        let custom_geometry = dyn_mark.glyphs.is_some() && codepoints != standard_codepoints;
 
         // Convert fractional position to beat position, then to x coordinate
         let beat = dyn_mark.position.beats();
@@ -366,10 +394,10 @@ pub(crate) fn render_dynamics(
         // Center the dynamic on the actual notehead, whose width depends on the
         // note value (whole noteheads are wider than black/half noteheads).
         let (run_left_sp, run_width_sp, optical_center_sp) =
-            if explicit_glyphs && codepoints.len() == 1 {
+            if custom_geometry && codepoints.len() == 1 {
                 let (x, _, width, _) = smufl::glyph_bbox(codepoints[0]);
                 (x, width, x + width * 0.5)
-            } else if explicit_glyphs {
+            } else if custom_geometry {
                 let width = codepoints
                     .iter()
                     .map(|codepoint| smufl::glyph_bbox(*codepoint).2 + 0.1)
@@ -564,12 +592,16 @@ pub(crate) fn render_dynamics(
                     Some(u) => u.union(&letter_bbox),
                     None => letter_bbox,
                 });
-                let advance = if let Some(ch) = chars.get(j) {
+                let advance = if custom_geometry {
+                    smufl::glyph_bbox(cp).2 * sp
+                } else if let Some(ch) = chars.get(j) {
                     smufl::dynamics_letter_width(*ch) * sp
                 } else {
                     smufl::glyph_bbox(cp).2 * sp
                 };
-                let kern = if let (Some(a), Some(b)) = (chars.get(j), chars.get(j + 1)) {
+                let kern = if custom_geometry {
+                    0.1 * sp
+                } else if let (Some(a), Some(b)) = (chars.get(j), chars.get(j + 1)) {
                     smufl::dynamics_kern_pair(*a, *b) * sp
                 } else {
                     0.1 * sp

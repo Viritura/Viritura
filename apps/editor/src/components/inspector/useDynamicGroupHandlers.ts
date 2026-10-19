@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { refreshDynamicGlyphs } from "@viritura/core";
 import type {
   DynamicGroup,
   DynamicPrefix,
@@ -38,8 +39,9 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
   const handleDynamicValueChange = useCallback(
     (value: DynamicValue | undefined) =>
       updateSelectedDynamic((dynamic) => {
-        if (value === undefined && dynamic.type === "gradual") delete dynamic.value;
+        if (value === undefined && (dynamic.type === "gradual" || dynamic.type === "relative")) delete dynamic.value;
         else if (value !== undefined) dynamic.value = value;
+        refreshDynamicGlyphs(dynamic);
       }),
     [updateSelectedDynamic],
   );
@@ -48,6 +50,7 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
       updateSelectedDynamic((dynamic) => {
         if (value === undefined) delete dynamic.residualValue;
         else dynamic.residualValue = value;
+        refreshDynamicGlyphs(dynamic);
       }),
     [updateSelectedDynamic],
   );
@@ -57,6 +60,7 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
         // "s" is the MNX default, so it is never written out.
         if (value === "s") delete dynamic.accentPrefix;
         else dynamic.accentPrefix = value;
+        refreshDynamicGlyphs(dynamic);
       }),
     [updateSelectedDynamic],
   );
@@ -66,6 +70,7 @@ export function useDynamicGroupHandlers(updateSelectedDynamic: UpdateSelectedDyn
         // "z" is the MNX default, so it is never written out.
         if (value === "z") delete dynamic.accentSuffix;
         else dynamic.accentSuffix = value;
+        refreshDynamicGlyphs(dynamic);
       }),
     [updateSelectedDynamic],
   );

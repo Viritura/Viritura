@@ -115,12 +115,24 @@ function displayGlyphs(spelling: string): string[] | undefined {
   return glyphs.length === spelling.length ? glyphs : undefined;
 }
 
-function explicitDisplayGlyphs(spelling: string): string[] | undefined {
+export function glyphsForDynamicSpelling(spelling: string): string[] | undefined {
   const precomposed = PRECOMPOSED_GLYPHS[spelling];
   if (precomposed) return [precomposed];
   const standard = STANDARD_VALUE_GLYPHS[spelling as DynamicValue];
   if (standard) return [standard];
   return displayGlyphs(spelling);
+}
+
+/** Match engraving's precomposed appearance without changing the stored glyphs. */
+export function consolidateDynamicGlyphs(glyphs: readonly string[]): string[] {
+  let spelling = "";
+  for (const glyph of glyphs) {
+    const letter = Object.entries(LETTER_GLYPHS).find(([, name]) => name === glyph)?.[0];
+    if (letter === undefined) return [...glyphs];
+    spelling += letter;
+  }
+  const consolidated = glyphsForDynamicSpelling(spelling);
+  return consolidated?.length === 1 ? consolidated : [...glyphs];
 }
 
 /** Structural decomposition of an accent spelling such as `sfz`, `rf`, or `fp`. */
@@ -178,19 +190,21 @@ export function accentSpelling(
 export function dynamicSpelling(group: DynamicGroup): string {
   if (group.type === "accent") return accentSpelling(group);
   if (group.value !== undefined) return group.value;
-  if (group.relativeValue === "louder") return "f";
-  if (group.relativeValue === "softer") return "p";
   return "";
 }
 
 /**
  * Build an MNX dynamic group from an authored dynamic spelling.
  *
- * Accents are encoded structurally (`accentPrefix` / `value` / `residualValue` /
- * `accentSuffix`) rather than as a glyph list, so the spelling round-trips
- * without an override. The engine derives the SMuFL glyphs from those parts.
+ * Store musical semantics alongside the preferred explicit appearance.
  */
-export function createDynamicGroup(spelling: string, position: RhythmicPosition, id = generateId()): DynamicGroup {
+export function createDynamicGroup(
+  spelling: string,
+  position: RhythmicPosition,
+  id = generateId(),
+  appearance: "explicit" | "automatic" = "explicit",
+): DynamicGroup {
+  const glyphs = appearance === "explicit" ? glyphsForDynamicSpelling(spelling) : displayGlyphs(spelling);
   const parts = isAccentSpelling(spelling) ? accentParts(spelling) : undefined;
   if (parts) {
     const { accentPrefix, value, residualValue, accentSuffix } = parts;
@@ -203,15 +217,15 @@ export function createDynamicGroup(spelling: string, position: RhythmicPosition,
       // Only record affixes that differ from the "sfz" defaults.
       ...(accentPrefix === "s" ? {} : { accentPrefix }),
       ...(accentSuffix === "z" ? {} : { accentSuffix }),
+      ...(glyphs ? { glyphs } : {}),
     };
   }
 
   const value = semanticValue(spelling);
-  const glyphs = displayGlyphs(spelling);
   return { id, type: "immediate", position, value, ...(glyphs ? { glyphs } : {}) };
 }
 
-/** Build a schema-19 relative group while preserving its written dynamic glyph. */
+/** Build a relative group with its printed marking and explicit appearance. */
 export function createRelativeDynamicGroup(
   spelling: string,
   relativeValue: RelativeDynamicValue,
@@ -219,13 +233,25 @@ export function createRelativeDynamicGroup(
   prefix?: string,
   id = generateId(),
 ): DynamicGroup {
-  const glyphs = explicitDisplayGlyphs(spelling);
+  const glyphs = glyphsForDynamicSpelling(spelling);
   return {
     id,
     type: "relative",
     position,
     relativeValue,
+    value: semanticValue(spelling),
     ...(glyphs ? { glyphs } : {}),
     ...(prefix ? { prefix } : {}),
   };
+}
+
+/** Refresh appearance only after an intentional edit to the printed marking. */
+export function refreshDynamicGlyphs(group: DynamicGroup): void {
+  if (group.value === undefined) {
+    delete group.glyphs;
+    return;
+  }
+  const glyphs = glyphsForDynamicSpelling(dynamicSpelling(group));
+  if (glyphs) group.glyphs = glyphs;
+  else delete group.glyphs;
 }

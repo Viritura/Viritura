@@ -1,11 +1,11 @@
 # Dynamics — Storage, Engraving, and Playback
 
 Canonical reference for how Viritura stores, engraves, edits, and plays
-dynamics. Dynamics are standard MNX `dynamic-group` objects; Viritura defines
+dynamics. Dynamics are standard MNX dynamic-group variants; Viritura defines
 no separate hairpin storage.
 
-> **Upstream baseline:** `w3c/mnx@e41322cb9794d7e1dd5e25e9f4475a847d114f1b`
-> (schema 19, 2026-06-16). `mnx.version` remains `1` — the project follows the
+> **Upstream baseline:** `w3c-cg/mnx@f2a9b5b9864f3c9bfdc74380ff2a760f74c7ce54`
+> (schema 46, 2026-10-14). `mnx.version` remains `1` — the project follows the
 > single rolling-draft policy.
 
 ## 1. Storage
@@ -18,7 +18,7 @@ The four standard group types are:
 
 | Type        | Notated as                           | Required fields    |
 | ----------- | ------------------------------------ | ------------------ |
-| `immediate` | `p`, `mf`, `fff`, `fp`, …            | `value`            |
+| `immediate` | `p`, `mf`, `fff`, …                  | `value`            |
 | `gradual`   | cresc./dim. wedges and `cresc.` text | `end`, `wedgeType` |
 | `relative`  | `più p`, `più f`                     | `relativeValue`    |
 | `accent`    | `sf`, `sfz`, `fz`, `rfz`, …          | `value`            |
@@ -27,53 +27,16 @@ The four standard group types are:
 
 ### 2.1 TypeScript
 
-```ts
-export type DynamicGroupType = "immediate" | "gradual" | "relative" | "accent";
-export type DynamicValue = "ppp" | "pp" | "p" | "mp" | "mf" | "f" | "ff" | "fff" | "n";
-export type RelativeDynamicValue = "louder" | "softer";
-export type WedgeType = "increasing" | "decreasing";
-export type MultiStaffPlacement = "above" | "auto" | "below" | "between";
-
-interface DynamicGroupBase {
-  id: string;
-  type: DynamicGroupType;
-  position: RhythmicPosition;
-
-  // Schema-defined optional attributes. The variants below refine which are
-  // required; parse/serialize preserves any schema-valid optional attribute.
-  value?: DynamicValue;
-  attackValue?: DynamicValue;
-  end?: MeasureRhythmicPosition;
-  glyphs?: string[];
-  placement?: MultiStaffPlacement;
-  prefix?: string;
-  relativeValue?: RelativeDynamicValue;
-  staff?: number;
-  suffix?: string;
-  voice?: string;
-  wedgeType?: WedgeType;
-
-  // _x.viritura on this dynamic-group object.
-  manualOffset?: [number, number];
-  avoidCollisions?: boolean;
-}
-
-export type DynamicGroup =
-  | (DynamicGroupBase & { type: "immediate"; value: DynamicValue })
-  | (DynamicGroupBase & {
-      type: "gradual";
-      end: MeasureRhythmicPosition;
-      wedgeType: WedgeType;
-    })
-  | (DynamicGroupBase & { type: "relative"; relativeValue: RelativeDynamicValue })
-  | (DynamicGroupBase & { type: "accent"; value: DynamicValue });
-```
+The canonical `DynamicGroup` union and associated value/placement types live
+in [the measure model](../../packages/core/src/model/measure.ts).
+Generated raw types mirror the four upstream variants; handwritten format
+boundaries preserve their variant-specific fields and metadata.
 
 `PartMeasure.dynamics?: DynamicGroup[]` is the only dynamics collection.
 
 ### 2.2 Rust
 
-`raw::DynamicGroup` mirrors the upstream schema.
+Generated raw dynamic variants mirror the upstream schema.
 [`model::DynamicGroup`](../../engine/viritura-engine/src/model/direction.rs) is
 the promoted form: the `type` discriminator plus the shared attribute payload,
 `manual_offset` / `avoid_collisions` hoisted out of `_x.viritura`, and a
@@ -85,8 +48,8 @@ not introduce a second translation vocabulary such as `kind`.
 
 ## 3. Semantic validation
 
-The upstream JSON Schema requires only `position` and `type`; its reference
-prose imposes more. Parsers in both languages additionally enforce:
+The upstream JSON Schema defines separate variants with their required and
+allowed properties. Validation and promotion enforce:
 
 - `immediate` and `accent` require `value`;
 - `gradual` requires `end` and `wedgeType`;
@@ -96,42 +59,64 @@ prose imposes more. Parsers in both languages additionally enforce:
 - each glyph name resolves through the supported SMuFL metadata;
 - group IDs are unique.
 
-An empty `glyphs` array is accepted while upstream allows it, but Viritura
-omits it when serializing. These are format diagnostics: invalid input is
+An empty `glyphs` array explicitly suppresses printed dynamic symbols and
+must remain distinct from omission on save. Prefix/suffix text can still
+appear. These are format diagnostics: invalid input is
 reported rather than guessed into another variant.
 
 ## 4. Encoding policy
 
 ### 4.1 Common markings
 
-- `p`, `mf`, `fff`: `immediate` with the corresponding `value`.
-- `fp`: `immediate`, `attackValue: "f"`, `value: "p"`.
+- `p`, `mf`, `fff`: `immediate` with the corresponding `value` and preferred
+  explicit glyph when authored through the UI.
+- `fp`: `accent`, `value: "f"`, `residualValue: "p"`, empty accent prefix/suffix,
+  and the explicit forte-piano glyph.
 - Crescendo / diminuendo: `gradual` with `wedgeType` and `end`.
 - `p < f`: a gradual group with `value: "p"`, plus a separate immediate `f`
   exactly at `end`.
 - `più p` / `più f`: `relative` with `relativeValue` and suitable
-  `prefix`/`glyphs`.
+  `prefix`, optional printed `value`, and preferred explicit `glyphs`.
 - `sfz`: `accent`, `value: "f"`, and explicit `glyphs` when exact spelling
   matters.
 - Niente: `value: "n"` at the start or endpoint dictated by the musical
   meaning.
 
-### 4.2 Spellings outside the schema enum
+### 4.2 Semantics and appearance
 
-Schema 19 restricts semantic `value` to `ppp`–`fff` plus `n`. Richer printed
-spellings use standard semantics plus explicit SMuFL presentation, never a
-non-standard `value` string:
+Semantic `value` includes `pppppp` through `ffffff`, the mezzo levels and
+`n`; it is not a freeform string. Accents also encode prefix, suffix and
+residual level structurally. Explicit SMuFL presentation does not replace
+those musical fields.
 
-- `pppp`…`pppppp` → `value: "ppp"` with `glyphs` spelling the authored letters;
-- `ffff`…`ffffff` → `value: "fff"` with explicit `glyphs`;
-- `sf`, `sfz`, `sffz`, `fz`, `rf`, `rfz` → `accent` with a standard `value` for
-  the accent strength and explicit `glyphs`;
-- `fp`, `sfp`, `sfpp` → `attackValue` + `value`, with `glyphs` only to
-  distinguish the printed spelling.
+- UI-created markings prefer a precomposed glyph or supported glyph sequence
+  alongside the semantic fields.
+- Imported semantic-only marks use automatic glyph selection. Explicit
+  sequences spelling a recognized dynamic consolidate to its precomposed
+  glyph during engraving, without changing the stored sequence. Other custom
+  sequences retain their explicit symbols. An equivalent
+  explicit precomposed glyph uses the same placement as automatic rendering.
+- MusicXML and MuseScore clipboard readers retain automatic standard
+  markings rather than imposing the UI authoring preference. Clipboard export
+  accepts equivalent explicit standard glyphs, including gradual starts, and
+  reports unsupported custom appearances instead of silently discarding them.
+- Unedited open/save retains glyph presence/absence and sequence. Unrelated
+  edits do not impose Viritura's authoring preference on imported data.
+- An explicitly empty glyph list suppresses the printed musical symbols,
+  while an absent list selects automatic appearance. Affixes and gradual
+  wedges remain visible independently.
+- Deliberately changing a printed marking refreshes its glyphs together with
+  its semantic fields; changing placement or text does not.
+- Existing musical marking choices keep values and preferred glyphs in sync.
+  The inspector does not expose glyph arrays or independent appearance editing;
+  imported overrides remain transparent to users.
+- A gradual group's glyphs display its optional starting marking; they do
+  not replace the wedge. Relative groups without a printed value or explicit
+  glyphs do not acquire an invented p/f marking.
 
-Playback reads `type`, `value`, `attackValue`, `relativeValue`, and gradual
-endpoints; it never infers semantics from `glyphs`. So `pppp` plays
-interoperably as `ppp` while its notation stays exact.
+Playback reads variant semantics and gradual endpoints, never glyph names.
+The optional printed value of a relative group does not replace its
+louder/softer performance instruction.
 
 ## 5. Vendor extensions
 
@@ -176,9 +161,9 @@ Storage unifies; the UX keeps the visual distinction:
   concepts, with element IDs `p{part}/m{measure}/dyn{groupId}` and
   `p{part}/m{measure}/hairpin{groupId}`.
 
-The inspector exposes variant-appropriate fields — value/attack value/glyph
-override/affixes for immediate and accent, direction/endpoint/optional start
-value/orientation for gradual, louder-softer plus affixes for relative, and
+The inspector exposes variant-appropriate fields — value/residual value/
+affixes for immediate and accent, direction/endpoint/optional start
+value/orientation for gradual, louder-softer and affixes for relative, and
 staff, voice, orientation, manual placement, and collision pinning for all.
 
 ### 6.3 Clipboard

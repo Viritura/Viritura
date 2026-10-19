@@ -68,6 +68,53 @@ function exported(selection: MuseScoreClipboardWriteInput): Document {
 }
 
 describe("MuseScore writer annotation review", () => {
+  it.each([
+    { value: "fff", glyphs: ["dynamicForte", "dynamicForte", "dynamicForte"] },
+    { value: "mf", glyphs: ["dynamicMezzo", "dynamicForte"] },
+    { value: "pp", glyphs: ["dynamicPiano", "dynamicPiano"] },
+  ] as const)("exports equivalent repeated-letter $value without mutating the source", ({ value, glyphs }) => {
+    const dynamic = mf();
+    dynamic.dynamic.value = value;
+    dynamic.dynamic.glyphs = [...glyphs];
+    const document = exported(selection({ dynamics: [dynamic] }));
+    expect(document.querySelector("Dynamic subtype")?.textContent).toBe(value);
+    expect(dynamic.dynamic.glyphs).toEqual(glyphs);
+  });
+
+  it("exports standard explicitly authored dynamic glyphs without changing their appearance", () => {
+    const dynamic = mf();
+    dynamic.dynamic.glyphs = ["dynamicMF"];
+    const document = exported(selection({ dynamics: [dynamic] }));
+    expect(document.querySelector("Dynamic subtype")?.textContent).toBe("mf");
+  });
+
+  it.each([{ glyphs: [] }, { glyphs: ["dynamicForte"] }, { glyphs: ["dynamicForte", "dynamicPiano", "dynamicForte"] }])(
+    "reports unsupported custom appearance $glyphs instead of losing it",
+    ({ glyphs }) => {
+      const dynamic = mf();
+      dynamic.dynamic.glyphs = glyphs;
+      expect(writeMuseScoreStaffList(selection({ dynamics: [dynamic] }))).toMatchObject({
+        xml: null,
+        warning: expect.stringContaining("custom dynamic glyph appearance"),
+      });
+    },
+  );
+
+  it("exports a gradual start's standard explicit glyph alongside its wedge", () => {
+    const captured = mf();
+    captured.dynamic = {
+      ...captured.dynamic,
+      type: "gradual",
+      glyphs: ["dynamicMezzo", "dynamicForte"],
+      wedgeType: "increasing",
+      end: { measure: "m", position: { fraction: [1, 4] } },
+    };
+    captured.endOffset = [1, 4];
+    const document = exported(selection({ dynamics: [captured] }));
+    expect(document.querySelector("Dynamic subtype")?.textContent).toBe("mf");
+    expect(document.querySelector("HairPin")).not.toBeNull();
+  });
+
   it("does not move an uncopied upper-staff harmony onto selected lower-staff notes", () => {
     const result = writeMuseScoreStaffList(
       selection({
