@@ -30,6 +30,7 @@ runbooks.
 - **Working on read-only score sharing:** read [plans/read-only-sharing.md](plans/read-only-sharing.md), [spec/auth.md](spec/auth.md), and [plans/production-infrastructure.md](plans/production-infrastructure.md).
 - **Working on the engine or layout:** [spec/data-model-pipeline.md](spec/data-model-pipeline.md), the performance [single source of truth](plans/performance-architecture.md), and the target-achieved/current-follow-ups [60 FPS incremental-layout plan](plans/sixty-fps-incremental-layout.md).
 - **Working on MNX parsing/serialization:** [spec/music-notationref-coverage.md](spec/music-notationref-coverage.md), [spec/viritura-extensions.md](spec/viritura-extensions.md), [spec/mnx-converter-coverage.md](spec/mnx-converter-coverage.md), [spec/dynamics.md](spec/dynamics.md).
+- **Implementing the MNX v40 to v46 upgrade:** [plans/mnx-v46-end-to-end-support.md](plans/mnx-v46-end-to-end-support.md) defines v46-only delivery, repository asset migration and the stacked PR sequence.
 - **Working on the editor UI:** [spec/engrave-mode.md](spec/engrave-mode.md), [spec/keyboard-shortcuts.md](spec/keyboard-shortcuts.md), [plans/score-and-parts.md](plans/score-and-parts.md).
 - **Working on external MCP integration:** [spec/mcp-integration.md](spec/mcp-integration.md).
 - **Working on film/video scoring:** [plans/video-sync.md](plans/video-sync.md) — native Picture-in-Picture, shared transport synchronization, and the boundary between Video Reference and Advanced Scoring to Picture.
