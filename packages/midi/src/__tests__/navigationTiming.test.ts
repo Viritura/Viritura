@@ -37,6 +37,39 @@ function navigationScore(): Score {
 }
 
 describe("location-aware navigation timing", () => {
+  it("clips a sounding note at a mid-measure jump instead of leaking into replay", () => {
+    const score = navigationScore();
+    score.parts[0]!.measures[3]!.sequences[0]!.content = [
+      {
+        id: "long",
+        type: "event",
+        duration: { base: "whole" },
+        notes: [{ id: "long-note", pitch: { step: "G", octave: 4 } }],
+      },
+    ];
+    const timeline = generateTimeline(score);
+    const onset = timeline.events.find((event) => event.type === "noteOn" && event.scoreEventId === "long");
+    expect(onset).toBeDefined();
+    const release = timeline.events.find(
+      (event) => event.type === "noteOff" && event.midiNote === onset!.midiNote && event.time > onset!.time,
+    );
+    expect(release?.time).toBeCloseTo(7.5);
+    const native = generatePerformanceEvents(score, 0).find(
+      (event) => event.kind === "noteOn" && event.note.id === "long-note",
+    );
+    expect(native?.kind === "noteOn" && native.note.duration).toBeCloseTo(1.5);
+  });
+
+  it("restores destination tempo after replaying an earlier score position", () => {
+    const score = navigationScore();
+    score.global.measures[2]!.tempos = [{ bpm: 60, value: { base: "quarter" } }];
+    const timeline = generateTimeline(score);
+    expect(timeline.duration).toBeCloseTo(14.5);
+    const replayStart = timeline.measureStartBeats[4]!;
+    expect(timeline.model.bpmAtBeat(replayStart)).toBe(120);
+    expect(timeline.model.bpmAtBeat(timeline.measureStartBeats[5]!)).toBe(60);
+  });
+
   it("plays only the selected measure spans with consistent MIDI and performance duration", () => {
     const score = navigationScore();
     const timeline = generateTimeline(score);
