@@ -4,7 +4,9 @@
 //! gets a placeholder C4 pitch (callers know to look at `kit_component`).
 
 use crate::model::event::{Note as ModelNote, Written as ModelWritten};
-use crate::model::note_markings::NoteMarkings as ModelNoteMarkings;
+use crate::model::note_markings::{
+    NoteMarkings as ModelNoteMarkings, SlideInMarking, SlideOutMarking,
+};
 use crate::model::pitch::Pitch as ModelPitch;
 use crate::promote::articulation::{promote_accidental_display, promote_tie};
 use crate::promote::kit::{parse_notehead_shape, promote_perform_options};
@@ -43,23 +45,37 @@ pub(crate) fn promote_note(r: raw::Note) -> ModelNote {
         kit_component: None,
         perform: r.perform.map(promote_perform_options),
         notehead,
-        markings: None,
+        markings: r.markings.map(promote_note_markings),
         source_part_index: None,
         source_event_id: None,
         source_note_index: None,
     }
 }
 
-pub(crate) fn promote_note_with_markings(
-    r: raw::Note,
-    note_json: Option<&serde_json::Value>,
-) -> ModelNote {
-    let mut note = promote_note(r);
-    note.markings = note_json
-        .and_then(|json| json.get("markings"))
-        .and_then(|value| serde_json::from_value::<ModelNoteMarkings>(value.clone()).ok())
-        .filter(|markings| markings.slide_in.is_some() || markings.slide_out.is_some());
-    note
+fn promote_note_markings(markings: raw::NoteMarkings) -> ModelNoteMarkings {
+    ModelNoteMarkings {
+        id: markings.id.map(String::from),
+        comment: markings.c.map(String::from),
+        vendor_extensions: markings
+            .x
+            .and_then(|extensions| serde_json::to_value(extensions).ok()),
+        slide_in: markings.slide_in.map(|marking| SlideInMarking {
+            type_: marking.type_,
+            id: marking.id.map(String::from),
+            comment: marking.c.map(String::from),
+            vendor_extensions: marking
+                .x
+                .and_then(|extensions| serde_json::to_value(extensions).ok()),
+        }),
+        slide_out: markings.slide_out.map(|marking| SlideOutMarking {
+            type_: marking.type_,
+            id: marking.id.map(String::from),
+            comment: marking.c.map(String::from),
+            vendor_extensions: marking
+                .x
+                .and_then(|extensions| serde_json::to_value(extensions).ok()),
+        }),
+    }
 }
 
 pub(crate) fn promote_kit_note_to_note(r: raw::KitNote) -> ModelNote {
@@ -109,22 +125,27 @@ mod tests {
 
     #[test]
     fn promotes_note_scoped_slide_markings_and_metadata() {
-        let note_json = serde_json::json!({
-            "markings": {
-                "slideIn": {
-                    "type": "scoop",
-                    "id": "mark1",
-                    "_c": "phrase pickup",
-                    "_x": {"viritura": {"source": "editor"}}
-                },
-                "slideOut": {"type": "doit"}
-            }
-        });
-        let raw_note: raw::Note =
-            serde_json::from_str(r#"{"id":"n1","pitch":{"step":"E","octave":4}}"#).unwrap();
+        let raw_note: raw::Note = serde_json::from_str(
+            r#"{
+                "id":"n1",
+                "pitch":{"step":"E","octave":4},
+                "markings":{
+                    "id":"container",
+                    "slideIn": {
+                        "type": "scoop",
+                        "id": "mark1",
+                        "_c": "phrase pickup",
+                        "_x": {"viritura": {"source": "editor"}}
+                    },
+                    "slideOut": {"type": "doit"}
+                }
+            }"#,
+        )
+        .unwrap();
 
-        let promoted = promote_note_with_markings(raw_note, Some(&note_json));
+        let promoted = promote_note(raw_note);
         let markings = promoted.markings.expect("note markings are promoted");
+        assert_eq!(markings.id.as_deref(), Some("container"));
         let slide_in = markings.slide_in.expect("slideIn is promoted");
         assert_eq!(
             slide_in.type_,

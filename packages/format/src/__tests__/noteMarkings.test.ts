@@ -15,6 +15,7 @@ const scoreWithNoteMarkings = {
             {
               content: [
                 {
+                  type: "event",
                   id: "ev0",
                   duration: { base: "quarter" },
                   notes: [
@@ -24,7 +25,7 @@ const scoreWithNoteMarkings = {
                       pitch: { step: "E", octave: 4 },
                       markings: {
                         slideIn: { type: "plop", _c: "upward approach" },
-                        slideOut: { type: "falloff", _x: { custom: "retained" } },
+                        slideOut: { type: "falloff", _x: { custom: { retained: true } } },
                       },
                     },
                     { id: "n2", pitch: { step: "G", octave: 4 }, markings: { slideOut: { type: "doit" } } },
@@ -51,7 +52,7 @@ describe("MNX note markings", () => {
       { slideIn: { type: "scoop", id: "s0" } },
       {
         slideIn: { type: "plop", _c: "upward approach" },
-        slideOut: { type: "falloff", _x: { custom: "retained" } },
+        slideOut: { type: "falloff", _x: { custom: { retained: true } } },
       },
       { slideOut: { type: "doit" } },
     ]);
@@ -66,6 +67,6 @@ describe("MNX note markings", () => {
   it("rejects invalid slide types at the validated boundary", () => {
     const invalid = structuredClone(scoreWithNoteMarkings);
     invalid.parts[0]!.measures[0]!.sequences[0]!.content[0]!.notes[0]!.markings!.slideIn!.type = "glissando";
-    expect(() => parseMnx(invalid)).toThrow(/type must be one of scoop, plop/);
+    expect(() => parseMnx(invalid)).toThrow(/must be equal to one of the allowed values/);
   });
 });

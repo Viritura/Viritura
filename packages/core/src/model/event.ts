@@ -17,6 +17,9 @@ import type {
   BowDirection as RawBowDirection,
   Fermata as RawFermata,
   Arpeggio as RawArpeggio,
+  NoteMarkings as RawNoteMarkings,
+  SlideIntoNote as RawSlideIntoNote,
+  SlideOutOfNote as RawSlideOutOfNote,
 } from "../raw";
 import type { Pitch } from "./pitch";
 import type { KitNote, NoteheadShape } from "./kit";
@@ -71,37 +74,22 @@ export type Written = RawWritten;
  * notehead for a single pitched note (e.g. a diamond harmonic inside an
  * otherwise normal chord). Stored per-note because chords mix noteheads.
  */
-export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }> & {
-  /** MNX note-attached slides, independent of event/chord markings. */
-  markings?: NoteMarkings;
-};
+export type Note = HoistVendor<Narrow<RawNote, { pitch: Pitch }>, { notehead?: NoteheadShape }>;
 
-/** MNX slide-in type. These are notation marks, not timed playback curves. */
-export type SlideInType = "scoop" | "plop";
+/** MNX-generated slide-in type; these are notation marks, not timed playback curves. */
+export type SlideInType = RawSlideIntoNote["type"];
 
-/** MNX slide-out type. These are notation marks, not timed playback curves. */
-export type SlideOutType = "falloff" | "doit";
+/** MNX-generated slide-out type; these are notation marks, not timed playback curves. */
+export type SlideOutType = RawSlideOutOfNote["type"];
 
-/** Metadata shared by the two note-level slide markings. */
-export interface NoteSlideMetadata {
-  id?: string;
-  _c?: string;
-  _x?: Record<string, unknown>;
-}
+/** MNX-generated note slide-in object, including schema global attributes. */
+export type SlideInMarking = RawSlideIntoNote;
 
-export interface SlideInMarking extends NoteSlideMetadata {
-  type: SlideInType;
-}
+/** MNX-generated note slide-out object, including schema global attributes. */
+export type SlideOutMarking = RawSlideOutOfNote;
 
-export interface SlideOutMarking extends NoteSlideMetadata {
-  type: SlideOutType;
-}
-
-/** Native MNX markings attached to one note, never to its containing chord. */
-export interface NoteMarkings {
-  slideIn?: SlideInMarking;
-  slideOut?: SlideOutMarking;
-}
+/** MNX-generated note-attached markings, distinct from event articulations. */
+export type NoteMarkings = RawNoteMarkings;
 
 /** Staccato marking. Derived from MNX raw `staccato`. */
 export type Staccato = RawStaccato;

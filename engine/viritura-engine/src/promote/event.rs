@@ -22,7 +22,7 @@ use crate::model::event::{
 };
 use crate::promote::articulation::{promote_fermata, promote_markings, promote_placement};
 use crate::promote::duration::promote_duration;
-use crate::promote::note::{promote_kit_note_to_note, promote_note_with_markings};
+use crate::promote::note::{promote_kit_note_to_note, promote_note};
 use crate::promote::slur::promote_slur;
 use crate::promote::vendor_directions::extract_event_glissandos;
 use crate::promote::PromoteError;
@@ -128,30 +128,14 @@ pub(crate) fn promote_grace_type(r: raw::GraceType) -> ModelGraceType {
 
 // ─── Event ────────────────────────────────────────────────────────────
 
-pub(crate) fn promote_event_with_json(
-    r: raw::Event,
-    event_json: Option<&serde_json::Value>,
-) -> Result<ModelEvent, PromoteError> {
+pub(crate) fn promote_event(r: raw::Event) -> Result<ModelEvent, PromoteError> {
     // Top-level glissandos win; fall back to _x.viritura.glissandos.
     let vendor_glissandos: Option<Vec<ModelGlissando>> = extract_event_glissandos(r.x.as_ref());
 
-    let notes: Vec<ModelNote> = {
-        let note_json = event_json
-            .and_then(|json| json.get("notes"))
-            .and_then(serde_json::Value::as_array);
-        let mut all = r
-            .notes
-            .into_iter()
-            .enumerate()
-            .map(|(index, note)| {
-                promote_note_with_markings(note, note_json.and_then(|notes| notes.get(index)))
-            })
-            .collect::<Vec<_>>();
-        for kit_note in r.kit_notes {
-            all.push(promote_kit_note_to_note(kit_note));
-        }
-        all
-    };
+    let mut notes: Vec<ModelNote> = r.notes.into_iter().map(promote_note).collect();
+    for kit_note in r.kit_notes {
+        notes.push(promote_kit_note_to_note(kit_note));
+    }
     let notes = if notes.is_empty() { None } else { Some(notes) };
     let slurs = r.slurs.into_iter().map(promote_slur).collect::<Vec<_>>();
 
@@ -170,20 +154,11 @@ pub(crate) fn promote_event_with_json(
     })
 }
 
-pub(crate) fn promote_grace_with_json(
-    r: raw::Grace,
-    grace_json: &serde_json::Value,
-) -> Result<ModelGrace, PromoteError> {
-    let event_json = grace_json
-        .get("content")
-        .and_then(serde_json::Value::as_array);
+pub(crate) fn promote_grace(r: raw::Grace) -> Result<ModelGrace, PromoteError> {
     let content = r
         .content
         .into_iter()
-        .enumerate()
-        .map(|(index, event)| {
-            promote_event_with_json(event, event_json.and_then(|events| events.get(index)))
-        })
+        .map(promote_event)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ModelGrace {
         content,
@@ -234,20 +209,13 @@ pub(crate) fn promote_tuplet(
     })
 }
 
-pub(crate) fn promote_multi_note_tremolo_with_json(
+pub(crate) fn promote_multi_note_tremolo(
     r: raw::MultiNoteTremolo,
-    tremolo_json: &serde_json::Value,
 ) -> Result<ModelMultiNoteTremolo, PromoteError> {
-    let event_json = tremolo_json
-        .get("content")
-        .and_then(serde_json::Value::as_array);
     let content = r
         .content
         .into_iter()
-        .enumerate()
-        .map(|(index, event)| {
-            promote_event_with_json(event, event_json.and_then(|events| events.get(index)))
-        })
+        .map(promote_event)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ModelMultiNoteTremolo {
         content,
@@ -305,13 +273,13 @@ pub(crate) fn promote_sequence_content_item(
             let t: raw::MultiNoteTremolo = serde_json::from_value(v.clone())
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("tremolo: {e}")))?;
             Ok(ModelSequenceContent::MultiNoteTremolo(
-                promote_multi_note_tremolo_with_json(t, &v)?,
+                promote_multi_note_tremolo(t)?,
             ))
         }
         Some("grace") => {
             let g: raw::Grace = serde_json::from_value(v.clone())
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("grace: {e}")))?;
-            Ok(ModelSequenceContent::Grace(promote_grace_with_json(g, &v)?))
+            Ok(ModelSequenceContent::Grace(promote_grace(g)?))
         }
         Some("space") => {
             let s: raw::Space = serde_json::from_value(v)
@@ -323,10 +291,7 @@ pub(crate) fn promote_sequence_content_item(
             // value that typify treats as optional).
             let e: raw::Event = serde_json::from_value(v.clone())
                 .map_err(|e| PromoteError::UnsupportedNoteValueBase(format!("event: {e}")))?;
-            Ok(ModelSequenceContent::Event(promote_event_with_json(
-                e,
-                Some(&v),
-            )?))
+            Ok(ModelSequenceContent::Event(promote_event(e)?))
         }
     }
 }
@@ -374,7 +339,7 @@ mod tests {
             "notes": [{"pitch":{"step":"C","octave":4}}]
         }"#;
         let r: raw::Event = serde_json::from_str(json).unwrap();
-        let e = promote_event_with_json(r, None).unwrap();
+        let e = promote_event(r).unwrap();
         assert!(e.notes.is_some());
         assert!(!e.is_rest());
     }
@@ -383,7 +348,7 @@ mod tests {
     fn promotes_rest_event() {
         let json = r#"{"duration":{"base":"quarter"},"rest":{}}"#;
         let r: raw::Event = serde_json::from_str(json).unwrap();
-        let e = promote_event_with_json(r, None).unwrap();
+        let e = promote_event(r).unwrap();
         assert!(e.is_rest());
     }
 

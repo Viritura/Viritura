@@ -13,6 +13,8 @@ import type {
   Tempo,
   NoteEvent,
   Note,
+  SlideInMarking,
+  SlideOutMarking,
   KitNote,
   Sequence,
   SequenceContent,
@@ -755,6 +757,9 @@ function serializeNote(n: Note): Obj {
   }
   if (n.markings) {
     const markings: Obj = {};
+    if (n.markings.id !== undefined) markings["id"] = n.markings.id;
+    if (n.markings._c !== undefined) markings["_c"] = n.markings._c;
+    if (n.markings._x !== undefined) markings["_x"] = n.markings._x;
     if (n.markings.slideIn) markings["slideIn"] = serializeNoteSlide(n.markings.slideIn);
     if (n.markings.slideOut) markings["slideOut"] = serializeNoteSlide(n.markings.slideOut);
     if (Object.keys(markings).length > 0) nObj["markings"] = markings;
@@ -766,7 +771,7 @@ function serializeNote(n: Note): Obj {
   return nObj;
 }
 
-function serializeNoteSlide(marking: { type: string; id?: string; _c?: string; _x?: Record<string, unknown> }): Obj {
+function serializeNoteSlide(marking: SlideInMarking | SlideOutMarking): Obj {
   const result: Obj = { type: marking.type };
   if (marking.id !== undefined) result["id"] = marking.id;
   if (marking._c !== undefined) result["_c"] = marking._c;

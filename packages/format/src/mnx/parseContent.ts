@@ -14,7 +14,6 @@
 import type {
   NoteEvent,
   Note,
-  NoteMarkings,
   KitNote,
   Sequence,
   Duration,
@@ -480,23 +479,9 @@ function parseNote(raw: RawNote): Note {
   const viritura = raw._x?.["viritura"] as RawNoteExt | undefined;
   if (viritura?.notehead) note.notehead = viritura.notehead;
 
-  const noteMarkings = (raw as RawNote & { markings?: NoteMarkings }).markings;
-  if (noteMarkings) {
-    const markings: NoteMarkings = {};
-    if (noteMarkings.slideIn && isSlideType(noteMarkings.slideIn.type, ["scoop", "plop"])) {
-      markings.slideIn = { ...noteMarkings.slideIn };
-    }
-    if (noteMarkings.slideOut && isSlideType(noteMarkings.slideOut.type, ["falloff", "doit"])) {
-      markings.slideOut = { ...noteMarkings.slideOut };
-    }
-    if (markings.slideIn || markings.slideOut) note.markings = markings;
-  }
+  if (raw.markings) note.markings = raw.markings;
 
   return note;
-}
-
-function isSlideType<T extends string>(value: unknown, allowed: readonly T[]): value is T {
-  return typeof value === "string" && allowed.includes(value as T);
 }
 
 function parseKitNote(raw: RawKitNote): KitNote {
