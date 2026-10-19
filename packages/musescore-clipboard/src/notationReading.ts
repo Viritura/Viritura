@@ -345,5 +345,9 @@ export function parseDynamic(
     unsupported("custom dynamic text is not supported", path);
   }
   // Playback scalars are intentionally not copied into semantic dynamics.
-  return { measureOffset: 0, offset: tuple(offset), dynamic: createDynamicGroup(subtype, { fraction: [0, 1] }) };
+  return {
+    measureOffset: 0,
+    offset: tuple(offset),
+    dynamic: createDynamicGroup(subtype, { fraction: [0, 1] }, undefined, "automatic"),
+  };
 }

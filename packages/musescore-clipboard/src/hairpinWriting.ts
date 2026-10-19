@@ -1,4 +1,5 @@
 import type { MuseScoreClipboardDynamic } from "./types";
+import { glyphsForDynamicSpelling } from "@viritura/core";
 import { MuseScoreConversionError, unsupported } from "./errors";
 import { ZERO, add, compare, fromTuple, subtract, type Fraction } from "./fractions";
 import { connectorPairXml } from "./relativeConnectors";
@@ -12,6 +13,18 @@ export interface HairpinAnnotation {
 
 export function immediateDynamicXml(value: string): string {
   return `<Dynamic><subtype>${escapeXml(value)}</subtype></Dynamic>`;
+}
+
+export function assertDynamicAppearance(dynamic: MuseScoreClipboardDynamic["dynamic"], path: string): void {
+  if (dynamic.glyphs === undefined) return;
+  const expected = glyphsForDynamicSpelling(dynamic.value ?? "");
+  if (
+    !expected ||
+    dynamic.glyphs.length !== expected.length ||
+    dynamic.glyphs.some((glyph, index) => glyph !== expected[index])
+  ) {
+    unsupported("custom dynamic glyph appearance is not supported by MuseScore clipboard export", path);
+  }
 }
 
 function hairpinEnd(captured: MuseScoreClipboardDynamic, offset: Fraction, path: string): Fraction {
@@ -38,7 +51,8 @@ export function hairpinAnnotations(
   if (dynamic.staffEnd !== undefined && dynamic.staffEnd !== (dynamic.staff ?? 1)) {
     unsupported("cross-staff HairPin endpoints are not supported by MuseScore paste", path);
   }
-  for (const property of ["glyphs", "prefix", "suffix", "relativeValue", "voice"] as const) {
+  assertDynamicAppearance(dynamic, path);
+  for (const property of ["prefix", "suffix", "relativeValue", "voice"] as const) {
     if (dynamic[property] !== undefined) unsupported(`HairPin ${property} is not supported`, path);
   }
   if (dynamic.wedgeType !== "increasing" && dynamic.wedgeType !== "decreasing") {

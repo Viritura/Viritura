@@ -762,7 +762,12 @@ export function processMeasureNotes(
         if (dyn) {
           const firstChild = childElements(dyn)[0];
           if (firstChild) {
-            const dynObj: MnxDynamic = createDynamicGroup(firstChild.tagName, makePosition(currentPos));
+            const dynObj: MnxDynamic = createDynamicGroup(
+              firstChild.tagName,
+              makePosition(currentPos),
+              undefined,
+              "automatic",
+            );
             if (dirStaff && dirStaff > 1) dynObj.staff = dirStaff;
             if (dirVoice) dynObj.voice = dirVoice;
             dynamics.push(dynObj);
