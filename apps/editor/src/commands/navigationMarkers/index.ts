@@ -35,7 +35,7 @@ function eventBoundary(content: readonly SequenceContent[], path: readonly numbe
   return before + eventBoundary(item.content, path.slice(1), end) * (innerTime > 0 ? outerTime / innerTime : 1);
 }
 
-export function navigationMarkerPosition(score: Score, selection: Selection, concluding: boolean) {
+function navigationMarkerPosition(score: Score, selection: Selection, concluding: boolean) {
   if (selection.kind === "single") {
     const fullRest = resolveFullMeasureRestLocation(selection.elementId, score);
     if (fullRest) {
