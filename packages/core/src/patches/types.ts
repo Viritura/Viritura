@@ -267,6 +267,7 @@ export interface SpliceSequenceContentPatch {
  * live on the shared `global.measures[i]`, not on any part.
  */
 export type GlobalMeasureField =
+  | { field: "caesura"; value: GlobalMeasure["caesura"] }
   | { field: "time"; value: TimeSignature | undefined }
   | { field: "key"; value: KeySignature | undefined }
   | { field: "tempos"; value: Tempo[] | undefined }

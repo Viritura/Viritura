@@ -33,6 +33,7 @@ import type { BreathFermataSelection } from "./breathFermataMenu";
 import type { ExpressionToken, MixedExpressionToken } from "./dynamicExpressionParser";
 import { firstTupletEventLocation, resolveTupletSelectionLocation } from "./tupletSelection";
 import { beatPositionToFraction, eventBeatPosition, eventEndBeatPosition } from "../app/timedAnnotationPosition";
+import { caesuraBarlineMeasure } from "../commands/caesura";
 
 // ═══════════════════════════════════════════
 // Position helpers
@@ -699,6 +700,15 @@ export function applyBreathFermata(
   selectedScoreIndex?: number,
 ): Score | null {
   const result = structuredClone(score);
+  if (resolved.kind === "caesura" && selection.kind === "single") {
+    const measureIndex = caesuraBarlineMeasure(selection.elementId);
+    if (measureIndex !== null) {
+      const measure = result.global.measures[measureIndex];
+      if (!measure) return null;
+      measure.caesura ??= {};
+      return result;
+    }
+  }
   const updatedFullMeasureRest =
     resolved.kind === "fermata" &&
     applyFermataToSelectedFullMeasureRests(result, selection, resolved.shape, selectedScoreIndex);
@@ -735,7 +745,7 @@ export function applyBreathFermata(
         );
         break;
       case "caesura":
-        updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal");
+        updated = setCaesura(updated, partIndex, measureIndex, sequenceIndex, eventIndex, "normal", tupletIndex);
         break;
     }
   }

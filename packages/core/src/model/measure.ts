@@ -1,4 +1,5 @@
 import type { NoteValueBase } from "../enums";
+import type { Caesura as RawCaesura } from "../raw/raw";
 import type {
   RhythmicPosition as RawRhythmicPosition,
   MeasureRhythmicPosition as RawMeasureRhythmicPosition,
@@ -394,14 +395,20 @@ export interface GlobalMeasure {
   rehearsalMark?: RehearsalMark;
   /** Coda marker */
   coda?: Coda;
-  /** Caesura (break) marker (Viritura extension) */
-  caesura?: Caesura;
+  /** Native MNX caesura shared by every staff at the ending barline. */
+  caesura?: GlobalCaesura;
   /** Gradual tempo change (rit./accel.) playback curve (Viritura extension) */
   gradualTempo?: GradualTempo;
   /** Score-wide harmony events at rhythmic positions in this measure. */
   chordSymbols?: ChordSymbol[];
   /** Shared music-relative text, independent of any source part or staff. */
   systemText?: SystemText[];
+}
+
+export interface GlobalCaesura extends Caesura {
+  id?: RawCaesura["id"];
+  _c?: RawCaesura["_c"];
+  _x?: RawCaesura["_x"];
 }
 
 /**

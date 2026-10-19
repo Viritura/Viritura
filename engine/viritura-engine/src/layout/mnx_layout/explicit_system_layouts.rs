@@ -239,6 +239,7 @@ pub(super) fn build_explicit_system_layouts<'a>(
                     .get(measure_index)
                     .cloned()
                     .unwrap_or(GlobalMeasure {
+                        caesura: None,
                         id: None,
                         number: None,
                         time: None,

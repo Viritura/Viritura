@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Score } from "@viritura/core";
 import { generateTimeline } from "../timeline";
+import { buildHoldSchedule } from "../holds";
 
 type Step = "C" | "D" | "E" | "F" | "G" | "B" | "A";
 
@@ -50,6 +51,25 @@ function onsetTimes(tl: ReturnType<typeof generateTimeline>) {
 }
 
 describe("generateTimeline — fermata holds", () => {
+  it("max-merges coincident global/event caesuras across parts and both grand staves", () => {
+    const score = buildScore(
+      [[note("C", 4, "whole", { markings: { caesura: { style: "short", marks: 1 } } })]],
+      [{ caesura: { marks: 2 } }],
+    );
+    score.parts[0]!.staves = 2;
+    score.parts[0]!.measures[0]!.sequences.push({
+      staff: 2,
+      content: structuredClone(score.parts[0]!.measures[0]!.sequences[0]!.content),
+    });
+    score.parts.push(structuredClone(score.parts[0]!));
+    expect(buildHoldSchedule(score, [0], score.global.measures)).toEqual([
+      [{ atBeat: 4, extraBeats: 1, kind: "caesura" }],
+    ]);
+    score.global.measures[0]!.caesura!.marks = 1;
+    expect(buildHoldSchedule(score, [0], score.global.measures)[0]).toHaveLength(1);
+    score.global.measures[0]!.caesura!.style = "short";
+    expect(buildHoldSchedule(score, [0], score.global.measures)[0]![0]!.extraBeats).toBe(0.5);
+  });
   it("scales a fitMeasure staff's fermata span and carrier matching to the global axis", () => {
     const score: Score = {
       mnx: { version: 1 },

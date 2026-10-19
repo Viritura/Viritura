@@ -7,6 +7,26 @@
 
 ## TL;DR
 
+### Global caesura contract
+
+Native `global.measures[n].caesura` is a shared ending-barline marking.
+The editor maps native `shape` to the existing caesura `style` field; omitted
+shape/strokes mean normal/two. Its `id`, `_c`, and `_x` survive native saves,
+delta serialization, collaboration, and property edits. Navigation marker
+metadata is independent and is not rewritten by caesura edits.
+
+Selecting an ending barline authors the preceding measure's global caesura;
+selecting a note/rest authors its existing event-local marking. Properties
+provides attachment-aware shape, stroke count, and removal. Every displayed
+staff, including both grand staves and part extracts, draws one selectable
+instance with the same `m{index}/caesura` identity. Delete/edit/undo therefore
+updates the one shared model object. The Rust global model reuses event-caesura
+geometry and retains native attributes; no vendor or legacy input form is accepted.
+
+Playback inserts one hold at the measure end, max-merged with coincident
+event/other-part caesuras. Stroke count is visual, not a duration multiplier;
+the existing short/normal duration policy is unchanged.
+
 The real maintenance load is **two decoded models that both round-trip
 the wire**, sitting between a vendored W3C schema + our vendor-extension
 schema (the only places wire-shape changes happen) and a binary render

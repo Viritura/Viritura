@@ -354,7 +354,7 @@ pub use crate::raw::CaesuraShape as CaesuraStyle;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Caesura {
     /// Style variant (default: Normal).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "shape")]
     pub style: Option<CaesuraStyle>,
     /// Number of strokes (1 or 2; default: 2). SMuFL defines a single-stroke
     /// glyph (`caesuraSingleStroke`) but no shape-specific single-stroke

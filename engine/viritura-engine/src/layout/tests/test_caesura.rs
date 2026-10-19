@@ -3,10 +3,201 @@
 
 use super::test_helpers::is_beam_polygon;
 use crate::layout::config::LayoutConfig;
-use crate::layout::layout_score;
+use crate::layout::{layout_score, layout_with_mnx_scores};
 use crate::parse::parse_mnx;
 use crate::render::smufl::smufl;
 use crate::render::*;
+
+#[test]
+fn global_caesura_system_final_barline_anchor() {
+    let mut value = serde_json::to_value(global_caesura_score()).unwrap();
+    value["scores"][0]["pages"] = serde_json::json!([{"systems": [
+        {"measure": "first", "layout": "full"},
+        {"measure": "second", "layout": "full"}
+    ]}]);
+    let score = parse_mnx(&value.to_string()).unwrap();
+    let dl = layout_with_mnx_scores(&score, &LayoutConfig::default(), 0);
+    for measure in 0..2 {
+        let id = format!("m{measure}/caesura");
+        let copies: Vec<_> = dl
+            .element_bboxes
+            .iter()
+            .filter(|b| b.element_id == id)
+            .collect();
+        assert_eq!(copies.len(), 3);
+        for copy in copies {
+            let center = copy.bbox.x + copy.bbox.width * 0.5;
+            assert!(
+                dl.measure_bounds.iter().any(|bound| {
+                    bound.index == measure && (bound.x + bound.width - center).abs() < 1e-6
+                }),
+                "global caesura must stay centered over the ending barline"
+            );
+        }
+    }
+}
+
+#[test]
+fn global_caesura_uses_shared_collision_flow_without_horizontal_dodge() {
+    use crate::layout::placement_metrics::PlacementTable;
+    use crate::layout::render_annotations::flow_above_staff_dependents;
+    let mut dl = DisplayList::new(300.0, 200.0);
+    let sp = 10.0;
+    let staff_y = 100.0;
+    for (id, codepoint) in [
+        ("p0/m0/s0/high", smufl::NOTEHEAD_BLACK),
+        ("m0/caesura", smufl::CAESURA),
+    ] {
+        dl.push_selectable_command(
+            RenderCommand::DrawGlyph {
+                x: 200.0,
+                y: 80.0,
+                codepoint,
+                font: "Bravura".into(),
+                size: 4.0 * sp,
+                color: "#000000".into(),
+                rotation: 0.0,
+            },
+            id.into(),
+            ElementKind::Caesura,
+            HitPolicy::Ink,
+        );
+    }
+    let before_x = dl
+        .element_bboxes
+        .iter()
+        .find(|b| b.element_id == "m0/caesura")
+        .unwrap()
+        .bbox
+        .x;
+    flow_above_staff_dependents(&mut dl, 0, 0, &[], &PlacementTable::default(), staff_y, sp);
+    let note = &dl
+        .element_bboxes
+        .iter()
+        .find(|b| b.element_id == "p0/m0/s0/high")
+        .unwrap()
+        .bbox;
+    let pause = &dl
+        .element_bboxes
+        .iter()
+        .find(|b| b.element_id == "m0/caesura")
+        .unwrap()
+        .bbox;
+    assert!((pause.x - before_x).abs() < 1e-6);
+    assert!(pause.y + pause.height < note.y);
+}
+
+fn global_caesura_score() -> crate::model::Score {
+    let mut value = serde_json::json!({
+        "mnx": {"version": 1},
+        "global": {"measures": [
+            {"id": "first", "time": {"count": 4, "unit": 4}, "caesura": {"id": "pause", "_c": "retained", "_x": {"test": {"retained": true}}}},
+            {"id": "second", "caesura": {"shape": "curved", "marks": 1}, "repeatEnd": {}}
+        ]},
+        "layouts": [
+            {"id": "full", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]},
+                {"type": "staff", "sources": [{"part": "flute"}]}
+            ]},
+            {"id": "extract", "content": [
+                {"type": "staff", "sources": [{"part": "piano", "staff": 1}]},
+                {"type": "staff", "sources": [{"part": "piano", "staff": 2}]}
+            ]}
+        ],
+        "scores": [{"name": "Full", "layout": "full"}, {"name": "Piano", "layout": "extract"}],
+        "parts": [{"id": "piano", "staves": 2}, {"id": "flute"}]
+    });
+    for part in value["parts"].as_array_mut().unwrap() {
+        let staves = part["staves"].as_u64().unwrap_or(1);
+        part["measures"] = serde_json::Value::Array((0..2).map(|_| {
+            serde_json::json!({"sequences": (1..=staves).map(|staff| serde_json::json!({
+                "staff": staff,
+                "content": [{"duration": {"base": "whole"}, "notes": [{"pitch": {"step": "C", "octave": 6}}]}]
+            })).collect::<Vec<_>>()})
+        }).collect());
+    }
+    parse_mnx(&value.to_string()).unwrap()
+}
+
+#[test]
+fn global_caesura_native_attributes_and_every_displayed_staff() {
+    let score = global_caesura_score();
+    let native = serde_json::to_value(&score.global.measures[0]).unwrap();
+    assert_eq!(native["caesura"]["id"], "pause");
+    assert_eq!(native["caesura"]["_c"], "retained");
+    assert_eq!(native["caesura"]["_x"]["test"]["retained"], true);
+    let config = LayoutConfig::default();
+    for (view, staff_count) in [(0, 3), (1, 2)] {
+        let dl = layout_with_mnx_scores(&score, &config, view);
+        for measure in 0..2 {
+            let id = format!("m{measure}/caesura");
+            let boxes: Vec<_> = dl
+                .element_bboxes
+                .iter()
+                .filter(|b| b.element_id == id)
+                .collect();
+            assert_eq!(boxes.len(), staff_count, "{id}, view {view}");
+            let xs: Vec<_> = dl
+                .commands
+                .iter()
+                .enumerate()
+                .filter_map(|(i, cmd)| {
+                    if dl.element_ids[i].as_deref() != Some(&id) {
+                        return None;
+                    }
+                    cmd.bbox().map(|b| b.x + b.width * 0.5)
+                })
+                .collect();
+            assert_eq!(xs.len(), staff_count);
+            assert!(xs.iter().all(|x| (x - xs[0]).abs() < 1e-6));
+            for bbox in boxes {
+                assert!(bbox.bbox.width > 0.0 && bbox.bbox.height > 0.0);
+            }
+        }
+    }
+}
+
+#[test]
+fn global_caesura_cached_edit_and_delete_match_cold_layout() {
+    use crate::layout::{cache::LayoutCache, layout_with_mnx_scores_cached};
+    let mut score = global_caesura_score();
+    let config = LayoutConfig::default();
+    let mut cache = LayoutCache::new();
+    layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+    score.global.measures[0]
+        .caesura
+        .as_mut()
+        .unwrap()
+        .marking
+        .style = Some(crate::raw::CaesuraShape::Thick);
+    for remove in [false, true] {
+        if remove {
+            score.global.measures[0].caesura = None;
+        }
+
+        let warm = layout_with_mnx_scores_cached(&score, &config, 0, Some(&mut cache));
+        let cold = layout_with_mnx_scores(&score, &config, 0);
+        assert_eq!(
+            serde_json::to_value(&warm.commands).unwrap(),
+            serde_json::to_value(&cold.commands).unwrap()
+        );
+        let warm_boxes: Vec<_> = warm
+            .element_bboxes
+            .iter()
+            .filter(|b| b.element_id.ends_with("/caesura"))
+            .collect();
+        let cold_boxes: Vec<_> = cold
+            .element_bboxes
+            .iter()
+            .filter(|b| b.element_id.ends_with("/caesura"))
+            .collect();
+        assert_eq!(
+            serde_json::to_value(warm_boxes).unwrap(),
+            serde_json::to_value(cold_boxes).unwrap()
+        );
+    }
+}
 
 // ═══════════════════════════════════════════
 // Caesura tests

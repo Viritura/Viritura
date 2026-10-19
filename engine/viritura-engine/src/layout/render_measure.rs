@@ -22,6 +22,7 @@ use crate::render::*;
 use std::collections::{HashMap, HashSet};
 
 mod clef_changes;
+mod global_caesuras;
 mod measure_repeats;
 mod multimeasure_rests;
 mod shared_lanes;
@@ -1098,4 +1099,5 @@ pub(crate) fn render_measure(
 
     // Render lyrics below staff (below dynamics)
     render_lyrics(dl, ml, staff_y, sp, config, lyric_line_order);
+    global_caesuras::render_global_caesura(dl, ml, staff_y, sp, config);
 }

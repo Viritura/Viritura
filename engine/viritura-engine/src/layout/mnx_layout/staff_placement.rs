@@ -129,6 +129,9 @@ pub(super) fn compute_staff_y_offsets_for_system(
             if highest < 0.0 {
                 above_protrusion = above_protrusion.max(-highest);
             }
+            above_protrusion = above_protrusion.max(
+                -super::super::render_annotations::global_caesura_top(layout, sp, config),
+            );
             above_protrusion = above_protrusion.max(super::chord_symbols::above_staff_protrusion(
                 layout, sp, config,
             ));

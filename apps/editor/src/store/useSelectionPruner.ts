@@ -62,7 +62,9 @@ export function isSelectionIdValid(elementId: string, score: Score, scoreIndex?:
 
   const partElement = elementId.match(/^p(\d+)\/m(\d+)\/(clef|key|beam|gracebeam|measurerepeat)(\d*)$/);
   if (partElement) return partElementExists(partElement, score);
-  const globalElement = elementId.match(/^m(\d+)\/(time|barline|segno|coda|fine|jump|rehearsal|volta|mnum|mmrcount)$/);
+  const globalElement = elementId.match(
+    /^m(\d+)\/(time|barline|caesura|segno|coda|fine|jump|rehearsal|volta|mnum|mmrcount)$/,
+  );
   if (globalElement) return globalElementExists(globalElement, score);
   return false;
 }
@@ -184,6 +186,8 @@ function globalElementExists(match: RegExpMatchArray, score: Score): boolean {
   const measure = score.global.measures[Number(match[1])];
   if (!measure) return false;
   switch (match[2]) {
+    case "caesura":
+      return measure.caesura !== undefined;
     case "time":
     case "barline":
       // Time signatures can repeat at system starts and barlines have an

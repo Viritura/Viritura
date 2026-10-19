@@ -13,6 +13,8 @@ mod curve_clearance;
 mod dynamics;
 #[path = "render_annotations/expressions.rs"]
 mod expressions;
+mod global_caesuras;
+pub(crate) use global_caesuras::global_caesura_top;
 #[path = "render_annotations/jump_markers.rs"]
 mod jump_markers;
 mod marking_geometry;
@@ -555,6 +557,7 @@ pub(crate) fn flow_above_staff_dependents(
     staff_y: f64,
     sp: f64,
 ) {
+    global_caesuras::align_barline_caesuras(dl, staff_cmd_start, measure_layouts, staff_y);
     // Per-mover stacking clearance comes from each kind's `padding.vertical` in
     // the placement table (expressions and tempo resolve independently), so the
     // gap a dependent keeps as it clears slurs, flat tops, rehearsal frames and
@@ -612,6 +615,7 @@ pub(crate) fn flow_above_staff_dependents(
     // them, all in one pass.
     let expr_rank = placement.resolve(ElementKind::Expression).stack_rank;
     let tempo_rank = placement.resolve(ElementKind::Tempo).stack_rank;
+    let caesura_metrics = placement.resolve(ElementKind::Caesura);
 
     struct Mover {
         eid: String,
@@ -643,10 +647,14 @@ pub(crate) fn flow_above_staff_dependents(
             expr_rank
         } else if id.contains("/tempo") {
             tempo_rank
+        } else if id.starts_with('m') && id.ends_with("/caesura") {
+            caesura_metrics.stack_rank
         } else {
             continue;
         };
-        let clearance = if rank == tempo_rank {
+        let clearance = if id.starts_with('m') && id.ends_with("/caesura") {
+            caesura_metrics.padding.vertical * sp
+        } else if rank == tempo_rank {
             tempo_clearance
         } else {
             expr_clearance
@@ -716,7 +724,7 @@ pub(crate) fn flow_above_staff_dependents(
         // its beat). If the envelope can't fully absorb the overflow, take the
         // largest safe leftward shift and accept the residual overhang. This is
         // trigger (a) of the slide spec: "runs into the right page margin."
-        if system_right.is_finite() && right > system_right + 1e-6 {
+        if !m.eid.ends_with("/caesura") && system_right.is_finite() && right > system_right + 1e-6 {
             let (min_left, _max_left) =
                 neutral_x_envelope(measure_layouts, left, right, sp, m.rank == tempo_rank);
             let overflow = right - system_right;
@@ -730,7 +738,7 @@ pub(crate) fn flow_above_staff_dependents(
 
         // Horizontal-first dodge is tempo-only. Expressions now stay rhythmically
         // anchored and resolve slur collisions by lifting vertically in Stage A.
-        if m.rank == tempo_rank {
+        if m.eid.contains("/tempo") {
             let dy_slur = clear_below_ceiling(
                 bottom,
                 slur_ceiling_over_span(&slurs, left, right),
@@ -771,7 +779,7 @@ pub(crate) fn flow_above_staff_dependents(
         // vertical ink clearance, so the box dodge uses a small side gap. The
         // dodge is taken ONLY when it fully clears (otherwise Stage B lifts as
         // before), so it never worsens placement.
-        if m.rank == tempo_rank && !rehearsal_boxes.is_empty() {
+        if m.eid.contains("/tempo") && !rehearsal_boxes.is_empty() {
             let (min_left, max_left) = neutral_x_envelope(measure_layouts, left, right, sp, true);
             let side_gap = 0.3 * sp;
             if let Some(dx) = horizontal_dodge_clear_boxes(
@@ -804,7 +812,8 @@ pub(crate) fn flow_above_staff_dependents(
         // that slide *fully* removes the column overlap (a partial slide pays
         // the "text drifts off its beat" cost without buying the lower stack).
         for ft in placed_tops.iter_mut() {
-            if framed_expression_is_pinned(measure_layouts, &ft.eid) {
+            if ft.eid.ends_with("/caesura") || framed_expression_is_pinned(measure_layouts, &ft.eid)
+            {
                 continue;
             }
             if ft.rank >= m.rank {
@@ -855,7 +864,7 @@ pub(crate) fn flow_above_staff_dependents(
 
         // Vertical lift, outward staging. Stage A: curves (slurs + ties) and the
         // flat tops already placed by nearer movers, gated on horizontal overlap.
-        let mut ceiling = if m.rank == tempo_rank {
+        let mut ceiling = if m.rank == tempo_rank || m.eid.ends_with("/caesura") {
             fixed_ink_boxes
                 .iter()
                 .filter(|(ink_left, ink_right, _, _)| *ink_right >= left && *ink_left <= right)
@@ -905,7 +914,7 @@ pub(crate) fn flow_above_staff_dependents(
         // avoidance that floats it far above the staff. Directions therefore
         // stay put under the mark and rely on the mark's own horizontal dodge.
         let mut box_ceiling: Option<f64> = None;
-        if m.rank == tempo_rank {
+        if m.rank == tempo_rank || m.eid.ends_with("/caesura") {
             for mb in &rehearsal_boxes {
                 if mb.right < left || mb.left > right {
                     continue;

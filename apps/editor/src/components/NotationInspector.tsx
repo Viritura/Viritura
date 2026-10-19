@@ -15,6 +15,7 @@ import { MeasureRepeatInspector } from "./inspector/MeasureRepeatInspector";
 import { ColorSection } from "./inspector/ColorSection";
 import { NoteheadSection } from "./inspector/NoteheadSection";
 import { FermataSection } from "./inspector/FermataSection";
+import { CaesuraSection } from "./inspector/CaesuraSection";
 import { RestPositionSection } from "./inspector/RestPositionSection";
 import { LyricSection } from "./inspector/LyricSection";
 import { GroupingDisplaySection } from "./inspector/GroupingDisplaySection";
@@ -371,6 +372,7 @@ export function NotationInspector(_props: NotationInspectorProps = {}) {
         )}
 
         {!isLyricSelected && target && <FermataSection />}
+        <CaesuraSection />
         {!isLyricSelected && target && (
           <RestPositionSection score={score} target={target} event={selectedEvent} updateScore={updateScore} />
         )}
